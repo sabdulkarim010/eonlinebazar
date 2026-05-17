@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Payment - eOnlineBazar</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/cart.css">
+    <link rel="stylesheet" href="css/payment.css">
+</head>
+<body>
+
+    <div class="payment-page-global-wrapper">
+        
+        <div class="payment-premium-header">
+            <a href="checkout.html" class="payment-back-link">
+                <i class="fa-solid fa-chevron-left"></i> Back to Shipping
+            </a>
+            <div class="payment-header-center">
+                <span class="secure-payment-badge">
+                    <i class="fa-solid fa-shield-halved"></i> SECURE ENCRYPTION
+                </span>
+                <span class="payment-step-indicator">Step 3 of 3</span>
+            </div>
+            <div class="payment-header-right-empty"></div>
+        </div>
+
+        <div class="payment-main-layout-container">
+            
+            <div class="payment-methods-left-column">
+                <div class="payment-section-title">
+                    <i class="fa-solid fa-credit-card payment-icon-main"></i>
+                    <h2>Select Payment Method</h2>
+                    <p>Choose your preferred payment option to complete the order.</p>
+                </div>
+
+                <form id="paymentMethodForm" onsubmit="event.preventDefault();">
+                    <div class="payment-options-grid">
+                        
+                        <label class="payment-method-card active-method" for="methodBkash">
+                            <div class="card-radio-wrapper">
+                                <input type="radio" id="methodBkash" name="paymentGateway" value="bKash" checked>
+                                <span class="custom-radio-circle"></span>
+                            </div>
+                            <div class="method-details">
+                                <span class="method-title">bKash Payment</span>
+                                <span class="method-subtitle">Pay instantly via bKash wallet</span>
+                            </div>
+                            <div class="method-logo-box">
+                                <i class="fa-solid fa-mobile-screen-button logo-fallback-icon bkash-color"></i>
+                            </div>
+                        </label>
+
+                        <label class="payment-method-card" for="methodNagad">
+                            <div class="card-radio-wrapper">
+                                <input type="radio" id="methodNagad" name="paymentGateway" value="Nagad">
+                                <span class="custom-radio-circle"></span>
+                            </div>
+                            <div class="method-details">
+                                <span class="method-title">Nagad Payment</span>
+                                <span class="method-subtitle">Fast and secure Nagad checkout</span>
+                            </div>
+                            <div class="method-logo-box">
+                                <i class="fa-solid fa-bolt logo-fallback-icon nagad-color"></i>
+                            </div>
+                        </label>
+
+                        <label class="payment-method-card" for="methodBank">
+                            <div class="card-radio-wrapper">
+                                <input type="radio" id="methodBank" name="paymentGateway" value="Bank">
+                                <span class="custom-radio-circle"></span>
+                            </div>
+                            <div class="method-details">
+                                <span class="method-title">Bank Transfer</span>
+                                <span class="method-subtitle">Direct deposit to our bank account</span>
+                            </div>
+                            <div class="method-logo-box">
+                                <i class="fa-solid fa-building-columns logo-fallback-icon bank-color"></i>
+                            </div>
+                        </label>
+
+                        <label class="payment-method-card" for="methodCOD">
+                            <div class="card-radio-wrapper">
+                                <input type="radio" id="methodCOD" name="paymentGateway" value="COD">
+                                <span class="custom-radio-circle"></span>
+                            </div>
+                            <div class="method-details">
+                                <span class="method-title">Cash on Delivery</span>
+                                <span class="method-subtitle">Pay with cash upon receiving product</span>
+                            </div>
+                            <div class="method-logo-box">
+                                <i class="fa-solid fa-truck-ramp-box logo-fallback-icon cod-color"></i>
+                            </div>
+                        </label>
+
+                    </div>
+
+                    <div id="paymentInstructionsBox" class="payment-instructions-wrapper"></div>
+
+                    <div class="payment-action-wrapper">
+                        <button type="button" id="confirmOrderFinalBtn" class="premium-order-confirm-btn">
+                            <i class="fa-solid fa-circle-check"></i> Confirm & Place Order
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="payment-summary-right-column">
+                <div class="sticky-summary-card-box">
+                    <h3><i class="fa-solid fa-receipt"></i> Order Summary</h3>
+                    
+                    <div class="summary-shipping-preview">
+                        <h4>Shipping To:</h4>
+                        <p class="preview-text"><i class="fa-solid fa-user"></i> <span id="summaryCustomerName">Loading...</span></p>
+                        <p class="preview-text"><i class="fa-solid fa-phone"></i> <span id="summaryCustomerMobile">Loading...</span></p>
+                        <p class="preview-text"><i class="fa-solid fa-location-dot"></i> <span id="summaryCustomerAddress">Loading...</span></p>
+                        <p class="preview-text note-preview-style" id="summaryCourierNoteRow" style="display: none;">
+                            <i class="fa-solid fa-comment-dots"></i> <strong>Note:</strong> <span id="summaryCourierNote">None</span>
+                        </p>
+                    </div>
+
+                    <hr class="summary-divider">
+
+                    <div class="summary-pricing-details">
+                        <div class="price-row">
+                            <span>Total Ordered Items:</span>
+                            <strong id="summaryItemsCount">0 Items</strong>
+                        </div>
+                        <div class="price-row">
+                            <span>Delivery Charge:</span>
+                            <strong class="free-delivery-text">FREE</strong>
+                        </div>
+                        <div class="price-row final-payable-amount-row">
+                            <span>Total Payable Amount:</span>
+                            <strong id="summaryPayableTotal">৳0</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="orderSuccessModal" class="custom-premium-modal-overlay" style="display: none;">
+        <div class="custom-premium-modal-card">
+            <div class="modal-success-icon-badge">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <h2>Alhamdulillah!</h2>
+            <h3>Your Order Has Been Placed Successfully!</h3>
+            
+            <div class="modal-order-id-badge">
+                Order ID: <strong id="modalOrderId">#100000</strong>
+            </div>
+
+            <p id="modalGatewayMessage">Thank you for shopping with eOnlineBazar.</p>
+            
+            <div class="modal-order-status-info">
+                <i class="fa-solid fa-clock"></i> Our verification team will review your order shortly.
+            </div>
+
+            <button type="button" id="modalCloseAndHomeBtn" class="modal-home-redirect-btn">
+                Continue Shopping (<span id="modalTimerCount">20</span>s) <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <script src="js/payment.js"></script>
+</body>
+</html>

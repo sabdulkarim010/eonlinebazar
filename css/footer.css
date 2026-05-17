@@ -1,0 +1,114 @@
+/* =========================================================================
+   💎 eOnlineBazar Global Compact Footer Stylesheet (Clean Component)
+   ========================================================================= */
+
+/* ১. ফুটারের মূল ব্যাকগ্রাউন্ড ও বডি */
+footer.compact-footer {
+    display: block;
+    width: 100%;
+    background-color: #111827; /* সেই চমৎকার কুচকুচে ডার্ক কালার */
+    color: #9ca3af;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    padding: 25px 0;
+    margin-top: 50px;
+    border-top: 1px solid #1f2937;
+}
+
+/* ২. ভেতরের কন্টেইনার */
+footer.compact-footer .footer-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 0 20px;
+    gap: 20px;
+}
+
+/* ৩. প্রতিটা কলাম গ্রিড */
+footer.compact-footer .footer-col {
+    flex: 1;
+    min-width: 140px;
+}
+
+footer.compact-footer .footer-col h4 {
+    color: #ffffff; /* শিরোনাম খাঁটি সাদা */
+    font-size: 14px;
+    margin: 0 0 10px 0;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+footer.compact-footer .footer-col ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+footer.compact-footer .footer-col ul li {
+    font-size: 13px;
+    color: #9ca3af;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+footer.compact-footer .footer-col ul li:hover {
+    color: #f59e0b; /* হোভার গোল্ডেন হলুদ */
+}
+
+/* ৪. ব্র্যান্ড ও সোশ্যাল এরিয়া */
+footer.compact-footer .footer-brand-social {
+    flex: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    min-width: 250px;
+}
+
+footer.compact-footer .footer-logo-text {
+    font-size: 20px;
+    font-weight: bold;
+    color: #ffffff;
+    margin-bottom: 4px;
+}
+
+footer.compact-footer .copyright-text {
+    font-size: 11px;
+    color: #6b7280;
+    margin: 0;
+}
+
+/* 🎯 ৫. সোশ্যাল মিডিয়া লোগো আইকন */
+footer.compact-footer .footer-social-icons {
+    display: flex;
+    gap: 10px;
+}
+
+footer.compact-footer .social-icon {
+    font-size: 16px;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #1f2937; /* আইকনের ব্যাকগ্রাউন্ড ডার্ক */
+    text-decoration: none;
+    transition: all 0.2s ease-in-out;
+}
+
+/* হোভার করলে ব্র্যান্ড কালার ও হালকা ওপরে উঠবে */
+footer.compact-footer .fb-icon:hover { background-color: #1877f2; transform: translateY(-2px); }
+footer.compact-footer .tw-icon:hover { background-color: #000000; transform: translateY(-2px); }
+footer.compact-footer .tt-icon:hover { background-color: #ff0050; transform: translateY(-2px); }
+
+/* 📱 মোবাইল ভিউ ফিক্স */
+@media (max-width: 768px) {
+    footer.compact-footer .footer-container { flex-direction: column; text-align: center; align-items: center; }
+    footer.compact-footer .footer-brand-social { flex-direction: column; text-align: center; }
+}

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <title>EonlineBazar | Best Online Shopping Experience</title>
+    <meta name="description" content="eOnlineBazar - The ultimate online shopping platform in Bangladesh. Premium quality products at your doorstep.">
+    <meta name="keywords" content="Shopping, Ecommerce, Bangladesh, eOnlineBazar, Grocery, Fashion, Snacks">
+    <meta name="author" content="Abdul Karim Sheikh">
+    <meta name="robots" content="index, follow">
+
+    <meta property="og:title" content="eOnlineBazar | Shop Best Quality Products">
+    <meta property="og:description" content="Shop premium quality products at affordable prices from eOnlineBazar.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.eonlinebazar.com">
+
+    <link rel="icon" href="images/favicon.png" type="image/png">
+    
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/home.css">
+    <link rel="stylesheet" href="css/footer.css">
+    
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <header class="amazon-header">
+        <div class="container main-nav">
+            <div class="nav-left">
+                <div id="menuToggle" class="menu-toggle">
+                    <i class="fa fa-bars"></i>
+                </div>
+                <div class="logo-box" onclick="window.location.href='index.html'">
+                    Eonline<span class="logo-bold">Bazar</span>
+                </div>
+            </div>
+
+            <div class="nav-fill">
+                <div class="search-box-container">
+                    <select id="categorySelect" class="search-category" onchange="triggerSearch()">
+                        <option value="all">All Categories</option>
+                    </select>
+                    <input type="text" id="searchInput" class="search-input" placeholder="Search products here...">
+                    <button class="search-submit-btn" onclick="triggerSearch()" title="Search">
+                        <i class="fa fa-search"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="nav-right">
+                <!-- <div class="nav-lang">EN</div> -->
+                <div class="nav-user-account" onclick="window.location.href='login.html'">
+                    <span class="nav-line-1">Sign in</span>
+                    <span class="nav-line-2">Account</span>
+                </div>
+                
+                <div class="nav-cart-box" onclick="window.location.href='cart.html'" style="cursor: pointer;">
+                    <div class="cart-icon-wrapper">
+                        <i class="fa fa-shopping-cart"></i>
+                        <span id="cartCountBadge" class="cart-count">0</span>
+                    </div>
+                    <span class="cart-text">Bag</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+                <nav id="subNavbar" class="sub-navbar">
+                    <div class="container sub-flex">
+                        <ul class="nav-links">
+                             <li><a onclick="window.location.href='index.html'" class="active" style="cursor:pointer;">Home</a></li>
+                <div id="categoryButtonContainer" class="category-tabs-row menu-categories"></div>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="hero-section">
+        <div class="slider-container">
+            <div class="slide active"></div>
+            <div class="slide"></div>
+            <div class="slide"></div>
+            
+            <button class="prev" onclick="changeSlide(-1)" title="Previous">&#10094;</button>
+            <button class="next" onclick="changeSlide(1)" title="Next">&#10095;</button>
+        </div>
+        <div class="hero-content">
+            <h1>Welcome to eOnlineBazar</h1>
+            <p>Discover a wide range of global items, grocery, and cosmetics tailored just for you.</p>
+        </div>
+    </section>
+
+
+    <main class="container products-container">
+        <h2 class="section-title">Trending Products</h2>
+        <div id="productGrid" class="product-layout-grid">
+        </div>
+    </main>
+
+        <!-- footer calling -->
+        <div id="global-site-footer"></div>
+
+    <script src="js/main.js"></script>
+    <script src="js/cart.js"></script>
+    
+    <script>
+        // --- হিরো ব্যানার স্লাইড পরিবর্তনের আপনার অরিজিনাল কোড ---
+        let currentSlideIndex = 0;
+        function changeSlide(direction) {
+            const slides = document.querySelectorAll('.slide');
+            if(slides.length === 0) return;
+            
+            slides[currentSlideIndex].classList.remove('active');
+            currentSlideIndex = (currentSlideIndex + direction + slides.length) % slides.length;
+            slides[currentSlideIndex].classList.add('active');
+        }
+        
+        // অটোমেটিক ৫ সেকেন্ড পর পর স্লাইড চেঞ্জ হবে
+        setInterval(() => changeSlide(1), 5000);
+    </script>
+</body>
+</html>

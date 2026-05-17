@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Contact Us - eOnlineBazar</title>
+    
+    <link rel="stylesheet" href="css/style.css">
+    
+    <link rel="stylesheet" href="css/contact.css">
+
+    <link rel="stylesheet" href="css/footer.css">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <header class="amazon-header">
+        <div class="container main-nav">
+            <div class="nav-left">
+                <div class="logo-box" onclick="window.location.href='index.html'">
+                    eOnline<span class="logo-bold">Bazar</span>
+                </div>
+            </div>
+            <div class="nav-right">
+                <div class="nav-lang">EN</div>
+                <div class="nav-cart-box" onclick="window.location.href='checkout.html'">
+                    <div class="cart-icon-wrapper">
+                        <i class="fa fa-shopping-cart"></i>
+                        <span id="cartCountBadge" class="cart-count">0</span>
+                    </div>
+                    <span class="cart-text">Bag</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container contact-main-layout">
+        
+        <div class="contact-form-card">
+            <h1 class="contact-title">Contact Us</h1>
+            <p class="contact-subtitle">If you have any questions, feedback, or business inquiries, please feel free to drop us a message. Our team will get back to you shortly.</p>
+            
+            <form id="contactForm">
+                <div class="contact-form-group">
+                    <label class="contact-label">Your Name</label>
+                    <input type="text" id="contactName" class="contact-input" placeholder="Enter your full name" required>
+                </div>
+
+                <div class="contact-form-group">
+                    <label class="contact-label">Email Address</label>
+                    <input type="email" id="contactEmail" class="contact-input" placeholder="name@example.com" required>
+                </div>
+
+                <div class="contact-form-group">
+                    <label class="contact-label">Your Message</label>
+                    <textarea id="contactMessage" class="contact-textarea" placeholder="Type your message or question here..." required></textarea>
+                </div>
+
+                <button type="submit" class="contact-submit-btn">Send Message</button>
+            </form>
+        </div>
+
+        <div class="contact-info-column">
+            <div class="info-box-card">
+                <h3>Our Store Info</h3>
+                
+                <div class="info-row">
+                    <i class="fa fa-map-marker-alt info-icon"></i>
+                    <div>
+                        <h4>Address</h4>
+                        <p>Telidanga, Post: Mahajon Bazar,<br>Upazila: Kalia, Narail, Bangladesh.</p>
+                    </div>
+                </div>
+
+                <div class="info-row">
+                    <i class="fa fa-phone-alt info-icon"></i>
+                    <div>
+                        <h4>Call Us</h4>
+                        <p>+880 1XXXXXXXXX</p>
+                    </div>
+                </div>
+
+                <div class="info-row">
+                    <i class="fa fa-envelope info-icon"></i>
+                    <div>
+                        <h4>Email Support</h4>
+                        <p>support@eonlinebazar.com</p>
+                    </div>
+                </div>
+
+                <div class="info-row">
+                    <i class="fa fa-clock info-icon"></i>
+                    <div>
+                        <h4>Business Hours</h4>
+                        <p>Saturday - Thursday: 9:00 AM - 10:00 PM<br>Friday: Closed</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+        <!-- footer calling -->
+        <div id="global-site-footer"></div>
+
+    <script src="js/main.js"></script>
+    <script src="js/cart.js"></script>
+    <script src="js/contact.js"></script> </body>
+</html>

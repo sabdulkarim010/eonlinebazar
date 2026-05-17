@@ -1,0 +1,435 @@
+/* ==========================================================================
+   eOnlineBazar - Global Style & Navigation CSS
+   Author: Abdul Karim Sheikh
+   Description: গ্লোবাল রিসেট, ভেরিয়েবল, হেডার, সাব-বার এবং ফুটার ডিজাইন
+   ========================================================================== */
+
+/* --- ১. রুট ভেরিয়েবল এবং বেসিক রিসেট (Amazon থিম অনুযায়ী) --- */
+:root {
+    --amazon-dark: #131921;     /* মেইন ডার্ক ব্লু (হেডার ব্যাকগ্রাউন্ড) */
+    --amazon-light: #232f3e;    /* সাব-বার ব্লু */
+    --amazon-gold: #febd69;     /* সার্চ বাটন কালার */
+    --amazon-orange: #f08804;   /* হাইলাইট ও হোভার কালার */
+    --bg-color: #eaeded;        /* সাইটের মূল ব্যাকগ্রাউন্ড গ্রে */
+    --white: #ffffff;
+    --text-color: #111111;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif; 
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* কমন লেআউট কন্টেইনার */
+.container {
+    max-width: 98%;
+    margin: 0 auto;
+    padding: 0 15px;
+    width: 100%;
+}
+
+
+/* --- ২. প্রফেশনাল মেইন হেডার (ডেস্কটপ মোড) --- */
+header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background-color: var(--amazon-dark);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.main-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 15px;
+    gap: 15px;
+}
+
+/* বাম অংশ: লগো */
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo-box {
+    color: var(--white);
+    font-size: 30px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.logo-bold {
+    color: var(--amazon-gold);
+    font-weight: bold;
+}
+
+.menu-toggle {
+    display: none; /* ডেস্কটপে মোবাইল মেনু বাটন হাইড থাকবে */
+    color: var(--white);
+    font-size: 24px;
+    cursor: pointer;
+}
+
+/* মাঝের অংশ: অ্যামাজন স্টাইল সার্চ বক্স */
+.nav-fill {
+    flex: 1;
+    max-width: 700px;
+}
+
+.search-box-container {
+    display: flex;
+    width: 100%;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--white);
+}
+
+.search-box-container:focus-within {
+    box-shadow: 0 0 0 2px var(--amazon-orange);
+}
+
+.search-category {
+    background-color: #f3f3f3;
+    border: none;
+    border-right: 1px solid #cccccc;
+    padding: 0 12px;
+    font-size: 13px;
+    color: #555555;
+    cursor: pointer;
+    outline: none;
+}
+
+.search-input {
+    flex: 1;
+    border: none;
+    padding: 10px 12px;
+    font-size: 15px;
+    outline: none;
+    color: #111;
+}
+
+.search-submit-btn {
+    background-color: var(--amazon-gold);
+    border: none;
+    width: 45px;
+    cursor: pointer;
+    font-size: 16px;
+    color: var(--amazon-dark);
+    transition: background 0.2s;
+}
+
+.search-submit-btn:hover {
+    background-color: var(--amazon-orange);
+}
+
+/* ডান অংশ: ইউজার অ্যাকাউন্ট এবং কার্ট */
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    color: var(--white);
+}
+
+.nav-lang {
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.nav-user-account {
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+}
+
+.nav-line-1 {
+    font-size: 12px;
+    color: #cccccc;
+}
+
+.nav-line-2 {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* কার্ট বক্স ডিজাইন (যা সরাসরি ক্লিক করলে checkout.html-এ যাবে) */
+.nav-cart-box {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    position: relative;
+    padding: 5px;
+}
+
+.cart-icon-wrapper {
+    position: relative;
+    font-size: 24px;
+}
+
+.cart-count {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background-color: var(--amazon-orange);
+    color: var(--white);
+    font-size: 12px;
+    font-weight: bold;
+    border-radius: 50%;
+    padding: 2px 6px;
+    min-width: 18px;
+    text-align: center;
+}
+
+.cart-text {
+    font-size: 14px;
+    font-weight: bold;
+    margin-top: 8px;
+}
+
+
+/* --- ৩. সাব নেভিগেশন বার (Sub Navbar - Clean & Professional) --- */
+.sub-navbar {
+    background-color: var(--amazon-light);
+    color: var(--white);
+    padding: 4px 0;
+}
+
+.sub-flex {
+    display: flex;
+    align-items: center;
+}
+
+/* মূল নেভিগেশন বার কন্টেইনার */
+.nav-links {
+    display: flex;
+    align-items: center;
+    list-style: none;
+    gap: 15px; /* হোম এবং ক্যাটাগরিগুলোর মাঝের সুন্দর দূরত্ব */
+    margin: 0;
+    padding: 0;
+}
+
+/* 'Home' বাটন স্টাইল */
+.nav-links li {
+    color: white;
+    font-size: 13px;
+    font-weight: bold;
+    padding: 3px 5px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    border: 1px solid transparent;
+    border-radius: 20px; /* হোম বাটনকেও একই ফ্রেমে আনা হলো */
+}
+
+.nav-links li.active,
+.nav-links li:hover {
+    color: var(--white);
+    border-color: var(--amazon-gold); /* হোম বাটনে হোভার করলে বর্ডার আসবে */
+}
+
+/* 🎯 জাভাস্ক্রিপ্টের তৈরি বাটনগুলোর মেইন কন্টেইনার */
+#categoryButtonContainer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+/* 🎯 জাভাস্ক্রিপ্টের বাটনগুলোর ফ্রেশ টেক্সট স্টাইল (২য় ফটোর হুবহু রূপ) */
+#categoryButtonContainer .nav-category-item {
+    background: transparent;
+    background-color: transparent;
+    border: 1px solid transparent; /* আগে থেকেই ইনভিজিবল বর্ডার রাখা হলো যেন হোভার করলে টেক্সট কেঁপে না ওঠে */
+    outline: none;
+    border-radius: 20px;           /* 🔴 ফিক্স: 'px' যুক্ত করে ২য় ফটোর মতো গোল ক্যাপসুল শেপ দেওয়া হলো */
+    box-shadow: none;
+    
+    /* টেক্সট ও প্যাডিং স্টাইল */
+    color: white;                /* অফ-হোয়াইট টেক্সট কালার */
+    font-size: 13px;
+    font-weight: bold;
+    font-family: inherit;
+    padding: 3px 5px;             /* ডানে-বামে সুন্দর চওড়া প্যাডিং */
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+#categoryButtonContainer::-webkit-scrollbar{
+    display: none;
+}
+
+/* 🎯 ফিক্স: মাউস নিলে (Hover) বা সিলেক্টেড (Active) থাকলে ২য় ছবির মতো গোল্ডেন বর্ডার আসবে */
+#categoryButtonContainer .nav-category-item:hover,
+#categoryButtonContainer .nav-category-item.active {
+    color: var(--white);                    /* লেখা ফ্রেশ সাদা হবে */
+    border-color: var(--white);       /* 🔴 ২য় ফটোর সেই কাঙ্ক্ষিত অ্যামাজন গোল্ডেন বর্ডার */
+    background-color: transparent;
+    font-size: 14px;
+    color: greenyellow;
+}
+
+
+
+/* =========================================================================
+   💎 /* --- ৪. গ্লোবাল ফুটার ডিজাইন (Global Footer) --- */
+   ========================================================================= */
+
+
+
+
+
+/* ==========================================================================
+   ৫. রেসপনসিভ মিডিয়া কোয়েরি (মোবাইল ও ট্যাবলেট লেআউট)
+   ========================================================================== */
+
+@media screen and (max-width: 768px) {
+    /* মোবাইলে সার্চ বক্স এবং নেভিগেশন রি-অ্যারেঞ্জ */
+    .main-nav {
+        flex-wrap: wrap;
+        padding: 10px;
+    }
+
+    .menu-toggle {
+        display: block; /* মোবাইলে হ্যামবার্গার মেনু শো করবে */
+    }
+
+    .nav-fill {
+        order: 3; /* সার্চ বক্সকে নিচে নামিয়ে ২য় লাইনে আনা হলো */
+        max-width: 100%;
+        width: 100%;
+        margin-top: 5px;
+    }
+
+    .nav-right {
+        gap: 15px;
+    }
+
+    .nav-user-account, .nav-lang {
+        display: none; /* স্ক্রিন ছোট হলে এগুলোকে হাইড করে প্রজেক্ট ক্লিন রাখা */
+    }
+    
+    .search-category {
+        display: none; /* মোবাইলে সার্চ ড্রপডাউন হাইড থাকবে জায়গা বাঁচানোর জন্য */
+    }
+
+    /* মোবাইল সাব-লিংকস স্ক্রোলযোগ্য করা */
+    .nav-links {
+        gap: 10px;
+        overflow-x: auto;
+        width: 100%;
+        white-space: nowrap;
+        padding-bottom: 2px;
+    }
+    
+    .nav-links::-webkit-scrollbar {
+        display: none; /* স্ক্রলবার হাইড রাখা */
+    }
+}
+
+
+
+/* ==========================================================================
+   🛒 কার্ট ফ্লাই অ্যানিমেশন ও প্রিমিয়াম টোস্ট নোটিফিকেশন সিএসএস
+   ========================================================================== */
+
+/* উড়ার সময়ে এলিমেন্টের স্টাইল */
+.flying-cart-asset {
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    transition: all 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ফ্লাইং অবজেক্টের ভেতরের ছবি বা ইমোজি সাইজ */
+.flying-cart-asset img {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.flying-cart-asset .emoji-fly {
+    font-size: 50px;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+}
+
+.flying-cart-asset .text-fly {
+    background: #f4f4f4;
+    color: #666;
+    font-weight: bold;
+    font-size: 12px;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+/* ==========================================================================
+   🎯 প্রোডাক্ট কার্ডের লাইভ নোটিফিকেশন সিএসএস (In-Card Notification)
+   ========================================================================== */
+
+/* প্রোডাক্ট কার্ডের পজিশন রিলেটিভ রাখা যাতে মেসেজটি কার্ডের ভেতরেই বসে */
+.product-card {
+    position: relative;
+}
+
+/* কার্ডের ভেতরে নোটিফিকেশন টোস্ট */
+.card-toast {
+    position: absolute;
+    bottom: 60px; /* বাটনের ঠিক সামান্য উপরে দেখানোর জন্য */
+    left: 5%;
+    right: 5%;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    color: #fff;
+    z-index: 10;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    pointer-events: none; /* যাতে ক্লিকে ডিস্টার্ব না করে */
+}
+
+/* টোস্ট শো হওয়ার ক্লাস */
+.card-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* সাকসেস এবং ওয়ার্নিং কালার স্কিম */
+.card-toast.success {
+    background: rgba(46, 204, 113, 0.95); /* স্মুথ গ্রিন */
+    border: 1px solid #2ecc71;
+}
+
+.card-toast.warning {
+    background: rgba(243, 156, 18, 0.95); /* স্মুথ অরেঞ্জ */
+    border: 1px solid #f39c12;
+}

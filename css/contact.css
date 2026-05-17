@@ -1,0 +1,164 @@
+/* ==========================================================================
+   eOnlineBazar - Contact Page CSS
+   Author: Abdul Karim Sheikh
+   Description: কন্টাক্ট পেজের কন্টেন্ট লেআউট এবং কাস্টম ফর্ম ডিজাইন
+   ========================================================================== */
+
+.contact-main-container {
+    padding: 40px 0 60px 0;
+}
+
+.contact-page-title {
+    font-size: 30px;
+    text-align: center;
+    color: #111;
+    margin-bottom: 10px;
+    font-weight: normal;
+}
+
+.contact-sub-title {
+    text-align: center;
+    color: #555;
+    font-size: 15px;
+    margin-bottom: 40px;
+}
+
+/* কন্টাক্ট গ্রিড লেআউট (মোবাইলের জন্য ডিফল্ট ব্লক) */
+.contact-flex-grid {
+    display: block;
+}
+
+/* সাধারণ কার্ড স্টাইল */
+.info-card, .form-card {
+    background: #ffffff;
+    padding: 30px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    height: 100%;
+}
+
+.info-card-title, .form-card-title {
+    font-size: 20px;
+    color: #111;
+    margin-bottom: 25px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    font-weight: normal;
+}
+
+/* বাম পাশের কন্টাক্ট আইটেমগুলোর ডিজাইন */
+.contact-info-side {
+    margin-bottom: 30px;
+}
+
+.info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    margin-bottom: 22px;
+}
+
+.info-icon {
+    font-size: 20px;
+    color: #e77600; /* অ্যামাজন থিম অরেঞ্জ */
+    margin-top: 3px;
+    width: 25px;
+    text-align: center;
+}
+
+.info-item strong {
+    display: block;
+    font-size: 14px;
+    color: #111;
+    margin-bottom: 3px;
+}
+
+.info-item p {
+    font-size: 14px;
+    color: #555;
+    line-height: 1.4;
+}
+
+/* ডান পাশের ফর্ম ইনপুট ডিজাইন */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.contact-label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: bold;
+    font-size: 13px;
+    color: #111;
+}
+
+.contact-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #a6a6a6;
+    border-radius: 3px;
+    font-size: 14px;
+    outline: none;
+    transition: border 0.2s;
+}
+
+.contact-input:focus {
+    border-color: #e77600;
+    box-shadow: 0 0 3px rgba(228, 121, 17, 0.5);
+}
+
+.contact-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #a6a6a6;
+    border-radius: 3px;
+    font-size: 14px;
+    outline: none;
+    resize: vertical;
+    height: 120px;
+    font-family: Arial, sans-serif;
+}
+
+.contact-textarea:focus {
+    border-color: #e77600;
+    box-shadow: 0 0 3px rgba(228, 121, 17, 0.5);
+}
+
+/* মেসেজ সেন্ড করার বাটন */
+.contact-submit-btn {
+    width: 100%;
+    background: #f0c14b;
+    border: 1px solid #a88734;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: bold;
+    border-radius: 3px;
+    cursor: pointer;
+    color: #111;
+    transition: background 0.2s;
+}
+
+.contact-submit-btn:hover {
+    background: #ddb347;
+    border-color: #846a29;
+}
+
+
+/* ==========================================================================
+   রেসপনসিভ ডিজাইন (মিডিয়া কোয়েরি - স্ক্রিন বড় হলে ২ কলাম পাশাপাশি হবে)
+   ========================================================================== */
+@media screen and (min-width: 768px) {
+    .contact-flex-grid {
+        display: flex;
+        gap: 30px;
+    }
+
+    .contact-info-side {
+        flex: 5; /* ৫০% স্পেস */
+        margin-bottom: 0;
+    }
+
+    .contact-form-side {
+        flex: 7; /* বাকি ৫০%+ স্পেস ফর্মের জন্য */
+    }
+}

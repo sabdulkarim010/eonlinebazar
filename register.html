@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account | eOnlineBazar</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+
+<div class="auth-wrapper">
+    <div class="auth-container">
+        
+        <button class="auth-close-circle" onclick="window.location.href='index.html'" title="Go Back">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <div id="register-section">
+            
+            <div class="auth-header-brand">
+                <div class="brand-icon-circle">
+                    <i class="fa-solid fa-user-plus"></i>
+                </div>
+                <h2 class="auth-title">Your Account</h2>
+            </div>
+            
+            <form id="registerForm" novalidate>
+                
+                <div class="floating-group">
+                    <input type="text" id="regName" required placeholder=" ">
+                    <label for="regName">Full Name</label>
+                    <div id="reg-name-error" class="error-text"></div>
+                </div>
+
+                <div class="floating-group">
+                    <input type="text" id="regContact" maxlength="11" required placeholder=" ">
+                    <label for="regContact">Mobile Number</label>
+                    <div id="reg-contact-error" class="error-text"></div>
+                </div>
+
+                <div class="floating-group">
+                    <input type="email" id="regEmail" required placeholder=" ">
+                    <label for="regEmail">Email Address</label>
+                    <div id="reg-email-error" class="error-text"></div>
+                </div>
+
+                <div class="floating-group">
+                    <input type="password" id="regPassword" required placeholder=" ">
+                    <label for="regPassword">Password</label>
+                    <div id="reg-password-error" class="error-text"></div>
+                </div>
+
+                <button type="submit" class="btn-primary">Register Now</button>
+            </form>
+
+            <p class="auth-switch-text">
+                Already have an account? <a href="login.html">Login here</a>
+            </p>
+        </div>
+
+        <div id="success-message" style="display: none; text-align: center; padding: 10px;">
+            </div>
+
+    </div>
+</div>
+
+<script src="js/auth.js"></script>
+</body>
+</html>

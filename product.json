@@ -1,0 +1,1502 @@
+[
+  {
+    "id": 1,
+    "name": "Premium Miniket Rice (5kg)",
+    "price": 490,
+    "category": "Grocery",
+    "icon": "🍚",
+    "products": "rice-5kg.jpg",
+    "stock": 50,
+    "description": "High-quality long-grain rice for daily healthy meals."
+  },
+  {
+    "id": 2,
+    "name": "Pure Mustard Oil (1L)",
+    "price": 280,
+    "category": "Grocery",
+    "icon": "🍾", 
+    "products": "mustard-oil.jpg",
+    "stock": 35,
+    "description": "100% natural and cold-pressed mustard oil for cooking."
+  },
+  {
+    "id": 3,
+    "name": "Organic Raw Honey (500g)",
+    "price": 550,
+    "category": "Grocery",
+    "icon": "🍯", 
+    "products": "honey.jpg",
+    "stock": 20,
+    "description": "Pure honey collected from the deep forests of Sundarbans."
+  },
+  {
+    "id": 4,
+    "name": "Red Lentils (1kg)",
+    "price": 140,
+    "category": "Grocery",
+    "icon": "🥣",
+    "products": "lentils.jpg",
+    "stock": 80,
+    "description": "Clean and premium quality red lentils rich in protein."
+  },
+  {
+    "id": 5,
+    "name": "Chinigura Rice (1kg)",
+    "price": 160,
+    "category": "Grocery",
+    "icon": "🌾",
+    "products": "chinigura.jpg",
+    "stock": 40,
+    "description": "Fragrant rice perfect for making Biryani and Polau."
+  },
+  {
+    "id": 6,
+    "name": "Soybean Oil (2L)",
+    "price": 340,
+    "category": "Grocery",
+    "icon": "🧪",
+    "products": "soy-oil.jpg",
+    "stock": 25,
+    "description": "Fortified with Vitamin A for a healthy heart."
+  },
+  {
+    "id": 7,
+    "name": "Fresh Green Tea",
+    "price": 220,
+    "category": "Grocery",
+    "icon": "🍵",
+    "products": "green-tea.jpg",
+    "stock": 60,
+    "description": "Refreshing herbal tea for weight management."
+  },
+  {
+    "id": 8,
+    "name": "Organic Ghee (500g)",
+    "price": 850,
+    "category": "Grocery",
+    "icon": "🧈",
+    "products": "ghee.jpg",
+    "stock": 15,
+    "description": "Traditional homemade taste with rich aroma."
+  },
+  {
+    "id": 9,
+    "name": "Iodized Salt (1kg)",
+    "price": 35,
+    "category": "Grocery",
+    "icon": "🧂",
+    "products": "salt.jpg",
+    "stock": 100,
+    "description": "Essential minerals for your daily cooking needs."
+  },
+  {
+    "id": 10,
+    "name": "Powder Milk (400g)",
+    "price": 420,
+    "category": "Grocery",
+    "icon": "🥛",
+    "products": "milk.jpg",
+    "stock": 45,
+    "description": "Rich and creamy milk powder for tea and sweets."
+  },
+  {
+    "id": 11,
+    "name": "Black Seed Oil (100ml)",
+    "price": 250,
+    "category": "Grocery",
+    "icon": "💧",
+    "products": "black-seed.jpg",
+    "stock": 30,
+    "description": "Pure cold-pressed oil for health benefits."
+  },
+  {
+    "id": 12,
+    "name": "Tea Leaf (200g)",
+    "price": 125,
+    "category": "Grocery",
+    "icon": "🍃",
+    "products": "tea.jpg",
+    "stock": 70,
+    "description": "Special blend for a strong and aromatic cup."
+  },
+  {
+    "id": 13,
+    "name": "Turmeric Powder (200g)",
+    "price": 80,
+    "category": "Grocery",
+    "icon": "🟠",
+    "products": "turmeric.jpg",
+    "stock": 55,
+    "description": "Pure and natural spices without additives."
+  },
+  {
+    "id": 14,
+    "name": "Chili Powder (200g)",
+    "price": 110,
+    "category": "Grocery",
+    "icon": "🌶️",
+    "products": "chili.jpg",
+    "stock": 50,
+    "description": "Extra spicy chili powder for food color."
+  },
+  {
+    "id": 15,
+    "name": "Lichi Honey (250g)",
+    "price": 300,
+    "category": "Grocery",
+    "icon": "🍯",
+    "products": "lichi.jpg",
+    "stock": 25,
+    "description": "Light and sweet honey from litchi gardens."
+  },
+  {
+    "id": 16,
+    "name": "Cotton Polo Shirt",
+    "price": 550,
+    "category": "Fashion",
+    "icon": "👕",
+    "products": "t-shirt-1.jpg",
+    "stock": 25,
+    "description": "100% breathable cotton polo shirt for casual wear."
+  },
+  {
+    "id": 17,
+    "name": "Premium Denim Jeans",
+    "price": 1200,
+    "category": "Fashion",
+    "icon": "👖",
+    "products": "t-shirt-2.jpg",
+    "stock": 15,
+    "description": "Stretchable and durable denim for a stylish look."
+  },
+  {
+    "id": 18,
+    "name": "Formal White Shirt",
+    "price": 850,
+    "category": "Fashion",
+    "icon": "👔",
+    "products": "white-shirt.jpg",
+    "stock": 12,
+    "description": "Classic white shirt for office and events."
+  },
+  {
+    "id": 19,
+    "name": "Slim Fit Gabardine",
+    "price": 950,
+    "category": "Fashion",
+    "icon": "👖",
+    "products": "gabardine.jpg",
+    "stock": 20,
+    "description": "Premium gabardine pant for daily office use."
+  },
+  {
+    "id": 20,
+    "name": "Cotton Panjabi (Blue)",
+    "price": 1500,
+    "category": "Fashion",
+    "icon": "🕌",
+    "products": "panjabi.jpg",
+    "stock": 8,
+    "description": "Elegant cotton panjabi for festive occasions."
+  },
+  {
+    "id": 21,
+    "name": "Classic T-Shirt (Black)",
+    "price": 350,
+    "category": "Fashion",
+    "icon": "👕",
+    "products": "tshirt.jpg",
+    "stock": 40,
+    "description": "Soft cotton t-shirt for comfortable everyday wear."
+  },
+  {
+    "id": 22,
+    "name": "Leather Belt",
+    "price": 650,
+    "category": "Fashion",
+    "icon": "🎗️",
+    "products": "belt.jpg",
+    "stock": 18,
+    "description": "Genuine leather belt with stainless steel buckle."
+  },
+  {
+    "id": 23,
+    "name": "Men's Cargo Pant",
+    "price": 1100,
+    "category": "Fashion",
+    "icon": "👖",
+    "products": "cargo.jpg",
+    "stock": 10,
+    "description": "Rugged cargo pant with multiple pockets."
+  },
+  {
+    "id": 24,
+    "name": "Cotton Pajama",
+    "price": 400,
+    "category": "Fashion",
+    "icon": "👖",
+    "products": "pajama.jpg",
+    "stock": 22,
+    "description": "Soft cotton pajama for a relaxing night's sleep."
+  },
+  {
+    "id": 25,
+    "name": "Pique Polo Shirt",
+    "price": 600,
+    "category": "Fashion",
+    "icon": "👕",
+    "products": "pique.jpg",
+    "stock": 15,
+    "description": "Heavyweight pique fabric for a premium feel."
+  },
+  {
+    "id": 26,
+    "name": "Winter Hoodie",
+    "price": 950,
+    "category": "Fashion",
+    "icon": "🧥",
+    "products": "hoodie.jpg",
+    "stock": 12,
+    "description": "Thick fleece hoodie to keep you warm."
+  },
+  {
+    "id": 27,
+    "name": "Formal Black Blazer",
+    "price": 3500,
+    "category": "Fashion",
+    "icon": "🧥",
+    "products": "blazer.jpg",
+    "stock": 5,
+    "description": "Premium tailored blazer for formal looks."
+  },
+  {
+    "id": 28,
+    "name": "Short Sleeve Shirt",
+    "price": 750,
+    "category": "Fashion",
+    "icon": "👕",
+    "products": "printed-shirt.jpg",
+    "stock": 14,
+    "description": "Trendy printed shirt for summer holidays."
+  },
+  {
+    "id": 29,
+    "name": "Leather Wallet",
+    "price": 850,
+    "category": "Fashion",
+    "icon": "👛",
+    "products": "wallet.jpg",
+    "stock": 20,
+    "description": "Compact and stylish leather wallet for men."
+  },
+  {
+    "id": 30,
+    "name": "Men's Tracksuit",
+    "price": 1800,
+    "category": "Fashion",
+    "icon": "🏃",
+    "products": "tracksuit.jpg",
+    "stock": 6,
+    "description": "Flexible and light tracksuit for gym."
+  },
+  {
+    "id": 31,
+    "name": "Fast Charging Power Bank",
+    "price": 1550,
+    "category": "Electronics",
+    "icon": "🔋",
+    "products": "power-bank.jpg",
+    "stock": 15,
+    "description": "20000mAh high-capacity power bank with dual USB ports."
+  },
+  {
+    "id": 32,
+    "name": "Wireless Bluetooth Earbuds",
+    "price": 1200,
+    "category": "Electronics",
+    "icon": "🎧",
+    "products": "earbuds.jpg",
+    "stock": 25,
+    "description": "True wireless earbuds with noise cancellation and deep bass."
+  },
+  {
+    "id": 33,
+    "name": "Smart Watch (Series 7)",
+    "price": 2500,
+    "category": "Electronics",
+    "icon": "⌚",
+    "products": "smart-watch.jpg",
+    "stock": 10,
+    "description": "Full touch screen smart watch with heart rate monitor."
+  },
+  {
+    "id": 34,
+    "name": "USB-C Data Cable",
+    "price": 250,
+    "category": "Electronics",
+    "icon": "🔌",
+    "products": "usb-cable.jpg",
+    "stock": 100,
+    "description": "Durable fast charging cable for all Type-C devices."
+  },
+  {
+    "id": 35,
+    "name": "Portable Bluetooth Speaker",
+    "price": 1850,
+    "category": "Electronics",
+    "icon": "🔊",
+    "products": "speaker.jpg",
+    "stock": 12,
+    "description": "Water-resistant speaker with 10 hours of battery life."
+  },
+  {
+    "id": 36,
+    "name": "Rechargeable Desk Fan",
+    "price": 1400,
+    "category": "Electronics",
+    "icon": "🌀",
+    "products": "fan.jpg",
+    "stock": 20,
+    "description": "Adjustable speed desk fan with built-in LED light."
+  },
+  {
+    "id": 37,
+    "name": "Wireless Optical Mouse",
+    "price": 650,
+    "category": "Electronics",
+    "icon": "🖱️",
+    "products": "mouse.jpg",
+    "stock": 35,
+    "description": "Ergonomic wireless mouse with 2.4GHz connection."
+  },
+  {
+    "id": 38,
+    "name": "Laptop Cooling Pad",
+    "price": 850,
+    "category": "Electronics",
+    "icon": "❄️",
+    "products": "cooling-pad.jpg",
+    "stock": 15,
+    "description": "Dual fan cooling pad to prevent laptop overheating."
+  },
+  {
+    "id": 39,
+    "name": "HDMI Cable (3 Meter)",
+    "price": 350,
+    "category": "Electronics",
+    "icon": "➰",
+    "products": "hdmi.jpg",
+    "stock": 50,
+    "description": "High-speed 4K HDMI cable for TV and Monitor."
+  },
+  {
+    "id": 40,
+    "name": "Digital Multimeter",
+    "price": 750,
+    "category": "Electronics",
+    "icon": "📟",
+    "products": "multimeter.jpg",
+    "stock": 8,
+    "description": "Handy tool for testing electrical voltage and current."
+  },
+  {
+    "id": 41,
+    "name": "Universal Travel Adapter",
+    "price": 450,
+    "category": "Electronics",
+    "icon": "🔌",
+    "products": "adapter.jpg",
+    "stock": 30,
+    "description": "Multi-plug adapter for international travel use."
+  },
+  {
+    "id": 42,
+    "name": "128GB MicroSD Card",
+    "price": 950,
+    "category": "Electronics",
+    "icon": "💾",
+    "products": "sd-card.jpg",
+    "stock": 40,
+    "description": "Class 10 high-speed memory card for mobile and camera."
+  },
+  {
+    "id": 43,
+    "name": "Gaming Headset",
+    "price": 2200,
+    "category": "Electronics",
+    "icon": "🎧",
+    "products": "gaming-headset.jpg",
+    "stock": 7,
+    "description": "Over-ear headset with RGB lighting and clear mic."
+  },
+  {
+    "id": 44,
+    "name": "Mini Electric Kettle",
+    "price": 1150,
+    "category": "Electronics",
+    "icon": "☕",
+    "products": "kettle.jpg",
+    "stock": 14,
+    "description": "Portable electric kettle for quick tea and coffee."
+  },
+  {
+    "id": 45,
+    "name": "Digital Weight Scale",
+    "price": 900,
+    "category": "Electronics",
+    "icon": "⚖️",
+    "products": "scale.jpg",
+    "stock": 18,
+    "description": "Precise digital scale for body weight measurement."
+  },
+  {
+    "id": 46,
+    "name": "Health & Beauty School Bag",
+    "price": 1250,
+    "category": "Health & Beauty",
+    "icon": "🎒",
+    "products": "school-bag.jpg",
+    "stock": 20,
+    "description": "Colorful and durable bag for primary school Health & Beauty."
+  },
+  {
+    "id": 47,
+    "name": "Remote Control Car",
+    "price": 1800,
+    "category": "Health & Beauty",
+    "icon": "🏎️",
+    "products": "rc-car.jpg",
+    "stock": 12,
+    "description": "High-speed racing car with rechargeable battery."
+  },
+  {
+    "id": 48,
+    "name": "Soft Teddy Bear",
+    "price": 650,
+    "category": "Health & Beauty",
+    "icon": "🧸",
+    "products": "teddy.jpg",
+    "stock": 30,
+    "description": "Large and fluffy teddy bear for Health & Beauty and gifting."
+  },
+  {
+    "id": 49,
+    "name": "Building Blocks Set",
+    "price": 850,
+    "category": "Health & Beauty",
+    "icon": "🧱",
+    "products": "blocks.jpg",
+    "stock": 25,
+    "description": "Creative building blocks for brain development."
+  },
+  {
+    "id": 50,
+    "name": "Baby Walker (Musical)",
+    "price": 2200,
+    "category": "Health & Beauty",
+    "icon": "🚲",
+    "products": "walker.jpg",
+    "stock": 8,
+    "description": "Safe baby walker with music and light features."
+  },
+  {
+    "id": 51,
+    "name": "LCD Writing Tablet",
+    "price": 450,
+    "category": "Health & Beauty",
+    "icon": "📝",
+    "products": "drawing-tablet.jpg",
+    "stock": 50,
+    "description": "Electronic drawing board for Health & Beauty to practice writing."
+  },
+  {
+    "id": 52,
+    "name": "Puzzle Game (Map)",
+    "price": 350,
+    "category": "Health & Beauty",
+    "icon": "🧩",
+    "products": "puzzle.jpg",
+    "stock": 40,
+    "description": "Educational world map puzzle for young learners."
+  },
+  {
+    "id": 53,
+    "name": "Doctor Set for Health & Beauty",
+    "price": 550,
+    "category": "Health & Beauty",
+    "icon": "🩺",
+    "products": "doctor-set.jpg",
+    "stock": 15,
+    "description": "Complete medical kit toy for role-playing fun."
+  },
+  {
+    "id": 54,
+    "name": "Baby Diaper (Pants)",
+    "price": 1150,
+    "category": "Health & Beauty",
+    "icon": "👶",
+    "products": "diaper.jpg",
+    "stock": 60,
+    "description": "Extra soft and leak-proof diapers for all-day comfort."
+  },
+  {
+    "id": 55,
+    "name": "Barbie Doll Set",
+    "price": 950,
+    "category": "Health & Beauty",
+    "icon": "👸",
+    "products": "barbie.jpg",
+    "stock": 20,
+    "description": "Beautiful fashion doll set with extra dresses."
+  },
+  {
+    "id": 56,
+    "name": "Kitchen Set Toy",
+    "price": 1400,
+    "category": "Health & Beauty",
+    "icon": "🍳",
+    "products": "kitchen-toy.jpg",
+    "stock": 10,
+    "description": "Miniature kitchen set with utensils and sounds."
+  },
+  {
+    "id": 57,
+    "name": "Plastic Bat & Ball",
+    "price": 250,
+    "category": "Health & Beauty",
+    "icon": "🏏",
+    "products": "cricket-set.jpg",
+    "stock": 100,
+    "description": "Lightweight plastic cricket set for Health & Beauty' playtime."
+  },
+  {
+    "id": 58,
+    "name": "Baby Feeding Bottle",
+    "price": 350,
+    "category": "Health & Beauty",
+    "icon": "🍼",
+    "products": "feeding-bottle.jpg",
+    "stock": 45,
+    "description": "BPA-free anti-colic feeding bottle for infants."
+  },
+  {
+    "id": 59,
+    "name": "Stuffed Elephant",
+    "price": 750,
+    "category": "Health & Beauty",
+    "icon": "🐘",
+    "products": "elephant-toy.jpg",
+    "stock": 15,
+    "description": "Cute and cuddly elephant soft toy for nursery."
+  },
+  {
+    "id": 60,
+    "name": "Story Books Set",
+    "price": 500,
+    "category": "Health & Beauty",
+    "icon": "📚",
+    "products": "story-books.jpg",
+    "stock": 35,
+    "description": "Set of 5 colorful moral story books for children."
+  },
+ {
+    "id": 61,
+    "name": "Moisturizing Cream",
+    "price": 350,
+    "category": "Health and beauty",
+    "icon": "🧴",
+    "products": "cream.jpg",
+    "stock": 40,
+    "description": "Deeply hydrates skin for a smooth and glowing look."
+  },
+  {
+    "id": 62,
+    "name": "Sandalwood Face Wash",
+    "price": 220,
+    "category": "Health and beauty",
+    "icon": "🧼",
+    "products": "face-wash.jpg",
+    "stock": 50,
+    "description": "Natural sandalwood extract for deep cleaning and freshness."
+  },
+  {
+    "id": 63,
+    "name": "Onion Hair Oil (200ml)",
+    "price": 450,
+    "category": "Health and beauty",
+    "icon": "🧴",
+    "products": "hair-oil.jpg",
+    "stock": 30,
+    "description": "Promotes hair growth and reduces hair fall effectively."
+  },
+  {
+    "id": 64,
+    "name": "Organic Aloe Vera Gel",
+    "price": 180,
+    "category": "Health and beauty",
+    "icon": "🌿",
+    "products": "aloe-gel.jpg",
+    "stock": 45,
+    "description": "Pure aloe vera for skin soothing and hydration."
+  },
+  {
+    "id": 65,
+    "name": "Matte Lipstick Set",
+    "price": 850,
+    "category": "Health and beauty",
+    "icon": "💄",
+    "products": "lipstick.jpg",
+    "stock": 20,
+    "description": "Long-lasting matte finish in 5 trendy shades."
+  },
+  {
+    "id": 66,
+    "name": "Charcoal Face Mask",
+    "price": 280,
+    "category": "Health and beauty",
+    "icon": "🎭",
+    "products": "face-mask.jpg",
+    "stock": 35,
+    "description": "Removes blackheads and toxins from skin pores."
+  },
+  {
+    "id": 67,
+    "name": "Premium Men's Perfume",
+    "price": 1200,
+    "category": "Health and beauty",
+    "icon": "💨",
+    "products": "perfume.jpg",
+    "stock": 15,
+    "description": "Long-lasting refreshing fragrance for men."
+  },
+  {
+    "id": 68,
+    "name": "Anti-Dandruff Shampoo",
+    "price": 480,
+    "category": "Health and beauty",
+    "icon": "🧴",
+    "products": "shampoo.jpg",
+    "stock": 25,
+    "description": "Effective formula to clear dandruff and itchy scalp."
+  },
+  {
+    "id": 69,
+    "name": "Electric Hair Trimmer",
+    "price": 1550,
+    "category": "Health and beauty",
+    "icon": "🪒",
+    "products": "trimmer.jpg",
+    "stock": 10,
+    "description": "Cordless trimmer with multiple length settings."
+  },
+  {
+    "id": 70,
+    "name": "Nail Polish Kit",
+    "price": 350,
+    "category": "Health and beauty",
+    "icon": "💅",
+    "products": "nail-polish.jpg",
+    "stock": 50,
+    "description": "Quick-dry nail colors for a salon-like finish."
+  },
+  {
+    "id": 71,
+    "name": "Sunscreen Lotion (SPF 50)",
+    "price": 650,
+    "category": "Health and beauty",
+    "icon": "☀️",
+    "products": "sunscreen.jpg",
+    "stock": 30,
+    "description": "Ultimate protection from harmful UV rays."
+  },
+  {
+    "id": 72,
+    "name": "Herbal Toothpaste",
+    "price": 95,
+    "category": "Health and beauty",
+    "icon": "🪥",
+    "products": "toothpaste.jpg",
+    "stock": 100,
+    "description": "Natural ingredients for strong teeth and fresh breath."
+  },
+  {
+    "id": 73,
+    "name": "Makeup Brush Set",
+    "price": 550,
+    "category": "Health and beauty",
+    "icon": "🖌️",
+    "products": "brushes.jpg",
+    "stock": 20,
+    "description": "12-piece professional brush set for makeup."
+  },
+  {
+    "id": 74,
+    "name": "Rose Water (Spray)",
+    "price": 120,
+    "category": "Health and beauty",
+    "icon": "🌹",
+    "products": "rose-water.jpg",
+    "stock": 60,
+    "description": "Natural skin toner for a fresh and rosy glow."
+  },
+  {
+    "id": 75,
+    "name": "Body Yogurt (Mango)",
+    "price": 400,
+    "category": "Health and beauty",
+    "icon": "🥭",
+    "products": "body-yogurt.jpg",
+    "stock": 18,
+    "description": "Lightweight body moisturizer with a fruity scent."
+  },
+  {
+    "id": 76,
+    "name": "Non-Stick Frying Pan",
+    "price": 1450,
+    "category": "Home & Kitchen",
+    "icon": "🍳",
+    "products": "pan.jpg",
+    "stock": 15,
+    "description": "Durable non-stick surface for oil-free healthy cooking."
+  },
+  {
+    "id": 77,
+    "name": "Stainless Steel Knife Set",
+    "price": 850,
+    "category": "Home & Kitchen",
+    "icon": "🔪",
+    "products": "knives.jpg",
+    "stock": 20,
+    "description": "Extra sharp professional knife set with stand."
+  },
+  {
+    "id": 78,
+    "name": "Digital Coffee Maker",
+    "price": 3500,
+    "category": "Home & Kitchen",
+    "icon": "☕",
+    "products": "coffee-maker.jpg",
+    "stock": 5,
+    "description": "Automatic coffee brewer for your perfect morning cup."
+  },
+  {
+    "id": 79,
+    "name": "Glass Spice Jar Set",
+    "price": 650,
+    "category": "Home & Kitchen",
+    "icon": "🧂",
+    "products": "spice-jars.jpg",
+    "stock": 30,
+    "description": "Airtight glass jars for keeping spices fresh."
+  },
+  {
+    "id": 80,
+    "name": "Electric Sandwich Maker",
+    "price": 1800,
+    "category": "Home & Kitchen",
+    "icon": "🥪",
+    "products": "sandwich-maker.jpg",
+    "stock": 12,
+    "description": "Quick heating maker for crispy breakfast sandwiches."
+  },
+  {
+    "id": 81,
+    "name": "Water Filter Pitcher",
+    "price": 1200,
+    "category": "Home & Kitchen",
+    "icon": "🏺",
+    "products": "water-pitcher.jpg",
+    "stock": 18,
+    "description": "Removes impurities for clean and safe drinking water."
+  },
+  {
+    "id": 82,
+    "name": "Bamboo Cutting Board",
+    "price": 450,
+    "category": "Home & Kitchen",
+    "icon": "🪵",
+    "products": "cutting-board.jpg",
+    "stock": 40,
+    "description": "Eco-friendly and durable bamboo board for kitchen."
+  },
+  {
+    "id": 83,
+    "name": "Induction Cooktop",
+    "price": 3800,
+    "category": "Home & Kitchen",
+    "icon": "🔥",
+    "products": "cooktop.jpg",
+    "stock": 8,
+    "description": "Energy-efficient and safe cooking with touch control."
+  },
+  {
+    "id": 84,
+    "name": "Plastic Container Set",
+    "price": 950,
+    "category": "Home & Kitchen",
+    "icon": "📦",
+    "products": "containers.jpg",
+    "stock": 25,
+    "description": "Stackable and microwave-safe food storage containers."
+  },
+  {
+    "id": 85,
+    "name": "Manual Hand Blender",
+    "price": 350,
+    "category": "Home & Kitchen",
+    "icon": "🌀",
+    "products": "blender.jpg",
+    "stock": 50,
+    "description": "Handy tool for whisking eggs and mixing lassi."
+  },
+  {
+    "id": 86,
+    "name": "Cotton Bed Sheet Set",
+    "price": 1650,
+    "category": "Home & Kitchen",
+    "icon": "🛏️",
+    "products": "bedsheet.jpg",
+    "stock": 15,
+    "description": "King size pure cotton bedsheet with pillow covers."
+  },
+  {
+    "id": 87,
+    "name": "Wall Mount Clock",
+    "price": 750,
+    "category": "Home & Kitchen",
+    "icon": "🕒",
+    "products": "clock.jpg",
+    "stock": 20,
+    "description": "Modern and silent wall clock for home decor."
+  },
+  {
+    "id": 88,
+    "name": "Insulated Lunch Box",
+    "price": 550,
+    "category": "Home & Kitchen",
+    "icon": "🍱",
+    "products": "lunch-box.jpg",
+    "stock": 35,
+    "description": "Keeps your food warm for several hours."
+  },
+  {
+    "id": 89,
+    "name": "Microfiber Mop",
+    "price": 850,
+    "category": "Home & Kitchen",
+    "icon": "🧹",
+    "products": "mop.jpg",
+    "stock": 22,
+    "description": "Easy-to-use mop for sparkling clean floors."
+  },
+  {
+    "id": 90,
+    "name": "LED Table Lamp",
+    "price": 1100,
+    "category": "Home & Kitchen",
+    "icon": "💡",
+    "products": "lamp.jpg",
+    "stock": 12,
+    "description": "Dimmable eye-protection lamp for reading and work."
+  },
+{
+    "id": 91,
+    "name": "Cricket Bat (Kashmir Willow)",
+    "price": 2500,
+    "category": "Sports & Outdoor",
+    "icon": "🏏",
+    "products": "bat.jpg",
+    "stock": 10,
+    "description": "Professional quality cricket bat for hard-hit matches."
+  },
+  {
+    "id": 92,
+    "name": "Football (Size 5)",
+    "price": 1200,
+    "category": "Sports & Outdoor",
+    "icon": "⚽",
+    "products": "football.jpg",
+    "stock": 25,
+    "description": "Standard size football with high durability and grip."
+  },
+  {
+    "id": 93,
+    "name": "Badminton Racket Set",
+    "price": 1800,
+    "category": "Sports & Outdoor",
+    "icon": "🏸",
+    "products": "racket.jpg",
+    "stock": 15,
+    "description": "Lightweight twin rackets with a carry bag and shuttlecocks."
+  },
+  {
+    "id": 94,
+    "name": "Yoga Mat (6mm)",
+    "price": 850,
+    "category": "Sports & Outdoor",
+    "icon": "🧘",
+    "products": "yoga-mat.jpg",
+    "stock": 30,
+    "description": "Non-slip and cushioned mat for gym and home exercise."
+  },
+  {
+    "id": 95,
+    "name": "Skipping Rope (Digital)",
+    "price": 450,
+    "category": "Sports & Outdoor",
+    "icon": "➰",
+    "products": "rope.jpg",
+    "stock": 50,
+    "description": "Adjustable skipping rope with built-in counter."
+  },
+  {
+    "id": 96,
+    "name": "Dumbbells Set (5kg x 2)",
+    "price": 2200,
+    "category": "Sports & Outdoor",
+    "icon": "💪",
+    "products": "dumbbells.jpg",
+    "stock": 12,
+    "description": "Iron dumbbells for strength training and bodybuilding."
+  },
+  {
+    "id": 97,
+    "name": "Stainless Steel Water Bottle",
+    "price": 650,
+    "category": "Sports & Outdoor",
+    "icon": "🧴",
+    "products": "bottle.jpg",
+    "stock": 40,
+    "description": "BPA-free insulated bottle for gym and travel."
+  },
+  {
+    "id": 98,
+    "name": "Cycling Helmet",
+    "price": 1400,
+    "category": "Sports & Outdoor",
+    "icon": "🪖",
+    "products": "helmet.jpg",
+    "stock": 8,
+    "description": "Adjustable safety helmet for cycling and skating."
+  },
+  {
+    "id": 99,
+    "name": "Treadmill Lubricant Oil",
+    "price": 350,
+    "category": "Sports & Outdoor",
+    "icon": "🧪",
+    "products": "oil.jpg",
+    "stock": 60,
+    "description": "100% silicone oil for smooth treadmill operation."
+  },
+  {
+    "id": 100,
+    "name": "Table Tennis Bat",
+    "price": 750,
+    "category": "Sports & Outdoor",
+    "icon": "🏓",
+    "products": "tt-bat.jpg",
+    "stock": 20,
+    "description": "Competition grade paddle with high speed and spin."
+  },
+  {
+    "id": 101,
+    "name": "Swimming Goggles",
+    "price": 400,
+    "category": "Sports & Outdoor",
+    "icon": "🥽",
+    "products": "goggles.jpg",
+    "stock": 35,
+    "description": "Anti-fog and UV protection goggles for swimming."
+  },
+  {
+    "id": 102,
+    "name": "Basketball (Official Size)",
+    "price": 1500,
+    "category": "Sports & Outdoor",
+    "icon": "🏀",
+    "products": "basketball.jpg",
+    "stock": 14,
+    "description": "Indoor/Outdoor basketball with superior bounce."
+  },
+  {
+    "id": 103,
+    "name": "Wrist Support (Pair)",
+    "price": 250,
+    "category": "Sports & Outdoor",
+    "icon": "🩹",
+    "products": "wrist-band.jpg",
+    "stock": 100,
+    "description": "Flexible support for heavy lifting and sports."
+  },
+  {
+    "id": 104,
+    "name": "Gym Gloves (Leather)",
+    "price": 600,
+    "category": "Sports & Outdoor",
+    "icon": "🥊",
+    "products": "gloves.jpg",
+    "stock": 30,
+    "description": "Breathable leather gloves for better grip in gym."
+  },
+  {
+    "id": 105,
+    "name": "Running Waist Bag",
+    "price": 350,
+    "category": "Sports & Outdoor",
+    "icon": "🎒",
+    "products": "waist-bag.jpg",
+    "stock": 45,
+    "description": "Slim pouch for phone and keys during running."
+  },
+  {
+    "id": 106,
+    "name": "Executive Writing Diary",
+    "price": 450,
+    "category": "Stationery & Office",
+    "icon": "📓",
+    "products": "diary.jpg",
+    "stock": 50,
+    "description": "Leather-bound personal diary for office and notes."
+  },
+  {
+    "id": 107,
+    "name": "Gel Pen Box (12 Pcs)",
+    "price": 180,
+    "category": "Stationery & Office",
+    "icon": "🖊️",
+    "products": "pens.jpg",
+    "stock": 200,
+    "description": "Smooth writing blue gel pens for school and office."
+  },
+  {
+    "id": 108,
+    "name": "Scientific Calculator",
+    "price": 1250,
+    "category": "Stationery & Office",
+    "icon": "🧮",
+    "products": "calculator.jpg",
+    "stock": 15,
+    "description": "Advanced functions calculator for math and engineering."
+  },
+  {
+    "id": 109,
+    "name": "A4 Paper Bundle (500 Sheets)",
+    "price": 650,
+    "category": "Stationery & Office",
+    "icon": "📄",
+    "products": "a4-paper.jpg",
+    "stock": 80,
+    "description": "High-quality 80gsm paper for printing and photocopies."
+  },
+  {
+    "id": 110,
+    "name": "Desk Organizer Set",
+    "price": 850,
+    "category": "Stationery & Office",
+    "icon": "📂",
+    "products": "organizer.jpg",
+    "stock": 20,
+    "description": "Multi-slot metal holder for pens and documents."
+  },
+  {
+    "id": 111,
+    "name": "Whiteboard Marker Set",
+    "price": 250,
+    "category": "Stationery & Office",
+    "icon": "🖍️",
+    "products": "markers.jpg",
+    "stock": 100,
+    "description": "Pack of 4 colors, easy to erase and long-lasting."
+  },
+  {
+    "id": 112,
+    "name": "Punching Machine (Dual Hole)",
+    "price": 350,
+    "category": "Stationery & Office",
+    "icon": "⚙️",
+    "products": "punch.jpg",
+    "stock": 40,
+    "description": "Heavy-duty metal puncher for filing papers."
+  },
+  {
+    "id": 113,
+    "name": "Stapler with 1000 Pins",
+    "price": 150,
+    "category": "Stationery & Office",
+    "icon": "🖇️",
+    "products": "stapler.jpg",
+    "stock": 150,
+    "description": "Medium-sized stapler for home and office use."
+  },
+  {
+    "id": 114,
+    "name": "Document File Folder",
+    "price": 120,
+    "category": "Stationery & Office",
+    "icon": "📂",
+    "products": "folder.jpg",
+    "stock": 300,
+    "description": "L-folder to keep your important documents safe."
+  },
+  {
+    "id": 115,
+    "name": "Geometry Box Set",
+    "price": 250,
+    "category": "Stationery & Office",
+    "icon": "📐",
+    "products": "geometry.jpg",
+    "stock": 60,
+    "description": "Complete tool kit for school math and drawing."
+  },
+  {
+    "id": 116,
+    "name": "Double Sided Tape",
+    "price": 80,
+    "category": "Stationery & Office",
+    "icon": "🎞️",
+    "products": "tape.jpg",
+    "stock": 120,
+    "description": "Strong adhesive tape for craft and office work."
+  },
+  {
+    "id": 117,
+    "name": "Hardcover Sketchbook",
+    "price": 400,
+    "category": "Stationery & Office",
+    "icon": "🎨",
+    "products": "sketchbook.jpg",
+    "stock": 45,
+    "description": "Premium paper for pencil sketching and drawing."
+  },
+  {
+    "id": 118,
+    "name": "Permanent Ink Stamp Pad",
+    "price": 90,
+    "category": "Stationery & Office",
+    "icon": "🟦",
+    "products": "stamp-pad.jpg",
+    "stock": 50,
+    "description": "Blue ink pad for official seal and stamps."
+  },
+  {
+    "id": 119,
+    "name": "Paper Shredder (Manual)",
+    "price": 1800,
+    "category": "Stationery & Office",
+    "icon": "✂️",
+    "products": "shredder.jpg",
+    "stock": 5,
+    "description": "Portable shredder for destroying confidential papers."
+  },
+  {
+    "id": 120,
+    "name": "Wall Calendar 2026",
+    "price": 150,
+    "category": "Stationery & Office",
+    "icon": "📅",
+    "products": "calendar.jpg",
+    "stock": 100,
+    "description": "Yearly planner with holidays and events."
+  },
+  {
+    "id": 121,
+    "name": "Multivitamin Tablets (60 pcs)",
+    "price": 950,
+    "category": "Shoes",
+    "icon": "💊",
+    "products": "multivitamin.jpg",
+    "stock": 100,
+    "description": "Essential nutrients to boost your daily immunity and energy."
+  },
+  {
+    "id": 122,
+    "name": "Digital Blood Pressure Monitor",
+    "price": 2800,
+    "category": "Shoes",
+    "icon": "🩺",
+    "products": "bp-monitor.jpg",
+    "stock": 15,
+    "description": "Accurate and easy-to-use automatic BP checking machine."
+  },
+  {
+    "id": 123,
+    "name": "Infrared Thermometer",
+    "price": 1200,
+    "category": "Shoes",
+    "icon": "🌡️",
+    "products": "thermometer.jpg",
+    "stock": 25,
+    "description": "Non-contact digital thermometer for instant temperature reading."
+  },
+  {
+    "id": 124,
+    "name": "N95 Face Mask (Pack of 5)",
+    "price": 350,
+    "category": "Shoes",
+    "icon": "😷",
+    "products": "mask.jpg",
+    "stock": 200,
+    "description": "High-filtration safety mask for protection against dust and germs."
+  },
+  {
+    "id": 125,
+    "name": "First Aid Kit (Basic)",
+    "price": 650,
+    "category": "Shoes",
+    "icon": "🩹",
+    "products": "first-aid.jpg",
+    "stock": 30,
+    "description": "Essential medical supplies for emergency home care."
+  },
+  {
+    "id": 126,
+    "name": "Hand Sanitizer (500ml)",
+    "price": 250,
+    "category": "Shoes",
+    "icon": "🧼",
+    "products": "sanitizer.jpg",
+    "stock": 150,
+    "description": "70% alcohol-based gel for instant germ protection."
+  },
+  {
+    "id": 127,
+    "name": "Electric Hot Water Bag",
+    "price": 450,
+    "category": "Shoes",
+    "icon": "🎒",
+    "products": "hot-bag.jpg",
+    "stock": 40,
+    "description": "Quick heating bag for muscle pain and cramp relief."
+  },
+  {
+    "id": 128,
+    "name": "Omega-3 Fish Oil Capsules",
+    "price": 1100,
+    "category": "Shoes",
+    "icon": "🐟",
+    "products": "fish-oil.jpg",
+    "stock": 50,
+    "description": "Promotes heart, brain, and joint health effectively."
+  },
+  {
+    "id": 129,
+    "name": "Hand Wash Refill (1L)",
+    "price": 180,
+    "category": "Shoes",
+    "icon": "🧴",
+    "products": "hand-wash.jpg",
+    "stock": 80,
+    "description": "Antibacterial liquid soap for clean and soft hands."
+  },
+  {
+    "id": 130,
+    "name": "Orthopedic Back Support",
+    "price": 1400,
+    "category": "Shoes",
+    "icon": "🪑",
+    "products": "back-support.jpg",
+    "stock": 12,
+    "description": "Ergonomic support for lower back pain and posture."
+  },
+  {
+    "id": 131,
+    "name": "Vitamin C Effervescent",
+    "price": 400,
+    "category": "Shoes",
+    "icon": "🍊",
+    "products": "vit-c.jpg",
+    "stock": 90,
+    "description": "Dissolvable tablets for skin glow and immunity."
+  },
+  {
+    "id": 132,
+    "name": "Knee Support Sleeve",
+    "price": 350,
+    "category": "Shoes",
+    "icon": "🦵",
+    "products": "knee-support.jpg",
+    "stock": 45,
+    "description": "Flexible compression sleeve for knee protection."
+  },
+  {
+    "id": 133,
+    "name": "Digital Oximeter",
+    "price": 850,
+    "category": "Shoes",
+    "icon": "📟",
+    "products": "oximeter.jpg",
+    "stock": 20,
+    "description": "Measures oxygen saturation and pulse rate accurately."
+  },
+  {
+    "id": 134,
+    "name": "Essential Eucalyptus Oil",
+    "price": 300,
+    "category": "Shoes",
+    "icon": "🌿",
+    "products": "eucalyptus.jpg",
+    "stock": 35,
+    "description": "Pure oil for steam inhalation and aromatherapy."
+  },
+  {
+    "id": 135,
+    "name": "Nebulizer Machine",
+    "price": 3200,
+    "category": "Shoes",
+    "icon": "🌬️",
+    "products": "nebulizer.jpg",
+    "stock": 8,
+    "description": "Compact device for respiratory therapy at home."
+  },
+  {
+    "id": 136,
+    "name": "Roasted Salted Cashews",
+    "price": 850,
+    "category": "Cosmetics",
+    "icon": "🥜",
+    "products": "cashews.jpg",
+    "stock": 25,
+    "description": "Premium crunchy cashews perfectly salted and roasted."
+  },
+  {
+    "id": 137,
+    "name": "Premium Quality Almonds",
+    "price": 950,
+    "category": "Cosmetics",
+    "icon": "🌰",
+    "products": "almonds.jpg",
+    "stock": 30,
+    "description": "Fresh and raw California almonds rich in nutrients."
+  },
+  {
+    "id": 138,
+    "name": "Organic Dried Dates (500g)",
+    "price": 450,
+    "category": "Cosmetics",
+    "icon": "🌴",
+    "products": "dates.jpg",
+    "stock": 60,
+    "description": "Sweet and healthy dates for a quick energy boost."
+  },
+  {
+    "id": 139,
+    "name": "Pistachio (Salted)",
+    "price": 1200,
+    "category": "Cosmetics",
+    "icon": "🥜",
+    "products": "pista.jpg",
+    "stock": 20,
+    "description": "High-quality green pistachios with a light salt coating."
+  },
+  {
+    "id": 140,
+    "name": "Dried Apricots (250g)",
+    "price": 550,
+    "category": "Cosmetics",
+    "icon": "🍑",
+    "products": "apricots.jpg",
+    "stock": 15,
+    "description": "Sweet and chewy dried apricots with no added sugar."
+  },
+  {
+    "id": 141,
+    "name": "Walnuts (Without Shell)",
+    "price": 1100,
+    "category": "Cosmetics",
+    "icon": "🧠",
+    "products": "walnuts.jpg",
+    "stock": 18,
+    "description": "Brain-healthy raw walnut kernels for daily snacks."
+  },
+  {
+    "id": 142,
+    "name": "Mix Dry Fruits Pack",
+    "price": 1500,
+    "category": "Cosmetics",
+    "icon": "🥗",
+    "products": "mix-dry-fruits.jpg",
+    "stock": 25,
+    "description": "A healthy mixture of nuts, raisins, and dried fruits."
+  },
+  {
+    "id": 143,
+    "name": "Premium Black Raisins",
+    "price": 380,
+    "category": "Cosmetics",
+    "icon": "🍇",
+    "products": "raisins.jpg",
+    "stock": 50,
+    "description": "Seedless black raisins perfect for desserts and health."
+  },
+  {
+    "id": 144,
+    "name": "Roasted Pumpkin Seeds",
+    "price": 320,
+    "category": "Cosmetics",
+    "icon": "🎃",
+    "products": "pumpkin-seeds.jpg",
+    "stock": 40,
+    "description": "Nutritious roasted seeds for a healthy snacking habit."
+  },
+  {
+    "id": 145,
+    "name": "Masala Chanachur (500g)",
+    "price": 120,
+    "category": "Cosmetics",
+    "icon": "🥨",
+    "products": "chanachur.jpg",
+    "stock": 100,
+    "description": "Spicy and crunchy traditional snack for tea time."
+  },
+  {
+    "id": 146,
+    "name": "Potato Crackers (Pack of 3)",
+    "price": 150,
+    "category": "Cosmetics",
+    "icon": "🥔",
+    "products": "crackers.jpg",
+    "stock": 80,
+    "description": "Crispy and light potato biscuits for all ages."
+  },
+  {
+    "id": 147,
+    "name": "Chia Seeds (200g)",
+    "price": 280,
+    "category": "Cosmetics",
+    "icon": "🌱",
+    "products": "chia-seeds.jpg",
+    "stock": 55,
+    "description": "Superfood rich in fiber and omega-3 for diet."
+  },
+  {
+    "id": 148,
+    "name": "Dark Chocolate Bar",
+    "price": 350,
+    "category": "Cosmetics",
+    "icon": "🍫",
+    "products": "chocolate.jpg",
+    "stock": 30,
+    "description": "70% cocoa dark chocolate for heart health and mood."
+  },
+  {
+    "id": 149,
+    "name": "Roasted Peanuts (Spicy)",
+    "price": 180,
+    "category": "Cosmetics",
+    "icon": "🥜",
+    "products": "peanuts.jpg",
+    "stock": 70,
+    "description": "Freshly roasted spicy peanuts for a tasty snack."
+  },
+  {
+    "id": 150,
+    "name": "Oatmeal Cookies (Fiber)",
+    "price": 420,
+    "category": "Cosmetics",
+    "icon": "🍪",
+    "products": "cookies.jpg",
+    "stock": 40,
+    "description": "Healthy fiber-rich cookies for guilt-free snacking."
+  }
+]

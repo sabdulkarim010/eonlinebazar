@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Account | eOnlineBazar</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+
+<div class="auth-wrapper">
+    <div class="auth-container">
+        
+        <button class="auth-close-circle" onclick="window.location.href='index.html'" title="Go Back">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <div id="login-section">
+            
+            <div class="auth-header-brand">
+                <div class="brand-icon-circle">
+                    <i class="fa-solid fa-user-shield"></i>
+                </div>
+                <h2 class="auth-title">Your Account</h2>
+            </div>
+            
+            <form id="loginForm" novalidate>
+                
+                <div class="floating-group">
+                    <input type="email" id="loginEmail" required placeholder=" ">
+                    <label for="loginEmail">Email Address</label>
+                    <div id="login-email-error" class="error-text"></div>
+                </div>
+                
+                <div class="floating-group">
+                    <input type="password" id="loginPass" required placeholder=" ">
+                    <label for="loginPass">Password</label>
+                    <div id="login-pass-error" class="error-text"></div>
+                </div>
+
+                <button type="submit" class="btn-primary">Sign In</button>
+            </form>
+
+            <p class="auth-switch-text">
+                New to eOnlineBazar? <a href="register.html">Create Account</a>
+            </p>
+        </div>
+
+        <div id="success-message" style="display: none; text-align: center; padding: 10px;">
+            </div>
+
+    </div>
+</div>
+
+<script src="js/auth.js"></script>
+</body>
+</html>

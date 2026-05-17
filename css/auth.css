@@ -1,0 +1,291 @@
+/**
+ * Project: eOnlineBazar
+ * Author: Abdul Karim Sheikh
+ * File: css/auth.css
+ * Description: Premium Floating Labels, Floating Circle Close Button, 
+ * Brand Header Icons, and Custom Toast Notification Styles.
+ */
+
+/* =========================================================================
+   ১. মেইন লেআউট ও কন্টেইনার (Main Wrapper & Container)
+   ========================================================================= */
+.auth-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f8fafc; /* হালকা ও চোখ ধাঁধানো প্রিমিয়াম ব্যাকগ্রাউন্ড */
+    padding: 20px;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.auth-container {
+    background: #ffffff;
+    width: 100%;
+    max-width: 420px;
+    padding: 40px 30px 35px 30px;
+    border-radius: 16px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.05);
+    position: relative;
+    box-sizing: border-box;
+}
+
+/* =========================================================================
+   ২. নতুন ব্র্যান্ড হেডার ও আইকন (Brand Header & Symbol Icon)
+   ========================================================================= */
+.auth-header-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.brand-icon-circle {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 153, 0, 0.1); /* থিম কালার কমলার হালকা শেড */
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 12px;
+    border: 1px solid rgba(255, 153, 0, 0.2);
+}
+
+.brand-icon-circle i {
+    font-size: 24px;
+    color: #ff9900; /* প্রফেশনাল থিম কমলা */
+}
+
+.auth-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+    text-align: center;
+}
+
+/* =========================================================================
+   ৩. প্রিমিয়াম ভাসমান সার্কেল ক্লোজ বাটন (Premium Floating Close Button)
+   ========================================================================= */
+.auth-close-circle {
+    position: absolute;
+    top: -16px;      /* বক্সের বাইরে ভাসিয়ে দেওয়ার জন্য */
+    right: -16px;    /* বক্সের বাইরে সুন্দর কোণায় পজিশন */
+    width: 34px;
+    height: 34px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 50%; /* পারফেক্ট রাউন্ড সার্কেল */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    color: #64748b;
+    font-size: 14px;
+    transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    outline: none;
+    z-index: 99;
+}
+
+.auth-close-circle:hover {
+    background: #ff9900;
+    color: #ffffff;
+    border-color: #ff9900;
+    transform: scale(1.1) rotate(90deg); /* স্লাইটলি বড় হবে এবং ঘুরবে */
+}
+
+/* রেস্পন্সিভ মোবাইল স্ক্রিনের জন্য বাটনটি ভেতরে চলে আসবে */
+@media (max-width: 480px) {
+    .auth-close-circle {
+        top: 14px;
+        right: 14px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+}
+
+/* =========================================================================
+   ৪. মডার্ন ফ্লোটিং লেবেল ও ইনপুট (Floating Labels & Inputs)
+   ========================================================================= */
+.floating-group {
+    position: relative;
+    margin-bottom: 24px;
+}
+
+.floating-group input {
+    width: 100%;
+    padding: 18px 14px 6px 14px;
+    font-size: 15px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    outline: none;
+    background: #ffffff;
+    box-sizing: border-box;
+    color: #334155;
+    transition: all 0.2s ease-in-out;
+}
+
+.floating-group label {
+    position: absolute;
+    left: 14px;
+    top: 13px;
+    color: #94a3b8;
+    font-size: 14px;
+    pointer-events: none;
+    transition: all 0.2s ease-in-out;
+}
+
+/* ইনপুট সিলেক্ট বা ফিলাপ হলে লেবেল উপরে চলে যাবে */
+.floating-group input:focus ~ label,
+.floating-group input:not(:placeholder-shown) ~ label {
+    top: 4px;
+    left: 12px;
+    font-size: 11px;
+    color: #ff9900;
+    font-weight: 600;
+}
+
+.floating-group input:focus {
+    border-color: #ff9900;
+    box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.1);
+}
+
+/* 🟢 রিয়াল-টাইম গ্রিন সিগন্যাল (Valid) */
+.floating-group input.is-valid {
+    border-color: #10b981 !important; /* প্রিমিয়াম এমারেল্ড গ্রিন */
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><path fill="%2310b981" d="M2.3 6.73L.6 5.03l.7-.71 1 1 2.48-2.48.71.71L2.3 6.73z"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 16px;
+    padding-right: 40px;
+}
+.floating-group input.is-valid ~ label {
+    color: #10b981 !important;
+}
+
+/* 🔴 রিয়াল-টাইম রেড সিগন্যাল (Invalid) */
+.floating-group input.is-invalid {
+    border-color: #ef4444 !important; /* মডার্ন রেড */
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" fill="%23ef4444" viewBox="0 0 8 8"><path d="M4 0C1.79 0 0 1.79 0 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm-.5 2h1v3h-1V2zm0 4h1v1h-1V6z"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 16px;
+    padding-right: 40px;
+}
+.floating-group input.is-invalid ~ label {
+    color: #ef4444 !important;
+}
+
+/* ইনপুটের নিচের এরর টেক্সট */
+.error-text {
+    font-size: 12px;
+    color: #ef4444;
+    margin-top: 5px;
+    padding-left: 2px;
+    font-weight: 500;
+    min-height: 16px;
+}
+
+/* =========================================================================
+   ৫. বাটন এবং অ্যাকশন লিঙ্কসমূহ (Buttons & Action Links)
+   ========================================================================= */
+.btn-primary {
+    width: 100%;
+    background-color: #ff9900;
+    color: #ffffff;
+    border: none;
+    padding: 14px;
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(255, 153, 0, 0.15);
+    transition: all 0.2s ease;
+    margin-top: 8px;
+}
+
+.btn-primary:hover {
+    background-color: #e68a00;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(255, 153, 0, 0.2);
+}
+
+.btn-primary:disabled {
+    background-color: #cbd5e1;
+    color: #94a3b8;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.auth-switch-text {
+    text-align: center;
+    margin-top: 22px;
+    font-size: 14px;
+    color: #64748b;
+    margin-bottom: 0;
+}
+
+.auth-switch-text a {
+    color: #ff9900;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.15s ease;
+}
+
+.auth-switch-text a:hover {
+    color: #e68a00;
+    text-decoration: underline;
+}
+
+/* =========================================================================
+   ৬. প্রফেশনাল স্লাইড-ডাউন টোস্ট নোটিফিকেশন (Professional Custom Toast)
+   ========================================================================= */
+#customToast {
+    position: fixed !important;
+    top: -100px; /* শুরুতে স্ক্রিনের বাইরে থাকবে */
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    background: #ffffff !important;
+    padding: 16px 24px !important;
+    border-radius: 10px !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    z-index: 999999 !important;
+    min-width: 320px !important;
+    max-width: 90% !important;
+    border-left: 5px solid #ef4444 !important;
+    transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+    box-sizing: border-box;
+}
+
+/* জাভাস্ক্রিপ্ট রান হলে টোস্ট নিচে নামবে */
+#customToast.show {
+    top: 30px !important;
+}
+
+#customToast.error {
+    border-left-color: #ef4444 !important;
+}
+#customToast.error .toast-icon {
+    color: #ef4444;
+    font-size: 18px;
+}
+
+#customToast.success {
+    border-left-color: #10b981 !important;
+}
+#customToast.success .toast-icon {
+    color: #10b981;
+    font-size: 18px;
+}
+
+.toast-message {
+    font-size: 14px;
+    color: #334155;
+    font-weight: 600;
+}

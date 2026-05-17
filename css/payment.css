@@ -1,0 +1,509 @@
+/* =========================================================================
+   🌐 ১. গ্লোবাল লেআউট ও নিখুঁত সেন্টারিং (Global Centering Wrapper)
+   ========================================================================= */
+.payment-page-global-wrapper {
+    max-width: 1000px;      /* দুই কলাম লেআউটের জন্য একটু চওড়া স্ট্যান্ডার্ড উইডথ */
+    margin: 40px auto;       /* উপর-নিচে সুন্দর গ্যাপ এবং ডানে-বামে অটোমেটিক সেন্টার */
+    padding: 0 20px;         /* স্ক্রিন ছোট হলে দুই পাশে হালকা প্যাডিং থাকবে */
+    box-sizing: border-box;
+}
+
+/* =========================================================================
+   🔒 ২. প্রফেশনাল টপ হেডার বার (Header Bar Styling)
+   ========================================================================= */
+.payment-premium-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 5px;
+    margin-bottom: 25px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.payment-back-link {
+    color: #475569;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 0.2s;
+}
+
+.payment-back-link:hover {
+    color: #ff9900; /* আপনার ব্র্যান্ড থিম কালার */
+}
+
+.payment-header-center {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* প্রফেশনাল ইনক্রিপশন/সিকিউরিটি ব্যাজ (গাঢ় সবুজ) */
+.secure-payment-badge {
+    background-color: #dcfce7;
+    color: #15803d;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 5px 12px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.payment-step-indicator {
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.payment-header-right-empty {
+    width: 110px; /* লেআউট ব্যালেন্স রাখার জন্য */
+}
+
+/* =========================================================================
+   📦 ৩. মেইন গ্রিড লেআউট (Main Two-Column Grid Setup)
+   ========================================================================= */
+.payment-main-layout-container {
+    display: grid;
+    grid-template-columns: 1fr 360px; /* বাম পাশে ১ ভাগ খালি জায়গা, ডান পাশে ফিক্সড কলাম */
+    gap: 30px;
+    align-items: start;
+}
+
+/* বাম ও ডান পাশের সাধারণ বক্স ডিজাইন */
+.payment-methods-left-column,
+.sticky-summary-card-box {
+    background-color: #ffffff;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+}
+
+/* টাইটেল সেকশন */
+.payment-section-title {
+    margin-bottom: 25px;
+}
+
+.payment-icon-main {
+    font-size: 22px;
+    color: #ff9900;
+    margin-bottom: 5px;
+}
+
+.payment-section-title h2 {
+    font-size: 22px;
+    color: #1e293b;
+    margin: 5px 0 2px 0;
+}
+
+.payment-section-title p {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0;
+}
+
+/* =========================================================================
+   💳 ৪. প্রিমিয়াম পেমেন্ট মেথড কার্ডস (Premium Payment Method Cards)
+   ========================================================================= */
+.payment-options-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+/* প্রধান কার্ড ডিজাইন */
+.payment-method-card {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    cursor: pointer;
+    background-color: #ffffff;
+    transition: all 0.25s ease;
+    position: relative;
+}
+
+/* হোভার ইফেক্ট */
+.payment-method-card:hover {
+    border-color: #cbd5e1;
+    background-color: #f8fafc;
+}
+
+/* 🎯 অ্যাক্টিভ/সিলেক্টেড কার্ডের প্রিমিয়াম লুক */
+.payment-method-card.active-method {
+    border-color: #ff9900; /* ব্র্যান্ড বর্ডার কালার */
+    background-color: #fffbf5; /* হালকা অরেঞ্জ আভা */
+}
+
+/* রেডিও বাটন কন্টেইনার এবং কাস্টম সার্কেল */
+.card-radio-wrapper {
+    display: flex;
+    align-items: center;
+    margin-right: 15px;
+}
+
+.card-radio-wrapper input[type="radio"] {
+    display: none; /* মেইন রেডিও হাইড থাকবে */
+}
+
+.custom-radio-circle {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #cbd5e1;
+    border-radius: 50%;
+    display: inline-block;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+/* সিলেক্টেড কার্ডের কাস্টম রেডিও ডট */
+.payment-method-card.active-method .custom-radio-circle {
+    border-color: #ff9900;
+    background-color: #ff9900;
+}
+
+.payment-method-card.active-method .custom-radio-circle::after {
+    content: "";
+    width: 8px;
+    height: 8px;
+    background-color: #ffffff;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* কার্ডের ভেতরের টেক্সট ডিটেইলস */
+.method-details {
+    flex: 1;
+}
+
+.method-title {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 2px;
+}
+
+.method-subtitle {
+    display: block;
+    font-size: 12.5px;
+    color: #64748b;
+}
+
+/* ব্র্যান্ড লোগো ফন্ট-অসাম কালার ফিক্স */
+.method-logo-box {
+    font-size: 26px;
+    display: flex;
+    align-items: center;
+}
+
+.bkash-color { color: #d12053; }
+.nagad-color { color: #f64a1e; }
+.bank-color { color: #0284c7; }
+.cod-color { color: #475569; }
+
+/* =========================================================================
+   📋 ৫. ডাইনামিক ইনস্ট্রাকশন এরিয়া (Dynamic Instruction Box)
+   ========================================================================= */
+.payment-instructions-wrapper {
+    background-color: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 25px;
+    font-size: 14px;
+    color: #334155;
+    line-height: 1.6;
+}
+
+.payment-instructions-wrapper strong {
+    color: #1e293b;
+}
+
+.instruction-important-note {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e2e8f0;
+    color: #64748b;
+    font-size: 12.5px;
+}
+
+/* =========================================================================
+   📊 ৬. রাইট কলাম: অর্ডার অ্যান্ড কাস্টমার রিভিও (Order Summary Box)
+   ========================================================================= */
+.payment-summary-right-column {
+    position: sticky;
+    top: 20px; /* স্ক্রল করার সময় কলামটি স্ক্রিনে ফিক্সড থাকবে */
+}
+
+.sticky-summary-card-box h3 {
+    font-size: 18px;
+    color: #1e293b;
+    margin: 0 0 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 2px solid #f1f5f9;
+    padding-bottom: 10px;
+}
+
+/* ডেলিভারি কাস্টমার ইনফো প্রিভিউ */
+.summary-shipping-preview h4 {
+    font-size: 13.5px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 12px 0;
+}
+
+.preview-text {
+    font-size: 14px;
+    color: #334155;
+    margin: 0 0 10px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.4;
+}
+
+.preview-text i {
+    color: #94a3b8;
+    margin-top: 3px;
+    width: 14px;
+    text-align: center;
+}
+
+/* কুরিয়ার নোট স্পেশাল স্টাইল */
+.note-preview-style {
+    background-color: #f1f5f9;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    border-left: 3px solid #94a3b8;
+    margin-top: 12px;
+}
+
+.summary-divider {
+    border: 0;
+    border-top: 1px solid #e2e8f0;
+    margin: 20px 0;
+}
+
+/* প্রাইসিং ডিজাইন */
+.price-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: #475569;
+}
+
+.free-delivery-text {
+    color: #16a34a;
+    font-weight: 700;
+}
+
+/* ফাইনাল পেয়্যাবল এমাউন্ট রিয়েল ই-কমার্স স্টাইল */
+.final-payable-amount-row {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 2px dashed #cbd5e1;
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.final-payable-amount-row strong {
+    color: #16a34a; /* টোটাল এমাউন্ট চমৎকার সবুজ */
+    font-size: 22px;
+}
+
+/* =========================================================================
+   🚀 🔀 ৭. কনফার্ম অর্ডার অ্যাকশন বাটন (Confirm & Place Order Button)
+   ========================================================================= */
+.payment-action-wrapper {
+    margin-top: 10px;
+}
+
+.premium-order-confirm-btn {
+    width: 100%;
+    background-color: #ff9900; /* ব্র্যান্ড কালার */
+    color: #ffffff;
+    border: none;
+    padding: 15px;
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 4px 14px rgba(255, 153, 0, 0.2);
+    transition: all 0.25s ease;
+}
+
+.premium-order-confirm-btn:hover {
+    background-color: #e68a00;
+    box-shadow: 0 6px 18px rgba(255, 153, 0, 0.35);
+}
+
+.premium-order-confirm-btn:active {
+    transform: scale(0.99); /* ক্লিক করলে হালকা দেবে যাবে */
+}
+
+/* =========================================================================
+   📱 ৮. মোবাইল ও ট্যাবলেট রেসপনসিভনেস (Mobile Optimization)
+   ========================================================================= */
+@media (max-width: 850px) {
+    .payment-page-global-wrapper {
+        margin: 15px auto;
+        padding: 0 10px;
+    }
+
+    .payment-main-layout-container {
+        grid-template-columns: 1fr; /* মোবাইল স্ক্রিনে দুই কলাম ভেঙে এক কলাম হয়ে যাবে */
+        gap: 20px;
+    }
+
+    .payment-methods-left-column,
+    .sticky-summary-card-box {
+        padding: 20px 15px;
+    }
+
+    .payment-step-indicator {
+        display: none; /* ছোট স্ক্রিনে জায়গা বাঁচানো */
+    }
+}
+
+/* =========================================================================
+   🏆 ৯. প্রিমিয়াম সাকসেস মোডাল পপ-আপ (Fixed Layering)
+   ========================================================================= */
+.custom-premium-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(15, 23, 42, 0.7) !important; /* ওভারলে ব্যাকগ্রাউন্ড কালো আবহাওয়া */
+    backdrop-filter: blur(4px);
+    display: none; /* জাভাস্ক্রিপ্ট এটাকে flex করবে */
+    justify-content: center;
+    align-items: center;
+    z-index: 99999 !important; /* যাতে এটি সবকিছুর উপরে থাকে */
+}
+
+.custom-premium-modal-card {
+    background: #ffffff !important;
+    width: 90%;
+    max-width: 460px;
+    padding: 35px 25px;
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    border: 1px solid #ffffff;
+    z-index: 100000 !important; /* কার্ডটি যাতে ওভারলের উপরে স্পষ্টভাবে দেখা যায় */
+    animation: modalScaleInAnimation 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes modalScaleInAnimation {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* বড় সবুজ সাকসেস আইকন */
+.modal-success-icon-badge {
+    font-size: 65px;
+    color: #10b981;
+    margin-bottom: 15px;
+}
+
+/* 🆔 অর্ডার আইডি ব্যাজ ডিজাইন */
+.modal-order-id-badge {
+    background-color: #f1f5f9;
+    color: #334155;
+    font-size: 14px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    display: inline-block;
+    margin: 5px 0 15px 0;
+    border: 1px dashed #cbd5e1;
+}
+
+.modal-order-id-badge strong {
+    color: #ff9900;
+    font-weight: 700;
+}
+
+.custom-premium-modal-card h2 {
+    font-size: 26px;
+    color: #1e293b;
+    margin: 0 0 5px 0;
+    font-weight: 800;
+}
+
+.custom-premium-modal-card h3 {
+    font-size: 16px;
+    color: #475569;
+    margin: 0 0 15px 0;
+    font-weight: 600;
+}
+
+#modalGatewayMessage {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0 0 20px 0;
+    line-height: 1.5;
+}
+
+.modal-order-status-info {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #475569;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 25px;
+    width: 100%;
+    justify-content: center;
+}
+
+.modal-order-status-info i {
+    color: #ff9900;
+}
+
+.modal-home-redirect-btn {
+    width: 100%;
+    background-color: #10b981;
+    color: #ffffff;
+    border: none;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+    transition: all 0.2s ease;
+}
+
+.modal-home-redirect-btn:hover {
+    background-color: #059669;
+}

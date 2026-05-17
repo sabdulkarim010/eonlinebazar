@@ -1,0 +1,572 @@
+/* =========================================================================
+   🌐 ১. গ্লোবাল লেআউট ও নিখুঁত সেন্টারিং (Global Centering Wrapper)
+   ========================================================================= */
+.checkout-page-global-wrapper {
+    max-width: 850px;       /* আপনার কার্ট পেজের মেইন বক্সের সমান উইডথ */
+    margin: 40px auto;       /* উপর-নিচে সুন্দর গ্যাপ এবং ডানে-বামে অটোমেটিক সেন্টার */
+    padding: 0 20px;         /* স্ক্রিন ছোট হলে দুই পাশে হালকা প্যাডিং থাকবে */
+    box-sizing: border-box;
+}
+
+/* মেইন সাদা বক্সের প্রিমিয়াম লুক */
+.checkout-main-white-box {
+    background-color: #ffffff;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); /* হালকা সফট শ্যাডো */
+    border: 1px solid #e2e8f0;
+}
+
+/* =========================================================================
+   🔒 ২. প্রফেশনাল টপ হেডার বার (Header Bar Styling)
+   ========================================================================= */
+.checkout-premium-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 5px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+/* ব্যাক বাটন লিংক */
+.checkout-back-link {
+    color: #475569;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 0.2s;
+}
+
+.checkout-back-link:hover {
+    color: #ff9900; /* হোভার করলে সাইটের অরেঞ্জ থিম আসবে */
+}
+
+/* হেডার সেন্টারিং ফিক্স */
+.checkout-header-center {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* সবুজ রঙের সিকিউরড লক ব্যাজ */
+.secure-checkout-badge {
+    background-color: #dcfce7;
+    color: #15803d;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.checkout-step-indicator {
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.checkout-header-right-empty {
+    width: 90px; /* বাম পাশের ব্যাক বাটনের সাথে ভিজ্যুয়াল ব্যালেন্স রাখার জন্য */
+}
+
+/* =========================================================================
+   🛍️ ৩. কার্ট আইটেম ও ডিলিট বাটন (Cart Items List & Trash Button)
+   ========================================================================= */
+.checkout-title-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 25px;
+}
+
+.checkout-icon-main {
+    font-size: 22px;
+    color: #ff9900;
+}
+
+.checkout-title-section h2 {
+    font-size: 22px;
+    color: #1e293b;
+    margin: 0;
+}
+
+/* প্রতিটি প্রোডাক্ট রো (Row) কার্ড */
+.checkout-item-row-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0;
+    border-bottom: 1px solid #f1f5f9;
+    gap: 15px;
+}
+
+/* প্রোডাক্ট ইমেজ বক্স */
+.cart-media-frame-box {
+    width: 60px;
+    height: 60px;
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.cart-media-frame-box img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: cover;
+}
+
+/* প্রোডাক্ট ইনফো */
+.cart-item-details-info {
+    flex: 2;
+}
+
+.cart-item-name-text {
+    font-size: 14px;
+    color: #334155;
+    margin: 0 0 4px 0;
+    font-weight: 600;
+}
+
+.cart-item-base-price-text {
+    font-size: 13px;
+    color: #64748b;
+}
+
+/* কোয়ান্টিটি কন্ট্রোলার */
+.quantity-controller-block {
+    display: flex;
+    align-items: center;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background-color: #f8fafc;
+    overflow: hidden;
+}
+
+.qty-btn {
+    background: none;
+    border: none;
+    padding: 6px 12px;
+    cursor: pointer;
+    color: #64748b;
+    transition: background 0.2s;
+}
+
+.qty-btn:hover {
+    background-color: #e2e8f0;
+    color: #1e293b;
+}
+
+.qty-display-text {
+    padding: 0 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #334155;
+    min-width: 20px;
+    text-align: center;
+}
+
+/* টোটাল প্রাইস ব্লক */
+.cart-item-total-price-block {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    min-width: 80px;
+    text-align: right;
+}
+
+/* শর্ত নম্বর ২: ডিলিট/ট্র্যাশ বাটন ডিজাইন */
+.checkout-row-delete-btn-main {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 8px;
+    border-radius: 5px;
+    transition: all 0.2s ease;
+}
+
+.checkout-row-delete-btn-main:hover {
+    color: #ef4444; /* হোভার করলে প্রফেশনাল ডেঞ্জার রেড কালার আসবে */
+    background-color: #fee2e2;
+}
+
+/* =========================================================================
+   📊 ৪. অর্ডার সামারি ব্লক (Order Summary Section)
+   ========================================================================= */
+.checkout-summary-block {
+    background-color: #f8fafc;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 25px 0;
+    border: 1px solid #e2e8f0;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: #475569;
+}
+
+.summary-row strong {
+    color: #1e293b;
+}
+
+/* গ্র্যান্ড টোটাল হাইলাইট রিয়েল ই-কমার্স স্টাইল */
+.grand-total-row {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 2px dashed #cbd5e1;
+    font-size: 17px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.grand-total-row strong {
+    color: #16a34a; /* টোটাল অ্যামাউন্ট চমৎকার সবুজ কালার */
+    font-size: 20px;
+}
+
+/* =========================================================================
+   📝 ৫. শিপিং ফরম ও নতুন কোরিয়ার নোট (Shipping Form & Courier Note)
+   ========================================================================= */
+.shipping-info-section-wrapper {
+    margin-top: 35px;
+}
+
+.shipping-info-section-wrapper h3 {
+    font-size: 18px;
+    color: #1e293b;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 2px solid #f1f5f9;
+    padding-bottom: 8px;
+}
+
+.form-group-field {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group-field label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #334155;
+}
+
+.required-star {
+    color: #ef4444;
+}
+
+/* ঐচ্ছিক বা অপশনাল ট্যাগের ডিজাইন */
+.optional-tag {
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 400;
+    margin-left: 4px;
+}
+
+/* ইনপুট এবং টেক্সট-এরিয়া ফিল্ডের স্ট্যান্ডার্ড ডিজাইন */
+.form-group-field input,
+.form-group-field textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #334155;
+    background-color: #ffffff;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.form-group-field input:focus,
+.form-group-field textarea:focus {
+    outline: none;
+    border-color: #ff9900;
+    box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.15); /* ব্র্যান্ড কালার ফোকাস গ্লো */
+}
+
+/* এরর মেসেজ স্টাইল */
+.error-msg-field {
+    font-size: 12px;
+    color: #ef4444;
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+/* =========================================================================
+   💳 🔀 ৬. পেমেন্ট মেথড অ্যাকশন বাটন (Proceed To Payment Button)
+   ========================================================================= */
+.checkout-action-area {
+    margin-top: 30px;
+    display: flex;
+    justify-content: flex-end; /* ডান পাশে এলাইন করার জন্য */
+}
+
+.payment-gateway-next-btn {
+    background-color: #ff9900; /* আপনার মেইন ব্র্যান্ড কালার */
+    color: #ffffff;
+    border: none;
+    padding: 14px 35px;
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 12px rgba(255, 153, 0, 0.2);
+    transition: all 0.25s ease;
+}
+
+.payment-gateway-next-btn:hover {
+    background-color: #e68a00;
+    box-shadow: 0 6px 16px rgba(255, 153, 0, 0.3);
+    transform: translateY(-1px); /* হালকা উপরে উঠবে হোভারে */
+}
+
+.payment-gateway-next-btn:active {
+    transform: translateY(1px);
+}
+
+.payment-gateway-next-btn i {
+    transition: transform 0.2s ease;
+}
+
+.payment-gateway-next-btn:hover i {
+    transform: translateX(4px); /* তীরটি ডান দিকে একটু নড়বে */
+}
+
+/* =========================================================================
+   📱 ৭. মোবাইল ও ট্যাবলেট রেসপনসিভনেস (Mobile Optimization)
+   ========================================================================= */
+@media (max-width: 650px) {
+    .checkout-page-global-wrapper {
+        margin: 15px auto;
+        padding: 0 10px;
+    }
+
+    .checkout-main-white-box {
+        padding: 15px;
+    }
+
+    .checkout-premium-header {
+        padding: 10px 0;
+    }
+
+    .checkout-step-indicator {
+        display: none; /* ছোট স্ক্রিনে জায়গা বাঁচাতে হাইড */
+    }
+
+    .checkout-item-row-card {
+        flex-wrap: wrap;
+        position: relative;
+        padding-bottom: 20px;
+    }
+
+    .cart-item-details-info {
+        min-width: 150px;
+    }
+
+    .cart-item-total-price-block {
+        text-align: left;
+        width: 50%;
+        margin-top: 5px;
+    }
+
+    .quantity-controller-block {
+        margin-top: 5px;
+    }
+
+    .checkout-row-delete-btn-main {
+        position: absolute;
+        top: 10px;
+        right: 0;
+    }
+    
+    .payment-gateway-next-btn {
+        width: 100%; /* মোবাইলে বাটনটি ফুল স্ক্রিন চওড়া হবে */
+        justify-content: center;
+    }
+}
+
+/* =========================================================================
+   8. eOnlineBazar - Professional Checkout Header Styling
+   ========================================================================= */
+.checkout-custom-header {
+    width: 100%;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0; /* হালকা গ্রে বর্ডার */
+    padding: 15px 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02); /* হালকা স্মুথ শ্যাডো */
+    margin-bottom: 30px; /* নিচের মূল কার্ড থেকে দূরত্ব */
+}
+
+.checkout-header-container {
+    max-width: 1200px; /* পেজের স্ট্যান্ডার্ড উইডথ */
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+}
+
+/* বাম পাশের অ্যাকশন বাটন */
+.back-to-cart-link {
+    color: #475569;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+    transition: color 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.back-to-cart-link:hover {
+    color: #16a34a; /* হোভার করলে সবুজ কালার হবে */
+}
+
+/* মাঝখানের প্রোগ্রেস বার */
+.header-middle-progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.secure-badge {
+    color: #16a34a; /* প্রফেশনাল সিকিউর গ্রিন */
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.step-indicator {
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* ডান পাশের ব্র্যান্ড লোগো */
+.brand-logo-text {
+    color: #16a34a;
+    font-size: 18px;
+    font-weight: 700;
+    font-family: 'Poppins', sans-serif;
+}
+
+/* 📱 রেসপনসিভনেস: মোবাইল স্ক্রিনের জন্য ফিক্স */
+@media (max-width: 600px) {
+    .checkout-header-container {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+}
+
+/* =========================================================================
+   🎯 eOnlineBazar Professional Custom Modal Design
+   ========================================================================= */
+.custom-alert-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.4); /* হালকা ডার্ক ওভারলে */
+    backdrop-filter: blur(5px); /* ব্যাকগ্রাউন্ড ঝাপসা করার প্রফেশনাল ইফেক্ট */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999999;
+    animation: fadeInBg 0.3s ease-out;
+}
+
+.custom-alert-modal-card {
+    background-color: #ffffff;
+    width: 90%;
+    max-width: 420px;
+    padding: 30px 24px;
+    border-radius: 20px; /* আপনার সাকসেস পপ-আপের মতো রাউন্ডেড কর্নার */
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+    text-align: center;
+    font-family: 'Poppins', sans-serif;
+    animation: slideUpModal 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* আইকন স্টাইল */
+.custom-alert-modal-icon {
+    font-size: 64px;
+    color: #ef4444; /* নজরকাড়া লাল রঙ */
+    margin-bottom: 16px;
+}
+
+/* টাইটেল ও মেসেজ */
+.custom-alert-modal-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 10px 0;
+}
+
+.custom-alert-modal-message {
+    font-size: 15px;
+    color: #64748b;
+    line-height: 1.5;
+    margin: 0 0 24px 0;
+}
+
+/* ওকে বাটন স্টাইল */
+.custom-alert-modal-btn {
+    background-color: #ef4444;
+    color: #ffffff;
+    border: none;
+    padding: 12px 32px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 10px;
+    cursor: pointer;
+    width: 100%;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.custom-alert-modal-btn:hover {
+    background-color: #dc2626;
+}
+
+.custom-alert-modal-btn:active {
+    transform: scale(0.98);
+}
+
+/* 🎬 অ্যানিমেশন ইফেক্টস */
+@keyframes fadeInBg {
+    from { background-color: rgba(0, 0, 0, 0); }
+    to { background-color: rgba(0, 0, 0, 0.4); }
+}
+
+@keyframes slideUpModal {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
