@@ -139,17 +139,18 @@
    ৩. প্রোডাক্ট মেইন কন্টেইনার এবং রেস্পন্সিভ গ্রিড লেআউট (প্রধান ফিক্স)
    ========================================================================== */
 .products-container {
-    margin-bottom: 60px;
-    padding: 0 15px;
+    margin-bottom: 30px;
+    padding: 0 10px;
+    margin-top: 0;
 }
 
 .section-title {
     font-size: 24px;
     font-weight: 700;
     color: #111;
-    margin-bottom: 25px;
+    margin-bottom: 0;
     border-bottom: 2px solid #eeeeee;
-    padding-bottom: 10px;
+    padding: 5px 2px;
 }
 
 /* প্রোডাক্ট গ্রিড: কার্ডগুলো যেন বিশাল বড় না হয়ে লাইনে সুন্দরভাবে বসে */
@@ -171,6 +172,7 @@
     display: flex;
     flex-direction: column;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
+    container-type: inline-size;
 }
 
 .product-card:hover {
@@ -181,13 +183,13 @@
 /* ইমেজ বক্স: ছবি ও ইমোজি রেগুলেশন ঠিক রাখার জন্য */
 .product-img-box {
     width: 100%;
-    height: 200px; /* ছবির ফিক্সড হাইট */
+    height: 150px; /* ছবির ফিক্সড হাইট */
     display: flex;
     align-items: center;
     justify-content: center;
     background-color: #fafafa;
     border-bottom: 1px solid #f5f5f5;
-    padding: 15px;
+    padding: 5px;
     box-sizing: border-box;
 }
 
@@ -196,6 +198,17 @@
     max-height: 100%;
     object-fit: contain; /* ছবি বিকৃত বা চ্যাপ্টা হবে না */
 }
+
+   .product-emoji-display {
+    font-size: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+    user-select: none;
+} 
+
 
 /* নো-ফটো ব্যাকআপ বক্স */
 .no-photo-box {
@@ -221,23 +234,25 @@
 }
 
 .product-name {
-    font-size: 16px;
+    font-size: clamp(12px,2vw,15px);
     font-weight: 600;
     color: #111;
-    margin: 0 0 10px 0;
-    line-height: 1.4;
-    height: 44px; /* ২ লাইনের বেশি নাম হলে কেটে যাবে যেন লেআউট সমান থাকে */
+    margin: 0 0 0 0;
+    line-height: 1;
+    height: 20px; /* ২ লাইনের বেশি নাম হলে কেটে যাবে যেন লেআউট সমান থাকে */
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
+    text-overflow: ellipsis;
 }
 
 .product-price-row {
-    margin-bottom: 15px;
+    margin-bottom: 5px;
     display: flex;
     align-items: center;
-    font-size: 18px;
+    justify-content: center;
+    font-size: clamp(13px,2vw,16px);
     font-weight: 700;
     color: #B12704; /* আমাজন স্ট্যান্ডার্ড প্রাইস রেড কালার */
 }
@@ -276,28 +291,39 @@
    ========================================================================== */
 @media (max-width: 992px) {
     .product-layout-grid {
-        grid-template-columns: repeat(3, 1fr); /* ট্যাবলেটে ৩টি করে প্রডাক্ট */
+        grid-template-columns: repeat(4, 1fr); /* ট্যাবলেটে ৩টি করে প্রডাক্ট */
         gap: 20px;
     }
-    .hero-section { height: 350px; }
+    .hero-section { height: 200px; }
     .hero-content h1 { font-size: 32px; }
+    .section-title{font-size:20px ;}
+    .product-info{padding:5px;}
+    
 }
 @media (max-width: 768px) {
     .product-layout-grid {
-        grid-template-columns: repeat(2, 1fr); /* মাঝারি স্ক্রিনে ২টি করে প্রডাক্ট */
+        grid-template-columns: repeat(3, 1fr); /* মাঝারি স্ক্রিনে ২টি করে প্রডাক্ট */
         gap: 15px;
     }
-    .hero-section { height: 260px; }
-    .hero-content h1 { font-size: 26px; }
-    .hero-content p { font-size: 14px; }
+    .hero-section { height: 100px; }
+    .hero-content h1 { font-size: 20px; }
+    .hero-content p { font-size: 15px; }
+    .section-title{font-size:18px ;}
+    .product-info{padding:3px;}
 }
 
 @media (max-width: 480px) {
     .product-layout-grid {
-        grid-template-columns: repeat(1, 1fr); /* মোবাইলে ১টি করে প্রডাক্ট */
+        grid-template-columns: repeat(2, 1fr); /* মোবাইলে ১টি করে প্রডাক্ট */
     }
     .category-tab-btn {
-        padding: 8px 16px;
+        padding: 8px 10px;
         font-size: 12px;
     }
+    .hero-section { height: 60px; }
+    .hero-content h1 { font-size: 15px; }
+    .hero-content p { font-size: 12px; }
+    .section-title{font-size:15px ;}
+    .product-info{padding:2px;}
+   
 }
