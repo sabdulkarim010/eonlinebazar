@@ -203,10 +203,18 @@ header {
 
 /* --- ৩. সাব নেভিগেশন বার (Sub Navbar - Clean & Professional) --- */
 .sub-navbar {
+    display: flex;
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -ms-text-overflow: none; /*IE and Edge*/
+    scrollbar-width: none; /*Firefox*/
     background-color: var(--amazon-light);
     color: var(--white);
     padding: 4px 0;
 }
+/*Chrome,Safari & Opera*/
+.sub-navbar::-webkit-scrollbar{display: none;}
 
 .sub-flex {
     display: flex;
