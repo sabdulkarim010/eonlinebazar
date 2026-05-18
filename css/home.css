@@ -314,7 +314,7 @@
 
 @media (max-width: 480px) {
     .product-layout-grid {
-        grid-template-columns: repeat(2, 1fr); /* মোবাইলে ১টি করে প্রডাক্ট */
+        grid-template-columns: repeat(3, 1fr); /* মোবাইলে ১টি করে প্রডাক্ট */
     }
     .category-tab-btn {
         padding: 8px 10px;
