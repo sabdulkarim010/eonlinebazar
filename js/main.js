@@ -56,17 +56,17 @@ function displayProducts(productsToDisplay) {
         // ইমেজ বক্স তৈরি করা
         const imgBox = document.createElement('div');
         imgBox.className = 'product-img-box';
-        imgBox.style.cssText = 'height: 180px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fafafa; margin-bottom: 10px;';
+       // after delete imgBox.style.cssText = 'height: 180px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fafafa; margin-bottom: 10px;';
 
         // ব্যাকআপ কন্টেন্ট (১ম অগ্রাধিকার: icon এর ইমোজি, ২য় অগ্রাধিকার: products এর ইমোজি, ৩য় অগ্রাধিকার: NO PHOTO)
         const applyFallback = () => {
             imgBox.innerHTML = ''; 
             if (iconData !== '') {
-                imgBox.innerHTML = `<div class="product-emoji-display" style="font-size: 65px; display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; user-select: none;">${iconData}</div>`;
+                imgBox.innerHTML = `<div class="product-emoji-display">${iconData}</div>`;
             } else if (assetData !== '' && !assetData.includes('.')) {
-                imgBox.innerHTML = `<div class="product-emoji-display" style="font-size: 65px; display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; user-select: none;">${assetData}</div>`;
+                imgBox.innerHTML = `<div class="product-emoji-display">${assetData}</div>`;
             } else {
-                imgBox.innerHTML = `<div class="no-photo-box" style="display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; background: #f4f4f4; color: #666; font-weight: bold; font-size: 14px; border-radius: 4px;">NO PHOTO</div>`;
+                imgBox.innerHTML = `<div class="no-photo-box">NO PHOTO</div>`;
             }
         };
 
@@ -80,7 +80,7 @@ function displayProducts(productsToDisplay) {
             const imgElement = document.createElement('img');
             imgElement.src = imagePath;
             imgElement.alt = product.name;
-            imgElement.style.cssText = 'max-width: 100%; max-height: 100%; object-fit: contain;';
+           //after delete imgElement.style.cssText = 'max-width: 100%; max-height: 100%; object-fit: contain;';
             
             // ছবি লোড হতে ব্যর্থ হলে ব্যাকআপ ইমোজি বসবে
             imgElement.onerror = function() {
@@ -96,8 +96,8 @@ function displayProducts(productsToDisplay) {
         const productInfo = document.createElement('div');
         productInfo.className = 'product-info';
         productInfo.innerHTML = `
-            <h4 class="product-name" style="font-size: 15px; font-weight: 600; color: #111; margin: 5px 0;">${product.name}</h4>
-            <div class="product-price-row" style="font-size: 16px; font-weight: 700; color: #B12704; margin-bottom: 10px;">
+            <h4 class="product-name">${product.name}</h4>
+            <div class="product-price-row">
                 <span class="currency">৳</span>
                 <span class="price-amount">${product.price}</span>
             </div>
