@@ -26,46 +26,37 @@
 </head>
 <body>
 
-    <header class="amazon-header">
-        <div class="container main-nav">
-            <div class="nav-left">
-                <div id="menuToggle" class="menu-toggle">
-                    <i class="fa fa-bars"></i>
-                </div>
-                <div class="logo-box" onclick="window.location.href='index.html'">
-                    Eonline<span class="logo-bold">Bazar</span>
-                </div>
-            </div>
+<header class="amazon-header">
+    <div class="container main-nav">
+        <div class="logo-box" onclick="window.location.href='index.html'">
+            <span class="logo-bold">Eonline</span><span class="logo-light">Bazar</span>
+        </div>
 
-            <div class="nav-fill">
-                <div class="search-box-container">
-                    <select id="categorySelect" class="search-category" onchange="triggerSearch()">
-                        <option value="all">All Categories</option>
-                    </select>
-                    <input type="text" id="searchInput" class="search-input" placeholder="Search products here...">
-                    <button class="search-submit-btn" onclick="triggerSearch()" title="Search">
-                        <i class="fa fa-search"></i>
-                    </button>
-                </div>
-            </div>
+        <div class="search-box-container">
+            <select id="categorySelect" class="search-category" onchange="triggerSearch()">
+                <option value="all">All Categories</option>
+            </select>
+            <input type="text" id="searchInput" class="search-input" placeholder="Search products here...">
+            <button class="search-submit-btn" onclick="triggerSearch()" title="Search">
+                <i class="fa fa-search"></i>
+            </button>
+        </div>
 
-            <div class="nav-right">
-                <!-- <div class="nav-lang">EN</div> -->
-                <div class="nav-user-account" onclick="window.location.href='login.html'">
-                    <span class="nav-line-1">Sign in</span>
-                    <span class="nav-line-2">Account</span>
+        <div class="nav-right">
+            <div class="nav-user-account" onclick="window.location.href='login.html'">
+                <span class="nav-line-1">Sign in</span>
+                <span class="nav-line-2">Account</span>
+            </div>
+            <div class="nav-cart-box" onclick="window.location.href='cart.html'">
+                <div class="nav-cart-icon-wrapper">
+                    <i class="fa fa-shopping-cart"></i>
+                    <span id="cartCountBadge" class="cart-count">0</span>
                 </div>
-                
-                <div class="nav-cart-box" onclick="window.location.href='cart.html'" style="cursor: pointer;">
-                    <div class="cart-icon-wrapper">
-                        <i class="fa fa-shopping-cart"></i>
-                        <span id="cartCountBadge" class="cart-count">0</span>
-                    </div>
-                    <span class="cart-text">Bag</span>
-                </div>
+                <span class="cart-text">Bag</span>
             </div>
         </div>
-    </header>
+    </div>
+</header>
 
                 <nav id="subNavbar" class="sub-navbar">
                     <div class="container sub-flex">
