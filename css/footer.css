@@ -1,4 +1,5 @@
-/* =========================================================================
+/* * File Name: css/footer.css
+ =========================================================================
    💎 eOnlineBazar Global Compact Footer Stylesheet (Clean Component)
    ========================================================================= */
 
@@ -9,8 +10,8 @@ footer.compact-footer {
     background-color: #111827; /* সেই চমৎকার কুচকুচে ডার্ক কালার */
     color: #9ca3af;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    padding: 25px 0;
-    margin-top: 50px;
+    padding: 5px 0;
+    margin-top: 10px;
     border-top: 1px solid #1f2937;
 }
 
@@ -107,8 +108,215 @@ footer.compact-footer .fb-icon:hover { background-color: #1877f2; transform: tra
 footer.compact-footer .tw-icon:hover { background-color: #000000; transform: translateY(-2px); }
 footer.compact-footer .tt-icon:hover { background-color: #ff0050; transform: translateY(-2px); }
 
-/* 📱 মোবাইল ভিউ ফিক্স */
+
+/* =========================================================================
+   📱 📱 মোবাইল ভিউ ফিক্স (সর্বোচ্চ ৭৬৮px স্ক্রিনের জন্য আল্ট্রা-স্লিম ডিজাইন)
+   ========================================================================= */
 @media (max-width: 768px) {
-    footer.compact-footer .footer-container { flex-direction: column; text-align: center; align-items: center; }
-    footer.compact-footer .footer-brand-social { flex-direction: column; text-align: center; }
+    /* ১. ফুটারের হাইট ফিক্সড এবং স্লিম করা */
+    footer.compact-footer {
+        padding: 8px 0; /* উপর-নিচের অতিরিক্ত ফাঁকা জায়গা গায়েব */
+        margin-top: 15px;
+        min-height: 48px; /* আপনি যেভাবে ৫০px এর মধ্যে চাচ্ছিলেন */
+        display: flex;
+        align-items: center;
+    }
+
+    /* ২. মেইন কন্টেইনারকে এক লাইনে সাজানো */
+    footer.compact-footer .footer-container {
+        flex-direction: row; /* নিচে নিচে না নেমে পাশাপাশি থাকবে */
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 15px;
+        width: 100%;
+        gap: 0;
+    }
+
+    /* ৩. 💡 বড় লিংক বা মেনু কলামগুলো মোবাইলে সম্পূর্ণ হাইড করা */
+    footer.compact-footer .footer-col {
+        display: none !important; 
+    }
+
+    /* ৪. ব্র্যান্ড ও সোশ্যাল সেকশনকে পাশাপাশি ফ্ল্যাট করা */
+    footer.compact-footer .footer-brand-social {
+        flex: 1;
+        flex-direction: row; /* এক লাইনে নিয়ে আসা */
+        justify-content: space-between;
+        align-items: center;
+        min-width: 100%;
+        gap: 0;
+    }
+
+    /* লোগোর টেক্সট মোবাইলে হাইড করে শুধু কপিরাইট এক লাইনে রাখা */
+    footer.compact-footer .footer-logo-text {
+        display: none; 
+    }
+
+    footer.compact-footer .copyright-text {
+        font-size: 11px;
+        text-align: left;
+        color: #9ca3af; /* টেক্সট কালার মোবাইলে একটু স্পষ্ট করা হলো */
+    }
+
+    /* ৫. সোশ্যাল আইকনগুলোর সাইজ মোবাইলের জন্য সামান্য ছোট ও স্লিম করা */
+    footer.compact-footer .footer-social-icons {
+        gap: 8px;
+    }
+
+    footer.compact-footer .social-icon {
+        width: 28px;  /* ৩২px থেকে কমিয়ে ২৮px করা হলো যাতে ৫০px বাউন্ডারিতে সুন্দর ফিট হয় */
+        height: 28px;
+        font-size: 13px;
+    }
+}
+
+/* =========================================================================
+   📟 ১. পোর্ট্রেট ট্যাবলেট ও বড় স্ক্রিনের মোবাইল ভিউ (সর্বোচ্চ ৭৬৮px)
+   ========================================================================= */
+@media screen and (max-width: 768px) {
+    /* হেডার কন্টেইনার স্লিম ও কম্প্যাক্ট করা হলো */
+    .cart-premium-sticky-header {
+        padding: 10px 16px;
+    }
+
+    /* লোগোর ফন্ট সাইজ সামান্য ছোট করা */
+    .header-brand-logo {
+        font-size: 15px;
+    }
+
+    /* মেইন কন্টেইনারের মার্জিন মোবাইলে কমিয়ে আনা */
+    .shopping-cart-main-container {
+        margin: 20px auto;
+        padding: 0 12px;
+    }
+
+    .cart-title-area h2 {
+        font-size: 20px;
+    }
+
+    /* 📦 কার্ট আইটেম কার্ড মোবাইল ফ্রেন্ডলি ফ্লেক্স লেআউট */
+    .cart-item-card {
+        flex-direction: column; /* নিচে নিচে সাজানো */
+        align-items: stretch;
+        padding: 12px;
+        gap: 12px;
+    }
+
+    /* ডান পাশের গ্রুপকে (কোয়ান্টিটি ও প্রাইস) সমান দূরত্বে পাশাপাশি রাখা */
+    .cart-item-right-group {
+        justify-content: space-between;
+        width: 100%;
+        padding-left: 34px; /* চেকবক্স ও ইমেজের সাথে এলাইনমেন্ট ঠিক রাখতে */
+        gap: 0;
+    }
+
+    /* আইটেম সাবটোটাল টেক্সট ডানে এলাইন */
+    .cart-item-total-price {
+        text-align: right;
+        flex: 1;
+        padding-right: 10px;
+    }
+}
+
+/* =========================================================================
+   📱 ২. স্ট্যান্ডার্ড স্মার্টফোন ভিউ (সর্বোচ্চ ৫৪০px)
+   ========================================================================= */
+@media screen and (max-width: 540px) {
+    /* 🏆 হেডারের ৩টি অংশকে ভেঙে সুন্দরভাবে এক লাইনে স্লিম করার টেকনিক */
+    .cart-premium-sticky-header {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+    }
+
+    /* ১. ব্যাক অ্যাকশন: লেখা বড় হলে স্ক্রিন নষ্ট করে, তাই মোবাইলে শুধু আইকন ও 'Back' থাকবে */
+    .header-back-action a {
+        font-size: 13px;
+    }
+    .header-back-action a span {
+        display: inline-block; /* কাস্টম টেক্সট কন্ট্রোল */
+    }
+
+    /* ২. সেন্টার স্ট্যাটাস: মোবাইলে 'SECURE CHECKOUT' এর বদলে শুধু আইকন ও স্টেপ দেখাবে */
+    .header-status-center {
+        gap: 4px;
+    }
+    .premium-secure-badge {
+        font-size: 11px;
+    }
+    /* সিকিউর লেখাটি মোবাইলের জায়গা বাঁচাতে হাইড থাকবে */
+    .premium-secure-badge span {
+        display: none; 
+    }
+    .step-text-indicator {
+        font-size: 11px;
+        background: #f1f5f9;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+
+    /* ৩. ব্র্যান্ড লোগো: ডান কোণায় সুন্দরভাবে মানিয়ে যাবে */
+    .header-brand-logo {
+        width: auto;
+        font-size: 14px;
+    }
+
+    /* প্রোডাক্ট ইমেজের সাইজ সামান্য ছোট করা */
+    .cart-item-media-box {
+        width: 50px;
+        height: 50px;
+    }
+
+    .product-title-text {
+        font-size: 13px;
+    }
+
+    /* বটম ক্যালকুলেশন এবং অ্যাকশন বাটন পুরো স্ক্রিন জুড়ে সুন্দর দেখাবে */
+    .cart-totals-bottom-section {
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .checkout-redirect-btn {
+        width: 100%; /* বাটনটি পুরো চওড়া হবে যাতে সহজে ক্লিক করা যায় */
+        padding: 12px;
+        font-size: 14px;
+    }
+}
+
+/* =========================================================================
+   🔋 ৩. আল্ট্রা-স্মল স্মার্টফোন ভিউ (সর্বোচ্চ ৩৬০px - যেমন ছোট ও পুরানো ফোন)
+   ========================================================================= */
+@media screen and (max-width: 360px) {
+    .cart-premium-sticky-header {
+        padding: 6px 8px;
+    }
+    
+    /* অতি ছোট স্ক্রিনে 'Continue Shopping' বড় টেক্সটটি ছোট করে 'Back' করা */
+    .header-back-action a {
+        font-size: 12px;
+    }
+
+    /* প্রোডাক্ট টাইটেলের ম্যাক্স-উইডথ ফিক্সড যাতে ভেঙে স্ক্রিন নষ্ট না করে */
+    .product-title-text {
+        max-width: 150px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis; /* নাম বেশি বড় হলে ডট ডট (...) দেখাবে */
+    }
+    
+    /* কোয়ান্টিটি বক্সের সাইজ সামান্য স্লিম করা */
+    .qty-control-btn {
+        width: 26px;
+        height: 26px;
+    }
+    .qty-display-number {
+        width: 28px;
+        height: 26px;
+        font-size: 12px;
+    }
 }
