@@ -1,4 +1,5 @@
 /**
+ * File Name: js/main.js
  * Project: eOnlineBazar
  * Author: Abdul Karim Sheikh
  * Description: Secure DOM-based Product Rendering with Strict Fallback
@@ -106,7 +107,6 @@ function displayProducts(productsToDisplay) {
         // বাটন এলিমেন্ট ডম (DOM) নিয়মে তৈরি (যাতে সিঙ্গেল/ডাবল কোটের কোনো ঝামেলা না হয়)
         const addToCartBtn = document.createElement('button');
         addToCartBtn.className = 'add-to-cart-btn';
-        addToCartBtn.style.cssText = 'background: #ffd814; border: 1px solid #fcd200; padding: 8px 12px; border-radius: 20px; cursor: pointer; width: 100%; font-weight: 500;';
         addToCartBtn.innerText = 'Add to Bag';
 
         // ক্লিক ইভেন্ট লিসেনার (আগে-পরে যেখানেই স্ক্রিপ্ট লিংক থাকুক, এটি ফেইল করবে না)
@@ -206,3 +206,4 @@ document.addEventListener("DOMContentLoaded", () => {
     // ৩. স্ক্রিপ্টটিকে ডকুমেন্টের হেডে পুশ করা হলো
     document.body.appendChild(script);
 });
+
