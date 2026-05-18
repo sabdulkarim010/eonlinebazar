@@ -1,7 +1,8 @@
 /* ==========================================================================
+ * File Name: css/style.css
    eOnlineBazar - Global Style & Navigation CSS
    Author: Abdul Karim Sheikh
-   Description: গ্লোবাল রিসেট, ভেরিয়েবল, হেডার, সাব-বার এবং ফুটার ডিজাইন
+   Description: Global Reset, ভেরিয়েবল, হেডার, সাব-বার এবং অ্যানিমেশন
    ========================================================================== */
 
 /* --- ১. রুট ভেরিয়েবল এবং বেসিক রিসেট (Amazon থিম অনুযায়ী) --- */
@@ -37,22 +38,22 @@ body {
     width: 100%;
 }
 
-
-/* --- ২. প্রফেশনাল মেইন হেডার (ডেস্কটপ মোড) --- */
+/* --- ২. প্রফেশনাল মেইন হেডার (ডেস্কটপ ও গ্লোবাল লেআউট) --- */
 header {
     position: sticky;
     top: 0;
     z-index: 1000;
     background-color: var(--amazon-dark);
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    padding: 5px 0;
 }
 
 .main-nav {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 15px;
     gap: 15px;
+    flex-wrap: nowrap; /* ডেস্কটপে সোজা এক লাইনে রাখবে */
 }
 
 /* বাম অংশ: লগো */
@@ -63,27 +64,29 @@ header {
 }
 
 .logo-box {
-    color: var(--white);
-    font-size: 30px;
-    font-weight: bold;
+    font-size: 40px;
     cursor: pointer;
+    color: var(--white);
     white-space: nowrap;
-    user-select: none;
 }
 
 .logo-bold {
+    font-weight: 700;
+}
+
+.logo-light {
+    font-weight: 400;
     color: var(--amazon-gold);
-    font-weight: bold;
 }
 
 .menu-toggle {
-    display: none; /* ডেস্কটপে মোবাইল মেনু বাটন হাইড থাকবে */
+    display: none; /* ডেস্কটপে মোবাইল মেনু বাটন হাইд থাকবে */
     color: var(--white);
     font-size: 24px;
     cursor: pointer;
 }
 
-/* মাঝের অংশ: অ্যামাজন স্টাইল সার্চ বক্স */
+/* মাঝের অংশ: সার্চ বক্স কন্টেইনার */
 .nav-fill {
     flex: 1;
     max-width: 700px;
@@ -92,9 +95,11 @@ header {
 .search-box-container {
     display: flex;
     width: 100%;
+    height: 35px;
     border-radius: 4px;
     overflow: hidden;
-    background: var(--white);
+    background-color: var(--white);
+    transition: box-shadow 0.2s;
 }
 
 .search-box-container:focus-within {
@@ -104,10 +109,8 @@ header {
 .search-category {
     background-color: #f3f3f3;
     border: none;
-    border-right: 1px solid #cccccc;
-    padding: 0 12px;
-    font-size: 13px;
-    color: #555555;
+    padding: 0 10px;
+    font-size: 14px;
     cursor: pointer;
     outline: none;
 }
@@ -115,10 +118,9 @@ header {
 .search-input {
     flex: 1;
     border: none;
-    padding: 10px 12px;
+    padding: 0 5px;
     font-size: 15px;
     outline: none;
-    color: #111;
 }
 
 .search-submit-btn {
@@ -127,12 +129,11 @@ header {
     width: 45px;
     cursor: pointer;
     font-size: 16px;
-    color: var(--amazon-dark);
     transition: background 0.2s;
 }
 
 .search-submit-btn:hover {
-    background-color: var(--amazon-orange);
+    background-color: #f3a847;
 }
 
 /* ডান অংশ: ইউজার অ্যাকাউন্ট এবং কার্ট */
@@ -165,7 +166,7 @@ header {
     font-weight: bold;
 }
 
-/* কার্ট বক্স ডিজাইন (যা সরাসরি ক্লিক করলে checkout.html-এ যাবে) */
+/* কার্ট বক্স ডিজাইন */
 .nav-cart-box {
     display: flex;
     align-items: center;
@@ -200,56 +201,53 @@ header {
     margin-top: 8px;
 }
 
-
-/* --- ৩. সাব নেভিগেশন বার (Sub Navbar - Clean & Professional) --- */
+/* --- ৩. সাব নেভিগেশন বার (Sub Navbar - Horizontal Scroll) --- */
 .sub-navbar {
     display: flex;
     white-space: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
-    -ms-text-overflow: none; /*IE and Edge*/
-    scrollbar-width: none; /*Firefox*/
+    scrollbar-width: none; /* Firefox */
     background-color: var(--amazon-light);
     color: var(--white);
-    padding: 4px 0;
+    padding: 6px 0;
 }
-/*Chrome,Safari & Opera*/
-.sub-navbar::-webkit-scrollbar{display: none;}
+
+.sub-navbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari & Opera */
+}
 
 .sub-flex {
     display: flex;
     align-items: center;
 }
 
-/* মূল নেভিগেশন বার কন্টেইনার */
 .nav-links {
     display: flex;
     align-items: center;
     list-style: none;
-    gap: 15px; /* হোম এবং ক্যাটাগরিগুলোর মাঝের সুন্দর দূরত্ব */
+    gap: 15px;
     margin: 0;
     padding: 0;
 }
 
-/* 'Home' বাটন স্টাইল */
 .nav-links li {
-    color: white;
+    color: var(--white);
     font-size: 13px;
     font-weight: bold;
-    padding: 3px 5px;
+    padding: 3px 8px;
     cursor: pointer;
     transition: all 0.2s ease-in-out;
     border: 1px solid transparent;
-    border-radius: 20px; /* হোম বাটনকেও একই ফ্রেমে আনা হলো */
+    border-radius: 20px;
 }
 
 .nav-links li.active,
 .nav-links li:hover {
-    color: var(--white);
-    border-color: var(--amazon-gold); /* হোম বাটনে হোভার করলে বর্ডার আসবে */
+    border-color: var(--white);
 }
 
-/* 🎯 জাভাস্ক্রিপ্টের তৈরি বাটনগুলোর মেইন কন্টেইনার */
+/* জাভাস্ক্রিপ্টের তৈরি বাটনগুলোর মেইন কন্টেইনার */
 #categoryButtonContainer {
     display: flex;
     align-items: center;
@@ -257,108 +255,30 @@ header {
     margin: 0;
     padding: 0;
     flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
 }
 
-/* 🎯 জাভাস্ক্রিপ্টের বাটনগুলোর ফ্রেশ টেক্সট স্টাইল (২য় ফটোর হুবহু রূপ) */
 #categoryButtonContainer .nav-category-item {
     background: transparent;
-    background-color: transparent;
-    border: 1px solid transparent; /* আগে থেকেই ইনভিজিবল বর্ডার রাখা হলো যেন হোভার করলে টেক্সট কেঁপে না ওঠে */
+    border: 1px solid transparent;
     outline: none;
-    border-radius: 20px;           /* 🔴 ফিক্স: 'px' যুক্ত করে ২য় ফটোর মতো গোল ক্যাপসুল শেপ দেওয়া হলো */
-    box-shadow: none;
-    
-    /* টেক্সট ও প্যাডিং স্টাইল */
-    color: white;                /* অফ-হোয়াইট টেক্সট কালার */
+    border-radius: 20px;
+    color: var(--white);
     font-size: 13px;
     font-weight: bold;
-    font-family: inherit;
-    padding: 3px 5px;             /* ডানে-বামে সুন্দর চওড়া প্যাডিং */
+    padding: 3px 8px;
     cursor: pointer;
     transition: all 0.2s ease-in-out;
 }
 
-#categoryButtonContainer::-webkit-scrollbar{
-    display: none;
-}
-
-/* 🎯 ফিক্স: মাউস নিলে (Hover) বা সিলেক্টেড (Active) থাকলে ২য় ছবির মতো গোল্ডেন বর্ডার আসবে */
 #categoryButtonContainer .nav-category-item:hover,
 #categoryButtonContainer .nav-category-item.active {
-    color: var(--white);                    /* লেখা ফ্রেশ সাদা হবে */
-    border-color: var(--white);       /* 🔴 ২য় ফটোর সেই কাঙ্ক্ষিত অ্যামাজন গোল্ডেন বর্ডার */
-    background-color: transparent;
-    font-size: 14px;
+    border-color: var(--white);
     color: greenyellow;
 }
-
-
-
-/* =========================================================================
-   💎 /* --- ৪. গ্লোবাল ফুটার ডিজাইন (Global Footer) --- */
-   ========================================================================= */
-
-
-
-
-
-/* ==========================================================================
-   ৫. রেসপনসিভ মিডিয়া কোয়েরি (মোবাইল ও ট্যাবলেট লেআউট)
-   ========================================================================== */
-
-@media screen and (max-width: 768px) {
-    /* মোবাইলে সার্চ বক্স এবং নেভিগেশন রি-অ্যারেঞ্জ */
-    .main-nav {
-        flex-wrap: wrap;
-        padding: 10px;
-    }
-
-    .menu-toggle {
-        display: block; /* মোবাইলে হ্যামবার্গার মেনু শো করবে */
-    }
-
-    .nav-fill {
-        order: 3; /* সার্চ বক্সকে নিচে নামিয়ে ২য় লাইনে আনা হলো */
-        max-width: 100%;
-        width: 100%;
-        margin-top: 5px;
-    }
-
-    .nav-right {
-        gap: 15px;
-    }
-
-    .nav-user-account, .nav-lang {
-        display: none; /* স্ক্রিন ছোট হলে এগুলোকে হাইড করে প্রজেক্ট ক্লিন রাখা */
-    }
-    
-    .search-category {
-        display: none; /* মোবাইলে সার্চ ড্রপডাউন হাইড থাকবে জায়গা বাঁচানোর জন্য */
-    }
-
-    /* মোবাইল সাব-লিংকস স্ক্রোলযোগ্য করা */
-    .nav-links {
-        gap: 10px;
-        overflow-x: auto;
-        width: 100%;
-        white-space: nowrap;
-        padding-bottom: 2px;
-    }
-    
-    .nav-links::-webkit-scrollbar {
-        display: none; /* স্ক্রলবার হাইড রাখা */
-    }
-}
-
-
 
 /* ==========================================================================
    🛒 কার্ট ফ্লাই অ্যানিমেশন ও প্রিমিয়াম টোস্ট নোটিফিকেশন সিএসএস
    ========================================================================== */
-
-/* উড়ার সময়ে এলিমেন্টের স্টাইল */
 .flying-cart-asset {
     position: fixed;
     z-index: 9999;
@@ -371,7 +291,6 @@ header {
     justify-content: center;
 }
 
-/* ফ্লাইং অবজেক্টের ভেতরের ছবি বা ইমোজি সাইজ */
 .flying-cart-asset img {
     width: 60px;
     height: 60px;
@@ -399,16 +318,9 @@ header {
 /* ==========================================================================
    🎯 প্রোডাক্ট কার্ডের লাইভ নোটিফিকেশন সিএসএস (In-Card Notification)
    ========================================================================== */
-
-/* প্রোডাক্ট কার্ডের পজিশন রিলেটিভ রাখা যাতে মেসেজটি কার্ডের ভেতরেই বসে */
-.product-card {
-    position: relative;
-}
-
-/* কার্ডের ভেতরে নোটিফিকেশন টোস্ট */
 .card-toast {
     position: absolute;
-    bottom: 60px; /* বাটনের ঠিক সামান্য উপরে দেখানোর জন্য */
+    bottom: 60px;
     left: 5%;
     right: 5%;
     padding: 8px 12px;
@@ -422,22 +334,172 @@ header {
     opacity: 0;
     transform: translateY(10px);
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    pointer-events: none; /* যাতে ক্লিকে ডিস্টার্ব না করে */
+    pointer-events: none;
 }
 
-/* টোস্ট শো হওয়ার ক্লাস */
 .card-toast.show {
     opacity: 1;
     transform: translateY(0);
 }
 
-/* সাকসেস এবং ওয়ার্নিং কালার স্কিম */
 .card-toast.success {
-    background: rgba(46, 204, 113, 0.95); /* স্মুথ গ্রিন */
+    background: rgba(46, 204, 113, 0.95);
     border: 1px solid #2ecc71;
 }
 
 .card-toast.warning {
-    background: rgba(243, 156, 18, 0.95); /* স্মুথ অরেঞ্জ */
+    background: rgba(243, 156, 18, 0.95);
     border: 1px solid #f39c12;
 }
+
+/* ==========================================================================
+   ৪. রেসপনসিভ মিডিয়া কোয়েরি (মোবাইল ও ট্যাবলেট ফ্লেক্সবক্স লেআউট)
+   ========================================================================== */
+   
+/* =========================================================================
+   📟 ১. পোর্ট্রেট ট্যাবলেট ও বড় স্ক্রিনের মোবাইল ভিউ (সর্বোচ্চ ৭৬৮px)
+   ========================================================================= */
+@media screen and (max-width: 768px) {
+    /* মেইন হেডার কন্টেইনার স্লিম ও টাইট করা হলো */
+    .container.main-nav {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 12px; /* উপরে-নিচের অতিরিক্ত গ্যাপ এক ধাক্কায় গায়েব */
+        min-height: auto;
+    }
+
+    /* লোগো থাকবে উপরে বামে */
+    .logo-box {
+        order: 1;
+        margin: 0;
+        line-height: 1.2;
+    }
+
+    /* ডানপাশের কন্টেইনার (অ্যাকাউন্ট এবং কার্ট থাকবে পাশাপাশি উপরে ডানে) */
+    .nav-right {
+        order: 2;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin: 0;
+    }
+
+    /* অ্যাকাউন্ট সেকশন */
+    .nav-user-account {
+        display: flex;
+        align-items: center;
+    }
+
+    /* মোবাইলে শুধু 'Sign in' লেখাটি থাকবে */
+    .nav-line-1 {
+        display: inline-block;
+        font-size: 12px;
+        color: #ffffff;
+        font-weight: 500;
+    }
+
+    /* নিচের 'Account' লেখাটি বড় হওয়ায় মোবাইলে হাইড থাকবে */
+    .nav-line-2 {
+        display: none;
+    }
+
+    /* কার্ট বক্স */
+    .nav-cart-box {
+        display: flex;
+        align-items: center;
+    }
+
+    /* কার্টের পাশের 'Bag' বা এক্সট্রা টেক্সট হাইড থাকবে */
+    .nav-cart-box span[class^="cart-text"] {
+        display: none;
+    }
+
+    /* সার্চ বক্স পুরো ১০০% উইডথ নিয়ে লোগো ও কার্টের নিচে নেমে যাবে */
+    .search-box-container {
+        order: 3;
+        width: 100%;
+        margin-top: 6px; /* লোগো থেকে সার্চ বারের নিখুঁত দূরত্ব */
+        margin-bottom: 4px;
+    }
+
+    /* সাব-ন্যাভবার বা ক্যাটাগরি মেনু নিচে না ভেঙে ডানে স্ক্রল হবে */
+    .nav-id, .sub-navbar { 
+        display: flex;
+        overflow-x: auto;
+        white-space: nowrap;
+        gap: 12px;
+        padding: 8px 10px;
+    }
+}
+
+/* =========================================================================
+   📱 ২. স্ট্যান্ডার্ড スマートフォン ভিউ (সর্বোচ্চ ৫৪০px)
+   ========================================================================= */
+@media screen and (max-width: 540px) {
+    /* কন্টেইনারের প্যাডিং সামান্য সংকুচিত করা হলো */
+    .container.main-nav {
+        padding: 5px 10px;
+    }
+
+    /* সার্চ বারের ভেতরের ইনপুট ও ক্যাটাগরি সিলেক্ট বক্স ছোট করা */
+    .search-category {
+        max-width: 75px;
+        font-size: 11px;
+        padding: 0 4px;
+    }
+
+    .search-input {
+        font-size: 12px;
+        padding: 0 8px;
+    }
+
+    /* সার্চ আইকন বাটন মোবাইলের জন্য পারফেক্ট করা */
+    .search-icon {
+        width: 40px;
+        font-size: 13px;
+    }
+
+    /* ক্যাটাগরি মেনুর ফন্ট সাইজ আরেকটু ছোট করা যাতে মোবাইলে দেখতে সুন্দর লাগে */
+    .nav-id a, .sub-navbar a {
+        font-size: 12px;
+        padding: 4px 6px;
+    }
+}
+
+/* =========================================================================
+   🔋 ৩. আল্ট্রা-স্মল স্মার্টফোন ভিউ (সর্বোচ্চ ৩৬০px - যেমন ছোট বা পুরানো ফোন)
+   ========================================================================= */
+@media screen and (max-width: 360px) {
+    .container.main-nav {
+        padding: 4px 8px;
+    }
+
+    /* অতি ছোট স্ক্রিনে লোগোর সাইজ ফিক্সড করা যাতে কার্টের গায়ে ধাক্কা না লাগে */
+    .logo-box {
+        font-size: 16px;
+    }
+
+    /* সাইন ইন এবং কার্টের মাঝখানের গ্যাপ কমানো */
+    .nav-right {
+        gap: 10px;
+    }
+
+    .nav-line-1 {
+        font-size: 11px;
+    }
+
+    /* কার্ট আইকনের সাইজ সামান্য ছোট করা */
+    .nav-cart-box i {
+        font-size: 18px;
+    }
+
+    /* সার্চ ক্যাটাগরি ড্রপডাউনটি অতি ছোট স্ক্রিনে জায়গা বাঁচাতে আরও ছোট করা */
+    .search-category {
+        max-width: 60px;
+        font-size: 10px;
+    }
+}
+
+
