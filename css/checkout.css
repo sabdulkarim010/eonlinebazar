@@ -1,4 +1,5 @@
 /* =========================================================================
+File Name: css/checkout.css
    🌐 ১. গ্লোবাল লেআউট ও নিখুঁত সেন্টারিং (Global Centering Wrapper)
    ========================================================================= */
 .checkout-page-global-wrapper {
@@ -570,3 +571,200 @@
     from { transform: translateY(30px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
 }
+
+
+/* =========================================================================
+   📟 ১. পোর্ট্রেট ট্যাবলেট ও বড় স্ক্রিনের মোবাইল ভিউ (সর্বোচ্চ ৭৬৮px)
+   ========================================================================= */
+@media screen and (max-width: 768px) {
+    .checkout-page-global-wrapper {
+        margin: 20px auto;
+        padding: 0 12px;
+    }
+
+    .checkout-main-white-box {
+        padding: 20px 15px;
+    }
+
+    /* চেকআউট কাস্টম হেডার কন্টেইনার */
+    .checkout-header-container {
+        padding: 0 15px;
+    }
+
+    /* 📦 প্রোডাক্ট রো কার্ড মোবাইল ফ্রেন্ডলি ফ্লেক্স লেআউট */
+    .checkout-item-row-card {
+        flex-direction: column; /* নিচে নিচে সাজানো */
+        align-items: stretch;
+        padding: 14px 0;
+        gap: 12px;
+        position: relative; /* ডিলিট বাটন পজিশন করার জন্য */
+    }
+
+    /* প্রোডাক্ট ইনফো ফুল উইডথ */
+    .cart-item-details-info {
+        width: 100%;
+        padding-right: 35px; /* ডিলিট বাটনের জন্য ডানপাশে সেফ স্পেস */
+    }
+
+    /* কোয়ান্টিটি এবং টোটাল প্রাইস এক লাইনে দুই প্রান্তে ছড়ানো থাকবে */
+    .checkout-item-row-card-bottom-group {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        margin-top: 5px;
+    }
+
+    /* আগের রাইট এলাইনমেন্ট ফিক্স */
+    .cart-item-total-price-block {
+        text-align: right;
+        min-width: auto;
+    }
+
+    /* ট্র্যাশ বাটন ডানপাশে সুন্দরভাবে ফিক্সড */
+    .checkout-row-delete-btn-main {
+        position: absolute;
+        top: 12px;
+        right: 0;
+        padding: 6px;
+    }
+}
+
+/* =========================================================================
+   📱 ২. স্ট্যান্ডার্ড স্মার্টফোন ভিউ (সর্বোচ্চ ৫৪০px)
+   ========================================================================= */
+@media screen and (max-width: 540px) {
+    /* 🏆 চেকআউট হেডার এক লাইনে স্লিম করার ম্যাজিক */
+    .checkout-header-container {
+        display: flex;
+        flex-direction: row; /* নিচে নিচে নামবে না, এক লাইনে থাকবে */
+        justify-content: space-between;
+        align-items: center;
+        gap: 0;
+    }
+
+    /* ১. ব্যাক অ্যাকশন লিংক */
+    .back-to-cart-link {
+        font-size: 13px;
+    }
+
+    /* ২. প্রোগ্রেস বার: মোবাইলে সিকিউর লেখা লুকিয়ে শুধু লক আইকন ও স্টেপ থাকবে */
+    .header-middle-progress {
+        gap: 4px;
+    }
+
+    .secure-badge {
+        font-size: 12px;
+    }
+
+    .secure-badge span {
+        display: none; /* 'SECURE' লেখাটি হাইড করে শুধু আইকন রাখবে */
+    }
+
+    .step-indicator {
+        font-size: 11px;
+        background: #f1f5f9;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+
+    /* ৩. ব্র্যান্ড লোগো টেক্সট সাইজ */
+    .brand-logo-text {
+        font-size: 15px;
+    }
+
+    /* ৪. ফর্ম ও ইনপুট মোবাইল অপ্টিমাইজেশন */
+    .form-group-field input,
+    .form-group-field textarea {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    /* অর্ডার সামারি টেক্সট সাইজ */
+    .summary-row {
+        font-size: 13px;
+    }
+
+    .grand-total-row {
+        font-size: 15px;
+    }
+
+    .grand-total-row strong {
+        font-size: 18px;
+    }
+
+    /* পেমেন্ট গেটওয়ে বাটন ফুল উইডথ */
+    .checkout-action-area {
+        width: 100%;
+    }
+
+    .payment-gateway-next-btn {
+        width: 100%; /* বাটনটি পুরো চওড়া হবে যাতে সহজে ক্লিক করা যায় */
+        justify-content: center;
+        padding: 12px;
+        font-size: 15px;
+    }
+
+    /* ৫. কাস্টম মোডাল পপ-আপ রেসপনসিভনেস */
+    .custom-alert-modal-card {
+        padding: 24px 16px;
+        width: 95%;
+    }
+
+    .custom-alert-modal-icon {
+        font-size: 54px;
+    }
+
+    .custom-alert-modal-title {
+        font-size: 19px;
+    }
+
+    .custom-alert-modal-message {
+        font-size: 13px;
+        margin-bottom: 20px;
+    }
+}
+
+/* =========================================================================
+   🔋 ৩. আল্ট্রা-স্মল স্মার্টফোন ভিউ (সর্বোচ্চ ৩৬০px - ছোট স্ক্রিনের জন্য)
+   ========================================================================= */
+@media screen and (max-width: 360px) {
+    .checkout-header-container {
+        padding: 0 8px;
+    }
+
+    .back-to-cart-link {
+        font-size: 12px;
+        gap: 4px;
+    }
+
+    .brand-logo-text {
+        font-size: 13px;
+    }
+
+    /* ইমেজের ফ্রেম সাইজ সামান্য ছোট করা */
+    .cart-media-frame-box {
+        width: 50px;
+        height: 50px;
+    }
+
+    /* অতিরিক্ত বড় প্রোডাক্টের নাম ডট ডট (...) করার জন্য ফিক্স */
+    .cart-item-name-text {
+        font-size: 13px;
+        max-width: 160px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* কোয়ান্টিটি বাটন সাইজ কম্প্যাক্ট করা */
+    .qty-btn {
+        padding: 4px 10px;
+    }
+
+    .qty-display-text {
+        font-size: 13px;
+        padding: 0 6px;
+    }
+}
+
