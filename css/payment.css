@@ -134,6 +134,9 @@ body {
     color: #1e293b;
     margin: 5px 0 2px 0;
 }
+.payment-section-title h2 i{
+    margin-right: 8px;
+}
 
 .payment-section-title p {
     font-size: 14px;
@@ -664,6 +667,5 @@ body {
         display: inline;
     }
 }
-
 
 
