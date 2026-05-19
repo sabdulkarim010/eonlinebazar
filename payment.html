@@ -8,23 +8,34 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/cart.css">
     <link rel="stylesheet" href="css/payment.css">
+    <link rel="stylesheet" href="css/footer.css">
 </head>
 <body>
 
     <div class="payment-page-global-wrapper">
         
-        <div class="payment-premium-header">
-            <a href="checkout.html" class="payment-back-link">
-                <i class="fa-solid fa-chevron-left"></i> Back to Shipping
-            </a>
+        <header class="payment-premium-header">
+            <div class="payment-header-left">
+                <a href="checkout.html" class="payment-back-link">
+                    <i class="fa-solid fa-chevron-left"></i> 
+                    <span class="pay-back-desktop">Back to Shipping</span>
+                    <span class="pay-back-mobile">Back</span>
+                </a>
+            </div>
+            
             <div class="payment-header-center">
                 <span class="secure-payment-badge">
-                    <i class="fa-solid fa-shield-halved"></i> SECURE ENCRYPTION
+                    <i class="fa-solid fa-shield-halved"></i> 
+                    <span class="secure-pay-desktop">SECURE ENCRYPTION</span>
+                    <span class="secure-pay-mobile">SECURE</span>
                 </span>
                 <span class="payment-step-indicator">Step 3 of 3</span>
             </div>
-            <div class="payment-header-right-empty"></div>
-        </div>
+            
+            <div class="payment-header-right-brand">
+                <span class="brand-logo-text">EonlineBazar</span>
+            </div>
+        </header>
 
         <div class="payment-main-layout-container">
             
@@ -147,14 +158,14 @@
             <div class="modal-success-icon-badge">
                 <i class="fa-solid fa-circle-check"></i>
             </div>
-            <h2>Alhamdulillah!</h2>
+            <h2>Congratulation!</h2>
             <h3>Your Order Has Been Placed Successfully!</h3>
             
             <div class="modal-order-id-badge">
                 Order ID: <strong id="modalOrderId">#100000</strong>
             </div>
 
-            <p id="modalGatewayMessage">Thank you for shopping with eOnlineBazar.</p>
+            <p id="modalGatewayMessage">Thank you for shopping with EonlineBazar.</p>
             
             <div class="modal-order-status-info">
                 <i class="fa-solid fa-clock"></i> Our verification team will review your order shortly.
@@ -165,6 +176,10 @@
             </button>
         </div>
     </div>
+
+        <!-- footer calling -->
+        <div id="global-site-footer"></div>
+    <script src="js/main.js"></script>
 
     <script src="js/payment.js"></script>
 </body>
