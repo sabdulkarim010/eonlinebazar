@@ -1,11 +1,28 @@
+/* 
+* 
+=========================================================================
+*  File Name: css/payment.css
+ 🌐 1. GLOBAL LAYOUT & RESET SYSTEM
+========================================================================= */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+}
+
+body {
+    background-color: #f8fafc;
+    color: #1e293b;
+    min-height: 100vh;
+}
 /* =========================================================================
    🌐 ১. গ্লোবাল লেআউট ও নিখুঁত সেন্টারিং (Global Centering Wrapper)
    ========================================================================= */
 .payment-page-global-wrapper {
     max-width: 1000px;      /* দুই কলাম লেআউটের জন্য একটু চওড়া স্ট্যান্ডার্ড উইডথ */
-    margin: 40px auto;       /* উপর-নিচে সুন্দর গ্যাপ এবং ডানে-বামে অটোমেটিক সেন্টার */
-    padding: 0 20px;         /* স্ক্রিন ছোট হলে দুই পাশে হালকা প্যাডিং থাকবে */
-    box-sizing: border-box;
+    margin: 0 auto;       /* উপর-নিচে সুন্দর গ্যাপ এবং ডানে-বামে অটোমেটিক সেন্টার */
+    padding: 0;         /* স্ক্রিন ছোট হলে দুই পাশে হালকা প্যাডিং থাকবে */
 }
 
 /* =========================================================================
@@ -15,9 +32,15 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 5px;
+    padding: 15px 0px;
     margin-bottom: 25px;
     border-bottom: 1px solid #e2e8f0;
+    background: white;
+    width: 100%;
+}
+
+.pay-back-mobile{
+    display: none;
 }
 
 .payment-back-link {
@@ -55,6 +78,10 @@
     gap: 6px;
 }
 
+.secure-pay-mobile{
+    display: none;
+}
+
 .payment-step-indicator {
     font-size: 13px;
     color: #64748b;
@@ -63,6 +90,12 @@
 
 .payment-header-right-empty {
     width: 110px; /* লেআউট ব্যালেন্স রাখার জন্য */
+}
+.brand-logo-text{
+    color: #16a34a;
+    font-weight: 700;
+    font-family: 'Poppins', sans-serif;
+    font-size: 18px;
 }
 
 /* =========================================================================
@@ -363,32 +396,9 @@
     transform: scale(0.99); /* ক্লিক করলে হালকা দেবে যাবে */
 }
 
-/* =========================================================================
-   📱 ৮. মোবাইল ও ট্যাবলেট রেসপনসিভনেস (Mobile Optimization)
-   ========================================================================= */
-@media (max-width: 850px) {
-    .payment-page-global-wrapper {
-        margin: 15px auto;
-        padding: 0 10px;
-    }
-
-    .payment-main-layout-container {
-        grid-template-columns: 1fr; /* মোবাইল স্ক্রিনে দুই কলাম ভেঙে এক কলাম হয়ে যাবে */
-        gap: 20px;
-    }
-
-    .payment-methods-left-column,
-    .sticky-summary-card-box {
-        padding: 20px 15px;
-    }
-
-    .payment-step-indicator {
-        display: none; /* ছোট স্ক্রিনে জায়গা বাঁচানো */
-    }
-}
 
 /* =========================================================================
-   🏆 ৯. প্রিমিয়াম সাকসেস মোডাল পপ-আপ (Fixed Layering)
+   🏆৮. প্রিমিয়াম সাকসেস মোডাল পপ-আপ (Fixed Layering)
    ========================================================================= */
 .custom-premium-modal-overlay {
     position: fixed;
@@ -507,3 +517,153 @@
 .modal-home-redirect-btn:hover {
     background-color: #059669;
 }
+
+/* =========================================================================
+   📱 ৯. মোবাইল ও ট্যাবলেট রেসপনসিভনেস (Mobile Optimization)
+   ========================================================================= */
+@media (max-width: 850px) {
+    .payment-page-global-wrapper {
+        margin: 0 ;
+        padding: 0;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .payment-main-layout-container {
+        grid-template-columns: 1fr; /* মোবাইল স্ক্রিনে দুই কলাম ভেঙে এক কলাম হয়ে যাবে */
+        gap: 20px;
+    }
+
+    .payment-methods-left-column,
+    .sticky-summary-card-box {
+        padding: 20px 15px;
+    }
+
+}
+/* =========================================================================
+   🖥️ ডিফল্ট সিএসএস (৫৪০px এর চেয়ে বড় সব স্ক্রিন: ল্যাপটপ, ট্যাবলেট, ডেস্কটপ)
+   ========================================================================= */
+/* বড় স্ক্রিনে মোবাইলের ছোট লেখাগুলো হাইড থাকবে */
+.pay-back-mobile, .secure-pay-mobile {
+    display: none;
+}
+
+
+/* =========================================================================
+   📟 ১. পোর্ট্রেট ট্যাবলেট ও বড় স্ক্রিনের মোবাইল ভিউ (সর্বোচ্চ ৭৬৮px)
+   ➔ কার্ট পেজের ৭৬৮px এর সাথে মিলিয়ে প্যাডিং ও লোগো সাইজ ফিক্স
+   ========================================================================= */
+@media screen and (max-width: 768px) {
+    /* কার্ট পেজের মতো হেডার কন্টেইনার স্লিম ও কম্প্যাক্ট করা হলো */
+    .payment-premium-header {
+        padding: 10px 16px;
+    }
+
+    /* লোগোর ফন্ট সাইজ কার্ট পেজের লোগোর মতো ১৫px করা হলো */
+    .brand-logo-text {
+        font-size: 15px;
+    }
+}
+
+
+/* =========================================================================
+   📱 ২. ['*. স্ট্যান্ডার্ড স্মার্টফোন ভিউ (সর্বোচ্চ ৫৪০px)
+   ➔ কার্ট পেজের ৫৪০px এর হুবহু ফন্ট সাইজ, প্যাডিং ও ডিসপ্লে লজিক
+   ========================================================================= */
+@media screen and (max-width: 540px) {
+    /* হেডারের ৩টি অংশকে ভেঙে সুন্দরভাবে এক লাইনে স্লিম করার টেকনিক */
+    .payment-premium-header {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px; /* কার্ট পেজের সেম প্যাডিং */
+        margin-top: 0;
+    }
+
+    /* ১. ব্যাক অ্যাকশন: কার্ট পেজের মতো ফন্ট সাইজ ১৫px */
+    .payment-back-link {
+        font-size: 15px;
+    }
+
+    /* ২. সেন্টার স্ট্যাটাস এবং টেক্সট সোয়াপিং */
+    .payment-header-center {
+        gap: 3px;
+    }
+    
+    .secure-payment-badge {
+        font-size: 13px; /* কার্ট পেজের ব্যাজের সমান সাইজ */
+    }
+
+    /* ডেক্সটপের বড় লেখা হাইড এবং মোবাইলের লেখা চালু */
+    .secure-pay-desktop {
+        display: none;
+    }
+    .secure-pay-mobile {
+        display: inline;
+    }
+
+    /* ৩. স্টেপ ইন্ডিকেটর: কার্ট পেজের স্টাইলের সাথে মিল রেখে */
+    .payment-step-indicator {
+        font-size: 13px;
+        background: #f1f5f9;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+
+    /* ৪. ব্র্যান্ড লোগো: ডান কোণায় সুন্দরভাবে ১৫px সাইজে থাকবে */
+    .brand-logo-text {
+        width: auto;
+        font-size: 15px;
+    }
+        .pay-back-desktop, .secure-pay-desktop {
+        display: none;
+    }
+    .pay-back-mobile, .secure-pay-mobile {
+        display: inline;
+    }
+}
+
+
+/* =========================================================================
+   🔋 ৩. আল্ট্রা-স্মল স্মার্টফোন ভিউ (সর্বোচ্চ ৩৬০px - ছোট ফোন)
+   ➔ কার্ট পেজের ৩৬০px এর হুবহু ব্যালেন্স ও স্লিম সাইজ
+   ========================================================================= */
+@media screen and (max-width: 360px) {
+    /* কার্ট পেজের মতো প্যাডিং আরও টাইট করা হলো */
+    .payment-premium-header {
+        padding: 6px 8px;
+    }
+    
+    /* ব্যাক লিংকের ফন্ট সাইজ সামান্য ছোট */
+    .payment-back-link {
+        font-size: 14px;
+    }
+
+    /* ডান পাশের ব্র্যান্ড লোগো ১৪px করা হলো */
+    .brand-logo-text {
+        width: auto;
+        font-size: 14px;
+    }
+
+    /* মাঝখানের সিকিউরিটি ব্যাজ ১১px এবং স্টেপ ১২px করা হলো */
+    .secure-payment-badge {
+        font-size: 11px;
+    }
+    
+    .payment-step-indicator {
+        font-size: 12px;
+    }
+
+    /* ডেক্সটপ ও মোবাইলের লেখা অদলবদল নিশ্চিত করা */
+    .pay-back-desktop, .secure-pay-desktop {
+        display: none;
+    }
+    .pay-back-mobile, .secure-pay-mobile {
+        display: inline;
+    }
+}
+
+
+
