@@ -366,8 +366,9 @@ header {
         flex-wrap: wrap;
         justify-content: space-between;
         align-items: center;
-        padding: 6px 12px; /* উপরে-নিচের অতিরিক্ত গ্যাপ এক ধাক্কায় গায়েব */
+        padding: 1px 12px; /* উপরে-নিচের অতিরিক্ত গ্যাপ এক ধাক্কায় গায়েব */
         min-height: auto;
+        gap: 2px;
     }
 
     /* লোগো থাকবে উপরে বামে */
@@ -375,6 +376,7 @@ header {
         order: 1;
         margin: 0;
         line-height: 1.2;
+        font-size: 30px;
     }
 
     /* ডানপাশের কন্টেইনার (অ্যাকাউন্ট এবং কার্ট থাকবে পাশাপাশি উপরে ডানে) */
@@ -382,7 +384,7 @@ header {
         order: 2;
         display: flex;
         align-items: center;
-        gap: 15px;
+        gap: 30px;
         margin: 0;
     }
 
@@ -420,8 +422,8 @@ header {
     .search-box-container {
         order: 3;
         width: 100%;
-        margin-top: 6px; /* লোগো থেকে সার্চ বারের নিখুঁত দূরত্ব */
-        margin-bottom: 4px;
+        margin-top: 4px; /* লোগো থেকে সার্চ বারের নিখুঁত দূরত্ব */
+        margin-bottom: 3px;
     }
 
     /* সাব-ন্যাভবার বা ক্যাটাগরি মেনু নিচে না ভেঙে ডানে স্ক্রল হবে */
@@ -429,77 +431,81 @@ header {
         display: flex;
         overflow-x: auto;
         white-space: nowrap;
-        gap: 12px;
+        gap: 5px;
         padding: 8px 10px;
     }
 }
 
 /* =========================================================================
-   📱 ২. স্ট্যান্ডার্ড スマートフォン ভিউ (সর্বোচ্চ ৫৪০px)
+   📱 ২. স্ট্যান্ডার্ড স্মার্টফোন ভিউ (সর্বোচ্চ ৫৪০px)
    ========================================================================= */
 @media screen and (max-width: 540px) {
-    /* কন্টেইনারের প্যাডিং সামান্য সংকুচিত করা হলো */
-    .container.main-nav {
-        padding: 5px 10px;
+    /* পুরো সার্চ কন্টেইনারের ভেতরের ফ্লেক্স বিন্যাস */
+    .search-box-container {
+        display: flex;
+        width: 100%;
+        padding: 0;
+        margin: 0;
     }
-
-    /* সার্চ বারের ভেতরের ইনপুট ও ক্যাটাগরি সিলেক্ট বক্স ছোট করা */
+    .container.main-nav{
+        padding:0;
+        gap: 0;
+    }
+    /* ➔ ক্যাটাগরি বক্সের জন্য ফিক্স: এটিকে সংকুচিত হতে দেওয়া যাবে না */
     .search-category {
-        max-width: 75px;
-        font-size: 11px;
-        padding: 0 4px;
+        flex: 0 0 105px; /* ফ্লেক্সের প্রথম '0 0' মানে এটি কোনো অবস্থাতেই চাপ খাবে না এবং ফিক্সড ১০৫px চওড়া হবে */
+        font-size: 11.5px;
+        padding: 0;
+        border-right: 1px solid #cbd5e1; /* মাঝখানে সুন্দর বিভাজক বর্ডার */
+        box-sizing: border-box;
     }
 
+    /* ➔ মেইন ফিক্স: সার্চ ইনপুট বক্সটিকে ছোট ও ব্যালেন্সড করা হলো */
     .search-input {
+        flex: 1; /* স্ক্রিনের বাকি যতটুকু জায়গা খালি থাকবে শুধু ততটুকুই ইনপুট বক্স নেবে, জোর করে ক্যাটাগরিকে চাপবে না */
+        min-width: 0; /* ফ্লেক্স বক্সের ডিফল্ট বড় হওয়ার প্রবণতা বন্ধ করবে */
         font-size: 12px;
         padding: 0 8px;
     }
 
-    /* সার্চ আইকন বাটন মোবাইলের জন্য পারফেক্ট করা */
+    /* সার্চ আইকন বাটন মোবাইলের জন্য ফিক্সড */
     .search-icon {
-        width: 40px;
+        flex: 0 0 40px; /* সার্চ আইকন বাটনটি ফিক্সড ৪০px থাকবে */
         font-size: 13px;
+        align-self: stretch;
+        border: none;
+
     }
 
-    /* ক্যাটাগরি মেনুর ফন্ট সাইজ আরেকটু ছোট করা যাতে মোবাইলে দেখতে সুন্দর লাগে */
-    .nav-id a, .sub-navbar a {
-        font-size: 12px;
-        padding: 4px 6px;
+    .logo-box{
+        font-size: 30px;
     }
 }
 
 /* =========================================================================
-   🔋 ৩. আল্ট্রা-স্মল স্মার্টফোন ভিউ (সর্বোচ্চ ৩৬০px - যেমন ছোট বা পুরানো ফোন)
+   🔋 ৩. আল্ট্রা-স্মল স্মার্টফোন ভিউ (সর্বোচ্চ ৩৬০px - ছোট স্ক্রিনের জন্য)
    ========================================================================= */
 @media screen and (max-width: 360px) {
-    .container.main-nav {
-        padding: 4px 8px;
-    }
-
-    /* অতি ছোট স্ক্রিনে লোগোর সাইজ ফিক্সড করা যাতে কার্টের গায়ে ধাক্কা না লাগে */
-    .logo-box {
-        font-size: 16px;
-    }
-
-    /* সাইন ইন এবং কার্টের মাঝখানের গ্যাপ কমানো */
-    .nav-right {
-        gap: 10px;
-    }
-
-    .nav-line-1 {
-        font-size: 11px;
-    }
-
-    /* কার্ট আইকনের সাইজ সামান্য ছোট করা */
-    .nav-cart-box i {
-        font-size: 18px;
-    }
-
-    /* সার্চ ক্যাটাগরি ড্রপডাউনটি অতি ছোট স্ক্রিনে জায়গা বাঁচাতে আরও ছোট করা */
+    /* অতি ছোট স্ক্রিনে আরও একটু কম্প্যাক্ট করা হলো */
     .search-category {
-        max-width: 60px;
-        font-size: 10px;
+        flex: 0 0 95px; /* ৩৬০px স্ক্রিনের জন্য পারফেক্ট ৯৫px */
+        font-size: 11px;
+        padding: 5 4px;
     }
+
+    .search-input {
+        flex: 1;
+        font-size: 11.5px;
+        padding: 0 6px;
+    }
+
+    .search-icon {
+        flex: 0 0 36px; /* বাটন সামান্য ছোট করা হলো */
+        font-size: 12px;
+    }
+
+    .logo-box{
+        font-size: 25px;
+    }
+
 }
-
-
