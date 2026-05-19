@@ -40,6 +40,10 @@ File Name: css/checkout.css
     align-items: center;
     gap: 6px;
     transition: color 0.2s;
+    font: bold;
+}
+.back-to-cart-mobile{
+    display: none;
 }
 
 .checkout-back-link:hover {
@@ -691,6 +695,14 @@ File Name: css/checkout.css
     .back-to-cart-link {
         font-size: 12px;
         gap: 4px;
+    }
+
+    .back-to-cart-desktop{
+        display: none;
+    }
+
+    .back-to-cart-mobile{
+        display: inline;
     }
 
     .brand-logo-text {
