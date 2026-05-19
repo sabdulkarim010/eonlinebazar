@@ -67,6 +67,10 @@ File Name: css/checkout.css
     gap: 5px;
 }
 
+.secure2-mobile{
+    display: none;
+}
+
 .checkout-step-indicator {
     font-size: 13px;
     color: #64748b;
@@ -357,58 +361,6 @@ File Name: css/checkout.css
     transform: translateX(4px); /* তীরটি ডান দিকে একটু নড়বে */
 }
 
-/* =========================================================================
-   📱 ৭. মোবাইল ও ট্যাবলেট রেসপনসিভনেস (Mobile Optimization)
-   ========================================================================= */
-@media (max-width: 650px) {
-    .checkout-page-global-wrapper {
-        margin: 15px auto;
-        padding: 0 10px;
-    }
-
-    .checkout-main-white-box {
-        padding: 15px;
-    }
-
-    .checkout-premium-header {
-        padding: 10px 0;
-    }
-
-    .checkout-step-indicator {
-        display: none; /* ছোট স্ক্রিনে জায়গা বাঁচাতে হাইড */
-    }
-
-    .checkout-item-row-card {
-        flex-wrap: wrap;
-        position: relative;
-        padding-bottom: 20px;
-    }
-
-    .cart-item-details-info {
-        min-width: 150px;
-    }
-
-    .cart-item-total-price-block {
-        text-align: left;
-        width: 50%;
-        margin-top: 5px;
-    }
-
-    .quantity-controller-block {
-        margin-top: 5px;
-    }
-
-    .checkout-row-delete-btn-main {
-        position: absolute;
-        top: 10px;
-        right: 0;
-    }
-    
-    .payment-gateway-next-btn {
-        width: 100%; /* মোবাইলে বাটনটি ফুল স্ক্রিন চওড়া হবে */
-        justify-content: center;
-    }
-}
 
 /* =========================================================================
    8. eOnlineBazar - Professional Checkout Header Styling
@@ -657,8 +609,11 @@ File Name: css/checkout.css
         font-size: 12px;
     }
 
-    .secure-badge span {
-        display: none; /* 'SECURE' লেখাটি হাইড করে শুধু আইকন রাখবে */
+    .secure2-desktop{
+        display: none;
+    }
+    .secure2-mobile{
+        display: inline;
     }
 
     .step-indicator {
