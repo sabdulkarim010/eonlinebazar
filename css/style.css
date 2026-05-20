@@ -142,6 +142,7 @@ header {
     align-items: center;
     gap: 20px;
     color: var(--white);
+    padding-right: 10px;
 }
 
 .nav-lang {
@@ -509,3 +510,5 @@ header {
     }
 
 }
+
+
