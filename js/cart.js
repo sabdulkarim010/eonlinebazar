@@ -3,11 +3,24 @@
  * Author: Abdul Karim Sheikh
  * File: js/cart.js
  * Description: Fully English Version. Complete Shopping Cart Logic with 
- * Serial Numbers, Product Images, Quantity Controls, and Item Selection Checkmarks.
+ * Serial Numbers, Product Images (Strict Size Control), Quantity Controls, 
+ * Item Selection Checkmarks, and LIFETIME LATEST-ITEM-ON-TOP Ordering.
  */
 
 // ১. পেজ লোড বা স্টোরেজ থেকে কার্ট ডাটা রিড করা
 let cart = JSON.parse(localStorage.getItem('cart')) || [];
+
+// ==========================================================================
+// 🚀 গ্লোবাল ক্যাটালগ সিঙ্ক: product.json থেকে রিয়েল ইমোজি ডাটা ব্যাকগ্রাউন্ডে লোড করা
+// ==========================================================================
+let globalProductCatalog = [];
+fetch('product.json')
+    .then(response => response.json())
+    .then(data => {
+        globalProductCatalog = data;
+        renderCartDrawerItems(); // ডাটা লোড হওয়ার সাথে সাথে রিয়েল ইমোজি সহ কার্ট রি-রেন্ডার হবে
+    })
+    .catch(error => console.error("Error loading product.json:", error));
 
 // --- ২. টগল সাইড কার্ট ড্রয়ার (ওপেন/ক্লোজ) ---
 window.toggleCartDrawer = function() {
@@ -36,7 +49,7 @@ function updateCartCount() {
 }
 
 // ==========================================================================
-// --- ৪. রেন্ডার কার্ট আইটেমস (ড্রয়ার এবং cart.html মেইন পেজ উভয়ের জন্য সম্পূর্ণ ফিক্সড সেকশন) ---
+// --- ৪. রেন্ডার কার্ট আইটেমস (সাইজ কন্ট্রোল এবং রিভার্সড অর্ডার ফিক্সড) ---
 // ==========================================================================
 function renderCartDrawerItems() {
     const drawerContainer = document.getElementById('cartDrawerItems');
@@ -72,28 +85,32 @@ function renderCartDrawerItems() {
     // 🎯 ৩. কার্টের আইটেমগুলো লুপের সাহায্যে স্ক্রিনে রেন্ডার করা
     currentCart.forEach((item, index) => {
         
-        // 🌟 ইমোজি বনাম ইমেজ নিখুঁত হ্যান্ডেল লজিক (আপনার product.json এবং ফোল্ডার পাথ ফিক্স)
+        // জেসন ম্যাচিং ট্রিক: কার্টের আইটেমের সাথে product.json মিলিয়ে রিয়েল ইমোজি বা আইকন বের করা
+        let realProduct = globalProductCatalog.find(p => String(p.id) === String(item.id));
+        let correctEmoji = (realProduct && realProduct.icon) ? realProduct.icon : (item.icon || "📦");
+
         let mediaHTML = `📦`;
         let imageFile = item.products || item.image || item.icon;
 
-        // ডেটা যদি কোনো বৈধ ছবির ফাইল ফরম্যাট নির্দেশ করে (.jpg, .png, etc.)
+        // ডেটা যদি কোনো ছবির ফাইল ফরম্যাট নির্দেশ করে (.jpg, .png, etc.)
         if (imageFile && typeof imageFile === 'string' && (imageFile.endsWith('.jpg') || imageFile.endsWith('.png') || imageFile.endsWith('.jpeg') || imageFile.endsWith('.webp'))) {
             
-            // রুট পাথ ফিক্সিং: যদি ডেটাতে আগে থেকেই products/ বা images/ যুক্ত না থাকে
             let imagePath = "";
             if (imageFile.startsWith('products/') || imageFile.startsWith('images/')) {
                 imagePath = imageFile;
             } else {
-                imagePath = 'products/' + imageFile; // আপনার প্রজেক্টের রুট ফোল্ডার 'products/' অনুযায়ী
+                imagePath = 'products/' + imageFile; 
             }
             
-            // ইমেজ ট্যাগ জেনারেট (ভুল পাথ রিডাইরেকশন বা ফেভিকন লিংক সম্পূর্ণ বাদ)
-            mediaHTML = `<img src="${imagePath}" alt="${item.name}">`;
+            // 🎯 ইমেজ সাইজ লক লজিক: inline-style দিয়ে ছবির সর্বোচ্চ সাইজ সীমাবদ্ধ করা হয়েছে যেন বড় না দেখায়
+            mediaHTML = `
+                <img src="${imagePath}" alt="${item.name}" style="max-width:100%; max-height:100%; object-fit:contain;" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+                <span class="product-emoji-icon" style="font-size: 24px; display:none; line-height:1;">${correctEmoji}</span>
+            `;
             
         } else {
-            // যদি ছবি না হয়ে ডিরেক্ট ইমোজি বা আইকন টেক্সট হয়, তবে অরিজিনাল ইমোজি ফুটিয়ে তুলবে
-            let emojiIcon = item.icon || (item.products && !item.products.includes('.') ? item.products : "📦");
-            mediaHTML = `<span class="product-emoji-icon" style="font-size: 26px;">${emojiIcon}</span>`;
+            // 🎯 ইমোজি সাইজ লক লজিক: ডিরেক্ট ইমোজি টেক্সটের ফন্ট-সাইজ ২৪ পিক্সেল এ ফিক্সড করা হয়েছে
+            mediaHTML = `<span class="product-emoji-icon" style="font-size: 24px; display:inline-block; line-height:1;">${correctEmoji}</span>`;
         }
 
         const isChecked = item.selected !== false ? 'checked' : '';
@@ -110,7 +127,7 @@ function renderCartDrawerItems() {
                     <span class="cart-item-serial">#${index + 1}</span>
                     <input type="checkbox" class="cart-item-checkbox" data-id="${item.id}" ${isChecked} onchange="toggleItemSelection(${item.id})">
                 </div>
-                <div class="cart-item-media">${mediaHTML}</div>
+                <div class="cart-item-media" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0; background:#f9f9f9; border-radius:4px;">${mediaHTML}</div>
                 <div class="cart-item-info">
                     <div class="cart-item-name" title="${item.name}">${item.name}</div>
                     <div class="cart-item-price">৳${item.price}</div>
@@ -130,7 +147,7 @@ function renderCartDrawerItems() {
             row.innerHTML = `
                 <div class="cart-item-left-group">
                     <input type="checkbox" class="cart-item-checkbox" data-id="${item.id}" ${isChecked} onchange="toggleItemSelection(${item.id})">
-                    <div class="cart-item-media-box">
+                    <div class="cart-item-media-box" style="width:50px; height:50px; display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0; background:#f9f9f9; border-radius:6px;">
                         ${mediaHTML}
                     </div>
                     <div class="cart-item-info-box">
@@ -204,7 +221,7 @@ function updateCartTotal() {
     if (subtotalEl) subtotalEl.innerText = `৳${grandTotal}`;
     if (grandTotalEl) grandTotalEl.innerText = `৳${grandTotal}`;
 
-    // ⚡ প্রফেশনাল বাটন অ্যাক্টিভেশন লজিক (গেঁয়ো অ্যালার্ট ছাড়া অটো-লক সিস্টেম)
+    // ⚡ চেকআউট বাটন অ্যাক্টিভেশন লজিক
     if (checkoutRedirectBtn) {
         if (selectedCount > 0) {
             checkoutRedirectBtn.disabled = false;
@@ -219,7 +236,7 @@ function updateCartTotal() {
     }
 }
 
-// --- 🎯 ৭. লাইভ কোয়ান্টিটি প্লাস/মাইনাস কন্ট্রোল ---
+// --- 🎯 VII. লাইভ কোয়ান্টিটি প্লাস/মাইনাস কন্ট্রোল ---
 window.updateQty = function(productId, change) {
     let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
     const item = currentCart.find(i => i.id === productId);
@@ -239,7 +256,7 @@ window.updateQty = function(productId, change) {
     renderCartDrawerItems();
 };
 
-// --- 🎯 ৮. আইটেম ডিলিট করার প্রফেশনাল লজিক ---
+// --- 🎯 VIII. আইটেম ডিলিট করার প্রফেশনাল লজিক ---
 window.deleteCartItem = function(productId) {
     let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
     currentCart = currentCart.filter(item => item.id !== productId);
@@ -254,20 +271,34 @@ window.deleteCartItem = function(productId) {
     }
 };
 
-// --- ৯. কার্ডের ভেতরের টোস্ট নোটিফিকেশন ---
+// ==========================================================================
+// --- ৯. কার্ডের ভেতরের টোস্ট নোটিফিকেশন (সংশোধিত ও নিরাপদ সংস্করণ) ---
+// ==========================================================================
 function showCardNotification(clickedButton, message, type = 'success') {
     if (!clickedButton) return;
+    
+    // ১. নিশ্চিতভাবে সঠিক প্রডাক্ট কার্ড ডিভ খুঁজে বের করা যেখানে বাটনটি আছে
     const productCard = clickedButton.closest('.product-card');
-    if (!productCard) return;
+    
+    // যদি কোনো কারণে কার্ড খুঁজে না পাওয়া যায়, তবে ভুল নোটিফিকেশন দেখাবো না
+    // যাতে এটি পুরো পেজ জুড়ে লম্বা হয়ে না যায়
+    if (!productCard || !(productCard instanceof HTMLElement)) return;
 
+    // ২. পুরনো টোস্ট থাকলে তা রিমুভ করা
     const oldToast = productCard.querySelector('.card-toast');
     if (oldToast) oldToast.remove();
 
+    // ৩. নতুন টোস্ট ডিভ তৈরি করা
     const toast = document.createElement('div');
+    // সিএসএস ক্লাসের নাম একই থাকবে
     toast.className = `card-toast ${type}`;
+    // আইকন সহ মেসেজ সেট করা
     toast.innerHTML = type === 'success' ? `✅ ${message}` : `⚠️ ${message}`;
+    
+    // ৪. নির্দিষ্ট কার্ড ডিভের ভেতরে নোটিফিকেশন যুক্ত করা
     productCard.appendChild(toast);
 
+    // ৫. এনিমেশন এবং স্বয়ংক্রিয়ভাবে রিমুভ করার লজিক
     setTimeout(() => toast.classList.add('show'), 50);
     setTimeout(() => {
         toast.classList.remove('show');
@@ -293,7 +324,7 @@ function triggerFlyAnimation(clickedButton, assetData) {
         finalAssetHTML = `<img src="${liveImg.src}" alt="flying-prod" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">`;
         targetVisualElement = liveImg;
     } else if (liveEmoji) {
-        finalAssetHTML = `<div class="emoji-fly" style="font-size:40px;">${liveEmoji.innerText}</div>`;
+        finalAssetHTML = `<div class="emoji-fly" style="font-size:30px;">${liveEmoji.innerText}</div>`;
         targetVisualElement = liveEmoji;
     }
 
@@ -335,19 +366,21 @@ function triggerFlyAnimation(clickedButton, assetData) {
     }, 850);
 }
 
-// --- ১১. কোর অ্যাড টু ব্যাগ / কার্ট ফাংশন ---
+// --- ১১. কোর অ্যাড টু ব্যাগ / কার্ট ফাংশন (নতুন আইটেম সবার উপরে পুশ লজিক) ---
 window.addToBag = function(productId, productName, productPrice, productImage) {
     let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
     const existingItem = currentCart.find(item => item.id === productId);
     const clickedButton = window.event ? window.event.target.closest('button') : null;
 
     if (existingItem) {
+        // যদি আইটেম অলরেডি কার্টে থাকে, তবে তার কোয়ান্টিটি বাড়বে এবং সে তার বর্তমান পজিশনেই থাকবে
         existingItem.quantity = (existingItem.quantity || 1) + 1;
         showCardNotification(clickedButton, "Quantity increased!", 'success');
     } else {
         triggerFlyAnimation(clickedButton, productImage);
 
-        currentCart.push({
+        // 🎯 ম্যাজিক লাইন: push এর জায়গায় unshift ব্যবহার করায় নতুন অবজেক্টটি অ্যারের প্রথমে (সবার উপরে) চলে যাবে।
+        currentCart.unshift({
             id: productId,
             name: productName,
             price: Number(productPrice),
