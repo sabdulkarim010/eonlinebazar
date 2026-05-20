@@ -217,6 +217,13 @@ function handleFinalOrderSubmission() {
             successModal.style.setProperty('display', 'flex', 'important');
         }
 
+        // --- অর্ডার সাকসেসফুল হওয়ার পর ফর্মের ডেটা মুছে ফেলা ---
+        localStorage.removeItem('shippingFullName');
+        localStorage.removeItem('shippingMobile');
+        localStorage.removeItem('shippingAddress');
+        localStorage.removeItem('shippingCourierNote');
+        // --------------------------------------------------------
+        
         // ⏱️ ২০ সেকেন্ডের সেফ কাউন্টডাউন টাইমার
         let timeLeft = 20;
         
@@ -242,3 +249,4 @@ function handleFinalOrderSubmission() {
         
     }, 1500);
 }
+
