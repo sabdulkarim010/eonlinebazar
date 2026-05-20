@@ -72,25 +72,33 @@
                 <form id="checkoutShippingForm" onsubmit="event.preventDefault();">
                     <div class="form-group-field">
                         <label for="shippingFullName">Full Name <span class="required-star">*</span></label>
-                        <input type="text" id="shippingFullName" placeholder="Enter your full name" maxlength="50" required>
+                            <div class="input-box-wrapper">
+                                <input type="text" id="shippingFullName" placeholder="Enter your full name" maxlength="50" required>
+                            </div>
                         <span class="error-msg-field" id="name-error"></span>
                     </div>
 
                     <div class="form-group-field">
                         <label for="shippingMobile">Mobile Number <span class="required-star">*</span></label>
-                        <input type="tel" id="shippingMobile" placeholder="e.g. 01" maxlength="11" required>
+                            <div class="input-box-wrapper">
+                                <input type="tel" id="shippingMobile" placeholder="e.g. 01" maxlength="11" required>
+                            </div>
                         <span class="error-msg-field" id="mobile-error"></span>
                     </div>
 
                     <div class="form-group-field">
                         <label for="shippingAddress">Full Delivery Address <span class="required-star">*</span></label>
-                        <textarea id="shippingAddress" rows="3" placeholder="Village/Area, Post, Upazila, District" required></textarea>
+                            <div class="input-box-wrapper">
+                                <textarea id="shippingAddress" rows="3" placeholder="Village/Area, Post, Upazila, District" required></textarea>
+                            </div>
                         <span class="error-msg-field" id="address-error"></span>
                     </div>
 
                     <div class="form-group-field">
                         <label for="shippingCourierNote">Note for Courier <span class="optional-tag">(Optional)</span></label>
-                        <textarea id="shippingCourierNote" rows="2" placeholder="Any specific instructions for delivery man (e.g. deliver after 4 PM)"></textarea>
+                            <div class="input-box-wrapper"></div>
+                                <textarea id="shippingCourierNote" rows="2" placeholder="Any specific instructions for delivery man"></textarea>
+                            </div>
                     </div>
 
                     <div class="checkout-action-area">
