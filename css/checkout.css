@@ -528,6 +528,28 @@ File Name: css/checkout.css
     to { transform: translateY(0); opacity: 1; }
 }
 
+/* =========================================================================
+   Check Mark Signal Settings
+   ========================================================================= */
+
+/* ইনপুট ফিল্ডের রিলেটিভ পজিশন সেট করা */
+.input-box-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+/* আইকন এবং কাউন্টারের জন্য কনটেইনার */
+.icon-counter-wrapper {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%); /* একদম সেন্টারে নিয়ে আসার জন্য */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none; /* যাতে এটি টাইপ করতে বাধা না দেয় */
+    z-index: 10;
+}
 
 /* =========================================================================
    📟 ১. পোর্ট্রেট ট্যাবলেট ও বড় স্ক্রিনের মোবাইল ভিউ (সর্বোচ্চ ৭৬৮px)
@@ -708,7 +730,5 @@ File Name: css/checkout.css
     .cart-item-total-price-block { font-size: 13px; }
     .checkout-row-delete-btn-main { font-size: 14px; padding: 4px; }
 }
-
-
 
 
