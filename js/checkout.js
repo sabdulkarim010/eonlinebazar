@@ -130,7 +130,20 @@ function initLiveValidationEngine() {
 
         if (field.max > 0) input.setAttribute('maxlength', field.max);
 
+        // --- [নতুন যুক্ত করা অংশ] পেজ লোড হওয়ার সময় আগের ডেটা বসানো ---
+        const savedValue = localStorage.getItem(field.id);
+        if (savedValue) {
+            input.value = savedValue;
+            // ডেটা বসানোর পর অটোমেটিক ভ্যালিডেশন চেক করে সবুজ টিক (✔) দেখানোর জন্য:
+            setTimeout(() => input.dispatchEvent(new Event('input')), 50);
+        }
+        // -------------------------------------------------------------
+
         input.addEventListener('input', () => {
+            // --- [নতুন যুক্ত করা অংশ] কিছু লিখলেই সাথে সাথে সেভ হবে ---
+            localStorage.setItem(field.id, input.value);
+            // --------------------------------------------------------
+
             let val = input.value.trim();
             let isOk = false;
             let len = val.length;
@@ -141,7 +154,7 @@ function initLiveValidationEngine() {
                 isOk = /^01[3-9]\d{8}$/.test(input.value);
             }
             else if (field.id === 'shippingAddress') isOk = len >= 10 && !detectSpamPattern(val);
-            else if (field.id === 'shippingCourierNote') isOk = true; 
+            else if (field.id === 'shippingCourierNote') isOk = true;
 
             updateFieldUI(input, errorEl, isOk, len, field.max > 0 ? field.max : null);
         });
