@@ -106,7 +106,7 @@ function initRealTimeValidation() {
             const words = value.split(/\s+/);
             
             // নাম কমপক্ষে ২০ এবং সর্বোচ্চ ৪০ ক্যারেক্টার হতে হবে
-            const isLengthValid = value.length >= 20 && value.length <= 40;
+            const isLengthValid = value.length >= 5 && value.length <= 60;
             const isTwoWords = words.length >= 2;
             const isNotSpam = !isSpamText(value);
 
