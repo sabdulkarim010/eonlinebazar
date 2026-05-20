@@ -392,7 +392,7 @@ File Name: css/checkout.css
     color: #475569;
     text-decoration: none;
     font-size: 15px;
-    font-weight: 500;
+    font-weight: 700;
     transition: color 0.2s ease;
     display: flex;
     align-items: center;
@@ -626,10 +626,15 @@ File Name: css/checkout.css
         align-items: center;
     }
 
-    .back-to-cart-link { font-size: 13px; }
+    .back-to-cart-link {
+         font-size: 13px;
+        
+        }
     .secure-badge { font-size: 12px; }
     .secure-desktop { display: none; }
     .secure-mobile { display: inline; }
+    .back-to-cart-desktop { display: none; }
+    .back-to-cart-mobile { display: inline; }
     
     .step-indicator {
         font-size: 11px;
@@ -703,3 +708,7 @@ File Name: css/checkout.css
     .cart-item-total-price-block { font-size: 13px; }
     .checkout-row-delete-btn-main { font-size: 14px; padding: 4px; }
 }
+
+
+
+
