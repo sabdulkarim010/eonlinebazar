@@ -80,14 +80,13 @@ function renderCheckoutCart() {
 function updateFieldUI(input, errorEl, isValid, currentCount, max) {
     if (!input || !errorEl) return;
 
-    let wrapper = input.parentElement;
-    wrapper.style.position = 'relative';
+    // আপনার নতুন HTML অনুযায়ী wrapper হবে এখন .input-box-wrapper
+    let wrapper = input.parentElement; 
 
     let iconCounterWrapper = wrapper.querySelector('.icon-counter-wrapper');
     if (!iconCounterWrapper) {
         iconCounterWrapper = document.createElement('div');
         iconCounterWrapper.className = 'icon-counter-wrapper';
-        iconCounterWrapper.style.cssText = 'position:absolute; right:10px; top:0; height:100%; display:flex; align-items:center; gap:8px; pointer-events:none;';
         wrapper.appendChild(iconCounterWrapper);
     }
 
@@ -233,5 +232,8 @@ function openCheckoutAlertModal(msg) {
 function closeCheckoutAlertModal() {
     document.getElementById('checkoutAlertModal').style.display = 'none';
 }
+
+
+
 
 
