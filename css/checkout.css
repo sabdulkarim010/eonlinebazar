@@ -542,47 +542,76 @@ File Name: css/checkout.css
         padding: 20px 15px;
     }
 
-    /* চেকআউট কাস্টম হেডার কন্টেইনার */
     .checkout-header-container {
         padding: 0 15px;
     }
 
-    /* 📦 প্রোডাক্ট রো কার্ড মোবাইল ফ্রেন্ডলি ফ্লেক্স লেআউট */
+    /* 🎯 ৪-কলামের গ্রিড লেআউট: যা ২য় লাইনের সব উপাদানকে একদম বরাবর রাখবে */
     .checkout-item-row-card {
-        flex-direction: column; /* নিচে নিচে সাজানো */
-        align-items: stretch;
-        padding: 14px 0;
-        gap: 12px;
-        position: relative; /* ডিলিট বাটন পজিশন করার জন্য */
+        display: grid !important;
+        grid-template-columns: auto 1fr auto auto; /* ৪টি কলাম: ইমেজ, কোয়ান্টিটি, প্রাইস, ডিলিট */
+        column-gap: 15px;
+        row-gap: 8px;
+        align-items: center !important; /* এই একটি লাইন ২য় লাইনের সবকিছুকে সোজা রাখবে */
+        padding: 16px 0;
+        border-bottom: 1px solid #f1f5f9;
     }
 
-    /* প্রোডাক্ট ইনফো ফুল উইডথ */
+    /* ১ নম্বর কলাম: ইমেজ (১ম ও ২য় লাইন জুড়ে বামে থাকবে) */
+    .cart-media-frame-box {
+        grid-column: 1;
+        grid-row: 1 / 3;
+        width: 60px;
+        height: 60px;
+    }
+
+    /* ২ নম্বর কলামের ১ম লাইন: প্রোডাক্টের নাম ও বেস প্রাইস (উপরে থাকবে) */
     .cart-item-details-info {
-        width: 100%;
-        padding-right: 35px; /* ডিলিট বাটনের জন্য ডানপাশে সেফ স্পেস */
-    }
-
-    /* কোয়ান্টিটি এবং টোটাল প্রাইস এক লাইনে দুই প্রান্তে ছড়ানো থাকবে */
-    .checkout-item-row-card-bottom-group {
+        grid-column: 2 / 5; /* বাকি ৩টি কলাম জুড়ে উপরে থাকবে */
+        grid-row: 1;
         display: flex;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-        margin-top: 5px;
+        flex-direction: column;
+        gap: 2px;
     }
 
-    /* আগের রাইট এলাইনমেন্ট ফিক্স */
+    .cart-item-name-text {
+        font-size: 14px;
+        margin: 0;
+        color: #1e293b;
+    }
+
+    /* ⚡ ২য় লাইনের ম্যাজিক এলাইনমেন্ট (সব উপাদান একই লাইনে বরাবর থাকবে) */
+    
+    /* কোয়ান্টিটি বার */
+    .quantity-controller-block {
+        grid-column: 2;
+        grid-row: 2;
+        justify-self: start;
+    }
+
+    /* টোটাল প্রাইস */
     .cart-item-total-price-block {
-        text-align: right;
-        min-width: auto;
+        grid-column: 3;
+        grid-row: 2;
+        justify-self: end;
+        font-size: 15px;
+        margin-right: 5px; /* ডিলিট বাটনের সাথে সুন্দর গ্যাপ */
     }
 
-    /* ট্র্যাশ বাটন ডানপাশে সুন্দরভাবে ফিক্সড */
+    /* ডিলিট বাটন কন্টেইনার এবং বাটন */
+    .cart-item-action-delete {
+        grid-column: 4;
+        grid-row: 2;
+        justify-self: end;
+    }
+
     .checkout-row-delete-btn-main {
-        position: absolute;
-        top: 12px;
-        right: 0;
+        position: static !important; /* আগের ক্ষতিকর অ্যাবসোলিউট পজিশন বাতিল */
         padding: 6px;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 }
 
@@ -590,36 +619,18 @@ File Name: css/checkout.css
    📱 ২. স্ট্যান্ডার্ড স্মার্টফোন ভিউ (সর্বোচ্চ ৫৪০px)
    ========================================================================= */
 @media screen and (max-width: 540px) {
-    /* 🏆 চেকআউট হেডার এক লাইনে স্লিম করার ম্যাজিক */
     .checkout-header-container {
         display: flex;
-        flex-direction: row; /* নিচে নিচে নামবে না, এক লাইনে থাকবে */
+        flex-direction: row;
         justify-content: space-between;
         align-items: center;
-        gap: 0;
     }
 
-    /* ১. ব্যাক অ্যাকশন লিংক */
-    .back-to-cart-link {
-        font-size: 13px;
-    }
-
-    /* ২. প্রোগ্রেস বার: মোবাইলে সিকিউর লেখা লুকিয়ে শুধু লক আইকন ও স্টেপ থাকবে */
-    .header-middle-progress {
-        gap: 4px;
-    }
-
-    .secure-badge {
-        font-size: 12px;
-    }
-
-    .secure2-desktop{
-        display: none;
-    }
-    .secure2-mobile{
-        display: inline;
-    }
-
+    .back-to-cart-link { font-size: 13px; }
+    .secure-badge { font-size: 12px; }
+    .secure-desktop { display: none; }
+    .secure-mobile { display: inline; }
+    
     .step-indicator {
         font-size: 11px;
         background: #f1f5f9;
@@ -627,95 +638,58 @@ File Name: css/checkout.css
         border-radius: 4px;
     }
 
-    /* ৩. ব্র্যান্ড লোগো টেক্সট সাইজ */
-    .brand-logo-text {
-        font-size: 15px;
+    .brand-logo-text { font-size: 15px; }
+
+    /* ৫৪০px এ গ্রিডের ভেতরের স্পেসিং ও সাইজ সামান্য ছোট */
+    .checkout-item-row-card {
+        column-gap: 12px;
     }
 
-    /* ৪. ফর্ম ও ইনপুট মোবাইল অপ্টিমাইজেশন */
+    .cart-media-frame-box {
+        width: 55px;
+        height: 55px;
+    }
+
+    .qty-btn { padding: 4px 10px; }
+    .qty-display-text { font-size: 13px; }
+    .cart-item-total-price-block { font-size: 14px; }
+
+    /* শিপিং ফর্ম অপ্টিমাইজেশন */
     .form-group-field input,
     .form-group-field textarea {
         padding: 10px 12px;
         font-size: 13px;
     }
 
-    /* অর্ডার সামারি টেক্সট সাইজ */
-    .summary-row {
-        font-size: 13px;
-    }
-
-    .grand-total-row {
-        font-size: 15px;
-    }
-
-    .grand-total-row strong {
-        font-size: 18px;
-    }
-
-    /* পেমেন্ট গেটওয়ে বাটন ফুল উইডথ */
-    .checkout-action-area {
-        width: 100%;
-    }
-
     .payment-gateway-next-btn {
-        width: 100%; /* বাটনটি পুরো চওড়া হবে যাতে সহজে ক্লিক করা যায় */
+        width: 100%;
         justify-content: center;
         padding: 12px;
         font-size: 15px;
     }
-
-    /* ৫. কাস্টম মোডাল পপ-আপ রেসপনসিভনেস */
-    .custom-alert-modal-card {
-        padding: 24px 16px;
-        width: 95%;
-    }
-
-    .custom-alert-modal-icon {
-        font-size: 54px;
-    }
-
-    .custom-alert-modal-title {
-        font-size: 19px;
-    }
-
-    .custom-alert-modal-message {
-        font-size: 13px;
-        margin-bottom: 20px;
-    }
 }
 
 /* =========================================================================
-   🔋 ৩. আল্ট্রা-স্মল স্মার্টফোন ভিউ (সর্বোচ্চ ৩৬০px - ছোট স্ক্রিনের জন্য)
+   🔋 ৩. আল্ট্রা-স্মল স্মার্টফোন ভিউ (সর্বোচ্চ ৩৬০px)
    ========================================================================= */
 @media screen and (max-width: 360px) {
-    .checkout-header-container {
-        padding: 0 8px;
+    .checkout-header-container { padding: 0 6px; }
+    .back-to-cart-link { font-size: 12px; gap: 4px; }
+    .back-to-cart-desktop { display: none; }
+    .back-to-cart-mobile { display: inline; }
+    .brand-logo-text { display: none; } 
+
+    /* স্ক্রিন অতিরিক্ত ছোট হওয়ায় এলিমেন্টগুলোর গ্যাপ কমানো হলো যেন এক লাইনেই ধরে */
+    .checkout-item-row-card {
+        column-gap: 8px;
     }
 
-    .back-to-cart-link {
-        font-size: 12px;
-        gap: 4px;
-    }
-
-    .back-to-cart-desktop{
-        display: none;
-    }
-
-    .back-to-cart-mobile{
-        display: inline;
-    }
-
-    .brand-logo-text {
-        font-size: 13px;
-    }
-
-    /* ইমেজের ফ্রেম সাইজ সামান্য ছোট করা */
     .cart-media-frame-box {
         width: 50px;
         height: 50px;
     }
 
-    /* অতিরিক্ত বড় প্রোডাক্টের নাম ডট ডট (...) করার জন্য ফিক্স */
+    /* বড় নাম কেটে গিয়ে ডট ডট (...) হবে যেন ডিজাইন ভেঙে না যায় */
     .cart-item-name-text {
         font-size: 13px;
         max-width: 160px;
@@ -724,14 +698,8 @@ File Name: css/checkout.css
         text-overflow: ellipsis;
     }
 
-    /* কোয়ান্টিটি বাটন সাইজ কম্প্যাক্ট করা */
-    .qty-btn {
-        padding: 4px 10px;
-    }
-
-    .qty-display-text {
-        font-size: 13px;
-        padding: 0 6px;
-    }
+    .qty-btn { padding: 3px 8px; }
+    .qty-display-text { font-size: 12px; padding: 0 4px; }
+    .cart-item-total-price-block { font-size: 13px; }
+    .checkout-row-delete-btn-main { font-size: 14px; padding: 4px; }
 }
-
