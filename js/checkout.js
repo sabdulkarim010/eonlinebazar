@@ -37,6 +37,8 @@ function renderCheckoutCart() {
     let checkedItems = currentCart.filter(item => item.selected !== false);
     if (checkedItems.length === 0) {
         container.innerHTML = `<div style="text-align:center; padding:40px;">Your cart is empty!</div>`;
+        if (subtotalText) subtotalText.innerText = `৳0`;
+        if (grandTotalText) grandTotalText.innerText = `৳0`;
         return;
     }
 
@@ -58,8 +60,13 @@ function renderCheckoutCart() {
         clone.querySelector('.cart-item-total').innerText = `৳${(cleanPrice * cleanQty)}`;
         clone.querySelector('.qty-text').innerText = cleanQty;
 
+        // কোয়ান্টিটি প্লাস ও মাইনাস বাটন অ্যাকশন
         clone.querySelector('.btn-minus').onclick = () => changeItemQuantity(item.id, -1);
         clone.querySelector('.btn-plus').onclick = () => changeItemQuantity(item.id, 1);
+        
+        // 🛠️ নতুন সংযোজন: ডিলিট/ট্র্যাশ বাটন সচল করার অ্যাকশন
+        clone.querySelector('.checkout-row-delete-btn-main').onclick = () => temporarilyRemoveFromCheckout(item.id);
+
         container.appendChild(clone);
     });
 
@@ -213,3 +220,5 @@ function openCheckoutAlertModal(msg) {
 function closeCheckoutAlertModal() {
     document.getElementById('checkoutAlertModal').style.display = 'none';
 }
+
+
