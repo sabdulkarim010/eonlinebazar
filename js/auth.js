@@ -202,7 +202,7 @@ function handleRegisterSubmit(e) {
     // ফাইনাল ভ্যালিডেশন রান
     const nameValue = nameInput.value.trim();
     const nameWords = nameValue.split(/\s+/);
-    const nameValid = nameValue.length >= 20 && nameValue.length <= 40 && nameWords.length >= 2 && !isSpamText(nameValue);
+    const nameValid = nameValue.length >= 5 && nameValue.length <= 40 && nameWords.length >= 2 && !isSpamText(nameValue);
     
     const contactValue = contactInput.value.trim();
     const contactValid = contactValue.length === 11 && /^01[3-9]\d{8}$/.test(contactValue);
