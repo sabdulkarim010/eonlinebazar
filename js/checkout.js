@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* =========================================================================
-   🛍️ ১. কার্ট রেন্ডারিং ইঞ্জিন (ফটো -> ইমোজি -> NO PHOTO ট্রিপল লজিক ফিক্সড)
+   🛍️ ১. কার্ট রেন্ডারিং ইঞ্জিন (ফটো/ইমোজি এবং ব্রোকেন ইমেজ ফিক্সড)
    ========================================================================= */
 function renderCheckoutCart() {
     const container = document.getElementById('checkoutItemsContainer');
@@ -52,33 +52,19 @@ function renderCheckoutCart() {
         const mediaFrame = clone.querySelector('.cart-media-frame-box');
         
         let realProduct = globalProductCatalog.find(p => String(p.id) === String(item.id));
+        let displayEmoji = (realProduct && realProduct.icon) ? realProduct.icon : "📦";
         
-        // 🛠️ এখানে ৩ স্তরের (Triple Layer) লজিক চেক করা হচ্ছে:
-        let hasImageName = realProduct && realProduct.products && realProduct.products.trim() !== "";
-        let hasEmoji = realProduct && realProduct.icon && realProduct.icon.trim() !== "";
-        
-        // ব্যাকআপ কন্টেন্ট নির্ধারণ (ইমোজি থাকলে ইমোজি, না থাকলে NO PHOTO)
-        let fallbackHTML = "";
-        if (hasEmoji) {
-            fallbackHTML = `<span style="font-size:24px; display:flex; justify-content:center; align-items:center; width:100%; height:100%;">${realProduct.icon}</span>`;
-        } else {
-            fallbackHTML = `<span style="font-size:10px; font-weight:bold; color:#666; display:flex; justify-content:center; align-items:center; width:100%; height:100%; text-align:center; text-transform:uppercase; line-height:1.2;">NO PHOTO</span>`;
-        }
-
-        if (hasImageName) {
+        // 🛠️ সমাধান: onerror ব্যবহার করা হয়েছে। ফোল্ডারে ছবি না থাকলে ভাঙা ছবির বদলে ইমোজি আসবে।
+        if (realProduct && realProduct.products && realProduct.products.trim() !== "") {
             let imagePath = `products/${realProduct.products}`;
-            // যদি ইমেজ লোড হতে এরর খায় (onerror), তবে ইমেজ হাইড হবে এবং তার পরের এলিমেন্ট (fallback) ডিসপ্লে ফ্ল্যাপ করবে
             mediaFrame.innerHTML = `
                 <img src="${imagePath}" alt="${item.name}" 
                      style="width:100%; height:100%; object-fit:cover; border-radius:4px;"
                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                <div style="display:none; width:100%; height:100%; justify-content:center; align-items:center;">
-                    ${fallbackHTML}
-                </div>
+                <span style="font-size:24px; display:none; justify-content:center; align-items:center; width:100%; height:100%;">${displayEmoji}</span>
             `;
         } else {
-            // যদি JSON-এ কোনো ছবির নামই না থাকে, সরাসরি ব্যাকআপ (ইমোজি অথবা NO PHOTO) বসে যাবে
-            mediaFrame.innerHTML = fallbackHTML;
+            mediaFrame.innerHTML = `<span style="font-size:24px; display:flex; justify-content:center; align-items:center; width:100%; height:100%;">${displayEmoji}</span>`;
         }
         
         clone.querySelector('.cart-item-name-text').innerText = item.name;
@@ -258,10 +244,6 @@ function openCheckoutAlertModal(msg) {
 function closeCheckoutAlertModal() {
     document.getElementById('checkoutAlertModal').style.display = 'none';
 }
-
-
-
-
 
 
 
