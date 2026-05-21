@@ -24,7 +24,7 @@
     "name": "Organic Raw Honey (500g)",
     "price": 550,
     "category": "Grocery",
-    "icon": "🍯", 
+    "icon": "", 
     "products": "honey.jpg",
     "stock": 20,
     "description": "Pure honey collected from the deep forests of Sundarbans."
