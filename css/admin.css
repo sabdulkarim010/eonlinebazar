@@ -1,0 +1,214 @@
+/* =========================================
+   eOnlineBazar - Admin Panel Stylesheet
+========================================= */
+
+* { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+}
+
+body { 
+    background-color: #f4f6f9; 
+    color: #333; 
+    display: flex; 
+}
+
+/* ================= Sidebar Navigation ================= */
+.sidebar { 
+    width: 260px; 
+    height: 100vh; 
+    background: #2c3e50; 
+    color: #fff; 
+    position: fixed; 
+    padding: 20px; 
+}
+
+.sidebar h2 { 
+    text-align: center; 
+    margin-bottom: 30px; 
+    font-size: 22px; 
+    font-weight: bold; 
+    color: #3498db; 
+}
+
+.sidebar-menu { 
+    list-style: none; 
+}
+
+.sidebar-menu li { 
+    padding: 12px 15px; 
+    margin-bottom: 8px; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    transition: 0.3s; 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+}
+
+.sidebar-menu li:hover, .sidebar-menu li.active { 
+    background: #34495e; 
+    color: #3498db; 
+}
+
+/* ================= Main Content Area ================= */
+.main-content { 
+    margin-left: 260px; 
+    width: calc(100% - 260px); 
+    padding: 40px; 
+}
+
+.header { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    margin-bottom: 30px; 
+    border-bottom: 2px solid #e0e0e0; 
+    padding-bottom: 15px; 
+}
+
+.header h1 { 
+    font-size: 28px; 
+    color: #2c3e50; 
+}
+
+.admin-profile {
+    font-weight: 600; 
+    color: #7f8c8d;
+}
+
+/* ================= Dashboard Grid / Forms ================= */
+.admin-section { 
+    display: none; 
+    background: #fff; 
+    padding: 25px; 
+    border-radius: 8px; 
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
+}
+
+.admin-section.active { 
+    display: block; 
+}
+
+.section-subtitle {
+    margin-bottom: 20px;
+}
+
+.form-group { 
+    margin-bottom: 20px; 
+}
+
+.form-group label { 
+    display: block; 
+    font-weight: 600; 
+    margin-bottom: 8px; 
+    color: #555; 
+}
+
+.form-group input, .form-group select, .form-group textarea { 
+    width: 100%; 
+    padding: 10px; 
+    border: 1px solid #ccc; 
+    border-radius: 6px; 
+    font-size: 14px; 
+    outline: none; 
+}
+
+.form-group input:focus { 
+    border-color: #3498db; 
+}
+
+.flex-group {
+    display: flex; 
+    gap: 20px;
+}
+
+.flex-item {
+    flex: 1;
+}
+
+.btn-submit { 
+    background: #27ae60; 
+    color: white; 
+    border: none; 
+    padding: 12px 20px; 
+    font-size: 16px; 
+    font-weight: bold; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    transition: 0.3s; 
+    width: 100%; 
+}
+
+.btn-submit:hover { 
+    background: #219150; 
+}
+
+/* ================= Order Table Styling ================= */
+table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    margin-top: 20px; 
+    background: white; 
+}
+
+th, td { 
+    padding: 12px 15px; 
+    text-align: left; 
+    border-bottom: 1px solid #e0e0e0; 
+    font-size: 14px; 
+}
+
+th { 
+    background-color: #34495e; 
+    color: white; 
+    font-weight: 600; 
+}
+
+tr:hover { 
+    background-color: #f9f9f9; 
+}
+
+.loading-text {
+    text-align: center; 
+    color: #888; 
+    padding: 30px;
+}
+
+.status-badge { 
+    padding: 4px 8px; 
+    border-radius: 20px; 
+    font-size: 12px; 
+    font-weight: bold; 
+    text-transform: uppercase; 
+}
+
+.status-pending { background: #ffeaa7; color: #d63031; }
+.status-success { background: #badc58; color: #6ab04c; }
+
+/* ================= Image Preview Box ================= */
+.image-preview { 
+    width: 120px; 
+    height: 120px; 
+    border: 2px dashed #ccc; 
+    border-radius: 6px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    margin-top: 10px; 
+    overflow: hidden; 
+    background: #fafafa; 
+}
+
+.image-preview img { 
+    max-width: 100%; 
+    max-height: 100%; 
+    object-fit: contain; 
+}
+
+.no-image-text {
+    color: #aaa; 
+    font-size: 13px;
+}
