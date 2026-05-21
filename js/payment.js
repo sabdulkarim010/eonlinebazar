@@ -167,17 +167,41 @@ function updatePaymentInstructions(method) {
 }
 
 /* =========================================================================
-   🚀 🔀 ৪. ফাইনাল অর্ডার সাবমিশন, ডাইনামিক আইডি এবং ২০ সেকেন্ড অটো-টাইমার (নিরাপদ কোড)
-   ========================================================================= */
-function handleFinalOrderSubmission() {
+🚀 🔀 ৪. ফাইনাল অর্ডার সাবমিশন (Firebase রিয়েলটাইম ডেটাবেজ ইন্টিগ্রেশন সহ)
+========================================================================= */
+
+// ফায়ারবেস লাইব্রেরি ইম্পোর্ট করা
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+// আপনার ফায়ারবেস প্রজেক্টের আসল চাবি
+const firebaseConfig = {
+  apiKey: "AIzaSyAcw2t0eBtpk4eoljQqfSSjgOIdsJ4-Nko",
+  authDomain: "eonlinebazar.firebaseapp.com",
+  databaseURL: "https://eonlinebazar-default-rtdb.firebaseio.com",
+  projectId: "eonlinebazar",
+  storageBucket: "eonlinebazar.firebasestorage.app",
+  messagingSenderId: "393136308453",
+  appId: "1:393136308453:web:13e669af67b948844d40c",
+  measurementId: "G-HB8RHCZQQ3"
+};
+
+// ফায়ারবেস একটিভ করা
+const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
+
+// ফাংশনটিকে window অবজেক্টে যুক্ত করা হলো যেন HTML এর বাটন থেকে সরাসরি কল করা যায়
+window.handleFinalOrderSubmission = function() {
+
     const selectedRadio = document.querySelector('input[name="paymentGateway"]:checked');
+
     if (!selectedRadio) {
         alert("Please select a payment method first.");
         return;
     }
 
     const finalMethod = selectedRadio.value;
-    
+
     // বাটনে লোডিং ইফেক্ট যুক্ত করা
     const confirmBtn = document.getElementById('confirmOrderFinalBtn');
     if (confirmBtn) {
@@ -187,13 +211,40 @@ function handleFinalOrderSubmission() {
 
     // ১.৫ সেকেন্ড ফেক ব্যাকএন্ড রেসপন্স ডিলে
     setTimeout(() => {
+
         let fullCart = JSON.parse(localStorage.getItem('cart')) || [];
         
-        // শুধুমাত্র চেকআউটে পাঠানো আইটেমগুলো ফিল্টার করে কার্ট আপডেট করা
+        // 🛒 যে আইটেমগুলো অর্ডার করা হচ্ছে সেগুলো আলাদা করা
+        let orderedItems = fullCart.filter(item => item.selected !== false);
         let remainingCart = fullCart.filter(item => item.selected === false);
-        localStorage.setItem('cart', JSON.stringify(remainingCart));
         
-        // ব্যবহৃত চেকআউট সেশন ডাটা মুছে ফেলা
+        // 👤 লোকাল স্টোরেজ থেকে কাস্টমারের তথ্য নেওয়া (ফর্ম থেকে যেগুলো সেভ হয়েছিল)
+        const custName = localStorage.getItem('shippingFullName') || "Guest Customer";
+        const custPhone = localStorage.getItem('shippingMobile') || "N/A";
+        const custAddress = localStorage.getItem('shippingAddress') || "N/A";
+        
+        // 💰 টোটাল অ্যামাউন্ট হিসাব করা
+        let totalAmount = orderedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+        // 🔥 ফায়ারবেসে পাঠানোর জন্য ডেটা প্যাকেট তৈরি করা
+        const orderData = {
+            customerName: custName,
+            customerPhone: custPhone,
+            customerAddress: custAddress,
+            items: orderedItems,
+            totalAmount: totalAmount,
+            paymentMethod: finalMethod,
+            status: "Pending",
+            timestamp: Date.now()
+        };
+
+        // 🚀 ফায়ারবেস ডেটাবেজে কাস্টমারের অর্ডার পুশ (Push) করা!
+        const ordersRef = ref(database, 'orders');
+        const newOrderRef = push(ordersRef);
+        set(newOrderRef, orderData);
+
+        // শুধুমাত্র চেকআউটে পাঠানো আইটেমগুলো ফিল্টার করে কার্ট আপডেট করা
+        localStorage.setItem('cart', JSON.stringify(remainingCart));
         localStorage.removeItem('activeCheckoutSession');
 
         // মোডাল এলিমেন্টগুলো সিলেক্ট করা
@@ -207,13 +258,10 @@ function handleFinalOrderSubmission() {
         const randomOrderId = Math.floor(100000 + Math.random() * 900000);
 
         if (successModal) {
-            // আইডি এবং মেসেজ ডাইনামিকালি পুশ করা
             if (modalOrderIdSpan) modalOrderIdSpan.innerText = `#${randomOrderId}`;
             if (modalMessage) {
                 modalMessage.innerHTML = `Your order has been logged via <strong>${finalMethod}</strong>.<br>Thank you for choosing eOnlineBazar!`;
             }
-            
-            // 🎯 সিএসএস ডিসপ্লে ব্লক/ফ্লেক্স করে মোডালটি স্ক্রিনের একদম উপরে শো করানো
             successModal.style.setProperty('display', 'flex', 'important');
         }
 
@@ -223,16 +271,14 @@ function handleFinalOrderSubmission() {
         localStorage.removeItem('shippingAddress');
         localStorage.removeItem('shippingCourierNote');
         // --------------------------------------------------------
-        
+
         // ⏱️ ২০ সেকেন্ডের সেফ কাউন্টডাউন টাইমার
         let timeLeft = 20;
-        
         const countdownInterval = setInterval(() => {
             timeLeft--;
             if (modalTimerSpan) {
                 modalTimerSpan.innerText = timeLeft;
             }
-            
             if (timeLeft <= 0) {
                 clearInterval(countdownInterval);
                 window.location.href = 'index.html';
@@ -246,7 +292,8 @@ function handleFinalOrderSubmission() {
                 window.location.href = 'index.html';
             };
         }
-        
+
     }, 1500);
 }
+
 
