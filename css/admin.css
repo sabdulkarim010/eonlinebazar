@@ -229,6 +229,9 @@ body {
     box-shadow: var(--shadow);
     overflow: hidden;
     border: 1px solid var(--border-color);
+    max-height: 70vh;
+    overflow-y: auto;
+    overflow-x: auto;
 }
 
 table {
@@ -246,6 +249,9 @@ th {
     padding: 16px 20px;
     border-bottom: 2px solid var(--border-color);
     letter-spacing: 0.5px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 td {
@@ -773,7 +779,6 @@ select:focus {
     .action-btn-group { flex-direction: column; gap: 4px; }
     .action-btn-group button { width: 100%; font-size: 12px; padding: 6px 10px; }
 }
-
 
 
 
