@@ -137,8 +137,33 @@
 
     <script type="module" src="js/admin.js"></script>
 
-</body>
-</html>
+    <script type="module">
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 
+        // আপনার ফায়ারবেস কনফিগ (এটি আপনার admin-login.js এ যেমন আছে তেমনই এখানেও লাগবে)
+        const firebaseConfig = {
+          apiKey: "AIzaSyAcw2tOeBtpk4eoljQqfSSjgOIdsJ4-Nko",
+          authDomain: "eonlinebazar.firebaseapp.com",
+          databaseURL: "https://eonlinebazar-default-rtdb.firebaseio.com",
+          projectId: "eonlinebazar",
+          storageBucket: "eonlinebazar.firebasestorage.app",
+          messagingSenderId: "393136308453",
+          appId: "1:393136308453:web:8c41f480248f8bf544d40c",
+          measurementId: "G-HWJG569BK2"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        onAuthStateChanged(auth, (user) => {
+          if (!user) {
+            // যদি লগইন করা না থাকে, তবে সাথে সাথে লগইন পেজে পাঠিয়ে দেবে
+            window.location.href = "admin-login.html";
+          }
+        });
+    </script>
+    </body>
+</html>
 
 
