@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eOnlineBazar - Admin Panel</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h2>eOnlineBazar Center</h2>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="active" onclick="switchTab('orders-section', this)">
+                <i class="fa-solid fa-cart-shopping"></i> <span>Customers Orders</span>
+            </li>
+            <li onclick="switchTab('products-section', this)">
+                <i class="fa-solid fa-box-open"></i> <span>Add New Product</span>
+            </li>
+            <li id="logoutBtn" class="logout-link">
+                <i class="fa-solid fa-right-from-bracket"></i> <span>Log Out</span>
+            </li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h1 id="page-title">Customers Orders</h1>
+            <div class="admin-profile">
+                <div class="profile-icon"><i class="fa-solid fa-user-shield"></i></div>
+                <div class="profile-info">
+                    <span class="admin-name">Abdul Karim</span>
+                    <span class="admin-role">Super Admin</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="orders-section" class="admin-section active">
+            <div class="section-header-box">
+                <h3>Live incoming orders from website</h3>
+                <span class="live-indicator"><span class="pulse"></span> Live Syncing</span>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer Info</th>
+                            <th>Delivery Address</th>
+                            <th>Ordered Products</th>
+                            <th>Total Payable</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminOrderTableBody">
+                        <tr>
+                            <td colspan="7" class="loading-container">
+                                <div class="spinner"></div>
+                                <p>Connecting to Live Database...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="products-section" class="admin-section">
+            <div class="section-header-box">
+                <h3>Upload a product directly to Cloud Server & Database</h3>
+            </div>
+            <div class="form-container">
+                <form id="addProductForm">
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-tag"></i> Product Name (পণ্যের নাম)</label>
+                        <input type="text" id="prodName" placeholder="e.g., Luxury Wrist Watch" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-money-bill-wave"></i> Price (টাকা - ৳)</label>
+                            <input type="number" id="prodPrice" placeholder="e.g., 1250" required>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-face-smile"></i> Fallback Emoji Icon</label>
+                            <input type="text" id="prodEmoji" placeholder="e.g., ⌚">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-image"></i> Select Product Image</label>
+                        <div class="file-drop-area">
+                            <input type="file" id="prodImageFile" accept="image/*" required onchange="previewImage(event)">
+                            <div class="image-preview" id="imgPreviewBox">
+                                <i class="fa-solid fa-cloud-arrow-up cloud-icon"></i>
+                                <p class="no-image-text">Drag & drop or click to upload image</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="uploadProduct()" class="btn-submit">
+                        <i class="fa-solid fa-paper-plane"></i> Upload and Launch Product
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="customConfirmModal" class="custom-modal-overlay" style="display: none;">
+        <div class="custom-confirm-card">
+            <div class="confirm-icon-box" id="confirmIconBox">
+                <i class="fa-solid fa-circle-question"></i>
+            </div>
+            <h3 id="confirmTitle">Are you sure?</h3>
+            <p id="confirmMessage">Do you really want to perform this action?</p>
+            <div class="confirm-actions">
+                <button id="confirmCancelBtn" class="btn-cancel">Cancel</button>
+                <button id="confirmSuccessBtn" class="btn-confirm">Yes, Proceed</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="invoiceModal" class="custom-modal-overlay" style="display: none;">
+        <div class="invoice-modal-card">
+            <button onclick="document.getElementById('invoiceModal').style.display='none'" class="close-modal-btn">&times;</button>
+            <div id="invoiceContent"></div>
+            <button onclick="window.print()" class="btn-print"><i class="fa-solid fa-print"></i> Print Invoice</button>
+        </div>
+    </div>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script type="module" src="js/admin.js"></script>
+
+</body>
+</html>
+
+
+
