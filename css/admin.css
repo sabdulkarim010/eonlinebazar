@@ -289,6 +289,15 @@ tr:hover td {
     animation: spin 0.8s linear infinite;
 }
 
+/* 🎯 Order ID কলামটি ছোট করার জন্য (1 নম্বর কলাম) */
+th:nth-child(1),
+td:nth-child(1) {
+    width: 100%;
+    min-width: 100px;
+    max-width: 120px;
+    text-align: center; /* টাকার পরিমাণটা মাঝখানে সুন্দর দেখাবে */
+}
+
 /* 🎯 Total Payable কলামটি ছোট করার জন্য (৫ নম্বর কলাম) */
 th:nth-child(5),
 td:nth-child(5) {
@@ -299,7 +308,9 @@ td:nth-child(5) {
 /* 🎯 Status কলামটি ছোট করার জন্য (৬ নম্বর কলাম) */
 th:nth-child(6),
 td:nth-child(6) {
-    width: 120px;
+    width: 100%;
+    min-width: 80px;
+    max-width: 100px;
     text-align: center;
 }
 
@@ -803,7 +814,6 @@ select:focus {
     .action-btn-group { flex-direction: column; gap: 4px; }
     .action-btn-group button { width: 100%; font-size: 12px; padding: 6px 10px; }
 }
-
 
 
 
