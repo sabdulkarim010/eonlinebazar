@@ -652,3 +652,128 @@ select:focus {
 
 
 
+/* ==================================================
+   12. RESPONSIVE MEDIA QUERIES (Mobile to Laptop) - Updated
+================================================== */
+
+/* 💻 Breakpoint 1: Laptops & Smaller Desktops (Max: 1024px) */
+@media screen and (max-width: 1024px) {
+    .sidebar { width: 220px; }
+    .main-content { margin-left: 220px; padding: 30px; }
+    .header h1 { font-size: 24px; }
+    .form-container { max-width: 100%; }
+    
+    /* Table items reduce slightly */
+    th { padding: 14px 16px; font-size: 12px; }
+    td { padding: 14px 16px; font-size: 13px; }
+}
+
+/* 📟 Breakpoint 2: Tablets & iPad (Max: 768px) */
+@media screen and (max-width: 768px) {
+    body { flex-direction: column; }
+    
+    /* Sidebar becomes a horizontal top navigation */
+    .sidebar {
+        width: 100%;
+        position: relative;
+        height: auto;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    }
+    .sidebar-brand { padding: 16px; text-align: left; }
+    .sidebar-menu {
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 10px 16px;
+        gap: 10px;
+        scrollbar-width: none; 
+    }
+    .sidebar-menu::-webkit-scrollbar { display: none; }
+    .sidebar-menu li {
+        white-space: nowrap;
+        padding: 8px 14px;
+        font-size: 14px; /* Font size reduced */
+    }
+    .sidebar-menu li.logout-link { margin-top: 0; margin-left: auto; }
+
+    /* Main content & Header */
+    .main-content { margin-left: 0; padding: 24px; }
+    .header { flex-direction: column; align-items: flex-start; gap: 16px; }
+    .header h1 { font-size: 22px; }
+    .admin-profile { width: 100%; justify-content: space-between; }
+
+    /* Forms and Tables adjustments */
+    .form-row { flex-direction: column; gap: 16px; }
+    .table-container { overflow-x: auto; }
+    
+    /* Table fonts and padding reduced to fit more items */
+    th {
+        white-space: nowrap;
+        padding: 12px 14px;
+        font-size: 11px; 
+    }
+    td {
+        white-space: nowrap;
+        padding: 12px 14px;
+        font-size: 12px; /* Content size reduced */
+        line-height: 1.4; /* Line gap reduced for multiple products */
+    }
+}
+
+/* 📱 Breakpoint 3: Large Mobile Phones (Max: 576px) */
+@media screen and (max-width: 576px) {
+    .main-content { padding: 16px; }
+    .header h1 { font-size: 20px; }
+    .section-header-box { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .live-indicator { align-self: flex-start; font-size: 12px; padding: 4px 10px; }
+    
+    /* Significantly smaller table elements for mobile */
+    th {
+        padding: 10px 12px;
+        font-size: 10px; 
+    }
+    td {
+        padding: 10px 12px;
+        font-size: 11px; /* Products text gets smaller */
+    }
+
+    /* Modal sizing */
+    .invoice-modal-card, .custom-confirm-card {
+        padding: 20px;
+        width: 90%;
+        margin: 0 auto;
+    }
+    .custom-confirm-card h3 { font-size: 18px; }
+    .custom-confirm-card p { font-size: 13px; }
+    
+    /* Toast alerts */
+    .toast-container { top: 16px; right: 16px; left: 16px; gap: 8px; }
+    .toast { min-width: unset; width: 100%; padding: 12px 16px; }
+    .toast-message { font-size: 13px; }
+}
+
+/* 📱 Breakpoint 4: Small Mobile Phones (Max: 360px) */
+@media screen and (max-width: 360px) {
+    .main-content { padding: 12px; }
+    .sidebar-brand h2 { font-size: 16px; }
+    .sidebar-menu li { font-size: 13px; padding: 6px 12px; }
+    
+    .header h1 { font-size: 18px; }
+    .admin-profile { padding: 6px 10px; }
+    .profile-icon { width: 30px; height: 30px; font-size: 13px; }
+    .admin-name { font-size: 13px; }
+    .admin-role { font-size: 10px; }
+    
+    /* Ultra compact table for very small screens */
+    th { padding: 8px 10px; font-size: 9px; }
+    td { padding: 8px 10px; font-size: 10px; }
+    
+    /* Controls and Buttons */
+    select { font-size: 12px; padding: 6px 10px; }
+    .btn-submit { padding: 10px; font-size: 13px; }
+    .action-btn-group { flex-direction: column; gap: 4px; }
+    .action-btn-group button { width: 100%; font-size: 12px; padding: 6px 10px; }
+}
+
+
+
+
