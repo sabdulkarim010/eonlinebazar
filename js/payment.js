@@ -214,20 +214,21 @@ window.handleFinalOrderSubmission = function() {
 
         let fullCart = JSON.parse(localStorage.getItem('cart')) || [];
         
-        // 🛒 যে আইটেমগুলো অর্ডার করা হচ্ছে সেগুলো আলাদা করা
         let orderedItems = fullCart.filter(item => item.selected !== false);
         let remainingCart = fullCart.filter(item => item.selected === false);
         
-        // 👤 লোকাল স্টোরেজ থেকে কাস্টমারের তথ্য নেওয়া (ফর্ম থেকে যেগুলো সেভ হয়েছিল)
         const custName = localStorage.getItem('shippingFullName') || "Guest Customer";
         const custPhone = localStorage.getItem('shippingMobile') || "N/A";
         const custAddress = localStorage.getItem('shippingAddress') || "N/A";
         
-        // 💰 টোটাল অ্যামাউন্ট হিসাব করা
         let totalAmount = orderedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-        // 🔥 ফায়ারবেসে পাঠানোর জন্য ডেটা প্যাকেট তৈরি করা
+        // 🌟 ইউনিক ৬ ডিজিটের অর্ডার আইডি তৈরি করা হলো
+        const generatedOrderId = "EOB" + Math.floor(100000 + Math.random() * 900000);
+
+        // 🔥 ফায়ারবেসে পাঠানোর জন্য ডেটা প্যাকেট (এখানে orderId যুক্ত করা হয়েছে)
         const orderData = {
+            orderId: generatedOrderId, 
             customerName: custName,
             customerPhone: custPhone,
             customerAddress: custAddress,
@@ -238,41 +239,34 @@ window.handleFinalOrderSubmission = function() {
             timestamp: Date.now()
         };
 
-        // 🚀 ফায়ারবেস ডেটাবেজে কাস্টমারের অর্ডার পুশ (Push) করা!
+        // 🚀 ফায়ারবেস ডেটাবেজে কাস্টমারের অর্ডার পুশ
         const ordersRef = ref(database, 'orders');
         const newOrderRef = push(ordersRef);
         set(newOrderRef, orderData);
 
-        // শুধুমাত্র চেকআউটে পাঠানো আইটেমগুলো ফিল্টার করে কার্ট আপডেট করা
         localStorage.setItem('cart', JSON.stringify(remainingCart));
         localStorage.removeItem('activeCheckoutSession');
 
-        // মোডাল এলিমেন্টগুলো সিলেক্ট করা
         const successModal = document.getElementById('orderSuccessModal');
         const modalMessage = document.getElementById('modalGatewayMessage');
         const modalOrderIdSpan = document.getElementById('modalOrderId');
         const modalTimerSpan = document.getElementById('modalTimerCount');
         const modalCloseBtn = document.getElementById('modalCloseAndHomeBtn');
 
-        // 🎲 ইউনিক ৬ ডিজিটের অর্ডার আইডি জেনারেট করা
-        const randomOrderId = Math.floor(100000 + Math.random() * 900000);
-
         if (successModal) {
-            if (modalOrderIdSpan) modalOrderIdSpan.innerText = `#${randomOrderId}`;
+            // 🌟 কাস্টমারকে সেই জেনারেট করা আইডিটিই দেখানো হচ্ছে
+            if (modalOrderIdSpan) modalOrderIdSpan.innerText = generatedOrderId;
             if (modalMessage) {
                 modalMessage.innerHTML = `Your order has been logged via <strong>${finalMethod}</strong>.<br>Thank you for choosing eOnlineBazar!`;
             }
             successModal.style.setProperty('display', 'flex', 'important');
         }
 
-        // --- অর্ডার সাকসেসফুল হওয়ার পর ফর্মের ডেটা মুছে ফেলা ---
         localStorage.removeItem('shippingFullName');
         localStorage.removeItem('shippingMobile');
         localStorage.removeItem('shippingAddress');
         localStorage.removeItem('shippingCourierNote');
-        // --------------------------------------------------------
 
-        // ⏱️ ২০ সেকেন্ডের সেফ কাউন্টডাউন টাইমার
         let timeLeft = 20;
         const countdownInterval = setInterval(() => {
             timeLeft--;
@@ -285,7 +279,6 @@ window.handleFinalOrderSubmission = function() {
             }
         }, 1000);
 
-        // ম্যানুয়াল ক্লিক ইভেন্ট
         if (modalCloseBtn) {
             modalCloseBtn.onclick = function() {
                 clearInterval(countdownInterval);
@@ -295,5 +288,7 @@ window.handleFinalOrderSubmission = function() {
 
     }, 1500);
 }
+
+
 
 
