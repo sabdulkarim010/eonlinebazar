@@ -119,17 +119,18 @@ body {
 .main-content {
     margin-left: 260px;
     flex: 1;
-    padding: 40px;
+    padding: 5px;
     min-width: 0;
+    margin-top: 0;
 }
 
 .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 32px;
+    margin: 0;
     border-bottom: 1px solid var(--border-color);
-    padding-bottom: 16px;
+    padding: 0;
 }
 
 .header h1 {
@@ -190,7 +191,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin: 5px;
 }
 
 .section-header-box h3 {
@@ -246,19 +247,21 @@ th {
     font-weight: 600;
     font-size: 13px;
     text-transform: uppercase;
-    padding: 16px 20px;
+    padding: 5px 5px;
     border-bottom: 2px solid var(--border-color);
     letter-spacing: 0.5px;
     position: sticky;
     top: 0;
     z-index: 10;
+    border-right: 1px solid var(--border-color);
 }
 
 td {
-    padding: 18px 20px;
+    padding: 5px 5px;
     border-bottom: 1px solid var(--border-color);
     font-size: 14px;
     vertical-align: middle;
+    border-right: 1px solid var(--border-color);
 }
 
 tr:last-child td {
@@ -284,6 +287,27 @@ tr:hover td {
     border-radius: 50%;
     margin: 0 auto 12px;
     animation: spin 0.8s linear infinite;
+}
+
+/* 🎯 Total Payable কলামটি ছোট করার জন্য (৫ নম্বর কলাম) */
+th:nth-child(5),
+td:nth-child(5) {
+    width: 110px;
+    text-align: center; /* টাকার পরিমাণটা মাঝখানে সুন্দর দেখাবে */
+}
+
+/* 🎯 Status কলামটি ছোট করার জন্য (৬ নম্বর কলাম) */
+th:nth-child(6),
+td:nth-child(6) {
+    width: 120px;
+    text-align: center;
+}
+
+/* 🎯 Status এর ভেতরের ড্রপডাউন (Select) মোবাইল বা ল্যাপটপ সব স্ক্রিনে কলামের সাইজে ফিট রাখার জন্য */
+td:nth-child(6) select {
+    width: 100%;
+    max-width: 100%;
+    padding: 6px 8px;
 }
 
 /* ==================================================
@@ -779,6 +803,8 @@ select:focus {
     .action-btn-group { flex-direction: column; gap: 4px; }
     .action-btn-group button { width: 100%; font-size: 12px; padding: 6px 10px; }
 }
+
+
 
 
 
