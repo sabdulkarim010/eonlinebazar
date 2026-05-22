@@ -177,9 +177,12 @@ function fetchLiveOrders() {
                     });
                 }
 
+                // 🌟 ডাটাবেজ থেকে আমাদের তৈরি করা আইডিটি নেওয়া হচ্ছে
+                const displayOrderId = order.orderId ? order.orderId : `#${orderId.substring(orderId.length - 6).toUpperCase()}`;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><span style="background:#eff6ff; color:#2563eb; padding:4px 8px; border-radius:4px; font-weight:600; font-size:12px;">#${orderId.substring(orderId.length - 6).toUpperCase()}</span></td>
+                    <td><span style="background:#eff6ff; color:#2563eb; padding:4px 8px; border-radius:4px; font-weight:600; font-size:12px;">${displayOrderId}</span></td>
                     <td><b>${order.customerName}</b><br><span style="color:#64748b; font-size:12px;"><i class="fa-solid fa-phone"></i> ${order.customerPhone}</span></td>
                     <td style="max-width: 200px; line-height: 1.4;">${order.customerAddress}</td>
                     <td><ul style="list-style:none; padding:0; margin:0;">${itemsList}</ul></td>
@@ -244,6 +247,7 @@ window.deleteOrder = function(orderId) {
     );
 };
 
+// js/admin.js ফাইলের ৮ নং সেকশনের ইনভয়েস ফাংশন
 window.viewInvoice = function(orderId) {
     const order = allOrders[orderId]; 
     const modal = document.getElementById('invoiceModal');
@@ -262,6 +266,9 @@ window.viewInvoice = function(orderId) {
             });
         }
 
+        // 🌟 ইনভয়েসের ভেতরে সঠিক আইডিটি দেখানোর কোড
+        const displayOrderId = order.orderId ? order.orderId : '#' + orderId.substring(orderId.length - 6).toUpperCase();
+
         content.innerHTML = `
             <div style="text-align:center; margin-bottom:24px;">
                 <h2 style="color:#2563eb; font-weight:700; margin-bottom:4px;">eOnlineBazar</h2>
@@ -269,7 +276,7 @@ window.viewInvoice = function(orderId) {
             </div>
             
             <div style="background:#f8fafc; padding:16px; border-radius:8px; margin-bottom:20px;">
-                <p style="margin-bottom:6px; font-size:14px;"><b>Order ID:</b> <span style="float:right;">#${orderId.substring(orderId.length - 6).toUpperCase()}</span></p>
+                <p style="margin-bottom:6px; font-size:14px;"><b>Order ID:</b> <span style="float:right; font-weight:bold; color:#2563eb;">${displayOrderId}</span></p>
                 <p style="margin-bottom:6px; font-size:14px;"><b>Customer:</b> <span style="float:right;">${order.customerName}</span></p>
                 <p style="margin-bottom:6px; font-size:14px;"><b>Phone:</b> <span style="float:right;">${order.customerPhone}</span></p>
                 <p style="margin-bottom:0; font-size:14px;"><b>Address:</b> <span style="float:right; text-align:right; max-width:60%;">${order.customerAddress}</span></p>
@@ -337,3 +344,6 @@ window.uploadProduct = async function() {
         showToast("Failed to upload the product!", "error");
     }
 };
+
+
+
