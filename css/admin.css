@@ -292,7 +292,6 @@ tr:hover td {
 /* 🎯 Order ID কলামটি ছোট করার জন্য (1 নম্বর কলাম) */
 th:nth-child(1),
 td:nth-child(1) {
-    width: 100%;
     min-width: 100px;
     max-width: 120px;
     text-align: center; /* টাকার পরিমাণটা মাঝখানে সুন্দর দেখাবে */
@@ -308,9 +307,8 @@ td:nth-child(5) {
 /* 🎯 Status কলামটি ছোট করার জন্য (৬ নম্বর কলাম) */
 th:nth-child(6),
 td:nth-child(6) {
-    width: 100%;
-    min-width: 80px;
-    max-width: 100px;
+    min-width: 90px;
+    max-width: 110px;
     text-align: center;
 }
 
@@ -318,7 +316,14 @@ td:nth-child(6) {
 td:nth-child(6) select {
     width: 100%;
     max-width: 100%;
-    padding: 6px 8px;
+    padding: 6px 1px;
+}
+/* 🎯 Action কলামটি ছোট করার জন্য (7 নম্বর কলাম) */
+th:nth-child(7),
+td:nth-child(7) {
+    min-width: 90px;
+    max-width: 110px;
+    text-align: center;
 }
 
 /* ==================================================
@@ -705,8 +710,8 @@ select:focus {
     .form-container { max-width: 100%; }
     
     /* Table items reduce slightly */
-    th { padding: 14px 16px; font-size: 12px; }
-    td { padding: 14px 16px; font-size: 13px; }
+    th { padding: 5px 4px; font-size: 12px; }
+    td { padding: 5px 4px; font-size: 13px; }
 }
 
 /* 📟 Breakpoint 2: Tablets & iPad (Max: 768px) */
@@ -749,12 +754,12 @@ select:focus {
     /* Table fonts and padding reduced to fit more items */
     th {
         white-space: nowrap;
-        padding: 12px 14px;
+        padding: 4px 3px;
         font-size: 11px; 
     }
     td {
         white-space: nowrap;
-        padding: 12px 14px;
+        padding: 4px 3px;
         font-size: 12px; /* Content size reduced */
         line-height: 1.4; /* Line gap reduced for multiple products */
     }
@@ -769,11 +774,11 @@ select:focus {
     
     /* Significantly smaller table elements for mobile */
     th {
-        padding: 10px 12px;
+        padding: 4px 2px;
         font-size: 10px; 
     }
     td {
-        padding: 10px 12px;
+        padding: 4px 2px;
         font-size: 11px; /* Products text gets smaller */
     }
 
@@ -805,8 +810,8 @@ select:focus {
     .admin-role { font-size: 10px; }
     
     /* Ultra compact table for very small screens */
-    th { padding: 8px 10px; font-size: 9px; }
-    td { padding: 8px 10px; font-size: 10px; }
+    th { padding: 2px 1px; font-size: 9px; }
+    td { padding: 2px 1px; font-size: 10px; }
     
     /* Controls and Buttons */
     select { font-size: 12px; padding: 6px 10px; }
