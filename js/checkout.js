@@ -2,12 +2,11 @@
  * Project: EonlineBazar
  * File: js/checkout.js
  * Author: Abdul Karim Sheikh
- * Description: Live Validation, Empty Cart UI & Smart Alerts
+ * Description: Live Validation, Empty Cart UI (Auto Hide) & Smart Alerts
  *************************************/
 
 let globalProductCatalog = [];
 
-// ফর্ম ভ্যালিডেশন স্ট্যাটাস ট্র্যাক করার জন্য গ্লোবাল ভেরিয়েবল
 let validationState = {
     name: false,
     mobile: false,
@@ -33,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* =========================================================================
-   🛍️ ১. কার্ট রেন্ডারিং ইঞ্জিন ও Empty Cart UI
+   🛍️ ১. কার্ট রেন্ডারিং ইঞ্জিন ও Empty Cart UI (অটো হাইড ফিচার সহ)
    ========================================================================= */
 function renderCheckoutCart() {
     const container = document.getElementById('checkoutItemsContainer');
@@ -42,13 +41,17 @@ function renderCheckoutCart() {
     const grandTotalText = document.getElementById('checkoutGrandTotal');
     const proceedBtn = document.getElementById('proceedToPaymentBtn');
     
+    // 🎯 নতুন যোগ করা সেকশন আইডিগুলো (যেগুলো হাইড/শো হবে)
+    const shippingSection = document.getElementById('shippingFormSection'); 
+    const orderSummarySection = document.getElementById('orderSummarySection');
+    
     let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
     if (!container) return;
     container.innerHTML = '';
 
     let checkedItems = currentCart.filter(item => item.selected !== false);
     
-    // 🎯 [Empty Cart UI] যদি কার্ট খালি থাকে, তবে প্রফেশনাল মেসেজ দেখাবে
+    // 🎯 যদি কার্ট খালি থাকে
     if (checkedItems.length === 0) {
         container.innerHTML = `
             <div style="text-align:center; padding:50px 20px; background:#fff; border-radius:12px;">
@@ -61,10 +64,18 @@ function renderCheckoutCart() {
         
         if (subtotalText) subtotalText.innerText = `৳0`;
         if (grandTotalText) grandTotalText.innerText = `৳0`;
-        if (proceedBtn) proceedBtn.style.display = 'none'; // কার্ট খালি থাকলে বাটন গায়েব থাকবে
+        if (proceedBtn) proceedBtn.style.display = 'none'; 
+        
+        // 🎯 কার্ট খালি থাকলে শিপিং ফর্ম ও টোটাল সেকশন হাইড করে দেবে
+        if (shippingSection) shippingSection.style.display = 'none';
+        if (orderSummarySection) orderSummarySection.style.display = 'none';
+        
         return;
     } else {
-        if (proceedBtn) proceedBtn.style.display = 'block'; // কার্টে প্রোডাক্ট থাকলে বাটন দেখাবে
+        // 🎯 কার্টে প্রোডাক্ট থাকলে সবকিছু আবার দৃশ্যমান হবে
+        if (proceedBtn) proceedBtn.style.display = 'block'; 
+        if (shippingSection) shippingSection.style.display = 'block';
+        if (orderSummarySection) orderSummarySection.style.display = 'block';
     }
 
     let calculatedTotal = 0;
@@ -138,7 +149,7 @@ function updateFieldUI(input, errorEl, isValid, currentCount, max) {
     } else {
         input.style.borderColor = "#ef4444";
         input.style.backgroundColor = "#fef2f2";
-        errorEl.innerText = ""; // লাইভ টেক্সট না দেখিয়ে অ্যালার্ট বক্সে স্পেসিফিক মেসেজ দেখাবো
+        errorEl.innerText = ""; 
         iconCounterWrapper.innerHTML = `<span style="font-size:12px; color:#ef4444;">${counterText}</span>`;
     }
 }
@@ -162,7 +173,6 @@ function initLiveValidationEngine() {
 
         if (field.max > 0) input.setAttribute('maxlength', field.max);
 
-        // আগের ডেটা বসানো
         const savedValue = localStorage.getItem(field.id);
         if (savedValue) {
             input.value = savedValue;
@@ -181,8 +191,8 @@ function initLiveValidationEngine() {
                 validationState.name = isOk;
             }
             else if (field.id === 'shippingMobile') {
-                input.value = input.value.replace(/\D/g, ''); // শুধু নাম্বার অ্যালাউ করবে
-                isOk = /^01[3-9]\d{8}$/.test(input.value); // ১১ ডিজিট মাস্ট
+                input.value = input.value.replace(/\D/g, ''); 
+                isOk = /^01[3-9]\d{8}$/.test(input.value); 
                 validationState.mobile = isOk;
             }
             else if (field.id === 'shippingAddress') {
@@ -232,7 +242,6 @@ function handleProceedToPayment() {
         return;
     }
 
-    // 🎯 [নতুন ফিচার] স্পেসিফিক এরর মেসেজ জেনারেট করা
     let errorMessages = [];
     
     if (!validationState.name) {
@@ -245,14 +254,12 @@ function handleProceedToPayment() {
         errorMessages.push("⚠️ Please enter your complete Delivery Address (at least 3 words).");
     }
 
-    // যদি কোনো এরর থাকে, তবে সবগুলো একসাথে অ্যালার্ট বক্সে দেখাবে
     if (errorMessages.length > 0) {
-        const finalMessage = errorMessages.join("\n\n"); // প্রতিটি মেসেজের পর ফাঁকা লাইন তৈরি করবে
+        const finalMessage = errorMessages.join("\n\n"); 
         openCheckoutAlertModal(finalMessage);
         return;
     }
 
-    // সব ঠিক থাকলে অর্ডারের ডেটা প্রসেস হবে
     const nameVal = document.getElementById('shippingFullName').value.trim();
     const mobileVal = document.getElementById('shippingMobile').value.trim();
     const addressVal = document.getElementById('shippingAddress').value.trim();
@@ -283,3 +290,5 @@ function closeCheckoutAlertModal() {
     const modal = document.getElementById('checkoutAlertModal');
     if(modal) modal.style.display = 'none';
 }
+
+
