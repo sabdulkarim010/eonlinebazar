@@ -372,4 +372,3 @@ window.uploadProduct = async function() {
 
 
 
-
