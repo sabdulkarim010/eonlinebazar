@@ -51,7 +51,7 @@
             <div id="checkoutItemsContainer" class="checkout-items-list-wrapper">
                 </div>
 
-            <div class="checkout-summary-block">
+            <div class="checkout-summary-block" id="orderSummarySection">
                 <div class="summary-row">
                     <span>Selected Items:</span>
                     <strong id="totalItemsCount">0 Items</strong>
@@ -66,7 +66,7 @@
                 </div>
             </div>
 
-            <div class="shipping-info-section-wrapper">
+            <div class="shipping-info-section-wrapper" id="shippingFormSection">
                 <h3><i class="fa-solid fa-truck-fast"></i> Shipping Information</h3>
                 
                 <form id="checkoutShippingForm" onsubmit="event.preventDefault();">
@@ -163,4 +163,7 @@
     <script src="js/checkout.js"></script>
 </body>
 </html>
+
+
+
 
