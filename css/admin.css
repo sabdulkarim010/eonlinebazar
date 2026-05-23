@@ -572,49 +572,99 @@ select:focus {
 .btn-confirm:hover { filter: brightness(0.9); }
 
 /* Premium Invoice Card */
+/* ==================================================
+   INVOICE MODAL DESIGN & SCROLL FIX
+================================================== */
+.invoice-modal-overlay {
+    display: none; /* ডিফল্টভাবে লুকানো থাকবে */
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    padding: 20px; 
+}
+
 .invoice-modal-card {
-    background: var(--white);
+    background: #fff;
     width: 100%;
     max-width: 500px;
-    border-radius: var(--radius-lg);
-    padding: 40px;
+    border-radius: 12px;
+    padding: 24px;
     position: relative;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    animation: scaleUp 0.3s ease forwards;
+    
+    /* 🌟 THE MAGIC SCROLL FIX (যতই আইটেম থাক, স্ক্রিনের বাইরে যাবে না) 🌟 */
+    max-height: 85vh; 
+    overflow-y: auto; 
+    
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
 }
+
+/* কাস্টম স্ক্রলবার ডিজাইন */
+.invoice-modal-card::-webkit-scrollbar { width: 6px; }
+.invoice-modal-card::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 
 .close-modal-btn {
-    position: absolute;
-    top: 16px;
-    right: 20px;
-    border: none;
-    background: none;
-    font-size: 28px;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: var(--transition);
+    position: absolute; top: 12px; right: 16px;
+    background: none; border: none; font-size: 24px;
+    color: #64748b; cursor: pointer; transition: 0.2s;
+}
+.close-modal-btn:hover { color: #ef4444; }
+
+.invoice-header { text-align: center; margin-bottom: 24px; }
+.invoice-header h2 { color: #2563eb; font-weight: 700; margin-bottom: 4px; font-size: 24px; }
+.invoice-header p { color: #64748b; font-size: 14px; }
+
+.invoice-info-box { background: #f8fafc; padding: 16px; border-radius: 8px; margin-bottom: 20px; }
+.invoice-info-box p { margin-bottom: 6px; font-size: 14px; display: flex; justify-content: space-between;}
+.invoice-info-box p b { color: #334155; }
+.invoice-info-box p span { text-align: right; color: #475569; max-width: 65%; }
+#invOrderId { font-weight: bold; color: #2563eb; }
+
+/* 🌟 Note for Courier Classes (নতুন যোগ করা হলো) 🌟 */
+.invoice-note-row {
+    display: none; /* ডিফল্টভাবে লুকানো, JS দিয়ে শো করানো হবে */
+    margin-top: 8px !important;
+    border-top: 1px dashed #cbd5e1;
+    padding-top: 8px;
+}
+.courier-note-text {
+    color: #ef4444 !important; /* লাল রঙের হাইলাইট */
+    font-weight: 500;
 }
 
-.close-modal-btn:hover { color: var(--text-main); }
+.invoice-details-section { margin-bottom: 20px; }
+.invoice-details-section h4 { margin-bottom: 12px; color: #475569; font-size: 14px; text-transform: uppercase; }
 
-.btn-print {
-    width: 100%;
-    margin-top: 24px;
-    padding: 12px;
-    background: var(--info);
-    color: var(--white);
-    border: none;
-    border-radius: var(--radius-md);
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: var(--transition);
+.invoice-item-row { 
+    display: flex; justify-content: space-between; 
+    margin-bottom: 8px; font-size: 14px; 
+    border-bottom: 1px dashed #e2e8f0; padding-bottom: 4px; color: #334155; 
 }
-.btn-print:hover { background: #2563eb; }
 
+.invoice-total-box { 
+    display: flex; justify-content: space-between; align-items: center;
+    background: #eff6ff; padding: 16px; border-radius: 8px; 
+    border: 1px solid #bfdbfe; margin-bottom: 20px; 
+}
+.invoice-total-box span { font-weight: 600; color: #1e293b; }
+.invoice-total-box b { color: #2563eb; font-size: 18px; }
+
+.btn-print { 
+    width: 100%; background: #2563eb; color: #fff; border: none; 
+    padding: 12px; border-radius: 8px; font-size: 16px; 
+    cursor: pointer; font-weight: 600; transition: 0.3s; 
+}
+.btn-print:hover { background: #1d4ed8; }
+
+/* 🖨️ প্রিন্ট করার সময় যেন ব্যাকগ্রাউন্ড ও বাটন না আসে তার কোড */
+@media print {
+    body * { visibility: hidden; }
+    .invoice-modal-card, .invoice-modal-card * { visibility: visible; }
+    .invoice-modal-card { position: absolute; left: 0; top: 0; width: 100%; max-height: none; overflow: visible; box-shadow: none; padding: 0; }
+    .no-print { display: none !important; }
+}
 /* ==================================================
    9. MODERN TOAST ALERTS SYSTEM
 ================================================== */
