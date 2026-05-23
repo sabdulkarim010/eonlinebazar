@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>eOnlineBazar - Admin Panel</title>
+    <title>EonlineBazar - Admin Panel</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -125,13 +125,43 @@
         </div>
     </div>
 
-    <div id="invoiceModal" class="custom-modal-overlay" style="display: none;">
-        <div class="invoice-modal-card">
-            <button onclick="document.getElementById('invoiceModal').style.display='none'" class="close-modal-btn">&times;</button>
-            <div id="invoiceContent"></div>
-            <button onclick="window.print()" class="btn-print"><i class="fa-solid fa-print"></i> Print Invoice</button>
+    <!-- Invoice Modal -->
+<div id="invoiceModal" class="invoice-modal-overlay">
+    <div class="invoice-modal-card">
+        <button class="close-modal-btn no-print" onclick="closeInvoiceModal()">&times;</button>
+        
+        <div class="invoice-header">
+            <h2>eOnlineBazar</h2>
+            <p>Official Invoice</p>
         </div>
+        
+        <div class="invoice-info-box">
+            <p><b>Order ID:</b> <span id="invOrderId"></span></p>
+            <p><b>Customer:</b> <span id="invCustomerName"></span></p>
+            <p><b>Phone:</b> <span id="invCustomerPhone"></span></p>
+            <p><b>Address:</b> <span id="invCustomerAddress"></span></p>
+            
+            <p id="invNoteRow" class="invoice-note-row">
+                <b>Note for Courier:</b> <span id="invCourierNote" class="courier-note-text"></span>
+            </p>
+        </div>
+
+        <div class="invoice-details-section">
+            <h4>Order Details</h4>
+            <div id="invItemsList" class="invoice-items-list"></div>
+        </div>
+
+        <div class="invoice-total-box">
+            <span>Total Amount</span>
+            <b id="invTotalAmount"></b>
+        </div>
+
+        <button class="btn-print no-print" onclick="window.print()">
+            <i class="fa-solid fa-print"></i> Print Invoice
+        </button>
     </div>
+</div>
+ <!-- Invoice Modal End-->
 
     <div id="toastContainer" class="toast-container"></div>
 
@@ -165,5 +195,6 @@
     </script>
     </body>
 </html>
+
 
 
