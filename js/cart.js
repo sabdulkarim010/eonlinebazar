@@ -48,13 +48,18 @@ function updateCartCount() {
     if (drawerCount) drawerCount.innerText = count;
 }
 
+
+
 // ==========================================================================
-// --- ৪. রেন্ডার কার্ট আইটেমস (সাইজ কন্ট্রোল এবং রিভার্সড অর্ডার ফিক্সড) ---
+// --- ৪. রেন্ডার কার্ট আইটেমস (সাইজ কন্ট্রোল, রিভার্সড অর্ডার ও এম্পটি স্টেট ফিক্সড) ---
 // ==========================================================================
 function renderCartDrawerItems() {
     const drawerContainer = document.getElementById('cartDrawerItems');
     const pageContainer = document.getElementById('cartItemsContainer') || document.getElementById('checkoutItemsContainer');
     const cartFooter = document.getElementById('cartDrawerFooter');
+    
+    // 🎯 নতুন আইডি: টোটাল এবং চেকআউট বাটনের মেইন কন্টেইনার
+    const summarySection = document.getElementById('cartSummarySection'); 
     
     const container = drawerContainer || pageContainer;
     if (!container) return;
@@ -64,52 +69,44 @@ function renderCartDrawerItems() {
 
     // 🎯 কন্ডিশন ১: কার্ট সম্পূর্ণ খালি থাকলে (Empty State)
     if (currentCart.length === 0) {
+        // সুন্দর একটি "Browse Products" বাটন যুক্ত করা হয়েছে
         container.innerHTML = `
             <div class="empty-cart-container" style="text-align:center; padding:60px 20px; color:#777; width:100%;">
                 <i class="fa fa-shopping-bag" style="font-size:48px; color:#bbb; margin-bottom:15px; display:block;"></i>
-                <span style="font-size:16px; font-weight:600; color:#333; display:block; margin-bottom:5px;">Your shopping bag is empty!</span>
-                <span style="font-size:13px; color:#888;">Please add some products to your cart.</span>
+                <span style="font-size:18px; font-weight:600; color:#334155; display:block; margin-bottom:8px;">Your shopping bag is empty!</span>
+                <span style="font-size:14px; color:#64748b; margin-bottom:24px; display:block;">Please add some products to your cart.</span>
+                <a href="index.html" style="background:#f97316; color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:600; display:inline-block; transition:0.3s; box-shadow: 0 4px 6px -1px rgba(249, 115, 22, 0.2);">Browse Products</a>
             </div>
         `;
         
         if (cartFooter) cartFooter.style.display = 'none';
+        
+        // কার্ট খালি থাকলে পুরো টোটাল ও চেকআউট সেকশন অটো হাইড হয়ে যাবে
+        if (summarySection) summarySection.style.display = 'none'; 
+        
         updateCartTotal();
         return;
     }
 
-    // 🎯 কন্ডিশন ২: ড্রয়ার ফুটার থাকলে তা ডিসপ্লে করা
-    if (cartFooter) {
-        cartFooter.style.display = 'block';
-    }
+    // 🎯 কন্ডিশন ২: কার্টে আইটেম থাকলে ফুটার ও সামারি সেকশন শো করবে
+    if (cartFooter) cartFooter.style.display = 'block';
+    if (summarySection) summarySection.style.display = 'block';
 
     // 🎯 ৩. কার্টের আইটেমগুলো লুপের সাহায্যে স্ক্রিনে রেন্ডার করা
     currentCart.forEach((item, index) => {
-        
-        // জেসন ম্যাচিং ট্রিক: কার্টের আইটেমের সাথে product.json মিলিয়ে রিয়েল ইমোজি বা আইকন বের করা
         let realProduct = globalProductCatalog.find(p => String(p.id) === String(item.id));
         let correctEmoji = (realProduct && realProduct.icon) ? realProduct.icon : (item.icon || "📦");
 
         let mediaHTML = `📦`;
         let imageFile = item.products || item.image || item.icon;
 
-        // ডেটা যদি কোনো ছবির ফাইল ফরম্যাট নির্দেশ করে (.jpg, .png, etc.)
         if (imageFile && typeof imageFile === 'string' && (imageFile.endsWith('.jpg') || imageFile.endsWith('.png') || imageFile.endsWith('.jpeg') || imageFile.endsWith('.webp'))) {
-            
-            let imagePath = "";
-            if (imageFile.startsWith('products/') || imageFile.startsWith('images/')) {
-                imagePath = imageFile;
-            } else {
-                imagePath = 'products/' + imageFile; 
-            }
-            
-            // 🎯 ইমেজ সাইজ লক লজিক: inline-style দিয়ে ছবির সর্বোচ্চ সাইজ সীমাবদ্ধ করা হয়েছে যেন বড় না দেখায়
+            let imagePath = (imageFile.startsWith('products/') || imageFile.startsWith('images/')) ? imageFile : 'products/' + imageFile; 
             mediaHTML = `
                 <img src="${imagePath}" alt="${item.name}" style="max-width:100%; max-height:100%; object-fit:contain;" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
                 <span class="product-emoji-icon" style="font-size: 24px; display:none; line-height:1;">${correctEmoji}</span>
             `;
-            
         } else {
-            // 🎯 ইমোজি সাইজ লক লজিক: ডিরেক্ট ইমোজি টেক্সটের ফন্ট-সাইজ ২৪ পিক্সেল এ ফিক্সড করা হয়েছে
             mediaHTML = `<span class="product-emoji-icon" style="font-size: 24px; display:inline-block; line-height:1;">${correctEmoji}</span>`;
         }
 
@@ -119,7 +116,7 @@ function renderCartDrawerItems() {
         
         const row = document.createElement('div');
         
-        // ক) ড্রয়ার বা সাইড মিনি কার্ট লেআউট
+        // ড্রয়ার লেআউট
         if (drawerContainer) {
             row.className = 'cart-item-row'; 
             row.innerHTML = `
@@ -142,7 +139,7 @@ function renderCartDrawerItems() {
                 </button>
             `;
         } else {
-            // খ) cart.html ফ্রেশ পেজের রেসপনসিভ ও প্রফেশনাল লেআউট
+            // মেইন কার্ট পেজ লেআউট
             row.className = `cart-item-card ${item.selected === false ? 'is-unchecked' : ''}`;
             row.innerHTML = `
                 <div class="cart-item-left-group">
@@ -172,71 +169,89 @@ function renderCartDrawerItems() {
         container.appendChild(row);
     });
 
-    // সাবটোটাল ও গ্র্যান্ড টোটাল হিসাব আপডেট করা
     updateCartTotal();
 }
 
+// ==========================================================================
 // --- ৫. চেকবক্সের স্টেট লোকাল স্টোরেজে সেভ করা ---
+// ==========================================================================
 window.toggleItemSelection = function(productId) {
     let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
     const item = currentCart.find(i => i.id === productId);
     
     if (item) {
         const checkbox = document.querySelector(`.cart-item-checkbox[data-id="${productId}"]`);
-        if (checkbox) {
-            item.selected = checkbox.checked;
-        } else {
-            item.selected = !item.selected;
-        }
+        item.selected = checkbox ? checkbox.checked : !item.selected;
     }
     
     localStorage.setItem('cart', JSON.stringify(currentCart));
     renderCartDrawerItems();
 };
 
-// --- ৬. সিলেক্ট করা আইটেমের লাইভ টোটাল হিসাব এবং চেকআউট বাটন লক লজিক ---
+// ==========================================================================
+// --- ৬. কার্ট টোটাল, ইউনিক আইটেম কাউন্ট এবং অটো-হাইড লজিক ---
+// ==========================================================================
 function updateCartTotal() {
+    // 🎯 আপনার দেওয়া অরিজিনাল ID গুলোই এখানে ব্যবহার করা হয়েছে
     const totalSpan = document.getElementById('cartDrawerTotal');
     const itemsCountSpan = document.getElementById('cartSelectedItemsCount');
     const subtotalEl = document.getElementById('cartSubtotalAmount');
     const grandTotalEl = document.getElementById('cartGrandTotalAmount');
     const checkoutRedirectBtn = document.getElementById('proceedToCheckoutBtn');
     
-    let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
-    let grandTotal = 0;
-    let selectedCount = 0;
+    // 🎯 কার্ট খালি হলে পুরো টোটাল সেকশন হাইড করার জন্য কন্টেইনার ID
+    const summarySection = document.getElementById('cartSummarySection'); 
 
-    currentCart.forEach(item => {
-        if (item.selected !== false) {
-            selectedCount += (item.quantity || 1);
-            grandTotal += item.price * (item.quantity || 1);
-        }
+    let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
+    
+    // 🎯 শুধু সিলেক্ট করা (চেকড) আইটেমগুলো ফিল্টার করা হচ্ছে
+    let checkedItems = currentCart.filter(item => item.selected !== false);
+    
+    // 🎯 ইউনিক আইটেম সংখ্যা (যেমন: ২ টা আলাদা প্রোডাক্ট থাকলে ২ দেখাবে, পিস হিসাব করবে না)
+    let uniqueSelectedCount = checkedItems.length;
+    let grandTotal = 0;
+
+    checkedItems.forEach(item => {
+        grandTotal += item.price * (item.quantity || 1);
     });
 
     // ড্রয়ারের টোটাল আপডেট
     if (totalSpan) totalSpan.innerText = grandTotal;
     
-    // cart.html ফুল পেজের সাবটোটাল, আইটেম কাউন্ট ও গ্র্যান্ড টোটাল আপডেট
-    if (itemsCountSpan) itemsCountSpan.innerText = `${selectedCount} Items`;
+    // cart.html ফুল পেজের সাবটোটাল, ইউনিক আইটেম কাউন্ট ও গ্র্যান্ড টোটাল আপডেট
+    if (itemsCountSpan) itemsCountSpan.innerText = `${uniqueSelectedCount} Items`;
     if (subtotalEl) subtotalEl.innerText = `৳${grandTotal}`;
     if (grandTotalEl) grandTotalEl.innerText = `৳${grandTotal}`;
 
-    // ⚡ চেকআউট বাটন অ্যাক্টিভেশন লজিক
-    if (checkoutRedirectBtn) {
-        if (selectedCount > 0) {
+    // ⚡ চেকআউট বাটন ও টোটাল সেকশনের অটো-হাইড লজিক
+    if (currentCart.length === 0 || uniqueSelectedCount === 0) {
+        // কার্টে কিছু না থাকলে বা কোনো আইটেম সিলেক্ট না থাকলে পুরো সেকশন হাইড হয়ে যাবে
+        if (summarySection) {
+            summarySection.style.display = 'none';
+        } else if (checkoutRedirectBtn) {
+            // ব্যাকআপ হিসেবে (যদি HTML এ ID বসাতে ভুলে যান) বাটন ডিজেবল হবে
+            checkoutRedirectBtn.disabled = true;
+            checkoutRedirectBtn.style.opacity = '0.5';
+            checkoutRedirectBtn.onclick = null;
+        }
+    } else {
+        // আইটেম সিলেক্ট করা থাকলে সেকশনটি শো করবে
+        if (summarySection) summarySection.style.display = 'block';
+        
+        if (checkoutRedirectBtn) {
             checkoutRedirectBtn.disabled = false;
+            checkoutRedirectBtn.style.opacity = '1'; // বাটন সম্পূর্ণ উজ্জ্বল থাকবে
             checkoutRedirectBtn.onclick = function() {
                 localStorage.setItem("activeCheckoutSession", "true");
                 window.location.href = 'checkout.html';
             };
-        } else {
-            checkoutRedirectBtn.disabled = true;
-            checkoutRedirectBtn.onclick = null;
         }
     }
 }
 
+// ==========================================================================
 // --- 🎯 VII. লাইভ কোয়ান্টিটি প্লাস/মাইনাস কন্ট্রোল ---
+// ==========================================================================
 window.updateQty = function(productId, change) {
     let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
     const item = currentCart.find(i => i.id === productId);
@@ -244,7 +259,7 @@ window.updateQty = function(productId, change) {
     if (item) {
         item.quantity = (item.quantity || 1) + change;
         
-        // কোয়ান্টিটি ১ এর নিচে নামলে আইটেম রিমুভ হবে
+        // 🎯 কোয়ান্টিটি ১ এর নিচে নামলে আইটেম রিমুভ হবে
         if (item.quantity < 1) {
             deleteCartItem(productId);
             return;
@@ -252,19 +267,25 @@ window.updateQty = function(productId, change) {
     }
 
     localStorage.setItem('cart', JSON.stringify(currentCart));
-    updateCartCount();
+    
+    // আপনার আগের ফাংশনগুলো কল করা হচ্ছে ডেটা রিফ্রেশ করার জন্য
+    if (typeof updateCartCount === 'function') updateCartCount();
     renderCartDrawerItems();
 };
 
+// ==========================================================================
 // --- 🎯 VIII. আইটেম ডিলিট করার প্রফেশনাল লজিক ---
+// ==========================================================================
 window.deleteCartItem = function(productId) {
     let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
     currentCart = currentCart.filter(item => item.id !== productId);
 
     localStorage.setItem('cart', JSON.stringify(currentCart));
-    updateCartCount();
+    
+    if (typeof updateCartCount === 'function') updateCartCount();
     renderCartDrawerItems();
 
+    // 🎯 ডিলিট করার পর সুন্দর নোটিফিকেশন অ্যালার্ট (আপনার আগের লজিক অনুযায়ী)
     const btn = window.event ? window.event.target.closest('button') : null;
     if (btn && typeof showCardNotification === 'function') {
         showCardNotification(btn, "Item removed!", "warning");
@@ -272,7 +293,7 @@ window.deleteCartItem = function(productId) {
 };
 
 // ==========================================================================
-// --- ৯. কার্ডের ভেতরের টোস্ট নোটিফিকেশন (সংশোধিত ও নিরাপদ সংস্করণ) ---
+// --- ৭. কার্ডের ভেতরের টোস্ট নোটিফিকেশন (সংশোধিত ও নিরাপদ সংস্করণ) ---
 // ==========================================================================
 function showCardNotification(clickedButton, message, type = 'success') {
     if (!clickedButton) return;
@@ -412,3 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateCartCount();
     renderCartDrawerItems();
 });
+
+
+
+
