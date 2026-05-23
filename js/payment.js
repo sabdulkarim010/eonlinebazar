@@ -226,7 +226,7 @@ window.handleFinalOrderSubmission = function() {
         // 🌟 ইউনিক ৬ ডিজিটের অর্ডার আইডি তৈরি করা হলো
         const generatedOrderId = "EOB" + Math.floor(100000 + Math.random() * 900000);
 
-        // 🔥 ফায়ারবেসে পাঠানোর জন্য ডেটা প্যাকেট (এখানে orderId যুক্ত করা হয়েছে)
+         // 🌟 ফায়ারবেসে পাঠানোর জন্য ডেটা প্যাকেট (এখানে কুরিয়ার নোট যুক্ত করা হয়েছে)
         const orderData = {
             orderId: generatedOrderId, 
             customerName: custName,
@@ -236,7 +236,9 @@ window.handleFinalOrderSubmission = function() {
             totalAmount: totalAmount,
             paymentMethod: finalMethod,
             status: "Pending",
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            // 🌟 এই লাইনটি যুক্ত করুন (localStorage থেকে নোটটি তুলে আনা হচ্ছে)
+            shippingCourierNote: localStorage.getItem('shippingCourierNote') || "" 
         };
 
         // 🚀 ফায়ারবেস ডেটাবেজে কাস্টমারের অর্ডার পুশ
@@ -288,6 +290,9 @@ window.handleFinalOrderSubmission = function() {
 
     }, 1500);
 }
+
+
+
 
 
 
