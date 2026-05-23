@@ -218,6 +218,7 @@ function fetchLiveOrders() {
     });
 }
 
+
 /* ==================================================
    8. ORDER ACTIONS (STATUS, DELETE, INVOICE)
 ================================================== */
@@ -247,56 +248,77 @@ window.deleteOrder = function(orderId) {
     );
 };
 
-// js/admin.js ফাইলের ৮ নং সেকশনের ইনভয়েস ফাংশন
+// 🌟 ক্লিন এবং সেপারেট করা ইনভয়েস ফাংশন (Note for Courier সহ) 🌟
 window.viewInvoice = function(orderId) {
     const order = allOrders[orderId]; 
     const modal = document.getElementById('invoiceModal');
-    const content = document.getElementById('invoiceContent');
 
     if (order) {
+        // ১. অর্ডার আইডি ফরম্যাটিং
+        const displayOrderId = order.orderId ? order.orderId : '#' + orderId.substring(orderId.length - 6).toUpperCase();
+
+        // ২. HTML এলিমেন্টগুলোতে কাস্টমার ডেটা বসানো
+        document.getElementById('invOrderId').innerText = displayOrderId;
+        document.getElementById('invCustomerName').innerText = order.customerName || 'N/A';
+        document.getElementById('invCustomerPhone').innerText = order.customerPhone || 'N/A';
+        document.getElementById('invCustomerAddress').innerText = order.customerAddress || 'N/A';
+        document.getElementById('invTotalAmount').innerText = `৳ ${order.totalAmount || 0}`;
+
+        // 🌟 ৩. Note for Courier চেক করা এবং বসানো 🌟
+        const noteRow = document.getElementById('invNoteRow');
+        const noteSpan = document.getElementById('invCourierNote');
+        
+        // ডাটাবেজ থেকে নোট খোঁজার চেষ্টা (যে কোনো একটি নামে সেভ হলেই কাজ করবে)
+        const customerNote = order.shippingCourierNote || order.courierNote || order.note; 
+
+        if (customerNote && customerNote.trim() !== "") {
+            noteSpan.innerText = customerNote;
+            noteRow.style.display = 'flex'; // নোট থাকলে লাইনটি শো করবে
+            noteRow.style.justifyContent = 'space-between';
+        } else {
+            noteRow.style.display = 'none'; // নোট না থাকলে লুকানো থাকবে
+        }
+
+        // ৪. প্রোডাক্টের আইটেম লিস্ট লুপ করে জেনারেট করা
+        const itemsListContainer = document.getElementById('invItemsList');
         let itemsHTML = '';
-        if(order.items) {
+        
+        if(order.items && order.items.length > 0) {
             order.items.forEach(item => {
                 itemsHTML += `
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:14px; border-bottom:1px dashed #e2e8f0; padding-bottom:4px;">
+                    <div class="invoice-item-row">
                         <span>${item.name} (x${item.quantity})</span>
                         <b>৳ ${item.price * item.quantity}</b>
                     </div>
                 `;
             });
+        } else {
+            itemsHTML = `<div style="text-align:center; color:#94a3b8; font-size:14px;">No items found</div>`;
         }
+        
+        itemsListContainer.innerHTML = itemsHTML;
 
-        // 🌟 ইনভয়েসের ভেতরে সঠিক আইডিটি দেখানোর কোড
-        const displayOrderId = order.orderId ? order.orderId : '#' + orderId.substring(orderId.length - 6).toUpperCase();
-
-        content.innerHTML = `
-            <div style="text-align:center; margin-bottom:24px;">
-                <h2 style="color:#2563eb; font-weight:700; margin-bottom:4px;">eOnlineBazar</h2>
-                <p style="color:#64748b; font-size:14px;">Official Invoice</p>
-            </div>
-            
-            <div style="background:#f8fafc; padding:16px; border-radius:8px; margin-bottom:20px;">
-                <p style="margin-bottom:6px; font-size:14px;"><b>Order ID:</b> <span style="float:right; font-weight:bold; color:#2563eb;">${displayOrderId}</span></p>
-                <p style="margin-bottom:6px; font-size:14px;"><b>Customer:</b> <span style="float:right;">${order.customerName}</span></p>
-                <p style="margin-bottom:6px; font-size:14px;"><b>Phone:</b> <span style="float:right;">${order.customerPhone}</span></p>
-                <p style="margin-bottom:0; font-size:14px;"><b>Address:</b> <span style="float:right; text-align:right; max-width:60%;">${order.customerAddress}</span></p>
-            </div>
-
-            <div style="margin-bottom:20px;">
-                <h4 style="margin-bottom:12px; color:#475569; font-size:14px; text-transform:uppercase;">Order Details</h4>
-                ${itemsHTML}
-            </div>
-
-            <div style="display:flex; justify-content:space-between; background:#eff6ff; padding:16px; border-radius:8px; border:1px solid #bfdbfe;">
-                <span style="font-weight:600; color:#1e293b;">Total Amount</span>
-                <b style="color:#2563eb; font-size:18px;">৳ ${order.totalAmount}</b>
-            </div>
-        `;
+        // ৫. মডাল ওপেন করা
         modal.style.display = 'flex'; 
     } else {
         showToast("Order details not found!", "error");
     }
 };
+
+// 🌟 মডাল ক্লোজ করার ফাংশন 🌟
+window.closeInvoiceModal = function() {
+    document.getElementById('invoiceModal').style.display = 'none';
+};
+
+// মডালের বাইরের কালো অংশে ক্লিক করলেও মডাল বন্ধ হবে
+window.onclick = function(event) {
+    const modal = document.getElementById('invoiceModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+};
+
+
 
 /* ==================================================
    9. PRODUCT UPLOAD LOGIC (STORAGE & DATABASE)
@@ -344,6 +366,10 @@ window.uploadProduct = async function() {
         showToast("Failed to upload the product!", "error");
     }
 };
+
+
+
+
 
 
 
