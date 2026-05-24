@@ -259,7 +259,7 @@ window.handleFinalOrderSubmission = function() {
             // 🌟 কাস্টমারকে সেই জেনারেট করা আইডিটিই দেখানো হচ্ছে
             if (modalOrderIdSpan) modalOrderIdSpan.innerText = generatedOrderId;
             if (modalMessage) {
-                modalMessage.innerHTML = `Your order has been logged via <strong>${finalMethod}</strong>.<br>Thank you for choosing eOnlineBazar!`;
+                modalMessage.innerHTML = `Your order has been logged via <strong>${finalMethod}</strong>.<br>Thank you for choosing EonlineBazar!`;
             }
             successModal.style.setProperty('display', 'flex', 'important');
         }
@@ -269,7 +269,7 @@ window.handleFinalOrderSubmission = function() {
         localStorage.removeItem('shippingAddress');
         localStorage.removeItem('shippingCourierNote');
 
-        let timeLeft = 20;
+        let timeLeft = 30;
         const countdownInterval = setInterval(() => {
             timeLeft--;
             if (modalTimerSpan) {
@@ -292,6 +292,26 @@ window.handleFinalOrderSubmission = function() {
 }
 
 
+// 🌟 অর্ডার আইডি কপি করার ফাংশন (নতুন ফিচার)
+window.copyOrderId = function() {
+    const orderId = document.getElementById('modalOrderId').innerText;
+    
+    // আধুনিক ক্লিপবোর্ড এপিআই ব্যবহার
+    navigator.clipboard.writeText(orderId).then(() => {
+        // বাটনের ভেতরে আইকন পরিবর্তনের লজিক
+        const btn = document.querySelector('.copy-order-id-btn');
+        if (btn) {
+            const originalIcon = btn.innerHTML;
+            btn.innerHTML = `<i class="fa-solid fa-check"></i>`; // কপি হওয়ার পর টিক চিহ্ন
+            
+            setTimeout(() => {
+                btn.innerHTML = originalIcon; // ১.৫ সেকেন্ড পর আবার আগের আইকনে ফিরে আসবে
+            }, 1500);
+        }
+    }).catch(err => {
+        console.error("Copy failed: ", err);
+    });
+};
 
 
 
