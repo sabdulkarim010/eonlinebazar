@@ -392,3 +392,48 @@ body {
     .step-line { transform: translateY(-8px); margin: 0 -5px; }
 }
 
+/* =========================================================================
+   🚚 ট্র্যাকিং পেজের ডেলিভারি ডেট বক্স ডিজাইন
+   ========================================================================= */
+.track-delivery-estimate-box {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border: 1px solid #bbf7d0;
+    padding: 15px 20px;
+    border-radius: 12px;
+    margin: 15px 0 25px 0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.track-delivery-content {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.track-delivery-content i {
+    font-size: 24px;
+    color: #16a34a; /* চমৎকার সবুজ আইকন */
+    background: #ffffff;
+    padding: 10px;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.track-delivery-label {
+    display: block;
+    font-size: 13px;
+    color: #166534;
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+.track-delivery-date {
+    font-size: 16px;
+    color: #14532d;
+    font-weight: 700;
+}
+
+
+
+
+
