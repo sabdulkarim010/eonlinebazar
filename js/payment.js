@@ -236,6 +236,10 @@ window.handleFinalOrderSubmission = function() {
             totalAmount: totalAmount,
             paymentMethod: finalMethod,
             status: "Pending",
+
+            // 🚚 এখানে সম্ভাব্য ৪ দিন যোগ করে ডেট ফরম্যাট করা হলো
+            estimatedDelivery: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
+
             timestamp: Date.now(),
             // 🌟 এই লাইনটি যুক্ত করুন (localStorage থেকে নোটটি তুলে আনা হচ্ছে)
             shippingCourierNote: localStorage.getItem('shippingCourierNote') || "" 
@@ -261,6 +265,13 @@ window.handleFinalOrderSubmission = function() {
             if (modalMessage) {
                 modalMessage.innerHTML = `Your order has been logged via <strong>${finalMethod}</strong>.<br>Thank you for choosing EonlineBazar!`;
             }
+
+             // 🚚 ঠিক এইখানে কোডটি বসে মডালে ডেটটি শো করাবে
+            const modalDeliveryDateSpan = document.getElementById('modalDeliveryDate');
+            if (modalDeliveryDateSpan) {
+                modalDeliveryDateSpan.innerText = orderData.estimatedDelivery;
+            }
+            
             successModal.style.setProperty('display', 'flex', 'important');
         }
 
