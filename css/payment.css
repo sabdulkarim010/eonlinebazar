@@ -518,7 +518,28 @@ body {
 }
 
 .modal-home-redirect-btn:hover {
-    background-color: #059669;
+    background-color: #08f628;
+}
+
+/* কপি বাটন স্টাইল */
+.copy-order-id-btn {
+    background: transparent;
+    border: none;
+    color: #0f0f0e;
+    cursor: pointer;
+    margin-left: 8px;
+    padding: 0 5px;
+    font-size: 14px;
+    transition: transform 0.2s, color 0.2s;
+}
+
+.copy-order-id-btn:hover {
+    color: #1df461;
+    transform: scale(1.1);
+}
+
+.copy-order-id-btn:active {
+    transform: scale(0.9);
 }
 
 /* =========================================================================
@@ -667,5 +688,7 @@ body {
         display: inline;
     }
 }
+
+
 
 
