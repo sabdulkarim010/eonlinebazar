@@ -542,6 +542,32 @@ body {
     transform: scale(0.9);
 }
 
+
+/* 🚚 ডেলিভারি ডেট ব্যাজ ডিজাইন */
+.modal-delivery-estimate-badge {
+    background-color: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    text-align: center;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+.modal-delivery-estimate-badge i {
+    color: #3b82f6;
+}
+
+.modal-delivery-estimate-badge strong {
+    color: #1e3a8a;
+    font-weight: 700;
+}
+
 /* =========================================================================
    📱 ৯. মোবাইল ও ট্যাবলেট রেসপনসিভনেস (Mobile Optimization)
    ========================================================================= */
