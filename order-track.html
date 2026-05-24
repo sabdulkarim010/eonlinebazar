@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Your Order - eOnlineBazar</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <link rel="stylesheet" href="css/order-track.css">
+</head>
+<body>
+
+    <header class="track-header">
+        <div class="logo-area">
+            <a href="index.html"><h2>eOnlineBazar</h2></a>
+        </div>
+        <div class="nav-actions">
+            <a href="index.html" class="btn-back-home"><i class="fa-solid fa-arrow-left"></i> Back to Shop</a>
+        </div>
+    </header>
+
+    <main class="tracking-main-container">
+        <div class="tracking-card">
+            
+            <div class="tracking-card-header">
+                <div class="icon-circle">
+                    <i class="fa-solid fa-map-location-dot map-icon"></i>
+                </div>
+                <h1>Track Your Order</h1>
+                <p>Enter your Order ID and Mobile Number to check current status</p>
+            </div>
+
+            <form id="orderTrackForm" class="tracking-form">
+                <div class="input-group">
+                    <label for="trackOrderId"><i class="fa-solid fa-hashtag"></i> Order ID</label>
+                    <input type="text" id="trackOrderId" placeholder="e.g., EOB123456" required>
+                </div>
+                <div class="input-group">
+                    <label for="trackMobile"><i class="fa-solid fa-phone"></i> Mobile Number</label>
+                    <input type="tel" id="trackMobile" placeholder="e.g., 017XXXXXXXX" required>
+                </div>
+                <button type="submit" class="btn-track" id="trackSubmitBtn">
+                    <i class="fa-solid fa-magnifying-glass"></i> Track Order
+                </button>
+            </form>
+
+            <div id="loadingSpinner" class="loading-state hidden">
+                <div class="spinner"></div>
+                <p>Searching for your order...</p>
+            </div>
+
+            <div id="trackingResult" class="tracking-result-box hidden">
+                
+                <div class="order-info-summary">
+                    <div class="summary-item">
+                        <span>Order ID</span>
+                        <b id="resOrderId">EOB000000</b>
+                    </div>
+                    <div class="summary-item">
+                        <span>Total Amount</span>
+                        <b id="resTotal">৳ 0</b>
+                    </div>
+                </div>
+
+                <div class="progress-stepper">
+                    <div class="step" id="stepPending">
+                        <div class="step-icon"><i class="fa-solid fa-clipboard-list"></i></div>
+                        <p>Pending</p>
+                    </div>
+                    <div class="step-line" id="line1"></div>
+                    
+                    <div class="step" id="stepProcessing">
+                        <div class="step-icon"><i class="fa-solid fa-box-open"></i></div>
+                        <p>Processing</p>
+                    </div>
+                    <div class="step-line" id="line2"></div>
+                    
+                    <div class="step" id="stepShipped">
+                        <div class="step-icon"><i class="fa-solid fa-truck-fast"></i></div>
+                        <p>Shipped</p>
+                    </div>
+                    <div class="step-line" id="line3"></div>
+                    
+                    <div class="step" id="stepDelivered">
+                        <div class="step-icon"><i class="fa-solid fa-house-circle-check"></i></div>
+                        <p>Delivered</p>
+                    </div>
+                </div>
+
+                <div class="status-message-box">
+                    <h3 id="resStatusTitle">Status Loading...</h3>
+                    <p id="resStatusDesc">Please wait while we fetch your order details.</p>
+                </div>
+
+            </div>
+
+            <div id="errorState" class="error-state-box hidden">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <h3>Order Not Found</h3>
+                <p>Sorry, we couldn't find any order matching this ID and Mobile Number. Please check your details and try again.</p>
+            </div>
+
+        </div>
+    </main>
+
+    <script type="module" src="js/order-track.js"></script>
+
+</body>
+</html>
