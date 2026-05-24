@@ -152,30 +152,35 @@
         </div>
     </div>
 
+
+    <!-- orderSuccessModal -->
     <div id="orderSuccessModal" class="custom-premium-modal-overlay" style="display: none;">
-        <div class="custom-premium-modal-card">
-            <div class="modal-success-icon-badge">
-                <i class="fa-solid fa-circle-check"></i>
-            </div>
-            <h2>Congratulation!</h2>
-            <h3>Your Order Has Been Placed Successfully!</h3>
-            
-            <div class="modal-order-id-badge">
-                Order ID: <strong id="modalOrderId">#100000</strong>
-            </div>
-
-            <p id="modalGatewayMessage">Thank you for shopping with EonlineBazar.</p>
-            
-            <div class="modal-order-status-info">
-                <i class="fa-solid fa-clock"></i> Our verification team will review your order shortly.
-            </div>
-
-            <button type="button" id="modalCloseAndHomeBtn" class="modal-home-redirect-btn">
-                Continue Shopping (<span id="modalTimerCount">20</span>s) <i class="fa-solid fa-arrow-right"></i>
+    <div class="custom-premium-modal-card">
+        <div class="modal-success-icon-badge">
+            <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <h2>Congratulation!</h2>
+        <h3>Your Order Has Been Placed Successfully!</h3>
+        
+        <div class="modal-order-id-badge">
+            Order ID: <strong id="modalOrderId">#100000</strong>
+            <button type="button" class="copy-order-id-btn" onclick="copyOrderId()" title="Copy Order ID">
+                <i class="fa-solid fa-copy"></i>
             </button>
         </div>
-    </div>
 
+        <p id="modalGatewayMessage">Thank you for shopping with EonlineBazar.</p>
+        
+        <div class="modal-order-status-info">
+            <i class="fa-solid fa-clock"></i> Our verification team will review your order shortly.
+        </div>
+
+        <button type="button" id="modalCloseAndHomeBtn" class="modal-home-redirect-btn">
+            Continue Shopping (<span id="modalTimerCount">20</span>s) <i class="fa-solid fa-arrow-right"></i>
+        </button>
+    </div>
+</div>
+    <!-- orderSuccessModal End -->
         <!-- footer calling -->
         <div id="global-site-footer"></div>
     <script src="js/main.js"></script>
