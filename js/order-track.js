@@ -101,6 +101,29 @@ function displayTrackingResult(order) {
     updateStepper(status);
     updateStatusMessage(status);
 
+    // =========================================================================
+    // 🚚 ফায়ারবেস থেকে ডেলিভারি ডেট এনে ট্র্যাকিং পেজে দেখানো (নতুন প্রফেশনাল ফিচার)
+    // =========================================================================
+    const trackDeliveryContainer = document.getElementById('trackDeliveryContainer');
+    const trackDeliveryDateSpan = document.getElementById('trackDeliveryDate');
+
+    if (trackDeliveryContainer && trackDeliveryDateSpan) {
+        // ১. ফায়ারবেস ডেটা থেকে ডেলিভারি ডেটটি নেওয়া
+        let deliveryDate = order.estimatedDelivery;
+
+        // ২. যদি কোনো কারণে পুরনো অর্ডারে ডেট না থাকে, তবে ব্যাকআপ হিসেবে ৪ দিন পরের ডেট তৈরি করা
+        if (!deliveryDate) {
+            const backupDate = new Date(order.timestamp ? order.timestamp : Date.now());
+            backupDate.setDate(backupDate.getDate() + 4);
+            deliveryDate = backupDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+        // ৩. বক্সে ডেট বসানো এবং বক্সটি স্ক্রিনে শো করানো
+        trackDeliveryDateSpan.innerText = deliveryDate;
+        trackDeliveryContainer.style.display = 'block'; 
+    }
+    // =========================================================================
+
     // রেজাল্ট বক্স শো করা
     trackingResult.classList.remove('hidden');
 }
@@ -170,4 +193,7 @@ function showErrorState() {
     hideAllStates();
     errorState.classList.remove('hidden');
 }
+
+
+
 
