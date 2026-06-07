@@ -16,7 +16,7 @@ const token = localStorage.getItem('adminToken');
 
 // ১.২: টোকেন না থাকলে সরাসরি লগইন পেজে রিডাইরেক্ট (সিকিউরিটি গেটওয়ে)
 if (!token) {
-    window.location.replace('/admin-login.html');
+    window.location.replace('/admin-login');
 }
 
 /**
@@ -37,7 +37,7 @@ async function verifyAdminTokenOnLoad() {
         // টোকেন অবৈধ বা এক্সপায়ার হলে সেশন ক্লিয়ার করে রিডাইরেক্ট
         if (!data.success) {
             localStorage.removeItem('adminToken');
-            window.location.replace('/admin-login.html');
+            window.location.replace('/admin-login');
         }
     } catch (err) {
         console.error("Security Verification Critical Error:", err);
@@ -1499,7 +1499,7 @@ window.logout = function() {
         sessionStorage.clear();
         showToast("Logging out...", "info");
         setTimeout(() => {
-            window.location.href = '/admin-login.html'; // লগইন পেজে রিডাইরেক্ট
+            window.location.href = '/admin-login'; // লগইন পেজে রিডাইরেক্ট
         }, 1000);
     }, "danger");
 };
@@ -1688,7 +1688,7 @@ if (logoutBtn) {
 
         // ৩. লগইন পেজে রিডাইরেক্ট করা
         setTimeout(() => {
-            window.location.replace("admin-login.html");
+            window.location.replace("/admin-login");
         }, 1000);
     });
 }

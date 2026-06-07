@@ -73,7 +73,7 @@ if (loginForm) {
             
             // ৩. ১.৫ সেকেন্ড পর রিডাইরেক্ট হবে
             setTimeout(() => {
-                window.location.href = "admin.html";
+                window.location.href = "/admin";
             }, 1500);
         
             } else {

@@ -1,9 +1,9 @@
-require('dotenv').config(); 
+require('dotenv').config(); // 'require' সবসময় ছোট হাতের অক্ষরে লিখতে হয়
 const express = require('express');
 const path = require('path');
 const connectDB = require('./config/db');
 
-// ১. রুট ফাইলসমূহ ইমপোর্ট করা (এগুলো আগের মতোই থাকবে)
+// ১. রুট ফাইলসমূহ ইমপোর্ট করা
 const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes'); 
 const adminRoutes = require('./routes/adminRoutes'); 
@@ -18,7 +18,7 @@ connectDB();
 // ৩. প্রয়োজনীয় মিডলওয়্যারসমূহ
 app.use(express.json()); 
 
-// 🌟 ফিক্স: '../client' পরিবর্তন করে শুধু 'client' করা হয়েছে, কারণ server.js এখন মেইন ফোল্ডারে
+// স্ট্যাটিক ফাইলগুলো সার্ভ করার জন্য 'client' ফোল্ডার
 app.use(express.static(path.join(__dirname, 'client')));
 
 // ৪. এপিআই রুটসমূহ যুক্ত করা
@@ -27,22 +27,31 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminRoutes);  
 app.use('/api/users', userRoutes); 
 
-// ৫. ফ্রন্টএন্ড হোমপেজ রুট
-// 🌟 ফিক্স: এখানেও '../client' পরিবর্তন করে শুধু 'client' করা হয়েছে
+// =================================================================
+// ৫. ফ্রন্টএন্ড পেজগুলোর রাউট (এখানেই .html হাইড করার লজিক দেওয়া হলো)
+// =================================================================
+
+// হোমপেজ রুট
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'client', 'index.html'));
 });
+
+// অ্যাডমিন ড্যাশবোর্ড রুট (.html ছাড়া)
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'admin.html'));
+});
+
+// অ্যাডমিন লগইন রুট (.html ছাড়া)
+app.get('/admin-login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'admin-login.html'));
+});
+
+// =================================================================
 
 // ৬. সার্ভার স্টার্ট
 app.listen(PORT, () => {
     console.log(`Server is running at http://localhost:${PORT}`);
 });
-
-
-
-
-
-
 
 
 
