@@ -60,28 +60,20 @@ trackForm.addEventListener('submit', async function(e) {
    ========================================================================== */
 async function fetchAndMatchOrder(searchOrderId, searchMobile) {
     try {
-        // মঙ্গোডিবি সার্ভার থেকে ডাটা আনা
-        const response = await fetch('/api/orders');
-        if (!response.ok) throw new Error("Failed to fetch orders from server");
+        // শুধুমাত্র নির্দিষ্ট অর্ডারের জন্য সার্ভারে রিকোয়েস্ট পাঠানো হচ্ছে
+        const response = await fetch(`/api/orders/track?orderId=${searchOrderId}&phone=${searchMobile}`);
         
-        const allOrders = await response.json();
-        let foundOrder = null;
-
-        // অর্ডার খোঁজা
-        if (allOrders && allOrders.length > 0) {
-            for (let order of allOrders) {
-                if (order.orderId === searchOrderId && order.customerPhone === searchMobile) {
-                    foundOrder = order;
-                    break;
-                }
-            }
+        if (!response.ok) {
+            // যদি সার্ভার 404 (Not Found) পাঠায়, তার মানে অর্ডার মেলেনি
+            showErrorState();
+            return;
         }
-
-        // ফলাফল দেখানো বা এরর দেখানো
+        
+        const foundOrder = await response.json();
+        
+        // ফলাফল দেখানো
         if (foundOrder) {
             displayTrackingResult(foundOrder);
-        } else {
-            showErrorState();
         }
 
     } catch (error) {
@@ -90,6 +82,10 @@ async function fetchAndMatchOrder(searchOrderId, searchMobile) {
         hideAllStates();
     }
 }
+
+
+
+
 
 // ট্র্যাকিং রেজাল্ট স্ক্রিনে দেখানোর ফাংশন
 function displayTrackingResult(order) {
@@ -195,5 +191,16 @@ function showErrorState() {
     hideAllStates();
     if (errorState) errorState.classList.remove('hidden');
 }
+
+
+
+
+
+
+
+
+
+
+
 
 

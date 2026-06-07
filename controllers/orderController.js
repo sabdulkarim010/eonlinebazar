@@ -141,8 +141,32 @@ const deleteOrder = async (req, res) => {
     }
 };
 
+
+
+// 6. order-track
+
+const trackOrder = async (req, res) => {
+    try {
+        const { orderId, phone } = req.query;
+        
+        // ডাটাবেজ থেকে Order ID এবং Phone Number দিয়ে খোঁজা
+        const order = await Order.findOne({ orderId: orderId, customerPhone: phone });
+        
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+        
+        res.status(200).json(order);
+    } catch (error) {
+        console.error("Tracking Error:", error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+
+
 // 🌟 ফিক্স: module.exports-এ 'deleteOrder' যুক্ত করা হলো
-module.exports = { createOrder, getOrders, getOrderById, updateOrderStatus, deleteOrder };
+module.exports = { createOrder, getOrders, getOrderById, updateOrderStatus, deleteOrder,trackOrder };
 
 
 

@@ -46,6 +46,11 @@ app.get('/admin-login', (req, res) => {
     res.sendFile(path.join(__dirname, 'client', 'admin-login.html'));
 });
 
+// Order track রুট (.html ছাড়া)
+app.get('/order-track', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'order-track.html'));
+});
+
 // =================================================================
 
 // ৬. সার্ভার স্টার্ট
