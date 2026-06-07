@@ -1,0 +1,439 @@
+/* ==================================================
+   ORDER TRACKING PAGE CSS
+   Professional & Mobile Responsive
+================================================== */
+
+:root {
+    --primary-color: #f97316; /* eOnlineBazar Theme Color */
+    --primary-hover: #ea580c;
+    --success-color: #10b981;
+    --processing-color: #3b82f6;
+    --text-dark: #1e293b;
+    --text-muted: #64748b;
+    --bg-light: #f8fafc;
+    --border-color: #e2e8f0;
+    --card-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', 'Hind Siliguri', sans-serif;
+}
+
+body {
+    background-color: var(--bg-light);
+    color: var(--text-dark);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Header --- */
+.track-header {
+    background: #fff;
+    padding: 16px 5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.logo-area a {
+    text-decoration: none;
+    color: var(--primary-color);
+}
+
+.logo-area h2 {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.btn-back-home {
+    text-decoration: none;
+    color: var(--text-dark);
+    font-weight: 500;
+    font-size: 14px;
+    padding: 8px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    transition: 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-back-home:hover {
+    background: var(--bg-light);
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+/* --- Main Container & Card --- */
+.tracking-main-container {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+}
+
+.tracking-card {
+    background: #fff;
+    width: 100%;
+    max-width: 600px;
+    border-radius: 16px;
+    box-shadow: var(--card-shadow);
+    padding: 40px;
+    overflow: hidden;
+}
+
+.tracking-card-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.icon-circle {
+    width: 60px;
+    height: 60px;
+    background: #fff7ed;
+    color: var(--primary-color);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    margin: 0 auto 16px;
+}
+
+.tracking-card-header h1 {
+    font-size: 22px;
+    margin-bottom: 8px;
+    color: var(--text-dark);
+}
+
+.tracking-card-header p {
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+/* --- Form Elements --- */
+.tracking-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.input-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-dark);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.input-group label i {
+    color: var(--text-muted);
+}
+
+.input-group input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 16px;
+    transition: 0.3s;
+    outline: none;
+}
+
+.input-group input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+}
+
+.btn-track {
+    background: var(--primary-color);
+    color: #fff;
+    border: none;
+    padding: 16px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.btn-track:hover {
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+}
+
+/* --- State Classes (Hidden/Show) --- */
+.hidden {
+    display: none !important;
+}
+
+/* --- Loading State --- */
+.loading-state {
+    text-align: center;
+    padding: 40px 0;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--border-color);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* --- Result Box --- */
+.tracking-result-box {
+    margin-top: 20px;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.order-info-summary {
+    display: flex;
+    justify-content: space-between;
+    background: var(--bg-light);
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 30px;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.summary-item span {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.summary-item b {
+    font-size: 16px;
+    color: var(--text-dark);
+}
+
+/* --- Visual Progress Stepper --- */
+.progress-stepper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 30px;
+    position: relative;
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+    width: 60px;
+}
+
+.step-icon {
+    width: 40px;
+    height: 40px;
+    background: #fff;
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: var(--text-muted);
+    font-size: 16px;
+    margin-bottom: 8px;
+    transition: 0.4s;
+}
+
+.step p {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-align: center;
+}
+
+.step-line {
+    flex-grow: 1;
+    height: 3px;
+    background: var(--border-color);
+    margin: 0 -10px;
+    transform: translateY(-12px);
+    z-index: 1;
+    transition: 0.4s;
+}
+
+/* Active and Completed States for Stepper */
+.step.completed .step-icon {
+    background: var(--success-color);
+    border-color: var(--success-color);
+    color: #fff;
+}
+
+.step.active .step-icon {
+    background: var(--processing-color);
+    border-color: var(--processing-color);
+    color: #fff;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+}
+
+.step.completed p, .step.active p {
+    color: var(--text-dark);
+    font-weight: 700;
+}
+
+.step-line.completed {
+    background: var(--success-color);
+}
+
+/* --- Status Message Box --- */
+.status-message-box {
+    text-align: center;
+    padding: 20px;
+    border-radius: 8px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+}
+
+.status-message-box h3 {
+    font-size: 18px;
+    color: var(--processing-color);
+    margin-bottom: 6px;
+}
+
+.status-message-box p {
+    font-size: 14px;
+    color: #475569;
+}
+
+/* Specific Status Colors */
+.status-message-box.status-pending { background: #fffbeb; border-color: #fde68a; }
+.status-message-box.status-pending h3 { color: #d97706; }
+
+.status-message-box.status-processing { background: #eff6ff; border-color: #bfdbfe; }
+.status-message-box.status-processing h3 { color: #2563eb; }
+
+.status-message-box.status-shipped { background: #f5f3ff; border-color: #ddd6fe; }
+.status-message-box.status-shipped h3 { color: #7c3aed; }
+
+.status-message-box.status-delivered { background: #ecfdf5; border-color: #a7f3d0; }
+.status-message-box.status-delivered h3 { color: #059669; }
+
+/* --- Error State --- */
+.error-state-box {
+    text-align: center;
+    padding: 30px 20px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+.error-state-box i {
+    font-size: 32px;
+    color: #ef4444;
+    margin-bottom: 12px;
+}
+
+.error-state-box h3 {
+    color: #991b1b;
+    margin-bottom: 8px;
+}
+
+.error-state-box p {
+    font-size: 14px;
+    color: #b91c1c;
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 600px) {
+    .tracking-card { padding: 24px 20px; }
+    .tracking-card-header h1 { font-size: 20px; }
+    
+    .progress-stepper { margin-bottom: 20px; }
+    .step-icon { width: 30px; height: 30px; font-size: 12px; }
+    .step p { font-size: 10px; }
+    .step-line { transform: translateY(-8px); margin: 0 -5px; }
+}
+
+/* =========================================================================
+   🚚 ট্র্যাকিং পেজের ডেলিভারি ডেট বক্স ডিজাইন
+   ========================================================================= */
+.track-delivery-estimate-box {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border: 1px solid #bbf7d0;
+    padding: 15px 20px;
+    border-radius: 12px;
+    margin: 15px 0 25px 0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.track-delivery-content {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.track-delivery-content i {
+    font-size: 24px;
+    color: #16a34a; /* চমৎকার সবুজ আইকন */
+    background: #ffffff;
+    padding: 10px;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.track-delivery-label {
+    display: block;
+    font-size: 13px;
+    color: #166534;
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+.track-delivery-date {
+    font-size: 16px;
+    color: #14532d;
+    font-weight: 700;
+}
+
+
+
+
+

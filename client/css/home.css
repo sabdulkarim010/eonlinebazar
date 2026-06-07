@@ -1,0 +1,397 @@
+/**
+ * File Name: css/home.css
+ * Project: eOnlineBazar
+ * Author: Abdul Karim Sheikh
+ * Description: Home Page Styles (Hero Slider, Dynamic Product Grid, Responsive Layout)
+ * Note: ডুপ্লিকেট হেডার ও গ্লোবাল কোডগুলো ক্লিন করা হয়েছে (যা style.css-এ আছে)।
+ */
+
+/* ==========================================================================
+   ১. হিরো ব্যানার ও স্লাইডার সেকশন
+   ========================================================================== */
+.hero-section {
+    position: relative;
+    width: 100%;
+    height: 180px; /* ডেক্সটপে স্লিম লুকের জন্য ১৮০px */
+    overflow: hidden;
+    background-color: #111;
+}
+
+.slider-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 0.8s ease-in-out;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* স্লাইডগুলোর ব্যাকগ্রাউন্ড কালার */
+.slide:nth-child(1) { background-color: #1a1a1a; }
+.slide:nth-child(2) { background-color: #2c3e50; }
+.slide:nth-child(3) { background-color: #27ae60; }
+
+.slide.active {
+    opacity: 1;
+    z-index: 1;
+}
+
+/* স্লাইডারের নেভিগেশন বাটন */
+.slider-container button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.4);
+    color: #fff;
+    border: none;
+    padding: 8px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    z-index: 10;
+    transition: background 0.3s;
+    border-radius: 4px;
+}
+
+.slider-container button:hover {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.slider-container .prev { left: 15px; }
+.slider-container .next { right: 15px; }
+
+/* স্লাইডারের ভেতরের টেক্সট কন্টেন্ট */
+.hero-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #ffffff;
+    z-index: 5;
+    width: 90%;
+    max-width: 800px;
+    pointer-events: none;
+}
+
+.hero-content h1 {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+
+.hero-content p {
+    font-size: 14px;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    opacity: 0.95;
+    margin: 0;
+}
+
+/* ==========================================================================
+   ২. ডাইনামিক ক্যাটাগরি বাটন সেকশন (পেজের মাঝখানের ফিল্টার ট্যাব)
+   ========================================================================== */
+.category-tabs-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin: 30px 0 20px 0;
+    flex-wrap: wrap;
+}
+
+.category-tab-btn {
+    background: #ffffff;
+    color: #333333;
+    border: 1px solid #ddd;
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.category-tab-btn:hover {
+    background: #f7f7f7;
+    border-color: #b1b1b1;
+}
+
+.category-tab-btn.active {
+    background: #febd69; /* আমাজন গোল্ডেন কালার */
+    color: #111;
+    border-color: #f3a847;
+    box-shadow: 0 2px 8px rgba(243, 168, 71, 0.4);
+}
+
+/* ==========================================================================
+   ৩. প্রোডাক্ট মেইন কন্টেইনার এবং গ্রিড লেআউট
+   ========================================================================== */
+.products-container {
+    margin-bottom: 30px;
+    padding: 0 2px;
+}
+
+.section-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #111;
+    margin-bottom: 1px;
+    border-bottom: 2px solid #eeeeee;
+    padding: 5px 2px;
+}
+
+/* ডেক্সটপ বা বড় ল্যাপটপে এক লাইনে ৪টি বা ৫টি করে স্ট্যান্ডার্ড লুক দেওয়া হলো (৭টি দিলে বেশি ছোট হয়ে যায়) */
+.product-layout-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr); 
+    gap: 5px;
+    width: 100%;
+}
+
+/* ==========================================================================
+   ৪. প্রফেশনাল প্রোডাক্ট কার্ড ডিজাইন shopping cart aria
+   ========================================================================== */
+.product-card {
+    position: relative;
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #e7e7e7;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    text-align: center;
+}
+
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* ইমেজ বক্স: ছবি ও ইমোজি রেগুলেশন ঠিক রাখার জন্য */
+.product-img-box {
+    width: 100%;
+    height: 120px; /* ছবির ফিক্সড প্রফেশনাল হাইট */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #fafafa;
+    border-bottom: 1px solid #f5f5f5;
+    padding: 6px;
+    box-sizing: border-box;
+}
+
+.product-img-box img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain; /* ছবি বিকৃত বা চ্যাপ্টা হবে না */
+}
+
+.product-emoji-display {
+    font-size: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+    user-select: none;
+} 
+
+/* প্রোডাক্ট টেক্সট ও প্রাইস এরিয়া */
+.product-info {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.product-name {
+    font-size: clamp(11px, 1.5vw, 14px);
+    font-weight: 600;
+    color: #111;
+    margin-bottom: 4px;
+    line-height: 1.3;
+    height: 33px; /* ২ লাইনের হাইট ফিক্সড করা হলো যাতে সব বক্স সমান থাকে */
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    text-overflow: ellipsis;
+}
+
+.product-price-row {
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center; /* টাকা এবং প্রাইস ঠিক মাঝখানে থাকবে */
+    font-size: clamp(14px, 1.8vw, 17px);
+    font-weight: 700;
+    color: #B12704; /* আমাজন স্ট্যান্ডার্ড রেড কালার */
+}
+
+.currency {
+    margin-right: 3px;
+}
+
+/* অ্যাড টু ব্যাগ বোতাম */
+.add-to-cart-btn {
+    background: #cedcdf;
+    border: 1px solid #c3d6d2;
+    color: #0f1111;
+    padding: 2px 5px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 100%;
+    margin-top: auto; /* বাটন সবসময় কার্ডের নিচে সমান লাইনে থাকবে */
+    transition: background 0.2s ease;
+}
+
+.add-to-cart-btn:hover {
+    background: #f7ca00;
+    border-color: #f2c200;
+}
+
+.add-to-cart-btn:active {
+    background: #f0c14b;
+}
+
+/* ==========================================================================
+   ৫. রেস্পন্সিভ মিডিয়া কোয়েরি (মোবাইল ও ট্যাবলেট স্ক্রিন নিয়ন্ত্রণ)
+   ========================================================================== */
+
+/* ➔ ১. ল্যান্ডস্কেপ ট্যাবলেট এবং ছোট ল্যাপটপ (সর্বোচ্চ ১০২৪px) */
+@media screen and (max-width: 1024px) {
+    .product-layout-grid {
+        grid-template-columns: repeat(4, 1fr); /* এই স্ক্রিনে ৪টি করে প্রোডাক্ট সুন্দর দেখাবে */
+        gap: 15px;
+    }
+    .hero-section { 
+        height: 160px; 
+    }
+    .hero-content h1 { 
+        font-size: 24px; 
+    }
+}
+
+/* ➔ ২. পোর্ট্রেট ট্যাবলেট এবং বড় স্ক্রিনের মোবাইল (সর্বোচ্চ ৭৬৮px) */
+@media screen and (max-width: 768px) {
+    /* প্রোডাক্ট লেআউট গ্রিড ফিক্স (ট্যাবলেটে এক লাইনে ৩টি প্রোডাক্ট) */
+    .product-layout-grid {
+        grid-template-columns: repeat(3, 1fr); 
+        gap: 12px;
+    }
+    
+    /* হিরো ব্যানার সেকশন */
+    .hero-section { 
+        height: 130px; 
+        border-radius: 8px; /* মোবাইলে কর্নার একটু কম রাউন্ড ভালো লাগে */
+    }
+    .hero-content h1 { 
+        font-size: 18px; 
+    }
+    .hero-content p { 
+        font-size: 12px; 
+    }
+    
+    /* সেকশন টাইটেল ও ক্যাটাগরি ট্যাব */
+    .section-title { 
+        font-size: 20px; 
+    }
+    .category-tabs-row { 
+        margin: 15px 0; 
+        gap: 10px;
+        overflow-x: auto; /* ট্যাব বেশি হলে নিচে না ভেঙে ডানে স্ক্রল হবে */
+        white-space: nowrap;
+        padding-bottom: 5px;
+    }
+    .category-tab-btn {
+        padding: 8px 14px;
+        font-size: 12px;
+    }
+}
+
+/* ➔ ৩. স্ট্যান্ডার্ড স্মার্টফোন ভিউ (সর্বোচ্চ ৫৪০px) */
+@media screen and (max-width: 540px) {
+    /* প্রোডাক্ট লেআউট গ্রিড ফিক্স (মোবাইলে এক লাইনে ২টি করে প্রোডাক্ট - স্ট্যান্ডার্ড নিয়ম) */
+    .product-layout-grid {
+        grid-template-columns: repeat(3, 1fr); 
+        gap: 10px;
+    }
+    
+    /* ছবির উচ্চতা মোবাইলের গ্রিডের সাথে ফিট করা হলো */
+    .product-img-box { 
+        height: 130px; 
+    } 
+    
+    .product-info { 
+        padding: 8px; 
+    }
+    
+    .product-info h3 {
+        font-size: 13px;
+    }
+    
+    .product-price {
+        font-size: 14px;
+    }
+
+    .hero-section { 
+        height: 110px; 
+    }
+    .hero-content h1 { 
+        font-size: 15px; 
+    }
+    .hero-content p {
+        display: none; /* ছোট স্ক্রিনে জায়গা বাঁচাতে সাব-টেক্সট হাইড */
+    }
+    .section-title { 
+        font-size: 16px; 
+    }
+}
+
+/* ➔ ৪. আল্ট্রা-স্মল স্মার্টফোন ভিউ (সর্বোচ্চ ৩৬০px - যেমন ছোট বা পুরানো ফোন) */
+@media screen and (max-width: 360px) {
+    .product-layout-grid {
+        grid-template-columns: repeat(2, 1fr); /* অতি ছোট মোবাইলেও ২টি থাকবে, কিন্তু সাইজ আরও নিখুঁত হবে */
+        gap: 8px;
+    }
+    
+    .product-img-box { 
+        height: 110px; /* ছবি বেশি বড় হয়ে যাতে স্ক্রিন ভেঙে না যায় */
+    } 
+    
+    /* টেক্সট সাইজ আরও একটু কম্প্যাক্ট করা হলো */
+    .product-info h3 {
+        font-size: 12px;
+        /* নাম বেশি বড় হলে ভেঙে নিচে না গিয়ে ডট ডট (...) দেখাবে */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .product-price {
+        font-size: 13px;
+    }
+
+    /* ক্যাটাগরি বাটনের ভেতরের প্যাডিং সংকুচিত করা */
+    .category-tab-btn {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+}
+

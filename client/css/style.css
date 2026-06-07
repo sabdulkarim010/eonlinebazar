@@ -1,0 +1,514 @@
+/* ==========================================================================
+ * File Name: css/style.css
+   eOnlineBazar - Global Style & Navigation CSS
+   Author: Abdul Karim Sheikh
+   Description: Global Reset, ভেরিয়েবল, হেডার, সাব-বার এবং অ্যানিমেশন
+   ========================================================================== */
+
+/* --- ১. রুট ভেরিয়েবল এবং বেসিক রিসেট (Amazon থিম অনুযায়ী) --- */
+:root {
+    --amazon-dark: #131921;     /* মেইন ডার্ক ব্লু (হেডার ব্যাকগ্রাউন্ড) */
+    --amazon-light: #232f3e;    /* সাব-বার ব্লু */
+    --amazon-gold: #febd69;     /* সার্চ বাটন কালার */
+    --amazon-orange: #f08804;   /* হাইলাইট ও হোভার কালার */
+    --bg-color: #eaeded;        /* সাইটের মূল ব্যাকগ্রাউন্ড গ্রে */
+    --white: #ffffff;
+    --text-color: #111111;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif; 
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* কমন লেআউট কন্টেইনার */
+.container {
+    max-width: 98%;
+    margin: 0 auto;
+    padding: 0 15px;
+    width: 100%;
+}
+
+/* --- ২. প্রফেশনাল মেইন হেডার (ডেস্কটপ ও গ্লোবাল লেআউট) --- */
+header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background-color: var(--amazon-dark);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    padding: 5px 0;
+}
+
+.main-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    flex-wrap: nowrap; /* ডেস্কটপে সোজা এক লাইনে রাখবে */
+}
+
+/* বাম অংশ: লগো */
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo-box {
+    font-size: 40px;
+    cursor: pointer;
+    color: var(--white);
+    white-space: nowrap;
+}
+
+.logo-bold {
+    font-weight: 700;
+}
+
+.logo-light {
+    font-weight: 400;
+    color: var(--amazon-gold);
+}
+
+.menu-toggle {
+    display: none; /* ডেস্কটপে মোবাইল মেনু বাটন হাইд থাকবে */
+    color: var(--white);
+    font-size: 24px;
+    cursor: pointer;
+}
+
+/* মাঝের অংশ: সার্চ বক্স কন্টেইনার */
+.nav-fill {
+    flex: 1;
+    max-width: 700px;
+}
+
+.search-box-container {
+    display: flex;
+    width: 100%;
+    height: 35px;
+    border-radius: 4px;
+    overflow: hidden;
+    background-color: var(--white);
+    transition: box-shadow 0.2s;
+}
+
+.search-box-container:focus-within {
+    box-shadow: 0 0 0 2px var(--amazon-orange);
+}
+
+.search-category {
+    background-color: #f3f3f3;
+    border: none;
+    padding: 0 10px;
+    font-size: 14px;
+    cursor: pointer;
+    outline: none;
+}
+
+.search-input {
+    flex: 1;
+    border: none;
+    padding: 0 5px;
+    font-size: 15px;
+    outline: none;
+}
+
+.search-submit-btn {
+    background-color: var(--amazon-gold);
+    border: none;
+    width: 45px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.2s;
+}
+
+.search-submit-btn:hover {
+    background-color: #f3a847;
+}
+
+/* ডান অংশ: ইউজার অ্যাকাউন্ট এবং কার্ট */
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    color: var(--white);
+    padding-right: 10px;
+}
+
+.nav-lang {
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.nav-user-account {
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+}
+
+.nav-line-1 {
+    font-size: 12px;
+    color: #cccccc;
+}
+
+.nav-line-2 {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* কার্ট বক্স ডিজাইন */
+.nav-cart-box {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    position: relative;
+    padding: 5px;
+}
+
+.cart-icon-wrapper {
+    position: relative;
+    font-size: 24px;
+}
+
+.cart-count {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background-color: var(--amazon-orange);
+    color: var(--white);
+    font-size: 12px;
+    font-weight: bold;
+    border-radius: 50%;
+    padding: 2px 6px;
+    min-width: 18px;
+    text-align: center;
+}
+
+.cart-text {
+    font-size: 14px;
+    font-weight: bold;
+    margin-top: 8px;
+}
+
+/* --- ৩. সাব নেভিগেশন বার (Sub Navbar - Horizontal Scroll) --- */
+.sub-navbar {
+    display: flex;
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none; /* Firefox */
+    background-color: var(--amazon-light);
+    color: var(--white);
+    padding: 6px 0;
+}
+
+.sub-navbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari & Opera */
+}
+
+.sub-flex {
+    display: flex;
+    align-items: center;
+}
+
+.nav-links {
+    display: flex;
+    align-items: center;
+    list-style: none;
+    gap: 15px;
+    margin: 0;
+    padding: 0;
+}
+
+.nav-links li {
+    color: var(--white);
+    font-size: 13px;
+    font-weight: bold;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    border: 1px solid transparent;
+    border-radius: 20px;
+}
+
+.nav-links li.active,
+.nav-links li:hover {
+    border-color: var(--white);
+}
+
+/* জাভাস্ক্রিপ্টের তৈরি বাটনগুলোর মেইন কন্টেইনার */
+#categoryButtonContainer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    flex-wrap: nowrap;
+}
+
+#categoryButtonContainer .nav-category-item {
+    background: transparent;
+    border: 1px solid transparent;
+    outline: none;
+    border-radius: 20px;
+    color: var(--white);
+    font-size: 13px;
+    font-weight: bold;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+#categoryButtonContainer .nav-category-item:hover,
+#categoryButtonContainer .nav-category-item.active {
+    border-color: var(--white);
+    color: greenyellow;
+}
+
+/* ==========================================================================
+   🛒 কার্ট ফ্লাই অ্যানিমেশন ও প্রিমিয়াম টোস্ট নোটিফিকেশন সিএসএস
+   ========================================================================== */
+.flying-cart-asset {
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    transition: all 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.flying-cart-asset img {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.flying-cart-asset .emoji-fly {
+    font-size: 50px;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+}
+
+.flying-cart-asset .text-fly {
+    background: #f4f4f4;
+    color: #666;
+    font-weight: bold;
+    font-size: 12px;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+/* ==========================================================================
+   🎯 প্রোডাক্ট কার্ডের লাইভ নোটিফিকেশন সিএসএস (In-Card Notification)
+   ========================================================================== */
+.card-toast {
+    position: absolute;
+    bottom: 60px;
+    left: 5%;
+    right: 5%;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    color: #fff;
+    z-index: 10;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    pointer-events: none;
+}
+
+.card-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.card-toast.success {
+    background: rgba(46, 204, 113, 0.95);
+    border: 1px solid #2ecc71;
+}
+
+.card-toast.warning {
+    background: rgba(243, 156, 18, 0.95);
+    border: 1px solid #f39c12;
+}
+
+/* ==========================================================================
+   ৪. রেসপনসিভ মিডিয়া কোয়েরি (মোবাইল ও ট্যাবলেট ফ্লেক্সবক্স লেআউট)
+   ========================================================================== */
+   
+/* =========================================================================
+   📟 ১. পোর্ট্রেট ট্যাবলেট ও বড় স্ক্রিনের মোবাইল ভিউ (সর্বোচ্চ ৭৬৮px)
+   ========================================================================= */
+@media screen and (max-width: 768px) {
+    /* মেইন হেডার কন্টেইনার স্লিম ও টাইট করা হলো */
+    .container.main-nav {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1px 12px; /* উপরে-নিচের অতিরিক্ত গ্যাপ এক ধাক্কায় গায়েব */
+        min-height: auto;
+        gap: 2px;
+    }
+
+    /* লোগো থাকবে উপরে বামে */
+    .logo-box {
+        order: 1;
+        margin: 0;
+        line-height: 1.2;
+        font-size: 30px;
+    }
+
+    /* ডানপাশের কন্টেইনার (অ্যাকাউন্ট এবং কার্ট থাকবে পাশাপাশি উপরে ডানে) */
+    .nav-right {
+        order: 2;
+        display: flex;
+        align-items: center;
+        gap: 30px;
+        margin: 0;
+    }
+
+    /* অ্যাকাউন্ট সেকশন */
+    .nav-user-account {
+        display: flex;
+        align-items: center;
+    }
+
+    /* মোবাইলে শুধু 'Sign in' লেখাটি থাকবে */
+    .nav-line-1 {
+        display: inline-block;
+        font-size: 12px;
+        color: #ffffff;
+        font-weight: 500;
+    }
+
+    /* নিচের 'Account' লেখাটি বড় হওয়ায় মোবাইলে হাইড থাকবে */
+    .nav-line-2 {
+        display: none;
+    }
+
+    /* কার্ট বক্স */
+    .nav-cart-box {
+        display: flex;
+        align-items: center;
+    }
+
+    /* কার্টের পাশের 'Bag' বা এক্সট্রা টেক্সট হাইড থাকবে */
+    .nav-cart-box span[class^="cart-text"] {
+        display: none;
+    }
+
+    /* সার্চ বক্স পুরো ১০০% উইডথ নিয়ে লোগো ও কার্টের নিচে নেমে যাবে */
+    .search-box-container {
+        order: 3;
+        width: 100%;
+        margin-top: 4px; /* লোগো থেকে সার্চ বারের নিখুঁত দূরত্ব */
+        margin-bottom: 3px;
+    }
+
+    /* সাব-ন্যাভবার বা ক্যাটাগরি মেনু নিচে না ভেঙে ডানে স্ক্রল হবে */
+    .nav-id, .sub-navbar { 
+        display: flex;
+        overflow-x: auto;
+        white-space: nowrap;
+        gap: 5px;
+        padding: 8px 10px;
+    }
+}
+
+/* =========================================================================
+   📱 ২. স্ট্যান্ডার্ড স্মার্টফোন ভিউ (সর্বোচ্চ ৫৪০px)
+   ========================================================================= */
+@media screen and (max-width: 540px) {
+    /* পুরো সার্চ কন্টেইনারের ভেতরের ফ্লেক্স বিন্যাস */
+    .search-box-container {
+        display: flex;
+        width: 100%;
+        padding: 0;
+        margin: 0;
+    }
+    .container.main-nav{
+        padding:0;
+        gap: 0;
+    }
+    /* ➔ ক্যাটাগরি বক্সের জন্য ফিক্স: এটিকে সংকুচিত হতে দেওয়া যাবে না */
+    .search-category {
+        flex: 0 0 105px; /* ফ্লেক্সের প্রথম '0 0' মানে এটি কোনো অবস্থাতেই চাপ খাবে না এবং ফিক্সড ১০৫px চওড়া হবে */
+        font-size: 11.5px;
+        padding: 0;
+        border-right: 1px solid #cbd5e1; /* মাঝখানে সুন্দর বিভাজক বর্ডার */
+        box-sizing: border-box;
+    }
+
+    /* ➔ মেইন ফিক্স: সার্চ ইনপুট বক্সটিকে ছোট ও ব্যালেন্সড করা হলো */
+    .search-input {
+        flex: 1; /* স্ক্রিনের বাকি যতটুকু জায়গা খালি থাকবে শুধু ততটুকুই ইনপুট বক্স নেবে, জোর করে ক্যাটাগরিকে চাপবে না */
+        min-width: 0; /* ফ্লেক্স বক্সের ডিফল্ট বড় হওয়ার প্রবণতা বন্ধ করবে */
+        font-size: 12px;
+        padding: 0 8px;
+    }
+
+    /* সার্চ আইকন বাটন মোবাইলের জন্য ফিক্সড */
+    .search-icon {
+        flex: 0 0 40px; /* সার্চ আইকন বাটনটি ফিক্সড ৪০px থাকবে */
+        font-size: 13px;
+        align-self: stretch;
+        border: none;
+
+    }
+
+    .logo-box{
+        font-size: 30px;
+    }
+}
+
+/* =========================================================================
+   🔋 ৩. আল্ট্রা-স্মল স্মার্টফোন ভিউ (সর্বোচ্চ ৩৬০px - ছোট স্ক্রিনের জন্য)
+   ========================================================================= */
+@media screen and (max-width: 360px) {
+    /* অতি ছোট স্ক্রিনে আরও একটু কম্প্যাক্ট করা হলো */
+    .search-category {
+        flex: 0 0 95px; /* ৩৬০px স্ক্রিনের জন্য পারফেক্ট ৯৫px */
+        font-size: 11px;
+        padding: 5 4px;
+    }
+
+    .search-input {
+        flex: 1;
+        font-size: 11.5px;
+        padding: 0 6px;
+    }
+
+    .search-icon {
+        flex: 0 0 36px; /* বাটন সামান্য ছোট করা হলো */
+        font-size: 12px;
+    }
+
+    .logo-box{
+        font-size: 25px;
+    }
+
+}
+
+

@@ -1,0 +1,19 @@
+# Node modules (এটা খুব জরুরি, কারণ এটি বিশাল বড় ফাইল)
+node_modules
+
+# Environment variables (সবচেয়ে গুরুত্বপূর্ণ)
+.env
+
+# Logs and system files
+*.log
+.DS_Store
+
+
+
+
+
+
+
+
+
+

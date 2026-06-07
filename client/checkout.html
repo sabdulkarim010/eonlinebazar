@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - EonlineBazar</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/cart.css">
+    <link rel="stylesheet" href="css/checkout.css">
+    <link rel="stylesheet" href="css/footer.css">
+</head>
+<body>
+
+<header class="checkout-custom-header">
+    <div class="checkout-header-container">
+        <div class="header-left-action">
+            <a href="cart.html" class="back-to-cart-link">
+                <i class="fa-solid fa-chevron-left"></i>
+                <span class="back-to-cart-desktop">Back to Cart</span>
+                <span class="back-to-cart-mobile">Back</span>
+            </a>
+        </div>
+
+        <div class="header-middle-progress">
+            <span class="secure-badge">
+                <i class="fa-solid fa-lock"></i>
+                <span class="secure-desktop">SECURE CHECKOUT</span>
+                <span class="secure-mobile">SECURE</span>
+            </span>
+            <span class="step-indicator">Step 2 of 3</span>
+        </div>
+
+        <div class="header-right-brand">
+            <span class="brand-logo-text">EonlineBazar</span>
+        </div>
+    </div>
+</header>
+
+    <div class="checkout-page-global-wrapper">
+        
+    
+
+        <div class="checkout-main-white-box">
+            
+            <div class="checkout-title-section">
+                <i class="fa-solid fa-basket-shopping checkout-icon-main"></i>
+                <h2>Review Your Cart</h2>
+            </div>
+
+            <div id="checkoutItemsContainer" class="checkout-items-list-wrapper">
+                </div>
+
+            <div class="checkout-summary-block" id="orderSummarySection">
+                <div class="summary-row">
+                    <span>Selected Items:</span>
+                    <strong id="totalItemsCount">0 Items</strong>
+                </div>
+                <div class="summary-row">
+                    <span>Subtotal:</span>
+                    <strong id="checkoutSubtotal">৳0</strong>
+                </div>
+                <div class="summary-row grand-total-row">
+                    <span>Total Amount:</span>
+                    <strong id="checkoutGrandTotal">৳0</strong>
+                </div>
+            </div>
+
+            <div class="shipping-info-section-wrapper" id="shippingFormSection">
+                <h3><i class="fa-solid fa-truck-fast"></i> Shipping Information</h3>
+                
+                <form id="checkoutShippingForm" onsubmit="event.preventDefault();">
+                    <div class="form-group-field">
+                        <label for="shippingFullName">Full Name <span class="required-star">*</span></label>
+                            <div class="input-box-wrapper">
+                                <input type="text" id="shippingFullName" placeholder="Enter your full name" maxlength="50" required>
+                            </div>
+                        <span class="error-msg-field" id="name-error"></span>
+                    </div>
+
+                    <div class="form-group-field">
+                        <label for="shippingMobile">Mobile Number <span class="required-star">*</span></label>
+                            <div class="input-box-wrapper">
+                                <input type="tel" id="shippingMobile" placeholder="e.g. 01" maxlength="11" required>
+                            </div>
+                        <span class="error-msg-field" id="mobile-error"></span>
+                    </div>
+
+                    <div class="form-group-field">
+                        <label for="shippingAddress">Full Delivery Address <span class="required-star">*</span></label>
+                            <div class="input-box-wrapper">
+                                <textarea id="shippingAddress" rows="3" placeholder="Village/Area, Post, Upazila, District" required></textarea>
+                            </div>
+                        <span class="error-msg-field" id="address-error"></span>
+                    </div>
+
+                    <div class="form-group-field">
+                        <label for="shippingCourierNote">Note for Courier <span class="optional-tag">(Optional)</span></label>
+                            <div class="input-box-wrapper"></div>
+                                <textarea id="shippingCourierNote" rows="2" placeholder="Any specific instructions for delivery man"></textarea>
+                            </div>
+                    </div>
+
+                    <div class="checkout-action-area">
+                        <button type="button" id="proceedToPaymentBtn" class="payment-gateway-next-btn">
+                            Proceed to Payment <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+    <template id="cartItemTemplate">
+        <div class="checkout-item-row-card">
+            <input type="checkbox" class="checkout-item-checkbox" style="display: none;">
+            
+            <div class="cart-media-frame-box">
+                </div>
+            
+            <div class="cart-item-details-info">
+                <h4 class="cart-item-name-text">Product Name</h4>
+                <span class="cart-item-base-price-text">৳0</span>
+            </div>
+            
+            <div class="quantity-controller-block">
+                <button type="button" class="qty-btn btn-minus"><i class="fa-solid fa-minus"></i></button>
+                <span class="qty-display-text qty-text">1</span>
+                <button type="button" class="qty-btn btn-plus"><i class="fa-solid fa-plus"></i></button>
+            </div>
+            
+            <div class="cart-item-total-price-block">
+                <span class="cart-item-total">৳0</span>
+            </div>
+            
+            <div class="cart-item-action-delete">
+                <button type="button" class="checkout-row-delete-btn-main">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+        </div>
+    </template>
+
+
+    <div id="checkoutAlertModal" class="custom-alert-modal-overlay" style="display: none;">
+    <div class="custom-alert-modal-card">
+        <div class="custom-alert-modal-icon">
+            <i class="fa-solid fa-circle-xmark"></i>
+        </div>
+        
+        <h2 class="custom-alert-modal-title">Attention Required!</h2>
+        <p class="custom-alert-modal-message">Please fill in all required shipping fields correctly before proceeding.</p>
+        
+        <button class="custom-alert-modal-btn" onclick="closeCheckoutAlertModal()">OK, Got It</button>
+    </div>
+</div>
+
+            <!-- footer calling -->
+        <div id="global-site-footer"></div>
+    <script src="js/main.js"></script>
+
+    <script src="js/checkout.js"></script>
+</body>
+</html>
+
+
+
+
+
+

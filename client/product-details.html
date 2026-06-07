@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Details - EonlineBazar</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/product-details.css">
+</head>
+<body>
+
+    <a href="javascript:history.back()" class="btn-back-page">&times;</a>
+
+    <main class="product-details-container">
+        
+        <nav class="breadcrumb-nav">
+            <a href="index.html">Home</a>
+            <i class="fa-solid fa-angle-right"></i>
+            <a href="#" id="breadcrumbCategory">Category</a>
+            <i class="fa-solid fa-angle-right"></i>
+            <span id="breadcrumbTitle">Product Name</span>
+        </nav>
+
+        <div id="productLoading" class="loading-spinner">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> 
+            <span>Loading premium product details...</span>
+        </div>
+
+        <div id="productContent" class="product-content-wrapper hidden">
+            
+            <div class="product-image-section">
+                <div class="main-image-box">
+                    <span class="product-tag-badge" id="productTag">New</span>
+                    <img id="mainProductImg" src="" alt="Product Image">
+                </div>
+                <div class="thumbnail-images-gallery" id="thumbGallery">
+                </div>
+            </div>
+
+            <div class="product-info-section">
+                
+                <div class="info-top-meta">
+                    <span class="info-category-label" id="infoCategory">Category Name</span>
+                    <span class="stock-status-badge" id="stockStatus">In Stock</span>
+                </div>
+
+                <h1 id="productTitle" class="product-title">Product Title Loading...</h1>
+                
+                <div class="product-rating-summary">
+                    <div class="stars-display" id="productStars"></div>
+                    <span id="productReviewCount" class="review-count">(0 Customer Reviews)</span>
+                </div>
+
+                <div class="product-price-box">
+                    <span id="productPrice" class="product-price">৳ 0.00</span>
+                    <span id="productOldPrice" class="product-old-price hidden">৳ 0.00</span>
+                    <span id="productDiscountBadge" class="discount-badge hidden">0% OFF</span>
+                </div>
+
+                <p id="productShortDesc" class="product-short-desc">Loading description...</p>
+
+                <div class="product-highlights-box">
+                    <h3>Product Highlights</h3>
+                    <ul id="productHighlightsList">
+                    </ul>
+                </div>
+
+                <div class="product-delivery-badge">
+                    <div class="delivery-item">
+                        <i class="fa-solid fa-truck-fast"></i>
+                        <div>
+                            <span class="delivery-title">Expected Delivery</span>
+                            <strong id="detailDeliveryDate">Within 3-5 Days</strong>
+                        </div>
+                    </div>
+                    <div class="delivery-item">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <div>
+                            <span class="delivery-title">Warranty</span>
+                            <strong>100% Authentic Product</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="product-actions-wrapper">
+                    <div class="quantity-control-block">
+                        <span class="qty-label">Quantity:</span>
+                        <div class="quantity-selector">
+                            <button type="button" id="decreaseQtyBtn"><i class="fa-solid fa-minus"></i></button>
+                            <input type="number" id="productQtyInput" value="1" min="1" readonly>
+                            <button type="button" id="increaseQtyBtn"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="action-buttons-group">
+                        <button type="button" id="addToCartBtn" class="btn-add-to-cart">
+                            <i class="fa-solid fa-cart-shopping"></i> Add to Cart
+                        </button>
+                        <button type="button" id="buyNowBtn" class="btn-buy-now">
+                            <i class="fa-solid fa-bolt"></i> Buy Now
+                        </button>
+                    </div>
+                </div>
+
+                <div class="product-share-trust-wrapper">
+                    <div class="share-box">
+                        <span>Share:</span>
+                        <a href="#" id="shareWhatsApp" class="share-icon wa"><i class="fa-fab fa-whatsapp"></i></a>
+                        <a href="#" id="shareFacebook" class="share-icon fb"><i class="fa-fab fa-facebook-f"></i></a>
+                    </div>
+                    <div class="trust-payment-icons">
+                        <i class="fa-brands fa-cc-visa"></i>
+                        <i class="fa-brands fa-cc-mastercard"></i>
+                        <span class="cod-text"><i class="fa-solid fa-hand-holding-dollar"></i> Cash on Delivery</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="productExtraSection" class="product-extra-section hidden">
+            
+            <div class="modern-tabs-header">
+                <button class="tab-trigger active" data-tab="desc-tab">Description</button>
+                <button class="tab-trigger" data-tab="review-tab">Reviews (<span id="tabReviewCount">0</span>)</button>
+            </div>
+
+            <div id="desc-tab" class="tab-content-pane active">
+                <div id="productDetailedDesc" class="tab-content-text">
+                </div>
+            </div>
+
+            <div id="review-tab" class="tab-content-pane">
+                <div class="reviews-grid-system">
+                    
+                    <div class="add-review-form-wrapper">
+                        <h3>Write a Customer Review</h3>
+                        <form id="productReviewForm">
+                            <div class="rating-input-container">
+                                <span>Your Rating:</span>
+                                <div class="rating-stars-input" id="starInputGroup">
+                                    <i class="fa-star fa-regular" data-value="1"></i>
+                                    <i class="fa-star fa-regular" data-value="2"></i>
+                                    <i class="fa-star fa-regular" data-value="3"></i>
+                                    <i class="fa-star fa-regular" data-value="4"></i>
+                                    <i class="fa-star fa-regular" data-value="5"></i>
+                                </div>
+                            </div>
+                            <div class="form-input-group">
+                                <label for="reviewerName"><i class="fa-solid fa-user"></i></label>
+                                <input type="text" id="reviewerName" placeholder="Enter your name" required>
+                            </div>
+                            <div class="form-input-group">
+                                <label for="reviewerComment"><i class="fa-solid fa-comment-dots"></i></label>
+                                <textarea id="reviewerComment" rows="4" placeholder="Write your honest experience about this product..." required></textarea>
+                            </div>
+                            <button type="submit" class="btn-submit-review">
+                                <span>Submit Review</span> <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="reviews-display-list-box">
+                        <h3>Customer Feedbacks</h3>
+                        <div id="reviewsListContainer" class="reviews-list-container">
+                            <p class="no-reviews-msg" id="noReviewsMsg">
+                                <i class="fa-solid fa-comment-slash"></i> No reviews yet. Be the first to review this product!
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <div class="sticky-mobile-action-bar hidden" id="mobileStickyBar">
+        <div class="sticky-bar-content">
+            <div class="sticky-product-meta">
+                <img id="stickyBarImg" src="" alt="">
+                <div class="sticky-title-price">
+                    <h4 id="stickyBarTitle">Product Title...</h4>
+                    <span id="stickyBarPrice">৳ 0.00</span>
+                </div>
+            </div>
+            <div class="sticky-action-btns">
+                <button type="button" id="stickyAddToCartBtn" class="btn-add-to-cart-mini"><i class="fa-solid fa-cart-shopping"></i></button>
+                <button type="button" id="stickyBuyNowBtn" class="btn-buy-now-mini">Buy Now</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/product-details.js"></script>
+</body>
+</html>
+
+
+

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Cart - eOnlineBazar</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/cart.css">
+    <link rel="stylesheet" href="css/footer.css">
+</head>
+<body>
+
+    <header class="cart-premium-sticky-header">
+    <div class="header-back-action">
+        <a href="index.html">
+            <i class="fa-solid fa-chevron-left"></i>
+            <span class="text-desktop">Continue Shopping</span>
+            <span class="text-mobile">Back</span>
+        </a>
+    </div> <div class="header-status-center">
+        <span class="premium-secure-badge">
+            <i class="fa-solid fa-lock"></i>
+            <span class="secure-desktop">Secure Checkout</span>
+            <span class="secure-mobile">Secure</span>
+        </span>
+        <span class="step-text-indicator">Step 1 of 3</span>
+    </div>
+
+    <div class="header-brand-logo">
+        EonlineBazar
+    </div>
+</header>
+
+    <div class="shopping-cart-main-container">
+        
+        <div class="cart-title-area">
+            <h2>
+                <i class="fa-solid fa-cart-shopping"></i> Shopping Cart
+            </h2>
+        </div>
+
+        <div id="cartItemsContainer">
+            </div>
+
+        <div class="cart-totals-bottom-section" id="cartSummarySection">
+            <p class="subtotal-row">Selected Items: <strong id="cartSelectedItemsCount">0 Items</strong></p>
+            <p class="subtotal-row">Subtotal: <strong id="cartSubtotalAmount">৳0</strong></p>
+            <h3 class="grand-total-row">Total Amount: <span id="cartGrandTotalAmount">৳0</span></h3>
+            
+            <button type="button" id="proceedToCheckoutBtn" class="checkout-redirect-btn">
+                Proceed to Checkout <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+
+    </div>
+
+        <!-- footer calling -->
+        <div id="global-site-footer"></div>
+    <script src="js/main.js"></script>
+
+    <script src="js/cart.js"></script>
+</body>
+</html>
+
+
+
+
+
