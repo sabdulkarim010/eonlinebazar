@@ -1,7 +1,7 @@
 const User = require('../models/user'); 
-const Admin = require('../models/admin'); // অ্যাডমিন ডাটাবেজ মডেল
+const Admin = require('../models/admin'); 
+const { cloudinary } = require('../middlewares/uploadMiddleware'); 
 const jwt = require('jsonwebtoken');
-const { cloudinary } = require('../middlewares/uploadMiddleware'); // ক্লাউডিনারি ইমপোর্ট
 
 // ==============================================================
 // ১. কাস্টমারদের তালিকা নিয়ে আসার ফাংশন 
