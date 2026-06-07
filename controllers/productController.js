@@ -1,4 +1,4 @@
-const Product = require('../models/Product'); // ক্যাপিটাল 'P' বা স্মল 'p' আপনার ফাইলের নাম অনুযায়ী ঠিক রাখবেন
+const Product = require('../models/product'); // ক্যাপিটাল 'P' বা স্মল 'p' আপনার ফাইলের নাম অনুযায়ী ঠিক রাখবেন
 const { cloudinary } = require('../middlewares/uploadMiddleware');
 const mongoose = require('mongoose');
 
