@@ -221,62 +221,79 @@ exports.updateUserProfile = async (req, res) => {
 
 
 /* =======================================================
-   ৭. প্রোফাইল ছবি আপডেট করা (Update Avatar) - বাফার লজিকসহ (Fixed)
+   ৭. প্রোফাইল ছবি আপডেট করা (Update Avatar) 
+   - Sharp দিয়ে সাইজ কমানো এবং পুরনো ছবি ডিলিট লজিকসহ (Fully Updated)
    ======================================================= */
 const cloudinary = require('cloudinary').v2;
+const sharp = require('sharp'); // 🌟 ইমেজ সাইজ কিলোবাইটে নামিয়ে আনার লাইব্রেরি
 
 exports.updateUserAvatar = async (req, res) => {
     try {
+        // ১. ফাইল আপলোড হয়েছে কি না চেক করা
         if (!req.file) {
             return res.status(400).json({ success: false, message: "No image file provided." });
         }
 
-        // মেমোরি বাফার থেকে ক্লাউডিনারিতে সরাসরি আপলোড করার প্রফেশনাল লজিক
+        // ২. 🌟 Sharp দিয়ে ইমেজ প্রসেসিং (১.৫ MB থেকে কয়েক কিলোবাইটে রূপান্তর)
+        const compressedBuffer = await sharp(req.file.buffer)
+            .resize({ width: 300, height: 300, fit: 'cover' }) // প্রোফাইলের জন্য পারফেক্ট স্কয়ার সাইজ (৩০০x৩০০)
+            .jpeg({ quality: 70 }) // কোয়ালিটি ৭০% করা হলো, যাতে সাইজ অনেক কমে যায় কিন্তু ছবি পরিষ্কার থাকে
+            .toBuffer();
+
+        // ৩. ক্লাউডিনারিতে কম্প্রেস করা বাফারটি আপলোড করা
         cloudinary.uploader.upload_stream(
             { folder: 'eOnlineBazar/avatars' },
             async (error, result) => {
-                // ১. ক্লাউডিনারি আপলোড এরর চেক
+                // ক্লাউডিনারি আপলোড এরর চেক
                 if (error) {
                     console.error("Cloudinary Upload Error:", error);
                     return res.status(500).json({ success: false, message: "Cloudinary upload failed." });
                 }
 
-                // ২. 🌟 ক্লাউডিনারি সফল হওয়ার পর, ডাটাবেজ সেভ করার জন্য আলাদা try-catch
+                // ৪. ডাটাবেজ আপডেট এবং পুরনো ছবি ডিলিট করার লজিক
                 try {
                     const avatarUrl = result.secure_url;
-                    console.log("Cloudinary Upload Success URL:", avatarUrl); // টার্মিনালে চেক করার জন্য
+                    const publicId = result.public_id; // নতুন ছবির ক্লাউডিনারি আইডি
 
-                    // MongoDB ডাটাবেজে ইউজারের 'avatar' ফিল্ড আপডেট করা হচ্ছে
+                    // 🌟 স্টেপ এ: নতুন ছবি সেভ করার আগে ইউজারের পুরনো ছবি থাকলে তা ক্লাউডিনারি থেকে ডিলিট করা
+                    const oldUser = await User.findById(req.user.id);
+                    if (oldUser && oldUser.avatarPublicId) {
+                        await cloudinary.uploader.destroy(oldUser.avatarPublicId);
+                        console.log("✅ Old avatar successfully deleted from Cloudinary");
+                    }
+
+                    // 🌟 স্টেপ বি: ডাটাবেজে নতুন URL এবং নতুন Public ID সেভ করা
                     const updatedUser = await User.findByIdAndUpdate(
                         req.user.id, 
-                        { avatar: avatarUrl },
+                        { 
+                            avatar: avatarUrl,
+                            avatarPublicId: publicId // ফিউচারে ডিলিট করার জন্য আইডি সেভ রাখা হলো
+                        },
                         { returnDocument: 'after' }
                     );
 
                     if (!updatedUser) {
-                        console.log("User not found with ID:", req.user.id);
                         return res.status(404).json({ success: false, message: "User not found in database." });
                     }
 
-                    console.log("🌟 Successfully saved to MongoDB for User:", updatedUser.name);
+                    console.log("🌟 Successfully compressed & saved to MongoDB for User:", updatedUser.name);
 
-                    // ৩. সফলভাবে ডাটাবেজে সেভ হলে ফ্রন্টএন্ডে রেসপন্স পাঠানো
+                    // ৫. ফ্রন্টএন্ডে সফলতার রেসপন্স পাঠানো
                     return res.status(200).json({ 
                         success: true, 
-                        message: "Profile photo updated and saved to MongoDB!", 
+                        message: "Profile photo successfully compressed, updated, and old photo removed!", 
                         avatarUrl 
                     });
 
                 } catch (dbError) {
-                    // 🌟 ডাটাবেজে সেভ করার সময় কোনো এরর হলে তা সরাসরি টার্মিনালে প্রিন্ট হবে
                     console.error("❌ MongoDB Save Error inside Cloudinary Callback:", dbError);
                     return res.status(500).json({ 
                         success: false, 
-                        message: "Image uploaded to Cloudinary, but failed to save in MongoDB." 
+                        message: "Image uploaded, but failed to save data in database." 
                     });
                 }
             }
-        ).end(req.file.buffer); 
+        ).end(compressedBuffer); // 🌟 অরিজিনাল req.file.buffer এর বদলে কম্প্রেসড বাফার পাঠানো হলো
 
     } catch (error) {
         console.error("Avatar Update Error:", error);

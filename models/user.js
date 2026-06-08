@@ -33,6 +33,12 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: '' // শুরুতে কোনো ছবি না থাকলে খালি স্ট্রিং থাকবে
     },
+    
+    avatarPublicId: { 
+        type: String, 
+        default: '' 
+    },
+    
     phone: {
         type: String,
         trim: true,
@@ -43,6 +49,9 @@ const userSchema = new mongoose.Schema({
         trim: true,
         default: ''
     },
+
+
+
     
     // ফরগেট পাসওয়ার্ড OTP এবং এক্সপায়ারি টাইম
     resetPasswordOtp: {
