@@ -11,7 +11,7 @@ const {
 } = require('../controllers/productController');
 
 const { verifyAdmin } = require('../middlewares/authMiddleware');
-const { upload } = require('../middlewares/uploadMiddleware');
+const upload = require('../middlewares/uploadMiddleware');
 
 /********************************************************************
  # PRODUCT ROUTES (প্রোডাক্টের এপিআই রাস্তাসমূহ)

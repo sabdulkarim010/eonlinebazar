@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController'); 
-const { upload } = require('../middlewares/uploadMiddleware'); // 🌟 মাল্টার ইমপোর্ট
+const upload = require('../middlewares/uploadMiddleware'); // 🌟 মাল্টার ইমপোর্ট
 
 // ১. কাস্টমারদের ডাটা পাওয়ার রাস্তা (GET)
 router.get('/customers', adminController.getAllCustomers);
