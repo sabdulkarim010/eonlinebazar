@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema({
     email: {
         type: String,
         required: true,
-        unique: true, // একই ইমেইল দিয়ে দুটি অ্যাকাউন্ট খোলা যাবে না
+        unique: true, // একই ইমেইল দিয়ে দুটি অ্যাকাউন্ট খোলা যাবে না
         trim: true,
         lowercase: true
     },
@@ -28,7 +28,23 @@ const userSchema = new mongoose.Schema({
     },
     verificationToken: String, // ইমেইল ভেরিফাই করার ইউনিক কোড বা লিঙ্ক টোকেন
     
-    // 🌟 নতুন যোগ করা হলো: ফরগেট পাসওয়ার্ড OTP এবং এক্সপায়ারি টাইম
+    // 🌟 নতুন যোগ করা হলো: প্রোফাইল পিকচার এবং অ্যাড্রেস ফিল্ড (রিফ্রেশ প্রবলেম ফিক্স)
+    avatar: {
+        type: String,
+        default: '' // শুরুতে কোনো ছবি না থাকলে খালি স্ট্রিং থাকবে
+    },
+    phone: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    address: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    
+    // ফরগেট পাসওয়ার্ড OTP এবং এক্সপায়ারি টাইম
     resetPasswordOtp: {
         type: String,
         default: null
@@ -45,6 +61,7 @@ const userSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('User', userSchema);
+
 
 
 

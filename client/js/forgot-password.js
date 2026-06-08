@@ -2,6 +2,7 @@
  * Project: eOnlineBazar
  * Author: Abdul Karim Sheikh
  * File: js/forgot-password.js
+ * Description: Secure OTP-based Password Reset & Premium Toast Sync
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9,7 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const emailParam = urlParams.get('email');
     if (emailParam) {
-        document.getElementById('resetEmail').value = emailParam;
+        // আপনার HTML-এর ইনপুট ID 'resetEmail' নিশ্চিত করুন
+        const emailInput = document.getElementById('resetEmail');
+        if (emailInput) emailInput.value = emailParam;
     }
 
     // পাসওয়ার্ড শো/হাইড লজিক
@@ -25,25 +28,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ফর্ম সাবমিট হ্যান্ডলার
+    // ফর্ম সাবমিট হ্যান্ডলার (Step 1: OTP পাঠানো)
     const forgotPasswordForm = document.getElementById('forgotPasswordForm');
     if (forgotPasswordForm) {
         forgotPasswordForm.addEventListener('submit', handleSendOtp);
     }
 
+    // ফর্ম সাবমিট হ্যান্ডলার (Step 2: পাসওয়ার্ড রিসেট)
     const resetPasswordForm = document.getElementById('resetPasswordForm');
     if (resetPasswordForm) {
         resetPasswordForm.addEventListener('submit', handleResetPassword);
     }
 });
 
-// OTP পাঠানোর API কল
+/* =========================================================================
+   ১. OTP পাঠানোর API কল (Step 1)
+   ========================================================================= */
 async function handleSendOtp(e) {
     e.preventDefault();
     const email = document.getElementById('resetEmail').value.trim();
     
     if (!email) {
-        alert("Please enter your email address.");
+        showToast("Please enter your email address.", "error");
         return;
     }
 
@@ -61,22 +67,25 @@ async function handleSendOtp(e) {
         const data = await response.json();
         
         if (data.success) {
+            showToast("Verification OTP sent to your email!", "success");
             // Step 1 লুকিয়ে Step 2 দেখাবো
             document.getElementById('request-reset-section').style.display = 'none';
             document.getElementById('verify-reset-section').style.display = 'block';
         } else {
-            alert(data.message || "Failed to send OTP.");
+            showToast(data.message || "Failed to send OTP.", "error");
             sendOtpBtn.innerText = "Send OTP";
             sendOtpBtn.disabled = false;
         }
     } catch (error) {
-        alert("Server error! Please try again.");
+        showToast("Server error! Please try again.", "error");
         sendOtpBtn.innerText = "Send OTP";
         sendOtpBtn.disabled = false;
     }
 }
 
-// নতুন পাসওয়ার্ড সেট করার API কল
+/* =========================================================================
+   ২. নতুন পাসওয়ার্ড সেট করার API কল (Step 2)
+   ========================================================================= */
 async function handleResetPassword(e) {
     e.preventDefault();
     
@@ -85,7 +94,7 @@ async function handleResetPassword(e) {
     const newPassword = document.getElementById('newPassword').value;
 
     if (!otp || newPassword.length < 6) {
-        alert("Please enter a valid OTP and a password of at least 6 characters.");
+        showToast("Please enter a valid OTP and a password of at least 6 characters.", "error");
         return;
     }
 
@@ -103,19 +112,51 @@ async function handleResetPassword(e) {
         const data = await response.json();
         
         if (data.success) {
-            alert("Password reset successful! You can now login.");
-            window.location.href = '/login';
+            showToast("Password reset successful! Redirecting to login...", "success");
+            // 🚀 ফিক্স: '/login' এর বদলে সরাসরি 'login.html' ফাইলে পাঠানো হলো
+            setTimeout(() => {
+                window.location.href = 'login.html';
+            }, 2000);
         } else {
-            alert(data.message || "Invalid OTP or request failed.");
+            showToast(data.message || "Invalid OTP or request failed.", "error");
             resetBtn.innerText = "Reset Password";
             resetBtn.disabled = false;
         }
     } catch (error) {
-        alert("Server error! Please try again.");
+        showToast("Server error! Please try again.", "error");
         resetBtn.innerText = "Reset Password";
         resetBtn.disabled = false;
     }
 }
+
+/* =========================================================================
+   ৩. প্রিমিয়াম টোস্ট মেসেজ নোটিফিকেশন সিস্টেম (UI Consistency)
+   ========================================================================= */
+function showToast(message, type = 'success') {
+    // যদি HTML ফাইলে toast-container না থাকে তবে ডাইনামিকালি তৈরি করবে
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
+    toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+    
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideIn 0.3s reverse forwards';
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+
+
 
 
 

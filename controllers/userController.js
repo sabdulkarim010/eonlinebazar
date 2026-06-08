@@ -209,7 +209,7 @@ exports.updateUserProfile = async (req, res) => {
         const updatedUser = await User.findByIdAndUpdate(
             req.user.id,
             { name, phone, address },
-            { new: true, runValidators: true }
+            { returnDocument: 'after', runValidators: true } // 🌟 ফিক্স: টার্মিনালের ওয়ার্নিং দূর করতে 'returnDocument' ব্যবহার করা হলো
         ).select('-password');
 
         res.status(200).json({ success: true, message: "Profile updated successfully!", user: updatedUser });
@@ -219,10 +219,11 @@ exports.updateUserProfile = async (req, res) => {
     }
 };
 
+
 /* =======================================================
-   ৭. প্রোফাইল ছবি আপডেট করা (Update Avatar) - বাফার লজিকসহ
+   ৭. প্রোফাইল ছবি আপডেট করা (Update Avatar) - বাফার লজিকসহ (Fixed)
    ======================================================= */
-const cloudinary = require('cloudinary').v2; // এই লাইনটি userController এর উপরে আছে কি না দেখে নিবেন
+const cloudinary = require('cloudinary').v2;
 
 exports.updateUserAvatar = async (req, res) => {
     try {
@@ -232,30 +233,59 @@ exports.updateUserAvatar = async (req, res) => {
 
         // মেমোরি বাফার থেকে ক্লাউডিনারিতে সরাসরি আপলোড করার প্রফেশনাল লজিক
         cloudinary.uploader.upload_stream(
-            { folder: 'eOnlineBazar/avatars' }, // ক্লাউডিনারিতে এই ফোল্ডারে সেভ হবে
+            { folder: 'eOnlineBazar/avatars' },
             async (error, result) => {
+                // ১. ক্লাউডিনারি আপলোড এরর চেক
                 if (error) {
                     console.error("Cloudinary Upload Error:", error);
                     return res.status(500).json({ success: false, message: "Cloudinary upload failed." });
                 }
 
-                // ডাটাবেজে নতুন ছবির লিংক আপডেট
-                const avatarUrl = result.secure_url;
-                await User.findByIdAndUpdate(req.user.id, { avatar: avatarUrl });
+                // ২. 🌟 ক্লাউডিনারি সফল হওয়ার পর, ডাটাবেজ সেভ করার জন্য আলাদা try-catch
+                try {
+                    const avatarUrl = result.secure_url;
+                    console.log("Cloudinary Upload Success URL:", avatarUrl); // টার্মিনালে চেক করার জন্য
 
-                return res.status(200).json({ 
-                    success: true, 
-                    message: "Profile photo updated successfully!", 
-                    avatarUrl 
-                });
+                    // MongoDB ডাটাবেজে ইউজারের 'avatar' ফিল্ড আপডেট করা হচ্ছে
+                    const updatedUser = await User.findByIdAndUpdate(
+                        req.user.id, 
+                        { avatar: avatarUrl },
+                        { returnDocument: 'after' }
+                    );
+
+                    if (!updatedUser) {
+                        console.log("User not found with ID:", req.user.id);
+                        return res.status(404).json({ success: false, message: "User not found in database." });
+                    }
+
+                    console.log("🌟 Successfully saved to MongoDB for User:", updatedUser.name);
+
+                    // ৩. সফলভাবে ডাটাবেজে সেভ হলে ফ্রন্টএন্ডে রেসপন্স পাঠানো
+                    return res.status(200).json({ 
+                        success: true, 
+                        message: "Profile photo updated and saved to MongoDB!", 
+                        avatarUrl 
+                    });
+
+                } catch (dbError) {
+                    // 🌟 ডাটাবেজে সেভ করার সময় কোনো এরর হলে তা সরাসরি টার্মিনালে প্রিন্ট হবে
+                    console.error("❌ MongoDB Save Error inside Cloudinary Callback:", dbError);
+                    return res.status(500).json({ 
+                        success: false, 
+                        message: "Image uploaded to Cloudinary, but failed to save in MongoDB." 
+                    });
+                }
             }
-        ).end(req.file.buffer); // বাফার ডাটা পাঠিয়ে স্ট্রিম শেষ করা হলো
+        ).end(req.file.buffer); 
 
     } catch (error) {
         console.error("Avatar Update Error:", error);
         res.status(500).json({ success: false, message: "Server error while uploading avatar." });
     }
 };
+
+
+
 
 /* =======================================================
    ৮. বর্তমান পাসওয়ার্ড পরিবর্তন করা (Change Password)

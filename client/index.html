@@ -44,10 +44,15 @@
         </div>
 
         <div class="nav-right">
-            <div class="nav-user-account" onclick="window.location.href='login.html'">
-                <span class="nav-line-1">Sign in</span>
-                <span class="nav-line-2">Account</span>
+            <div class="nav-user-account" id="nav-user-link" onclick="window.location.href='login.html'">
+                <img id="nav-user-avatar" src="" alt="User" style="display: none; width: 30px; height: 30px; border-radius: 50%; margin-right: 8px; object-fit: cover;">
+                
+                <div class="nav-user-text-wrapper">
+                    <span class="nav-line-1" id="nav-user-line1">Sign in</span>
+                    <span class="nav-line-2" id="nav-user-line2">Account</span>
+                </div>
             </div>
+            
             <div class="nav-cart-box" onclick="window.location.href='cart.html'">
                 <div class="nav-cart-icon-wrapper">
                     <i class="fa fa-shopping-cart"></i>

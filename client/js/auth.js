@@ -170,7 +170,7 @@ function initPasswordToggle() {
 }
 
 /* =========================================================================
-   ৫. লগইন সাবমিশন হ্যান্ডলার (Real API Connection)
+   ৫. লগইন সাবমিশন হ্যান্ডলার (Real API Connection - Updated)
    ========================================================================= */
 async function handleLoginSubmit(e) {
     e.preventDefault();
@@ -202,24 +202,32 @@ async function handleLoginSubmit(e) {
         const data = await response.json();
         
         if (data.success) {
+            // ১. টোকেন ও কাস্টমার ডাটা সেভ করা
             localStorage.setItem('customerToken', data.token);
             localStorage.setItem('customerData', JSON.stringify(data.user));
+            
+            // ২. হেডারে নাম দেখানোর জন্য আলাদাভাবে 'userName' লোকাল স্টোরেজে সেট করা হলো
+            if (data.user && data.user.name) {
+                localStorage.setItem('userName', data.user.name);
+            }
             
             // লগিন সাকসেস হলে ফরগেট পাসওয়ার্ড লিংক লুকিয়ে ফেলা
             if (forgotPassLink) forgotPassLink.style.display = 'none';
 
             showCustomToast("Login Successful! Redirecting...", "success");
-            setTimeout(() => { window.location.href = '/index'; }, 1500);
+            
+            // ৩. রিডাইরেকশন ঠিক করে '/index' এর বদলে 'index.html' করা হলো
+            setTimeout(() => { window.location.href = 'index.html'; }, 1500);
         } else {
             showCustomToast(data.message || "Invalid credentials or email not verified.", "error");
             loginBtn.innerText = "Sign In";
             loginBtn.disabled = false;
 
-            // 🌟 লগিন ফেইল হলে (ভুল পাসওয়ার্ড) ফরগেট পাসওয়ার্ড লিংক শো করানো
+            // 🌟 লগিন ফেইল হলে ফরগেট পাসওয়ার্ড লিংক শো করানো
             if (forgotPassLink) {
                 forgotPassLink.style.display = 'block';
-                // ইউজার যাতে ইমেইল বারবার টাইপ না করে, তাই লিংকটিতে ইমেইল যুক্ত করে দেওয়া হলো
-                forgotPassLink.href = `/forgot-password?email=${encodeURIComponent(email)}`;
+                // ৪. ৪MD/Cannot GET এরর দূর করতে লিংকটি '/forgot-password' থেকে বদলে 'forgot-password.html' করা হলো
+                forgotPassLink.href = `forgot-password.html?email=${encodeURIComponent(email)}`;
             }
         }
     } catch (error) {
@@ -228,6 +236,8 @@ async function handleLoginSubmit(e) {
         loginBtn.disabled = false;
     }
 }
+
+
 
 /* =========================================================================
    ৬. রেজিস্ট্রেশন সাবমিশন হ্যান্ডলার (Real API Connection)

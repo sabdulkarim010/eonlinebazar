@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // ১. ভেরিফাই কাস্টমার লগইন টোকেন
-    const token = localStorage.getItem('authToken');
+    // ১. ভেরিফাই কাস্টমার লগইন টোকেন (auth.js এর সাথে মিলিয়ে customerToken করা হলো)
+    const token = localStorage.getItem('customerToken');
     if (!token) {
         showToast('Access Denied. Redirecting to login...', 'error');
         setTimeout(() => window.location.href = 'login.html', 2000);
@@ -40,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ৪. ডাটাবেজ থেকে কাস্টমার ডাটা লোড করা (Fetch Profile)
     async function loadUserProfile() {
         try {
+            // আপনার server.js অনুযায়ী সঠিক রুট /api/customer/profile এ রিকোয়েস্ট পাঠানো হচ্ছে
             const response = await fetch('/api/customer/profile', {
                 method: 'GET',
                 headers: {
@@ -55,7 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 sidebarEmail.textContent = data.email;
                 profileName.value = data.name;
                 profileEmail.value = data.email;
-                profilePhone.value = data.phone || '';
+                
+                // ডাটাবেজের 'mobile' ফিল্ডের সাথে সিঙ্ক করা হলো (যদি phone না থাকে)
+                profilePhone.value = data.mobile || data.phone || ''; 
                 profileAddress.value = data.address || '';
                 
                 if (data.avatar) {
@@ -75,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const updatedData = {
             name: profileName.value.trim(),
-            phone: profilePhone.value.trim(),
+            phone: profilePhone.value.trim(), // ব্যাকঅ্যান্ডের userController.js এর phone এর সাথে মিল রাখা হলো
             address: profileAddress.value.trim()
         };
 
@@ -115,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         reader.readAsDataURL(file);
 
-        // সার্ভারে এবং ক্লাউডিনারিতে ফাইল পাঠানো
+        // DN-সার্ভারে এবং ক্লাউডিনারিতে ফাইল পাঠানো
         const formData = new FormData();
         formData.append('avatar', file);
 
@@ -133,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok) {
                 showToast('Profile photo updated successfully!', 'success');
-                sidebarAvatar.src = data.avatarUrl; // ব্যাকএন্ড থেকে আসা ফাইনাল ক্লাউডিনারি URL
+                sidebarAvatar.src = data.avatarUrl; // ক্লাউডিনারি ফাইনাল URL
             } else {
                 showToast(data.message || 'Photo upload failed', 'error');
             }
@@ -183,9 +186,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ৮. লগআউট হ্যান্ডেলার (Logout)
+    // ৮. লগআউট হ্যান্ডেলার (Logout - customerToken রিমুভ করা হলো)
     document.getElementById('logout-btn').addEventListener('click', () => {
-        localStorage.removeItem('authToken');
+        localStorage.removeItem('customerToken');
         localStorage.removeItem('userName');
         showToast('Logged out successfully.', 'success');
         setTimeout(() => window.location.href = 'login.html', 1500);
@@ -211,6 +214,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // পেজ লোড হওয়ার সাথে সাথে ইউজারের প্রোফাইল ডাটা কল করা
     loadUserProfile();
 });
+
+
 
 
 
