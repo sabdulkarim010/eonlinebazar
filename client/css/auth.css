@@ -289,3 +289,44 @@
     color: #334155;
     font-weight: 600;
 }
+
+
+/***********************************************************************************/
+
+
+
+/* পাসওয়ার্ড ইনপুট বক্সের কন্টেইনার */
+.password-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+/* ইনপুট বক্সের ভেতরে আইকনগুলোর জন্য জায়গা তৈরি */
+.password-group input {
+    padding-right: 70px !important; /* দুই আইকনের জন্য ডানে জায়গা বাড়ালাম */
+}
+
+/* চোখের আইকন */
+.toggle-password {
+    position: absolute;
+    right: 15px; /* ডানপাশ থেকে দূরত্ব */
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #64748b;
+    font-size: 16px;
+    z-index: 10;
+}
+
+/* চেক মার্ক আইকন (যদি থাকে) */
+/* আপনার কোড অনুযায়ী যদি চেক মার্কটি ইনপুট ফিল্ডের ভেতরেই থাকে */
+.validation-icon {
+    position: absolute;
+    right: 45px; /* চোখের আইকনের বামে চেক মার্ক বসবে */
+    color: #10b981;
+    font-size: 16px;
+}
+
+
+

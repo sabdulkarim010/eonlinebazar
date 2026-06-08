@@ -24,7 +24,7 @@
                 <div class="brand-icon-circle">
                     <i class="fa-solid fa-user-plus"></i>
                 </div>
-                <h2 class="auth-title">Your Account</h2>
+                <h2 class="auth-title">Create Account</h2>
             </div>
             
             <form id="registerForm" novalidate>
@@ -47,9 +47,12 @@
                     <div id="reg-email-error" class="error-text"></div>
                 </div>
 
-                <div class="floating-group">
+                <div class="floating-group password-group">
                     <input type="password" id="regPassword" required placeholder=" ">
                     <label for="regPassword">Password</label>
+                    <button type="button" class="toggle-password" id="toggleRegPass" title="Show/Hide Password">
+                        <i class="fa-regular fa-eye" id="regEyeIcon"></i>
+                    </button>
                     <div id="reg-password-error" class="error-text"></div>
                 </div>
 
@@ -57,31 +60,20 @@
             </form>
 
             <p class="auth-switch-text">
-                Already have an account? <a href="login.html">Login here</a>
+                Already have an account? <a href="/login">Login here</a>
             </p>
         </div>
 
-        <div id="success-message" style="display: none; text-align: center; padding: 10px;">
-            </div>
+        <div id="success-message" style="display: none; text-align: center; padding: 10px;"></div>
 
     </div>
 </div>
 
-    <!-- footer calling -->
-    <div id="global-site-footer"></div>
-    <script src="js/main.js"></script>
-
+<div id="global-site-footer"></div>
+<script src="js/main.js"></script>
 <script src="js/auth.js"></script>
+
 </body>
 </html>
-
-
-
-
-
-
-
-
-
 
 

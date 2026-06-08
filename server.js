@@ -24,8 +24,8 @@ app.use(express.static(path.join(__dirname, 'client')));
 // ৪. এপিআই রুটসমূহ যুক্ত করা
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes); 
-app.use('/api/admin', adminRoutes);  
-app.use('/api/users', userRoutes); 
+app.use('/api/admin', adminRoutes);
+app.use('/api/customer', userRoutes);   
 
 // =================================================================
 // ৫. ফ্রন্টএন্ড পেজগুলোর রাউট (এখানেই .html হাইড করার লজিক দেওয়া হলো)
@@ -50,6 +50,27 @@ app.get('/admin-login', (req, res) => {
 app.get('/order-track', (req, res) => {
     res.sendFile(path.join(__dirname, 'client', 'order-track.html'));
 });
+
+// এখানে নতুন করে এই লাইনটি যোগ
+app.get('/forgot-password', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'forgot-password.html'));
+});
+
+// এখানে নতুন করে এই লাইনটি যোগ
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'login.html'));
+});
+
+// এখানে নতুন করে এই লাইনটি যোগ
+app.get('/index', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'index.html'));
+});
+
+// এখানে নতুন করে এই লাইনটি যোগ
+app.get('/profile', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'profile.html'));
+});
+
 
 // =================================================================
 

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile | eOnlineBazar</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/profile.css">
+</head>
+<body>
+
+<div class="dashboard-container">
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <i class="fa-solid fa-bag-shopping"></i>
+            <span>eOnlineBazar</span>
+        </div>
+        
+        <div class="sidebar-user">
+            <div class="avatar-container">
+                <img id="sidebar-avatar" src="https://via.placeholder.com/150" alt="User Avatar">
+                <label for="avatar-input" class="upload-badge" title="Change Photo">
+                    <i class="fa-solid fa-camera"></i>
+                </label>
+                <input type="file" id="avatar-input" accept="image/*" hidden>
+            </div>
+            <h3 id="sidebar-name">Loading...</h3>
+            <p id="sidebar-email">user@mail.com</p>
+        </div>
+
+        <nav class="sidebar-menu">
+            <a href="#" class="menu-item active" data-tab="profile-info">
+                <i class="fa-regular fa-user"></i> Profile Information
+            </a>
+            <a href="#" class="menu-item" data-tab="security-settings">
+                <i class="fa-solid fa-shield-halved"></i> Security & Password
+            </a>
+            <a href="index.html" class="menu-item">
+                <i class="fa-solid fa-house"></i> Back to Home
+            </a>
+            <button id="logout-btn" class="menu-item logout">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+            </button>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <section id="profile-info" class="tab-content active">
+            <div class="content-header">
+                <h2>Account Settings</h2>
+                <p>Update your profile details and shipping address seamlessly.</p>
+            </div>
+
+            <div class="card">
+                <form id="profile-form" novalidate>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="profile-name">Full Name</label>
+                            <div class="input-wrapper">
+                                <i class="fa-regular fa-user input-icon"></i>
+                                <input type="text" id="profile-name" required placeholder="Enter your full name">
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="profile-email">Email Address (Read Only)</label>
+                            <div class="input-wrapper disabled">
+                                <i class="fa-regular fa-envelope input-icon"></i>
+                                <input type="email" id="profile-email" readonly placeholder="yourname@gmail.com">
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="profile-phone">Phone Number</label>
+                            <div class="input-wrapper">
+                                <i class="fa-solid fa-phone input-icon"></i>
+                                <input type="tel" id="profile-phone" placeholder="e.g. +880123456789">
+                            </div>
+                        </div>
+
+                        <div class="input-group full-width">
+                            <label for="profile-address">Shipping Address</label>
+                            <div class="input-wrapper text-area-wrapper">
+                                <i class="fa-solid fa-location-dot input-icon"></i>
+                                <textarea id="profile-address" rows="3" placeholder="Enter your complete delivery address"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="save-profile-btn">
+                            <i class="fa-regular fa-floppy-disk"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section id="security-settings" class="tab-content">
+            <div class="content-header">
+                <h2>Security Settings</h2>
+                <p>Change your password to keep your account secure.</p>
+            </div>
+
+            <div class="card">
+                <form id="password-form" novalidate>
+                    <div class="form-grid single-column">
+                        <div class="input-group">
+                            <label for="current-password">Current Password</label>
+                            <div class="input-wrapper">
+                                <i class="fa-solid fa-lock input-icon"></i>
+                                <input type="password" id="current-password" required placeholder="••••••••">
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="new-password">New Password</label>
+                            <div class="input-wrapper">
+                                <i class="fa-solid fa-key input-icon"></i>
+                                <input type="password" id="new-password" required placeholder="Minimum 6 characters">
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="confirm-password">Confirm New Password</label>
+                            <div class="input-wrapper">
+                                <i class="fa-solid fa-check-double input-icon"></i>
+                                <input type="password" id="confirm-password" required placeholder="••••••••">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="change-pass-btn">
+                            <i class="fa-solid fa-key"></i> Update Password
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+
+<script src="js/profile.js"></script>
+</body>
+</html>
+
+
+

@@ -2,11 +2,12 @@
  * Project: eOnlineBazar
  * Author: Abdul Karim Sheikh
  * File: js/auth.js
- * Description: Advanced Real-Time Validation Engine + Full-Stack API Integration
+ * Description: Advanced Real-Time Validation Engine + Full-Stack API Integration + UI Enhancements
  */
 
 document.addEventListener('DOMContentLoaded', () => {
     initRealTimeValidation();
+    initPasswordToggle(); // 🌟 নতুন: পাসওয়ার্ড দেখার ফাংশন চালু করা হলো
     
     // ইমেইল ভেরিফাই করে আসার পর URL চেক করে মেসেজ দেখানো
     const urlParams = new URLSearchParams(window.location.search);
@@ -136,14 +137,52 @@ function initRealTimeValidation() {
 }
 
 /* =========================================================================
-   ৪. লগইন সাবমিশন হ্যান্ডলার (Real API Connection)
+   🌟 নতুন: ৪. পাসওয়ার্ড শো/হাইড লজিক (Eye Icon)
+   ========================================================================= */
+function initPasswordToggle() {
+    // লগিন পেজের জন্য
+    const toggleLoginPass = document.getElementById('toggleLoginPass');
+    const loginPassInput = document.getElementById('loginPass');
+    const loginEyeIcon = document.getElementById('loginEyeIcon');
+
+    if (toggleLoginPass && loginPassInput && loginEyeIcon) {
+        toggleLoginPass.addEventListener('click', () => {
+            const type = loginPassInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            loginPassInput.setAttribute('type', type);
+            // আইকন চেঞ্জ করা (চোখ খোলা বা বন্ধ)
+            loginEyeIcon.className = type === 'password' ? 'fa-regular fa-eye' : 'fa-regular fa-eye-slash';
+        });
+    }
+
+    // রেজিস্ট্রেশন পেজের জন্য
+    const toggleRegPass = document.getElementById('toggleRegPass');
+    const regPassInput = document.getElementById('regPassword');
+    const regEyeIcon = document.getElementById('regEyeIcon');
+
+    if (toggleRegPass && regPassInput && regEyeIcon) {
+        toggleRegPass.addEventListener('click', () => {
+            const type = regPassInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            regPassInput.setAttribute('type', type);
+            // আইকন চেঞ্জ করা (চোখ খোলা বা বন্ধ)
+            regEyeIcon.className = type === 'password' ? 'fa-regular fa-eye' : 'fa-regular fa-eye-slash';
+        });
+    }
+}
+
+/* =========================================================================
+   ৫. লগইন সাবমিশন হ্যান্ডলার (Real API Connection)
    ========================================================================= */
 async function handleLoginSubmit(e) {
     e.preventDefault();
 
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPass').value;
+    const forgotPassLink = document.getElementById('forgotPasswordLink'); // 🌟 ফরগেট লিংক সিলেক্ট করা
     
+    // Remember me অপশন চেক করা
+    const rememberMeCheckbox = document.getElementById('rememberMe');
+    const rememberMe = rememberMeCheckbox ? rememberMeCheckbox.checked : false;
+
     if (!email || password.length < 6) {
         showCustomToast("Please fill all fields correctly.", "error");
         return;
@@ -157,7 +196,7 @@ async function handleLoginSubmit(e) {
         const response = await fetch('/api/customer/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ email, password, rememberMe }) // 🌟 rememberMe ডাটাও পাঠানো হলো
         });
         
         const data = await response.json();
@@ -166,12 +205,22 @@ async function handleLoginSubmit(e) {
             localStorage.setItem('customerToken', data.token);
             localStorage.setItem('customerData', JSON.stringify(data.user));
             
+            // লগিন সাকসেস হলে ফরগেট পাসওয়ার্ড লিংক লুকিয়ে ফেলা
+            if (forgotPassLink) forgotPassLink.style.display = 'none';
+
             showCustomToast("Login Successful! Redirecting...", "success");
-            setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+            setTimeout(() => { window.location.href = '/index'; }, 1500);
         } else {
             showCustomToast(data.message || "Invalid credentials or email not verified.", "error");
             loginBtn.innerText = "Sign In";
             loginBtn.disabled = false;
+
+            // 🌟 লগিন ফেইল হলে (ভুল পাসওয়ার্ড) ফরগেট পাসওয়ার্ড লিংক শো করানো
+            if (forgotPassLink) {
+                forgotPassLink.style.display = 'block';
+                // ইউজার যাতে ইমেইল বারবার টাইপ না করে, তাই লিংকটিতে ইমেইল যুক্ত করে দেওয়া হলো
+                forgotPassLink.href = `/forgot-password?email=${encodeURIComponent(email)}`;
+            }
         }
     } catch (error) {
         showCustomToast("Server error! Please try again.", "error");
@@ -181,7 +230,7 @@ async function handleLoginSubmit(e) {
 }
 
 /* =========================================================================
-   ৫. রেজিস্ট্রেশন সাবমিশন হ্যান্ডলার (Real API Connection)
+   ৬. রেজিস্ট্রেশন সাবমিশন হ্যান্ডলার (Real API Connection)
    ========================================================================= */
 async function handleRegisterSubmit(e) {
     e.preventDefault();
@@ -236,7 +285,7 @@ async function handleRegisterSubmit(e) {
 }
 
 /* =========================================================================
-   ৬. কাস্টম স্লাইড-ডাউন টোস্ট ইঞ্জিন
+   ৭. কাস্টম স্লাইড-ডাউন টোস্ট ইঞ্জিন
    ========================================================================= */
 function showCustomToast(message, type = "error") {
     const oldToast = document.getElementById('customToast');
@@ -246,9 +295,7 @@ function showCustomToast(message, type = "error") {
     toast.id = 'customToast';
     toast.className = `custom-toast ${type}`;
     
-    // success হলে চেকমার্ক, error হলে এক্সক্লামেশন আইকন
     const icon = type === "error" ? "fa-circle-exclamation" : "fa-circle-check";
-    // success মেসেজের জন্য একটু ভিন্ন স্টাইল দিতে চাইলে CSS ক্লাসে .custom-toast.success অ্যাড করে নিয়েন
     toast.style.borderLeft = type === "error" ? "4px solid #e74c3c" : "4px solid #2ecc71";
     
     toast.innerHTML = `
@@ -264,8 +311,6 @@ function showCustomToast(message, type = "error") {
         setTimeout(() => toast.remove(), 400);
     }, 3500);
 }
-
-
 
 
 

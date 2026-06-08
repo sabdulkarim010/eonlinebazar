@@ -24,7 +24,7 @@
                 <div class="brand-icon-circle">
                     <i class="fa-solid fa-user-shield"></i>
                 </div>
-                <h2 class="auth-title">Your Account</h2>
+                <h2 class="auth-title">Sign In to Your Account</h2>
             </div>
             
             <form id="loginForm" novalidate>
@@ -35,10 +35,20 @@
                     <div id="login-email-error" class="error-text"></div>
                 </div>
                 
-                <div class="floating-group">
+                <div class="floating-group password-group">
                     <input type="password" id="loginPass" required placeholder=" ">
                     <label for="loginPass">Password</label>
+                    <button type="button" class="toggle-password" id="toggleLoginPass" title="Show/Hide Password">
+                        <i class="fa-regular fa-eye" id="loginEyeIcon"></i>
+                    </button>
                     <div id="login-pass-error" class="error-text"></div>
+                </div>
+
+                <div class="auth-options" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 14px;">
+                    <label class="remember-me" style="display: flex; align-items: center; gap: 5px; cursor: pointer; color: #64748b;">
+                        <input type="checkbox" id="rememberMe"> Remember me
+                    </label>
+                    <a href="#" id="forgotPasswordLink" class="forgot-password-link hidden-forgot-link" style="display: none; color: #e74c3c; font-weight: 600; text-decoration: none;">Forgot Password?</a>
                 </div>
 
                 <button type="submit" class="btn-primary">Sign In</button>
@@ -49,20 +59,17 @@
             </p>
         </div>
 
-        <div id="success-message" style="display: none; text-align: center; padding: 10px;">
-            </div>
+        <div id="success-message" style="display: none; text-align: center; padding: 10px;"></div>
 
     </div>
 </div>
-        <!-- footer calling -->
-        <div id="global-site-footer"></div>
-        <script src="js/main.js"></script>
 
+<div id="global-site-footer"></div>
+<script src="js/main.js"></script>
 <script src="js/auth.js"></script>
+
 </body>
 </html>
-
-
 
 
 

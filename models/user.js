@@ -27,6 +27,17 @@ const userSchema = new mongoose.Schema({
         default: false // শুরুতে অ্যাকাউন্ট ভেরিফাইড থাকবে না
     },
     verificationToken: String, // ইমেইল ভেরিফাই করার ইউনিক কোড বা লিঙ্ক টোকেন
+    
+    // 🌟 নতুন যোগ করা হলো: ফরগেট পাসওয়ার্ড OTP এবং এক্সপায়ারি টাইম
+    resetPasswordOtp: {
+        type: String,
+        default: null
+    },
+    resetPasswordExpires: {
+        type: Date,
+        default: null
+    },
+    
     createdAt: {
         type: Date,
         default: Date.now
@@ -34,8 +45,6 @@ const userSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('User', userSchema);
-
-
 
 
 
