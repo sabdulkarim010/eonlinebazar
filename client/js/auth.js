@@ -217,7 +217,7 @@ async function handleLoginSubmit(e) {
             showCustomToast("Login Successful! Redirecting...", "success");
             
             // ৩. রিডাইরেকশন ঠিক করে '/index' এর বদলে 'index.html' করা হলো
-            setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+            setTimeout(() => { window.location.href = '/'; }, 1500);
         } else {
             showCustomToast(data.message || "Invalid credentials or email not verified.", "error");
             loginBtn.innerText = "Sign In";

@@ -285,7 +285,7 @@ function setupEventListeners() {
         showToast("Proceeding to checkout...", "success");
         
         setTimeout(() => {
-            window.location.href = '/checkout.html'; // ⚠️ আপনার চেকআউট পেজের নাম যদি ভিন্ন হয়, তবে এখানে ঠিক করে দিন
+            window.location.href = '/checkout'; // ⚠️ আপনার চেকআউট পেজের নাম যদি ভিন্ন হয়, তবে এখানে ঠিক করে দিন
         }, 500); // পেজ লোড হওয়ার আগে হালকা সময় নিবে
     };
 

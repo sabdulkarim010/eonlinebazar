@@ -115,7 +115,7 @@ async function handleResetPassword(e) {
             showToast("Password reset successful! Redirecting to login...", "success");
             // 🚀 ফিক্স: '/login' এর বদলে সরাসরি 'login.html' ফাইলে পাঠানো হলো
             setTimeout(() => {
-                window.location.href = 'login.html';
+                window.location.href = '/login';
             }, 2000);
         } else {
             showToast(data.message || "Invalid OTP or request failed.", "error");

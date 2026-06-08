@@ -63,7 +63,7 @@ function renderCheckoutCart() {
                 <div style="font-size:48px; margin-bottom:15px;">🛒</div>
                 <h3 style="color:#334155; font-size:20px; margin-bottom:8px;">Your Cart is Empty</h3>
                 <p style="color:#64748b; font-size:14px; margin-bottom:24px;">Please add some products from the shop to proceed.</p>
-                <a href="index.html" style="background:var(--primary-color, #f97316); color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:600; display:inline-block; transition:0.3s;">Browse Products</a>
+                <a href="/" style="background:var(--primary-color, #f97316); color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:600; display:inline-block; transition:0.3s;">Browse Products</a>
             </div>
         `;
         
@@ -299,7 +299,7 @@ function handleProceedToPayment() {
 
     localStorage.setItem('activeCheckoutSession', JSON.stringify(checkoutOrderSession));
     
-    window.location.href = 'payment.html';
+    window.location.href = '/payment';
 }
 
 function openCheckoutAlertModal(msg) {

@@ -63,7 +63,7 @@ function renderCartDrawerItems() {
                 <i class="fa fa-shopping-bag" style="font-size:48px; color:#bbb; margin-bottom:15px; display:block;"></i>
                 <span style="font-size:18px; font-weight:600; color:#334155; display:block; margin-bottom:8px;">Your shopping bag is empty!</span>
                 <span style="font-size:14px; color:#64748b; margin-bottom:24px; display:block;">Please add some products to your cart.</span>
-                <a href="index.html" style="background:#f97316; color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:600; display:inline-block; transition:0.3s;">Browse Products</a>
+                <a href="/" style="background:#f97316; color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:600; display:inline-block; transition:0.3s;">Browse Products</a>
             </div>
         `;
         if (cartFooter) cartFooter.style.display = 'none';
@@ -220,7 +220,7 @@ function updateCartTotal() {
             checkoutRedirectBtn.style.opacity = '1';
             checkoutRedirectBtn.onclick = function() {
                 localStorage.setItem("activeCheckoutSession", "true");
-                window.location.href = 'checkout.html';
+                window.location.href = '/checkout';
             };
         }
     }

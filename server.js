@@ -72,6 +72,57 @@ app.get('/profile', (req, res) => {
 });
 
 
+// ভুল করে কেউ /index.html লিখলে অটোমেটিক / এ পাঠিয়ে দেবে
+app.get('/index.html', (req, res) => {
+    res.redirect('/');
+});
+
+// ভুল করে কেউ /profile.html লিখলে অটোমেটিক /profile এ পাঠিয়ে দেবে
+app.get('/profile.html', (req, res) => {
+    res.redirect('/profile');
+});
+
+// Cart রুটটি এখানে যোগ করুন
+app.get('/cart', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'cart.html'));
+});
+
+// Checkout রুটটি এখানে যোগ করুন
+app.get('/checkout', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'checkout.html'));
+});
+
+// Payment রুটটি এখানে যোগ করুন
+app.get('/payment', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'payment.html'));
+});
+
+// Footer রুটটি এখানে যোগ করুন
+app.get('/footer', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'footer.html'));
+});
+
+// About রুটটি এখানে যোগ করুন
+app.get('/about', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'about.html'));
+});
+
+// Contact রুটটি এখানে যোগ করুন
+app.get('/contact', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'contact.html'));
+});
+
+// register রুটটি এখানে যোগ করুন
+app.get('/register', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'register.html'));
+});
+
+// Forgot-Password রুটটি এখানে যোগ করুন
+app.get('/forgot-password', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'forgot-password.html'));
+});
+
+
 // =================================================================
 
 // ৬. সার্ভার স্টার্ট

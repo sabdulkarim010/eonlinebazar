@@ -31,7 +31,7 @@ function loadCheckoutSessionData() {
     
     if (!sessionData) {
         alert("No active checkout session found. Redirecting to cart.");
-        window.location.href = 'cart.html';
+        window.location.href = '/cart';
         return;
     }
 
@@ -255,14 +255,14 @@ window.handleFinalOrderSubmission = async function() {
                 }
                 if (timeLeft <= 0) {
                     clearInterval(countdownInterval);
-                    window.location.href = 'index.html';
+                    window.location.href = '/';
                 }
             }, 1000);
 
             if (modalCloseBtn) {
                 modalCloseBtn.onclick = function() {
                     clearInterval(countdownInterval);
-                    window.location.href = 'index.html';
+                    window.location.href = '/';
                 };
             }
         } else {

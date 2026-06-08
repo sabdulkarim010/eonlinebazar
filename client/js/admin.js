@@ -1725,7 +1725,7 @@ async function fetchAdminProfile() {
             }
         }
     } catch (error) {
-        console.error("🔴 ডাটাবেজ থেকে প্রোফাইল ছবি লোড করতে সমস্যা হয়েছে:", error);
+        console.error("🔴 The profile image could not be fetched from the database :", error);
     }
 }
 
@@ -1773,7 +1773,7 @@ if (profileUploadInput) {
                 showToast(data.message || "Failed to upload image", "error");
             }
         } catch (err) {
-            console.error("🔴 ছবি আপলোড এরর:", err);
+            console.error("🔴 Failed to upload image :", err);
             showToast("Error connecting to server", "error");
         }
     });

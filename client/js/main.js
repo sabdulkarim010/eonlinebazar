@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (token) {
         // বাটনের ক্লিক ফাংশন পরিবর্তন করে 'profile.html' এ পাঠানো হচ্ছে
         if (navUserLink) {
-            navUserLink.setAttribute('onclick', "window.location.href='profile.html'");
+            navUserLink.setAttribute('onclick', "window.location.href='/profile'");
             navUserLink.style.display = 'flex';       // ছবি ও লেখা পাশাপাশি সুন্দর দেখানোর জন্য
             navUserLink.style.alignItems = 'center';
             navUserLink.style.cursor = 'pointer';

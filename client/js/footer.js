@@ -17,7 +17,7 @@ async function initGlobalFooterEngine() {
     `;
 
     try {
-        const response = await fetch('footer.html');
+        const response = await fetch('/footer');
         if (!response.ok) throw new Error(`HTTP Error! Status: ${response.status}`);
 
         const htmlContent = await response.text();

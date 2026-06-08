@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('customerToken');
     if (!token) {
         showToast('Access Denied. Redirecting to login...', 'error');
-        setTimeout(() => window.location.href = 'login.html', 2000);
+        setTimeout(() => window.location.href = '/login', 2000);
         return;
     }
 
@@ -191,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem('customerToken');
         localStorage.removeItem('userName');
         showToast('Logged out successfully.', 'success');
-        setTimeout(() => window.location.href = 'login.html', 1500);
+        setTimeout(() => window.location.href = '/login', 1500);
     });
 
     // ৯. প্রিমিয়াম টোস্ট মেসেজ নোটিফিকেশন সিস্টেম
