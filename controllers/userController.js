@@ -30,8 +30,10 @@ exports.testUserRoute = (req, res) => {
     res.status(200).json({ message: "User Controller is ready!" });
 };
 
+
+
 /* =======================================================
-   ১. ইউজার রেজিস্ট্রেশন (Register)
+   ১. ইউজার রেজিস্ট্রেশন (Register - ফিক্স করা হয়েছে)
    ======================================================= */
 exports.registerUser = async (req, res) => {
     try {
@@ -57,13 +59,43 @@ exports.registerUser = async (req, res) => {
 
         await newUser.save();
 
-        res.status(201).json({ success: true, message: "Registration successful! Please verify your email." });
+        // 🚀 ফিক্স: ভেরিফিকেশন লিঙ্ক তৈরি (আপনার ফ্রন্টএন্ড বা ব্যাকএন্ডের রুট অনুযায়ী)
+        // ধরুন আপনার ভেরিফিকেশন এপিআই রুটটি এমন: /api/customer/verify/:token
+        const verificationUrl = `${req.protocol}://${req.get('host')}/api/customer/verify/${verificationToken}`;
+
+        // ✉️ ইমেইল অপশন সেট করা
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: newUser.email,
+            subject: 'eOnlineBazar - Account Verification',
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px; max-width: 500px; margin: auto;">
+                    <h2 style="color: #2563eb; text-align: center;">eOnlineBazar</h2>
+                    <p>Dear <b>${newUser.name}</b>,</p>
+                    <p>Thank you for registering with us. Please verify your email address to activate your account:</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="${verificationUrl}" style="background-color: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Verify Email Address</a>
+                    </div>
+                    <p style="color: #666; font-size: 12px;">If the button doesn't work, copy and paste this link into your browser:</p>
+                    <p style="color: #2563eb; font-size: 12px; word-break: break-all;">${verificationUrl}</p>
+                    <hr style="border: 0; border-top: 1px solid #eee; margin-top: 20px;">
+                    <p style="color: #999; font-size: 11px; text-align: center;">This is an automated email, please do not reply.</p>
+                </div>
+            `
+        };
+
+        // 📨 মেইলটি পাঠানো হচ্ছে
+        await transporter.sendMail(mailOptions);
+
+        res.status(201).json({ success: true, message: "Registration successful! Please check your email to verify your account." });
 
     } catch (error) {
         console.error("Register Error:", error);
         res.status(500).json({ success: false, message: "Server error during registration." });
     }
 };
+
+
 
 /* =======================================================
    ২. ইউজার লগিন (Login)
@@ -313,6 +345,44 @@ exports.changePassword = async (req, res) => {
         res.status(500).json({ success: false, message: "Server error while changing password." });
     }
 };
+
+
+/* =======================================================
+   ৯. নতুন করে ভেরিফিকেশন মেইল পাঠানো (Resend Verification)
+   ======================================================= */
+exports.resendVerification = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+
+        if (!user) return res.status(404).json({ success: false, message: "User not found." });
+        if (user.isVerified) return res.status(400).json({ success: false, message: "Account already verified." });
+
+        // নতুন টোকেন তৈরি করুন
+        const newVerificationToken = crypto.randomBytes(20).toString('hex');
+        user.verificationToken = newVerificationToken;
+        await user.save();
+
+        // মেইল পাঠানোর কোড (যা আমরা একটু আগে তৈরি করলাম)
+        const verificationUrl = `${req.protocol}://${req.get('host')}/api/customer/verify/${newVerificationToken}`;
+        
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: user.email,
+            subject: 'eOnlineBazar - Resend Verification Email',
+            html: `<p>Click here to verify: <a href="${verificationUrl}">${verificationUrl}</a></p>`
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        res.status(200).json({ success: true, message: "Verification email resent successfully!" });
+
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to resend email." });
+    }
+};
+
+
 
 
 
