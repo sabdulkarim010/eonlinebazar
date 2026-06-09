@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Profile | EonlineBazar</title>
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/profile.css">
 </head>
@@ -20,19 +22,23 @@
         
         <div class="sidebar-user">
             <div class="avatar-container">
-                <img id="sidebar-avatar" src="https://via.placeholder.com/150" alt="User Avatar">
-                <label for="avatar-input" class="upload-badge" title="Change Photo">
+                <img id="sidebar-avatar" src="https://via.placeholder.com/150" alt="User Avatar" class="avatar-image">
+                <label for="avatar-input" class="upload-badge" title="Update Profile Picture">
                     <i class="fa-solid fa-camera"></i>
                 </label>
                 <input type="file" id="avatar-input" accept="image/*" hidden>
             </div>
             <h3 id="sidebar-name">Loading...</h3>
-            <p id="sidebar-email">user@mail.com</p>
+            <p id="sidebar-email">Loading...</p>
+            <span class="user-status-badge"><i class="fa-solid fa-circle-check"></i> Verified User</span>
         </div>
 
         <nav class="sidebar-menu">
             <a href="#" class="menu-item active" data-tab="profile-info">
                 <i class="fa-regular fa-user"></i> Profile Information
+            </a>
+            <a href="#" class="menu-item" data-tab="my-orders">
+                <i class="fa-solid fa-box-open"></i> My Orders
             </a>
             <a href="#" class="menu-item" data-tab="security-settings">
                 <i class="fa-solid fa-shield-halved"></i> Security & Password
@@ -47,10 +53,11 @@
     </aside>
 
     <main class="main-content">
+        
         <section id="profile-info" class="tab-content active">
             <div class="content-header">
                 <h2>Account Settings</h2>
-                <p>Update your profile details and shipping address seamlessly.</p>
+                <p>Update your details here. The address saved here will automatically be used for your future orders.</p>
             </div>
 
             <div class="card">
@@ -65,10 +72,10 @@
                         </div>
 
                         <div class="input-group">
-                            <label for="profile-email">Email Address (Read Only)</label>
+                            <label for="profile-email">Email Address <span class="badge-readonly">Read Only</span></label>
                             <div class="input-wrapper disabled">
                                 <i class="fa-regular fa-envelope input-icon"></i>
-                                <input type="email" id="profile-email" readonly placeholder="yourname@gmail.com">
+                                <input type="email" id="profile-email" readonly title="Email cannot be changed">
                             </div>
                         </div>
 
@@ -81,10 +88,10 @@
                         </div>
 
                         <div class="input-group full-width">
-                            <label for="profile-address">Shipping Address</label>
+                            <label for="profile-address">Default Shipping Address <span class="badge-primary">Auto-fill ready</span></label>
                             <div class="input-wrapper text-area-wrapper">
                                 <i class="fa-solid fa-location-dot input-icon"></i>
-                                <textarea id="profile-address" rows="3" placeholder="Enter your complete delivery address"></textarea>
+                                <textarea id="profile-address" rows="3" placeholder="Enter your complete delivery address (House, Road, Area, City)"></textarea>
                             </div>
                         </div>
                     </div>
@@ -98,10 +105,42 @@
             </div>
         </section>
 
+        <section id="my-orders" class="tab-content">
+            <div class="content-header">
+                <h2>My Orders</h2>
+                <p>Track your recent orders, view status, and share product reviews.</p>
+            </div>
+
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="orders-table">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Date</th>
+                                <th>Products</th>
+                                <th>Total Amount</th>
+                                <th>Status</th>
+                                <th class="text-center">Action</th> 
+                            </tr>
+                        </thead>
+                        <tbody id="orders-list-tbody">
+                            <tr>
+                                <td colspan="6" class="table-loading text-center">
+                                    <i class="fa-solid fa-spinner fa-spin"></i>
+                                    <p>Fetching your orders...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
         <section id="security-settings" class="tab-content">
             <div class="content-header">
                 <h2>Security Settings</h2>
-                <p>Change your password to keep your account secure.</p>
+                <p>Change your password regularly to keep your account highly secure.</p>
             </div>
 
             <div class="card">
@@ -112,6 +151,7 @@
                             <div class="input-wrapper">
                                 <i class="fa-solid fa-lock input-icon"></i>
                                 <input type="password" id="current-password" required placeholder="••••••••">
+                                <i class="fa-regular fa-eye-slash toggle-password"></i>
                             </div>
                         </div>
 
@@ -121,6 +161,7 @@
                                 <i class="fa-solid fa-key input-icon"></i>
                                 <input type="password" id="new-password" required placeholder="Minimum 6 characters">
                             </div>
+                            <small class="password-hint">Must contain letters and numbers.</small>
                         </div>
 
                         <div class="input-group">
@@ -134,16 +175,67 @@
 
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary" id="change-pass-btn">
-                            <i class="fa-solid fa-key"></i> Update Password
+                            <i class="fa-solid fa-shield-check"></i> Update Password
                         </button>
                     </div>
                 </form>
             </div>
         </section>
+
     </main>
 </div>
 
-<div id="toast-container" class="toast-container"></div>
+
+<div id="review-modal" class="modal hidden">
+    <div class="modal-content review-modal-content">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-star" style="color: #f39c12;"></i> Write a Review</h2>
+            <span class="close-modal">&times;</span>
+        </div>
+        
+        <form id="review-form">
+            <input type="hidden" id="review-product-id">
+            
+            <div class="input-group">
+                <label>Rate this product</label>
+                <div class="star-rating-input">
+                    <input type="radio" id="star5" name="rating" value="5" required>
+                    <label for="star5" title="5 stars"><i class="fa-solid fa-star"></i></label>
+                    
+                    <input type="radio" id="star4" name="rating" value="4">
+                    <label for="star4" title="4 stars"><i class="fa-solid fa-star"></i></label>
+                    
+                    <input type="radio" id="star3" name="rating" value="3">
+                    <label for="star3" title="3 stars"><i class="fa-solid fa-star"></i></label>
+                    
+                    <input type="radio" id="star2" name="rating" value="2">
+                    <label for="star2" title="2 stars"><i class="fa-solid fa-star"></i></label>
+                    
+                    <input type="radio" id="star1" name="rating" value="1">
+                    <label for="star1" title="1 star"><i class="fa-solid fa-star"></i></label>
+                </div>
+            </div>
+
+            <div class="input-group full-width">
+                <label for="review-comment">Your Review</label>
+                <div class="input-wrapper text-area-wrapper">
+                    <i class="fa-regular fa-comment-dots input-icon"></i>
+                    <textarea id="review-comment" rows="4" required placeholder="Tell us about your experience with this product..."></textarea>
+                </div>
+            </div>
+
+            <div class="form-actions" style="margin-top: 20px;">
+                <button type="submit" class="btn btn-primary w-100" id="submit-review-btn">
+                    <i class="fa-regular fa-paper-plane"></i> Submit Review
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- <div id="toast-container" class="toast-container"></div> -->
+ <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
 
 <script src="js/profile.js"></script>
 </body>

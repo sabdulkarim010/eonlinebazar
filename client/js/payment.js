@@ -161,9 +161,7 @@ function updatePaymentInstructions(method) {
 /* =========================================================================
 🚀 🔀 ৪. ফাইনাল অর্ডার সাবমিশন (MongoDB API ইন্টিগ্রেশন)
 ========================================================================= */
-
 window.handleFinalOrderSubmission = async function() {
-
     const selectedRadio = document.querySelector('input[name="paymentGateway"]:checked');
 
     if (!selectedRadio) {
@@ -172,8 +170,8 @@ window.handleFinalOrderSubmission = async function() {
     }
 
     const finalMethod = selectedRadio.value;
-
     const confirmBtn = document.getElementById('confirmOrderFinalBtn');
+    
     if (confirmBtn) {
         confirmBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Processing Your Order...`;
         confirmBtn.disabled = true;
@@ -194,7 +192,7 @@ window.handleFinalOrderSubmission = async function() {
         const generatedOrderId = "EOB" + Math.floor(100000 + Math.random() * 900000);
         const estimatedDeliveryDate = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 
-        // 🌟 MongoDB-এর জন্য ডেটা প্যাকেট
+        // MongoDB-এর জন্য ডেটা প্যাকেট
         const orderData = {
             orderId: generatedOrderId, 
             customerName: custName,
@@ -207,11 +205,15 @@ window.handleFinalOrderSubmission = async function() {
             note: custNote
         };
 
-        // 🚀 আমাদের নিজস্ব ব্যাকএন্ডে (MongoDB) POST রিকোয়েস্ট পাঠানো হচ্ছে
+        // 🌟 লোকাল স্টোরেজ থেকে ইউজারের অ্যাক্টিভ সিকিউরিটি টোকেন সংগ্রহ
+        const token = localStorage.getItem('token') || localStorage.getItem('customerToken');
+
+        // 🚀 আমাদের নিজস্ব ব্যাকএন্ডে (MongoDB) সিকিউর হেডারসহ POST রিকোয়েস্ট পাঠানো হচ্ছে
         const response = await fetch('/api/orders', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` // 🔒 এই টোকেনটি সরাসরি ব্যাকএন্ডের verifyUser ট্রিক করবে
             },
             body: JSON.stringify(orderData)
         });
@@ -301,8 +303,6 @@ window.copyOrderId = function() {
         console.error("Copy failed: ", err);
     });
 };
-
-
 
 
 

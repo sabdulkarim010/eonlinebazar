@@ -137,10 +137,9 @@ function initRealTimeValidation() {
 }
 
 /* =========================================================================
-   🌟 নতুন: ৪. পাসওয়ার্ড শো/হাইড লজিক (Eye Icon)
+   ৪. পাসওয়ার্ড শো/হাইড লজিক (Eye Icon)
    ========================================================================= */
 function initPasswordToggle() {
-    // লগিন পেজের জন্য
     const toggleLoginPass = document.getElementById('toggleLoginPass');
     const loginPassInput = document.getElementById('loginPass');
     const loginEyeIcon = document.getElementById('loginEyeIcon');
@@ -149,12 +148,10 @@ function initPasswordToggle() {
         toggleLoginPass.addEventListener('click', () => {
             const type = loginPassInput.getAttribute('type') === 'password' ? 'text' : 'password';
             loginPassInput.setAttribute('type', type);
-            // আইকন চেঞ্জ করা (চোখ খোলা বা বন্ধ)
             loginEyeIcon.className = type === 'password' ? 'fa-regular fa-eye' : 'fa-regular fa-eye-slash';
         });
     }
 
-    // রেজিস্ট্রেশন পেজের জন্য
     const toggleRegPass = document.getElementById('toggleRegPass');
     const regPassInput = document.getElementById('regPassword');
     const regEyeIcon = document.getElementById('regEyeIcon');
@@ -163,23 +160,22 @@ function initPasswordToggle() {
         toggleRegPass.addEventListener('click', () => {
             const type = regPassInput.getAttribute('type') === 'password' ? 'text' : 'password';
             regPassInput.setAttribute('type', type);
-            // আইকন চেঞ্জ করা (চোখ খোলা বা বন্ধ)
             regEyeIcon.className = type === 'password' ? 'fa-regular fa-eye' : 'fa-regular fa-eye-slash';
         });
     }
 }
 
+
 /* =========================================================================
-   ৫. লগইন সাবমিশন হ্যান্ডলার (Real API Connection - Updated)
+   ৫. লগইন সাবমিশন হ্যান্ডলার (Real API Connection - Dual Token Sync)
    ========================================================================= */
 async function handleLoginSubmit(e) {
     e.preventDefault();
 
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPass').value;
-    const forgotPassLink = document.getElementById('forgotPasswordLink'); // 🌟 ফরগেট লিংক সিলেক্ট করা
+    const forgotPassLink = document.getElementById('forgotPasswordLink'); 
     
-    // Remember me অপশন চেক করা
     const rememberMeCheckbox = document.getElementById('rememberMe');
     const rememberMe = rememberMeCheckbox ? rememberMeCheckbox.checked : false;
 
@@ -196,37 +192,34 @@ async function handleLoginSubmit(e) {
         const response = await fetch('/api/customer/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password, rememberMe }) // 🌟 rememberMe ডাটাও পাঠানো হলো
+            body: JSON.stringify({ email, password, rememberMe }) 
         });
         
         const data = await response.json();
         
         if (data.success) {
-            // ১. টোকেন ও কাস্টমার ডাটা সেভ করা
-            localStorage.setItem('customerToken', data.token);
+            // 🌟 সুনির্দিষ্ট আপডেট: দুটি নামেই টোকেন সেভ করা হলো যাতে কোনো পেজের লগইন স্টেট না ভাঙে
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('customerToken', data.token); 
             localStorage.setItem('customerData', JSON.stringify(data.user));
             
-            // ২. হেডারে নাম দেখানোর জন্য আলাদাভাবে 'userName' লোকাল স্টোরেজে সেট করা হলো
             if (data.user && data.user.name) {
                 localStorage.setItem('userName', data.user.name);
             }
             
-            // লগিন সাকসেস হলে ফরগেট পাসওয়ার্ড লিংক লুকিয়ে ফেলা
             if (forgotPassLink) forgotPassLink.style.display = 'none';
 
             showCustomToast("Login Successful! Redirecting...", "success");
             
-            // ৩. রিডাইরেকশন ঠিক করে '/index' এর বদলে 'index.html' করা হলো
-            setTimeout(() => { window.location.href = '/'; }, 1500);
+            // ১.৫ সেকেন্ড পর প্রোফাইল পেজে রিডাইরেক্ট
+            setTimeout(() => { window.location.href = 'profile.html'; }, 1500);
         } else {
             showCustomToast(data.message || "Invalid credentials or email not verified.", "error");
             loginBtn.innerText = "Sign In";
             loginBtn.disabled = false;
 
-            // 🌟 লগিন ফেইল হলে ফরগেট পাসওয়ার্ড লিংক শো করানো
             if (forgotPassLink) {
                 forgotPassLink.style.display = 'block';
-                // ৪. ৪MD/Cannot GET এরর দূর করতে লিংকটি '/forgot-password' থেকে বদলে 'forgot-password.html' করা হলো
                 forgotPassLink.href = `forgot-password.html?email=${encodeURIComponent(email)}`;
             }
         }
@@ -321,8 +314,6 @@ function showCustomToast(message, type = "error") {
         setTimeout(() => toast.remove(), 400);
     }, 3500);
 }
-
-
 
 
 

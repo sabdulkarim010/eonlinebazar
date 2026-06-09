@@ -1,19 +1,31 @@
-const User = require('../models/user');
-const bcrypt = require('bcryptjs'); // পাসওয়ার্ড সিকিউর (হ্যাশ) করার জন্য
-const jwt = require('jsonwebtoken'); // লগিন সেশন ধরে রাখার জন্য
-const nodemailer = require('nodemailer'); // ইমেইল পাঠানোর জন্য
-const crypto = require('crypto'); // ভেরিফিকেশন টোকেন বানানোর জন্য
+/********************************************************************
+ * Project: EonlineBazar
+ * File: userController.js
+ * Location: controllers/userController.js
+ * Author: Abdul Karim Sheikh
+ * Description: Handles User Registration, Authentication (JWT Login), 
+ * Forgot/Reset Password via Email OTP, Profile management, and fully 
+ * compressed Avatar Upload using Sharp and Cloudinary.
+ ********************************************************************/
 
-// 🌟 ইমেইল পাঠানোর কনফিগারেশন (আপনার জিমেইল ও অ্যাপ পাসওয়ার্ড বসাতে হবে .env ফাইলে)
+const User = require('../models/user');
+const bcrypt = require('bcryptjs'); 
+const jwt = require('jsonwebtoken'); 
+const nodemailer = require('nodemailer'); 
+const crypto = require('crypto'); 
+const cloudinary = require('cloudinary').v2;
+const sharp = require('sharp'); 
+
+// ইমেইল পাঠানোর কনফিগারেশন
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: process.env.EMAIL_USER, // উদাহরণ: আপনার জিমেইল
-        pass: process.env.EMAIL_PASS  // উদাহরণ: জিমেইলের App Password
+        user: process.env.EMAIL_USER, 
+        pass: process.env.EMAIL_PASS  
     }
 });
 
-// আগের টেস্ট রাউট (আপনার কোডটি রেখে দিলাম)
+// টেস্ট রাউট
 exports.testUserRoute = (req, res) => {
     res.status(200).json({ message: "User Controller is ready!" });
 };
@@ -25,17 +37,14 @@ exports.registerUser = async (req, res) => {
     try {
         const { name, mobile, email, password } = req.body;
 
-        // চেক করা এই ইমেইল আগে থেকেই আছে কি না
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(400).json({ success: false, message: "Email already exists!" });
         }
 
-        // পাসওয়ার্ড এনক্রিপ্ট বা হ্যাশ করা
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // ইমেইল ভেরিফিকেশনের জন্য টোকেন তৈরি
         const verificationToken = crypto.randomBytes(20).toString('hex');
 
         const newUser = new User({
@@ -47,8 +56,6 @@ exports.registerUser = async (req, res) => {
         });
 
         await newUser.save();
-
-        // 💡 (ভবিষ্যতে এখানে ইমেইলে ভেরিফিকেশন লিংক পাঠানোর কোড অ্যাড করা যাবে)
 
         res.status(201).json({ success: true, message: "Registration successful! Please verify your email." });
 
@@ -65,23 +72,20 @@ exports.loginUser = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // ডাটাবেজে ইউজার খোঁজা
         const user = await User.findOne({ email });
         if (!user) {
             return res.status(400).json({ success: false, message: "Invalid email or password." });
         }
 
-        // পাসওয়ার্ড মেলানো
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(400).json({ success: false, message: "Invalid email or password." });
         }
 
-        // JWT টোকেন জেনারেট করা (যাতে ইউজার লগিন থাকে)
         const token = jwt.sign(
             { id: user._id }, 
             process.env.JWT_SECRET || 'eOnlineBazarSecretKey123', 
-            { expiresIn: '7d' } // ৭ দিন লগিন থাকবে
+            { expiresIn: '7d' } 
         );
 
         res.status(200).json({
@@ -109,15 +113,12 @@ exports.forgotPassword = async (req, res) => {
             return res.status(404).json({ success: false, message: "No account found with this email." });
         }
 
-        // ৬ ডিজিটের রেন্ডম OTP তৈরি
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         
-        // ডাটাবেজে OTP এবং মেয়াদ (১৫ মিনিট) সেভ করা
         user.resetPasswordOtp = otp;
-        user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // 15 mins
+        user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; 
         await user.save();
 
-        // ইমেইল পাঠানোর ডিজাইন
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: user.email,
@@ -133,7 +134,6 @@ exports.forgotPassword = async (req, res) => {
             `
         };
 
-        // ইমেইল সেন্ড করা
         await transporter.sendMail(mailOptions);
 
         res.status(200).json({ success: true, message: "OTP sent to your email successfully." });
@@ -151,22 +151,19 @@ exports.resetPassword = async (req, res) => {
     try {
         const { email, otp, newPassword } = req.body;
 
-        // ইউজার খুঁজবো যার ইমেইল, OTP মিলবে এবং OTP এর মেয়াদ এখনো আছে
         const user = await User.findOne({ 
             email,
             resetPasswordOtp: otp,
-            resetPasswordExpires: { $gt: Date.now() } // বর্তমান সময়ের চেয়ে এক্সপায়ারি টাইম বেশি হতে হবে
+            resetPasswordExpires: { $gt: Date.now() } 
         });
 
         if (!user) {
             return res.status(400).json({ success: false, message: "Invalid or expired OTP." });
         }
 
-        // নতুন পাসওয়ার্ড হ্যাশ করা
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(newPassword, salt);
 
-        // কাজ শেষ, তাই OTP ডাটাবেজ থেকে মুছে ফেলা
         user.resetPasswordOtp = null;
         user.resetPasswordExpires = null;
 
@@ -180,14 +177,12 @@ exports.resetPassword = async (req, res) => {
     }
 };
 
-
 /* =======================================================
    ৫. ইউজারের প্রোফাইল ডাটা পাঠানো (Get Profile)
    ======================================================= */
 exports.getUserProfile = async (req, res) => {
     try {
-        // req.user.id আসবে আমাদের verifyUser মিডলওয়্যার থেকে
-        const user = await User.findById(req.user.id).select('-password'); // পাসওয়ার্ড বাদে সব ডাটা নিবো
+        const user = await User.findById(req.user.id).select('-password'); 
         
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found." });
@@ -204,12 +199,15 @@ exports.getUserProfile = async (req, res) => {
    ======================================================= */
 exports.updateUserProfile = async (req, res) => {
     try {
-        const { name, phone, address } = req.body;
+        const { name, phone, mobile, address } = req.body;
         
+        // 🌟 ফিক্স: ফ্রন্টএন্ড থেকে 'phone' বা 'mobile' যেকোনো একটি আসলেই যেন ডাটাবেজের সঠিক ফিল্ড আপডেট হয়
+        const contactNumber = mobile || phone;
+
         const updatedUser = await User.findByIdAndUpdate(
             req.user.id,
-            { name, phone, address },
-            { returnDocument: 'after', runValidators: true } // 🌟 ফিক্স: টার্মিনালের ওয়ার্নিং দূর করতে 'returnDocument' ব্যবহার করা হলো
+            { name, mobile: contactNumber, address },
+            { returnDocument: 'after', runValidators: true } 
         ).select('-password');
 
         res.status(200).json({ success: true, message: "Profile updated successfully!", user: updatedUser });
@@ -219,55 +217,47 @@ exports.updateUserProfile = async (req, res) => {
     }
 };
 
-
 /* =======================================================
-   ৭. প্রোফাইল ছবি আপডেট করা (Update Avatar) 
-   - Sharp দিয়ে সাইজ কমানো এবং পুরনো ছবি ডিলিট লজিকসহ (Fully Updated)
+   ৭. প্রোফাইল ছবি আপডেট করা (Update Avatar)
    ======================================================= */
-const cloudinary = require('cloudinary').v2;
-const sharp = require('sharp'); // 🌟 ইমেজ সাইজ কিলোবাইটে নামিয়ে আনার লাইব্রেরি
-
 exports.updateUserAvatar = async (req, res) => {
     try {
-        // ১. ফাইল আপলোড হয়েছে কি না চেক করা
         if (!req.file) {
             return res.status(400).json({ success: false, message: "No image file provided." });
         }
 
-        // ২. 🌟 Sharp দিয়ে ইমেজ প্রসেসিং (১.৫ MB থেকে কয়েক কিলোবাইটে রূপান্তর)
+        // Sharp দিয়ে ইমেজ ৩০০x৩০০ স্কয়ার ও কম্প্রেস করা হলো
         const compressedBuffer = await sharp(req.file.buffer)
-            .resize({ width: 300, height: 300, fit: 'cover' }) // প্রোফাইলের জন্য পারফেক্ট স্কয়ার সাইজ (৩০০x৩০০)
-            .jpeg({ quality: 70 }) // কোয়ালিটি ৭০% করা হলো, যাতে সাইজ অনেক কমে যায় কিন্তু ছবি পরিষ্কার থাকে
+            .resize({ width: 300, height: 300, fit: 'cover' }) 
+            .jpeg({ quality: 70 }) 
             .toBuffer();
 
-        // ৩. ক্লাউডিনারিতে কম্প্রেস করা বাফারটি আপলোড করা
+        // ক্লাউডিনারিতে আপলোড স্ট্রিম
         cloudinary.uploader.upload_stream(
             { folder: 'eOnlineBazar/avatars' },
             async (error, result) => {
-                // ক্লাউডিনারি আপলোড এরর চেক
                 if (error) {
                     console.error("Cloudinary Upload Error:", error);
                     return res.status(500).json({ success: false, message: "Cloudinary upload failed." });
                 }
 
-                // ৪. ডাটাবেজ আপডেট এবং পুরনো ছবি ডিলিট করার লজিক
                 try {
                     const avatarUrl = result.secure_url;
-                    const publicId = result.public_id; // নতুন ছবির ক্লাউডিনারি আইডি
+                    const publicId = result.public_id; 
 
-                    // 🌟 স্টেপ এ: নতুন ছবি সেভ করার আগে ইউজারের পুরনো ছবি থাকলে তা ক্লাউডিনারি থেকে ডিলিট করা
+                    // পুরনো ছবি ক্লাউডিনারি থেকে ডিলিট করা
                     const oldUser = await User.findById(req.user.id);
                     if (oldUser && oldUser.avatarPublicId) {
                         await cloudinary.uploader.destroy(oldUser.avatarPublicId);
                         console.log("✅ Old avatar successfully deleted from Cloudinary");
                     }
 
-                    // 🌟 স্টেপ বি: ডাটাবেজে নতুন URL এবং নতুন Public ID সেভ করা
+                    // ডাটাবেজে আপডেট করা
                     const updatedUser = await User.findByIdAndUpdate(
                         req.user.id, 
                         { 
                             avatar: avatarUrl,
-                            avatarPublicId: publicId // ফিউচারে ডিলিট করার জন্য আইডি সেভ রাখা হলো
+                            avatarPublicId: publicId 
                         },
                         { returnDocument: 'after' }
                     );
@@ -278,7 +268,6 @@ exports.updateUserAvatar = async (req, res) => {
 
                     console.log("🌟 Successfully compressed & saved to MongoDB for User:", updatedUser.name);
 
-                    // ৫. ফ্রন্টএন্ডে সফলতার রেসপন্স পাঠানো
                     return res.status(200).json({ 
                         success: true, 
                         message: "Profile photo successfully compressed, updated, and old photo removed!", 
@@ -293,16 +282,13 @@ exports.updateUserAvatar = async (req, res) => {
                     });
                 }
             }
-        ).end(compressedBuffer); // 🌟 অরিজিনাল req.file.buffer এর বদলে কম্প্রেসড বাফার পাঠানো হলো
+        ).end(compressedBuffer); 
 
     } catch (error) {
         console.error("Avatar Update Error:", error);
         res.status(500).json({ success: false, message: "Server error while uploading avatar." });
     }
 };
-
-
-
 
 /* =======================================================
    ৮. বর্তমান পাসওয়ার্ড পরিবর্তন করা (Change Password)
@@ -312,13 +298,11 @@ exports.changePassword = async (req, res) => {
         const { currentPassword, newPassword } = req.body;
         const user = await User.findById(req.user.id);
 
-        // বর্তমান পাসওয়ার্ড সঠিক কি না চেক করা
         const isMatch = await bcrypt.compare(currentPassword, user.password);
         if (!isMatch) {
             return res.status(400).json({ success: false, message: "Incorrect current password." });
         }
 
-        // নতুন পাসওয়ার্ড হ্যাশ করে সেভ করা
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(newPassword, salt);
         await user.save();
@@ -329,8 +313,6 @@ exports.changePassword = async (req, res) => {
         res.status(500).json({ success: false, message: "Server error while changing password." });
     }
 };
-
-
 
 
 

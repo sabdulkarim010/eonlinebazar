@@ -1,3 +1,12 @@
+/********************************************************************
+ * Project: EonlineBazar
+ * File: adminRoutes.js
+ * Location: routes/adminRoutes.js
+ * Author: Abdul Karim Sheikh
+ * Description: Admin routes for handling customers data, admin login, 
+ * and profile picture updates.
+ ********************************************************************/
+
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController'); 
@@ -12,14 +21,9 @@ router.post('/login', adminController.loginAdmin);
 // ৩. প্রোফাইল পিকচার আপলোড করার রাস্তা (POST)
 router.post('/update-profile-pic', upload.single('profilePic'), adminController.updateProfilePic);
 
-// ৪. 🌟 নতুন: পেজ রিফ্রেশ করলে ডাটাবেজ থেকে প্রোফাইল ছবি তুলে আনার রাস্তা (GET)
+// ৪. পেজ রিফ্রেশ করলে ডাটাবেজ থেকে প্রোফাইল ছবি তুলে আনার রাস্তা (GET)
 router.get('/profile', adminController.getAdminProfile);
 
 module.exports = router;
-
-
-
-
-
 
 

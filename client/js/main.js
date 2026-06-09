@@ -28,8 +28,14 @@ function fetchAndRenderProducts() {
             if (!response.ok) throw new Error('Network response was not ok');
             return response.json();
         })
-        .then(products => {
-            allProducts = products; 
+        .then(data => {
+            // 🚀 আপডেট: ব্যাকএন্ড যদি { data: [...] } বা { products: [...] } হিসেবে ডাটা পাঠায়, সেটাও হ্যান্ডেল করবে
+            allProducts = Array.isArray(data) ? data : (data.data || data.products || []); 
+            
+            if (allProducts.length === 0) {
+                console.warn("No products found in the API response.");
+            }
+
             displayProducts(allProducts);
             generateCategoryButtons();
         })
@@ -48,7 +54,7 @@ function displayProducts(productsToDisplay) {
 
     productGrid.innerHTML = '';
 
-    if (productsToDisplay.length === 0) {
+    if (!Array.isArray(productsToDisplay) || productsToDisplay.length === 0) {
         productGrid.innerHTML = `<p style="text-align: center; width: 100%;">No products found.</p>`;
         return;
     }
@@ -57,15 +63,18 @@ function displayProducts(productsToDisplay) {
         const productCard = document.createElement('div');
         productCard.className = 'product-card';
 
+        // 🚀 চূড়ান্ত ফিক্স: সব ধরনের আইডির নাম চেক করে সঠিক আইডি বের করা
+        const productId = product._id || product.id || product.productId;
+
         // 🔗 লিংক তৈরি (প্রোডাক্ট ডিটেইলস পেজে যাওয়ার জন্য)
         const productLink = document.createElement('a');
-        productLink.href = `product-details.html?id=${product.id || product._id}`;
+        productLink.href = `/product-details.html?id=${productId}`; // ফাইলের আগে '/' দেওয়া হয়েছে যাতে পাথ ঠিক থাকে
         productLink.style.textDecoration = 'none';
         productLink.style.color = 'inherit';
         productLink.style.display = 'block';
 
-        // 🚀 চূড়ান্ত ফিক্স: image এবং products উভয় ফিল্ডেই ছবি খুঁজবে
-        let imageSource = product.image ? product.image.trim() : (product.products ? product.products.trim() : ''); 
+        // 🚀 ইমেজ সোর্স চেক (product.products এর বদলে product.photo চেক করা হলো)
+        let imageSource = product.image ? product.image.trim() : (product.photo ? product.photo.trim() : ''); 
         let iconData = product.icon ? product.icon.trim() : '';
 
         // 🖼️ ইমেজ বক্স তৈরি
@@ -82,7 +91,7 @@ function displayProducts(productsToDisplay) {
             }
         };
 
-        // 📸 ইমেজ ভ্যালিডেশন (বড় হাতের বা ছোট হাতের যাই হোক না কেন, সে ধরে ফেলবে)
+        // 📸 ইমেজ ভ্যালিডেশন
         let hasValidImage = false;
         if (imageSource !== '') {
             const lowerPath = imageSource.toLowerCase();
@@ -102,7 +111,7 @@ function displayProducts(productsToDisplay) {
 
             const imgElement = document.createElement('img');
             imgElement.src = finalImagePath;
-            imgElement.alt = product.name;
+            imgElement.alt = product.name || 'Product Image';
             imgElement.className = 'product-img';
             
             // ছবি ভাঙা থাকলে বা লোড না হলে ইমোজি
@@ -120,10 +129,10 @@ function displayProducts(productsToDisplay) {
         const productInfo = document.createElement('div');
         productInfo.className = 'product-info';
         productInfo.innerHTML = `
-            <h4 class="product-name">${product.name}</h4>
+            <h4 class="product-name">${product.name || 'Unknown Product'}</h4>
             <div class="product-price-row">
                 <span class="currency">৳</span>
-                <span class="price-amount">${product.price}</span>
+                <span class="price-amount">${product.price || '0'}</span>
             </div>
         `;
 
@@ -133,11 +142,13 @@ function displayProducts(productsToDisplay) {
         addToCartBtn.innerText = 'Add to Bag';
 
         addToCartBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // বাটনে ক্লিক করলে ডিটেইলস পেজে যাবে না
+            e.preventDefault();   // 👈 ডিফল্ট অ্যাকশন বন্ধ
+            e.stopPropagation();  // 👈 কার্ডের লিংকে যাওয়া বন্ধ
+
             if (typeof window.addToBag === 'function') {
-                window.addToBag(product.id || product._id, product.name, product.price, imageSource);
+                window.addToBag(productId, product.name, product.price, imageSource);
             } else if (typeof addToBag === 'function') {
-                addToBag(product.id || product._id, product.name, product.price, imageSource);
+                addToBag(productId, product.name, product.price, imageSource);
             } else {
                 alert("কার্ট ফাংশনটি খুঁজে পাওয়া যাচ্ছে না। পেজ রিলোড দিন।");
             }
@@ -152,6 +163,8 @@ function displayProducts(productsToDisplay) {
         productGrid.appendChild(productCard);
     });
 }
+
+
 
 /* ==========================================================================
    SECTION 4: DYNAMIC CATEGORY BUTTONS (ক্যাটাগরি বাটন লজিক)

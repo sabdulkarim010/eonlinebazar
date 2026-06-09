@@ -1,3 +1,12 @@
+/********************************************************************
+ * Project: EonlineBazar
+ * File: adminController.js
+ * Location: controllers/adminController.js
+ * Author: Abdul Karim Sheikh
+ * Description: Handles Admin authentication, profile image management 
+ * (with Cloudinary cleanup), and fetching customer data.
+ ********************************************************************/
+
 const User = require('../models/user'); 
 const Admin = require('../models/admin'); 
 const { cloudinary } = require('../middlewares/uploadMiddleware'); 
@@ -25,6 +34,7 @@ const loginAdmin = async (req, res) => {
         
         let admin = await Admin.findOne({ username });
 
+        // অ্যাডমিন না থাকলে এবং ক্রেডেনশিয়াল মিললে নতুন অ্যাডমিন তৈরি করা
         if (!admin && username === "admin" && password === process.env.ADMIN_PASSWORD) {
             admin = new Admin({ username: "admin", password: process.env.ADMIN_PASSWORD });
             await admin.save(); 
@@ -48,7 +58,7 @@ const loginAdmin = async (req, res) => {
 };
 
 // ==============================================================
-// ৩. প্রোফাইল ছবি আপলোড ফাংশন (Cloudinary)
+// ৩. প্রোফাইল ছবি আপলোড ফাংশন (Cloudinary) - 🌟 ওল্ড ইমেজ ডিলিট ফিক্সসহ
 // ==============================================================
 const updateProfilePic = async (req, res) => {
     try {
@@ -56,6 +66,24 @@ const updateProfilePic = async (req, res) => {
             return res.status(400).json({ success: false, message: "কোনো ছবি সিলেক্ট করা হয়নি!" });
         }
 
+        // 🌟 ফিক্স: নতুন ছবি আপলোডের আগে পুরোনো ছবি ক্লাউডিনারি থেকে ডিলিট করা
+        const existingAdmin = await Admin.findOne({ username: 'admin' });
+        if (existingAdmin && existingAdmin.image) {
+            const oldImageUrl = existingAdmin.image;
+            if (oldImageUrl.includes('cloudinary.com')) {
+                try {
+                    const urlParts = oldImageUrl.split('/');
+                    const filename = urlParts[urlParts.length - 1].split('.')[0];        
+                    const folder = urlParts[urlParts.length - 2];      
+                    const publicId = `${folder}/${filename}`;
+                    await cloudinary.uploader.destroy(publicId);
+                } catch (cloudinaryErr) {
+                    console.error("Old Admin Image Delete Error:", cloudinaryErr);
+                }
+            }
+        }
+
+        // নতুন ছবি ক্লাউডিনারিতে আপলোড করা
         const stream = cloudinary.uploader.upload_stream(
             { folder: 'EonlineBazar_Admin' }, 
             async (error, result) => {
@@ -64,15 +92,17 @@ const updateProfilePic = async (req, res) => {
                     return res.status(500).json({ success: false, message: "ছবি আপলোডে এরর!" });
                 }
 
+                // ডাটাবেজে নতুন ছবির লিংক আপডেট করা
                 const updatedAdmin = await Admin.findOneAndUpdate(
                     { username: 'admin' }, 
                     { image: result.secure_url },
-                    { new: true, upsert: true }
+                    { new: true, upsert: true } // না থাকলে তৈরি করবে (upsert)
                 );
 
                 res.status(200).json({
                     success: true,
-                    imageUrl: result.secure_url
+                    imageUrl: result.secure_url,
+                    message: "প্রোফাইল ছবি সফলভাবে আপডেট হয়েছে!"
                 });
             }
         );
@@ -86,11 +116,10 @@ const updateProfilePic = async (req, res) => {
 };
 
 // ==============================================================
-// ৪. 🌟 নতুন: ডাটাবেজ থেকে অ্যাডমিন প্রোফাইল ছবি নিয়ে আসার ফাংশন
+// ৪. ডাটাবেজ থেকে অ্যাডমিন প্রোফাইল ছবি নিয়ে আসার ফাংশন
 // ==============================================================
 const getAdminProfile = async (req, res) => {
     try {
-        // ডাটাবেজ থেকে 'admin' ইউজারনেমের ডেটা খুঁজবে
         const admin = await Admin.findOne({ username: 'admin' });
         
         if (!admin) {
@@ -99,7 +128,7 @@ const getAdminProfile = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            image: admin.image // ডাটাবেজে থাকা ছবিটা পাঠাবে
+            image: admin.image 
         });
     } catch (error) {
         console.error("Get Profile Error:", error);
@@ -108,8 +137,6 @@ const getAdminProfile = async (req, res) => {
 };
 
 module.exports = { getAllCustomers, loginAdmin, updateProfilePic, getAdminProfile };
-
-
 
 
 

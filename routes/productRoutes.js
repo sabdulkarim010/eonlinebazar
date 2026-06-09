@@ -1,16 +1,27 @@
+/********************************************************************
+ * Project: EonlineBazar
+ * File: productRoutes.js
+ * Location: routes/productRoutes.js
+ * Author: Abdul Karim Sheikh
+ * Description: Defines API endpoints for Product management including 
+ * adding, updating, deleting products (Admin) and adding reviews (Customer).
+ ********************************************************************/
+
 const express = require('express');
 const router = express.Router();
 
-// কন্ট্রোলার এবং মিডলওয়্যারগুলো ইমপোর্ট করা হলো
+// কন্ট্রোলারগুলো ইমপোর্ট করা হলো (নতুন createProductReview সহ)
 const { 
     getProducts, 
     createProduct, 
     updateProduct, 
     deleteProduct, 
-    getProductById 
+    getProductById,
+    createProductReview // 🌟 নতুন যোগ করা হলো
 } = require('../controllers/productController');
 
-const { verifyAdmin } = require('../middlewares/authMiddleware');
+// মিডলওয়্যার ইমপোর্ট করা হলো
+const { verifyAdmin, verifyUser } = require('../middlewares/authMiddleware');
 const upload = require('../middlewares/uploadMiddleware');
 
 /********************************************************************
@@ -41,10 +52,15 @@ router.put('/:id', verifyAdmin, upload.array('productImages', 10), updateProduct
     }
 });
 
-// ۵. প্রোডাক্ট ডিলিট করার রুট (অ্যাডমিন অনলি)
+// ৫. প্রোডাক্ট ডিলিট করার রুট (অ্যাডমিন অনলি)
 // URL: DELETE /api/products/:id
 router.delete('/:id', verifyAdmin, deleteProduct);
 
+// ৬. 🌟 প্রোডাক্টে রিভিউ ও রেটিং দেওয়ার রুট (শুধুমাত্র লগইন করা কাস্টমারদের জন্য)
+// URL: POST /api/products/:id/reviews
+router.post('/:id/reviews', verifyUser, createProductReview);
+
 module.exports = router;
+
 
 

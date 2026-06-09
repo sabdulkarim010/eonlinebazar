@@ -1,4 +1,14 @@
-require('dotenv').config(); // 'require' সবসময় ছোট হাতের অক্ষরে লিখতে হয়
+/********************************************************************
+ * Project: EonlineBazar
+ * File: server.js
+ * Location: ./server.js
+ * Author: Abdul Karim Sheikh
+ * Description: Main entry point of the backend server. Configures 
+ * environment variables, database connections, global middlewares, 
+ * API routing, and custom clean URLs for the frontend client.
+ ********************************************************************/
+
+require('dotenv').config(); 
 const express = require('express');
 const path = require('path');
 const connectDB = require('./config/db');
@@ -18,7 +28,34 @@ connectDB();
 // ৩. প্রয়োজনীয় মিডলওয়্যারসমূহ
 app.use(express.json()); 
 
-// স্ট্যাটিক ফাইলগুলো সার্ভ করার জন্য 'client' ফোল্ডার
+/********************************************************************
+ # .HTML EXTENSION STRIPPER & REDIRECT MIDDLEWARE (🌟 ফিক্স করা হয়েছে)
+ # ইউজার ইউআরএল-এ .html লিখলে সেটি কেটে ক্লিন ইউআরএল-এ রিডাইরেক্ট করবে
+ # এবং সাথের ?id=... থাকলে সেটাও ঠিকঠাক পাস করবে।
+ ********************************************************************/
+app.use((req, res, next) => {
+    if (req.path.endsWith('.html') && req.path !== '/index.html') {
+        const newPath = req.path.slice(0, -5);
+        // 🚀 ফিক্স: URL এর শেষে ?id=... থাকলে সেটা যেন না কাটে
+        const queryString = req.url.slice(req.path.length); 
+        return res.redirect(301, newPath + queryString);
+    } else if (req.path === '/index.html') {
+        const queryString = req.url.slice(req.path.length);
+        return res.redirect(301, '/' + queryString);
+    }
+    next();
+});
+
+
+
+// ব্রাউজারকে বলবেন ফাইলগুলো ক্যাশ না করতে
+app.use((req, res, next) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    next();
+});
+
+
+// স্ট্যাটিক ফাইলগুলো সার্ভ করার জন্য 'client' ফোল্ডার লিংক করা
 app.use(express.static(path.join(__dirname, 'client')));
 
 // ৪. এপিআই রুটসমূহ যুক্ত করা
@@ -27,110 +64,96 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/customer', userRoutes);   
 
-// =================================================================
-// ৫. ফ্রন্টএন্ড পেজগুলোর রাউট (এখানেই .html হাইড করার লজিক দেওয়া হলো)
-// =================================================================
+/********************************************************************
+ # FRONTEND UI ROUTES (ক্লিন ইউআরএল লজিক)
+ ********************************************************************/
 
 // হোমপেজ রুট
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'client', 'index.html'));
 });
 
-// অ্যাডমিন ড্যাশবোর্ড রুট (.html ছাড়া)
-app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'admin.html'));
-});
-
-// অ্যাডমিন লগইন রুট (.html ছাড়া)
-app.get('/admin-login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'admin-login.html'));
-});
-
-// Order track রুট (.html ছাড়া)
-app.get('/order-track', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'order-track.html'));
-});
-
-// এখানে নতুন করে এই লাইনটি যোগ
-app.get('/forgot-password', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'forgot-password.html'));
-});
-
-// এখানে নতুন করে এই লাইনটি যোগ
-app.get('/login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'login.html'));
-});
-
-// এখানে নতুন করে এই লাইনটি যোগ
 app.get('/index', (req, res) => {
     res.sendFile(path.join(__dirname, 'client', 'index.html'));
 });
 
-// এখানে নতুন করে এই লাইনটি যোগ
+// কাস্টমার প্রোফাইল, লগইন ও রেজিস্ট্রেশন রুট
 app.get('/profile', (req, res) => {
     res.sendFile(path.join(__dirname, 'client', 'profile.html'));
 });
 
-
-// ভুল করে কেউ /index.html লিখলে অটোমেটিক / এ পাঠিয়ে দেবে
-app.get('/index.html', (req, res) => {
-    res.redirect('/');
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'login.html'));
 });
 
-// ভুল করে কেউ /profile.html লিখলে অটোমেটিক /profile এ পাঠিয়ে দেবে
-app.get('/profile.html', (req, res) => {
-    res.redirect('/profile');
-});
-
-// Cart রুটটি এখানে যোগ করুন
-app.get('/cart', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'cart.html'));
-});
-
-// Checkout রুটটি এখানে যোগ করুন
-app.get('/checkout', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'checkout.html'));
-});
-
-// Payment রুটটি এখানে যোগ করুন
-app.get('/payment', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'payment.html'));
-});
-
-// Footer রুটটি এখানে যোগ করুন
-app.get('/footer', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'footer.html'));
-});
-
-// About রুটটি এখানে যোগ করুন
-app.get('/about', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'about.html'));
-});
-
-// Contact রুটটি এখানে যোগ করুন
-app.get('/contact', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'contact.html'));
-});
-
-// register রুটটি এখানে যোগ করুন
 app.get('/register', (req, res) => {
     res.sendFile(path.join(__dirname, 'client', 'register.html'));
 });
 
-// Forgot-Password রুটটি এখানে যোগ করুন
 app.get('/forgot-password', (req, res) => {
     res.sendFile(path.join(__dirname, 'client', 'forgot-password.html'));
 });
 
+// অর্ডার ট্র্যাকিং ও শপিং পেজসমূহ
+app.get('/order-track', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'order-track.html'));
+});
 
-// =================================================================
+// 🚀 ফিক্স: এই রুটটি আপনার কোডে মিসিং ছিল!
+app.get('/product-details', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'product-details.html'));
+});
 
-// ৬. সার্ভার স্টার্ট
+app.get('/cart', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'cart.html'));
+});
+
+app.get('/checkout', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'checkout.html'));
+});
+
+app.get('/payment', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'payment.html'));
+});
+
+// ইনফরমেশনাল ও লেআউট পেজসমূহ
+app.get('/about', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'about.html'));
+});
+
+app.get('/contact', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'contact.html'));
+});
+
+app.get('/footer', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'footer.html'));
+});
+
+// অ্যাডমিন প্যানেল রুটসমূহ
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'admin.html'));
+});
+
+app.get('/admin-login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'admin-login.html'));
+});
+
+/********************************************************************
+ # 404 NOT FOUND HANDLER (🌟 নতুন: ভুল ইউআরএল হ্যান্ডেল করার জন্য)
+ ********************************************************************/
+app.use((req, res) => {
+    // যদি এপিআই রুট ভুল হয় তবে জেটিএম রেসপন্স দেবে
+    if (req.originalUrl.startsWith('/api/')) {
+        return res.status(404).json({ success: false, message: "API endpoint not found!" });
+    }
+    // নরমাল পেজ ভুল হলে হোমপেজে বা আপনার কাস্টম ৪০৪ পেজে রিডাইরেক্ট করবে
+    res.status(404).sendFile(path.join(__dirname, 'client', 'index.html')); 
+});
+
+// ৫. সার্ভার স্টার্ট করা
 app.listen(PORT, () => {
     console.log(`Server is running at http://localhost:${PORT}`);
 });
-
-
 
 
 

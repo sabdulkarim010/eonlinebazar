@@ -1,4 +1,13 @@
-const Product = require('../models/product'); // ক্যাপিটাল 'P' বা স্মল 'p' আপনার ফাইলের নাম অনুযায়ী ঠিক রাখবেন
+/********************************************************************
+ * Project: EonlineBazar
+ * File: productController.js
+ * Location: controllers/productController.js
+ * Author: Abdul Karim Sheikh
+ * Description: Handles fetching, creating, updating, and deleting products 
+ * along with Cloudinary image management. Also handles customer reviews.
+ ********************************************************************/
+
+const Product = require('../models/product'); 
 const { cloudinary } = require('../middlewares/uploadMiddleware');
 const mongoose = require('mongoose');
 
@@ -37,10 +46,9 @@ const createProduct = async (req, res) => {
             description: description || '',
             detailedDescription: detailedDescription || '', 
             highlights: parsedHighlights,
-            images: [] // ডিফল্ট খালি অ্যারে
+            images: [] 
         };
 
-        // একাধিক ছবি আপলোড হ্যান্ডেলিং
         if (req.files && req.files.length > 0) {
             let uploadedUrls = [];
             for (const file of req.files) {
@@ -49,8 +57,8 @@ const createProduct = async (req, res) => {
                 const result = await cloudinary.uploader.upload(dataURI, { folder: 'eonlinebazar' });
                 uploadedUrls.push(result.secure_url);
             }
-            newProductData.image = uploadedUrls[0]; // ১ম ছবি থাম্বনেইল হিসেবে থাকবে
-            newProductData.images = uploadedUrls; // সবগুলো ছবি অ্যারেতে সেভ হবে
+            newProductData.image = uploadedUrls[0]; 
+            newProductData.images = uploadedUrls; 
         }
 
         const newProduct = new Product(newProductData);
@@ -87,11 +95,9 @@ const updateProduct = async (req, res) => {
 
         let query = mongoose.Types.ObjectId.isValid(productIdParam) ? { _id: productIdParam } : { productId: String(productIdParam) }; 
 
-        // যদি নতুন ছবি আপলোড করা হয়, তবে পুরোনো সবগুলো ছবি ডিলিট করতে হবে
         if (req.files && req.files.length > 0) {
             const existingProduct = await Product.findOne(query);
             
-            // 🌟 ফিক্স: পুরোনো সব ছবি ক্লাউডিনারি থেকে মুছুন
             if (existingProduct) {
                 const imagesToDelete = existingProduct.images && existingProduct.images.length > 0 
                                        ? existingProduct.images 
@@ -112,7 +118,6 @@ const updateProduct = async (req, res) => {
                 }
             }
 
-            // নতুন ছবি আপলোড
             let uploadedUrls = [];
             for (const file of req.files) {
                 const b64 = Buffer.from(file.buffer).toString("base64");
@@ -143,7 +148,6 @@ const deleteProduct = async (req, res) => {
         const productToDelete = await Product.findOne(query);
         if (!productToDelete) return res.status(404).json({ success: false, message: "Product not found!" });
 
-        // 🌟 ফিক্স: প্রোডাক্ট ডিলিট করার সময় ক্লাউডিনারি থেকে এর সবগুলো ছবি মুছে ফেলুন
         const imagesToDelete = productToDelete.images && productToDelete.images.length > 0 
                                ? productToDelete.images 
                                : (productToDelete.image ? [productToDelete.image] : []);
@@ -162,7 +166,6 @@ const deleteProduct = async (req, res) => {
             }
         }
 
-        // ডাটাবেজ থেকে মুছে ফেলা
         await Product.findOneAndDelete(query);
         res.json({ success: true, message: "Product and its images deleted successfully!" });
     } catch (err) {
@@ -185,7 +188,70 @@ const getProductById = async (req, res) => {
     }
 };
 
-module.exports = { getProducts, createProduct, updateProduct, deleteProduct, getProductById };
+// 🌟 ৬. প্রোডাক্টে কাস্টমারদের রিভিউ ও রেটিং দেওয়া
+const createProductReview = async (req, res) => {
+    try {
+        const { rating, comment } = req.body;
+        const productIdParam = req.params.id;
+
+        // আইডি undefined আসছে কি না তা চেক করা
+        if (!productIdParam || productIdParam === 'undefined') {
+            return res.status(400).json({ success: false, message: "প্রোডাক্ট আইডি পাওয়া যায়নি!" });
+        }
+
+        let query = mongoose.Types.ObjectId.isValid(productIdParam) 
+                    ? { _id: productIdParam } 
+                    : { productId: String(productIdParam) }; 
+
+        const product = await Product.findOne(query);
+
+        if (!product) {
+            return res.status(404).json({ success: false, message: "Product not found!" });
+        }
+
+        if (!product.reviews) {
+            product.reviews = [];
+        }
+
+        const alreadyReviewed = product.reviews.find(
+            (r) => r.user.toString() === req.user.id.toString()
+        );
+
+        if (alreadyReviewed) {
+            return res.status(400).json({ success: false, message: "আপনি ইতিমধ্যে এই প্রোডাক্টটির রিভিউ দিয়েছেন।" });
+        }
+
+        // 🌟 ফিক্স: ইউজারের নাম না পেলে "Verified Customer" দেখাবে
+        const review = {
+            user: req.user.id,
+            name: req.user.name || "Verified Customer", 
+            rating: Number(rating),
+            comment,
+            createdAt: new Date()
+        };
+
+        product.reviews.push(review);
+        product.numOfReviews = product.reviews.length;
+        product.rating = product.reviews.reduce((acc, item) => item.rating + acc, 0) / product.reviews.length;
+
+        await product.save();
+        res.status(201).json({ success: true, message: "ধন্যবাদ! আপনার রিভিউ সফলভাবে যুক্ত হয়েছে।" });
+
+    } catch (err) {
+        console.error("Product Review Error:", err);
+        res.status(500).json({ success: false, message: "Server error while adding review." });
+    }
+};
+
+
+module.exports = { 
+    getProducts, 
+    createProduct, 
+    updateProduct, 
+    deleteProduct, 
+    getProductById,
+    createProductReview // 🌟 এক্সপোর্ট করা হলো
+};
 
 
 

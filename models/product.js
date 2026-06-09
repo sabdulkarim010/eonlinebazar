@@ -1,8 +1,14 @@
+/********************************************************************
+ * Project: EonlineBazar
+ * File: product.js
+ * Location: models/product.js
+ * Author: Abdul Karim Sheikh
+ * Description: Product Schema supporting multiple images, stock limits, 
+ * built-in tracking for product ratings, total reviews, and customer review array.
+ ********************************************************************/
+
 const mongoose = require('mongoose');
 
-/********************************************************************
- # 01. PRODUCT MODEL (প্রোডাক্ট ডেটাবেজ স্কিমা - মাল্টিপল ইমেজ সাপোর্টেড)
- ********************************************************************/
 const productSchema = new mongoose.Schema({
     productId: { 
         type: String, 
@@ -37,12 +43,12 @@ const productSchema = new mongoose.Schema({
         type: String, 
         default: '📦' 
     },
-    // পুরাতন সিঙ্গেল ইমেজের ফিল্ডও রাখলাম ব্যাকআপের জন্য
+    // পুরাতন সিঙ্গেল ইমেজের ফিল্ড (ব্যাকআপের জন্য রাখা হলো)
     image: { 
         type: String, 
         default: '' 
     },
-    // 🌟 নতুন ফিল্ড: একসাথে একাধিক ছবি সেভ করার জন্য অ্যারে
+    // একসাথে একাধিক ছবি সেভ করার জন্য অ্যারে
     images: {
         type: [String],
         default: []
@@ -50,12 +56,49 @@ const productSchema = new mongoose.Schema({
     stock: { 
         type: Number, 
         default: 0 
-    }
+    },
+    // প্রোডাক্টের এভারেজ রেটিং ড্যাশবোর্ডে দেখানোর জন্য ফিল্ড
+    rating: {
+        type: Number,
+        default: 0
+    },
+    // টোটাল কয়জন রিভিউ দিয়েছে তার সংখ্যা
+    numOfReviews: {
+        type: Number,
+        default: 0
+    },
+    // 🌟 নতুন ফিক্স: কাস্টমারদের মাল্টিপল রিভিউ ও স্টার রেটিং সেভ করার অ্যারে সাব-স্কিমা
+    reviews: [
+        {
+            user: { 
+                type: mongoose.Schema.Types.ObjectId, 
+                ref: 'User', 
+                required: true 
+            },
+            name: { 
+                type: String, 
+                required: true 
+            },
+            rating: { 
+                type: Number, 
+                required: true 
+            },
+            comment: { 
+                type: String, 
+                required: true 
+            },
+            createdAt: { 
+                type: Date, 
+                default: Date.now 
+            }
+        }
+    ]
 }, { timestamps: true });
 
-
-// 🌟 ফিক্স: অলরেডি মডেল তৈরি করা থাকলে সেটিই ব্যবহার করবে, নতুন করে ওভাররাইট করবে না
 module.exports = mongoose.models.Product || mongoose.model('Product', productSchema);
+
+
+
 
 
 

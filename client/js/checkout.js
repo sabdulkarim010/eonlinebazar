@@ -2,7 +2,7 @@
  * Project: EonlineBazar
  * File: js/checkout.js
  * Author: Abdul Karim Sheikh
- * Description: Live Validation, Empty Cart UI & MongoDB Dynamic Order Sync (Fully Fixed)
+ * Description: Live Validation, Empty Cart UI & MongoDB Dynamic Order Sync (Fully Fixed with Profile Auto-Fill)
  *************************************/
 
 let globalProductCatalog = [];
@@ -139,7 +139,7 @@ function renderCheckoutCart() {
 }
 
 /* =========================================================================
-   🛡️ ২. লাইভ ভ্যালিডেশন ইঞ্জিন
+   🛡️ ২. লাইভ ভ্যালিডেশন ইঞ্জিন (প্রোফাইল অটো-ফিল ইন্টিগ্রেশনসহ)
    ========================================================================= */
 function updateFieldUI(input, errorEl, isValid, currentCount, max) {
     if (!input || !errorEl) return;
@@ -191,9 +191,19 @@ function initLiveValidationEngine() {
 
         if (field.max > 0) input.setAttribute('maxlength', field.max);
 
-        const savedValue = localStorage.getItem(field.id);
+        // 🌟 ADVANCED INTEGRATION: প্রথমে চেকআউট পেজের নিজস্ব লোকাল স্টোরেজ ড্রাফট চেক করবে, 
+        // ড্রাফট খালি থাকলে ইউজারের প্রোফাইল থেকে সেভ করা ডাটা অটো-লোড করবে।
+        let savedValue = localStorage.getItem(field.id);
+        
+        if (!savedValue) {
+            if (field.id === 'shippingFullName') savedValue = localStorage.getItem('checkout_name');
+            if (field.id === 'shippingMobile') savedValue = localStorage.getItem('checkout_phone');
+            if (field.id === 'shippingAddress') savedValue = localStorage.getItem('checkout_address');
+        }
+
         if (savedValue) {
             input.value = savedValue;
+            // লাইভ ভ্যালিডেশন ইঞ্জিন এবং UI বর্ডার একটিভ করার জন্য রিয়েল-টাইম ইভেন্ট ফায়ার করা হলো
             setTimeout(() => input.dispatchEvent(new Event('input')), 50);
         }
 
@@ -231,7 +241,6 @@ function initLiveValidationEngine() {
    ========================================================================= */
 function changeItemQuantity(productId, amount) {
     let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
-    // 🚀 ফিক্স: আইডি স্ট্রিং আকারে ম্যাচ করানো হলো
     const item = currentCart.find(i => String(i.id) === String(productId));
     if (item) {
         item.quantity = (parseInt(item.quantity) || 1) + amount;
@@ -314,6 +323,7 @@ function closeCheckoutAlertModal() {
     const modal = document.getElementById('checkoutAlertModal');
     if(modal) modal.style.display = 'none';
 }
+
 
 
 
