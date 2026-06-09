@@ -12,12 +12,12 @@ const mongoose = require('mongoose');
 const productSchema = new mongoose.Schema({
     productId: { 
         type: String, 
-        required: true, 
+       // required: true, 
         unique: true 
     },
     name: { 
         type: String, 
-        required: true 
+       // required: true 
     },
     price: { 
         type: Number, 
@@ -96,10 +96,5 @@ const productSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 module.exports = mongoose.models.Product || mongoose.model('Product', productSchema);
-
-
-
-
-
 
 

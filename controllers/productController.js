@@ -8,7 +8,8 @@
  ********************************************************************/
 
 const Product = require('../models/product'); 
-const { cloudinary } = require('../middlewares/uploadMiddleware');
+const { upload } = require('../middlewares/uploadMiddleware'); // এখানে শুধু upload ইমপোর্ট হবে
+const cloudinary = require('cloudinary').v2; // ক্লাউডিনারি সরাসরি এখান থেকে ইমপোর্ট করুন
 const mongoose = require('mongoose');
 
 // ১. সব প্রোডাক্ট দেখা (পাবলিক)
@@ -25,6 +26,10 @@ const getProducts = async (req, res) => {
 // ২. নতুন প্রোডাক্ট যোগ করা (অ্যাডমিন)
 const createProduct = async (req, res) => {
     try {
+        // 🐛 ডিবাগিংয়ের জন্য: ফ্রন্টএন্ড থেকে কী ডাটা আসছে তা টার্মিনালে প্রিন্ট করবে
+        console.log("Request Body:", req.body); 
+        console.log("Files received:", req.files ? req.files.length : 0);
+
         const { id, name, price, stock, category, icon, description, detailedDescription, highlights } = req.body;
         
         let parsedHighlights = [];
@@ -37,10 +42,11 @@ const createProduct = async (req, res) => {
         }
 
         let newProductData = {
-            productId: id,
-            name,
-            price: Number(price),
-            stock: Number(stock),
+            // 🚀 ফিক্স: ফ্রন্টএন্ড থেকে ডাটা না আসলে যেন ক্র্যাশ না করে তার জন্য Fallback ভ্যালু দেওয়া হলো
+            productId: id || `PROD-${Date.now()}`, 
+            name: name || description || 'Unnamed Product', // Name না থাকলে Description কেই নাম হিসেবে ধরবে
+            price: Number(price) || 0,
+            stock: Number(stock) || 0,
             category: category || 'General',
             icon: icon || '📦',
             description: description || '',
@@ -66,9 +72,16 @@ const createProduct = async (req, res) => {
         res.status(201).json({ success: true, message: "Product added successfully!", data: newProduct });
     } catch (err) {
         console.error("Product Add Error:", err);
-        res.status(500).json({ success: false, message: "Failed to add new product" });
+        // 🚀 ফিক্স: এখন ফ্রন্টএন্ডের নেটওয়ার্ক ট্যাবে আসল এররটি দেখা যাবে
+        res.status(500).json({ 
+            success: false, 
+            message: "Failed to add new product",
+            errorDetail: err.message // এটি দেখে আমরা বুঝতে পারব সমস্যা কোথায়
+        });
     }
 };
+
+
 
 // ৩. প্রোডাক্ট এডিট করা (অ্যাডমিন)
 const updateProduct = async (req, res) => {
