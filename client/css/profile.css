@@ -549,39 +549,11 @@ body {
     to { transform: translateX(0); opacity: 1; }
 }
 
-/* =================================================================
-   ৮. রেসপন্সিভ মিডিয়া কুয়েরি (Mobile & Tablet Responsiveness)
-   ================================================================= */
-@media (max-width: 1024px) {
-    .sidebar {
-        width: 80px;
-        padding: 2rem 0.5rem;
-        align-items: center;
-    }
-    .sidebar-brand span, .sidebar-user h3, .sidebar-user p, .user-status-badge, .menu-item span, .menu-item text, .menu-item-text {
-        display: none; /* ছোট স্ক্রিনে শুধু আইকন দেখাবে */
-    }
-    .sidebar-brand { margin-bottom: 2rem; }
-    .avatar-container { width: 50px; height: 50px; }
-    .upload-badge { width: 20px; height: 20px; font-size: 0.6rem; }
-    .main-content { margin-left: 80px; padding: 2rem; }
-    .menu-item { justify-content: center; padding: 12px; }
-}
 
-@media (max-width: 768px) {
-    .dashboard-container { flex-direction: column; }
-    .sidebar { position: relative; width: 100%; height: auto; padding: 1rem; border-bottom: 1px solid var(--border-color); }
-    .sidebar-user { display: none; } /* মোবাইলে ইউজার সেকশন হাইড */
-    .sidebar-menu { flex-direction: row; justify-content: space-around; width: 100%; }
-    .menu-item.logout { margin-top: 0; }
-    .main-content { margin-left: 0; padding: 1.5rem; }
-    .form-grid { grid-template-columns: 1fr; }
-    .input-group.full-width { grid-column: span 1; }
-}
 
 
 /* =================================================================
-   ৯. নতুন রিভিউ মডাল স্টাইল (Updated Review Modal)
+   ৮. নতুন রিভিউ মডাল স্টাইল (Updated Review Modal)
    ================================================================= */
 .star-rating-input {
     display: flex;
@@ -617,6 +589,251 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1.5rem;
+}
+
+
+
+
+
+
+
+
+/* =================================================================
+   ৯. প্রো-লেভেল রেসপন্সিভ মিডিয়া কুয়েরি (Mobile & Tablet Responsiveness)
+   ================================================================= */
+
+/* ট্যাবলেট ভিউ (Tablet View - 1024px) */
+@media (max-width: 1024px) {
+    .sidebar {
+        width: 80px;
+        padding: 2rem 0.5rem;
+        align-items: center;
+    }
+    /* শুধু আইকন দেখাবে, টেক্সট হাইড */
+    .sidebar-brand span, 
+    .sidebar-user h3, 
+    .sidebar-user p, 
+    .user-status-badge,
+    .menu-item span {
+        display: none; 
+    }
+    /* মেনু আইটেমের টেক্সট গায়েব করে শুধু আইকন বড় করা */
+    .menu-item {
+        font-size: 0; 
+        justify-content: center;
+        padding: 15px;
+    }
+    .menu-item i {
+        font-size: 1.4rem; 
+        margin: 0;
+    }
+    .sidebar-brand { margin-bottom: 2rem; font-size: 0; }
+    .sidebar-brand i { font-size: 1.8rem; margin: 0; }
+    .avatar-container { width: 50px; height: 50px; margin-bottom: 1rem; }
+    .upload-badge { width: 22px; height: 22px; font-size: 0.7rem; }
+    
+    .main-content { margin-left: 80px; padding: 2rem; }
+}
+
+/* মোবাইল ভিউ (Mobile View - 768px) - Premium App Like Feel */
+@media (max-width: 768px) {
+    .dashboard-container {
+        flex-direction: column;
+        padding-bottom: 75px; /* বটম নেভিগেশনের জন্য নিচে ফাঁকা জায়গা */
+    }
+    
+    /* সাইডবারকে টপ হেডারে রূপান্তর */
+    .sidebar {
+        position: sticky;
+        top: 0;
+        width: 100%;
+        height: auto;
+        padding: 12px 20px;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        z-index: 90;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+    }
+
+    .sidebar-brand { margin-bottom: 0; font-size: 1.2rem; }
+    .sidebar-brand span { display: inline-block; font-size: 1.2rem; }
+    
+    /* হেডারে ইউজারের ছোট ছবি দেখানো */
+    .sidebar-user {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+    .avatar-container { width: 35px; height: 35px; margin: 0; }
+    .upload-badge, .sidebar-user h3, .sidebar-user p, .user-status-badge { display: none; }
+
+    /* 🌟 অ্যাপ স্টাইল বটম নেভিগেশন বার */
+    .sidebar-menu {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background-color: var(--bg-card);
+        flex-direction: row;
+        justify-content: space-around;
+        padding: 8px 5px;
+        border-top: 1px solid var(--border-color);
+        box-shadow: 0 -4px 15px rgba(0,0,0,0.05);
+        z-index: 100;
+        gap: 0;
+    }
+
+    .menu-item {
+        flex-direction: column;
+        gap: 4px;
+        padding: 8px 4px;
+        font-size: 0.65rem; 
+        text-align: center;
+        border-radius: 8px;
+        flex: 1;
+        background: transparent;
+    }
+    .menu-item i { font-size: 1.2rem; margin: 0; }
+    .menu-item:hover { background-color: transparent; color: var(--primary-color); }
+    .menu-item.active { background-color: transparent; color: var(--primary-color); position: relative; }
+    
+    /* একটিভ ট্যাবের উপরে ছোট ডট ইন্ডিকেটর */
+    .menu-item.active::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 4px;
+        height: 4px;
+        background-color: var(--primary-color);
+        border-radius: 50%;
+    }
+
+    /* মেইন কনটেন্ট এডজাস্টমেন্ট */
+    .main-content {
+        margin-left: 0;
+        padding: 1.5rem 1rem;
+    }
+
+    .content-header h2 { font-size: 1.4rem; }
+    .content-header p { font-size: 0.85rem; }
+    
+    .card { padding: 1.2rem; border-radius: 10px; }
+
+    /* ফর্ম ইনপুট এক কলামে আনা */
+    .form-grid { grid-template-columns: 1fr; gap: 1.2rem; }
+    .input-group.full-width { grid-column: span 1; }
+
+    /* টেবিল সুন্দরভাবে স্লাইড করার জন্য */
+    .table-responsive {
+        margin: 0 -1.2rem; 
+        padding: 0 1.2rem;
+    }
+    .orders-table { font-size: 0.85rem; white-space: nowrap; }
+    .orders-table th, .orders-table td { padding: 12px 10px; }
+    
+    /* মডাল সাইজ এডজাস্টমেন্ট */
+    .modal-content {
+        margin: 1rem;
+        padding: 1.5rem;
+        width: calc(100% - 2rem);
+    }
+    .star-rating-input label { font-size: 1.5rem; }
+    
+    /* টোস্ট নোটিফিকেশন উপরে দেখানো */
+    .toast-container {
+        bottom: 85px; /* বটম বারের ঠিক উপরে */
+        right: 15px;
+        left: 15px;
+    }
+    .toast { font-size: 0.85rem; padding: 10px 15px; justify-content: center; }
+}
+
+/* ছোট মোবাইল স্ক্রিন (Small Mobile View - 480px) */
+@media (max-width: 480px) {
+    .sidebar-brand span { display: none; } /* ছোট স্ক্রিনে শুধু লোগো দেখাবে */
+    .content-header h2 { font-size: 1.2rem; }
+    .btn { width: 100%; justify-content: center; } /* বাটন ফুল উইডথ */
+    .form-actions { display: flex; flex-direction: column; gap: 10px; }
+}
+
+
+
+
+
+
+
+
+/* =========================================
+   Order Track Button & Header Styling
+   ========================================= */
+
+/* Desktop View (Default) */
+.orders-header-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.orders-header-wrapper .header-text h2 {
+    margin: 0 0 5px 0;
+}
+
+.orders-header-wrapper .header-text p {
+    margin: 0;
+}
+
+/* Custom Track Order Button */
+.btn-track-order {
+    background-color: #d35400; /* ই-কমার্সের জন্য আকর্ষণীয় কমলা কালার */
+    color: #ffffff;
+    padding: 10px 20px;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    font-size: 15px;
+    transition: all 0.3s ease;
+    border: none;
+}
+
+.btn-track-order:hover {
+    background-color: #e67e22;
+    color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(211, 84, 0, 0.3);
+}
+
+/* Mobile & Tablet Responsive */
+@media screen and (max-width: 768px) {
+    .orders-header-wrapper {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .header-action {
+        width: 100%;
+    }
+
+    .btn-track-order {
+        width: 100%;
+        justify-content: center;
+        padding: 12px;
+        font-size: 16px;
+    }
 }
 
 

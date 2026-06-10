@@ -40,6 +40,11 @@
             <a href="#" class="menu-item" data-tab="my-orders">
                 <i class="fa-solid fa-box-open"></i> My Orders
             </a>
+            
+            <a href="/order-track" class="menu-item">
+                <i class="fa-solid fa-map-location-dot"></i> Track Order
+            </a>
+
             <a href="#" class="menu-item" data-tab="security-settings">
                 <i class="fa-solid fa-shield-halved"></i> Security & Password
             </a>
@@ -106,9 +111,16 @@
         </section>
 
         <section id="my-orders" class="tab-content">
-            <div class="content-header">
-                <h2>My Orders</h2>
-                <p>Track your recent orders, view status, and share product reviews.</p>
+            <div class="content-header orders-header-wrapper">
+                <div class="header-text">
+                    <h2>My Orders</h2>
+                    <p>Track your recent orders, view status, and share product reviews.</p>
+                </div>
+                <div class="header-action">
+                    <a href="/order-track" class="btn-track-order">
+                        <i class="fa-solid fa-truck-fast"></i> Track Order
+                    </a>
+                </div>
             </div>
 
             <div class="card">
@@ -136,6 +148,9 @@
                 </div>
             </div>
         </section>
+
+
+        
 
         <section id="security-settings" class="tab-content">
             <div class="content-header">
