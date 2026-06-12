@@ -26,26 +26,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+
 /* =========================================================================
-   ১. কোর ভ্যালিডেশন ইঞ্জিন 
+   ১. কোর ভ্যালিডেশন ইঞ্জিন (সংশোধিত - ইনপুট বক্স ছোট হওয়া এবং ডানপাশে লেখা যাওয়া ফিক্স)
    ========================================================================= */
 function validateField(inputElement, errorElement, isValid, errorMessage) {
     if (!inputElement || !errorElement) return;
+    
     if (inputElement.value.trim() === "") {
         inputElement.classList.remove('is-valid', 'is-invalid');
         errorElement.innerText = "";
+        errorElement.style.display = "none";
         return;
     }
+    
     if (isValid) {
         inputElement.classList.add('is-valid');
         inputElement.classList.remove('is-invalid');
         errorElement.innerText = "";
+        errorElement.style.display = "none";
     } else {
         inputElement.classList.add('is-invalid');
         inputElement.classList.remove('is-valid');
         errorElement.innerText = errorMessage;
+        
+        // CSS এর সাহায্য ছাড়াই জাভাস্ক্রিপ্ট দিয়ে ১০০% নিচে নামানোর নিখুঁত লজিক
+        errorElement.style.display = "block";
+        errorElement.style.width = "100%";
+        errorElement.style.clear = "both";
+        errorElement.style.marginTop = "5px";
+        
+        // যদি পাসওয়ার্ডের আইকন (Eye Icon) কন্টেইনারের কারণে এটি ফ্লেক্স বক্সের ভেতরে থাকে, 
+        // তবে সেটিকে নিচে পুশ করার জন্য এবং ইনপুট বক্সের সাইজ ঠিক রাখার জন্য নিচের লজিকটি কাজ করবে
+        const parent = inputElement.parentElement;
+        if (parent && (parent.classList.contains('input-group') || window.getComputedStyle(parent).display === 'flex')) {
+            parent.style.flexWrap = 'wrap'; // ফ্লেক্স র‍্যাপ চালু করবে যাতে এরর নিচে চলে যায়
+            errorElement.style.order = "99"; // এরর মেসেজকে সবার নিচে পাঠাবে
+        }
     }
 }
+
+
 
 /* =========================================================================
    ২. এন্টি-স্প্যাম ইঞ্জিন

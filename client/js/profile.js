@@ -599,28 +599,84 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // =================================================================
-    // ১২. লগআউট হ্যান্ডেলার (Secure Logout System)
+
+
+// =================================================================
+    // ১২. লগআউট হ্যান্ডেলার (Secure Logout System with Custom Modal)
     // =================================================================
     if (logoutBtn) {
         logoutBtn.addEventListener('click', (e) => {
             e.preventDefault();
             
-            if (!confirm('Are you sure you want to logout?')) return;
+            // আগের ব্রাউজার অ্যালার্ট রিমুভ করে নতুন কাস্টম মডাল তৈরি করা হচ্ছে
+            const overlay = document.createElement('div');
+            overlay.id = 'custom-logout-overlay';
+            overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; opacity: 0; transition: opacity 0.3s ease; backdrop-filter: blur(3px);';
             
-            localStorage.removeItem('token');
-            localStorage.removeItem('customerToken'); 
-            localStorage.removeItem('checkout_name');
-            localStorage.removeItem('checkout_phone');
-            localStorage.removeItem('checkout_address');
+            const modalBox = document.createElement('div');
+            modalBox.style.cssText = 'background: var(--bg-color, #ffffff); padding: 30px 25px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); text-align: center; max-width: 350px; width: 90%; transform: translateY(-20px); transition: transform 0.3s ease; font-family: inherit;';
             
-            showToast('Logged out successfully. Redirecting...', 'success');
+            // মডালের ভেতরের ডিজাইন (আইকন, টেক্সট এবং বাটন)
+            modalBox.innerHTML = `
+                <div style="width: 65px; height: 65px; background: #fee2e2; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px;">
+                    <i class="fa-solid fa-right-from-bracket" style="font-size: 26px; color: #ef4444;"></i>
+                </div>
+                <h3 style="margin: 0 0 8px; color: var(--text-color, #1e293b); font-size: 22px; font-weight: 700;">Sign Out?</h3>
+                <p style="margin: 0 0 25px; color: var(--text-muted, #64748b); font-size: 15px; line-height: 1.5;">Are you sure you want to securely log out of your account?</p>
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    <button id="cancel-logout-btn" style="flex: 1; padding: 12px 0; border: none; background: #f1f5f9; color: #475569; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.2s;">Cancel</button>
+                    <button id="confirm-logout-btn" style="flex: 1; padding: 12px 0; border: none; background: #ef4444; color: white; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.2s;">Yes, Sign Out</button>
+                </div>
+            `;
             
+            overlay.appendChild(modalBox);
+            document.body.appendChild(overlay);
+            
+            // পপআপ এনিমেশন চালু করা
             setTimeout(() => {
-                window.location.href = '/index.html'; 
-            }, 1500);
+                overlay.style.opacity = '1';
+                modalBox.style.transform = 'translateY(0)';
+            }, 10);
+            
+            // মডাল ক্লোজ করার ফাংশন
+            function closeLogoutModal() {
+                overlay.style.opacity = '0';
+                modalBox.style.transform = 'translateY(-20px)';
+                setTimeout(() => overlay.remove(), 300);
+            }
+
+            // ক্যান্সেল বাটনে ক্লিক করলে
+            document.getElementById('cancel-logout-btn').addEventListener('click', closeLogoutModal);
+            
+            // মডালের বাইরের ফাঁকা জায়গায় ক্লিক করলে
+            overlay.addEventListener('click', (e) => {
+                if(e.target === overlay) closeLogoutModal();
+            });
+            
+            // কনফার্ম (Yes, Sign Out) বাটনে ক্লিক করলে লগআউট প্রসেস শুরু হবে
+            document.getElementById('confirm-logout-btn').addEventListener('click', () => {
+                const confirmBtn = document.getElementById('confirm-logout-btn');
+                confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Logging out...';
+                confirmBtn.style.opacity = '0.8';
+                
+                // লোকাল স্টোরেজ ক্লিয়ার করা
+                localStorage.removeItem('token');
+                localStorage.removeItem('customerToken'); 
+                localStorage.removeItem('checkout_name');
+                localStorage.removeItem('checkout_phone');
+                localStorage.removeItem('checkout_address');
+                
+                showToast('Logged out successfully. Redirecting...', 'success');
+                
+                // ১.৫ সেকেন্ড পর হোমপেজে পাঠানো
+                setTimeout(() => {
+                    closeLogoutModal();
+                    window.location.href = '/index.html'; 
+                }, 1500);
+            });
         });
     }
+
 
     // =================================================================
     // ১৩. ইনিশিয়াল ডাটা লোড (Initial Data Fetching)
