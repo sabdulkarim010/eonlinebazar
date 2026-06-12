@@ -2,27 +2,25 @@
  * File Name: profile.js
  * Location: client/js/profile.js
  * Description: Advanced Frontend Controller for EonlineBazar User Dashboard
- * Features: Auto-fill Checkout Data, Password Toggle, Avatar Upload with Preview, Live Orders, Review Modal
  * Developer: Abdul Karim
  */
 
 document.addEventListener('DOMContentLoaded', () => {
     // =================================================================
-    // ১. গ্লোবাল ভেরিয়েবল এবং টোকেন ভেরিফিকেশন (Initialization)
+    // ১. গ্লোবাল ভেরিয়েবল এবং টোকেন ভেরিফিকেশন (Initialization & Security)
     // =================================================================
     const token = localStorage.getItem('token') || localStorage.getItem('customerToken');
     
-    // ইউজার লগইন না থাকলে হোম পেজ বা লগইন পেজে রিডাইরেক্ট করবে
     if (!token) {
-        showToast('Access denied. Please login first!', 'danger');
-        setTimeout(() => window.location.href = '/login.html', 2000);
+        window.location.href = '/login.html';
         return;
     }
 
-    // DOM ইলিমেন্টসমূহ সিলেক্ট করা
+    // --- সিলেক্টরস (এখানে আইডি সংশোধন করা হয়েছে) ---
     const sidebarName = document.getElementById('sidebar-name');
     const sidebarEmail = document.getElementById('sidebar-email');
     const sidebarAvatar = document.getElementById('sidebar-avatar');
+    const navAvatar = document.getElementById('nav-avatar');
     const avatarInput = document.getElementById('avatar-input');
     
     const profileForm = document.getElementById('profile-form');
@@ -32,68 +30,122 @@ document.addEventListener('DOMContentLoaded', () => {
     const profileAddress = document.getElementById('profile-address');
     
     const passwordForm = document.getElementById('password-form');
+    const togglePasswordIcon = document.querySelector('.toggle-password');
+    
     const ordersListTbody = document.getElementById('orders-list-tbody');
+    const mainBalanceAmount = document.getElementById('main-balance-amount');
+    const mainPointsAmount = document.getElementById('main-points-amount');
     const logoutBtn = document.getElementById('logout-btn');
 
+    const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    
+    // এইচটিএমএল-এর 'id="mobile-menu-toggle"' এর সাথে মিল রেখে পরিবর্তন করা হলো
+    const mobileToggleBtn = document.getElementById('mobile-menu-toggle'); 
+    const sidebar = document.querySelector('.sidebar');
+    const menuItems = document.querySelectorAll('[data-tab]');
+    const tabContents = document.querySelectorAll('.tab-content');
+
     // =================================================================
-    // ২. টোস্ট নোটিফিকেশন ইউটিলিটি (Toast Notification Utility)
+    // ২. প্রিমিয়াম টোস্ট নোটিফিকেশন সিস্টেম (Advanced Toast System)
     // =================================================================
     function showToast(message, type = 'success') {
-        const container = document.getElementById('toast-container');
-        if (!container) return; // সেফটি চেক
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'toast-wrapper';
+            document.body.appendChild(container);
+        }
         
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
-        
-        // টাইপ অনুযায়ী আইকন সেট করা
-        let icon = '<i class="fa-solid fa-circle-check"></i>';
-        if (type === 'danger') icon = '<i class="fa-solid fa-circle-exclamation"></i>';
-        if (type === 'warning') icon = '<i class="fa-solid fa-triangle-exclamation"></i>';
-
-        toast.innerHTML = `${icon} <span>${message}</span>`;
+        let icon = type === 'danger' ? 'fa-circle-exclamation' : (type === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-check');
+        toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
         container.appendChild(toast);
 
-        // ৪ সেকেন্ড পর টোস্টটি রিমুভ হবে
         setTimeout(() => {
             toast.style.animation = 'toastSlideIn 0.3s ease reverse forwards';
             setTimeout(() => toast.remove(), 300);
         }, 4000);
     }
 
-
-// =================================================================
-    // ৩. ড্যাশবোর্ড ট্যাব সুইচিং লজিক (Tab Switching Logic - Fixed Syntax)
     // =================================================================
-    const menuItems = document.querySelectorAll('.menu-item[data-tab]');
-    const tabContents = document.querySelectorAll('.tab-content');
+    // ৩. ডায়নামিক থিম সিস্টেম (Dark Mode Switcher)
+    // =================================================================
+    function initTheme() {
+        const savedTheme = localStorage.getItem('eob_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        if (themeToggleBtn) {
+            const icon = themeToggleBtn.querySelector('i');
+            if (icon) {
+                icon.className = savedTheme === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+            }
+        }
+    }
 
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', () => {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const newTheme = isDark ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('eob_theme', newTheme);
+            const icon = themeToggleBtn.querySelector('i');
+            if (icon) {
+                icon.className = isDark ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+            }
+            showToast(`${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} mode activated!`, 'success');
+        });
+    }
+    initTheme();
+
+    // =================================================================
+    // ৪. মোবাইল ড্রয়ার টগল লজিক (Responsive Drawer)
+    // =================================================================
+    if (mobileToggleBtn && sidebar) {
+        mobileToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sidebar.classList.toggle('open');
+            console.log("৩-লাইন বাটনে ক্লিক হয়েছে, সাইডবার টগল করা হলো।"); // টেস্টিং এর জন্য
+        });
+        
+        document.addEventListener('click', (e) => {
+            if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== mobileToggleBtn) {
+                sidebar.classList.remove('open');
+            }
+        });
+    } else {
+        console.error("মোবাইল টগল বাটন অথবা সাইডবার এলিমেন্ট খুঁজে পাওয়া যায়নি!");
+    }
+
+    // =================================================================
+    // ৫. ড্যাশবোর্ড ট্যাব সুইচিং (Tab System)
+    // =================================================================
     menuItems.forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
             const targetTab = item.getAttribute('data-tab');
-
-            // একটিভ ক্লাস পরিবর্তন
             menuItems.forEach(i => i.classList.remove('active'));
-            item.classList.add('active'); // 🌟 ফিক্সড: ভুল 'item.add' বাদ দিয়ে সঠিক জাভাস্ক্রিপ্ট সিনট্যাক্স করা হলো
+            item.classList.add('active');
 
-            // কনটেন্ট সেকশন শো/হাইড করা
             tabContents.forEach(content => {
                 content.classList.remove('active');
-                if (content.id === targetTab) {
-                    content.classList.add('active');
-                }
+                if (content.id === targetTab) content.classList.add('active');
             });
 
-            // ইউজার যদি 'My Orders' ট্যাবে ক্লিক করে তবে অর্ডার লোড হবে
-            if (targetTab === 'my-orders') {
-                fetchUserOrders();
-            }
+            if (window.innerWidth <= 768 && sidebar) sidebar.classList.remove('open');
+
+            // লাইভ ডেটা রিফ্রেশ
+            if (['my-orders', 'dashboard-overview'].includes(targetTab) && typeof fetchUserOrders === 'function') fetchUserOrders();
+            if (targetTab === 'my-cart' && typeof fetchLiveDBCart === 'function') fetchLiveDBCart();
         });
     });
 
 
+
+
+
     // =================================================================
-    // ৪. ইউজারের প্রোফাইল ডাটা ফেচ করা (Fetch Profile & Auto-Cache)
+    // ৬. ইউজারের প্রোফাইল ডাটা ফেচ করা (Fetch Profile & Auto-Cache)
     // =================================================================
     async function fetchUserProfile() {
         try {
@@ -108,17 +160,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
 
             if (res.ok) {
-                // সাইডবার ও ফর্ম ডেটা পপুলেট করা
                 if (sidebarName) sidebarName.textContent = data.name || 'User';
                 if (sidebarEmail) sidebarEmail.textContent = data.email || '';
-                if (data.avatar && sidebarAvatar) sidebarAvatar.src = data.avatar;
+                
+                // সাইডবার এবং টপ নেভবার উভয় জায়গায় অবতার আপডেট
+                if (data.avatar) {
+                    if (sidebarAvatar) sidebarAvatar.src = data.avatar;
+                    if (navAvatar) navAvatar.src = data.avatar;
+                }
 
                 if (profileName) profileName.value = data.name || '';
                 if (profileEmail) profileEmail.value = data.email || '';
                 if (profilePhone) profilePhone.value = data.phone || '';
                 if (profileAddress) profileAddress.value = data.address || '';
 
-                // চেকআউটের জন্য লোকাল স্টোরেজে অটো-সেভ (Cache)
+                const displayNameEls = document.querySelectorAll('.user-display-name');
+                displayNameEls.forEach(el => {
+                    el.textContent = data.name || 'User';
+                });
+
                 localStorage.setItem('checkout_name', data.name || '');
                 localStorage.setItem('checkout_phone', data.phone || '');
                 localStorage.setItem('checkout_address', data.address || '');
@@ -132,10 +192,91 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    fetchUserProfile(); // পেজ লোড হওয়ার সাথে সাথে কল হবে
+    // =================================================================
+    // ৬.১ ড্যাশবোর্ড স্ট্যাটাস ফেচ করা (Fetch Dashboard Stats)
+    // =================================================================
+    async function fetchDashboardStats() {
+        try {
+            console.log("ড্যাশবোর্ড ফেচ রিকোয়েস্ট পাঠানো হচ্ছে...");
+            
+            const res = await fetch('/api/orders/dashboard-stats', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const rawData = await res.json();
+            console.log("সার্ভার থেকে পাওয়া আসল ডাটা:", rawData);
+
+            if (res.ok && rawData.success) {
+                const totalOrdersEl = document.getElementById('stat-total-orders');
+                const pendingOrdersEl = document.getElementById('stat-pending-orders');
+                const balanceEl = document.getElementById('stat-wallet-balance');
+                const pointsEl = document.getElementById('stat-loyalty-points');
+
+                if (totalOrdersEl) {
+                    totalOrdersEl.textContent = (rawData.totalOrders !== undefined) ? rawData.totalOrders : (rawData.data?.totalOrders || 0);
+                }
+                if (pendingOrdersEl) {
+                    pendingOrdersEl.textContent = (rawData.pendingOrders !== undefined) ? rawData.pendingOrders : (rawData.data?.pendingOrders || 0);
+                }
+                if (balanceEl) {
+                    const currentBalance = (rawData.balance !== undefined) ? rawData.balance : (rawData.data?.balance || 0);
+                    balanceEl.textContent = '৳' + currentBalance.toLocaleString();
+                }
+                if (pointsEl) {
+                    pointsEl.textContent = (rawData.loyaltyPoints !== undefined) ? rawData.loyaltyPoints : (rawData.data?.loyaltyPoints || 0);
+                }
+                
+                const dashboardTableBody = document.getElementById('dashboard-orders-tbody'); 
+                
+                if (dashboardTableBody) {
+                    const recentOrders = rawData.recentOrders || rawData.data?.recentOrders || [];
+
+                    if (recentOrders.length > 0) {
+                        dashboardTableBody.innerHTML = ''; 
+                        
+                        recentOrders.forEach(order => {
+                            const orderDate = new Date(order.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+                            const safeItems = order.items || [];
+                            const productNames = safeItems.map(item => item.name).join(', ') || 'Unknown Item';
+
+                            const currentStatus = order.status || 'Pending';
+                            let statusBadgeClass = 'pending';
+                            
+                            if (currentStatus.toLowerCase() === 'delivered') {
+                                statusBadgeClass = 'delivered';
+                            } else if (currentStatus.toLowerCase() === 'shipped') {
+                                statusBadgeClass = 'shipped';
+                            }
+
+                            const displayOrderId = order.orderId ? order.orderId : (order._id ? order._id.substring(order._id.length - 6).toUpperCase() : 'N/A');
+
+                            dashboardTableBody.innerHTML += `
+                                <tr>
+                                    <td><a href="#" class="order-id-link">#${displayOrderId}</a></td>
+                                    <td>${orderDate}</td>
+                                    <td title="${productNames}">${productNames.length > 30 ? productNames.substring(0, 30) + '...' : productNames}</td>
+                                    <td style="font-weight:600; color:var(--primary-color);">৳${order.totalAmount || 0}</td>
+                                    <td><span class="status-badge ${statusBadgeClass}">${currentStatus}</span></td>
+                                </tr>
+                            `;
+                        });
+                    }
+                }
+
+            } else {
+                console.error("সার্ভার রেসপন্স ওকে নয়:", rawData.message);
+            }
+        } catch (error) {
+            console.error('Error fetching dashboard stats:', error);
+        }
+    }
 
     // =================================================================
-    // ৫. প্রোফাইল ইনফরমেশন আপডেট করা (Update Profile)
+    // ৭. প্রোফাইল ইনফরমেশন আপডেট করা (Update Profile Details)
     // =================================================================
     if (profileForm) {
         profileForm.addEventListener('submit', async (e) => {
@@ -153,6 +294,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             try {
+                const submitBtn = profileForm.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Updating...';
+                submitBtn.disabled = true;
+
                 const res = await fetch('/api/customer/update-profile', {
                     method: 'PUT',
                     headers: {
@@ -163,6 +309,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 const data = await res.json();
+
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
 
                 if (res.ok) {
                     showToast('Profile updated successfully!', 'success');
@@ -177,28 +326,33 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Update Profile Error:', error);
                 showToast('Server error during update.', 'danger');
+                
+                const submitBtn = profileForm.querySelector('button[type="submit"]');
+                if(submitBtn) {
+                    submitBtn.innerHTML = 'Save Changes';
+                    submitBtn.disabled = false;
+                }
             }
         });
     }
 
     // =================================================================
-    // ৬. প্রোফাইল ছবি/অবতার আপলোড লজিক (Avatar Upload with Compression)
+    // ৮. প্রোফাইল ছবি/অবতার আপলোড লজিক (Avatar Upload & Preview)
     // =================================================================
     if (avatarInput) {
         avatarInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            // ফাইল সাইজ ভ্যালিডেশন (Max 5MB)
             if (file.size > 5 * 1024 * 1024) {
                 showToast('Image size should be less than 5MB', 'warning');
                 return;
             }
 
-            // ফ্রন্টএন্ডে ইনস্ট্যান্ট প্রিভিউ দেখানো
             const reader = new FileReader();
             reader.onload = (event) => {
                 if (sidebarAvatar) sidebarAvatar.src = event.target.result;
+                if (navAvatar) navAvatar.src = event.target.result; 
             };
             reader.readAsDataURL(file);
 
@@ -206,7 +360,8 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('avatar', file);
 
             try {
-                showToast('Uploading and compressing image...', 'warning');
+                showToast('Uploading image...', 'warning');
+                
                 const res = await fetch('/api/customer/update-avatar', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` },
@@ -217,7 +372,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (res.ok) {
                     showToast('Profile picture updated successfully!', 'success');
-                    if (sidebarAvatar) sidebarAvatar.src = data.avatarUrl;
+                    if (sidebarAvatar) sidebarAvatar.src = data.avatarUrl; 
+                    if (navAvatar) navAvatar.src = data.avatarUrl; 
                 } else {
                     showToast(data.message || 'Avatar upload failed.', 'danger');
                 }
@@ -228,13 +384,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+
+
+
+
+
+
 // =================================================================
-    // ৭. ইউজারের লাইভ অর্ডারসমূহ লোড করা (Fetch & Render Orders)
+    // ৯. ইউজারের লাইভ অর্ডারসমূহ লোড করা (Fetch & Render Orders)
     // =================================================================
     async function fetchUserOrders() {
         if (!ordersListTbody) return;
         
         try {
+            ordersListTbody.innerHTML = `<tr><td colspan="5" class="text-center" style="padding:2rem;"><i class="fa-solid fa-spinner fa-spin" style="font-size:2rem; color:var(--primary-color);"></i><br><br>Loading your orders...</td></tr>`;
+
             const res = await fetch('/api/orders/my-orders', {
                 method: 'GET',
                 headers: {
@@ -244,92 +408,67 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            const data = await res.json();
+            const rawData = await res.json();
 
             if (res.ok) {
                 ordersListTbody.innerHTML = ''; 
 
-                if (!data.data || data.data.length === 0) {
-                    ordersListTbody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding:2rem; color:var(--text-muted);">You haven't placed any orders yet.</td></tr>`;
+                let orderList = rawData.data || rawData.orders || (Array.isArray(rawData) ? rawData : []);
+
+                if (!orderList || orderList.length === 0) {
+                    ordersListTbody.innerHTML = `<tr><td colspan="5" class="text-center" style="padding:2rem; color:var(--text-muted);"><i class="fa-solid fa-box-open" style="font-size:3rem; margin-bottom:10px; opacity:0.5;"></i><br>You haven't placed any orders yet.</td></tr>`;
                     return;
                 }
 
-                data.data.forEach(order => {
+                // --- নতুন অর্ডার সবার উপরে দেখানোর সর্টিং লজিক (Newest First) ---
+                orderList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+                orderList.forEach(order => {
                     const orderDate = new Date(order.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-                    const productNames = order.items.map(item => item.name).join(', ');
+                    const safeItems = order.items || [];
+                    const productNames = safeItems.map(item => item.name).join(', ') || 'Unknown Item';
 
                     const currentStatus = order.status || 'Pending';
                     let statusBadgeClass = 'pending';
+                    
                     if (currentStatus.toLowerCase() === 'delivered') {
                         statusBadgeClass = 'delivered';
-                    } else if (currentStatus.toLowerCase() !== 'pending') {
-                        statusBadgeClass = 'processing';
+                    } else if (currentStatus.toLowerCase() === 'shipped') {
+                        statusBadgeClass = 'shipped';
                     }
 
-                    // 🌟 ফিক্স: যেকোনো ধরনের আইডি যেন সঠিকভাবে ধরতে পারে
-                    const firstItem = order.items[0] || {};
-                    const reviewTargetId = firstItem.productId || firstItem.id || firstItem._id;
+                    const displayOrderId = order.orderId ? order.orderId : (order._id ? order._id.substring(order._id.length - 6).toUpperCase() : 'N/A');
 
                     const row = document.createElement('tr');
+                    
                     row.innerHTML = `
-                        <td><b>#${order.orderId || order._id.substring(18).toUpperCase()}</b></td>
+                        <td><a href="#" class="order-id-link">#${displayOrderId}</a></td>
                         <td>${orderDate}</td>
                         <td title="${productNames}">${productNames.length > 30 ? productNames.substring(0, 30) + '...' : productNames}</td>
-                        <td>$${order.totalAmount}</td>
+                        <td style="font-weight:600; color:var(--primary-color);">৳${order.totalAmount || 0}</td>
                         <td><span class="status-badge ${statusBadgeClass}">${currentStatus}</span></td>
-                        <td class="text-center">
-                            ${currentStatus.toLowerCase() === 'delivered' 
-                                ? `<button class="btn-table-action btn-review" data-id="${reviewTargetId}">Review</button>` 
-                                : `<span style="font-size:0.85rem; color:var(--text-muted);">In Progress</span>`
-                            }
-                        </td>
                     `;
                     ordersListTbody.appendChild(row);
                 });
 
-                setupReviewButtons();
-
             } else {
-                ordersListTbody.innerHTML = `<tr><td colspan="6" class="text-center" style="color:var(--danger);">Failed to load orders.</td></tr>`;
+                ordersListTbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:var(--danger); padding:2rem;"><i class="fa-solid fa-triangle-exclamation"></i> Failed to load orders. (${rawData.message || 'Error'})</td></tr>`;
             }
         } catch (error) {
             console.error('Fetch Orders Error:', error);
-            ordersListTbody.innerHTML = `<tr><td colspan="6" class="text-center" style="color:var(--danger);">Server error while fetching orders.</td></tr>`;
+            ordersListTbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:var(--danger); padding:2rem;"><i class="fa-solid fa-server"></i> Server connection error.</td></tr>`;
         }
     }
 
-
-
-
+    
 
     // =================================================================
-    // ৮. রিভিউ মডাল ও স্টার সাবমিশন লজিক (Review Modal Sync)
+    // ১০. রিভিউ মডাল ও স্টার সাবমিশন লজিক (Review Modal & Rating)
     // =================================================================
     const reviewModal = document.getElementById('review-modal');
     const closeModal = document.querySelector('.close-modal');
     const reviewForm = document.getElementById('review-form');
     const reviewProductIdInput = document.getElementById('review-product-id');
-
-    function setupReviewButtons() {
-        const reviewBtns = document.querySelectorAll('.btn-review');
-        reviewBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const productId = btn.getAttribute('data-id');
-                
-                if (reviewProductIdInput) {
-                    reviewProductIdInput.value = productId;
-                }
-                
-                if (reviewForm) {
-                    reviewForm.reset();
-                }
-                
-                if (reviewModal) {
-                    reviewModal.classList.remove('hidden');
-                }
-            });
-        });
-    }
 
     if (closeModal && reviewModal) {
         closeModal.addEventListener('click', () => reviewModal.classList.add('hidden'));
@@ -346,7 +485,8 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             
             const productId = reviewProductIdInput ? reviewProductIdInput.value : '';
-            const comment = document.getElementById('review-comment').value.trim();
+            const commentInput = document.getElementById('review-comment');
+            const comment = commentInput ? commentInput.value.trim() : '';
             const selectedRatingInput = document.querySelector('input[name="rating"]:checked');
             
             if (!selectedRatingInput) {
@@ -355,8 +495,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             const rating = selectedRatingInput.value;
+            const submitBtn = reviewForm.querySelector('button[type="submit"]');
 
             try {
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+                submitBtn.disabled = true;
+
                 const res = await fetch(`/api/products/${productId}/reviews`, {
                     method: 'POST',
                     headers: {
@@ -367,6 +512,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 const data = await res.json();
+                
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+
                 if (res.ok) {
                     showToast('Thank you! Review submitted successfully.', 'success');
                     reviewModal.classList.add('hidden');
@@ -376,12 +525,14 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Submit Review Error:', error);
                 showToast('Server error while submitting review.', 'danger');
+                submitBtn.innerHTML = 'Submit Review';
+                submitBtn.disabled = false;
             }
         });
     }
 
     // =================================================================
-    // ৯. সিকিউরিটি এবং পাসওয়ার্ড আপডেট লজিক (Security & Password)
+    // ১১. সিকিউরিটি এবং পাসওয়ার্ড আপডেট লজিক (Security & Password)
     // =================================================================
     if (passwordForm) {
         passwordForm.addEventListener('submit', async (e) => {
@@ -401,6 +552,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             try {
+                const submitBtn = passwordForm.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Updating...';
+                submitBtn.disabled = true;
+
                 const res = await fetch('/api/customer/change-password', {
                     method: 'PUT',
                     headers: {
@@ -411,6 +567,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 const data = await res.json();
+                
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+
                 if (res.ok) {
                     showToast('Password updated successfully!', 'success');
                     passwordForm.reset();
@@ -424,7 +584,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const togglePasswordIcon = document.querySelector('.toggle-password');
     if (togglePasswordIcon) {
         togglePasswordIcon.addEventListener('click', () => {
             const passwordInput = document.getElementById('current-password');
@@ -440,31 +599,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-// =================================================================
-    // ১০. লগআউট হ্যান্ডেলার (Logout System)
+    // =================================================================
+    // ১২. লগআউট হ্যান্ডেলার (Secure Logout System)
     // =================================================================
     if (logoutBtn) {
         logoutBtn.addEventListener('click', (e) => {
             e.preventDefault();
             
-            // লোকাল স্টোরেজ থেকে সব টোকেন ও ডাটা মুছে ফেলা
-            localStorage.removeItem('token');
-            localStorage.removeItem('customerToken'); // ব্যাকআপ হিসেবে এটিও মুছে দিচ্ছি
+            if (!confirm('Are you sure you want to logout?')) return;
             
+            localStorage.removeItem('token');
+            localStorage.removeItem('customerToken'); 
             localStorage.removeItem('checkout_name');
             localStorage.removeItem('checkout_phone');
             localStorage.removeItem('checkout_address');
             
-            // টোস্ট নোটিফিকেশন দেখানো
-            showToast('Logged out successfully. Redirecting...', 'warning');
+            showToast('Logged out successfully. Redirecting...', 'success');
             
-            // ১.৫ সেকেন্ড পর হোম পেজে রিডাইরেক্ট হবে
             setTimeout(() => {
-                window.location.href = 'index.html'; // সরাসরি index.html এ নিয়ে যাবে
+                window.location.href = '/index.html'; 
             }, 1500);
         });
     }
-}); // এই ব্র্যাকেটটি DOMContentLoaded শেষ করার জন্য অত্যন্ত জরুরি
+
+    // =================================================================
+    // ১৩. ইনিশিয়াল ডাটা লোড (Initial Data Fetching)
+    // =================================================================
+    fetchUserProfile();
+    fetchDashboardStats();
+    fetchUserOrders(); 
+
+}); // <-- DOMContentLoaded এর শেষ ব্র্যাকেট
+
 
 
 

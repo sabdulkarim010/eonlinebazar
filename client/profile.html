@@ -10,16 +10,41 @@
     
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/profile.css">
+    <link rel="stylesheet" href="css/cart.css">
 </head>
 <body>
 
-<div class="dashboard-container">
-    <aside class="sidebar">
-        <div class="sidebar-brand">
-            <i class="fa-solid fa-bag-shopping"></i>
-            <span>EonlineBazar</span>
-        </div>
+<header class="sticky-navbar">
+    <div class="nav-left">
+        <button id="mobile-menu-toggle" class="mobile-toggle-btn" title="Open Menu">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+        <span class="nav-logo"><i class="fa-solid fa-bag-shopping"></i> EonlineBazar</span>
+    </div>
+    
+    <div class="nav-right">
+        <button id="theme-toggle-btn" class="nav-icon-btn" title="Toggle Dark/Light Mode">
+            <i class="fa-solid fa-moon"></i>
+        </button>
         
+        <a href="#" class="nav-icon-btn cart-badge-container" data-tab="my-cart">
+            <i class="fa-solid fa-cart-shopping"></i>
+            <span id="nav-cart-count" class="cart-count-badge">0</span>
+        </a>
+        
+        <div class="nav-profile-small-wrapper">
+            <img id="nav-avatar" src="https://via.placeholder.com/40" alt="User" class="nav-user-avatar">
+            <label for="small-avatar-input" class="nav-upload-badge-small" title="Update Profile Picture">
+                <i class="fa-solid fa-camera"></i>
+            </label>
+            <input type="file" id="small-avatar-input" accept="image/*" hidden>
+        </div>
+    </div>
+</header>
+
+<div class="dashboard-container">
+    
+    <aside class="sidebar" id="sidebar-menu">
         <div class="sidebar-user">
             <div class="avatar-container">
                 <img id="sidebar-avatar" src="https://via.placeholder.com/150" alt="User Avatar" class="avatar-image">
@@ -34,32 +59,212 @@
         </div>
 
         <nav class="sidebar-menu">
-            <a href="#" class="menu-item active" data-tab="profile-info">
-                <i class="fa-regular fa-user"></i> Profile Information
+            <a href="profile.html" class="menu-item active auto-refresh-link" data-tab="dashboard-overview">
+                <i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span>
             </a>
-            <a href="#" class="menu-item" data-tab="my-orders">
-                <i class="fa-solid fa-box-open"></i> My Orders
+            <a href="profile.html" class="menu-item auto-refresh-link" data-tab="my-orders">
+                <i class="fa-solid fa-box-open"></i> <span>My Orders</span>
             </a>
-            
-            <a href="/order-track" class="menu-item">
-                <i class="fa-solid fa-map-location-dot"></i> Track Order
+            <a href="profile.html" class="menu-item auto-refresh-link" data-tab="my-cart">
+                <i class="fa-solid fa-cart-arrow-down"></i> <span>My Cart</span>
             </a>
-
-            <a href="#" class="menu-item" data-tab="security-settings">
-                <i class="fa-solid fa-shield-halved"></i> Security & Password
+            <a href="profile.html" class="menu-item auto-refresh-link" data-tab="wallet-points">
+                <i class="fa-solid fa-wallet"></i> <span>Wallet & Points</span>
             </a>
-            <a href="/" class="menu-item">
-                <i class="fa-solid fa-house"></i> Back to Home
+            <a href="profile.html" class="menu-item auto-refresh-link" data-tab="addresses-settings">
+                <i class="fa-solid fa-map-location-dot"></i> <span>Addresses</span>
+            </a>
+            <a href="profile.html" class="menu-item auto-refresh-link" data-tab="profile-info">
+                <i class="fa-regular fa-user"></i> <span>Profile Settings</span>
+            </a>
+            <a href="profile.html" class="menu-item auto-refresh-link" data-tab="security-settings">
+                <i class="fa-solid fa-shield-halved"></i> <span>Security</span>
             </a>
             <button id="logout-btn" class="menu-item logout">
-                <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> <span>Logout</span>
             </button>
         </nav>
     </aside>
 
     <main class="main-content">
         
-        <section id="profile-info" class="tab-content active">
+        <section id="dashboard-overview" class="tab-content active">
+            <div class="content-header">
+                <h2>Welcome Back, <span class="user-display-name">User</span>!</h2>
+                <p>Here's your account overview and recent updates.</p>
+            </div>
+
+            <div class="dashboard-stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-blue"><i class="fa-solid fa-bag-shopping"></i></div>
+                    <div class="stat-info">
+                        <h3 id="stat-total-orders">0</h3>
+                        <p>Total Orders</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-orange"><i class="fa-solid fa-truck-ramp-box"></i></div>
+                    <div class="stat-info">
+                        <h3 id="stat-pending-orders">0</h3>
+                        <p>Pending Orders</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-green"><i class="fa-solid fa-money-bill-wave"></i></div>
+                    <div class="stat-info">
+                        <h3 id="stat-wallet-balance">৳0.00</h3>
+                        <p>Available Balance</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-purple"><i class="fa-solid fa-star"></i></div>
+                    <div class="stat-info">
+                        <h3 id="stat-loyalty-points">0</h3>
+                        <p>Loyalty Points</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-20">
+                <h3><i class="fa-solid fa-clock-rotate-left primary-icon-color"></i> Recent Order Activity</h3>
+                <div class="table-responsive mt-15">
+                    <table class="orders-table">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Total Amount</th>
+                                <th class="text-center">Action</th>
+                                <th class="text-center">Track / Review</th> </tr>
+                        </thead>
+                        <tbody id="dashboard-orders-tbody">
+                            <tr>
+                                <td colspan="6" class="text-center p-20">
+                                    <i class="fa-solid fa-spinner fa-spin"></i> Loading recent activity...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="overview-skeleton" class="skeleton-container hidden">
+                <div class="skeleton-line title"></div>
+                <div class="skeleton-line paragraph"></div>
+                <div class="skeleton-card"></div>
+            </div>
+
+            <div class="card basic-card mt-20">
+                <h3><i class="fa-solid fa-bullhorn primary-icon-color"></i> Latest Announcement</h3>
+                <p class="announcement-text mt-10">Enjoy Free Shipping on orders over ৳2000! Earn double loyalty points on every purchase this week.</p>
+            </div>
+        </section>
+
+        <section id="my-orders" class="tab-content">
+            <div class="content-header orders-header-wrapper">
+                <div class="header-text">
+                    <h2>My Orders</h2>
+                    <p>Track your recent orders, view status, and manage invoices.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="orders-table">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Total Amount</th>
+                                <th class="text-center">Action</th> 
+                                <th class="text-center">Track / Review</th> </tr>
+                        </thead>
+                        <tbody id="orders-list-tbody">
+                            <tr>
+                                <td colspan="6" class="text-center p-20">
+                                    <i class="fa-solid fa-spinner fa-spin"></i> Loading orders...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="my-cart" class="tab-content">
+            <div class="content-header">
+                <h2>My Cart Summary</h2>
+                <p>Items currently saved in your shopping cart.</p>
+            </div>
+            <div class="card">
+                <div id="cart-items-preview-list">
+                    <p class="text-center empty-cart-text">Your cart is empty. <a href="/" class="shop-now-link">Shop Now</a></p>
+                </div>
+            </div>
+        </section>
+
+        <section id="wallet-points" class="tab-content">
+            <div class="content-header">
+                <h2>Wallet & Loyalty Points</h2>
+                <p>Manage your funds, track cashbacks, and convert reward points into wallet balance.</p>
+            </div>
+
+            <div class="wallet-grid">
+                <div class="card">
+                    <h3>Wallet Funds & Cashback</h3>
+                    <div class="balance-display-box">
+                        <span class="balance-label">Current Funds</span>
+                        <h2 class="main-balance-amount">৳0.00</h2>
+                    </div>
+                    <h4 class="cashback-title">Cashback History</h4>
+                    <ul class="cashback-history-list" id="cashback-list">
+                        <li class="history-item empty">No recent cashback transactions.</li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <h3>Points Calculator & Converter</h3>
+                    <div class="points-display-box">
+                        <span class="points-label">Your Points</span>
+                        <h2 id="current-points-calc" class="main-points-amount">0 XP</h2>
+                    </div>
+                    
+                    <div class="calculator-form mt-20">
+                        <label for="points-to-convert">Enter Points to Convert</label>
+                        <div class="input-wrapper mt-8">
+                            <i class="fa-solid fa-calculator input-icon"></i>
+                            <input type="number" id="points-to-convert" placeholder="Minimum 100 points">
+                        </div>
+                        <p class="conversion-rate-text mt-8"><i class="fa-solid fa-circle-info"></i> Conversion Rate: 100 Points = ৳10 Wallet Balance</p>
+                        <button type="button" id="convert-points-btn" class="btn btn-primary w-100 flex-center mt-15">
+                            <i class="fa-solid fa-rotate"></i> Convert to Cash
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="addresses-settings" class="tab-content">
+            <div class="content-header">
+                <h2>Saved Delivery Addresses</h2>
+                <p>Add or modify your multiple shipping locations for seamless checkouts.</p>
+            </div>
+            <div class="address-grid">
+                <div class="card address-card active">
+                    <span class="address-tag"><i class="fa-solid fa-house"></i> Home (Default)</span>
+                    <p class="address-text">Telidanga, Mahajon Bazar, Mauli, Narail, Bangladesh</p>
+                    <button class="btn-address-edit"><i class="fa-regular fa-pen-to-square"></i> Edit Address</button>
+                </div>
+                <div class="card add-address-blank-card">
+                    <i class="fa-solid fa-circle-plus"></i>
+                    <span>Add New Address</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="profile-info" class="tab-content">
             <div class="content-header">
                 <h2>Account Settings</h2>
                 <p>Update your details here. The address saved here will automatically be used for your future orders.</p>
@@ -110,102 +315,145 @@
             </div>
         </section>
 
-        <section id="my-orders" class="tab-content">
-            <div class="content-header orders-header-wrapper">
-                <div class="header-text">
-                    <h2>My Orders</h2>
-                    <p>Track your recent orders, view status, and share product reviews.</p>
-                </div>
-                <div class="header-action">
-                    <a href="/order-track" class="btn-track-order">
-                        <i class="fa-solid fa-truck-fast"></i> Track Order
-                    </a>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="table-responsive">
-                    <table class="orders-table">
-                        <thead>
-                            <tr>
-                                <th>Order ID</th>
-                                <th>Date</th>
-                                <th>Products</th>
-                                <th>Total Amount</th>
-                                <th>Status</th>
-                                <th class="text-center">Action</th> 
-                            </tr>
-                        </thead>
-                        <tbody id="orders-list-tbody">
-                            <tr>
-                                <td colspan="6" class="table-loading text-center">
-                                    <i class="fa-solid fa-spinner fa-spin"></i>
-                                    <p>Fetching your orders...</p>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
-
-
-        
-
         <section id="security-settings" class="tab-content">
             <div class="content-header">
-                <h2>Security Settings</h2>
-                <p>Change your password regularly to keep your account highly secure.</p>
+                <h2>Security Settings & Activity</h2>
+                <p>Change your password regularly and monitor account login sessions to secure your account.</p>
             </div>
 
-            <div class="card">
-                <form id="password-form" novalidate>
-                    <div class="form-grid single-column">
-                        <div class="input-group">
-                            <label for="current-password">Current Password</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-lock input-icon"></i>
-                                <input type="password" id="current-password" required placeholder="••••••••">
-                                <i class="fa-regular fa-eye-slash toggle-password"></i>
+            <div class="security-dual-grid">
+                <div class="card">
+                    <form id="password-form" novalidate>
+                        <div class="form-grid single-column">
+                            <div class="input-group">
+                                <label for="current-password">Current Password</label>
+                                <div class="input-wrapper">
+                                    <i class="fa-solid fa-lock input-icon"></i>
+                                    <input type="password" id="current-password" required placeholder="••••••••">
+                                    <i class="fa-regular fa-eye-slash toggle-password"></i>
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="new-password">New Password</label>
+                                <div class="input-wrapper">
+                                    <i class="fa-solid fa-key input-icon"></i>
+                                    <input type="password" id="new-password" required placeholder="Minimum 6 characters">
+                                </div>
+                                <small class="password-hint">Must contain letters and numbers.</small>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="confirm-password">Confirm New Password</label>
+                                <div class="input-wrapper">
+                                    <i class="fa-solid fa-check-double input-icon"></i>
+                                    <input type="password" id="confirm-password" required placeholder="••••••••">
+                                </div>
                             </div>
                         </div>
 
-                        <div class="input-group">
-                            <label for="new-password">New Password</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-key input-icon"></i>
-                                <input type="password" id="new-password" required placeholder="Minimum 6 characters">
-                            </div>
-                            <small class="password-hint">Must contain letters and numbers.</small>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary" id="change-pass-btn">
+                                <i class="fa-solid fa-shield-check"></i> Update Password
+                            </button>
                         </div>
+                    </form>
+                </div>
 
-                        <div class="input-group">
-                            <label for="confirm-password">Confirm New Password</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-check-double input-icon"></i>
-                                <input type="password" id="confirm-password" required placeholder="••••••••">
+                <div class="card">
+                    <h3>Recent Login Activity</h3>
+                    <div class="login-activity-list mt-15">
+                        <div class="activity-item">
+                            <div class="activity-icon"><i class="fa-solid fa-mobile-screen-button"></i></div>
+                            <div class="activity-details">
+                                <h4>Chrome / Android Phone</h4>
+                                <p>Dhaka, Bangladesh • Active Now</p>
+                            </div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-icon"><i class="fa-solid fa-laptop"></i></div>
+                            <div class="activity-details">
+                                <h4>Windows PC / Firefox</h4>
+                                <p>Chittagong, Bangladesh • 3 days ago</p>
                             </div>
                         </div>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary" id="change-pass-btn">
-                            <i class="fa-solid fa-shield-check"></i> Update Password
-                        </button>
-                    </div>
-                </form>
+                </div>
             </div>
         </section>
 
     </main>
 </div>
 
+<div id="order-detail-modal" class="modal hidden">
+    <div class="modal-content order-modal-content">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-file-invoice modal-title-icon"></i> Order Details & Tracking</h2>
+            <span class="close-modal" id="close-order-modal">&times;</span>
+        </div>
+        
+        <div class="order-details-body">
+            <div class="order-tracking-timeline">
+                <div class="step active">
+                    <span class="step-icon"><i class="fa-solid fa-circle-check"></i></span>
+                    <span class="step-label">Placed</span>
+                </div>
+                <div class="step active">
+                    <span class="step-icon"><i class="fa-solid fa-box"></i></span>
+                    <span class="step-label">Packed</span>
+                </div>
+                <div class="step">
+                    <span class="step-icon"><i class="fa-solid fa-truck-fast"></i></span>
+                    <span class="step-label">Shipped</span>
+                </div>
+                <div class="step">
+                    <span class="step-icon"><i class="fa-solid fa-house-chimney-user"></i></span>
+                    <span class="step-label">Delivered</span>
+                </div>
+            </div>
+
+            <div class="order-info-grid">
+                <div class="info-box">
+                    <h4>Shipping Address</h4>
+                    <p id="modal-shipping-address">Telidanga, Post: Mahajon Bazar, Narail</p>
+                </div>
+                <div class="info-box">
+                    <h4>Payment Method</h4>
+                    <p id="modal-payment-method">Cash on Delivery (COD)</p>
+                </div>
+                <div class="info-box">
+                    <h4>Courier Service</h4>
+                    <p id="modal-courier-name">Steadfast Courier</p>
+                </div>
+                <div class="info-box">
+                    <h4>Tracking Number</h4>
+                    <p id="modal-tracking-id">SF-8839201</p>
+                </div>
+            </div>
+
+            <h4 class="ordered-products-title">Ordered Products</h4>
+            <div class="order-items-list" id="modal-items-container">
+                <div class="order-item-row">
+                    <img src="https://via.placeholder.com/60" alt="Product" class="order-item-img">
+                    <div class="order-item-details">
+                        <h5 class="order-item-title">Premium Wireless Headphone</h5>
+                        <p class="order-item-price">Qty: 1 × ৳1,450.00</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="order-total-section">
+                Total: <span id="modal-order-total">৳1,450.00</span>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div id="review-modal" class="modal hidden">
     <div class="modal-content review-modal-content">
         <div class="modal-header">
-            <h2><i class="fa-solid fa-star" style="color: #f39c12;"></i> Write a Review</h2>
-            <span class="close-modal">&times;</span>
+            <h2><i class="fa-solid fa-star review-title-icon"></i> Write a Review</h2>
+            <span class="close-modal" id="close-review-modal">&times;</span>
         </div>
         
         <form id="review-form">
@@ -216,16 +464,12 @@
                 <div class="star-rating-input">
                     <input type="radio" id="star5" name="rating" value="5" required>
                     <label for="star5" title="5 stars"><i class="fa-solid fa-star"></i></label>
-                    
                     <input type="radio" id="star4" name="rating" value="4">
                     <label for="star4" title="4 stars"><i class="fa-solid fa-star"></i></label>
-                    
                     <input type="radio" id="star3" name="rating" value="3">
                     <label for="star3" title="3 stars"><i class="fa-solid fa-star"></i></label>
-                    
                     <input type="radio" id="star2" name="rating" value="2">
                     <label for="star2" title="2 stars"><i class="fa-solid fa-star"></i></label>
-                    
                     <input type="radio" id="star1" name="rating" value="1">
                     <label for="star1" title="1 star"><i class="fa-solid fa-star"></i></label>
                 </div>
@@ -239,7 +483,7 @@
                 </div>
             </div>
 
-            <div class="form-actions" style="margin-top: 20px;">
+            <div class="form-actions mt-20">
                 <button type="submit" class="btn btn-primary w-100" id="submit-review-btn">
                     <i class="fa-regular fa-paper-plane"></i> Submit Review
                 </button>
@@ -248,13 +492,19 @@
     </div>
 </div>
 
+<div id="toast-container" class="toast-wrapper"></div>
 
-<!-- <div id="toast-container" class="toast-container"></div> -->
- <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
-
+<script src="js/cart.js"></script>
 <script src="js/profile.js"></script>
 </body>
 </html>
+
+
+
+
+
+
+
 
 
 

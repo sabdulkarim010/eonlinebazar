@@ -158,8 +158,10 @@ function updatePaymentInstructions(method) {
     instructionBox.innerHTML = htmlContent;
 }
 
+
+
 /* =========================================================================
-🚀 🔀 ৪. ফাইনাল অর্ডার সাবমিশন (MongoDB API ইন্টিগ্রেশন)
+🚀 🔀 ৪. ফাইনাল অর্ডার সাবমিশন (MongoDB API & Cart Sync Integration) - FULLY UPDATED
 ========================================================================= */
 window.handleFinalOrderSubmission = async function() {
     const selectedRadio = document.querySelector('input[name="paymentGateway"]:checked');
@@ -173,47 +175,36 @@ window.handleFinalOrderSubmission = async function() {
     const confirmBtn = document.getElementById('confirmOrderFinalBtn');
     
     if (confirmBtn) {
-        confirmBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Processing Your Order...`;
+        confirmBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Processing Order...`;
         confirmBtn.disabled = true;
     }
 
     try {
-        let fullCart = JSON.parse(localStorage.getItem('cart')) || [];
-        let orderedItems = fullCart.filter(item => item.selected !== false);
-        let remainingCart = fullCart.filter(item => item.selected === false);
-        
-        const custName = localStorage.getItem('shippingFullName') || "Guest Customer";
-        const custPhone = localStorage.getItem('shippingMobile') || "N/A";
-        const custAddress = localStorage.getItem('shippingAddress') || "N/A";
-        const custNote = localStorage.getItem('shippingCourierNote') || "";
-        
-        let totalAmount = orderedItems.reduce((sum, item) => sum + (parseFloat(item.price) * parseInt(item.quantity)), 0);
+        const sessionData = JSON.parse(localStorage.getItem('activeCheckoutSession'));
+        if (!sessionData || !sessionData.items) {
+            throw new Error("Checkout session expired. Please go back to cart.");
+        }
 
-        const generatedOrderId = "EOB" + Math.floor(100000 + Math.random() * 900000);
-        const estimatedDeliveryDate = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-
-        // MongoDB-এর জন্য ডেটা প্যাকেট
         const orderData = {
-            orderId: generatedOrderId, 
-            customerName: custName,
-            customerPhone: custPhone,
-            customerAddress: custAddress,
-            items: orderedItems,
-            totalAmount: totalAmount,
+            orderId: sessionData.orderId || "EOB" + Math.floor(100000 + Math.random() * 900000),
+            customerName: sessionData.customerName,
+            customerPhone: sessionData.customerPhone,
+            customerAddress: sessionData.customerAddress,
+            items: sessionData.items,
+            totalAmount: Number(sessionData.totalAmount) || 0,
             paymentMethod: finalMethod,
             status: "Pending",
-            note: custNote
+            note: sessionData.note || localStorage.getItem('shippingCourierNote') || ""
         };
 
-        // 🌟 লোকাল স্টোরেজ থেকে ইউজারের অ্যাক্টিভ সিকিউরিটি টোকেন সংগ্রহ
         const token = localStorage.getItem('token') || localStorage.getItem('customerToken');
 
-        // 🚀 আমাদের নিজস্ব ব্যাকএন্ডে (MongoDB) সিকিউর হেডারসহ POST রিকোয়েস্ট পাঠানো হচ্ছে
+        // ১. অর্ডার সেভ করার রিকোয়েস্ট
         const response = await fetch('/api/orders', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` // 🔒 এই টোকেনটি সরাসরি ব্যাকএন্ডের verifyUser ট্রিক করবে
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify(orderData)
         });
@@ -221,90 +212,78 @@ window.handleFinalOrderSubmission = async function() {
         const result = await response.json();
 
         if (result.success) {
-            // ডাটাবেজে সেভ সফল হলে কার্ট পরিষ্কার করা
+            // ২. অর্ডার সফল হলে ডাটাবেজ কার্ট ক্লিয়ার করা
+            if (token) {
+                await fetch('/api/cart/clear-ordered', {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                }).catch(err => console.error("DB Cart cleanup failed", err));
+            }
+
+            // ৩. লোকাল কার্ট আপডেট করা (শুধু সিলেক্ট না করা আইটেমগুলো রাখা)
+            let fullCart = JSON.parse(localStorage.getItem('cart')) || [];
+            let remainingCart = fullCart.filter(item => item.selected === false);
             localStorage.setItem('cart', JSON.stringify(remainingCart));
+
+            // ৪. চেকআউট সেশন ক্লিনআপ
             localStorage.removeItem('activeCheckoutSession');
             localStorage.removeItem('shippingFullName');
             localStorage.removeItem('shippingMobile');
             localStorage.removeItem('shippingAddress');
             localStorage.removeItem('shippingCourierNote');
 
-            // সাকসেস মডাল শো করানো
+            // ৫. সাকসেস মডাল শো
             const successModal = document.getElementById('orderSuccessModal');
-            const modalMessage = document.getElementById('modalGatewayMessage');
-            const modalOrderIdSpan = document.getElementById('modalOrderId');
-            const modalTimerSpan = document.getElementById('modalTimerCount');
-            const modalCloseBtn = document.getElementById('modalCloseAndHomeBtn');
-            const modalDeliveryDateSpan = document.getElementById('modalDeliveryDate');
-
             if (successModal) {
-                if (modalOrderIdSpan) modalOrderIdSpan.innerText = generatedOrderId;
-                if (modalMessage) {
-                    modalMessage.innerHTML = `Your order has been logged via <strong>${finalMethod}</strong>.<br>Thank you for choosing EonlineBazar!`;
-                }
-                if (modalDeliveryDateSpan) {
-                    modalDeliveryDateSpan.innerText = estimatedDeliveryDate;
-                }
+                document.getElementById('modalOrderId').innerText = orderData.orderId;
+                document.getElementById('modalGatewayMessage').innerHTML = `Your order <strong>${orderData.orderId}</strong> via <strong>${finalMethod}</strong> has been placed.`;
+                document.getElementById('modalDeliveryDate').innerText = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toLocaleDateString();
                 
                 successModal.style.setProperty('display', 'flex', 'important');
+
+                // 🛑 অর্ডার আইডি কপি লজিক (ইন্টারঅ্যাক্টিভ)
+                const copyBtn = document.getElementById('copyOrderIdBtn');
+                if (copyBtn) {
+                    copyBtn.onclick = function() {
+                        navigator.clipboard.writeText(orderData.orderId).then(() => {
+                            const originalHTML = copyBtn.innerHTML;
+                            copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+                            setTimeout(() => copyBtn.innerHTML = originalHTML, 2000);
+                        });
+                    };
+                }
             }
 
+            // ৬. রিডাইরেক্ট টাইমার হ্যান্ডলার
             let timeLeft = 30;
-            const countdownInterval = setInterval(() => {
+            const timer = setInterval(() => {
                 timeLeft--;
-                if (modalTimerSpan) {
-                    modalTimerSpan.innerText = timeLeft;
-                }
-                if (timeLeft <= 0) {
-                    clearInterval(countdownInterval);
-                    window.location.href = '/';
-                }
+                if (document.getElementById('modalTimerCount')) document.getElementById('modalTimerCount').innerText = timeLeft;
+                if (timeLeft <= 0) { clearInterval(timer); window.location.href = '/'; }
             }, 1000);
 
-            if (modalCloseBtn) {
-                modalCloseBtn.onclick = function() {
-                    clearInterval(countdownInterval);
+            // ৭. কন্টিনিউ শপিং বাটনের জন্য হ্যান্ডলার
+            const continueBtn = document.getElementById('modalCloseAndHomeBtn');
+            if (continueBtn) {
+                continueBtn.onclick = function() {
+                    clearInterval(timer); 
                     window.location.href = '/';
                 };
             }
+
         } else {
-            alert("Failed to place order. Please try again.");
-            if (confirmBtn) {
-                confirmBtn.innerHTML = `Confirm Order`;
-                confirmBtn.disabled = false;
-            }
+            throw new Error(result.message || "Failed to place order.");
         }
 
     } catch (error) {
-        console.error("Order submission error:", error);
-        alert("An error occurred while connecting to the server. Please check if the server is running.");
+        console.error("Order error:", error);
+        alert("Error: " + error.message);
         if (confirmBtn) {
             confirmBtn.innerHTML = `Confirm Order`;
             confirmBtn.disabled = false;
         }
     }
 }
-
-// 🌟 অর্ডার আইডি কপি করার ফাংশন
-window.copyOrderId = function() {
-    const orderId = document.getElementById('modalOrderId').innerText;
-    
-    navigator.clipboard.writeText(orderId).then(() => {
-        const btn = document.querySelector('.copy-order-id-btn');
-        if (btn) {
-            const originalIcon = btn.innerHTML;
-            btn.innerHTML = `<i class="fa-solid fa-check"></i>`; 
-            
-            setTimeout(() => {
-                btn.innerHTML = originalIcon; 
-            }, 1500);
-        }
-    }).catch(err => {
-        console.error("Copy failed: ", err);
-    });
-};
-
-
 
 
 

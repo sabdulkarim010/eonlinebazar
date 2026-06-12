@@ -2,10 +2,14 @@
  * Project: EonlineBazar
  * File: js/checkout.js
  * Author: Abdul Karim Sheikh
- * Description: Live Validation, Empty Cart UI & MongoDB Dynamic Order Sync (Fully Fixed with Profile Auto-Fill)
+ * Description: Live Validation, Empty Cart UI & MongoDB Dynamic Order Sync (Fully Fixed with Hybrid DB Cart)
  *************************************/
 
 let globalProductCatalog = [];
+let cart = []; // 🌟 ডাটাবেজ কার্ট স্টোর করার জন্য গ্লোবাল ভেরিয়েবল
+
+// 🌟 টোকেন চেক (কাস্টমার লগইন আছে কি না জানার জন্য)
+const customerToken = localStorage.getItem('token') || localStorage.getItem('customerToken');
 
 let validationState = {
     name: false,
@@ -14,16 +18,16 @@ let validationState = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    // লাইভ এপিআই থেকে ডাটা লোড করে সিঙ্ক করা
+    // ১. লাইভ এপিআই থেকে প্রোডাক্ট ক্যাটালগ লোড করা
     fetch('/api/products')
         .then(res => res.json())
         .then(data => {
             globalProductCatalog = data;
-            if (document.getElementById('checkoutItemsContainer')) renderCheckoutCart();
+            fetchCartData(); // ক্যাটালগ লোড হওয়ার পর কার্ট লোড করবে
         })
         .catch(err => { 
             console.error("Catalog load error:", err); 
-            renderCheckoutCart(); 
+            fetchCartData(); 
         });
 
     initLiveValidationEngine();
@@ -32,27 +36,59 @@ document.addEventListener('DOMContentLoaded', () => {
     if (proceedBtn) proceedBtn.addEventListener('click', handleProceedToPayment);
 });
 
+// 🌟 ২. ডাটাবেজ বা লোকাল স্টোরেজ থেকে কার্ট ডাটা নিয়ে আসার ফাংশন
+function fetchCartData() {
+    if (customerToken) {
+        // লগইন থাকলে ডাটাবেজ থেকে কার্ট আনবে
+        fetch('/api/cart', {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${customerToken}` }
+        })
+        .then(res => res.json())
+        .then(dbCartItems => {
+            cart = dbCartItems.map(item => ({
+                id: item.productId,
+                name: item.name,
+                price: Number(item.price),
+                products: item.image || '',
+                icon: item.icon || '📦',
+                quantity: item.quantity,
+                selected: item.selected !== false
+            }));
+            renderCheckoutCart();
+        })
+        .catch(err => {
+            console.error("Error fetching live DB cart for checkout:", err);
+            renderCheckoutCart();
+        });
+    } else {
+        // গেস্ট ইউজারের জন্য লোকাল স্টোরেজ থেকে আনবে
+        renderCheckoutCart();
+    }
+}
+
 /* =========================================================================
-   🛍️ ১. কার্ট রেন্ডারিং ইঞ্জিন ও Empty Cart UI (ইমেজ এবং আইটেম কাউন্ট ফিক্সড)
+   🛍️ ৩. কার্ট রেন্ডারিং ইঞ্জিন ও Empty Cart UI (ইমেজ এবং আইটেম কাউন্ট ফিক্সড)
    ========================================================================= */
 function renderCheckoutCart() {
     const container = document.getElementById('checkoutItemsContainer');
     const template = document.getElementById('cartItemTemplate');
     const subtotalText = document.getElementById('checkoutSubtotal');
     const grandTotalText = document.getElementById('checkoutGrandTotal');
-    const totalItemsCountText = document.getElementById('totalItemsCount'); // 🚀 ফিক্স: আইটেম কাউন্ট ধরার ভ্যারিয়েবল
+    const totalItemsCountText = document.getElementById('totalItemsCount'); 
     const proceedBtn = document.getElementById('proceedToPaymentBtn');
     
     const shippingSection = document.getElementById('shippingFormSection'); 
     const orderSummarySection = document.getElementById('orderSummarySection');
     
-    let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
+    // 🌟 হাইব্রিড চেক: লগইন থাকলে গ্লোবাল cart, না থাকলে লোকাল স্টোরেজ
+    let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
+    
     if (!container) return;
     container.innerHTML = '';
 
     let checkedItems = currentCart.filter(item => item.selected !== false);
     
-    // 🚀 ফিক্স: Selected Items এর সংখ্যা আপডেট করা
     if (totalItemsCountText) {
         totalItemsCountText.innerText = `${checkedItems.length} Items`;
     }
@@ -92,13 +128,11 @@ function renderCheckoutCart() {
         const clone = template.content.cloneNode(true);
         const mediaFrame = clone.querySelector('.cart-media-frame-box');
         
-        // 🚀 আইডি ম্যাচিং ফিক্স (cart.js এর মতো)
         let realProduct = globalProductCatalog.find(p => String(p._id) === String(item.id) || String(p.productId) === String(item.id) || String(p.id) === String(item.id));
         
         let displayEmoji = (realProduct && realProduct.icon) ? realProduct.icon.trim() : (item.icon || "📦");
         let imageFile = (realProduct && realProduct.image) ? realProduct.image.trim() : ((realProduct && realProduct.products) ? realProduct.products.trim() : (item.products || item.image || ''));
 
-        // 🚀 ফটো ও ইমোজি শো করার ফিক্সড লজিক
         if (imageFile !== '') {
             let lowerPath = imageFile.toLowerCase();
             if (lowerPath.includes('.jpg') || lowerPath.includes('.png') || lowerPath.includes('.jpeg') || lowerPath.includes('.webp')) {
@@ -139,7 +173,7 @@ function renderCheckoutCart() {
 }
 
 /* =========================================================================
-   🛡️ ২. লাইভ ভ্যালিডেশন ইঞ্জিন (প্রোফাইল অটো-ফিল ইন্টিগ্রেশনসহ)
+   🛡️ ৪. লাইভ ভ্যালিডেশন ইঞ্জিন (প্রোফাইল অটো-ফিল ইন্টিগ্রেশনসহ)
    ========================================================================= */
 function updateFieldUI(input, errorEl, isValid, currentCount, max) {
     if (!input || !errorEl) return;
@@ -191,8 +225,6 @@ function initLiveValidationEngine() {
 
         if (field.max > 0) input.setAttribute('maxlength', field.max);
 
-        // 🌟 ADVANCED INTEGRATION: প্রথমে চেকআউট পেজের নিজস্ব লোকাল স্টোরেজ ড্রাফট চেক করবে, 
-        // ড্রাফট খালি থাকলে ইউজারের প্রোফাইল থেকে সেভ করা ডাটা অটো-লোড করবে।
         let savedValue = localStorage.getItem(field.id);
         
         if (!savedValue) {
@@ -203,7 +235,6 @@ function initLiveValidationEngine() {
 
         if (savedValue) {
             input.value = savedValue;
-            // লাইভ ভ্যালিডেশন ইঞ্জিন এবং UI বর্ডার একটিভ করার জন্য রিয়েল-টাইম ইভেন্ট ফায়ার করা হলো
             setTimeout(() => input.dispatchEvent(new Event('input')), 50);
         }
 
@@ -237,32 +268,75 @@ function initLiveValidationEngine() {
 }
 
 /* =========================================================================
-   ⚡ ৩. কোর কার্ট অ্যাকশন লজিক
+   ⚡ ৫. কোর কার্ট অ্যাকশন লজিক (Hybrid DB Sync)
    ========================================================================= */
 function changeItemQuantity(productId, amount) {
-    let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
+    let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
     const item = currentCart.find(i => String(i.id) === String(productId));
+    
     if (item) {
-        item.quantity = (parseInt(item.quantity) || 1) + amount;
-        if (item.quantity < 1) { temporarilyRemoveFromCheckout(productId); return; }
+        const targetQty = (parseInt(item.quantity) || 1) + amount;
+        
+        if (targetQty < 1) { 
+            temporarilyRemoveFromCheckout(productId); 
+            return; 
+        }
+
+        if (customerToken) {
+            // ডাটাবেজে আপডেট করা
+            fetch('/api/cart/update-quantity', {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${customerToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ productId, quantity: targetQty })
+            }).then(() => {
+                item.quantity = targetQty;
+                renderCheckoutCart();
+            }).catch(err => console.error("Error updating quantity in checkout:", err));
+        } else {
+            // লোকাল স্টোরেজে আপডেট করা
+            item.quantity = targetQty;
+            localStorage.setItem('cart', JSON.stringify(currentCart));
+            renderCheckoutCart();
+        }
     }
-    localStorage.setItem('cart', JSON.stringify(currentCart));
-    renderCheckoutCart();
 }
 
 function temporarilyRemoveFromCheckout(productId) {
-    let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
+    let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
     const item = currentCart.find(i => String(i.id) === String(productId));
-    if (item) item.selected = false;
-    localStorage.setItem('cart', JSON.stringify(currentCart));
-    renderCheckoutCart();
+    
+    if (item) {
+        if (customerToken) {
+            // ডাটাবেজে আইটেমটি আনচেক (deselect) করা
+            fetch('/api/cart/toggle-selection', {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${customerToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ productId, selected: false })
+            }).then(() => {
+                item.selected = false;
+                renderCheckoutCart();
+            }).catch(err => console.error("Error toggling selection in checkout:", err));
+        } else {
+            // লোকাল স্টোরেজে আনচেক (deselect) করা
+            item.selected = false;
+            localStorage.setItem('cart', JSON.stringify(currentCart));
+            renderCheckoutCart();
+        }
+    }
 }
 
 /* =========================================================================
-   💳 ৪. পেমেন্ট সাবমিশন ও ডেটাবেজ অর্ডার প্লেস লজিক
+   💳 ৬. পেমেন্ট সাবমিশন ও ডেটাবেজ অর্ডার প্লেস লজিক
    ========================================================================= */
 function handleProceedToPayment() {
-    let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
+    // পেমেন্টের আগে হাইব্রিড কার্ট চেক
+    let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
     const checkedItems = currentCart.filter(item => item.selected !== false);
 
     if (checkedItems.length === 0) {

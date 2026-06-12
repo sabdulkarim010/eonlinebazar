@@ -3,26 +3,52 @@
  * Location: client/css/profile.css
  * Description: Advanced Modern UI Styles for EonlineBazar Dashboard
  * Developer: Abdul Karim
+ * Update: Part 1 (Core, Navbar, Sidebar)
  */
 
 /* =================================================================
-   ১. রুট ভেরিয়েবল এবং গ্লোবাল রিসেট (Variables & Reset)
+   ১. রুট ভেরিয়েবল এবং গ্লোবাল রিসেট (Variables, Light & Dark Mode)
    ================================================================= */
 :root {
-    --primary-color: #2563eb;       /* মডার্ন রয়েল ব্লু */
+    /* 🎨 Brand Colors */
+    --primary-color: #2563eb;       
     --primary-hover: #1d4ed8;
-    --bg-main: #f8fafc;             /* হালকা ব্যাকগ্রাউন্ড */
+    --secondary-color: #f39c12;     /* My Cart / Alert এর জন্য */
+    
+    /* 🌕 Light Theme Variables */
+    --bg-main: #f8fafc;             
     --bg-card: #ffffff;
-    --text-main: #1e293b;           /* গাঢ় স্লেট কালার টেক্সট */
-    --text-muted: #64748b;          /* হালকা টেক্সট */
+    --text-main: #1e293b;           
+    --text-muted: #64748b;          
     --border-color: #e2e8f0;
-    --success: #10b981;             /* সবুজ সাকসেস কালার */
-    --warning: #f59e0b;             /* কমলা ওয়ার্নিং কালার */
-    --danger: #ef4444;              /* লাল ডেঞ্জার কালার */
+    
+    /* 🟢 Status Colors */
+    --success: #10b981;             
+    --warning: #f59e0b;             
+    --danger: #ef4444;              
+    --info: #3b82f6;
+
+    /* 📏 Layout Dimensions */
     --sidebar-width: 280px;
+    --navbar-height: 75px;
+    
+    /* 🚀 Animation & Shadows */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
     --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+}
+
+/* 🌟 ডার্ক মোড ভেরিয়েবল (Dark Mode Support) */
+[data-theme="dark"] {
+    --bg-main: #0f172a;             
+    --bg-card: #1e293b;             
+    --text-main: #f1f5f9;           
+    --text-muted: #94a3b8;          
+    --border-color: #334155;        
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.4);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.5);
 }
 
 * {
@@ -35,18 +61,133 @@ body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-main);
     color: var(--text-main);
-    line-height: 1.5;
+    line-height: 1.6;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    overflow-x: hidden;
 }
 
 /* =================================================================
-   ২. ড্যাশবোর্ড লেআউট এবং সাইডবার (Dashboard Layout & Sidebar)
+   ২. স্টিকি ন্যাভবার, ৩-লাইন মেনু এবং কার্ট (Navbar, 3-Line & Cart)
+   ================================================================= */
+.sticky-navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: var(--navbar-height);
+    background-color: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 2rem;
+    z-index: 1000;
+    box-shadow: var(--shadow-sm);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+/* 🍔 3-Line Menu (Hamburger) */
+.mobile-toggle-btn {
+    display: flex; 
+    flex-direction: column;
+    justify-content: space-between;
+    width: 24px;
+    height: 18px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    z-index: 1100;
+}
+
+.mobile-toggle-btn span {
+    display: block;
+    height: 2px;
+    width: 100%;
+    background-color: var(--text-main);
+    border-radius: 2px;
+    transition: var(--transition-smooth);
+}
+
+.nav-logo {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: -0.5px;
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 25px;
+}
+
+.nav-icon-btn {
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    position: relative;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-icon-btn:hover {
+    color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+/* 🛒 My Cart Badge */
+.cart-badge-container .cart-count-badge {
+    position: absolute;
+    top: -6px;
+    right: -8px;
+    background-color: var(--danger);
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 20px;
+    border: 2px solid var(--bg-card);
+    box-shadow: var(--shadow-sm);
+}
+
+.nav-user-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--border-color);
+    cursor: pointer;
+    transition: var(--transition-smooth);
+}
+
+.nav-user-avatar:hover {
+    border-color: var(--primary-color);
+}
+
+/* =================================================================
+   ৩. ড্যাশবোর্ড লেআউট এবং সাইডবার (Dashboard Layout & Sidebar)
    ================================================================= */
 .dashboard-container {
     display: flex;
-    min-height: 100vh;
+    min-height: calc(100vh - var(--navbar-height));
+    margin-top: var(--navbar-height); 
 }
 
-/* সাইডবার প্যানেল */
+/* 📱 সাইডবার প্যানেল */
 .sidebar {
     width: var(--sidebar-width);
     background-color: var(--bg-card);
@@ -55,32 +196,31 @@ body {
     flex-direction: column;
     padding: 2rem 1.5rem;
     position: fixed;
-    height: 100vh;
-    z-index: 10;
+    top: var(--navbar-height);
+    height: calc(100vh - var(--navbar-height));
+    z-index: 100;
+    overflow-y: auto; 
+    transition: var(--transition-smooth);
 }
 
-.sidebar-brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--primary-color);
-    margin-bottom: 2.5rem;
-}
+/* Custom Sidebar Scrollbar */
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+.sidebar:hover::-webkit-scrollbar-thumb { background: var(--text-muted); }
 
-/* ইউজার ইনফো এবং প্রোফাইল ছবি সেকশন */
+/* ইউজার ইনফো সেকশন */
 .sidebar-user {
     text-align: center;
-    margin-bottom: 2.5rem;
-    padding-bottom: 2rem;
-    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px dashed var(--border-color);
 }
 
 .avatar-container {
     position: relative;
-    width: 110px;
-    height: 110px;
+    width: 100px;
+    height: 100px;
     margin: 0 auto 1rem;
 }
 
@@ -89,15 +229,16 @@ body {
     height: 100%;
     border-radius: 50%;
     object-fit: cover;
-    border: 3px solid var(--border-color);
+    border: 4px solid var(--bg-main);
+    box-shadow: var(--shadow-md);
     transition: var(--transition-smooth);
 }
 
 /* ক্যামেরা আপলোড ব্যাজ */
 .upload-badge {
     position: absolute;
-    bottom: 2px;
-    right: 2px;
+    bottom: 0;
+    right: 0;
     background-color: var(--primary-color);
     color: white;
     width: 32px;
@@ -108,17 +249,19 @@ body {
     justify-content: center;
     cursor: pointer;
     box-shadow: var(--shadow-sm);
+    border: 2px solid var(--bg-card);
     transition: var(--transition-smooth);
 }
 
 .upload-badge:hover {
     background-color: var(--primary-hover);
-    transform: scale(1.1);
+    transform: scale(1.1) rotate(5deg);
 }
 
 #sidebar-name {
-    font-size: 1.1rem;
-    font-weight: 600;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-main);
     margin-bottom: 0.25rem;
 }
 
@@ -129,128 +272,224 @@ body {
     word-break: break-all;
 }
 
-/* ভেরিফাইড ইউজার ব্যাজ */
 .user-status-badge {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     font-size: 0.75rem;
-    font-weight: 500;
-    background-color: #ecfdf5;
+    font-weight: 600;
+    background-color: rgba(16, 185, 129, 0.1);
     color: var(--success);
-    padding: 4px 10px;
+    padding: 5px 12px;
     border-radius: 20px;
+    letter-spacing: 0.5px;
 }
 
-/* সাইডবার মেনু আইটেম */
+/* 📌 সাইডবার মেনু আইটেম */
 .sidebar-menu {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 .menu-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
+    gap: 14px;
+    padding: 14px 18px;
     color: var(--text-muted);
     text-decoration: none;
     font-weight: 500;
-    border-radius: 8px;
+    font-size: 0.95rem;
+    border-radius: 10px;
     transition: var(--transition-smooth);
-    background: none;
+    background: transparent;
     border: none;
     width: 100%;
     text-align: left;
     cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.menu-item i {
+    font-size: 1.2rem;
+    width: 24px;
+    text-align: center;
+    transition: var(--transition-smooth);
 }
 
 .menu-item:hover {
-    background-color: #f1f5f9;
+    background-color: rgba(100, 116, 139, 0.08);
     color: var(--text-main);
 }
 
+.menu-item:hover i {
+    transform: scale(1.1);
+}
+
+/* Active Menu State */
 .menu-item.active {
-    background-color: #eff6ff;
-    color: var(--primary-color);
+    background-color: var(--primary-color);
+    color: white;
     font-weight: 600;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
+}
+
+.menu-item.active i {
+    color: white;
 }
 
 .menu-item.logout {
-    margin-top: 2rem;
+    margin-top: 1.5rem;
     color: var(--danger);
+    border: 1px solid transparent;
 }
 
 .menu-item.logout:hover {
-    background-color: #fef2f2;
+    background-color: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: var(--danger);
 }
 
+
+
+/**
+ * Update: Part 2 (Main Content, Dashboard, Forms, Orders, Wallet)
+ */
+
 /* =================================================================
-   ৩. মেইন কনটেন্ট এবং হেডার (Main Content & Headers)
+   ৪. মেইন কনটেন্ট এবং হেডার (Main Content & Headers)
    ================================================================= */
 .main-content {
     flex: 1;
     margin-left: var(--sidebar-width);
-    padding: 3rem;
-    max-width: 1200px;
+    padding: 2.5rem 3.5rem;
+    max-width: 1400px;
+    width: 100%;
 }
 
 .tab-content {
-    display: none; /* ডিফল্টভাবে সব ট্যাব হাইড থাকবে */
+    display: none; 
 }
 
 .tab-content.active {
-    display: block; /* শুধুমাত্র একটিভ ট্যাব শো করবে */
-    animation: fadeIn 0.4s ease;
+    display: block; 
+    animation: fadeInTab 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes fadeIn {
+@keyframes fadeInTab {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
 .content-header {
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
 }
 
 .content-header h2 {
-    font-size: 1.75rem;
-    font-weight: 700;
+    font-size: 1.85rem;
+    font-weight: 800;
     margin-bottom: 0.5rem;
+    color: var(--text-main);
+    letter-spacing: -0.5px;
 }
 
 .content-header p {
     color: var(--text-muted);
-}
-
-/* প্রধান কার্ড কন্টেইনার */
-.card {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 2rem;
-    box-shadow: var(--shadow-md);
+    font-size: 1rem;
 }
 
 /* =================================================================
-   ৪. ফর্ম এবং ইনপুট ফিল্ডের ডিজাইন (Forms & Standard Inputs)
+   ৫. ড্যাশবোর্ড ওভারভিউ (Dashboard Stats & Cards)
    ================================================================= */
+.dashboard-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.8rem;
+    margin-bottom: 2.5rem;
+}
+
+.stat-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.8rem;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition-smooth);
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+    border-color: rgba(37, 99, 235, 0.3);
+}
+
+.stat-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+}
+
+/* আইকনের বিভিন্ন কালার ভেরিয়েশন */
+.icon-blue { background-color: rgba(37, 99, 235, 0.1); color: var(--primary-color); }
+.icon-orange { background-color: rgba(243, 156, 18, 0.1); color: var(--secondary-color); }
+.icon-green { background-color: rgba(16, 185, 129, 0.1); color: var(--success); }
+.icon-red { background-color: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+.stat-info h3 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin-bottom: 0.2rem;
+    color: var(--text-main);
+}
+
+.stat-info p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* =================================================================
+   ৬. গ্লোবাল কার্ড এবং ফর্ম ডিজাইন (Forms, Inputs & Buttons)
+   ================================================================= */
+.card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 2.5rem;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 2rem;
+    transition: var(--transition-smooth);
+}
+
 .form-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 1.5rem;
+    gap: 1.8rem;
 }
 
 .form-grid.single-column {
     grid-template-columns: 1fr;
-    max-width: 550px;
+    max-width: 600px;
 }
 
 .input-group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
 }
 
 .input-group.full-width {
@@ -258,12 +497,11 @@ body {
 }
 
 .input-group label {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 600;
-    color: #475569;
+    color: var(--text-main);
 }
 
-/* ইনপুট র‍্যাপার এবং আইকন পজিশনিং */
 .input-wrapper {
     position: relative;
     display: flex;
@@ -272,123 +510,87 @@ body {
 
 .input-icon {
     position: absolute;
-    left: 16px;
+    left: 18px;
     color: var(--text-muted);
-    font-size: 1rem;
+    font-size: 1.1rem;
     pointer-events: none;
 }
 
 .input-wrapper input,
-.input-wrapper textarea {
+.input-wrapper textarea,
+.input-wrapper select {
     width: 100%;
-    padding: 12px 16px 12px 45px;
+    padding: 14px 18px 14px 50px;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    font-size: 0.95rem;
+    border-radius: 10px;
+    font-size: 1rem;
     color: var(--text-main);
-    background-color: #fff;
+    background-color: var(--bg-main);
     transition: var(--transition-smooth);
 }
 
 .input-wrapper input:focus,
-.input-wrapper textarea:focus {
+.input-wrapper textarea:focus,
+.input-wrapper select:focus {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    background-color: var(--bg-card);
 }
 
-/* টেক্সট এরিয়া স্পেশাল স্টাইল */
-.text-area-wrapper .input-icon {
-    top: 16px;
-}
-.text-area-wrapper textarea {
-    resize: vertical;
-}
+.text-area-wrapper .input-icon { top: 18px; }
+.text-area-wrapper textarea { resize: vertical; min-height: 120px; }
 
-/* ডিজেবল ফিল্ড (যেমন: ইমেইল) */
-.input-wrapper.disabled {
-    background-color: #f1f5f9;
-    border-radius: 8px;
-}
-.input-wrapper.disabled input {
-    background-color: transparent;
-    cursor: not-allowed;
-    color: var(--text-muted);
-}
-
-/* অ্যাডভান্সড ব্যাজসমূহ (Read Only & Auto Fill Indicators) */
-.badge-readonly {
-    font-size: 0.7rem;
-    background-color: #e2e8f0;
-    color: #475569;
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-left: 5px;
-}
-
-.badge-primary {
-    font-size: 0.7rem;
-    background-color: #dbeafe;
-    color: var(--primary-color);
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-left: 5px;
-}
-
-/* পাসওয়ার্ড হাইড/শো করার আইকন */
-.toggle-password {
-    position: absolute;
-    right: 16px;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: var(--transition-smooth);
-}
-.toggle-password:hover {
-    color: var(--text-main);
-}
-
-.password-hint {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    margin-top: -4px;
-}
-
-/* বাটন ও অ্যাকশন সেকশন */
-.form-actions {
-    margin-top: 2rem;
-    display: flex;
-    justify-content: flex-end;
+/* Buttons */
+.form-actions { 
+    margin-top: 2.5rem; 
+    display: flex; 
+    justify-content: flex-end; 
+    gap: 15px;
 }
 
 .btn {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 12px 24px;
-    font-size: 0.95rem;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px 28px;
+    font-size: 1rem;
     font-weight: 600;
-    border-radius: 8px;
+    border-radius: 10px;
     border: none;
     cursor: pointer;
     transition: var(--transition-smooth);
 }
 
-.btn-primary {
-    background-color: var(--primary-color);
-    color: white;
-    box-shadow: var(--shadow-sm);
+.btn-primary { 
+    background-color: var(--primary-color); 
+    color: white; 
+    box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2); 
 }
 
-.btn-primary:hover {
-    background-color: var(--primary-hover);
+.btn-primary:hover { 
+    background-color: var(--primary-hover); 
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 12px rgba(37, 99, 235, 0.3); 
 }
 
 /* =================================================================
-   ৫. মাই অর্ডারস টেবিল ডিজাইন (My Orders Responsive Table)
+   ৭. অর্ডার টেবিল এবং স্ট্যাটাস ব্যাজ (Orders Table & Tracking)
    ================================================================= */
+.orders-header-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
 .table-responsive {
     width: 100%;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
 }
 
 .orders-table {
@@ -396,445 +598,448 @@ body {
     border-collapse: collapse;
     text-align: left;
     font-size: 0.95rem;
+    min-width: 700px;
 }
 
 .orders-table th {
-    background-color: #f1f5f9;
-    color: #475569;
-    font-weight: 600;
-    padding: 14px 16px;
+    background-color: rgba(100, 116, 139, 0.05);
+    color: var(--text-muted);
+    font-weight: 700;
+    padding: 16px 20px;
     border-bottom: 2px solid var(--border-color);
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
 }
 
 .orders-table td {
-    padding: 16px;
+    padding: 16px 20px;
     border-bottom: 1px solid var(--border-color);
     vertical-align: middle;
-}
-
-.orders-table tbody tr:hover {
-    background-color: #f8fafc;
-}
-
-.text-center {
-    text-align: center !important;
-}
-
-/* টেবিল লোডিং স্পিনার */
-.table-loading {
-    padding: 3rem !important;
-    color: var(--text-muted);
-}
-.table-loading i {
-    font-size: 2rem;
-    margin-bottom: 0.5rem;
-    color: var(--primary-color);
-}
-
-/* অর্ডার স্ট্যাটাস ব্যাজ */
-.status-badge {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-transform: capitalize;
-}
-.status-badge.pending { background-color: #fef3c7; color: #d97706; }
-.status-badge.shipped { background-color: #e0f2fe; color: #0284c7; }
-.status-badge.delivered { background-color: #d1fae5; color: #059669; }
-.status-badge.cancelled { background-color: #fee2e2; color: #dc2626; }
-
-/* টেবিলের অ্যাকশন বাটন (যেমন: Review বা Track) */
-.btn-table-action {
-    background-color: #f1f5f9;
     color: var(--text-main);
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    font-weight: 500;
+}
+
+.orders-table tr:last-child td {
+    border-bottom: none;
+}
+
+.orders-table tr:hover {
+    background-color: rgba(100, 116, 139, 0.02);
+}
+
+.order-id-link {
+    color: var(--primary-color);
+    font-weight: 700;
     text-decoration: none;
-    border: 1px solid var(--border-color);
-    cursor: pointer;
     transition: var(--transition-smooth);
 }
-.btn-table-action:hover {
-    background-color: var(--primary-color);
-    color: white;
-    border-color: var(--primary-color);
-}
 
-/* =================================================================
-   ৬. অ্যাডভান্সড রিভিউ মডাল পপ-আপ (Review Modal Setup)
-   ================================================================= */
-.modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(15, 23, 42, 0.6); /* ব্লার/ডার্ক ইফেক্ট */
-    display: flex;
+.order-id-link:hover { text-decoration: underline; color: var(--primary-hover); }
+
+/* Status Badges */
+.status-badge {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    z-index: 100;
-    opacity: 1;
-    transition: var(--transition-smooth);
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
 }
+.status-badge.pending { background-color: rgba(245, 158, 11, 0.1); color: var(--warning); }
+.status-badge.processing { background-color: rgba(59, 130, 246, 0.1); color: var(--info); }
+.status-badge.shipped { background-color: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+.status-badge.delivered { background-color: rgba(16, 185, 129, 0.1); color: var(--success); }
+.status-badge.cancelled { background-color: rgba(239, 68, 68, 0.1); color: var(--danger); }
 
-.modal.hidden {
-    display: none;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.modal-content {
-    background-color: var(--bg-card);
-    padding: 2.5rem;
-    border-radius: 16px;
-    width: 100%;
-    max-width: 500px;
-    position: relative;
-    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
-    animation: modalSlideUp 0.3s ease;
-}
-
-@keyframes modalSlideUp {
-    from { transform: translateY(30px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-
-.close-modal {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    font-size: 1.75rem;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: var(--transition-smooth);
-}
-.close-modal:hover {
-    color: var(--danger);
-}
-
-/* =================================================================
-   ৭. টোস্ট নোটিফিকেশন ইউটিলিটি (Toast Messages)
-   ================================================================= */
-.toast-container {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 1000;
-}
-
-.toast {
-    background-color: #1e293b;
-    color: white;
+/* Track Order Button */
+.btn-track-order {
+    background-color: var(--secondary-color);
+    color: #ffffff;
     padding: 12px 24px;
     border-radius: 8px;
-    box-shadow: var(--shadow-md);
-    font-size: 0.95rem;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    animation: toastSlideIn 0.3s ease forwards;
-}
-
-@keyframes toastSlideIn {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-}
-
-
-
-
-/* =================================================================
-   ৮. নতুন রিভিউ মডাল স্টাইল (Updated Review Modal)
-   ================================================================= */
-.star-rating-input {
-    display: flex;
-    flex-direction: row-reverse; /* স্টারগুলো উল্টোভাবে সাজানো যাতে বাম থেকে ডানে ফিলাপ হয় */
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 10px;
-}
-
-.star-rating-input input {
-    display: none; /* রেডিও বাটনগুলো হাইড থাকবে */
-}
-
-.star-rating-input label {
-    font-size: 1.8rem;
-    color: #cbd5e1; /* ডিফল্ট গ্রে কালার */
-    cursor: pointer;
-    transition: var(--transition-smooth);
-}
-
-.star-rating-input label:hover,
-.star-rating-input label:hover ~ label,
-.star-rating-input input:checked ~ label {
-    color: #f39c12; /* সিলেক্ট করলে গোল্ডেন কালার */
-}
-
-.review-modal-content {
-    max-width: 450px;
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-}
-
-
-
-
-
-
-
-
-/* =================================================================
-   ৯. প্রো-লেভেল রেসপন্সিভ মিডিয়া কুয়েরি (Mobile & Tablet Responsiveness)
-   ================================================================= */
-
-/* ট্যাবলেট ভিউ (Tablet View - 1024px) */
-@media (max-width: 1024px) {
-    .sidebar {
-        width: 80px;
-        padding: 2rem 0.5rem;
-        align-items: center;
-    }
-    /* শুধু আইকন দেখাবে, টেক্সট হাইড */
-    .sidebar-brand span, 
-    .sidebar-user h3, 
-    .sidebar-user p, 
-    .user-status-badge,
-    .menu-item span {
-        display: none; 
-    }
-    /* মেনু আইটেমের টেক্সট গায়েব করে শুধু আইকন বড় করা */
-    .menu-item {
-        font-size: 0; 
-        justify-content: center;
-        padding: 15px;
-    }
-    .menu-item i {
-        font-size: 1.4rem; 
-        margin: 0;
-    }
-    .sidebar-brand { margin-bottom: 2rem; font-size: 0; }
-    .sidebar-brand i { font-size: 1.8rem; margin: 0; }
-    .avatar-container { width: 50px; height: 50px; margin-bottom: 1rem; }
-    .upload-badge { width: 22px; height: 22px; font-size: 0.7rem; }
-    
-    .main-content { margin-left: 80px; padding: 2rem; }
-}
-
-/* মোবাইল ভিউ (Mobile View - 768px) - Premium App Like Feel */
-@media (max-width: 768px) {
-    .dashboard-container {
-        flex-direction: column;
-        padding-bottom: 75px; /* বটম নেভিগেশনের জন্য নিচে ফাঁকা জায়গা */
-    }
-    
-    /* সাইডবারকে টপ হেডারে রূপান্তর */
-    .sidebar {
-        position: sticky;
-        top: 0;
-        width: 100%;
-        height: auto;
-        padding: 12px 20px;
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
-        border-right: none;
-        border-bottom: 1px solid var(--border-color);
-        z-index: 90;
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-    }
-
-    .sidebar-brand { margin-bottom: 0; font-size: 1.2rem; }
-    .sidebar-brand span { display: inline-block; font-size: 1.2rem; }
-    
-    /* হেডারে ইউজারের ছোট ছবি দেখানো */
-    .sidebar-user {
-        display: flex;
-        align-items: center;
-        margin-bottom: 0;
-        padding-bottom: 0;
-        border-bottom: none;
-    }
-    .avatar-container { width: 35px; height: 35px; margin: 0; }
-    .upload-badge, .sidebar-user h3, .sidebar-user p, .user-status-badge { display: none; }
-
-    /* 🌟 অ্যাপ স্টাইল বটম নেভিগেশন বার */
-    .sidebar-menu {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        background-color: var(--bg-card);
-        flex-direction: row;
-        justify-content: space-around;
-        padding: 8px 5px;
-        border-top: 1px solid var(--border-color);
-        box-shadow: 0 -4px 15px rgba(0,0,0,0.05);
-        z-index: 100;
-        gap: 0;
-    }
-
-    .menu-item {
-        flex-direction: column;
-        gap: 4px;
-        padding: 8px 4px;
-        font-size: 0.65rem; 
-        text-align: center;
-        border-radius: 8px;
-        flex: 1;
-        background: transparent;
-    }
-    .menu-item i { font-size: 1.2rem; margin: 0; }
-    .menu-item:hover { background-color: transparent; color: var(--primary-color); }
-    .menu-item.active { background-color: transparent; color: var(--primary-color); position: relative; }
-    
-    /* একটিভ ট্যাবের উপরে ছোট ডট ইন্ডিকেটর */
-    .menu-item.active::after {
-        content: '';
-        position: absolute;
-        top: 2px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 4px;
-        height: 4px;
-        background-color: var(--primary-color);
-        border-radius: 50%;
-    }
-
-    /* মেইন কনটেন্ট এডজাস্টমেন্ট */
-    .main-content {
-        margin-left: 0;
-        padding: 1.5rem 1rem;
-    }
-
-    .content-header h2 { font-size: 1.4rem; }
-    .content-header p { font-size: 0.85rem; }
-    
-    .card { padding: 1.2rem; border-radius: 10px; }
-
-    /* ফর্ম ইনপুট এক কলামে আনা */
-    .form-grid { grid-template-columns: 1fr; gap: 1.2rem; }
-    .input-group.full-width { grid-column: span 1; }
-
-    /* টেবিল সুন্দরভাবে স্লাইড করার জন্য */
-    .table-responsive {
-        margin: 0 -1.2rem; 
-        padding: 0 1.2rem;
-    }
-    .orders-table { font-size: 0.85rem; white-space: nowrap; }
-    .orders-table th, .orders-table td { padding: 12px 10px; }
-    
-    /* মডাল সাইজ এডজাস্টমেন্ট */
-    .modal-content {
-        margin: 1rem;
-        padding: 1.5rem;
-        width: calc(100% - 2rem);
-    }
-    .star-rating-input label { font-size: 1.5rem; }
-    
-    /* টোস্ট নোটিফিকেশন উপরে দেখানো */
-    .toast-container {
-        bottom: 85px; /* বটম বারের ঠিক উপরে */
-        right: 15px;
-        left: 15px;
-    }
-    .toast { font-size: 0.85rem; padding: 10px 15px; justify-content: center; }
-}
-
-/* ছোট মোবাইল স্ক্রিন (Small Mobile View - 480px) */
-@media (max-width: 480px) {
-    .sidebar-brand span { display: none; } /* ছোট স্ক্রিনে শুধু লোগো দেখাবে */
-    .content-header h2 { font-size: 1.2rem; }
-    .btn { width: 100%; justify-content: center; } /* বাটন ফুল উইডথ */
-    .form-actions { display: flex; flex-direction: column; gap: 10px; }
-}
-
-
-
-
-
-
-
-
-/* =========================================
-   Order Track Button & Header Styling
-   ========================================= */
-
-/* Desktop View (Default) */
-.orders-header-wrapper {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 15px;
-    margin-bottom: 20px;
-}
-
-.orders-header-wrapper .header-text h2 {
-    margin: 0 0 5px 0;
-}
-
-.orders-header-wrapper .header-text p {
-    margin: 0;
-}
-
-/* Custom Track Order Button */
-.btn-track-order {
-    background-color: #d35400; /* ই-কমার্সের জন্য আকর্ষণীয় কমলা কালার */
-    color: #ffffff;
-    padding: 10px 20px;
-    border-radius: 6px;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-weight: 500;
-    font-size: 15px;
-    transition: all 0.3s ease;
+    font-weight: 600;
+    transition: var(--transition-smooth);
     border: none;
+    cursor: pointer;
 }
 
 .btn-track-order:hover {
     background-color: #e67e22;
-    color: #ffffff;
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(211, 84, 0, 0.3);
+    box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
 }
 
-/* Mobile & Tablet Responsive */
-@media screen and (max-width: 768px) {
-    .orders-header-wrapper {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 15px;
-    }
+/* =================================================================
+   ৮. ওয়ালেট এবং পয়েন্ট ক্যালকুলেটর (Wallet & Points Grid)
+   ================================================================= */
+.wallet-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
 
-    .header-action {
+.balance-display-box, .points-display-box {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(139, 92, 246, 0.08));
+    border-radius: 16px;
+    padding: 2rem;
+    border: 1px solid rgba(37, 99, 235, 0.15);
+    position: relative;
+    overflow: hidden;
+}
+
+[data-theme="dark"] .balance-display-box, [data-theme="dark"] .points-display-box {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(139, 92, 246, 0.15));
+}
+
+.balance-label, .points-label { 
+    font-size: 1rem; 
+    color: var(--text-muted); 
+    font-weight: 700; 
+    text-transform: uppercase; 
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.main-balance-amount, .main-points-amount { 
+    font-size: 2.8rem; 
+    font-weight: 800; 
+    color: var(--primary-color); 
+    margin-top: 10px; 
+    text-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.cashback-history-list { 
+    list-style: none; 
+    padding: 0; 
+    margin-top: 1.5rem;
+}
+
+.history-item { 
+    padding: 14px 0; 
+    border-bottom: 1px dashed var(--border-color); 
+    font-size: 0.95rem; 
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.history-item:last-child { border-bottom: none; }
+.history-item.empty { color: var(--text-muted); font-style: italic; justify-content: center; }
+
+.history-amount { font-weight: 700; color: var(--success); }
+.history-amount.deduct { color: var(--danger); }
+
+
+
+
+
+/**
+ * Update: Part 3 (Addresses, Security, Modals, Toast & Responsive Drawer)
+ */
+
+/* =================================================================
+   ৯. ঠিকানার কার্ড এবং সিকিউরিটি (Addresses & Security)
+   ================================================================= */
+.address-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.8rem;
+}
+
+.address-card { 
+    position: relative; 
+    border: 2px solid var(--border-color); 
+    cursor: pointer;
+}
+
+.address-card.active { 
+    border-color: var(--primary-color); 
+    background-color: rgba(37, 99, 235, 0.03); 
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+}
+
+.address-tag { 
+    background: var(--primary-color); 
+    color: white; 
+    padding: 6px 14px; 
+    border-radius: 20px; 
+    font-size: 0.8rem; 
+    font-weight: 600; 
+    display: inline-flex; 
+    align-items: center; 
+    gap: 6px; 
+}
+
+.address-text {
+    margin: 15px 0; 
+    font-size: 1rem; 
+    line-height: 1.6;
+    color: var(--text-main);
+}
+
+.btn-address-edit { 
+    background: none; 
+    border: none; 
+    color: var(--primary-color); 
+    font-weight: 600; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    margin-top: 10px; 
+    font-size: 0.95rem;
+}
+
+.add-address-blank-card {
+    border: 2px dashed var(--border-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    cursor: pointer;
+    background: transparent;
+    min-height: 200px;
+}
+
+.add-address-blank-card i { 
+    font-size: 2.5rem; 
+    margin-bottom: 12px; 
+    color: var(--text-muted); 
+    transition: var(--transition-smooth); 
+}
+
+.add-address-blank-card:hover { 
+    border-color: var(--primary-color); 
+    color: var(--primary-color); 
+    background-color: rgba(37, 99, 235, 0.02);
+}
+.add-address-blank-card:hover i { color: var(--primary-color); }
+
+.security-dual-grid { 
+    display: grid; 
+    grid-template-columns: 1.5fr 1fr; 
+    gap: 2rem; 
+}
+
+.activity-item { 
+    display: flex; 
+    gap: 16px; 
+    padding: 18px 0; 
+    border-bottom: 1px solid var(--border-color); 
+}
+.activity-item:last-child { border-bottom: none; }
+
+.activity-icon { 
+    width: 45px; 
+    height: 45px; 
+    background: rgba(100,116,139,0.1); 
+    border-radius: 50%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    color: var(--text-main); 
+    font-size: 1.2rem;
+}
+
+.activity-details h4 { font-size: 1rem; margin-bottom: 4px; color: var(--text-main); font-weight: 600; }
+.activity-details p { font-size: 0.85rem; color: var(--text-muted); }
+
+/* =================================================================
+   ১০. অ্যাডভান্সড মোডাল (Order Details & Review Modal)
+   ================================================================= */
+.modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background-color: rgba(15, 23, 42, 0.7); backdrop-filter: blur(5px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 2000; opacity: 1; transition: var(--transition-smooth);
+}
+.modal.hidden { opacity: 0; pointer-events: none; }
+
+.modal-content {
+    background-color: var(--bg-card);
+    border-radius: 16px;
+    width: 90%; max-width: 680px;
+    box-shadow: var(--shadow-lg);
+    transform: scale(1); 
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    max-height: 90vh; overflow-y: auto;
+}
+.modal.hidden .modal-content { transform: scale(0.95); }
+
+.modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 1.5rem 2.5rem; border-bottom: 1px solid var(--border-color);
+    position: sticky; top: 0; background-color: var(--bg-card); z-index: 10;
+}
+.modal-header h2 { font-size: 1.4rem; margin: 0; color: var(--text-main); display: flex; align-items: center; gap: 10px; }
+.close-modal { font-size: 1.8rem; cursor: pointer; color: var(--text-muted); transition: color 0.2s; line-height: 1; }
+.close-modal:hover { color: var(--danger); }
+
+.order-details-body { padding: 2rem 2.5rem; }
+
+/* 🌟 প্রগ্রেসিভ ট্র্যাকিং টাইমলাইন */
+.order-tracking-timeline {
+    display: flex; justify-content: space-between; align-items: center;
+    margin: 1rem 0 3rem; position: relative;
+}
+.order-tracking-timeline::before {
+    content: ''; position: absolute; top: 18px; left: 0; width: 100%; height: 4px;
+    background: var(--border-color); z-index: 1; border-radius: 4px;
+}
+.order-tracking-timeline .step {
+    position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 10px; flex: 1;
+}
+.step-icon {
+    width: 40px; height: 40px; background: var(--bg-card); border: 4px solid var(--border-color);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; color: var(--text-muted); transition: var(--transition-smooth);
+}
+.step-label { font-size: 0.9rem; font-weight: 700; color: var(--text-muted); }
+
+/* Active Steps */
+.step.active .step-icon { background: var(--primary-color); border-color: var(--primary-color); color: white; box-shadow: 0 0 0 4px rgba(37,99,235,0.1); }
+.step.active .step-label { color: var(--primary-color); }
+
+/* Order Info Grid */
+.order-info-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    background: var(--bg-main); padding: 20px; border-radius: 12px; margin-bottom: 25px; border: 1px solid var(--border-color);
+}
+.info-box h4 { font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 5px; letter-spacing: 0.5px; }
+.info-box p { font-size: 1rem; font-weight: 600; color: var(--text-main); line-height: 1.4; }
+
+.ordered-products-title { font-size: 1.1rem; margin-bottom: 15px; color: var(--text-main); font-weight: 700; }
+.order-items-list { border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; margin-bottom: 25px; }
+.order-item-row { display: flex; align-items: center; gap: 15px; padding: 15px; border-bottom: 1px solid var(--border-color); background: var(--bg-card); }
+.order-item-row:last-child { border-bottom: none; }
+.order-item-img { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-color); }
+.order-item-title { font-size: 1rem; font-weight: 600; margin-bottom: 4px; color: var(--text-main); }
+.order-item-price { font-size: 0.9rem; color: var(--text-muted); font-weight: 500; }
+
+.order-total-section { text-align: right; font-size: 1.3rem; font-weight: 800; color: var(--primary-color); border-top: 2px dashed var(--border-color); padding-top: 20px; }
+
+/* 🌟 Review Modal Rating */
+.star-rating-input {
+    display: flex; flex-direction: row-reverse; justify-content: flex-end; gap: 12px; margin-top: 10px;
+}
+.star-rating-input input { display: none; }
+.star-rating-input label { font-size: 2.2rem; color: #cbd5e1; cursor: pointer; transition: var(--transition-smooth); }
+[data-theme="dark"] .star-rating-input label { color: #475569; }
+.star-rating-input label:hover,
+.star-rating-input label:hover ~ label,
+.star-rating-input input:checked ~ label { color: #f39c12; }
+
+/* =================================================================
+   ১১. টোস্ট নোটিফিকেশন (Toast Messages)
+   ================================================================= */
+.toast-wrapper {
+    position: fixed; bottom: 30px; right: 30px; display: flex; flex-direction: column; gap: 12px; z-index: 3000;
+}
+
+.toast {
+    background-color: #1e293b; color: white; padding: 14px 24px; border-radius: 10px;
+    box-shadow: var(--shadow-lg); font-size: 1rem; font-weight: 500; display: flex; align-items: center; gap: 12px;
+    animation: toastSlideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+[data-theme="dark"] .toast { background-color: #334155; border: 1px solid var(--border-color); }
+
+@keyframes toastSlideIn {
+    from { transform: translateX(120%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* =================================================================
+   ১২. প্রো-লেভেল রেসপন্সিভ (Mobile/Tablet Drawer System)
+   ================================================================= */
+
+/* 📱 Tablet (Max: 1024px) */
+@media (max-width: 1024px) {
+    .security-dual-grid { grid-template-columns: 1fr; }
+    .main-content { padding: 2rem; }
+}
+
+/* 📱 Mobile - Sliding Drawer Menu (Max: 768px) */
+@media (max-width: 768px) {
+    .sticky-navbar { padding: 0 1.5rem; height: 65px; }
+    .mobile-toggle-btn { display: flex; } /* Show Hamburger */
+    
+    .dashboard-container { flex-direction: column; margin-top: 65px; min-height: auto; }
+    
+    /* 🌟 Mobile Drawer Design (No Bottom Nav Clutter) */
+    .sidebar {
+        position: fixed;
+        top: 65px;
+        left: -100%; /* Hidden by default */
+        width: 280px;
+        height: calc(100vh - 65px);
+        box-shadow: var(--shadow-lg);
+        transition: left 0.3s ease-in-out;
+        z-index: 1000;
+        padding: 2rem 1.5rem;
+    }
+    
+    .sidebar.open { left: 0; } /* Slide in */
+    
+    .main-content {
+        margin-left: 0;
+        padding: 1.5rem;
         width: 100%;
     }
 
-    .btn-track-order {
-        width: 100%;
-        justify-content: center;
-        padding: 12px;
-        font-size: 16px;
-    }
+    .content-header { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 2rem; }
+    .content-header h2 { font-size: 1.5rem; }
+    
+    .card { padding: 1.5rem; }
+    .form-grid { grid-template-columns: 1fr; }
+    .input-group.full-width { grid-column: 1; }
+    
+    /* Table overflow */
+    .table-responsive { border: none; border-radius: 0; }
+    .orders-table { font-size: 0.9rem; }
+    
+    /* Modals */
+    .modal-content { width: 95%; margin: 10px; max-height: 85vh; }
+    .modal-header { padding: 1.2rem 1.5rem; }
+    .order-details-body { padding: 1.5rem; }
+    .order-info-grid { grid-template-columns: 1fr; gap: 15px; }
+    
+    .toast-wrapper { bottom: 20px; right: 20px; left: 20px; align-items: center; }
+    .toast { width: 100%; justify-content: center; }
 }
+
+/* 📱 Small Mobile (Max: 480px) */
+@media (max-width: 480px) {
+    .nav-logo { font-size: 1.2rem; }
+    .nav-user-avatar { width: 35px; height: 35px; }
+    .main-balance-amount { font-size: 2rem; }
+    .btn { width: 100%; justify-content: center; } 
+    .form-actions { flex-direction: column; gap: 10px; }
+    .order-tracking-timeline .step-label { font-size: 0.75rem; }
+    .step-icon { width: 30px; height: 30px; font-size: 0.8rem; }
+}
+
+/* =================================================================
+   ১৩. ইউটিলিটি ক্লাস (Utilities)
+   ================================================================= */
+.mt-8 { margin-top: 8px; }
+.mt-10 { margin-top: 10px; }
+.mt-15 { margin-top: 15px; }
+.mt-20 { margin-top: 20px; }
+.p-20 { padding: 20px; }
+.text-center { text-align: center; }
+.w-100 { width: 100%; }
+.flex-center { display: flex; justify-content: center; align-items: center; }
+.primary-icon-color { color: var(--primary-color); }
+
+
 
 
 

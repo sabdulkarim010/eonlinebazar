@@ -3,8 +3,9 @@
  * File: orderController.js
  * Location: controllers/orderController.js
  * Author: Abdul Karim Sheikh
- * Description: Handles Order placement, stock updates, admin order management, 
- * order tracking, and fetching user-specific orders (My Orders).
+ * Description: এই কন্ট্রোলারটি কাস্টমারের নতুন অর্ডার প্লেসমেন্ট, স্টক আপডেট, 
+ * ইউজার ভিত্তিক অর্ডার হিস্ট্রি, পাবলিক অর্ডার ট্র্যাকিং এবং ড্যাশবোর্ডের 
+ * রিয়েল-টাইম স্ট্যাটাস বা সামারি ডাটা প্রসেস করে।
  ********************************************************************/
 
 const mongoose = require('mongoose'); 
@@ -27,10 +28,8 @@ const createOrder = async (req, res) => {
             return res.status(400).json({ success: false, message: "অনুগ্রহ করে নাম, phone নম্বর এবং সম্পূর্ণ ঠিকানা প্রদান করুন।" });
         }
 
-        // লগইন করা ইউজার থাকলে তার আইডি নিবে
         const userId = req.user ? req.user.id : (req.body.userId || null);
 
-        // ১. প্রথমে ডাটাবেজে অর্ডারটি সেভ করি
         const newOrder = new Order({
             orderId,
             user: userId,
@@ -46,7 +45,6 @@ const createOrder = async (req, res) => {
 
         await newOrder.save();
 
-        // ২. স্টক কমানোর লজিক
         if (Array.isArray(items) && items.length > 0) {
             for (const item of items) {
                 const targetId = item.id || item.productId || item._id; 
@@ -91,10 +89,9 @@ const getOrders = async (req, res) => {
     }
 };
 
-// 🌟 ৩. লগইন করা নির্দিষ্ট ইউজারের নিজস্ব অর্ডারগুলো দেখা (My Orders সেকশন)
+// ৩. লগইন করা নির্দিষ্ট ইউজারের নিজস্ব অর্ডারগুলো দেখা (My Orders সেকশন)
 const getMyOrders = async (req, res) => {
     try {
-        // ফিক্স: লেটেস্ট আপডেট হওয়া অর্ডার আগে দেখাবে
         const myOrders = await Order.find({ user: req.user.id }).sort({ updatedAt: -1 });
         res.json({ success: true, data: myOrders });
     } catch (err) {
@@ -171,6 +168,48 @@ const trackOrder = async (req, res) => {
     }
 };
 
+// ৮. ড্যাশবোর্ড স্ট্যাটাস সামারি (ইউজার ভিত্তিক লাইভ কাউন্ট)
+const getDashboardStats = async (req, res) => {
+    try {
+        console.log("Logged In User ID:", req.user.id);
+        const userId = req.user.id;
+        
+        // 🌟 ফিক্স: sort যোগ করা হলো যাতে নতুন অর্ডারগুলো লিস্টের শুরুতে থাকে
+        const orders = await Order.find({ user: userId }).sort({ createdAt: -1 });
+        console.log("Orders found for user:", orders.length);
+        
+        const totalOrders = orders.length;
+        const pendingOrders = orders.filter(o => 
+            o.status && o.status.toLowerCase() === 'pending'
+        ).length;
+        
+        // 🌟 ফিক্স: ড্যাশবোর্ডের টেবিলের জন্য সর্বশেষ ৪টি অর্ডার আলাদা করা হলো
+        const recentOrders = orders.slice(0, 4);
+        
+        res.json({ 
+            success: true, 
+            totalOrders: totalOrders, 
+            pendingOrders: pendingOrders, 
+            balance: 0, 
+            loyaltyPoints: 0,
+            recentOrders: recentOrders, // 🌟 ফ্রন্টএন্ড টেবিলের জন্য ডাটা পাঠানো হলো
+            data: {
+                totalOrders: totalOrders,
+                pendingOrders: pendingOrders,
+                balance: 0,
+                loyaltyPoints: 0,
+                recentOrders: recentOrders // 🌟 নেস্টেড অবজেক্টেও দিয়ে দিলাম সেফটির জন্য
+            }
+        });
+
+    } catch (err) {
+        console.error("Dashboard Stats Error:", err);
+        res.status(500).json({ success: false, message: "Stats load failed" });
+    }
+};
+
+
+
 module.exports = { 
     createOrder, 
     getOrders, 
@@ -178,11 +217,9 @@ module.exports = {
     getOrderById, 
     updateOrderStatus, 
     deleteOrder, 
-    trackOrder 
+    trackOrder,
+    getDashboardStats,
 };
-
-
-
 
 
 

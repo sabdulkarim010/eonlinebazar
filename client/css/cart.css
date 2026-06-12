@@ -530,3 +530,88 @@ body {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================================
+   🛒 PROFILE PAGE: CART & CHECKOUT PREVIEW FIXES
+   ========================================================================= */
+
+/* প্রোফাইল পেজে কার্টের লিস্ট কন্টেইনার ঠিক করা */
+#cart-items-preview-list {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 15px;
+}
+
+/* প্রোফাইলের ডাইনামিক চেকআউট প্যানেল ফ্লেক্সিবল করা */
+.profile-dynamic-checkout-panel > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap; /* স্ক্রিন ছোট হলে যাতে নিচে নেমে যায় */
+    gap: 15px;
+}
+
+/* =========================================================================
+   📱 MOBILE RESPONSIVE FIXES FOR PROFILE CART (Max-width: 768px)
+   ========================================================================= */
+@media screen and (max-width: 768px) {
+    
+    /* মোবাইলে প্রোফাইল পেজের কার্ট কার্ডগুলোর ডিজাইন */
+    #cart-items-preview-list .cart-item-card {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 15px;
+        gap: 12px;
+    }
+
+    /* মোবাইলে ডান পাশের অংশ (Quantity, Price, Delete btn) */
+    #cart-items-preview-list .cart-item-right-group {
+        width: 100%;
+        justify-content: space-between;
+        padding-left: 36px; /* চেকবক্স ও ইমেজের সাথে ব্যালেন্স রাখার জন্য */
+        border-top: 1px dashed #e2e8f0; /* একটা সুন্দর বর্ডার */
+        padding-top: 12px;
+        margin-top: 5px;
+    }
+
+    /* সাবটোটাল প্যানেল মোবাইলে সেন্টারে আনা */
+    .profile-dynamic-checkout-panel > div {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    /* প্রোফাইলের অর্ডার বাটন মোবাইলে ফুল-উইডথ করা */
+    #profileCheckoutBtn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* অতি ছোট স্ক্রিনের জন্য (Max-width: 400px) */
+@media screen and (max-width: 400px) {
+    #cart-items-preview-list .cart-item-right-group {
+        padding-left: 0; /* ছোট স্ক্রিনে পুরো জায়গা নেওয়ার জন্য */
+    }
+}
