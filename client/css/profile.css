@@ -403,64 +403,191 @@ body {
     font-size: 1rem;
 }
 
+
 /* =================================================================
-   ৫. ড্যাশবোর্ড ওভারভিউ (Dashboard Stats & Cards)
+   ৫. ড্যাশবোর্ড ওভারভিউ (Premium & Fully Responsive Stats)
    ================================================================= */
 .dashboard-stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1.8rem;
+    grid-template-columns: repeat(4, 1fr); /* সবসময় ৪টি কলাম থাকবে */
+    gap: 1.5rem;
     margin-bottom: 2.5rem;
 }
 
 .stat-card {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-color);
+    background-color: var(--bg-card, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
     border-radius: 16px;
-    padding: 1.8rem;
+    padding: 1.5rem;
     display: flex;
     align-items: center;
-    gap: 18px;
-    box-shadow: var(--shadow-sm);
-    transition: var(--transition-smooth);
+    gap: 16px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    overflow: hidden;
 }
 
 .stat-card:hover {
     transform: translateY(-5px);
-    box-shadow: var(--shadow-lg);
-    border-color: rgba(37, 99, 235, 0.3);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .stat-icon {
-    width: 60px;
-    height: 60px;
+    width: 55px;
+    height: 55px;
     border-radius: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.8rem;
+    font-size: 1.6rem;
+    flex-shrink: 0;
 }
 
-/* আইকনের বিভিন্ন কালার ভেরিয়েশন */
-.icon-blue { background-color: rgba(37, 99, 235, 0.1); color: var(--primary-color); }
-.icon-orange { background-color: rgba(243, 156, 18, 0.1); color: var(--secondary-color); }
-.icon-green { background-color: rgba(16, 185, 129, 0.1); color: var(--success); }
-.icon-red { background-color: rgba(239, 68, 68, 0.1); color: var(--danger); }
+/* Stats Card Deep Premium Background Colors */
+
+/* ১. টোটাল অর্ডার কার্ড (Deep Blue) */
+.stat-card.total-orders {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border: 1px solid #bfdbfe;
+}
+
+/* ২. পেন্ডিং অর্ডার কার্ড (Deep Orange) */
+.stat-card.pending-orders {
+    background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+    border: 1px solid #fed7aa;
+}
+
+/* ৩. ব্যালেন্স কার্ড (Deep Green) */
+.stat-card.available-balance {
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border: 1px solid #a7f3d0;
+}
+
+/* ৪. লয়্যালটি পয়েন্ট কার্ড (Deep Purple) */
+.stat-card.loyalty-points {
+    background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+    border: 1px solid #e9d5ff;
+}
+
+/* HTML এর ক্লাসের সাথে মিলিয়ে প্রিমিয়াম কালার প্য়ালেট */
+.stat-icon-blue { background-color: #eff6ff; color: #3b82f6; }
+.stat-icon-orange { background-color: #fff7ed; color: #f97316; }
+.stat-icon-green { background-color: #ecfdf5; color: #10b981; }
+.stat-icon-purple { background-color: #faf5ff; color: #a855f7; }
+
+#stat-total-orders { background-color: #eff6ff; color: #3b82f6; }
+#stat-pending-orders { background-color: #fff7ed; color: #f97316; }
+#stat-wallet-balance { background-color: #ecfdf5; color: #10b981; }
+#stat-loyalty-points { background-color: #faf5ff; color: #a855f7; }
+
+
+.stat-info {
+    width: 100%;
+}
 
 .stat-info h3 {
-    font-size: 1.8rem;
+    font-size: 1.6rem;
     font-weight: 800;
     margin-bottom: 0.2rem;
-    color: var(--text-main);
+    color: var(--text-main, #1e293b);
+    line-height: 1.2;
 }
 
 .stat-info p {
-    font-size: 0.9rem;
-    color: var(--text-muted);
+    font-size: 0.85rem;
+    color: var(--text-muted, #64748b);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    margin: 0;
 }
+
+/* =================================================================
+   📱 মোবাইল রেসপন্সিভ কোয়েরি (Mobile View Optimization)
+   ================================================================= */
+
+/* ট্যাবলেট এবং ল্যাপটপ স্ক্রিনের জন্য (Max-width: 992px) */
+@media (max-width: 992px) {
+    .dashboard-stats-grid {
+        gap: 1rem;
+    }
+    .stat-card {
+        padding: 1.2rem 1rem;
+        flex-direction: column; /* আইকন এবং টেক্সট উপর-নিচ করে দিবে */
+        text-align: center;
+        gap: 10px;
+    }
+    .stat-info h3 { font-size: 1.4rem; }
+    .stat-info p { font-size: 0.75rem; }
+}
+
+/* বড় সাইজ মোবাইল স্ক্রিনের জন্য (Max-width: 768px) */
+@media (max-width: 768px) {
+    .dashboard-stats-grid {
+        gap: 8px; /* কার্ডের মাঝের গ্যাপ কমিয়ে দেওয়া হলো */
+        margin-bottom: 1.5rem;
+    }
+    .stat-card {
+        padding: 6px; /* প্যাডিং কমানো হলো */
+        border-radius: 12px;
+    }
+    .stat-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        font-size: 1.1rem;
+    }
+    .stat-info h3 {
+        font-size: 1.1rem; /* টাকার এমাউন্ট যেন এটে যায় */
+    }
+    .stat-info p {
+        font-size: 0.65rem;
+        letter-spacing: 0;
+        line-height: 1.1;
+    }
+    
+    /* টেবিলটিকে মোবাইলের জন্য মানানসই করা */
+    .orders-table th, .orders-table td {
+        padding: 3px;
+        font-size: 0.85rem;
+    }
+
+
+}
+
+
+
+
+/* সবচেয়ে ছোট মোবাইল স্ক্রিনের জন্য (Max-width: 400px - iPhone SE, etc.) */
+@media (max-width: 400px) {
+    .dashboard-stats-grid {
+        gap: 5px;
+    }
+    .stat-card {
+        padding: 4px;
+        border-radius: 10px;
+        gap: 6px;
+    }
+    .stat-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+    }
+    .stat-info h3 {
+        font-size: 0.95rem; /* ছোট স্ক্রিনে ফন্ট আরও কমানো হলো */
+    }
+    .stat-info p {
+        font-size: 0.55rem;
+        word-break: break-word; /* লেখা বড় হলে ভেঙে নিচে নামবে, কার্ড ভাঙবে না */
+    }
+    
+    .orders-table th, .orders-table td {
+        padding: 8px 5px;
+        font-size: 0.75rem;
+    }
+}
+
 
 /* =================================================================
    ৬. গ্লোবাল কার্ড এবং ফর্ম ডিজাইন (Forms, Inputs & Buttons)
@@ -990,14 +1117,14 @@ body {
     
     .main-content {
         margin-left: 0;
-        padding: 1.5rem;
+        padding: .8rem;
         width: 100%;
     }
 
     .content-header { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 2rem; }
     .content-header h2 { font-size: 1.5rem; }
     
-    .card { padding: 1.5rem; }
+    .card { padding: .6rem; }
     .form-grid { grid-template-columns: 1fr; }
     .input-group.full-width { grid-column: 1; }
     

@@ -14,6 +14,7 @@
 </head>
 <body>
 
+    
 <header class="sticky-navbar">
     <div class="nav-left">
         <button id="mobile-menu-toggle" class="mobile-toggle-btn" title="Open Menu">
@@ -34,13 +35,10 @@
         
         <div class="nav-profile-small-wrapper">
             <img id="nav-avatar" src="https://via.placeholder.com/40" alt="User" class="nav-user-avatar">
-            <label for="small-avatar-input" class="nav-upload-badge-small" title="Update Profile Picture">
-                <i class="fa-solid fa-camera"></i>
-            </label>
-            <input type="file" id="small-avatar-input" accept="image/*" hidden>
         </div>
     </div>
 </header>
+
 
 <div class="dashboard-container">
     
@@ -88,78 +86,80 @@
 
     <main class="main-content">
         
-        <section id="dashboard-overview" class="tab-content active">
-            <div class="content-header">
-                <h2>Welcome Back, <span class="user-display-name">User</span>!</h2>
-                <p>Here's your account overview and recent updates.</p>
-            </div>
 
-            <div class="dashboard-stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon stat-icon-blue"><i class="fa-solid fa-bag-shopping"></i></div>
-                    <div class="stat-info">
-                        <h3 id="stat-total-orders">0</h3>
-                        <p>Total Orders</p>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon stat-icon-orange"><i class="fa-solid fa-truck-ramp-box"></i></div>
-                    <div class="stat-info">
-                        <h3 id="stat-pending-orders">0</h3>
-                        <p>Pending Orders</p>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon stat-icon-green"><i class="fa-solid fa-money-bill-wave"></i></div>
-                    <div class="stat-info">
-                        <h3 id="stat-wallet-balance">৳0.00</h3>
-                        <p>Available Balance</p>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon stat-icon-purple"><i class="fa-solid fa-star"></i></div>
-                    <div class="stat-info">
-                        <h3 id="stat-loyalty-points">0</h3>
-                        <p>Loyalty Points</p>
-                    </div>
-                </div>
-            </div>
+    <section id="dashboard-overview" class="tab-content active">
+    <div class="content-header">
+        <h2>Welcome Back, <span class="user-display-name">User</span>!</h2>
+        <p>Here's your account overview and recent updates.</p>
+    </div>
 
-            <div class="card mt-20">
-                <h3><i class="fa-solid fa-clock-rotate-left primary-icon-color"></i> Recent Order Activity</h3>
-                <div class="table-responsive mt-15">
-                    <table class="orders-table">
-                        <thead>
-                            <tr>
-                                <th>Order ID</th>
-                                <th>Date</th>
-                                <th>Status</th>
-                                <th>Total Amount</th>
-                                <th class="text-center">Action</th>
-                                <th class="text-center">Track / Review</th> </tr>
-                        </thead>
-                        <tbody id="dashboard-orders-tbody">
-                            <tr>
-                                <td colspan="6" class="text-center p-20">
-                                    <i class="fa-solid fa-spinner fa-spin"></i> Loading recent activity...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+    <div class="dashboard-stats-grid">
+        <div class="stat-card total-orders">
+            <div class="stat-icon stat-icon-blue"><i class="fa-solid fa-bag-shopping"></i></div>
+            <div class="stat-info">
+                <h3 id="stat-total-orders">0</h3>
+                <p>Total Orders</p>
             </div>
+        </div>
+        <div class="stat-card pending-orders">
+            <div class="stat-icon stat-icon-orange"><i class="fa-solid fa-truck-ramp-box"></i></div>
+            <div class="stat-info">
+                <h3 id="stat-pending-orders">0</h3>
+                <p>Pending Orders</p>
+            </div>
+        </div>
+        <div class="stat-card available-balance">
+            <div class="stat-icon stat-icon-green"><i class="fa-solid fa-money-bill-wave"></i></div>
+            <div class="stat-info">
+                <h3 id="stat-wallet-balance">৳0.00</h3>
+                <p>Available Balance</p>
+            </div>
+        </div>
+        <div class="stat-card loyalty-points">
+            <div class="stat-icon stat-icon-purple"><i class="fa-solid fa-star"></i></div>
+            <div class="stat-info">
+                <h3 id="stat-loyalty-points">0</h3>
+                <p>Loyalty Points</p>
+            </div>
+        </div>
+    </div>
 
-            <div id="overview-skeleton" class="skeleton-container hidden">
-                <div class="skeleton-line title"></div>
-                <div class="skeleton-line paragraph"></div>
-                <div class="skeleton-card"></div>
-            </div>
+    <div class="card mt-20">
+        <h3><i class="fa-solid fa-clock-rotate-left primary-icon-color"></i> Recent Order Activity</h3>
+        <div class="table-responsive mt-15">
+            <table class="orders-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Total Amount</th>
+                        <th class="text-center">Action</th>
+                        <th class="text-center">Track / Review</th> 
+                    </tr>
+                </thead>
+                <tbody id="dashboard-orders-tbody">
+                    <tr>
+                        <td colspan="6" class="text-center p-20">
+                            <i class="fa-solid fa-spinner fa-spin"></i> Loading recent activity...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-            <div class="card basic-card mt-20">
-                <h3><i class="fa-solid fa-bullhorn primary-icon-color"></i> Latest Announcement</h3>
-                <p class="announcement-text mt-10">Enjoy Free Shipping on orders over ৳2000! Earn double loyalty points on every purchase this week.</p>
-            </div>
-        </section>
+    <div id="overview-skeleton" class="skeleton-container hidden">
+        <div class="skeleton-line title"></div>
+        <div class="skeleton-line paragraph"></div>
+        <div class="skeleton-card"></div>
+    </div>
+
+    <div class="card basic-card mt-20">
+        <h3><i class="fa-solid fa-bullhorn primary-icon-color"></i> Latest Announcement</h3>
+        <p class="announcement-text mt-10">Enjoy Free Shipping on orders over ৳2000! Earn double loyalty points on every purchase this week.</p>
+    </div>
+</section>
 
         <section id="my-orders" class="tab-content">
             <div class="content-header orders-header-wrapper">
