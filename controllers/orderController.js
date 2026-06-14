@@ -22,6 +22,9 @@ const createOrder = async (req, res) => {
         const items = req.body.items || req.body.orderItems || req.body.cart || [];
         const note = req.body.note || req.body.notes || '';
         
+        // 🟢 নতুন যুক্ত করা হলো: ফ্রন্টএন্ড থেকে পাঠানো পেমেন্ট মেথড ক্যাচ করা
+        const paymentMethod = req.body.paymentMethod || req.body.method || 'COD'; 
+        
         const orderId = req.body.orderId || 'ORD-' + Math.floor(100000 + Math.random() * 900000);
 
         if (!customerName || !customerPhone || !customerAddress) {
@@ -37,6 +40,7 @@ const createOrder = async (req, res) => {
             customerPhone,
             customerAddress,
             totalAmount,
+            paymentMethod, // 🟢 নতুন যুক্ত করা হলো: ডাটাবেজ মডেলে পাস করা
             items: Array.isArray(items) ? items : [],
             note,
             status: 'Pending',
@@ -174,7 +178,6 @@ const getDashboardStats = async (req, res) => {
         console.log("Logged In User ID:", req.user.id);
         const userId = req.user.id;
         
-        // 🌟 ফিক্স: sort যোগ করা হলো যাতে নতুন অর্ডারগুলো লিস্টের শুরুতে থাকে
         const orders = await Order.find({ user: userId }).sort({ createdAt: -1 });
         console.log("Orders found for user:", orders.length);
         
@@ -183,7 +186,6 @@ const getDashboardStats = async (req, res) => {
             o.status && o.status.toLowerCase() === 'pending'
         ).length;
         
-        // 🌟 ফিক্স: ড্যাশবোর্ডের টেবিলের জন্য সর্বশেষ ৪টি অর্ডার আলাদা করা হলো
         const recentOrders = orders.slice(0, 4);
         
         res.json({ 
@@ -192,13 +194,13 @@ const getDashboardStats = async (req, res) => {
             pendingOrders: pendingOrders, 
             balance: 0, 
             loyaltyPoints: 0,
-            recentOrders: recentOrders, // 🌟 ফ্রন্টএন্ড টেবিলের জন্য ডাটা পাঠানো হলো
+            recentOrders: recentOrders, 
             data: {
                 totalOrders: totalOrders,
                 pendingOrders: pendingOrders,
                 balance: 0,
                 loyaltyPoints: 0,
-                recentOrders: recentOrders // 🌟 নেস্টেড অবজেক্টেও দিয়ে দিলাম সেফটির জন্য
+                recentOrders: recentOrders 
             }
         });
 
@@ -207,8 +209,6 @@ const getDashboardStats = async (req, res) => {
         res.status(500).json({ success: false, message: "Stats load failed" });
     }
 };
-
-
 
 module.exports = { 
     createOrder, 
@@ -220,6 +220,7 @@ module.exports = {
     trackOrder,
     getDashboardStats,
 };
+
 
 
 

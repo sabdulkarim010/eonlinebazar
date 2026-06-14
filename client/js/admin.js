@@ -608,6 +608,11 @@ window.viewInvoice = function(orderId) {
     document.getElementById('invCustomerName').innerText = order.customerName || 'N/A';
     document.getElementById('invCustomerPhone').innerText = order.customerPhone || 'N/A';
     document.getElementById('invCustomerAddress').innerText = order.customerAddress || 'N/A';
+    
+    // 🟢 নতুন যুক্ত করা অংশ: ডাটাবেজ থেকে পেমেন্ট মেথড এবং নোট নিয়ে মডালে বসানো
+    document.getElementById('invPaymentMethod').innerText = order.paymentMethod ? order.paymentMethod : "COD";
+    document.getElementById('invNote').innerText = order.note && order.note.trim() !== "" ? order.note : "No note provided";
+
     document.getElementById('invTotalAmount').innerText = `৳ ${order.totalAmount || 0}`;
 
     // আইটেম লিস্ট জেনারেট করা

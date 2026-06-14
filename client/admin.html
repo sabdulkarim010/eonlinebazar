@@ -593,30 +593,37 @@
 
 <!-- Live order invoice Modal -->
 
-    <div id="invoiceModal" class="invoice-modal-overlay" style="display: none;">
-        <div class="invoice-modal-card">
-            <button class="close-modal-btn no-print" onclick="closeInvoiceModal()">&times;</button>
-            <div class="invoice-header">
-                <h2>EonlineBazar</h2>
-                <p>Official Invoice</p>
-            </div>
-            <div class="invoice-info-box">
-                <p><b>Order ID:</b> <span id="invOrderId"></span></p>
-                <p><b>Customer:</b> <span id="invCustomerName"></span></p>
-                <p><b>Phone:</b> <span id="invCustomerPhone"></span></p>
-                <p><b>Address:</b> <span id="invCustomerAddress"></span></p>
-            </div>
-            <div class="invoice-details-section">
-                <h4>Order Details</h4>
-                <div id="invItemsList" class="invoice-items-list"></div>
-            </div>
-            <div class="invoice-total-box">
-                <span>Total Amount</span>
-                <b id="invTotalAmount"></b>
-            </div>
-            <button class="btn-print no-print" onclick="window.print()"><i class="fa-solid fa-print"></i> Print Invoice</button>
+<div id="invoiceModal" class="invoice-modal-overlay" style="display: none;">
+    <div class="invoice-modal-card">
+        <button class="close-modal-btn no-print" onclick="closeInvoiceModal()">&times;</button>
+        <div class="invoice-header">
+            <h2>EonlineBazar</h2>
+            <p>Official Invoice</p>
         </div>
+        <div class="invoice-info-box">
+            <p><b>Order ID:</b> <span id="invOrderId"></span></p>
+            <p><b>Customer:</b> <span id="invCustomerName"></span></p>
+            <p><b>Phone:</b> <span id="invCustomerPhone"></span></p>
+            <p><b>Address:</b> <span id="invCustomerAddress"></span></p>
+            
+            <p><b>Payment Method:</b> <span id="invPaymentMethod" style="color: #2563eb; font-weight: 600;"></span></p>
+            <p><b>Courier Note:</b> <span id="invNote"></span></p>
+        </div>
+        <div class="invoice-details-section">
+            <h4>Order Details</h4>
+            <div id="invItemsList" class="invoice-items-list"></div>
+        </div>
+        <div class="invoice-total-box">
+            <span>Total Amount</span>
+            <b id="invTotalAmount"></b>
+        </div>
+        <button class="btn-print no-print" onclick="window.print()"><i class="fa-solid fa-print"></i> Print Invoice</button>
     </div>
+</div>
+
+
+
+
 
     <div id="toastContainer" class="toast-container"></div>
 
