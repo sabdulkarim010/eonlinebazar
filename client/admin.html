@@ -40,6 +40,10 @@
                     <li data-target="view-manage-products"><i class="fa-solid fa-boxes-stacked"></i> Manage Products</li>
                     <li data-target="view-security"><i class="fa-solid fa-shield-halved"></i> Security Logs</li>
                     <li data-target="view-settings"><i class="fa-solid fa-gear"></i> Admin Settings</li>
+
+                    <li data-target="manage-category"><i class="fa-solid fa-tags"></i> Manage Categories</li>
+                    
+
                 </ul>
             </nav>
 
@@ -244,6 +248,39 @@
 
 <!-- =====================================Add products Start ============================================-->
 
+<section id="manage-category" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <h3>Manage Categories</h3>
+    </div>
+    <div class="form-container" style="margin-bottom: 20px;">
+        <div class="form-row-custom" style="align-items: flex-end;">
+            <div class="form-group" style="flex: 1;">
+                <label>New Category Name</label>
+                <input type="text" id="newCategoryName" placeholder="e.g., Smart Phones">
+            </div>
+            <div class="form-group" style="flex: 0 0 auto;">
+                <button type="button" onclick="addCategory()" class="btn-submit" style="margin-top: 0;">
+                    <i class="fa-solid fa-plus"></i> Add Category
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Category Name</th>
+                    <th>Date Added</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="categoryTableBody">
+                </tbody>
+        </table>
+    </div>
+</section>
+
 <section id="view-add-product" class="admin-section" style="display: none;">
     <div class="section-header-box">
         <h3>Add New Product</h3>
@@ -273,9 +310,7 @@
                 <div class="form-group">
                     <label>Category</label>
                     <select id="prodCategory">
-                        <option value="Grocery">Grocery</option>
-                        <option value="Electronics">Electronics</option>
-                        <option value="Fashion">Fashion</option>
+                        <option value="" disabled selected>Loading Categories...</option>
                     </select>
                 </div>
             </div>

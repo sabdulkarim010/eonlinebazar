@@ -19,6 +19,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const adminRoutes = require('./routes/adminRoutes'); 
 const userRoutes = require('./routes/userRoutes'); 
 const cartRoutes = require ('./routes/cartRoutes');
+const categoryRoutes = require('./routes/categoryRoutes'); 
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -65,6 +66,8 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/customer', userRoutes);  
 app.use('/api/cart',cartRoutes);
+app.use('/api/categories', categoryRoutes);
+
 
 /********************************************************************
  # FRONTEND UI ROUTES (ক্লিন ইউআরএল লজিক)

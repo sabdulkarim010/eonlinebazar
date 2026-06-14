@@ -725,6 +725,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
+
+
+
+
 /* ==========================================================================
    SECTION 8: ADD NEW PRODUCT ENGINE (নতুন প্রোডাক্ট আপলোড মডিউল)
    ========================================================================== */
@@ -791,7 +795,7 @@ window.removeAddImage = function(index) {
 
 /**
  * ৮.৫: ব্যাকএন্ড ক্লাউড সার্ভারে নতুন প্রোডাক্ট ডাটা এবং ইমেজ আপলোড করা
- * এতে Detailed Description এবং Highlights এর মতো আধুনিক ফিল্ড অন্তর্ভুক্ত রয়েছে
+ * এতে Detailed Description, Highlights এবং Dynamic Category ফিল্ড অন্তর্ভুক্ত রয়েছে
  */
 window.uploadProduct = async function() {
     const id = document.getElementById('prodId').value.trim();
@@ -808,8 +812,8 @@ window.uploadProduct = async function() {
     
     const files = document.getElementById('prodImageFile').files; 
 
-    // ডাটা ভ্যালিডেশন চেক
-    if (!name || !id || !price || !stock) return showToast("Required fields missing!", "warning");
+    // ডাটা ভ্যালিডেশন চেক (নতুন: ক্যাটাগরি সিলেক্ট করা হয়েছে কি না চেক করা)
+    if (!name || !id || !price || !stock || !category) return showToast("Required fields missing or Category not selected!", "warning");
     if (!emoji && files.length === 0) return showToast("Provide an Emoji or Image!", "warning");
 
     // বাটন লোডিং স্টেট অ্যানিমেশন চালু
@@ -848,7 +852,7 @@ window.uploadProduct = async function() {
     try {
         const res = await fetch('/api/products', { 
             method: 'POST', 
-            headers: { 'Authorization': `Bearer ${token}` },
+            headers: { 'Authorization': `Bearer ${token}` }, // token গ্লোবাল ভেরিয়েবল হিসেবে থাকা লাগবে
             body: formData 
         });
         const result = await res.json();
@@ -862,8 +866,8 @@ window.uploadProduct = async function() {
             document.getElementById('prodImageFile').files = selectedFilesAdd.files;
             renderAddPreviews();
             
-            // প্রোডাক্ট লিস্ট লাইভ আপডেট করা
-            fetchLiveProducts();
+            // প্রোডাক্ট লিস্ট লাইভ আপডেট করা (যদি ফাংশনটি এভেইলেবল থাকে)
+            if (typeof fetchLiveProducts === "function") fetchLiveProducts();
         } else {
             showToast("Upload failed: " + (result.message || "Unknown error"), "error");
         }
@@ -874,6 +878,198 @@ window.uploadProduct = async function() {
         if (btn && btn.tagName === 'BUTTON') { btn.disabled = false; btn.innerHTML = originalText; } 
     }
 };
+
+
+
+
+/* ==========================================================================
+   SECTION 9: DYNAMIC CATEGORY ENGINE (ডাইনামিক ক্যাটাগরি মডিউল - আপডেট)
+   ========================================================================== */
+
+// ৯.১: গ্লোবাল ক্যাটাগরি লিস্ট সংরক্ষণের জন্য অ্যারে
+let globalCategories = [];
+
+/**
+ * ৯.২: ডাটাবেজ (API) থেকে সব ক্যাটাগরি ফেচ করে আনা
+ */
+async function fetchCategories() {
+    try {
+        const response = await fetch('/api/categories');
+        const data = await response.json();
+        if (data.success) {
+            globalCategories = data.data;
+            renderCategoryDropdown();
+            renderCategoryTable();
+        }
+    } catch (error) {
+        console.error("🔴 Category load error:", error);
+    }
+}
+
+/**
+ * ৯.৩: প্রোডাক্ট আপলোড ফর্মের ক্যাটাগরি ড্রপডাউনে ডাটা পপুলেট (Populate) করা
+ */
+function renderCategoryDropdown() {
+    const dropdown = document.getElementById('prodCategory');
+    if (!dropdown) return;
+    
+    // ডিফল্ট অপশন সেট করা
+    dropdown.innerHTML = '<option value="" disabled selected>Select a Category</option>';
+    
+    // গ্লোবাল ক্যাটাগরি লুপ চালিয়ে অপশন যুক্ত করা
+    globalCategories.forEach(cat => {
+        dropdown.innerHTML += `<option value="${cat.name}">${cat.name}</option>`;
+    });
+}
+
+/**
+ * ৯.৪: অ্যাডমিন প্যানেলের ম্যানেজমেন্ট টেবিলে ক্যাটাগরির লিস্ট রেন্ডার করা (এডিট বাটন সহ)
+ */
+function renderCategoryTable() {
+    const tbody = document.getElementById('categoryTableBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    // ডাটাবেজে কোনো ক্যাটাগরি না থাকলে মেসেজ দেখানো
+    if (globalCategories.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="loading-cell" style="text-align: center; padding: 15px;">No categories found. Add one above!</td></tr>';
+        return;
+    }
+
+    // ডাটা রেন্ডার করা
+    globalCategories.forEach(cat => {
+        const dateObj = new Date(cat.createdAt);
+        const dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        
+        tbody.innerHTML += `
+            <tr>
+                <td><b>${cat.name}</b></td>
+                <td>${dateStr}</td>
+                <td class="col-actions">
+                    <button class="page-nav-btn" onclick="editCategory('${cat._id}', '${cat.name}')" title="Edit Category" style="color: #3b82f6; border: 1px solid #3b82f6; margin-right: 5px;">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                    <button class="page-nav-btn" onclick="deleteCategory('${cat._id}')" title="Delete Category" style="color: #ef4444; border: 1px solid #ef4444;">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+/**
+ * ৯.৫: নতুন ক্যাটাগরি তৈরি করে ডাটাবেজে সেভ করা
+ */
+window.addCategory = async function() {
+    const nameInput = document.getElementById('newCategoryName');
+    const name = nameInput.value.trim();
+    
+    if (!name) return showToast("Please enter a category name!", "warning");
+
+    try {
+        const res = await fetch('/api/categories', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify({ name })
+        });
+        const result = await res.json();
+        
+        if (result.success) {
+            showToast(result.message || "Category added successfully!", "success");
+            nameInput.value = '';
+            fetchCategories(); // লিস্ট ও ড্রপডাউন লাইভ রিফ্রেশ করা
+        } else {
+            showToast(result.message, "error");
+        }
+    } catch (error) {
+        showToast("Server error while adding category!", "error");
+    }
+};
+
+/**
+ * ৯.৬: বিদ্যমান ক্যাটাগরির নাম এডিট (আপডেট) করা
+ * @param {string} id - ক্যাটাগরির ইউনিক মঙ্গোডিবি অবজেক্ট আইডি
+ * @param {string} currentName - ক্যাটাগরির বর্তমান নাম
+ */
+window.editCategory = async function(id, currentName) {
+    const newName = prompt("Update Category Name:", currentName);
+    
+    // যদি ইউজার ক্যান্সেল করে বা নাম পরিবর্তন না করে, তাহলে কিছু হবে না
+    if (!newName || newName.trim() === "" || newName.trim() === currentName) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/categories/${id}`, {
+            method: 'PUT',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify({ name: newName.trim() })
+        });
+        const result = await res.json();
+        
+        if (result.success) {
+            showToast("Category updated successfully!", "success");
+            fetchCategories(); // ডাটা আপডেট হওয়ার পর লাইভ রিফ্রেশ
+        } else {
+            showToast(result.message || "Failed to update category", "error");
+        }
+    } catch (error) {
+        showToast("Server error while updating category!", "error");
+    }
+};
+
+/**
+ * ৯.৭: নির্দিষ্ট একটি ক্যাটাগরি ডাটাবেজ থেকে ডিলিট করা
+ * @param {string} id - ক্যাটাগরির ইউনিক মঙ্গোডিবি অবজেক্ট আইডি
+ */
+window.deleteCategory = async function(id) {
+    if (confirm("Are you sure you want to delete this category?")) {
+        try {
+            const res = await fetch(`/api/categories/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await res.json();
+            
+            if (result.success) {
+                showToast(result.message || "Category deleted!", "success");
+                fetchCategories(); // লিস্ট ও ড্রপডাউন লাইভ রিফ্রেশ করা
+            } else {
+                showToast(result.message, "error");
+            }
+        } catch (error) {
+            showToast("Failed to delete category", "error");
+        }
+    }
+};
+
+// ৯.৮: অ্যাডমিন প্যানেল (বা পেজ) লোড হওয়ার সাথে সাথেই ক্যাটাগরিগুলো ফেচ করা
+document.addEventListener('DOMContentLoaded', () => {
+    fetchCategories();
+});
+
+
+
+
+/*-------------------------------------------------------------------------------------------*/
+
+
+
+
+
+
+
+
+
+
 
 
 /* ==========================================================================
