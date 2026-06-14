@@ -898,7 +898,7 @@ async function fetchCategories() {
         const data = await response.json();
         if (data.success) {
             globalCategories = data.data;
-            renderCategoryDropdown();
+            renderCategoryDropdown(); // এটি এখন ৩টি ড্রপডাউনই একসাথে ডাইনামিকালি আপডেট করবে
             renderCategoryTable();
         }
     } catch (error) {
@@ -907,19 +907,29 @@ async function fetchCategories() {
 }
 
 /**
- * ৯.৩: প্রোডাক্ট আপলোড ফর্মের ক্যাটাগরি ড্রপডাউনে ডাটা পপুলেট (Populate) করা
+ * ৯.৩: প্রোডাক্ট আপলোড ফর্ম, ফিল্টার এবং এডিট মোডালের ক্যাটাগরি ড্রপডাউনে ডাটা পপুলেট (Populate) করা
+ */
+/**
+ * ৯.৩: প্রোডাক্ট আপলোড ফর্ম এবং এডিট মোডালের ক্যাটাগরি ড্রপডাউনে ডাটা পপুলেট (Populate) করা
  */
 function renderCategoryDropdown() {
-    const dropdown = document.getElementById('prodCategory');
-    if (!dropdown) return;
-    
-    // ডিফল্ট অপশন সেট করা
-    dropdown.innerHTML = '<option value="" disabled selected>Select a Category</option>';
-    
-    // গ্লোবাল ক্যাটাগরি লুপ চালিয়ে অপশন যুক্ত করা
-    globalCategories.forEach(cat => {
-        dropdown.innerHTML += `<option value="${cat.name}">${cat.name}</option>`;
-    });
+    // [ক] নতুন প্রোডাক্ট আপলোড ফর্মের ড্রপডাউন (#prodCategory)
+    const prodDropdown = document.getElementById('prodCategory');
+    if (prodDropdown) {
+        prodDropdown.innerHTML = '<option value="" disabled selected>Select a Category</option>';
+        globalCategories.forEach(cat => {
+            prodDropdown.innerHTML += `<option value="${cat.name}">${cat.name}</option>`;
+        });
+    }
+
+    // [গ] প্রোডাক্ট এডিট মোডালের ড্রপডাউন (#editProdCategory)
+    const editDropdown = document.getElementById('editProdCategory');
+    if (editDropdown) {
+        editDropdown.innerHTML = '<option value="" disabled>Select a Category</option>';
+        globalCategories.forEach(cat => {
+            editDropdown.innerHTML += `<option value="${cat.name}">${cat.name}</option>`;
+        });
+    }
 }
 
 /**
@@ -931,13 +941,11 @@ function renderCategoryTable() {
     
     tbody.innerHTML = '';
     
-    // ডাটাবেজে কোনো ক্যাটাগরি না থাকলে মেসেজ দেখানো
     if (globalCategories.length === 0) {
         tbody.innerHTML = '<tr><td colspan="3" class="loading-cell" style="text-align: center; padding: 15px;">No categories found. Add one above!</td></tr>';
         return;
     }
 
-    // ডাটা রেন্ডার করা
     globalCategories.forEach(cat => {
         const dateObj = new Date(cat.createdAt);
         const dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -982,7 +990,7 @@ window.addCategory = async function() {
         if (result.success) {
             showToast(result.message || "Category added successfully!", "success");
             nameInput.value = '';
-            fetchCategories(); // লিস্ট ও ড্রপডাউন লাইভ রিফ্রেশ করা
+            fetchCategories(); // লিস্ট ও ড্রপডাউনগুলো লাইভ রিফ্রেশ করা
         } else {
             showToast(result.message, "error");
         }
@@ -993,13 +1001,10 @@ window.addCategory = async function() {
 
 /**
  * ৯.৬: বিদ্যমান ক্যাটাগরির নাম এডিট (আপডেট) করা
- * @param {string} id - ক্যাটাগরির ইউনিক মঙ্গোডিবি অবজেক্ট আইডি
- * @param {string} currentName - ক্যাটাগরির বর্তমান নাম
  */
 window.editCategory = async function(id, currentName) {
     const newName = prompt("Update Category Name:", currentName);
     
-    // যদি ইউজার ক্যান্সেল করে বা নাম পরিবর্তন না করে, তাহলে কিছু হবে না
     if (!newName || newName.trim() === "" || newName.trim() === currentName) {
         return;
     }
@@ -1017,7 +1022,7 @@ window.editCategory = async function(id, currentName) {
         
         if (result.success) {
             showToast("Category updated successfully!", "success");
-            fetchCategories(); // ডাটা আপডেট হওয়ার পর লাইভ রিফ্রেশ
+            fetchCategories(); 
         } else {
             showToast(result.message || "Failed to update category", "error");
         }
@@ -1028,7 +1033,6 @@ window.editCategory = async function(id, currentName) {
 
 /**
  * ৯.৭: নির্দিষ্ট একটি ক্যাটাগরি ডাটাবেজ থেকে ডিলিট করা
- * @param {string} id - ক্যাটাগরির ইউনিক মঙ্গোডিবি অবজেক্ট আইডি
  */
 window.deleteCategory = async function(id) {
     if (confirm("Are you sure you want to delete this category?")) {
@@ -1041,7 +1045,7 @@ window.deleteCategory = async function(id) {
             
             if (result.success) {
                 showToast(result.message || "Category deleted!", "success");
-                fetchCategories(); // লিস্ট ও ড্রপডাউন লাইভ রিফ্রেশ করা
+                fetchCategories(); 
             } else {
                 showToast(result.message, "error");
             }
@@ -1051,7 +1055,7 @@ window.deleteCategory = async function(id) {
     }
 };
 
-// ৯.৮: অ্যাডমিন প্যানেল (বা পেজ) লোড হওয়ার সাথে সাথেই ক্যাটাগরিগুলো ফেচ করা
+// ৯.৮: অ্যাডমিন প্যানেল লোড হওয়ার সাথে সাথেই ক্যাটাগরিগুলো ফেচ করা
 document.addEventListener('DOMContentLoaded', () => {
     fetchCategories();
 });
@@ -1073,14 +1077,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 /* ==========================================================================
-   SECTION 9: MANAGE PRODUCTS ENGINE (প্রোডাক্ট তালিকা ও মাল্টি-ফিল্টারিং)
+   SECTION 10: MANAGE PRODUCTS ENGINE (প্রোডাক্ট তালিকা ও মাল্টি-ফিল্টারিং)
    ========================================================================== */
 
 let currentSort = { key: 'productId', asc: false }; // ডিফল্ট সোর্টিং স্টেট
 let selectedProductIds = new Set();               // বাল্ক ডিলিটের জন্য চেক করা আইডি সেট
 
 /**
- * ৯.১: ক্লাউড ডাটাবেজ থেকে সকল প্রোডাক্ট ডাটা লাইভ সিঙ্ক করা
+ * ১০.১: ক্লাউড ডাটাবেজ থেকে সকল প্রোডাক্ট ডাটা লাইভ সিঙ্ক করা
  */
 window.fetchLiveProducts = async function() {
     if (!prodTableBody) return;
@@ -1096,6 +1100,9 @@ window.fetchLiveProducts = async function() {
         const totalBadge = document.getElementById('total-products-badge');
         if (totalBadge) totalBadge.innerText = `Total: ${globalProducts.length}`;
         
+        // 🌟 নতুন সংযোজন: প্রোডাক্ট থেকে ইউনিক ক্যাটাগরি বের করে ফিল্টার ড্রপডাউন আপডেট করা
+        updateFilterCategoryDropdown();
+
         // ডাটা আসার পর ফিল্টার এবং সর্ট ইঞ্জিন রান করা
         filterAndRenderProducts(); 
     } catch (e) { 
@@ -1104,7 +1111,32 @@ window.fetchLiveProducts = async function() {
 };
 
 /**
- * ৯.২: সার্চ কি-ওয়ার্ড, ক্যাটাগরি, স্টক স্ট্যাটাস ও প্রাইস রেঞ্জ অনুযায়ী প্রোডাক্ট ফিল্টারিং
+ * 🌟 নতুন ফাংশন: শুধুমাত্র এক্সিস্টিং প্রোডাক্টের ক্যাটাগরি দিয়ে ফিল্টার ড্রপডাউন আপডেট করা
+ */
+function updateFilterCategoryDropdown() {
+    const filterDropdown = document.getElementById('filterCategory');
+    if (!filterDropdown) return;
+
+    const currentFilterValue = filterDropdown.value || 'All'; // ইউজারের বর্তমান সিলেকশন ধরে রাখার জন্য
+
+    // প্রোডাক্ট লিস্ট থেকে ইউনিক ক্যাটাগরি বের করা (ফাঁকা বা নাল ক্যাটাগরি বাদ দিয়ে)
+    const uniqueCategories = [...new Set(globalProducts.map(p => p.category).filter(c => c && c.trim() !== ''))];
+
+    filterDropdown.innerHTML = '<option value="All">All Categories</option>';
+    uniqueCategories.forEach(cat => {
+        filterDropdown.innerHTML += `<option value="${cat}">${cat}</option>`;
+    });
+
+    // রেন্ডার শেষে আগের সিলেক্টেড ফিল্টার ফিরিয়ে আনা (যদি সেই ক্যাটাগরির প্রোডাক্ট এখনো লিস্টে থাকে)
+    if (uniqueCategories.includes(currentFilterValue)) {
+        filterDropdown.value = currentFilterValue;
+    } else {
+        filterDropdown.value = 'All';
+    }
+}
+
+/**
+ * ১০.২: সার্চ কি-ওয়ার্ড, ক্যাটাগরি, স্টক স্ট্যাটাস ও প্রাইস রেঞ্জ অনুযায়ী প্রোডাক্ট ফিল্টারিং
  */
 window.filterAndRenderProducts = function() {
     const search = (document.getElementById('searchProduct') ? document.getElementById('searchProduct').value : '').toLowerCase();
@@ -1153,7 +1185,7 @@ window.filterAndRenderProducts = function() {
 };
 
 /**
- * ৯.৩: কলাম হেডারে ক্লিক করলে ডাইনামিক সর্ট টগল করার ফাংশন
+ * ১০.৩: কলাম হেডারে ক্লিক করলে ডাইনামিক সর্ট টগল করার ফাংশন
  * @param {string} key - যে অবজেক্ট প্রোপার্টি অনুযায়ী সর্ট হবে (price, stock ইত্যাদি)
  */
 window.handleSort = function(key) {
@@ -1168,7 +1200,7 @@ window.handleSort = function(key) {
 
 
 /* ==========================================================================
-   SECTION 9.1: PRODUCT TABLE RENDERING (টেবিল রেন্ডার ও স্টক অ্যালার্ট)
+   SECTION 10.1: PRODUCT TABLE RENDERING (টেবিল রেন্ডার ও স্টক অ্যালার্ট)
    ========================================================================== */
 
 window.changePageSize = function() {
@@ -1177,7 +1209,7 @@ window.changePageSize = function() {
 };
 
 /**
- * ৯.৪: প্রোডাক্ট ডাটা টেবিল জেনারেটর এবং কন্ডিশনাল স্টক ব্যাজ বাইন্ডিং
+ * ১০.৪: প্রোডাক্ট ডাটা টেবিল জেনারেটর এবং কন্ডিশনাল স্টক ব্যাজ বাইন্ডিং
  */
 window.renderProductTable = function() {
     if (!prodTableBody) return;
@@ -1254,7 +1286,7 @@ window.renderProductTable = function() {
 };
 
 /**
- * ৯.৫: ডাইনামিক পেজিনেশন বাটন ট্র্যাকার ও জেনারেটর
+ * ১০.৫: ডাইনামিক পেজিনেশন বাটন ট্র্যাকার ও জেনারেটর
  * @param {number} totalPages - মোট প্রোডাক্ট পেজ সংখ্যা
  */
 function renderPaginationButtons(totalPages) {
@@ -1282,11 +1314,11 @@ window.goToPreviousPage = function() { if (currentPage > 1) { currentPage--; ren
 
 
 /* ==========================================================================
-   SECTION 9.2: BULK OPERATIONS & DATA EXPORT (CSV এক্সপোর্ট মডিউল)
+   SECTION 10.2: BULK OPERATIONS & DATA EXPORT (CSV এক্সপোর্ট মডিউল)
    ========================================================================== */
 
 /**
- * ৯.৬: টেবিলের সকল চেকবক্স একসাথে অন/অফ করা
+ * ১০.৬: টেবিলের সকল চেকবক্স একসাথে অন/অফ করা
  */
 window.toggleSelectAll = function(source) {
     const checkboxes = document.querySelectorAll('.row-checkbox');
@@ -1299,7 +1331,7 @@ window.toggleSelectAll = function(source) {
 };
 
 /**
- * ৯.৭: সিঙ্গেল আইটেম চেকবক্স সিলেক্ট করা
+ * ১০.৭: সিঙ্গেল আইটেম চেকবক্স সিলেক্ট করা
  */
 window.toggleSingleSelection = function(checkbox) {
     if (checkbox.checked) selectedProductIds.add(checkbox.value);
@@ -1316,7 +1348,7 @@ function updateBulkActionPanel() {
 }
 
 /**
- * ৯.৮: একাধিক সিলেক্টেড প্রোডাক্ট একসাথে এক ক্লিকে ডিলিট করার কোর ফাংশন
+ * ১০.৮: একাধিক সিলেক্টেড প্রোডাক্ট একসাথে এক ক্লিকে ডিলিট করার কোর ফাংশন
  */
 window.handleBulkDelete = function() {
     if (selectedProductIds.size === 0) return showToast("No products selected!", "warning");
@@ -1340,7 +1372,7 @@ window.handleBulkDelete = function() {
 };
 
 /**
- * ৯.৯: একক প্রোডাক্ট ডিলিট করার লজিক
+ * ১০.৯: একক প্রোডাক্ট ডিলিট করার লজিক
  */
 window.deleteProduct = (id) => {
     showCustomConfirm("Delete Product", "Permanently delete this product?", async () => {
@@ -1360,7 +1392,7 @@ window.deleteProduct = (id) => {
 };
 
 /**
- * ৯.১০: এক্সপোর্ট বাটন হ্যান্ডলার - সম্পূর্ণ ডাটাকে প্রফেশনাল CSV ফরম্যাটে ডাউনলোড করার সিস্টেম
+ * ১০.১০: এক্সপোর্ট বাটন হ্যান্ডলার - সম্পূর্ণ ডাটাকে প্রফেশনাল CSV ফরম্যাটে ডাউনলোড করার সিস্টেম
  */
 document.getElementById('btn-export-csv')?.addEventListener('click', () => {
     if (currentFilteredProducts.length === 0) return showToast("No data to export", "warning");
@@ -1389,13 +1421,13 @@ document.getElementById('btn-print-table')?.addEventListener('click', () => {
 
 
 /* ==========================================================================
-   SECTION 10: ADVANCED PRODUCT EDIT & LIVE PREVIEW ENGINE (এডিট মডিউল)
+   SECTION 11: ADVANCED PRODUCT EDIT & LIVE PREVIEW ENGINE (এডিট মডিউল)
    ========================================================================== */
 
 let selectedFilesEdit = new DataTransfer(); // এডিট মোডালের ইমেজ ট্র্যাকার
 
 /**
- * ১০.১: এডিট মডাল ওপেন করা এবং ফর্মে ডাইনামিক ডাটা ইনজেক্ট করা
+ * ১১.১: এডিট মডাল ওপেন করা এবং ফর্মে ডাইনামিক ডাটা ইনজেক্ট করা
  * @param {string} id - প্রোডাক্টের অবজেক্ট আইডি
  */
 window.editProduct = function(id) {
@@ -1422,7 +1454,13 @@ window.editProduct = function(id) {
     if (document.getElementById('editProdName')) document.getElementById('editProdName').value = product.name || '';
     if (document.getElementById('editProdPrice')) document.getElementById('editProdPrice').value = product.price || '';
     if (document.getElementById('editProdStock')) document.getElementById('editProdStock').value = product.stock || '';
-    if (document.getElementById('editProdCategory')) document.getElementById('editProdCategory').value = product.category || 'General';
+    
+    // 🌟 ক্যাটাগরি ড্রপডাউনটি রেন্ডার করে ভ্যালু সিলেক্ট করা (ডাটাবেজ ওরিয়েন্টেড সিকিউরড লক)
+    if (document.getElementById('editProdCategory')) {
+        renderCategoryDropdown(); // এডিট মোডাল ওপেন হওয়ার মুহূর্তেই অপশন লিস্ট রি-ফ্রেশ নিশ্চিত করা
+        document.getElementById('editProdCategory').value = product.category || '';
+    }
+    
     if (document.getElementById('editProdEmoji')) document.getElementById('editProdEmoji').value = product.icon || '📦';
     if (document.getElementById('editProdDesc')) document.getElementById('editProdDesc').value = product.description || '';
     
@@ -1451,7 +1489,7 @@ window.editProduct = function(id) {
 };
 
 /**
- * ১০.২: এডিট মোডাল বন্ধ ও রিসেট করা
+ * ১১.২: এডিট মোডাল বন্ধ ও রিসেট করা
  */
 window.closeEditModal = function() {
     const modal = document.getElementById('editProductModal');
@@ -1512,7 +1550,7 @@ window.removeEditImage = function(index) {
 };
 
 /**
- * ১০.৩: মডিফাইড ডাটা পুশ করে ক্লাউড ডাটাবেজে প্রোডাক্ট আপডেট সেভ করা
+ * ১১.৩: মডিফাইড ডাটা পুশ করে ক্লাউড ডাটাবেজে প্রোডাক্ট আপডেট সেভ করা
  */
 window.updateProductDetails = async function() {
     const mongoId = document.getElementById('editProdMongoId').value;
@@ -1593,11 +1631,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 /* ==========================================================================
-   SECTION 11: SECURITY LOGS (অ্যাডমিন প্যানেল অ্যাক্টিভিটি এবং লগ ট্র্যাকিং)
+   SECTION 12: SECURITY LOGS (অ্যাডমিন প্যানেল অ্যাক্টিভিটি এবং লগ ট্র্যাকিং)
    ========================================================================== */
 
 /**
- * ১১.১: সার্ভার থেকে অ্যাডমিন ও সিস্টেমের সিকিউরিটি লগস নিয়ে আসা
+ * ১২.১: সার্ভার থেকে অ্যাডমিন ও সিস্টেমের সিকিউরিটি লগস নিয়ে আসা
  */
 async function fetchSecurityLogs() {
     const logsBody = document.getElementById('securityLogsBody');
@@ -1646,11 +1684,11 @@ async function fetchSecurityLogs() {
 
 
 /* ==========================================================================
-   SECTION 12: ADMIN SETTINGS & SYSTEM INITIALIZATION (সেটিংস ও সিস্টেম বুট)
+   SECTION 13: ADMIN SETTINGS & SYSTEM INITIALIZATION (সেটিংস ও সিস্টেম বুট)
    ========================================================================== */
 
 /**
- * ১২.১: অ্যাডমিন প্রোফাইল পিকচার লাইভ প্রিভিউ ও সার্ভারে আপলোড
+ * ১৩.১: অ্যাডমিন প্রোফাইল পিকচার লাইভ প্রিভিউ ও সার্ভারে আপলোড
  * @param {Event} event - ফাইল ইনপুট ইভেন্ট
  */
 window.uploadAdminProfilePic = async function(event) {
@@ -1692,7 +1730,7 @@ window.uploadAdminProfilePic = async function(event) {
 };
 
 /**
- * ১২.২: অ্যাডমিন লগআউট প্রসেস
+ * ১৩.২: অ্যাডমিন লগআউট প্রসেস
  */
 window.logout = function() {
     showCustomConfirm("Logout", "Are you sure you want to securely log out of the admin panel?", () => {
@@ -1706,7 +1744,7 @@ window.logout = function() {
 };
 
 /**
- * ১২.৩: সিস্টেম இனிশিয়ালাইজেশন (SYSTEM BOOT)
+ * ১৩.৩: সিস্টেম இனிশিয়ালাইজেশন (SYSTEM BOOT)
  * ড্যাশবোর্ড লোড হওয়ার সাথে সাথে এই ফাংশনটি রান করে পুরো সিস্টেম সচল করবে
  */
 function initDashboard() {
@@ -1749,7 +1787,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 /* ==========================================================================
-   SECTION 13: SIDEBAR NAVIGATION (মেনু ট্যাব কন্ট্রোলার)
+   SECTION 14: SIDEBAR NAVIGATION (মেনু ট্যাব কন্ট্রোলার)
    ========================================================================== */
 
 function setupSidebarNavigation() {
@@ -1792,7 +1830,7 @@ function setupSidebarNavigation() {
 }
 
 /* ==========================================================================
-   SECTION 14: GLOBAL SEARCH BAR (টপ হেডারের সার্চ ইঞ্জিন)
+   SECTION 15: GLOBAL SEARCH BAR (টপ হেডারের সার্চ ইঞ্জিন)
    ========================================================================== */
 
 function setupGlobalSearch() {
@@ -1829,7 +1867,7 @@ function setupGlobalSearch() {
 }
 
 /* ==========================================================================
-   SECTION 15: SYNC DATA BUTTON (টপ হেডারের সিঙ্ক/রিফ্রেশ বাটন)
+   SECTION 16: SYNC DATA BUTTON (টপ হেডারের সিঙ্ক/রিফ্রেশ বাটন)
    ========================================================================== */
 
 function setupSyncButton() {
@@ -1861,7 +1899,7 @@ function setupSyncButton() {
 }
 
 /* ==========================================================================
-   SYSTEM INITIALIZATION (সব কন্ট্রোলার একসাথে চালু করা)
+  SECTION 17 SYSTEM INITIALIZATION (সব কন্ট্রোলার একসাথে চালু করা)
    ========================================================================== */
 
 // পেজ সম্পূর্ণ লোড হওয়ার পর আমাদের নতুন কন্ট্রোলারগুলো চালু হবে
@@ -1874,7 +1912,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 /* ==========================================================================
-   SECTION 17: Logout
+   SECTION 18: Logout
    ========================================================================== */
 
 // লগআউট হ্যান্ডলার
@@ -1898,7 +1936,7 @@ if (logoutBtn) {
 
 
 // =========================================================================
-// SECTION 18: 🌟 ADMIN PROFILE PICTURE & AUTO-REFRESH MANAGEMENT SYSTEM 🌟
+// SECTION 19: 🌟 ADMIN PROFILE PICTURE & AUTO-REFRESH MANAGEMENT SYSTEM 🌟
 // =========================================================================
 
 /**
