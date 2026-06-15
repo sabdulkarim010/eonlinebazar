@@ -7,7 +7,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     // =================================================================
-    // ১. গ্লোবাল ভেরিয়েবল এবং টোকেন ভেরিফিকেশন (Initialization & Security)
+    // ১. গ্লোবাল ভেরিয়েবল এবং টোকেন ভেরিফিকেশন (Initialization & Security)
     // =================================================================
     const token = localStorage.getItem('token') || localStorage.getItem('customerToken');
     
@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // --- সিলেক্টরস (এখানে আইডি সংশোধন করা হয়েছে) ---
+    // --- সিলেক্টরস (এখানে আইডি সংশোধন করা হয়েছে) ---
     const sidebarName = document.getElementById('sidebar-name');
     const sidebarEmail = document.getElementById('sidebar-email');
     const sidebarAvatar = document.getElementById('sidebar-avatar');
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabContents = document.querySelectorAll('.tab-content');
 
     // =================================================================
-    // ২. প্রিমিয়াম টোস্ট নোটিফিকেশন সিস্টেম (Advanced Toast System)
+    // ২. প্রিমিয়াম টোস্ট নোটিফিকেশন সিস্টেম (Advanced Toast System)
     // =================================================================
     function showToast(message, type = 'success') {
         let container = document.getElementById('toast-container');
@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =================================================================
-    // ৩. ডায়নামিক থিম সিস্টেম (Dark Mode Switcher)
+    // ৩. ডায়নামিক থিম সিস্টেম (Dark Mode Switcher)
     // =================================================================
     function initTheme() {
         const savedTheme = localStorage.getItem('eob_theme') || 'light';
@@ -99,13 +99,13 @@ document.addEventListener('DOMContentLoaded', () => {
     initTheme();
 
     // =================================================================
-    // ৪. মোবাইল ড্রয়ার টগল লজিক (Responsive Drawer)
+    // ৪. মোবাইল ড্রয়ার টগল লজিক (Responsive Drawer)
     // =================================================================
     if (mobileToggleBtn && sidebar) {
         mobileToggleBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             sidebar.classList.toggle('open');
-            console.log("৩-লাইন বাটনে ক্লিক হয়েছে, সাইডবার টগল করা হলো।"); // টেস্টিং এর জন্য
+            console.log("৩-লাইন বাটনে ক্লিক হয়েছে, সাইডবার টগল করা হলো।"); // টেস্টিং এর জন্য
         });
         
         document.addEventListener('click', (e) => {
@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     } else {
-        console.error("মোবাইল টগল বাটন অথবা সাইডবার এলিমেন্ট খুঁজে পাওয়া যায়নি!");
+        console.error("মোবাইল টগল বাটন অথবা সাইডবার এলিমেন্ট খুঁজে পাওয়া যায়নি!");
     }
 
     // =================================================================
@@ -140,12 +140,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-
-
-
-
     // =================================================================
-    // ৬. ইউজারের প্রোফাইল ডাটা ফেচ করা (Fetch Profile & Auto-Cache)
+    // ৬. ইউজারের প্রোфাইল ডাটা ফেচ করা (Fetch Profile & Auto-Cache)
     // =================================================================
     async function fetchUserProfile() {
         try {
@@ -163,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (sidebarName) sidebarName.textContent = data.name || 'User';
                 if (sidebarEmail) sidebarEmail.textContent = data.email || '';
                 
-                // সাইডবার এবং টপ নেভবার উভয় জায়গায় অবতার আপডেট
+                // সাইডবার এবং টপ নেভবার উভয় জায়গায় অবতার আপডেট
                 if (data.avatar) {
                     if (sidebarAvatar) sidebarAvatar.src = data.avatar;
                     if (navAvatar) navAvatar.src = data.avatar;
@@ -268,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
             } else {
-                console.error("সার্ভার রেসপন্স ওকে নয়:", rawData.message);
+                console.error("সার্ভার রেসপন্স ওকে নয়:", rawData.message);
             }
         } catch (error) {
             console.error('Error fetching dashboard stats:', error);
@@ -336,7 +332,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // =================================================================
+
+
+
+
+
+
+// =================================================================
     // ৮. প্রোফাইল ছবি/অবতার আপলোড লজিক (Avatar Upload & Preview)
     // =================================================================
     if (avatarInput) {
@@ -384,13 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-
-
-
-
-
-
-// =================================================================
+    // =================================================================
     // ৯. ইউজারের লাইভ অর্ডারসমূহ লোড করা (Fetch & Render Orders)
     // =================================================================
     async function fetchUserOrders() {
@@ -442,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const row = document.createElement('tr');
                     
                     row.innerHTML = `
-                        <td><a href="#" class="order-id-link">#${displayOrderId}</a></td>
+                        <td><a href="#" class="order-id-link" data-id="${order._id}">#${displayOrderId}</a></td>
                         <td>${orderDate}</td>
                         <td title="${productNames}">${productNames.length > 30 ? productNames.substring(0, 30) + '...' : productNames}</td>
                         <td style="font-weight:600; color:var(--primary-color);">৳${order.totalAmount || 0}</td>
@@ -459,8 +455,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ordersListTbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:var(--danger); padding:2rem;"><i class="fa-solid fa-server"></i> Server connection error.</td></tr>`;
         }
     }
-
-    
 
     // =================================================================
     // ১০. রিভিউ মডাল ও স্টার সাবমিশন লজিক (Review Modal & Rating)
@@ -532,7 +526,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =================================================================
-    // ১১. সিকিউরিটি এবং পাসওয়ার্ড আপডেট লজিক (Security & Password)
+    // ১১. সিকিউরিটি এবং পাসওয়ার্ড আপডেট লজিক (Security & Password)
     // =================================================================
     if (passwordForm) {
         passwordForm.addEventListener('submit', async (e) => {
@@ -599,9 +593,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-
-
-// =================================================================
+    // =================================================================
     // ১২. লগআউট হ্যান্ডেলার (Secure Logout System with Custom Modal)
     // =================================================================
     if (logoutBtn) {
@@ -648,7 +640,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // ক্যান্সেল বাটনে ক্লিক করলে
             document.getElementById('cancel-logout-btn').addEventListener('click', closeLogoutModal);
             
-            // মডালের বাইরের ফাঁকা জায়গায় ক্লিক করলে
+            // মডালের বাইরের ফাঁকা জায়গায় ক্লিক করলে
             overlay.addEventListener('click', (e) => {
                 if(e.target === overlay) closeLogoutModal();
             });
@@ -659,7 +651,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Logging out...';
                 confirmBtn.style.opacity = '0.8';
                 
-                // লোকাল স্টোরেজ ক্লিয়ার করা
+                // লোকাল স্টোরেজ ক্লিয়ার করা
                 localStorage.removeItem('token');
                 localStorage.removeItem('customerToken'); 
                 localStorage.removeItem('checkout_name');
@@ -677,17 +669,30 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-
     // =================================================================
-    // ১৩. ইনিশিয়াল ডাটা লোড (Initial Data Fetching)
+    // ১৩. ইনিশিয়াল ডাটা লোড (Initial Data Fetching)
     // =================================================================
     fetchUserProfile();
     fetchDashboardStats();
     fetchUserOrders(); 
 
-}); // <-- DOMContentLoaded এর শেষ ব্র্যাকেট
+
+// অর্ডার আইডিতে ক্লিক করলে ডিটেইলস পেজে নিয়ে যাওয়ার লজিক
+document.addEventListener('click', function(e) {
+    if (e.target && e.target.classList.contains('order-id-link')) {
+        e.preventDefault(); // ব্রাউজারের ডিফল্ট আচরণ (# যাওয়া) বন্ধ করবে
+        
+        const orderId = e.target.getAttribute('data-id');
+        
+        if (orderId) {
+            // এখানে আপনার অর্ডার ডিটেইলস পেজের পাথ দিন
+            window.location.href = `/order-details.html?id=${orderId}`;
+        }
+    }
+});
 
 
+});
 
 
 

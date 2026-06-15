@@ -22,7 +22,6 @@ const createOrder = async (req, res) => {
         const items = req.body.items || req.body.orderItems || req.body.cart || [];
         const note = req.body.note || req.body.notes || '';
         
-        // 🟢 নতুন যুক্ত করা হলো: ফ্রন্টএন্ড থেকে পাঠানো পেমেন্ট মেথড ক্যাচ করা
         const paymentMethod = req.body.paymentMethod || req.body.method || 'COD'; 
         
         const orderId = req.body.orderId || 'ORD-' + Math.floor(100000 + Math.random() * 900000);
@@ -40,7 +39,7 @@ const createOrder = async (req, res) => {
             customerPhone,
             customerAddress,
             totalAmount,
-            paymentMethod, // 🟢 নতুন যুক্ত করা হলো: ডাটাবেজ মডেলে পাস করা
+            paymentMethod, 
             items: Array.isArray(items) ? items : [],
             note,
             status: 'Pending',
@@ -79,11 +78,11 @@ const createOrder = async (req, res) => {
 
     } catch (err) {
         console.error("🔴 Order Save Error:", err);
-        res.status(500).json({ success: false, message: "অর্ডার প্রসেস করতে ব্যর্থ হয়েছে।", error: err.message });
+        res.status(500).json({ success: false, message: "অর্ডার প্রসেস করতে ব্যর্থ হয়েছে।", error: err.message });
     }
 };
 
-// ২. সব অর্ডার ডাটাবেজ থেকে নিয়ে আসা (অ্যাডমিন প্যানেলের জন্য)
+// ২. সব অর্ডার ডাটাবেজ থেকে নিয়ে আসা (অ্যাডমিন প্যানেলের জন্য)
 const getOrders = async (req, res) => {
     try {
         const orders = await Order.find().sort({ createdAt: -1 }); 
@@ -100,17 +99,24 @@ const getMyOrders = async (req, res) => {
         res.json({ success: true, data: myOrders });
     } catch (err) {
         console.error("Order Fetch Error:", err);
-        res.status(500).json({ success: false, message: "অর্ডার হিস্ট্রি লোড করতে ব্যর্থ হয়েছে।" });
+        res.status(500).json({ success: false, message: "অর্ডার হিস্ট্রি লোড করতে ব্যর্থ হয়েছে।" });
     }
 };
 
-// ৪. নির্দিষ্ট একটি অর্ডারের বিস্তারিত দেখা (অ্যাডমিন)
+// ৪. নির্দিষ্ট একটি অর্ডারের বিস্তারিত দেখা (🌟 সিকিউরিটি আপডেট করা হলো)
 const getOrderById = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id);
         if (!order) {
-            return res.status(404).json({ success: false, message: "Order not found!" });
+            return res.status(404).json({ success: false, message: "অর্ডারটি খুঁজে পাওয়া যায়নি!" });
         }
+        
+        // 🟢 [নতুন নিরাপত্তা চেক]: অর্ডারটি যদি কোনো ইউজারের অ্যাকাউন্টের অধীনে থাকে,
+        // তবে চেক করা হচ্ছে যে লগইন করা ইউজারই এই অর্ডারের মালিক কি না।
+        if (order.user && order.user.toString() !== req.user.id) {
+            return res.status(403).json({ success: false, message: "দুঃখিত, আপনি অন্য কারো অর্ডারের বিবরণ দেখতে পারবেন না।" });
+        }
+
         res.json({ success: true, data: order });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
@@ -175,11 +181,8 @@ const trackOrder = async (req, res) => {
 // ৮. ড্যাশবোর্ড স্ট্যাটাস সামারি (ইউজার ভিত্তিক লাইভ কাউন্ট)
 const getDashboardStats = async (req, res) => {
     try {
-        console.log("Logged In User ID:", req.user.id);
         const userId = req.user.id;
-        
         const orders = await Order.find({ user: userId }).sort({ createdAt: -1 });
-        console.log("Orders found for user:", orders.length);
         
         const totalOrders = orders.length;
         const pendingOrders = orders.filter(o => 
@@ -220,6 +223,8 @@ module.exports = {
     trackOrder,
     getDashboardStats,
 };
+
+
 
 
 

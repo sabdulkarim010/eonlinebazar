@@ -38,8 +38,6 @@ const verifyUser = (req, res, next) => {
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'eOnlineBazarSecretKey123'); 
         
-        // 🌟 নিশ্চিত করুন decoded অবজেক্টে id ফিল্ডটি আছে। 
-        // যদি টোকেন বানানোর সময় আইডি অন্য নামে সেভ করে থাকেন, তবে এখানে ঠিক করুন।
         req.user = { id: decoded.id || decoded._id || decoded.userId }; 
         next(); 
     } catch (err) {
@@ -48,7 +46,6 @@ const verifyUser = (req, res, next) => {
 };
 
 module.exports = { verifyAdmin, verifyUser };
-
 
 
 

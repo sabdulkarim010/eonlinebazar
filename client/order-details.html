@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Details | EOnlineBazar</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/order-details.css">
+</head>
+<body>
+
+    <div class="order-details-container">
+        <div class="header-section">
+            <a href="/profile.html" class="back-btn"><i class="fa-solid fa-arrow-left"></i> Back to Profile</a>
+            <h2>Order Details</h2>
+        </div>
+
+        <div id="loading-spinner" class="text-center">
+            <i class="fa-solid fa-spinner fa-spin"></i> Loading order details...
+        </div>
+
+        <div id="order-content" class="hidden">
+            
+            <div class="order-info-card">
+                <div class="info-header">
+                    <h3>Order <span id="order-id-display">#123456</span></h3>
+                    <span id="order-status" class="status-badge">Pending</span>
+                </div>
+                <p class="order-date">Placed on: <span id="order-date">Jan 01, 2026</span></p>
+            </div>
+
+            <div class="shipping-info-card">
+                <h3><i class="fa-solid fa-location-dot"></i> Shipping Information</h3>
+                <p><strong>Name:</strong> <span id="customer-name">Loading...</span></p>
+                <p><strong>Phone:</strong> <span id="customer-phone">Loading...</span></p>
+                <p><strong>Address:</strong> <span id="shipping-address">Loading...</span></p>
+            </div>
+
+            <div class="items-card">
+                <h3><i class="fa-solid fa-box-open"></i> Order Items</h3>
+                <div class="items-table-wrapper">
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Price</th>
+                                <th>Qty</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="order-items-container">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="summary-card">
+                <div class="summary-row">
+                    <span>Subtotal:</span>
+                    <span id="subtotal-amount">৳0.00</span>
+                </div>
+                <div class="summary-row">
+                    <span>Shipping Fee:</span>
+                    <span id="shipping-fee">৳0.00</span>
+                </div>
+                <hr>
+                <div class="summary-row total-row">
+                    <span>Total Amount:</span>
+                    <span id="total-amount">৳0.00</span>
+                </div>
+            </div>
+
+        </div> </div>
+
+    <script src="js/order-details.js"></script>
+</body>
+</html>

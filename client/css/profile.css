@@ -754,14 +754,30 @@ body {
     background-color: rgba(100, 116, 139, 0.02);
 }
 
+/* =================================================================
+   অর্ডার আইডি লিংক ডিজাইন আপডেট (Clickable Order ID)
+   ================================================================= */
 .order-id-link {
     color: var(--primary-color);
     font-weight: 700;
     text-decoration: none;
+    cursor: pointer; /* কার্সর পয়েন্টার করা হলো */
     transition: var(--transition-smooth);
+    padding: 4px 8px; /* ক্লিকেবল এরিয়া একটু বড় করার জন্য */
+    border-radius: 6px;
+    display: inline-block; /* প্যাডিং ঠিকমতো কাজ করার জন্য */
 }
 
-.order-id-link:hover { text-decoration: underline; color: var(--primary-hover); }
+.order-id-link:hover { 
+    text-decoration: underline; 
+    color: var(--primary-hover); 
+    background-color: rgba(37, 99, 235, 0.08); /* হোভার করলে হালকা ব্লু ব্যাকগ্রাউন্ড */
+}
+
+/* ডার্ক মোডের জন্য হোভার ব্যাকগ্রাউন্ড (যদি প্রয়োজন হয়) */
+[data-theme="dark"] .order-id-link:hover {
+    background-color: rgba(37, 99, 235, 0.15);
+}
 
 /* Status Badges */
 .status-badge {
@@ -1168,5 +1184,52 @@ body {
 
 
 
+/* =================================================================
+   ১৪. স্কেলিটন লোডিং অ্যানিমেশন (Skeleton Loading / Shimmer Effect)
+   ================================================================= */
+.skeleton {
+    background: #e2e8f0;
+    background: linear-gradient(110deg, #ececec 8%, #f5f5f5 18%, #ececec 33%);
+    border-radius: 8px;
+    background-size: 200% 100%;
+    animation: 1.5s shine linear infinite;
+}
 
+/* ডার্ক মোডের জন্য স্কেলিটন */
+[data-theme="dark"] .skeleton {
+    background: #334155;
+    background: linear-gradient(110deg, #1e293b 8%, #334155 18%, #1e293b 33%);
+    background-size: 200% 100%;
+}
+
+@keyframes shine {
+    to {
+        background-position-x: -200%;
+    }
+}
+
+/* ইউটিলিটি ক্লাস (কোথায় কেমন সাইজ হবে) */
+.skeleton-text { 
+    min-height: 1rem; 
+    width: 100%; 
+    margin-bottom: 0.5rem; 
+}
+
+.skeleton-title { 
+    min-height: 1.5rem; 
+    width: 60%; 
+    margin-bottom: 1rem; 
+}
+
+.skeleton-avatar { 
+    width: 50px; 
+    height: 50px; 
+    border-radius: 50%; 
+}
+
+.skeleton-card {
+    min-height: 150px;
+    width: 100%;
+    border-radius: 16px;
+}
 

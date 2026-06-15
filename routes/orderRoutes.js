@@ -5,7 +5,7 @@
  * Author: Abdul Karim Sheikh
  * Description: এই ফাইলে EonlineBazar প্রজেক্টের অর্ডার তৈরি, ট্র্যাকিং, 
  * ইউজার ড্যাশবোর্ড স্ট্যাটাস এবং অ্যাডমিন প্যানেলের অর্ডার 
- * ম্যানেজমেন্টের সমস্ত API রাউট সুবিন্যস্তভাবে ডিফাইন করা হয়েছে।
+ * ম্যানেজমেন্টের সমস্ত API রাউট সুবিন্যস্তভাবে ডিফাইন করা হয়েছে।
  * ********************************************************************/
 
 const express = require('express'); 
@@ -33,7 +33,7 @@ const { verifyAdmin, verifyUser } = require('../middlewares/authMiddleware');
 // ১. স্ট্যাটিক রাউটস (Static Routes) - এগুলো অবশ্যই /:id এর উপরে থাকবে
 // =================================================================
 
-// গ. ড্যাশবোর্ড স্ট্যাটাস রাউট (🌟 ফিক্স: Route Collision এড়াতে ইউআরএল সংশোধন করা হলো)
+// গ. ড্যাশবোর্ড স্ট্যাটাস রাউট
 // URL: GET /api/orders/dashboard-stats
 router.get('/dashboard-stats', verifyUser, getDashboardStats);
 
@@ -41,14 +41,9 @@ router.get('/dashboard-stats', verifyUser, getDashboardStats);
 // URL: GET /api/orders/my-orders
 router.get('/my-orders', verifyUser, getMyOrders);
 
-
 // ক. ট্র্যাকিং এর জন্য পাবলিক API রুট
 // URL: GET /api/orders/track
 router.get('/track', trackOrder);
-
-
-
-
 
 
 // =================================================================
@@ -65,12 +60,12 @@ router.get('/', getOrders);
 
 
 // =================================================================
-// ৩. ডাইনামিক রাউটস (Dynamic Routes) - এগুলো সব সময় নিচে থাকবে
+// ৩. ডাইনামিক রাউটস (Dynamic Routes) - এগুলো সব সময় নিচে থাকবে
 // =================================================================
 
-// ক. নির্দিষ্ট একটি অর্ডারের বিস্তারিত দেখার রুট
+// ক. নির্দিষ্ট একটি অর্ডারের বিস্তারিত দেখার রুট (🌟 নিরাপত্তা নিশ্চিত করতে verifyUser যুক্ত করা হলো)
 // URL: GET /api/orders/:id
-router.get('/:id', getOrderById);
+router.get('/:id', verifyUser, getOrderById);
 
 // খ. অর্ডারের স্ট্যাটাস আপডেট করার রুট
 // URL: PUT /api/orders/:id
@@ -80,8 +75,9 @@ router.put('/:id', updateOrderStatus);
 // URL: DELETE /api/orders/:id
 router.delete('/:id', deleteOrder);
 
-
 module.exports = router;
+
+
 
 
 

@@ -1,5 +1,4 @@
 /********************************************************************
- * Project: EonlineBazar
  * File: order.js
  * Location: models/order.js
  * Author: Abdul Karim Sheikh
@@ -17,15 +16,16 @@ const orderSchema = new mongoose.Schema({
     customerPhone: String,
     customerAddress: String,
     totalAmount: Number,
-    paymentMethod: { type: String, required: true, default: 'COD' }, // 🟢 নতুন যুক্ত করা হলো
+    paymentMethod: { type: String, required: true, default: 'COD' }, 
     status: { type: String, default: 'Pending' },
     isDelivered: { type: Boolean, default: false }, 
     items: Array,
-    note: { type: String, default: "" }, // 🟢 আগেরটা ঠিক করে ডিফল্ট ভ্যালু দেওয়া হলো
+    note: { type: String, default: "" }, 
     createdAt: { type: Date, default: Date.now }
 });
 
 module.exports = mongoose.model('Order', orderSchema);
+
 
 
 

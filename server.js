@@ -27,11 +27,11 @@ const PORT = process.env.PORT || 3000;
 // ২. ডাটাবেজ কানেক্ট করা
 connectDB();
 
-// ৩. প্রয়োজনীয় মিডলওয়্যারসমূহ
+// ৩. প্রয়োজনীয় মিডলওয়্যারসমূহ
 app.use(express.json()); 
 
 /********************************************************************
- # .HTML EXTENSION STRIPPER & REDIRECT MIDDLEWARE (🌟 ফিক্স করা হয়েছে)
+ # .HTML EXTENSION STRIPPER & REDIRECT MIDDLEWARE (🌟 ফিক্স করা হয়েছে)
  # ইউজার ইউআরএল-এ .html লিখলে সেটি কেটে ক্লিন ইউআরএল-এ রিডাইরেক্ট করবে
  # এবং সাথের ?id=... থাকলে সেটাও ঠিকঠাক পাস করবে।
  ********************************************************************/
@@ -48,14 +48,11 @@ app.use((req, res, next) => {
     next();
 });
 
-
-
 // ব্রাউজারকে বলবেন ফাইলগুলো ক্যাশ না করতে
 app.use((req, res, next) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     next();
 });
-
 
 // স্ট্যাটিক ফাইলগুলো সার্ভ করার জন্য 'client' ফোল্ডার লিংক করা
 app.use(express.static(path.join(__dirname, 'client')));
@@ -67,7 +64,6 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/customer', userRoutes);  
 app.use('/api/cart',cartRoutes);
 app.use('/api/categories', categoryRoutes);
-
 
 /********************************************************************
  # FRONTEND UI ROUTES (ক্লিন ইউআরএল লজিক)
@@ -104,7 +100,11 @@ app.get('/order-track', (req, res) => {
     res.sendFile(path.join(__dirname, 'client', 'order-track.html'));
 });
 
-// 🚀 ফিক্স: এই রুটটি আপনার কোডে মিসিং ছিল!
+// 🟢 নতুন যোগ করা হলো: Order Details পেজের ক্লিন রুট
+app.get('/order-details', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'order-details.html'));
+});
+
 app.get('/product-details', (req, res) => {
     res.sendFile(path.join(__dirname, 'client', 'product-details.html'));
 });
@@ -147,7 +147,7 @@ app.get('/admin-login', (req, res) => {
  # 404 NOT FOUND HANDLER (🌟 নতুন: ভুল ইউআরএল হ্যান্ডেল করার জন্য)
  ********************************************************************/
 app.use((req, res) => {
-    // যদি এপিআই রুট ভুল হয় তবে জেটিএম রেসপন্স দেবে
+    // যদি এপিআই রুট ভুল হয় তবে জেসন রেসপন্স দেবে
     if (req.originalUrl.startsWith('/api/')) {
         return res.status(404).json({ success: false, message: "API endpoint not found!" });
     }

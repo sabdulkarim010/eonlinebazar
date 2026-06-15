@@ -1,0 +1,200 @@
+/* =========================================================
+   Base & Reset
+   ========================================================= */
+:root {
+    --primary-color: #2563eb;
+    --bg-color: #f8fafc;
+    --card-bg: #ffffff;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --info: #3b82f6;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    padding: 20px;
+}
+
+/* =========================================================
+   Layout & Container
+   ========================================================= */
+.order-details-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.header-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.back-btn {
+    text-decoration: none;
+    color: var(--primary-color);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: 0.3s;
+}
+
+.back-btn:hover {
+    color: #1d4ed8;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.text-center {
+    text-align: center;
+    padding: 50px 0;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+}
+
+/* =========================================================
+   Cards 
+   ========================================================= */
+.order-info-card, .shipping-info-card, .items-card, .summary-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border-color);
+}
+
+.info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.order-date {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+/* =========================================================
+   Badges
+   ========================================================= */
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.status-badge.pending { background: #fef3c7; color: #d97706; }
+.status-badge.processing { background: #dbeafe; color: #2563eb; }
+.status-badge.shipped { background: #e0e7ff; color: #4f46e5; }
+.status-badge.delivered { background: #d1fae5; color: #059669; }
+.status-badge.cancelled { background: #fee2e2; color: #dc2626; }
+
+/* =========================================================
+   Typography & Info
+   ========================================================= */
+.shipping-info-card h3, .items-card h3 {
+    margin-bottom: 15px;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+.shipping-info-card p {
+    margin-bottom: 8px;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.shipping-info-card strong {
+    color: var(--text-main);
+}
+
+/* =========================================================
+   Table
+   ========================================================= */
+.items-table-wrapper {
+    overflow-x: auto;
+}
+
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.items-table th, .items-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.items-table th {
+    background-color: var(--bg-color);
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+/* =========================================================
+   Summary Section
+   ========================================================= */
+.summary-card {
+    max-width: 400px;
+    margin-left: auto; /* Aligns to the right */
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    color: var(--text-muted);
+}
+
+.summary-card hr {
+    border: 0;
+    border-top: 1px solid var(--border-color);
+    margin: 15px 0;
+}
+
+.total-row {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 0;
+}
+
+/* =========================================================
+   Responsive 
+   ========================================================= */
+@media (max-width: 600px) {
+    .summary-card {
+        max-width: 100%;
+        margin-left: 0;
+    }
+    .info-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}
+
+
