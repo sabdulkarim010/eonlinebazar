@@ -45,7 +45,9 @@ const verifyUser = (req, res, next) => {
     }
 };
 
-module.exports = { verifyAdmin, verifyUser };
+// 🌟 আপডেট: requireSignIn নামে verifyUser কেই এক্সপোর্ট করা হলো 
+// যাতে আগের কোডে কোনো সমস্যা না হয় এবং নতুন কোডও কাজ করে।
+module.exports = { verifyAdmin, verifyUser, requireSignIn: verifyUser };
 
 
 

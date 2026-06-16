@@ -13,6 +13,7 @@
         <div class="header-section">
             <a href="/profile.html" class="back-btn"><i class="fa-solid fa-arrow-left"></i> Back to Profile</a>
             <h2>Order Details</h2>
+            <a href="#" id="track-order-btn" class="track-btn hidden"><i class="fa-solid fa-truck-fast"></i> Track Order</a>
         </div>
 
         <div id="loading-spinner" class="text-center">
@@ -23,10 +24,10 @@
             
             <div class="order-info-card">
                 <div class="info-header">
-                    <h3>Order <span id="order-id-display">#123456</span></h3>
+                    <h3>Order <span id="order-id-display">#000000</span></h3>
                     <span id="order-status" class="status-badge">Pending</span>
                 </div>
-                <p class="order-date">Placed on: <span id="order-date">Jan 01, 2026</span></p>
+                <p class="order-date">Placed on: <span id="order-date">Loading...</span></p>
             </div>
 
             <div class="shipping-info-card">
@@ -70,8 +71,45 @@
                 </div>
             </div>
 
-        </div> </div>
+        </div> 
+    </div>
 
+    <div id="review-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="review-modal-title">Write a Review</h3>
+                <span id="close-review-modal" class="close-btn">&times;</span>
+            </div>
+            
+            <div class="star-rating-container" id="star-rating">
+                <i class="fa-solid fa-star star-item" data-value="1"></i>
+                <i class="fa-solid fa-star star-item" data-value="2"></i>
+                <i class="fa-solid fa-star star-item" data-value="3"></i>
+                <i class="fa-solid fa-star star-item" data-value="4"></i>
+                <i class="fa-solid fa-star star-item" data-value="5"></i>
+            </div>
+
+            <textarea id="review-comment" class="review-textarea" rows="4" placeholder="Share your experience with this product..."></textarea>
+            
+            <div class="file-upload-container">
+                <label class="file-label">Add a Photo (Optional)</label>
+                <input type="file" id="review-photo" class="file-input" accept="image/*">
+                </div>
+
+            <button id="submit-review-btn" class="btn-submit">Submit Review</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
     <script src="js/order-details.js"></script>
 </body>
 </html>
+
+
+
+
+
+
+
+

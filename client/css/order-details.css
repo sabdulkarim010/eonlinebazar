@@ -1,16 +1,30 @@
+/********************************************************************
+ * Project: EonlineBazar
+ * File: order-details.css
+ * Location: css/order-details.css
+ * Author: Abdul Karim Sheikh
+ * Description: এই ফাইলটি Order Details পেজের সমস্ত ডিজাইন কন্ট্রোল করে।
+ * এতে কার্ড লেআউট, টেবিল, স্ট্যাটাস ব্যাজ, ট্র্যাক অর্ডার বাটন, রেসপন্সিভ ডিজাইন
+ * এবং রিভিউ মডালের (স্টার রেটিং, ইমেজ প্রিভিউ) আধুনিক ডিজাইন অন্তর্ভুক্ত আছে।
+ ********************************************************************/
+
 /* =========================================================
-   Base & Reset
+   🌟 SECTION 1: BASE & RESET (রুট ভেরিয়েবল ও রিসেট)
    ========================================================= */
 :root {
     --primary-color: #2563eb;
+    --primary-hover: #1d4ed8;
     --bg-color: #f8fafc;
     --card-bg: #ffffff;
     --text-main: #1e293b;
     --text-muted: #64748b;
     --border-color: #e2e8f0;
     --success: #10b981;
+    --success-hover: #059669;
     --warning: #f59e0b;
-    --info: #3b82f6;
+    --danger: #ef4444;
+    --star-active: #facc15;
+    --star-inactive: #cbd5e1;
 }
 
 * {
@@ -24,37 +38,10 @@ body {
     background-color: var(--bg-color);
     color: var(--text-main);
     padding: 20px;
+    line-height: 1.6;
 }
 
-/* =========================================================
-   Layout & Container
-   ========================================================= */
-.order-details-container {
-    max-width: 800px;
-    margin: 0 auto;
-}
-
-.header-section {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-}
-
-.back-btn {
-    text-decoration: none;
-    color: var(--primary-color);
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: 0.3s;
-}
-
-.back-btn:hover {
-    color: #1d4ed8;
-}
-
+/* ইউটিলিটি ক্লাস */
 .hidden {
     display: none !important;
 }
@@ -67,14 +54,74 @@ body {
 }
 
 /* =========================================================
-   Cards 
+   🌟 SECTION 2: HEADER & NAVIGATION (হেডার ও নেভিগেশন)
+   ========================================================= */
+.order-details-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.header-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.header-section h2 {
+    font-size: 1.5rem;
+    color: var(--text-main);
+}
+
+.back-btn {
+    text-decoration: none;
+    color: var(--primary-color);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: color 0.3s ease;
+}
+
+.back-btn:hover {
+    color: var(--primary-hover);
+}
+
+/* =========================================================
+   🌟 SECTION 3: TRACK ORDER BUTTON (অর্ডার ট্র্যাকিং বাটন)
+   ========================================================= */
+.track-btn {
+    text-decoration: none;
+    background-color: var(--primary-color);
+    color: white;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+    transition: all 0.3s ease;
+}
+
+.track-btn:hover {
+    background-color: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 8px -1px rgba(37, 99, 235, 0.3);
+}
+
+/* =========================================================
+   🌟 SECTION 4: CARDS DESIGN (কার্ড লেআউট)
    ========================================================= */
 .order-info-card, .shipping-info-card, .items-card, .summary-card {
     background: var(--card-bg);
     border-radius: 12px;
-    padding: 20px;
+    padding: 24px;
     margin-bottom: 20px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
     border: 1px solid var(--border-color);
 }
 
@@ -90,15 +137,38 @@ body {
     font-size: 0.9rem;
 }
 
+.shipping-info-card h3, .items-card h3 {
+    margin-bottom: 15px;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+    font-size: 1.2rem;
+}
+
+.shipping-info-card p {
+    margin-bottom: 8px;
+    color: var(--text-muted);
+}
+
+.shipping-info-card strong {
+    color: var(--text-main);
+    width: 80px;
+    display: inline-block;
+}
+
 /* =========================================================
-   Badges
+   🌟 SECTION 5: STATUS BADGES (স্ট্যাটাস ব্যাজ)
    ========================================================= */
 .status-badge {
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 20px;
     font-size: 0.85rem;
     font-weight: 600;
     text-transform: capitalize;
+    letter-spacing: 0.5px;
 }
 
 .status-badge.pending { background: #fef3c7; color: #d97706; }
@@ -108,30 +178,7 @@ body {
 .status-badge.cancelled { background: #fee2e2; color: #dc2626; }
 
 /* =========================================================
-   Typography & Info
-   ========================================================= */
-.shipping-info-card h3, .items-card h3 {
-    margin-bottom: 15px;
-    color: var(--text-main);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 10px;
-}
-
-.shipping-info-card p {
-    margin-bottom: 8px;
-    color: var(--text-muted);
-    line-height: 1.5;
-}
-
-.shipping-info-card strong {
-    color: var(--text-main);
-}
-
-/* =========================================================
-   Table
+   🌟 SECTION 6: TABLE & ROW BUTTONS (টেবিল ও রিভিউ বাটন)
    ========================================================= */
 .items-table-wrapper {
     overflow-x: auto;
@@ -143,58 +190,254 @@ body {
 }
 
 .items-table th, .items-table td {
-    padding: 12px;
+    padding: 15px 12px;
     text-align: left;
     border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
 }
 
 .items-table th {
-    background-color: var(--bg-color);
+    background-color: #f1f5f9;
     color: var(--text-muted);
     font-weight: 600;
+    font-size: 0.95rem;
+}
+
+/* টেবিল রো এর ভেতরের ডায়নামিক রিভিউ/এডিট বাটন */
+.btn-review-table {
+    margin-top: 6px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    background-color: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-main);
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-review-table:hover {
+    background-color: var(--success);
+    color: white;
+    border-color: var(--success);
 }
 
 /* =========================================================
-   Summary Section
+   🌟 SECTION 7: SUMMARY CARD (টাকা-পয়সার হিসাব সেকশন)
    ========================================================= */
 .summary-card {
     max-width: 400px;
-    margin-left: auto; /* Aligns to the right */
+    margin-left: auto;
 }
 
 .summary-row {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     color: var(--text-muted);
+    font-size: 1rem;
 }
 
 .summary-card hr {
     border: 0;
-    border-top: 1px solid var(--border-color);
+    border-top: 1px dashed var(--border-color);
     margin: 15px 0;
 }
 
 .total-row {
-    font-size: 1.2rem;
+    font-size: 1.25rem;
     font-weight: 700;
     color: var(--primary-color);
     margin-bottom: 0;
 }
 
 /* =========================================================
-   Responsive 
+   🌟 SECTION 8: REVIEW MODAL & STAR RATING (রিভিউ মডাল ও স্টার)
+   ========================================================= */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: var(--card-bg);
+    padding: 30px;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.modal-header h3 {
+    font-size: 1.25rem;
+    color: var(--text-main);
+}
+
+.close-btn {
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.2s ease;
+}
+
+.close-btn:hover {
+    color: var(--danger);
+}
+
+/* স্টার কন্টেইনার */
+.star-rating-container {
+    font-size: 32px;
+    text-align: center;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.star-item {
+    color: var(--star-inactive);
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+/* 🌟 এই ক্লাসটি সক্রিয় স্টারের জন্য কাজ করবে (JS দিয়ে নিয়ন্ত্রিত) */
+.star-item.active {
+    color: var(--star-active) !important;
+    transform: scale(1.1);
+}
+
+.review-textarea {
+    width: 100%;
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    resize: none;
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+    color: var(--text-main);
+    transition: border-color 0.3s ease;
+}
+
+.review-textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+/* ফাইল আপলোড সেকশন */
+.file-upload-container {
+    margin-bottom: 20px;
+}
+
+.file-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.file-input {
+    width: 100%;
+    border: 1px dashed var(--border-color);
+    padding: 10px;
+    border-radius: 8px;
+    background-color: #f8fafc;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+/* 🌟 ডাটাবেসের আপলোড করা ছবির সুন্দর প্রিভিউ বক্স */
+#existing-photo-preview {
+    margin-top: 15px;
+    padding: 12px;
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#existing-photo-preview span {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+#existing-photo-preview img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* সাবমিট বাটন */
+.btn-submit {
+    width: 100%;
+    padding: 14px;
+    background: var(--success);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1rem;
+    transition: background 0.3s ease;
+}
+
+.btn-submit:hover {
+    background: var(--success-hover);
+}
+
+/* =========================================================
+   🌟 SECTION 9: RESPONSIVE DESIGN (মোবাইল ও ট্যাবলেট ফ্রেন্ডলি)
    ========================================================= */
 @media (max-width: 600px) {
+    .header-section {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .track-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
     .summary-card {
         max-width: 100%;
         margin-left: 0;
     }
+    
     .info-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 10px;
     }
 }
+
 
 

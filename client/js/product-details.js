@@ -35,15 +35,16 @@ async function fetchProductDetails(id) {
         if (!response.ok) throw new Error("Product not found");
         
         const product = await response.json();
-        currentProductData = product; // 👈 ফেস করা ডাটা ভেরিয়েবলে সেভ করা হলো যাতে Add to Cart-এ ব্যবহার করা যায়
+        currentProductData = product; 
 
-        // ডেটা পেজে রেন্ডার করা
         renderBreadcrumb(product);
         renderProductInfo(product);
         renderProductImages(product);
         renderHighlights(product); 
         renderDescriptions(product);
-        renderReviews(product.reviews || []);
+        
+        // 🟢 আপডেট: এখন আলাদা এপিআই থেকে রিভিউ কল হবে
+        fetchProductReviews(id); 
 
         if (loadingSpinner) loadingSpinner.classList.add('hidden');
         if (productContent) productContent.classList.remove('hidden');
@@ -199,19 +200,23 @@ function renderReviews(reviews) {
     container.innerHTML = '';
     reviews.forEach(rev => {
         const revCard = document.createElement('div');
-        revCard.classList.add('review-card'); // CSS দিয়ে স্টাইল করার জন্য ক্লাস
+        revCard.classList.add('review-card'); 
         
         let starsHTML = '';
         for (let i = 1; i <= 5; i++) {
             starsHTML += i <= rev.rating ? `<i class="fa-solid fa-star" style="color: #facc15;"></i>` : `<i class="fa-regular fa-star" style="color: #d1d5db;"></i>`;
         }
 
+        // 🟢 ডাটাবেস থেকে ইউজারের নাম বের করার লজিক
+        const reviewerName = rev.userId?.name || rev.name || "Verified Customer";
+
         revCard.innerHTML = `
             <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                <strong>${rev.name}</strong>
+                <strong>${reviewerName}</strong>
                 <div>${starsHTML}</div>
             </div>
             <p style="margin: 0; font-size: 14px; color: var(--text-main);">${rev.comment}</p>
+            ${rev.photo ? `<div style="margin-top: 10px;"><img src="${rev.photo}" alt="Review Photo" style="width: 80px; height: 80px; object-fit: cover; border-radius: 5px; border: 1px solid #ddd;"></div>` : ''}
             <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 10px 0;">
         `;
         container.appendChild(revCard);
@@ -384,14 +389,67 @@ function showToast(message, type = "success") {
 
 
 
+// ==========================================================================
+// 🌟 SECTION 9: FETCH PRODUCT REVIEWS (NEW)
+// ==========================================================================
+async function fetchProductReviews(productId) {
+    try {
+        const response = await fetch(`/api/reviews/${productId}`);
+        const data = await response.json();
+        
+        if (data.success && data.reviews) {
+            renderReviews(data.reviews);
+        } else {
+            renderReviews([]);
+        }
+    } catch (error) {
+        console.error("Error fetching reviews from database:", error);
+        renderReviews([]); // এরর হলে খালি দেখাবে
+    }
+}
 
 
 
 
+// ==========================================================================
+// 🌟 SECTION 10: REVISED REVIEW MODAL & EDIT LOGIC (আপডেটেড)
+// ==========================================================================
+async function openReviewModal(productId) {
+    try {
+        const response = await fetch(`/api/reviews/${productId}`);
+        const data = await response.json();
+        
+        // এখানে 'userInfo' এর বদলে আপনার আসল কী (Key) ব্যবহার করুন
+        const userInfo = JSON.parse(localStorage.getItem('userInfo')) || null; 
+        if (!userInfo) return showToast("Please login first!", "error");
 
+        const currentUserId = userInfo._id || userInfo.id; 
+        
+        if (data.success && data.reviews) {
+            const myReview = data.reviews.find(r => 
+                (r.userId && r.userId._id === currentUserId) || (r.userId === currentUserId)
+            );
+            
+            if (myReview) {
+                // ফর্মের ইনপুট আইডিগুলো আপনার HTML এর সাথে মিলিয়ে নিন
+                document.getElementById('reviewComment').value = myReview.comment;
+                document.getElementById('reviewRating').value = myReview.rating;
 
-
-
+                // যদি আগের আপলোড করা ফটো দেখাতে চান
+                if (myReview.photo) {
+                    const previewImg = document.getElementById('reviewPhotoPreview'); // আপনার HTML এ একটি ইমেজ ট্যাগ থাকতে হবে
+                    if (previewImg) {
+                        previewImg.src = myReview.photo;
+                        previewImg.style.display = 'block';
+                    }
+                }
+                showToast("Previous review loaded for editing!", "success");
+            }
+        }
+    } catch (err) {
+        console.error("Error loading review:", err);
+    }
+}
 
 
 

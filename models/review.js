@@ -1,11 +1,26 @@
-// models/Review.js
+/********************************************************************
+ * File: Review.js
+ * Location: models/Review.js
+ * Description: Database schema for product reviews. Supports rating, 
+ * text comments, optional photo, and links to User, Product, and Order.
+ ********************************************************************/
+
 const mongoose = require('mongoose');
 
 const reviewSchema = new mongoose.Schema({
+    userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
     productId: {
-        type: String, // প্রোডাক্টের আইডি (যা আমরা URL কুয়েরি থেকে পাচ্ছি)
+        type: String, // আপনার আগের স্কিমা অনুযায়ী String রাখা হলো, তবে ObjectId ও ব্যবহার করা যায়
         required: true,
         index: true
+    },
+    orderId: {
+        type: String,
+        required: true
     },
     rating: {
         type: Number,
@@ -13,23 +28,19 @@ const reviewSchema = new mongoose.Schema({
         min: 1,
         max: 5
     },
-    name: {
-        type: String,
-        required: true,
-        trim: true
-    },
     comment: {
         type: String,
         required: true,
         trim: true
     },
-    timestamp: {
-        type: Number, // ফ্রন্টএন্ডের Date.now() এর সাথে ম্যাচ রাখার জন্য Number রাখা হলো
-        default: Date.now
+    photo: {
+        type: String, // ছবি আপলোড হলে তার URL বা পাথ এখানে সেভ হবে
+        default: ''
     }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Review', reviewSchema);
+
 
 
 

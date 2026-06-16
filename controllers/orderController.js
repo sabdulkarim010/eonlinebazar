@@ -103,7 +103,7 @@ const getMyOrders = async (req, res) => {
     }
 };
 
-// ৪. নির্দিষ্ট একটি অর্ডারের বিস্তারিত দেখা (🌟 সিকিউরিটি আপডেট করা হলো)
+// 🌟 ৪. নির্দিষ্ট একটি অর্ডারের বিস্তারিত দেখা (আপডেট: প্রোডাক্টের ছবি যুক্ত করার লজিক সহ)
 const getOrderById = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id);
@@ -111,13 +111,38 @@ const getOrderById = async (req, res) => {
             return res.status(404).json({ success: false, message: "অর্ডারটি খুঁজে পাওয়া যায়নি!" });
         }
         
-        // 🟢 [নতুন নিরাপত্তা চেক]: অর্ডারটি যদি কোনো ইউজারের অ্যাকাউন্টের অধীনে থাকে,
-        // তবে চেক করা হচ্ছে যে লগইন করা ইউজারই এই অর্ডারের মালিক কি না।
+        // নিরাপত্তা চেক
         if (order.user && order.user.toString() !== req.user.id) {
             return res.status(403).json({ success: false, message: "দুঃখিত, আপনি অন্য কারো অর্ডারের বিবরণ দেখতে পারবেন না।" });
         }
 
-        res.json({ success: true, data: order });
+        // 🟢 মঙ্গুজ ডকুমেন্টকে প্লেইন অবজেক্টে রূপান্তর করা, যাতে ডাইনামিকভাবে 'image' ফিল্ড পুশ করা যায়
+        const orderObj = order.toObject();
+
+        // আইটেমগুলোর ইমেজ ডাটাবেজের Product কালেকশন থেকে লাইভ খুঁজে নিয়ে আসা
+        if (orderObj.items && Array.isArray(orderObj.items)) {
+            for (let item of orderObj.items) {
+                const targetId = item.id || item.productId || item._id;
+                if (targetId) {
+                    let query = {};
+                    if (mongoose.Types.ObjectId.isValid(targetId)) {
+                        query = { $or: [{ _id: targetId }, { productId: targetId }] };
+                    } else {
+                        query = { productId: targetId };
+                    }
+                    
+                    // শুধুমাত্র image ফিল্ডটি সিলেক্ট করে নিয়ে আসা
+                    const prod = await Product.findOne(query).select('image');
+                    if (prod) {
+                        item.image = prod.image; // আইটেমের ভেতরে ইমেজ পুশ করা হলো
+                    } else {
+                        item.image = ''; // ছবি না পাওয়া গেলে ফাকা থাকবে
+                    }
+                }
+            }
+        }
+
+        res.json({ success: true, data: orderObj });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
@@ -223,8 +248,6 @@ module.exports = {
     trackOrder,
     getDashboardStats,
 };
-
-
 
 
 
