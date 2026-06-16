@@ -7,7 +7,7 @@
  * Uploads review photos to Cloudinary and auto-deletes old photos on update.
  ********************************************************************/
 
-const Review = require('../models/Review');
+const Review = require('../models/review');
 const cloudinary = require('cloudinary').v2;
 const streamifier = require('streamifier');
 
