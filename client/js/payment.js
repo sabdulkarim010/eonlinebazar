@@ -1,9 +1,12 @@
 /**
+ * =========================================================================
  * Project: eOnlineBazar
  * Author: Abdul Karim Sheikh
  * File: js/payment.js
  * Description: Advanced Dynamic Payment Engine - LocalStorage Session Loader,
- * Interactive Payment Card Toggler, Live Instructions Generator, and MongoDB Fetch API.
+ * Interactive Payment Card Toggler, Live Instructions Generator, 
+ * and MongoDB Fetch API (With Isolated Buy Now Cleanup Logic).
+ * =========================================================================
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -158,10 +161,8 @@ function updatePaymentInstructions(method) {
     instructionBox.innerHTML = htmlContent;
 }
 
-
-
 /* =========================================================================
-🚀 🔀 ৪. ফাইনাল অর্ডার সাবমিশন (MongoDB API & Cart Sync Integration) - FULLY UPDATED
+🚀 🔀 ৪. ফাইনাল অর্ডার সাবমিশন (MongoDB API & Cart Sync Integration)
 ========================================================================= */
 window.handleFinalOrderSubmission = async function() {
     const selectedRadio = document.querySelector('input[name="paymentGateway"]:checked');
@@ -212,20 +213,29 @@ window.handleFinalOrderSubmission = async function() {
         const result = await response.json();
 
         if (result.success) {
-            // ২. অর্ডার সফল হলে ডাটাবেজ কার্ট ক্লিয়ার করা
-            if (token) {
-                await fetch('/api/cart/clear-ordered', {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                }).catch(err => console.error("DB Cart cleanup failed", err));
+            // 🟢 ফিক্স: চেক করা হচ্ছে অর্ডারটি Buy Now থেকে এসেছে কিনা
+            const isBuyNow = localStorage.getItem('isBuyNowMode') === 'true';
+
+            if (isBuyNow) {
+                // যদি Buy Now হয়, তবে মেইন কার্টে কোনো হাত দেওয়া হবে না। শুধু Buy Now মোড ক্লিয়ার হবে।
+                localStorage.removeItem('isBuyNowMode');
+                localStorage.removeItem('buy_now_item');
+            } else {
+                // ২. যদি কার্ট থেকে অর্ডার হয়, তবেই ডাটাবেজ কার্ট ক্লিয়ার করা হবে
+                if (token) {
+                    await fetch('/api/cart/clear-ordered', {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }).catch(err => console.error("DB Cart cleanup failed", err));
+                }
+
+                // ৩. লোকাল কার্ট আপডেট করা (শুধু সিলেক্ট না করা আইটেমগুলো রাখা হবে)
+                let fullCart = JSON.parse(localStorage.getItem('cart')) || [];
+                let remainingCart = fullCart.filter(item => item.selected === false);
+                localStorage.setItem('cart', JSON.stringify(remainingCart));
             }
 
-            // ৩. লোকাল কার্ট আপডেট করা (শুধু সিলেক্ট না করা আইটেমগুলো রাখা)
-            let fullCart = JSON.parse(localStorage.getItem('cart')) || [];
-            let remainingCart = fullCart.filter(item => item.selected === false);
-            localStorage.setItem('cart', JSON.stringify(remainingCart));
-
-            // ৪. চেকআউট সেশন ক্লিনআপ
+            // ৪. চেকআউট সেশন ক্লিনআপ (সবার জন্য সাধারণ ক্লিনআপ)
             localStorage.removeItem('activeCheckoutSession');
             localStorage.removeItem('shippingFullName');
             localStorage.removeItem('shippingMobile');
@@ -284,6 +294,7 @@ window.handleFinalOrderSubmission = async function() {
         }
     }
 }
+
 
 
 

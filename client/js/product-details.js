@@ -1,4 +1,4 @@
-
+//File Name: js/product-details.js
 
 
 
@@ -250,48 +250,63 @@ function setupEventListeners() {
         });
     }
 
-    // 👈 রিয়েল Add to Cart লজিক (সবার উপরে অ্যাড হবে)
+    // 👈 Add to Cart লজিক (আগের মতোই থাকবে, সাধারণ কার্টে অ্যাড করবে)
     const handleAddToCart = () => {
         if (!currentProductData) return showToast("Please wait, product data is loading...", "error");
 
         const quantity = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
-        let cart = JSON.parse(localStorage.getItem('cart')) || []; // কার্টের পুরনো ডাটা নেওয়া
+        let cart = JSON.parse(localStorage.getItem('cart')) || []; 
 
-        // প্রোডাক্ট আইডি মেলানো
         const prodId = currentProductData._id || currentProductData.productId || currentProductData.id;
         const existingItemIndex = cart.findIndex(item => item.id === prodId);
 
         if (existingItemIndex > -1) {
-            // ১. যদি আগে থেকেই কার্টে থাকে, তাহলে সেটা আগের জায়গা থেকে সরিয়ে সবার উপরে আনবো
             let existingItem = cart.splice(existingItemIndex, 1)[0]; 
             existingItem.quantity += quantity; 
-            cart.unshift(existingItem); // unshift দিয়ে একদম শুরুতে বসালাম
+            cart.unshift(existingItem); 
         } else {
-            // ২. নতুন প্রোডাক্ট হলে সরাসরি সবার উপরে (unshift) বসবে
             cart.unshift({
                 id: prodId,
                 name: currentProductData.name,
                 price: currentProductData.price,
                 icon: currentProductData.icon || currentProductData.image || '📦',
-                quantity: quantity
+                quantity: quantity,
+                selected: true
             });
         }
 
-        // লোকাল স্টোরেজে নতুন ডাটা সেভ করা
         localStorage.setItem('cart', JSON.stringify(cart));
-        
         showToast("Product added to cart successfully! 🛒", "success");
     };
     
 
-    // 👈 রিয়েল Buy Now লজিক (কার্টে অ্যাড করে সরাসরি চেকআউট পেজে পাঠাবে)
+    // 👈 রিয়েল Buy Now লজিক (সাধারণ কার্টে হাত না দিয়ে আইসোলেটেড মোডে চেকআউটে পাঠাবে)
     const handleBuyNow = () => {
-        handleAddToCart(); // প্রথমে কার্টে অ্যাড করবে
+        if (!currentProductData) return showToast("Please wait, product data is loading...", "error");
+
+        const quantity = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
+        const prodId = currentProductData._id || currentProductData.productId || currentProductData.id;
+
+        // Buy Now এর জন্য শুধু এই একটি প্রোডাক্ট দিয়ে একটি নতুন অ্যারে তৈরি
+        const buyNowItem = [{
+            id: prodId,
+            name: currentProductData.name,
+            price: currentProductData.price,
+            icon: currentProductData.icon || currentProductData.image || '📦',
+            quantity: quantity,
+            selected: true
+        }];
+
+        // কার্টকে না ছুঁয়ে সম্পূর্ণ ভিন্ন একটি স্টোরেজ বাক্সে রাখা হচ্ছে
+        localStorage.setItem('isBuyNowMode', 'true');
+        localStorage.setItem('buy_now_item', JSON.stringify(buyNowItem));
+        localStorage.setItem("activeCheckoutSession", "true");
+
         showToast("Proceeding to checkout...", "success");
         
         setTimeout(() => {
-            window.location.href = '/checkout'; // ⚠️ আপনার চেকআউট পেজের নাম যদি ভিন্ন হয়, তবে এখানে ঠিক করে দিন
-        }, 500); // পেজ লোড হওয়ার আগে হালকা সময় নিবে
+            window.location.href = '/checkout'; 
+        }, 500); 
     };
 
     // বাটনগুলোর সাথে ফাংশন জুড়ে দেওয়া
@@ -312,7 +327,6 @@ function setupEventListeners() {
         }
     });
 }
-
 
 // ==========================================================================
 // 🌟 SECTION 7: MODERN TABS CONTROLLER

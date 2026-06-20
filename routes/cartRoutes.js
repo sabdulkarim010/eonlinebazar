@@ -43,3 +43,6 @@ router.delete('/clear-ordered', verifyUser, cartController.clearOrderedItems);
 module.exports = router;
 
 
+
+
+

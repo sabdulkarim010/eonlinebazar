@@ -1,3 +1,7 @@
+//File Name: models/admin.js
+
+
+
 const mongoose = require('mongoose');
 
 // অ্যাডমিন ডাটাবেজ স্ট্রাকচার (মার্জড ও আপডেট করা সংস্করণ)
@@ -19,5 +23,7 @@ const adminSchema = new mongoose.Schema({
 }, { timestamps: true }); // এটি অটোমেটিক অ্যাকাউন্ট তৈরি ও আপডেটের সময় রেকর্ড রাখবে
 
 module.exports = mongoose.model('Admin', adminSchema);
+
+
 
 
