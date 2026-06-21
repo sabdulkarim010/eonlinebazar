@@ -15,6 +15,12 @@ document.addEventListener('DOMContentLoaded', () => {
         showCustomToast("Email verified successfully! You can now sign in.", "success");
     }
 
+    // 🔐 সেশন এক্সপায়ার/রিমোট লগআউটের কারণে এই পেজে পাঠানো হলে ইউজারকে জানানো
+    if (sessionStorage.getItem('eob_session_expired')) {
+        sessionStorage.removeItem('eob_session_expired');
+        showCustomToast("Your session ended on this device. Please sign in again.", "error");
+    }
+
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', handleLoginSubmit);

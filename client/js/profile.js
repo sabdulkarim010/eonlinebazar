@@ -16,6 +16,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
+    // 🔐 পেজ লোডেই সার্ভারে সেশন যাচাই করা হয়। কোনো ডিভাইস রিমোটলি লগআউট হলে
+    // সার্ভার 401 দেবে এবং session-guard.js সাথে সাথে টোকেন মুছে লগইন পেজে পাঠাবে।
+    if (window.EOBSession && typeof window.EOBSession.validate === 'function') {
+        window.EOBSession.validate();
+    }
+
     // --- সিলেক্টরস (এখানে আইডি সংশোধন করা হয়েছে) ---
     const sidebarName = document.getElementById('sidebar-name');
     const sidebarEmail = document.getElementById('sidebar-email');
