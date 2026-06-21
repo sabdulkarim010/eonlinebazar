@@ -369,17 +369,8 @@ body {
     width: 100%;
 }
 
-.profile-page-bar {
-    position: sticky;
-    top: var(--navbar-height);
-    z-index: 50;
-    display: flex;
-    align-items: center;
-    margin: -2.5rem -3.5rem 1rem;
-    padding: 0.4rem 3.5rem;
-    min-height: 40px;
-    background-color: var(--bg-card);
-    border-bottom: 1px solid var(--border-color);
+.profile-top-actions {
+    margin-bottom: 1rem;
 }
 
 .back-to-home-btn {
@@ -389,36 +380,33 @@ body {
     gap: 0.45rem;
     width: auto;
     max-width: fit-content;
-    padding: 0.4rem 0.85rem;
-    background-color: transparent;
-    color: var(--text-muted);
-    border: 1px solid transparent;
+    padding: 0.45rem 0.9rem;
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     font-family: inherit;
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
     transition: var(--transition-smooth);
+    box-shadow: var(--shadow-sm);
 }
 
 .back-to-home-btn:hover {
-    background-color: var(--bg-main);
-    color: var(--primary-color);
-    border-color: var(--border-color);
+    background-color: var(--primary-color);
+    color: #ffffff;
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-md);
 }
 
 .back-to-home-btn:active {
-    background-color: var(--border-color);
-    color: var(--primary-hover);
+    background-color: var(--primary-hover);
+    border-color: var(--primary-hover);
 }
 
 .back-to-home-btn i {
-    font-size: 0.8rem;
-    transition: var(--transition-smooth);
-}
-
-.back-btn-text {
-    line-height: 1;
+    font-size: 0.78rem;
 }
 
 .tab-content {
@@ -567,46 +555,56 @@ body {
 /* ট্যাবলেট এবং ল্যাপটপ স্ক্রিনের জন্য (Max-width: 992px) */
 @media (max-width: 992px) {
     .dashboard-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
         gap: 1rem;
     }
     .stat-card {
         padding: 1.2rem 1rem;
-        flex-direction: column; /* আইকন এবং টেক্সট উপর-নিচ করে দিবে */
+        flex-direction: column;
+        align-items: center;
         text-align: center;
         gap: 10px;
     }
-    .stat-info h3 { font-size: 1.4rem; }
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        font-size: 1.25rem;
+    }
+    .stat-info h3 { font-size: 1.35rem; }
     .stat-info p { font-size: 0.75rem; }
 }
 
 /* বড় সাইজ মোবাইল স্ক্রিনের জন্য (Max-width: 768px) */
 @media (max-width: 768px) {
     .dashboard-stats-grid {
-        gap: 6px;
-        margin-bottom: 0.65rem;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
     }
     .stat-card {
-        flex-direction: row;
+        flex-direction: column;
         align-items: center;
-        text-align: left;
-        padding: 7px 8px;
-        border-radius: 10px;
-        gap: 7px;
+        justify-content: center;
+        text-align: center;
+        padding: 0.85rem 0.65rem;
+        border-radius: 12px;
+        gap: 8px;
+        min-height: 108px;
     }
     .stat-icon {
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
-        font-size: 0.95rem;
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        font-size: 1.05rem;
     }
     .stat-info h3 {
-        font-size: 0.95rem;
-        line-height: 1.1;
+        font-size: 1.1rem;
+        line-height: 1.2;
     }
     .stat-info p {
-        font-size: 0.58rem;
+        font-size: 0.65rem;
         letter-spacing: 0;
-        line-height: 1.1;
+        line-height: 1.2;
     }
     
     /* টেবিলটিকে মোবাইলের জন্য মানানসই করা */
@@ -622,25 +620,26 @@ body {
 /* সবচেয়ে ছোট মোবাইল স্ক্রিনের জন্য (Max-width: 400px - iPhone SE, etc.) */
 @media (max-width: 400px) {
     .dashboard-stats-grid {
-        gap: 5px;
+        gap: 0.6rem;
     }
     .stat-card {
-        padding: 4px;
+        padding: 0.75rem 0.5rem;
         border-radius: 10px;
         gap: 6px;
+        min-height: 96px;
     }
     .stat-icon {
-        width: 30px;
-        height: 30px;
+        width: 34px;
+        height: 34px;
         border-radius: 8px;
         font-size: 0.9rem;
     }
     .stat-info h3 {
-        font-size: 0.95rem; /* ছোট স্ক্রিনে ফন্ট আরও কমানো হলো */
+        font-size: 0.95rem;
     }
     .stat-info p {
-        font-size: 0.55rem;
-        word-break: break-word; /* লেখা বড় হলে ভেঙে নিচে নামবে, কার্ড ভাঙবে না */
+        font-size: 0.58rem;
+        word-break: break-word;
     }
     
     .orders-table th, .orders-table td {
@@ -1168,10 +1167,6 @@ body {
 @media (max-width: 1024px) {
     .security-dual-grid { grid-template-columns: 1fr; }
     .main-content { padding: 1.5rem 1.25rem; }
-    .profile-page-bar {
-        margin: -1.5rem -1.25rem 0.85rem;
-        padding: 0.4rem 1.25rem;
-    }
 }
 
 /* 📱 Mobile - Sliding Drawer Menu (Max: 768px) */
@@ -1198,82 +1193,58 @@ body {
     
     .main-content {
         margin-left: 0;
-        padding: 0.65rem 0.75rem 0.75rem;
+        padding: 0.85rem 0.85rem 1rem;
         width: 100%;
     }
 
-    .profile-page-bar {
-        top: 65px;
-        margin: -0.65rem -0.75rem 0.5rem;
-        padding: 0.2rem 0.75rem;
-        min-height: 34px;
-        background-color: var(--bg-main);
-        border-bottom: 1px solid var(--border-color);
+    .profile-top-actions {
+        margin-bottom: 0.75rem;
     }
 
     .back-to-home-btn {
-        width: 30px;
-        height: 30px;
-        min-width: 30px;
-        padding: 0;
-        border-radius: 50%;
-        color: var(--text-main);
-        background-color: var(--bg-card);
-        border: 1px solid var(--border-color);
-        box-shadow: var(--shadow-sm);
+        padding: 0.38rem 0.7rem;
+        font-size: 0.78rem;
+        border-radius: 7px;
     }
 
-    .back-to-home-btn:hover {
-        color: var(--primary-color);
-        border-color: var(--primary-color);
-        background-color: var(--bg-card);
-    }
-
-    .back-btn-text {
-        display: none;
+    .back-to-home-btn i {
+        font-size: 0.72rem;
     }
 
     .content-header {
-        margin-bottom: 0.65rem;
-        gap: 0;
-    }
-
-    .content-header--dashboard {
-        margin-bottom: 0.5rem;
+        margin-bottom: 1.25rem;
+        gap: 0.3rem;
     }
 
     .content-header h2 {
-        font-size: 1.05rem;
+        font-size: 1.35rem;
         font-weight: 700;
-        line-height: 1.25;
+        line-height: 1.3;
     }
 
     .content-header-subtitle {
-        display: none;
+        display: block;
+        font-size: 0.85rem;
     }
 
     .content-header p {
-        font-size: 0.8125rem;
+        font-size: 0.85rem;
     }
 
     .dashboard-orders-card {
-        margin-top: 0.5rem !important;
+        margin-top: 1rem !important;
     }
 
     .dashboard-orders-card h3 {
-        font-size: 0.92rem;
-        margin-bottom: 0.45rem;
+        font-size: 0.95rem;
+        margin-bottom: 0.5rem;
     }
 
     .dashboard-orders-card .mt-15 {
-        margin-top: 0.5rem !important;
+        margin-top: 0.65rem !important;
     }
 
-    #dashboard-overview .dashboard-announcement {
-        display: none;
-    }
-
-    .card { padding: 0.55rem; }
+    .card { padding: 0.75rem; }
     .form-grid { grid-template-columns: 1fr; }
     .input-group.full-width { grid-column: 1; }
     
