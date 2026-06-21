@@ -371,9 +371,17 @@
                     </form>
                 </div>
 
-                <div class="card">
-                    <h3>Active Devices &amp; Sessions</h3>
-                    <p class="security-subtext">These are the devices currently logged into your account. Log out any device you don't recognize.</p>
+                <div class="card sessions-card">
+                    <div class="sessions-card-head">
+                        <div>
+                            <h3>Active Devices &amp; Sessions</h3>
+                            <p class="security-subtext">These are the devices currently logged into your account. Log out any device you don't recognize.</p>
+                        </div>
+                        <button type="button" id="logout-others-btn" class="logout-others-btn" title="Log out everywhere except this device">
+                            <i class="fa-solid fa-power-off"></i>
+                            <span>Log Out All Other Devices</span>
+                        </button>
+                    </div>
                     <div class="login-activity-list mt-15" id="sessions-list">
                         <p class="text-center sessions-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading active sessions...</p>
                     </div>

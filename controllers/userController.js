@@ -9,6 +9,7 @@
  ********************************************************************/
 
 const User = require('../models/user');
+const UserSession = require('../models/userSession');
 const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken'); 
 const nodemailer = require('nodemailer'); 
@@ -148,21 +149,20 @@ exports.loginUser = async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid email or password." });
         }
 
-        // 🌟 নতুন: লগইন সেশন তৈরি করা (অ্যাক্টিভ ডিভাইস ট্র্যাকিং ও রিমোট লগআউটের জন্য)
+        // 🌟 লগইন সেশন তৈরি করা (অ্যাক্টিভ ডিভাইস ট্র্যাকিং ও রিমোট লগআউটের জন্য)
+        // ইউনিক UUID সেশন আইডি জেনারেট করে আলাদা UserSession কালেকশনে সেভ করা হয়;
+        // এই sessionId-ই JWT-এর ভেতরে 'sid' হিসেবে এম্বেড হয়।
         const { device, browser } = parseUserAgent(req.headers['user-agent']);
-        const newSession = {
+        const sessionId = crypto.randomUUID();
+
+        await UserSession.create({
+            sessionId,
+            userId: user._id,
+            userAgent: req.headers['user-agent'] || '',
             device,
             browser,
-            ip: getClientIp(req),
-            location: 'Unknown Location',
-            createdAt: new Date(),
-            lastActive: new Date()
-        };
-        user.sessions.push(newSession);
-        await user.save();
-
-        // নতুন তৈরি হওয়া সেশনের আইডি (সাব-ডকুমেন্টের শেষটি)
-        const sessionId = user.sessions[user.sessions.length - 1]._id.toString();
+            ipAddress: getClientIp(req)
+        });
 
         const token = jwt.sign(
             { id: user._id, sid: sessionId }, 

@@ -1127,7 +1127,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const list = document.getElementById('sessions-list');
         if (!list) return;
         try {
-            const res = await fetch('/api/customer/sessions', {
+            const res = await fetch('/api/auth/sessions', {
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
             const data = await res.json();
@@ -1154,18 +1154,20 @@ document.addEventListener('DOMContentLoaded', () => {
         list.innerHTML = '';
         sessions.forEach(s => {
             const icon = sessionDeviceIcon(s.device);
-            const status = s.isCurrent ? 'This device' : timeAgo(s.lastActive);
+            const sessionRef = s.id || s.sessionId;
+            const status = s.isCurrent ? 'Active Now' : timeAgo(s.lastActiveAt);
             const item = document.createElement('div');
             item.className = 'activity-item' + (s.isCurrent ? ' current-session' : '');
             item.innerHTML = `
                 <div class="activity-icon"><i class="fa-solid ${icon}"></i></div>
                 <div class="activity-details">
-                    <h4>${s.browser} / ${s.device} ${s.isCurrent ? '<span class="current-badge">Current</span>' : ''}</h4>
+                    <h4>${s.device || 'Unknown Device'} • ${s.browser || 'Unknown Browser'} ${s.isCurrent ? '<span class="current-badge">This Device</span>' : ''}</h4>
                     <p>${s.ip || 'Unknown IP'} • ${status}</p>
                 </div>
-                <button class="session-logout-btn" data-id="${s._id}" data-current="${s.isCurrent}">
-                    <i class="fa-solid fa-right-from-bracket"></i> Logout
-                </button>
+                ${s.isCurrent ? '' : `
+                <button class="session-logout-btn" data-id="${sessionRef}" data-current="false">
+                    <i class="fa-solid fa-right-from-bracket"></i> Log Out
+                </button>`}
             `;
             list.appendChild(item);
         });
@@ -1183,7 +1185,7 @@ document.addEventListener('DOMContentLoaded', () => {
         logoutSessionBtn.disabled = true;
 
         try {
-            const res = await fetch(`/api/customer/sessions/${sessionId}`, {
+            const res = await fetch(`/api/auth/sessions/${sessionId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -1208,9 +1210,40 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Logout Session Error:', error);
             showToast('Server error.', 'danger');
             logoutSessionBtn.disabled = false;
-            logoutSessionBtn.innerHTML = '<i class="fa-solid fa-right-from-bracket"></i> Logout';
+            logoutSessionBtn.innerHTML = '<i class="fa-solid fa-right-from-bracket"></i> Log Out';
         }
     });
+
+    // অন্য সব ডিভাইস লগআউট (Log Out All Other Devices)
+    const logoutOthersBtn = document.getElementById('logout-others-btn');
+    if (logoutOthersBtn) {
+        logoutOthersBtn.addEventListener('click', async () => {
+            const originalHtml = logoutOthersBtn.innerHTML;
+            logoutOthersBtn.disabled = true;
+            logoutOthersBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Logging out other devices...</span>';
+
+            try {
+                const res = await fetch('/api/auth/sessions/logout-others', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    showToast(data.message || 'Other devices logged out.', 'success');
+                    fetchSessions();
+                } else {
+                    showToast(data.message || 'Failed to log out other devices.', 'danger');
+                }
+            } catch (error) {
+                console.error('Logout Others Error:', error);
+                showToast('Server error while logging out other devices.', 'danger');
+            } finally {
+                logoutOthersBtn.disabled = false;
+                logoutOthersBtn.innerHTML = originalHtml;
+            }
+        });
+    }
 
     // =================================================================
     // ১৭. ইনিশিয়াল ডাটা লোড (Initial Data Fetching)

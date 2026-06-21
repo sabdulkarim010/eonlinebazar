@@ -1675,6 +1675,51 @@ body {
     letter-spacing: 0.5px;
 }
 
+/* ---------- অ্যাক্টিভ সেশন কার্ড হেডার ও "Log Out All Other Devices" বাটন ---------- */
+.sessions-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.sessions-card-head h3 { color: var(--text-main); }
+
+.logout-others-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    padding: 9px 16px;
+    border-radius: 9px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: var(--transition-smooth);
+}
+.logout-others-btn:hover {
+    background: var(--danger);
+    color: #fff;
+    border-color: var(--danger);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+}
+.logout-others-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* সেশন রো-গুলো পরিষ্কার, কম্প্যাক্ট ও কারেন্ট ডিভাইসে হাইলাইটেড */
+.current-session {
+    border-left: 3px solid var(--primary-color);
+}
+.current-session .activity-icon {
+    background: rgba(37, 99, 235, 0.12);
+    color: var(--primary-color);
+}
+
 /* ---------- রেসপন্সিভ ফাইন-টিউন ---------- */
 @media (max-width: 768px) {
     .address-form-body {
@@ -1691,6 +1736,9 @@ body {
 
     .session-logout-btn { padding: 6px 10px; font-size: 0.78rem; }
     .activity-item { gap: 10px; }
+
+    .sessions-card-head { flex-direction: column; gap: 0.65rem; }
+    .logout-others-btn { width: 100%; justify-content: center; }
 }
 
 

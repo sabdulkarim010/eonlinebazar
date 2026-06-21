@@ -9,6 +9,7 @@
 
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
+const UserSession = require('../models/userSession');
 
 // ১. অ্যাডমিন ভেরিফাই করার জন্য
 const verifyAdmin = (req, res, next) => {
@@ -42,21 +43,20 @@ const verifyUser = async (req, res, next) => {
         const userId = decoded.id || decoded._id || decoded.userId;
         req.user = { id: userId, sid: decoded.sid || null };
 
-        // 🌟 সেশন ভ্যালিডেশন: টোকেনে sid থাকলে সেই সেশনটি এখনো ডাটাবেজে আছে কিনা যাচাই করা হয়।
-        // রিমোট লগআউট করা হলে সেশনটি মুছে যায় → তখন এই টোকেনটি আর কাজ করবে না।
-        // (পুরোনো টোকেনে sid না থাকলে ব্যাকওয়ার্ড কম্প্যাটিবিলিটির জন্য সেটি অনুমোদিত থাকবে)
+        // 🌟 সেশন ভ্যালিডেশন: টোকেনে sid থাকলে সেই সেশনটি এখনো UserSession কালেকশনে
+        // আছে কিনা যাচাই করা হয়। কোনো ডিভাইস রিমোট লগআউট করা হলে রেকর্ডটি মুছে যায় →
+        // তখন সেই ডিভাইসের টোকেন এই চেকে ব্যর্থ হয়ে 401 পাবে (forced logout)।
+        // একই ক্যোয়ারিতে lastActiveAt আপডেট করা হয় (লাইটওয়েট, একটি DB কল)।
+        // (পুরোনো টোকেনে sid না থাকলে ব্যাকওয়ার্ড কম্প্যাটিবিলিটির জন্য অনুমোদিত থাকবে)
         if (decoded.sid) {
-            const user = await User.findById(userId).select('sessions');
-            if (!user) {
-                return res.status(401).json({ success: false, message: "Unauthorized! User not found." });
+            const session = await UserSession.findOneAndUpdate(
+                { sessionId: decoded.sid },
+                { $set: { lastActiveAt: new Date() } },
+                { new: true }
+            );
+            if (!session) {
+                return res.status(401).json({ success: false, message: "Session expired or logged out. Please log in again." });
             }
-            const sessionExists = user.sessions.id(decoded.sid);
-            if (!sessionExists) {
-                return res.status(401).json({ success: false, message: "Session expired. Please log in again." });
-            }
-            // সেশনের শেষ অ্যাক্টিভ টাইম আপডেট করা (অপশনাল, লাইটওয়েট)
-            sessionExists.lastActive = new Date();
-            await user.save();
         }
 
         next(); 
