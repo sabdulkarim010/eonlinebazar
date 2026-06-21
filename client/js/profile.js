@@ -99,6 +99,16 @@ document.addEventListener('DOMContentLoaded', () => {
     initTheme();
 
     // =================================================================
+    // Back to Home navigation
+    // =================================================================
+    const backToHomeBtn = document.getElementById('back-to-home-btn');
+    if (backToHomeBtn) {
+        backToHomeBtn.addEventListener('click', () => {
+            window.location.href = '/';
+        });
+    }
+
+    // =================================================================
     // ৪. মোবাইল ড্রয়ার টগল লজিক (Responsive Drawer)
     // =================================================================
     if (mobileToggleBtn && sidebar) {
@@ -693,6 +703,9 @@ document.addEventListener('click', function(e) {
 
 
 });
+
+
+
 
 
 
