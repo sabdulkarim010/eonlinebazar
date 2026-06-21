@@ -32,6 +32,7 @@ exports.getSessions = async (req, res) => {
             device: s.device,
             browser: s.browser,
             ip: s.ipAddress,
+            location: s.location || 'Unknown Location',
             userAgent: s.userAgent,
             createdAt: s.createdAt,
             lastActiveAt: s.lastActiveAt,

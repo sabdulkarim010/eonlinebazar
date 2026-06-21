@@ -11,6 +11,7 @@
 require('dotenv').config(); 
 const express = require('express');
 const path = require('path');
+const requestIp = require('request-ip');
 const connectDB = require('./config/db');
 
 // ১. রুট ফাইলসমূহ ইমপোর্ট করা
@@ -30,7 +31,13 @@ const PORT = process.env.PORT || 3000;
 connectDB();
 
 // ৩. প্রয়োজনীয় মিডলওয়্যারসমূহ
+// প্রক্সি/হোস্টিং (Render, Vercel, Nginx ইত্যাদি)-এর পেছনে আসল ক্লায়েন্ট IP পেতে
+app.set('trust proxy', true);
 app.use(express.json()); 
+
+// request-ip: প্রতিটি রিকোয়েস্টে আসল ক্লায়েন্ট IP req.clientIp-তে সেট করে
+// (অ্যাক্টিভ ডিভাইস ও লোকেশন ট্র্যাকিং-এ ব্যবহৃত হয়)
+app.use(requestIp.mw());
 
 /********************************************************************
  # .HTML EXTENSION STRIPPER & REDIRECT MIDDLEWARE (🌟 ফিক্স করা হয়েছে)

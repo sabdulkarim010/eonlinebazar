@@ -29,16 +29,6 @@ const walletHistorySchema = new mongoose.Schema({
     date: { type: Date, default: Date.now }
 });
 
-/* অ্যাক্টিভ ডিভাইস/সেশন সাব-স্কিমা (Security & Session Management) */
-const sessionSchema = new mongoose.Schema({
-    device: { type: String, default: 'Unknown Device' },
-    browser: { type: String, default: 'Unknown Browser' },
-    ip: { type: String, default: '' },
-    location: { type: String, default: 'Unknown Location' },
-    createdAt: { type: Date, default: Date.now },
-    lastActive: { type: Date, default: Date.now }
-});
-
 const userSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -106,8 +96,8 @@ const userSchema = new mongoose.Schema({
     // 🟢 নতুন: উইশলিস্ট (My Wishlist - persists until removed)
     wishlist: [wishlistSchema],
 
-    // 🟢 নতুন: অ্যাক্টিভ লগইন সেশন (Active Devices / Remote Logout)
-    sessions: [sessionSchema],
+    // নোট: অ্যাক্টিভ লগইন সেশন এখন আলাদা UserSession কালেকশনে রাখা হয়
+    // (models/userSession.js) — পুরোনো এম্বেডেড sessions অ্যারে সরিয়ে ফেলা হয়েছে।
 
     // ফরগেট পাসওয়ার্ড OTP এবং এক্সপায়ারি টাইম
     resetPasswordOtp: {

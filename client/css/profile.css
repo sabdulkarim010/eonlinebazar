@@ -1675,6 +1675,32 @@ body {
     letter-spacing: 0.5px;
 }
 
+/* কম্প্যাক্ট সেশন রো টাইপোগ্রাফি (Title + Meta line) */
+.session-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.session-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-top: 5px;
+}
+.session-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+.session-meta i { font-size: 0.78rem; opacity: 0.8; }
+.session-meta .session-active-now {
+    color: var(--success);
+    font-weight: 600;
+}
+
 /* ---------- অ্যাক্টিভ সেশন কার্ড হেডার ও "Log Out All Other Devices" বাটন ---------- */
 .sessions-card-head {
     display: flex;

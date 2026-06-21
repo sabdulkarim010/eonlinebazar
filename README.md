@@ -1,131 +1,350 @@
-# EOnlineBazar 🛒 - Backend API & Architecture
+<div align="center">
 
-এটি **EOnlineBazar** ই-কমার্স প্ল্যাটফর্মের সম্পূর্ণ ব্যাকএন্ড (Backend) আর্কিটেকচার। প্রজেক্টটি খুব সুন্দরভাবে বিভিন্ন ফোল্ডার ও ফাইলে বিভক্ত করে (MVC প্যাটার্ন ফলো করে) সাজানো হয়েছে, যাতে মেইনটেইন করা সহজ হয়।
+# 🛒 EOnlineBazar
 
-## 🚀 প্রযুক্তি (Tech Stack)
-- **Framework:** Node.js, Express.js
-- **Database:** MongoDB (Mongoose)
-- **Security:** JWT (JSON Web Token), Bcrypt.js
-- **Media Management:** Cloudinary, Multer, Sharp
-- **Mailing:** Nodemailer
+### A Full-Stack E-Commerce Web Application
 
----
+*Shop smarter — a complete MERN-style online marketplace with JWT authentication, real-time active-device & session tracking, a customer profile dashboard, and a full-featured admin panel.*
 
-## 📂 ফাইল-ভিত্তিক ডকুমেন্টেশন (File-wise Documentation)
+![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)
+![JWT](https://img.shields.io/badge/Auth-JWT-FB015B?logo=jsonwebtokens&logoColor=white)
+![License](https://img.shields.io/badge/License-ISC-blue)
 
-ভবিষ্যতে নতুন কোনো ফাইল যুক্ত হলে, নিচের নির্দিষ্ট ফোল্ডারের তালিকায় সেটি যোগ করে দেওয়া যাবে।
-
-### ১. মেইন সার্ভার ফাইল
-| ফাইল | কাজের বিবরণ |
-| --- | --- |
-| `server.js` | এটি প্রজেক্টের এন্ট্রি পয়েন্ট। এখানে ডাটাবেজ কানেকশন, গ্লোবাল মিডলওয়্যার, API রাউটিং এবং ক্লিন ইউআরএল (Clean URL) সেটআপ করা হয়েছে। |
-
-### ২. Config (কনফিগারেশন)
-| ফাইল | কাজের বিবরণ |
-| --- | --- |
-| `config/db.js` | Mongoose ব্যবহার করে MongoDB Atlas ক্লাস্টারের সাথে ডাটাবেজ কানেকশন তৈরি করার লজিক। |
-
-### ৩. Models (ডাটাবেজ স্কিমা)
-| ফাইল | কাজের বিবরণ |
-| --- | --- |
-| `models/admin.js` | অ্যাডমিনের ইউজারনেম, পাসওয়ার্ড এবং প্রোফাইল ছবির স্কিমা। |
-| `models/user.js` | কাস্টমারের নাম, ইমেইল, মোবাইল, পাসওয়ার্ড, অবতার এবং ভেরিফিকেশন টোকেন স্কিমা। |
-| `models/product.js` | প্রোডাক্টের নাম, দাম, ছবি (মাল্টিপল), স্টক এবং কাস্টমার রিভিউ স্কিমা। |
-| `models/order.js` | কাস্টমারের অর্ডার ডিটেইলস, টোটাল এমাউন্ট এবং ডেলিভারি স্ট্যাটাস স্কিমা। |
-| `models/cart.js` | ইউজারের শপিং কার্ট, আইটেম কোয়ান্টিটি এবং সিলেকশন ডাটা। |
-| `models/category.js` | ডাইনামিক ক্যাটাগরি তৈরি করার ডাটাবেজ মডেল। |
-| `models/review.js` | প্রোডাক্টের রেটিং, কমেন্ট এবং রিভিউয়ের ছবির মডেল। |
-
-### ৪. Controllers (মূল লজিক)
-| ফাইল | কাজের বিবরণ |
-| --- | --- |
-| `controllers/adminController.js` | অ্যাডমিন লগইন, কাস্টমার লিস্ট দেখা এবং Cloudinary-তে প্রোফাইল ছবি আপডেট (ও পুরোনো ছবি ডিলিট) লজিক। |
-| `controllers/userController.js` | ইউজার রেজিস্ট্রেশন, ইমেইল ভেরিফিকেশন, লগইন, ফরগেট পাসওয়ার্ড, প্রোফাইল আপডেট এবং Sharp দিয়ে ছবি কম্প্রেস করার লজিক। |
-| `controllers/productController.js` | নতুন প্রোডাক্ট যোগ, আপডেট, ডিলিট এবং কাস্টমার রিভিউ যুক্ত করার ফাংশন। |
-| `controllers/orderController.js` | অর্ডার প্লেস করা, স্টক কমানো, ড্যাশবোর্ড স্ট্যাটাস এবং পাবলিক ট্র্যাকিং লজিক। |
-| `controllers/cartController.js` | লোকাল ও ডাটাবেজ কার্ট মার্জ করা, আইটেম অ্যাড/রিমুভ এবং কোয়ান্টিটি আপডেট। |
-| `controllers/reviewController.js` | রিভিউ সেভ, আপডেট, ছবি আপলোড এবং নির্দিষ্ট প্রোডাক্টের রিভিউ ফেচ করার লজিক। |
-
-### ৫. Routes (এপিআই এন্ডপয়েন্ট)
-| ফাইল | কাজের বিবরণ |
-| --- | --- |
-| `routes/adminRoutes.js` | `/api/admin/...` সম্পর্কিত সকল রাউট। |
-| `routes/userRoutes.js` | `/api/customer/...` সম্পর্কিত সকল রাউট। |
-| `routes/productRoutes.js` | `/api/products/...` সম্পর্কিত সকল রাউট। |
-| `routes/orderRoutes.js` | `/api/orders/...` সম্পর্কিত সকল রাউট। |
-| `routes/cartRoutes.js` | `/api/cart/...` সম্পর্কিত সকল রাউট। |
-| `routes/categoryRoutes.js`| `/api/categories/...` সম্পর্কিত সকল রাউট। |
-| `routes/reviewRoutes.js` | `/api/reviews/...` সম্পর্কিত সকল রাউট। |
-
-### ৬. Middlewares (নিরাপত্তা ও অন্যান্য)
-| ফাইল | কাজের বিবরণ |
-| --- | --- |
-| `middlewares/authMiddleware.js` | `verifyAdmin` এবং `verifyUser` এর মাধ্যমে API রুটগুলোকে নিরাপদ করার লজিক। |
-| `middlewares/uploadMiddleware.js`| Multer মেমোরি স্টোরেজ ব্যবহার করে ছবি আপলোড এবং সাইজ লিমিট (৫MB) সেট করার লজিক। |
+</div>
 
 ---
 
-## ⚙️ এনভায়রনমেন্ট ভেরিয়েবল (.env)
-প্রজেক্টটি রান করার জন্য রুট ফোল্ডারে একটি `.env` ফাইল থাকা আবশ্যক। (নিরাপত্তার জন্য এটি `.gitignore`-এ যুক্ত করা আছে)।
-প্রয়োজনীয় ভেরিয়েবলসমূহ:
-- `PORT`, `MONGO_URI`, `JWT_SECRET`
-- `EMAIL_USER`, `EMAIL_PASS` (Nodemailer এর জন্য)
-- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
+## 📖 Overview
 
----
-*Developed for EOnlineBazar*
+**EOnlineBazar** is a production-ready, full-stack e-commerce platform built on **Node.js / Express** with a **MongoDB (Atlas)** database and a lightweight, dependency-free **Vanilla JavaScript** frontend. It follows a clean **MVC architecture** (Models → Controllers → Routes) and ships with everything a modern online store needs: secure customer authentication, a shopping cart, order placement & live tracking, product reviews with image uploads, a loyalty wallet, and a dedicated admin dashboard.
 
-
-
+Its standout feature is a **database-backed session security layer**: every login generates a unique session that is embedded inside the JWT, allowing users to view all their **active devices** (with IP, location, browser & device detection) and **remotely log out** any device in real time.
 
 ---
 
-### ৭. Frontend - Core Structure (Main Pages & Logic)
+## ✨ Key Features
 
-এই সেকশনে ফ্রন্টএন্ডের মূল কাঠামো, গ্লোবাল স্টাইল এবং মূল জাভাস্ক্রিপ্ট লজিকের বিবরণ দেওয়া হলো।
+- **🔐 JWT Authentication** — Secure customer registration & login with `bcryptjs` password hashing and 7-day signed JSON Web Tokens.
+- **📧 Email Verification & OTP Password Reset** — Account verification links and 6-digit OTP-based password recovery, sent via `nodemailer` (Gmail).
+- **🖥️ Active Devices & Session Tracking** — Every login is recorded in a dedicated `UserSession` collection with **IP address**, **geo-location** (city, country), **browser**, and **device** detection.
+- **🚪 Remote Logout** — Instantly revoke any device; the next request from that device is rejected by the session-aware middleware (forced logout). Includes a "log out all other devices" action.
+- **🛍️ Product Catalog** — Browse products with multiple images, categories, highlights, stock levels, and detailed descriptions.
+- **⭐ Reviews & Ratings** — Logged-in customers can post star ratings and reviews (with optional photo upload); average ratings update automatically.
+- **🛒 Shopping Cart** — Persistent, server-synced cart with add, update quantity, toggle item selection, guest-cart merging, and post-order cleanup.
+- **📦 Order Management & Tracking** — Place orders, view personal order history, and track order status via a public tracking endpoint.
+- **❤️ Wishlist** — Save favourite products that persist across sessions.
+- **📍 Address Book** — Manage multiple delivery addresses with a default-address sync for faster checkout.
+- **💰 Wallet & Loyalty Points** — Earn loyalty points and convert them into wallet balance (100 points = ৳10) with full transaction history.
+- **👤 Responsive Profile Dashboard** — Update profile details, change password, and upload an avatar (auto-compressed to 300×300 via `sharp`, stored on Cloudinary).
+- **🛠️ Admin Panel** — Admin login, customer management, product CRUD (up to 10 images per product), category management, order status updates, and admin profile picture handling.
+- **🌐 Clean URLs** — Automatic `.html` stripping and 301 redirects for SEO-friendly, extension-less routes.
 
-| ফাইলের নাম | ফাইলের ধরন | কাজের বিবরণ (লজিক ও ডিজাইন) |
-| :--- | :--- | :--- |
-| `index.html` | Structure | এটি ওয়েবসাইটের মূল হোম পেজ। এখানে মেটা ট্যাগ, প্রফেশনাল হেডার (লোগো, সার্চ, ইউজার, কার্ট), সাব-মেনু, হিরো ব্যানার এবং ডাইনামিক প্রোডাক্ট দেখানোর জন্য গ্রিড কন্টেইনার সেটআপ করা আছে। |
-| `css/style.css` | Global CSS | পুরো ওয়েবসাইটের গ্লোবাল লেআউট। এতে কাস্টম কালার ভেরিয়েবল, স্টিকি হেডার, সার্চ বক্স, সাব-ন্যাভবার এবং মোবাইল/ট্যাবলেটের জন্য রেসপন্সিভ (Media Queries) গ্রিড লেখা হয়েছে। |
-| `css/home.css` | Page CSS | শুধুমাত্র হোম পেজের ডিজাইন। হিরো স্লাইডার, ডাইনামিক ক্যাটাগরি বাটন, এবং প্রোডাক্ট কার্ডের রেসপন্সিভ গ্রিড ডিজাইন (ডেস্কটপে ৭টি, মোবাইলে ২টি) এখানে করা হয়েছে। |
-| `js/main.js` | Core Logic | ফ্রন্টএন্ডের মূল ইঞ্জিন। এটি ব্যাকএন্ড (`/api/products`) থেকে প্রোডাক্ট এনে হোমপেজে দেখায়। এছাড়া ক্যাটাগরি ফিল্টার, সার্চ লজিক এবং লগইন থাকা ইউজারের নাম ও ছবি হেডারে সিঙ্ক করার কাজ করে। |
+---
 
+## 🧰 Tech Stack
 
+| Layer | Technologies |
+|-------|--------------|
+| **Frontend** | HTML5, CSS3, Vanilla JavaScript (no framework) |
+| **Backend** | Node.js, Express.js 5 |
+| **Database** | MongoDB (Atlas) via Mongoose ODM |
+| **Authentication** | JSON Web Tokens (`jsonwebtoken`), `bcryptjs` |
+| **Session Intelligence** | `geoip-lite` (location), `request-ip` (client IP), `ua-parser-js` (device/browser) |
+| **File / Media** | `multer` (uploads), `sharp` (image compression), `cloudinary` + `streamifier` (CDN storage) |
+| **Email** | `nodemailer` (verification & OTP) |
+| **Config** | `dotenv` |
 
-৮. Shopping Cart & Checkout System
-​এই সেকশনে কার্ট ম্যানেজমেন্ট, ডায়নামিক ক্যালকুলেশন এবং ডাটাবেজ সিঙ্ক্রোনাইজেশনের বিস্তারিত দেওয়া হলো।
+### Core Dependencies
 
-ফাইলের নামফাইলের ধরনকাজের বিবরণ (লজিক ও ডিজাইন)
-cart.htmlStructureচেকআউট পেজের প্রিমিয়াম লেআউট। এতে একটি স্টিকি হেডার, প্রগ্রেস ইন্ডিকেটর, এবং কার্ট আইটেম ও টোটাল অ্যামাউন্ট দেখানোর জন্য ডায়নামিক কন্টেইনার আছে।
-css/cart.cssUI/UXকার্ট পেজের জন্য কাস্টম ডিজাইন। এতে প্রিমিয়াম চেকআউট স্টাইল, রেসপনসিভ আইটেম কার্ড, এবং মোবাইল ভিউয়ের জন্য কম্প্যাক্ট হেডার ও বাটন ডিজাইন করা হয়েছে।
-js/cart.jsLogicকার্টের মূল ইঞ্জিন। এটি গেস্ট (LocalStorage) ও রেজিস্টার্ড (API/Database) ইউজারের ডাটা মার্জ (Merge) করে, রিয়েল-টাইমে সাবটোটাল আপডেট করে এবং প্রোডাক্টের স্টক ভ্যালিডেশন হ্যান্ডেল করে।
+```json
+"bcryptjs"      "cloudinary"   "dotenv"        "express"
+"geoip-lite"    "jsonwebtoken" "mongoose"      "multer"
+"nodemailer"    "request-ip"   "sharp"         "streamifier"
+"ua-parser-js"
+```
 
+---
 
+## 📁 Project Structure
 
-এই সিস্টেমের বিশেষ কিছু টেকনিক্যাল নোট:
-​Hybrid Sync: ইউজার যখন লগইন করবে, js/cart.js স্বয়ংক্রিয়ভাবে তার লোকাল স্টোরেজে থাকা কার্ট ডাটাবেজে পাঠিয়ে মার্জ করে নেয়, ফলে কোনো পণ্য হারিয়ে যায় না।
-​Fly-to-Cart Animation: প্রোডাক্ট কার্ডে 'Add to Bag' ক্লিক করলে আইকনটি কার্ট ব্যাজে উড়ে যায়, যা ইউজারকে চমৎকার অভিজ্ঞতা দেয়।
-​Smart Fallback: ডাটাবেজে ছবি না থাকলে বা কোনো কারণে ইমেজ লিংক broken হলে সিস্টেম অটোমেটিক ইমোজি (Emoji) ডিসপ্লে করে, যাতে ইউজার এক্সপেরিয়েন্স নষ্ট না হয়।
+The project follows the **MVC pattern**, separating data models, business logic (controllers), and routing.
 
+```
+eonlinebazar-fullstack/
+│
+├── config/
+│   └── db.js                     # MongoDB (Atlas) connection via Mongoose
+│
+├── models/                       # Mongoose schemas (Data Layer)
+│   ├── user.js                   # User + embedded addresses, wishlist, wallet
+│   ├── userSession.js            # Active device / login session records
+│   ├── admin.js                  # Admin account
+│   ├── product.js                # Products with images, reviews & ratings
+│   ├── category.js               # Product categories
+│   ├── order.js                  # Customer orders
+│   ├── cart.js                   # Shopping cart
+│   └── review.js                 # Product reviews
+│
+├── controllers/                  # Business logic (Controller Layer)
+│   ├── authController.js         # Active sessions: list / revoke / logout-others
+│   ├── userController.js         # Auth, profile, wishlist, addresses, wallet
+│   ├── adminController.js        # Admin login, customers, profile image
+│   ├── productController.js      # Product CRUD + reviews
+│   ├── orderController.js        # Orders, tracking, dashboard stats
+│   ├── cartController.js         # Cart operations
+│   └── reviewController.js       # Review system
+│
+├── routes/                       # API endpoints (Routing Layer)
+│   ├── authRoutes.js             # /api/auth      (session management)
+│   ├── userRoutes.js             # /api/customer  (auth, profile, wishlist...)
+│   ├── adminRoutes.js            # /api/admin
+│   ├── productRoutes.js          # /api/products
+│   ├── orderRoutes.js            # /api/orders
+│   ├── cartRoutes.js             # /api/cart
+│   ├── categoryRoutes.js         # /api/categories
+│   └── reviewRoutes.js           # /api/reviews
+│
+├── middlewares/
+│   ├── authMiddleware.js         # verifyUser (session-aware) & verifyAdmin (JWT)
+│   └── uploadMiddleware.js       # Multer memory storage + image filter (5 MB)
+│
+├── client/                       # Frontend (static, served by Express)
+│   ├── *.html                    # index, login, register, profile, cart, checkout...
+│   ├── css/                      # Page-scoped stylesheets
+│   ├── js/                       # Vanilla JS for each page
+│   └── images/                   # Static assets (favicon, etc.)
+│
+├── server.js                     # App entry point: middleware, routes, clean URLs
+├── seed.js                       # Database seeding script
+├── products.json                 # Sample product data
+├── package.json
+└── README.md
+```
 
-​৯. User Authentication System (Login & Registration)
-​এই মডিউলটি মূলত ইউজারের ব্যক্তিগত ডাটা নিরাপত্তা এবং সহজ ইন্টারঅ্যাকশনের কথা মাথায় রেখে তৈরি করা হয়েছে।
+---
 
-ফাইলের নামফাইলের ধরনকাজের বিবরণ
-login.htmlUIইউজার সাইন-ইন পেজ। এতে Floating Labels এবং পাসওয়ার্ড দেখার জন্য Toggle Eye Icon যুক্ত করা হয়েছে।
-register.htmlUIনতুন ইউজার তৈরির পেজ। মোবাইল ভ্যালিডেশন এবং নাম ভ্যালিডেশনের জন্য বিশেষ ব্যবস্থা রাখা হয়েছে।
-auth.jsLogicরিয়েল-টাইম ভ্যালিডেশন ইঞ্জিন, এন্টি-স্প্যাম ফিল্টার, এবং ব্যাকএন্ড API-এর সাথে টোকেন বেসড সিঙ্ক্রোনাইজেশন।
-auth.cssStyleকাস্টম টোস্ট নোটিফিকেশন এবং মডার্ন ইনপুট স্টাইলিংয়ের জন্য প্রিমিয়াম ডিজাইন।
+## 🔌 API Documentation
 
+Base URL: `http://localhost:3000`
 
-এই মডিউলের বিশেষ প্রযুক্তিগত দিক:
-​Real-time Validation: ইউজার টাইপ করার সাথে সাথেই সিস্টেম চেক করে যে ইনপুট সঠিক কি না। ভুল হলে সাথে সাথে ইনপুট বক্সের বর্ডার লাল হয়ে যাবে এবং নিচে এরর মেসেজ দেখাবে।
-​Anti-Spam Security: রেজিস্ট্রেশন করার সময় কেউ যাতে এলোমেলো অক্ষর বা স্প্যাম টেক্সট না দিতে পারে, সেজন্য একটি নিজস্ব isSpamText অ্যালগরিদম ব্যবহার করা হয়েছে।
-​Dual-Token Sync: লগইন করার পর টোকেনগুলো localStorage-এ এমনভাবে সেভ করা হয় যাতে করে অ্যাপ্লিকেশনের অন্য কোনো পেজে লগইন স্টেট নিয়ে সমস্যা না হয়।
-​Smooth UX: কোনো এরর বা সাকসেস মেসেজ দেখানোর জন্য ব্রাউজারের ডিফল্ট অ্যালার্ট বক্সের পরিবর্তে প্রিমিয়াম স্লাইড-ডাউন টোস্ট ব্যবহার করা হয়েছে।
+> **Auth column legend:** `Public` = no token · `User` = customer Bearer JWT (`verifyUser`) · `Admin` = admin Bearer JWT (`verifyAdmin`)
 
+### 🔑 Authentication & Sessions
 
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `POST` | `/api/customer/register` | Register a new account & send verification email | Public |
+| `POST` | `/api/customer/login` | Log in, create a session & issue a JWT | Public |
+| `POST` | `/api/customer/forgot-password` | Send a 6-digit password-reset OTP via email | Public |
+| `POST` | `/api/customer/reset-password` | Reset password using the OTP | Public |
+| `GET`  | `/api/auth/sessions` | List all active devices/sessions (flags the current one) | User |
+| `DELETE` | `/api/auth/sessions/:id` | Remotely log out a specific device (by `_id` or `sessionId`) | User |
+| `POST` | `/api/auth/sessions/logout-others` | Log out every device except the current one | User |
+
+### 👤 Profile & Account
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET`  | `/api/customer/profile` | Get the logged-in user's profile | User |
+| `PUT`  | `/api/customer/update-profile` | Update name / phone / address | User |
+| `PUT`  | `/api/customer/change-password` | Change the current password | User |
+| `POST` | `/api/customer/update-avatar` | Upload & compress profile photo (Cloudinary) | User |
+| `POST` | `/api/customer/convert-points` | Convert loyalty points to wallet balance | User |
+
+### ❤️ Wishlist & 📍 Addresses
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET`  | `/api/customer/wishlist` | Get wishlist items | User |
+| `POST` | `/api/customer/wishlist` | Add an item to the wishlist | User |
+| `DELETE` | `/api/customer/wishlist/:productId` | Remove a wishlist item | User |
+| `GET`  | `/api/customer/addresses` | List saved addresses | User |
+| `POST` | `/api/customer/addresses` | Add a new address | User |
+| `PUT`  | `/api/customer/addresses/:addressId` | Update an address | User |
+| `DELETE` | `/api/customer/addresses/:addressId` | Delete an address | User |
+
+### 🛍️ Products & Reviews
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET`  | `/api/products` | Get all products | Public |
+| `GET`  | `/api/products/:id` | Get a single product | Public |
+| `POST` | `/api/products` | Create a product (up to 10 images) | Admin |
+| `PUT`  | `/api/products/:id` | Update a product | Admin |
+| `DELETE` | `/api/products/:id` | Delete a product | Admin |
+| `POST` | `/api/products/:id/reviews` | Add a review/rating to a product | User |
+| `GET`  | `/api/reviews/:productId` | Get all reviews for a product | Public |
+| `POST` | `/api/reviews` | Add or update a review (with photo) | User |
+
+### 🛒 Cart
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET`  | `/api/cart` | Get the user's cart | User |
+| `POST` | `/api/cart/merge` | Merge guest cart into the user's cart | User |
+| `POST` | `/api/cart/add` | Add a product to the cart | User |
+| `PUT`  | `/api/cart/update-quantity` | Update an item's quantity | User |
+| `PUT`  | `/api/cart/toggle-selection` | Select / unselect an item | User |
+| `DELETE` | `/api/cart/remove/:productId` | Remove an item | User |
+| `DELETE` | `/api/cart/clear-ordered` | Clear selected items after checkout | User |
+
+### 📦 Orders
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `POST` | `/api/orders` | Place a new order | User |
+| `GET`  | `/api/orders/my-orders` | Get the logged-in user's orders | User |
+| `GET`  | `/api/orders/dashboard-stats` | Get order dashboard statistics | User |
+| `GET`  | `/api/orders/track` | Track an order (public lookup) | Public |
+| `GET`  | `/api/orders/:id` | Get a single order's details | User |
+| `GET`  | `/api/orders` | Get all orders (admin panel) | Public¹ |
+| `PUT`  | `/api/orders/:id` | Update order status | Public¹ |
+| `DELETE` | `/api/orders/:id` | Delete an order | Public¹ |
+
+### 🗂️ Categories & 🛠️ Admin
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET`  | `/api/categories` | List all categories | Public |
+| `POST` | `/api/categories` | Create a category | Public¹ |
+| `PUT`  | `/api/categories/:id` | Rename a category (syncs products) | Public¹ |
+| `DELETE` | `/api/categories/:id` | Delete a category | Public¹ |
+| `POST` | `/api/admin/login` | Admin login (issues 24h JWT) | Public |
+| `GET`  | `/api/admin/customers` | List all customers | Public¹ |
+| `GET`  | `/api/admin/profile` | Get admin profile image | Public |
+| `POST` | `/api/admin/update-profile-pic` | Upload admin profile picture | Public¹ |
+
+> ¹ These management endpoints are currently unauthenticated at the route layer. For a hardened production deployment, protect them with the `verifyAdmin` middleware.
+
+---
+
+## ⚙️ Installation & Setup Guide
+
+### Prerequisites
+
+- **Node.js** v18+ and npm
+- A **MongoDB** database (a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster works great)
+- A **Cloudinary** account (for image uploads)
+- A **Gmail** account with an App Password (for emails)
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/<your-username>/eonlinebazar-fullstack.git
+cd eonlinebazar-fullstack
+```
+
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+### 3. Configure environment variables
+
+Create a `.env` file in the project root. **Never commit this file** — use placeholder values like below:
+
+```env
+# Server
+PORT=3000
+
+# Database
+MONGO_URI=your_mongodb_connection_string
+
+# Authentication
+JWT_SECRET=your_strong_secret_key
+
+# Admin bootstrap
+ADMIN_PASSWORD=your_admin_password
+
+# Email (Gmail App Password recommended)
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASS=your_gmail_app_password
+
+# Cloudinary (image storage)
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+```
+
+### 4. (Optional) Seed the database
+
+```bash
+node seed.js
+```
+
+### 5. Start the server
+
+```bash
+node server.js
+```
+
+> 💡 For auto-reload during development, install nodemon (`npm i -D nodemon`) and run `nodemon server.js`. You can also add convenience scripts to `package.json`:
+> ```json
+> "scripts": {
+>   "start": "node server.js",
+>   "dev": "nodemon server.js"
+> }
+> ```
+
+The app will be available at **http://localhost:3000**, with the API served under `/api/*`.
+
+---
+
+## 🛡️ Security Architecture
+
+EOnlineBazar combines **stateless JWTs** with a **stateful session store** to get the best of both worlds — fast token verification *and* instant remote revocation.
+
+### 1. Token issuance (login)
+On a successful login, the server:
+1. Verifies the password with `bcryptjs`.
+2. Generates a unique **`sessionId` (UUID)** and persists a record in the dedicated **`UserSession`** collection, capturing the **IP** (`request-ip`), **geo-location** (`geoip-lite`), **device** and **browser** (parsed from the User-Agent).
+3. Signs a JWT containing both the user `id` **and** the `sid` (session ID), valid for **7 days**.
+
+```js
+const token = jwt.sign({ id: user._id, sid: sessionId }, JWT_SECRET, { expiresIn: '7d' });
+```
+
+### 2. Request validation (session-aware middleware)
+On every protected request, `verifyUser`:
+1. Verifies the JWT signature.
+2. Reads the `sid` from the token and looks it up in `UserSession`.
+3. If the matching session **still exists**, it updates `lastActiveAt` (a single, lightweight DB call) and lets the request through.
+4. If the session **no longer exists** (because it was revoked), it responds with **`401 Unauthorized`** — effectively a **forced logout** for that device.
+
+```js
+const session = await UserSession.findOneAndUpdate(
+    { sessionId: decoded.sid },
+    { $set: { lastActiveAt: new Date() } },
+    { new: true }
+);
+if (!session) return res.status(401).json({ success: false, message: "Session expired or logged out." });
+```
+
+### 3. Remote logout
+Deleting a session record (via `DELETE /api/auth/sessions/:id` or `logout-others`) **immediately invalidates** that device's token on its next request — no need to wait for the JWT to expire. An ownership guard ensures users can only revoke their **own** sessions.
+
+### Additional hardening
+- **Password hashing:** all passwords stored as `bcryptjs` hashes (salt rounds = 10).
+- **Trust proxy:** `app.set('trust proxy', true)` ensures real client IPs behind proxies/CDNs (Render, Nginx, Cloudflare).
+- **Upload safety:** Multer restricts uploads to images only, max **5 MB**, held in memory (never written to disk) before streaming to Cloudinary.
+- **No-store caching:** sensitive pages are served with `Cache-Control: no-store`.
+
+---
+
+## 👤 Author
+
+**Abdul Karim Sheikh**
+
+---
+
+<div align="center">
+
+*Built with ❤️ using Node.js, Express & MongoDB.*
+
+</div>
 
 
 

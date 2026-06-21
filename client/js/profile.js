@@ -1155,18 +1155,26 @@ document.addEventListener('DOMContentLoaded', () => {
         sessions.forEach(s => {
             const icon = sessionDeviceIcon(s.device);
             const sessionRef = s.id || s.sessionId;
-            const status = s.isCurrent ? 'Active Now' : timeAgo(s.lastActiveAt);
+            const status = s.isCurrent ? 'Active now' : `Last active: ${timeAgo(s.lastActiveAt)}`;
+            const location = s.location && s.location !== 'Unknown Location' ? s.location : '';
             const item = document.createElement('div');
             item.className = 'activity-item' + (s.isCurrent ? ' current-session' : '');
             item.innerHTML = `
                 <div class="activity-icon"><i class="fa-solid ${icon}"></i></div>
                 <div class="activity-details">
-                    <h4>${s.device || 'Unknown Device'} • ${s.browser || 'Unknown Browser'} ${s.isCurrent ? '<span class="current-badge">This Device</span>' : ''}</h4>
-                    <p>${s.ip || 'Unknown IP'} • ${status}</p>
+                    <h4 class="session-title">
+                        <span>${s.device || 'Unknown Device'} • ${s.browser || 'Unknown Browser'}</span>
+                        ${s.isCurrent ? '<span class="current-badge">This Device</span>' : ''}
+                    </h4>
+                    <p class="session-meta">
+                        ${location ? `<span><i class="fa-solid fa-location-dot"></i> ${location}</span>` : ''}
+                        <span><i class="fa-solid fa-network-wired"></i> ${s.ip || 'Unknown IP'}</span>
+                        <span class="${s.isCurrent ? 'session-active-now' : ''}"><i class="fa-regular fa-clock"></i> ${status}</span>
+                    </p>
                 </div>
                 ${s.isCurrent ? '' : `
-                <button class="session-logout-btn" data-id="${sessionRef}" data-current="false">
-                    <i class="fa-solid fa-right-from-bracket"></i> Log Out
+                <button class="session-logout-btn" data-id="${sessionRef}" data-current="false" title="Log out this device">
+                    <i class="fa-solid fa-right-from-bracket"></i> Log Out This Device
                 </button>`}
             `;
             list.appendChild(item);

@@ -46,9 +46,8 @@ router.delete('/addresses/:addressId', verifyUser, userController.deleteAddress)
 // ================== ওয়ালেট ও পয়েন্ট (Wallet & Loyalty Points) ==================
 router.post('/convert-points', verifyUser, userController.convertPoints);
 
-// ================== সিকিউরিটি / অ্যাক্টিভ সেশন (Sessions & Remote Logout) ==================
-router.get('/sessions', verifyUser, userController.getSessions);
-router.delete('/sessions/:sessionId', verifyUser, userController.logoutSession);
+// নোট: অ্যাক্টিভ সেশন / রিমোট লগআউট এখন /api/auth/sessions রুটে
+// (routes/authRoutes.js + controllers/authController.js) থেকে পরিচালিত হয়।
 
 module.exports = router;
 

@@ -43,6 +43,11 @@ const userSessionSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    // IP থেকে geoip-lite দিয়ে শনাক্ত করা সিটি ও কান্ট্রি (যেমন: "Dhaka, Bangladesh")
+    location: {
+        type: String,
+        default: 'Unknown Location'
+    },
     createdAt: {
         type: Date,
         default: Date.now

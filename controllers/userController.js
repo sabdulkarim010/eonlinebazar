@@ -16,6 +16,8 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto'); 
 const cloudinary = require('cloudinary').v2;
 const sharp = require('sharp'); 
+const geoip = require('geoip-lite');
+const requestIp = require('request-ip');
 
 // ইমেইল পাঠানোর কনফিগারেশন
 const transporter = nodemailer.createTransport({
@@ -59,10 +61,51 @@ function parseUserAgent(uaString = '') {
 }
 
 // ক্লায়েন্টের আইপি বের করা
+// request-ip লাইব্রেরি অনেক ধরনের প্রক্সি/CDN হেডার (x-forwarded-for, cf-connecting-ip,
+// x-real-ip ইত্যাদি) হ্যান্ডেল করে; সেটি ব্যর্থ হলে ম্যানুয়াল ফলব্যাক ব্যবহার করা হয়।
 function getClientIp(req) {
+    const detected = requestIp.getClientIp(req);
+    if (detected) return detected;
     const fwd = req.headers['x-forwarded-for'];
     if (fwd) return fwd.split(',')[0].trim();
     return (req.socket && req.socket.remoteAddress) || req.ip || '';
+}
+
+/* =======================================================
+   হেল্পার: IP থেকে লোকেশন (City, Country) শনাক্ত করা
+   geoip-lite দিয়ে অফলাইন লুকআপ — কোনো এক্সটার্নাল API কল লাগে না।
+   লোকাল/প্রাইভেট IP হলে "Local Network", আর অজানা হলে "Unknown Location"।
+   ======================================================= */
+function getLocationFromIp(rawIp = '') {
+    try {
+        // IPv6-ম্যাপড IPv4 প্রিফিক্স পরিষ্কার করা (যেমন ::ffff:103.x.x.x)
+        const ip = String(rawIp).replace('::ffff:', '').trim();
+        if (!ip) return 'Unknown Location';
+
+        // লোকালহোস্ট ও প্রাইভেট নেটওয়ার্ক রেঞ্জ
+        if (
+            ip === '127.0.0.1' || ip === '::1' ||
+            ip.startsWith('10.') || ip.startsWith('192.168.') ||
+            /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip)
+        ) {
+            return 'Local Network';
+        }
+
+        const geo = geoip.lookup(ip);
+        if (!geo) return 'Unknown Location';
+
+        // কান্ট্রি কোড (যেমন BD/SA) থেকে পূর্ণ নাম তৈরি করা
+        let countryName = geo.country || '';
+        try {
+            const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+            countryName = regionNames.of(geo.country) || geo.country;
+        } catch (_) { /* Intl না থাকলে কোডই দেখানো হবে */ }
+
+        const parts = [geo.city, countryName].filter(Boolean);
+        return parts.length ? parts.join(', ') : 'Unknown Location';
+    } catch (err) {
+        return 'Unknown Location';
+    }
 }
 
 
@@ -154,6 +197,7 @@ exports.loginUser = async (req, res) => {
         // এই sessionId-ই JWT-এর ভেতরে 'sid' হিসেবে এম্বেড হয়।
         const { device, browser } = parseUserAgent(req.headers['user-agent']);
         const sessionId = crypto.randomUUID();
+        const clientIp = getClientIp(req);
 
         await UserSession.create({
             sessionId,
@@ -161,7 +205,8 @@ exports.loginUser = async (req, res) => {
             userAgent: req.headers['user-agent'] || '',
             device,
             browser,
-            ipAddress: getClientIp(req)
+            ipAddress: clientIp,
+            location: getLocationFromIp(clientIp)
         });
 
         const token = jwt.sign(
@@ -674,62 +719,10 @@ exports.convertPoints = async (req, res) => {
 
 /* =======================================================
    ১৩. সেশন / অ্যাক্টিভ ডিভাইস ম্যানেজমেন্ট (Security)
+   এই ফিচারটি এখন ডেডিকেটেড UserSession কালেকশন ব্যবহার করে এবং
+   controllers/authController.js + routes/authRoutes.js (/api/auth/sessions)
+   থেকে পরিচালিত হয়। তাই এখানে পুরোনো এম্বেডেড লজিকটি সরিয়ে ফেলা হয়েছে।
    ======================================================= */
-
-// ১৩.ক. সব অ্যাক্টিভ সেশন দেখা (বর্তমান ডিভাইস চিহ্নিত করা সহ)
-exports.getSessions = async (req, res) => {
-    try {
-        const user = await User.findById(req.user.id).select('sessions');
-        if (!user) return res.status(404).json({ success: false, message: "User not found." });
-
-        const currentSid = req.user.sid;
-        const sessions = (user.sessions || [])
-            .map(s => ({
-                _id: s._id,
-                device: s.device,
-                browser: s.browser,
-                ip: s.ip,
-                location: s.location,
-                createdAt: s.createdAt,
-                lastActive: s.lastActive,
-                isCurrent: currentSid ? String(s._id) === String(currentSid) : false
-            }))
-            .sort((a, b) => new Date(b.lastActive) - new Date(a.lastActive));
-
-        res.status(200).json({ success: true, sessions });
-    } catch (error) {
-        console.error("Get Sessions Error:", error);
-        res.status(500).json({ success: false, message: "Failed to load active sessions." });
-    }
-};
-
-// ১৩.খ. নির্দিষ্ট একটি সেশন রিমোট লগআউট করা
-exports.logoutSession = async (req, res) => {
-    try {
-        const { sessionId } = req.params;
-        const user = await User.findById(req.user.id);
-        if (!user) return res.status(404).json({ success: false, message: "User not found." });
-
-        const target = user.sessions.id(sessionId);
-        if (!target) return res.status(404).json({ success: false, message: "Session not found or already logged out." });
-
-        const isCurrent = req.user.sid && String(sessionId) === String(req.user.sid);
-        target.deleteOne();
-        await user.save();
-
-        res.status(200).json({
-            success: true,
-            message: isCurrent ? "This device has been logged out." : "Device logged out remotely.",
-            loggedOutCurrent: isCurrent
-        });
-    } catch (error) {
-        console.error("Logout Session Error:", error);
-        res.status(500).json({ success: false, message: "Failed to log out the device." });
-    }
-};
-
-
-
 
 
 
