@@ -39,6 +39,7 @@ Its standout feature is a **database-backed session security layer**: every logi
 - **💰 Wallet & Loyalty Points** — Earn loyalty points and convert them into wallet balance (100 points = ৳10) with full transaction history.
 - **👤 Responsive Profile Dashboard** — Update profile details, change password, and upload an avatar (auto-compressed to 300×300 via `sharp`, stored on Cloudinary).
 - **🛠️ Admin Panel** — Admin login, customer management, product CRUD (up to 10 images per product), category management, order status updates, and admin profile picture handling.
+- **📊 Finance & Analytics Panel** — A secure, admin-only dashboard that aggregates every order to compute **Total Revenue**, **Net Profit** (per-item `costPrice` vs `sellingPrice` difference), **Daily Profit**, and **Monthly Profit**, with interactive **Revenue vs Profit** (line) and **Top Selling Categories** (pie) charts rendered via Chart.js.
 - **🌐 Clean URLs** — Automatic `.html` stripping and 301 redirects for SEO-friendly, extension-less routes.
 
 ---
@@ -94,7 +95,8 @@ eonlinebazar-fullstack/
 │   ├── productController.js      # Product CRUD + reviews
 │   ├── orderController.js        # Orders, tracking, dashboard stats
 │   ├── cartController.js         # Cart operations
-│   └── reviewController.js       # Review system
+│   ├── reviewController.js       # Review system
+│   └── financeController.js      # 📊 Finance analytics: revenue, profit & charts
 │
 ├── routes/                       # API endpoints (Routing Layer)
 │   ├── authRoutes.js             # /api/auth      (session management)
@@ -104,7 +106,8 @@ eonlinebazar-fullstack/
 │   ├── orderRoutes.js            # /api/orders
 │   ├── cartRoutes.js             # /api/cart
 │   ├── categoryRoutes.js         # /api/categories
-│   └── reviewRoutes.js           # /api/reviews
+│   ├── reviewRoutes.js           # /api/reviews
+│   └── financeRoutes.js          # /api/finance (admin-protected analytics)
 │
 ├── middlewares/
 │   ├── authMiddleware.js         # verifyUser (session-aware) & verifyAdmin (JWT)
@@ -112,8 +115,14 @@ eonlinebazar-fullstack/
 │
 ├── client/                       # Frontend (static, served by Express)
 │   ├── *.html                    # index, login, register, profile, cart, checkout...
+│   ├── finance-analytics.html    # 📊 Finance & Analytics dashboard (HTML only)
+│   ├── finance-login.html        # 🔒 Finance dashboard password login (HTML only)
 │   ├── css/                      # Page-scoped stylesheets
+│   │   ├── finance-analytics.css # 📊 Finance panel styling (glassmorphism, responsive)
+│   │   └── finance-login.css     # 🔒 Finance login styling
 │   ├── js/                       # Vanilla JS for each page
+│   │   ├── finance-analytics.js  # 📊 Finance panel logic (fetch + Chart.js render)
+│   │   └── finance-login.js      # 🔒 Finance login logic (password → token)
 │   └── images/                   # Static assets (favicon, etc.)
 │
 ├── server.js                     # App entry point: middleware, routes, clean URLs
@@ -218,6 +227,20 @@ Base URL: `http://localhost:3000`
 
 > ¹ These management endpoints are currently unauthenticated at the route layer. For a hardened production deployment, protect them with the `verifyAdmin` middleware.
 
+### 📊 Finance & Analytics
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `POST` | `/api/finance/admin-login` | Validate the dashboard password (`ADMIN_DASHBOARD_PASSWORD`) and issue a short-lived finance session token | Public |
+| `GET`  | `/api/finance/overview` | KPI summary — Total Revenue, Net Profit, Daily & Monthly Profit, Total Orders, Avg. Order Value & Profit Margin | Finance² |
+| `GET`  | `/api/finance/chart-data` | Chart datasets — last-12-months Revenue vs Profit (line) & Top Selling Categories by revenue (pie) | Finance² |
+
+> ² **Finance** = a Bearer token issued by `POST /api/finance/admin-login`. Requests without a valid token receive **`401 Unauthorized`**. The `verifyFinanceToken` middleware also accepts a valid admin-panel token (`role: 'admin'`) for backward compatibility.
+
+> **Access flow:** the dashboard UI is served at **`/finance-analytics`** (also aliased at `/admin/finance`). On load, `finance-analytics.js` checks `localStorage` for the finance token; if missing or rejected with `401`, the browser is redirected to the password login page at **`/finance-login`**. A correct password stores the token and returns to the dashboard.
+
+> **Net Profit logic:** profit is computed per order item as `(sellingPrice − costPrice) × quantity`. When an item has no stored `costPrice`, it is resolved from the product catalog, and otherwise estimated from a configurable `FINANCE_DEFAULT_COST_RATIO` (default `0.70`).
+
 ---
 
 ## ⚙️ Installation & Setup Guide
@@ -258,6 +281,13 @@ JWT_SECRET=your_strong_secret_key
 
 # Admin bootstrap
 ADMIN_PASSWORD=your_admin_password
+
+# Finance & Analytics dashboard (dedicated password gate)
+ADMIN_DASHBOARD_PASSWORD=your_finance_dashboard_password
+# Optional: finance session token lifetime (default 8h)
+# FINANCE_TOKEN_TTL=8h
+# Optional: fallback cost ratio for profit estimation (default 0.70)
+# FINANCE_DEFAULT_COST_RATIO=0.70
 
 # Email (Gmail App Password recommended)
 EMAIL_USER=your_email@gmail.com

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance & Analytics Panel | EonlineBazar</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Chart.js (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Page-scoped stylesheet (CSS only) -->
+    <link rel="stylesheet" href="css/finance-analytics.css">
+</head>
+
+<body>
+
+    <!-- Top-of-page loading overlay -->
+    <div class="fa-loading-overlay" id="loadingOverlay" aria-live="polite" aria-busy="true">
+        <div class="fa-spinner"></div>
+        <p class="fa-loading-text">Loading financial analytics…</p>
+    </div>
+
+    <div class="fa-app">
+
+        <!-- ===================== HEADER ===================== -->
+        <header class="fa-header">
+            <div class="fa-header-left">
+                <div class="fa-brand">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>EonlineBazar</span>
+                </div>
+                <div class="fa-title-group">
+                    <h1 class="fa-title">Finance &amp; Analytics</h1>
+                    <p class="fa-subtitle">Track profit, loss &amp; revenue in real time</p>
+                </div>
+            </div>
+            <div class="fa-header-right">
+                <span class="fa-updated" id="lastUpdated">—</span>
+                <button class="fa-btn fa-btn-ghost" id="refreshBtn" type="button">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                    <span>Refresh</span>
+                </button>
+                <a class="fa-btn fa-btn-outline" href="/admin">
+                    <i class="fa-solid fa-gauge-high"></i>
+                    <span>Admin</span>
+                </a>
+            </div>
+        </header>
+
+        <!-- Inline error banner (hidden by default) -->
+        <div class="fa-error-banner" id="errorBanner" hidden>
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span id="errorBannerText">Something went wrong.</span>
+        </div>
+
+        <!-- ===================== KPI CARDS ===================== -->
+        <section class="fa-kpi-grid" aria-label="Key performance indicators">
+
+            <article class="fa-card fa-kpi fa-kpi--sales">
+                <div class="fa-kpi-icon"><i class="fa-solid fa-bangladeshi-taka-sign"></i></div>
+                <div class="fa-kpi-body">
+                    <p class="fa-kpi-label">Daily Sales</p>
+                    <h2 class="fa-kpi-value" id="kpiDailySales">৳0</h2>
+                    <span class="fa-kpi-meta" id="kpiDailyOrders">0 orders today</span>
+                </div>
+            </article>
+
+            <article class="fa-card fa-kpi fa-kpi--profit">
+                <div class="fa-kpi-icon"><i class="fa-solid fa-sack-dollar"></i></div>
+                <div class="fa-kpi-body">
+                    <p class="fa-kpi-label">Monthly Profit</p>
+                    <h2 class="fa-kpi-value" id="kpiMonthlyProfit">৳0</h2>
+                    <span class="fa-kpi-meta" id="kpiMonthlyRevenue">৳0 revenue this month</span>
+                </div>
+            </article>
+
+            <article class="fa-card fa-kpi fa-kpi--orders">
+                <div class="fa-kpi-icon"><i class="fa-solid fa-box-open"></i></div>
+                <div class="fa-kpi-body">
+                    <p class="fa-kpi-label">Total Orders</p>
+                    <h2 class="fa-kpi-value" id="kpiTotalOrders">0</h2>
+                    <span class="fa-kpi-meta" id="kpiAvgOrder">৳0 avg. order value</span>
+                </div>
+            </article>
+
+            <article class="fa-card fa-kpi fa-kpi--net">
+                <div class="fa-kpi-icon"><i class="fa-solid fa-chart-pie"></i></div>
+                <div class="fa-kpi-body">
+                    <p class="fa-kpi-label">Net Profit</p>
+                    <h2 class="fa-kpi-value" id="kpiNetProfit">৳0</h2>
+                    <span class="fa-kpi-meta" id="kpiProfitMargin">0% margin</span>
+                </div>
+            </article>
+
+        </section>
+
+        <!-- ===================== SECONDARY STATS ===================== -->
+        <section class="fa-mini-grid" aria-label="Secondary statistics">
+            <div class="fa-card fa-mini">
+                <span class="fa-mini-label">Total Revenue</span>
+                <strong class="fa-mini-value" id="statTotalRevenue">৳0</strong>
+            </div>
+            <div class="fa-card fa-mini">
+                <span class="fa-mini-label">Daily Profit</span>
+                <strong class="fa-mini-value" id="statDailyProfit">৳0</strong>
+            </div>
+            <div class="fa-card fa-mini">
+                <span class="fa-mini-label">Monthly Orders</span>
+                <strong class="fa-mini-value" id="statMonthlyOrders">0</strong>
+            </div>
+            <div class="fa-card fa-mini">
+                <span class="fa-mini-label">Profit Margin</span>
+                <strong class="fa-mini-value" id="statProfitMargin">0%</strong>
+            </div>
+        </section>
+
+        <!-- ===================== CHARTS ===================== -->
+        <section class="fa-charts-grid" aria-label="Analytics charts">
+
+            <article class="fa-card fa-chart-card fa-chart-card--wide">
+                <div class="fa-chart-head">
+                    <div>
+                        <h3 class="fa-chart-title">Revenue vs Profit</h3>
+                        <p class="fa-chart-sub">Last 12 months performance</p>
+                    </div>
+                    <div class="fa-legend">
+                        <span class="fa-legend-item"><i class="fa-dot fa-dot--revenue"></i> Revenue</span>
+                        <span class="fa-legend-item"><i class="fa-dot fa-dot--profit"></i> Profit</span>
+                    </div>
+                </div>
+                <div class="fa-canvas-wrap">
+                    <canvas id="revenueProfitChart"></canvas>
+                </div>
+            </article>
+
+            <article class="fa-card fa-chart-card">
+                <div class="fa-chart-head">
+                    <div>
+                        <h3 class="fa-chart-title">Top Selling Categories</h3>
+                        <p class="fa-chart-sub">By revenue share</p>
+                    </div>
+                </div>
+                <div class="fa-canvas-wrap fa-canvas-wrap--pie">
+                    <canvas id="topCategoriesChart"></canvas>
+                </div>
+            </article>
+
+        </section>
+
+        <footer class="fa-footer">
+            <p>EonlineBazar Finance &amp; Analytics &middot; Admin only</p>
+        </footer>
+
+    </div>
+
+    <!-- Page-scoped logic (JavaScript only) -->
+    <script src="js/finance-analytics.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+

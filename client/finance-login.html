@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance Dashboard Login | EonlineBazar</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Page-scoped stylesheet (CSS only) -->
+    <link rel="stylesheet" href="css/finance-login.css">
+</head>
+
+<body>
+
+    <main class="fl-wrap">
+        <section class="fl-card" role="dialog" aria-labelledby="flTitle">
+
+            <div class="fl-badge">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+
+            <header class="fl-head">
+                <h1 class="fl-title" id="flTitle">Finance Dashboard</h1>
+                <p class="fl-subtitle">Restricted area &middot; admin password required</p>
+            </header>
+
+            <!-- Inline message banner (hidden by default) -->
+            <div class="fl-alert" id="flAlert" hidden>
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <span id="flAlertText">Incorrect password.</span>
+            </div>
+
+            <form class="fl-form" id="flForm" autocomplete="off" novalidate>
+                <label class="fl-label" for="flPassword">Admin Password</label>
+                <div class="fl-input-group">
+                    <i class="fa-solid fa-key fl-input-icon"></i>
+                    <input
+                        type="password"
+                        id="flPassword"
+                        class="fl-input"
+                        placeholder="Enter dashboard password"
+                        autocomplete="current-password"
+                        required>
+                    <button type="button" class="fl-toggle" id="flToggle" aria-label="Show password">
+                        <i class="fa-solid fa-eye"></i>
+                    </button>
+                </div>
+
+                <button type="submit" class="fl-btn" id="flSubmit">
+                    <span class="fl-btn-text">Login</span>
+                    <span class="fl-btn-spinner" aria-hidden="true"></span>
+                </button>
+            </form>
+
+            <footer class="fl-foot">
+                <a class="fl-link" href="/"><i class="fa-solid fa-arrow-left"></i> Back to store</a>
+            </footer>
+
+        </section>
+    </main>
+
+    <!-- Page-scoped logic (JavaScript only) -->
+    <script src="js/finance-login.js"></script>
+</body>
+</html>

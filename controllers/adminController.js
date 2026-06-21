@@ -42,7 +42,14 @@ const loginAdmin = async (req, res) => {
             return res.status(401).json({ success: false, message: "ভুল ইউজারনেম অথবা পাসওয়ার্ড দিয়েছেন!" });
         }
 
-        const token = jwt.sign({ username: admin.username }, process.env.JWT_SECRET, { expiresIn: '24h' });
+        // 🌟 নিরাপত্তা ফিক্স: টোকেনে role: 'admin' যুক্ত করা হলো।
+        // কাস্টমার টোকেন একই JWT_SECRET দিয়ে সাইন হয় বলে role ছাড়া verifyAdmin
+        // যেকোনো লগইন করা কাস্টমারকেও অ্যাডমিন হিসেবে গ্রহণ করত — এই দুর্বলতা দূর হলো।
+        const token = jwt.sign(
+            { username: admin.username, role: 'admin' },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
 
         return res.status(200).json({
             success: true,

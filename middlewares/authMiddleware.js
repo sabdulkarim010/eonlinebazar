@@ -11,22 +11,48 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const UserSession = require('../models/userSession');
 
-// ১. অ্যাডমিন ভেরিফাই করার জন্য
+// ১. অ্যাডমিন ভেরিফাই করার জন্য (🌟 role-based, নিরাপত্তা-হার্ডেনড)
 const verifyAdmin = (req, res, next) => {
     const authHeader = req.headers['authorization'];
-    
+
+    // টোকেন না থাকলে 401 → ফ্রন্টএন্ড লগইন পেজে রিডাইরেক্ট করবে
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(403).json({ success: false, message: "No token provided. Access denied!" });
+        return res.status(401).json({
+            success: false,
+            message: "No token provided. Please log in as admin.",
+            redirect: "/admin-login"
+        });
     }
 
     const token = authHeader.split(" ")[1];
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.admin = decoded; 
-        next(); 
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'eOnlineBazarSecretKey123');
+
+        // 🌟 রোল চেক: কাস্টমার টোকেনও একই সিক্রেটে সাইন হয়, তাই শুধু সিগনেচার
+        // ভ্যালিড হওয়াই যথেষ্ট নয়। অ্যাডমিন টোকেনে role: 'admin' থাকে।
+        // ব্যাকওয়ার্ড কম্প্যাটিবিলিটি: পুরোনো অ্যাডমিন টোকেনে role না থাকলেও সেখানে
+        // username থাকে এবং কাস্টমারের মতো id/sid থাকে না — সেটিও গ্রহণযোগ্য।
+        const isAdmin =
+            decoded.role === 'admin' ||
+            (decoded.username && !decoded.id && !decoded.sid && !decoded._id && !decoded.userId);
+
+        if (!isAdmin) {
+            return res.status(403).json({
+                success: false,
+                message: "Admin privileges required. Access denied!",
+                redirect: "/admin-login"
+            });
+        }
+
+        req.admin = decoded;
+        next();
     } catch (err) {
-        return res.status(401).json({ success: false, message: "Unauthorized! Invalid token." });
+        return res.status(401).json({
+            success: false,
+            message: "Unauthorized! Invalid or expired token.",
+            redirect: "/admin-login"
+        });
     }
 };
 

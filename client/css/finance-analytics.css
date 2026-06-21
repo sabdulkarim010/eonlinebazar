@@ -1,0 +1,541 @@
+/********************************************************************
+ * Project: EonlineBazar
+ * File: css/finance-analytics.css
+ * Author: Abdul Karim Sheikh
+ * Description: Professional, modern & fully responsive styling for the
+ * Finance & Analytics admin panel. Uses CSS variables, Grid, Flexbox,
+ * glassmorphism, and sleek shadows. CSS only — no markup or logic here.
+ ********************************************************************/
+
+/* =========================================================================
+   1. DESIGN TOKENS (CSS Variables)
+   ========================================================================= */
+:root {
+    --fa-bg-1: #0f172a;
+    --fa-bg-2: #1e293b;
+    --fa-bg-3: #0b1224;
+
+    --fa-surface: rgba(255, 255, 255, 0.06);
+    --fa-surface-strong: rgba(255, 255, 255, 0.10);
+    --fa-border: rgba(255, 255, 255, 0.12);
+
+    --fa-text: #f1f5f9;
+    --fa-text-muted: #94a3b8;
+    --fa-text-dim: #64748b;
+
+    --fa-primary: #6366f1;
+    --fa-primary-soft: rgba(99, 102, 241, 0.16);
+
+    --fa-revenue: #38bdf8;
+    --fa-profit: #34d399;
+    --fa-sales: #f59e0b;
+    --fa-orders: #a855f7;
+    --fa-net: #22d3ee;
+    --fa-danger: #f43f5e;
+
+    --fa-radius: 18px;
+    --fa-radius-sm: 12px;
+
+    --fa-shadow: 0 10px 30px rgba(2, 6, 23, 0.45);
+    --fa-shadow-soft: 0 6px 18px rgba(2, 6, 23, 0.30);
+
+    --fa-gap: 22px;
+    --fa-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+/* =========================================================================
+   2. BASE / RESET
+   ========================================================================= */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--fa-font);
+    color: var(--fa-text);
+    min-height: 100vh;
+    background:
+        radial-gradient(1200px 600px at 12% -10%, rgba(99, 102, 241, 0.18), transparent 55%),
+        radial-gradient(1000px 500px at 110% 10%, rgba(56, 189, 248, 0.14), transparent 50%),
+        linear-gradient(160deg, var(--fa-bg-1), var(--fa-bg-3) 60%, var(--fa-bg-2));
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+/* =========================================================================
+   3. LOADING OVERLAY & STATES
+   ========================================================================= */
+.fa-loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    background: rgba(8, 12, 24, 0.78);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+
+.fa-loading-overlay.fa-hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.fa-spinner {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    border: 4px solid rgba(255, 255, 255, 0.15);
+    border-top-color: var(--fa-primary);
+    animation: fa-spin 0.9s linear infinite;
+}
+
+.fa-loading-text {
+    color: var(--fa-text-muted);
+    font-size: 0.95rem;
+    letter-spacing: 0.3px;
+}
+
+@keyframes fa-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Skeleton shimmer used while values load */
+.fa-skeleton {
+    color: transparent !important;
+    border-radius: 8px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.16) 37%, rgba(255,255,255,0.06) 63%);
+    background-size: 400% 100%;
+    animation: fa-shimmer 1.4s ease infinite;
+    user-select: none;
+}
+
+@keyframes fa-shimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+
+/* =========================================================================
+   4. APP LAYOUT
+   ========================================================================= */
+.fa-app {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 28px clamp(16px, 4vw, 40px) 48px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--fa-gap);
+}
+
+/* =========================================================================
+   5. HEADER
+   ========================================================================= */
+.fa-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 18px 22px;
+    background: var(--fa-surface);
+    border: 1px solid var(--fa-border);
+    border-radius: var(--fa-radius);
+    box-shadow: var(--fa-shadow-soft);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.fa-header-left {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+
+.fa-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 1.05rem;
+    padding: 10px 14px;
+    border-radius: var(--fa-radius-sm);
+    background: linear-gradient(135deg, var(--fa-primary), #8b5cf6);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+}
+
+.fa-brand i {
+    font-size: 1.1rem;
+}
+
+.fa-title {
+    font-size: clamp(1.3rem, 2.4vw, 1.7rem);
+    font-weight: 800;
+    letter-spacing: -0.5px;
+}
+
+.fa-subtitle {
+    color: var(--fa-text-muted);
+    font-size: 0.86rem;
+    margin-top: 2px;
+}
+
+.fa-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.fa-updated {
+    color: var(--fa-text-dim);
+    font-size: 0.78rem;
+    margin-right: 4px;
+}
+
+/* Buttons */
+.fa-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: var(--fa-radius-sm);
+    font-size: 0.86rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border: 1px solid transparent;
+    text-decoration: none;
+    transition: transform 0.15s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.fa-btn:active {
+    transform: scale(0.97);
+}
+
+.fa-btn-ghost {
+    background: var(--fa-primary-soft);
+    color: #c7d2fe;
+    border-color: rgba(99, 102, 241, 0.35);
+}
+
+.fa-btn-ghost:hover {
+    background: rgba(99, 102, 241, 0.28);
+}
+
+.fa-btn-outline {
+    background: transparent;
+    color: var(--fa-text-muted);
+    border-color: var(--fa-border);
+}
+
+.fa-btn-outline:hover {
+    color: var(--fa-text);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.fa-btn .fa-spin-anim {
+    animation: fa-spin 0.8s linear infinite;
+}
+
+/* =========================================================================
+   6. ERROR BANNER
+   ========================================================================= */
+.fa-error-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-radius: var(--fa-radius-sm);
+    background: rgba(244, 63, 94, 0.14);
+    border: 1px solid rgba(244, 63, 94, 0.4);
+    color: #fecdd3;
+    font-size: 0.9rem;
+}
+
+.fa-error-banner[hidden] {
+    display: none;
+}
+
+/* =========================================================================
+   7. CARDS (Shared)
+   ========================================================================= */
+.fa-card {
+    background: var(--fa-surface);
+    border: 1px solid var(--fa-border);
+    border-radius: var(--fa-radius);
+    box-shadow: var(--fa-shadow);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* =========================================================================
+   8. KPI GRID
+   ========================================================================= */
+.fa-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--fa-gap);
+}
+
+.fa-kpi {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 22px;
+}
+
+.fa-kpi::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 5px;
+    height: 100%;
+    background: var(--fa-accent, var(--fa-primary));
+}
+
+.fa-kpi:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.22);
+}
+
+.fa-kpi--sales { --fa-accent: var(--fa-sales); }
+.fa-kpi--profit { --fa-accent: var(--fa-profit); }
+.fa-kpi--orders { --fa-accent: var(--fa-orders); }
+.fa-kpi--net { --fa-accent: var(--fa-net); }
+
+.fa-kpi-icon {
+    flex-shrink: 0;
+    width: 54px;
+    height: 54px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    font-size: 1.35rem;
+    color: var(--fa-accent, var(--fa-primary));
+    background: color-mix(in srgb, var(--fa-accent, var(--fa-primary)) 18%, transparent);
+}
+
+.fa-kpi-body {
+    min-width: 0;
+}
+
+.fa-kpi-label {
+    color: var(--fa-text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+
+.fa-kpi-value {
+    font-size: clamp(1.4rem, 2.6vw, 1.9rem);
+    font-weight: 800;
+    margin: 4px 0 3px;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+    word-break: break-word;
+}
+
+.fa-kpi-meta {
+    color: var(--fa-text-dim);
+    font-size: 0.78rem;
+}
+
+/* =========================================================================
+   9. MINI STAT GRID
+   ========================================================================= */
+.fa-mini-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--fa-gap);
+}
+
+.fa-mini {
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.fa-mini:hover {
+    transform: translateY(-3px);
+}
+
+.fa-mini-label {
+    color: var(--fa-text-muted);
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
+.fa-mini-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+/* =========================================================================
+   10. CHARTS GRID
+   ========================================================================= */
+.fa-charts-grid {
+    display: grid;
+    grid-template-columns: 1.7fr 1fr;
+    gap: var(--fa-gap);
+}
+
+.fa-chart-card {
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.fa-chart-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.fa-chart-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.fa-chart-sub {
+    color: var(--fa-text-muted);
+    font-size: 0.8rem;
+    margin-top: 2px;
+}
+
+.fa-legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.fa-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--fa-text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.fa-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.fa-dot--revenue { background: var(--fa-revenue); }
+.fa-dot--profit { background: var(--fa-profit); }
+
+.fa-canvas-wrap {
+    position: relative;
+    width: 100%;
+    height: 340px;
+}
+
+.fa-canvas-wrap--pie {
+    height: 320px;
+    display: grid;
+    place-items: center;
+}
+
+.fa-canvas-wrap canvas {
+    max-width: 100%;
+}
+
+/* =========================================================================
+   11. FOOTER
+   ========================================================================= */
+.fa-footer {
+    text-align: center;
+    color: var(--fa-text-dim);
+    font-size: 0.8rem;
+    padding-top: 8px;
+}
+
+/* =========================================================================
+   12. RESPONSIVE BREAKPOINTS
+   ========================================================================= */
+@media (max-width: 1024px) {
+    .fa-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .fa-mini-grid { grid-template-columns: repeat(2, 1fr); }
+    .fa-charts-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 600px) {
+    .fa-app {
+        padding: 18px 14px 36px;
+        gap: 16px;
+    }
+
+    .fa-header {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 16px;
+    }
+
+    .fa-header-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .fa-kpi-grid { grid-template-columns: 1fr; }
+    .fa-mini-grid { grid-template-columns: repeat(2, 1fr); }
+
+    .fa-kpi { padding: 18px; }
+
+    .fa-canvas-wrap { height: 280px; }
+    .fa-canvas-wrap--pie { height: 290px; }
+}
+
+@media (max-width: 380px) {
+    .fa-mini-grid { grid-template-columns: 1fr; }
+}
+
+/* =========================================================================
+   13. ACCESSIBILITY / MOTION
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
