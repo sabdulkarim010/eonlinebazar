@@ -146,7 +146,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // লাইভ ডেটা রিফ্রেশ
             if (['my-orders', 'dashboard-overview'].includes(targetTab) && typeof fetchUserOrders === 'function') fetchUserOrders();
-            if (targetTab === 'my-cart' && typeof fetchLiveDBCart === 'function') fetchLiveDBCart();
+            if (targetTab === 'dashboard-overview') fetchDashboardStats();
+            if (targetTab === 'my-cart') {
+                if (typeof fetchLiveDBCart === 'function') fetchLiveDBCart();
+                fetchWishlist();
+            }
+            if (targetTab === 'addresses-settings') fetchAddresses();
+            if (targetTab === 'security-settings') fetchSessions();
+            if (targetTab === 'wallet-points') fetchWalletData();
         });
     });
 
@@ -177,7 +184,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (profileName) profileName.value = data.name || '';
                 if (profileEmail) profileEmail.value = data.email || '';
-                if (profilePhone) profilePhone.value = data.phone || '';
+                // 🌟 ফিক্স: পুরোনো ইউজারদের নম্বর 'mobile' ফিল্ডে থাকতে পারে, তাই দুটোই চেক করা হলো
+                if (profilePhone) profilePhone.value = data.phone || data.mobile || '';
                 if (profileAddress) profileAddress.value = data.address || '';
 
                 const displayNameEls = document.querySelectorAll('.user-display-name');
@@ -185,8 +193,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     el.textContent = data.name || 'User';
                 });
 
+                // ওয়ালেট ও পয়েন্ট ডিসপ্লে আপডেট (Wallet tab)
+                updateWalletDisplay(data.walletBalance || 0, data.loyaltyPoints || 0);
+                renderCashbackHistory(data.walletHistory || []);
+
                 localStorage.setItem('checkout_name', data.name || '');
-                localStorage.setItem('checkout_phone', data.phone || '');
+                localStorage.setItem('checkout_phone', data.phone || data.mobile || '');
                 localStorage.setItem('checkout_address', data.address || '');
 
             } else {
@@ -241,7 +253,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (dashboardTableBody) {
                     const recentOrders = rawData.recentOrders || rawData.data?.recentOrders || [];
 
-                    if (recentOrders.length > 0) {
+                    if (recentOrders.length === 0) {
+                        dashboardTableBody.innerHTML = `<tr><td colspan="5" class="text-center" style="padding:2rem; color:var(--text-muted);"><i class="fa-solid fa-box-open" style="font-size:2.5rem; margin-bottom:10px; opacity:0.5; display:block;"></i>No recent orders yet.</td></tr>`;
+                    } else {
                         dashboardTableBody.innerHTML = ''; 
                         
                         recentOrders.forEach(order => {
@@ -261,8 +275,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             const displayOrderId = order.orderId ? order.orderId : (order._id ? order._id.substring(order._id.length - 6).toUpperCase() : 'N/A');
 
                             dashboardTableBody.innerHTML += `
-                                <tr>
-                                    <td><a href="#" class="order-id-link">#${displayOrderId}</a></td>
+                                <tr class="clickable-order-row" data-id="${order._id}">
+                                    <td><a href="#" class="order-id-link" data-id="${order._id}">#${displayOrderId}</a></td>
                                     <td>${orderDate}</td>
                                     <td title="${productNames}">${productNames.length > 30 ? productNames.substring(0, 30) + '...' : productNames}</td>
                                     <td style="font-weight:600; color:var(--primary-color);">৳${order.totalAmount || 0}</td>
@@ -446,7 +460,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const displayOrderId = order.orderId ? order.orderId : (order._id ? order._id.substring(order._id.length - 6).toUpperCase() : 'N/A');
 
                     const row = document.createElement('tr');
-                    
+                    row.className = 'clickable-order-row';
+                    row.setAttribute('data-id', order._id);
+
                     row.innerHTML = `
                         <td><a href="#" class="order-id-link" data-id="${order._id}">#${displayOrderId}</a></td>
                         <td>${orderDate}</td>
@@ -680,19 +696,513 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =================================================================
-    // ১৩. ইনিশিয়াল ডাটা লোড (Initial Data Fetching)
+    // ১৩. ওয়ালেট ও লয়্যালটি পয়েন্ট (Wallet & Points Converter)
+    // =================================================================
+    function updateWalletDisplay(balance, points) {
+        const balanceEl = document.getElementById('main-balance-amount');
+        const pointsEl = document.getElementById('current-points-calc');
+        if (balanceEl) balanceEl.textContent = '৳' + Number(balance || 0).toLocaleString();
+        if (pointsEl) pointsEl.textContent = Number(points || 0).toLocaleString() + ' XP';
+    }
+
+    function renderCashbackHistory(history) {
+        const list = document.getElementById('cashback-list');
+        if (!list) return;
+        if (!history || history.length === 0) {
+            list.innerHTML = `<li class="history-item empty">No recent cashback transactions.</li>`;
+            return;
+        }
+        list.innerHTML = '';
+        history.slice(0, 8).forEach(tx => {
+            const date = new Date(tx.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+            const isDeduct = tx.type === 'debit';
+            const sign = isDeduct ? '-' : '+';
+            list.innerHTML += `
+                <li class="history-item">
+                    <span>${tx.note || tx.type} <small style="color:var(--text-muted);">• ${date}</small></span>
+                    <span class="history-amount ${isDeduct ? 'deduct' : ''}">${sign}৳${Number(tx.amount || 0).toLocaleString()}</span>
+                </li>
+            `;
+        });
+    }
+
+    async function fetchWalletData() {
+        try {
+            const res = await fetch('/api/customer/profile', {
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                updateWalletDisplay(data.walletBalance || 0, data.loyaltyPoints || 0);
+                renderCashbackHistory(data.walletHistory || []);
+            }
+        } catch (error) {
+            console.error('Fetch Wallet Error:', error);
+        }
+    }
+
+    const convertPointsBtn = document.getElementById('convert-points-btn');
+    if (convertPointsBtn) {
+        convertPointsBtn.addEventListener('click', async () => {
+            const input = document.getElementById('points-to-convert');
+            const points = Number(input ? input.value : 0);
+
+            if (!points || points <= 0) {
+                showToast('Please enter the number of points to convert.', 'warning');
+                return;
+            }
+            if (points < 100) {
+                showToast('Minimum 100 points are required.', 'warning');
+                return;
+            }
+            if (points % 100 !== 0) {
+                showToast('Points must be in multiples of 100.', 'warning');
+                return;
+            }
+
+            const originalText = convertPointsBtn.innerHTML;
+            convertPointsBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Converting...';
+            convertPointsBtn.disabled = true;
+
+            try {
+                const res = await fetch('/api/customer/convert-points', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ points })
+                });
+                const data = await res.json();
+
+                convertPointsBtn.innerHTML = originalText;
+                convertPointsBtn.disabled = false;
+
+                if (res.ok && data.success) {
+                    showToast(data.message, 'success');
+                    if (input) input.value = '';
+                    updateWalletDisplay(data.walletBalance, data.loyaltyPoints);
+                    renderCashbackHistory(data.walletHistory || []);
+                    // ড্যাশবোর্ড স্ট্যাট কার্ডও আপডেট করা
+                    const balanceCard = document.getElementById('stat-wallet-balance');
+                    const pointsCard = document.getElementById('stat-loyalty-points');
+                    if (balanceCard) balanceCard.textContent = '৳' + Number(data.walletBalance).toLocaleString();
+                    if (pointsCard) pointsCard.textContent = Number(data.loyaltyPoints).toLocaleString();
+                } else {
+                    showToast(data.message || 'Conversion failed.', 'danger');
+                }
+            } catch (error) {
+                console.error('Convert Points Error:', error);
+                convertPointsBtn.innerHTML = originalText;
+                convertPointsBtn.disabled = false;
+                showToast('Server error during conversion.', 'danger');
+            }
+        });
+    }
+
+    // =================================================================
+    // ১৪. উইশলিস্ট (My Wishlist)
+    // =================================================================
+    function resolveProductImage(imageFile) {
+        if (!imageFile) return '';
+        const lower = imageFile.toLowerCase();
+        const isImg = ['.jpg', '.png', '.jpeg', '.webp'].some(ext => lower.includes(ext));
+        if (!isImg) return '';
+        if (imageFile.startsWith('http') || imageFile.startsWith('/')) return imageFile;
+        if (imageFile.startsWith('products/')) return '/' + imageFile;
+        return '/products/' + imageFile;
+    }
+
+    async function fetchWishlist() {
+        const container = document.getElementById('wishlist-items-list');
+        if (!container) return;
+        try {
+            const res = await fetch('/api/customer/wishlist', {
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                renderWishlist(data.wishlist || []);
+            } else {
+                container.innerHTML = `<p class="text-center empty-cart-text">Could not load wishlist.</p>`;
+            }
+        } catch (error) {
+            console.error('Fetch Wishlist Error:', error);
+            container.innerHTML = `<p class="text-center empty-cart-text">Server error loading wishlist.</p>`;
+        }
+    }
+
+    function renderWishlist(items) {
+        const container = document.getElementById('wishlist-items-list');
+        if (!container) return;
+
+        if (!items || items.length === 0) {
+            container.innerHTML = `
+                <div class="wishlist-empty">
+                    <i class="fa-regular fa-heart"></i>
+                    <p>Your wishlist is empty.</p>
+                    <a href="/" class="shop-now-link">Browse products</a>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = '';
+        items.forEach(item => {
+            const imgSrc = resolveProductImage(item.image);
+            const media = imgSrc
+                ? `<img src="${imgSrc}" alt="${item.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><span class="wishlist-emoji" style="display:none;">${item.icon || '📦'}</span>`
+                : `<span class="wishlist-emoji">${item.icon || '📦'}</span>`;
+
+            const card = document.createElement('div');
+            card.className = 'wishlist-card';
+            card.innerHTML = `
+                <div class="wishlist-media">${media}</div>
+                <div class="wishlist-info">
+                    <h4 class="wishlist-name" title="${item.name}">${item.name || 'Product'}</h4>
+                    <span class="wishlist-price">৳${Number(item.price || 0).toLocaleString()}</span>
+                </div>
+                <div class="wishlist-actions">
+                    <button class="wishlist-cart-btn" data-id="${item.productId}" data-name="${item.name}" data-price="${item.price}" data-image="${item.image || ''}" data-icon="${item.icon || '📦'}" title="Move to cart">
+                        <i class="fa-solid fa-cart-plus"></i>
+                    </button>
+                    <button class="wishlist-remove-btn" data-id="${item.productId}" title="Remove from wishlist">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    // উইশলিস্টের রিমুভ ও মুভ-টু-কার্ট (ইভেন্ট ডেলিগেশন)
+    document.addEventListener('click', async (e) => {
+        const removeBtn = e.target.closest('.wishlist-remove-btn');
+        const cartBtn = e.target.closest('.wishlist-cart-btn');
+
+        if (removeBtn) {
+            const productId = removeBtn.getAttribute('data-id');
+            removeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            try {
+                const res = await fetch(`/api/customer/wishlist/${productId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast('Removed from wishlist.', 'success');
+                    renderWishlist(data.wishlist || []);
+                } else {
+                    showToast(data.message || 'Failed to remove.', 'danger');
+                }
+            } catch (error) {
+                console.error('Remove Wishlist Error:', error);
+                showToast('Server error.', 'danger');
+            }
+        }
+
+        if (cartBtn && typeof window.addToBag === 'function') {
+            const id = cartBtn.getAttribute('data-id');
+            const name = cartBtn.getAttribute('data-name');
+            const price = cartBtn.getAttribute('data-price');
+            const image = cartBtn.getAttribute('data-image');
+            window.addToBag(id, name, price, image);
+            showToast('Added to cart!', 'success');
+        }
+    });
+
+    // =================================================================
+    // ১৫. ঠিকানা ম্যানেজমেন্ট (Addresses CRUD + Modal)
+    // =================================================================
+    const addressModal = document.getElementById('address-modal');
+    const addressForm = document.getElementById('address-form');
+    const addressModalTitle = document.getElementById('address-modal-title');
+
+    function openAddressModal(editData = null) {
+        if (!addressModal) return;
+        const idField = document.getElementById('address-id');
+        const labelField = document.getElementById('address-label');
+        const phoneField = document.getElementById('address-phone');
+        const fullField = document.getElementById('address-full');
+        const defaultField = document.getElementById('address-default');
+
+        if (editData) {
+            addressModalTitle.textContent = 'Edit Address';
+            idField.value = editData._id;
+            labelField.value = editData.label || '';
+            phoneField.value = editData.phone || '';
+            fullField.value = editData.fullAddress || '';
+            defaultField.checked = !!editData.isDefault;
+        } else {
+            addressModalTitle.textContent = 'Add New Address';
+            addressForm.reset();
+            idField.value = '';
+        }
+        addressModal.classList.remove('hidden');
+    }
+
+    function closeAddressModal() {
+        if (addressModal) addressModal.classList.add('hidden');
+    }
+
+    const addAddressCard = document.getElementById('add-address-card');
+    if (addAddressCard) addAddressCard.addEventListener('click', () => openAddressModal());
+
+    const closeAddressBtn = document.getElementById('close-address-modal');
+    const cancelAddressBtn = document.getElementById('cancel-address-btn');
+    if (closeAddressBtn) closeAddressBtn.addEventListener('click', closeAddressModal);
+    if (cancelAddressBtn) cancelAddressBtn.addEventListener('click', closeAddressModal);
+    if (addressModal) {
+        addressModal.addEventListener('click', (e) => { if (e.target === addressModal) closeAddressModal(); });
+    }
+
+    async function fetchAddresses() {
+        const grid = document.getElementById('address-grid');
+        if (!grid) return;
+        try {
+            const res = await fetch('/api/customer/addresses', {
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                renderAddresses(data.addresses || []);
+            }
+        } catch (error) {
+            console.error('Fetch Addresses Error:', error);
+        }
+    }
+
+    function renderAddresses(addresses) {
+        const grid = document.getElementById('address-grid');
+        if (!grid) return;
+
+        // "Add New Address" কার্ডটি রেখে বাকি কার্ড রিসেট করা
+        grid.querySelectorAll('.address-card').forEach(el => el.remove());
+
+        const addCard = document.getElementById('add-address-card');
+        addresses.forEach(addr => {
+            const card = document.createElement('div');
+            card.className = 'card address-card' + (addr.isDefault ? ' active' : '');
+            card.innerHTML = `
+                <span class="address-tag">
+                    <i class="fa-solid fa-location-dot"></i> ${addr.label || 'Address'}${addr.isDefault ? ' (Default)' : ''}
+                </span>
+                <p class="address-text">${addr.fullAddress}</p>
+                ${addr.phone ? `<p class="address-phone-text"><i class="fa-solid fa-phone"></i> ${addr.phone}</p>` : ''}
+                <div class="address-card-actions">
+                    <button class="btn-address-edit" data-id="${addr._id}"><i class="fa-regular fa-pen-to-square"></i> Edit</button>
+                    <button class="btn-address-delete" data-id="${addr._id}"><i class="fa-regular fa-trash-can"></i> Delete</button>
+                </div>
+            `;
+            card._addressData = addr;
+            grid.insertBefore(card, addCard);
+        });
+    }
+
+    // অ্যাড্রেস এডিট / ডিলিট (ইভেন্ট ডেলিগেশন)
+    document.addEventListener('click', async (e) => {
+        const editBtn = e.target.closest('.btn-address-edit');
+        const deleteBtn = e.target.closest('.btn-address-delete');
+
+        if (editBtn) {
+            const card = editBtn.closest('.address-card');
+            if (card && card._addressData) openAddressModal(card._addressData);
+        }
+
+        if (deleteBtn) {
+            const addressId = deleteBtn.getAttribute('data-id');
+            if (!confirm('Delete this address?')) return;
+            try {
+                const res = await fetch(`/api/customer/addresses/${addressId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast('Address deleted.', 'success');
+                    renderAddresses(data.addresses || []);
+                } else {
+                    showToast(data.message || 'Failed to delete.', 'danger');
+                }
+            } catch (error) {
+                console.error('Delete Address Error:', error);
+                showToast('Server error.', 'danger');
+            }
+        }
+    });
+
+    if (addressForm) {
+        addressForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const addressId = document.getElementById('address-id').value;
+            const payload = {
+                label: document.getElementById('address-label').value.trim(),
+                phone: document.getElementById('address-phone').value.trim(),
+                fullAddress: document.getElementById('address-full').value.trim(),
+                isDefault: document.getElementById('address-default').checked
+            };
+
+            if (!payload.fullAddress) {
+                showToast('Full address is required.', 'warning');
+                return;
+            }
+
+            const saveBtn = document.getElementById('save-address-btn');
+            const originalText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+            saveBtn.disabled = true;
+
+            try {
+                const url = addressId ? `/api/customer/addresses/${addressId}` : '/api/customer/addresses';
+                const method = addressId ? 'PUT' : 'POST';
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+
+                if (res.ok && data.success) {
+                    showToast(data.message || 'Address saved!', 'success');
+                    renderAddresses(data.addresses || []);
+                    closeAddressModal();
+                } else {
+                    showToast(data.message || 'Failed to save address.', 'danger');
+                }
+            } catch (error) {
+                console.error('Save Address Error:', error);
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+                showToast('Server error while saving address.', 'danger');
+            }
+        });
+    }
+
+    // =================================================================
+    // ১৬. সিকিউরিটি: অ্যাক্টিভ সেশন ও রিমোট লগআউট (Sessions)
+    // =================================================================
+    function sessionDeviceIcon(device) {
+        const d = (device || '').toLowerCase();
+        if (d.includes('phone') || d.includes('android') || d.includes('iphone')) return 'fa-mobile-screen-button';
+        if (d.includes('ipad') || d.includes('tablet')) return 'fa-tablet-screen-button';
+        return 'fa-laptop';
+    }
+
+    function timeAgo(dateStr) {
+        const diff = Date.now() - new Date(dateStr).getTime();
+        const mins = Math.floor(diff / 60000);
+        if (mins < 1) return 'Active now';
+        if (mins < 60) return `${mins} min ago`;
+        const hrs = Math.floor(mins / 60);
+        if (hrs < 24) return `${hrs} hr ago`;
+        const days = Math.floor(hrs / 24);
+        return `${days} day${days > 1 ? 's' : ''} ago`;
+    }
+
+    async function fetchSessions() {
+        const list = document.getElementById('sessions-list');
+        if (!list) return;
+        try {
+            const res = await fetch('/api/customer/sessions', {
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                renderSessions(data.sessions || []);
+            } else {
+                list.innerHTML = `<p class="text-center sessions-loading">Could not load sessions.</p>`;
+            }
+        } catch (error) {
+            console.error('Fetch Sessions Error:', error);
+            list.innerHTML = `<p class="text-center sessions-loading">Server error loading sessions.</p>`;
+        }
+    }
+
+    function renderSessions(sessions) {
+        const list = document.getElementById('sessions-list');
+        if (!list) return;
+
+        if (!sessions || sessions.length === 0) {
+            list.innerHTML = `<p class="text-center sessions-loading">No active sessions found. Please log in again to track devices.</p>`;
+            return;
+        }
+
+        list.innerHTML = '';
+        sessions.forEach(s => {
+            const icon = sessionDeviceIcon(s.device);
+            const status = s.isCurrent ? 'This device' : timeAgo(s.lastActive);
+            const item = document.createElement('div');
+            item.className = 'activity-item' + (s.isCurrent ? ' current-session' : '');
+            item.innerHTML = `
+                <div class="activity-icon"><i class="fa-solid ${icon}"></i></div>
+                <div class="activity-details">
+                    <h4>${s.browser} / ${s.device} ${s.isCurrent ? '<span class="current-badge">Current</span>' : ''}</h4>
+                    <p>${s.ip || 'Unknown IP'} • ${status}</p>
+                </div>
+                <button class="session-logout-btn" data-id="${s._id}" data-current="${s.isCurrent}">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+            `;
+            list.appendChild(item);
+        });
+    }
+
+    // সেশন রিমোট লগআউট (ইভেন্ট ডেলিগেশন)
+    document.addEventListener('click', async (e) => {
+        const logoutSessionBtn = e.target.closest('.session-logout-btn');
+        if (!logoutSessionBtn) return;
+
+        const sessionId = logoutSessionBtn.getAttribute('data-id');
+        const isCurrent = logoutSessionBtn.getAttribute('data-current') === 'true';
+
+        logoutSessionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        logoutSessionBtn.disabled = true;
+
+        try {
+            const res = await fetch(`/api/customer/sessions/${sessionId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                if (data.loggedOutCurrent || isCurrent) {
+                    showToast('This device has been logged out. Redirecting...', 'success');
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('customerToken');
+                    setTimeout(() => { window.location.href = '/login.html'; }, 1500);
+                } else {
+                    showToast('Device logged out remotely.', 'success');
+                    fetchSessions();
+                }
+            } else {
+                showToast(data.message || 'Failed to log out device.', 'danger');
+                logoutSessionBtn.disabled = false;
+                logoutSessionBtn.innerHTML = '<i class="fa-solid fa-right-from-bracket"></i> Logout';
+            }
+        } catch (error) {
+            console.error('Logout Session Error:', error);
+            showToast('Server error.', 'danger');
+            logoutSessionBtn.disabled = false;
+            logoutSessionBtn.innerHTML = '<i class="fa-solid fa-right-from-bracket"></i> Logout';
+        }
+    });
+
+    // =================================================================
+    // ১৭. ইনিশিয়াল ডাটা লোড (Initial Data Fetching)
     // =================================================================
     fetchUserProfile();
     fetchDashboardStats();
     fetchUserOrders(); 
+    fetchWishlist();
 
 
 // অর্ডার আইডিতে ক্লিক করলে ডিটেইলস পেজে নিয়ে যাওয়ার লজিক
 document.addEventListener('click', function(e) {
-    if (e.target && e.target.classList.contains('order-id-link')) {
+    const _orderTarget = e.target.closest('.order-id-link') || e.target.closest('.clickable-order-row');
+    if (_orderTarget) {
         e.preventDefault(); // ব্রাউজারের ডিফল্ট আচরণ (# যাওয়া) বন্ধ করবে
         
-        const orderId = e.target.getAttribute('data-id');
+        const orderId = _orderTarget.getAttribute('data-id');
         
         if (orderId) {
             // এখানে আপনার অর্ডার ডিটেইলস পেজের পাথ দিন

@@ -32,6 +32,24 @@ router.put('/change-password', verifyUser, userController.changePassword);
 // ছবি আপলোডের রাউট
 router.post('/update-avatar', verifyUser, upload.single('avatar'), userController.updateUserAvatar);
 
+// ================== উইশলিস্ট (My Wishlist) ==================
+router.get('/wishlist', verifyUser, userController.getWishlist);
+router.post('/wishlist', verifyUser, userController.addToWishlist);
+router.delete('/wishlist/:productId', verifyUser, userController.removeFromWishlist);
+
+// ================== ঠিকানা ম্যানেজমেন্ট (Addresses) ==================
+router.get('/addresses', verifyUser, userController.getAddresses);
+router.post('/addresses', verifyUser, userController.addAddress);
+router.put('/addresses/:addressId', verifyUser, userController.updateAddress);
+router.delete('/addresses/:addressId', verifyUser, userController.deleteAddress);
+
+// ================== ওয়ালেট ও পয়েন্ট (Wallet & Loyalty Points) ==================
+router.post('/convert-points', verifyUser, userController.convertPoints);
+
+// ================== সিকিউরিটি / অ্যাক্টিভ সেশন (Sessions & Remote Logout) ==================
+router.get('/sessions', verifyUser, userController.getSessions);
+router.delete('/sessions/:sessionId', verifyUser, userController.logoutSession);
+
 module.exports = router;
 
 

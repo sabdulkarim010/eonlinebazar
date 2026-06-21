@@ -11,6 +11,7 @@
 const mongoose = require('mongoose'); 
 const Product = require('../models/product'); 
 const Order = require('../models/order'); 
+const User = require('../models/user'); 
 
 // ১. নতুন অর্ডার তৈরি করা এবং স্টক কমানো
 const createOrder = async (req, res) => {
@@ -67,6 +68,35 @@ const createOrder = async (req, res) => {
                         { new: true }
                     );
                 }
+            }
+        }
+
+        // 🌟 নতুন: লগইন করা ইউজারকে লয়্যালটি পয়েন্ট ও ক্যাশব্যাক দেওয়া
+        // রেট: প্রতি ৳১০ খরচে ১ পয়েন্ট (ডাবল পয়েন্ট অফার), এবং ১% ইনস্ট্যান্ট ক্যাশব্যাক
+        if (userId) {
+            try {
+                const earnedPoints = Math.floor(totalAmount / 10);
+                const cashback = Math.round(totalAmount * 0.01);
+
+                const rewardUpdate = {
+                    $inc: { loyaltyPoints: earnedPoints, walletBalance: cashback }
+                };
+                if (cashback > 0) {
+                    rewardUpdate.$push = {
+                        walletHistory: {
+                            $each: [{
+                                type: 'cashback',
+                                amount: cashback,
+                                note: `Cashback for order ${orderId}`,
+                                date: new Date()
+                            }],
+                            $position: 0
+                        }
+                    };
+                }
+                await User.findByIdAndUpdate(userId, rewardUpdate);
+            } catch (rewardErr) {
+                console.error("⚠️ Reward credit error (order still placed):", rewardErr.message);
             }
         }
 
@@ -215,19 +245,24 @@ const getDashboardStats = async (req, res) => {
         ).length;
         
         const recentOrders = orders.slice(0, 4);
+
+        // 🌟 নতুন: ইউজারের আসল ওয়ালেট ব্যালেন্স ও লয়্যালটি পয়েন্ট ডাটাবেজ থেকে আনা
+        const user = await User.findById(userId).select('walletBalance loyaltyPoints');
+        const balance = user ? (user.walletBalance || 0) : 0;
+        const loyaltyPoints = user ? (user.loyaltyPoints || 0) : 0;
         
         res.json({ 
             success: true, 
             totalOrders: totalOrders, 
             pendingOrders: pendingOrders, 
-            balance: 0, 
-            loyaltyPoints: 0,
+            balance: balance, 
+            loyaltyPoints: loyaltyPoints,
             recentOrders: recentOrders, 
             data: {
                 totalOrders: totalOrders,
                 pendingOrders: pendingOrders,
-                balance: 0,
-                loyaltyPoints: 0,
+                balance: balance,
+                loyaltyPoints: loyaltyPoints,
                 recentOrders: recentOrders 
             }
         });

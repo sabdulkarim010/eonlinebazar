@@ -1398,6 +1398,242 @@ body {
 }
 
 
+/* =================================================================
+   ১৫. ফাইনাল ফিক্স: ডার্ক মোড, স্ট্যাট গ্রিড, উইশলিস্ট, অ্যাড্রেস ও সেশন
+   ================================================================= */
+
+/* 🌟 গ্লোবাল ইউটিলিটি: hidden ক্লাস (এটি না থাকায় স্কেলিটন বক্স ফাঁকা জায়গা নিচ্ছিল) */
+.hidden { display: none !important; }
+
+/* ব্ল্যাঙ্ক স্পেস ক্লিনআপ */
+.profile-top-actions { margin-bottom: 1rem; }
+#overview-skeleton { margin: 0; }
+
+/* ক্লিকেবল অর্ডার রো (ড্যাশবোর্ড + My Orders) */
+.clickable-order-row { cursor: pointer; }
+.clickable-order-row:hover { background-color: rgba(37, 99, 235, 0.04); }
+
+/* ---------- ডার্ক মোড টেক্সট ভিজিবিলিটি ফিক্স ---------- */
+.card h2, .card h3, .card h4 { color: var(--text-main); }
+.announcement-text { color: var(--text-muted); }
+.cashback-title { color: var(--text-main); margin-top: 1.5rem; }
+.empty-cart-text { color: var(--text-muted); }
+.dashboard-orders-card h3 { color: var(--text-main); }
+
+/* ডার্ক মোডে স্ট্যাট কার্ডের ব্যাকগ্রাউন্ড (আগে হালকা গ্রেডিয়েন্টে টেক্সট মিলিয়ে যাচ্ছিল) */
+[data-theme="dark"] .stat-card.total-orders {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(37, 99, 235, 0.06));
+    border-color: rgba(59, 130, 246, 0.35);
+}
+[data-theme="dark"] .stat-card.pending-orders {
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.18), rgba(249, 115, 22, 0.06));
+    border-color: rgba(251, 146, 60, 0.35);
+}
+[data-theme="dark"] .stat-card.available-balance {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(16, 185, 129, 0.06));
+    border-color: rgba(52, 211, 153, 0.35);
+}
+[data-theme="dark"] .stat-card.loyalty-points {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(168, 85, 247, 0.06));
+    border-color: rgba(192, 132, 252, 0.35);
+}
+[data-theme="dark"] .stat-info h3 { color: #f1f5f9; }
+[data-theme="dark"] .stat-info p { color: #cbd5e1; }
+
+/* ডার্ক মোডে cart.js এর ইনলাইন সাদা প্যানেলগুলো ঠিক করা */
+[data-theme="dark"] .profile-dynamic-checkout-panel > div {
+    background: var(--bg-main) !important;
+    border-color: var(--border-color) !important;
+}
+[data-theme="dark"] .profile-dynamic-checkout-panel h3,
+[data-theme="dark"] .profile-dynamic-checkout-panel span { color: var(--text-main) !important; }
+
+/* ---------- স্ট্যাট কার্ড: সব স্ক্রিনে এক লাইনে ৪টি ---------- */
+.dashboard-stats-grid { grid-template-columns: repeat(4, 1fr) !important; }
+
+/* ---------- My Wishlist ---------- */
+.wishlist-header { margin-top: 2.5rem; }
+
+.wishlist-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 1.2rem;
+}
+
+.wishlist-card {
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    background: var(--bg-card);
+    transition: var(--transition-smooth);
+}
+.wishlist-card:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); }
+
+.wishlist-media {
+    width: 100%;
+    height: 130px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-main);
+    border-radius: 10px;
+    overflow: hidden;
+}
+.wishlist-media img { width: 100%; height: 100%; object-fit: cover; }
+.wishlist-emoji { font-size: 2.8rem; }
+
+.wishlist-info { flex: 1; }
+.wishlist-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin: 0 0 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.wishlist-price { color: var(--primary-color); font-weight: 700; font-size: 1.05rem; }
+
+.wishlist-actions { display: flex; gap: 0.5rem; }
+.wishlist-cart-btn, .wishlist-remove-btn {
+    flex: 1;
+    padding: 9px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: var(--transition-smooth);
+}
+.wishlist-cart-btn { background: var(--primary-color); color: #fff; }
+.wishlist-cart-btn:hover { background: var(--primary-hover); }
+.wishlist-remove-btn { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+.wishlist-remove-btn:hover { background: var(--danger); color: #fff; }
+
+.wishlist-empty, .wishlist-loading, .sessions-loading {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: var(--text-muted);
+    width: 100%;
+}
+.wishlist-empty i { font-size: 2.8rem; display: block; margin-bottom: 0.75rem; opacity: 0.5; }
+.wishlist-empty .shop-now-link, .empty-cart-text .shop-now-link {
+    color: var(--primary-color);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+/* ---------- ঠিকানা কার্ড অ্যাকশন ও মডাল ---------- */
+.address-card-actions { display: flex; gap: 1.2rem; margin-top: 1.1rem; }
+.address-phone-text { color: var(--text-muted); font-size: 0.9rem; margin: 4px 0 0; }
+
+.btn-address-delete {
+    background: none;
+    border: none;
+    color: var(--danger);
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.95rem;
+    padding: 0;
+}
+.btn-address-delete:hover { text-decoration: underline; }
+
+.address-form-body {
+    padding: 2rem 2.5rem;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.3rem;
+}
+.address-form-body .input-group.full-width { grid-column: span 2; }
+.address-form-body .form-actions { grid-column: span 2; margin-top: 0.5rem; }
+
+.address-default-toggle {
+    grid-column: span 2;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-main);
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+.address-default-toggle input { width: 18px; height: 18px; cursor: pointer; }
+
+.btn-light {
+    background: var(--bg-main);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+}
+.btn-light:hover { background: var(--border-color); transform: translateY(-2px); }
+
+/* ---------- সিকিউরিটি: সেশন / অ্যাক্টিভ ডিভাইস ---------- */
+.security-subtext { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.35rem; }
+
+.activity-item { align-items: center; }
+.activity-details { flex: 1; }
+
+.session-logout-btn {
+    margin-left: auto;
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    transition: var(--transition-smooth);
+}
+.session-logout-btn:hover { background: var(--danger); color: #fff; }
+.session-logout-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.current-session {
+    background: rgba(37, 99, 235, 0.05);
+    border-radius: 10px;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+.current-badge {
+    background: var(--success);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+    vertical-align: middle;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ---------- রেসপন্সিভ ফাইন-টিউন ---------- */
+@media (max-width: 768px) {
+    .address-form-body {
+        grid-template-columns: 1fr;
+        padding: 1.5rem;
+    }
+    .address-form-body .input-group.full-width,
+    .address-form-body .address-default-toggle,
+    .address-form-body .form-actions { grid-column: 1; }
+
+    .wishlist-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+    .wishlist-media { height: 100px; }
+    .wishlist-header { margin-top: 1.5rem; }
+
+    .session-logout-btn { padding: 6px 10px; font-size: 0.78rem; }
+    .activity-item { gap: 10px; }
+}
+
+
 
 
 

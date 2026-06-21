@@ -208,6 +208,16 @@
                     <p class="text-center empty-cart-text">Your cart is empty. <a href="/" class="shop-now-link">Shop Now</a></p>
                 </div>
             </div>
+
+            <div class="content-header wishlist-header">
+                <h2><i class="fa-solid fa-heart primary-icon-color"></i> My Wishlist</h2>
+                <p>Saved items stay here permanently until you remove them.</p>
+            </div>
+            <div class="card">
+                <div id="wishlist-items-list" class="wishlist-grid">
+                    <p class="text-center wishlist-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading your wishlist...</p>
+                </div>
+            </div>
         </section>
 
         <section id="wallet-points" class="tab-content">
@@ -221,7 +231,7 @@
                     <h3>Wallet Funds & Cashback</h3>
                     <div class="balance-display-box">
                         <span class="balance-label">Current Funds</span>
-                        <h2 class="main-balance-amount">৳0.00</h2>
+                        <h2 id="main-balance-amount" class="main-balance-amount">৳0.00</h2>
                     </div>
                     <h4 class="cashback-title">Cashback History</h4>
                     <ul class="cashback-history-list" id="cashback-list">
@@ -256,13 +266,8 @@
                 <h2>Saved Delivery Addresses</h2>
                 <p>Add or modify your multiple shipping locations for seamless checkouts.</p>
             </div>
-            <div class="address-grid">
-                <div class="card address-card active">
-                    <span class="address-tag"><i class="fa-solid fa-house"></i> Home (Default)</span>
-                    <p class="address-text">Telidanga, Mahajon Bazar, Mauli, Narail, Bangladesh</p>
-                    <button class="btn-address-edit"><i class="fa-regular fa-pen-to-square"></i> Edit Address</button>
-                </div>
-                <div class="card add-address-blank-card">
+            <div class="address-grid" id="address-grid">
+                <div class="card add-address-blank-card" id="add-address-card">
                     <i class="fa-solid fa-circle-plus"></i>
                     <span>Add New Address</span>
                 </div>
@@ -366,22 +371,10 @@
                 </div>
 
                 <div class="card">
-                    <h3>Recent Login Activity</h3>
-                    <div class="login-activity-list mt-15">
-                        <div class="activity-item">
-                            <div class="activity-icon"><i class="fa-solid fa-mobile-screen-button"></i></div>
-                            <div class="activity-details">
-                                <h4>Chrome / Android Phone</h4>
-                                <p>Dhaka, Bangladesh • Active Now</p>
-                            </div>
-                        </div>
-                        <div class="activity-item">
-                            <div class="activity-icon"><i class="fa-solid fa-laptop"></i></div>
-                            <div class="activity-details">
-                                <h4>Windows PC / Firefox</h4>
-                                <p>Chittagong, Bangladesh • 3 days ago</p>
-                            </div>
-                        </div>
+                    <h3>Active Devices &amp; Sessions</h3>
+                    <p class="security-subtext">These are the devices currently logged into your account. Log out any device you don't recognize.</p>
+                    <div class="login-activity-list mt-15" id="sessions-list">
+                        <p class="text-center sessions-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading active sessions...</p>
                     </div>
                 </div>
             </div>
@@ -491,6 +484,55 @@
             <div class="form-actions mt-20">
                 <button type="submit" class="btn btn-primary w-100" id="submit-review-btn">
                     <i class="fa-regular fa-paper-plane"></i> Submit Review
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="address-modal" class="modal hidden">
+    <div class="modal-content address-modal-content">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-map-location-dot modal-title-icon"></i> <span id="address-modal-title">Add New Address</span></h2>
+            <span class="close-modal" id="close-address-modal">&times;</span>
+        </div>
+
+        <form id="address-form" class="address-form-body">
+            <input type="hidden" id="address-id">
+
+            <div class="input-group">
+                <label for="address-label">Address Label</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-tag input-icon"></i>
+                    <input type="text" id="address-label" placeholder="e.g. Home, Office" required>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="address-phone">Contact Phone</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-phone input-icon"></i>
+                    <input type="tel" id="address-phone" placeholder="e.g. +8801XXXXXXXXX">
+                </div>
+            </div>
+
+            <div class="input-group full-width">
+                <label for="address-full">Full Address</label>
+                <div class="input-wrapper text-area-wrapper">
+                    <i class="fa-solid fa-location-dot input-icon"></i>
+                    <textarea id="address-full" rows="3" placeholder="House, Road, Area, City, District" required></textarea>
+                </div>
+            </div>
+
+            <label class="address-default-toggle">
+                <input type="checkbox" id="address-default">
+                <span>Set as default delivery address</span>
+            </label>
+
+            <div class="form-actions mt-20">
+                <button type="button" class="btn btn-light" id="cancel-address-btn">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="save-address-btn">
+                    <i class="fa-regular fa-floppy-disk"></i> Save Address
                 </button>
             </div>
         </form>

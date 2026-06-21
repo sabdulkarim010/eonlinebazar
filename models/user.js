@@ -2,6 +2,43 @@
 
 const mongoose = require('mongoose');
 
+/* প্রতিটি সেভ করা ঠিকানার সাব-স্কিমা (Addresses Management) */
+const addressSchema = new mongoose.Schema({
+    label: { type: String, default: 'Home', trim: true },
+    fullAddress: { type: String, required: true, trim: true },
+    phone: { type: String, default: '', trim: true },
+    isDefault: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now }
+});
+
+/* উইশলিস্ট আইটেমের সাব-স্কিমা (My Wishlist) */
+const wishlistSchema = new mongoose.Schema({
+    productId: { type: String, required: true },
+    name: { type: String, default: '' },
+    price: { type: Number, default: 0 },
+    image: { type: String, default: '' },
+    icon: { type: String, default: '📦' },
+    addedAt: { type: Date, default: Date.now }
+});
+
+/* ওয়ালেট / পয়েন্ট ট্রানজেকশন লগ (Cashback & Conversion History) */
+const walletHistorySchema = new mongoose.Schema({
+    type: { type: String, default: 'credit' }, // credit | debit | conversion | cashback
+    amount: { type: Number, default: 0 },
+    note: { type: String, default: '' },
+    date: { type: Date, default: Date.now }
+});
+
+/* অ্যাক্টিভ ডিভাইস/সেশন সাব-স্কিমা (Security & Session Management) */
+const sessionSchema = new mongoose.Schema({
+    device: { type: String, default: 'Unknown Device' },
+    browser: { type: String, default: 'Unknown Browser' },
+    ip: { type: String, default: '' },
+    location: { type: String, default: 'Unknown Location' },
+    createdAt: { type: Date, default: Date.now },
+    lastActive: { type: Date, default: Date.now }
+});
+
 const userSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -52,9 +89,26 @@ const userSchema = new mongoose.Schema({
         default: ''
     },
 
+    // 🟢 নতুন: ওয়ালেট ব্যালেন্স এবং লয়্যালটি পয়েন্ট (Wallet & Loyalty Points)
+    walletBalance: {
+        type: Number,
+        default: 0
+    },
+    loyaltyPoints: {
+        type: Number,
+        default: 0
+    },
+    walletHistory: [walletHistorySchema],
 
+    // 🟢 নতুন: একাধিক ডেলিভারি ঠিকানা (Addresses Management)
+    addresses: [addressSchema],
 
-    
+    // 🟢 নতুন: উইশলিস্ট (My Wishlist - persists until removed)
+    wishlist: [wishlistSchema],
+
+    // 🟢 নতুন: অ্যাক্টিভ লগইন সেশন (Active Devices / Remote Logout)
+    sessions: [sessionSchema],
+
     // ফরগেট পাসওয়ার্ড OTP এবং এক্সপায়ারি টাইম
     resetPasswordOtp: {
         type: String,
@@ -72,7 +126,3 @@ const userSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('User', userSchema);
-
-
-
-
