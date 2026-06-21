@@ -211,6 +211,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =================================================================
+    // ৬.০ অর্ডার আইটেম স্ট্যাকিং হেল্পার (Stacked Order Items Renderer)
+    // একাধিক প্রোডাক্ট একই সেলে একটির নিচে আরেকটি করে সাজানো হয়
+    // =================================================================
+    function buildOrderItemsHtml(items) {
+        const safeItems = Array.isArray(items) ? items : [];
+
+        if (safeItems.length === 0) {
+            return `<div class="order-products-stack">
+                        <span class="order-product-line">
+                            <span class="order-product-name">Unknown Item</span>
+                        </span>
+                    </div>`;
+        }
+
+        const lines = safeItems.map(item => {
+            const name = item.name || 'Unknown Item';
+            const qty = item.quantity || item.qty || 1;
+            return `<span class="order-product-line">
+                        <span class="order-product-name" title="${name}">${name}</span>
+                        <span class="order-product-qty">× ${qty}</span>
+                    </span>`;
+        }).join('');
+
+        return `<div class="order-products-stack">${lines}</div>`;
+    }
+
+    // =================================================================
     // ৬.১ ড্যাশবোর্ড স্ট্যাটাস ফেচ করা (Fetch Dashboard Stats)
     // =================================================================
     async function fetchDashboardStats() {
@@ -260,8 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         recentOrders.forEach(order => {
                             const orderDate = new Date(order.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-                            const safeItems = order.items || [];
-                            const productNames = safeItems.map(item => item.name).join(', ') || 'Unknown Item';
+                            const itemsHtml = buildOrderItemsHtml(order.items);
 
                             const currentStatus = order.status || 'Pending';
                             let statusBadgeClass = 'pending';
@@ -278,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <tr class="clickable-order-row" data-id="${order._id}">
                                     <td><a href="#" class="order-id-link" data-id="${order._id}">#${displayOrderId}</a></td>
                                     <td>${orderDate}</td>
-                                    <td title="${productNames}">${productNames.length > 30 ? productNames.substring(0, 30) + '...' : productNames}</td>
+                                    <td class="order-products-cell">${itemsHtml}</td>
                                     <td style="font-weight:600; color:var(--primary-color);">৳${order.totalAmount || 0}</td>
                                     <td><span class="status-badge ${statusBadgeClass}">${currentStatus}</span></td>
                                 </tr>
@@ -445,8 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 orderList.forEach(order => {
                     const orderDate = new Date(order.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-                    const safeItems = order.items || [];
-                    const productNames = safeItems.map(item => item.name).join(', ') || 'Unknown Item';
+                    const itemsHtml = buildOrderItemsHtml(order.items);
 
                     const currentStatus = order.status || 'Pending';
                     let statusBadgeClass = 'pending';
@@ -466,7 +491,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     row.innerHTML = `
                         <td><a href="#" class="order-id-link" data-id="${order._id}">#${displayOrderId}</a></td>
                         <td>${orderDate}</td>
-                        <td title="${productNames}">${productNames.length > 30 ? productNames.substring(0, 30) + '...' : productNames}</td>
+                        <td class="order-products-cell">${itemsHtml}</td>
                         <td style="font-weight:600; color:var(--primary-color);">৳${order.totalAmount || 0}</td>
                         <td><span class="status-badge ${statusBadgeClass}">${currentStatus}</span></td>
                     `;

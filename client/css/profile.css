@@ -803,7 +803,7 @@ body {
     background-color: rgba(100, 116, 139, 0.05);
     color: var(--text-muted);
     font-weight: 700;
-    padding: 16px 20px;
+    padding: 12px 18px;
     border-bottom: 2px solid var(--border-color);
     text-transform: uppercase;
     font-size: 0.85rem;
@@ -811,10 +811,52 @@ body {
 }
 
 .orders-table td {
-    padding: 16px 20px;
+    padding: 12px 18px;
     border-bottom: 1px solid var(--border-color);
     vertical-align: middle;
     color: var(--text-main);
+    line-height: 1.4;
+}
+
+/* =================================================================
+   একাধিক প্রোডাক্ট স্ট্যাকড ডিসপ্লে (Multi-item vertical stacking)
+   একটি অর্ডারে একাধিক আইটেম থাকলে সেগুলো একই সেলে একটির নিচে আরেকটি বসবে
+   ================================================================= */
+.order-products-cell {
+    max-width: 280px;
+}
+
+.order-products-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.order-product-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.9rem;
+    line-height: 1.3;
+}
+
+.order-product-name {
+    color: var(--text-main);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.order-product-qty {
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background-color: rgba(100, 116, 139, 0.1);
+    padding: 1px 8px;
+    border-radius: 12px;
 }
 
 .orders-table tr:last-child td {
@@ -1419,6 +1461,24 @@ body {
 .cashback-title { color: var(--text-main); margin-top: 1.5rem; }
 .empty-cart-text { color: var(--text-muted); }
 .dashboard-orders-card h3 { color: var(--text-main); }
+
+/* 🛡️ cart.css এর গ্লোবাল `body { color:#1e293b }` যেন প্রোফাইল পেজের থিমিং নষ্ট না করে,
+   তাই body ও হেডিং টেক্সটে থিম ভেরিয়েবল জোর করে প্রয়োগ করা হলো */
+body {
+    color: var(--text-main);
+    background-color: var(--bg-main);
+}
+
+/* "Welcome Back, ..." হেডিং সব থিমেই দৃশ্যমান রাখা */
+.content-header h2,
+.content-header h2 .user-display-name {
+    color: var(--text-main);
+}
+
+[data-theme="dark"] .content-header h2,
+[data-theme="dark"] .content-header h2 .user-display-name {
+    color: #f1f5f9;
+}
 
 /* ডার্ক মোডে স্ট্যাট কার্ডের ব্যাকগ্রাউন্ড (আগে হালকা গ্রেডিয়েন্টে টেক্সট মিলিয়ে যাচ্ছিল) */
 [data-theme="dark"] .stat-card.total-orders {

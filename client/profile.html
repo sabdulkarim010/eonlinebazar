@@ -9,8 +9,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/profile.css">
+    <!-- cart.css must load BEFORE profile.css so profile.css owns the dashboard's global theming (body color, dark mode) -->
     <link rel="stylesheet" href="css/cart.css">
+    <link rel="stylesheet" href="css/profile.css">
 </head>
 <body>
 
@@ -138,9 +139,9 @@
                     <tr>
                         <th>Order ID</th>
                         <th>Date</th>
-                        <th>Status</th>
+                        <th>Products</th>
                         <th>Total Amount</th>
-                        <th class="text-center">Action</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody id="dashboard-orders-tbody">
@@ -181,9 +182,9 @@
                             <tr>
                                 <th>Order ID</th>
                                 <th>Date</th>
-                                <th>Status</th>
+                                <th>Products</th>
                                 <th>Total Amount</th>
-                                <th class="text-center">Action</th> 
+                                <th>Status</th>
                             </tr>
                         </thead>
                         <tbody id="orders-list-tbody">
