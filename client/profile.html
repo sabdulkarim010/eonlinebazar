@@ -86,15 +86,17 @@
 
     <main class="main-content">
 
-        <button type="button" id="back-to-home-btn" class="back-to-home-btn" title="Back to Home">
-            <i class="fa-solid fa-arrow-left"></i>
-            <span>Back to Home</span>
-        </button>
+        <div class="profile-page-bar">
+            <button type="button" id="back-to-home-btn" class="back-to-home-btn" title="Back to Home" aria-label="Back to Home">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span class="back-btn-text">Back to Home</span>
+            </button>
+        </div>
 
-    <section id="dashboard-overview" class="tab-content active">
-    <div class="content-header">
+        <section id="dashboard-overview" class="tab-content active">
+    <div class="content-header content-header--dashboard">
         <h2>Welcome Back, <span class="user-display-name">User</span>!</h2>
-        <p>Here's your account overview and recent updates.</p>
+        <p class="content-header-subtitle">Here's your account overview and recent updates.</p>
     </div>
 
     <div class="dashboard-stats-grid">
@@ -128,7 +130,7 @@
         </div>
     </div>
 
-    <div class="card mt-20">
+    <div class="card mt-20 dashboard-orders-card">
         <h3><i class="fa-solid fa-clock-rotate-left primary-icon-color"></i> Recent Order Activity</h3>
         <div class="table-responsive mt-15">
             <table class="orders-table">
@@ -158,7 +160,7 @@
         <div class="skeleton-card"></div>
     </div>
 
-    <div class="card basic-card mt-20">
+    <div class="card basic-card mt-20 dashboard-announcement">
         <h3><i class="fa-solid fa-bullhorn primary-icon-color"></i> Latest Announcement</h3>
         <p class="announcement-text mt-10">Enjoy Free Shipping on orders over ৳2000! Earn double loyalty points on every purchase this week.</p>
     </div>
