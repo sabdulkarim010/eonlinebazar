@@ -1373,9 +1373,29 @@ window.uploadProduct = async function() {
 
 
 
-/* ==========================================================================
-   SECTION 9: DYNAMIC CATEGORY ENGINE (ডাইনামিক ক্যাটাগরি মডিউল - আপডেট)
-   ========================================================================== */
+function escHtml(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function catalogActionsHtml(editHandler, deleteHandler) {
+    return `<div class="catalog-actions">
+        <button type="button" class="catalog-action-btn edit" onclick="${editHandler}" title="Edit" aria-label="Edit">
+            <i class="fa-solid fa-pen-to-square"></i>
+        </button>
+        <button type="button" class="catalog-action-btn delete" onclick="${deleteHandler}" title="Delete" aria-label="Delete">
+            <i class="fa-solid fa-trash-can"></i>
+        </button>
+    </div>`;
+}
+
+function formatCatalogDate(dateVal) {
+    if (!dateVal) return '—';
+    return new Date(dateVal).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
 
 // ৯.১: গ্লোবাল ক্যাটাগরি লিস্ট সংরক্ষণের জন্য অ্যারে
 let globalCategories = [];
@@ -1433,29 +1453,21 @@ function renderCategoryTable() {
     tbody.innerHTML = '';
     
     if (globalCategories.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="loading-cell" style="text-align: center; padding: 15px;">No categories found. Add one above!</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" class="cell-empty">No categories yet. Add one using the form above.</td></tr>';
         return;
     }
 
-    globalCategories.forEach(cat => {
-        const dateObj = new Date(cat.createdAt);
-        const dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        
-        tbody.innerHTML += `
-            <tr>
-                <td><b>${cat.name}</b></td>
-                <td>${dateStr}</td>
-                <td class="col-actions">
-                    <button class="page-nav-btn" onclick="editCategory('${cat._id}', '${cat.name}')" title="Edit Category" style="color: #3b82f6; border: 1px solid #3b82f6; margin-right: 5px;">
-                        <i class="fa-solid fa-pen-to-square"></i>
-                    </button>
-                    <button class="page-nav-btn" onclick="deleteCategory('${cat._id}')" title="Delete Category" style="color: #ef4444; border: 1px solid #ef4444;">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
-                </td>
-            </tr>
-        `;
-    });
+    tbody.innerHTML = globalCategories.map(cat => {
+        const safeName = escHtml(cat.name);
+        return `<tr>
+            <td class="cell-name">${safeName}</td>
+            <td class="cell-date">${formatCatalogDate(cat.createdAt)}</td>
+            <td>${catalogActionsHtml(
+                `editCategory('${cat._id}', ${JSON.stringify(cat.name)})`,
+                `deleteCategory('${cat._id}')`
+            )}</td>
+        </tr>`;
+    }).join('');
 }
 
 /**
@@ -1479,9 +1491,9 @@ window.addCategory = async function() {
         const result = await res.json();
         
         if (result.success) {
-            showToast(result.message || "Category added successfully!", "success");
+            showAdminSuccess('Category Added', result.message || 'Category added successfully!');
             nameInput.value = '';
-            fetchCategories(); // লিস্ট ও ড্রপডাউনগুলো লাইভ রিফ্রেশ করা
+            await fetchCategories();
         } else {
             showToast(result.message, "error");
         }
@@ -1515,9 +1527,9 @@ window.editCategory = async function(id, currentName) {
                 });
                 const result = await res.json();
                 if (result.success) {
-                    showToast('Category updated successfully!', 'success');
+                    showAdminSuccess('Category Updated', 'Category renamed successfully.');
                     closeCatalogQuickEdit();
-                    fetchCategories();
+                    await fetchCategories();
                 } else {
                     showToast(result.message || 'Failed to update category', 'error');
                 }
@@ -1540,8 +1552,10 @@ window.deleteCategory = function(id) {
             });
             const result = await res.json();
             if (result.success) {
-                showToast(result.message || 'Category deleted!', 'success');
-                fetchCategories();
+                globalCategories = globalCategories.filter(c => String(c._id) !== String(id));
+                renderCategoryTable();
+                renderCategoryDropdown();
+                showAdminSuccess('Category Deleted', result.message || 'Category removed.');
             } else {
                 showToast(result.message, 'error');
             }
@@ -1550,12 +1564,6 @@ window.deleteCategory = function(id) {
         }
     }, 'danger');
 };
-
-// ৯.৮: অ্যাডমিন প্যানেল লোড হওয়ার সাথে সাথেই ক্যাটাগরিগুলো ফেচ করা
-document.addEventListener('DOMContentLoaded', () => {
-    fetchCategories();
-});
-
 
 /* ==========================================================================
    SECTION 9B: BRAND MANAGEMENT ENGINE (ব্র্যান্ড ম্যানেজমেন্ট মডিউল)
@@ -1581,28 +1589,21 @@ function renderBrandTable() {
     if (!tbody) return;
 
     if (globalBrands.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="loading-cell" style="text-align:center; padding:15px;">No brands found. Add one above!</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" class="cell-empty">No brands yet. Add one using the form above.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = '';
-    globalBrands.forEach(brand => {
-        const dateStr = new Date(brand.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        const safeName = (brand.name || '').replace(/'/g, "\\'");
-        tbody.innerHTML += `
-            <tr>
-                <td><b>${brand.name}</b></td>
-                <td>${dateStr}</td>
-                <td class="col-actions">
-                    <button class="page-nav-btn" onclick="editBrand('${brand._id}', '${safeName}')" title="Edit Brand" style="color:#3b82f6; border:1px solid #3b82f6; margin-right:5px;">
-                        <i class="fa-solid fa-pen-to-square"></i>
-                    </button>
-                    <button class="page-nav-btn" onclick="deleteBrand('${brand._id}')" title="Delete Brand" style="color:#ef4444; border:1px solid #ef4444;">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
-                </td>
-            </tr>`;
-    });
+    tbody.innerHTML = globalBrands.map(brand => {
+        const safeName = escHtml(brand.name);
+        return `<tr>
+            <td class="cell-name">${safeName}</td>
+            <td class="cell-date">${formatCatalogDate(brand.createdAt)}</td>
+            <td>${catalogActionsHtml(
+                `editBrand('${brand._id}', ${JSON.stringify(brand.name)})`,
+                `deleteBrand('${brand._id}')`
+            )}</td>
+        </tr>`;
+    }).join('');
 }
 
 window.addBrand = async function() {
@@ -1618,9 +1619,9 @@ window.addBrand = async function() {
         });
         const result = await res.json();
         if (result.success) {
-            showToast(result.message || "Brand added!", "success");
+            showAdminSuccess('Brand Added', result.message || 'Brand added successfully!');
             input.value = '';
-            fetchBrands();
+            await fetchBrands();
         } else {
             showToast(result.message, "error");
         }
@@ -1648,9 +1649,9 @@ window.editBrand = function(id, currentName) {
                 });
                 const result = await res.json();
                 if (result.success) {
-                    showToast('Brand updated!', 'success');
+                    showAdminSuccess('Brand Updated', 'Brand renamed successfully.');
                     closeCatalogQuickEdit();
-                    fetchBrands();
+                    await fetchBrands();
                 } else {
                     showToast(result.message || 'Failed to update brand', 'error');
                 }
@@ -1670,8 +1671,9 @@ window.deleteBrand = function(id) {
             });
             const result = await res.json();
             if (result.success) {
-                showToast(result.message || 'Brand deleted!', 'success');
-                fetchBrands();
+                globalBrands = globalBrands.filter(b => String(b._id) !== String(id));
+                renderBrandTable();
+                showAdminSuccess('Brand Deleted', result.message || 'Brand removed.');
             } else {
                 showToast(result.message, 'error');
             }
@@ -1706,29 +1708,23 @@ function renderAttributeTable() {
     if (!tbody) return;
 
     if (globalAttributes.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="loading-cell" style="text-align:center; padding:15px;">No attributes found. Add one above!</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="cell-empty">No attributes yet. Add one using the form above.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = '';
-    globalAttributes.forEach(attr => {
-        const dateStr = new Date(attr.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        const valueChips = (attr.values || []).map(v => `<span class="attr-value-chip">${v}</span>`).join(' ') || '<span style="color:#94a3b8;">—</span>';
-        tbody.innerHTML += `
-            <tr>
-                <td><b>${attr.name}</b></td>
-                <td>${valueChips}</td>
-                <td>${dateStr}</td>
-                <td class="col-actions">
-                    <button class="page-nav-btn" onclick="editAttribute('${attr._id}')" title="Edit Values" style="color:#3b82f6; border:1px solid #3b82f6; margin-right:5px;">
-                        <i class="fa-solid fa-pen-to-square"></i>
-                    </button>
-                    <button class="page-nav-btn" onclick="deleteAttribute('${attr._id}')" title="Delete Attribute" style="color:#ef4444; border:1px solid #ef4444;">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
-                </td>
-            </tr>`;
-    });
+    tbody.innerHTML = globalAttributes.map(attr => {
+        const valueChips = (attr.values || []).map(v => `<span class="attr-value-chip">${escHtml(v)}</span>`).join(' ')
+            || '<span class="cell-date">—</span>';
+        return `<tr>
+            <td class="cell-name">${escHtml(attr.name)}</td>
+            <td>${valueChips}</td>
+            <td class="cell-date">${formatCatalogDate(attr.createdAt)}</td>
+            <td>${catalogActionsHtml(
+                `editAttribute('${attr._id}')`,
+                `deleteAttribute('${attr._id}')`
+            )}</td>
+        </tr>`;
+    }).join('');
 }
 
 window.addAttribute = async function() {
@@ -1746,10 +1742,10 @@ window.addAttribute = async function() {
         });
         const result = await res.json();
         if (result.success) {
-            showToast(result.message || "Attribute added!", "success");
+            showAdminSuccess('Attribute Added', result.message || 'Attribute added successfully!');
             nameInput.value = '';
             valuesInput.value = '';
-            fetchAttributes();
+            await fetchAttributes();
         } else {
             showToast(result.message, "error");
         }
@@ -1776,9 +1772,9 @@ window.editAttribute = function(id) {
                 });
                 const result = await res.json();
                 if (result.success) {
-                    showToast('Attribute updated!', 'success');
+                    showAdminSuccess('Attribute Updated', 'Attribute values saved successfully.');
                     closeCatalogQuickEdit();
-                    fetchAttributes();
+                    await fetchAttributes();
                 } else {
                     showToast(result.message || 'Failed to update attribute', 'error');
                 }
@@ -1798,8 +1794,9 @@ window.deleteAttribute = function(id) {
             });
             const result = await res.json();
             if (result.success) {
-                showToast(result.message || 'Attribute deleted!', 'success');
-                fetchAttributes();
+                globalAttributes = globalAttributes.filter(a => String(a._id) !== String(id));
+                renderAttributeTable();
+                showAdminSuccess('Attribute Deleted', result.message || 'Attribute removed.');
             } else {
                 showToast(result.message, 'error');
             }
@@ -1808,12 +1805,6 @@ window.deleteAttribute = function(id) {
         }
     }, 'danger');
 };
-
-// অ্যাডমিন প্যানেল লোডে ব্র্যান্ড ও অ্যাট্রিবিউট প্রি-ফেচ করা
-document.addEventListener('DOMContentLoaded', () => {
-    fetchBrands();
-    fetchAttributes();
-});
 
 
 
@@ -2798,12 +2789,18 @@ function initDashboard() {
 // DOM সম্পূর্ণ লোড হওয়ার পর সিস্টেম বুট করা
 document.addEventListener('DOMContentLoaded', () => {
     initDashboard();
+    setupSidebarNavigation();
+    setupGlobalSearch();
+    setupSyncButton();
 
-    // সেটিংস প্যানেলের প্রোফাইল আপলোড ইভেন্ট লিসেনার বাইন্ড করা
     const profileUploadInput = document.getElementById('adminProfileUpload');
     if (profileUploadInput) {
         profileUploadInput.addEventListener('change', uploadAdminProfilePic);
     }
+
+    fetchCategories();
+    fetchBrands();
+    fetchAttributes();
 });
 
 
@@ -2814,72 +2811,70 @@ document.addEventListener('DOMContentLoaded', () => {
    SECTION 14: SIDEBAR NAVIGATION (মেনু ট্যাব কন্ট্রোলার)
    ========================================================================== */
 
-function setupSidebarNavigation() {
-    // HTML এর সাইডবার মেনু এবং মেইন সেকশনগুলো সিলেক্ট করা হচ্ছে
-    const menuItems = document.querySelectorAll('.sidebar-menu ul li[data-target], .sidebar-menu .submenu li[data-target]');
+function navigateAdminSection(targetId, clickedItem) {
+    if (!targetId) return;
+
+    const menuItems = document.querySelectorAll('.sidebar-menu li[data-target]');
     const menuGroups = document.querySelectorAll('.sidebar-menu li.menu-group');
     const sections = document.querySelectorAll('.admin-section');
 
-    menuGroups.forEach(group => {
-        const toggle = group.querySelector('.catalog-toggle');
-        if (toggle) {
-            toggle.addEventListener('click', (e) => {
-                e.stopPropagation();
-                group.classList.toggle('open');
-            });
-        }
+    menuItems.forEach(item => item.classList.remove('active'));
+    menuGroups.forEach(g => g.classList.remove('child-active'));
+
+    if (clickedItem) clickedItem.classList.add('active');
+
+    const parentGroup = clickedItem ? clickedItem.closest('.menu-group') : null;
+    if (parentGroup) parentGroup.classList.add('open', 'child-active');
+
+    sections.forEach(section => {
+        section.style.display = 'none';
+        section.classList.remove('active');
     });
 
-    menuItems.forEach(menu => {
-        menu.addEventListener('click', function(e) {
+    const targetSection = document.getElementById(targetId);
+    if (targetSection) {
+        targetSection.style.display = 'block';
+        targetSection.classList.add('active');
+    }
+
+    const label = clickedItem ? clickedItem.textContent.trim() : '';
+    updateAdminPageHeader(targetId, label);
+
+    const refreshMap = {
+        'view-orders': fetchLiveOrders,
+        'view-manage-products': fetchLiveProducts,
+        'view-customers': fetchDashboardData,
+        'view-overview': fetchDashboardData,
+        'manage-category': fetchCategories,
+        'manage-brands': fetchBrands,
+        'manage-attributes': fetchAttributes,
+        'view-security': fetchSecurityLogs,
+        'view-settings': fetchAdminSettings
+    };
+    if (typeof refreshMap[targetId] === 'function') refreshMap[targetId]();
+}
+window.navigateAdminSection = navigateAdminSection;
+
+function setupSidebarNavigation() {
+    const nav = document.querySelector('.sidebar-menu');
+    if (!nav) return;
+
+    nav.addEventListener('click', (e) => {
+        const toggle = e.target.closest('.catalog-toggle');
+        if (toggle) {
+            e.preventDefault();
             e.stopPropagation();
-            // ১. সব মেনু থেকে active ক্লাস রিমুভ করা
-            menuItems.forEach(item => item.classList.remove('active'));
-            menuGroups.forEach(g => g.classList.remove('child-active'));
-            this.classList.add('active');
+            const group = toggle.closest('.menu-group');
+            if (group) group.classList.toggle('open');
+            return;
+        }
 
-            // ৩. সব সেকশন হাইড করা
-            sections.forEach(section => {
-                section.style.display = 'none';
-                section.classList.remove('active');
-            });
+        const item = e.target.closest('li[data-target]');
+        if (!item || !nav.contains(item)) return;
 
-            // ৪. আপনার HTML এর data-target অনুযায়ী নির্দিষ্ট সেকশন শো করা
-            const targetId = this.getAttribute('data-target');
-            if (!targetId) return;
-
-            // সাবমেনু আইটেম হলে প্যারেন্ট ড্রপডাউন খোলা রাখা
-            const parentGroup = this.closest('.menu-group');
-            if (parentGroup) parentGroup.classList.add('open', 'child-active');
-
-            const targetSection = document.getElementById(targetId);
-
-            updateAdminPageHeader(targetId, this.innerText.trim());
-
-            if (targetSection) {
-                targetSection.style.display = 'block';
-                targetSection.classList.add('active');
-
-                // ৫. পেজ পরিবর্তনের সাথে সাথে ওই পেজের ডাটা অটোমেটিক রিফ্রেশ করা
-                if (targetId === 'view-orders' && typeof fetchLiveOrders === 'function') {
-                    fetchLiveOrders();
-                } else if (targetId === 'view-manage-products' && typeof fetchLiveProducts === 'function') {
-                    fetchLiveProducts();
-                } else if (targetId === 'view-customers' && typeof fetchDashboardData === 'function') {
-                    fetchDashboardData();
-                } else if (targetId === 'manage-category' && typeof fetchCategories === 'function') {
-                    fetchCategories();
-                } else if (targetId === 'manage-brands' && typeof fetchBrands === 'function') {
-                    fetchBrands();
-                } else if (targetId === 'manage-attributes' && typeof fetchAttributes === 'function') {
-                    fetchAttributes();
-                } else if (targetId === 'view-security' && typeof fetchSecurityLogs === 'function') {
-                    fetchSecurityLogs();
-                } else if (targetId === 'view-settings' && typeof fetchAdminSettings === 'function') {
-                    fetchAdminSettings();
-                }
-            }
-        });
+        e.preventDefault();
+        e.stopPropagation();
+        navigateAdminSection(item.getAttribute('data-target'), item);
     });
 }
 
@@ -2925,43 +2920,53 @@ function setupGlobalSearch() {
    ========================================================================== */
 
 function setupSyncButton() {
-    // আপনার HTML এর সিঙ্ক বাটনের ID 'refreshDataBtn'
-    const syncBtn = document.getElementById('refreshDataBtn'); 
+    const syncBtn = document.getElementById('refreshDataBtn');
+    if (!syncBtn) return;
 
-    if (syncBtn) {
-        syncBtn.addEventListener('click', async function() {
-            const icon = this.querySelector('i');
-            if (icon) icon.classList.add('fa-spin'); // বাটন ক্লিক করলে আইকন ঘুরবে
+    syncBtn.addEventListener('click', async function() {
+        if (this.disabled) return;
+        this.disabled = true;
 
-            if (typeof showToast === 'function') showToast("Syncing all live data...", "info");
+        const icon = this.querySelector('i');
+        if (icon) icon.classList.add('fa-spin');
 
-            try {
-                // সবকটি ফেচ ফাংশন একসাথে কল করে ডাটা আপডেট করা
-                if (typeof fetchDashboardData === 'function') await fetchDashboardData();
-                if (typeof fetchLiveOrders === 'function') await fetchLiveOrders();
-                if (typeof fetchLiveProducts === 'function') await fetchLiveProducts();
-                
-                if (typeof showToast === 'function') showToast("System Synced Successfully! 🎉", "success");
-            } catch (error) {
-                console.error("Sync Error:", error);
-                if (typeof showToast === 'function') showToast("Sync failed. Check connection.", "error");
-            } finally {
-                if (icon) icon.classList.remove('fa-spin'); // ডাটা আসা শেষ হলে আইকন ঘোরা বন্ধ হবে
-            }
-        });
-    }
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Syncing data…',
+                html: 'Fetching latest dashboard, orders, products &amp; catalog',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => Swal.showLoading()
+            });
+        }
+
+        try {
+            await Promise.all([
+                typeof fetchDashboardData === 'function' ? fetchDashboardData() : Promise.resolve(),
+                typeof fetchLiveOrders === 'function' ? fetchLiveOrders() : Promise.resolve(),
+                typeof fetchLiveProducts === 'function' ? fetchLiveProducts() : Promise.resolve(),
+                typeof fetchCategories === 'function' ? fetchCategories() : Promise.resolve(),
+                typeof fetchBrands === 'function' ? fetchBrands() : Promise.resolve(),
+                typeof fetchAttributes === 'function' ? fetchAttributes() : Promise.resolve(),
+                typeof fetchSecurityLogs === 'function' ? fetchSecurityLogs() : Promise.resolve()
+            ]);
+
+            if (typeof Swal !== 'undefined') Swal.close();
+            showAdminSuccess('Data Synchronized Successfully', 'Dashboard, orders, products & catalog are up to date.');
+        } catch (error) {
+            console.error('Sync Error:', error);
+            if (typeof Swal !== 'undefined') Swal.close();
+            showToast('Sync failed. Check your connection.', 'error');
+        } finally {
+            this.disabled = false;
+            if (icon) icon.classList.remove('fa-spin');
+        }
+    });
 }
 
 /* ==========================================================================
   SECTION 17 SYSTEM INITIALIZATION (সব কন্ট্রোলার একসাথে চালু করা)
    ========================================================================== */
-
-// পেজ সম্পূর্ণ লোড হওয়ার পর আমাদের নতুন কন্ট্রোলারগুলো চালু হবে
-document.addEventListener('DOMContentLoaded', () => {
-    setupSidebarNavigation();
-    setupGlobalSearch();
-    setupSyncButton();
-});
 
 
 

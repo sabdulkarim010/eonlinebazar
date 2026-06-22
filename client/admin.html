@@ -104,17 +104,21 @@
                 </div>
                 <div class="header-actions">
                     <div class="header-datetime">
-                        <button type="button" id="current-date" class="date-display" title="Click to pick a date">
-                            <i class="fa-regular fa-calendar"></i>
-                            <span id="dateText">Loading date...</span>
-                            <i class="fa-solid fa-caret-down date-caret"></i>
-                        </button>
+                        <div class="datetime-inline">
+                            <button type="button" id="current-date" class="date-display" title="Click to pick a date">
+                                <i class="fa-regular fa-calendar"></i>
+                                <span id="dateText">Loading date...</span>
+                                <i class="fa-solid fa-caret-down date-caret"></i>
+                            </button>
+                            <span class="datetime-separator" aria-hidden="true"></span>
+                            <span id="live-clock" class="live-clock" title="Live time">
+                                <i class="fa-regular fa-clock"></i>
+                                <span id="clockText">--:--:--</span>
+                            </span>
+                        </div>
                         <input type="date" id="hiddenDatePicker" class="hidden-date-input" aria-label="Pick a date">
-                        <span id="live-clock" class="live-clock">
-                            <i class="fa-regular fa-clock"></i> <span id="clockText">--:--:--</span>
-                        </span>
                     </div>
-                    <button id="refreshDataBtn" class="sync-btn"><i class="fa-solid fa-rotate"></i> Sync Data</button>
+                    <button type="button" id="refreshDataBtn" class="sync-btn"><i class="fa-solid fa-rotate"></i> Sync Data</button>
                 </div>
             </header>
 
@@ -274,106 +278,103 @@
 </section>
 
 
-<section id="manage-category" class="admin-section" style="display: none;">
-    <div class="section-header-box">
-        <h3>Manage Categories</h3>
-    </div>
-    <div class="form-container" style="margin-bottom: 20px;">
-        <div class="form-row-custom" style="align-items: flex-end;">
-            <div class="form-group" style="flex: 1;">
-                <label>New Category Name</label>
-                <input type="text" id="newCategoryName" placeholder="e.g., Smart Phones">
-            </div>
-            <div class="form-group" style="flex: 0 0 auto;">
-                <button type="button" onclick="addCategory()" class="btn-submit" style="margin-top: 0;">
-                    <i class="fa-solid fa-plus"></i> Add Category
-                </button>
-            </div>
+<section id="manage-category" class="admin-section catalog-page" style="display: none;">
+    <div class="catalog-page-header">
+        <div>
+            <h3><i class="fa-solid fa-tags"></i> Manage Categories</h3>
+            <p class="catalog-page-sub">Organize products with dynamic category labels.</p>
         </div>
     </div>
-    
-    <div class="table-container">
-        <table class="admin-table">
+    <div class="catalog-toolbar">
+        <div class="catalog-add-form">
+            <div class="catalog-field catalog-field-grow">
+                <label for="newCategoryName">New Category Name</label>
+                <input type="text" id="newCategoryName" placeholder="e.g., Smart Phones, Electronics">
+            </div>
+            <button type="button" onclick="addCategory()" class="btn-submit catalog-add-btn">
+                <i class="fa-solid fa-plus"></i> Add Category
+            </button>
+        </div>
+    </div>
+    <div class="catalog-table-wrap">
+        <table class="catalog-table">
             <thead>
                 <tr>
-                    <th>Category Name</th>
-                    <th>Date Added</th>
-                    <th>Actions</th>
+                    <th class="col-name">Category Name</th>
+                    <th class="col-date">Date Added</th>
+                    <th class="col-actions">Actions</th>
                 </tr>
             </thead>
-            <tbody id="categoryTableBody">
-                </tbody>
+            <tbody id="categoryTableBody"></tbody>
         </table>
     </div>
 </section>
 
-<section id="manage-brands" class="admin-section" style="display: none;">
-    <div class="section-header-box">
-        <h3>Manage Brands</h3>
+<section id="manage-brands" class="admin-section catalog-page" style="display: none;">
+    <div class="catalog-page-header">
+        <div>
+            <h3><i class="fa-solid fa-copyright"></i> Manage Brands</h3>
+            <p class="catalog-page-sub">Maintain brand names for catalog filtering and display.</p>
+        </div>
     </div>
-    <div class="form-container" style="margin-bottom: 20px;">
-        <div class="form-row-custom" style="align-items: flex-end;">
-            <div class="form-group" style="flex: 1;">
-                <label>New Brand Name</label>
+    <div class="catalog-toolbar">
+        <div class="catalog-add-form">
+            <div class="catalog-field catalog-field-grow">
+                <label for="newBrandName">New Brand Name</label>
                 <input type="text" id="newBrandName" placeholder="e.g., Samsung, Walton, Aarong">
             </div>
-            <div class="form-group" style="flex: 0 0 auto;">
-                <button type="button" onclick="addBrand()" class="btn-submit" style="margin-top: 0;">
-                    <i class="fa-solid fa-plus"></i> Add Brand
-                </button>
-            </div>
+            <button type="button" onclick="addBrand()" class="btn-submit catalog-add-btn">
+                <i class="fa-solid fa-plus"></i> Add Brand
+            </button>
         </div>
     </div>
-
-    <div class="table-container">
-        <table class="admin-table">
+    <div class="catalog-table-wrap">
+        <table class="catalog-table">
             <thead>
                 <tr>
-                    <th>Brand Name</th>
-                    <th>Date Added</th>
-                    <th>Actions</th>
+                    <th class="col-name">Brand Name</th>
+                    <th class="col-date">Date Added</th>
+                    <th class="col-actions">Actions</th>
                 </tr>
             </thead>
-            <tbody id="brandTableBody">
-            </tbody>
+            <tbody id="brandTableBody"></tbody>
         </table>
     </div>
 </section>
 
-<section id="manage-attributes" class="admin-section" style="display: none;">
-    <div class="section-header-box">
-        <h3>Product Attributes</h3>
-    </div>
-    <div class="form-container" style="margin-bottom: 20px;">
-        <div class="form-row-custom" style="align-items: flex-end;">
-            <div class="form-group" style="flex: 1;">
-                <label>Attribute Name</label>
-                <input type="text" id="newAttributeName" placeholder="e.g., Size, Color, Material">
-            </div>
-            <div class="form-group" style="flex: 2;">
-                <label>Values (Comma separated)</label>
-                <input type="text" id="newAttributeValues" placeholder="e.g., S, M, L, XL">
-            </div>
-            <div class="form-group" style="flex: 0 0 auto;">
-                <button type="button" onclick="addAttribute()" class="btn-submit" style="margin-top: 0;">
-                    <i class="fa-solid fa-plus"></i> Add Attribute
-                </button>
-            </div>
+<section id="manage-attributes" class="admin-section catalog-page" style="display: none;">
+    <div class="catalog-page-header">
+        <div>
+            <h3><i class="fa-solid fa-sliders"></i> Product Attributes</h3>
+            <p class="catalog-page-sub">Define attribute names and values (Size, Color, Material, etc.).</p>
         </div>
     </div>
-
-    <div class="table-container">
-        <table class="admin-table">
+    <div class="catalog-toolbar">
+        <div class="catalog-add-form catalog-add-form-wide">
+            <div class="catalog-field catalog-field-grow">
+                <label for="newAttributeName">Attribute Name</label>
+                <input type="text" id="newAttributeName" placeholder="e.g., Size, Color, Material">
+            </div>
+            <div class="catalog-field catalog-field-grow">
+                <label for="newAttributeValues">Values (comma separated)</label>
+                <input type="text" id="newAttributeValues" placeholder="e.g., S, M, L, XL">
+            </div>
+            <button type="button" onclick="addAttribute()" class="btn-submit catalog-add-btn">
+                <i class="fa-solid fa-plus"></i> Add Attribute
+            </button>
+        </div>
+    </div>
+    <div class="catalog-table-wrap">
+        <table class="catalog-table">
             <thead>
                 <tr>
-                    <th>Attribute</th>
-                    <th>Values</th>
-                    <th>Date Added</th>
-                    <th>Actions</th>
+                    <th class="col-name">Attribute</th>
+                    <th class="col-values">Values</th>
+                    <th class="col-date">Date Added</th>
+                    <th class="col-actions">Actions</th>
                 </tr>
             </thead>
-            <tbody id="attributeTableBody">
-            </tbody>
+            <tbody id="attributeTableBody"></tbody>
         </table>
     </div>
 </section>
