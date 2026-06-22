@@ -23,6 +23,8 @@ const userRoutes = require('./routes/userRoutes');
 const authRoutes = require('./routes/authRoutes');
 const cartRoutes = require ('./routes/cartRoutes');
 const categoryRoutes = require('./routes/categoryRoutes'); 
+const brandRoutes = require('./routes/brandRoutes');
+const attributeRoutes = require('./routes/attributeRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const financeRoutes = require('./routes/financeRoutes');
 
@@ -76,6 +78,8 @@ app.use('/api/customer', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/cart',cartRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/brands', brandRoutes);
+app.use('/api/attributes', attributeRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/finance', financeRoutes);
 
@@ -210,13 +214,9 @@ function isValidFinanceToken(token) {
     }
 }
 
-// ফাইন্যান্স ড্যাশবোর্ড সার্ভ করার আগে টোকেন চেক করার গার্ড হ্যান্ডলার
+// ফাইন্যান্স ড্যাশবোর্ড সার্ভ করার হ্যান্ডলার — ক্লায়েন্ট-সাইড টোকেন গেট (অ্যাডমিন প্যানেলের মতো)
+// localStorage-এ adminToken থাকলেও ব্রাউজার নেভিগেশনে কুকি/হেডার যায় না; তাই HTML সরাসরি সerv করা হয়।
 function serveFinanceDashboard(req, res) {
-    const token = getFinanceTokenFromRequest(req);
-    if (!isValidFinanceToken(token)) {
-        // টোকেন না থাকলে/অবৈধ হলে সরাসরি লগইন পেজে — ব্ল্যাঙ্ক পেজ নয়
-        return res.redirect('/finance-login');
-    }
     res.sendFile(path.join(__dirname, 'client', 'finance-analytics.html'));
 }
 

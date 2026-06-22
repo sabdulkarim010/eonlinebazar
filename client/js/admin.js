@@ -34,8 +34,8 @@ async function verifyAdminTokenOnLoad() {
         });
         const data = await res.json();
         
-        // টোকেন অবৈধ বা এক্সপায়ার হলে সেশন ক্লিয়ার করে রিডাইরেক্ট
-        if (!data.success) {
+        // টোকেন অবৈধ বা এক্সপায়ার হলে সেশন ক্লিয়ার করে রিডাইরেক্ট
+        if (!res.ok || !data.success) {
             localStorage.removeItem('adminToken');
             window.location.replace('/admin-login');
         }
@@ -70,64 +70,82 @@ const itemsPerPage = 10;      // প্রতি পেজে ডিফল্ট
 let currentOrderPage = 1;     // অর্ডারের বর্তমান পেজ নম্বর
 let ordersPerPage = 10;       // প্রতি পেজে ডিফল্ট অর্ডারের সংখ্যা
 let isStockAscending = true;
+let adminPlatformTimezone = 'Asia/Dhaka';
+let adminCurrencySymbol = '৳';
+
+/** Format a monetary amount using the admin-configured currency symbol */
+function formatAdminPrice(amount) {
+    const sym = adminCurrencySymbol || '৳';
+    const num = Number(amount);
+    if (Number.isNaN(num)) return `${sym} 0`;
+    return `${sym} ${num.toLocaleString()}`;
+}
+
+/** Format a signed profit/loss delta (e.g. +৳ 120) */
+function formatAdminProfit(amount) {
+    const sym = adminCurrencySymbol || '৳';
+    const num = Number(amount) || 0;
+    const sign = num >= 0 ? '+' : '-';
+    return `${sign}${sym}${Math.abs(num).toLocaleString()}`;
+}
 
 
 /* ==========================================================================
-   CORE MODULE 3: UI UTILITIES - CUSTOM NOTIFICATIONS & ALERTS (টোস্ট ও মডাল)
+   CORE MODULE 3: UI UTILITIES - TOASTR & SWEETALERT2
    ========================================================================== */
 
+function initAdminNotifications() {
+    if (typeof toastr !== 'undefined') {
+        toastr.options = {
+            closeButton: true,
+            progressBar: true,
+            positionClass: 'toast-top-right',
+            timeOut: 3500,
+            extendedTimeOut: 1500,
+            preventDuplicates: true
+        };
+    }
+}
+
 /**
- * ৩.১: প্রফেশনাল কাস্টম টোস্ট নোটিফিকেশন (Toast Alert)
- * @param {string} message - যে বার্তাটি স্ক্রিনে দেখাতে হবে
- * @param {string} type - নোটিফিকেশনের ধরন ('success', 'error', 'info', 'warning')
+ * প্রফেশনাল টোস্ট নোটিফিকেশন (Toastr.js)
  */
 window.showToast = function(message, type = 'success') {
-    const container = document.getElementById('toastContainer');
-    if (!container) {
-        // ব্যাকআপ নোটিফিকেশন যদি কন্টেইনার না থাকে
-        alert(message);
+    if (typeof toastr !== 'undefined') {
+        const map = { success: 'success', error: 'error', warning: 'warning', info: 'info' };
+        toastr[map[type] || 'info'](message);
         return;
     }
-    
-    // নতুন টোস্ট এলিমেন্ট তৈরি
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    
-    // টাইপ অনুযায়ী আইকন নির্ধারণ
-    let iconClass = 'fa-circle-check';
-    if (type === 'error') iconClass = 'fa-circle-xmark';
-    if (type === 'warning') iconClass = 'fa-triangle-exclamation';
-    if (type === 'info') iconClass = 'fa-circle-info';
-    
-    toast.innerHTML = `
-        <i class="fa-solid ${iconClass}"></i>
-        <span class="toast-message">${message}</span>
-    `;
-    
-    container.appendChild(toast);
-
-    // অ্যানিমেশনের মাধ্যমে স্ক্রিন থেকে টোস্ট রিমুভ করা (৩ সেকেন্ড পর)
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(100px)';
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({ toast: true, position: 'top-end', icon: type === 'error' ? 'error' : type === 'warning' ? 'warning' : type === 'info' ? 'info' : 'success', title: message, showConfirmButton: false, timer: 3500, timerProgressBar: true });
+        return;
+    }
+    console.log(`[${type}] ${message}`);
 };
 
 /**
- * ৩.২: কাস্টম কনফার্মেশন মডাল (Delete বা গুরুত্বপূর্ণ অ্যাকশনের জন্য)
- * @param {string} title - মডালের শিরোনাম
- * @param {string} message - বিস্তারিত বার্তা
- * @param {function} onConfirm - 'Yes' ক্লিক করলে যে ফাংশনটি রান হবে
- * @param {string} type - মডালের থিম টাইপ ('warning', 'danger')
+ * কনফার্মেশন ডায়ালগ (SweetAlert2)
  */
 window.showCustomConfirm = function(title, message, onConfirm, type = 'warning') {
-    const modal = document.getElementById('customConfirmModal');
-    if (!modal) {
-        // ব্যাকআপ কনফার্মেশন যদি মডাল এলিমেন্ট ডমে না থাকে
-        if (confirm(message) && onConfirm) onConfirm();
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: title || 'Are you sure?',
+            text: message,
+            icon: type === 'danger' ? 'warning' : 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Proceed',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: type === 'danger' ? '#ef4444' : '#3b82f6',
+            cancelButtonColor: '#94a3b8',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed && onConfirm) onConfirm();
+        });
         return;
     }
+
+    const modal = document.getElementById('customConfirmModal');
+    if (!modal) return;
     
     const titleEl = document.getElementById('confirmTitle');
     const messageEl = document.getElementById('confirmMessage');
@@ -163,6 +181,131 @@ window.showCustomConfirm = function(title, message, onConfirm, type = 'warning')
         if (onConfirm) onConfirm();
     });
 };
+
+/** SweetAlert2 success toast for edit/delete/save actions */
+const AdminSuccessToast = (typeof Swal !== 'undefined') ? Swal.mixin({
+    toast: true,
+    position: 'top-end',
+    icon: 'success',
+    showConfirmButton: false,
+    timer: 2800,
+    timerProgressBar: true
+}) : null;
+
+window.showAdminSuccess = function(title, message) {
+    if (AdminSuccessToast) {
+        AdminSuccessToast.fire({ title: title || 'Success', text: message || '' });
+    } else {
+        showToast(message || title || 'Success', 'success');
+    }
+};
+
+/** Resolve product table body lazily (module init timing safe) */
+function getProdTableBody() {
+    return document.getElementById('adminProductTableBody');
+}
+
+/** Instant product list sync after edit/delete */
+function removeProductFromState(productId) {
+    const id = String(productId);
+    globalProducts = globalProducts.filter(p => String(p._id) !== id);
+    selectedProductIds.delete(productId);
+    if (typeof updateBulkActionPanel === 'function') updateBulkActionPanel();
+    filterAndRenderProducts();
+}
+
+function upsertProductInState(updatedProduct) {
+    if (!updatedProduct || !updatedProduct._id) return;
+    const id = String(updatedProduct._id);
+    const idx = globalProducts.findIndex(p => String(p._id) === id);
+    if (idx >= 0) {
+        globalProducts[idx] = { ...globalProducts[idx], ...updatedProduct };
+    } else {
+        globalProducts.unshift(updatedProduct);
+    }
+    const totalBadge = document.getElementById('total-products-badge');
+    if (totalBadge) totalBadge.innerText = `Total: ${globalProducts.length}`;
+    updateFilterCategoryDropdown();
+    filterAndRenderProducts();
+}
+
+/** Instant order list sync after delete */
+function removeOrderFromState(orderId) {
+    const id = String(orderId);
+    globalOrders = globalOrders.filter(o => String(o._id) !== id);
+    const totalOrderBadge = document.getElementById('total-orders-badge');
+    if (totalOrderBadge) totalOrderBadge.innerText = `Total: ${globalOrders.length}`;
+    filterAndRenderOrders();
+}
+
+
+/* ==========================================================================
+   ADMIN PAGE METADATA (সেকশন অনুযায়ী হেডার টাইটেল আপডেট)
+   ========================================================================== */
+const ADMIN_PAGE_META = {
+    'view-overview':        { title: 'Dashboard Overview',      subtitle: 'Real-time monitoring engine for EonlineBazar platform.' },
+    'view-customers':       { title: 'All Customers',           subtitle: 'Manage registered users, account status, and order history.' },
+    'view-orders':          { title: 'Live Orders',             subtitle: 'Real-time monitoring engine for order processing.' },
+    'view-add-product':     { title: 'Add New Product',         subtitle: 'Launch a new product with pricing, media, and inventory details.' },
+    'view-manage-products': { title: 'Manage Products',         subtitle: 'Search, filter, export, and maintain your product catalog.' },
+    'manage-category':      { title: 'Manage Categories',       subtitle: 'Organize products with dynamic category labels.' },
+    'manage-brands':        { title: 'Manage Brands',           subtitle: 'Maintain brand names for catalog filtering and display.' },
+    'manage-attributes':    { title: 'Product Attributes',      subtitle: 'Define attribute names and values (Size, Color, etc.).' },
+    'view-security':        { title: 'Security Logs',           subtitle: 'Monitor authentication events and system security activity.' },
+    'view-settings':        { title: 'Admin Settings',          subtitle: 'Configure your admin profile and platform preferences.' }
+};
+
+function updateAdminPageHeader(sectionId, fallbackLabel) {
+    const meta = ADMIN_PAGE_META[sectionId];
+    const mainTitle = document.getElementById('page-main-title');
+    const subTitle = document.getElementById('page-sub-title');
+    if (mainTitle) mainTitle.textContent = meta ? meta.title : (fallbackLabel || 'Dashboard');
+    if (subTitle) subTitle.textContent = meta ? meta.subtitle : '';
+}
+
+/**
+ * ক্যাটালগ আইটেম এডিটের জন্য পেশাদার ইনলাইন মোডাল (native prompt এর বিকল্প)
+ */
+let _catalogQuickEditSaveHandler = null;
+
+window.openCatalogQuickEdit = function({ title, label, value, placeholder, onSave }) {
+    const modal = document.getElementById('catalogQuickEditModal');
+    const input = document.getElementById('cqeInput');
+    if (!modal || !input) return;
+
+    document.getElementById('cqeTitle').textContent = title || 'Edit Item';
+    document.getElementById('cqeLabel').textContent = label || 'Name';
+    input.value = value || '';
+    input.placeholder = placeholder || '';
+    _catalogQuickEditSaveHandler = onSave;
+
+    const saveBtn = document.getElementById('cqeSaveBtn');
+    const newSaveBtn = saveBtn.cloneNode(true);
+    saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+    newSaveBtn.addEventListener('click', async () => {
+        const val = input.value.trim();
+        if (!val) return showToast('Please enter a value.', 'warning');
+        if (typeof _catalogQuickEditSaveHandler === 'function') {
+            await _catalogQuickEditSaveHandler(val);
+        }
+    });
+
+    modal.style.display = 'flex';
+    input.focus();
+    input.select();
+};
+
+window.closeCatalogQuickEdit = function() {
+    const modal = document.getElementById('catalogQuickEditModal');
+    if (modal) modal.style.display = 'none';
+    _catalogQuickEditSaveHandler = null;
+};
+
+function getOrderCountBadge(count) {
+    const n = Number(count) || 0;
+    const cls = n === 0 ? 'order-count-badge zero' : 'order-count-badge';
+    return `<span class="${cls}">${n} order${n !== 1 ? 's' : ''}</span>`;
+}
 
 
 /* ==========================================================================
@@ -235,12 +378,63 @@ function switchDashboardView(sectionId, sectionTitle) {
 /**
  * ৫.১: ড্যাশবোর্ডে বর্তমান তারিখ প্রদর্শন
  */
-function updateDashboardDate() {
-    const dateEl = document.getElementById('current-date');
-    if (dateEl) {
-        const options = { year: 'numeric', month: 'long', day: 'numeric' };
-        dateEl.innerHTML = `<i class="fa-regular fa-calendar"></i> ${new Date().toLocaleDateString('en-US', options)}`;
+function updateDashboardDate(dateObj) {
+    const textEl = document.getElementById('dateText');
+    const d = dateObj instanceof Date && !isNaN(dateObj) ? dateObj : new Date();
+    if (textEl) {
+        const options = { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' };
+        textEl.textContent = d.toLocaleDateString('en-US', options);
     }
+}
+
+/**
+ * ৫.১ক: রিয়েল-টাইম লাইভ ঘড়ি (সেকেন্ড সহ) তারিখের ঠিক নিচে দেখানো
+ */
+let __liveClockTimer = null;
+function startLiveClock() {
+    const clockEl = document.getElementById('clockText');
+    if (!clockEl) return;
+
+    const tick = () => {
+        const now = new Date();
+        clockEl.textContent = now.toLocaleTimeString('en-US', {
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
+            timeZone: adminPlatformTimezone || undefined
+        });
+    };
+
+    tick();
+    if (__liveClockTimer) clearInterval(__liveClockTimer);
+    __liveClockTimer = setInterval(tick, 1000);
+}
+
+/**
+ * ৫.১খ: হেডারের তারিখ ক্লিক করলে ক্যালেন্ডার পিকার খোলা, এবং তারিখ
+ * নির্বাচন করলে তা হেডারে প্রদর্শন করা।
+ */
+function setupHeaderDatePicker() {
+    const dateBtn = document.getElementById('current-date');
+    const picker = document.getElementById('hiddenDatePicker');
+    if (!dateBtn || !picker) return;
+
+    // আজকের তারিখ পিকারে প্রি-ফিল করা
+    const today = new Date();
+    picker.value = today.toISOString().slice(0, 10);
+
+    dateBtn.addEventListener('click', () => {
+        // আধুনিক ব্রাউজারে নেটিভ ক্যালেন্ডার পপআপ খোলা; না পারলে ফোকাস ফলব্যাক
+        if (typeof picker.showPicker === 'function') {
+            try { picker.showPicker(); return; } catch (_) { /* fallback below */ }
+        }
+        picker.focus();
+        picker.click();
+    });
+
+    picker.addEventListener('change', () => {
+        if (picker.value) {
+            updateDashboardDate(new Date(picker.value + 'T00:00:00'));
+        }
+    });
 }
 
 /**
@@ -270,11 +464,9 @@ async function fetchDashboardData() {
         }
 
         // ডাটা পাওয়ার পর ড্যাশবোর্ডের কার্ড, চার্ট ও টেবিল আপডেট করা
-        if (allCustomers.length > 0) {
-            updateMetricsCards(allCustomers);
-            renderCustomerTable(allCustomers);
-            renderGrowthChart(allCustomers);
-        }
+        updateMetricsCards(allCustomers);
+        renderCustomerTable(allCustomers);
+        renderGrowthChart(allCustomers);
 
     } catch (error) {
         console.error("Dashboard Fetch Error:", error);
@@ -290,7 +482,7 @@ function updateMetricsCards(customers) {
     const totalUsers = customers.length;
     const verifiedUsers = customers.filter(user => user.isVerified === true).length;
     const pendingUsers = totalUsers - verifiedUsers;
-    const spamAlerts = customers.filter(user => user.name && (user.name.toLowerCase().includes('spam') || user.isSpam)).length;
+    const spamAlerts = customers.filter(user => user.accountStatus === 'blocked').length;
 
     // DOM এলিমেন্ট আপডেট করা
     if (document.getElementById('stat-total-users')) document.getElementById('stat-total-users').innerText = totalUsers;
@@ -300,36 +492,86 @@ function updateMetricsCards(customers) {
 }
 
 /**
- * ৫.৪: কাস্টমার রেজিস্ট্রেশন গ্রোথ চার্ট (Chart.js ব্যবহার করে)
- * @param {Array} customers - ডাটাবেজ থেকে পাওয়া কাস্টমার অ্যারে
+ * গত N মাসের রেজিস্ট্রেশন সিরিজ বিল্ড করা (ডাইনামিক চার্ট ডেটা)
+ */
+function buildMonthlyRegistrationSeries(customers, months = 6) {
+    const now = new Date();
+    const labels = [];
+    const totals = [];
+    const verified = [];
+
+    for (let i = months - 1; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const year = d.getFullYear();
+        const month = d.getMonth();
+        labels.push(d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
+
+        const inMonth = (customers || []).filter(c => {
+            if (!c.createdAt) return false;
+            const created = new Date(c.createdAt);
+            return created.getFullYear() === year && created.getMonth() === month;
+        });
+        totals.push(inMonth.length);
+        verified.push(inMonth.filter(u => u.isVerified).length);
+    }
+
+    return { labels, totals, verified };
+}
+
+/**
+ * ৫.৪: কাস্টমার রেজিস্ট্রেশন গ্রোথ চার্ট (Chart.js — real monthly data)
  */
 function renderGrowthChart(customers) {
     const ctx = document.getElementById('userGrowthChart');
-    if (!ctx || typeof Chart === 'undefined') return; 
+    if (!ctx || typeof Chart === 'undefined') return;
 
-    // পুরোনো চার্ট থাকলে তা রিমুভ করে নতুন করে রেন্ডার করা (ওভারল্যাপিং এড়াতে)
     if (growthChartInstance) growthChartInstance.destroy();
 
-    const verifiedCount = customers.filter(u => u.isVerified).length;
-    const pendingCount = customers.filter(u => !u.isVerified).length;
+    const { labels, totals, verified } = buildMonthlyRegistrationSeries(customers || [], 6);
+    const periodLabel = document.getElementById('chartPeriodLabel');
+    if (periodLabel) periodLabel.textContent = `Last ${labels.length} months · ${(customers || []).length} total users`;
 
     growthChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June'], // ডাইনামিক করতে চাইলে এখানে লজিক বসবে
-            datasets: [{
-                label: 'Platform Registration Trend',
-                data: [0, 0, 0, 0, pendingCount, verifiedCount], 
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderWidth: 3, 
-                tension: 0.4, 
-                fill: true
-            }]
+            labels,
+            datasets: [
+                {
+                    label: 'New Registrations',
+                    data: totals,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                    borderWidth: 2.5,
+                    tension: 0.35,
+                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                },
+                {
+                    label: 'Verified in Month',
+                    data: verified,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                    borderWidth: 2,
+                    tension: 0.35,
+                    fill: false,
+                    pointRadius: 3,
+                    borderDash: [4, 4]
+                }
+            ]
         },
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false 
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y}` } }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } },
+                x: { grid: { display: false } }
+            }
         }
     });
 }
@@ -343,22 +585,46 @@ function renderGrowthChart(customers) {
  * ৬.১: কাস্টমারদের ডাটা টেবিলে প্রদর্শন করা
  * @param {Array} customers - ডাটাবেজ থেকে পাওয়া কাস্টমার অ্যারে
  */
+function getCustomerStatusHtml(user) {
+    const accountStatus = user.accountStatus || 'active';
+    if (accountStatus === 'blocked') {
+        return '<span class="status-badge status-blocked"><i class="fa-solid fa-ban"></i> Blocked</span>';
+    }
+    if (accountStatus === 'suspended') {
+        return '<span class="status-badge status-suspended"><i class="fa-solid fa-pause"></i> Suspended</span>';
+    }
+    const verifyClass = user.isVerified ? 'status-verified' : 'status-pending';
+    const verifyText = user.isVerified ? 'Verified' : 'Pending';
+    return `<span class="status-badge ${verifyClass}">${verifyText}</span>`;
+}
+
 function renderCustomerTable(customers) {
     const tbody = document.getElementById('customerTableBody');
     if (!tbody) return;
 
-    // যদি কোনো কাস্টমার না থাকে
     if (customers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="loading-container">No records found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="loading-container">No records found.</td></tr>`;
         return;
     }
 
     let tableHTML = '';
     customers.forEach((user, index) => {
-        const statusClass = user.isVerified ? 'status-verified' : 'status-pending';
-        const statusText = user.isVerified ? 'Verified' : 'Pending';
-        // ইউজারের আইডি ছোট করে দেখানো
         const displayId = user._id ? user._id.toString().slice(-6).toUpperCase() : `USR-${index + 1}`;
+        const accountStatus = user.accountStatus || 'active';
+        const uid = user._id;
+
+        let statusActionBtn = '';
+        if (accountStatus === 'blocked') {
+            statusActionBtn = `<button class="action-btn activate" onclick="setCustomerStatus('${uid}', 'active')" title="Unblock / Activate"><i class="fa-solid fa-unlock"></i></button>`;
+        } else if (accountStatus === 'suspended') {
+            statusActionBtn = `
+                <button class="action-btn activate" onclick="setCustomerStatus('${uid}', 'active')" title="Reactivate"><i class="fa-solid fa-play"></i></button>
+                <button class="action-btn block" onclick="setCustomerStatus('${uid}', 'blocked')" title="Block User"><i class="fa-solid fa-ban"></i></button>`;
+        } else {
+            statusActionBtn = `
+                <button class="action-btn suspend" onclick="setCustomerStatus('${uid}', 'suspended')" title="Suspend User"><i class="fa-solid fa-pause"></i></button>
+                <button class="action-btn block" onclick="setCustomerStatus('${uid}', 'blocked')" title="Block User"><i class="fa-solid fa-ban"></i></button>`;
+        }
 
         tableHTML += `
             <tr>
@@ -366,11 +632,13 @@ function renderCustomerTable(customers) {
                 <td>${user.name || 'N/A'}</td>
                 <td>${user.email || 'N/A'}</td>
                 <td>${user.mobile || 'N/A'}</td>
-                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
-                <td>
-                    <button class="action-btn view" onclick="viewCustomerDetails('${user._id}')" title="View Customer Logs">
-                        <i class="fa-solid fa-eye"></i>
-                    </button>
+                <td>${getOrderCountBadge(user.orderCount)}</td>
+                <td>${getCustomerStatusHtml(user)}</td>
+                <td class="col-actions customer-actions">
+                    <button class="action-btn view" onclick="viewCustomerDetails('${uid}')" title="View Profile"><i class="fa-solid fa-eye"></i></button>
+                    <button class="action-btn edit" onclick="editCustomer('${uid}')" title="Edit Customer"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button class="action-btn orders" onclick="viewCustomerOrders('${uid}')" title="Order History"><i class="fa-solid fa-clock-rotate-left"></i></button>
+                    ${statusActionBtn}
                 </td>
             </tr>
         `;
@@ -384,16 +652,224 @@ function renderCustomerTable(customers) {
  */
 function showCustomerError(msg) {
     const tbody = document.getElementById('customerTableBody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="table-status-error">${msg}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-status-error">${msg}</td></tr>`;
 }
 
 /**
- * ৬.৩: নির্দিষ্ট কাস্টমারের বিস্তারিত দেখা (ভবিষ্যতের ফিচার)
- * @param {string} userId - কাস্টমারের ডাটাবেজ আইডি
+ * ৬.৩: কাস্টমার প্রোফাইল দেখার মোডাল
  */
-window.viewCustomerDetails = function(userId) {
-    // এখানে ভবিষ্যতে কাস্টমার প্রোফাইলের মডাল ওপেন করার লজিক যুক্ত হবে
-    showToast(`Accessing security logs for ID: ${userId}`, 'info');
+window.viewCustomerDetails = async function(userId) {
+    try {
+        const res = await fetch(`/api/admin/customers/${userId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+        if (!result.success || !result.data) {
+            return showToast(result.message || 'Failed to load customer.', 'error');
+        }
+
+        const u = result.data;
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val ?? '—'; };
+
+        set('cvName', u.name);
+        set('cvEmail', u.email);
+        set('cvMobile', u.mobile);
+        set('cvPhone', u.phone || 'N/A');
+        set('cvVerified', u.isVerified ? 'Verified' : 'Pending');
+        set('cvAccountStatus', (u.accountStatus || 'active').charAt(0).toUpperCase() + (u.accountStatus || 'active').slice(1));
+        set('cvWallet', formatAdminPrice(u.walletBalance || 0));
+        set('cvPoints', Number(u.loyaltyPoints || 0).toLocaleString());
+        set('cvOrderCount', `${Number(u.orderCount || 0).toLocaleString()} order${Number(u.orderCount || 0) !== 1 ? 's' : ''}`);
+        set('cvAddress', u.address || 'Not provided');
+        set('cvJoined', u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—');
+
+        const editFromView = document.getElementById('cvEditFromViewBtn');
+        if (editFromView) {
+            editFromView.onclick = () => {
+                closeCustomerViewModal();
+                editCustomer(userId);
+            };
+        }
+
+        document.getElementById('customerViewModal').style.display = 'flex';
+    } catch (e) {
+        showToast('Server error loading customer profile.', 'error');
+    }
+};
+
+window.closeCustomerViewModal = function() {
+    const modal = document.getElementById('customerViewModal');
+    if (modal) modal.style.display = 'none';
+};
+
+/**
+ * ৬.৪: কাস্টমার এডিট মোডাল
+ */
+window.editCustomer = async function(userId) {
+    try {
+        const res = await fetch(`/api/admin/customers/${userId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+        if (!result.success || !result.data) {
+            return showToast(result.message || 'Failed to load customer.', 'error');
+        }
+
+        const u = result.data;
+        document.getElementById('editCustomerId').value = u._id;
+        document.getElementById('editCustomerName').value = u.name || '';
+        document.getElementById('editCustomerEmail').value = u.email || '';
+        document.getElementById('editCustomerMobile').value = u.mobile || '';
+        document.getElementById('editCustomerPhone').value = u.phone || '';
+        document.getElementById('editCustomerAddress').value = u.address || '';
+        document.getElementById('editCustomerVerified').value = u.isVerified ? 'true' : 'false';
+
+        document.getElementById('customerEditModal').style.display = 'flex';
+    } catch (e) {
+        showToast('Server error loading customer for edit.', 'error');
+    }
+};
+
+window.closeCustomerEditModal = function() {
+    const modal = document.getElementById('customerEditModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.saveCustomerEdits = async function() {
+    const userId = document.getElementById('editCustomerId').value;
+    const name = document.getElementById('editCustomerName').value.trim();
+    const email = document.getElementById('editCustomerEmail').value.trim();
+    const mobile = document.getElementById('editCustomerMobile').value.trim();
+
+    if (!name || !email || !mobile) {
+        return showToast('Name, email, and mobile are required.', 'warning');
+    }
+
+    const btn = document.getElementById('saveCustomerBtn');
+    const originalText = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...'; }
+
+    try {
+        const res = await fetch(`/api/admin/customers/${userId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                name,
+                email,
+                mobile,
+                phone: document.getElementById('editCustomerPhone').value.trim(),
+                address: document.getElementById('editCustomerAddress').value.trim(),
+                isVerified: document.getElementById('editCustomerVerified').value === 'true'
+            })
+        });
+        const result = await res.json();
+        if (result.success) {
+            showToast('Customer updated successfully!', 'success');
+            closeCustomerEditModal();
+            fetchDashboardData();
+        } else {
+            showToast(result.message || 'Update failed.', 'error');
+        }
+    } catch (e) {
+        showToast('Server error while saving customer.', 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
+    }
+};
+
+/**
+ * ৬.৫: Block / Suspend / Activate কাস্টমার
+ */
+window.setCustomerStatus = function(userId, status) {
+    const labels = {
+        blocked: { title: 'Block Customer', msg: 'This user will be unable to log in. Continue?', type: 'danger' },
+        suspended: { title: 'Suspend Customer', msg: 'This user will be temporarily suspended from logging in. Continue?', type: 'danger' },
+        active: { title: 'Activate Customer', msg: 'Restore this account to active status?', type: 'warning' }
+    };
+    const cfg = labels[status] || labels.active;
+
+    showCustomConfirm(cfg.title, cfg.msg, async () => {
+        try {
+            const res = await fetch(`/api/admin/customers/${userId}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ status })
+            });
+            const result = await res.json();
+            if (result.success) {
+                showToast(result.message || 'Status updated.', 'success');
+                fetchDashboardData();
+            } else {
+                showToast(result.message || 'Failed to update status.', 'error');
+            }
+        } catch (e) {
+            showToast('Server error updating account status.', 'error');
+        }
+    }, cfg.type);
+};
+
+/**
+ * ৬.৬: কাস্টমারের অর্ডার হিস্ট্রি মোডাল
+ */
+window.viewCustomerOrders = async function(userId) {
+    const modal = document.getElementById('customerOrdersModal');
+    const tbody = document.getElementById('customerOrdersTableBody');
+    const label = document.getElementById('coCustomerLabel');
+
+    if (modal) modal.style.display = 'flex';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="loading-cell">Loading orders...</td></tr>';
+
+    try {
+        const res = await fetch(`/api/admin/customers/${userId}/orders`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (!result.success) {
+            if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="loading-cell">${result.message || 'Failed to load orders.'}</td></tr>`;
+            return;
+        }
+
+        if (label && result.customer) {
+            label.textContent = `Orders for ${result.customer.name} (${result.customer.email})`;
+        }
+
+        const orders = result.data || [];
+        if (!tbody) return;
+
+        if (orders.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="loading-cell" style="text-align:center;">No orders placed yet.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = orders.map(order => {
+            const dateStr = order.createdAt
+                ? new Date(order.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                : '—';
+            const statusClass = (order.status || 'pending').toLowerCase();
+            return `
+                <tr>
+                    <td><b>${order.orderId || 'N/A'}</b></td>
+                    <td>${dateStr}</td>
+                    <td><b>${formatAdminPrice(order.totalAmount || 0)}</b></td>
+                    <td><span class="status-badge status-${statusClass === 'delivered' ? 'verified' : 'pending'}">${order.status || 'Pending'}</span></td>
+                    <td>${order.paymentMethod || 'COD'}</td>
+                </tr>`;
+        }).join('');
+    } catch (e) {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="loading-cell">Server error loading orders.</td></tr>';
+    }
+};
+
+window.closeCustomerOrdersModal = function() {
+    const modal = document.getElementById('customerOrdersModal');
+    if (modal) modal.style.display = 'none';
 };
 
 
@@ -526,7 +1002,7 @@ window.renderOrderTable = function() {
             </td>
             <td><span>${order.customerAddress}</span></td>
             <td><ul style="padding-left: 0; list-style:none; margin:0;">${itemsList}</ul></td>
-            <td><b>৳ ${order.totalAmount}</b></td>
+            <td><b>${formatAdminPrice(order.totalAmount)}</b></td>
             <td>
                 <select onchange="changeOrderStatus('${orderId}', this.value)" class="filter-box">
                     <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>⏳ Pending</option>
@@ -581,10 +1057,13 @@ window.deleteOrder = function(orderId) {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            if ((await response.json()).success) {
-                showToast("Order deleted successfully!", "success");
-                fetchLiveOrders(); 
-            } else showToast("Failed to delete order.", "error");
+            const result = await response.json();
+            if (response.ok && result.success) {
+                removeOrderFromState(orderId);
+                showAdminSuccess('Order Deleted', result.message || 'Order removed from live queue.');
+            } else {
+                showToast(result.message || "Failed to delete order.", "error");
+            }
         } catch (err) { showToast("Server error!", "error"); }
     }, "danger");
 };
@@ -613,7 +1092,7 @@ window.viewInvoice = function(orderId) {
     document.getElementById('invPaymentMethod').innerText = order.paymentMethod ? order.paymentMethod : "COD";
     document.getElementById('invNote').innerText = order.note && order.note.trim() !== "" ? order.note : "No note provided";
 
-    document.getElementById('invTotalAmount').innerText = `৳ ${order.totalAmount || 0}`;
+    document.getElementById('invTotalAmount').innerText = formatAdminPrice(order.totalAmount || 0);
 
     // আইটেম লিস্ট জেনারেট করা
     const itemsContainer = document.getElementById('invItemsList');
@@ -622,7 +1101,7 @@ window.viewInvoice = function(orderId) {
         order.items.forEach(item => {
             itemsHTML += `<div style="display:flex; justify-content:space-between; padding: 10px 0; border-bottom: 1px dashed #e2e8f0;">
                 <span><i class="fa-solid fa-cube text-muted"></i> ${item.name} (x${item.quantity})</span>
-                <b class="text-main">৳ ${item.price * item.quantity}</b>
+                <b class="text-main">${formatAdminPrice((item.price || 0) * (item.quantity || 1))}</b>
             </div>`;
         });
     }
@@ -636,6 +1115,16 @@ window.viewInvoice = function(orderId) {
 window.closeInvoiceModal = function() {
     const modal = document.getElementById('invoiceModal');
     if (modal) modal.style.display = 'none';
+};
+
+window.printInvoice = function() {
+    document.body.classList.add('printing-invoice');
+    const cleanup = () => {
+        document.body.classList.remove('printing-invoice');
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
 };
 
 
@@ -801,6 +1290,7 @@ window.uploadProduct = async function() {
     const id = document.getElementById('prodId').value.trim();
     const name = document.getElementById('prodName').value.trim();
     const price = document.getElementById('prodPrice').value.trim();
+    const buyingPrice = document.getElementById('prodBuyingPrice') ? document.getElementById('prodBuyingPrice').value.trim() : '';
     const stock = document.getElementById('prodStock').value.trim();
     const category = document.getElementById('prodCategory').value;
     const emoji = document.getElementById('prodEmoji').value.trim();
@@ -835,6 +1325,7 @@ window.uploadProduct = async function() {
     formData.append('id', id); 
     formData.append('name', name); 
     formData.append('price', price);
+    formData.append('buyingPrice', buyingPrice || 0);
     formData.append('stock', stock); 
     formData.append('category', category);
     formData.append('icon', emoji); 
@@ -1003,61 +1494,325 @@ window.addCategory = async function() {
  * ৯.৬: বিদ্যমান ক্যাটাগরির নাম এডিট (আপডেট) করা
  */
 window.editCategory = async function(id, currentName) {
-    const newName = prompt("Update Category Name:", currentName);
-    
-    if (!newName || newName.trim() === "" || newName.trim() === currentName) {
-        return;
-    }
-
-    try {
-        const res = await fetch(`/api/categories/${id}`, {
-            method: 'PUT',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` 
-            },
-            body: JSON.stringify({ name: newName.trim() })
-        });
-        const result = await res.json();
-        
-        if (result.success) {
-            showToast("Category updated successfully!", "success");
-            fetchCategories(); 
-        } else {
-            showToast(result.message || "Failed to update category", "error");
+    openCatalogQuickEdit({
+        title: 'Edit Category',
+        label: 'Category Name',
+        value: currentName,
+        placeholder: 'e.g., Electronics',
+        onSave: async (newName) => {
+            if (newName === currentName) {
+                closeCatalogQuickEdit();
+                return;
+            }
+            try {
+                const res = await fetch(`/api/categories/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ name: newName })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast('Category updated successfully!', 'success');
+                    closeCatalogQuickEdit();
+                    fetchCategories();
+                } else {
+                    showToast(result.message || 'Failed to update category', 'error');
+                }
+            } catch (error) {
+                showToast('Server error while updating category!', 'error');
+            }
         }
-    } catch (error) {
-        showToast("Server error while updating category!", "error");
-    }
+    });
 };
 
 /**
  * ৯.৭: নির্দিষ্ট একটি ক্যাটাগরি ডাটাবেজ থেকে ডিলিট করা
  */
-window.deleteCategory = async function(id) {
-    if (confirm("Are you sure you want to delete this category?")) {
+window.deleteCategory = function(id) {
+    showCustomConfirm('Delete Category', 'Are you sure you want to delete this category? Products linked to it will keep their current label.', async () => {
         try {
             const res = await fetch(`/api/categories/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const result = await res.json();
-            
             if (result.success) {
-                showToast(result.message || "Category deleted!", "success");
-                fetchCategories(); 
+                showToast(result.message || 'Category deleted!', 'success');
+                fetchCategories();
             } else {
-                showToast(result.message, "error");
+                showToast(result.message, 'error');
             }
         } catch (error) {
-            showToast("Failed to delete category", "error");
+            showToast('Failed to delete category', 'error');
         }
-    }
+    }, 'danger');
 };
 
 // ৯.৮: অ্যাডমিন প্যানেল লোড হওয়ার সাথে সাথেই ক্যাটাগরিগুলো ফেচ করা
 document.addEventListener('DOMContentLoaded', () => {
     fetchCategories();
+});
+
+
+/* ==========================================================================
+   SECTION 9B: BRAND MANAGEMENT ENGINE (ব্র্যান্ড ম্যানেজমেন্ট মডিউল)
+   ========================================================================== */
+
+let globalBrands = [];
+
+async function fetchBrands() {
+    try {
+        const response = await fetch('/api/brands');
+        const data = await response.json();
+        if (data.success) {
+            globalBrands = data.data || [];
+            renderBrandTable();
+        }
+    } catch (error) {
+        console.error("🔴 Brand load error:", error);
+    }
+}
+
+function renderBrandTable() {
+    const tbody = document.getElementById('brandTableBody');
+    if (!tbody) return;
+
+    if (globalBrands.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="loading-cell" style="text-align:center; padding:15px;">No brands found. Add one above!</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = '';
+    globalBrands.forEach(brand => {
+        const dateStr = new Date(brand.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        const safeName = (brand.name || '').replace(/'/g, "\\'");
+        tbody.innerHTML += `
+            <tr>
+                <td><b>${brand.name}</b></td>
+                <td>${dateStr}</td>
+                <td class="col-actions">
+                    <button class="page-nav-btn" onclick="editBrand('${brand._id}', '${safeName}')" title="Edit Brand" style="color:#3b82f6; border:1px solid #3b82f6; margin-right:5px;">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                    <button class="page-nav-btn" onclick="deleteBrand('${brand._id}')" title="Delete Brand" style="color:#ef4444; border:1px solid #ef4444;">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </td>
+            </tr>`;
+    });
+}
+
+window.addBrand = async function() {
+    const input = document.getElementById('newBrandName');
+    const name = input.value.trim();
+    if (!name) return showToast("Please enter a brand name!", "warning");
+
+    try {
+        const res = await fetch('/api/brands', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ name })
+        });
+        const result = await res.json();
+        if (result.success) {
+            showToast(result.message || "Brand added!", "success");
+            input.value = '';
+            fetchBrands();
+        } else {
+            showToast(result.message, "error");
+        }
+    } catch (error) {
+        showToast("Server error while adding brand!", "error");
+    }
+};
+
+window.editBrand = function(id, currentName) {
+    openCatalogQuickEdit({
+        title: 'Edit Brand',
+        label: 'Brand Name',
+        value: currentName,
+        placeholder: 'e.g., Samsung',
+        onSave: async (newName) => {
+            if (newName === currentName) {
+                closeCatalogQuickEdit();
+                return;
+            }
+            try {
+                const res = await fetch(`/api/brands/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ name: newName })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast('Brand updated!', 'success');
+                    closeCatalogQuickEdit();
+                    fetchBrands();
+                } else {
+                    showToast(result.message || 'Failed to update brand', 'error');
+                }
+            } catch (error) {
+                showToast('Server error while updating brand!', 'error');
+            }
+        }
+    });
+};
+
+window.deleteBrand = function(id) {
+    showCustomConfirm('Delete Brand', 'Are you sure you want to delete this brand?', async () => {
+        try {
+            const res = await fetch(`/api/brands/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await res.json();
+            if (result.success) {
+                showToast(result.message || 'Brand deleted!', 'success');
+                fetchBrands();
+            } else {
+                showToast(result.message, 'error');
+            }
+        } catch (error) {
+            showToast('Failed to delete brand', 'error');
+        }
+    }, 'danger');
+};
+
+
+/* ==========================================================================
+   SECTION 9C: ATTRIBUTE MANAGEMENT ENGINE (অ্যাট্রিবিউট মডিউল)
+   ========================================================================== */
+
+let globalAttributes = [];
+
+async function fetchAttributes() {
+    try {
+        const response = await fetch('/api/attributes');
+        const data = await response.json();
+        if (data.success) {
+            globalAttributes = data.data || [];
+            renderAttributeTable();
+        }
+    } catch (error) {
+        console.error("🔴 Attribute load error:", error);
+    }
+}
+
+function renderAttributeTable() {
+    const tbody = document.getElementById('attributeTableBody');
+    if (!tbody) return;
+
+    if (globalAttributes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="loading-cell" style="text-align:center; padding:15px;">No attributes found. Add one above!</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = '';
+    globalAttributes.forEach(attr => {
+        const dateStr = new Date(attr.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        const valueChips = (attr.values || []).map(v => `<span class="attr-value-chip">${v}</span>`).join(' ') || '<span style="color:#94a3b8;">—</span>';
+        tbody.innerHTML += `
+            <tr>
+                <td><b>${attr.name}</b></td>
+                <td>${valueChips}</td>
+                <td>${dateStr}</td>
+                <td class="col-actions">
+                    <button class="page-nav-btn" onclick="editAttribute('${attr._id}')" title="Edit Values" style="color:#3b82f6; border:1px solid #3b82f6; margin-right:5px;">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                    <button class="page-nav-btn" onclick="deleteAttribute('${attr._id}')" title="Delete Attribute" style="color:#ef4444; border:1px solid #ef4444;">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </td>
+            </tr>`;
+    });
+}
+
+window.addAttribute = async function() {
+    const nameInput = document.getElementById('newAttributeName');
+    const valuesInput = document.getElementById('newAttributeValues');
+    const name = nameInput.value.trim();
+    const values = valuesInput.value.trim();
+    if (!name) return showToast("Please enter an attribute name!", "warning");
+
+    try {
+        const res = await fetch('/api/attributes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ name, values })
+        });
+        const result = await res.json();
+        if (result.success) {
+            showToast(result.message || "Attribute added!", "success");
+            nameInput.value = '';
+            valuesInput.value = '';
+            fetchAttributes();
+        } else {
+            showToast(result.message, "error");
+        }
+    } catch (error) {
+        showToast("Server error while adding attribute!", "error");
+    }
+};
+
+window.editAttribute = function(id) {
+    const attr = globalAttributes.find(a => a._id === id);
+    if (!attr) return showToast('Attribute not found!', 'error');
+
+    openCatalogQuickEdit({
+        title: `Edit Values — ${attr.name}`,
+        label: 'Values (comma separated)',
+        value: (attr.values || []).join(', '),
+        placeholder: 'e.g., S, M, L, XL',
+        onSave: async (newValues) => {
+            try {
+                const res = await fetch(`/api/attributes/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ values: newValues })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast('Attribute updated!', 'success');
+                    closeCatalogQuickEdit();
+                    fetchAttributes();
+                } else {
+                    showToast(result.message || 'Failed to update attribute', 'error');
+                }
+            } catch (error) {
+                showToast('Server error while updating attribute!', 'error');
+            }
+        }
+    });
+};
+
+window.deleteAttribute = function(id) {
+    showCustomConfirm('Delete Attribute', 'Are you sure you want to delete this attribute?', async () => {
+        try {
+            const res = await fetch(`/api/attributes/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await res.json();
+            if (result.success) {
+                showToast(result.message || 'Attribute deleted!', 'success');
+                fetchAttributes();
+            } else {
+                showToast(result.message, 'error');
+            }
+        } catch (error) {
+            showToast('Failed to delete attribute', 'error');
+        }
+    }, 'danger');
+};
+
+// অ্যাডমিন প্যানেল লোডে ব্র্যান্ড ও অ্যাট্রিবিউট প্রি-ফেচ করা
+document.addEventListener('DOMContentLoaded', () => {
+    fetchBrands();
+    fetchAttributes();
 });
 
 
@@ -1087,26 +1842,25 @@ let selectedProductIds = new Set();               // বাল্ক ডিল�
  * ১০.১: ক্লাউড ডাটাবেজ থেকে সকল প্রোডাক্ট ডাটা লাইভ সিঙ্ক করা
  */
 window.fetchLiveProducts = async function() {
-    if (!prodTableBody) return;
-    prodTableBody.innerHTML = `<tr><td colspan="8" class="loading-cell"><div class="custom-spinner"></div><p>Syncing secure cloud server database...</p></td></tr>`;
+    const tbody = getProdTableBody();
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="8" class="loading-cell"><div class="custom-spinner"></div><p>Syncing secure cloud server database...</p></td></tr>`;
     
     try {
         const res = await fetch('/api/products', {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        globalProducts = await res.json() || [];
+        const data = await res.json();
+        globalProducts = Array.isArray(data) ? data : (data.products || data.data || []);
         
         const totalBadge = document.getElementById('total-products-badge');
         if (totalBadge) totalBadge.innerText = `Total: ${globalProducts.length}`;
         
-        // 🌟 নতুন সংযোজন: প্রোডাক্ট থেকে ইউনিক ক্যাটাগরি বের করে ফিল্টার ড্রপডাউন আপডেট করা
         updateFilterCategoryDropdown();
-
-        // ডাটা আসার পর ফিল্টার এবং সর্ট ইঞ্জিন রান করা
         filterAndRenderProducts(); 
     } catch (e) { 
-        prodTableBody.innerHTML = `<tr><td colspan="8" class="table-status-error">Failed to load products.</td></tr>`; 
+        tbody.innerHTML = `<tr><td colspan="8" class="table-status-error">Failed to load products.</td></tr>`; 
     }
 };
 
@@ -1212,7 +1966,8 @@ window.changePageSize = function() {
  * ১০.৪: প্রোডাক্ট ডাটা টেবিল জেনারেটর এবং কন্ডিশনাল স্টক ব্যাজ বাইন্ডিং
  */
 window.renderProductTable = function() {
-    if (!prodTableBody) return;
+    const tbody = getProdTableBody();
+    if (!tbody) return;
     
     const limit = parseInt(document.getElementById('itemsPerPage') ? document.getElementById('itemsPerPage').value : 10);
     const totalItems = currentFilteredProducts.length;
@@ -1229,7 +1984,7 @@ window.renderProductTable = function() {
         document.getElementById('page-total-entries').innerText = totalItems;
     }
 
-    prodTableBody.innerHTML = paginated.length === 0 ? `<tr><td colspan="8" class="loading-cell">No matching products found.</td></tr>` : '';
+    tbody.innerHTML = paginated.length === 0 ? `<tr><td colspan="9" class="loading-cell">No matching products found.</td></tr>` : '';
 
     paginated.forEach(prod => {
         // ইমেজ ইউআরএল প্রসেস লজিক (মাল্টিপল অ্যারে থেকে প্রথম ছবি নির্বাচন)
@@ -1256,18 +2011,31 @@ window.renderProductTable = function() {
         // বাল্ক সিলেকশন চেকবক্স স্টেট চেক করা
         const isChecked = selectedProductIds.has(prod._id) ? 'checked' : '';
 
-        prodTableBody.innerHTML += `
+        // 🌟 ক্রয়মূল্য ও প্রতি ইউনিট প্রফিট হিসাব (Selling - Buying)
+        const buyingPrice = Number(prod.buyingPrice) || 0;
+        const sellingPrice = Number(prod.price) || 0;
+        let buyPriceHtml;
+        if (buyingPrice > 0) {
+            const unitProfit = sellingPrice - buyingPrice;
+            const profitClass = unitProfit >= 0 ? 'profit-positive' : 'profit-negative';
+            buyPriceHtml = `${formatAdminPrice(buyingPrice)} <span class="unit-profit ${profitClass}">${formatAdminProfit(unitProfit)}</span>`;
+        } else {
+            buyPriceHtml = `<span class="buy-price-empty" title="Set a buying price for accurate profit">—</span>`;
+        }
+
+        tbody.innerHTML += `
             <tr>
-                <td class="col-checkbox">
+                <td class="col-checkbox no-print">
                     <input type="checkbox" class="row-checkbox" value="${prod._id}" ${isChecked} onchange="toggleSingleSelection(this)">
                 </td>
                 <td><b>${prod.productId || prod.id || 'N/A'}</b></td>
                 <td>${imgHtml}</td>
                 <td>${prod.name}</td>
                 <td><span class="status-badge status-verified">${prod.category || 'General'}</span></td>
-                <td><b>৳ ${prod.price}</b></td>
+                <td><b>${formatAdminPrice(prod.price)}</b></td>
+                <td class="buy-price-cell">${buyPriceHtml}</td>
                 <td>${stockHtml}</td> 
-                <td class="col-actions">
+                <td class="col-actions no-print">
                     <button class="action-btn edit" onclick="editProduct('${prod._id}')" title="Edit Product"><i class="fa-solid fa-pen-to-square"></i></button>
                     <button class="action-btn delete" onclick="deleteProduct('${prod._id}')" title="Delete Product"><i class="fa-solid fa-trash-can"></i></button>
                 </td>
@@ -1354,17 +2122,30 @@ window.handleBulkDelete = function() {
     if (selectedProductIds.size === 0) return showToast("No products selected!", "warning");
     
     showCustomConfirm("Bulk Delete", `Are you sure you want to delete ${selectedProductIds.size} products? This cannot be undone.`, async () => {
+        const ids = Array.from(selectedProductIds);
         try {
-            const deletePromises = Array.from(selectedProductIds).map(id => 
-                fetch(`/api/products/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }})
-            );
-            await Promise.all(deletePromises);
-            
-            showToast(`${selectedProductIds.size} products deleted successfully!`, "success");
-            selectedProductIds.clear();
+            const results = await Promise.all(ids.map(id =>
+                fetch(`/api/products/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } })
+                    .then(r => r.json().then(body => ({ ok: r.ok, body })))
+            ));
+            const allOk = results.every(r => r.ok && r.body.success);
+            if (!allOk) {
+                showToast("Some products could not be deleted.", "error");
+                fetchLiveProducts();
+                return;
+            }
+            ids.forEach(id => {
+                const sid = String(id);
+                globalProducts = globalProducts.filter(p => String(p._id) !== sid);
+                selectedProductIds.delete(id);
+            });
             updateBulkActionPanel();
+            const totalBadge = document.getElementById('total-products-badge');
+            if (totalBadge) totalBadge.innerText = `Total: ${globalProducts.length}`;
+            updateFilterCategoryDropdown();
+            filterAndRenderProducts();
             document.getElementById('selectAllProducts').checked = false;
-            fetchLiveProducts(); // টেবিল রিফ্রেশ
+            showAdminSuccess('Products Deleted', `${ids.length} product(s) removed successfully.`);
         } catch (e) {
             showToast("Error in bulk deletion process!", "error");
         }
@@ -1381,41 +2162,70 @@ window.deleteProduct = (id) => {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            if ((await res.json()).success) {
-                showToast("Product deleted!", "success"); 
-                selectedProductIds.delete(id); 
-                updateBulkActionPanel();
-                fetchLiveProducts();
-            } else showToast("Failed to delete.", "error");
+            const result = await res.json();
+            if (res.ok && result.success) {
+                removeProductFromState(id);
+                showAdminSuccess('Product Deleted', result.message || 'Product removed from catalog.');
+            } else {
+                showToast(result.message || "Failed to delete.", "error");
+            }
         } catch (e) { showToast("Server error", "error"); }
     }, "danger");
 };
 
 /**
- * ১০.১০: এক্সপোর্ট বাটন হ্যান্ডলার - সম্পূর্ণ ডাটাকে প্রফেশনাল CSV ফরম্যাটে ডাউনলোড করার সিস্টেম
+ * ১০.১০: এক্সপোর্ট বাটন — শুধুমাত্র চেকবক্সে সিলেক্ট করা সারিগুলো CSV তে এক্সপোর্ট
  */
 document.getElementById('btn-export-csv')?.addEventListener('click', () => {
-    if (currentFilteredProducts.length === 0) return showToast("No data to export", "warning");
-    
+    if (selectedProductIds.size === 0) {
+        return showToast("Please select products using the checkboxes before exporting.", "warning");
+    }
+
+    const toExport = currentFilteredProducts.filter(p => selectedProductIds.has(p._id));
+    if (toExport.length === 0) {
+        return showToast("Selected products are not visible in the current filter view.", "warning");
+    }
+
     let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "ID,Name,Category,Price,Stock\n"; 
-    
-    currentFilteredProducts.forEach(p => {
-        let row = `"${p.productId || p.id || ''}","${p.name}","${p.category}","${p.price}","${p.stock}"`;
+    csvContent += "ID,Name,Category,Sell Price,Buy Price,Stock\n";
+
+    toExport.forEach(p => {
+        const row = [
+            p.productId || p.id || '',
+            p.name || '',
+            p.category || '',
+            p.price ?? '',
+            p.buyingPrice ?? 0,
+            p.stock ?? 0
+        ].map(val => `"${String(val).replace(/"/g, '""')}"`).join(',');
         csvContent += row + "\r\n";
     });
-    
+
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Products_Export_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute("download", `Products_Selected_${toExport.length}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast("CSV Exported successfully!", "success");
+    showToast(`${toExport.length} selected product(s) exported to CSV!`, "success");
 });
 
 document.getElementById('btn-print-table')?.addEventListener('click', () => {
+    const dateEl = document.getElementById('printReportDate');
+    if (dateEl) {
+        dateEl.textContent = 'Generated: ' + new Date().toLocaleString('en-US', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+    }
+
+    document.body.classList.add('printing-products');
+    const cleanup = () => {
+        document.body.classList.remove('printing-products');
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
     window.print();
 });
 
@@ -1453,7 +2263,9 @@ window.editProduct = function(id) {
     if (document.getElementById('editProdId')) document.getElementById('editProdId').value = product.productId || product.id || '';
     if (document.getElementById('editProdName')) document.getElementById('editProdName').value = product.name || '';
     if (document.getElementById('editProdPrice')) document.getElementById('editProdPrice').value = product.price || '';
+    if (document.getElementById('editProdBuyingPrice')) document.getElementById('editProdBuyingPrice').value = (product.buyingPrice !== undefined && product.buyingPrice !== null) ? product.buyingPrice : '';
     if (document.getElementById('editProdStock')) document.getElementById('editProdStock').value = product.stock || '';
+    if (typeof updateEditProfitPreview === 'function') updateEditProfitPreview();
     
     // 🌟 ক্যাটাগরি ড্রপডাউনটি রেন্ডার করে ভ্যালু সিলেক্ট করা (ডাটাবেজ ওরিয়েন্টেড সিকিউরড লক)
     if (document.getElementById('editProdCategory')) {
@@ -1505,6 +2317,31 @@ window.closeEditModal = function() {
 };
 
 // ইভেন্ট ডেলিগেশন দিয়ে এডিট মোডালের ফাইল আপলোড লাইভ লিসেনিং করা
+/**
+ * 🌟 এডিট মোডালে প্রতি ইউনিট প্রফিট (Selling - Buying) লাইভ প্রিভিউ আপডেট করা
+ */
+function updateEditProfitPreview() {
+    const priceEl = document.getElementById('editProdPrice');
+    const buyEl = document.getElementById('editProdBuyingPrice');
+    const previewEl = document.getElementById('editProdProfitPreview');
+    if (!previewEl) return;
+
+    const selling = Number(priceEl ? priceEl.value : 0) || 0;
+    const buying = Number(buyEl ? buyEl.value : 0) || 0;
+    const profit = selling - buying;
+
+    previewEl.value = `${formatAdminPrice(profit)}` + (buying > 0 && selling > 0 ? `  (${Math.round((profit / selling) * 100)}% margin)` : '');
+    previewEl.style.color = profit >= 0 ? '#047857' : '#dc2626';
+}
+window.updateEditProfitPreview = updateEditProfitPreview;
+
+// প্রাইস/বায়িং প্রাইস টাইপ করার সাথে সাথে প্রফিট প্রিভিউ লাইভ আপডেট
+document.addEventListener('input', function(e) {
+    if (e.target && (e.target.id === 'editProdPrice' || e.target.id === 'editProdBuyingPrice')) {
+        updateEditProfitPreview();
+    }
+});
+
 document.addEventListener('change', function(e) {
     if (e.target && e.target.closest('#editProductModal') && e.target.type === 'file') {
         const files = e.target.files;
@@ -1557,6 +2394,7 @@ window.updateProductDetails = async function() {
     const productId = document.getElementById('editProdId').value.trim();
     const name = document.getElementById('editProdName').value.trim();
     const price = document.getElementById('editProdPrice').value.trim();
+    const buyingPrice = document.getElementById('editProdBuyingPrice') ? document.getElementById('editProdBuyingPrice').value.trim() : '';
     const stock = document.getElementById('editProdStock').value.trim();
     const category = document.getElementById('editProdCategory').value.trim();
     const emoji = document.getElementById('editProdEmoji').value.trim();
@@ -1582,6 +2420,7 @@ window.updateProductDetails = async function() {
     formData.append('id', productId);
     formData.append('name', name);
     formData.append('price', price);
+    formData.append('buyingPrice', buyingPrice || 0);
     formData.append('stock', stock);
     formData.append('category', category);
     formData.append('icon', emoji);
@@ -1603,10 +2442,15 @@ window.updateProductDetails = async function() {
         });
         
         const result = await res.json();
-        if (result.success) {
-            showToast("Product updated successfully! 🎉", "success");
+        if (res.ok && result.success) {
+            const updated = result.data || result.product;
+            if (updated && updated._id) {
+                upsertProductInState(updated);
+            } else {
+                fetchLiveProducts();
+            }
             window.closeEditModal();
-            fetchLiveProducts(); // রিফ্রেশ টেবিল ডাটা
+            showAdminSuccess('Product Updated', result.message || 'Changes saved successfully.');
         } else {
             showToast(result.message || "Update failed!", "error");
         }
@@ -1641,51 +2485,226 @@ async function fetchSecurityLogs() {
     const logsBody = document.getElementById('securityLogsBody');
     if (!logsBody) return;
 
-    logsBody.innerHTML = `<tr><td colspan="5" class="loading-cell">Fetching security logs...</td></tr>`;
+    logsBody.innerHTML = `<tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Fetching security logs...</p></td></tr>`;
 
     try {
-        const response = await fetch('/api/admin/logs', {
+        const response = await fetch('/api/admin/logs?limit=100', {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
         const data = await response.json();
-        const logs = data.success ? data.data : (Array.isArray(data) ? data : []);
+        const logs = data.success ? data.data : [];
+
+        const countEl = document.getElementById('securityLogCount');
+        if (countEl) countEl.textContent = logs.length;
 
         if (logs.length === 0) {
-            logsBody.innerHTML = `<tr><td colspan="5" class="loading-cell">No security logs found.</td></tr>`;
+            logsBody.innerHTML = `<tr><td colspan="6" class="loading-cell">No security logs recorded yet.</td></tr>`;
             return;
         }
 
         let logsHTML = '';
         logs.forEach(log => {
-            // অ্যাকশন অনুযায়ী ব্যাজের কালার নির্ধারণ
-            let actionClass = 'status-pending'; // default
-            if (log.action.toLowerCase().includes('delete') || log.action.toLowerCase().includes('failed')) actionClass = 'stock-out';
-            else if (log.action.toLowerCase().includes('login') || log.action.toLowerCase().includes('success')) actionClass = 'status-verified';
-            else if (log.action.toLowerCase().includes('update') || log.action.toLowerCase().includes('edit')) actionClass = 'stock-low';
+            let actionClass = 'status-pending';
+            const actionLower = (log.action || '').toLowerCase();
+            if (actionLower.includes('fail') || actionLower.includes('block') || actionLower.includes('delete')) actionClass = 'stock-out';
+            else if (actionLower.includes('success') || actionLower.includes('login success') || actionLower.includes('activated')) actionClass = 'status-verified';
+            else if (actionLower.includes('update') || actionLower.includes('edit') || actionLower.includes('suspend')) actionClass = 'stock-low';
+
+            const actorType = log.actorType || 'system';
+            const ts = log.timestamp || log.createdAt;
 
             logsHTML += `
                 <tr>
-                    <td><b>#${log._id ? log._id.slice(-6).toUpperCase() : 'SYS'}</b></td>
-                    <td>${new Date(log.timestamp).toLocaleString('en-GB')}</td>
-                    <td><span class="status-badge ${actionClass}">${log.action}</span></td>
-                    <td>${log.ipAddress || 'Unknown IP'}</td>
-                    <td>${log.details || 'N/A'}</td>
+                    <td><b>#${log._id ? String(log._id).slice(-6).toUpperCase() : 'SYS'}</b></td>
+                    <td>${ts ? new Date(ts).toLocaleString('en-GB') : '—'}</td>
+                    <td><span class="status-badge ${actionClass}">${log.action || '—'}</span></td>
+                    <td><span class="actor-badge ${actorType}">${actorType}</span> ${log.actor || '—'}</td>
+                    <td>${log.ipAddress || 'Unknown'}</td>
+                    <td>${log.details || '—'}</td>
                 </tr>
             `;
         });
         logsBody.innerHTML = logsHTML;
     } catch (error) {
         console.error("Logs Fetch Error:", error);
-        logsBody.innerHTML = `<tr><td colspan="5" class="table-status-error">Server connection failed.</td></tr>`;
+        logsBody.innerHTML = `<tr><td colspan="6" class="table-status-error">Server connection failed.</td></tr>`;
     }
 }
+window.fetchSecurityLogs = fetchSecurityLogs;
 
 
 /* ==========================================================================
    SECTION 13: ADMIN SETTINGS & SYSTEM INITIALIZATION (সেটিংস ও সিস্টেম বুট)
    ========================================================================== */
+
+/**
+ * ১৩.১ক: অ্যাডমিন সেটিংস লোড ও UI-তে প্রয়োগ
+ */
+function applyAdminSettingsToUI(settings) {
+    if (!settings) return;
+
+    adminPlatformTimezone = settings.timezone || 'Asia/Dhaka';
+    adminCurrencySymbol = settings.currencySymbol || '৳';
+
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; };
+    setVal('settingsDisplayName', settings.displayName);
+    setVal('settingsUsername', settings.username);
+    setVal('settingsStoreName', settings.storeName);
+    setVal('settingsCurrency', settings.currency);
+    setVal('settingsCurrencySymbol', settings.currencySymbol);
+    setVal('settingsTimezone', settings.timezone);
+
+    const storeNameEl = document.getElementById('sidebarStoreName');
+    if (storeNameEl) storeNameEl.textContent = settings.storeName || 'EonlineBazar';
+
+    const sidebarName = document.querySelector('.admin-profile .info h4');
+    if (sidebarName && settings.displayName) sidebarName.textContent = settings.displayName;
+
+    const logoImg = document.getElementById('settingsLogoPreview');
+    const logoPh = document.getElementById('settingsLogoPlaceholder');
+    const sidebarLogo = document.getElementById('sidebarStoreLogo');
+    const sidebarIcon = document.getElementById('sidebarStoreIcon');
+    if (settings.logoUrl) {
+        if (logoImg) { logoImg.src = settings.logoUrl; logoImg.style.display = 'block'; }
+        if (logoPh) logoPh.style.display = 'none';
+        if (sidebarLogo) { sidebarLogo.src = settings.logoUrl; sidebarLogo.style.display = 'block'; }
+        if (sidebarIcon) sidebarIcon.style.display = 'none';
+    }
+
+    const favImg = document.getElementById('settingsFaviconPreview');
+    const favPh = document.getElementById('settingsFaviconPlaceholder');
+    const faviconLink = document.getElementById('adminFavicon');
+    if (settings.faviconUrl) {
+        if (favImg) { favImg.src = settings.faviconUrl; favImg.style.display = 'block'; }
+        if (favPh) favPh.style.display = 'none';
+        if (faviconLink) faviconLink.href = settings.faviconUrl;
+    }
+
+    startLiveClock();
+}
+
+async function fetchAdminSettings() {
+    try {
+        const res = await fetch('/api/admin/settings', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success && data.data) applyAdminSettingsToUI(data.data);
+    } catch (err) {
+        console.error('Failed to load admin settings:', err);
+    }
+}
+
+async function saveAdminSettings(payload) {
+    const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+    });
+    return res.json();
+}
+
+async function uploadStoreBrandingAsset(file, assetType) {
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('assetType', assetType);
+
+    const res = await fetch('/api/admin/upload-branding', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+    });
+    return res.json();
+}
+
+function setupAdminSettingsForms() {
+    const profileForm = document.getElementById('adminSettingsForm');
+    if (profileForm) {
+        profileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const currentPassword = document.getElementById('settingsCurrentPassword')?.value;
+            if (!currentPassword) return showToast('Current password is required.', 'warning');
+
+            const result = await saveAdminSettings({
+                currentPassword,
+                username: document.getElementById('settingsUsername')?.value?.trim(),
+                newPassword: document.getElementById('settingsNewPassword')?.value || undefined,
+                displayName: document.getElementById('settingsDisplayName')?.value?.trim()
+            });
+
+            if (result.success) {
+                showToast(result.message || 'Profile saved!', 'success');
+                applyAdminSettingsToUI(result.data);
+                document.getElementById('settingsCurrentPassword').value = '';
+                document.getElementById('settingsNewPassword').value = '';
+            } else {
+                showToast(result.message || 'Failed to save profile.', 'error');
+            }
+        });
+    }
+
+    const platformForm = document.getElementById('platformSettingsForm');
+    if (platformForm) {
+        platformForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const currentPassword = document.getElementById('platformCurrentPassword')?.value;
+            if (!currentPassword) return showToast('Current password is required.', 'warning');
+
+            const result = await saveAdminSettings({
+                currentPassword,
+                storeName: document.getElementById('settingsStoreName')?.value?.trim(),
+                currency: document.getElementById('settingsCurrency')?.value?.trim(),
+                currencySymbol: document.getElementById('settingsCurrencySymbol')?.value?.trim(),
+                timezone: document.getElementById('settingsTimezone')?.value
+            });
+
+            if (result.success) {
+                showToast(result.message || 'Platform settings saved!', 'success');
+                applyAdminSettingsToUI(result.data);
+                document.getElementById('platformCurrentPassword').value = '';
+            } else {
+                showToast(result.message || 'Failed to save platform settings.', 'error');
+            }
+        });
+    }
+
+    const logoInput = document.getElementById('settingsLogoInput');
+    if (logoInput) {
+        logoInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const result = await uploadStoreBrandingAsset(file, 'logo');
+            if (result.success) {
+                showToast(result.message, 'success');
+                fetchAdminSettings();
+            } else {
+                showToast(result.message || 'Logo upload failed.', 'error');
+            }
+            logoInput.value = '';
+        });
+    }
+
+    const favInput = document.getElementById('settingsFaviconInput');
+    if (favInput) {
+        favInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const result = await uploadStoreBrandingAsset(file, 'favicon');
+            if (result.success) {
+                showToast(result.message, 'success');
+                fetchAdminSettings();
+            } else {
+                showToast(result.message || 'Favicon upload failed.', 'error');
+            }
+            favInput.value = '';
+        });
+    }
+}
 
 /**
  * ১৩.১: অ্যাডমিন প্রোফাইল পিকচার লাইভ প্রিভিউ ও সার্ভারে আপলোড
@@ -1707,10 +2726,10 @@ window.uploadAdminProfilePic = async function(event) {
 
     // সার্ভারে আপলোড করার লজিক
     const formData = new FormData();
-    formData.append('profilePicture', file);
+    formData.append('profilePic', file);
 
     try {
-        const res = await fetch('/api/admin/profile-picture', {
+        const res = await fetch('/api/admin/update-profile-pic', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` },
             body: formData
@@ -1748,8 +2767,13 @@ window.logout = function() {
  * ড্যাশবোর্ড লোড হওয়ার সাথে সাথে এই ফাংশনটি রান করে পুরো সিস্টেম সচল করবে
  */
 function initDashboard() {
-    // ১. ড্যাশবোর্ডের ডেট আপডেট করা
+    verifyAdminTokenOnLoad();
+    initAdminNotifications();
     updateDashboardDate();
+    startLiveClock();
+    setupHeaderDatePicker();
+    setupAdminSettingsForms();
+    fetchAdminSettings();
 
     // ২. লোকাল স্টোরেজ থেকে প্রোফাইল পিকচার সেট করা (যদি আগে থেকে থাকে)
     const savedPic = localStorage.getItem('adminProfilePic');
@@ -1792,14 +2816,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function setupSidebarNavigation() {
     // HTML এর সাইডবার মেনু এবং মেইন সেকশনগুলো সিলেক্ট করা হচ্ছে
-    const menuItems = document.querySelectorAll('.sidebar-menu ul li');
+    const menuItems = document.querySelectorAll('.sidebar-menu ul li[data-target], .sidebar-menu .submenu li[data-target]');
+    const menuGroups = document.querySelectorAll('.sidebar-menu li.menu-group');
     const sections = document.querySelectorAll('.admin-section');
 
+    menuGroups.forEach(group => {
+        const toggle = group.querySelector('.catalog-toggle');
+        if (toggle) {
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                group.classList.toggle('open');
+            });
+        }
+    });
+
     menuItems.forEach(menu => {
-        menu.addEventListener('click', function() {
+        menu.addEventListener('click', function(e) {
+            e.stopPropagation();
             // ১. সব মেনু থেকে active ক্লাস রিমুভ করা
             menuItems.forEach(item => item.classList.remove('active'));
-            // ২. যেটিতে ক্লিক করা হয়েছে সেটিতে active ক্লাস যোগ করা
+            menuGroups.forEach(g => g.classList.remove('child-active'));
             this.classList.add('active');
 
             // ৩. সব সেকশন হাইড করা
@@ -1810,7 +2846,15 @@ function setupSidebarNavigation() {
 
             // ৪. আপনার HTML এর data-target অনুযায়ী নির্দিষ্ট সেকশন শো করা
             const targetId = this.getAttribute('data-target');
+            if (!targetId) return;
+
+            // সাবমেনু আইটেম হলে প্যারেন্ট ড্রপডাউন খোলা রাখা
+            const parentGroup = this.closest('.menu-group');
+            if (parentGroup) parentGroup.classList.add('open', 'child-active');
+
             const targetSection = document.getElementById(targetId);
+
+            updateAdminPageHeader(targetId, this.innerText.trim());
 
             if (targetSection) {
                 targetSection.style.display = 'block';
@@ -1823,6 +2867,16 @@ function setupSidebarNavigation() {
                     fetchLiveProducts();
                 } else if (targetId === 'view-customers' && typeof fetchDashboardData === 'function') {
                     fetchDashboardData();
+                } else if (targetId === 'manage-category' && typeof fetchCategories === 'function') {
+                    fetchCategories();
+                } else if (targetId === 'manage-brands' && typeof fetchBrands === 'function') {
+                    fetchBrands();
+                } else if (targetId === 'manage-attributes' && typeof fetchAttributes === 'function') {
+                    fetchAttributes();
+                } else if (targetId === 'view-security' && typeof fetchSecurityLogs === 'function') {
+                    fetchSecurityLogs();
+                } else if (targetId === 'view-settings' && typeof fetchAdminSettings === 'function') {
+                    fetchAdminSettings();
                 }
             }
         });

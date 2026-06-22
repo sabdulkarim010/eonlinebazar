@@ -19,7 +19,14 @@ const adminSchema = new mongoose.Schema({
     image: { 
         type: String, 
         default: '' // প্রোফাইল ছবির ক্লাউডিনারি URL এখানে সেভ হবে
-    }
+    },
+    displayName: { type: String, default: 'Super Admin', trim: true },
+    storeName: { type: String, default: 'EonlineBazar', trim: true },
+    currency: { type: String, default: 'BDT', trim: true },
+    currencySymbol: { type: String, default: '৳', trim: true },
+    timezone: { type: String, default: 'Asia/Dhaka', trim: true },
+    logoUrl: { type: String, default: '' },
+    faviconUrl: { type: String, default: '' }
 }, { timestamps: true }); // এটি অটোমেটিক অ্যাকাউন্ট তৈরি ও আপডেটের সময় রেকর্ড রাখবে
 
 module.exports = mongoose.model('Admin', adminSchema);

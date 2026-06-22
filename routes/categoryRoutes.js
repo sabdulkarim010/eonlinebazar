@@ -11,6 +11,7 @@
 const express = require('express');
 const router = express.Router();
 const Category = require('../models/category');
+const { verifyAdmin } = require('../middlewares/authMiddleware');
 
 // ১. সব ক্যাটাগরি ডাটাবেজ থেকে নিয়ে আসা
 router.get('/', async (req, res) => {
@@ -23,7 +24,7 @@ router.get('/', async (req, res) => {
 });
 
 // ২. নতুন ক্যাটাগরি তৈরি করা
-router.post('/', async (req, res) => {
+router.post('/', verifyAdmin, async (req, res) => {
     try {
         const { name } = req.body;
         if (!name) return res.status(400).json({ success: false, message: "ক্যাটাগরির নাম দেওয়া আবশ্যক!" });
@@ -42,7 +43,7 @@ router.post('/', async (req, res) => {
 });
 
 // ৩. ক্যাটাগরি ডিলিট করা
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', verifyAdmin, async (req, res) => {
     try {
         const deletedCategory = await Category.findByIdAndDelete(req.params.id);
         if (!deletedCategory) return res.status(404).json({ success: false, message: "ক্যাটাগরি পাওয়া যায়নি!" });
@@ -55,7 +56,7 @@ router.delete('/:id', async (req, res) => {
 
 
 // PUT রাউট আপডেট
-router.put('/:id', async (req, res) => {
+router.put('/:id', verifyAdmin, async (req, res) => {
     try {
         const category = await Category.findById(req.params.id);
         if (!category) return res.status(404).json({ success: false, message: "Category not found" });

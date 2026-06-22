@@ -129,8 +129,8 @@
        INIT
        ===================================================================== */
     function init() {
-        // ইতিমধ্যে টোকেন থাকলে সরাসরি ড্যাশবোর্ডে পাঠানো
-        if (localStorage.getItem(FINANCE_TOKEN_KEY)) {
+        // ইতিমধ্যে ফাইন্যান্স বা অ্যাডমিন টোকেন থাকলে সরাসরি ড্যাশবোর্ডে
+        if (localStorage.getItem(FINANCE_TOKEN_KEY) || localStorage.getItem('adminToken')) {
             window.location.replace(DASHBOARD_URL);
             return;
         }

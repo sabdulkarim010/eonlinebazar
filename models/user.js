@@ -55,6 +55,12 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false // শুরুতে অ্যাকাউন্ট ভেরিফাইড থাকবে না
     },
+    // অ্যাডমিন প্যানেল থেকে অ্যাকাউন্ট নিয়ন্ত্রণ: active | suspended | blocked
+    accountStatus: {
+        type: String,
+        enum: ['active', 'suspended', 'blocked'],
+        default: 'active'
+    },
     verificationToken: String, // ইমেইল ভেরিফাই করার ইউনিক কোড বা লিঙ্ক টোকেন
     
     // 🌟 নতুন যোগ করা হলো: প্রোফাইল পিকচার এবং অ্যাড্রেস ফিল্ড (রিফ্রেশ প্রবলেম ফিক্স)

@@ -86,8 +86,8 @@ function computeItemFinance(item, productCostMap) {
         0
     );
 
-    // কস্ট প্রাইস: আইটেমে সরাসরি থাকলে নেওয়া
-    let costPrice = item.costPrice ?? item.cost ?? item.purchasePrice ?? item.buyPrice;
+    // কস্ট প্রাইস: আইটেমে সরাসরি থাকলে নেওয়া (buyingPrice সর্বোচ্চ অগ্রাধিকার)
+    let costPrice = item.buyingPrice ?? item.costPrice ?? item.cost ?? item.purchasePrice ?? item.buyPrice;
     costPrice = costPrice !== undefined && costPrice !== null ? toNumber(costPrice, NaN) : NaN;
 
     // আইটেমে না থাকলে প্রোডাক্ট ক্যাটালগ ম্যাপ থেকে খোঁজা
@@ -113,10 +113,10 @@ function computeItemFinance(item, productCostMap) {
 async function buildProductCostMap() {
     const map = new Map();
     try {
-        // costPrice ফিল্ড স্কিমায় না থাকলেও lean() দিয়ে ডাটাবেজে থাকা যেকোনো ফিল্ড পাওয়া যায়
-        const products = await Product.find({}, { _id: 1, productId: 1, costPrice: 1, cost: 1, purchasePrice: 1 }).lean();
+        // buyingPrice হলো মূল ফিল্ড; পুরোনো ডাটার জন্য costPrice/cost/purchasePrice ও রাখা হলো
+        const products = await Product.find({}, { _id: 1, productId: 1, buyingPrice: 1, costPrice: 1, cost: 1, purchasePrice: 1 }).lean();
         for (const p of products) {
-            const cost = p.costPrice ?? p.cost ?? p.purchasePrice;
+            const cost = p.buyingPrice ?? p.costPrice ?? p.cost ?? p.purchasePrice;
             if (cost === undefined || cost === null) continue;
             const numericCost = toNumber(cost, NaN);
             if (!Number.isFinite(numericCost)) continue;

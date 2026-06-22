@@ -23,6 +23,12 @@ const productSchema = new mongoose.Schema({
         type: Number, 
         required: true 
     },
+    // 🌟 ক্রয়মূল্য (Buying / Cost Price) — Finance মডিউলে নেট প্রফিট
+    // (Selling Price - Buying Price) সঠিকভাবে হিসাব করার জন্য ব্যবহৃত হয়।
+    buyingPrice: { 
+        type: Number, 
+        default: 0 
+    },
     category: { 
         type: String, 
         default: 'General' 

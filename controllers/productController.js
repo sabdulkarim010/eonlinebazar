@@ -30,7 +30,7 @@ const createProduct = async (req, res) => {
         console.log("Request Body:", req.body); 
         console.log("Files received:", req.files ? req.files.length : 0);
 
-        const { id, name, price, stock, category, icon, description, detailedDescription, highlights } = req.body;
+        const { id, name, price, buyingPrice, stock, category, icon, description, detailedDescription, highlights } = req.body;
         
         let parsedHighlights = [];
         if (highlights) {
@@ -46,6 +46,7 @@ const createProduct = async (req, res) => {
             productId: id || `PROD-${Date.now()}`, 
             name: name || description || 'Unnamed Product', // Name না থাকলে Description কেই নাম হিসেবে ধরবে
             price: Number(price) || 0,
+            buyingPrice: Number(buyingPrice) || 0, // 🌟 ক্রয়মূল্য সংরক্ষণ (Finance প্রফিট হিসাবের জন্য)
             stock: Number(stock) || 0,
             category: category || 'General',
             icon: icon || '📦',
@@ -87,11 +88,13 @@ const createProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
     try {
         const productIdParam = req.params.id;
-        const { name, price, stock, category, icon, description, detailedDescription, highlights } = req.body;
+        const { name, price, buyingPrice, stock, category, icon, description, detailedDescription, highlights } = req.body;
 
         let updateFields = {};
         if (name) updateFields.name = name;
         if (price) updateFields.price = Number(price);
+        // 🌟 buyingPrice আপডেট: "0" সহ যেকোনো সংখ্যা গ্রহণ করতে undefined/'' চেক করা হয়েছে
+        if (buyingPrice !== undefined && buyingPrice !== '') updateFields.buyingPrice = Number(buyingPrice) || 0;
         if (stock) updateFields.stock = Number(stock);
         if (category) updateFields.category = category;
         if (icon) updateFields.icon = icon.trim();

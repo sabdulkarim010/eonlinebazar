@@ -33,6 +33,41 @@ const createOrder = async (req, res) => {
 
         const userId = req.user ? req.user.id : (req.body.userId || null);
 
+        // 🌟 প্রতিটি আইটেমে প্রোডাক্টের ক্রয়মূল্য (buyingPrice) স্ন্যাপশট হিসেবে যুক্ত করা।
+        // ভবিষ্যতে প্রোডাক্টের দাম বদলালেও এই অর্ডারের প্রফিট/লস নির্ভুল থাকবে।
+        let normalizedItems = Array.isArray(items) ? items : [];
+        let totalBuyingPrice = 0;
+
+        if (normalizedItems.length > 0) {
+            normalizedItems = await Promise.all(normalizedItems.map(async (rawItem) => {
+                const item = { ...rawItem };
+                const targetId = item.id || item.productId || item._id;
+                const quantity = Number(item.quantity) || 1;
+
+                // আইটেমে সরাসরি buyingPrice না থাকলে প্রোডাক্ট ক্যাটালগ থেকে আনা
+                let buyingPrice = Number(item.buyingPrice);
+                if (!Number.isFinite(buyingPrice) || buyingPrice <= 0) {
+                    if (targetId) {
+                        let query = mongoose.Types.ObjectId.isValid(targetId)
+                            ? { $or: [{ _id: targetId }, { productId: targetId }] }
+                            : { productId: targetId };
+                        try {
+                            const prod = await Product.findOne(query).select('buyingPrice');
+                            buyingPrice = prod ? (Number(prod.buyingPrice) || 0) : 0;
+                        } catch (_) {
+                            buyingPrice = 0;
+                        }
+                    } else {
+                        buyingPrice = 0;
+                    }
+                }
+
+                item.buyingPrice = buyingPrice;
+                totalBuyingPrice += buyingPrice * quantity;
+                return item;
+            }));
+        }
+
         const newOrder = new Order({
             orderId,
             user: userId,
@@ -40,8 +75,9 @@ const createOrder = async (req, res) => {
             customerPhone,
             customerAddress,
             totalAmount,
+            totalBuyingPrice: Math.round(totalBuyingPrice),
             paymentMethod, 
-            items: Array.isArray(items) ? items : [],
+            items: normalizedItems,
             note,
             status: 'Pending',
             isDelivered: false

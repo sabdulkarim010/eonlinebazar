@@ -20,11 +20,12 @@
     };
     const LOGIN_URL = '/finance-login';
     const CURRENCY = '৳';
-
-    // ফাইন্যান্স ড্যাশবোর্ড সেশন টোকেন (ডেডিকেটেড পাসওয়ার্ড লগইন থেকে)।
-    // ব্যাকওয়ার্ড কম্প্যাটিবিলিটি: পুরোনো অ্যাডমিন প্যানেল টোকেন থাকলে সেটিও গ্রহণ।
     const FINANCE_TOKEN_KEY = 'financeToken';
-    const adminToken = localStorage.getItem(FINANCE_TOKEN_KEY) || localStorage.getItem('adminToken');
+
+    // ফাইন্যান্স/অ্যাডমিন টোকেন — প্রতিটি রিকোয়েস্টে তাজা করে পড়া (localStorage সিঙ্ক)
+    function getAuthToken() {
+        return localStorage.getItem(FINANCE_TOKEN_KEY) || localStorage.getItem('adminToken') || '';
+    }
 
     // Chart ইনস্ট্যান্স রেফারেন্স (রি-রেন্ডারে আগেরটি ধ্বংস করার জন্য)
     let revenueProfitChart = null;
@@ -75,6 +76,7 @@
         const overlay = $('loadingOverlay');
         if (overlay) {
             overlay.classList.add('fa-hidden');
+            overlay.style.display = 'none';
             overlay.setAttribute('aria-busy', 'false');
         }
     }
@@ -113,12 +115,18 @@
     }
 
     async function secureFetch(url) {
+        const authToken = getAuthToken();
+        if (!authToken) {
+            redirectToLogin();
+            throw new Error('Unauthorized');
+        }
+
         let res;
         try {
             res = await fetch(url, {
                 method: 'GET',
                 headers: {
-                    'Authorization': 'Bearer ' + adminToken,
+                    'Authorization': 'Bearer ' + authToken,
                     'Content-Type': 'application/json'
                 }
             });
@@ -357,8 +365,12 @@
             }
 
             if (chartRes && chartRes.success && chartRes.data) {
-                renderRevenueProfitChart(chartRes.data.revenueVsProfit);
-                renderTopCategoriesChart(chartRes.data.topCategories);
+                try { renderRevenueProfitChart(chartRes.data.revenueVsProfit); } catch (chartErr) {
+                    console.error('Revenue chart render error:', chartErr);
+                }
+                try { renderTopCategoriesChart(chartRes.data.topCategories); } catch (chartErr) {
+                    console.error('Categories chart render error:', chartErr);
+                }
             } else {
                 showError((chartRes && chartRes.message) || 'Failed to load chart data.');
             }
@@ -376,8 +388,9 @@
        8. INIT (DOMContentLoaded)
        ===================================================================== */
     function init() {
-        // টোকেন না থাকলে সরাসরি লগইন পেজে (সিকিউরিটি গেটওয়ে)
-        if (!adminToken) {
+        hideLoading();
+
+        if (!getAuthToken()) {
             redirectToLogin();
             return;
         }

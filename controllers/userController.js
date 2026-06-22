@@ -18,6 +18,7 @@ const cloudinary = require('cloudinary').v2;
 const sharp = require('sharp'); 
 const geoip = require('geoip-lite');
 const requestIp = require('request-ip');
+const { logSecurityEvent } = require('../utils/securityLogger');
 
 // ইমেইল পাঠানোর কনফিগারেশন
 const transporter = nodemailer.createTransport({
@@ -184,12 +185,47 @@ exports.loginUser = async (req, res) => {
 
         const user = await User.findOne({ email });
         if (!user) {
+            await logSecurityEvent({
+                action: 'Customer Login Failed',
+                actor: email || 'unknown',
+                actorType: 'customer',
+                ipAddress: getClientIp(req),
+                details: 'Unknown email address'
+            });
             return res.status(400).json({ success: false, message: "Invalid email or password." });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
+            await logSecurityEvent({
+                action: 'Customer Login Failed',
+                actor: user.email,
+                actorType: 'customer',
+                ipAddress: getClientIp(req),
+                details: 'Invalid password'
+            });
             return res.status(400).json({ success: false, message: "Invalid email or password." });
+        }
+
+        if (user.accountStatus === 'blocked') {
+            await logSecurityEvent({
+                action: 'Customer Login Blocked',
+                actor: user.email,
+                actorType: 'customer',
+                ipAddress: getClientIp(req),
+                details: 'Blocked account login attempt'
+            });
+            return res.status(403).json({ success: false, message: "Your account has been blocked. Please contact support." });
+        }
+        if (user.accountStatus === 'suspended') {
+            await logSecurityEvent({
+                action: 'Customer Login Suspended',
+                actor: user.email,
+                actorType: 'customer',
+                ipAddress: getClientIp(req),
+                details: 'Suspended account login attempt'
+            });
+            return res.status(403).json({ success: false, message: "Your account is temporarily suspended. Please contact support." });
         }
 
         // 🌟 লগইন সেশন তৈরি করা (অ্যাক্টিভ ডিভাইস ট্র্যাকিং ও রিমোট লগআউটের জন্য)
@@ -214,6 +250,14 @@ exports.loginUser = async (req, res) => {
             JWT_SECRET, 
             { expiresIn: '7d' } 
         );
+
+        await logSecurityEvent({
+            action: 'Customer Login Success',
+            actor: user.email,
+            actorType: 'customer',
+            ipAddress: clientIp,
+            details: `${device} · ${browser}`
+        });
 
         res.status(200).json({
             success: true,
