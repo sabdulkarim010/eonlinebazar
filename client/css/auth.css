@@ -13,7 +13,10 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 100vh;
+    /* Grow to fill the space above the sticky footer instead of forcing a full
+       100vh block (which would push the footer below the fold). The card stays
+       vertically centred within whatever height remains. */
+    flex: 1 0 auto;
     background-color: #f8fafc; /* হালকা ও চোখ ধাঁধানো প্রিমিয়াম ব্যাকগ্রাউন্ড */
     padding: 20px;
     box-sizing: border-box;

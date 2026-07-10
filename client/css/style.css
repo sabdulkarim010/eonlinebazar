@@ -23,11 +23,29 @@
     font-family: Arial, sans-serif; 
 }
 
+/* Sticky-footer foundation: html/body span the full viewport height */
+html {
+    height: 100%;
+}
+
 body {
     background-color: var(--bg-color);
     color: var(--text-color);
     overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
+    /* Bulletproof sticky footer: body is a full-height vertical flex column
+       so the footer can be pushed to the bottom even with zero content. */
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* The footer wrapper is the last in-flow child of <body>. `margin-top: auto`
+   consumes all leftover vertical space, pinning the footer to the bottom of
+   the viewport on short pages while staying below content on tall pages. */
+#global-site-footer {
+    margin-top: auto;
+    width: 100%;
 }
 
 /* কমন লেআউট কন্টেইনার */
