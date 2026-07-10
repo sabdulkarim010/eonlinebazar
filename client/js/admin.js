@@ -1293,6 +1293,7 @@ window.uploadProduct = async function() {
     const buyingPrice = document.getElementById('prodBuyingPrice') ? document.getElementById('prodBuyingPrice').value.trim() : '';
     const stock = document.getElementById('prodStock').value.trim();
     const category = document.getElementById('prodCategory').value;
+    const brand = document.getElementById('prodBrand') ? document.getElementById('prodBrand').value : '';
     const emoji = document.getElementById('prodEmoji').value.trim();
     const desc = document.getElementById('prodDesc').value.trim();
     
@@ -1328,6 +1329,8 @@ window.uploadProduct = async function() {
     formData.append('buyingPrice', buyingPrice || 0);
     formData.append('stock', stock); 
     formData.append('category', category);
+    formData.append('brand', brand || '');
+    formData.append('variants', JSON.stringify(collectVariations('add')));
     formData.append('icon', emoji); 
     formData.append('description', desc);
     formData.append('detailedDescription', detailedDesc); 
@@ -1349,8 +1352,12 @@ window.uploadProduct = async function() {
         const result = await res.json();
 
         if (result.success) {
-            showToast("Product uploaded successfully! 🎉", "success");
+            showAdminSuccess('Product Launched', result.message || 'Product uploaded successfully!');
             document.getElementById('addProductForm').reset();
+
+            // ভ্যারিয়েশন সারি ও ব্র্যান্ড সিলেকশন রিসেট করা
+            renderVariations('add', []);
+            if (document.getElementById('prodBrand')) document.getElementById('prodBrand').value = '';
             
             // ডাটা ট্রান্সফার রিসেট ও প্রিভিউ ক্লিয়ার
             selectedFilesAdd = new DataTransfer();
@@ -1442,6 +1449,121 @@ function renderCategoryDropdown() {
         });
     }
 }
+
+/**
+ * ৯.৩খ: Add ও Edit Product ফর্মের ব্র্যান্ড ড্রপডাউন ডাইনামিকালি পপুলেট করা।
+ * ভ্যালু হিসেবে ব্র্যান্ডের _id সংরক্ষণ করা হয় (ব্যাকএন্ড ObjectId রেফারেন্স),
+ * টেক্সট হিসেবে ব্র্যান্ডের নাম দেখানো হয়।
+ */
+function renderBrandDropdown() {
+    const optionsHtml = '<option value="">No Brand</option>' +
+        (globalBrands || []).map(b => `<option value="${b._id}">${escHtml(b.name)}</option>`).join('');
+
+    ['prodBrand', 'editProdBrand'].forEach(sel => {
+        const el = document.getElementById(sel);
+        if (!el) return;
+        const current = el.value;
+        el.innerHTML = optionsHtml;
+        el.value = current; // পূর্বের সিলেকশন থাকলে ধরে রাখা
+    });
+}
+
+/* ==========================================================================
+   PRODUCT VARIATIONS BUILDER (Shopify/Daraz স্টাইল ডাইনামিক ভ্যারিয়েশন)
+   ========================================================================== */
+
+/** অ্যাট্রিবিউট নাম ও মানের জন্য শেয়ার্ড datalist তৈরি/রিফ্রেশ করা */
+function ensureVariationDatalists() {
+    let nameList = document.getElementById('attrNameList');
+    if (!nameList) {
+        nameList = document.createElement('datalist');
+        nameList.id = 'attrNameList';
+        document.body.appendChild(nameList);
+    }
+    nameList.innerHTML = (globalAttributes || [])
+        .map(a => `<option value="${escHtml(a.name)}"></option>`).join('');
+
+    let valueList = document.getElementById('attrValueList');
+    if (!valueList) {
+        valueList = document.createElement('datalist');
+        valueList.id = 'attrValueList';
+        document.body.appendChild(valueList);
+    }
+    const allValues = [];
+    (globalAttributes || []).forEach(a => (a.values || []).forEach(v => allValues.push(v)));
+    valueList.innerHTML = [...new Set(allValues)]
+        .map(v => `<option value="${escHtml(v)}"></option>`).join('');
+}
+
+/** একটি ভ্যারিয়েশন সারির HTML তৈরি করা */
+function variationRowHtml(mode, data) {
+    const d = data || {};
+    const price = (d.price !== undefined && d.price !== null && d.price !== 0) ? d.price : (d.price === 0 ? 0 : '');
+    const stock = (d.stock !== undefined && d.stock !== null) ? d.stock : '';
+    return `<div class="variations-row" data-vrow>
+        <input list="attrNameList" class="v-input v-attr" placeholder="Size" value="${escHtml(d.attribute || '')}">
+        <input list="attrValueList" class="v-input v-value" placeholder="M" value="${escHtml(d.value || '')}">
+        <input class="v-input v-sku" placeholder="SKU-01" value="${escHtml(d.sku || '')}">
+        <input type="number" min="0" class="v-input v-price" placeholder="0" value="${price === '' ? '' : price}">
+        <input type="number" min="0" class="v-input v-stock" placeholder="0" value="${stock === '' ? '' : stock}">
+        <button type="button" class="v-remove" title="Remove variation" onclick="removeVariationRow(this, '${mode}')">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>`;
+}
+
+/** নতুন ভ্যারিয়েশন সারি যোগ করা (mode: 'add' | 'edit') */
+window.addVariationRow = function(mode, data) {
+    ensureVariationDatalists();
+    const bodyId = mode === 'edit' ? 'editVariationsBody' : 'addVariationsBody';
+    const body = document.getElementById(bodyId);
+    if (!body) return;
+    body.insertAdjacentHTML('beforeend', variationRowHtml(mode, data));
+    refreshVariationsEmptyState(mode);
+};
+
+/** ভ্যারিয়েশন সারি মুছে ফেলা */
+window.removeVariationRow = function(btn, mode) {
+    const row = btn.closest('[data-vrow]');
+    if (row) row.remove();
+    refreshVariationsEmptyState(mode);
+};
+
+/** টেবিল/খালি-স্টেট টগল করা */
+function refreshVariationsEmptyState(mode) {
+    const wrap = document.getElementById(mode === 'edit' ? 'editVariationsWrap' : 'addVariationsWrap');
+    const empty = document.getElementById(mode === 'edit' ? 'editVariationsEmpty' : 'addVariationsEmpty');
+    const body = document.getElementById(mode === 'edit' ? 'editVariationsBody' : 'addVariationsBody');
+    const has = !!(body && body.children.length > 0);
+    if (wrap) wrap.style.display = has ? 'block' : 'none';
+    if (empty) empty.style.display = has ? 'none' : 'block';
+}
+
+/** একটি তালিকা থেকে ভ্যারিয়েশন সারিগুলো রেন্ডার করা */
+function renderVariations(mode, list) {
+    const body = document.getElementById(mode === 'edit' ? 'editVariationsBody' : 'addVariationsBody');
+    if (!body) return;
+    ensureVariationDatalists();
+    body.innerHTML = (list || []).map(v => variationRowHtml(mode, v)).join('');
+    refreshVariationsEmptyState(mode);
+}
+
+/** ফর্ম সাবমিটের সময় ভ্যারিয়েশন ডাটা সংগ্রহ করা */
+function collectVariations(mode) {
+    const body = document.getElementById(mode === 'edit' ? 'editVariationsBody' : 'addVariationsBody');
+    if (!body) return [];
+    const out = [];
+    body.querySelectorAll('[data-vrow]').forEach(r => {
+        const attribute = (r.querySelector('.v-attr')?.value || '').trim();
+        const value = (r.querySelector('.v-value')?.value || '').trim();
+        const sku = (r.querySelector('.v-sku')?.value || '').trim();
+        const price = Number(r.querySelector('.v-price')?.value) || 0;
+        const stock = Number(r.querySelector('.v-stock')?.value) || 0;
+        if (attribute || value) out.push({ attribute, value, sku, price, stock });
+    });
+    return out;
+}
+window.collectVariations = collectVariations;
 
 /**
  * ৯.৪: অ্যাডমিন প্যানেলের ম্যানেজমেন্ট টেবিলে ক্যাটাগরির লিস্ট রেন্ডার করা (এডিট বাটন সহ)
@@ -1578,6 +1700,7 @@ async function fetchBrands() {
         if (data.success) {
             globalBrands = data.data || [];
             renderBrandTable();
+            renderBrandDropdown();
         }
     } catch (error) {
         console.error("🔴 Brand load error:", error);
@@ -2263,6 +2386,16 @@ window.editProduct = function(id) {
         renderCategoryDropdown(); // এডিট মোডাল ওপেন হওয়ার মুহূর্তেই অপশন লিস্ট রি-ফ্রেশ নিশ্চিত করা
         document.getElementById('editProdCategory').value = product.category || '';
     }
+
+    // 🌟 ব্র্যান্ড ড্রপডাউন রেন্ডার করে বর্তমান ব্র্যান্ড প্রি-সিলেক্ট করা
+    if (document.getElementById('editProdBrand')) {
+        renderBrandDropdown();
+        const brandId = (product.brand && product.brand._id) ? product.brand._id : (product.brand || '');
+        document.getElementById('editProdBrand').value = brandId || '';
+    }
+
+    // 🌟 বিদ্যমান ভ্যারিয়েশনগুলো এডিট মোডালে রেন্ডার করা
+    renderVariations('edit', product.variants || []);
     
     if (document.getElementById('editProdEmoji')) document.getElementById('editProdEmoji').value = product.icon || '📦';
     if (document.getElementById('editProdDesc')) document.getElementById('editProdDesc').value = product.description || '';
@@ -2388,6 +2521,7 @@ window.updateProductDetails = async function() {
     const buyingPrice = document.getElementById('editProdBuyingPrice') ? document.getElementById('editProdBuyingPrice').value.trim() : '';
     const stock = document.getElementById('editProdStock').value.trim();
     const category = document.getElementById('editProdCategory').value.trim();
+    const brand = document.getElementById('editProdBrand') ? document.getElementById('editProdBrand').value : '';
     const emoji = document.getElementById('editProdEmoji').value.trim();
     const desc = document.getElementById('editProdDesc').value.trim();
     
@@ -2414,6 +2548,8 @@ window.updateProductDetails = async function() {
     formData.append('buyingPrice', buyingPrice || 0);
     formData.append('stock', stock);
     formData.append('category', category);
+    formData.append('brand', brand || '');
+    formData.append('variants', JSON.stringify(collectVariations('edit')));
     formData.append('icon', emoji);
     formData.append('description', desc);
     formData.append('detailedDescription', detailedDesc);

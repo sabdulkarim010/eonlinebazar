@@ -127,6 +127,11 @@ app.get('/product-details', (req, res) => {
     res.sendFile(path.join(__dirname, 'client', 'product-details.html'));
 });
 
+// 🌟 সার্চ রেজাল্ট পেজের ক্লিন রুট (?q=keyword দিয়ে অ্যাক্সেস)
+app.get('/search', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'search.html'));
+});
+
 app.get('/cart', (req, res) => {
     res.sendFile(path.join(__dirname, 'client', 'cart.html'));
 });

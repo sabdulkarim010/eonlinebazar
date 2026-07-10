@@ -200,36 +200,49 @@ function generateCategoryButtons() {
 }
 
 /* ==========================================================================
-   SECTION 5: SEARCH & FILTER LOGIC (সার্চ এবং কিবোর্ড ইভেন্ট)
+   SECTION 5: SEARCH LOGIC (কিওয়ার্ড রাউটিং → /search পেজ)
+   --------------------------------------------------------------------------
+   হেডারের সার্চ বার এখন কাস্টমারকে ডেডিকেটেড /search?q=keyword পেজে পাঠায়
+   (Daraz/Shopify স্টাইল)। টাইপ করার সময় 300ms ডিবাউন্স ব্যবহার করা হয় যাতে
+   অপ্রয়োজনীয়ভাবে বারবার নেভিগেট/API হিট না হয়।
    ========================================================================== */
-window.triggerSearch = function() {
-    const searchInput = document.getElementById('searchInput');
-    const selectedCategory = document.getElementById('categorySelect');
-    
-    if (!searchInput || !selectedCategory) return;
 
-    const searchTerm = searchInput.value.toLowerCase().trim();
-    const categoryVal = selectedCategory.value;
-
-    let filtered = allProducts;
-
-    if (categoryVal !== 'all') {
-        filtered = filtered.filter(p => p.category === categoryVal);
-    }
-    if (searchTerm !== '') {
-        filtered = filtered.filter(p => p.name.toLowerCase().includes(searchTerm));
-    }
-    displayProducts(filtered);
+// একটি কিওয়ার্ড নিয়ে ক্লিন সার্চ পেজে রিডাইরেক্ট করার হেল্পার
+function goToSearchPage(term) {
+    const q = String(term || '').trim();
+    if (q.length < 1) return;
+    window.location.href = `/search?q=${encodeURIComponent(q)}`;
 }
 
-// কিবোর্ডের Enter চাপলে অটোমেটিক সার্চ
-document.addEventListener("keydown", function(event) {
-    if (event.key === "Enter") {
-        if (document.activeElement && document.activeElement.id === "searchInput") {
-            event.preventDefault(); 
-            triggerSearch(); 
+// Enter/বাটন ক্লিকে সাথে সাথে সার্চ পেজে যাওয়া
+window.triggerSearch = function() {
+    const searchInput = document.getElementById('searchInput');
+    if (!searchInput) return;
+    goToSearchPage(searchInput.value);
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('searchInput');
+    if (!searchInput) return;
+
+    // 🌟 ডিবাউন্স (300ms): টাইপ থামলে তবেই সার্চ পেজে সিমলেসভাবে রিডাইরেক্ট
+    let debounceTimer = null;
+    searchInput.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        const term = searchInput.value.trim();
+        // অন্তত ২ অক্ষর হলে অটো-নেভিগেট (অকালীন রিডাইরেক্ট এড়াতে)
+        if (term.length < 2) return;
+        debounceTimer = setTimeout(() => goToSearchPage(term), 300);
+    });
+
+    // Enter চাপলে ডিবাউন্স ছাড়াই তাৎক্ষণিক সার্চ
+    searchInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            clearTimeout(debounceTimer);
+            triggerSearch();
         }
-    }
+    });
 });
 
 /* ==========================================================================

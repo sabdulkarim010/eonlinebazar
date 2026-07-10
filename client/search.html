@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <title>Search | EonlineBazar</title>
+    <meta name="description" content="Search results on EonlineBazar - find the products you love.">
+    <meta name="robots" content="noindex, follow">
+
+    <link rel="icon" href="images/favicon.png" type="image/png">
+
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/home.css">
+    <link rel="stylesheet" href="css/footer.css">
+    <link rel="stylesheet" href="css/whatsapp.css">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* ==========================================================
+           সার্চ পেজ-নির্দিষ্ট লেআউট (গ্লোবাল CSS অক্ষত রেখে)
+           ========================================================== */
+        .search-results-wrap { padding-top: 20px; padding-bottom: 60px; }
+
+        .search-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 10px 0 22px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid #eee;
+        }
+        .search-heading { font-size: 20px; font-weight: 700; color: #232f3e; margin: 0; }
+        .search-heading .search-term { color: #e47911; }
+        .search-count { font-size: 13px; color: #777; font-weight: 500; }
+
+        .search-sort-box { display: flex; align-items: center; gap: 8px; }
+        .search-sort-box label { font-size: 13px; color: #555; font-weight: 600; }
+        .search-sort-select {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #fff;
+            cursor: pointer;
+            outline: none;
+        }
+        .search-sort-select:focus { border-color: #e47911; }
+
+        /* লোডিং স্কেলিটন / স্টেট */
+        .search-state {
+            text-align: center;
+            padding: 70px 20px;
+            width: 100%;
+        }
+        .search-state .state-icon { font-size: 56px; margin-bottom: 16px; color: #d0d0d0; }
+        .search-state h3 { font-size: 20px; color: #333; margin: 0 0 8px; }
+        .search-state p { color: #888; margin: 0 0 22px; font-size: 15px; }
+        .search-back-btn {
+            display: inline-block;
+            background: #e47911;
+            color: #fff;
+            border: none;
+            padding: 12px 26px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background .2s ease;
+        }
+        .search-back-btn:hover { background: #cf6a08; }
+
+        /* পেজিনেশন */
+        .search-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 36px;
+            flex-wrap: wrap;
+        }
+        .page-btn {
+            min-width: 40px;
+            padding: 9px 14px;
+            border: 1px solid #ddd;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            color: #333;
+            transition: all .15s ease;
+        }
+        .page-btn:hover:not(:disabled) { border-color: #e47911; color: #e47911; }
+        .page-btn.active { background: #232f3e; color: #fff; border-color: #232f3e; }
+        .page-btn:disabled { opacity: .45; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+<header class="amazon-header">
+    <div class="container main-nav">
+        <div class="logo-box" onclick="window.location.href='/'">
+            <span class="logo-bold">Eonline</span><span class="logo-light">Bazar</span>
+        </div>
+
+        <div class="search-box-container">
+            <select id="categorySelect" class="search-category">
+                <option value="all">All Categories</option>
+            </select>
+            <input type="text" id="searchInput" class="search-input" placeholder="Search products here...">
+            <button class="search-submit-btn" id="headerSearchBtn" title="Search">
+                <i class="fa fa-search"></i>
+            </button>
+        </div>
+
+        <div class="nav-right">
+            <div class="nav-user-account" id="nav-user-link" onclick="window.location.href='/login'">
+                <img id="nav-user-avatar" src="" alt="User" style="display: none; width: 30px; height: 30px; border-radius: 50%; margin-right: 8px; object-fit: cover;">
+                <div class="nav-user-text-wrapper">
+                    <span class="nav-line-1" id="nav-user-line1">Sign in</span>
+                    <span class="nav-line-2" id="nav-user-line2">Account</span>
+                </div>
+            </div>
+
+            <div class="nav-cart-box" onclick="window.location.href='/cart'">
+                <div class="nav-cart-icon-wrapper">
+                    <i class="fa fa-shopping-cart"></i>
+                    <span id="cartCountBadge" class="cart-count">0</span>
+                </div>
+                <span class="cart-text">Bag</span>
+            </div>
+        </div>
+    </div>
+</header>
+
+<main class="container search-results-wrap">
+    <div class="search-toolbar">
+        <div>
+            <h1 class="search-heading" id="searchHeading">Search Results</h1>
+            <span class="search-count" id="searchCount"></span>
+        </div>
+        <div class="search-sort-box" id="sortBox" style="display:none;">
+            <label for="sortSelect">Sort by</label>
+            <select id="sortSelect" class="search-sort-select">
+                <option value="relevance">Relevance</option>
+                <option value="price_asc">Price: Low to High</option>
+                <option value="price_desc">Price: High to Low</option>
+                <option value="rating">Top Rated</option>
+                <option value="newest">Newest Arrivals</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="productGrid" class="product-layout-grid"></div>
+
+    <div id="paginationContainer" class="search-pagination"></div>
+</main>
+
+<!-- WhatsApp Button -->
+<div class="whatsapp-floating-container">
+    <div class="whatsapp-tooltip" id="waTooltip">Need help? Chat with us!</div>
+    <a href="https://wa.me/8801521377735?text=Hello%20EonlineBazar,%20I%20need%20some%20help!" target="_blank" class="whatsapp-float-btn" id="waFloatBtn">
+        <i class="fa-brands fa-whatsapp"></i>
+    </a>
+</div>
+
+<!-- footer calling -->
+<div id="global-site-footer"></div>
+
+<script src="js/session-guard.js"></script>
+<script src="js/cart.js"></script>
+<script src="js/search.js"></script>
+<script src="js/whatsapp.js"></script>
+
+</body>
+</html>

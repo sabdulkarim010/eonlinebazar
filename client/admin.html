@@ -408,6 +408,12 @@
                             <option value="" disabled selected>Loading Categories...</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label>Brand <span class="field-hint">optional</span></label>
+                        <select id="prodBrand">
+                            <option value="">No Brand</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="form-row-custom">
@@ -438,6 +444,31 @@
                 <div class="form-group" style="margin-bottom: 0;">
                     <label>Highlights (Comma separated)</label>
                     <textarea id="prodHighlights" rows="2" placeholder="যেমন: তাজা, শক্তিশালী, ১০০% খাঁটি, প্রিমিয়াম কোয়ালিটি"></textarea>
+                </div>
+
+                <!-- 🌟 Product Variations builder (Size / Color etc. with per-variant stock & price) -->
+                <div class="variations-block" style="margin-top: 22px;">
+                    <div class="variations-head">
+                        <div>
+                            <h4 class="variations-title"><i class="fa-solid fa-layer-group"></i> Product Variations</h4>
+                            <p class="variations-sub">Add attribute combinations (e.g. Size: M) with their own stock &amp; price.</p>
+                        </div>
+                        <button type="button" class="variation-add-btn" onclick="addVariationRow('add')">
+                            <i class="fa-solid fa-plus"></i> Add Variation
+                        </button>
+                    </div>
+                    <div class="variations-table-wrap" id="addVariationsWrap" style="display:none;">
+                        <div class="variations-row variations-row-head">
+                            <span>Attribute</span>
+                            <span>Value</span>
+                            <span>SKU</span>
+                            <span>Price (৳)</span>
+                            <span>Stock</span>
+                            <span></span>
+                        </div>
+                        <div id="addVariationsBody"></div>
+                    </div>
+                    <p class="variations-empty" id="addVariationsEmpty">No variations added. This product will use its base price &amp; stock.</p>
                 </div>
             </div>
 
@@ -654,11 +685,19 @@
                 </div>
             </div>
 
-            <div class="form-group">
-                <label for="editProdCategory">Category</label>
-                <select id="editProdCategory">
-                    <option value="" disabled selected>Loading Categories...</option>
-                </select>
+            <div class="form-row">
+                <div class="form-group half-width">
+                    <label for="editProdCategory">Category</label>
+                    <select id="editProdCategory">
+                        <option value="" disabled selected>Loading Categories...</option>
+                    </select>
+                </div>
+                <div class="form-group half-width">
+                    <label for="editProdBrand">Brand</label>
+                    <select id="editProdBrand">
+                        <option value="">No Brand</option>
+                    </select>
+                </div>
             </div>
 
             <div class="form-group">
@@ -674,7 +713,33 @@
             <div class="form-group">
                 <label for="editHighlights">Highlights (Comma separated)</label>
                 <textarea id="editHighlights" name="highlights" placeholder="যেমন: তাজা, শক্তিশালী, স্বাস্থ্যকর"></textarea>
-            </div>            
+            </div>
+
+            <!-- 🌟 Product Variations builder (edit) -->
+            <div class="variations-block">
+                <div class="variations-head">
+                    <div>
+                        <h4 class="variations-title"><i class="fa-solid fa-layer-group"></i> Product Variations</h4>
+                        <p class="variations-sub">Manage attribute combinations with their own stock &amp; price.</p>
+                    </div>
+                    <button type="button" class="variation-add-btn" onclick="addVariationRow('edit')">
+                        <i class="fa-solid fa-plus"></i> Add Variation
+                    </button>
+                </div>
+                <div class="variations-table-wrap" id="editVariationsWrap" style="display:none;">
+                    <div class="variations-row variations-row-head">
+                        <span>Attribute</span>
+                        <span>Value</span>
+                        <span>SKU</span>
+                        <span>Price (৳)</span>
+                        <span>Stock</span>
+                        <span></span>
+                    </div>
+                    <div id="editVariationsBody"></div>
+                </div>
+                <p class="variations-empty" id="editVariationsEmpty">No variations. This product uses its base price &amp; stock.</p>
+            </div>
+            
 
             <div class="form-group file-upload-group">
                 <label>Update Image</label>
