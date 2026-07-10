@@ -10,7 +10,13 @@
 ![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)
 ![JWT](https://img.shields.io/badge/Auth-JWT-FB015B?logo=jsonwebtokens&logoColor=white)
+![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
+
+![Version](https://img.shields.io/badge/Version-2.0.0-success)
+![Admin Panel](https://img.shields.io/badge/Admin%20Panel-Enterprise-orange)
+![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
+![Maintained](https://img.shields.io/badge/Maintained-Yes-blue)
 
 </div>
 
@@ -21,6 +27,29 @@
 **EOnlineBazar** is a production-ready, full-stack e-commerce platform built on **Node.js / Express** with a **MongoDB (Atlas)** database and a lightweight **Vanilla JavaScript** frontend. It follows a clean **MVC architecture** (Models → Controllers → Routes) and ships with everything a modern online store needs: secure customer authentication, a shopping cart, order placement & live tracking, product reviews with image uploads, a loyalty wallet, a dedicated **Super Admin Panel**, and a **Finance & Analytics** dashboard.
 
 Its standout feature is a **database-backed session security layer**: every customer login generates a unique session embedded inside the JWT, allowing users to view all their **active devices** (IP, location, browser & device detection) and **remotely log out** any device in real time.
+
+---
+
+## 🆕 What's New — v2.0.0 (Admin Panel Enterprise Release)
+
+This release ships a major overhaul of the **Super Admin Panel** with critical state-management fixes, real-time UI synchronization, and three brand-new enterprise catalog modules.
+
+### 🐞 Core Bug Fixes & UX Upgrades
+
+| Area | Improvement |
+|------|-------------|
+| **📊 Finance & Analytics Panel** | Resolved the **infinite loading loop** — optimized route rendering and streamlined data fetching so the dashboard mounts cleanly on first load. |
+| **⚡ Real-time State Updates** | Implemented **asynchronous state/DOM re-rendering** for all product and live-order actions. Editing or deleting a product/order now updates the UI layout **instantly**, with no manual page refresh. |
+| **🔔 Professional Alerts** | Integrated **SweetAlert2** feedback across every administrative action — success **toasts** for quick confirmations and **modal dialogs** for destructive operations. |
+| **🎨 UI Layout Polish** | Re-positioned the **live clock** to the calendar header center and refined the **Manage Categories** table grid to eliminate text/icon overlapping. |
+
+### 🚀 New Enterprise Modules
+
+- **🏷️ Manage Brands** — Full **CRUD** with a clean grid layout, automatic **slug generation** (Unicode/Bengali-aware), and strict **database references** linking products to brands.
+- **🎛️ Manage Attributes (Variants)** — A professional configuration system for product variations (e.g., **Size**, **Color**, **Material**) with per-variant **SKU, price & separate stock tracking**.
+- **📝 Add / Edit Product Upgrades** — Form integration featuring a dedicated **Brand dropdown** and **dynamic variation arrays**, fully backward-compatible with existing products.
+
+> 📌 See the full [Changelog](#-changelog) at the bottom for a versioned breakdown.
 
 ---
 
@@ -44,14 +73,18 @@ Its standout feature is a **database-backed session security layer**: every cust
 - **📊 Dashboard Overview** — Live metrics (total/verified/pending/blocked users) and a **6-month registration growth chart** (Chart.js, real `createdAt` data).
 - **👥 Customer Management** — View, edit, block, suspend, and reactivate accounts; order-count badges; per-customer order history modal.
 - **📦 Live Orders** — Real-time order table with status updates, invoice view/print, search, filter, and pagination.
-- **🛍️ Product CRUD** — Add/edit products with up to 10 images, **selling price + buying price**, live profit preview, bulk delete, **selected-row CSV export**, and print-ready product tables.
-- **🗂️ Catalog Management** — Sidebar dropdown for **Categories**, **Brands**, and **Attributes** (inline edit modal, SweetAlert2 delete confirmations).
+- **🛍️ Product CRUD** — Add/edit products with up to 10 images, **selling price + buying price**, live profit preview, bulk delete, **selected-row CSV export**, and print-ready product tables. Now includes a **Brand dropdown** and **dynamic variation arrays**.
+- **🗂️ Catalog Management** — Sidebar dropdown for **Categories**, **Brands**, and **Attributes**, each with inline edit modals and SweetAlert2 delete confirmations.
+  - **🏷️ Manage Brands** — Full CRUD in a clean grid layout with auto **slug generation** and strict product-to-brand database references.
+  - **🎛️ Manage Attributes (Variants)** — Configure variations (Size, Color, Material…) with per-variant SKU, price & **separate stock tracking**.
+  - **📂 Manage Categories** — Polished table grid (no text/icon overlap); renaming a category syncs all linked products.
 - **🔒 Security Logs** — Auth and admin-action audit trail (admin/customer login events, profile edits, status changes, settings updates).
 - **⚙️ Admin Settings** — Username/password, display name, store name, **currency symbol** (default ৳), timezone (live clock), logo & favicon upload (Cloudinary).
 - **💹 Finance & Analytics CTA** — One-click link to `/finance-analytics` from the sidebar.
-- **🔔 UX** — **Toastr** notifications and **SweetAlert2** confirmation dialogs throughout the admin panel.
+- **🔔 UX** — **SweetAlert2** success toasts and modal confirmations (plus Toastr) throughout the admin panel.
 - **💱 Dynamic Currency Display** — All admin price columns (products, orders, invoices, customer wallet) use the configured currency symbol from settings.
-- **⚡ Instant UI Sync** — Product edit/delete and order delete update the table immediately with SweetAlert2 success feedback (no manual refresh).
+- **⚡ Instant UI Sync** — Asynchronous state/DOM re-rendering means product and live-order edits/deletes update the table layout **immediately**, with SweetAlert2 feedback and no manual refresh.
+- **🕐 Live Clock** — Timezone-aware clock centered in the calendar header.
 
 ### Finance & Analytics (`/finance-analytics`)
 - Secure password gate (`ADMIN_DASHBOARD_PASSWORD`) with dedicated finance token.
@@ -398,6 +431,27 @@ Viewable in the admin panel under **Security Logs**.
 
 ---
 
+## 📜 Changelog
+
+### `v2.0.0` — Admin Panel Enterprise Release
+**🐛 Fixes & UX**
+- Fixed the **infinite loading loop** on the Finance & Analytics panel; optimized route rendering and data fetching.
+- Added **asynchronous state/DOM re-rendering** for all product and live-order actions — instant UI updates without a page refresh.
+- Integrated **SweetAlert2** success toasts and modal confirmations across all admin actions.
+- Re-centered the **live clock** in the calendar header and fixed the **Manage Categories** grid text/icon overlap.
+
+**✨ New Modules**
+- **Manage Brands** — full CRUD, slug generation, and product-to-brand database references.
+- **Manage Attributes (Variants)** — variation configuration with per-variant SKU, price & separate stock tracking.
+- **Add / Edit Product** — dedicated Brand dropdown and dynamic variation arrays.
+
+### `v1.0.0` — Initial Release
+- Full-stack storefront with JWT auth, session/device tracking, cart, orders, reviews, wallet, and profile dashboard.
+- Super Admin Panel with dashboard metrics, customer management, live orders, product CRUD, and security logs.
+- Finance & Analytics dashboard with revenue/profit KPIs and charts.
+
+---
+
 ## 👤 Author
 
 **Abdul Karim Sheikh**
@@ -409,10 +463,6 @@ Viewable in the admin panel under **Security Logs**.
 *Built with ❤️ using Node.js, Express & MongoDB.*
 
 </div>
-
-
-
-
 
 
 
