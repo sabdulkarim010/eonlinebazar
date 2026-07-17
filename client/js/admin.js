@@ -251,7 +251,10 @@ const ADMIN_PAGE_META = {
     'manage-category':      { title: 'Manage Categories',       subtitle: 'Organize products with dynamic category labels.' },
     'manage-brands':        { title: 'Manage Brands',           subtitle: 'Maintain brand names for catalog filtering and display.' },
     'manage-attributes':    { title: 'Product Attributes',      subtitle: 'Define attribute names and values (Size, Color, etc.).' },
+    'manage-coupons':       { title: 'Manage Coupons',          subtitle: 'Create discount codes, set usage limits, and track redemptions.' },
     'view-security':        { title: 'Security Logs',           subtitle: 'Monitor authentication events and system security activity.' },
+    'view-sessions':        { title: 'Active Devices & Sessions', subtitle: 'Review and remotely revoke logged-in admin devices.' },
+    'view-audit':           { title: 'Security & Audit',         subtitle: 'Login history, intrusion attempts, and IP blacklist firewall.' },
     'view-settings':        { title: 'Admin Settings',          subtitle: 'Configure your admin profile and platform preferences.' }
 };
 
@@ -1505,7 +1508,7 @@ function variationRowHtml(mode, data) {
         <input list="attrValueList" class="v-input v-value" placeholder="M" value="${escHtml(d.value || '')}">
         <input class="v-input v-sku" placeholder="SKU-01" value="${escHtml(d.sku || '')}">
         <input type="number" min="0" class="v-input v-price" placeholder="0" value="${price === '' ? '' : price}">
-        <input type="number" min="0" class="v-input v-stock" placeholder="0" value="${stock === '' ? '' : stock}">
+        <input type="number" min="0" class="v-input v-stock" placeholder="0" value="${stock === '' ? '' : stock}" oninput="syncVariationStock('${mode}')">
         <button type="button" class="v-remove" title="Remove variation" onclick="removeVariationRow(this, '${mode}')">
             <i class="fa-solid fa-xmark"></i>
         </button>
@@ -1520,6 +1523,7 @@ window.addVariationRow = function(mode, data) {
     if (!body) return;
     body.insertAdjacentHTML('beforeend', variationRowHtml(mode, data));
     refreshVariationsEmptyState(mode);
+    syncVariationStock(mode);
 };
 
 /** ভ্যারিয়েশন সারি মুছে ফেলা */
@@ -1527,6 +1531,39 @@ window.removeVariationRow = function(btn, mode) {
     const row = btn.closest('[data-vrow]');
     if (row) row.remove();
     refreshVariationsEmptyState(mode);
+    syncVariationStock(mode);
+};
+
+/**
+ * 🌟 স্টক সেফগার্ড: ভ্যারিয়েশন সারি থাকলে মূল "Stock Qty" ফিল্ড readonly করে
+ * ভ্যারিয়েন্ট স্টকের যোগফল স্বয়ংক্রিয়ভাবে বসিয়ে দেয় (ডাটা এন্ট্রি দ্বন্দ্ব এড়াতে)।
+ * সারি না থাকলে ফিল্ডটি আবার সম্পাদনযোগ্য হয়।
+ */
+window.syncVariationStock = function(mode) {
+    const body = document.getElementById(mode === 'edit' ? 'editVariationsBody' : 'addVariationsBody');
+    const stockInput = document.getElementById(mode === 'edit' ? 'editProdStock' : 'prodStock');
+    if (!stockInput) return;
+
+    const rows = body ? body.querySelectorAll('[data-vrow]') : [];
+
+    if (rows.length > 0) {
+        let sum = 0;
+        rows.forEach(r => { sum += Number(r.querySelector('.v-stock')?.value) || 0; });
+        stockInput.value = sum;
+        stockInput.readOnly = true;
+        stockInput.classList.add('stock-auto-locked');
+        stockInput.title = 'Auto-calculated from variations (sum of variant stock)';
+        stockInput.style.background = '#f1f5f9';
+        stockInput.style.cursor = 'not-allowed';
+        stockInput.style.color = '#64748b';
+    } else {
+        stockInput.readOnly = false;
+        stockInput.classList.remove('stock-auto-locked');
+        stockInput.title = '';
+        stockInput.style.background = '';
+        stockInput.style.cursor = '';
+        stockInput.style.color = '';
+    }
 };
 
 /** টেবিল/খালি-স্টেট টগল করা */
@@ -1546,6 +1583,7 @@ function renderVariations(mode, list) {
     ensureVariationDatalists();
     body.innerHTML = (list || []).map(v => variationRowHtml(mode, v)).join('');
     refreshVariationsEmptyState(mode);
+    syncVariationStock(mode);
 }
 
 /** ফর্ম সাবমিটের সময় ভ্যারিয়েশন ডাটা সংগ্রহ করা */
@@ -1805,6 +1843,241 @@ window.deleteBrand = function(id) {
         }
     }, 'danger');
 };
+
+
+/* ==========================================================================
+   SECTION 9B2: COUPON & DISCOUNT MANAGEMENT ENGINE
+   ========================================================================== */
+
+let globalCoupons = [];
+
+async function fetchCoupons() {
+    try {
+        const response = await fetch('/api/coupons', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data.success) {
+            globalCoupons = data.data || [];
+            renderCouponTable();
+        } else {
+            showToast(data.message || 'Failed to load coupons', 'error');
+        }
+    } catch (error) {
+        console.error('Coupon load error:', error);
+        showToast('Failed to load coupons', 'error');
+    }
+}
+
+function formatCouponExpiry(dateVal) {
+    if (!dateVal) return '—';
+    const d = new Date(dateVal);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function isCouponExpired(dateVal) {
+    if (!dateVal) return false;
+    const expiry = new Date(dateVal);
+    expiry.setHours(23, 59, 59, 999);
+    return Date.now() > expiry.getTime();
+}
+
+function renderCouponTable() {
+    const tbody = document.getElementById('couponTableBody');
+    if (!tbody) return;
+
+    if (!globalCoupons.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="cell-empty">No coupons yet. Create one using the form above.</td></tr>';
+        return;
+    }
+
+    const cur = typeof adminCurrencySymbol !== 'undefined' ? adminCurrencySymbol : '৳';
+
+    tbody.innerHTML = globalCoupons.map(coupon => {
+        const used = Number(coupon.usedCount) || 0;
+        const limit = Number(coupon.usageLimit) || 0;
+        const expired = isCouponExpired(coupon.expiryDate);
+        const active = !!coupon.isActive && !expired;
+        const discountLabel = coupon.discountType === 'percentage'
+            ? `${coupon.discountValue}%`
+            : `${cur}${coupon.discountValue}`;
+        const statusHtml = expired
+            ? '<span class="coupon-status-badge expired">Expired</span>'
+            : (coupon.isActive
+                ? '<span class="coupon-status-badge active">Active</span>'
+                : '<span class="coupon-status-badge inactive">Inactive</span>');
+
+        return `<tr>
+            <td class="cell-name"><code class="coupon-code-chip">${escHtml(coupon.code)}</code></td>
+            <td>${escHtml(discountLabel)}${coupon.discountType === 'percentage' && coupon.maxDiscountAmount ? ` <small class="coupon-cap">(max ${cur}${coupon.maxDiscountAmount})</small>` : ''}</td>
+            <td>${cur}${Number(coupon.minOrderAmount) || 0}</td>
+            <td><strong>${used}</strong> / ${limit} Used</td>
+            <td class="cell-date">${formatCouponExpiry(coupon.expiryDate)}</td>
+            <td>${statusHtml}</td>
+            <td>
+                <div class="catalog-actions">
+                    <button type="button" class="catalog-action-btn edit" title="Edit" onclick="editCoupon('${coupon._id}')"><i class="fa-solid fa-pen"></i></button>
+                    <button type="button" class="catalog-action-btn coupon-toggle-btn" title="Toggle status" onclick="toggleCouponStatus('${coupon._id}')"><i class="fa-solid fa-power-off"></i></button>
+                    <button type="button" class="catalog-action-btn delete" title="Delete" onclick="deleteCoupon('${coupon._id}')"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+window.resetCouponForm = function() {
+    const form = document.getElementById('couponForm');
+    if (form) form.reset();
+    const editId = document.getElementById('couponEditId');
+    if (editId) editId.value = '';
+    const active = document.getElementById('couponIsActive');
+    if (active) active.checked = true;
+    const label = document.getElementById('couponIsActiveLabel');
+    if (label) label.textContent = 'Active';
+    const btnText = document.getElementById('couponSaveBtnText');
+    if (btnText) btnText.textContent = 'Create Coupon';
+    const cancelBtn = document.getElementById('couponCancelBtn');
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    const perUser = document.getElementById('couponPerUserLimit');
+    if (perUser && !perUser.value) perUser.value = '1';
+};
+
+function toDateInputValue(dateVal) {
+    if (!dateVal) return '';
+    const d = new Date(dateVal);
+    if (Number.isNaN(d.getTime())) return '';
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+window.editCoupon = function(id) {
+    const coupon = globalCoupons.find(c => String(c._id) === String(id));
+    if (!coupon) return showToast('Coupon not found', 'error');
+
+    document.getElementById('couponEditId').value = coupon._id;
+    document.getElementById('couponCode').value = coupon.code || '';
+    document.getElementById('couponDiscountType').value = coupon.discountType || 'percentage';
+    document.getElementById('couponDiscountValue').value = coupon.discountValue ?? '';
+    document.getElementById('couponMinOrder').value = coupon.minOrderAmount ?? 0;
+    document.getElementById('couponMaxDiscount').value = coupon.maxDiscountAmount ?? '';
+    document.getElementById('couponExpiry').value = toDateInputValue(coupon.expiryDate);
+    document.getElementById('couponUsageLimit').value = coupon.usageLimit ?? '';
+    document.getElementById('couponPerUserLimit').value = coupon.perUserLimit ?? 1;
+    document.getElementById('couponIsActive').checked = !!coupon.isActive;
+    document.getElementById('couponIsActiveLabel').textContent = coupon.isActive ? 'Active' : 'Inactive';
+    document.getElementById('couponSaveBtnText').textContent = 'Update Coupon';
+    document.getElementById('couponCancelBtn').style.display = 'inline-flex';
+
+    document.getElementById('manage-coupons')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+window.saveCoupon = async function() {
+    const editId = document.getElementById('couponEditId')?.value?.trim();
+    const payload = {
+        code: document.getElementById('couponCode')?.value?.trim(),
+        discountType: document.getElementById('couponDiscountType')?.value,
+        discountValue: Number(document.getElementById('couponDiscountValue')?.value),
+        minOrderAmount: Number(document.getElementById('couponMinOrder')?.value) || 0,
+        maxDiscountAmount: document.getElementById('couponMaxDiscount')?.value === ''
+            ? null
+            : Number(document.getElementById('couponMaxDiscount')?.value),
+        expiryDate: document.getElementById('couponExpiry')?.value,
+        usageLimit: Number(document.getElementById('couponUsageLimit')?.value),
+        perUserLimit: Number(document.getElementById('couponPerUserLimit')?.value) || 1,
+        isActive: !!document.getElementById('couponIsActive')?.checked
+    };
+
+    if (!payload.code) return showToast('Please enter a coupon code!', 'warning');
+    if (!payload.expiryDate) return showToast('Please select an expiry date!', 'warning');
+    if (!Number.isFinite(payload.discountValue) || payload.discountValue <= 0) {
+        return showToast('Please enter a valid discount value!', 'warning');
+    }
+    if (!Number.isFinite(payload.usageLimit) || payload.usageLimit < 1) {
+        return showToast('Usage limit must be at least 1!', 'warning');
+    }
+
+    try {
+        const res = await fetch(editId ? `/api/coupons/${editId}` : '/api/coupons', {
+            method: editId ? 'PUT' : 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.success) {
+            showAdminSuccess(
+                editId ? 'Coupon Updated' : 'Coupon Created',
+                result.message || (editId ? 'Coupon updated successfully!' : 'Coupon created successfully!')
+            );
+            resetCouponForm();
+            await fetchCoupons();
+        } else {
+            showToast(result.message || 'Failed to save coupon', 'error');
+        }
+    } catch (error) {
+        showToast('Server error while saving coupon!', 'error');
+    }
+};
+
+window.toggleCouponStatus = function(id) {
+    const coupon = globalCoupons.find(c => String(c._id) === String(id));
+    const nextLabel = coupon && coupon.isActive ? 'deactivate' : 'activate';
+    showCustomConfirm(
+        'Toggle Coupon Status',
+        `Are you sure you want to ${nextLabel} this coupon?`,
+        async () => {
+            try {
+                const res = await fetch(`/api/coupons/${id}/toggle`, {
+                    method: 'PATCH',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showAdminSuccess('Status Updated', result.message || 'Coupon status updated.');
+                    await fetchCoupons();
+                } else {
+                    showToast(result.message || 'Failed to toggle status', 'error');
+                }
+            } catch (error) {
+                showToast('Failed to toggle coupon status', 'error');
+            }
+        },
+        'warning'
+    );
+};
+
+window.deleteCoupon = function(id) {
+    showCustomConfirm('Delete Coupon', 'Are you sure you want to permanently delete this coupon?', async () => {
+        try {
+            const res = await fetch(`/api/coupons/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await res.json();
+            if (result.success) {
+                globalCoupons = globalCoupons.filter(c => String(c._id) !== String(id));
+                renderCouponTable();
+                showAdminSuccess('Coupon Deleted', result.message || 'Coupon deleted successfully!');
+            } else {
+                showToast(result.message || 'Failed to delete coupon', 'error');
+            }
+        } catch (error) {
+            showToast('Failed to delete coupon', 'error');
+        }
+    }, 'danger');
+};
+
+document.addEventListener('change', (e) => {
+    if (e.target && e.target.id === 'couponIsActive') {
+        const label = document.getElementById('couponIsActiveLabel');
+        if (label) label.textContent = e.target.checked ? 'Active' : 'Inactive';
+    }
+});
 
 
 /* ==========================================================================
@@ -2663,6 +2936,313 @@ window.fetchSecurityLogs = fetchSecurityLogs;
 
 
 /* ==========================================================================
+   SECTION 12B: FORTIFIED ADMIN SECURITY SUITE
+   Active Sessions · Login History · IP Blacklist Manager
+   ========================================================================== */
+
+const SEC_AUTH_HEADERS = () => ({ 'Authorization': `Bearer ${token}` });
+
+function escapeHtml(str) {
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function timeAgo(dateStr) {
+    if (!dateStr) return '—';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins} min ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs} hr ago`;
+    return `${Math.floor(hrs / 24)} day(s) ago`;
+}
+
+function formatDuration(ms) {
+    if (ms == null) return 'Permanent';
+    if (ms <= 0) return 'Expired';
+    const totalMin = Math.floor(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (h >= 24) return `${Math.floor(h / 24)}d ${h % 24}h left`;
+    return h > 0 ? `${h}h ${m}m left` : `${m}m left`;
+}
+
+function deviceIcon(deviceType = '') {
+    const t = deviceType.toLowerCase();
+    if (t.includes('mobile') || t.includes('phone')) return 'fa-mobile-screen';
+    if (t.includes('tablet')) return 'fa-tablet-screen-button';
+    return 'fa-laptop';
+}
+
+/* ---------- 12B.1 Active Devices & Sessions ---------- */
+async function fetchAdminSessions() {
+    const grid = document.getElementById('adminSessionsGrid');
+    if (!grid) return;
+    grid.innerHTML = `<div class="loading-container"><div class="spinner"></div><p>Loading active sessions...</p></div>`;
+
+    try {
+        const res = await fetch('/api/admin/sessions', { headers: SEC_AUTH_HEADERS() });
+        const data = await res.json();
+        const sessions = data.success ? data.sessions : [];
+
+        const countEl = document.getElementById('activeSessionCount');
+        if (countEl) countEl.textContent = sessions.length;
+
+        const current = sessions.find(s => s.isCurrent);
+        const thisEl = document.getElementById('thisDeviceLabel');
+        if (thisEl) thisEl.textContent = current ? `${current.os} · ${current.location}` : 'Unknown';
+
+        if (sessions.length === 0) {
+            grid.innerHTML = `<div class="empty-state">No active sessions found.</div>`;
+            return;
+        }
+
+        grid.innerHTML = sessions.map(s => `
+            <div class="session-card ${s.isCurrent ? 'current' : ''}">
+                <div class="session-icon"><i class="fa-solid ${deviceIcon(s.deviceType)}"></i></div>
+                <div class="session-body">
+                    <div class="session-title">
+                        ${escapeHtml(s.os)} · ${escapeHtml(s.browser)}
+                        ${s.isCurrent ? '<span class="this-device-badge">This Device</span>' : ''}
+                    </div>
+                    <div class="session-meta"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(s.location)}</div>
+                    <div class="session-meta"><i class="fa-solid fa-network-wired"></i> ${escapeHtml(s.ip)}</div>
+                    <div class="session-meta"><i class="fa-solid fa-clock"></i> Active ${timeAgo(s.lastActive)}</div>
+                </div>
+                <button class="session-logout-btn ${s.isCurrent ? 'current' : ''}"
+                    onclick="logoutAdminSession('${s.sessionId}', ${s.isCurrent})">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    ${s.isCurrent ? 'Log Out This Device' : 'Log Out'}
+                </button>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Sessions fetch error:', err);
+        grid.innerHTML = `<div class="empty-state error">Failed to load sessions.</div>`;
+    }
+}
+window.fetchAdminSessions = fetchAdminSessions;
+
+async function logoutAdminSession(sessionId, isCurrent) {
+    const confirmMsg = isCurrent
+        ? 'Log out this device? You will be returned to the login screen.'
+        : 'Log out this device remotely?';
+
+    const proceed = window.Swal
+        ? (await Swal.fire({ title: 'Terminate session?', text: confirmMsg, icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, log out', confirmButtonColor: '#ef4444' })).isConfirmed
+        : window.confirm(confirmMsg);
+    if (!proceed) return;
+
+    try {
+        const res = await fetch(`/api/admin/sessions/logout/${encodeURIComponent(sessionId)}`, {
+            method: 'POST', headers: SEC_AUTH_HEADERS()
+        });
+        const data = await res.json();
+        if (!data.success) return (typeof showToast === 'function') ? showToast(data.message || 'Failed.', 'error') : alert(data.message);
+
+        if (data.loggedOutCurrent) {
+            localStorage.removeItem('adminToken');
+            window.location.replace('/admin-login');
+            return;
+        }
+        if (typeof showToast === 'function') showToast(data.message, 'success');
+        fetchAdminSessions();
+    } catch (err) {
+        console.error('Logout session error:', err);
+        if (typeof showToast === 'function') showToast('Server error.', 'error');
+    }
+}
+window.logoutAdminSession = logoutAdminSession;
+
+async function logoutOtherAdminSessions() {
+    const proceed = window.Swal
+        ? (await Swal.fire({ title: 'Log out all other devices?', text: 'This keeps you signed in here but revokes every other session.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, log out others', confirmButtonColor: '#ef4444' })).isConfirmed
+        : window.confirm('Log out all other devices?');
+    if (!proceed) return;
+
+    try {
+        const res = await fetch('/api/admin/sessions/logout-others', { method: 'POST', headers: SEC_AUTH_HEADERS() });
+        const data = await res.json();
+        if (typeof showToast === 'function') showToast(data.message || 'Done.', data.success ? 'success' : 'error');
+        fetchAdminSessions();
+    } catch (err) {
+        console.error('Logout others error:', err);
+        if (typeof showToast === 'function') showToast('Server error.', 'error');
+    }
+}
+window.logoutOtherAdminSessions = logoutOtherAdminSessions;
+
+/* ---------- 12B.2 Security & Audit tabs ---------- */
+let _auditActiveTab = 'tab-login-history';
+
+function initAuditView() {
+    setupAuditTabs();
+    refreshAuditActiveTab();
+}
+window.initAuditView = initAuditView;
+
+function setupAuditTabs() {
+    const tabs = document.querySelectorAll('.audit-tab');
+    tabs.forEach(tab => {
+        if (tab._bound) return;
+        tab._bound = true;
+        tab.addEventListener('click', () => {
+            const target = tab.getAttribute('data-audit-tab');
+            _auditActiveTab = target;
+            tabs.forEach(t => t.classList.toggle('active', t === tab));
+            document.querySelectorAll('.audit-panel').forEach(p => {
+                p.style.display = (p.id === target) ? 'block' : 'none';
+            });
+            refreshAuditActiveTab();
+        });
+    });
+}
+
+function refreshAuditActiveTab() {
+    if (_auditActiveTab === 'tab-blacklist') fetchBlacklist();
+    else fetchLoginHistory();
+}
+window.refreshAuditActiveTab = refreshAuditActiveTab;
+
+async function fetchLoginHistory() {
+    const body = document.getElementById('loginHistoryBody');
+    if (!body) return;
+    body.innerHTML = `<tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading login history...</p></td></tr>`;
+
+    try {
+        const res = await fetch('/api/admin/login-history?limit=150', { headers: SEC_AUTH_HEADERS() });
+        const data = await res.json();
+        const rows = data.success ? data.data : [];
+        const summary = data.summary || {};
+
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? '—'; };
+        set('auditSuccessCount', summary.success);
+        set('auditFailedCount', summary.failed);
+        set('auditBlockedCount', summary.blocked);
+
+        if (rows.length === 0) {
+            body.innerHTML = `<tr><td colspan="6" class="loading-cell">No login activity recorded yet.</td></tr>`;
+            return;
+        }
+
+        const statusBadge = (s) => {
+            const map = {
+                success: ['status-verified', 'Success'],
+                failed: ['stock-out', 'Failed'],
+                otp_failed: ['stock-out', 'OTP Failed'],
+                otp_sent: ['stock-low', 'OTP Sent'],
+                blocked: ['stock-out', 'Blocked']
+            };
+            const [cls, label] = map[s] || ['status-pending', s];
+            return `<span class="status-badge ${cls}">${label}</span>`;
+        };
+
+        body.innerHTML = rows.map(r => `
+            <tr>
+                <td>${r.timestamp ? new Date(r.timestamp).toLocaleString('en-GB') : '—'}</td>
+                <td>${escapeHtml(r.username)}</td>
+                <td>${escapeHtml(r.ip)}</td>
+                <td>${escapeHtml(r.location)}</td>
+                <td>${escapeHtml(r.os)} · ${escapeHtml(r.browser)}</td>
+                <td>${statusBadge(r.status)}</td>
+            </tr>
+        `).join('');
+    } catch (err) {
+        console.error('Login history error:', err);
+        body.innerHTML = `<tr><td colspan="6" class="table-status-error">Server connection failed.</td></tr>`;
+    }
+}
+window.fetchLoginHistory = fetchLoginHistory;
+
+async function fetchBlacklist() {
+    const body = document.getElementById('blacklistBody');
+    if (!body) return;
+    body.innerHTML = `<tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading blacklist...</p></td></tr>`;
+
+    try {
+        const res = await fetch('/api/admin/blacklist', { headers: SEC_AUTH_HEADERS() });
+        const data = await res.json();
+        const rows = data.success ? data.data : [];
+
+        if (rows.length === 0) {
+            body.innerHTML = `<tr><td colspan="6" class="loading-cell">No blocked IP addresses. Your firewall is clear.</td></tr>`;
+            return;
+        }
+
+        body.innerHTML = rows.map(b => `
+            <tr class="${b.active ? '' : 'row-muted'}">
+                <td><b>${escapeHtml(b.ip)}</b></td>
+                <td>${escapeHtml(b.reason)}</td>
+                <td><span class="actor-badge ${b.source === 'auto' ? 'system' : 'admin'}">${b.source === 'auto' ? 'Auto (IDS)' : 'Manual'}</span></td>
+                <td>${b.blockedAt ? new Date(b.blockedAt).toLocaleString('en-GB') : '—'}</td>
+                <td>${b.permanent ? '<span class="status-badge stock-out">Permanent</span>' : formatDuration(b.expiresInMs)}</td>
+                <td>
+                    <button class="btn-unblock" onclick="removeBlacklist('${b.id}', '${escapeHtml(b.ip)}')">
+                        <i class="fa-solid fa-unlock"></i> Unblock
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (err) {
+        console.error('Blacklist fetch error:', err);
+        body.innerHTML = `<tr><td colspan="6" class="table-status-error">Server connection failed.</td></tr>`;
+    }
+}
+window.fetchBlacklist = fetchBlacklist;
+
+async function submitBlacklist(e) {
+    e.preventDefault();
+    const ip = document.getElementById('blIpInput').value.trim();
+    const reason = document.getElementById('blReasonInput').value.trim();
+    const hours = document.getElementById('blDurationInput').value;
+    if (!ip) return (typeof showToast === 'function') ? showToast('Please enter an IP address.', 'error') : alert('IP required');
+
+    try {
+        const res = await fetch('/api/admin/blacklist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...SEC_AUTH_HEADERS() },
+            body: JSON.stringify({ ip, reason, hours })
+        });
+        const data = await res.json();
+        if (typeof showToast === 'function') showToast(data.message || (data.success ? 'IP blocked.' : 'Failed.'), data.success ? 'success' : 'error');
+        if (data.success) {
+            document.getElementById('blacklistAddForm').reset();
+            fetchBlacklist();
+        }
+    } catch (err) {
+        console.error('Add blacklist error:', err);
+        if (typeof showToast === 'function') showToast('Server error.', 'error');
+    }
+}
+
+async function removeBlacklist(id, ip) {
+    const proceed = window.Swal
+        ? (await Swal.fire({ title: `Unblock ${ip}?`, text: 'This IP will be able to reach the admin login again.', icon: 'question', showCancelButton: true, confirmButtonText: 'Yes, unblock' })).isConfirmed
+        : window.confirm(`Unblock ${ip}?`);
+    if (!proceed) return;
+
+    try {
+        const res = await fetch(`/api/admin/blacklist/${encodeURIComponent(id)}`, { method: 'DELETE', headers: SEC_AUTH_HEADERS() });
+        const data = await res.json();
+        if (typeof showToast === 'function') showToast(data.message || 'Done.', data.success ? 'success' : 'error');
+        fetchBlacklist();
+    } catch (err) {
+        console.error('Remove blacklist error:', err);
+        if (typeof showToast === 'function') showToast('Server error.', 'error');
+    }
+}
+window.removeBlacklist = removeBlacklist;
+
+// Bind the manual-blacklist form once the DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    const blForm = document.getElementById('blacklistAddForm');
+    if (blForm) blForm.addEventListener('submit', submitBlacklist);
+});
+
+
+/* ==========================================================================
    SECTION 13: ADMIN SETTINGS & SYSTEM INITIALIZATION (সেটিংস ও সিস্টেম বুট)
    ========================================================================== */
 
@@ -2984,7 +3564,10 @@ function navigateAdminSection(targetId, clickedItem) {
         'manage-category': fetchCategories,
         'manage-brands': fetchBrands,
         'manage-attributes': fetchAttributes,
+        'manage-coupons': fetchCoupons,
         'view-security': fetchSecurityLogs,
+        'view-sessions': fetchAdminSessions,
+        'view-audit': initAuditView,
         'view-settings': fetchAdminSettings
     };
     if (typeof refreshMap[targetId] === 'function') refreshMap[targetId]();

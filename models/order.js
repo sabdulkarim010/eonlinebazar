@@ -24,7 +24,14 @@ const orderItemSchema = new mongoose.Schema({
     price: { type: Number, default: 0 },        // বিক্রয়মূল্য (Selling Price)
     buyingPrice: { type: Number, default: 0 },  // ক্রয়মূল্য (Cost Price snapshot)
     quantity: { type: Number, default: 1 },
-    image: { type: String }
+    image: { type: String },
+    // 🌟 অর্ডারকৃত ভ্যারিয়েন্টের স্ন্যাপশট — কোন Size/Color অর্ডার হয়েছে তা
+    // সংরক্ষণ করে, যাতে সঠিক ভ্যারিয়েন্টের স্টক কমানো ও ইনভয়েসে দেখানো যায়।
+    variantId: { type: String, default: '' },
+    variantLabel: { type: String, default: '' },
+    variantAttribute: { type: String, default: '' },
+    variantValue: { type: String, default: '' },
+    variantSku: { type: String, default: '' }
 }, { _id: false, strict: false });
 
 const orderSchema = new mongoose.Schema({
@@ -37,6 +44,10 @@ const orderSchema = new mongoose.Schema({
     // অর্ডারের মোট ক্রয়মূল্য (সব আইটেমের buyingPrice × quantity যোগফল) —
     // দ্রুত প্রফিট/লস রিপোর্টিংয়ের জন্য অর্ডার লেভেলে সংরক্ষিত।
     totalBuyingPrice: { type: Number, default: 0 },
+    // Coupon / discount snapshot (optional — backwards compatible with legacy orders)
+    subtotal: { type: Number, default: 0 },
+    discountAmount: { type: Number, default: 0 },
+    couponCode: { type: String, default: '', trim: true, uppercase: true },
     paymentMethod: { type: String, required: true, default: 'COD' }, 
     status: { type: String, default: 'Pending' },
     isDelivered: { type: Boolean, default: false }, 

@@ -859,6 +859,36 @@ body {
     border-radius: 12px;
 }
 
+.order-product-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* ⭐ Verified-purchase "Write Review" button (only shown on delivered orders) */
+.btn-write-review {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #f39c12;
+    background: rgba(243, 156, 18, 0.12);
+    border: 1px solid rgba(243, 156, 18, 0.35);
+    padding: 4px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    font-family: inherit;
+}
+
+.btn-write-review:hover {
+    background: #f39c12;
+    color: #fff;
+    border-color: #f39c12;
+}
+
 .orders-table tr:last-child td {
     border-bottom: none;
 }
@@ -1191,6 +1221,75 @@ body {
 .star-rating-input label:hover,
 .star-rating-input label:hover ~ label,
 .star-rating-input input:checked ~ label { color: #f39c12; }
+
+/* ---------- Review modal: verified-purchase banner ---------- */
+.review-product-banner {
+    background: linear-gradient(135deg, rgba(243, 156, 18, 0.1), rgba(243, 156, 18, 0.02));
+    border: 1px solid rgba(243, 156, 18, 0.25);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin: 0 1.5rem 0.5rem;
+}
+
+.review-verified-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #d97706;
+}
+
+.review-product-name {
+    margin: 4px 0 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+/* ---------- Review modal: photo upload ---------- */
+.review-photo-upload {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px;
+    border: 1.5px dashed var(--border-color);
+    border-radius: 10px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+}
+
+.review-photo-upload:hover {
+    border-color: #f39c12;
+    color: #f39c12;
+}
+
+.review-photo-preview {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.review-photo-preview.hidden { display: none; }
+
+.review-photo-preview-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.review-photo-preview img {
+    width: 90px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+}
 
 /* =================================================================
    ১১. টোস্ট নোটিফিকেশন (Toast Messages)

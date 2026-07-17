@@ -12,6 +12,46 @@ const mongoose = require('mongoose');
 const Product = require('../models/product'); 
 const Order = require('../models/order'); 
 const User = require('../models/user'); 
+const {
+    validateCouponForCart,
+    redeemCoupon,
+    recordCouponUserUse,
+    releaseCouponSlot
+} = require('./couponController'); 
+
+/**
+ * 🌟 হেল্পার: একটি অর্ডার-আইটেমের ভ্যারিয়েন্ট প্রোডাক্টের variants অ্যারের কোন
+ * ইনডেক্সে আছে তা খুঁজে বের করে। sku অগ্রাধিকার পায়, নইলে attribute+value
+ * (case-insensitive) মিলিয়ে দেখা হয়। কোনো ভ্যারিয়েন্ট না থাকলে -1 রিটার্ন করে।
+ */
+function findVariantIndex(product, item) {
+    if (!product || !Array.isArray(product.variants) || product.variants.length === 0) return -1;
+
+    const norm = (v) => String(v || '').trim().toLowerCase();
+    const sku = norm(item.variantSku || item.sku);
+    const attr = norm(item.variantAttribute || item.attribute);
+    const val = norm(item.variantValue || item.value);
+    const vid = norm(item.variantId);
+
+    // ১. SKU দিয়ে সবচেয়ে নির্ভরযোগ্য ম্যাচ
+    if (sku) {
+        const idx = product.variants.findIndex(v => norm(v.sku) && norm(v.sku) === sku);
+        if (idx > -1) return idx;
+    }
+    // ২. attribute + value কম্বিনেশন
+    if (attr && val) {
+        const idx = product.variants.findIndex(v => norm(v.attribute) === attr && norm(v.value) === val);
+        if (idx > -1) return idx;
+    }
+    // ৩. variantId ("attribute::value" বা sku) দিয়ে fallback ম্যাচ
+    if (vid) {
+        const idx = product.variants.findIndex(v =>
+            norm(v.sku) === vid || `${norm(v.attribute)}::${norm(v.value)}` === vid
+        );
+        if (idx > -1) return idx;
+    }
+    return -1;
+}
 
 // ১. নতুন অর্ডার তৈরি করা এবং স্টক কমানো
 const createOrder = async (req, res) => {
@@ -19,9 +59,10 @@ const createOrder = async (req, res) => {
         const customerName = req.body.customerName || req.body.name;
         const customerPhone = req.body.customerPhone || req.body.phone;
         const customerAddress = req.body.customerAddress || req.body.shippingAddress || req.body.address;
-        const totalAmount = Number(req.body.totalAmount || req.body.total || req.body.totalPrice) || 0;
+        let totalAmount = Number(req.body.totalAmount || req.body.total || req.body.totalPrice) || 0;
         const items = req.body.items || req.body.orderItems || req.body.cart || [];
         const note = req.body.note || req.body.notes || '';
+        const couponCode = String(req.body.couponCode || req.body.coupon || '').trim().toUpperCase();
         
         const paymentMethod = req.body.paymentMethod || req.body.method || 'COD'; 
         
@@ -37,12 +78,15 @@ const createOrder = async (req, res) => {
         // ভবিষ্যতে প্রোডাক্টের দাম বদলালেও এই অর্ডারের প্রফিট/লস নির্ভুল থাকবে।
         let normalizedItems = Array.isArray(items) ? items : [];
         let totalBuyingPrice = 0;
+        let subtotal = 0;
 
         if (normalizedItems.length > 0) {
             normalizedItems = await Promise.all(normalizedItems.map(async (rawItem) => {
                 const item = { ...rawItem };
                 const targetId = item.id || item.productId || item._id;
                 const quantity = Number(item.quantity) || 1;
+                const linePrice = Number(item.price) || 0;
+                subtotal += linePrice * quantity;
 
                 // আইটেমে সরাসরি buyingPrice না থাকলে প্রোডাক্ট ক্যাটালগ থেকে আনা
                 let buyingPrice = Number(item.buyingPrice);
@@ -52,8 +96,17 @@ const createOrder = async (req, res) => {
                             ? { $or: [{ _id: targetId }, { productId: targetId }] }
                             : { productId: targetId };
                         try {
-                            const prod = await Product.findOne(query).select('buyingPrice');
-                            buyingPrice = prod ? (Number(prod.buyingPrice) || 0) : 0;
+                            const prod = await Product.findOne(query).select('buyingPrice variants');
+                            if (prod) {
+                                // 🌟 ভ্যারিয়েন্ট অর্ডার হলে আগে ঐ ভ্যারিয়েন্টের ক্রয়মূল্য দেখা হয়
+                                const vIdx = findVariantIndex(prod, item);
+                                const variantBuying = vIdx > -1 ? Number(prod.variants[vIdx].buyingPrice) : 0;
+                                buyingPrice = (Number.isFinite(variantBuying) && variantBuying > 0)
+                                    ? variantBuying
+                                    : (Number(prod.buyingPrice) || 0);
+                            } else {
+                                buyingPrice = 0;
+                            }
                         } catch (_) {
                             buyingPrice = 0;
                         }
@@ -68,6 +121,41 @@ const createOrder = async (req, res) => {
             }));
         }
 
+        // Server-side coupon re-validation (never trust client discount alone)
+        let discountAmount = 0;
+        let appliedCouponCode = '';
+        let couponDocId = null;
+
+        if (couponCode) {
+            const couponResult = await validateCouponForCart({
+                code: couponCode,
+                subtotal,
+                userId
+            });
+            if (!couponResult.ok) {
+                return res.status(couponResult.status).json({
+                    success: false,
+                    message: couponResult.message
+                });
+            }
+            discountAmount = couponResult.breakdown.discountAmount;
+            totalAmount = couponResult.breakdown.finalTotal;
+            appliedCouponCode = couponResult.breakdown.code;
+            couponDocId = couponResult.coupon._id;
+
+            // Atomically claim a usage slot before persisting the order (race-safe)
+            const redeemed = await redeemCoupon(couponDocId);
+            if (!redeemed) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'This coupon has reached its usage limit.'
+                });
+            }
+        } else if (subtotal > 0) {
+            // No coupon — prefer item-derived subtotal when available
+            totalAmount = Math.round(subtotal * 100) / 100;
+        }
+
         const newOrder = new Order({
             orderId,
             user: userId,
@@ -75,6 +163,9 @@ const createOrder = async (req, res) => {
             customerPhone,
             customerAddress,
             totalAmount,
+            subtotal: Math.round(subtotal * 100) / 100,
+            discountAmount,
+            couponCode: appliedCouponCode,
             totalBuyingPrice: Math.round(totalBuyingPrice),
             paymentMethod, 
             items: normalizedItems,
@@ -83,26 +174,57 @@ const createOrder = async (req, res) => {
             isDelivered: false
         });
 
-        await newOrder.save();
+        try {
+            await newOrder.save();
+        } catch (saveErr) {
+            if (couponDocId) {
+                try {
+                    await releaseCouponSlot(couponDocId);
+                } catch (rbErr) {
+                    console.error('⚠️ Coupon rollback error:', rbErr.message);
+                }
+            }
+            throw saveErr;
+        }
+
+        // Track per-user usage only after a successful order save
+        if (couponDocId && userId) {
+            try {
+                await recordCouponUserUse(couponDocId, userId);
+            } catch (userUseErr) {
+                console.error('⚠️ Coupon usedBy record error:', userUseErr.message);
+            }
+        }
 
         if (Array.isArray(items) && items.length > 0) {
             for (const item of items) {
                 const targetId = item.id || item.productId || item._id; 
                 const quantityOrdered = Number(item.quantity) || 1; 
 
-                if (targetId) {
-                    let query = {};
-                    if (mongoose.Types.ObjectId.isValid(targetId)) {
-                        query = { $or: [{ _id: targetId }, { productId: targetId }] };
-                    } else {
-                        query = { productId: targetId };
-                    }
+                if (!targetId) continue;
 
-                    await Product.findOneAndUpdate(
-                        query,
-                        { $inc: { stock: -quantityOrdered } }, 
-                        { new: true }
-                    );
+                let query = {};
+                if (mongoose.Types.ObjectId.isValid(targetId)) {
+                    query = { $or: [{ _id: targetId }, { productId: targetId }] };
+                } else {
+                    query = { productId: targetId };
+                }
+
+                const product = await Product.findOne(query);
+                if (!product) continue;
+
+                // 🌟 ভ্যারিয়েন্ট অর্ডার হলে ঐ নির্দিষ্ট ভ্যারিয়েন্টের স্টক কমানো হয়;
+                // পাশাপাশি মূল stock ফিল্ডও সমান্তরালে কমে (aggregate সঠিক রাখতে)।
+                const vIdx = findVariantIndex(product, item);
+                if (vIdx > -1) {
+                    const current = Number(product.variants[vIdx].stock) || 0;
+                    product.variants[vIdx].stock = Math.max(0, current - quantityOrdered);
+                    product.stock = Math.max(0, (Number(product.stock) || 0) - quantityOrdered);
+                    product.markModified('variants');
+                    await product.save();
+                } else {
+                    // সাধারণ প্রোডাক্ট (ভ্যারিয়েন্ট নেই) — মূল stock ফিল্ড কমানো
+                    await Product.updateOne(query, { $inc: { stock: -quantityOrdered } });
                 }
             }
         }

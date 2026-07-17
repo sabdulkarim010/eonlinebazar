@@ -615,3 +615,80 @@ body {
         padding-left: 0; /* ছোট স্ক্রিনে পুরো জায়গা নেওয়ার জন্য */
     }
 }
+
+/* =========================================================================
+   COUPON APPLY UI (Cart & Checkout)
+   ========================================================================= */
+.coupon-apply-box {
+    background: #fffaf5;
+    border: 1px dashed #fdba74;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+}
+.coupon-apply-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #9a3412;
+    margin-bottom: 10px;
+}
+.coupon-apply-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.coupon-apply-input {
+    flex: 1 1 160px;
+    min-width: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    background: #fff;
+}
+.coupon-apply-input:focus {
+    outline: none;
+    border-color: #f97316;
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
+}
+.coupon-apply-btn {
+    border: none;
+    background: #f97316;
+    color: #fff;
+    font-weight: 700;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+.coupon-apply-btn:hover { background: #ea580c; }
+.coupon-apply-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+.coupon-remove-btn {
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #b91c1c;
+    font-weight: 600;
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.coupon-remove-btn:hover { background: #fee2e2; }
+.coupon-applied-msg {
+    margin: 10px 0 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #15803d;
+}
+.discount-row strong,
+.discount-row #cartDiscountAmount,
+.discount-row #checkoutDiscountAmount {
+    color: #16a34a !important;
+}

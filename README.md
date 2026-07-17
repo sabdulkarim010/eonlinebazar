@@ -112,10 +112,10 @@ This release ships a major overhaul of the **Super Admin Panel** with critical s
 ### Core Dependencies
 
 ```json
-"bcryptjs"      "cloudinary"   "dotenv"        "express"
-"geoip-lite"    "jsonwebtoken" "mongoose"      "multer"
-"nodemailer"    "request-ip"   "sharp"         "streamifier"
-"ua-parser-js"
+"bcryptjs"           "cloudinary"   "dotenv"        "express"
+"express-rate-limit" "geoip-lite"   "jsonwebtoken"  "mongoose"
+"multer"             "nodemailer"   "request-ip"    "sharp"
+"streamifier"        "ua-parser-js"
 ```
 
 ---
@@ -353,8 +353,16 @@ Base URL: `http://localhost:3000`
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| `POST` | `/api/admin/login` | Admin login (24h JWT with `role: 'admin'`) | Public |
+| `POST` | `/api/admin/login` | **2FA Step 1** — verify username/password, dispatch email OTP (rate-limited + blacklist-gated) | Public |
+| `POST` | `/api/admin/verify-otp` | **2FA Step 2** — verify OTP, issue 24h JWT + create `AdminSession` | Public |
 | `GET`  | `/api/admin/verify-token` | Validate admin JWT on panel load | Admin |
+| `GET`  | `/api/admin/sessions` | List active admin devices (flags "This Device") | Admin |
+| `POST` | `/api/admin/sessions/logout/:id` | Remotely terminate a device session | Admin |
+| `POST` | `/api/admin/sessions/logout-others` | Log out all other admin devices | Admin |
+| `GET`  | `/api/admin/blacklist` | List blocked IPs (auto + manual) | Admin |
+| `POST` | `/api/admin/blacklist` | Manually blacklist an IP (`{ ip, reason, hours }`) | Admin |
+| `DELETE` | `/api/admin/blacklist/:id` | Unblock an IP (by id or address) | Admin |
+| `GET`  | `/api/admin/login-history` | Login history & failed/blocked attempts audit feed | Admin |
 | `GET`  | `/api/admin/customers` | List customers (includes `orderCount`) | Admin |
 | `GET`  | `/api/admin/customers/:id` | Customer profile | Admin |
 | `PUT`  | `/api/admin/customers/:id` | Edit customer | Admin |
@@ -396,11 +404,36 @@ Base URL: `http://localhost:3000`
 2. `verifyUser` checks JWT signature **and** session existence; revoked sessions return **401**.
 3. Remote logout deletes the session record — instant invalidation on next request.
 
-### Admin authentication (role-based JWT)
-1. Admin login issues a 24h JWT with `role: 'admin'`.
-2. `verifyAdmin` rejects customer tokens even if signed with the same secret.
-3. Admin panel validates token on load via `GET /api/admin/verify-token`.
-4. Protected routes: products (write), catalog (write), all `/api/admin/*` endpoints.
+### Admin authentication (role-based JWT + 2FA)
+1. **Step 1** — `POST /api/admin/login` verifies username & password behind an
+   IP-blacklist gate and an `express-rate-limit` throttle, then emails a hashed
+   6-digit OTP (5-min expiry) and returns a short-lived `otpToken`.
+2. **Step 2** — `POST /api/admin/verify-otp` verifies the OTP, issues a 24h JWT
+   embedding a session id (`sid`), and creates an `AdminSession` record.
+3. `verifyAdmin` rejects customer tokens **and** validates the `AdminSession`
+   (remote logout ⇒ instant 401 on the device's next request).
+4. Admin panel validates token on load via `GET /api/admin/verify-token`.
+5. Protected routes: products (write), catalog (write), all `/api/admin/*` endpoints.
+
+### 🛡️ Fortified Admin Security Suite (enterprise IAM-style)
+- **Session & Device Tracking** — `AdminSession` stores IP, geo-location
+  (`geoip-lite`), OS/Browser/Device Type (`ua-parser-js`), `lastActive`, and
+  `status`. Managed from the **Active Devices & Sessions** panel page with
+  "This Device" highlighting and remote termination.
+- **Brute-Force Protection & Auto-IP Blacklisting** — `express-rate-limit` on
+  the auth routes; an Intrusion Detection engine bans an IP for **24h** after
+  **5 failed attempts in 15 minutes** (`BlacklistedIP`, TTL-expiring). The
+  `checkBlacklist` middleware returns **403** before the controller runs.
+- **Two-Factor Authentication** — email OTP (hashed with `bcryptjs`) delivered
+  via the shared `utils/mailer.js`; falls back to a clean console log in dev.
+- **Security & Audit dashboard** — Tab 1: Login History & Failed Attempts
+  (timestamp, IP, location, device, status); Tab 2: IP Blacklist Manager
+  (view / manually block / unblock, auto vs manual source).
+
+**New pieces:** `models/adminSession.js`, `models/blacklistedIp.js`,
+`models/loginAttempt.js`, `middlewares/adminSecurity.js`,
+`controllers/adminSecurityController.js`, `utils/deviceParser.js`,
+`utils/mailer.js`, and the `client/verify-otp.html` 2FA page.
 
 ### Security logging
 Events written to `SecurityLog` via `utils/securityLogger.js`:

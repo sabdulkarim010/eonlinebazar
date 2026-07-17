@@ -378,61 +378,6 @@ const getProductById = async (req, res) => {
     }
 };
 
-// 🌟 ৬. প্রোডাক্টে কাস্টমারদের রিভিউ ও রেটিং দেওয়া
-const createProductReview = async (req, res) => {
-    try {
-        const { rating, comment } = req.body;
-        const productIdParam = req.params.id;
-
-        // আইডি undefined আসছে কি না তা চেক করা
-        if (!productIdParam || productIdParam === 'undefined') {
-            return res.status(400).json({ success: false, message: "প্রোডাক্ট আইডি পাওয়া যায়নি!" });
-        }
-
-        let query = mongoose.Types.ObjectId.isValid(productIdParam) 
-                    ? { _id: productIdParam } 
-                    : { productId: String(productIdParam) }; 
-
-        const product = await Product.findOne(query);
-
-        if (!product) {
-            return res.status(404).json({ success: false, message: "Product not found!" });
-        }
-
-        if (!product.reviews) {
-            product.reviews = [];
-        }
-
-        const alreadyReviewed = product.reviews.find(
-            (r) => r.user.toString() === req.user.id.toString()
-        );
-
-        if (alreadyReviewed) {
-            return res.status(400).json({ success: false, message: "আপনি ইতিমধ্যে এই প্রোডাক্টটির রিভিউ দিয়েছেন।" });
-        }
-
-        // 🌟 ফিক্স: ইউজারের নাম না পেলে "Verified Customer" দেখাবে
-        const review = {
-            user: req.user.id,
-            name: req.user.name || "Verified Customer", 
-            rating: Number(rating),
-            comment,
-            createdAt: new Date()
-        };
-
-        product.reviews.push(review);
-        product.numOfReviews = product.reviews.length;
-        product.rating = product.reviews.reduce((acc, item) => item.rating + acc, 0) / product.reviews.length;
-
-        await product.save();
-        res.status(201).json({ success: true, message: "ধন্যবাদ! আপনার রিভিউ সফলভাবে যুক্ত হয়েছে।" });
-
-    } catch (err) {
-        console.error("Product Review Error:", err);
-        res.status(500).json({ success: false, message: "Server error while adding review." });
-    }
-};
-
 
 module.exports = { 
     getProducts, 
@@ -441,7 +386,6 @@ module.exports = {
     updateProduct, 
     deleteProduct, 
     getProductById,
-    createProductReview // 🌟 এক্সপোর্ট করা হলো
 };
 
 

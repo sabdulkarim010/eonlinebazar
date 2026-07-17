@@ -55,17 +55,34 @@ function loadCheckoutSessionData() {
     }
 
     let totalItems = 0;
-    let totalPrice = 0;
+    let subtotal = 0;
 
     if (sessionData.items && sessionData.items.length > 0) {
         sessionData.items.forEach(item => {
             totalItems += (parseInt(item.quantity) || 1);
-            totalPrice += parseFloat(item.price) * (parseInt(item.quantity) || 1);
+            subtotal += parseFloat(item.price) * (parseInt(item.quantity) || 1);
         });
     }
 
+    const discountAmount = Number(sessionData.discountAmount) || 0;
+    const payable = Number.isFinite(Number(sessionData.totalAmount))
+        ? Number(sessionData.totalAmount)
+        : Math.max(0, subtotal - discountAmount);
+
     document.getElementById('summaryItemsCount').innerText = `${totalItems} Item${totalItems !== 1 ? 's' : ''}`;
-    document.getElementById('summaryPayableTotal').innerText = `৳${totalPrice}`;
+
+    const discountRow = document.getElementById('summaryDiscountRow');
+    const discountEl = document.getElementById('summaryDiscountAmount');
+    const couponLabel = document.getElementById('summaryCouponCode');
+    if (discountAmount > 0 && discountRow) {
+        discountRow.style.display = 'flex';
+        if (discountEl) discountEl.innerText = `-৳${discountAmount}`;
+        if (couponLabel) couponLabel.innerText = sessionData.couponCode || '';
+    } else if (discountRow) {
+        discountRow.style.display = 'none';
+    }
+
+    document.getElementById('summaryPayableTotal').innerText = `৳${payable}`;
 }
 
 /* =========================================================================
@@ -192,6 +209,9 @@ window.handleFinalOrderSubmission = async function() {
             customerPhone: sessionData.customerPhone,
             customerAddress: sessionData.customerAddress,
             items: sessionData.items,
+            subtotal: Number(sessionData.subtotal) || 0,
+            discountAmount: Number(sessionData.discountAmount) || 0,
+            couponCode: sessionData.couponCode || '',
             totalAmount: Number(sessionData.totalAmount) || 0,
             paymentMethod: finalMethod,
             status: "Pending",
@@ -237,6 +257,7 @@ window.handleFinalOrderSubmission = async function() {
 
             // ৪. চেকআউট সেশন ক্লিনআপ (সবার জন্য সাধারণ ক্লিনআপ)
             localStorage.removeItem('activeCheckoutSession');
+            localStorage.removeItem('appliedCoupon');
             localStorage.removeItem('shippingFullName');
             localStorage.removeItem('shippingMobile');
             localStorage.removeItem('shippingAddress');

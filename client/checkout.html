@@ -9,6 +9,8 @@
     <link rel="stylesheet" href="css/cart.css">
     <link rel="stylesheet" href="css/checkout.css">
     <link rel="stylesheet" href="css/footer.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
 
@@ -52,6 +54,18 @@
                 </div>
 
             <div class="checkout-summary-block" id="orderSummarySection">
+                <div class="coupon-apply-box" id="checkoutCouponBox">
+                    <label for="checkoutCouponInput" class="coupon-apply-label">
+                        <i class="fa-solid fa-ticket"></i> Apply Coupon
+                    </label>
+                    <div class="coupon-apply-row">
+                        <input type="text" id="checkoutCouponInput" class="coupon-apply-input" placeholder="Enter coupon code" maxlength="32" autocomplete="off">
+                        <button type="button" id="checkoutApplyCouponBtn" class="coupon-apply-btn">Apply</button>
+                        <button type="button" id="checkoutRemoveCouponBtn" class="coupon-remove-btn" style="display:none;">Remove</button>
+                    </div>
+                    <p class="coupon-applied-msg" id="checkoutCouponAppliedMsg" style="display:none;"></p>
+                </div>
+
                 <div class="summary-row">
                     <span>Selected Items:</span>
                     <strong id="totalItemsCount">0 Items</strong>
@@ -59,6 +73,10 @@
                 <div class="summary-row">
                     <span>Subtotal:</span>
                     <strong id="checkoutSubtotal">৳0</strong>
+                </div>
+                <div class="summary-row discount-row" id="checkoutDiscountRow" style="display:none;">
+                    <span>Discount (<span id="checkoutCouponCodeLabel"></span>):</span>
+                    <strong id="checkoutDiscountAmount">-৳0</strong>
                 </div>
                 <div class="summary-row grand-total-row">
                     <span>Total Amount:</span>

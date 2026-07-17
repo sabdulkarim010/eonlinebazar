@@ -59,6 +59,9 @@
                     <span id="productDiscountBadge" class="discount-badge hidden">0% OFF</span>
                 </div>
 
+                <!-- 🌟 Dynamic variant selectors (Size / Color etc.) — populated by JS if the product has variants -->
+                <div id="variantSelectorWrap" class="variant-selector-wrap hidden"></div>
+
                 <p id="productShortDesc" class="product-short-desc">Loading description...</p>
 
                 <div class="product-highlights-box">
@@ -133,44 +136,18 @@
             </div>
 
             <div id="review-tab" class="tab-content-pane">
-                <div class="reviews-grid-system">
-                    
-                    <div class="add-review-form-wrapper">
-                        <h3>Write a Customer Review</h3>
-                        <form id="productReviewForm">
-                            <div class="rating-input-container">
-                                <span>Your Rating:</span>
-                                <div class="rating-stars-input" id="starInputGroup">
-                                    <i class="fa-star fa-regular" data-value="1"></i>
-                                    <i class="fa-star fa-regular" data-value="2"></i>
-                                    <i class="fa-star fa-regular" data-value="3"></i>
-                                    <i class="fa-star fa-regular" data-value="4"></i>
-                                    <i class="fa-star fa-regular" data-value="5"></i>
-                                </div>
-                            </div>
-                            <div class="form-input-group">
-                                <label for="reviewerName"><i class="fa-solid fa-user"></i></label>
-                                <input type="text" id="reviewerName" placeholder="Enter your name" required>
-                            </div>
-                            <div class="form-input-group">
-                                <label for="reviewerComment"><i class="fa-solid fa-comment-dots"></i></label>
-                                <textarea id="reviewerComment" rows="4" placeholder="Write your honest experience about this product..." required></textarea>
-                            </div>
-                            <button type="submit" class="btn-submit-review">
-                                <span>Submit Review</span> <i class="fa-solid fa-paper-plane"></i>
-                            </button>
-                        </form>
+                <div class="reviews-display-list-box">
+                    <div class="reviews-list-header">
+                        <h3><i class="fa-solid fa-comments"></i> Customer Feedbacks</h3>
+                        <span class="verified-reviews-note">
+                            <i class="fa-solid fa-shield-check"></i> Reviews from verified buyers only
+                        </span>
                     </div>
-
-                    <div class="reviews-display-list-box">
-                        <h3>Customer Feedbacks</h3>
-                        <div id="reviewsListContainer" class="reviews-list-container">
-                            <p class="no-reviews-msg" id="noReviewsMsg">
-                                <i class="fa-solid fa-comment-slash"></i> No reviews yet. Be the first to review this product!
-                            </p>
-                        </div>
+                    <div id="reviewsListContainer" class="reviews-list-container">
+                        <p class="no-reviews-msg" id="noReviewsMsg">
+                            <i class="fa-solid fa-comment-slash"></i> No reviews yet. Be the first to review this product after your purchase is delivered!
+                        </p>
                     </div>
-
                 </div>
             </div>
 

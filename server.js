@@ -27,6 +27,7 @@ const brandRoutes = require('./routes/brandRoutes');
 const attributeRoutes = require('./routes/attributeRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const financeRoutes = require('./routes/financeRoutes');
+const couponRoutes = require('./routes/couponRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -82,6 +83,7 @@ app.use('/api/brands', brandRoutes);
 app.use('/api/attributes', attributeRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/finance', financeRoutes);
+app.use('/api/coupons', couponRoutes);
 
 /********************************************************************
  # FRONTEND UI ROUTES (ক্লিন ইউআরএল লজিক)
@@ -165,6 +167,13 @@ app.get('/admin', (req, res) => {
 app.get('/admin-login', (req, res) => {
     res.sendFile(path.join(__dirname, 'client', 'admin-login.html'));
 });
+
+// 🔐 অ্যাডমিন 2FA OTP ভেরিফিকেশন পেজ (Step 2)
+function serveAdminOtpPage(req, res) {
+    res.sendFile(path.join(__dirname, 'client', 'verify-otp.html'));
+}
+app.get('/admin/verify-otp', serveAdminOtpPage);
+app.get('/verify-otp', serveAdminOtpPage);
 
 // ফাইন্যান্স ড্যাশবোর্ড লগইন পেজের ক্লিন রুট
 app.get('/finance-login', (req, res) => {

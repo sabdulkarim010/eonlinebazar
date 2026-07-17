@@ -1,0 +1,98 @@
+/* ==================================================
+   Admin 2FA OTP Verification — page-scoped styles
+================================================== */
+.otp-container {
+    max-width: 440px;
+}
+
+.otp-shield {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: #fff;
+    font-size: 26px;
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+}
+
+#otpForm {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    margin-top: 10px;
+}
+
+.otp-inputs {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.otp-cell {
+    width: 48px;
+    height: 56px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: 700;
+    color: #1e293b;
+    background-color: #f8fafc;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.otp-cell:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+    background-color: #eff6ff;
+}
+
+.otp-cell.filled {
+    border-color: #2563eb;
+    background-color: #eff6ff;
+}
+
+.otp-timer {
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    min-height: 18px;
+}
+
+.otp-timer.expired {
+    color: #ef4444;
+}
+
+.otp-footer {
+    margin-top: 22px;
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    font-size: 14px;
+}
+
+.otp-footer a {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.otp-footer a:hover {
+    text-decoration: underline;
+}
+
+#otpSubtext b {
+    color: #1e293b;
+}
+
+@media (max-width: 420px) {
+    .otp-cell { width: 40px; height: 50px; font-size: 20px; }
+}

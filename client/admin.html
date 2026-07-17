@@ -54,10 +54,22 @@
                             <li data-target="manage-category"><i class="fa-solid fa-tags"></i> Manage Categories</li>
                             <li data-target="manage-brands"><i class="fa-solid fa-copyright"></i> Manage Brands</li>
                             <li data-target="manage-attributes"><i class="fa-solid fa-sliders"></i> Attributes</li>
+                            <li data-target="manage-coupons"><i class="fa-solid fa-ticket"></i> Manage Coupons</li>
                         </ul>
                     </li>
 
-                    <li data-target="view-security"><i class="fa-solid fa-shield-halved"></i> Security Logs</li>
+                    <li class="menu-group">
+                        <div class="catalog-toggle">
+                            <span class="catalog-toggle-label"><i class="fa-solid fa-lock"></i> Security Suite</span>
+                            <i class="fa-solid fa-chevron-down catalog-chevron"></i>
+                        </div>
+                        <ul class="submenu">
+                            <li data-target="view-security"><i class="fa-solid fa-shield-halved"></i> Security Logs</li>
+                            <li data-target="view-sessions"><i class="fa-solid fa-laptop-mobile"></i> Active Sessions</li>
+                            <li data-target="view-audit"><i class="fa-solid fa-user-shield"></i> Security &amp; Audit</li>
+                        </ul>
+                    </li>
+
                     <li data-target="view-settings"><i class="fa-solid fa-gear"></i> Admin Settings</li>
 
                 </ul>
@@ -338,6 +350,89 @@
                 </tr>
             </thead>
             <tbody id="brandTableBody"></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="manage-coupons" class="admin-section catalog-page" style="display: none;">
+    <div class="catalog-page-header">
+        <div>
+            <h3><i class="fa-solid fa-ticket"></i> Manage Coupons</h3>
+            <p class="catalog-page-sub">Create discount codes, set usage limits, and track redemption analytics.</p>
+        </div>
+    </div>
+
+    <form id="couponForm" class="coupon-form-card" onsubmit="event.preventDefault(); saveCoupon();">
+        <input type="hidden" id="couponEditId" value="">
+        <div class="coupon-form-grid">
+            <div class="catalog-field">
+                <label for="couponCode">Coupon Code</label>
+                <input type="text" id="couponCode" placeholder="e.g., EOB10" maxlength="32" required autocomplete="off">
+            </div>
+            <div class="catalog-field">
+                <label for="couponDiscountType">Discount Type</label>
+                <select id="couponDiscountType">
+                    <option value="percentage">Percentage (%)</option>
+                    <option value="flat">Flat Amount</option>
+                </select>
+            </div>
+            <div class="catalog-field">
+                <label for="couponDiscountValue">Discount Value</label>
+                <input type="number" id="couponDiscountValue" min="0" step="0.01" placeholder="e.g., 10" required>
+            </div>
+            <div class="catalog-field">
+                <label for="couponMinOrder">Min Order Amount</label>
+                <input type="number" id="couponMinOrder" min="0" step="1" placeholder="0" value="0">
+            </div>
+            <div class="catalog-field">
+                <label for="couponMaxDiscount">Max Discount <span class="optional-hint">(optional)</span></label>
+                <input type="number" id="couponMaxDiscount" min="0" step="1" placeholder="Cap for % discounts">
+            </div>
+            <div class="catalog-field">
+                <label for="couponExpiry">Expiry Date</label>
+                <input type="date" id="couponExpiry" required>
+            </div>
+            <div class="catalog-field">
+                <label for="couponUsageLimit">Global Usage Limit</label>
+                <input type="number" id="couponUsageLimit" min="1" step="1" placeholder="e.g., 100" required>
+            </div>
+            <div class="catalog-field">
+                <label for="couponPerUserLimit">Per-User Limit</label>
+                <input type="number" id="couponPerUserLimit" min="1" step="1" value="1" required>
+            </div>
+            <div class="catalog-field coupon-toggle-field">
+                <label for="couponIsActive">Active Status</label>
+                <label class="coupon-switch">
+                    <input type="checkbox" id="couponIsActive" checked>
+                    <span class="coupon-switch-slider"></span>
+                    <span class="coupon-switch-label" id="couponIsActiveLabel">Active</span>
+                </label>
+            </div>
+        </div>
+        <div class="coupon-form-actions">
+            <button type="submit" class="btn-submit catalog-add-btn" id="couponSaveBtn">
+                <i class="fa-solid fa-plus"></i> <span id="couponSaveBtnText">Create Coupon</span>
+            </button>
+            <button type="button" class="btn-secondary coupon-cancel-btn" id="couponCancelBtn" style="display:none;" onclick="resetCouponForm()">
+                Cancel Edit
+            </button>
+        </div>
+    </form>
+
+    <div class="catalog-table-wrap coupon-table-wrap">
+        <table class="catalog-table coupon-analytics-table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Discount</th>
+                    <th>Min Order</th>
+                    <th>Usage</th>
+                    <th>Expiry</th>
+                    <th>Status</th>
+                    <th class="col-actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="couponTableBody"></tbody>
         </table>
     </div>
 </section>
@@ -805,6 +900,135 @@
                             <tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading security logs...</p></td></tr>
                         </tbody>
                     </table>
+                </div>
+            </section>
+
+
+<section id="view-sessions" class="admin-section" style="display: none;">
+                <div class="section-header-box security-header-box">
+                    <div>
+                        <h3>Active Devices &amp; Sessions</h3>
+                        <p class="section-subtitle">Every device currently signed into this admin account. Revoke access instantly.</p>
+                    </div>
+                    <div class="sessions-header-actions no-print">
+                        <button type="button" class="btn-danger-soft" onclick="logoutOtherAdminSessions()">
+                            <i class="fa-solid fa-power-off"></i> Log Out All Other Devices
+                        </button>
+                        <button type="button" class="btn-secondary" onclick="fetchAdminSessions()">
+                            <i class="fa-solid fa-rotate"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div class="metrics-grid security-status-grid">
+                    <div class="metric-card success security-status-card">
+                        <div class="icon"><i class="fa-solid fa-laptop-mobile"></i></div>
+                        <div class="data">
+                            <p>ACTIVE SESSIONS</p>
+                            <h3 id="activeSessionCount">—</h3>
+                            <small>Devices with a live admin token.</small>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="icon"><i class="fa-solid fa-location-dot"></i></div>
+                        <div class="data">
+                            <p>THIS DEVICE</p>
+                            <h3 id="thisDeviceLabel" style="font-size:1rem;">—</h3>
+                            <small>Your current location &amp; browser.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="adminSessionsGrid" class="sessions-grid">
+                    <div class="loading-container"><div class="spinner"></div><p>Loading active sessions...</p></div>
+                </div>
+            </section>
+
+
+            <section id="view-audit" class="admin-section" style="display: none;">
+                <div class="section-header-box security-header-box">
+                    <div>
+                        <h3>Security &amp; Audit</h3>
+                        <p class="section-subtitle">Login history, intrusion attempts, and the IP blacklist firewall.</p>
+                    </div>
+                    <button type="button" class="btn-secondary no-print" onclick="refreshAuditActiveTab()">
+                        <i class="fa-solid fa-rotate"></i> Refresh
+                    </button>
+                </div>
+
+                <div class="audit-tabs">
+                    <button type="button" class="audit-tab active" data-audit-tab="tab-login-history">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Login History &amp; Failed Attempts
+                    </button>
+                    <button type="button" class="audit-tab" data-audit-tab="tab-blacklist">
+                        <i class="fa-solid fa-ban"></i> IP Blacklist Manager
+                    </button>
+                </div>
+
+                <!-- TAB 1: Login History -->
+                <div id="tab-login-history" class="audit-panel">
+                    <div class="metrics-grid security-status-grid">
+                        <div class="metric-card success"><div class="icon"><i class="fa-solid fa-circle-check"></i></div>
+                            <div class="data"><p>SUCCESSFUL LOGINS</p><h3 id="auditSuccessCount">—</h3></div></div>
+                        <div class="metric-card"><div class="icon" style="color:#f59e0b;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <div class="data"><p>FAILED ATTEMPTS</p><h3 id="auditFailedCount">—</h3></div></div>
+                        <div class="metric-card"><div class="icon" style="color:#ef4444;"><i class="fa-solid fa-shield-halved"></i></div>
+                            <div class="data"><p>BLOCKED REQUESTS</p><h3 id="auditBlockedCount">—</h3></div></div>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>TIMESTAMP</th>
+                                    <th>USERNAME</th>
+                                    <th>IP ADDRESS</th>
+                                    <th>LOCATION</th>
+                                    <th>DEVICE</th>
+                                    <th>STATUS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="loginHistoryBody">
+                                <tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading login history...</p></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB 2: Blacklist Manager -->
+                <div id="tab-blacklist" class="audit-panel" style="display:none;">
+                    <div class="blacklist-add-card">
+                        <h4><i class="fa-solid fa-plus"></i> Manually Blacklist an IP</h4>
+                        <form id="blacklistAddForm" class="blacklist-add-form">
+                            <input type="text" id="blIpInput" placeholder="e.g. 203.0.113.45" required>
+                            <input type="text" id="blReasonInput" placeholder="Reason (optional)">
+                            <select id="blDurationInput">
+                                <option value="24">24 hours</option>
+                                <option value="1">1 hour</option>
+                                <option value="168">7 days</option>
+                                <option value="">Permanent</option>
+                            </select>
+                            <button type="submit" class="btn-primary"><i class="fa-solid fa-ban"></i> Block IP</button>
+                        </form>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>IP ADDRESS</th>
+                                    <th>REASON</th>
+                                    <th>SOURCE</th>
+                                    <th>BLOCKED AT</th>
+                                    <th>EXPIRES</th>
+                                    <th>ACTION</th>
+                                </tr>
+                            </thead>
+                            <tbody id="blacklistBody">
+                                <tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading blacklist...</p></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 

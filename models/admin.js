@@ -16,6 +16,16 @@ const adminSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    // 🔐 2FA / OTP ডেলিভারির জন্য অ্যাডমিন ইমেইল (খালি থাকলে EMAIL_USER-এ পাঠানো হয়)
+    email: {
+        type: String,
+        default: '',
+        trim: true,
+        lowercase: true
+    },
+    // 🔐 Two-Factor Authentication (Email OTP) — হ্যাশড OTP ও এক্সপায়ারি
+    loginOtpHash: { type: String, default: null, select: false },
+    loginOtpExpires: { type: Date, default: null, select: false },
     image: { 
         type: String, 
         default: '' // প্রোফাইল ছবির ক্লাউডিনারি URL এখানে সেভ হবে

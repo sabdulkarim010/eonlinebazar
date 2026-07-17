@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2-Step Verification | EonlineBazar Admin</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/admin-login.css">
+    <link rel="stylesheet" href="css/verify-otp.css">
+</head>
+<body>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="login-container otp-container">
+        <div class="otp-shield"><i class="fa-solid fa-shield-halved"></i></div>
+        <h2>Two-Factor Verification</h2>
+        <p id="otpSubtext">Enter the 6-digit code sent to your email.</p>
+
+        <form id="otpForm">
+            <div class="otp-inputs" id="otpInputs">
+                <input type="text" inputmode="numeric" maxlength="1" class="otp-cell" autocomplete="one-time-code">
+                <input type="text" inputmode="numeric" maxlength="1" class="otp-cell">
+                <input type="text" inputmode="numeric" maxlength="1" class="otp-cell">
+                <input type="text" inputmode="numeric" maxlength="1" class="otp-cell">
+                <input type="text" inputmode="numeric" maxlength="1" class="otp-cell">
+                <input type="text" inputmode="numeric" maxlength="1" class="otp-cell">
+            </div>
+
+            <div class="otp-timer" id="otpTimer"></div>
+
+            <button type="submit">Verify &amp; Sign In</button>
+        </form>
+
+        <div class="otp-footer">
+            <a href="/admin-login" id="backToLogin"><i class="fa-solid fa-arrow-left"></i> Back to login</a>
+        </div>
+    </div>
+
+    <script type="module" src="js/verify-otp.js"></script>
+</body>
+</html>

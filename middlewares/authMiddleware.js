@@ -10,9 +10,10 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const UserSession = require('../models/userSession');
+const AdminSession = require('../models/adminSession');
 
-// ১. অ্যাডমিন ভেরিফাই করার জন্য (🌟 role-based, নিরাপত্তা-হার্ডেনড)
-const verifyAdmin = (req, res, next) => {
+// ১. অ্যাডমিন ভেরিফাই করার জন্য (🌟 role-based + session-aware, নিরাপত্তা-হার্ডেনড)
+const verifyAdmin = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
 
     // টোকেন না থাকলে 401 → ফ্রন্টএন্ড লগইন পেজে রিডাইরেক্ট করবে
@@ -33,16 +34,35 @@ const verifyAdmin = (req, res, next) => {
         // ভ্যালিড হওয়াই যথেষ্ট নয়। অ্যাডমিন টোকেনে role: 'admin' থাকে।
         // ব্যাকওয়ার্ড কম্প্যাটিবিলিটি: পুরোনো অ্যাডমিন টোকেনে role না থাকলেও সেখানে
         // username থাকে এবং কাস্টমারের মতো id/sid থাকে না — সেটিও গ্রহণযোগ্য।
-        const isAdmin =
+        const looksLikeAdmin =
             decoded.role === 'admin' ||
-            (decoded.username && !decoded.id && !decoded.sid && !decoded._id && !decoded.userId);
+            (decoded.username && !decoded.id && !decoded._id && !decoded.userId);
 
-        if (!isAdmin) {
+        if (!looksLikeAdmin) {
             return res.status(403).json({
                 success: false,
                 message: "Admin privileges required. Access denied!",
                 redirect: "/admin-login"
             });
+        }
+
+        // 🌟 সেশন ভ্যালিডেশন (রিমোট লগআউট সাপোর্ট): নতুন অ্যাডমিন টোকেনে sid থাকে।
+        // সেই AdminSession টি এখনো 'active' আছে কিনা যাচাই করা হয় — কোনো ডিভাইস
+        // রিমোট লগআউট করলে status 'revoked' হয়ে যায় → পরের রিকোয়েস্টেই 401 (forced logout)।
+        // পুরোনো টোকেনে sid না থাকলে ব্যাকওয়ার্ড কম্প্যাটিবিলিটির জন্য অনুমোদিত।
+        if (decoded.sid) {
+            const session = await AdminSession.findOneAndUpdate(
+                { sessionId: decoded.sid, status: 'active' },
+                { $set: { lastActive: new Date() } },
+                { new: true }
+            );
+            if (!session) {
+                return res.status(401).json({
+                    success: false,
+                    message: "This admin session was logged out or expired. Please log in again.",
+                    redirect: "/admin-login"
+                });
+            }
         }
 
         req.admin = decoded;

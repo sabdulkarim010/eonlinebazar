@@ -462,9 +462,15 @@
             <h2><i class="fa-solid fa-star review-title-icon"></i> Write a Review</h2>
             <span class="close-modal" id="close-review-modal">&times;</span>
         </div>
-        
+
+        <div class="review-product-banner">
+            <span class="review-verified-tag"><i class="fa-solid fa-shield-check"></i> Verified Purchase</span>
+            <p class="review-product-name" id="review-modal-product-name">Product</p>
+        </div>
+
         <form id="review-form">
             <input type="hidden" id="review-product-id">
+            <input type="hidden" id="review-order-id">
             
             <div class="input-group">
                 <label>Rate this product</label>
@@ -488,6 +494,16 @@
                     <i class="fa-regular fa-comment-dots input-icon"></i>
                     <textarea id="review-comment" rows="4" required placeholder="Tell us about your experience with this product..."></textarea>
                 </div>
+            </div>
+
+            <div class="input-group full-width">
+                <label for="review-photo">Add a Photo <span class="badge-readonly">Optional</span></label>
+                <label for="review-photo" class="review-photo-upload">
+                    <i class="fa-solid fa-camera"></i>
+                    <span id="review-photo-label">Click to upload a product photo</span>
+                </label>
+                <input type="file" id="review-photo" accept="image/*" hidden>
+                <div id="review-photo-preview" class="review-photo-preview hidden"></div>
             </div>
 
             <div class="form-actions mt-20">

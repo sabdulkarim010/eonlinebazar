@@ -10,8 +10,10 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController'); 
+const adminSecurityController = require('../controllers/adminSecurityController');
 const upload = require('../middlewares/uploadMiddleware');
 const { verifyAdmin } = require('../middlewares/authMiddleware');
+const { checkBlacklist, adminLoginLimiter } = require('../middlewares/adminSecurity');
 
 // ১. কাস্টমারদের ডাটা পাওয়ার রাস্তা (GET)
 router.get('/customers', verifyAdmin, adminController.getAllCustomers);
@@ -23,7 +25,21 @@ router.put('/customers/:id', verifyAdmin, adminController.updateCustomer);
 router.patch('/customers/:id/status', verifyAdmin, adminController.updateCustomerStatus);
 
 // ২. অ্যাডমিন লগইন করার রাস্তা (POST)
-router.post('/login', adminController.loginAdmin);
+router.post('/login', checkBlacklist, adminLoginLimiter, adminSecurityController.loginAdmin);
+
+// 🔐 অ্যাডমিন লগইন — Step 2 (OTP → final JWT + AdminSession)
+router.post('/verify-otp', checkBlacklist, adminLoginLimiter, adminSecurityController.verifyOtp);
+
+// 🖥️ Active Devices & Sessions (remote logout)
+router.get('/sessions', verifyAdmin, adminSecurityController.getAdminSessions);
+router.post('/sessions/logout-others', verifyAdmin, adminSecurityController.logoutOtherSessions);
+router.post('/sessions/logout/:id', verifyAdmin, adminSecurityController.logoutSession);
+
+// 🛡️ IP Blacklist Manager + Login History
+router.get('/blacklist', verifyAdmin, adminSecurityController.getBlacklist);
+router.post('/blacklist', verifyAdmin, adminSecurityController.addBlacklist);
+router.delete('/blacklist/:id', verifyAdmin, adminSecurityController.removeBlacklist);
+router.get('/login-history', verifyAdmin, adminSecurityController.getLoginHistory);
 
 // ৩. টোকেন ভেরিফিকেশন (GET)
 router.get('/verify-token', verifyAdmin, adminController.verifyAdminToken);

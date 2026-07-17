@@ -494,9 +494,11 @@ const uploadStoreBranding = async (req, res) => {
     }
 };
 
+// দ্রষ্টব্য: loginAdmin এখন controllers/adminSecurityController.js-এ স্থানান্তরিত
+// (2-step OTP flow)। তাই এখান থেকে এক্সপোর্ট সরিয়ে ফেলা হলো — উপরের পুরোনো
+// হ্যান্ডলারটি আর কোনো রুটে ব্যবহৃত হয় না।
 module.exports = {
     getAllCustomers,
-    loginAdmin,
     updateProfilePic,
     getAdminProfile,
     getCustomerById,

@@ -2,6 +2,34 @@
 
 const Cart = require('../models/cart');
 
+/**
+ * 🌟 হেল্পার: একটি আইটেম থেকে ভ্যারিয়েন্ট তথ্য নরমালাইজ করা।
+ * ফ্রন্টএন্ড বিভিন্ন নামে পাঠাতে পারে, তাই সব কেস হ্যান্ডেল করা হয়।
+ * ভ্যারিয়েন্ট না থাকলে সব ফিল্ড খালি স্ট্রিং হয় (backward-compatible)।
+ */
+function normalizeVariant(src = {}) {
+    const attribute = String(src.variantAttribute || src.attribute || '').trim();
+    const value = String(src.variantValue || src.value || '').trim();
+    const sku = String(src.variantSku || src.sku || '').trim();
+    let variantId = String(src.variantId || '').trim();
+    if (!variantId && (attribute || value || sku)) {
+        // sku অগ্রাধিকার পায়, নইলে attribute::value কী
+        variantId = sku || `${attribute}::${value}`;
+    }
+    const variantLabel = String(src.variantLabel || '').trim() ||
+        (attribute && value ? `${attribute}: ${value}` : (value || ''));
+    return { variantId, variantLabel, variantAttribute: attribute, variantValue: value, variantSku: sku };
+}
+
+/**
+ * 🌟 হেল্পার: দুটি কার্ট লাইন একই কি না — একই productId এবং একই variantId হলে
+ * সেগুলো একই লাইন হিসেবে গণ্য হয় (একই প্রোডাক্টের ভিন্ন ভ্যারিয়েন্ট আলাদা লাইন)।
+ */
+function isSameLine(dbItem, productId, variantId) {
+    return String(dbItem.productId) === String(productId) &&
+        String(dbItem.variantId || '') === String(variantId || '');
+}
+
 // ১. হাইব্রিড মার্জ লজিক (লগইন করার পর ফ্রন্টএন্ড থেকে লোকাল স্টোরেজের ডাটা আসবে)
 exports.mergeCart = async (req, res) => {
     try {
@@ -10,34 +38,36 @@ exports.mergeCart = async (req, res) => {
 
         let userCart = await Cart.findOne({ userId });
 
-        if (!userCart) {
-            // যদি ডাটাবেজে আগে থেকে কার্ট না থাকে, নতুন তৈরি হবে
-            const formattedItems = cartItems.map(item => ({
-                productId: item.id,
+        const buildItem = (item) => {
+            const variant = normalizeVariant(item);
+            return {
+                productId: item.id || item.productId,
                 name: item.name,
                 price: item.price,
-                image: item.products,
+                image: item.image || item.products || '',
                 icon: item.icon,
                 quantity: item.quantity,
-                selected: item.selected !== false
-            }));
+                selected: item.selected !== false,
+                ...variant
+            };
+        };
+
+        if (!userCart) {
+            // যদি ডাটাবেজে আগে থেকে কার্ট না থাকে, নতুন তৈরি হবে
+            const formattedItems = cartItems.map(buildItem);
             userCart = new Cart({ userId, items: formattedItems });
         } else {
-            // যদি আগে থেকেই কার্ট থাকে, তাহলে মার্জ হবে
+            // যদি আগে থেকেই কার্ট থাকে, তাহলে মার্জ হবে (variant-aware)
             cartItems.forEach(localItem => {
-                const existingItem = userCart.items.find(dbItem => String(dbItem.productId) === String(localItem.id));
+                const variant = normalizeVariant(localItem);
+                const localId = localItem.id || localItem.productId;
+                const existingItem = userCart.items.find(dbItem =>
+                    isSameLine(dbItem, localId, variant.variantId)
+                );
                 if (existingItem) {
                     existingItem.quantity += localItem.quantity;
                 } else {
-                    userCart.items.push({
-                        productId: localItem.id,
-                        name: localItem.name,
-                        price: localItem.price,
-                        image: localItem.products,
-                        icon: localItem.icon,
-                        quantity: localItem.quantity,
-                        selected: localItem.selected !== false
-                    });
+                    userCart.items.push(buildItem(localItem));
                 }
             });
         }
@@ -60,12 +90,13 @@ exports.getCart = async (req, res) => {
     }
 };
 
-// ৩. ডাটাবেজ কার্টে নতুন প্রোডাক্ট অ্যাড করা (লগইন থাকা অবস্থায় সম্পূর্ণ ডাটা সহ ফিক্স করা হয়েছে)
+// ৩. ডাটাবেজ কার্টে নতুন প্রোডাক্ট অ্যাড করা (variant-aware)
 exports.addToCart = async (req, res) => {
     try {
         // ফ্রন্টএন্ড থেকে পাঠানো সম্পূর্ণ ডাটা রিসিভ করা হচ্ছে
         const { productId, quantity, name, price, image, icon } = req.body;
         const userId = req.user.id;
+        const variant = normalizeVariant(req.body);
 
         let userCart = await Cart.findOne({ userId });
 
@@ -73,12 +104,15 @@ exports.addToCart = async (req, res) => {
             userCart = new Cart({ userId, items: [] });
         }
 
-        const itemIndex = userCart.items.findIndex(item => String(item.productId) === String(productId));
+        // 🌟 একই প্রোডাক্টের একই ভ্যারিয়েন্ট হলেই কেবল পরিমাণ বাড়বে
+        const itemIndex = userCart.items.findIndex(item =>
+            isSameLine(item, productId, variant.variantId)
+        );
 
         if (itemIndex > -1) {
             userCart.items[itemIndex].quantity += quantity || 1;
         } else {
-            // এখন প্রোডাক্টের নাম, দাম, ছবি সব ডাটাবেজে সেভ হবে
+            // এখন প্রোডাক্টের নাম, দাম, ছবি ও ভ্যারিয়েন্ট সব ডাটাবেজে সেভ হবে
             userCart.items.push({ 
                 productId, 
                 name, 
@@ -86,7 +120,8 @@ exports.addToCart = async (req, res) => {
                 image, 
                 icon, 
                 quantity: quantity || 1,
-                selected: true // ডিফল্টভাবে সিলেক্টেড থাকবে
+                selected: true, // ডিফল্টভাবে সিলেক্টেড থাকবে
+                ...variant
             });
         }
 
@@ -97,14 +132,14 @@ exports.addToCart = async (req, res) => {
     }
 };
 
-// ৪. কার্ট আইটেমের কোয়ান্টিটি আপডেট
+// ৪. কার্ট আইটেমের কোয়ান্টিটি আপডেট (variant-aware)
 exports.updateQuantity = async (req, res) => {
     try {
-        const { productId, quantity } = req.body;
+        const { productId, quantity, variantId } = req.body;
         const userCart = await Cart.findOne({ userId: req.user.id });
 
         if (userCart) {
-            const item = userCart.items.find(i => String(i.productId) === String(productId));
+            const item = userCart.items.find(i => isSameLine(i, productId, variantId));
             if (item) {
                 item.quantity = quantity;
                 await userCart.save();
@@ -117,14 +152,21 @@ exports.updateQuantity = async (req, res) => {
     }
 };
 
-// ৫. কার্ট থেকে প্রোডাক্ট ডিলিট
+// ৫. কার্ট থেকে প্রোডাক্ট ডিলিট (variant-aware)
 exports.deleteCartItem = async (req, res) => {
     try {
         const { productId } = req.params;
+        // ভ্যারিয়েন্ট আইডি query string থেকে আসে (থাকলে); না থাকলে ঐ productId-এর
+        // সব লাইন মুছে যায় — যা পুরাতন আচরণের সাথে সামঞ্জস্যপূর্ণ।
+        const variantId = req.query.variantId;
         const userCart = await Cart.findOne({ userId: req.user.id });
 
         if (userCart) {
-            userCart.items = userCart.items.filter(item => String(item.productId) !== String(productId));
+            if (variantId === undefined) {
+                userCart.items = userCart.items.filter(item => String(item.productId) !== String(productId));
+            } else {
+                userCart.items = userCart.items.filter(item => !isSameLine(item, productId, variantId));
+            }
             await userCart.save();
             return res.status(200).json(userCart.items);
         }
@@ -134,14 +176,14 @@ exports.deleteCartItem = async (req, res) => {
     }
 };
 
-// ৬. আইটেম চেক/আনচেক (Selection Toggle)
+// ৬. আইটেম চেক/আনচেক (Selection Toggle) (variant-aware)
 exports.toggleSelection = async (req, res) => {
     try {
-        const { productId, selected } = req.body;
+        const { productId, selected, variantId } = req.body;
         const userCart = await Cart.findOne({ userId: req.user.id });
 
         if (userCart) {
-            const item = userCart.items.find(i => String(i.productId) === String(productId));
+            const item = userCart.items.find(i => isSameLine(i, productId, variantId));
             if (item) {
                 item.selected = selected;
                 await userCart.save();
@@ -163,7 +205,7 @@ exports.clearOrderedItems = async (req, res) => {
         const userCart = await Cart.findOne({ userId });
 
         if (userCart) {
-            // শুধুমাত্র যেগুলো সিলেক্টেড নয় (selected: false), সেগুলোই থাকবে
+            // শুধুমাত্র যেগুলো সিলেক্টেড নয় (selected: false), সেগুলোই থাকবে
             userCart.items = userCart.items.filter(item => item.selected === false);
             await userCart.save();
             res.json({ success: true, message: "Ordered items cleared from cart." });
@@ -189,6 +231,3 @@ module.exports = {
     toggleSelection: exports.toggleSelection,
     clearOrderedItems: exports.clearOrderedItems // এটি আপনার নতুন ফাংশন
 };
-
-
-

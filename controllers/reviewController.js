@@ -7,7 +7,9 @@
  * Uploads review photos to Cloudinary and auto-deletes old photos on update.
  ********************************************************************/
 
+const mongoose = require('mongoose');
 const Review = require('../models/review');
+const Order = require('../models/order');
 const cloudinary = require('cloudinary').v2;
 const streamifier = require('streamifier');
 
@@ -25,6 +27,53 @@ exports.addOrUpdateReview = async (req, res) => {
     try {
         const { orderId, productId, rating, comment } = req.body;
         const userId = req.user.id || req.user._id; 
+
+        // ---------------------------------------------------------------
+        // 🔒 VERIFIED-PURCHASE GATE (anti-spam):
+        // রিভিউ তখনই গ্রহণযোগ্য যখন—
+        //   ১. orderId টি বৈধ এবং অর্ডারটি এই লগইন করা ইউজারের নিজের।
+        //   ২. অর্ডারের স্ট্যাটাস "Delivered"।
+        //   ৩. প্রোডাক্টটি ঐ অর্ডারের ভেতরে সত্যিই আছে।
+        // এই চেক ফ্রন্টএন্ড বাটন লুকানোর ওপর নির্ভর না করে সার্ভার-সাইডেই
+        // স্প্যাম/জাল রিভিউ প্রতিরোধ করে।
+        // ---------------------------------------------------------------
+        if (!orderId || !productId || rating === undefined || !comment) {
+            return res.status(400).json({ success: false, message: 'Order, product, rating and comment are all required.' });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({ success: false, message: 'Invalid order reference.' });
+        }
+
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found.' });
+        }
+
+        // অর্ডারটি অবশ্যই এই ইউজারের হতে হবে
+        if (!order.user || order.user.toString() !== String(userId)) {
+            return res.status(403).json({ success: false, message: 'You can only review products from your own orders.' });
+        }
+
+        // অর্ডার অবশ্যই "Delivered" হতে হবে
+        const isDelivered = order.isDelivered === true || String(order.status || '').toLowerCase() === 'delivered';
+        if (!isDelivered) {
+            return res.status(403).json({ success: false, message: 'You can only review a product after it has been delivered.' });
+        }
+
+        // প্রোডাক্টটি অবশ্যই এই অর্ডারের ভেতরে থাকতে হবে
+        const productInOrder = Array.isArray(order.items) && order.items.some(item =>
+            String(item.id) === String(productId) || String(item.productId) === String(productId)
+        );
+        if (!productInOrder) {
+            return res.status(403).json({ success: false, message: 'This product was not part of the selected order.' });
+        }
+
+        // রেটিং রেঞ্জ ভ্যালিডেশন
+        const numericRating = Number(rating);
+        if (!Number.isFinite(numericRating) || numericRating < 1 || numericRating > 5) {
+            return res.status(400).json({ success: false, message: 'Rating must be between 1 and 5.' });
+        }
 
         let photoUrl = '';
 

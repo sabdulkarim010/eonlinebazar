@@ -6,7 +6,9 @@
 // 🌟 SECTION 1: GLOBAL CONFIGURATIONS & INITIALIZATION
 // ==========================================================================
 const API_BASE_URL = '/api/products'; 
-let currentProductData = null; // 👈 প্রোডাক্টের ডাটা গ্লোবালি ধরে রাখার জন্য নতুন ভেরিয়েবল
+let currentProductData = null;
+let selectedVariant = null;    // Currently selected product variant (Size/Color)
+// 👈 প্রোডাক্টের ডাটা গ্লোবালি ধরে রাখার জন্য নতুন ভেরিয়েবল
 
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -39,6 +41,7 @@ async function fetchProductDetails(id) {
 
         renderBreadcrumb(product);
         renderProductInfo(product);
+        renderVariants(product);
         renderProductImages(product);
         renderHighlights(product); 
         renderDescriptions(product);
@@ -97,6 +100,196 @@ function renderProductInfo(product) {
             stockStatus.style.color = "var(--accent-red)";
         }
     }
+}
+
+// ==========================================================================
+// 🌟 SECTION 3B: PRODUCT VARIANTS (Size / Color selectors + live price/stock)
+// ==========================================================================
+
+/** ছোট HTML-escape হেল্পার (XSS-নিরাপদ রেন্ডারিং) */
+function escapeHtml(str) {
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/** একটি ভ্যারিয়েন্টের ইউনিক কী তৈরি করা (sku অগ্রাধিকার পায়) */
+function getVariantKey(v) {
+    const sku = (v.sku || '').trim();
+    if (sku) return sku;
+    return `${(v.attribute || '').trim()}::${(v.value || '').trim()}`;
+}
+
+/** ভ্যারিয়েন্টের কার্যকর দাম — নিজস্ব দাম না থাকলে বেস প্রাইস */
+function getVariantPrice(v) {
+    const p = Number(v && v.price);
+    return (Number.isFinite(p) && p > 0) ? p : Number(currentProductData.price) || 0;
+}
+
+/** attribute অনুযায়ী ভ্যারিয়েন্ট গ্রুপ করা (রেন্ডার অর্ডার ধরে রেখে) */
+function groupVariantsByAttribute(variants) {
+    const groups = [];
+    const map = {};
+    variants.forEach(v => {
+        const key = (v.attribute || 'Option').trim() || 'Option';
+        if (!map[key]) {
+            map[key] = { attribute: key, items: [] };
+            groups.push(map[key]);
+        }
+        map[key].items.push(v);
+    });
+    return groups;
+}
+
+/**
+ * ভ্যারিয়েন্ট সিলেক্টর রেন্ডার করা। প্রোডাক্টে variants না থাকলে সেকশনটি লুকানো থাকে
+ * (সাধারণ প্রোডাক্টের সাথে সম্পূর্ণ backward-compatible)।
+ */
+function renderVariants(product) {
+    const wrap = document.getElementById('variantSelectorWrap');
+    if (!wrap) return;
+
+    const variants = Array.isArray(product.variants) ? product.variants.filter(v => (v.attribute || v.value)) : [];
+
+    selectedVariant = null;
+
+    if (variants.length === 0) {
+        wrap.classList.add('hidden');
+        wrap.innerHTML = '';
+        return;
+    }
+
+    wrap.classList.remove('hidden');
+    const groups = groupVariantsByAttribute(variants);
+
+    let html = '';
+    groups.forEach(group => {
+        html += `<div class="variant-group" data-attr="${escapeHtml(group.attribute)}">
+            <span class="variant-group-label">${escapeHtml(group.attribute)}:
+                <span class="variant-selected-value" data-attr-value="${escapeHtml(group.attribute)}">Select</span>
+            </span>
+            <div class="variant-options">`;
+        group.items.forEach(v => {
+            const key = getVariantKey(v);
+            const stock = Number(v.stock) || 0;
+            const disabled = stock <= 0;
+            const price = getVariantPrice(v);
+            const showPrice = Number(v.price) > 0 && Number(v.price) !== Number(product.price);
+            html += `<div class="variant-badge${disabled ? ' is-disabled' : ''}"
+                        data-variant-key="${escapeHtml(key)}"
+                        role="button" tabindex="${disabled ? -1 : 0}"
+                        aria-disabled="${disabled}">
+                        <span class="variant-badge-value">${escapeHtml(v.value || v.attribute)}</span>
+                        ${showPrice ? `<span class="variant-badge-price">৳${price.toLocaleString()}</span>` : ''}
+                        ${disabled ? `<span class="variant-oos-tag">Out of Stock</span>` : ''}
+                    </div>`;
+        });
+        html += `</div></div>`;
+    });
+    html += `<div class="variant-hint" id="variantHint"></div>`;
+    wrap.innerHTML = html;
+
+    // প্রতিটি ব্যাজে ক্লিক লিসেনার যুক্ত করা
+    wrap.querySelectorAll('.variant-badge').forEach(badge => {
+        if (badge.classList.contains('is-disabled')) return;
+        const key = badge.getAttribute('data-variant-key');
+        const variant = variants.find(v => getVariantKey(v) === key);
+        badge.addEventListener('click', () => selectVariant(variant));
+        badge.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectVariant(variant); }
+        });
+    });
+
+    // 🌟 প্রথম ইন-স্টক ভ্যারিয়েন্ট স্বয়ংক্রিয়ভাবে সিলেক্ট (Shopify স্টাইল)
+    const firstAvailable = variants.find(v => (Number(v.stock) || 0) > 0);
+    if (firstAvailable) {
+        selectVariant(firstAvailable);
+    } else {
+        // সব ভ্যারিয়েন্ট আউট-অফ-স্টক
+        updateStockStatus(0);
+        setAddToCartEnabled(false);
+        const hint = document.getElementById('variantHint');
+        if (hint) hint.innerText = 'All variants are currently out of stock.';
+    }
+}
+
+/** একটি ভ্যারিয়েন্ট সিলেক্ট করা — দাম, স্টক ও UI ইনস্ট্যান্টলি আপডেট হয় */
+function selectVariant(variant) {
+    if (!variant) return;
+    selectedVariant = variant;
+
+    const key = getVariantKey(variant);
+    const wrap = document.getElementById('variantSelectorWrap');
+    if (wrap) {
+        wrap.querySelectorAll('.variant-badge').forEach(b => {
+            b.classList.toggle('is-active', b.getAttribute('data-variant-key') === key);
+        });
+        // সংশ্লিষ্ট গ্রুপের লেবেলে সিলেক্ট করা ভ্যালু দেখানো
+        const attr = (variant.attribute || 'Option').trim() || 'Option';
+        const label = wrap.querySelector(`.variant-selected-value[data-attr-value="${cssEscape(attr)}"]`);
+        if (label) label.innerText = variant.value || '';
+    }
+
+    // 💰 দাম ইনস্ট্যান্ট আপডেট
+    const price = getVariantPrice(variant);
+    const priceEl = document.getElementById('productPrice');
+    const stickyPrice = document.getElementById('stickyBarPrice');
+    if (priceEl) priceEl.innerText = `৳ ${price.toLocaleString()}`;
+    if (stickyPrice) stickyPrice.innerText = `৳ ${price.toLocaleString()}`;
+
+    // 📦 স্টক স্ট্যাটাস আপডেট ও কোয়ান্টিটি ক্ল্যাম্প
+    const stock = Number(variant.stock) || 0;
+    updateStockStatus(stock);
+    clampQuantityToStock(stock);
+    setAddToCartEnabled(stock > 0);
+
+    const hint = document.getElementById('variantHint');
+    if (hint) hint.innerText = '';
+}
+
+/** CSS attribute-selector নিরাপদ করার হেল্পার */
+function cssEscape(str) {
+    return String(str).replace(/["\\]/g, '\\$&');
+}
+
+/** স্টক স্ট্যাটাস ব্যাজ আপডেট */
+function updateStockStatus(stock) {
+    const stockStatus = document.getElementById('stockStatus');
+    if (!stockStatus) return;
+    if (stock > 0) {
+        stockStatus.innerText = "In Stock";
+        stockStatus.style.color = "var(--success-green)";
+    } else {
+        stockStatus.innerText = "Out of Stock";
+        stockStatus.style.color = "var(--accent-red)";
+    }
+}
+
+/** Add to Cart / Buy Now বাটন enable/disable */
+function setAddToCartEnabled(enabled) {
+    ['addToCartBtn', 'buyNowBtn', 'stickyAddToCartBtn', 'stickyBuyNowBtn'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.disabled = !enabled;
+        btn.style.opacity = enabled ? '' : '0.55';
+        btn.style.cursor = enabled ? '' : 'not-allowed';
+    });
+}
+
+/** কোয়ান্টিটি ইনপুট স্টকের মধ্যে সীমাবদ্ধ রাখা */
+function clampQuantityToStock(stock) {
+    const qtyInput = document.getElementById('productQtyInput');
+    if (!qtyInput) return;
+    let val = parseInt(qtyInput.value) || 1;
+    if (stock > 0 && val > stock) val = stock;
+    if (val < 1) val = 1;
+    qtyInput.value = val;
+}
+
+/** বর্তমানে কার্যকর স্টক (ভ্যারিয়েন্ট থাকলে সেটির, নইলে প্রোডাক্টের) */
+function getAvailableStock() {
+    if (selectedVariant) return Number(selectedVariant.stock) || 0;
+    return Number(currentProductData && currentProductData.stock) || 0;
 }
 
 // 👈 নতুন ফাংশন: ডাটাবেজ থেকে হাইলাইটস অ্যারে রেন্ডার করার জন্য
@@ -200,24 +393,36 @@ function renderReviews(reviews) {
     container.innerHTML = '';
     reviews.forEach(rev => {
         const revCard = document.createElement('div');
-        revCard.classList.add('review-card'); 
-        
+        revCard.classList.add('review-card');
+
         let starsHTML = '';
         for (let i = 1; i <= 5; i++) {
-            starsHTML += i <= rev.rating ? `<i class="fa-solid fa-star" style="color: #facc15;"></i>` : `<i class="fa-regular fa-star" style="color: #d1d5db;"></i>`;
+            starsHTML += i <= rev.rating
+                ? `<i class="fa-solid fa-star"></i>`
+                : `<i class="fa-regular fa-star"></i>`;
         }
 
         // 🟢 ডাটাবেস থেকে ইউজারের নাম বের করার লজিক
         const reviewerName = rev.userId?.name || rev.name || "Verified Customer";
+        const initial = reviewerName.trim().charAt(0).toUpperCase() || 'U';
+        const reviewDate = rev.createdAt
+            ? new Date(rev.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+            : '';
 
         revCard.innerHTML = `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                <strong>${reviewerName}</strong>
-                <div>${starsHTML}</div>
+            <div class="review-card-head">
+                <div class="reviewer-identity">
+                    <span class="reviewer-avatar">${escapeHtml(initial)}</span>
+                    <div class="reviewer-meta">
+                        <strong class="reviewer-name">${escapeHtml(reviewerName)}</strong>
+                        <span class="reviewer-verified"><i class="fa-solid fa-circle-check"></i> Verified Purchase</span>
+                    </div>
+                </div>
+                <div class="review-card-stars">${starsHTML}</div>
             </div>
-            <p style="margin: 0; font-size: 14px; color: var(--text-main);">${rev.comment}</p>
-            ${rev.photo ? `<div style="margin-top: 10px;"><img src="${rev.photo}" alt="Review Photo" style="width: 80px; height: 80px; object-fit: cover; border-radius: 5px; border: 1px solid #ddd;"></div>` : ''}
-            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 10px 0;">
+            <p class="review-card-comment">${escapeHtml(rev.comment)}</p>
+            ${rev.photo ? `<div class="review-card-photo"><img src="${escapeHtml(rev.photo)}" alt="Review Photo"></div>` : ''}
+            ${reviewDate ? `<span class="review-card-date"><i class="fa-regular fa-clock"></i> ${reviewDate}</span>` : ''}
         `;
         container.appendChild(revCard);
     });
@@ -238,7 +443,13 @@ function setupEventListeners() {
 
     if (increaseBtn && qtyInput) {
         increaseBtn.addEventListener('click', () => {
-            qtyInput.value = parseInt(qtyInput.value) + 1;
+            const next = parseInt(qtyInput.value) + 1;
+            const stock = getAvailableStock();
+            if (stock > 0 && next > stock) {
+                showToast(`Only ${stock} in stock for this option.`, "error");
+                return;
+            }
+            qtyInput.value = next;
         });
     }
 
@@ -250,52 +461,102 @@ function setupEventListeners() {
         });
     }
 
-    // 👈 Add to Cart লজিক (আগের মতোই থাকবে, সাধারণ কার্টে অ্যাড করবে)
+    /**
+     * 🌟 হেল্পার: বর্তমান সিলেকশন থেকে একটি কার্ট-আইটেম অবজেক্ট তৈরি করা।
+     * ভ্যারিয়েন্ট থাকলে তার দাম ও ভ্যারিয়েন্ট মেটাডাটা যুক্ত হয়; না থাকলে
+     * সাধারণ প্রোডাক্ট হিসেবে আচরণ করে (backward-compatible)।
+     */
+    const buildCartItem = (quantity) => {
+        const prodId = currentProductData._id || currentProductData.productId || currentProductData.id;
+        const base = {
+            id: prodId,
+            name: currentProductData.name,
+            price: Number(currentProductData.price) || 0,
+            icon: currentProductData.icon || currentProductData.image || '📦',
+            quantity: quantity,
+            selected: true,
+            variantId: '',
+            variantLabel: '',
+            variantAttribute: '',
+            variantValue: '',
+            variantSku: ''
+        };
+        if (selectedVariant) {
+            base.price = getVariantPrice(selectedVariant);
+            base.variantId = getVariantKey(selectedVariant);
+            base.variantAttribute = (selectedVariant.attribute || '').trim();
+            base.variantValue = (selectedVariant.value || '').trim();
+            base.variantSku = (selectedVariant.sku || '').trim();
+            base.variantLabel = base.variantAttribute && base.variantValue
+                ? `${base.variantAttribute}: ${base.variantValue}`
+                : base.variantValue;
+        }
+        return base;
+    };
+
+    /** ভ্যারিয়েন্ট থাকা সত্ত্বেও সিলেক্ট না করলে ব্লক করা */
+    const ensureVariantSelected = () => {
+        const hasVariants = Array.isArray(currentProductData.variants) &&
+            currentProductData.variants.some(v => v.attribute || v.value);
+        if (hasVariants && !selectedVariant) {
+            const hint = document.getElementById('variantHint');
+            if (hint) hint.innerText = 'Please select an available option first.';
+            showToast("Please select a product option first.", "error");
+            return false;
+        }
+        return true;
+    };
+
+    // 👈 Add to Cart লজিক (ভ্যারিয়েন্ট-সচেতন, লোকাল কার্টে অ্যাড করে)
     const handleAddToCart = () => {
         if (!currentProductData) return showToast("Please wait, product data is loading...", "error");
+        if (!ensureVariantSelected()) return;
+
+        const stock = getAvailableStock();
+        if (Array.isArray(currentProductData.variants) && currentProductData.variants.length && stock <= 0) {
+            return showToast("This option is out of stock.", "error");
+        }
 
         const quantity = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
         let cart = JSON.parse(localStorage.getItem('cart')) || []; 
 
-        const prodId = currentProductData._id || currentProductData.productId || currentProductData.id;
-        const existingItemIndex = cart.findIndex(item => item.id === prodId);
+        const newItem = buildCartItem(quantity);
+        // একই প্রোডাক্ট + একই ভ্যারিয়েন্ট হলেই লাইন মার্জ হবে
+        const existingItemIndex = cart.findIndex(item =>
+            String(item.id) === String(newItem.id) &&
+            String(item.variantId || '') === String(newItem.variantId || '')
+        );
 
         if (existingItemIndex > -1) {
             let existingItem = cart.splice(existingItemIndex, 1)[0]; 
             existingItem.quantity += quantity; 
+            existingItem.price = newItem.price; // দাম সিঙ্ক রাখা
             cart.unshift(existingItem); 
         } else {
-            cart.unshift({
-                id: prodId,
-                name: currentProductData.name,
-                price: currentProductData.price,
-                icon: currentProductData.icon || currentProductData.image || '📦',
-                quantity: quantity,
-                selected: true
-            });
+            cart.unshift(newItem);
         }
 
         localStorage.setItem('cart', JSON.stringify(cart));
-        showToast("Product added to cart successfully! 🛒", "success");
+        if (typeof window.updateCartCount === 'function') window.updateCartCount();
+        const label = newItem.variantLabel ? ` (${newItem.variantLabel})` : '';
+        showToast(`Product${label} added to cart successfully! 🛒`, "success");
     };
     
 
     // 👈 রিয়েল Buy Now লজিক (সাধারণ কার্টে হাত না দিয়ে আইসোলেটেড মোডে চেকআউটে পাঠাবে)
     const handleBuyNow = () => {
         if (!currentProductData) return showToast("Please wait, product data is loading...", "error");
+        if (!ensureVariantSelected()) return;
+
+        const stockAvail = getAvailableStock();
+        if (Array.isArray(currentProductData.variants) && currentProductData.variants.length && stockAvail <= 0) {
+            return showToast("This option is out of stock.", "error");
+        }
 
         const quantity = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
-        const prodId = currentProductData._id || currentProductData.productId || currentProductData.id;
 
         // Buy Now এর জন্য শুধু এই একটি প্রোডাক্ট দিয়ে একটি নতুন অ্যারে তৈরি
-        const buyNowItem = [{
-            id: prodId,
-            name: currentProductData.name,
-            price: currentProductData.price,
-            icon: currentProductData.icon || currentProductData.image || '📦',
-            quantity: quantity,
-            selected: true
-        }];
+        const buyNowItem = [buildCartItem(quantity)];
 
         // কার্টকে না ছুঁয়ে সম্পূর্ণ ভিন্ন একটি স্টোরেজ বাক্সে রাখা হচ্ছে
         localStorage.setItem('isBuyNowMode', 'true');
@@ -422,50 +683,6 @@ async function fetchProductReviews(productId) {
     }
 }
 
-
-
-
-// ==========================================================================
-// 🌟 SECTION 10: REVISED REVIEW MODAL & EDIT LOGIC (আপডেটেড)
-// ==========================================================================
-async function openReviewModal(productId) {
-    try {
-        const response = await fetch(`/api/reviews/${productId}`);
-        const data = await response.json();
-        
-        // এখানে 'userInfo' এর বদলে আপনার আসল কী (Key) ব্যবহার করুন
-        const userInfo = JSON.parse(localStorage.getItem('userInfo')) || null; 
-        if (!userInfo) return showToast("Please login first!", "error");
-
-        const currentUserId = userInfo._id || userInfo.id; 
-        
-        if (data.success && data.reviews) {
-            const myReview = data.reviews.find(r => 
-                (r.userId && r.userId._id === currentUserId) || (r.userId === currentUserId)
-            );
-            
-            if (myReview) {
-                // ফর্মের ইনপুট আইডিগুলো আপনার HTML এর সাথে মিলিয়ে নিন
-                document.getElementById('reviewComment').value = myReview.comment;
-                document.getElementById('reviewRating').value = myReview.rating;
-
-                // যদি আগের আপলোড করা ফটো দেখাতে চান
-                if (myReview.photo) {
-                    const previewImg = document.getElementById('reviewPhotoPreview'); // আপনার HTML এ একটি ইমেজ ট্যাগ থাকতে হবে
-                    if (previewImg) {
-                        previewImg.src = myReview.photo;
-                        previewImg.style.display = 'block';
-                    }
-                }
-                showToast("Previous review loaded for editing!", "success");
-            }
-        }
-    } catch (err) {
-        console.error("Error loading review:", err);
-    }
-}
-
-
-
-
-
+// NOTE: Review submission has moved to the User Dashboard (My Orders).
+// This page is now read-only for reviews - customers can only submit a
+// review from their dashboard once the related order status is "Delivered".

@@ -21,6 +21,38 @@ let validationState = {
     address: false
 };
 
+function getAppliedCoupon() {
+    try {
+        return JSON.parse(localStorage.getItem('appliedCoupon')) || null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function setAppliedCoupon(data) {
+    if (!data) {
+        localStorage.removeItem('appliedCoupon');
+        return;
+    }
+    localStorage.setItem('appliedCoupon', JSON.stringify(data));
+}
+
+function showCouponToast(message, type = 'success') {
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: type === 'error' ? 'error' : (type === 'warning' ? 'warning' : 'success'),
+            title: message,
+            showConfirmButton: false,
+            timer: 2800,
+            timerProgressBar: true
+        });
+        return;
+    }
+    alert(message);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // লাইভ এপিআই থেকে প্রোডাক্ট ক্যাটালগ লোড করা
     fetch('/api/products')
@@ -38,6 +70,22 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const proceedBtn = document.getElementById('proceedToPaymentBtn');
     if (proceedBtn) proceedBtn.addEventListener('click', handleProceedToPayment);
+
+    const applyBtn = document.getElementById('checkoutApplyCouponBtn');
+    if (applyBtn) applyBtn.addEventListener('click', applyCheckoutCoupon);
+
+    const removeBtn = document.getElementById('checkoutRemoveCouponBtn');
+    if (removeBtn) removeBtn.addEventListener('click', removeCheckoutCoupon);
+
+    const couponInput = document.getElementById('checkoutCouponInput');
+    if (couponInput) {
+        couponInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                applyCheckoutCoupon();
+            }
+        });
+    }
 });
 
 /* =========================================================================
@@ -75,7 +123,12 @@ function fetchCartData() {
                 products: item.image || '',
                 icon: item.icon || '📦',
                 quantity: item.quantity,
-                selected: item.selected !== false
+                selected: item.selected !== false,
+                variantId: item.variantId || '',
+                variantLabel: item.variantLabel || '',
+                variantAttribute: item.variantAttribute || '',
+                variantValue: item.variantValue || '',
+                variantSku: item.variantSku || ''
             }));
             renderCheckoutCart();
         })
@@ -129,6 +182,7 @@ function renderCheckoutCart() {
         if (proceedBtn) proceedBtn.style.display = 'none'; 
         if (shippingSection) shippingSection.style.display = 'none';
         if (orderSummarySection) orderSummarySection.style.display = 'none';
+        setAppliedCoupon(null);
         
         return;
     } else {
@@ -176,36 +230,149 @@ function renderCheckoutCart() {
             mediaFrame.innerHTML = `<span style="font-size:24px; display:flex; justify-content:center; align-items:center; width:100%; height:100%; background:#f9f9f9; border-radius:4px;">${displayEmoji}</span>`;
         }
         
-        clone.querySelector('.cart-item-name-text').innerText = item.name;
+        clone.querySelector('.cart-item-name-text').innerText =
+            item.variantLabel ? `${item.name} — ${item.variantLabel}` : item.name;
         clone.querySelector('.cart-item-base-price-text').innerText = `৳${cleanPrice}`;
         clone.querySelector('.cart-item-total').innerText = `৳${(cleanPrice * cleanQty)}`;
         clone.querySelector('.qty-text').innerText = cleanQty;
 
-        clone.querySelector('.btn-minus').onclick = () => changeItemQuantity(item.id, -1);
-        clone.querySelector('.btn-plus').onclick = () => changeItemQuantity(item.id, 1);
-        clone.querySelector('.checkout-row-delete-btn-main').onclick = () => temporarilyRemoveFromCheckout(item.id);
+        const vId = item.variantId || '';
+        clone.querySelector('.btn-minus').onclick = () => changeItemQuantity(item.id, -1, vId);
+        clone.querySelector('.btn-plus').onclick = () => changeItemQuantity(item.id, 1, vId);
+        clone.querySelector('.checkout-row-delete-btn-main').onclick = () => temporarilyRemoveFromCheckout(item.id, vId);
 
         container.appendChild(clone);
     });
 
     if (subtotalText) subtotalText.innerText = `৳${calculatedTotal}`;
-    if (grandTotalText) grandTotalText.innerText = `৳${calculatedTotal}`;
+
+    const payable = syncCheckoutCouponUI(calculatedTotal);
+    if (grandTotalText) grandTotalText.innerText = `৳${payable}`;
+}
+
+function syncCheckoutCouponUI(subtotal) {
+    const applied = getAppliedCoupon();
+    const discountRow = document.getElementById('checkoutDiscountRow');
+    const discountEl = document.getElementById('checkoutDiscountAmount');
+    const codeLabel = document.getElementById('checkoutCouponCodeLabel');
+    const msgEl = document.getElementById('checkoutCouponAppliedMsg');
+    const removeBtn = document.getElementById('checkoutRemoveCouponBtn');
+    const applyBtn = document.getElementById('checkoutApplyCouponBtn');
+    const input = document.getElementById('checkoutCouponInput');
+
+    const subtotalMatch = applied && Math.round(Number(applied.subtotal) * 100) === Math.round(Number(subtotal) * 100);
+    if (applied && applied.code && Number(applied.discountAmount) > 0 && subtotalMatch) {
+        if (discountRow) discountRow.style.display = 'flex';
+        if (discountEl) discountEl.innerText = `-৳${applied.discountAmount}`;
+        if (codeLabel) codeLabel.innerText = applied.code;
+        if (msgEl) {
+            msgEl.style.display = 'block';
+            msgEl.innerText = `Coupon "${applied.code}" applied — you save ৳${applied.discountAmount}`;
+        }
+        if (removeBtn) removeBtn.style.display = 'inline-flex';
+        if (applyBtn) applyBtn.style.display = 'none';
+        if (input) {
+            input.value = applied.code;
+            input.disabled = true;
+        }
+        return Number(applied.finalTotal);
+    }
+
+    if (applied && !subtotalMatch) {
+        setAppliedCoupon(null);
+    }
+
+    if (discountRow) discountRow.style.display = 'none';
+    if (msgEl) msgEl.style.display = 'none';
+    if (removeBtn) removeBtn.style.display = 'none';
+    if (applyBtn) applyBtn.style.display = 'inline-flex';
+    if (input && !getAppliedCoupon()) {
+        input.disabled = false;
+    }
+    return subtotal;
+}
+
+async function applyCheckoutCoupon() {
+    const input = document.getElementById('checkoutCouponInput');
+    const code = (input?.value || '').trim().toUpperCase();
+    if (!code) return showCouponToast('Please enter a coupon code.', 'warning');
+
+    const checkedItems = getCheckoutItems();
+    let subtotal = 0;
+    checkedItems.forEach(item => {
+        subtotal += (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1);
+    });
+
+    if (subtotal <= 0) return showCouponToast('Your cart is empty.', 'warning');
+
+    const applyBtn = document.getElementById('checkoutApplyCouponBtn');
+    if (applyBtn) {
+        applyBtn.disabled = true;
+        applyBtn.textContent = 'Applying...';
+    }
+
+    try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (customerToken) headers['Authorization'] = `Bearer ${customerToken}`;
+
+        const res = await fetch('/api/coupons/apply', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ code, subtotal })
+        });
+        const result = await res.json();
+
+        if (result.success && result.data) {
+            setAppliedCoupon({
+                code: result.data.code,
+                discountAmount: result.data.discountAmount,
+                subtotal: result.data.subtotal,
+                finalTotal: result.data.finalTotal,
+                discountType: result.data.discountType,
+                discountValue: result.data.discountValue
+            });
+            showCouponToast('Coupon applied successfully!', 'success');
+            renderCheckoutCart();
+        } else {
+            showCouponToast(result.message || 'Invalid coupon code', 'error');
+        }
+    } catch (err) {
+        showCouponToast('Failed to apply coupon. Please try again.', 'error');
+    } finally {
+        if (applyBtn) {
+            applyBtn.disabled = false;
+            applyBtn.textContent = 'Apply';
+        }
+    }
+}
+
+function removeCheckoutCoupon() {
+    setAppliedCoupon(null);
+    const input = document.getElementById('checkoutCouponInput');
+    if (input) {
+        input.value = '';
+        input.disabled = false;
+    }
+    showCouponToast('Coupon removed.', 'success');
+    renderCheckoutCart();
 }
 
 /* =========================================================================
    ⚡ ৫. কোর কার্ট অ্যাকশন লজিক (Quantity & Remove) - Buy Now আইসোলেটেড
    ========================================================================= */
-function changeItemQuantity(productId, amount) {
+function changeItemQuantity(productId, amount, variantId = '') {
     const isBuyNow = localStorage.getItem('isBuyNowMode') === 'true';
+    const sameLineCk = (i) => String(i.id) === String(productId) &&
+        String(i.variantId || '') === String(variantId || '');
 
     // 🌟 যদি Buy Now মোড হয়, তবে শুধু buy_now_item আপডেট করবে, মেইন কার্টে হাত দেবে না
     if (isBuyNow) {
         let bnCart = JSON.parse(localStorage.getItem('buy_now_item')) || [];
-        const item = bnCart.find(i => String(i.id) === String(productId));
+        const item = bnCart.find(sameLineCk);
         if (item) {
             const targetQty = (parseInt(item.quantity) || 1) + amount;
             if (targetQty < 1) { 
-                temporarilyRemoveFromCheckout(productId); 
+                temporarilyRemoveFromCheckout(productId, variantId); 
                 return; 
             }
             item.quantity = targetQty;
@@ -217,13 +384,13 @@ function changeItemQuantity(productId, amount) {
 
     // 🌟 সাধারণ কার্টের লজিক (আগের মতো)
     let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
-    const item = currentCart.find(i => String(i.id) === String(productId));
+    const item = currentCart.find(sameLineCk);
     
     if (item) {
         const targetQty = (parseInt(item.quantity) || 1) + amount;
         
         if (targetQty < 1) { 
-            temporarilyRemoveFromCheckout(productId); 
+            temporarilyRemoveFromCheckout(productId, variantId); 
             return; 
         }
 
@@ -234,7 +401,7 @@ function changeItemQuantity(productId, amount) {
                     'Authorization': `Bearer ${customerToken}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ productId, quantity: targetQty })
+                body: JSON.stringify({ productId, quantity: targetQty, variantId })
             }).then(() => {
                 item.quantity = targetQty;
                 renderCheckoutCart();
@@ -247,13 +414,15 @@ function changeItemQuantity(productId, amount) {
     }
 }
 
-function temporarilyRemoveFromCheckout(productId) {
+function temporarilyRemoveFromCheckout(productId, variantId = '') {
     const isBuyNow = localStorage.getItem('isBuyNowMode') === 'true';
+    const sameLineCk = (i) => String(i.id) === String(productId) &&
+        String(i.variantId || '') === String(variantId || '');
 
     // 🌟 যদি Buy Now মোড হয়, তবে শুধু buy_now_item থেকে ডিলিট করবে
     if (isBuyNow) {
         let bnCart = JSON.parse(localStorage.getItem('buy_now_item')) || [];
-        bnCart = bnCart.filter(i => String(i.id) !== String(productId));
+        bnCart = bnCart.filter(i => !sameLineCk(i));
         localStorage.setItem('buy_now_item', JSON.stringify(bnCart));
         
         if (bnCart.length === 0) {
@@ -265,7 +434,7 @@ function temporarilyRemoveFromCheckout(productId) {
 
     // 🌟 সাধারণ কার্টের লজিক (আগের মতো)
     let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
-    const item = currentCart.find(i => String(i.id) === String(productId));
+    const item = currentCart.find(sameLineCk);
     
     if (item) {
         if (customerToken) {
@@ -275,7 +444,7 @@ function temporarilyRemoveFromCheckout(productId) {
                     'Authorization': `Bearer ${customerToken}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ productId, selected: false })
+                body: JSON.stringify({ productId, selected: false, variantId })
             }).then(() => {
                 item.selected = false;
                 renderCheckoutCart();
@@ -323,14 +492,31 @@ function handleProceedToPayment() {
     const addressVal = document.getElementById('shippingAddress').value.trim();
     const noteVal = document.getElementById('shippingCourierNote')?.value.trim() || "";
 
-    let totalAmount = checkedItems.reduce((sum, item) => sum + (parseFloat(item.price) * parseInt(item.quantity)), 0);
+    let subtotal = checkedItems.reduce((sum, item) => sum + (parseFloat(item.price) * parseInt(item.quantity)), 0);
+    const applied = getAppliedCoupon();
+    let discountAmount = 0;
+    let couponCode = '';
+    let totalAmount = subtotal;
+
+    if (applied && applied.code && Math.round(Number(applied.subtotal) * 100) === Math.round(Number(subtotal) * 100)) {
+        discountAmount = Number(applied.discountAmount) || 0;
+        couponCode = applied.code;
+        totalAmount = Number(applied.finalTotal);
+        if (!Number.isFinite(totalAmount)) totalAmount = Math.max(0, subtotal - discountAmount);
+    } else if (applied) {
+        // Stale coupon — clear before payment
+        setAppliedCoupon(null);
+    }
 
     const checkoutOrderSession = {
         orderId: `EOB${Math.floor(100000 + Math.random() * 900000)}`, 
         customerName: nameVal,
         customerPhone: mobileVal,
         customerAddress: addressVal,
-        totalAmount: totalAmount,
+        subtotal,
+        discountAmount,
+        couponCode,
+        totalAmount,
         status: "Pending",
         items: checkedItems,
         note: noteVal

@@ -15,6 +15,16 @@ let globalProductCatalog = [];
 // 🌟 টোকেন চেক (কাস্টমার লগইন আছে কি না জানার জন্য)
 const customerToken = localStorage.getItem('token') || localStorage.getItem('customerToken');
 
+/* 🌟 ভ্যারিয়েন্ট-সচেতন লাইন হেল্পার — একই প্রোডাক্টের ভিন্ন ভ্যারিয়েন্ট কার্টে
+   আলাদা লাইন হিসেবে গণ্য হয়। onclick হ্যান্ডলারে variantId নিরাপদে পাঠাতে
+   encode/decode ব্যবহার করা হয়। */
+function sameCartLine(item, productId, variantId) {
+    return String(item.id) === String(productId) &&
+        String(item.variantId || '') === String(variantId || '');
+}
+function encVariant(vid) { return encodeURIComponent(vid || ''); }
+function decVariant(vid) { try { return decodeURIComponent(vid || ''); } catch (e) { return vid || ''; } }
+
 // লাইভ এপিআই থেকে ক্যাটালগ ডাটা লোড করা এবং কার্ট মার্জ/সিঙ্ক করা
 fetch('/api/products')
     .then(response => {
@@ -76,7 +86,12 @@ function fetchLiveDBCart() {
             products: item.image || '',
             icon: item.icon || '📦',
             quantity: item.quantity,
-            selected: item.selected !== false
+            selected: item.selected !== false,
+            variantId: item.variantId || '',
+            variantLabel: item.variantLabel || '',
+            variantAttribute: item.variantAttribute || '',
+            variantValue: item.variantValue || '',
+            variantSku: item.variantSku || ''
         }));
         updateCartCount();
         renderCartDrawerItems();
@@ -175,6 +190,9 @@ function renderCartDrawerItems() {
         const isChecked = item.selected !== false ? 'checked' : '';
         const quantity = item.quantity || 1;
         const itemTotal = item.price * quantity; 
+        const vid = encVariant(item.variantId);
+        const variantTag = item.variantLabel
+            ? `<span class="cart-item-variant" style="display:block; font-size:11px; color:#64748b;">${item.variantLabel}</span>` : '';
         
         const row = document.createElement('div');
         
@@ -183,19 +201,20 @@ function renderCartDrawerItems() {
             row.innerHTML = `
                 <div style="display:flex; align-items:center; gap:6px;">
                     <span class="cart-item-serial">#${index + 1}</span>
-                    <input type="checkbox" class="cart-item-checkbox" data-id="${item.id}" ${isChecked} onchange="toggleItemSelection('${item.id}')">
+                    <input type="checkbox" class="cart-item-checkbox" data-id="${item.id}" ${isChecked} onchange="toggleItemSelection('${item.id}', '${vid}')">
                 </div>
                 <div class="cart-item-media" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0; background:#f9f9f9; border-radius:4px;">${mediaHTML}</div>
                 <div class="cart-item-info">
                     <div class="cart-item-name" title="${item.name}">${item.name}</div>
+                    ${variantTag}
                     <div class="cart-item-price">৳${item.price}</div>
                 </div>
                 <div class="cart-item-qty-box">
-                    <button class="qty-btn" onclick="updateQty('${item.id}', -1)">-</button>
+                    <button class="qty-btn" onclick="updateQty('${item.id}', -1, '${vid}')">-</button>
                     <span class="qty-val">${quantity}</span>
-                    <button class="qty-btn" onclick="updateQty('${item.id}', 1)">+</button>
+                    <button class="qty-btn" onclick="updateQty('${item.id}', 1, '${vid}')">+</button>
                 </div>
-                <button class="cart-delete-btn" onclick="deleteCartItem('${item.id}')">
+                <button class="cart-delete-btn" onclick="deleteCartItem('${item.id}', '${vid}')">
                     <i class="fa fa-trash"></i>
                 </button>
             `;
@@ -203,24 +222,25 @@ function renderCartDrawerItems() {
             row.className = `cart-item-card ${item.selected === false ? 'is-unchecked' : ''}`;
             row.innerHTML = `
                 <div class="cart-item-left-group">
-                    <input type="checkbox" class="cart-item-checkbox" data-id="${item.id}" ${isChecked} onchange="toggleItemSelection('${item.id}')" style="cursor:pointer; transform: scale(1.2);">
+                    <input type="checkbox" class="cart-item-checkbox" data-id="${item.id}" ${isChecked} onchange="toggleItemSelection('${item.id}', '${vid}')" style="cursor:pointer; transform: scale(1.2);">
                     <div class="cart-item-media-box" style="width:50px; height:50px; display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0; background:#f9f9f9; border-radius:6px; margin-left: 10px;">
                         ${mediaHTML}
                     </div>
                     <div class="cart-item-info-box" style="margin-left: 10px;">
                         <span class="product-title-text" style="display:block; font-weight:600; color:#1e293b;">${item.name}</span>
+                        ${item.variantLabel ? `<span class="product-variant-text" style="display:block; color:#64748b; font-size:12px;">${item.variantLabel}</span>` : ''}
                         <span class="product-unit-price" style="display:block; color:#f97316; font-size:14px;">৳${item.price}</span>
                     </div>
                 </div>
                 
                 <div class="cart-item-right-group">
                     <div class="cart-quantity-controller">
-                        <button class="qty-control-btn" onclick="updateQty('${item.id}', -1)"><i class="fa-solid fa-minus"></i></button>
+                        <button class="qty-control-btn" onclick="updateQty('${item.id}', -1, '${vid}')"><i class="fa-solid fa-minus"></i></button>
                         <div class="qty-display-number">${quantity}</div>
-                        <button class="qty-control-btn" onclick="updateQty('${item.id}', 1)"><i class="fa-solid fa-plus"></i></button>
+                        <button class="qty-control-btn" onclick="updateQty('${item.id}', 1, '${vid}')"><i class="fa-solid fa-plus"></i></button>
                     </div>
                     <div class="cart-item-total-price" style="font-weight:bold; min-width:60px; text-align:right;">৳${itemTotal}</div>
-                    <button class="cart-item-trash-btn" onclick="deleteCartItem('${item.id}')" title="Remove Product">
+                    <button class="cart-item-trash-btn" onclick="deleteCartItem('${item.id}', '${vid}')" title="Remove Product">
                         <i class="fa-solid fa-trash-can"></i>
                     </button>
                 </div>
@@ -254,10 +274,11 @@ function renderCartDrawerItems() {
 /* ==========================================================================
    SECTION 4: CART INTERACTIONS (চেক ও ক্যালকুলেশন লজিক)
    ========================================================================== */
-window.toggleItemSelection = function(productId) {
+window.toggleItemSelection = function(productId, variantIdEnc) {
+    const variantId = decVariant(variantIdEnc);
     if (customerToken) {
         // লগইন থাকলে ডাটাবেজে আপডেট পাঠানো হবে
-        const item = cart.find(i => String(i.id) === String(productId));
+        const item = cart.find(i => sameCartLine(i, productId, variantId));
         if (item) {
             const checkbox = document.querySelector(`.cart-item-checkbox[data-id="${productId}"]`);
             item.selected = checkbox ? checkbox.checked : !item.selected;
@@ -268,13 +289,13 @@ window.toggleItemSelection = function(productId) {
                     'Authorization': `Bearer ${customerToken}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ productId, selected: item.selected })
+                body: JSON.stringify({ productId, selected: item.selected, variantId })
             }).then(() => renderCartDrawerItems());
         }
     } else {
         // গেস্ট ইউজারের জন্য লোকাল স্টোরেজ
         let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
-        const item = currentCart.find(i => String(i.id) === String(productId));
+        const item = currentCart.find(i => sameCartLine(i, productId, variantId));
         if (item) {
             const checkbox = document.querySelector(`.cart-item-checkbox[data-id="${productId}"]`);
             item.selected = checkbox ? checkbox.checked : !item.selected;
@@ -282,6 +303,146 @@ window.toggleItemSelection = function(productId) {
         localStorage.setItem('cart', JSON.stringify(currentCart));
         renderCartDrawerItems();
     }
+};
+
+/* ==========================================================================
+   COUPON HELPERS (shared via localStorage.appliedCoupon)
+   ========================================================================== */
+function getAppliedCoupon() {
+    try {
+        return JSON.parse(localStorage.getItem('appliedCoupon')) || null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function setAppliedCoupon(data) {
+    if (!data) {
+        localStorage.removeItem('appliedCoupon');
+        return;
+    }
+    localStorage.setItem('appliedCoupon', JSON.stringify(data));
+}
+
+function showCouponToast(message, type = 'success') {
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: type === 'error' ? 'error' : (type === 'warning' ? 'warning' : 'success'),
+            title: message,
+            showConfirmButton: false,
+            timer: 2800,
+            timerProgressBar: true
+        });
+        return;
+    }
+    alert(message);
+}
+
+function syncCartCouponUI(subtotal, payable) {
+    const applied = getAppliedCoupon();
+    const discountRow = document.getElementById('cartDiscountRow');
+    const discountEl = document.getElementById('cartDiscountAmount');
+    const msgEl = document.getElementById('cartCouponAppliedMsg');
+    const removeBtn = document.getElementById('cartRemoveCouponBtn');
+    const applyBtn = document.getElementById('cartApplyCouponBtn');
+    const input = document.getElementById('cartCouponInput');
+
+    const subtotalMatch = applied && Math.round(Number(applied.subtotal) * 100) === Math.round(Number(subtotal) * 100);
+    if (applied && applied.code && Number(applied.discountAmount) > 0 && subtotalMatch) {
+        if (discountRow) discountRow.style.display = 'block';
+        if (discountEl) discountEl.innerText = `-৳${applied.discountAmount}`;
+        if (msgEl) {
+            msgEl.style.display = 'block';
+            msgEl.innerText = `Coupon "${applied.code}" applied — you save ৳${applied.discountAmount}`;
+        }
+        if (removeBtn) removeBtn.style.display = 'inline-flex';
+        if (applyBtn) applyBtn.style.display = 'none';
+        if (input) {
+            input.value = applied.code;
+            input.disabled = true;
+        }
+        return Number(applied.finalTotal);
+    }
+
+    // Subtotal changed or invalid — clear stale coupon
+    if (applied && !subtotalMatch) {
+        setAppliedCoupon(null);
+    }
+
+    if (discountRow) discountRow.style.display = 'none';
+    if (msgEl) msgEl.style.display = 'none';
+    if (removeBtn) removeBtn.style.display = 'none';
+    if (applyBtn) applyBtn.style.display = 'inline-flex';
+    if (input && !getAppliedCoupon()) {
+        input.disabled = false;
+    }
+    return payable;
+}
+
+window.applyCartCoupon = async function() {
+    const input = document.getElementById('cartCouponInput');
+    const code = (input?.value || '').trim().toUpperCase();
+    if (!code) return showCouponToast('Please enter a coupon code.', 'warning');
+
+    let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
+    let checkedItems = currentCart.filter(item => item.selected !== false);
+    let subtotal = 0;
+    checkedItems.forEach(item => { subtotal += item.price * (item.quantity || 1); });
+
+    if (subtotal <= 0) return showCouponToast('Your cart is empty.', 'warning');
+
+    const applyBtn = document.getElementById('cartApplyCouponBtn');
+    if (applyBtn) {
+        applyBtn.disabled = true;
+        applyBtn.textContent = 'Applying...';
+    }
+
+    try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (customerToken) headers['Authorization'] = `Bearer ${customerToken}`;
+
+        const res = await fetch('/api/coupons/apply', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ code, subtotal })
+        });
+        const result = await res.json();
+
+        if (result.success && result.data) {
+            setAppliedCoupon({
+                code: result.data.code,
+                discountAmount: result.data.discountAmount,
+                subtotal: result.data.subtotal,
+                finalTotal: result.data.finalTotal,
+                discountType: result.data.discountType,
+                discountValue: result.data.discountValue
+            });
+            showCouponToast('Coupon applied successfully!', 'success');
+            updateCartTotal();
+        } else {
+            showCouponToast(result.message || 'Invalid coupon code', 'error');
+        }
+    } catch (err) {
+        showCouponToast('Failed to apply coupon. Please try again.', 'error');
+    } finally {
+        if (applyBtn) {
+            applyBtn.disabled = false;
+            applyBtn.textContent = 'Apply';
+        }
+    }
+};
+
+window.removeCartCoupon = function() {
+    setAppliedCoupon(null);
+    const input = document.getElementById('cartCouponInput');
+    if (input) {
+        input.value = '';
+        input.disabled = false;
+    }
+    showCouponToast('Coupon removed.', 'success');
+    updateCartTotal();
 };
 
 function updateCartTotal() {
@@ -307,11 +468,13 @@ function updateCartTotal() {
         grandTotal += item.price * (item.quantity || 1);
     });
 
+    const payable = syncCartCouponUI(grandTotal, grandTotal);
+
     // Drawer Updates
-    if (totalSpan) totalSpan.innerText = grandTotal;
+    if (totalSpan) totalSpan.innerText = payable;
     if (itemsCountSpan) itemsCountSpan.innerText = `${uniqueSelectedCount} Items`;
     if (subtotalEl) subtotalEl.innerText = `৳${grandTotal}`;
-    if (grandTotalEl) grandTotalEl.innerText = `৳${grandTotal}`;
+    if (grandTotalEl) grandTotalEl.innerText = `৳${payable}`;
 
     // Profile Summary Updates
     if (profileTotalEl) profileTotalEl.innerText = `৳${grandTotal}`;
@@ -345,6 +508,28 @@ function updateCartTotal() {
             };
         }
 
+        // Coupon buttons (cart page only)
+        const cartApplyBtn = document.getElementById('cartApplyCouponBtn');
+        if (cartApplyBtn && !cartApplyBtn.dataset.bound) {
+            cartApplyBtn.dataset.bound = '1';
+            cartApplyBtn.addEventListener('click', applyCartCoupon);
+        }
+        const cartRemoveBtn = document.getElementById('cartRemoveCouponBtn');
+        if (cartRemoveBtn && !cartRemoveBtn.dataset.bound) {
+            cartRemoveBtn.dataset.bound = '1';
+            cartRemoveBtn.addEventListener('click', removeCartCoupon);
+        }
+        const cartCouponInput = document.getElementById('cartCouponInput');
+        if (cartCouponInput && !cartCouponInput.dataset.bound) {
+            cartCouponInput.dataset.bound = '1';
+            cartCouponInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    applyCartCoupon();
+                }
+            });
+        }
+
         // Profile Button Enable
         if (profileBtn) {
             profileBtn.disabled = false;
@@ -364,18 +549,27 @@ function updateCartTotal() {
 /* ==========================================================================
    SECTION 5: QUANTITY & DELETE CONTROLS (আপডেটেড উইথ ব্যাকএন্ড সিঙ্ক)
    ========================================================================== */
-window.updateQty = function(productId, change) {
+window.updateQty = function(productId, change, variantIdEnc) {
+    const variantId = decVariant(variantIdEnc);
     let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
-    const item = currentCart.find(i => String(i.id) === String(productId));
+    const item = currentCart.find(i => sameCartLine(i, productId, variantId));
 
     if (item) {
-        // স্টক ভ্যালিডেশন
+        // স্টক ভ্যালিডেশন (ভ্যারিয়েন্ট থাকলে সেটির স্টক অনুযায়ী)
         if (change > 0) {
             const realProduct = globalProductCatalog.find(p => String(p._id) === String(productId) || String(p.productId) === String(productId) || String(p.id) === String(productId));
             if (realProduct) {
                 let availableStock = Number(realProduct.stock || 0);
+                if (item.variantId && Array.isArray(realProduct.variants)) {
+                    const matched = realProduct.variants.find(v =>
+                        (v.sku && v.sku === item.variantSku) ||
+                        (`${v.attribute}::${v.value}` === item.variantId) ||
+                        (v.value === item.variantValue && v.attribute === item.variantAttribute)
+                    );
+                    if (matched) availableStock = Number(matched.stock || 0);
+                }
                 if ((item.quantity + change) > availableStock) {
-                    alert(`দুঃখিত! আমাদের স্টকে সর্বোচ্চ ${availableStock} টি প্রোডাক্ট এভেইলেবল আছে।`);
+                    alert(`দুঃখিত! এই অপশনটির জন্য স্টকে সর্বোচ্চ ${availableStock} টি এভেইলেবল আছে।`);
                     return;
                 }
             }
@@ -383,7 +577,7 @@ window.updateQty = function(productId, change) {
 
         const targetQty = item.quantity + change;
         if (targetQty < 1) {
-            deleteCartItem(productId);
+            deleteCartItem(productId, variantIdEnc);
             return;
         }
 
@@ -395,7 +589,7 @@ window.updateQty = function(productId, change) {
                     'Authorization': `Bearer ${customerToken}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ productId, quantity: targetQty })
+                body: JSON.stringify({ productId, quantity: targetQty, variantId })
             })
             .then(res => res.json())
             .then(() => {
@@ -414,15 +608,16 @@ window.updateQty = function(productId, change) {
     }
 };
 
-window.deleteCartItem = function(productId) {
+window.deleteCartItem = function(productId, variantIdEnc) {
+    const variantId = decVariant(variantIdEnc);
     if (customerToken) {
-        // 🌟 লগইন থাকলে ডাটাবেজ থেকে আইটেম রিমুভ করা হবে
-        fetch(`/api/cart/remove/${productId}`, {
+        // 🌟 লগইন থাকলে ডাটাবেজ থেকে নির্দিষ্ট ভ্যারিয়েন্ট লাইন রিমুভ করা হবে
+        fetch(`/api/cart/remove/${productId}?variantId=${encodeURIComponent(variantId)}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${customerToken}` }
         })
         .then(() => {
-            cart = cart.filter(item => String(item.id) !== String(productId));
+            cart = cart.filter(item => !sameCartLine(item, productId, variantId));
             updateCartCount();
             renderCartDrawerItems();
         })
@@ -430,7 +625,7 @@ window.deleteCartItem = function(productId) {
     } else {
         // গেস্ট ইউজারের লোকাল স্টোরেজ হ্যান্ডলিং
         let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
-        currentCart = currentCart.filter(item => String(item.id) !== String(productId));
+        currentCart = currentCart.filter(item => !sameCartLine(item, productId, variantId));
         localStorage.setItem('cart', JSON.stringify(currentCart));
         updateCartCount();
         renderCartDrawerItems();
@@ -537,6 +732,18 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
 
     // স্টক ভ্যালিডেশন
     const realProduct = globalProductCatalog.find(p => String(p._id) === String(productId) || String(p.productId) === String(productId) || String(p.id) === String(productId));
+
+    // 🌟 ভ্যারিয়েন্ট প্রোডাক্ট হলে সরাসরি কার্টে যোগ না করে ডিটেইলস পেজে পাঠানো হয়,
+    // যাতে কাস্টমার Size/Color নির্বাচন করতে পারে (Shopify স্টাইল)।
+    if (realProduct && Array.isArray(realProduct.variants) &&
+        realProduct.variants.some(v => v.attribute || v.value)) {
+        const detailId = realProduct._id || realProduct.productId || productId;
+        if (clickedButton && typeof showCardNotification === 'function') {
+            showCardNotification(clickedButton, "Select options...", "success");
+        }
+        setTimeout(() => { window.location.href = `/product-details.html?id=${detailId}`; }, 350);
+        return;
+    }
     
     if (realProduct) {
         let availableStock = Number(realProduct.stock || 0);
