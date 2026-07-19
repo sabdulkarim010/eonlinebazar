@@ -164,11 +164,35 @@ app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'client', 'admin.html'));
 });
 
+// Dashboard alias (same panel as /admin)
+app.get('/admin/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'admin.html'));
+});
+
 app.get('/admin-login', (req, res) => {
     res.sendFile(path.join(__dirname, 'client', 'admin-login.html'));
 });
 
-// 🔐 অ্যাডমিন 2FA OTP ভেরিফিকেশন পেজ (Step 2)
+// Login alias
+app.get('/admin/login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'admin-login.html'));
+});
+
+// Full admin logout: clear server-side cookies and cleanly redirect to the
+// login page. The admin JWT lives in localStorage (a browser page navigation
+// can't send it), so the login page finishes the client-side cleanup +
+// server session revocation when it sees ?loggedout=1. No HTML is rendered
+// here — this is a standard redirect so the login template always styles.
+app.get('/admin/logout', (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.clearCookie('adminToken', { path: '/' });
+    res.clearCookie('token', { path: '/' });
+    return res.redirect('/admin/login?loggedout=1');
+});
+
+// 🔐 2-Step Verification page (Email OTP / Google Authenticator / SMS).
+// The client-side script guards access: without a valid handoff token it
+// bounces the visitor back to /admin-login.
 function serveAdminOtpPage(req, res) {
     res.sendFile(path.join(__dirname, 'client', 'verify-otp.html'));
 }

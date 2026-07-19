@@ -146,7 +146,9 @@ a {
 .admin-profile .info p { font-size: 12px; color: var(--sidebar-text); }
 
 .logout-btn {
+    display: block;
     width: 100%;
+    box-sizing: border-box;
     margin-top: 10px;
     padding: 8px;
     text-align: center;
@@ -157,6 +159,8 @@ a {
     transition: 0.3s;
     cursor: pointer;
     border: none;
+    text-decoration: none;
+    font-family: inherit;
 }
 .logout-btn:hover { background-color: var(--danger-color); color: #fff; }
 
@@ -1739,6 +1743,49 @@ a {
 .settings-card-title i { color: var(--primary-color); }
 .req-star { color: var(--danger-color); }
 
+/* --- Uniform, pixel-perfect form controls across every settings card --- */
+.settings-card .form-group { margin-bottom: 16px; }
+.settings-card .form-group:last-of-type { margin-bottom: 0; }
+.settings-card .form-row-custom {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    align-items: flex-start;
+}
+.settings-card .form-row-custom .form-group { margin-bottom: 0; }
+.settings-card .form-group > input,
+.settings-card .form-group > select {
+    width: 100%;
+    box-sizing: border-box;
+    height: 44px;
+    padding: 0 14px;
+    line-height: 1.4;
+    font-size: 14px;
+    font-family: inherit;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    color: var(--text-main);
+    background: #fff;
+    -webkit-appearance: none;
+    appearance: none;
+}
+.settings-card .form-group > select {
+    appearance: auto;
+    -webkit-appearance: auto;
+}
+.settings-card .form-group > input:focus,
+.settings-card .form-group > select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+/* Neutralise the taller line-box the ৳ / non-Latin glyph forces on this one field */
+.settings-card .form-group > input#settingsCurrencySymbol {
+    height: 44px;
+    line-height: 1.4;
+}
+.settings-card > form > .btn-submit { width: 100%; justify-content: center; margin-top: 22px; }
+.settings-card > form > .btn-submit:disabled { opacity: .7; cursor: progress; }
+
 .branding-upload-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -2155,4 +2202,111 @@ a {
     .sessions-grid { grid-template-columns: 1fr; }
     .blacklist-add-form { flex-direction: column; }
     .blacklist-add-form input, .blacklist-add-form select, .blacklist-add-form button { width: 100%; }
+}
+
+/* ==================================================================
+   Two-Factor Authentication (2FA) settings card
+================================================================== */
+.settings-card-sub { margin: -6px 0 16px; font-size: 13px; color: #64748b; line-height: 1.5; }
+
+.twofa-methods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 6px; align-items: stretch; }
+
+.twofa-method {
+    display: flex; align-items: center; gap: 12px; text-align: left; width: 100%;
+    padding: 16px 34px 16px 16px; border: 1.5px solid #e2e8f0; border-radius: 14px;
+    background: #f8fafc; cursor: pointer; transition: all .2s ease; position: relative;
+    font-family: inherit;
+}
+.twofa-method:hover { border-color: #93c5fd; background: #f1f5f9; transform: translateY(-1px); }
+.twofa-method.active { border-color: #2563eb; background: #eff6ff; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+.twofa-method.disabled { opacity: 0.55; }
+
+.twofa-method-icon {
+    width: 40px; height: 40px; flex-shrink: 0; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; font-size: 17px; color: #fff;
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+}
+.twofa-method-body { display: flex; flex-direction: column; gap: 3px; line-height: 1.3; flex: 1 1 auto; min-width: 0; }
+.twofa-method-body strong { font-size: 14px; color: #1e293b; }
+.twofa-method-body small { font-size: 11.5px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Active check sits in the top-right corner and never disturbs the row layout */
+.twofa-check { position: absolute; top: 10px; right: 12px; margin: 0; color: #2563eb; font-size: 16px; opacity: 0; transition: opacity .2s ease; }
+.twofa-method.active .twofa-check { opacity: 1; }
+
+/* Status pill (Not set up / Configured / Active) */
+.twofa-badge {
+    align-self: center; flex-shrink: 0; margin-left: auto;
+    font-size: 10px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase;
+    padding: 4px 9px; border-radius: 999px; line-height: 1.4; white-space: nowrap;
+    background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0;
+}
+.twofa-badge[data-state="off"]    { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+.twofa-badge[data-state="ready"]  { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+.twofa-badge[data-state="active"] { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
+
+/* Inline loading spinner for busy buttons */
+.twofa-spinner {
+    display: inline-block; width: 13px; height: 13px; vertical-align: -2px;
+    border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+    animation: twofa-spin .6s linear infinite;
+}
+@keyframes twofa-spin { to { transform: rotate(360deg); } }
+.is-loading { cursor: progress; opacity: .85; }
+
+/* SMS test-code verification row */
+.twofa-sms-verify { margin-top: 14px; padding-top: 14px; border-top: 1px dashed #e2e8f0; }
+.twofa-hint { margin: 0 0 10px; font-size: 12.5px; color: #475569; line-height: 1.5; }
+
+.twofa-inline { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.twofa-inline input {
+    flex: 1; min-width: 160px; padding: 10px 14px; border: 1px solid #cbd5e1;
+    border-radius: 8px; font-size: 14px; background: #f8fafc; font-family: inherit;
+}
+.twofa-inline input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.14); background:#fff; }
+
+.twofa-totp-panel { border-top: 1px dashed #e2e8f0; padding-top: 16px; margin-top: 4px; }
+.twofa-totp-actions { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+
+/* Cohesive 2FA action button group — identical height, padding & font so
+   "Re-configure" and "Disable" line up perfectly instead of clashing. */
+.twofa-totp-actions .btn-submit,
+.twofa-totp-actions .btn-danger {
+    margin-top: 0;
+    height: 42px;
+    padding: 0 18px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    white-space: nowrap;
+    transition: all .2s ease;
+}
+.twofa-totp-actions .btn-danger { border: 1px solid #fecaca; }
+
+.twofa-qr-wrap { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start;
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; }
+.twofa-qr-box { background: #fff; padding: 10px; border-radius: 12px; border: 1px solid #e2e8f0; }
+.twofa-qr-box img { display: block; width: 190px; height: 190px; }
+.twofa-qr-info { flex: 1; min-width: 240px; }
+.twofa-qr-info p { margin: 0 0 10px; font-size: 13px; color: #475569; line-height: 1.5; }
+.twofa-manual-key {
+    display: inline-block; background: #0f172a; color: #93c5fd; padding: 8px 12px;
+    border-radius: 8px; font-family: 'Courier New', monospace; font-size: 13px;
+    letter-spacing: 1px; word-break: break-all; margin-bottom: 12px;
+}
+.btn-danger {
+    background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 10px 16px;
+    border-radius: 8px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px; transition: all .2s ease; font-family: inherit;
+}
+.btn-danger:hover { background: #fee2e2; }
+
+@media (max-width: 768px) {
+    .twofa-methods { grid-template-columns: 1fr; }
+    .twofa-qr-box img { width: 160px; height: 160px; }
 }

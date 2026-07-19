@@ -16,7 +16,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
-    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="/css/admin.css">
     <link rel="icon" id="adminFavicon" href="data:," type="image/x-icon">
 
     <script>
@@ -100,9 +100,9 @@
                     <p>Super Admin</p>
                 </div>
                 
-                <button class="logout-btn" id="logoutBtn" style="border:none; cursor:pointer; font-family: inherit;">
+                <a href="/admin/logout" class="logout-btn" id="logoutBtn" role="button">
                     <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
-                </button>
+                </a>
             </div>
         </aside>
 
@@ -1086,6 +1086,7 @@
                                 <label>Timezone</label>
                                 <select id="settingsTimezone">
                                     <option value="Asia/Dhaka">Asia/Dhaka (Bangladesh)</option>
+                                    <option value="Asia/Riyadh">Asia/Riyadh (Saudi Arabia)</option>
                                     <option value="Asia/Kolkata">Asia/Kolkata (India)</option>
                                     <option value="Asia/Dubai">Asia/Dubai (UAE)</option>
                                     <option value="Asia/Singapore">Asia/Singapore</option>
@@ -1102,6 +1103,85 @@
                                 <i class="fa-solid fa-globe"></i> Save Platform Settings
                             </button>
                         </form>
+                    </div>
+
+                    <div class="settings-card settings-card-wide twofa-card">
+                        <h4 class="settings-card-title"><i class="fa-solid fa-user-lock"></i> Two-Factor Authentication (2FA)</h4>
+                        <p class="settings-card-sub">Choose how you verify admin logins. We recommend Google Authenticator for the strongest protection.</p>
+
+                        <div class="twofa-methods" id="twofaMethods">
+                            <button type="button" class="twofa-method" data-method="email">
+                                <span class="twofa-method-icon"><i class="fa-solid fa-envelope"></i></span>
+                                <span class="twofa-method-body">
+                                    <strong>Email OTP</strong>
+                                    <small id="twofaEmailTarget">Code sent to your email</small>
+                                </span>
+                                <span class="twofa-badge" id="twofaEmailBadge" data-state="ready">Ready</span>
+                                <span class="twofa-check"><i class="fa-solid fa-circle-check"></i></span>
+                            </button>
+
+                            <button type="button" class="twofa-method" data-method="totp">
+                                <span class="twofa-method-icon"><i class="fa-solid fa-key"></i></span>
+                                <span class="twofa-method-body">
+                                    <strong>Google Authenticator</strong>
+                                    <small id="twofaTotpState">Not configured</small>
+                                </span>
+                                <span class="twofa-badge" id="twofaTotpBadge" data-state="off">Not set up</span>
+                                <span class="twofa-check"><i class="fa-solid fa-circle-check"></i></span>
+                            </button>
+
+                            <button type="button" class="twofa-method" data-method="sms">
+                                <span class="twofa-method-icon"><i class="fa-solid fa-comment-sms"></i></span>
+                                <span class="twofa-method-body">
+                                    <strong>SMS OTP</strong>
+                                    <small id="twofaSmsTarget">Add a phone number</small>
+                                </span>
+                                <span class="twofa-badge" id="twofaSmsBadge" data-state="off">Not set up</span>
+                                <span class="twofa-check"><i class="fa-solid fa-circle-check"></i></span>
+                            </button>
+                        </div>
+
+                        <!-- SMS phone number + test-code verification -->
+                        <div class="form-group twofa-phone-group" id="twofaPhoneGroup" style="display:none;">
+                            <label>Phone Number (E.164, e.g. +8801XXXXXXXXX)</label>
+                            <div class="twofa-inline">
+                                <input type="tel" id="twofaPhoneInput" placeholder="+8801712345678">
+                                <button type="button" class="btn-secondary" id="twofaSavePhoneBtn"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+                                <button type="button" class="btn-submit" id="twofaSendSmsBtn"><i class="fa-solid fa-paper-plane"></i> Send Test Code</button>
+                            </div>
+
+                            <div class="twofa-sms-verify" id="twofaSmsVerifyRow" style="display:none;">
+                                <p class="twofa-hint" id="twofaSmsHint">Enter the 6-digit code we sent to your phone.</p>
+                                <div class="twofa-inline">
+                                    <input type="text" inputmode="numeric" maxlength="6" id="twofaSmsCode" placeholder="123456">
+                                    <button type="button" class="btn-submit" id="twofaVerifySmsBtn"><i class="fa-solid fa-check"></i> Verify &amp; Activate SMS</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Google Authenticator setup panel -->
+                        <div class="twofa-totp-panel" id="twofaTotpPanel" style="display:none;">
+                            <div class="twofa-totp-actions">
+                                <button type="button" class="btn-submit" id="twofaSetupTotpBtn"><i class="fa-solid fa-qrcode"></i> Set up Google Authenticator</button>
+                                <button type="button" class="btn-danger" id="twofaDisableTotpBtn" style="display:none;"><i class="fa-solid fa-ban"></i> Disable</button>
+                            </div>
+
+                            <div class="twofa-qr-wrap" id="twofaQrWrap" style="display:none;">
+                                <div class="twofa-qr-box">
+                                    <img id="twofaQrImg" alt="Scan this QR with Google Authenticator">
+                                </div>
+                                <div class="twofa-qr-info">
+                                    <p><strong>1.</strong> Open Google Authenticator → tap <em>＋</em> → <em>Scan a QR code</em>.</p>
+                                    <p><strong>2.</strong> Can't scan? Enter this key manually:</p>
+                                    <code class="twofa-manual-key" id="twofaManualKey">—</code>
+                                    <p><strong>3.</strong> Enter the 6-digit code shown in the app:</p>
+                                    <div class="twofa-inline">
+                                        <input type="text" inputmode="numeric" maxlength="6" id="twofaVerifyCode" placeholder="123456">
+                                        <button type="button" class="btn-submit" id="twofaVerifyTotpBtn"><i class="fa-solid fa-check"></i> Verify &amp; Activate</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="settings-card settings-card-wide">
@@ -1313,7 +1393,7 @@
 
     <div id="toastContainer" class="toast-container"></div>
 
-    <script type="module" src="js/admin.js"></script>
+    <script type="module" src="/js/admin.js"></script>
 
 </body>
 </html>

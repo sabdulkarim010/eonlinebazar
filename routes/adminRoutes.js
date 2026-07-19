@@ -11,9 +11,11 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController'); 
 const adminSecurityController = require('../controllers/adminSecurityController');
+const twoFactorController = require('../controllers/twoFactorController');
 const upload = require('../middlewares/uploadMiddleware');
 const { verifyAdmin } = require('../middlewares/authMiddleware');
 const { checkBlacklist, adminLoginLimiter } = require('../middlewares/adminSecurity');
+const { geoFence } = require('../middlewares/geoFencing');
 
 // ১. কাস্টমারদের ডাটা পাওয়ার রাস্তা (GET)
 router.get('/customers', verifyAdmin, adminController.getAllCustomers);
@@ -25,10 +27,23 @@ router.put('/customers/:id', verifyAdmin, adminController.updateCustomer);
 router.patch('/customers/:id/status', verifyAdmin, adminController.updateCustomerStatus);
 
 // ২. অ্যাডমিন লগইন করার রাস্তা (POST)
-router.post('/login', checkBlacklist, adminLoginLimiter, adminSecurityController.loginAdmin);
+// পাইপলাইন: ব্ল্যাকলিস্ট গেট → জিও-ফেন্স (রিজিয়ন লক) → রেট-লিমিট → কন্ট্রোলার
+router.post('/login', checkBlacklist, geoFence, adminLoginLimiter, adminSecurityController.loginAdmin);
 
-// 🔐 অ্যাডমিন লগইন — Step 2 (OTP → final JWT + AdminSession)
+// 🔐 অ্যাডমিন লগইন — Step 2 (OTP / TOTP → final JWT + AdminSession)
 router.post('/verify-otp', checkBlacklist, adminLoginLimiter, adminSecurityController.verifyOtp);
+
+// 🔐 Multi-Option 2FA Manager (Email / Google Authenticator / SMS)
+router.get('/2fa/status', verifyAdmin, twoFactorController.getTwoFactorStatus);
+router.post('/2fa/totp/setup', verifyAdmin, twoFactorController.setupTotp);
+router.post('/2fa/totp/verify', verifyAdmin, twoFactorController.verifyTotpSetup);
+router.post('/2fa/totp/disable', verifyAdmin, twoFactorController.disableTotp);
+router.post('/2fa/sms/send', verifyAdmin, twoFactorController.sendSmsSetupOtp);
+router.post('/2fa/sms/verify', verifyAdmin, twoFactorController.verifySmsSetupOtp);
+router.put('/2fa/method', verifyAdmin, twoFactorController.updateMethod);
+
+// 🚪 Full admin sign-out (revokes current AdminSession + clears cookies)
+router.post('/logout', verifyAdmin, adminSecurityController.logoutCurrent);
 
 // 🖥️ Active Devices & Sessions (remote logout)
 router.get('/sessions', verifyAdmin, adminSecurityController.getAdminSessions);

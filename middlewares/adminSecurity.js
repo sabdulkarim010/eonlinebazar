@@ -154,7 +154,7 @@ async function recordLoginAttempt({ fingerprint = {}, username = 'unknown', stat
                             expiresAt
                         }
                     },
-                    { upsert: true, new: true, setDefaultsOnInsert: true }
+                    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
                 );
 
                 await logSecurityEvent({

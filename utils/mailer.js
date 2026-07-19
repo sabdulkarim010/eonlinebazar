@@ -4,43 +4,86 @@
  * Location: utils/mailer.js
  * Author: Abdul Karim Sheikh
  * Description: Shared Nodemailer transport + a branded admin 2FA OTP
- * email template. If SMTP credentials are missing (dev environment)
- * the send gracefully degrades and the OTP is logged cleanly to the
- * server console so verification can still be completed.
+ * email template. Credentials are read from SMTP_* env vars (with
+ * EMAIL_USER / EMAIL_PASS as a backward-compatible fallback).
+ * If SMTP is missing or sendMail fails, the 6-digit OTP is logged
+ * in a high-visibility terminal banner so login is never blocked.
  ********************************************************************/
 
 const nodemailer = require('nodemailer');
 
-let transporter = null;
-if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-    transporter = nodemailer.createTransport({
-        service: 'gmail',
+const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
+const SMTP_PORT = Number(process.env.SMTP_PORT) || 465;
+const SMTP_USER = process.env.SMTP_USER || process.env.EMAIL_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || process.env.EMAIL_PASS || '';
+
+/**
+ * Build a Nodemailer transport from .env SMTP settings.
+ * Port 465 → implicit TLS (secure: true)
+ * Port 587 → STARTTLS (secure: false)
+ */
+function createSmtpTransport() {
+    if (!SMTP_USER || !SMTP_PASS) return null;
+
+    const secure = SMTP_PORT === 465;
+
+    return nodemailer.createTransport({
+        host: SMTP_HOST,
+        port: SMTP_PORT,
+        secure,
         auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS
-        }
+            user: SMTP_USER,
+            pass: SMTP_PASS
+        },
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
+        socketTimeout: 20000
     });
 }
 
+let transporter = createSmtpTransport();
+
+/** High-visibility OTP dump for the VS Code / server terminal */
+function logOtpToConsole({ otp, username, ip, location, expiresInMinutes, reason }) {
+    const cell = (label, value) => {
+        const text = `${label}: ${String(value || '')}`.slice(0, 60);
+        return `║  ${text.padEnd(60)}║`;
+    };
+    console.log('\n');
+    console.log('╔══════════════════════════════════════════════════════════════╗');
+    console.log('║          🔐  ADMIN 2FA OTP — FALLBACK (READ THIS)            ║');
+    console.log('╠══════════════════════════════════════════════════════════════╣');
+    console.log(cell('Username', username || 'admin'));
+    console.log(cell('OTP CODE', otp));
+    console.log(cell('Expires', `${expiresInMinutes} minutes`));
+    console.log(cell('Origin', `${ip || 'Unknown'} (${location || 'Unknown'})`));
+    if (reason) console.log(cell('Reason', reason));
+    console.log('╚══════════════════════════════════════════════════════════════╝');
+    console.log('\n');
+}
+
 /**
- * অ্যাডমিন 2FA OTP ইমেইল পাঠানো।
- * ইমেইল কনফিগার না থাকলে বা পাঠাতে ব্যর্থ হলে OTP কনসোলে পরিষ্কারভাবে লগ হয়
- * (delivered:false রিটার্ন করে) — যাতে ভেরিফিকেশন ব্লক না হয়।
+ * Send the admin 2FA OTP email.
+ * On missing config or any send failure → log OTP to the terminal and
+ * return { delivered: false } so verification can still proceed.
  */
 async function sendAdminOtpEmail({ to, otp, username, ip, location, expiresInMinutes = 5 }) {
-    const recipient = to || process.env.EMAIL_USER;
+    const recipient = to || SMTP_USER;
 
-    const consoleBanner = () => {
-        console.log('\n==================== 🔐 ADMIN 2FA OTP ====================');
-        console.log(`  Username : ${username || 'admin'}`);
-        console.log(`  OTP CODE : ${otp}`);
-        console.log(`  Expires  : ${expiresInMinutes} minutes`);
-        console.log(`  Origin   : ${ip || 'Unknown'} (${location || 'Unknown Location'})`);
-        console.log('==========================================================\n');
-    };
+    // Rebuild transport in case env was loaded late / process restarted
+    if (!transporter) {
+        transporter = createSmtpTransport();
+    }
 
     if (!transporter || !recipient) {
-        consoleBanner();
+        logOtpToConsole({
+            otp,
+            username,
+            ip,
+            location,
+            expiresInMinutes,
+            reason: 'SMTP not configured (set SMTP_USER / SMTP_PASS)'
+        });
         return { delivered: false, reason: 'Email transport not configured' };
     }
 
@@ -66,7 +109,7 @@ async function sendAdminOtpEmail({ to, otp, username, ip, location, expiresInMin
 
     try {
         await transporter.sendMail({
-            from: `"EonlineBazar Security" <${process.env.EMAIL_USER}>`,
+            from: `"EonlineBazar Security" <${SMTP_USER}>`,
             to: recipient,
             subject: `🔐 Your Admin Login Code: ${otp}`,
             html
@@ -74,9 +117,16 @@ async function sendAdminOtpEmail({ to, otp, username, ip, location, expiresInMin
         return { delivered: true };
     } catch (err) {
         console.error('Admin OTP email send failed:', err.message);
-        consoleBanner();
+        logOtpToConsole({
+            otp,
+            username,
+            ip,
+            location,
+            expiresInMinutes,
+            reason: err.message || 'SMTP connection/send failure'
+        });
         return { delivered: false, reason: err.message };
     }
 }
 
-module.exports = { transporter, sendAdminOtpEmail };
+module.exports = { transporter, sendAdminOtpEmail, createSmtpTransport };

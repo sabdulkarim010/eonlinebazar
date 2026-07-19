@@ -3043,8 +3043,7 @@ async function logoutAdminSession(sessionId, isCurrent) {
         if (!data.success) return (typeof showToast === 'function') ? showToast(data.message || 'Failed.', 'error') : alert(data.message);
 
         if (data.loggedOutCurrent) {
-            localStorage.removeItem('adminToken');
-            window.location.replace('/admin-login');
+            window.location.replace('/admin/logout');
             return;
         }
         if (typeof showToast === 'function') showToast(data.message, 'success');
@@ -3302,6 +3301,8 @@ async function fetchAdminSettings() {
     } catch (err) {
         console.error('Failed to load admin settings:', err);
     }
+    // Load 2FA status/config for the settings panel
+    if (typeof window.refreshTwoFactorSettings === 'function') window.refreshTwoFactorSettings();
 }
 
 async function saveAdminSettings(payload) {
@@ -3329,28 +3330,146 @@ async function uploadStoreBrandingAsset(file, assetType) {
     return res.json();
 }
 
+/**
+ * বাটনকে সাময়িকভাবে লোডিং অবস্থায় নিয়ে যায় ("Saving..." + স্পিনার + disabled)
+ * @returns {Function} restore() — বাটনকে আগের অবস্থায় ফিরিয়ে আনে
+ */
+function setButtonLoading(btn, loadingText = 'Saving...') {
+    if (!btn) return () => {};
+    const originalHTML = btn.innerHTML;
+    const wasDisabled = btn.disabled;
+    btn.disabled = true;
+    btn.classList.add('is-loading');
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${loadingText}`;
+    return () => {
+        btn.disabled = wasDisabled;
+        btn.classList.remove('is-loading');
+        btn.innerHTML = originalHTML;
+    };
+}
+
+/**
+ * নতুন লোগো/ফ্যাভিকন URL সঙ্গে সঙ্গে পুরো DOM-এ প্রয়োগ করে (রিফ্রেশ ছাড়াই)
+ */
+function applyBrandingAsset(assetType, url) {
+    if (!url) return;
+    const bust = url.includes('?') ? `${url}&t=${Date.now()}` : `${url}?t=${Date.now()}`;
+
+    if (assetType === 'logo') {
+        const logoImg = document.getElementById('settingsLogoPreview');
+        const logoPh = document.getElementById('settingsLogoPlaceholder');
+        const sidebarLogo = document.getElementById('sidebarStoreLogo');
+        const sidebarIcon = document.getElementById('sidebarStoreIcon');
+        if (logoImg) { logoImg.src = bust; logoImg.style.display = 'block'; }
+        if (logoPh) logoPh.style.display = 'none';
+        if (sidebarLogo) { sidebarLogo.src = bust; sidebarLogo.style.display = 'block'; }
+        if (sidebarIcon) sidebarIcon.style.display = 'none';
+    } else if (assetType === 'favicon') {
+        const favImg = document.getElementById('settingsFaviconPreview');
+        const favPh = document.getElementById('settingsFaviconPlaceholder');
+        let faviconLink = document.getElementById('adminFavicon');
+        if (favImg) { favImg.src = bust; favImg.style.display = 'block'; }
+        if (favPh) favPh.style.display = 'none';
+        // Re-create the <link rel="icon"> so browsers reliably repaint the tab icon
+        if (faviconLink) faviconLink.remove();
+        faviconLink = document.createElement('link');
+        faviconLink.id = 'adminFavicon';
+        faviconLink.rel = 'icon';
+        faviconLink.href = bust;
+        document.head.appendChild(faviconLink);
+    }
+}
+
+/**
+ * ফাইল সিলেক্ট করার সঙ্গে সঙ্গে লোকাল প্রিভিউ দেখায় (আপলোডের আগেই)
+ */
+function showLocalBrandingPreview(assetType, file) {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        if (assetType === 'logo') {
+            const logoImg = document.getElementById('settingsLogoPreview');
+            const logoPh = document.getElementById('settingsLogoPlaceholder');
+            if (logoImg) { logoImg.src = ev.target.result; logoImg.style.display = 'block'; }
+            if (logoPh) logoPh.style.display = 'none';
+        } else {
+            const favImg = document.getElementById('settingsFaviconPreview');
+            const favPh = document.getElementById('settingsFaviconPlaceholder');
+            if (favImg) { favImg.src = ev.target.result; favImg.style.display = 'block'; }
+            if (favPh) favPh.style.display = 'none';
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
+async function handleBrandingUpload(input, assetType, label) {
+    const file = input.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        showToast(`Error: Please choose a valid image file for the ${label}.`, 'error');
+        input.value = '';
+        return;
+    }
+
+    // 1) Instant local preview so the admin sees the change immediately
+    showLocalBrandingPreview(assetType, file);
+
+    // 2) Loading state on the matching upload button
+    const uploadBtn = input.parentElement?.querySelector('button');
+    const restore = setButtonLoading(uploadBtn, 'Uploading...');
+
+    try {
+        const result = await uploadStoreBrandingAsset(file, assetType);
+        if (result.success) {
+            // 3) Apply the final server URL live across the whole DOM
+            applyBrandingAsset(assetType, result.url);
+            showToast(`Success: ${label} updated and applied live!`, 'success');
+        } else {
+            showToast(`Error: ${result.message || `${label} upload failed.`}`, 'error');
+            // Roll back to the persisted branding on failure
+            fetchAdminSettings();
+        }
+    } catch (err) {
+        console.error(`${label} upload error:`, err);
+        showToast(`Error: Could not upload the ${label}. Please try again.`, 'error');
+        fetchAdminSettings();
+    } finally {
+        restore();
+        input.value = '';
+    }
+}
+
 function setupAdminSettingsForms() {
     const profileForm = document.getElementById('adminSettingsForm');
     if (profileForm) {
         profileForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const currentPassword = document.getElementById('settingsCurrentPassword')?.value;
-            if (!currentPassword) return showToast('Current password is required.', 'warning');
+            if (!currentPassword) return showToast('Error: Current password is required to save changes.', 'warning');
 
-            const result = await saveAdminSettings({
-                currentPassword,
-                username: document.getElementById('settingsUsername')?.value?.trim(),
-                newPassword: document.getElementById('settingsNewPassword')?.value || undefined,
-                displayName: document.getElementById('settingsDisplayName')?.value?.trim()
-            });
+            const submitBtn = profileForm.querySelector('button[type="submit"]');
+            const restore = setButtonLoading(submitBtn, 'Saving...');
+            try {
+                const result = await saveAdminSettings({
+                    currentPassword,
+                    username: document.getElementById('settingsUsername')?.value?.trim(),
+                    newPassword: document.getElementById('settingsNewPassword')?.value || undefined,
+                    displayName: document.getElementById('settingsDisplayName')?.value?.trim()
+                });
 
-            if (result.success) {
-                showToast(result.message || 'Profile saved!', 'success');
-                applyAdminSettingsToUI(result.data);
-                document.getElementById('settingsCurrentPassword').value = '';
-                document.getElementById('settingsNewPassword').value = '';
-            } else {
-                showToast(result.message || 'Failed to save profile.', 'error');
+                if (result.success) {
+                    showToast('Success: Admin profile updated successfully!', 'success');
+                    applyAdminSettingsToUI(result.data);
+                    document.getElementById('settingsCurrentPassword').value = '';
+                    document.getElementById('settingsNewPassword').value = '';
+                } else {
+                    showToast(`Error: ${result.message || 'Failed to update profile.'}`, 'error');
+                }
+            } catch (err) {
+                console.error('Save profile error:', err);
+                showToast('Error: Could not reach the server. Please try again.', 'error');
+            } finally {
+                restore();
             }
         });
     }
@@ -3360,56 +3479,43 @@ function setupAdminSettingsForms() {
         platformForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const currentPassword = document.getElementById('platformCurrentPassword')?.value;
-            if (!currentPassword) return showToast('Current password is required.', 'warning');
+            if (!currentPassword) return showToast('Error: Current password is required to save changes.', 'warning');
 
-            const result = await saveAdminSettings({
-                currentPassword,
-                storeName: document.getElementById('settingsStoreName')?.value?.trim(),
-                currency: document.getElementById('settingsCurrency')?.value?.trim(),
-                currencySymbol: document.getElementById('settingsCurrencySymbol')?.value?.trim(),
-                timezone: document.getElementById('settingsTimezone')?.value
-            });
+            const submitBtn = platformForm.querySelector('button[type="submit"]');
+            const restore = setButtonLoading(submitBtn, 'Saving...');
+            try {
+                const result = await saveAdminSettings({
+                    currentPassword,
+                    storeName: document.getElementById('settingsStoreName')?.value?.trim(),
+                    currency: document.getElementById('settingsCurrency')?.value?.trim(),
+                    currencySymbol: document.getElementById('settingsCurrencySymbol')?.value?.trim(),
+                    timezone: document.getElementById('settingsTimezone')?.value
+                });
 
-            if (result.success) {
-                showToast(result.message || 'Platform settings saved!', 'success');
-                applyAdminSettingsToUI(result.data);
-                document.getElementById('platformCurrentPassword').value = '';
-            } else {
-                showToast(result.message || 'Failed to save platform settings.', 'error');
+                if (result.success) {
+                    showToast('Success: Platform preferences saved!', 'success');
+                    applyAdminSettingsToUI(result.data);
+                    document.getElementById('platformCurrentPassword').value = '';
+                } else {
+                    showToast(`Error: ${result.message || 'Failed to save platform settings.'}`, 'error');
+                }
+            } catch (err) {
+                console.error('Save platform settings error:', err);
+                showToast('Error: Could not reach the server. Please try again.', 'error');
+            } finally {
+                restore();
             }
         });
     }
 
     const logoInput = document.getElementById('settingsLogoInput');
     if (logoInput) {
-        logoInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const result = await uploadStoreBrandingAsset(file, 'logo');
-            if (result.success) {
-                showToast(result.message, 'success');
-                fetchAdminSettings();
-            } else {
-                showToast(result.message || 'Logo upload failed.', 'error');
-            }
-            logoInput.value = '';
-        });
+        logoInput.addEventListener('change', () => handleBrandingUpload(logoInput, 'logo', 'Store logo'));
     }
 
     const favInput = document.getElementById('settingsFaviconInput');
     if (favInput) {
-        favInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const result = await uploadStoreBrandingAsset(file, 'favicon');
-            if (result.success) {
-                showToast(result.message, 'success');
-                fetchAdminSettings();
-            } else {
-                showToast(result.message || 'Favicon upload failed.', 'error');
-            }
-            favInput.value = '';
-        });
+        favInput.addEventListener('change', () => handleBrandingUpload(favInput, 'favicon', 'Favicon'));
     }
 }
 
@@ -3457,16 +3563,29 @@ window.uploadAdminProfilePic = async function(event) {
 
 /**
  * ১৩.২: অ্যাডমিন লগআউট প্রসেস
+ * Always finishes at /admin/logout (revokes AdminSession, clears storage/cookies,
+ * redirects to /admin/login). No OTP/2FA state is required — works with the bypass.
  */
 window.logout = function() {
-    showCustomConfirm("Logout", "Are you sure you want to securely log out of the admin panel?", () => {
-        localStorage.removeItem('adminToken');
-        sessionStorage.clear();
-        showToast("Logging out...", "info");
-        setTimeout(() => {
-            window.location.href = '/admin-login'; // লগইন পেজে রিডাইরেক্ট
-        }, 1000);
-    }, "danger");
+    const goLogout = () => {
+        try { showToast("Logging out...", "info"); } catch (e) { /* never block logout */ }
+        window.location.href = '/admin/logout';
+    };
+
+    try {
+        if (typeof showCustomConfirm === 'function') {
+            showCustomConfirm(
+                "Logout",
+                "Are you sure you want to securely log out of the admin panel?",
+                goLogout,
+                "danger"
+            );
+            return;
+        }
+    } catch (err) {
+        console.error('Logout confirm error:', err);
+    }
+    goLogout();
 };
 
 /**
@@ -3693,20 +3812,23 @@ function setupSyncButton() {
    SECTION 18: Logout
    ========================================================================== */
 
-// লগআউট হ্যান্ডলার
+// Sidebar logout: prefer the native <a href="/admin/logout"> navigation so
+// sign-out still works if showToast / other dashboard JS throws.
 const logoutBtn = document.getElementById('logoutBtn');
 if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
-        // ১. লোকাল স্টোরেজ থেকে টোকেন মুছে ফেলা
-        localStorage.removeItem('adminToken');
-        
-        // ২. ইউজারের সেশন শেষ করার মেসেজ দেখানো
-        showToast("Logging out...", "info");
-
-        // ৩. লগইন পেজে রিডাইরেক্ট করা
-        setTimeout(() => {
-            window.location.replace("/admin-login");
-        }, 1000);
+    logoutBtn.addEventListener('click', (e) => {
+        // Let the href handle navigation; only intercept if we need a confirm.
+        // Default path: go straight to /admin/logout (full cleanup + redirect).
+        e.preventDefault();
+        try {
+            if (typeof window.logout === 'function') {
+                window.logout();
+                return;
+            }
+        } catch (err) {
+            console.error('Logout handler error:', err);
+        }
+        window.location.href = '/admin/logout';
     });
 }
 
@@ -3804,5 +3926,297 @@ if (profileUploadInput) {
 
 /*==========================================================================================================================*/
 
+/* ==========================================================================
+   TWO-FACTOR AUTHENTICATION (2FA) — Admin self-service manager
+   Email · Google Authenticator (TOTP) · SMS
+========================================================================== */
+(function () {
+    const AUTH = () => ({ 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` });
+    const toast = (m, t = 'success') => (typeof showToast === 'function' ? showToast(m, t) : alert(m));
+    const $ = (id) => document.getElementById(id);
 
+    let state = {
+        method: 'email', twoFactorEnabled: true,
+        totpConfigured: false, totpPending: false,
+        phone: '', maskedPhone: '', maskedEmail: '', smsConfigured: false
+    };
+
+    /* ---- Small helpers ---- */
+
+    // Put a button into a loading state; returns a restore() that reverses it.
+    function setBusy(btn, label) {
+        if (!btn) return () => {};
+        if (btn.dataset.loading === '1') return () => {}; // already busy → ignore double clicks
+        const html = btn.innerHTML;
+        const wasDisabled = btn.disabled;
+        btn.dataset.loading = '1';
+        btn.disabled = true;
+        btn.classList.add('is-loading');
+        btn.innerHTML = `<span class="twofa-spinner" aria-hidden="true"></span> ${label || 'Please wait…'}`;
+        return () => {
+            btn.dataset.loading = '0';
+            btn.disabled = wasDisabled;
+            btn.classList.remove('is-loading');
+            btn.innerHTML = html;
+        };
+    }
+
+    // Unified JSON fetch. Never throws on non-2xx — returns { ok, status, data }.
+    async function api(url, method = 'GET', body) {
+        const opts = { method, headers: { ...AUTH() } };
+        if (body !== undefined) {
+            opts.headers['Content-Type'] = 'application/json';
+            opts.body = JSON.stringify(body);
+        }
+        const res = await fetch(url, opts);
+        let data = {};
+        try { data = await res.json(); } catch (_) { /* empty / non-JSON body */ }
+        return { ok: res.ok, status: res.status, data };
+    }
+
+    async function loadStatus() {
+        if (!$('twofaMethods')) return; // settings section not mounted yet
+        try {
+            const { data } = await api('/api/admin/2fa/status');
+            if (data && data.success) { state = { ...state, ...data.data }; render(); }
+        } catch (err) {
+            console.error('2FA status load failed:', err);
+        }
+    }
+
+    function setBadge(el, text, kind) {
+        if (!el) return;
+        el.textContent = text;
+        el.dataset.state = kind; // off | ready | active
+    }
+
+    function render() {
+        // Active-method highlight (drives the check icon + border via CSS)
+        document.querySelectorAll('.twofa-method').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.method === state.method);
+        });
+
+        if ($('twofaEmailTarget')) $('twofaEmailTarget').textContent = state.maskedEmail ? `Code sent to ${state.maskedEmail}` : 'Code sent to your email';
+        if ($('twofaTotpState')) $('twofaTotpState').textContent = state.totpConfigured ? 'Active & verified' : (state.totpPending ? 'Setup in progress' : 'Not configured');
+        if ($('twofaSmsTarget')) $('twofaSmsTarget').textContent = state.maskedPhone ? `Code texted to ${state.maskedPhone}` : 'Add a phone number';
+
+        // Status badges
+        setBadge($('twofaEmailBadge'), state.method === 'email' ? 'Active' : 'Ready', state.method === 'email' ? 'active' : 'ready');
+        setBadge($('twofaTotpBadge'),
+            state.totpConfigured ? (state.method === 'totp' ? 'Active' : 'Configured') : 'Not set up',
+            state.totpConfigured ? (state.method === 'totp' ? 'active' : 'ready') : 'off');
+        setBadge($('twofaSmsBadge'),
+            state.smsConfigured ? (state.method === 'sms' ? 'Active' : 'Configured') : 'Not set up',
+            state.smsConfigured ? (state.method === 'sms' ? 'active' : 'ready') : 'off');
+
+        // SMS panel visible when SMS selected OR a phone is already on file
+        const showSms = state.method === 'sms' || state.smsConfigured;
+        if ($('twofaPhoneGroup')) $('twofaPhoneGroup').style.display = showSms ? 'block' : 'none';
+        if ($('twofaPhoneInput') && document.activeElement !== $('twofaPhoneInput')) $('twofaPhoneInput').value = state.phone || '';
+
+        // TOTP panel visible when Authenticator selected OR already configured
+        const showTotp = state.method === 'totp' || state.totpConfigured;
+        if ($('twofaTotpPanel')) $('twofaTotpPanel').style.display = showTotp ? 'block' : 'none';
+        if ($('twofaSetupTotpBtn') && $('twofaSetupTotpBtn').dataset.loading !== '1') {
+            $('twofaSetupTotpBtn').innerHTML = state.totpConfigured
+                ? '<i class="fa-solid fa-rotate"></i> Re-configure'
+                : '<i class="fa-solid fa-qrcode"></i> Set up Google Authenticator';
+        }
+        if ($('twofaDisableTotpBtn')) $('twofaDisableTotpBtn').style.display = state.totpConfigured ? 'inline-flex' : 'none';
+    }
+
+    /* ---- Actions ---- */
+
+    async function updateMethod(method, extra, srcBtn) {
+        const restore = setBusy(srcBtn, 'Saving…');
+        try {
+            const { data } = await api('/api/admin/2fa/method', 'PUT', { method, ...(extra || {}) });
+            if (!data.success) { toast(data.message || 'Failed to update 2FA method.', 'error'); return false; }
+            state.method = data.data.method;
+            state.phone = data.data.phone || state.phone;
+            state.maskedPhone = data.data.maskedPhone || state.maskedPhone;
+            if (state.phone) state.smsConfigured = true;
+            toast(data.message, 'success');
+            render();
+            return true;
+        } catch (err) {
+            console.error('2FA method update failed:', err);
+            toast('Server error updating 2FA method.', 'error');
+            return false;
+        } finally { restore(); }
+    }
+
+    async function onMethodClick(btn) {
+        const method = btn.dataset.method;
+        if (!method || method === state.method) return;
+
+        // Authenticator not yet configured → reveal setup instead of switching.
+        if (method === 'totp' && !state.totpConfigured) {
+            document.querySelectorAll('.twofa-method').forEach(b => b.classList.toggle('active', b === btn));
+            if ($('twofaTotpPanel')) $('twofaTotpPanel').style.display = 'block';
+            toast('Set up Google Authenticator, then verify to activate it.', 'info');
+            return;
+        }
+        // SMS not yet verified → reveal the phone + test-code panel.
+        if (method === 'sms' && !state.smsConfigured) {
+            document.querySelectorAll('.twofa-method').forEach(b => b.classList.toggle('active', b === btn));
+            if ($('twofaPhoneGroup')) $('twofaPhoneGroup').style.display = 'block';
+            if ($('twofaPhoneInput')) $('twofaPhoneInput').focus();
+            toast('Add your phone number and verify it to enable SMS 2FA.', 'info');
+            return;
+        }
+        await updateMethod(method, {}, btn);
+    }
+
+    async function onSavePhone(btn) {
+        const phone = ($('twofaPhoneInput').value || '').trim();
+        if (!phone) return toast('Please enter a phone number.', 'error');
+        const restore = setBusy(btn, 'Saving…');
+        try {
+            // Save the phone WITHOUT forcing the method (empty method = keep current).
+            const { data } = await api('/api/admin/2fa/method', 'PUT', { phone });
+            if (!data.success) { toast(data.message || 'Failed to save phone number.', 'error'); return; }
+            state.phone = (data.data && data.data.phone) || phone;
+            state.maskedPhone = (data.data && data.data.maskedPhone) || state.maskedPhone;
+            state.smsConfigured = !!state.phone;
+            toast('Phone number saved. Send a test code to verify it.', 'success');
+            render();
+        } catch (err) {
+            console.error('Save phone failed:', err);
+            toast('Server error saving phone number.', 'error');
+        } finally { restore(); }
+    }
+
+    async function onSendSms(btn) {
+        const phone = ($('twofaPhoneInput').value || '').trim();
+        if (!phone) return toast('Enter a phone number first.', 'error');
+        const restore = setBusy(btn, 'Sending…');
+        try {
+            const { data } = await api('/api/admin/2fa/sms/send', 'POST', { phone });
+            if (!data.success) { toast(data.message || 'Failed to send test code.', 'error'); return; }
+            state.phone = phone;
+            state.smsConfigured = true;
+            if (data.maskedPhone) state.maskedPhone = data.maskedPhone;
+            if ($('twofaSmsVerifyRow')) $('twofaSmsVerifyRow').style.display = 'block';
+            if ($('twofaSmsHint')) $('twofaSmsHint').textContent = data.delivered
+                ? `We texted a 6-digit code to ${data.maskedPhone}. It expires in ${data.expiresInMinutes || 5} minutes.`
+                : 'Code generated. SMS is in console mode — check the server terminal for the 6-digit code.';
+            if ($('twofaSmsCode')) { $('twofaSmsCode').value = ''; $('twofaSmsCode').focus(); }
+            toast(data.delivered ? 'Test code sent via SMS.' : 'Code generated — check the server console.', data.delivered ? 'success' : 'info');
+        } catch (err) {
+            console.error('Send SMS code failed:', err);
+            toast('Server error sending test code.', 'error');
+        } finally { restore(); }
+    }
+
+    async function onVerifySms(btn) {
+        const code = ($('twofaSmsCode').value || '').replace(/\D/g, '').trim();
+        if (code.length !== 6) return toast('Enter the 6-digit code sent to your phone.', 'error');
+        const restore = setBusy(btn, 'Verifying…');
+        try {
+            const { data } = await api('/api/admin/2fa/sms/verify', 'POST', { token: code });
+            if (!data.success) { toast(data.message || 'Invalid code, please try again.', 'error'); return; }
+            state.method = 'sms';
+            state.smsConfigured = true;
+            if (data.maskedPhone) state.maskedPhone = data.maskedPhone;
+            toast('SMS OTP Activated Successfully', 'success');
+            if ($('twofaSmsVerifyRow')) $('twofaSmsVerifyRow').style.display = 'none';
+            render();
+        } catch (err) {
+            console.error('Verify SMS code failed:', err);
+            toast('Server error verifying code.', 'error');
+        } finally { restore(); }
+    }
+
+    async function onSetupTotp(btn) {
+        const restore = setBusy(btn, 'Generating…');
+        try {
+            const { data } = await api('/api/admin/2fa/totp/setup', 'POST');
+            if (!data.success) { toast(data.message || 'Failed to start setup.', 'error'); return; }
+            if ($('twofaQrImg')) $('twofaQrImg').src = data.qrCode;
+            if ($('twofaManualKey')) $('twofaManualKey').textContent = data.manualKey;
+            if ($('twofaQrWrap')) $('twofaQrWrap').style.display = 'flex';
+            if ($('twofaVerifyCode')) { $('twofaVerifyCode').value = ''; $('twofaVerifyCode').focus(); }
+            state.totpPending = true;
+        } catch (err) {
+            console.error('TOTP setup failed:', err);
+            toast('Server error during setup.', 'error');
+        } finally { restore(); }
+    }
+
+    async function onVerifyTotp(btn) {
+        const code = ($('twofaVerifyCode') && $('twofaVerifyCode').value || '').replace(/\D/g, '').trim();
+        if (code.length !== 6) return toast('Enter the 6-digit code from your authenticator app.', 'error');
+        const restore = setBusy(btn, 'Verifying…');
+        try {
+            const { data } = await api('/api/admin/2fa/totp/verify', 'POST', { token: code });
+            if (!data.success) { toast(data.message || 'Invalid Code, please try again.', 'error'); return; }
+            state.totpConfigured = true;
+            state.method = 'totp';
+            state.totpPending = false;
+            toast('Google Authenticator Activated Successfully', 'success');
+            if ($('twofaQrWrap')) $('twofaQrWrap').style.display = 'none';
+            render();
+        } catch (err) {
+            console.error('TOTP verify failed:', err);
+            toast('Server error during verification.', 'error');
+        } finally { restore(); }
+    }
+
+    async function onDisableTotp(btn) {
+        if (!confirm('Disable Google Authenticator and switch back to Email OTP?')) return;
+        const restore = setBusy(btn, 'Disabling…');
+        try {
+            const { data } = await api('/api/admin/2fa/totp/disable', 'POST');
+            if (!data.success) { toast(data.message || 'Failed to disable.', 'error'); return; }
+            state.totpConfigured = false;
+            state.method = 'email';
+            state.totpPending = false;
+            toast(data.message || 'Google Authenticator disabled.', 'success');
+            if ($('twofaQrWrap')) $('twofaQrWrap').style.display = 'none';
+            render();
+        } catch (err) {
+            console.error('TOTP disable failed:', err);
+            toast('Server error.', 'error');
+        } finally { restore(); }
+    }
+
+    /* ---- Event delegation (robust: works no matter when the DOM mounts) ---- */
+
+    document.addEventListener('click', (e) => {
+        if (!e.target || !e.target.closest) return;
+
+        // Method tiles (spans inside the button also resolve to the tile)
+        const tile = e.target.closest('.twofa-method');
+        if (tile && $('twofaMethods') && $('twofaMethods').contains(tile)) {
+            onMethodClick(tile);
+            return;
+        }
+
+        const btn = e.target.closest('button');
+        if (!btn || !btn.id) return;
+        switch (btn.id) {
+            case 'twofaSavePhoneBtn':   onSavePhone(btn); break;
+            case 'twofaSendSmsBtn':     onSendSms(btn); break;
+            case 'twofaVerifySmsBtn':   onVerifySms(btn); break;
+            case 'twofaSetupTotpBtn':   onSetupTotp(btn); break;
+            case 'twofaVerifyTotpBtn':  onVerifyTotp(btn); break;
+            case 'twofaDisableTotpBtn': onDisableTotp(btn); break;
+        }
+    });
+
+    // Enter key submits the code fields
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' || !e.target) return;
+        if (e.target.id === 'twofaVerifyCode') { e.preventDefault(); onVerifyTotp($('twofaVerifyTotpBtn')); }
+        else if (e.target.id === 'twofaSmsCode') { e.preventDefault(); onVerifySms($('twofaVerifySmsBtn')); }
+    });
+
+    // Public hook: called whenever the Settings view is opened
+    window.refreshTwoFactorSettings = loadStatus;
+
+    document.addEventListener('DOMContentLoaded', loadStatus);
+    // If the module evaluates after DOMContentLoaded already fired, load now too.
+    if (document.readyState !== 'loading') loadStatus();
+})();
 

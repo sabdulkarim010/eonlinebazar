@@ -5,39 +5,651 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>2-Step Verification | EonlineBazar Admin</title>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="css/admin-login.css">
-    <link rel="stylesheet" href="css/verify-otp.css">
+
+    <!--
+        NOTE: All CSS and JS for this page are intentionally INLINED below.
+        This makes the OTP page fully self-contained so the browser can never
+        serve a stale cached verify-otp.css / verify-otp.js. Combined with the
+        server's no-store header, every visit loads the latest UI + logic.
+    -->
+    <style>
+    /* ==================================================================
+       EonlineBazar · Admin 2-Step Verification — Premium, self-contained UI
+    ================================================================== */
+    :root {
+        --bg-0: #0b1220;
+        --bg-1: #111a2e;
+        --accent: #3b82f6;
+        --accent-2: #6366f1;
+        --accent-strong: #2563eb;
+        --danger: #ef4444;
+        --success: #22c55e;
+        --ink: #0f172a;
+        --muted: #64748b;
+        --card: rgba(255, 255, 255, 0.86);
+        --ring: rgba(37, 99, 235, 0.22);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { margin: 0; padding: 0; min-height: 100%; }
+
+    body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        color: var(--ink);
+        background: radial-gradient(1200px 800px at 20% -10%, #1e2a4a 0%, transparent 55%),
+                    radial-gradient(1000px 700px at 110% 20%, #23134a 0%, transparent 50%),
+                    linear-gradient(160deg, var(--bg-0), var(--bg-1));
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---------- Stage + ambient orbs ---------- */
+    .otp-stage {
+        position: relative;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        overflow: hidden;
+    }
+    .orb {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(60px);
+        opacity: 0.55;
+        z-index: 0;
+        animation: float 14s ease-in-out infinite;
+    }
+    .orb-1 { width: 340px; height: 340px; background: #2563eb; top: -80px; left: -60px; }
+    .orb-2 { width: 300px; height: 300px; background: #7c3aed; bottom: -90px; right: -40px; animation-delay: -4s; }
+    .orb-3 { width: 220px; height: 220px; background: #0ea5e9; top: 40%; right: 22%; animation-delay: -8s; opacity: 0.4; }
+    @keyframes float {
+        0%, 100% { transform: translateY(0) translateX(0); }
+        50% { transform: translateY(-26px) translateX(16px); }
+    }
+
+    /* ---------- Glass card ---------- */
+    .otp-card {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        max-width: 440px;
+        padding: 40px 36px 30px;
+        text-align: center;
+        background: var(--card);
+        backdrop-filter: blur(22px) saturate(160%);
+        -webkit-backdrop-filter: blur(22px) saturate(160%);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        border-radius: 24px;
+        box-shadow: 0 30px 70px -20px rgba(2, 6, 23, 0.7),
+                    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+        animation: cardIn 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    @keyframes cardIn {
+        from { opacity: 0; transform: translateY(18px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .otp-brand {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.4px;
+        color: var(--muted);
+        text-transform: uppercase;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+    .otp-brand-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: var(--success);
+        box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
+    }
+
+    /* ---------- Shield ---------- */
+    .otp-shield {
+        width: 74px; height: 74px;
+        margin: 0 auto 16px;
+        border-radius: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 30px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        box-shadow: 0 14px 30px -8px rgba(59, 130, 246, 0.7);
+        animation: pulseGlow 2.6s ease-in-out infinite;
+    }
+    @keyframes pulseGlow {
+        0%, 100% { box-shadow: 0 14px 30px -8px rgba(59, 130, 246, 0.7); }
+        50% { box-shadow: 0 14px 40px -6px rgba(99, 102, 241, 0.85); }
+    }
+
+    /* ---------- Method badge ---------- */
+    .otp-method-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 14px;
+        border-radius: 999px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--accent-strong);
+        background: rgba(37, 99, 235, 0.1);
+        border: 1px solid rgba(37, 99, 235, 0.2);
+        margin-bottom: 14px;
+    }
+
+    h1 {
+        font-size: 23px;
+        font-weight: 800;
+        letter-spacing: -0.3px;
+        margin: 4px 0 8px;
+        color: var(--ink);
+    }
+    #otpSubtext {
+        font-size: 14.5px;
+        line-height: 1.5;
+        color: var(--muted);
+        margin: 0 auto 26px;
+        max-width: 330px;
+    }
+    #otpSubtext b { color: var(--ink); font-weight: 700; }
+
+    /* ---------- OTP inputs (6 neat, minimal boxes) ---------- */
+    #otpForm {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+    }
+    .otp-inputs {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+    }
+    .otp-cell {
+        width: 52px;
+        height: 62px;
+        text-align: center;
+        font-size: 26px;
+        font-weight: 700;
+        font-family: inherit;
+        color: var(--ink);
+        background: #f8fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 14px;
+        outline: none;
+        caret-color: var(--accent-strong);
+        transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        -moz-appearance: textfield;
+    }
+    .otp-cell::-webkit-outer-spin-button,
+    .otp-cell::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .otp-cell:hover { border-color: #cbd5e1; }
+    .otp-cell:focus {
+        border-color: var(--accent-strong);
+        background: #fff;
+        box-shadow: 0 0 0 4px var(--ring);
+        transform: translateY(-2px);
+    }
+    .otp-cell.filled {
+        border-color: var(--accent-strong);
+        background: #eff6ff;
+        color: var(--accent-strong);
+        animation: pop 0.18s ease;
+    }
+    @keyframes pop {
+        0% { transform: scale(0.9); }
+        60% { transform: scale(1.08); }
+        100% { transform: scale(1); }
+    }
+    .otp-inputs.shake { animation: shake 0.4s ease; }
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        20%, 60% { transform: translateX(-8px); }
+        40%, 80% { transform: translateX(8px); }
+    }
+    .otp-cell.error {
+        border-color: var(--danger);
+        background: #fef2f2;
+        color: var(--danger);
+    }
+
+    /* ---------- Timer ---------- */
+    .otp-timer {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--muted);
+        min-height: 18px;
+        letter-spacing: 0.2px;
+    }
+    .otp-timer.expired { color: var(--danger); }
+    .otp-timer .mono { font-variant-numeric: tabular-nums; color: var(--accent-strong); }
+
+    /* ---------- Submit button ---------- */
+    .otp-submit {
+        position: relative;
+        width: 100%;
+        height: 52px;
+        border: none;
+        border-radius: 14px;
+        cursor: pointer;
+        font-size: 15.5px;
+        font-weight: 700;
+        font-family: inherit;
+        color: #fff;
+        background: linear-gradient(135deg, var(--accent-strong), var(--accent-2));
+        box-shadow: 0 12px 26px -10px rgba(37, 99, 235, 0.8);
+        transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+        overflow: hidden;
+    }
+    .otp-submit .btn-label { display: inline-flex; align-items: center; gap: 9px; }
+    .otp-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 16px 32px -10px rgba(37, 99, 235, 0.9); }
+    .otp-submit:active:not(:disabled) { transform: translateY(0); }
+    .otp-submit:disabled { cursor: not-allowed; opacity: 0.75; }
+    .btn-spinner {
+        display: none;
+        width: 20px; height: 20px;
+        border: 2.5px solid rgba(255, 255, 255, 0.4);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .otp-submit.loading .btn-label { display: none; }
+    .otp-submit.loading .btn-spinner { display: inline-block; }
+
+    /* ---------- Footer ---------- */
+    .otp-footer {
+        margin-top: 24px;
+        padding-top: 18px;
+        border-top: 1px solid rgba(15, 23, 42, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 13px;
+    }
+    .otp-footer a {
+        color: var(--accent-strong);
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        transition: gap 0.2s ease;
+    }
+    .otp-footer a:hover { gap: 11px; }
+    .otp-secure-note {
+        color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 500;
+    }
+
+    /* ---------- Toasts ---------- */
+    .toast-container {
+        position: fixed;
+        top: 22px;
+        right: 22px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .toast {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 280px;
+        max-width: 360px;
+        padding: 14px 18px;
+        border-radius: 14px;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        background: #1e293b;
+        box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.55);
+        transform: translateX(0);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        animation: toastIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    @keyframes toastIn {
+        from { opacity: 0; transform: translateX(80px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    .toast i { font-size: 18px; }
+    .toast.success { background: linear-gradient(135deg, #16a34a, #22c55e); }
+    .toast.error { background: linear-gradient(135deg, #dc2626, #ef4444); }
+    .toast.info { background: linear-gradient(135deg, #2563eb, #6366f1); }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 480px) {
+        .otp-card { padding: 32px 22px 24px; border-radius: 20px; }
+        .otp-inputs { gap: 8px; }
+        .otp-cell { width: 44px; height: 54px; font-size: 22px; border-radius: 12px; }
+        h1 { font-size: 20px; }
+        .otp-footer { flex-direction: column; gap: 12px; }
+        .toast { min-width: auto; width: calc(100vw - 44px); }
+    }
+    @media (max-width: 340px) {
+        .otp-cell { width: 38px; height: 48px; font-size: 19px; }
+        .otp-inputs { gap: 6px; }
+    }
+    </style>
 </head>
 <body>
 
     <div id="toastContainer" class="toast-container"></div>
 
-    <div class="login-container otp-container">
-        <div class="otp-shield"><i class="fa-solid fa-shield-halved"></i></div>
-        <h2>Two-Factor Verification</h2>
-        <p id="otpSubtext">Enter the 6-digit code sent to your email.</p>
+    <main class="otp-stage">
+        <span class="orb orb-1" aria-hidden="true"></span>
+        <span class="orb orb-2" aria-hidden="true"></span>
+        <span class="orb orb-3" aria-hidden="true"></span>
 
-        <form id="otpForm">
-            <div class="otp-inputs" id="otpInputs">
-                <input type="text" inputmode="numeric" maxlength="1" class="otp-cell" autocomplete="one-time-code">
-                <input type="text" inputmode="numeric" maxlength="1" class="otp-cell">
-                <input type="text" inputmode="numeric" maxlength="1" class="otp-cell">
-                <input type="text" inputmode="numeric" maxlength="1" class="otp-cell">
-                <input type="text" inputmode="numeric" maxlength="1" class="otp-cell">
-                <input type="text" inputmode="numeric" maxlength="1" class="otp-cell">
+        <section class="otp-card" role="dialog" aria-labelledby="otpTitle" aria-describedby="otpSubtext">
+            <div class="otp-brand">
+                <span class="otp-brand-dot"></span> EonlineBazar · Admin Security
             </div>
 
-            <div class="otp-timer" id="otpTimer"></div>
+            <div class="otp-shield" id="otpShield">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
 
-            <button type="submit">Verify &amp; Sign In</button>
-        </form>
+            <span class="otp-method-badge" id="otpMethodBadge">
+                <i class="fa-solid fa-envelope"></i> <span id="otpMethodLabel">Email</span>
+            </span>
 
-        <div class="otp-footer">
-            <a href="/admin-login" id="backToLogin"><i class="fa-solid fa-arrow-left"></i> Back to login</a>
-        </div>
-    </div>
+            <h1 id="otpTitle">Two-Factor Verification</h1>
+            <p id="otpSubtext">Enter the 6-digit code sent to your email.</p>
 
-    <script type="module" src="js/verify-otp.js"></script>
+            <form id="otpForm" novalidate autocomplete="off">
+                <div class="otp-inputs" id="otpInputs">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 1" autocomplete="one-time-code">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 2">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 3">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 4">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 5">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 6">
+                </div>
+
+                <div class="otp-timer" id="otpTimer" aria-live="polite"></div>
+
+                <button type="submit" class="otp-submit" id="otpSubmitBtn">
+                    <span class="btn-label"><i class="fa-solid fa-lock-open"></i> Verify &amp; Sign In</span>
+                    <span class="btn-spinner" aria-hidden="true"></span>
+                </button>
+            </form>
+
+            <div class="otp-footer">
+                <a href="/admin-login" id="backToLogin"><i class="fa-solid fa-arrow-left-long"></i> Back to login</a>
+                <span class="otp-secure-note"><i class="fa-solid fa-lock"></i> Encrypted &amp; time-limited</span>
+            </div>
+        </section>
+    </main>
+
+    <script>
+    /**
+     * EonlineBazar — Admin 2-Step Verification controller (inlined).
+     * Handles: auto-advance, backspace-to-previous, paste-to-fill,
+     * auto-submit, and the actual POST /api/admin/verify-otp sign-in.
+     */
+    (function () {
+        'use strict';
+
+        /* ---------- Toast helper ---------- */
+        function showToast(message, type) {
+            type = type || 'success';
+            var container = document.getElementById('toastContainer');
+            if (!container) return;
+            var toast = document.createElement('div');
+            toast.className = 'toast ' + type;
+            var icon = type === 'success' ? 'fa-circle-check'
+                : type === 'info' ? 'fa-circle-info'
+                : 'fa-circle-xmark';
+            toast.innerHTML = '<i class="fa-solid ' + icon + '"></i><span class="toast-message">' + message + '</span>';
+            container.appendChild(toast);
+            setTimeout(function () {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(90px)';
+                setTimeout(function () { toast.remove(); }, 320);
+            }, 3600);
+        }
+
+        /* ---------- Guard: a valid handoff token must exist ---------- */
+        var otpToken = sessionStorage.getItem('adminOtpToken');
+        var meta = {};
+        try { meta = JSON.parse(sessionStorage.getItem('adminOtpMeta') || '{}'); } catch (_) { meta = {}; }
+
+        if (!otpToken) {
+            window.location.replace('/admin-login');
+            return;
+        }
+
+        /* ---------- Method-specific copy (Email / SMS / Authenticator) ---------- */
+        var method = (meta.method || 'email').toLowerCase();
+        var badge = document.getElementById('otpMethodBadge');
+        var badgeLabel = document.getElementById('otpMethodLabel');
+        var subtext = document.getElementById('otpSubtext');
+        var shield = document.getElementById('otpShield');
+        var timerEl = document.getElementById('otpTimer');
+
+        var METHOD_UI = {
+            email: {
+                label: 'Email',
+                icon: 'fa-envelope',
+                shield: 'fa-envelope-open-text',
+                text: (meta.delivered && meta.maskedTarget)
+                    ? 'Enter the 6-digit code sent to <b>' + meta.maskedTarget + '</b>.'
+                    : 'Enter the 6-digit code. <b>Email delivery failed or SMTP is not configured — check the server console for the code.</b>'
+            },
+            sms: {
+                label: 'SMS',
+                icon: 'fa-comment-sms',
+                shield: 'fa-comment-sms',
+                text: (meta.delivered && meta.maskedTarget)
+                    ? 'Enter the 6-digit code texted to <b>' + meta.maskedTarget + '</b>.'
+                    : 'Enter the 6-digit code. <b>SMS gateway is in fallback mode — check the server console for the code.</b>'
+            },
+            totp: {
+                label: 'Authenticator',
+                icon: 'fa-key',
+                shield: 'fa-mobile-screen-button',
+                text: 'Open <b>Google Authenticator</b> and enter the current 6-digit code for EonlineBazar Admin.'
+            }
+        };
+
+        var ui = METHOD_UI[method] || METHOD_UI.email;
+        if (badgeLabel) badgeLabel.textContent = ui.label;
+        if (badge && badge.querySelector('i')) badge.querySelector('i').className = 'fa-solid ' + ui.icon;
+        if (shield && shield.querySelector('i')) shield.querySelector('i').className = 'fa-solid ' + ui.shield;
+        if (subtext) subtext.innerHTML = ui.text;
+
+        /* ---------- OTP input engine ---------- */
+        var cells = Array.prototype.slice.call(document.querySelectorAll('.otp-cell'));
+        var inputsWrap = document.getElementById('otpInputs');
+        var form = document.getElementById('otpForm');
+        var submitBtn = document.getElementById('otpSubmitBtn');
+        var isSubmitting = false;
+
+        function collectOtp() {
+            return cells.map(function (c) { return c.value.trim(); }).join('');
+        }
+        function clearError() {
+            cells.forEach(function (c) { c.classList.remove('error'); });
+            if (inputsWrap) inputsWrap.classList.remove('shake');
+        }
+        function flagError() {
+            cells.forEach(function (c) { c.classList.add('error'); });
+            if (inputsWrap) {
+                inputsWrap.classList.remove('shake');
+                void inputsWrap.offsetWidth; // reflow to restart animation
+                inputsWrap.classList.add('shake');
+            }
+        }
+        function resetCells(focusFirst) {
+            cells.forEach(function (c) { c.value = ''; c.classList.remove('filled', 'error'); });
+            if (focusFirst && cells[0]) cells[0].focus();
+        }
+        function maybeAutoSubmit() {
+            if (collectOtp().length === 6) {
+                if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                else form.dispatchEvent(new Event('submit', { cancelable: true }));
+            }
+        }
+
+        cells.forEach(function (cell, idx) {
+            // Typing a digit → keep only the last number, then jump forward
+            cell.addEventListener('input', function (e) {
+                clearError();
+                var digit = e.target.value.replace(/\D/g, '').slice(-1);
+                e.target.value = digit;
+                e.target.classList.toggle('filled', !!digit);
+
+                if (digit && idx < cells.length - 1) {
+                    cells[idx + 1].focus();
+                    cells[idx + 1].select();
+                }
+                maybeAutoSubmit();
+            });
+
+            // Backspace clears + steps back; arrows navigate
+            cell.addEventListener('keydown', function (e) {
+                if (e.key === 'Backspace') {
+                    clearError();
+                    if (cell.value) {
+                        cell.value = '';
+                        cell.classList.remove('filled');
+                    } else if (idx > 0) {
+                        cells[idx - 1].focus();
+                        cells[idx - 1].value = '';
+                        cells[idx - 1].classList.remove('filled');
+                    }
+                    e.preventDefault();
+                } else if (e.key === 'ArrowLeft' && idx > 0) {
+                    cells[idx - 1].focus();
+                    e.preventDefault();
+                } else if (e.key === 'ArrowRight' && idx < cells.length - 1) {
+                    cells[idx + 1].focus();
+                    e.preventDefault();
+                }
+            });
+
+            cell.addEventListener('focus', function (e) { e.target.select(); });
+
+            // Paste a full 6-digit code into any box → fills them all
+            cell.addEventListener('paste', function (e) {
+                e.preventDefault();
+                clearError();
+                var raw = (e.clipboardData || window.clipboardData).getData('text') || '';
+                var digits = raw.replace(/\D/g, '').slice(0, cells.length);
+                if (!digits) return;
+                digits.split('').forEach(function (d, i) {
+                    cells[i].value = d;
+                    cells[i].classList.add('filled');
+                });
+                var nextIndex = Math.min(digits.length, cells.length - 1);
+                cells[nextIndex].focus();
+                cells[nextIndex].select();
+                maybeAutoSubmit();
+            });
+        });
+
+        if (cells[0]) cells[0].focus();
+
+        /* ---------- Countdown (skipped for TOTP) ---------- */
+        if (method === 'totp') {
+            if (timerEl) timerEl.innerHTML = 'Your authenticator code refreshes every 30 seconds.';
+        } else {
+            var secondsLeft = (meta.expiresInMinutes || 5) * 60;
+            var countdown = setInterval(tick, 1000);
+            tick();
+            function tick() {
+                if (!timerEl) return;
+                if (secondsLeft <= 0) {
+                    clearInterval(countdown);
+                    timerEl.textContent = 'Code expired. Please go back and log in again.';
+                    timerEl.classList.add('expired');
+                    return;
+                }
+                var m = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+                var s = String(secondsLeft % 60).padStart(2, '0');
+                timerEl.innerHTML = 'Code expires in <span class="mono">' + m + ':' + s + '</span>';
+                secondsLeft--;
+            }
+        }
+
+        /* ---------- Submit → verify & sign in ---------- */
+        function setLoading(on) {
+            isSubmitting = on;
+            if (!submitBtn) return;
+            submitBtn.disabled = on;
+            submitBtn.classList.toggle('loading', on);
+        }
+
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            if (isSubmitting) return;
+
+            var otp = collectOtp();
+            if (otp.length !== 6) {
+                flagError();
+                showToast('Please enter all 6 digits.', 'error');
+                return;
+            }
+
+            setLoading(true);
+            try {
+                var response = await fetch('/api/admin/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ otpToken: otpToken, otp: otp })
+                });
+                var data = await response.json();
+
+                if (response.status === 403 || response.status === 429) {
+                    showToast(data.message || 'Access denied.', 'error');
+                    setLoading(false);
+                    return;
+                }
+
+                if (data.success && data.token) {
+                    localStorage.setItem('adminToken', data.token);
+                    if (data.image) localStorage.setItem('adminProfilePic', data.image);
+                    sessionStorage.removeItem('adminOtpToken');
+                    sessionStorage.removeItem('adminOtpMeta');
+                    showToast('Verified! Redirecting to your dashboard…', 'success');
+                    setTimeout(function () { window.location.href = '/admin'; }, 900);
+                    return;
+                }
+
+                // Failure paths
+                flagError();
+                var reasonLabel = (data.reason && data.reason !== 'INVALID_OTP') ? ' (' + data.reason + ')' : '';
+                showToast((data.message || 'Verification failed.') + reasonLabel, 'error');
+
+                if (data.restart) {
+                    sessionStorage.removeItem('adminOtpToken');
+                    sessionStorage.removeItem('adminOtpMeta');
+                    setTimeout(function () { window.location.href = '/admin-login'; }, 1700);
+                } else {
+                    setTimeout(function () { resetCells(true); }, 450);
+                    setLoading(false);
+                }
+            } catch (err) {
+                console.error('OTP verify error:', err);
+                showToast('Something went wrong. Please try again.', 'error');
+                setLoading(false);
+            }
+        });
+    })();
+    </script>
 </body>
 </html>

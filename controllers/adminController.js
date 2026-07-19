@@ -133,7 +133,7 @@ const updateProfilePic = async (req, res) => {
                 const updatedAdmin = await Admin.findOneAndUpdate(
                     { username: 'admin' }, 
                     { image: result.secure_url },
-                    { new: true, upsert: true } // না থাকলে তৈরি করবে (upsert)
+                    { returnDocument: 'after', upsert: true } // না থাকলে তৈরি করবে (upsert)
                 );
 
                 res.status(200).json({
@@ -461,7 +461,13 @@ const uploadStoreBranding = async (req, res) => {
         }
 
         const stream = cloudinary.uploader.upload_stream(
-            { folder: `EonlineBazar_Branding/${assetType}` },
+            {
+                folder: 'EonlineBazar_Branding',
+                public_id: assetType === 'logo' ? 'store_logo' : 'store_favicon',
+                overwrite: true,
+                invalidate: true,
+                resource_type: 'image'
+            },
             async (error, result) => {
                 if (error) {
                     return res.status(500).json({ success: false, message: 'Image upload failed.' });

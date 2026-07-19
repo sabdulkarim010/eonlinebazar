@@ -54,7 +54,7 @@ const verifyAdmin = async (req, res, next) => {
             const session = await AdminSession.findOneAndUpdate(
                 { sessionId: decoded.sid, status: 'active' },
                 { $set: { lastActive: new Date() } },
-                { new: true }
+                { returnDocument: 'after' }
             );
             if (!session) {
                 return res.status(401).json({
@@ -98,7 +98,7 @@ const verifyUser = async (req, res, next) => {
             const session = await UserSession.findOneAndUpdate(
                 { sessionId: decoded.sid },
                 { $set: { lastActiveAt: new Date() } },
-                { new: true }
+                { returnDocument: 'after' }
             );
             if (!session) {
                 return res.status(401).json({ success: false, message: "Session expired or logged out. Please log in again." });

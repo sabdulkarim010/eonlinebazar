@@ -122,7 +122,7 @@ async function redeemCoupon(couponId) {
             $expr: { $lt: ['$usedCount', '$usageLimit'] }
         },
         { $inc: { usedCount: 1 } },
-        { new: true }
+        { returnDocument: 'after' }
     );
 }
 
@@ -142,7 +142,7 @@ async function releaseCouponSlot(couponId) {
     return Coupon.findOneAndUpdate(
         { _id: couponId, usedCount: { $gt: 0 } },
         { $inc: { usedCount: -1 } },
-        { new: true }
+        { returnDocument: 'after' }
     );
 }
 

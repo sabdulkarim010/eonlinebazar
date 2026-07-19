@@ -44,7 +44,7 @@ async function optionalVerifyUser(req, res, next) {
             const session = await UserSession.findOneAndUpdate(
                 { sessionId: decoded.sid },
                 { $set: { lastActiveAt: new Date() } },
-                { new: true }
+                { returnDocument: 'after' }
             );
             if (!session) {
                 req.user = null;
