@@ -867,6 +867,234 @@ a {
 @keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUpModal { from { transform: translateY(15px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
+/* --------------------------------------------------------------------------
+   11.0a Edit Product Modal — wide premium layout (desktop-first)
+   -------------------------------------------------------------------------- */
+#editProductModal .edit-product-modal-box {
+    width: 91.666667%;
+    max-width: 896px;
+    border-radius: 12px;
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
+}
+
+#editProductModal .edit-modal-header {
+    padding: 20px 28px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border-bottom: 1px solid #e2e8f0;
+}
+
+#editProductModal .edit-modal-header-text h3 {
+    font-size: 19px;
+    letter-spacing: -0.01em;
+}
+
+#editProductModal .edit-modal-subtitle {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+#editProductModal .edit-modal-body {
+    padding: 24px 28px 28px;
+    max-height: 78vh;
+}
+
+#editProductModal .edit-modal-form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+#editProductModal .edit-modal-field {
+    margin-bottom: 0;
+}
+
+#editProductModal .edit-modal-field--full {
+    grid-column: 1 / -1;
+}
+
+@media (min-width: 768px) {
+    #editProductModal .edit-modal-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px 20px;
+    }
+}
+
+#editProductModal .modal-body input[type="text"],
+#editProductModal .modal-body input[type="number"],
+#editProductModal .modal-body textarea,
+#editProductModal .modal-body select {
+    padding: 10px 13px;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+#editProductModal .modal-body select {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    background: #fff;
+    box-sizing: border-box;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+#editProductModal .modal-body select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+#editProductModal textarea {
+    min-height: 88px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+#editProductModal #editDetailedDescription {
+    min-height: 120px;
+}
+
+#editProductModal .edit-profit-preview {
+    background: #f1f5f9;
+    cursor: not-allowed;
+    color: #475569;
+    font-weight: 600;
+}
+
+#editProductModal .edit-variations-block {
+    margin-top: 22px;
+    padding: 20px 22px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+#editProductModal .edit-variations-table-wrap {
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+#editProductModal .edit-variations-row-head,
+#editProductModal .variations-row {
+    min-width: 640px;
+    grid-template-columns: 1.35fr 1.15fr 1.15fr 0.95fr 0.95fr 44px;
+    gap: 12px;
+}
+
+#editProductModal .variations-row .v-input {
+    padding: 10px 12px;
+    font-size: 14px;
+}
+
+#editProductModal .edit-image-section {
+    margin-top: 22px;
+    margin-bottom: 0;
+}
+
+#editProductModal .edit-img-preview-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    min-height: 110px;
+    padding: 14px;
+    margin-top: 8px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+}
+
+#editProductModal .edit-img-thumb {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+#editProductModal .edit-img-thumb img {
+    display: block;
+    width: 88px;
+    height: 88px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+}
+
+#editProductModal .edit-img-thumb .edit-img-remove {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 50%;
+    background: #ef4444;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.35);
+}
+
+#editProductModal .edit-img-placeholder {
+    font-size: 42px;
+    line-height: 1;
+    padding: 8px;
+}
+
+#editProductModal .edit-gallery-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+#editProductModal input[type="file"] {
+    width: 100%;
+    font-size: 13px;
+    color: #64748b;
+    padding: 8px 0;
+}
+
+#editProductModal .modal-footer {
+    padding: 16px 28px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+}
+
+@media (max-width: 767px) {
+    #editProductModal .edit-product-modal-box {
+        width: 94%;
+        max-width: none;
+    }
+
+    #editProductModal .edit-modal-body {
+        padding: 18px 16px 22px;
+    }
+
+    #editProductModal .edit-modal-header {
+        padding: 16px 18px;
+    }
+
+    #editProductModal .edit-variations-row-head,
+    #editProductModal .variations-row {
+        min-width: 0;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    #editProductModal .edit-variations-row-head {
+        display: none;
+    }
+
+    #editProductModal .variations-row .v-remove {
+        width: 100%;
+    }
+}
+
 
 
 /* =========================================================
@@ -2167,8 +2395,27 @@ a {
 }
 .coupon-form-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px 18px;
+    align-items: start;
+}
+.coupon-form-grid .catalog-field {
+    min-width: 0;
+}
+.coupon-form-grid .catalog-field input,
+.coupon-form-grid .catalog-field select,
+.coupon-form-grid .coupon-input-wrap input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 14px;
+    color: #1e293b;
+    background: #fff;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    min-height: 42px;
 }
 .coupon-form-grid .catalog-field select {
     width: 100%;
@@ -2178,14 +2425,109 @@ a {
     font-size: 14px;
     background: #fff;
     color: #1e293b;
+    min-height: 42px;
 }
 .coupon-form-grid .catalog-field select:focus,
-.coupon-form-grid .catalog-field input:focus {
+.coupon-form-grid .catalog-field input:focus,
+.coupon-form-grid .coupon-input-wrap input:focus {
     outline: none;
     border-color: var(--primary-color, #f97316);
     box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
 }
 .optional-hint { color: #94a3b8; font-weight: 400; font-size: 12px; }
+
+/* Expiry date + time + AM/PM — dedicated full-width bottom row */
+.coupon-expiry-field {
+    grid-column: 1 / -1;
+}
+.coupon-expiry-field .coupon-expiry-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr) minmax(160px, 0.75fr);
+    gap: 12px;
+    align-items: stretch;
+}
+.coupon-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+.coupon-input-wrap .coupon-field-icon {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #64748b;
+    font-size: 15px;
+    pointer-events: none;
+    z-index: 1;
+    line-height: 1;
+}
+.coupon-input-wrap input {
+    padding-left: 40px !important;
+    padding-right: 12px !important;
+}
+.coupon-input-ampm select {
+    width: 100%;
+    min-height: 42px;
+    padding: 10px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+    background: #fff;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2364748b' d='M1.41 0L6 4.58 10.59 0 12 1.41l-6 6-6-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 34px;
+}
+.coupon-input-ampm select:focus {
+    outline: none;
+    border-color: var(--primary-color, #f97316);
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
+}
+.coupon-input-date input[type="date"] {
+    color: #1e293b;
+    cursor: pointer;
+}
+.coupon-input-date input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+.coupon-input-time input.coupon-time-input {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    text-align: left;
+}
+.coupon-input-wrap input.is-invalid {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+.coupon-time-hint {
+    display: block;
+    min-height: 16px;
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #ef4444;
+}
+.coupon-time-hint.is-valid {
+    color: #16a34a;
+}
+.coupon-expiry-field .optional-hint {
+    display: block;
+    margin-top: 4px;
+    line-height: 1.45;
+}
 .coupon-toggle-field { display: flex; flex-direction: column; justify-content: flex-end; }
 .coupon-switch {
     display: inline-flex;
@@ -2261,18 +2603,25 @@ a {
     letter-spacing: 0.3px;
 }
 .coupon-status-badge.active { background: #dcfce7; color: #15803d; }
-.coupon-status-badge.inactive { background: #f1f5f9; color: #64748b; }
 .coupon-status-badge.expired { background: #fee2e2; color: #b91c1c; }
 .coupon-toggle-btn { color: #0f766e; border-color: rgba(15, 118, 110, 0.35); }
 .coupon-toggle-btn:hover {
     background: rgba(15, 118, 110, 0.08);
     border-color: #0f766e;
 }
-@media (max-width: 960px) {
+@media (max-width: 1100px) {
     .coupon-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .coupon-expiry-field { grid-column: 1 / -1; }
+    .coupon-expiry-field .coupon-expiry-row {
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(120px, 0.8fr);
+    }
 }
 @media (max-width: 640px) {
     .coupon-form-grid { grid-template-columns: 1fr; }
+    .coupon-expiry-field { grid-column: span 1; }
+    .coupon-expiry-field .coupon-expiry-row {
+        grid-template-columns: 1fr;
+    }
     .coupon-form-actions .catalog-add-btn,
     .coupon-cancel-btn { width: 100%; justify-content: center; }
 }

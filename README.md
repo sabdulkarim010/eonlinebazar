@@ -4,7 +4,7 @@
 
 ### A Full-Stack, Security-Hardened E-Commerce Platform
 
-*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, Coupons), **dynamic delivery charge & layered Bangladesh address management**, custom store branding, and a finance analytics dashboard.*
+*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **dynamic delivery charge & layered Bangladesh address management**, custom store branding, and a finance analytics dashboard.*
 
 ![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-3.1.0-success)
+![Version](https://img.shields.io/badge/Version-3.2.0-success)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 ![Maintained](https://img.shields.io/badge/Maintained-Yes-blue)
@@ -27,6 +27,8 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v3.2.0](#-whats-new--v320-time-sensitive-coupon-automation)
+- [Time-Sensitive Coupon Automation](#-time-sensitive-coupon-automation-system)
 - [What's New — v3.1.0](#-whats-new--v310-dynamic-delivery--address-management)
 - [Dynamic Delivery & Address Management](#-dynamic-delivery-charge--address-management-system)
 - [What's New — v3.0.0](#-whats-new--v300-the-fortified-security--branding-release)
@@ -52,6 +54,258 @@ Three things set it apart:
 1. **A database-backed session security layer** — every login (customer *and* admin) generates a unique session embedded inside the JWT, so users and admins can view all their **active devices** (IP, geo-location, browser & device) and **remotely log out** any device in real time.
 2. **A Fortified Admin Security Suite** — multi-option Two-Factor Authentication (**Email OTP**, **Google Authenticator / TOTP**, and **SMS OTP**), **Geo-Fencing (Region Lock)**, brute-force **auto IP-blacklisting**, rate-limiting, and a full login-history / security-audit trail.
 3. **Dynamic Delivery Charge & Address Management** — admin-configurable shipping rules, Bangladesh **District → Upazila/Thana** cascading address fields, checkout auto-fill, real-time fee preview, and **server-side price re-validation** before orders are persisted.
+4. **Time-Sensitive Coupon Automation** — precise hour/minute expiry scheduling, a server-side **ACTIVE / EXPIRED** status engine with bulk auto-expiry, checkout visibility synced to live availability, and hardened order-time coupon validation.
+
+---
+
+## 🆕 What's New — v3.2.0 (Time-Sensitive Coupon Automation)
+
+This release upgrades the enterprise coupon engine with **precise datetime expiry**, **automated status transitions**, and **checkout-aware availability** — eliminating stale promo UI and closing client-side discount bypass vectors.
+
+| Capability | Highlights |
+|------------|------------|
+| **⏱️ Precise Expiry Scheduling** | Admin panel uses paired **date + time** inputs (`<input type="date">` + `<input type="time">`) to compose an exact ISO expiry timestamp — ideal for flash sales and time-bound campaigns. |
+| **🔄 Dynamic Status Engine** | Server evaluates `expiryDate` against system time and auto-flips `status` from `ACTIVE` → `EXPIRED` via Mongoose hooks, per-document saves, and bulk `updateMany` sweeps. |
+| **👁️ Intelligent Checkout Visibility** | `/checkout` calls `GET /api/coupons/active-check` on load and before payment; the coupon input container **hides automatically** when no eligible coupons remain. |
+| **🔒 Bulletproof Order Security** | `orderController.createOrder` re-validates coupon `status` and exact `expiryDate` on the backend — client-supplied discounts are never trusted. |
+
+> 📌 See the dedicated [Time-Sensitive Coupon Automation](#-time-sensitive-coupon-automation-system) section below for schema fields, workflow diagrams, and API specifications.
+
+---
+
+## ⏱️ Time-Sensitive Coupon Automation System
+
+A production-grade, time-aware discount pipeline that keeps coupon lifecycle state authoritative on the server and the storefront UI in sync with real availability.
+
+### Feature Overview
+
+#### Precise Expiry Integration
+- The **Manage Coupons** admin form (`/admin` → Manage Coupons) captures expiry as **date + time** — not date-only.
+- On submit, `admin.js` merges the fields into the platform timezone (`Admin.timezone`, same zone as the header clock) and persists a UTC ISO **`expiryDate`** in MongoDB.
+- Admins can schedule campaigns down to the minute (e.g. a flash sale ending at 6:30 PM Dhaka time).
+
+#### Dynamic Status Engine (`ACTIVE` vs `EXPIRED`)
+- Every coupon document carries a string `status` enum: **`ACTIVE`** or **`EXPIRED`**.
+- **On save:** a Mongoose `pre('save')` hook calls `syncStatusFromExpiry()` to derive status from `expiryDate` vs **`getApplicationNow()`** (server clock).
+- **On read / availability checks:** `Coupon.expireDueCoupons(now)` runs a bulk `updateMany` using the same server `now` to mark all overdue `ACTIVE` coupons as `EXPIRED`.
+- **On apply / order:** individual documents are re-checked; if past expiry but still marked `ACTIVE`, they are corrected before validation proceeds.
+
+#### Intelligent Checkout Visibility
+- `client/js/checkout.js` queries **`GET /api/coupons/active-check`** when the checkout page loads and again immediately before redirecting to payment.
+- If `hasActiveCoupon` is `false`, the `#checkout-coupon-container` is hidden, any locally stored applied coupon is cleared, and apply/remove handlers are disabled.
+- Prevents customers from seeing a coupon field when no valid promotions exist — reducing confusion and failed apply attempts.
+
+#### Bulletproof Order Security
+- `POST /api/orders` never trusts client discount amounts. The order controller:
+  1. Runs the global expiry sweep (`runCouponAutoExpiry`).
+  2. Loads the coupon by code and corrects stale `ACTIVE` records past `expiryDate`.
+  3. Calls `assertCouponActiveAndUnexpired()` — enforcing both **string status** and **timestamp** gates.
+  4. Re-runs full `validateCouponForCart()` (usage limits, min order, per-user caps).
+  5. Atomically redeems via `redeemCoupon()` with a query filter that requires `status: 'ACTIVE'` and `expiryDate: { $gt: now }`.
+
+Any expired or inactive coupon submitted from a tampered client payload is rejected with a clear error; totals are recalculated without the discount.
+
+#### Centralized Server-Time Synchronization
+
+Coupon expiration is **never** evaluated against a customer's local device clock. All automated invalidations (`ACTIVE` → `EXPIRED`), availability probes, apply validations, and order placements share one authoritative reference: the **application server time** exposed through `utils/applicationTime.js`.
+
+| Concern | Implementation |
+|---------|----------------|
+| **Authoritative clock** | `getApplicationNow()` / `getApplicationTimeContext()` — Node.js system time (UTC epoch), the same instant rendered in the admin header live clock. |
+| **Platform timezone** | Loaded from admin **Platform Settings** (`Admin.timezone`, default `Asia/Dhaka`) via `getStoreSettings()`. Admins schedule expiry in this zone; the header clock and coupon form use matching formatting. |
+| **Expiry comparison** | `isExpiryReached(expiryDate, now)` — compares stored UTC `expiryDate` against the unified server `now`; used by model hooks, bulk sweeps, apply, and order controllers. |
+| **Single tick per request** | Order placement captures one `now` instance and passes it through `runCouponAutoExpiry`, `assertCouponActiveAndUnexpired`, `validateCouponForCart`, and `redeemCoupon` — preventing race drift within a single checkout. |
+| **Checkout isolation** | Storefront `/checkout` never reads `Date.now()` for coupon eligibility; it delegates to **`GET /api/coupons/active-check`**, which returns `{ hasActiveCoupon, serverTime, timezone }`. |
+
+```javascript
+// utils/applicationTime.js — single source of truth for coupon time gates
+async function getApplicationTimeContext() {
+    const now = new Date();                              // server clock (UTC instant)
+    const timezone = (await getStoreSettings()).timezone; // e.g. Asia/Dhaka — admin header zone
+    return { now, nowMs: now.getTime(), timezone, iso: now.toISOString() };
+}
+```
+
+> **Why this matters:** A customer in a different timezone (e.g. local `01:51 PM` while the admin dashboard shows `04:51 PM` in `Asia/Dhaka`) cannot extend or revive an expired coupon by manipulating browser time. Expiry decisions are always made on the server using the same clock that powers the admin panel header.
+
+#### Global "Sync Data" Integration
+
+The admin header **Sync Data** button (`POST /api/admin/sync-data`) runs the coupon auto-expiry engine **before** any other dashboard refresh completes:
+
+```javascript
+// controllers/adminController.js — first step of every global sync
+await Coupon.updateMany(
+    { status: 'ACTIVE', expiryDate: { $lte: now } },
+    { $set: { status: 'EXPIRED', isActive: false } }
+);
+const coupons = await Coupon.find().sort({ createdAt: -1 }).lean();
+```
+
+The response includes the **fresh coupon list** in `data.coupons`. The frontend (`runAdminDataSync()` in `admin.js`) immediately updates `globalCoupons` and re-renders the Manage Coupons table — no full browser reload required. Sync then continues in parallel for dashboard metrics, live orders, products, and catalog modules.
+
+#### Admin Time Input Validation (12-Hour + AM/PM)
+
+The coupon expiry row uses a **12-hour clock** with three side-by-side controls: date picker, manual `hh:mm` text input, and an **AM/PM** `<select>` dropdown. Live JavaScript validation runs before ISO conversion:
+
+| Rule | Enforcement |
+|------|-------------|
+| **Format** | Manual entry must resolve to `hh:mm` (e.g. `05:50`) plus `AM` or `PM` |
+| **Hours** | `01`–`12` — invalid hour values are blocked instantly |
+| **Minutes** | `00`–`59` — values like `5:60` or `5:75` are rejected with inline feedback |
+| **On save** | `convert12hTimeTo24h()` merges time + AM/PM (e.g. `05:50 PM` → `17:50`) before platform-local UTC conversion |
+
+This ensures admin-entered expiry times align with the platform timezone clock and produce valid UTC `expiryDate` values in MongoDB.
+
+#### Premium Coupon Form UI
+
+The **Manage Coupons** onboarding panel uses a **sequential grid structure** optimized for clarity and responsiveness:
+
+| UI goal | Implementation |
+|---------|----------------|
+| **Sequential grid layout** | **Row 1:** Code · Discount Type · Value · Min Order · **Row 2:** Max Discount · Global Usage Limit · Per-User Limit · **Row 3 (full width):** Expiry Date & Time |
+| **12-hour expiry row** | Dedicated bottom row with calendar date picker, clock time input, and styled **AM/PM** dropdown — all sharing `42px` height and matching borders |
+| **Unified field sizing** | All inputs share consistent padding, border-radius, and focus rings across the admin form |
+| **Icon-enhanced inputs** | Calendar (`fa-calendar`) and clock (`fa-clock`) icons inside date/time wrappers for quick visual scanning |
+| **Responsive collapse** | Graceful 2-column (tablet) and single-column (mobile) reflow with stacked expiry controls on small screens |
+| **Inline time feedback** | `#couponExpiryTimeHint` shows live validation status; invalid minutes are blocked with a clear message |
+
+---
+
+### Database Schema — `Coupon` Model (`models/coupon.js`)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `code` | `String` (unique, uppercase) | Promo code entered at checkout |
+| `discountType` | `Enum: ['percentage', 'flat']` | Discount calculation mode |
+| `discountValue` | `Number` | Percentage or flat amount |
+| `minOrderAmount` | `Number` | Minimum cart subtotal required |
+| `maxDiscountAmount` | `Number \| null` | Optional cap for percentage discounts |
+| **`expiryDate`** | **`Date` (ISO Date-Time)** | **Exact expiration timestamp — hour & minute precision** |
+| **`status`** | **`Enum: ['ACTIVE', 'EXPIRED']`** | **Authoritative lifecycle flag; auto-derived from `expiryDate`** |
+| `usageLimit` | `Number` | Global redemption cap |
+| `usedCount` | `Number` | Atomic usage counter (claimed on order placement) |
+| `perUserLimit` | `Number` | Max redemptions per customer |
+| `usedBy` | `[ObjectId]` | Per-user redemption audit trail |
+| `isActive` | `Boolean` (deprecated) | Synced from `status` for legacy compatibility |
+
+```javascript
+{
+  expiryDate: {
+    type: Date,
+    required: true
+  },
+  status: {
+    type: String,
+    enum: ['ACTIVE', 'EXPIRED'],
+    default: 'ACTIVE'
+  }
+}
+```
+
+**Status derivation helpers** (via `utils/applicationTime.js`):
+
+```javascript
+// Instance method — called on every save (server clock)
+couponSchema.methods.syncStatusFromExpiry = function (now = getApplicationNow()) {
+    const expired = isExpiryReached(this.expiryDate, now);
+    this.status = expired ? 'EXPIRED' : 'ACTIVE';
+    this.isActive = this.status === 'ACTIVE';
+};
+
+// Static bulk sweep — idempotent, uses unified server time
+couponSchema.statics.expireDueCoupons = async function (now = getApplicationNow()) {
+    return this.updateMany(
+        { expiryDate: { $lte: now }, status: 'ACTIVE' },
+        { $set: { status: 'EXPIRED', isActive: false } }
+    );
+};
+```
+
+---
+
+### Architectural Workflow
+
+```mermaid
+flowchart LR
+    subgraph Admin
+        A1[Set expiry date + time<br/>in Manage Coupons]
+    end
+
+    subgraph Storefront
+        S1[GET /api/coupons/active-check]
+        S2[Show / hide coupon UI<br/>on /checkout]
+        S3[POST /api/coupons/apply]
+        S4[POST /api/orders]
+    end
+
+    subgraph Backend
+        B1[expireDueCoupons — updateMany]
+        B2[syncStatusFromExpiry on save]
+        B3[assertCouponActiveAndUnexpired]
+        B4[validateCouponForCart + redeemCoupon]
+    end
+
+    A1 --> B2
+    S1 --> B1 --> S2
+    S3 --> B1 --> B3
+    S4 --> B1 --> B3 --> B4
+```
+
+**End-to-end pipeline:**
+
+1. **Admin schedules expiry** — Date + time fields compose `expiryDate`; status is set automatically on save.
+2. **Storefront probes availability** — Checkout calls `active-check`; expired coupons are bulk-updated before the response.
+3. **Customer applies coupon** — Apply endpoint sweeps, validates status + timestamp, returns server-computed discount breakdown.
+4. **Order placement locks discount** — Order controller re-validates everything and atomically claims a usage slot only if the coupon is still `ACTIVE` and unexpired.
+
+---
+
+### Related API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| **`GET`** | **`/api/coupons/active-check`** | **Runs bulk expiry sweep against server time; returns `{ hasActiveCoupon, serverTime, timezone }`** | **Public** |
+| `POST` | `/api/coupons/apply` | Validate coupon & return price breakdown (runs expiry sweep first) | Public/User² |
+| `GET` | `/api/coupons` | List coupons (auto-expires overdue records before response) | Admin |
+| `POST` | `/api/coupons` | Create coupon with precise `expiryDate` | Admin |
+| `PUT` | `/api/coupons/:id` | Update coupon (status re-derived on save) | Admin |
+| `PATCH` | `/api/coupons/:id/toggle` | Toggle `ACTIVE` ↔ `EXPIRED` (blocked if past `expiryDate`) | Admin |
+| `DELETE` | `/api/coupons/:id` | Delete coupon | Admin |
+| **`POST`** | **`/api/admin/sync-data`** | **Global Sync Data — flush expired coupons, return fresh `data.coupons` list** | **Admin** |
+| `POST` | `/api/orders` | Place order — **re-validates coupon status + expiry server-side** | User |
+
+**`GET /api/coupons/active-check` — handler validation flow:**
+
+```javascript
+const checkActiveCoupons = async (req, res) => {
+    const { now, timezone, iso } = await getApplicationTimeContext();
+
+    // 1. Bulk-expire all overdue ACTIVE coupons (server clock)
+    await Coupon.expireDueCoupons(now);
+
+    // 2. Verify at least one truly active, unexpired coupon exists
+    const activeCoupon = await Coupon.findOne({
+        status: 'ACTIVE',
+        expiryDate: { $gt: now }
+    }).select('_id');
+
+    res.status(200).json({
+        hasActiveCoupon: Boolean(activeCoupon),
+        serverTime: iso,
+        timezone
+    });
+};
+```
+
+**Sample response:**
+
+```json
+{
+  "hasActiveCoupon": true,
+  "serverTime": "2026-07-20T10:51:00.000Z",
+  "timezone": "Asia/Dhaka"
+}
+```
 
 ---
 
@@ -106,7 +360,7 @@ Changes are persisted in the singleton `Settings` document and exposed to the st
 Client-side checkout previews are for UX only. On `POST /api/orders`, the backend:
 
 1. **Re-fetches catalog prices** from MongoDB (never trusts client line-item prices).
-2. **Re-validates coupons** and applies discounts server-side.
+2. **Re-validates coupons** — checks `status`, exact `expiryDate`, usage limits, and per-user caps — then applies discounts server-side.
 3. **Re-computes delivery charge** via `utils/deliveryChargeService.js` using live `Settings`.
 4. **Builds locked totals** (`subTotal`, `deliveryCharge`, `grandTotal`) and persists them on the order document.
 
@@ -286,9 +540,11 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 - **🎛️ Attributes (Variants)** — Professional variation system (**Size**, **Color**, **Material**…) with per-variant **SKU, price & separate stock tracking**.
 - **🎟️ Coupons & Discounts** — Enterprise promo engine (Shopify/Daraz-style):
   - Percentage **or** flat discounts, optional **max-discount cap**.
-  - **Min order amount**, **global usage limit**, **per-user limit**, and **expiry date**.
+  - **Min order amount**, **global usage limit**, **per-user limit**, and **precise expiry date-time** (hour & minute scheduling).
+  - **Automated `ACTIVE` / `EXPIRED` status** — server-side bulk expiry sweeps and Mongoose save hooks keep lifecycle state authoritative.
+  - **Checkout-aware visibility** — coupon UI on `/checkout` auto-hides when `GET /api/coupons/active-check` reports no eligible promotions.
   - Race-safe **atomic redemption** (`usedCount`) — usage is claimed on successful order placement, released on failure.
-  - Storefront **apply / validate** endpoint with optional customer auth for per-user enforcement.
+  - Storefront **apply / validate** endpoint with optional customer auth for per-user enforcement; order placement re-validates status + expiry on the backend.
 
 #### Product & Order Systems
 - **🛍️ Product Catalog** — Up to 10 images, categories, brand, variations, highlights, stock levels, **selling price + buying price** (live profit preview), and detailed descriptions.
@@ -390,7 +646,7 @@ eonlinebazar-fullstack/
 │   ├── category.js                    # Product categories
 │   ├── brand.js                       # Product brands (slug + product references)
 │   ├── attribute.js                   # Product attributes / variants (Size, Color…)
-│   ├── coupon.js                      # Coupons & discounts (usage limits, per-user tracking)
+│   ├── coupon.js                      # Coupons & discounts (status ACTIVE/EXPIRED, precise expiryDate, usage limits)
 │   ├── order.js                       # Orders with locked subTotal/deliveryCharge/grandTotal + buyingPrice snapshots
 │   ├── cart.js                        # Shopping cart
 │   └── review.js                      # Product reviews & ratings
@@ -407,7 +663,7 @@ eonlinebazar-fullstack/
 │   ├── productController.js           # Product CRUD + reviews
 │   ├── brandController.js             # Brand CRUD + slug generation
 │   ├── attributeController.js         # Attribute / variant CRUD
-│   ├── couponController.js            # Coupon CRUD + storefront apply/validate/redeem
+│   ├── couponController.js            # Coupon CRUD + active-check + apply/validate/redeem + auto-expiry sweeps
 │   ├── orderController.js             # Orders, tracking, server-side price locking & buyingPrice snapshots
 │   ├── cartController.js              # Cart operations
 │   ├── reviewController.js            # Review system
@@ -440,6 +696,7 @@ eonlinebazar-fullstack/
 │   ├── mailer.js                      # SMTP transport + branded 2FA OTP email template
 │   ├── smsSender.js                   # SMS 2FA delivery abstraction (console/Twilio/custom)
 │   ├── deliveryChargeService.js       # Shared delivery zone + fee + locked-total computation
+│   ├── applicationTime.js             # Centralized server clock + platform timezone for coupon expiry
 │   ├── bangladeshDistricts.js         # District list, normalization & inside/outside matching
 │   └── securityLogger.js             # Fire-and-forget security event writer
 │
@@ -732,12 +989,13 @@ Base URL: `http://localhost:3000`
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| `POST` | `/api/coupons/apply` | Validate coupon & return price breakdown | Public/User² |
-| `GET`  | `/api/coupons` | List coupons | Admin |
+| **`GET`** | **`/api/coupons/active-check`** | **Bulk-expire overdue coupons (server time); return `{ hasActiveCoupon, serverTime, timezone }`** | **Public** |
+| `POST` | `/api/coupons/apply` | Validate coupon & return price breakdown (runs expiry sweep first) | Public/User² |
+| `GET`  | `/api/coupons` | List coupons (auto-expires overdue records) | Admin |
 | `GET`  | `/api/coupons/:id` | Get single coupon | Admin |
-| `POST` | `/api/coupons` | Create coupon | Admin |
-| `PUT`  | `/api/coupons/:id` | Update coupon | Admin |
-| `PATCH` | `/api/coupons/:id/toggle` | Activate / deactivate coupon | Admin |
+| `POST` | `/api/coupons` | Create coupon (precise `expiryDate` required) | Admin |
+| `PUT`  | `/api/coupons/:id` | Update coupon (status re-derived on save) | Admin |
+| `PATCH` | `/api/coupons/:id/toggle` | Toggle `ACTIVE` / `EXPIRED` (blocked if past expiry) | Admin |
 | `DELETE` | `/api/coupons/:id` | Delete coupon | Admin |
 
 ### 🔐 Admin Authentication & 2FA
@@ -747,6 +1005,7 @@ Base URL: `http://localhost:3000`
 | `POST` | `/api/admin/login` | **Step 1** — verify credentials behind blacklist → geo-fence → rate-limit, then dispatch the selected 2FA challenge | Public |
 | `POST` | `/api/admin/verify-otp` | **Step 2** — verify Email/SMS OTP or TOTP, issue 24h JWT + create `AdminSession` | Public |
 | `GET`  | `/api/admin/verify-token` | Validate admin JWT on panel load | Admin |
+| **`POST`** | **`/api/admin/sync-data`** | **Global Sync Data — auto-expire overdue coupons & return fresh coupon list** | **Admin** |
 | `GET`  | `/api/admin/2fa/status` | Current 2FA config (method, masked email/phone) | Admin |
 | `POST` | `/api/admin/2fa/totp/setup` | Generate TOTP secret + QR code | Admin |
 | `POST` | `/api/admin/2fa/totp/verify` | Confirm scan & activate Google Authenticator | Admin |
@@ -863,7 +1122,7 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 - Passwords: `bcryptjs` hashing. Trust-proxy enabled for accurate client IPs behind CDNs.
 - Upload safety: images only, max 5 MB, memory storage → Cloudinary stream.
 - Sensitive pages: `Cache-Control: no-store`; secure cookies cleared on logout.
-- **Order pricing integrity:** `POST /api/orders` re-fetches catalog prices, re-validates coupons, and recomputes delivery charges from `Settings` — client-supplied totals are discarded before persistence.
+- **Order pricing integrity:** `POST /api/orders` re-fetches catalog prices, re-validates coupons (**`status` + exact `expiryDate`**), and recomputes delivery charges from `Settings` — client-supplied totals are discarded before persistence.
 
 ---
 
@@ -876,12 +1135,46 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 | Order document | `totalBuyingPrice` | Sum of line-item buying costs |
 | Finance module | Computed profit | `(sellingPrice − buyingPrice) × qty` with fallbacks |
 | Admin UI | Profit preview | Live margin badge on Manage Products & edit modal |
+| Admin UI | Edit Product modal | Wide responsive grid layout for desktop data entry (expanded variations & image preview) |
 
 > **Net Profit logic:** `(sellingPrice − buyingPrice) × quantity` using the **buying-price snapshot** on each order line at checkout. Falls back to catalog `buyingPrice`, then `costPrice`, then `FINANCE_DEFAULT_COST_RATIO` (default `0.70`).
 
 ---
 
 ## 📜 Changelog
+
+### Admin UX — Wide Edit Product Modal
+**🖥️ Desktop-first product editing**
+- The **Manage Products → Edit Product Details** modal now uses a wide responsive grid layout (`~896px` max width on desktop) so core fields, variation rows, and image previews breathe on laptop and monitor screens.
+- Side-by-side field pairing (ID/emoji, selling/buying price, category/brand), expanded variation matrix columns, and cleaned thumbnail spacing improve data-entry ergonomics and UI density.
+
+### `v3.2.0` — Time-Sensitive Coupon Automation
+**⏱️ Precise Expiry Scheduling**
+- Admin **Manage Coupons** form upgraded with paired **date + time** inputs for exact ISO `expiryDate` timestamps.
+- Flash-sale and time-bound campaigns can be scheduled down to the minute.
+
+**🔄 Dynamic Status Engine**
+- New `status` enum field: **`ACTIVE`** | **`EXPIRED`**, auto-derived from `expiryDate` via `syncStatusFromExpiry()`.
+- Bulk `Coupon.expireDueCoupons()` (`updateMany`) runs before availability checks, admin reads, apply, and order placement.
+
+**👁️ Intelligent Checkout Visibility**
+- New public endpoint **`GET /api/coupons/active-check`** — sweeps expired coupons, returns `{ hasActiveCoupon }`.
+- `/checkout` hides the coupon input container when no eligible promotions exist; stale localStorage coupons are cleared.
+
+**🔒 Bulletproof Order Security**
+- `orderController.createOrder` enforces `assertCouponActiveAndUnexpired()` — validates string `status` and exact `expiryDate` before discount application.
+- Atomic `redeemCoupon()` query requires `status: 'ACTIVE'` and `expiryDate: { $gt: now }`.
+- Single `getApplicationNow()` instance per order request — shared across sweep, validation, and redemption (no client timezone influence).
+
+**🕐 Centralized Server-Time Synchronization**
+- New `utils/applicationTime.js` — `getApplicationNow()`, `getApplicationTimeContext()`, and `isExpiryReached()` unify coupon expiry against the application server clock (same instant as the admin header live clock).
+- Admin coupon form interprets date/time in the configured platform timezone (`Admin.timezone`); checkout and orders never trust customer device time.
+- `GET /api/coupons/active-check` now returns `serverTime` and `timezone` alongside `hasActiveCoupon`.
+
+**🔄 Global Sync Data + Time Input Guards**
+- New **`POST /api/admin/sync-data`** — runs coupon bulk expiry at the start of every admin Sync Data action and returns a fresh `data.coupons` array for instant table re-render.
+- Admin expiry controls use a **12-hour clock** with validated `hh:mm` text input, dedicated **AM/PM** dropdown, and `convert12hTimeTo24h()` before ISO persistence (minutes strictly `00–59`).
+- **Premium coupon form UI** — sequential 3-row grid (limits grouped on row 2, full-width expiry row 3), unified input sizing, calendar/clock icon wrappers, and inline validation hints.
 
 ### `v3.1.0` — Dynamic Delivery & Address Management
 **🚚 Automated Shipping**
@@ -919,7 +1212,7 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 - **Timezone synchronization** driving the header's live digital clock.
 
 **🎟️ Catalog**
-- Enterprise **Coupon & Discount** engine with usage limits, per-user tracking, and race-safe redemption.
+- Enterprise **Coupon & Discount** engine with usage limits, per-user tracking, race-safe redemption, and **time-sensitive ACTIVE / EXPIRED automation** (v3.2.0).
 
 ### `v2.0.0` — Admin Panel Enterprise Release
 - Fixed the Finance panel infinite-loading loop; added asynchronous state/DOM re-rendering for instant UI updates.
@@ -945,5 +1238,7 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 *Built with ❤️ using Node.js, Express & MongoDB.*
 
 </div>
+
+
 
 

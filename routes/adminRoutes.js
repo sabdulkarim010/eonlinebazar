@@ -61,6 +61,9 @@ router.get('/login-history', verifyAdmin, adminSecurityController.getLoginHistor
 // ৩. টোকেন ভেরিফিকেশন (GET)
 router.get('/verify-token', verifyAdmin, adminController.verifyAdminToken);
 
+// ৩ক. Global Sync Data (coupon auto-expiry + fresh coupon list)
+router.post('/sync-data', verifyAdmin, adminController.syncAdminData);
+
 // ৪. সিকিউরিটি লগস (GET)
 router.get('/logs', verifyAdmin, adminController.getSecurityLogs);
 

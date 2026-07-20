@@ -20,6 +20,8 @@ const {
 } = require('../utils/brandingPaths');
 const { clearStoreSettingsCache } = require('../utils/storeSettingsService');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
+const Coupon = require('../models/coupon');
+const { getApplicationNow } = require('../utils/applicationTime');
 
 // ==============================================================
 // ১. কাস্টমারদের তালিকা নিয়ে আসার ফাংশন 
@@ -588,6 +590,32 @@ const uploadStoreBranding = async (req, res) => {
     }
 };
 
+// ==============================================================
+// Global admin "Sync Data" — flush expired coupons + return fresh catalog state
+// ==============================================================
+const syncAdminData = async (req, res) => {
+    try {
+        const now = getApplicationNow();
+
+        // Automatically shift outdated coupons before returning synced state
+        await Coupon.updateMany(
+            { status: 'ACTIVE', expiryDate: { $lte: now } },
+            { $set: { status: 'EXPIRED', isActive: false } }
+        );
+
+        const coupons = await Coupon.find().sort({ createdAt: -1 }).lean();
+
+        res.status(200).json({
+            success: true,
+            message: 'Data synchronized successfully.',
+            data: { coupons }
+        });
+    } catch (error) {
+        console.error('Admin Sync Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to synchronize admin data.' });
+    }
+};
+
 // দ্রষ্টব্য: loginAdmin এখন controllers/adminSecurityController.js-এ স্থানান্তরিত
 // (2-step OTP flow)। তাই এখান থেকে এক্সপোর্ট সরিয়ে ফেলা হলো — উপরের পুরোনো
 // হ্যান্ডলারটি আর কোনো রুটে ব্যবহৃত হয় না।
@@ -604,7 +632,8 @@ module.exports = {
     getAdminSettings,
     updateAdminProfile,
     updateAdminSettings,
-    uploadStoreBranding
+    uploadStoreBranding,
+    syncAdminData
 };
 
 

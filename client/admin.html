@@ -387,25 +387,34 @@
                 <label for="couponMaxDiscount">Max Discount <span class="optional-hint">(optional)</span></label>
                 <input type="number" id="couponMaxDiscount" min="0" step="1" placeholder="Cap for % discounts">
             </div>
-            <div class="catalog-field">
-                <label for="couponExpiry">Expiry Date</label>
-                <input type="date" id="couponExpiry" required>
-            </div>
-            <div class="catalog-field">
+            <div class="catalog-field coupon-limit-field">
                 <label for="couponUsageLimit">Global Usage Limit</label>
                 <input type="number" id="couponUsageLimit" min="1" step="1" placeholder="e.g., 100" required>
             </div>
-            <div class="catalog-field">
+            <div class="catalog-field coupon-limit-field">
                 <label for="couponPerUserLimit">Per-User Limit</label>
                 <input type="number" id="couponPerUserLimit" min="1" step="1" value="1" required>
             </div>
-            <div class="catalog-field coupon-toggle-field">
-                <label for="couponIsActive">Active Status</label>
-                <label class="coupon-switch">
-                    <input type="checkbox" id="couponIsActive" checked>
-                    <span class="coupon-switch-slider"></span>
-                    <span class="coupon-switch-label" id="couponIsActiveLabel">Active</span>
-                </label>
+            <div class="catalog-field coupon-expiry-field">
+                <label for="couponExpiry">Expiry Date &amp; Time</label>
+                <div class="coupon-expiry-row">
+                    <div class="coupon-input-wrap coupon-input-date">
+                        <i class="fa-regular fa-calendar coupon-field-icon" aria-hidden="true"></i>
+                        <input type="date" id="couponExpiry" required aria-label="Coupon expiry date">
+                    </div>
+                    <div class="coupon-input-wrap coupon-input-time">
+                        <i class="fa-regular fa-clock coupon-field-icon" aria-hidden="true"></i>
+                        <input type="text" id="couponExpiryTime" class="coupon-time-input" inputmode="numeric" placeholder="hh:mm" maxlength="5" required value="11:59" autocomplete="off" aria-label="Coupon expiry time" title="12-hour time (hh:mm, minutes 00–59)">
+                    </div>
+                    <div class="coupon-input-wrap coupon-input-ampm">
+                        <select id="couponExpiryAmPm" aria-label="Coupon expiry AM or PM" required>
+                            <option value="AM">AM</option>
+                            <option value="PM" selected>PM</option>
+                        </select>
+                    </div>
+                </div>
+                <small id="couponExpiryTimeHint" class="coupon-time-hint" aria-live="polite"></small>
+                <small class="optional-hint">Platform timezone · 12-hour clock with AM/PM. Minutes must not exceed 59.</small>
             </div>
         </div>
         <div class="coupon-form-actions">
@@ -426,7 +435,7 @@
                     <th>Discount</th>
                     <th>Min Order</th>
                     <th>Usage</th>
-                    <th>Expiry</th>
+                    <th>Expiry Date &amp; Time</th>
                     <th>Status</th>
                     <th class="col-actions">Actions</th>
                 </tr>
@@ -731,86 +740,83 @@
 </section>
 
 <div id="editProductModal" class="custom-modal-overlay">
-    <div class="custom-modal-box">
+    <div class="custom-modal-box edit-product-modal-box">
         
-        <div class="modal-header">
-            <h3>Edit Product Details</h3>
-            <button class="close-icon-btn" onclick="closeEditModal()"><i class="fa-solid fa-xmark"></i></button>
+        <div class="modal-header edit-modal-header">
+            <div class="edit-modal-header-text">
+                <h3>Edit Product Details</h3>
+                <p class="edit-modal-subtitle">Update catalog info, variations, and media</p>
+            </div>
+            <button class="close-icon-btn" onclick="closeEditModal()" aria-label="Close edit product modal"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
-        <div class="modal-body">
+        <div class="modal-body edit-modal-body">
             <input type="hidden" id="editProdMongoId">
 
-            <div class="form-row">
-                <div class="form-group half-width">
+            <div class="edit-modal-form-grid">
+                <div class="form-group edit-modal-field">
                     <label for="editProdId">Product ID</label>
                     <input type="text" id="editProdId" placeholder="e.g. BTY-001">
                 </div>
-                <div class="form-group half-width">
+                <div class="form-group edit-modal-field">
                     <label for="editProdEmoji">Emoji Icon</label>
                     <input type="text" id="editProdEmoji" placeholder="e.g. 🧴">
                 </div>
-            </div>
 
-            <div class="form-group">
-                <label for="editProdName">Product Name</label>
-                <input type="text" id="editProdName" placeholder="Enter product name">
-            </div>
+                <div class="form-group edit-modal-field edit-modal-field--full">
+                    <label for="editProdName">Product Name</label>
+                    <input type="text" id="editProdName" placeholder="Enter product name">
+                </div>
 
-            <div class="form-row">
-                <div class="form-group half-width">
+                <div class="form-group edit-modal-field">
                     <label for="editProdPrice">Selling Price (৳)</label>
                     <input type="number" id="editProdPrice" placeholder="e.g. 820">
                 </div>
-                <div class="form-group half-width">
+                <div class="form-group edit-modal-field">
                     <label for="editProdBuyingPrice">Buying Price (৳)</label>
                     <input type="number" id="editProdBuyingPrice" placeholder="e.g. 600" min="0">
                 </div>
-            </div>
 
-            <div class="form-row">
-                <div class="form-group half-width">
+                <div class="form-group edit-modal-field">
                     <label for="editProdStock">Stock Quantity</label>
                     <input type="number" id="editProdStock" placeholder="e.g. 199">
                 </div>
-                <div class="form-group half-width">
-                    <label>Profit / Unit</label>
-                    <input type="text" id="editProdProfitPreview" placeholder="৳ 0" readonly style="background:#f1f5f9; cursor:not-allowed;">
+                <div class="form-group edit-modal-field">
+                    <label for="editProdProfitPreview">Profit / Unit</label>
+                    <input type="text" id="editProdProfitPreview" class="edit-profit-preview" placeholder="৳ 0" readonly>
                 </div>
-            </div>
 
-            <div class="form-row">
-                <div class="form-group half-width">
+                <div class="form-group edit-modal-field">
                     <label for="editProdCategory">Category</label>
                     <select id="editProdCategory">
                         <option value="" disabled selected>Loading Categories...</option>
                     </select>
                 </div>
-                <div class="form-group half-width">
+                <div class="form-group edit-modal-field">
                     <label for="editProdBrand">Brand</label>
                     <select id="editProdBrand">
                         <option value="">No Brand</option>
                     </select>
                 </div>
+
+                <div class="form-group edit-modal-field edit-modal-field--full">
+                    <label for="editProdDesc">Description</label>
+                    <textarea id="editProdDesc" rows="3" placeholder="Write description..."></textarea>
+                </div>
+
+                <div class="form-group edit-modal-field edit-modal-field--full">
+                    <label for="editDetailedDescription">Detailed Description</label>
+                    <textarea id="editDetailedDescription" name="detailedDescription" rows="4" placeholder="Extended product details for the storefront..."></textarea>
+                </div>
+
+                <div class="form-group edit-modal-field edit-modal-field--full">
+                    <label for="editHighlights">Highlights (Comma separated)</label>
+                    <textarea id="editHighlights" name="highlights" rows="2" placeholder="যেমন: তাজা, শক্তিশালী, স্বাস্থ্যকর"></textarea>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="editProdDesc">Description</label>
-                <textarea id="editProdDesc" rows="3" placeholder="Write description..."></textarea>
-            </div>
-
-            <div class="form-group">
-                <label for="editDetailedDescription">Detailed Description</label>
-                <textarea id="editDetailedDescription" name="detailedDescription"></textarea>
-            </div>  
-            
-            <div class="form-group">
-                <label for="editHighlights">Highlights (Comma separated)</label>
-                <textarea id="editHighlights" name="highlights" placeholder="যেমন: তাজা, শক্তিশালী, স্বাস্থ্যকর"></textarea>
-            </div>
-
-            <!-- 🌟 Product Variations builder (edit) -->
-            <div class="variations-block">
+            <!-- Product Variations builder (edit) -->
+            <div class="variations-block edit-variations-block">
                 <div class="variations-head">
                     <div>
                         <h4 class="variations-title"><i class="fa-solid fa-layer-group"></i> Product Variations</h4>
@@ -820,8 +826,8 @@
                         <i class="fa-solid fa-plus"></i> Add Variation
                     </button>
                 </div>
-                <div class="variations-table-wrap" id="editVariationsWrap" style="display:none;">
-                    <div class="variations-row variations-row-head">
+                <div class="variations-table-wrap edit-variations-table-wrap" id="editVariationsWrap" style="display:none;">
+                    <div class="variations-row variations-row-head edit-variations-row-head">
                         <span>Attribute</span>
                         <span>Value</span>
                         <span>SKU</span>
@@ -833,13 +839,12 @@
                 </div>
                 <p class="variations-empty" id="editVariationsEmpty">No variations. This product uses its base price &amp; stock.</p>
             </div>
-            
 
-            <div class="form-group file-upload-group">
-                <label>Update Image</label>
-                <div id="editImgPreviewBox" class="img-preview-container"></div>
-                <input type="file" id="prodImageFile" name="productImages" accept="image/*" multiple onchange="previewImage(event)">
-                <div id="adminGalleryPreview" style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;"></div>
+            <div class="form-group file-upload-group edit-image-section">
+                <label for="prodImageFile">Update Image</label>
+                <div id="editImgPreviewBox" class="img-preview-container edit-img-preview-container"></div>
+                <input type="file" id="prodImageFile" name="productImages" accept="image/*" multiple>
+                <div id="adminGalleryPreview" class="edit-gallery-preview"></div>
             </div>
         </div>
 

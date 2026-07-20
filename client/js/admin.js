@@ -1991,6 +1991,190 @@ function setupCouponForm() {
         e.preventDefault();
         saveCoupon();
     });
+    setupCouponTimeValidation();
+}
+
+const COUPON_TIME_DEFAULT = '11:59';
+const COUPON_AMPM_DEFAULT = 'PM';
+
+function getCouponAmPmValue() {
+    const select = document.getElementById('couponExpiryAmPm');
+    const value = (select?.value || COUPON_AMPM_DEFAULT).toUpperCase();
+    return value === 'AM' ? 'AM' : 'PM';
+}
+
+/** Convert 12-hour hh:mm + AM/PM to 24-hour HH:MM for server timestamp building. */
+function convert12hTimeTo24h(time12, ampm) {
+    const cleaned = normalizeCouponTimeDigits(time12).trim();
+    const match = cleaned.match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return null;
+
+    let hour = parseInt(match[1], 10);
+    const minute = parseInt(match[2], 10);
+    const period = String(ampm || COUPON_AMPM_DEFAULT).toUpperCase();
+
+    if (!Number.isFinite(hour) || hour < 1 || hour > 12) return null;
+    if (!Number.isFinite(minute) || minute > 59) return null;
+
+    if (period === 'AM') {
+        if (hour === 12) hour = 0;
+    } else if (hour !== 12) {
+        hour += 12;
+    }
+
+    return formatCouponTimeParts(hour, minute);
+}
+
+function setCouponTimeHint(message, { valid = false } = {}) {
+    const hint = document.getElementById('couponExpiryTimeHint');
+    const input = document.getElementById('couponExpiryTime');
+    if (!hint) return;
+    hint.textContent = message || '';
+    hint.classList.toggle('is-valid', Boolean(valid && message));
+    if (input) {
+        input.classList.toggle('is-invalid', Boolean(message && !valid));
+    }
+}
+
+function normalizeCouponTimeDigits(raw) {
+    return String(raw || '').replace(/[^\d:]/g, '');
+}
+
+function formatCouponTimeParts(hour, minute) {
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function validateCouponExpiryTime(raw, { showErrors = true, inlineOnly = false } = {}) {
+    const cleaned = normalizeCouponTimeDigits(raw).trim();
+    const match = cleaned.match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) {
+        const msg = 'Use 12-hour format hh:mm with AM/PM (minutes 00–59).';
+        if (showErrors && !inlineOnly) showToast(msg, 'warning');
+        if (showErrors) setCouponTimeHint(msg);
+        return { ok: false, value: null };
+    }
+
+    const hour = parseInt(match[1], 10);
+    const minute = parseInt(match[2], 10);
+
+    if (!Number.isFinite(hour) || hour < 1 || hour > 12) {
+        const msg = 'Hour must be between 01 and 12.';
+        if (showErrors && !inlineOnly) showToast(msg, 'warning');
+        if (showErrors) setCouponTimeHint(msg);
+        return { ok: false, value: null };
+    }
+    if (!Number.isFinite(minute) || minute > 59) {
+        const msg = 'Minutes cannot exceed 59.';
+        if (showErrors && !inlineOnly) showToast(msg, 'warning');
+        if (showErrors) setCouponTimeHint(msg);
+        return { ok: false, value: null };
+    }
+
+    if (showErrors) setCouponTimeHint('');
+    return { ok: true, value: formatCouponTimeParts(hour, minute) };
+}
+
+function handleCouponExpiryTimeInput(event) {
+    const input = event.target;
+    let val = normalizeCouponTimeDigits(input.value);
+    let blockedMessage = '';
+
+    const digitsOnly = val.replace(':', '');
+    if (!val.includes(':') && digitsOnly.length >= 3) {
+        val = `${digitsOnly.slice(0, 2)}:${digitsOnly.slice(2)}`;
+    }
+
+    const colonIdx = val.indexOf(':');
+    if (colonIdx !== -1) {
+        let hourPart = val.slice(0, colonIdx);
+        let minutePart = val.slice(colonIdx + 1);
+
+        if (hourPart.length > 2) hourPart = hourPart.slice(0, 2);
+        if (minutePart.length > 2) minutePart = minutePart.slice(0, 2);
+
+        if (hourPart.length === 2) {
+            const hourNum = parseInt(hourPart, 10);
+            if (Number.isFinite(hourNum) && (hourNum < 1 || hourNum > 12)) {
+                blockedMessage = 'Hour must be between 01 and 12.';
+                hourPart = hourNum > 12 ? '12' : '01';
+            }
+        }
+
+        if (minutePart.length >= 2) {
+            const minuteNum = parseInt(minutePart.slice(0, 2), 10);
+            if (Number.isFinite(minuteNum) && minuteNum > 59) {
+                blockedMessage = 'Minutes cannot exceed 59.';
+                minutePart = '59';
+            }
+        }
+
+        val = minutePart.length ? `${hourPart}:${minutePart}` : `${hourPart}:`;
+    } else if (val.length >= 2) {
+        const hourNum = parseInt(val.slice(0, 2), 10);
+        if (Number.isFinite(hourNum) && (hourNum < 1 || hourNum > 12)) {
+            blockedMessage = 'Hour must be between 01 and 12.';
+            val = hourNum > 12 ? '12' : '01';
+        }
+    }
+
+    input.value = val;
+
+    if (blockedMessage) {
+        setCouponTimeHint(blockedMessage);
+        input.classList.add('is-invalid');
+        return;
+    }
+
+    if (/^\d{2}:\d{2}$/.test(val)) {
+        validateCouponExpiryTime(val, { showErrors: true, inlineOnly: true });
+    } else {
+        setCouponTimeHint('');
+        input.classList.remove('is-invalid');
+    }
+}
+
+function finalizeCouponExpiryTimeInput(input) {
+    if (!input) return COUPON_TIME_DEFAULT;
+    const result = validateCouponExpiryTime(input.value, { showErrors: true, inlineOnly: true });
+    if (result.ok) {
+        input.value = result.value;
+        input.dataset.lastValid = result.value;
+        input.classList.remove('is-invalid');
+        setCouponTimeHint('');
+        return result.value;
+    }
+    const fallback = input.dataset.lastValid || COUPON_TIME_DEFAULT;
+    input.value = fallback;
+    input.classList.remove('is-invalid');
+    setCouponTimeHint('');
+    return fallback;
+}
+
+function setupCouponTimeValidation() {
+    const input = document.getElementById('couponExpiryTime');
+    if (!input || input.dataset.timeBound === '1') return;
+    input.dataset.timeBound = '1';
+    input.dataset.lastValid = input.value || COUPON_TIME_DEFAULT;
+
+    input.addEventListener('input', handleCouponExpiryTimeInput);
+    input.addEventListener('change', () => finalizeCouponExpiryTimeInput(input));
+    input.addEventListener('blur', () => finalizeCouponExpiryTimeInput(input));
+}
+
+async function runAdminDataSync() {
+    const response = await fetch('/api/admin/sync-data', {
+        method: 'POST',
+        headers: getCouponAuthHeaders()
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to synchronize coupon data.');
+    }
+    if (Array.isArray(data.data?.coupons)) {
+        globalCoupons = data.data.coupons;
+        renderCouponTable();
+    }
+    return data;
 }
 
 async function fetchCoupons() {
@@ -2015,14 +2199,91 @@ function formatCouponExpiry(dateVal) {
     if (!dateVal) return '—';
     const d = new Date(dateVal);
     if (Number.isNaN(d.getTime())) return '—';
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    return d.toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: adminPlatformTimezone || 'Asia/Dhaka'
+    });
+}
+
+function resolveCouponStatus(coupon) {
+    if (coupon.status === 'ACTIVE' || coupon.status === 'EXPIRED') {
+        return coupon.status;
+    }
+    return isCouponExpired(coupon.expiryDate) ? 'EXPIRED' : 'ACTIVE';
 }
 
 function isCouponExpired(dateVal) {
     if (!dateVal) return false;
-    const expiry = new Date(dateVal);
-    expiry.setHours(23, 59, 59, 999);
-    return Date.now() > expiry.getTime();
+    return Date.now() > new Date(dateVal).getTime();
+}
+
+function getPlatformTimeZoneOffsetMs(timeZone, date) {
+    const dtf = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    });
+    const parts = dtf.formatToParts(date);
+    const map = {};
+    for (const part of parts) {
+        if (part.type !== 'literal') map[part.type] = part.value;
+    }
+    const asUtc = Date.UTC(
+        Number(map.year),
+        Number(map.month) - 1,
+        Number(map.day),
+        Number(map.hour),
+        Number(map.minute),
+        Number(map.second)
+    );
+    return asUtc - date.getTime();
+}
+
+/** Interpret date/time inputs in the admin platform timezone (same zone as the header clock). */
+function platformLocalToUtc(dateStr, timeStr, timeZone) {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const timeParts = String(timeStr || '00:00').split(':').map(Number);
+    const hour = timeParts[0] ?? 0;
+    const minute = timeParts[1] ?? 0;
+    const second = timeParts[2] ?? 0;
+
+    let utcMs = Date.UTC(year, month - 1, day, hour, minute, second);
+    let offsetMs = getPlatformTimeZoneOffsetMs(timeZone, new Date(utcMs));
+    utcMs -= offsetMs;
+
+    const offsetMs2 = getPlatformTimeZoneOffsetMs(timeZone, new Date(utcMs));
+    if (offsetMs2 !== offsetMs) {
+        utcMs = Date.UTC(year, month - 1, day, hour, minute, second) - offsetMs2;
+    }
+
+    return new Date(utcMs);
+}
+
+function buildCouponExpiryIso() {
+    const dateVal = document.getElementById('couponExpiry')?.value?.trim();
+    const timeInput = document.getElementById('couponExpiryTime');
+    const timeVal = finalizeCouponExpiryTimeInput(timeInput);
+    const timeCheck = validateCouponExpiryTime(timeVal, { showErrors: false });
+    if (!dateVal || !timeCheck.ok) return null;
+
+    const ampm = getCouponAmPmValue();
+    const time24 = convert12hTimeTo24h(timeCheck.value, ampm);
+    if (!time24) return null;
+
+    const tz = adminPlatformTimezone || 'Asia/Dhaka';
+    const combined = platformLocalToUtc(dateVal, time24, tz);
+    if (Number.isNaN(combined.getTime())) return null;
+    return combined.toISOString();
 }
 
 function renderCouponTable() {
@@ -2039,16 +2300,13 @@ function renderCouponTable() {
     tbody.innerHTML = globalCoupons.map(coupon => {
         const used = Number(coupon.usedCount) || 0;
         const limit = Number(coupon.usageLimit) || 0;
-        const expired = isCouponExpired(coupon.expiryDate);
-        const active = !!coupon.isActive && !expired;
+        const status = resolveCouponStatus(coupon);
         const discountLabel = coupon.discountType === 'percentage'
             ? `${coupon.discountValue}%`
             : `${cur}${coupon.discountValue}`;
-        const statusHtml = expired
-            ? '<span class="coupon-status-badge expired">Expired</span>'
-            : (coupon.isActive
-                ? '<span class="coupon-status-badge active">Active</span>'
-                : '<span class="coupon-status-badge inactive">Inactive</span>');
+        const statusHtml = status === 'ACTIVE'
+            ? '<span class="coupon-status-badge active">ACTIVE</span>'
+            : '<span class="coupon-status-badge expired">EXPIRED</span>';
 
         return `<tr>
             <td class="cell-name"><code class="coupon-code-chip">${escHtml(coupon.code)}</code></td>
@@ -2060,7 +2318,6 @@ function renderCouponTable() {
             <td>
                 <div class="catalog-actions">
                     <button type="button" class="catalog-action-btn edit" title="Edit" onclick="editCoupon('${coupon._id}')"><i class="fa-solid fa-pen"></i></button>
-                    <button type="button" class="catalog-action-btn coupon-toggle-btn" title="Toggle status" onclick="toggleCouponStatus('${coupon._id}')"><i class="fa-solid fa-power-off"></i></button>
                     <button type="button" class="catalog-action-btn delete" title="Delete" onclick="deleteCoupon('${coupon._id}')"><i class="fa-solid fa-trash"></i></button>
                 </div>
             </td>
@@ -2073,10 +2330,14 @@ window.resetCouponForm = function() {
     if (form) form.reset();
     const editId = document.getElementById('couponEditId');
     if (editId) editId.value = '';
-    const active = document.getElementById('couponIsActive');
-    if (active) active.checked = true;
-    const label = document.getElementById('couponIsActiveLabel');
-    if (label) label.textContent = 'Active';
+    const expiryTime = document.getElementById('couponExpiryTime');
+    if (expiryTime) {
+        expiryTime.value = COUPON_TIME_DEFAULT;
+        expiryTime.dataset.lastValid = COUPON_TIME_DEFAULT;
+    }
+    const ampmSelect = document.getElementById('couponExpiryAmPm');
+    if (ampmSelect) ampmSelect.value = COUPON_AMPM_DEFAULT;
+    setCouponTimeHint('');
     const btnText = document.getElementById('couponSaveBtnText');
     if (btnText) btnText.textContent = 'Create Coupon';
     const cancelBtn = document.getElementById('couponCancelBtn');
@@ -2089,10 +2350,37 @@ function toDateInputValue(dateVal) {
     if (!dateVal) return '';
     const d = new Date(dateVal);
     if (Number.isNaN(d.getTime())) return '';
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    const tz = adminPlatformTimezone || 'Asia/Dhaka';
+    return d.toLocaleDateString('en-CA', { timeZone: tz });
+}
+
+function to12HourTimeParts(dateVal) {
+    if (!dateVal) {
+        return { time: COUPON_TIME_DEFAULT, ampm: COUPON_AMPM_DEFAULT };
+    }
+    const d = new Date(dateVal);
+    if (Number.isNaN(d.getTime())) {
+        return { time: COUPON_TIME_DEFAULT, ampm: COUPON_AMPM_DEFAULT };
+    }
+    const tz = adminPlatformTimezone || 'Asia/Dhaka';
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+    }).formatToParts(d);
+    const map = {};
+    for (const part of parts) {
+        if (part.type !== 'literal') map[part.type] = part.value;
+    }
+    return {
+        time: `${map.hour}:${map.minute}`,
+        ampm: (map.dayPeriod || COUPON_AMPM_DEFAULT).toUpperCase()
+    };
+}
+
+function toTimeInputValue(dateVal) {
+    return to12HourTimeParts(dateVal).time;
 }
 
 window.editCoupon = function(id) {
@@ -2106,10 +2394,16 @@ window.editCoupon = function(id) {
     document.getElementById('couponMinOrder').value = coupon.minOrderAmount ?? 0;
     document.getElementById('couponMaxDiscount').value = coupon.maxDiscountAmount ?? '';
     document.getElementById('couponExpiry').value = toDateInputValue(coupon.expiryDate);
+    const timeParts = to12HourTimeParts(coupon.expiryDate);
+    const expiryTimeEl = document.getElementById('couponExpiryTime');
+    if (expiryTimeEl) {
+        expiryTimeEl.value = timeParts.time;
+        expiryTimeEl.dataset.lastValid = expiryTimeEl.value || COUPON_TIME_DEFAULT;
+    }
+    const ampmEl = document.getElementById('couponExpiryAmPm');
+    if (ampmEl) ampmEl.value = timeParts.ampm === 'AM' ? 'AM' : 'PM';
     document.getElementById('couponUsageLimit').value = coupon.usageLimit ?? '';
     document.getElementById('couponPerUserLimit').value = coupon.perUserLimit ?? 1;
-    document.getElementById('couponIsActive').checked = !!coupon.isActive;
-    document.getElementById('couponIsActiveLabel').textContent = coupon.isActive ? 'Active' : 'Inactive';
     document.getElementById('couponSaveBtnText').textContent = 'Update Coupon';
     document.getElementById('couponCancelBtn').style.display = 'inline-flex';
 
@@ -2118,6 +2412,18 @@ window.editCoupon = function(id) {
 
 async function saveCoupon() {
     const editId = document.getElementById('couponEditId')?.value?.trim();
+    const timeInput = document.getElementById('couponExpiryTime');
+    const timeCheck = validateCouponExpiryTime(finalizeCouponExpiryTimeInput(timeInput));
+    if (!timeCheck.ok) {
+        showToast('Error: Please enter a valid expiry time (hh:mm with AM/PM, minutes 00–59).', 'warning');
+        return;
+    }
+    const ampm = getCouponAmPmValue();
+    if (!convert12hTimeTo24h(timeCheck.value, ampm)) {
+        showToast('Error: Could not parse expiry time. Check hh:mm and AM/PM.', 'warning');
+        return;
+    }
+    const expiryIso = buildCouponExpiryIso();
     const payload = {
         code: document.getElementById('couponCode')?.value?.trim(),
         discountType: document.getElementById('couponDiscountType')?.value,
@@ -2126,10 +2432,9 @@ async function saveCoupon() {
         maxDiscountAmount: document.getElementById('couponMaxDiscount')?.value === ''
             ? null
             : Number(document.getElementById('couponMaxDiscount')?.value),
-        expiryDate: document.getElementById('couponExpiry')?.value,
+        expiryDate: expiryIso,
         usageLimit: Number(document.getElementById('couponUsageLimit')?.value),
-        perUserLimit: Number(document.getElementById('couponPerUserLimit')?.value) || 1,
-        isActive: !!document.getElementById('couponIsActive')?.checked
+        perUserLimit: Number(document.getElementById('couponPerUserLimit')?.value) || 1
     };
 
     if (!localStorage.getItem('adminToken')) {
@@ -2142,8 +2447,8 @@ async function saveCoupon() {
         showToast('Error: Please enter a coupon code!', 'warning');
         return;
     }
-    if (!payload.expiryDate) {
-        showToast('Error: Please select an expiry date!', 'warning');
+    if (!expiryIso) {
+        showToast('Error: Please select a valid expiry date and time!', 'warning');
         return;
     }
     if (!Number.isFinite(payload.discountValue) || payload.discountValue <= 0) {
@@ -2201,33 +2506,6 @@ async function saveCoupon() {
 }
 window.saveCoupon = saveCoupon;
 
-window.toggleCouponStatus = function(id) {
-    const coupon = globalCoupons.find(c => String(c._id) === String(id));
-    const nextLabel = coupon && coupon.isActive ? 'deactivate' : 'activate';
-    showCustomConfirm(
-        'Toggle Coupon Status',
-        `Are you sure you want to ${nextLabel} this coupon?`,
-        async () => {
-            try {
-                const res = await fetch(`/api/coupons/${id}/toggle`, {
-                    method: 'PATCH',
-                    headers: getCouponAuthHeaders()
-                });
-                const result = await res.json();
-                if (result.success) {
-                    showAdminSuccess('Status Updated', result.message || 'Coupon status updated.');
-                    await fetchCoupons();
-                } else {
-                    showToast(result.message || 'Failed to toggle status', 'error');
-                }
-            } catch (error) {
-                showToast('Failed to toggle coupon status', 'error');
-            }
-        },
-        'warning'
-    );
-};
-
 window.deleteCoupon = function(id) {
     showCustomConfirm('Delete Coupon', 'Are you sure you want to permanently delete this coupon?', async () => {
         try {
@@ -2248,13 +2526,6 @@ window.deleteCoupon = function(id) {
         }
     }, 'danger');
 };
-
-document.addEventListener('change', (e) => {
-    if (e.target && e.target.id === 'couponIsActive') {
-        const label = document.getElementById('couponIsActiveLabel');
-        if (label) label.textContent = e.target.checked ? 'Active' : 'Inactive';
-    }
-});
 
 
 /* ==========================================================================
@@ -2857,17 +3128,15 @@ window.editProduct = function(id) {
     // এক্সিসটিং ইমেজের ডাইনামিক থাম্বনেইল থাম্ব শো করানো
     if (previewBox) {
         if (product.images && product.images.length > 0) {
-            let imgsHtml = '';
-            product.images.forEach(img => {
-                let imgSrc = img.startsWith('http') ? img : `/products/${img}`;
-                imgsHtml += `<img src="${imgSrc}" style="max-height: 80px; margin-right: 5px; border-radius: 6px;">`;
-            });
-            previewBox.innerHTML = imgsHtml;
+            previewBox.innerHTML = product.images.map(img => {
+                const imgSrc = img.startsWith('http') ? img : `/products/${img}`;
+                return `<div class="edit-img-thumb"><img src="${imgSrc}" alt="Product image"></div>`;
+            }).join('');
         } else if (product.image) {
-            let imgSrc = product.image.startsWith('http') ? product.image : `/products/${product.image}`;
-            previewBox.innerHTML = `<img src="${imgSrc}" style="max-height: 80px; margin-right: 5px; border-radius: 6px;">`;
+            const imgSrc = product.image.startsWith('http') ? product.image : `/products/${product.image}`;
+            previewBox.innerHTML = `<div class="edit-img-thumb"><img src="${imgSrc}" alt="Product image"></div>`;
         } else {
-            previewBox.innerHTML = `<span style="font-size:38px;">${product.icon || '📦'}</span>`;
+            previewBox.innerHTML = `<span class="edit-img-placeholder">${product.icon || '📦'}</span>`;
         }
     }
 
@@ -2938,9 +3207,9 @@ function renderEditPreviews() {
             const reader = new FileReader();
             reader.onload = function(event) {
                 previewBox.innerHTML += `
-                <div style="position:relative; display:inline-block; margin:5px;">
-                    <img src="${event.target.result}" style="height:80px; border-radius:6px; object-fit: contain;">
-                    <button type="button" onclick="removeEditImage(${index})" style="position:absolute; top:-5px; right:-5px; background:#ef4444; color:white; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; font-size:14px; font-weight:bold; line-height:1;">&times;</button>
+                <div class="edit-img-thumb">
+                    <img src="${event.target.result}" alt="New upload preview">
+                    <button type="button" class="edit-img-remove" onclick="removeEditImage(${index})" aria-label="Remove image">&times;</button>
                 </div>`;
             };
             reader.readAsDataURL(file);
@@ -4147,7 +4416,7 @@ function setupSyncButton() {
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 title: 'Syncing data…',
-                html: 'Fetching latest dashboard, orders, products &amp; catalog',
+                html: 'Flushing expired coupons &amp; fetching latest dashboard, orders, products &amp; catalog',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 didOpen: () => Swal.showLoading()
@@ -4155,6 +4424,8 @@ function setupSyncButton() {
         }
 
         try {
+            await runAdminDataSync();
+
             await Promise.all([
                 typeof fetchDashboardData === 'function' ? fetchDashboardData() : Promise.resolve(),
                 typeof fetchLiveOrders === 'function' ? fetchLiveOrders() : Promise.resolve(),
@@ -4166,7 +4437,7 @@ function setupSyncButton() {
             ]);
 
             if (typeof Swal !== 'undefined') Swal.close();
-            showAdminSuccess('Data Synchronized Successfully', 'Dashboard, orders, products & catalog are up to date.');
+            showAdminSuccess('Data Synchronized Successfully', 'Expired coupons flushed, dashboard, orders, products & catalog are up to date.');
         } catch (error) {
             console.error('Sync Error:', error);
             if (typeof Swal !== 'undefined') Swal.close();

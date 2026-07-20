@@ -9,6 +9,50 @@
  ********************************************************************/
 
 const Coupon = require('../models/coupon');
+const {
+    getApplicationNow,
+    getApplicationTimeContext,
+    isExpiryReached
+} = require('../utils/applicationTime');
+
+/** Run time-based expiry sweep before coupon reads / availability checks. */
+async function runCouponAutoExpiry(now = getApplicationNow()) {
+    return Coupon.expireDueCoupons(now);
+}
+
+/**
+ * Strict time + status gate: coupon must be ACTIVE with expiryDate strictly after now.
+ * Uses the centralized application server clock — never client device time.
+ * Returns { ok: true } or { ok: false, status, message }.
+ */
+function assertCouponActiveAndUnexpired(coupon, now = getApplicationNow()) {
+    if (!coupon) {
+        return { ok: false, status: 404, message: 'Invalid coupon code.' };
+    }
+
+    const expiryMs = new Date(coupon.expiryDate).getTime();
+    if (!Number.isFinite(expiryMs)) {
+        return { ok: false, status: 400, message: 'Invalid coupon configuration.' };
+    }
+
+    if (isExpiryReached(coupon.expiryDate, now)) {
+        return {
+            ok: false,
+            status: 400,
+            message: 'Coupon expired. Your order total has been recalculated without the discount.'
+        };
+    }
+
+    if (coupon.status !== 'ACTIVE') {
+        return {
+            ok: false,
+            status: 400,
+            message: 'This coupon is not active. Your order total has been recalculated without the discount.'
+        };
+    }
+
+    return { ok: true };
+}
 
 /** Compute discount for a cart subtotal given a coupon document. */
 function calculateDiscount(coupon, subtotal) {
@@ -38,7 +82,7 @@ function calculateDiscount(coupon, subtotal) {
  * Shared validation (apply + order place). Returns { ok, status, message, coupon, breakdown }
  * or { ok: false, ... }. Does NOT increment usedCount.
  */
-async function validateCouponForCart({ code, subtotal, userId }) {
+async function validateCouponForCart({ code, subtotal, userId, now = getApplicationNow() }) {
     const normalizedCode = String(code || '').trim().toUpperCase();
     const cartSubtotal = Number(subtotal);
 
@@ -49,21 +93,22 @@ async function validateCouponForCart({ code, subtotal, userId }) {
         return { ok: false, status: 400, message: 'Invalid cart subtotal.' };
     }
 
+    await runCouponAutoExpiry(now);
+
     const coupon = await Coupon.findOne({ code: normalizedCode });
     if (!coupon) {
         return { ok: false, status: 404, message: 'Invalid coupon code.' };
     }
 
-    if (!coupon.isActive) {
-        return { ok: false, status: 400, message: 'This coupon is currently inactive.' };
+    if (isExpiryReached(coupon.expiryDate, now) && coupon.status !== 'EXPIRED') {
+        coupon.status = 'EXPIRED';
+        coupon.isActive = false;
+        await coupon.save();
     }
 
-    const now = new Date();
-    const expiry = new Date(coupon.expiryDate);
-    // End of expiry calendar day (inclusive)
-    expiry.setHours(23, 59, 59, 999);
-    if (now > expiry) {
-        return { ok: false, status: 400, message: 'Coupon expired.' };
+    const eligibility = assertCouponActiveAndUnexpired(coupon, now);
+    if (!eligibility.ok) {
+        return eligibility;
     }
 
     if (coupon.usedCount >= coupon.usageLimit) {
@@ -112,13 +157,15 @@ async function validateCouponForCart({ code, subtotal, userId }) {
 }
 
 /** Atomically claim one global usage slot (race-safe). Call before order save. */
-async function redeemCoupon(couponId) {
+async function redeemCoupon(couponId, now = getApplicationNow()) {
     if (!couponId) return null;
 
     return Coupon.findOneAndUpdate(
         {
             _id: couponId,
+            status: 'ACTIVE',
             isActive: true,
+            expiryDate: { $gt: now },
             $expr: { $lt: ['$usedCount', '$usageLimit'] }
         },
         { $inc: { usedCount: 1 } },
@@ -150,6 +197,8 @@ async function releaseCouponSlot(couponId) {
 
 const getCoupons = async (req, res) => {
     try {
+        const now = getApplicationNow();
+        await runCouponAutoExpiry(now);
         const coupons = await Coupon.find().sort({ createdAt: -1 });
         res.status(200).json({ success: true, data: coupons });
     } catch (error) {
@@ -160,6 +209,8 @@ const getCoupons = async (req, res) => {
 
 const getCouponById = async (req, res) => {
     try {
+        const now = getApplicationNow();
+        await runCouponAutoExpiry(now);
         const coupon = await Coupon.findById(req.params.id);
         if (!coupon) {
             return res.status(404).json({ success: false, message: 'Coupon not found.' });
@@ -186,7 +237,6 @@ function parseCouponBody(body) {
     const expiryDate = body.expiryDate ? new Date(body.expiryDate) : null;
     const usageLimit = Number(body.usageLimit);
     const perUserLimit = Number(body.perUserLimit) > 0 ? Number(body.perUserLimit) : 1;
-    const isActive = body.isActive === false || body.isActive === 'false' ? false : true;
 
     return {
         code,
@@ -196,8 +246,7 @@ function parseCouponBody(body) {
         maxDiscountAmount,
         expiryDate,
         usageLimit,
-        perUserLimit,
-        isActive
+        perUserLimit
     };
 }
 
@@ -214,7 +263,7 @@ function validateCouponFields(fields, { isUpdate = false } = {}) {
         return 'Percentage discount cannot exceed 100%.';
     }
     if (!fields.expiryDate || Number.isNaN(fields.expiryDate.getTime())) {
-        return 'Please provide a valid expiry date.';
+        return 'Please provide a valid expiry date and time.';
     }
     if (!Number.isFinite(fields.usageLimit) || fields.usageLimit < 1) {
         return 'Usage limit must be at least 1.';
@@ -280,8 +329,7 @@ const updateCoupon = async (req, res) => {
             maxDiscountAmount: fields.maxDiscountAmount,
             expiryDate: fields.expiryDate,
             usageLimit: fields.usageLimit,
-            perUserLimit: fields.perUserLimit,
-            isActive: fields.isActive
+            perUserLimit: fields.perUserLimit
         });
 
         await coupon.save();
@@ -316,16 +364,55 @@ const toggleCouponStatus = async (req, res) => {
         if (!coupon) {
             return res.status(404).json({ success: false, message: 'Coupon not found.' });
         }
-        coupon.isActive = !coupon.isActive;
+
+        const now = getApplicationNow();
+        if (isExpiryReached(coupon.expiryDate, now)) {
+            coupon.status = 'EXPIRED';
+            coupon.isActive = false;
+            await coupon.save();
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot activate an expired coupon. Update the expiry date and time first.'
+            });
+        }
+
+        coupon.status = coupon.status === 'ACTIVE' ? 'EXPIRED' : 'ACTIVE';
+        coupon.isActive = coupon.status === 'ACTIVE';
         await coupon.save();
+
         res.status(200).json({
             success: true,
-            message: coupon.isActive ? 'Coupon activated.' : 'Coupon deactivated.',
+            message: coupon.status === 'ACTIVE' ? 'Coupon marked as ACTIVE.' : 'Coupon marked as EXPIRED.',
             data: coupon
         });
     } catch (error) {
         console.error('Coupon Toggle Error:', error);
         res.status(500).json({ success: false, message: 'Failed to toggle coupon status.' });
+    }
+};
+
+// ─── Storefront availability ──────────────────────────────────────────────
+
+/** Public check: at least one active, unexpired coupon exists (evaluates at server time). */
+const checkActiveCoupons = async (req, res) => {
+    try {
+        const { now, timezone, iso } = await getApplicationTimeContext();
+
+        await Coupon.expireDueCoupons(now);
+
+        const activeCoupon = await Coupon.findOne({
+            status: 'ACTIVE',
+            expiryDate: { $gt: now }
+        }).select('_id');
+
+        res.status(200).json({
+            hasActiveCoupon: Boolean(activeCoupon),
+            serverTime: iso,
+            timezone
+        });
+    } catch (error) {
+        console.error('Coupon Active Check Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to check coupon availability.' });
     }
 };
 
@@ -365,8 +452,11 @@ module.exports = {
     updateCoupon,
     deleteCoupon,
     toggleCouponStatus,
+    checkActiveCoupons,
     applyCoupon,
     validateCouponForCart,
+    assertCouponActiveAndUnexpired,
+    runCouponAutoExpiry,
     calculateDiscount,
     redeemCoupon,
     recordCouponUserUse,

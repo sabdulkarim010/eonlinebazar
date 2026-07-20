@@ -14,10 +14,14 @@ const Order = require('../models/order');
 const User = require('../models/user'); 
 const {
     validateCouponForCart,
+    assertCouponActiveAndUnexpired,
+    runCouponAutoExpiry,
     redeemCoupon,
     recordCouponUserUse,
     releaseCouponSlot
 } = require('./couponController');
+const { getApplicationNow, isExpiryReached } = require('../utils/applicationTime');
+const Coupon = require('../models/coupon');
 const {
     getDeliverySettings,
     resolveDistrictLabel,
@@ -202,10 +206,36 @@ const createOrder = async (req, res) => {
         let couponDocId = null;
 
         if (couponCode) {
+            const now = getApplicationNow();
+            await runCouponAutoExpiry(now);
+
+            const couponRecord = await Coupon.findOne({ code: couponCode });
+            if (!couponRecord) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Invalid coupon code.'
+                });
+            }
+
+            if (isExpiryReached(couponRecord.expiryDate, now) && couponRecord.status !== 'EXPIRED') {
+                couponRecord.status = 'EXPIRED';
+                couponRecord.isActive = false;
+                await couponRecord.save();
+            }
+
+            const eligibility = assertCouponActiveAndUnexpired(couponRecord, now);
+            if (!eligibility.ok) {
+                return res.status(eligibility.status).json({
+                    success: false,
+                    message: eligibility.message
+                });
+            }
+
             const couponResult = await validateCouponForCart({
                 code: couponCode,
                 subtotal,
-                userId
+                userId,
+                now
             });
             if (!couponResult.ok) {
                 return res.status(couponResult.status).json({
@@ -213,12 +243,22 @@ const createOrder = async (req, res) => {
                     message: couponResult.message
                 });
             }
+
+            // Defense in depth — discount always from server breakdown, never req.body
             discountAmount = couponResult.breakdown.discountAmount;
             appliedCouponCode = couponResult.breakdown.code;
             couponDocId = couponResult.coupon._id;
 
+            const redeemEligibility = assertCouponActiveAndUnexpired(couponResult.coupon, now);
+            if (!redeemEligibility.ok) {
+                return res.status(redeemEligibility.status).json({
+                    success: false,
+                    message: redeemEligibility.message
+                });
+            }
+
             // Atomically claim a usage slot before persisting the order (race-safe)
-            const redeemed = await redeemCoupon(couponDocId);
+            const redeemed = await redeemCoupon(couponDocId, now);
             if (!redeemed) {
                 return res.status(400).json({
                     success: false,

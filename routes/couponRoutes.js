@@ -19,6 +19,7 @@ const {
     updateCoupon,
     deleteCoupon,
     toggleCouponStatus,
+    checkActiveCoupons,
     applyCoupon
 } = require('../controllers/couponController');
 
@@ -60,6 +61,7 @@ async function optionalVerifyUser(req, res, next) {
 
 // Storefront — validate & price breakdown (must be before /:id)
 router.post('/apply', optionalVerifyUser, applyCoupon);
+router.get('/active-check', checkActiveCoupons);
 
 // Admin — list / CRUD
 router.get('/', verifyAdmin, getCoupons);

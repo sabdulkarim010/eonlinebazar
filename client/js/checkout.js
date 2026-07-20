@@ -31,6 +31,84 @@ let validationState = {
     upazila: false
 };
 
+let checkoutCouponsAvailable = false;
+
+function hideCheckoutCouponSection() {
+    checkoutCouponsAvailable = false;
+    const container = document.getElementById('checkout-coupon-container');
+    if (container) container.style.display = 'none';
+
+    setAppliedCoupon(null);
+
+    const discountRow = document.getElementById('checkoutDiscountRow');
+    if (discountRow) discountRow.style.display = 'none';
+
+    const msgEl = document.getElementById('checkoutCouponAppliedMsg');
+    if (msgEl) msgEl.style.display = 'none';
+
+    const removeBtn = document.getElementById('checkoutRemoveCouponBtn');
+    if (removeBtn) removeBtn.style.display = 'none';
+
+    const applyBtn = document.getElementById('checkoutApplyCouponBtn');
+    if (applyBtn) applyBtn.style.display = 'inline-flex';
+
+    const input = document.getElementById('checkoutCouponInput');
+    if (input) {
+        input.value = '';
+        input.disabled = false;
+    }
+}
+
+function showCheckoutCouponSection() {
+    checkoutCouponsAvailable = true;
+    const container = document.getElementById('checkout-coupon-container');
+    if (container) container.style.display = 'block';
+}
+
+function getCheckoutSubtotal() {
+    const checkedItems = getCheckoutItems();
+    return checkedItems.reduce(
+        (sum, item) => sum + (parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 1),
+        0
+    );
+}
+
+async function refreshCheckoutCouponAvailability() {
+    const container = document.getElementById('checkout-coupon-container');
+    if (!container) return false;
+
+    try {
+        const res = await fetch('/api/coupons/active-check', { cache: 'no-store' });
+        if (!res.ok) {
+            hideCheckoutCouponSection();
+            return false;
+        }
+
+        const data = await res.json();
+        const hasActive = data && data.hasActiveCoupon === true;
+
+        if (hasActive) {
+            showCheckoutCouponSection();
+            return true;
+        }
+
+        hideCheckoutCouponSection();
+        return false;
+    } catch (err) {
+        console.error('Coupon availability check failed:', err);
+        hideCheckoutCouponSection();
+        return false;
+    }
+}
+
+async function initCheckoutCouponVisibility() {
+    const available = await refreshCheckoutCouponAvailability();
+    if (!available) {
+        const subtotal = getCheckoutSubtotal();
+        if (subtotal > 0) updateCheckoutTotals(subtotal);
+    }
+}
+
 function getAppliedCoupon() {
     try {
         return JSON.parse(localStorage.getItem('appliedCoupon')) || null;
@@ -64,6 +142,8 @@ function showCouponToast(message, type = 'success') {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    initCheckoutCouponVisibility();
+
     populateCheckoutDistrictOptions();
     initDistrictSelector();
     initUpazilaSelector();
@@ -601,9 +681,34 @@ function renderCheckoutCart() {
     });
 
     updateCheckoutTotals(calculatedTotal);
+
+    refreshCheckoutCouponAvailability().then((available) => {
+        if (!available) updateCheckoutTotals(calculatedTotal);
+    });
 }
 
 function syncCheckoutCouponUI(subtotal) {
+    if (!checkoutCouponsAvailable) {
+        const applied = getAppliedCoupon();
+        if (applied) setAppliedCoupon(null);
+
+        const discountRow = document.getElementById('checkoutDiscountRow');
+        const msgEl = document.getElementById('checkoutCouponAppliedMsg');
+        const removeBtn = document.getElementById('checkoutRemoveCouponBtn');
+        const applyBtn = document.getElementById('checkoutApplyCouponBtn');
+        const input = document.getElementById('checkoutCouponInput');
+
+        if (discountRow) discountRow.style.display = 'none';
+        if (msgEl) msgEl.style.display = 'none';
+        if (removeBtn) removeBtn.style.display = 'none';
+        if (applyBtn) applyBtn.style.display = 'none';
+        if (input) {
+            input.value = '';
+            input.disabled = false;
+        }
+        return subtotal;
+    }
+
     const applied = getAppliedCoupon();
     const discountRow = document.getElementById('checkoutDiscountRow');
     const discountEl = document.getElementById('checkoutDiscountAmount');
@@ -646,6 +751,13 @@ function syncCheckoutCouponUI(subtotal) {
 }
 
 async function applyCheckoutCoupon() {
+    if (!checkoutCouponsAvailable) {
+        hideCheckoutCouponSection();
+        showCouponToast('No active coupons are available at this time.', 'warning');
+        updateCheckoutTotals(getCheckoutSubtotal());
+        return;
+    }
+
     const input = document.getElementById('checkoutCouponInput');
     const code = (input?.value || '').trim().toUpperCase();
     if (!code) return showCouponToast('Please enter a coupon code.', 'warning');
@@ -814,6 +926,13 @@ function temporarilyRemoveFromCheckout(productId, variantId = '') {
    💳 ৬. পেমেন্ট সাবমিশন লজিক
    ========================================================================= */
 function handleProceedToPayment() {
+    handleProceedToPaymentAsync().catch((err) => {
+        console.error('Proceed to payment error:', err);
+        showCouponToast('Something went wrong. Please try again.', 'error');
+    });
+}
+
+async function handleProceedToPaymentAsync() {
     // পেমেন্টের আগে হাইব্রিড কার্ট চেক (সেন্ট্রাল ফাংশন দিয়ে)
     const checkedItems = getCheckoutItems();
 
@@ -861,6 +980,12 @@ function handleProceedToPayment() {
     const deliveryLocationType = shippingLocationType === 'Inside City' ? 'inside' : 'outside';
 
     let subtotal = checkedItems.reduce((sum, item) => sum + (parseFloat(item.price) * parseInt(item.quantity)), 0);
+
+    const couponsStillAvailable = await refreshCheckoutCouponAvailability();
+    if (!couponsStillAvailable) {
+        setAppliedCoupon(null);
+    }
+
     const applied = getAppliedCoupon();
     let discountAmount = 0;
     let couponCode = '';

@@ -302,12 +302,11 @@ function renderCartDrawerItems() {
 window.toggleItemSelection = function(productId, variantIdEnc) {
     const variantId = decVariant(variantIdEnc);
     if (customerToken) {
-        // লগইন থাকলে ডাটাবেজে আপডেট পাঠানো হবে
         const item = cart.find(i => sameCartLine(i, productId, variantId));
         if (item) {
             const checkbox = document.querySelector(`.cart-item-checkbox[data-id="${productId}"]`);
             item.selected = checkbox ? checkbox.checked : !item.selected;
-            
+
             fetch('/api/cart/toggle-selection', {
                 method: 'PUT',
                 headers: {
@@ -318,7 +317,6 @@ window.toggleItemSelection = function(productId, variantIdEnc) {
             }).then(() => renderCartDrawerItems());
         }
     } else {
-        // গেস্ট ইউজারের জন্য লোকাল স্টোরেজ
         let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
         const item = currentCart.find(i => sameCartLine(i, productId, variantId));
         if (item) {
@@ -330,156 +328,14 @@ window.toggleItemSelection = function(productId, variantIdEnc) {
     }
 };
 
-/* ==========================================================================
-   COUPON HELPERS (shared via localStorage.appliedCoupon)
-   ========================================================================== */
-function getAppliedCoupon() {
-    try {
-        return JSON.parse(localStorage.getItem('appliedCoupon')) || null;
-    } catch (_) {
-        return null;
-    }
-}
-
-function setAppliedCoupon(data) {
-    if (!data) {
-        localStorage.removeItem('appliedCoupon');
-        return;
-    }
-    localStorage.setItem('appliedCoupon', JSON.stringify(data));
-}
-
-function showCouponToast(message, type = 'success') {
-    if (typeof Swal !== 'undefined') {
-        Swal.fire({
-            toast: true,
-            position: 'top-end',
-            icon: type === 'error' ? 'error' : (type === 'warning' ? 'warning' : 'success'),
-            title: message,
-            showConfirmButton: false,
-            timer: 2800,
-            timerProgressBar: true
-        });
-        return;
-    }
-    alert(message);
-}
-
-function syncCartCouponUI(subtotal, payable) {
-    const applied = getAppliedCoupon();
-    const discountRow = document.getElementById('cartDiscountRow');
-    const discountEl = document.getElementById('cartDiscountAmount');
-    const msgEl = document.getElementById('cartCouponAppliedMsg');
-    const removeBtn = document.getElementById('cartRemoveCouponBtn');
-    const applyBtn = document.getElementById('cartApplyCouponBtn');
-    const input = document.getElementById('cartCouponInput');
-
-    const subtotalMatch = applied && Math.round(Number(applied.subtotal) * 100) === Math.round(Number(subtotal) * 100);
-    if (applied && applied.code && Number(applied.discountAmount) > 0 && subtotalMatch) {
-        if (discountRow) discountRow.style.display = 'block';
-        if (discountEl) discountEl.innerText = `-৳${applied.discountAmount}`;
-        if (msgEl) {
-            msgEl.style.display = 'block';
-            msgEl.innerText = `Coupon "${applied.code}" applied — you save ৳${applied.discountAmount}`;
-        }
-        if (removeBtn) removeBtn.style.display = 'inline-flex';
-        if (applyBtn) applyBtn.style.display = 'none';
-        if (input) {
-            input.value = applied.code;
-            input.disabled = true;
-        }
-        return Number(applied.finalTotal);
-    }
-
-    // Subtotal changed or invalid — clear stale coupon
-    if (applied && !subtotalMatch) {
-        setAppliedCoupon(null);
-    }
-
-    if (discountRow) discountRow.style.display = 'none';
-    if (msgEl) msgEl.style.display = 'none';
-    if (removeBtn) removeBtn.style.display = 'none';
-    if (applyBtn) applyBtn.style.display = 'inline-flex';
-    if (input && !getAppliedCoupon()) {
-        input.disabled = false;
-    }
-    return payable;
-}
-
-window.applyCartCoupon = async function() {
-    const input = document.getElementById('cartCouponInput');
-    const code = (input?.value || '').trim().toUpperCase();
-    if (!code) return showCouponToast('Please enter a coupon code.', 'warning');
-
-    let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
-    let checkedItems = currentCart.filter(item => item.selected !== false);
-    let subtotal = 0;
-    checkedItems.forEach(item => { subtotal += item.price * (item.quantity || 1); });
-
-    if (subtotal <= 0) return showCouponToast('Your cart is empty.', 'warning');
-
-    const applyBtn = document.getElementById('cartApplyCouponBtn');
-    if (applyBtn) {
-        applyBtn.disabled = true;
-        applyBtn.textContent = 'Applying...';
-    }
-
-    try {
-        const headers = { 'Content-Type': 'application/json' };
-        if (customerToken) headers['Authorization'] = `Bearer ${customerToken}`;
-
-        const res = await fetch('/api/coupons/apply', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ code, subtotal })
-        });
-        const result = await res.json();
-
-        if (result.success && result.data) {
-            setAppliedCoupon({
-                code: result.data.code,
-                discountAmount: result.data.discountAmount,
-                subtotal: result.data.subtotal,
-                finalTotal: result.data.finalTotal,
-                discountType: result.data.discountType,
-                discountValue: result.data.discountValue
-            });
-            showCouponToast('Coupon applied successfully!', 'success');
-            updateCartTotal();
-        } else {
-            showCouponToast(result.message || 'Invalid coupon code', 'error');
-        }
-    } catch (err) {
-        showCouponToast('Failed to apply coupon. Please try again.', 'error');
-    } finally {
-        if (applyBtn) {
-            applyBtn.disabled = false;
-            applyBtn.textContent = 'Apply';
-        }
-    }
-};
-
-window.removeCartCoupon = function() {
-    setAppliedCoupon(null);
-    const input = document.getElementById('cartCouponInput');
-    if (input) {
-        input.value = '';
-        input.disabled = false;
-    }
-    showCouponToast('Coupon removed.', 'success');
-    updateCartTotal();
-};
-
 function updateCartTotal() {
-    // Drawer & Checkout Page Elements
     const totalSpan = document.getElementById('cartDrawerTotal');
     const itemsCountSpan = document.getElementById('cartSelectedItemsCount');
     const subtotalEl = document.getElementById('cartSubtotalAmount');
     const grandTotalEl = document.getElementById('cartGrandTotalAmount');
     const checkoutRedirectBtn = document.getElementById('proceedToCheckoutBtn');
-    const summarySection = document.getElementById('cartSummarySection'); 
+    const summarySection = document.getElementById('cartSummarySection');
 
-    // Profile Page Dynamic Elements (যেগুলো আমরা SECTION 3 তে বানালাম)
     const profileTotalEl = document.getElementById('profileCartTotalAmount');
     const profileCountEl = document.getElementById('profileCartItemsCount');
     const profileBtn = document.getElementById('profileCheckoutBtn');
@@ -493,19 +349,16 @@ function updateCartTotal() {
         grandTotal += item.price * (item.quantity || 1);
     });
 
-    const payable = syncCartCouponUI(grandTotal, grandTotal);
+    const payable = grandTotal;
 
-    // Drawer Updates
     if (totalSpan) totalSpan.innerText = payable;
     if (itemsCountSpan) itemsCountSpan.innerText = `${uniqueSelectedCount} Items`;
     if (subtotalEl) subtotalEl.innerText = `৳${grandTotal}`;
     if (grandTotalEl) grandTotalEl.innerText = `৳${payable}`;
 
-    // Profile Summary Updates
     if (profileTotalEl) profileTotalEl.innerText = `৳${grandTotal}`;
     if (profileCountEl) profileCountEl.innerText = uniqueSelectedCount;
 
-    // Checkout Button Logic (Drawer)
     if (currentCart.length === 0 || uniqueSelectedCount === 0) {
         if (summarySection) summarySection.style.display = 'none';
         if (checkoutRedirectBtn) {
@@ -513,7 +366,6 @@ function updateCartTotal() {
             checkoutRedirectBtn.style.opacity = '0.5';
             checkoutRedirectBtn.onclick = null;
         }
-        // Profile Button Disable
         if (profileBtn) {
             profileBtn.disabled = true;
             profileBtn.style.opacity = '0.5';
@@ -522,8 +374,7 @@ function updateCartTotal() {
         }
     } else {
         if (summarySection) summarySection.style.display = 'block';
-        
-        // Drawer Button Enable
+
         if (checkoutRedirectBtn) {
             checkoutRedirectBtn.disabled = false;
             checkoutRedirectBtn.style.opacity = '1';
@@ -533,29 +384,6 @@ function updateCartTotal() {
             };
         }
 
-        // Coupon buttons (cart page only)
-        const cartApplyBtn = document.getElementById('cartApplyCouponBtn');
-        if (cartApplyBtn && !cartApplyBtn.dataset.bound) {
-            cartApplyBtn.dataset.bound = '1';
-            cartApplyBtn.addEventListener('click', applyCartCoupon);
-        }
-        const cartRemoveBtn = document.getElementById('cartRemoveCouponBtn');
-        if (cartRemoveBtn && !cartRemoveBtn.dataset.bound) {
-            cartRemoveBtn.dataset.bound = '1';
-            cartRemoveBtn.addEventListener('click', removeCartCoupon);
-        }
-        const cartCouponInput = document.getElementById('cartCouponInput');
-        if (cartCouponInput && !cartCouponInput.dataset.bound) {
-            cartCouponInput.dataset.bound = '1';
-            cartCouponInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    applyCartCoupon();
-                }
-            });
-        }
-
-        // Profile Button Enable
         if (profileBtn) {
             profileBtn.disabled = false;
             profileBtn.style.opacity = '1';
