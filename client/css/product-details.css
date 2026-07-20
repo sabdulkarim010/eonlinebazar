@@ -27,44 +27,63 @@ body {
     display: none !important;
 }
 
-/* ==========================================================================
-   🌟 SECTION 2: PAGE BACK BUTTON
-   ========================================================================== */
-.btn-back-page {
-    position: absolute;
-    top: 20px;
-    right: 30px;
-    background: var(--accent-red);
-    color: white;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    text-decoration: none;
-    font-size: 24px;
-    font-weight: bold;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    z-index: 1000;
-    cursor: pointer;
-    transition: var(--transition-smooth);
-}
-
-.btn-back-page:hover {
-    background: var(--accent-red-hover);
-    transform: scale(1.05);
-}
-
-/* ==========================================================================
-   🌟 SECTION 3: BREADCRUMB NAVIGATION
-   ========================================================================== */
 .product-details-container {
     max-width: 1200px;
     margin: 30px auto;
     padding: 0 20px;
 }
 
+/* ==========================================================================
+   🌟 SECTION 2: PRODUCT SHEET CARD & CLOSE BUTTON
+   ========================================================================== */
+.product-sheet-card {
+    position: relative;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: var(--shadow-md);
+    margin-bottom: 40px;
+    padding: 30px;
+    padding-top: 24px;
+}
+
+.btn-close-product-sheet {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.btn-close-product-sheet i {
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.btn-close-product-sheet:hover {
+    color: #ef4444;
+    background-color: rgba(239, 68, 68, 0.08);
+}
+
+.btn-close-product-sheet:focus-visible {
+    outline: 2px solid rgba(239, 68, 68, 0.35);
+    outline-offset: 2px;
+}
+
+/* ==========================================================================
+   🌟 SECTION 3: BREADCRUMB NAVIGATION
+   ========================================================================== */
 .breadcrumb-nav {
     display: flex;
     align-items: center;
@@ -113,17 +132,12 @@ body {
 }
 
 /* ==========================================================================
-   🌟 SECTION 5: MAIN LAYOUT WRAPPER
+   🌟 SECTION 5: MAIN PRODUCT CARD
    ========================================================================== */
 .product-content-wrapper {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 40px;
-    background: #fff;
-    padding: 30px;
-    border-radius: 16px;
-    box-shadow: var(--shadow-md);
-    margin-bottom: 40px;
 }
 
 /* ==========================================================================
@@ -195,13 +209,16 @@ body {
 .product-info-section {
     display: flex;
     flex-direction: column;
+    padding-right: 44px;
 }
 
 .info-top-meta {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
     margin-bottom: 12px;
+    padding-right: 4px;
 }
 
 .info-category-label {
@@ -220,6 +237,8 @@ body {
     display: flex;
     align-items: center;
     gap: 5px;
+    flex-shrink: 0;
+    margin-right: 2px;
 }
 
 .stock-status-badge::before {
@@ -813,6 +832,9 @@ body {
         grid-template-columns: 1fr;
         gap: 30px;
     }
+    .product-info-section {
+        padding-right: 0;
+    }
     .reviews-display-list-box {
         max-width: 100%;
     }
@@ -928,8 +950,13 @@ body {
         padding: 0 10px;
         margin: 15px auto;
     }
-    .product-content-wrapper {
+    .product-sheet-card {
         padding: 15px;
+        padding-top: 14px;
+    }
+
+    .product-info-section {
+        padding-right: 40px;
     }
     .main-image-box {
         height: 300px;

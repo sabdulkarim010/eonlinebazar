@@ -11,10 +11,7 @@
 </head>
 <body>
 
-    <a href="javascript:history.back()" class="btn-back-page">&times;</a>
-
     <main class="product-details-container">
-        
         <nav class="breadcrumb-nav">
             <a href="/">Home</a>
             <i class="fa-solid fa-angle-right"></i>
@@ -23,12 +20,17 @@
             <span id="breadcrumbTitle">Product Name</span>
         </nav>
 
-        <div id="productLoading" class="loading-spinner">
-            <i class="fa-solid fa-circle-notch fa-spin"></i> 
-            <span>Loading premium product details...</span>
-        </div>
+        <div class="product-sheet-card">
+            <button type="button" class="btn-close-product-sheet" onclick="history.back()" aria-label="Close product details">
+                <i class="fa-solid fa-xmark fa-lg"></i>
+            </button>
 
-        <div id="productContent" class="product-content-wrapper hidden">
+            <div id="productLoading" class="loading-spinner">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> 
+                <span>Loading premium product details...</span>
+            </div>
+
+            <div id="productContent" class="product-content-wrapper hidden">
             
             <div class="product-image-section">
                 <div class="main-image-box">
@@ -121,6 +123,7 @@
                 </div>
 
             </div>
+        </div>
         </div>
 
         <div id="productExtraSection" class="product-extra-section hidden">
