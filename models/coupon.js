@@ -69,12 +69,11 @@ const couponSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-// Normalize code before save
-couponSchema.pre('save', function (next) {
+// Normalize code before save (Mongoose 9+: no next() callback in pre hooks)
+couponSchema.pre('save', function () {
     if (this.code) {
         this.code = String(this.code).trim().toUpperCase();
     }
-    next();
 });
 
 module.exports = mongoose.models.Coupon || mongoose.model('Coupon', couponSchema);

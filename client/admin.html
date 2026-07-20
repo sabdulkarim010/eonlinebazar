@@ -362,7 +362,7 @@
         </div>
     </div>
 
-    <form id="couponForm" class="coupon-form-card" onsubmit="event.preventDefault(); saveCoupon();">
+    <form id="couponForm" class="coupon-form-card" novalidate>
         <input type="hidden" id="couponEditId" value="">
         <div class="coupon-form-grid">
             <div class="catalog-field">
@@ -1195,7 +1195,7 @@
                                 </div>
                                 <input type="file" id="settingsLogoInput" accept="image/*" hidden>
                                 <button type="button" class="btn-secondary" onclick="document.getElementById('settingsLogoInput').click()">
-                                    <i class="fa-solid fa-upload"></i> Upload Logo
+                                    <i class="fa-solid fa-upload"></i> Choose Logo
                                 </button>
                             </div>
                             <div class="branding-upload-box">
@@ -1206,9 +1206,15 @@
                                 </div>
                                 <input type="file" id="settingsFaviconInput" accept="image/*" hidden>
                                 <button type="button" class="btn-secondary" onclick="document.getElementById('settingsFaviconInput').click()">
-                                    <i class="fa-solid fa-upload"></i> Upload Favicon
+                                    <i class="fa-solid fa-upload"></i> Choose Favicon
                                 </button>
                             </div>
+                        </div>
+                        <p class="branding-hint"><i class="fa-solid fa-circle-info"></i> Pick a logo and/or favicon, preview it, then click <strong>Save Store Branding</strong> to publish it live across the platform.</p>
+                        <div class="branding-save-row">
+                            <button type="button" id="saveBrandingBtn" class="btn-submit branding-save-btn">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> Save Store Branding
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1391,7 +1397,7 @@
     </div>
 </div>
 
-    <div id="toastContainer" class="toast-container"></div>
+    <div id="toastContainer" class="admin-toast-stack" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module" src="/js/admin.js"></script>
 

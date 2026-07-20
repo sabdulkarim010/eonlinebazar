@@ -95,32 +95,67 @@ function formatAdminProfit(amount) {
    ========================================================================== */
 
 function initAdminNotifications() {
-    if (typeof toastr !== 'undefined') {
-        toastr.options = {
-            closeButton: true,
-            progressBar: true,
-            positionClass: 'toast-top-right',
-            timeOut: 3500,
-            extendedTimeOut: 1500,
-            preventDuplicates: true
-        };
+    if (!document.getElementById('toastContainer')) {
+        const container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.className = 'admin-toast-stack';
+        container.setAttribute('aria-live', 'polite');
+        container.setAttribute('aria-atomic', 'true');
+        document.body.appendChild(container);
     }
 }
 
+const ADMIN_TOAST_ICONS = {
+    success: 'fa-circle-check',
+    error: 'fa-circle-xmark',
+    warning: 'fa-triangle-exclamation',
+    info: 'fa-circle-info'
+};
+
+function escapeToastText(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 /**
- * প্রফেশনাল টোস্ট নোটিফিকেশন (Toastr.js)
+ * Modern floating toast notifications for the admin dashboard.
  */
 window.showToast = function(message, type = 'success') {
-    if (typeof toastr !== 'undefined') {
-        const map = { success: 'success', error: 'error', warning: 'warning', info: 'info' };
-        toastr[map[type] || 'info'](message);
-        return;
-    }
-    if (typeof Swal !== 'undefined') {
-        Swal.fire({ toast: true, position: 'top-end', icon: type === 'error' ? 'error' : type === 'warning' ? 'warning' : type === 'info' ? 'info' : 'success', title: message, showConfirmButton: false, timer: 3500, timerProgressBar: true });
-        return;
-    }
-    console.log(`[${type}] ${message}`);
+    initAdminNotifications();
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+
+    const toastType = Object.prototype.hasOwnProperty.call(ADMIN_TOAST_ICONS, type) ? type : 'info';
+    const toast = document.createElement('div');
+    toast.className = `admin-toast ${toastType}`;
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML = `
+        <i class="fa-solid ${ADMIN_TOAST_ICONS[toastType]} admin-toast-icon" aria-hidden="true"></i>
+        <span class="admin-toast-message">${escapeToastText(message)}</span>
+        <button type="button" class="admin-toast-close" aria-label="Dismiss notification">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+    `;
+
+    container.appendChild(toast);
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => toast.classList.add('is-visible'));
+    });
+
+    let dismissed = false;
+    const dismiss = () => {
+        if (dismissed) return;
+        dismissed = true;
+        toast.classList.remove('is-visible');
+        toast.classList.add('is-leaving');
+        window.setTimeout(() => toast.remove(), 350);
+    };
+
+    toast.querySelector('.admin-toast-close')?.addEventListener('click', dismiss);
+    window.setTimeout(dismiss, 4000);
 };
 
 /**
@@ -182,22 +217,10 @@ window.showCustomConfirm = function(title, message, onConfirm, type = 'warning')
     });
 };
 
-/** SweetAlert2 success toast for edit/delete/save actions */
-const AdminSuccessToast = (typeof Swal !== 'undefined') ? Swal.mixin({
-    toast: true,
-    position: 'top-end',
-    icon: 'success',
-    showConfirmButton: false,
-    timer: 2800,
-    timerProgressBar: true
-}) : null;
-
 window.showAdminSuccess = function(title, message) {
-    if (AdminSuccessToast) {
-        AdminSuccessToast.fire({ title: title || 'Success', text: message || '' });
-    } else {
-        showToast(message || title || 'Success', 'success');
-    }
+    const text = message || title || 'Success';
+    const formatted = /^success:/i.test(text) ? text : `Success: ${text}`;
+    showToast(formatted, 'success');
 };
 
 /** Resolve product table body lazily (module init timing safe) */
@@ -1851,10 +1874,29 @@ window.deleteBrand = function(id) {
 
 let globalCoupons = [];
 
+/** Fresh admin token + JSON headers for coupon API calls */
+function getCouponAuthHeaders() {
+    const adminToken = localStorage.getItem('adminToken');
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken || ''}`
+    };
+}
+
+function setupCouponForm() {
+    const form = document.getElementById('couponForm');
+    if (!form || form.dataset.bound === '1') return;
+    form.dataset.bound = '1';
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        saveCoupon();
+    });
+}
+
 async function fetchCoupons() {
     try {
         const response = await fetch('/api/coupons', {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: getCouponAuthHeaders()
         });
         const data = await response.json();
         if (data.success) {
@@ -1974,7 +2016,7 @@ window.editCoupon = function(id) {
     document.getElementById('manage-coupons')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
-window.saveCoupon = async function() {
+async function saveCoupon() {
     const editId = document.getElementById('couponEditId')?.value?.trim();
     const payload = {
         code: document.getElementById('couponCode')?.value?.trim(),
@@ -1990,39 +2032,74 @@ window.saveCoupon = async function() {
         isActive: !!document.getElementById('couponIsActive')?.checked
     };
 
-    if (!payload.code) return showToast('Please enter a coupon code!', 'warning');
-    if (!payload.expiryDate) return showToast('Please select an expiry date!', 'warning');
+    if (!localStorage.getItem('adminToken')) {
+        showToast('Error: Admin session expired. Please log in again.', 'error');
+        window.location.replace('/admin-login');
+        return;
+    }
+
+    if (!payload.code) {
+        showToast('Error: Please enter a coupon code!', 'warning');
+        return;
+    }
+    if (!payload.expiryDate) {
+        showToast('Error: Please select an expiry date!', 'warning');
+        return;
+    }
     if (!Number.isFinite(payload.discountValue) || payload.discountValue <= 0) {
-        return showToast('Please enter a valid discount value!', 'warning');
+        showToast('Error: Please enter a valid discount value!', 'warning');
+        return;
     }
     if (!Number.isFinite(payload.usageLimit) || payload.usageLimit < 1) {
-        return showToast('Usage limit must be at least 1!', 'warning');
+        showToast('Error: Global usage limit must be at least 1!', 'warning');
+        return;
     }
+    if (!Number.isFinite(payload.perUserLimit) || payload.perUserLimit < 1) {
+        showToast('Error: Per-user limit must be at least 1!', 'warning');
+        return;
+    }
+
+    const saveBtn = document.getElementById('couponSaveBtn');
+    const restore = setButtonLoading(saveBtn, editId ? 'Updating...' : 'Creating...');
 
     try {
         const res = await fetch(editId ? `/api/coupons/${editId}` : '/api/coupons', {
             method: editId ? 'PUT' : 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
+            headers: getCouponAuthHeaders(),
             body: JSON.stringify(payload)
         });
-        const result = await res.json();
+
+        let result;
+        try {
+            result = await res.json();
+        } catch (_) {
+            throw new Error('Unexpected server response. Please try again.');
+        }
+
         if (result.success) {
-            showAdminSuccess(
-                editId ? 'Coupon Updated' : 'Coupon Created',
-                result.message || (editId ? 'Coupon updated successfully!' : 'Coupon created successfully!')
-            );
-            resetCouponForm();
+            const successMsg = editId
+                ? (result.message || 'Coupon updated successfully!')
+                : 'Coupon created successfully!';
+            showToast(`Success: ${successMsg}`, 'success');
+            window.resetCouponForm();
             await fetchCoupons();
         } else {
-            showToast(result.message || 'Failed to save coupon', 'error');
+            const errMsg = result.message || 'Failed to save coupon';
+            showToast('Error: ' + errMsg, 'error');
+            if (res.status === 401 && result.redirect) {
+                localStorage.removeItem('adminToken');
+                window.location.replace(result.redirect);
+            }
         }
     } catch (error) {
-        showToast('Server error while saving coupon!', 'error');
+        const errMsg = error.message || 'Server error while saving coupon!';
+        showToast('Error: ' + errMsg, 'error');
+        console.error('Coupon save error:', error);
+    } finally {
+        restore();
     }
-};
+}
+window.saveCoupon = saveCoupon;
 
 window.toggleCouponStatus = function(id) {
     const coupon = globalCoupons.find(c => String(c._id) === String(id));
@@ -2034,7 +2111,7 @@ window.toggleCouponStatus = function(id) {
             try {
                 const res = await fetch(`/api/coupons/${id}/toggle`, {
                     method: 'PATCH',
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    headers: getCouponAuthHeaders()
                 });
                 const result = await res.json();
                 if (result.success) {
@@ -2056,7 +2133,7 @@ window.deleteCoupon = function(id) {
         try {
             const res = await fetch(`/api/coupons/${id}`, {
                 method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: getCouponAuthHeaders()
             });
             const result = await res.json();
             if (result.success) {
@@ -3040,7 +3117,7 @@ async function logoutAdminSession(sessionId, isCurrent) {
             method: 'POST', headers: SEC_AUTH_HEADERS()
         });
         const data = await res.json();
-        if (!data.success) return (typeof showToast === 'function') ? showToast(data.message || 'Failed.', 'error') : alert(data.message);
+        if (!data.success) return showToast(data.message || 'Failed.', 'error');
 
         if (data.loggedOutCurrent) {
             window.location.replace('/admin/logout');
@@ -3196,7 +3273,7 @@ async function submitBlacklist(e) {
     const ip = document.getElementById('blIpInput').value.trim();
     const reason = document.getElementById('blReasonInput').value.trim();
     const hours = document.getElementById('blDurationInput').value;
-    if (!ip) return (typeof showToast === 'function') ? showToast('Please enter an IP address.', 'error') : alert('IP required');
+    if (!ip) return showToast('Please enter an IP address.', 'error');
 
     try {
         const res = await fetch('/api/admin/blacklist', {
@@ -3401,7 +3478,16 @@ function showLocalBrandingPreview(assetType, file) {
     reader.readAsDataURL(file);
 }
 
-async function handleBrandingUpload(input, assetType, label) {
+// Staged (chosen but not-yet-saved) branding assets. Files are held here after
+// the admin picks them and are only uploaded when "Save Store Branding" is clicked.
+const pendingBrandingFiles = { logo: null, favicon: null };
+
+/**
+ * Handles a logo/favicon file selection: validates it, shows an instant local
+ * preview, and stages the file for the unified "Save Store Branding" action.
+ * NOTE: this no longer uploads on selection — uploading happens on Save.
+ */
+function stageBrandingFile(input, assetType, label) {
     const file = input.files[0];
     if (!file) return;
 
@@ -3411,33 +3497,71 @@ async function handleBrandingUpload(input, assetType, label) {
         return;
     }
 
-    // 1) Instant local preview so the admin sees the change immediately
+    pendingBrandingFiles[assetType] = file;
     showLocalBrandingPreview(assetType, file);
+    reflectPendingBrandingState();
+    showToast(`${label} ready — click "Save Store Branding" to publish it.`, 'info');
+}
 
-    // 2) Loading state on the matching upload button
-    const uploadBtn = input.parentElement?.querySelector('button');
-    const restore = setButtonLoading(uploadBtn, 'Uploading...');
+/** Visually highlights the Save button while there are unsaved branding changes. */
+function reflectPendingBrandingState() {
+    const btn = document.getElementById('saveBrandingBtn');
+    if (!btn) return;
+    const hasPending = !!(pendingBrandingFiles.logo || pendingBrandingFiles.favicon);
+    btn.classList.toggle('has-pending', hasPending);
+}
 
+/**
+ * Uploads every staged branding asset via multipart/form-data, saves it
+ * permanently on the server, and applies the new logo/favicon live across the
+ * layout (header logo + browser tab icon) with no page reload required.
+ */
+async function saveStoreBranding() {
+    const tasks = [];
+    if (pendingBrandingFiles.logo) tasks.push({ assetType: 'logo', label: 'Store logo', file: pendingBrandingFiles.logo });
+    if (pendingBrandingFiles.favicon) tasks.push({ assetType: 'favicon', label: 'Favicon', file: pendingBrandingFiles.favicon });
+
+    if (tasks.length === 0) {
+        showToast('Please choose a logo or favicon before saving.', 'warning');
+        return;
+    }
+
+    const saveBtn = document.getElementById('saveBrandingBtn');
+    const restore = setButtonLoading(saveBtn, 'Saving...');
+
+    const saved = [];
+    const failed = [];
     try {
-        const result = await uploadStoreBrandingAsset(file, assetType);
-        if (result.success) {
-            // 3) Apply the final server URL live across the whole DOM
-            applyBrandingAsset(assetType, result.url);
-            showToast(`Success: ${label} updated and applied live!`, 'success');
-        } else {
-            showToast(`Error: ${result.message || `${label} upload failed.`}`, 'error');
-            // Roll back to the persisted branding on failure
+        for (const task of tasks) {
+            try {
+                const result = await uploadStoreBrandingAsset(task.file, task.assetType);
+                if (result.success) {
+                    applyBrandingAsset(task.assetType, result.url);
+                    pendingBrandingFiles[task.assetType] = null;
+                    saved.push(task.label);
+                } else {
+                    failed.push(`${task.label}: ${result.message || 'upload failed'}`);
+                }
+            } catch (err) {
+                console.error(`${task.label} upload error:`, err);
+                failed.push(`${task.label}: network error`);
+            }
+        }
+
+        if (saved.length) {
+            showToast(`Success: ${saved.join(' & ')} saved and applied live!`, 'success');
+        }
+        if (failed.length) {
+            showToast(`Error: ${failed.join(' | ')}.`, 'error');
+            // Roll the failed previews back to the persisted branding
             fetchAdminSettings();
         }
-    } catch (err) {
-        console.error(`${label} upload error:`, err);
-        showToast(`Error: Could not upload the ${label}. Please try again.`, 'error');
-        fetchAdminSettings();
     } finally {
         restore();
-        input.value = '';
+        reflectPendingBrandingState();
     }
 }
+window.saveStoreBranding = saveStoreBranding;
 
 function setupAdminSettingsForms() {
     const profileForm = document.getElementById('adminSettingsForm');
@@ -3510,12 +3634,17 @@ function setupAdminSettingsForms() {
 
     const logoInput = document.getElementById('settingsLogoInput');
     if (logoInput) {
-        logoInput.addEventListener('change', () => handleBrandingUpload(logoInput, 'logo', 'Store logo'));
+        logoInput.addEventListener('change', () => stageBrandingFile(logoInput, 'logo', 'Store logo'));
     }
 
     const favInput = document.getElementById('settingsFaviconInput');
     if (favInput) {
-        favInput.addEventListener('change', () => handleBrandingUpload(favInput, 'favicon', 'Favicon'));
+        favInput.addEventListener('change', () => stageBrandingFile(favInput, 'favicon', 'Favicon'));
+    }
+
+    const saveBrandingBtn = document.getElementById('saveBrandingBtn');
+    if (saveBrandingBtn) {
+        saveBrandingBtn.addEventListener('click', saveStoreBranding);
     }
 }
 
@@ -3636,6 +3765,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchCategories();
     fetchBrands();
     fetchAttributes();
+    setupCouponForm();
 });
 
 
@@ -3932,7 +4062,7 @@ if (profileUploadInput) {
 ========================================================================== */
 (function () {
     const AUTH = () => ({ 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` });
-    const toast = (m, t = 'success') => (typeof showToast === 'function' ? showToast(m, t) : alert(m));
+    const toast = (m, t = 'success') => showToast(m, t);
     const $ = (id) => document.getElementById(id);
 
     let state = {
