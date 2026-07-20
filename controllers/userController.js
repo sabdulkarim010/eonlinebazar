@@ -116,7 +116,24 @@ function getLocationFromIp(rawIp = '') {
    ======================================================= */
 exports.registerUser = async (req, res) => {
     try {
-        const { name, mobile, email, password } = req.body;
+        const { firstName, lastName, gender, dateOfBirth, mobile, email, password } = req.body;
+
+        const trimmedFirstName = firstName ? String(firstName).trim() : '';
+        const trimmedLastName = lastName ? String(lastName).trim() : '';
+
+        if (!trimmedFirstName || !trimmedLastName) {
+            return res.status(400).json({
+                success: false,
+                message: "First name and last name are required."
+            });
+        }
+
+        if (!mobile || !email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "Mobile, email, and password are required."
+            });
+        }
 
         const existingUser = await User.findOne({ email });
         if (existingUser) {
@@ -128,13 +145,28 @@ exports.registerUser = async (req, res) => {
 
         const verificationToken = crypto.randomBytes(20).toString('hex');
 
-        const newUser = new User({
-            name,
+        const userPayload = {
+            firstName: trimmedFirstName,
+            lastName: trimmedLastName,
             mobile,
             email,
             password: hashedPassword,
             verificationToken
-        });
+        };
+
+        const allowedGenders = ['Male', 'Female', 'Other'];
+        if (gender && allowedGenders.includes(gender)) {
+            userPayload.gender = gender;
+        }
+
+        if (dateOfBirth) {
+            const parsedDob = new Date(dateOfBirth);
+            if (!Number.isNaN(parsedDob.getTime())) {
+                userPayload.dateOfBirth = parsedDob;
+            }
+        }
+
+        const newUser = new User(userPayload);
 
         await newUser.save();
 
@@ -181,16 +213,30 @@ exports.registerUser = async (req, res) => {
    ======================================================= */
 exports.loginUser = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const loginInput = (req.body.loginInput || req.body.email || '').trim();
+        const { password } = req.body;
 
-        const user = await User.findOne({ email });
+        if (!loginInput || !password) {
+            return res.status(400).json({ success: false, message: "Invalid email or password." });
+        }
+
+        const digitsOnly = loginInput.replace(/\D/g, '');
+        const mobileLookup = /^01[3-9]\d{8}$/.test(digitsOnly) ? digitsOnly : loginInput;
+
+        const user = await User.findOne({
+            $or: [
+                { email: loginInput.toLowerCase() },
+                { mobile: mobileLookup }
+            ]
+        });
+
         if (!user) {
             await logSecurityEvent({
                 action: 'Customer Login Failed',
-                actor: email || 'unknown',
+                actor: loginInput || 'unknown',
                 actorType: 'customer',
                 ipAddress: getClientIp(req),
-                details: 'Unknown email address'
+                details: 'Unknown email or mobile number'
             });
             return res.status(400).json({ success: false, message: "Invalid email or password." });
         }
@@ -204,7 +250,11 @@ exports.loginUser = async (req, res) => {
                 ipAddress: getClientIp(req),
                 details: 'Invalid password'
             });
-            return res.status(400).json({ success: false, message: "Invalid email or password." });
+            return res.status(400).json({
+                success: false,
+                message: "Invalid email or password.",
+                userEmail: user.email
+            });
         }
 
         if (user.accountStatus === 'blocked') {
@@ -263,7 +313,7 @@ exports.loginUser = async (req, res) => {
             success: true,
             message: "Login successful",
             token,
-            user: { id: user._id, name: user.name, email: user.email, mobile: user.mobile }
+            user: { id: user._id, name: user.name, firstName: user.firstName, lastName: user.lastName, email: user.email, mobile: user.mobile }
         });
 
     } catch (error) {
@@ -370,13 +420,20 @@ exports.getUserProfile = async (req, res) => {
    ======================================================= */
 exports.updateUserProfile = async (req, res) => {
     try {
-        const { name, phone, mobile, address } = req.body;
+        const { name, firstName, lastName, phone, mobile, address } = req.body;
         
         // 🌟 ফিক্স: ফ্রন্টএন্ড থেকে 'phone' বা 'mobile' যেকোনো একটি আসলেই যেন ডাটাবেজের সঠিক ফিল্ড আপডেট হয়
         const contactNumber = (phone !== undefined ? phone : mobile);
 
         const updateFields = {};
-        if (name !== undefined) updateFields.name = name;
+        if (firstName !== undefined) updateFields.firstName = String(firstName).trim();
+        if (lastName !== undefined) updateFields.lastName = String(lastName).trim();
+        if (name !== undefined && firstName === undefined && lastName === undefined) {
+            const trimmed = String(name).trim();
+            const parts = trimmed.split(/\s+/).filter(Boolean);
+            updateFields.firstName = parts[0] || '';
+            updateFields.lastName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || '';
+        }
         if (address !== undefined) updateFields.address = address;
         if (contactNumber !== undefined) {
             updateFields.phone = contactNumber;

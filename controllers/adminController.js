@@ -201,10 +201,17 @@ const getCustomerById = async (req, res) => {
 // ==============================================================
 const updateCustomer = async (req, res) => {
     try {
-        const { name, email, mobile, phone, address, isVerified } = req.body;
+        const { name, firstName, lastName, email, mobile, phone, address, isVerified } = req.body;
         const updateFields = {};
 
-        if (name !== undefined) updateFields.name = String(name).trim();
+        if (firstName !== undefined) updateFields.firstName = String(firstName).trim();
+        if (lastName !== undefined) updateFields.lastName = String(lastName).trim();
+        if (name !== undefined && firstName === undefined && lastName === undefined) {
+            const trimmed = String(name).trim();
+            const parts = trimmed.split(/\s+/).filter(Boolean);
+            updateFields.firstName = parts[0] || '';
+            updateFields.lastName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || '';
+        }
         if (email !== undefined) updateFields.email = String(email).trim().toLowerCase();
         if (mobile !== undefined) updateFields.mobile = String(mobile).trim();
         if (phone !== undefined) updateFields.phone = String(phone).trim();
@@ -284,7 +291,7 @@ const updateCustomerStatus = async (req, res) => {
 // ==============================================================
 const getCustomerOrders = async (req, res) => {
     try {
-        const customer = await User.findById(req.params.id).select('name email mobile');
+        const customer = await User.findById(req.params.id).select('firstName lastName email mobile');
         if (!customer) {
             return res.status(404).json({ success: false, message: 'Customer not found.' });
         }

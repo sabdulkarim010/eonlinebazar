@@ -34,6 +34,10 @@
     box-sizing: border-box;
 }
 
+.auth-container--register {
+    max-width: 460px;
+}
+
 /* =========================================================================
    ২. নতুন ব্র্যান্ড হেডার ও আইকন (Brand Header & Symbol Icon)
    ========================================================================= */
@@ -181,6 +185,26 @@
     color: #ef4444 !important;
 }
 
+/* Text-only invalid state (border + label, no in-input icon) */
+.floating-group input.is-invalid-text-only {
+    border-color: #ef4444 !important;
+    background-image: none !important;
+}
+.floating-group input.is-invalid-text-only ~ label {
+    color: #ef4444 !important;
+}
+
+/* Login password: never show validation icons inside the field (eye toggle only) */
+.password-group.password-no-icons input.is-valid,
+.password-group.password-no-icons input.is-invalid,
+.password-group.password-no-icons input.is-invalid-text-only,
+#loginPass.is-valid,
+#loginPass.is-invalid,
+#loginPass.is-invalid-text-only {
+    background-image: none !important;
+    padding-right: 70px !important;
+}
+
 /* ইনপুটের নিচের এরর টেক্সট */
 .error-text {
     font-size: 12px;
@@ -189,6 +213,113 @@
     padding-left: 2px;
     font-weight: 500;
     min-height: 16px;
+}
+
+/* Side-by-side first / last name row */
+.auth-name-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 0;
+}
+
+.auth-name-row .floating-group {
+    margin-bottom: 24px;
+}
+
+.field-optional {
+    font-weight: 500;
+    color: #94a3b8;
+    font-size: 10px;
+}
+
+/* Gender select & date of birth — match premium input styling */
+.floating-group select,
+.floating-group input[type="date"] {
+    width: 100%;
+    padding: 18px 14px 6px 14px;
+    font-size: 15px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    outline: none;
+    background: #ffffff;
+    box-sizing: border-box;
+    color: #334155;
+    transition: all 0.2s ease-in-out;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.floating-select select {
+    cursor: pointer;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><path fill="%2394a3b8" d="M1.41 0L6 4.58 10.59 0 12 1.41l-6 6-6-6z"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+    color: #64748b;
+}
+
+.floating-select select.has-value {
+    color: #334155;
+}
+
+.floating-select label {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.floating-group select:focus,
+.floating-group input[type="date"]:focus {
+    border-color: #ff9900;
+    box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.1);
+}
+
+.floating-select select:focus ~ label,
+.floating-select select.has-value ~ label {
+    opacity: 1;
+    top: 4px;
+    left: 12px;
+    font-size: 11px;
+    color: #ff9900;
+    font-weight: 600;
+}
+
+.floating-group input[type="date"]:focus ~ label,
+.floating-group input[type="date"].has-value ~ label {
+    top: 4px;
+    left: 12px;
+    font-size: 11px;
+    color: #ff9900;
+    font-weight: 600;
+}
+
+.floating-group input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+.floating-group input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}
+
+.floating-group input[type="date"].is-valid {
+    border-color: #10b981 !important;
+}
+
+.floating-group input[type="date"].is-invalid {
+    border-color: #ef4444 !important;
+}
+
+@media (max-width: 480px) {
+    .auth-name-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    .auth-name-row .floating-group {
+        margin-bottom: 24px;
+    }
 }
 
 /* =========================================================================

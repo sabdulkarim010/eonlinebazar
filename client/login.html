@@ -30,12 +30,12 @@
             <form id="loginForm" novalidate>
                 
                 <div class="floating-group">
-                    <input type="email" id="loginEmail" required placeholder=" ">
-                    <label for="loginEmail">Email Address</label>
-                    <div id="login-email-error" class="error-text"></div>
+                    <input type="text" id="loginInput" name="loginInput" required placeholder=" " autocomplete="username">
+                    <label for="loginInput">Email Address or Mobile Number</label>
+                    <div id="login-input-error" class="error-text"></div>
                 </div>
                 
-                <div class="floating-group password-group">
+                <div class="floating-group password-group password-no-icons">
                     <input type="password" id="loginPass" required placeholder=" ">
                     <label for="loginPass">Password</label>
                     <button type="button" class="toggle-password" id="toggleLoginPass" title="Show/Hide Password">

@@ -12,7 +12,7 @@
 <body>
 
 <div class="auth-wrapper">
-    <div class="auth-container">
+    <div class="auth-container auth-container--register">
         
         <button class="auth-close-circle" onclick="window.location.href='/index'" title="Go Back">
             <i class="fa-solid fa-xmark"></i>
@@ -28,11 +28,34 @@
             </div>
             
             <form id="registerForm" novalidate>
-                
+
+                <div class="auth-name-row">
+                    <div class="floating-group">
+                        <input type="text" id="regFirstName" required placeholder=" " autocomplete="given-name">
+                        <label for="regFirstName">First Name</label>
+                        <div id="reg-firstname-error" class="error-text"></div>
+                    </div>
+                    <div class="floating-group">
+                        <input type="text" id="regLastName" required placeholder=" " autocomplete="family-name">
+                        <label for="regLastName">Last Name</label>
+                        <div id="reg-lastname-error" class="error-text"></div>
+                    </div>
+                </div>
+
+                <div class="floating-group floating-select">
+                    <select id="regGender" aria-label="Gender">
+                        <option value="" selected>Select Gender (Optional)</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                    </select>
+                    <label for="regGender">Gender</label>
+                </div>
+
                 <div class="floating-group">
-                    <input type="text" id="regName" required placeholder=" ">
-                    <label for="regName">Full Name</label>
-                    <div id="reg-name-error" class="error-text"></div>
+                    <input type="date" id="regDateOfBirth" placeholder=" ">
+                    <label for="regDateOfBirth">Date of Birth <span class="field-optional">(Optional)</span></label>
+                    <div id="reg-dob-error" class="error-text"></div>
                 </div>
 
                 <div class="floating-group">

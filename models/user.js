@@ -21,10 +21,22 @@ const walletHistorySchema = new mongoose.Schema({
 });
 
 const userSchema = new mongoose.Schema({
-    name: {
+    firstName: {
         type: String,
         required: true,
         trim: true
+    },
+    lastName: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    gender: {
+        type: String,
+        enum: ['Male', 'Female', 'Other']
+    },
+    dateOfBirth: {
+        type: Date
     },
     mobile: {
         type: String,
@@ -111,5 +123,28 @@ const userSchema = new mongoose.Schema({
         default: Date.now
     }
 });
+
+// Migrate legacy documents that still store a single `name` field
+userSchema.pre('validate', function (next) {
+    if ((!this.firstName || !this.lastName) && this._doc && this._doc.name) {
+        const parts = String(this._doc.name).trim().split(/\s+/).filter(Boolean);
+        if (!this.firstName) this.firstName = parts[0] || 'User';
+        if (!this.lastName) {
+            this.lastName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || 'User';
+        }
+    }
+    next();
+});
+
+// Backward compatibility: login, profile, admin, and emails still read `name`
+userSchema.virtual('name').get(function () {
+    const fromParts = [this.firstName, this.lastName].filter(Boolean).join(' ').trim();
+    if (fromParts) return fromParts;
+    const legacy = this._doc && this._doc.name;
+    return legacy ? String(legacy).trim() : '';
+});
+
+userSchema.set('toJSON', { virtuals: true });
+userSchema.set('toObject', { virtuals: true });
 
 module.exports = mongoose.model('User', userSchema);

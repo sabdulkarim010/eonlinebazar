@@ -36,24 +36,34 @@ document.addEventListener('DOMContentLoaded', () => {
 /* =========================================================================
    ১. কোর ভ্যালিডেশন ইঞ্জিন (সংশোধিত - ইনপুট বক্স ছোট হওয়া এবং ডানপাশে লেখা যাওয়া ফিক্স)
    ========================================================================= */
-function validateField(inputElement, errorElement, isValid, errorMessage) {
+function validateField(inputElement, errorElement, isValid, errorMessage, inputIcons = true) {
     if (!inputElement || !errorElement) return;
     
     if (inputElement.value.trim() === "") {
-        inputElement.classList.remove('is-valid', 'is-invalid');
+        inputElement.classList.remove('is-valid', 'is-invalid', 'is-invalid-text-only');
         errorElement.innerText = "";
         errorElement.style.display = "none";
         return;
     }
     
     if (isValid) {
-        inputElement.classList.add('is-valid');
-        inputElement.classList.remove('is-invalid');
+        inputElement.classList.remove('is-invalid', 'is-invalid-text-only');
+        if (inputIcons) {
+            inputElement.classList.add('is-valid');
+        } else {
+            inputElement.classList.remove('is-valid');
+        }
         errorElement.innerText = "";
         errorElement.style.display = "none";
     } else {
-        inputElement.classList.add('is-invalid');
         inputElement.classList.remove('is-valid');
+        if (inputIcons) {
+            inputElement.classList.add('is-invalid');
+            inputElement.classList.remove('is-invalid-text-only');
+        } else {
+            inputElement.classList.remove('is-invalid');
+            inputElement.classList.add('is-invalid-text-only');
+        }
         errorElement.innerText = errorMessage;
         
         // CSS এর সাহায্য ছাড়াই জাভাস্ক্রিপ্ট দিয়ে ১০০% নিচে নামানোর নিখুঁত লজিক
@@ -93,43 +103,107 @@ function isSpamText(text) {
 /* =========================================================================
    ৩. রিয়াল-টাইম ইনপুট ট্র্যাকার 
    ========================================================================= */
+function isValidLoginInput(value) {
+    const trimmed = value.trim();
+    const isEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmed);
+    const digitsOnly = trimmed.replace(/\D/g, '');
+    const isMobile = /^01[3-9]\d{8}$/.test(digitsOnly);
+    return isEmail || isMobile;
+}
+
 function initRealTimeValidation() {
-    const loginEmail = document.getElementById('loginEmail');
+    const loginInput = document.getElementById('loginInput');
     const loginPass = document.getElementById('loginPass');
 
-    if (loginEmail) {
-        loginEmail.addEventListener('input', () => {
-            const isValid = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(loginEmail.value.trim());
-            validateField(loginEmail, document.getElementById('login-email-error'), isValid, "Please enter a valid email address.");
+    if (loginInput) {
+        loginInput.addEventListener('input', () => {
+            const value = loginInput.value.trim();
+            const isValid = value === '' || isValidLoginInput(value);
+            validateField(
+                loginInput,
+                document.getElementById('login-input-error'),
+                isValid,
+                "Please enter a valid email address or mobile number."
+            );
         });
     }
 
     if (loginPass) {
         loginPass.addEventListener('input', () => {
             const isValid = loginPass.value.length >= 6;
-            validateField(loginPass, document.getElementById('login-pass-error'), isValid, "Password must be at least 6 characters.");
+            validateField(
+                loginPass,
+                document.getElementById('login-pass-error'),
+                isValid,
+                "Password must be at least 6 characters.",
+                false
+            );
         });
     }
 
-    const regName = document.getElementById('regName');
+    const regFirstName = document.getElementById('regFirstName');
+    const regLastName = document.getElementById('regLastName');
+    const regGender = document.getElementById('regGender');
+    const regDateOfBirth = document.getElementById('regDateOfBirth');
     const regContact = document.getElementById('regContact');
     const regEmail = document.getElementById('regEmail');
     const regPassword = document.getElementById('regPassword');
 
-    if (regName) {
-        regName.addEventListener('input', () => {
-            const value = regName.value.trim();
-            const words = value.split(/\s+/);
-            const isLengthValid = value.length >= 5 && value.length <= 40;
-            const isTwoWords = words.length >= 2;
-            const isNotSpam = !isSpamText(value);
+    function validateNameField(input, errorId, fieldLabel) {
+        if (!input) return;
+        const value = input.value.trim();
+        const isLengthValid = value.length >= 2 && value.length <= 30;
+        const isNotSpam = !isSpamText(value);
 
-            let errMsg = "";
-            if (!isLengthValid) errMsg = "Name must be between 5 and 40 characters.";
-            else if (!isTwoWords) errMsg = "Please enter your full name (at least two words).";
-            else if (!isNotSpam) errMsg = "Invalid name pattern detected.";
+        let errMsg = "";
+        if (!isLengthValid) errMsg = `${fieldLabel} must be between 2 and 30 characters.`;
+        else if (!isNotSpam) errMsg = `Invalid ${fieldLabel.toLowerCase()} pattern detected.`;
 
-            validateField(regName, document.getElementById('reg-name-error'), isLengthValid && isTwoWords && isNotSpam, errMsg);
+        validateField(input, document.getElementById(errorId), isLengthValid && isNotSpam, errMsg);
+    }
+
+    if (regFirstName) {
+        regFirstName.addEventListener('input', () => validateNameField(regFirstName, 'reg-firstname-error', 'First name'));
+    }
+
+    if (regLastName) {
+        regLastName.addEventListener('input', () => validateNameField(regLastName, 'reg-lastname-error', 'Last name'));
+    }
+
+    if (regGender) {
+        const syncGenderLabel = () => {
+            regGender.classList.toggle('has-value', regGender.value !== '');
+        };
+        regGender.addEventListener('change', syncGenderLabel);
+        syncGenderLabel();
+    }
+
+    if (regDateOfBirth) {
+        const syncDobLabel = () => {
+            regDateOfBirth.classList.toggle('has-value', regDateOfBirth.value !== '');
+        };
+        regDateOfBirth.addEventListener('input', () => {
+            syncDobLabel();
+            const value = regDateOfBirth.value;
+            if (!value) {
+                regDateOfBirth.classList.remove('is-valid', 'is-invalid');
+                document.getElementById('reg-dob-error').innerText = "";
+                document.getElementById('reg-dob-error').style.display = "none";
+                return;
+            }
+
+            const dob = new Date(value);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const minAgeDate = new Date(today.getFullYear() - 120, today.getMonth(), today.getDate());
+            const isValid = !Number.isNaN(dob.getTime()) && dob <= today && dob >= minAgeDate;
+
+            validateField(
+                regDateOfBirth,
+                document.getElementById('reg-dob-error'),
+                isValid,
+                "Please enter a valid date of birth."
+            );
         });
     }
 
@@ -199,17 +273,20 @@ function initPasswordToggle() {
 async function handleLoginSubmit(e) {
     e.preventDefault();
 
-    const email = document.getElementById('loginEmail').value.trim();
+    const rawLoginInput = document.getElementById('loginInput').value.trim();
     const password = document.getElementById('loginPass').value;
     const forgotPassLink = document.getElementById('forgotPasswordLink'); 
     
     const rememberMeCheckbox = document.getElementById('rememberMe');
     const rememberMe = rememberMeCheckbox ? rememberMeCheckbox.checked : false;
 
-    if (!email || password.length < 6) {
+    if (!rawLoginInput || password.length < 6 || !isValidLoginInput(rawLoginInput)) {
         showCustomToast("Please fill all fields correctly.", "error");
         return;
     }
+
+    const digitsOnly = rawLoginInput.replace(/\D/g, '');
+    const loginInput = /^01[3-9]\d{8}$/.test(digitsOnly) ? digitsOnly : rawLoginInput;
 
     const loginBtn = document.querySelector('#loginForm .btn-primary');
     loginBtn.innerText = "Authenticating...";
@@ -219,7 +296,7 @@ async function handleLoginSubmit(e) {
         const response = await fetch('/api/customer/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password, rememberMe }) 
+            body: JSON.stringify({ loginInput, password, rememberMe }) 
         });
         
         const data = await response.json();
@@ -247,7 +324,14 @@ async function handleLoginSubmit(e) {
 
             if (forgotPassLink) {
                 forgotPassLink.style.display = 'block';
-                forgotPassLink.href = `forgot-password.html?email=${encodeURIComponent(email)}`;
+                const forgotEmail = data.userEmail || (
+                    /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(rawLoginInput)
+                        ? rawLoginInput
+                        : ''
+                );
+                forgotPassLink.href = forgotEmail
+                    ? `forgot-password.html?email=${encodeURIComponent(forgotEmail)}`
+                    : 'forgot-password.html';
             }
         }
     } catch (error) {
@@ -265,13 +349,23 @@ async function handleLoginSubmit(e) {
 async function handleRegisterSubmit(e) {
     e.preventDefault();
 
-    const name = document.getElementById('regName').value.trim();
+    const firstName = document.getElementById('regFirstName').value.trim();
+    const lastName = document.getElementById('regLastName').value.trim();
+    const genderEl = document.getElementById('regGender');
+    const gender = genderEl && genderEl.value ? genderEl.value : '';
+    const dateOfBirthEl = document.getElementById('regDateOfBirth');
+    const dateOfBirth = dateOfBirthEl && dateOfBirthEl.value ? dateOfBirthEl.value : '';
     const mobile = document.getElementById('regContact').value.trim();
     const email = document.getElementById('regEmail').value.trim();
     const password = document.getElementById('regPassword').value;
 
-    if (!name || mobile.length !== 11 || !email || password.length < 6) {
-        showCustomToast("Please complete all fields correctly.", "error");
+    if (!firstName || !lastName || mobile.length !== 11 || !email || password.length < 6) {
+        showCustomToast("Please complete all required fields correctly.", "error");
+        return;
+    }
+
+    if (dateOfBirthEl && dateOfBirthEl.classList.contains('is-invalid')) {
+        showCustomToast("Please enter a valid date of birth or leave it empty.", "error");
         return;
     }
 
@@ -279,11 +373,15 @@ async function handleRegisterSubmit(e) {
     regBtn.innerText = "Creating Account...";
     regBtn.disabled = true;
 
+    const payload = { firstName, lastName, mobile, email, password };
+    if (gender) payload.gender = gender;
+    if (dateOfBirth) payload.dateOfBirth = dateOfBirth;
+
     try {
         const response = await fetch('/api/customer/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, mobile, email, password })
+            body: JSON.stringify(payload)
         });
         
         const data = await response.json();
