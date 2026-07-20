@@ -28,6 +28,7 @@ function mapAdminToSettings(admin) {
         faviconPath,
         logoUrl: logoPath,
         faviconUrl: faviconPath,
+        storeLogo: logoPath,
         currency: admin.currency || DEFAULT_SETTINGS.currency,
         currencySymbol: admin.currencySymbol || DEFAULT_SETTINGS.currencySymbol,
         timezone: admin.timezone || DEFAULT_SETTINGS.timezone

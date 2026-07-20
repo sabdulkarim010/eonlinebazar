@@ -4,7 +4,7 @@ const { BANGLADESH_DISTRICTS } = require('../utils/bangladeshDistricts');
 
 const getPublicStoreBranding = async (req, res) => {
     try {
-        const settings = await getStoreSettings();
+        const settings = await getStoreSettings({ forceRefresh: true });
 
         res.status(200).json({
             success: true,
@@ -13,7 +13,8 @@ const getPublicStoreBranding = async (req, res) => {
                 logoUrl: settings.logoPath,
                 faviconUrl: settings.faviconPath,
                 logoPath: settings.logoPath,
-                faviconPath: settings.faviconPath
+                faviconPath: settings.faviconPath,
+                storeLogo: settings.logoPath
             }
         });
     } catch (error) {

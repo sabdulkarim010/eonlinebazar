@@ -3751,6 +3751,7 @@ function setBrandingPreviewImage(assetType, url) {
         img.removeAttribute('src');
         img.style.display = 'none';
         if (ph) ph.style.display = 'flex';
+        if (isLogo) updateSidebarStoreLogo(null);
         return;
     }
 
@@ -3761,12 +3762,44 @@ function setBrandingPreviewImage(assetType, url) {
     img.onerror = () => {
         img.style.display = 'none';
         if (ph) ph.style.display = 'flex';
+        if (isLogo) updateSidebarStoreLogo(null);
     };
     img.onload = () => {
         img.style.display = 'block';
         if (ph) ph.style.display = 'none';
     };
+    if (isLogo) updateSidebarStoreLogo(resolved);
     img.src = resolved;
+}
+
+function updateSidebarStoreLogo(url) {
+    const sidebarLogo = document.getElementById('sidebarStoreLogo');
+    const sidebarDefault = document.getElementById('sidebarDefaultLogo');
+    const sidebarIcon = document.getElementById('sidebarStoreIcon');
+    const sidebarName = document.getElementById('sidebarStoreName');
+    const brandLogo = document.getElementById('sidebarBrandLogo');
+
+    if (url) {
+        const bust = cacheBustBrandingUrl(url);
+        if (sidebarLogo) {
+            sidebarLogo.src = bust;
+            sidebarLogo.style.display = 'block';
+        }
+        if (sidebarDefault) sidebarDefault.style.display = 'none';
+        if (sidebarIcon) sidebarIcon.style.display = 'none';
+        if (sidebarName) sidebarName.style.display = '';
+        if (brandLogo) brandLogo.classList.add('has-custom-logo');
+        return;
+    }
+
+    if (sidebarLogo) {
+        sidebarLogo.removeAttribute('src');
+        sidebarLogo.style.display = 'none';
+    }
+    if (sidebarDefault) sidebarDefault.style.display = 'block';
+    if (sidebarIcon) sidebarIcon.style.display = 'none';
+    if (sidebarName) sidebarName.style.display = 'none';
+    if (brandLogo) brandLogo.classList.remove('has-custom-logo');
 }
 
 function updateSiteFaviconLink(url) {
@@ -3789,14 +3822,6 @@ function updateSiteFaviconLink(url) {
 function applyBrandingPreviewFromSettings(settings) {
     if (settings.logoUrl) {
         setBrandingPreviewImage('logo', settings.logoUrl);
-        const sidebarLogo = document.getElementById('sidebarStoreLogo');
-        const sidebarIcon = document.getElementById('sidebarStoreIcon');
-        const bust = cacheBustBrandingUrl(settings.logoUrl);
-        if (sidebarLogo) {
-            sidebarLogo.src = bust;
-            sidebarLogo.style.display = 'block';
-        }
-        if (sidebarIcon) sidebarIcon.style.display = 'none';
     } else {
         setBrandingPreviewImage('logo', null);
     }
@@ -3943,8 +3968,12 @@ async function saveStoreBrandingForm(form) {
                 faviconPath: result.faviconUrl || window.__STORE_SETTINGS__?.faviconPath || '/images/favicon.png',
                 logoUrl: result.logoUrl || window.__STORE_SETTINGS__?.logoUrl || '',
                 faviconUrl: result.faviconUrl || window.__STORE_SETTINGS__?.faviconUrl || '/images/favicon.png',
+                storeLogo: result.logoUrl || window.__STORE_SETTINGS__?.storeLogo || '',
                 v: Date.now()
             };
+            if (typeof window.notifyStoreBrandingUpdated === 'function') {
+                window.notifyStoreBrandingUpdated();
+            }
             if (typeof window.refreshStoreBranding === 'function') window.refreshStoreBranding();
             form.reset();
         } else {
@@ -4007,14 +4036,6 @@ function applyBrandingAsset(assetType, url) {
 
     if (assetType === 'logo') {
         setBrandingPreviewImage('logo', url);
-        const sidebarLogo = document.getElementById('sidebarStoreLogo');
-        const sidebarIcon = document.getElementById('sidebarStoreIcon');
-        const bust = cacheBustBrandingUrl(url);
-        if (sidebarLogo) {
-            sidebarLogo.src = bust;
-            sidebarLogo.style.display = 'block';
-        }
-        if (sidebarIcon) sidebarIcon.style.display = 'none';
     } else if (assetType === 'favicon') {
         setBrandingPreviewImage('favicon', url);
         updateSiteFaviconLink(url);

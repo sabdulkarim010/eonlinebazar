@@ -2,10 +2,14 @@ const { DEFAULT_SETTINGS, getStoreSettings } = require('../utils/storeSettingsSe
 
 async function storeSettingsMiddleware(req, res, next) {
     try {
-        res.locals.settings = await getStoreSettings();
+        const settings = await getStoreSettings();
+        const storeLogo = settings.logoPath || settings.logoUrl || settings.storeLogo || '';
+        res.locals.settings = { ...settings, storeLogo };
+        res.locals.storeLogo = storeLogo;
     } catch (error) {
         console.error('Store settings middleware error:', error);
-        res.locals.settings = { ...DEFAULT_SETTINGS };
+        res.locals.settings = { ...DEFAULT_SETTINGS, storeLogo: '' };
+        res.locals.storeLogo = '';
     }
     next();
 }

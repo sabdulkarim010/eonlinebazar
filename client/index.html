@@ -24,14 +24,15 @@
     
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800&family=Poppins:wght@700;800&display=swap" rel="stylesheet">
 </head>
 <body>
 
 <header class="amazon-header">
     <div class="container main-nav">
-        <div class="logo-box" id="home-brand-logo" onclick="window.location.href='/'">
-            <span class="logo-bold">Eonline</span><span class="logo-light">Bazar</span>
-        </div>
+        <a href="/" class="logo-box" id="home-brand-logo" data-store-logo-slot data-logo-variant="navbar" aria-label="EonlineBazar Home"></a>
 
         <div class="search-box-container">
             <select id="categorySelect" class="search-category" onchange="triggerSearch()">

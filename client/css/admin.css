@@ -2165,7 +2165,7 @@ a {
 }
 .branding-upload-box label { display: block; font-weight: 600; margin-bottom: 10px; color: var(--secondary-color); }
 .branding-preview {
-    min-height: 100px;
+    min-height: 120px;
     border: 2px dashed #cbd5e1;
     border-radius: 10px;
     display: flex;
@@ -2178,6 +2178,41 @@ a {
 .branding-preview img { max-width: 100%; max-height: 90px; object-fit: contain; }
 .branding-preview.favicon-preview img { max-height: 48px; max-width: 48px; }
 .branding-placeholder { color: var(--text-muted); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+
+/* Inline vector store logo (default branding) */
+.store-brand-svg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+}
+.store-brand-svg svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+.store-brand-svg--preview {
+    width: 100%;
+    max-width: 440px;
+    padding: 10px 14px;
+}
+.store-brand-svg--preview svg {
+    max-height: 88px;
+}
+.store-brand-svg--sidebar {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 0;
+    justify-content: flex-start;
+}
+.store-brand-svg--sidebar svg {
+    max-height: 42px;
+    width: auto;
+    max-width: 100%;
+}
+.brand-logo.has-custom-logo .store-brand-svg--sidebar {
+    display: none !important;
+}
 
 .branding-hint {
     margin: 20px 0 0;

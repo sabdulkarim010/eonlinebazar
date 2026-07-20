@@ -85,25 +85,13 @@ app.use((req, res, next) => {
     next();
 });
 
-// Inject dynamic store branding loader for direct .html requests before static fallback
-app.use((req, res, next) => {
-    if (req.method !== 'GET' || !req.path.endsWith('.html')) return next();
-    const filename = req.path.replace(/^\//, '');
-    const absPath = path.join(CLIENT_DIR, filename);
-    if (!fs.existsSync(absPath)) return next();
-    return sendClientHtml(res, filename);
-});
-
-// স্ট্যাটিক ফাইলগুলো সার্ভ করার জন্য 'client' ফোল্ডার লিংক করা
-app.use(express.static(CLIENT_DIR));
-
-// ৪. এপিআই রুটসমূহ যুক্ত করা
+// ৪. এপিআই রুটসমূহ যুক্ত করা (স্ট্যাটিক ফাইলের আগে — JSON/API সবসময় ব্র্যান্ডেড HTML-এর আগে মিলবে)
 app.use('/api/products', productRoutes);
-app.use('/api/orders', orderRoutes); 
+app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/customer', userRoutes);  
+app.use('/api/customer', userRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api/cart',cartRoutes);
+app.use('/api/cart', cartRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/brands', brandRoutes);
@@ -293,6 +281,9 @@ app.get('/finance-analytics', serveFinanceDashboard);
 
 // 🌟 অ্যাডমিন-নেমস্পেসড সিকিউর অ্যালিয়াস রুট: GET /admin/finance
 app.get('/admin/finance', serveFinanceDashboard);
+
+// স্ট্যাটিক assets (CSS/JS/images/uploads) — index.html সরাসরি সerv করবে না; সব HTML পেজ উপরের ব্র্যান্ডেড রুট দিয়ে যায়
+app.use(express.static(CLIENT_DIR, { index: false }));
 
 /********************************************************************
  # 404 NOT FOUND HANDLER (🌟 নতুন: ভুল ইউআরএল হ্যান্ডেল করার জন্য)

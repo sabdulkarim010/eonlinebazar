@@ -43,14 +43,19 @@ body {
     z-index: 100;
 }
 
-.logo-area a {
+.logo-area {
     text-decoration: none;
     color: var(--primary-color);
+    display: inline-flex;
+    align-items: center;
 }
 
-.logo-area h2 {
+.logo-area h2,
+.logo-area .store-brand-fallback {
     font-size: 24px;
     font-weight: 700;
+    margin: 0;
+    color: inherit;
 }
 
 .btn-back-home {

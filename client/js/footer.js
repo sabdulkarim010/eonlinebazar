@@ -25,6 +25,10 @@ async function initGlobalFooterEngine() {
         footerContainer.style.opacity = '0';
         footerContainer.style.transition = 'opacity 0.3s ease-in-out';
         footerContainer.innerHTML = htmlContent;
+
+        if (typeof window.refreshStoreBranding === 'function') {
+            window.refreshStoreBranding();
+        }
         
         setTimeout(() => {
             footerContainer.style.opacity = '1';

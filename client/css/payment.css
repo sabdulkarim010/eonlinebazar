@@ -91,11 +91,16 @@ body {
 .payment-header-right-empty {
     width: 110px; /* লেআউট ব্যালেন্স রাখার জন্য */
 }
-.brand-logo-text{
+.brand-logo-text,
+.payment-header-right-brand {
     color: #16a34a;
     font-weight: 700;
     font-family: 'Poppins', sans-serif;
     font-size: 18px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
 }
 
 /* =========================================================================

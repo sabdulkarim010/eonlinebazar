@@ -90,6 +90,10 @@ body {
     color: #16a34a;
     font-size: 16px;
     letter-spacing: -0.5px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
 }
 
 /* =========================================================================

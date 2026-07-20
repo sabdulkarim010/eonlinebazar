@@ -526,11 +526,16 @@ File Name: css/checkout.css
 }
 
 /* ডান পাশের ব্র্যান্ড লোগো */
-.brand-logo-text {
+.brand-logo-text,
+.header-right-brand {
     color: #16a34a;
     font-size: 18px;
     font-weight: 700;
     font-family: 'Poppins', sans-serif;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
 }
 
 /* 📱 রেসপনসিভনেস: মোবাইল স্ক্রিনের জন্য ফিক্স */

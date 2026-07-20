@@ -86,6 +86,9 @@ header {
     cursor: pointer;
     color: var(--white);
     white-space: nowrap;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
 }
 
 .logo-bold {
@@ -97,6 +100,44 @@ header {
     color: var(--amazon-gold);
 }
 
+/* Dynamic store logo slots (Admin → Store Branding, injected server-side) */
+.store-logo-static {
+    display: inline-block;
+    vertical-align: middle;
+    max-height: 46px;
+    width: auto;
+    height: auto;
+}
+
+.store-logo-static--compact {
+    max-height: 32px;
+    max-width: 130px;
+}
+
+.header-brand-logo .store-logo-static--compact,
+.header-right-brand .store-logo-static--compact,
+.payment-header-right-brand .store-logo-static--compact {
+    max-height: 32px;
+    max-width: 130px;
+}
+
+/* Dark amazon header — white pill behind uploaded logo */
+.amazon-header .logo-box:has(.store-brand-logo),
+.amazon-header .logo-box:has(.store-brand-svg),
+.amazon-header .logo-box[data-store-logo-slot] {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 4px 10px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+a[data-store-logo-slot] {
+    text-decoration: none;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+}
+
 /* Global uploaded store logo (Admin → Store Branding) */
 .store-brand-logo,
 img[data-store-logo] {
@@ -106,6 +147,76 @@ img[data-store-logo] {
     width: auto;
     height: auto;
     object-fit: contain;
+}
+
+/* Inline SVG fallback logo (cart + checkmark + typography) */
+.store-brand-svg {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+    flex-shrink: 0;
+    max-width: 100%;
+}
+
+.store-brand-svg__graphic,
+.store-brand-svg svg {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.store-brand-svg--navbar .store-brand-svg__graphic,
+.store-brand-svg--navbar svg {
+    max-height: 45px;
+    max-width: 230px;
+}
+
+.store-brand-svg--compact .store-brand-svg__graphic,
+.store-brand-svg--compact svg {
+    max-height: 28px;
+    max-width: 120px;
+}
+
+.store-brand-svg--nav .store-brand-svg__graphic,
+.store-brand-svg--nav svg {
+    max-height: 30px;
+    max-width: 130px;
+}
+
+.store-brand-svg--footer .store-brand-svg__graphic,
+.store-brand-svg--footer svg {
+    max-height: 36px;
+    max-width: 200px;
+}
+
+.store-brand-svg--track .store-brand-svg__graphic,
+.store-brand-svg--track svg {
+    max-height: 38px;
+    max-width: 210px;
+}
+
+/* Compact headers: icon + primary wordmark only */
+.store-brand-svg--compact .logo-svg-type-top,
+.store-brand-svg--compact .logo-svg-subtext,
+.store-brand-svg--nav .logo-svg-type-top,
+.store-brand-svg--nav .logo-svg-subtext {
+    display: none;
+}
+
+/* Dark amazon header — light pill so dark SVG stays readable */
+.amazon-header .logo-box:has(.store-brand-svg--navbar),
+.amazon-header .logo-box.has-store-brand-svg {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 4px 10px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.logo-box.has-store-brand-svg {
+    font-size: inherit;
 }
 
 .logo-box.has-store-logo,
@@ -128,6 +239,48 @@ img[data-store-logo] {
 
 .nav-logo.has-store-logo .store-brand-logo {
     max-height: 32px;
+}
+
+.payment-header-right-brand.has-store-logo,
+.payment-header-right-brand .store-brand-logo {
+    max-height: 28px;
+    max-width: 140px;
+}
+
+.footer-logo-text.has-store-logo,
+.footer-logo-text .store-brand-logo {
+    max-height: 36px;
+    max-width: 160px;
+}
+
+.logo-area.has-store-logo,
+.logo-area .store-brand-logo {
+    max-height: 40px;
+    max-width: 180px;
+}
+
+.store-brand-fallback {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    color: inherit;
+    font-weight: 700;
+}
+
+.logo-area .store-brand-fallback {
+    margin: 0;
+    color: inherit;
+}
+
+a.header-brand-logo,
+a.header-right-brand,
+a.payment-header-right-brand,
+a.nav-logo,
+a.logo-area {
+    text-decoration: none;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
 }
 
 .menu-toggle {
