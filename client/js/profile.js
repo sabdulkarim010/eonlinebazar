@@ -1032,22 +1032,23 @@ document.addEventListener('DOMContentLoaded', () => {
         items.forEach(item => {
             const imgSrc = resolveProductImage(item.image);
             const media = imgSrc
-                ? `<img src="${imgSrc}" alt="${item.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><span class="wishlist-emoji" style="display:none;">${item.icon || '📦'}</span>`
+                ? `<img src="${imgSrc}" alt="${escapeHtml(item.name)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><span class="wishlist-emoji" style="display:none;">${item.icon || '📦'}</span>`
                 : `<span class="wishlist-emoji">${item.icon || '📦'}</span>`;
 
             const card = document.createElement('div');
             card.className = 'wishlist-card';
+            card.dataset.productId = String(item.productId || '');
             card.innerHTML = `
                 <div class="wishlist-media">${media}</div>
                 <div class="wishlist-info">
-                    <h4 class="wishlist-name" title="${item.name}">${item.name || 'Product'}</h4>
+                    <h4 class="wishlist-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name || 'Product')}</h4>
                     <span class="wishlist-price">৳${Number(item.price || 0).toLocaleString()}</span>
                 </div>
                 <div class="wishlist-actions">
-                    <button class="wishlist-cart-btn" data-id="${item.productId}" data-name="${item.name}" data-price="${item.price}" data-image="${item.image || ''}" data-icon="${item.icon || '📦'}" title="Move to cart">
+                    <button type="button" class="wishlist-cart-btn" data-id="${escapeHtml(item.productId)}" data-name="${escapeHtml(item.name || '')}" data-price="${Number(item.price || 0)}" data-image="${escapeHtml(item.image || '')}" data-icon="${escapeHtml(item.icon || '📦')}" title="Add to cart">
                         <i class="fa-solid fa-cart-plus"></i>
                     </button>
-                    <button class="wishlist-remove-btn" data-id="${item.productId}" title="Remove from wishlist">
+                    <button type="button" class="wishlist-remove-btn" data-id="${escapeHtml(item.productId)}" title="Remove from wishlist">
                         <i class="fa-solid fa-trash-can"></i>
                     </button>
                 </div>
@@ -1056,39 +1057,137 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // উইশলিস্টের রিমুভ ও মুভ-টু-কার্ট (ইভেন্ট ডেলিগেশন)
+    async function addWishlistItemToCart(cartBtn) {
+        const productId = cartBtn.getAttribute('data-id');
+        const name = cartBtn.getAttribute('data-name') || '';
+        const price = cartBtn.getAttribute('data-price') || '0';
+        const image = cartBtn.getAttribute('data-image') || '';
+        const icon = cartBtn.getAttribute('data-icon') || '📦';
+        const productIcon = icon || (image && !image.includes('.') ? image : '📦');
+
+        if (!productId) {
+            showToast('Product reference missing.', 'danger');
+            return;
+        }
+
+        const originalHtml = cartBtn.innerHTML;
+        cartBtn.disabled = true;
+        cartBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+        try {
+            const res = await fetch('/api/cart/add', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    productId,
+                    quantity: 1,
+                    name,
+                    price: Number(price),
+                    image,
+                    icon: productIcon
+                })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                showToast(data.message || 'Could not add to cart.', 'danger');
+                return;
+            }
+
+            if (typeof window.syncCartFromServerItems === 'function' && Array.isArray(data)) {
+                window.syncCartFromServerItems(data);
+            } else if (typeof window.fetchLiveDBCart === 'function') {
+                await window.fetchLiveDBCart();
+            } else if (typeof window.renderCartDrawerItems === 'function') {
+                window.renderCartDrawerItems();
+            }
+
+            showToast('Success: Added to cart!', 'success');
+        } catch (error) {
+            console.error('Wishlist add-to-cart error:', error);
+            showToast('Server error while adding to cart.', 'danger');
+        } finally {
+            cartBtn.disabled = false;
+            cartBtn.innerHTML = originalHtml;
+        }
+    }
+
+    async function removeWishlistItem(removeBtn) {
+        const productId = removeBtn.getAttribute('data-id');
+        const card = removeBtn.closest('.wishlist-card');
+
+        if (!productId) {
+            showToast('Product reference missing.', 'danger');
+            return;
+        }
+
+        const originalHtml = removeBtn.innerHTML;
+        removeBtn.disabled = true;
+        removeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+        try {
+            const res = await fetch('/api/wishlist/toggle', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ productId })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok || !data.success) {
+                showToast(data.message || 'Failed to remove.', 'danger');
+                removeBtn.disabled = false;
+                removeBtn.innerHTML = originalHtml;
+                return;
+            }
+
+            if (card) {
+                card.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.96)';
+                setTimeout(() => {
+                    card.remove();
+                    const container = document.getElementById('wishlist-items-list');
+                    if (container && !container.querySelector('.wishlist-card')) {
+                        renderWishlist([]);
+                    }
+                }, 250);
+            } else {
+                await fetchWishlist();
+            }
+
+            showToast('Removed from Wishlist', 'success');
+        } catch (error) {
+            console.error('Remove Wishlist Error:', error);
+            showToast('Server error.', 'danger');
+            removeBtn.disabled = false;
+            removeBtn.innerHTML = originalHtml;
+        }
+    }
+
+    // উইশলিস্টের রিমুভ ও অ্যাড-টু-কার্ট (ইভেন্ট ডেলিগেশন)
     document.addEventListener('click', async (e) => {
         const removeBtn = e.target.closest('.wishlist-remove-btn');
         const cartBtn = e.target.closest('.wishlist-cart-btn');
 
         if (removeBtn) {
-            const productId = removeBtn.getAttribute('data-id');
-            removeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-            try {
-                const res = await fetch(`/api/customer/wishlist/${productId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await res.json();
-                if (res.ok && data.success) {
-                    showToast('Removed from wishlist.', 'success');
-                    renderWishlist(data.wishlist || []);
-                } else {
-                    showToast(data.message || 'Failed to remove.', 'danger');
-                }
-            } catch (error) {
-                console.error('Remove Wishlist Error:', error);
-                showToast('Server error.', 'danger');
-            }
+            e.preventDefault();
+            e.stopPropagation();
+            await removeWishlistItem(removeBtn);
+            return;
         }
 
-        if (cartBtn && typeof window.addToBag === 'function') {
-            const id = cartBtn.getAttribute('data-id');
-            const name = cartBtn.getAttribute('data-name');
-            const price = cartBtn.getAttribute('data-price');
-            const image = cartBtn.getAttribute('data-image');
-            window.addToBag(id, name, price, image);
-            showToast('Added to cart!', 'success');
+        if (cartBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            await addWishlistItemToCart(cartBtn);
         }
     });
 

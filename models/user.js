@@ -1,6 +1,7 @@
 //File Name: models/user.js
 
 const mongoose = require('mongoose');
+const { wishlistItemSchema } = require('./wishlist');
 
 /* প্রতিটি সেভ করা ঠিকানার সাব-স্কিমা (Addresses Management) */
 const addressSchema = new mongoose.Schema({
@@ -9,16 +10,6 @@ const addressSchema = new mongoose.Schema({
     phone: { type: String, default: '', trim: true },
     isDefault: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now }
-});
-
-/* উইশলিস্ট আইটেমের সাব-স্কিমা (My Wishlist) */
-const wishlistSchema = new mongoose.Schema({
-    productId: { type: String, required: true },
-    name: { type: String, default: '' },
-    price: { type: Number, default: 0 },
-    image: { type: String, default: '' },
-    icon: { type: String, default: '📦' },
-    addedAt: { type: Date, default: Date.now }
 });
 
 /* ওয়ালেট / পয়েন্ট ট্রানজেকশন লগ (Cashback & Conversion History) */
@@ -100,7 +91,7 @@ const userSchema = new mongoose.Schema({
     addresses: [addressSchema],
 
     // 🟢 নতুন: উইশলিস্ট (My Wishlist - persists until removed)
-    wishlist: [wishlistSchema],
+    wishlist: [wishlistItemSchema],
 
     // নোট: অ্যাক্টিভ লগইন সেশন এখন আলাদা UserSession কালেকশনে রাখা হয়
     // (models/userSession.js) — পুরোনো এম্বেডেড sessions অ্যারে সরিয়ে ফেলা হয়েছে।

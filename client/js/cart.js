@@ -32,7 +32,7 @@ fetch('/api/products')
         return response.json();
     })
     .then(data => {
-        globalProductCatalog = data;
+        globalProductCatalog = Array.isArray(data) ? data : (data.data || data.products || []);
         
         // 🌟 হাইব্রিড মার্জ লজিক: ইউজার লগইন থাকলে লোকাল স্টোরেজের কার্ট ডাটাবেজে পাঠিয়ে মার্জ হবে
         if (customerToken) {
@@ -71,15 +71,15 @@ fetch('/api/products')
 
 // 🌟 ডাটাবেজ থেকে লাইভ কার্ট আইটেম নিয়ে আসার ফাংশন
 function fetchLiveDBCart() {
-    if (!customerToken) return;
-    fetch('/api/cart', {
+    if (!customerToken) return Promise.resolve();
+    return fetch('/api/cart', {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${customerToken}` }
     })
     .then(res => res.json())
     .then(dbCartItems => {
-        // ব্যাকএন্ড থেকে আসা ফরম্যাটকে ফ্রন্টএন্ড ফরম্যাটে সাজানো
-        cart = dbCartItems.map(item => ({
+        const items = Array.isArray(dbCartItems) ? dbCartItems : [];
+        cart = items.map(item => ({
             id: item.productId,
             name: item.name,
             price: Number(item.price),
@@ -95,8 +95,33 @@ function fetchLiveDBCart() {
         }));
         updateCartCount();
         renderCartDrawerItems();
+        return cart;
     })
-    .catch(err => console.error("Error fetching live DB cart:", err));
+    .catch(err => {
+        console.error("Error fetching live DB cart:", err);
+        return cart;
+    });
+}
+
+function syncCartFromServerItems(dbCartItems) {
+    const items = Array.isArray(dbCartItems) ? dbCartItems : [];
+    cart = items.map(item => ({
+        id: item.productId,
+        name: item.name,
+        price: Number(item.price),
+        products: item.image || '',
+        icon: item.icon || '📦',
+        quantity: item.quantity,
+        selected: item.selected !== false,
+        variantId: item.variantId || '',
+        variantLabel: item.variantLabel || '',
+        variantAttribute: item.variantAttribute || '',
+        variantValue: item.variantValue || '',
+        variantSku: item.variantSku || ''
+    }));
+    updateCartCount();
+    renderCartDrawerItems();
+    return cart;
 }
 
 /* ==========================================================================
@@ -784,6 +809,17 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
         })
         .then(res => res.json())
         .then(updatedData => {
+            if (Array.isArray(updatedData)) {
+                syncCartFromServerItems(updatedData);
+                if (existingItem) {
+                    showCardNotification(clickedButton, "Quantity increased!", 'success');
+                } else {
+                    triggerFlyAnimation(clickedButton, productImage);
+                    showCardNotification(clickedButton, "Added to bag!", 'success');
+                }
+                return;
+            }
+
             if (existingItem) {
                 existingItem.quantity += 1;
                 showCardNotification(clickedButton, "Quantity increased!", 'success');
@@ -793,11 +829,12 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
                     id: productId,
                     name: productName,
                     price: Number(productPrice),
-                    products: productImage || '', 
+                    products: productImage || '',
                     icon: productIcon,
                     quantity: 1,
-                    selected: true 
+                    selected: true
                 });
+                showCardNotification(clickedButton, "Added to bag!", 'success');
             }
             updateCartCount();
             renderCartDrawerItems();
@@ -837,6 +874,8 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
 // গ্লোবাল ফাংশন এক্সপোজার
 window.updateCartCount = updateCartCount;
 window.renderCartDrawerItems = renderCartDrawerItems;
+window.fetchLiveDBCart = fetchLiveDBCart;
+window.syncCartFromServerItems = syncCartFromServerItems;
 
 
 /* ==========================================================================

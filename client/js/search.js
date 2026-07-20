@@ -194,6 +194,15 @@ function renderProducts(list) {
             </div>
         `;
 
+        const wishlistBtn = (window.WishlistEngine && typeof window.WishlistEngine.createHeartButton === 'function')
+            ? window.WishlistEngine.createHeartButton(productId, {
+                name: product.name,
+                price: product.price,
+                image: imageSource,
+                icon: iconData
+            })
+            : null;
+
         const addToCartBtn = document.createElement('button');
         addToCartBtn.className = 'add-to-cart-btn';
         addToCartBtn.innerText = 'Add to Bag';
@@ -210,9 +219,16 @@ function renderProducts(list) {
         productLink.appendChild(imgBox);
         productLink.appendChild(productInfo);
         productCard.appendChild(productLink);
+        if (wishlistBtn) productCard.appendChild(wishlistBtn);
         productCard.appendChild(addToCartBtn);
         grid.appendChild(productCard);
     });
+
+    if (window.WishlistEngine && typeof window.WishlistEngine.refreshHearts === 'function') {
+        window.WishlistEngine.ensureLoaded().then(() => {
+            window.WishlistEngine.refreshHearts(grid);
+        });
+    }
 }
 
 /* ==========================================================================

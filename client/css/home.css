@@ -270,6 +270,104 @@
     background: #f0c14b;
 }
 
+/* Wishlist heart button on product cards */
+.wishlist-heart-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 3;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+    color: #6b7280;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.wishlist-heart-btn i {
+    font-size: 16px;
+    pointer-events: none;
+}
+
+.wishlist-heart-btn:hover {
+    transform: scale(1.08);
+    color: #ef4444;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+}
+
+.wishlist-heart-btn.is-active {
+    color: #ef4444;
+    background: #fff5f5;
+}
+
+.wishlist-heart-btn.is-active i {
+    animation: wishlistHeartPop 0.35s ease;
+}
+
+.wishlist-heart-btn.is-loading {
+    opacity: 0.65;
+    pointer-events: none;
+}
+
+@keyframes wishlistHeartPop {
+    0% { transform: scale(1); }
+    45% { transform: scale(1.25); }
+    100% { transform: scale(1); }
+}
+
+/* Store wishlist toast notifications */
+.store-toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.store-toast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 280px;
+    max-width: 360px;
+    padding: 14px 18px;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.store-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.store-toast.success {
+    background: linear-gradient(135deg, #111827, #1f2937);
+}
+
+.store-toast.error {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+}
+
+.store-toast i {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
 /* ==========================================================================
    ৫. রেস্পন্সিভ মিডিয়া কোয়েরি (মোবাইল ও ট্যাবলেট স্ক্রিন নিয়ন্ত্রণ)
    ========================================================================== */

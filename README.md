@@ -43,7 +43,7 @@
 
 ## 📖 Overview
 
-**EOnlineBazar** is a production-ready, full-stack e-commerce platform built on **Node.js / Express 5** with a **MongoDB (Atlas)** database and a lightweight **Vanilla JavaScript** frontend served directly by Express. It follows a clean **MVC architecture** (`Models → Controllers → Routes`) and ships with everything a modern online store needs: secure customer authentication, a shopping cart, order placement & live tracking, product reviews with image uploads, a loyalty wallet, an enterprise catalog engine, a dedicated **Super Admin Panel**, and a **Finance & Analytics** dashboard.
+**EOnlineBazar** is a production-ready, full-stack e-commerce platform built on **Node.js / Express 5** with a **MongoDB (Atlas)** database and a lightweight **Vanilla JavaScript** frontend served directly by Express. It follows a clean **MVC architecture** (`Models → Controllers → Routes`) and ships with everything a modern online store needs: secure customer authentication, a shopping cart, a persistent **My Wishlist**, order placement & live tracking, product reviews with image uploads, a loyalty wallet, an enterprise catalog engine, a dedicated **Super Admin Panel**, and a **Finance & Analytics** dashboard.
 
 Two things set it apart:
 
@@ -103,8 +103,17 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 - **📦 Order Management & Tracking** — Place orders, view history, public order tracking, and per-item **buying-price snapshots** at checkout for accurate profit reporting.
 - **🛒 Shopping Cart** — Server-synced cart with quantity updates, selection toggles, guest-cart merge, and post-order cleanup.
 - **⭐ Reviews & Ratings** — Star ratings and reviews with optional photo upload; averages update automatically.
-- **❤️ Wishlist & 📍 Address Book** — Save favourites and manage multiple delivery addresses with default-address sync.
+- **📍 Address Book** — Manage multiple delivery addresses with default-address sync.
 - **💰 Wallet & Loyalty Points** — Convert points to wallet balance (100 points = ৳10) with transaction history.
+
+#### ❤️ My Wishlist
+
+A fully implemented customer favourites system with MongoDB-backed persistence and seamless AJAX interactions across the storefront and profile dashboard.
+
+- **Persistent Storage** — Wishlist items are saved persistently in MongoDB as an embedded array on the user's account (`User.wishlist`), linked to their profile. Favourites remain intact after placing orders, logging out, or starting a new session — items are only removed when the customer explicitly deletes them.
+- **AJAX-powered Toggle** — Storefront product grids (home, search, etc.) use a sleek client-side **Fetch API** integration: clicking the heart icon calls `POST /api/wishlist/toggle` to add or remove items dynamically, with instant visual feedback and custom Toast notifications — no hard page refreshes required.
+- **Unified Profile Integration** — The **My Wishlist** panel is fully integrated into the Customer Profile dashboard (`/profile` → **My Cart** tab). Each item ships with a functional **blue Cart button** (adds straight to the active cart summary via `/api/cart/add`) and a **red Delete button** that removes the item instantly from the DOM after a successful toggle, backed by custom Toast success/error feedback.
+- **Optimized Mini-Card UI** — Wishlist items render in a compact, scaled-down **premium mini-card grid** (`wishlist-grid` / `wishlist-card`) with responsive breakpoints, designed for high visual consistency with the rest of the customer dashboard styling.
 
 ### 🛡️ Advanced Security Suite (Recent Updates)
 - **Multi-layered Two-Factor Authentication** — Email OTP, Google Authenticator / TOTP, and SMS OTP (console gateway with Twilio/custom hooks ready).
@@ -173,7 +182,8 @@ eonlinebazar-fullstack/
 │   └── db.js                          # MongoDB (Atlas) connection
 │
 ├── models/                            # Mongoose schemas (data layer)
-│   ├── user.js                        # Customer + addresses, wishlist, wallet, accountStatus
+│   ├── user.js                        # Customer + addresses, embedded wishlist[], wallet, accountStatus
+│   ├── wishlist.js                    # Wishlist item subdocument schema (productId, name, price, image…)
 │   ├── userSession.js                 # Active customer device / login sessions
 │   ├── admin.js                       # Admin account, 2FA config & platform settings (currency, timezone, branding)
 │   ├── adminSession.js                # Active admin device / login sessions
@@ -191,7 +201,8 @@ eonlinebazar-fullstack/
 │
 ├── controllers/                       # Business logic (controller layer)
 │   ├── authController.js              # Customer session list / revoke / logout-others
-│   ├── userController.js              # Customer auth, profile, wishlist, addresses, wallet
+│   ├── userController.js              # Customer auth, profile, wishlist CRUD, addresses, wallet
+│   ├── wishlistController.js          # Wishlist toggle (add/remove) with product snapshot enrichment
 │   ├── adminController.js             # Admin customers, settings, branding, logs, profile
 │   ├── adminSecurityController.js     # 2-step login, admin sessions, IP blacklist, login history
 │   ├── twoFactorController.js         # Self-service 2FA manager (Email / TOTP / SMS)
@@ -206,7 +217,8 @@ eonlinebazar-fullstack/
 │
 ├── routes/                            # Express route definitions (routing layer)
 │   ├── authRoutes.js                  # /api/auth
-│   ├── userRoutes.js                  # /api/customer
+│   ├── userRoutes.js                  # /api/customer (+ wishlist GET/POST/DELETE)
+│   ├── wishlistRoutes.js              # /api/wishlist (toggle endpoint)
 │   ├── adminRoutes.js                 # /api/admin (+ 2FA, sessions, blacklist)
 │   ├── productRoutes.js               # /api/products
 │   ├── categoryRoutes.js              # /api/categories (handler logic inline)
@@ -238,7 +250,7 @@ eonlinebazar-fullstack/
 │   ├── search.html                    # Search results (?q=)
 │   ├── cart.html / checkout.html      # Cart & checkout flow
 │   ├── payment.html                   # Payment page
-│   ├── profile.html                   # Customer dashboard (sessions, wallet, addresses)
+│   ├── profile.html                   # Customer dashboard (cart, wishlist, wallet, addresses, sessions)
 │   ├── order-track.html / order-details.html
 │   ├── about.html / contact.html / footer.html
 │   ├── admin-login.html               # Admin authentication
@@ -247,7 +259,7 @@ eonlinebazar-fullstack/
 │   ├── finance-login.html             # Finance password gate
 │   ├── finance-analytics.html         # Finance & analytics dashboard
 │   ├── css/                           # Page-scoped stylesheets (admin.css, verify-otp.css…)
-│   ├── js/                            # Page scripts (admin.js, verify-otp.js, session-guard.js…)
+│   ├── js/                            # Page scripts (admin.js, wishlist.js, profile.js, session-guard.js…)
 │   └── images/                        # Static assets (favicon.png…)
 │
 ├── server.js                          # App entry: middleware, routes, clean URLs, page guards
@@ -461,7 +473,10 @@ Base URL: `http://localhost:3000`
 | `PUT`  | `/api/customer/change-password` | Change password | User |
 | `POST` | `/api/customer/update-avatar` | Upload avatar (Cloudinary) | User |
 | `POST` | `/api/customer/convert-points` | Convert loyalty points to wallet | User |
-| `GET/POST/DELETE` | `/api/customer/wishlist` | Wishlist CRUD | User |
+| `GET`  | `/api/customer/wishlist` | List saved wishlist items | User |
+| `POST` | `/api/customer/wishlist` | Add item to wishlist | User |
+| `DELETE` | `/api/customer/wishlist/:productId` | Remove item from wishlist | User |
+| `POST` | `/api/wishlist/toggle` | AJAX heart-icon toggle (add/remove with product snapshot) | User |
 | `GET/POST/PUT/DELETE` | `/api/customer/addresses` | Address book CRUD | User |
 
 ### 🛍️ Products & Reviews

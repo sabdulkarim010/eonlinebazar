@@ -197,6 +197,16 @@ function displayProducts(productsToDisplay) {
             </div>
         `;
 
+        // ❤️ Wishlist heart button
+        const wishlistBtn = (window.WishlistEngine && typeof window.WishlistEngine.createHeartButton === 'function')
+            ? window.WishlistEngine.createHeartButton(productId, {
+                name: product.name,
+                price: product.price,
+                image: imageSource,
+                icon: iconData
+            })
+            : null;
+
         // 🛒 Add to Cart বাটন
         const addToCartBtn = document.createElement('button');
         addToCartBtn.className = 'add-to-cart-btn';
@@ -219,10 +229,17 @@ function displayProducts(productsToDisplay) {
         productLink.appendChild(imgBox);
         productLink.appendChild(productInfo);
         productCard.appendChild(productLink);
+        if (wishlistBtn) productCard.appendChild(wishlistBtn);
         productCard.appendChild(addToCartBtn);
         
         productGrid.appendChild(productCard);
     });
+
+    if (window.WishlistEngine && typeof window.WishlistEngine.refreshHearts === 'function') {
+        window.WishlistEngine.ensureLoaded().then(() => {
+            window.WishlistEngine.refreshHearts(productGrid);
+        });
+    }
 }
 
 
