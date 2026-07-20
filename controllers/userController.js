@@ -19,6 +19,13 @@ const sharp = require('sharp');
 const geoip = require('geoip-lite');
 const requestIp = require('request-ip');
 const { logSecurityEvent } = require('../utils/securityLogger');
+const { isValidDistrict, resolveDistrictLabel } = require('../utils/bangladeshDistricts');
+const { formatSavedAddressLine, parseSavedAddressPayload } = require('../utils/savedAddress');
+const {
+    loadRewardSettings,
+    calculatePointsCashValue,
+    POINTS_CONVERSION_UNIT
+} = require('../utils/rewardSettings');
 
 // ইমেইল পাঠানোর কনফিগারেশন
 const transporter = nodemailer.createTransport({
@@ -116,7 +123,17 @@ function getLocationFromIp(rawIp = '') {
    ======================================================= */
 exports.registerUser = async (req, res) => {
     try {
-        const { firstName, lastName, gender, dateOfBirth, mobile, email, password } = req.body;
+        const {
+            firstName,
+            lastName,
+            district,
+            upazilaOrThana,
+            upazila,
+            thana,
+            mobile,
+            email,
+            password
+        } = req.body;
 
         const trimmedFirstName = firstName ? String(firstName).trim() : '';
         const trimmedLastName = lastName ? String(lastName).trim() : '';
@@ -154,16 +171,23 @@ exports.registerUser = async (req, res) => {
             verificationToken
         };
 
-        const allowedGenders = ['Male', 'Female', 'Other'];
-        if (gender && allowedGenders.includes(gender)) {
-            userPayload.gender = gender;
+        const trimmedDistrict = district ? String(district).trim() : '';
+        if (trimmedDistrict) {
+            if (!isValidDistrict(trimmedDistrict)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Please select a valid Bangladesh district."
+                });
+            }
+            userPayload.district = resolveDistrictLabel(trimmedDistrict);
         }
 
-        if (dateOfBirth) {
-            const parsedDob = new Date(dateOfBirth);
-            if (!Number.isNaN(parsedDob.getTime())) {
-                userPayload.dateOfBirth = parsedDob;
-            }
+        const resolvedUpazila = (upazilaOrThana || upazila || thana)
+            ? String(upazilaOrThana || upazila || thana).trim()
+            : '';
+        if (resolvedUpazila) {
+            userPayload.upazila = resolvedUpazila;
+            userPayload.thana = resolvedUpazila;
         }
 
         const newUser = new User(userPayload);
@@ -408,7 +432,12 @@ exports.getUserProfile = async (req, res) => {
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found." });
         }
-        res.status(200).json(user);
+
+        const rewardSettings = await loadRewardSettings();
+        const profile = user.toObject();
+        profile.rewardSettings = rewardSettings;
+
+        res.status(200).json(profile);
     } catch (error) {
         console.error("Get Profile Error:", error);
         res.status(500).json({ success: false, message: "Server error while fetching profile." });
@@ -426,6 +455,8 @@ exports.updateUserProfile = async (req, res) => {
             lastName,
             phone,
             mobile,
+            gender,
+            dateOfBirth,
             address,
             district,
             upazila,
@@ -436,6 +467,7 @@ exports.updateUserProfile = async (req, res) => {
         const contactNumber = (phone !== undefined ? phone : mobile);
 
         const updateFields = {};
+        const allowedGenders = ['Male', 'Female', 'Other'];
         if (firstName !== undefined) updateFields.firstName = String(firstName).trim();
         if (lastName !== undefined) updateFields.lastName = String(lastName).trim();
         if (name !== undefined && firstName === undefined && lastName === undefined) {
@@ -468,9 +500,52 @@ exports.updateUserProfile = async (req, res) => {
             updateFields.mobile = contactNumber;
         }
 
+        if (gender !== undefined) {
+            if (gender === '' || gender === null) {
+                updateFields.gender = undefined;
+            } else if (allowedGenders.includes(gender)) {
+                updateFields.gender = gender;
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    message: "Please select a valid gender option."
+                });
+            }
+        }
+
+        if (dateOfBirth !== undefined) {
+            if (dateOfBirth === '' || dateOfBirth === null) {
+                updateFields.dateOfBirth = undefined;
+            } else {
+                const parsedDob = new Date(dateOfBirth);
+                if (Number.isNaN(parsedDob.getTime())) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Please provide a valid date of birth."
+                    });
+                }
+                updateFields.dateOfBirth = parsedDob;
+            }
+        }
+
+        const unsetFields = {};
+        if (updateFields.gender === undefined && gender !== undefined && (gender === '' || gender === null)) {
+            unsetFields.gender = '';
+            delete updateFields.gender;
+        }
+        if (updateFields.dateOfBirth === undefined && dateOfBirth !== undefined && (dateOfBirth === '' || dateOfBirth === null)) {
+            unsetFields.dateOfBirth = '';
+            delete updateFields.dateOfBirth;
+        }
+
+        const updateQuery = { $set: updateFields };
+        if (Object.keys(unsetFields).length > 0) {
+            updateQuery.$unset = unsetFields;
+        }
+
         const updatedUser = await User.findByIdAndUpdate(
             req.user.id,
-            { $set: updateFields },
+            updateQuery,
             { new: true, runValidators: true } 
         ).select('-password');
 
@@ -704,28 +779,36 @@ exports.getAddresses = async (req, res) => {
 // ১১.খ. নতুন ঠিকানা যুক্ত করা
 exports.addAddress = async (req, res) => {
     try {
-        const { label, fullAddress, phone, isDefault } = req.body;
-        if (!fullAddress || !fullAddress.trim()) {
-            return res.status(400).json({ success: false, message: "Address is required." });
+        const parsed = parseSavedAddressPayload(req.body);
+        if (parsed.error) {
+            return res.status(parsed.error.status).json({
+                success: false,
+                message: parsed.error.message
+            });
         }
+
+        const { label, district, upazilaOrThana, fullAddress, phone, isDefault } = parsed.data;
 
         const user = await User.findById(req.user.id);
         if (!user) return res.status(404).json({ success: false, message: "User not found." });
 
-        const makeDefault = !!isDefault || user.addresses.length === 0;
+        const makeDefault = isDefault || user.addresses.length === 0;
         if (makeDefault) {
             user.addresses.forEach(addr => { addr.isDefault = false; });
         }
 
         user.addresses.push({
-            label: label || 'Home',
-            fullAddress: fullAddress.trim(),
-            phone: phone || '',
+            label,
+            district,
+            upazilaOrThana,
+            fullAddress,
+            phone,
             isDefault: makeDefault
         });
 
-        // ডিফল্ট ঠিকানা থাকলে সেটি মূল address ফিল্ডেও সিঙ্ক হবে (চেকআউট অটো-ফিলের জন্য)
-        if (makeDefault) user.address = fullAddress.trim();
+        if (makeDefault) {
+            user.address = formatSavedAddressLine(user.addresses[user.addresses.length - 1]);
+        }
 
         await user.save();
         res.status(200).json({ success: true, message: "Address added successfully!", addresses: user.addresses });
@@ -739,7 +822,15 @@ exports.addAddress = async (req, res) => {
 exports.updateAddress = async (req, res) => {
     try {
         const { addressId } = req.params;
-        const { label, fullAddress, phone, isDefault } = req.body;
+        const parsed = parseSavedAddressPayload(req.body);
+        if (parsed.error) {
+            return res.status(parsed.error.status).json({
+                success: false,
+                message: parsed.error.message
+            });
+        }
+
+        const { label, district, upazilaOrThana, fullAddress, phone, isDefault } = parsed.data;
 
         const user = await User.findById(req.user.id);
         if (!user) return res.status(404).json({ success: false, message: "User not found." });
@@ -747,20 +838,28 @@ exports.updateAddress = async (req, res) => {
         const target = user.addresses.id(addressId);
         if (!target) return res.status(404).json({ success: false, message: "Address not found." });
 
-        if (label !== undefined) target.label = label;
-        if (fullAddress !== undefined) target.fullAddress = fullAddress.trim();
-        if (phone !== undefined) target.phone = phone;
+        target.label = label;
+        target.district = district;
+        target.upazilaOrThana = upazilaOrThana;
+        target.fullAddress = fullAddress;
+        target.phone = phone;
 
         if (isDefault) {
             user.addresses.forEach(addr => { addr.isDefault = false; });
             target.isDefault = true;
-            user.address = target.fullAddress;
+            user.address = formatSavedAddressLine(target);
         }
 
         await user.save();
         res.status(200).json({ success: true, message: "Address updated successfully!", addresses: user.addresses });
     } catch (error) {
         console.error("Update Address Error:", error);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Invalid address data."
+            });
+        }
         res.status(500).json({ success: false, message: "Failed to update address." });
     }
 };
@@ -781,7 +880,7 @@ exports.deleteAddress = async (req, res) => {
         // ডিফল্ট মুছে ফেললে প্রথম ঠিকানাটিকে নতুন ডিফল্ট করা হবে
         if (wasDefault && user.addresses.length > 0) {
             user.addresses[0].isDefault = true;
-            user.address = user.addresses[0].fullAddress;
+            user.address = formatSavedAddressLine(user.addresses[0]);
         } else if (user.addresses.length === 0) {
             user.address = '';
         }
@@ -797,20 +896,22 @@ exports.deleteAddress = async (req, res) => {
 
 /* =======================================================
    ১২. পয়েন্ট কনভার্সন (Loyalty Points → Wallet Balance)
-   রেট: ১০০ পয়েন্ট = ৳১০ (অর্থাৎ ১ পয়েন্ট = ৳০.১)
+   রেট: মাস্টার সেটিংস থেকে — 100 পয়েন্ট = pointsToTakaConversionRate Taka
    ======================================================= */
 exports.convertPoints = async (req, res) => {
     try {
+        const rewardSettings = await loadRewardSettings();
         const pointsToConvert = Number(req.body.points);
+        const minPoints = rewardSettings.pointsConversionUnit || POINTS_CONVERSION_UNIT;
 
         if (!pointsToConvert || pointsToConvert <= 0) {
             return res.status(400).json({ success: false, message: "Please enter a valid number of points." });
         }
-        if (pointsToConvert < 100) {
-            return res.status(400).json({ success: false, message: "Minimum 100 points are required to convert." });
+        if (pointsToConvert < minPoints) {
+            return res.status(400).json({ success: false, message: `Minimum ${minPoints} points are required to convert.` });
         }
-        if (pointsToConvert % 100 !== 0) {
-            return res.status(400).json({ success: false, message: "Points must be in multiples of 100." });
+        if (pointsToConvert % minPoints !== 0) {
+            return res.status(400).json({ success: false, message: `Points must be in multiples of ${minPoints}.` });
         }
 
         const user = await User.findById(req.user.id);
@@ -820,14 +921,17 @@ exports.convertPoints = async (req, res) => {
             return res.status(400).json({ success: false, message: `You only have ${user.loyaltyPoints} points.` });
         }
 
-        const cashValue = (pointsToConvert / 100) * 10; // ১০০ পয়েন্ট = ৳১০
+        const cashValue = calculatePointsCashValue(pointsToConvert, rewardSettings);
+        if (cashValue <= 0) {
+            return res.status(400).json({ success: false, message: "Point conversion is currently disabled or misconfigured." });
+        }
 
         user.loyaltyPoints -= pointsToConvert;
         user.walletBalance += cashValue;
         user.walletHistory.unshift({
             type: 'conversion',
             amount: cashValue,
-            note: `Converted ${pointsToConvert} points to wallet balance`
+            note: `Converted ${pointsToConvert} points to wallet balance (${minPoints} pts = ৳${rewardSettings.pointsToTakaConversionRate})`
         });
 
         await user.save();
@@ -837,7 +941,8 @@ exports.convertPoints = async (req, res) => {
             message: `Successfully converted ${pointsToConvert} points to ৳${cashValue}!`,
             walletBalance: user.walletBalance,
             loyaltyPoints: user.loyaltyPoints,
-            walletHistory: user.walletHistory
+            walletHistory: user.walletHistory,
+            rewardSettings
         });
     } catch (error) {
         console.error("Convert Points Error:", error);

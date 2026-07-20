@@ -10,12 +10,28 @@
     const BRANDING_SYNC_KEY = 'eonlinebazar.brandingUpdatedAt';
 
     const LOGO_MAX_HEIGHTS = {
-        navbar: 42,
+        navbar: 32,
         compact: 28,
+        'checkout-header': 55,
         nav: 32,
         footer: 36,
         track: 40,
-        default: 45
+        default: 32
+    };
+
+    const LOGO_MAX_WIDTHS = {
+        navbar: 140,
+        compact: 140,
+        'checkout-header': 180,
+        nav: 130,
+        footer: 160,
+        track: 180,
+        default: 140
+    };
+
+    const LOGO_IMG_CLASSES = {
+        'checkout-header': 'store-brand-logo checkout-step-header__logo-img',
+        default: 'store-brand-logo h-8 w-auto object-contain'
     };
 
     const LOGO_SLOT_SELECTORS = [
@@ -27,6 +43,7 @@
         '.logo-area',
         '.header-right-brand',
         '.payment-header-right-brand',
+        '.checkout-step-header__brand',
         '.footer-logo-text'
     ];
 
@@ -84,6 +101,7 @@
         if (slot.classList.contains('header-brand-logo')
             || slot.classList.contains('header-right-brand')
             || slot.classList.contains('payment-header-right-brand')
+            || slot.classList.contains('checkout-step-header__brand')
             || slot.classList.contains('brand-logo-text')) {
             return 'compact';
         }
@@ -95,12 +113,10 @@
     }
 
     function renderTextFallback(storeName, variant) {
-        if (typeof global.renderDefaultStoreLogoSvg === 'function') {
-            return global.renderDefaultStoreLogoSvg({ storeName, variant });
+        if (variant === 'checkout-header') {
+            return `<span class="store-brand-text-fallback checkout-step-header__text-fallback">${escapeHtml(storeName || 'EOnlineBazar')}</span>`;
         }
-
-        const name = storeName || 'EonlineBazar';
-        return `<span class="store-brand-fallback">${escapeHtml(name)}</span>`;
+        return `<span class="store-brand-text-fallback">${escapeHtml(storeName || 'EOnlineBazar')}</span>`;
     }
 
     function applySiteFavicon(url) {
@@ -137,32 +153,30 @@
             settings.logoPath || settings.logoUrl || settings.storeLogo || ''
         );
         const maxHeight = LOGO_MAX_HEIGHTS[variant] || LOGO_MAX_HEIGHTS.default;
+        const maxWidth = LOGO_MAX_WIDTHS[variant] || LOGO_MAX_WIDTHS.default;
+
+        slot.innerHTML = '';
+        slot.classList.remove('has-store-logo', 'has-store-brand-svg', 'has-store-brand-text');
 
         if (logoUrl) {
-            let img = slot.querySelector('img.store-brand-logo, img[data-store-logo]');
-
-            if (!img) {
-                slot.innerHTML = '';
-                img = document.createElement('img');
-                img.className = 'store-brand-logo';
-                img.setAttribute('data-store-logo', '');
-                slot.appendChild(img);
-            }
-
+            const img = document.createElement('img');
+            img.className = LOGO_IMG_CLASSES[variant] || LOGO_IMG_CLASSES.default;
+            img.setAttribute('data-store-logo', '');
             img.alt = `${storeName} Logo`;
             img.src = cacheBust(logoUrl);
             img.style.maxHeight = `${maxHeight}px`;
+            img.style.maxWidth = `${maxWidth}px`;
             img.style.width = 'auto';
             img.style.objectFit = 'contain';
-            img.style.display = 'block';
+            img.style.display = variant === 'checkout-header' ? 'block' : 'inline-block';
+            img.style.verticalAlign = 'middle';
+            slot.appendChild(img);
             slot.classList.add('has-store-logo');
-            slot.classList.remove('has-store-brand-svg');
             return;
         }
 
         slot.innerHTML = renderTextFallback(storeName, variant);
-        slot.classList.remove('has-store-logo');
-        slot.classList.add('has-store-brand-svg');
+        slot.classList.add('has-store-brand-text');
     }
 
     function collectLogoSlots() {

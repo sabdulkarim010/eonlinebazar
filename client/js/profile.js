@@ -47,6 +47,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const profileName = document.getElementById('profile-name');
     const profileEmail = document.getElementById('profile-email');
     const profilePhone = document.getElementById('profile-phone');
+    const profileGender = document.getElementById('profile-gender');
+    const profileDob = document.getElementById('profile-dob');
     const profileDistrict = document.getElementById('profile-district');
     const profileUpazila = document.getElementById('profile-upazila');
     const profileFullAddress = document.getElementById('profile-full-address');
@@ -228,6 +230,26 @@ document.addEventListener('DOMContentLoaded', () => {
         return [fullAddress, upazila, district].filter(Boolean).join(', ');
     }
 
+    function formatDateForInput(dateValue) {
+        if (!dateValue) return '';
+        const parsed = new Date(dateValue);
+        if (Number.isNaN(parsed.getTime())) return '';
+        const year = parsed.getFullYear();
+        const month = String(parsed.getMonth() + 1).padStart(2, '0');
+        const day = String(parsed.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function isValidProfileDob(value) {
+        if (!value) return true;
+        const dob = new Date(value);
+        if (Number.isNaN(dob.getTime())) return false;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const minAgeDate = new Date(today.getFullYear() - 120, today.getMonth(), today.getDate());
+        return dob <= today && dob >= minAgeDate;
+    }
+
     function cacheProfileAddressForCheckout(user = {}) {
         const composite = buildCompositeAddress({
             fullAddress: user.fullAddress || '',
@@ -292,6 +314,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (profileEmail) profileEmail.value = data.email || '';
                 // 🌟 ফিক্স: পুরোনো ইউজারদের নম্বর 'mobile' ফিল্ডে থাকতে পারে, তাই দুটোই চেক করা হলো
                 if (profilePhone) profilePhone.value = data.phone || data.mobile || '';
+                if (profileGender) profileGender.value = data.gender || '';
+                if (profileDob) profileDob.value = formatDateForInput(data.dateOfBirth);
                 applyProfileAddressToUI(data);
 
                 const displayNameEls = document.querySelectorAll('.user-display-name');
@@ -302,6 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // ওয়ালেট ও পয়েন্ট ডিসপ্লে আপডেট (Wallet tab)
                 updateWalletDisplay(data.walletBalance || 0, data.loyaltyPoints || 0);
                 renderCashbackHistory(data.walletHistory || []);
+                applyRewardSettingsUI(data.rewardSettings);
 
                 cacheProfileAddressForCheckout(data);
 
@@ -312,6 +337,98 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Fetch Profile Error:', error);
             showToast('Server error while loading profile.', 'danger');
         }
+    }
+
+    // =================================================================
+    // ৫.৯ অর্ডার টেবিল হেল্পার (Status, Actions, Row Builder)
+    // =================================================================
+    function formatOrderDate(dateValue) {
+        if (!dateValue) return '—';
+        return new Date(dateValue).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function getDisplayOrderId(order) {
+        if (order.orderId) return order.orderId;
+        if (order._id) return order._id.substring(order._id.length - 6).toUpperCase();
+        return 'N/A';
+    }
+
+    function getStatusBadgeClass(status) {
+        const key = String(status || 'pending').toLowerCase();
+        const map = {
+            pending: 'pending',
+            processing: 'processing',
+            shipped: 'shipped',
+            delivered: 'delivered',
+            cancelled: 'cancelled',
+            canceled: 'cancelled',
+            'return requested': 'return-requested',
+            returned: 'returned'
+        };
+        return map[key] || 'pending';
+    }
+
+    function getOrderDeliveryDate(order) {
+        return order.deliveredAt || order.deliveryDate || order.updatedAt || null;
+    }
+
+    function isWithinReturnWindow(order) {
+        if (String(order.status || '').toLowerCase() !== 'delivered') return false;
+
+        const deliveryDate = getOrderDeliveryDate(order);
+        if (!deliveryDate) return false;
+
+        const delivered = new Date(deliveryDate);
+        if (Number.isNaN(delivered.getTime())) return false;
+
+        const diffMs = Date.now() - delivered.getTime();
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        return diffMs >= 0 && diffMs <= sevenDaysMs;
+    }
+
+    function buildOrderActionsHtml(order) {
+        const orderId = order._id || order.orderId || '';
+        const status = String(order.status || 'Pending').toLowerCase();
+        const buttons = [];
+
+        buttons.push(`<button type="button" class="order-action-btn btn-order-view" data-id="${escapeHtml(orderId)}" title="View order details">
+            <i class="fa-solid fa-eye" aria-hidden="true"></i><span>View Details</span>
+        </button>`);
+
+        if (status === 'pending' || status === 'processing') {
+            buttons.push(`<button type="button" class="order-action-btn btn-order-cancel" data-id="${escapeHtml(orderId)}" data-action="cancel" title="Cancel this order">
+                <i class="fa-solid fa-ban" aria-hidden="true"></i><span>Cancel Order</span>
+            </button>`);
+        }
+
+        if (isWithinReturnWindow(order)) {
+            buttons.push(`<button type="button" class="order-action-btn btn-order-return" data-id="${escapeHtml(orderId)}" data-action="return" title="Request a return">
+                <i class="fa-solid fa-rotate-left" aria-hidden="true"></i><span>Return Order</span>
+            </button>`);
+        }
+
+        return `<div class="order-actions-cell">${buttons.join('')}</div>`;
+    }
+
+    function buildOrderRowHtml(order) {
+        const orderDate = formatOrderDate(order.createdAt);
+        const itemsHtml = buildOrderItemsHtml(order.items, order);
+        const currentStatus = order.status || 'Pending';
+        const statusBadgeClass = getStatusBadgeClass(currentStatus);
+        const displayOrderId = getDisplayOrderId(order);
+        const orderId = order._id || '';
+        const grandTotal = Number(order.grandTotal ?? order.totalAmount) || 0;
+
+        return `
+            <tr class="clickable-order-row order-card-row" data-id="${escapeHtml(orderId)}">
+                <td data-label="Order ID"><a href="#" class="order-id-link" data-id="${escapeHtml(orderId)}">#${escapeHtml(displayOrderId)}</a></td>
+                <td data-label="Date">${orderDate}</td>
+                <td class="order-products-cell" data-label="Products">${itemsHtml}</td>
+                <td class="order-total-cell" data-label="Total Amount"><span class="order-total-amount">৳${grandTotal.toLocaleString()}</span></td>
+                <td data-label="Status"><span class="status-badge ${statusBadgeClass}">${escapeHtml(currentStatus)}</span></td>
+                <td class="order-actions-td" data-label="Actions">${buildOrderActionsHtml(order)}</td>
+            </tr>
+        `;
     }
 
     // =================================================================
@@ -403,36 +520,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const recentOrders = rawData.recentOrders || rawData.data?.recentOrders || [];
 
                     if (recentOrders.length === 0) {
-                        dashboardTableBody.innerHTML = `<tr><td colspan="5" class="text-center" style="padding:2rem; color:var(--text-muted);"><i class="fa-solid fa-box-open" style="font-size:2.5rem; margin-bottom:10px; opacity:0.5; display:block;"></i>No recent orders yet.</td></tr>`;
+                        dashboardTableBody.innerHTML = `<tr class="orders-state-row"><td colspan="6" class="text-center orders-empty-cell"><i class="fa-solid fa-box-open orders-empty-icon"></i>No recent orders yet.</td></tr>`;
                     } else {
-                        dashboardTableBody.innerHTML = ''; 
-                        
-                        recentOrders.forEach(order => {
-                            const orderDate = new Date(order.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-                            const itemsHtml = buildOrderItemsHtml(order.items, order);
-
-                            const currentStatus = order.status || 'Pending';
-                            let statusBadgeClass = 'pending';
-                            
-                            if (currentStatus.toLowerCase() === 'delivered') {
-                                statusBadgeClass = 'delivered';
-                            } else if (currentStatus.toLowerCase() === 'shipped') {
-                                statusBadgeClass = 'shipped';
-                            }
-
-                            const displayOrderId = order.orderId ? order.orderId : (order._id ? order._id.substring(order._id.length - 6).toUpperCase() : 'N/A');
-                            const grandTotal = Number(order.grandTotal ?? order.totalAmount) || 0;
-
-                            dashboardTableBody.innerHTML += `
-                                <tr class="clickable-order-row" data-id="${order._id}">
-                                    <td><a href="#" class="order-id-link" data-id="${order._id}">#${displayOrderId}</a></td>
-                                    <td>${orderDate}</td>
-                                    <td class="order-products-cell">${itemsHtml}</td>
-                                    <td style="font-weight:600; color:var(--primary-color);">৳${grandTotal}</td>
-                                    <td><span class="status-badge ${statusBadgeClass}">${currentStatus}</span></td>
-                                </tr>
-                            `;
-                        });
+                        dashboardTableBody.innerHTML = recentOrders.map(order => buildOrderRowHtml(order)).join('');
                     }
                 }
 
@@ -454,6 +544,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const district = profileDistrict?.value?.trim() || '';
             const upazila = profileUpazila?.value?.trim() || '';
             const fullAddress = profileFullAddress?.value?.trim() || '';
+            const gender = profileGender?.value || '';
+            const dateOfBirth = profileDob?.value || '';
+
+            if (dateOfBirth && !isValidProfileDob(dateOfBirth)) {
+                showToast('Please enter a valid date of birth.', 'warning');
+                return;
+            }
 
             if (!district) {
                 showToast('Please select your district.', 'warning');
@@ -471,6 +568,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const updatedData = {
                 name: profileName.value.trim(),
                 phone: profilePhone.value.trim(),
+                gender,
+                dateOfBirth,
                 district,
                 upazila,
                 thana: upazila,
@@ -507,6 +606,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     showToast('Profile updated successfully!', 'success');
                     const user = data.user || data;
                     if (sidebarName) sidebarName.textContent = user.name || updatedData.name;
+                    if (profileGender) profileGender.value = user.gender || gender || '';
+                    if (profileDob) profileDob.value = formatDateForInput(user.dateOfBirth || dateOfBirth);
                     applyProfileAddressToUI(user);
                     cacheProfileAddressForCheckout(user);
                 } else {
@@ -518,7 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const submitBtn = profileForm.querySelector('button[type="submit"]');
                 if(submitBtn) {
-                    submitBtn.innerHTML = 'Save Changes';
+                    submitBtn.innerHTML = '<i class="fa-regular fa-floppy-disk"></i> <span>Update Profile</span>';
                     submitBtn.disabled = false;
                 }
             }
@@ -580,13 +681,202 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =================================================================
+    // ৯.৫ অর্ডার Cancel / Return মডাল ও API (Order Action Modal)
+    // =================================================================
+    const orderActionModal = document.getElementById('order-action-modal');
+    const orderActionForm = document.getElementById('order-action-form');
+    const orderActionTitleText = document.getElementById('order-action-modal-title-text');
+    const orderActionReasonSelect = document.getElementById('order-action-reason-select');
+    const orderActionOtherGroup = document.getElementById('order-action-other-group');
+    const orderActionOtherReason = document.getElementById('order-action-other-reason');
+    const orderActionConfirmBtn = document.getElementById('order-action-confirm-btn');
+    const closeOrderActionModalBtn = document.getElementById('close-order-action-modal');
+    const orderActionCloseBtn = document.getElementById('order-action-close-btn');
+
+    const ORDER_ACTION_REASONS = [
+        { value: 'Changed my mind', label: 'Changed my mind' },
+        { value: 'Ordered by mistake', label: 'Ordered by mistake' },
+        { value: 'Delivery taking too long', label: 'Delivery taking too long' },
+        { value: 'Defective product', label: 'Defective product' },
+        { value: 'Other', label: 'Other (type your own reason)' }
+    ];
+
+    let pendingOrderAction = { orderId: null, action: null };
+
+    function populateOrderActionReasons() {
+        if (!orderActionReasonSelect) return;
+
+        orderActionReasonSelect.innerHTML = '<option value="">Choose a reason...</option>';
+        ORDER_ACTION_REASONS.forEach(({ value, label }) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = label;
+            orderActionReasonSelect.appendChild(option);
+        });
+    }
+
+    function toggleOrderActionOtherField() {
+        if (!orderActionReasonSelect || !orderActionOtherGroup) return;
+        const isOther = orderActionReasonSelect.value === 'Other';
+        orderActionOtherGroup.classList.toggle('hidden', !isOther);
+        orderActionOtherGroup.setAttribute('aria-hidden', isOther ? 'false' : 'true');
+        if (orderActionOtherReason) {
+            orderActionOtherReason.required = isOther;
+            if (!isOther) orderActionOtherReason.value = '';
+            else orderActionOtherReason.focus();
+        }
+    }
+
+    function resetOrderActionForm() {
+        if (orderActionForm) orderActionForm.reset();
+        toggleOrderActionOtherField();
+        if (orderActionConfirmBtn) {
+            orderActionConfirmBtn.disabled = false;
+            orderActionConfirmBtn.innerHTML = '<i class="fa-solid fa-check"></i> Confirm';
+            orderActionConfirmBtn.classList.remove('btn-order-action-cancel-theme', 'btn-order-action-return-theme');
+        }
+    }
+
+    function closeOrderActionModal() {
+        if (orderActionModal) orderActionModal.classList.add('hidden');
+        pendingOrderAction = { orderId: null, action: null };
+        resetOrderActionForm();
+    }
+
+    function openOrderActionModal(orderId, actionType) {
+        if (!orderActionModal || !orderId || !actionType) return;
+
+        pendingOrderAction = { orderId, action: actionType };
+        resetOrderActionForm();
+        populateOrderActionReasons();
+
+        if (orderActionTitleText) {
+            orderActionTitleText.textContent = actionType === 'return' ? 'Return Request' : 'Cancel Order';
+        }
+        if (orderActionConfirmBtn) {
+            orderActionConfirmBtn.classList.add(
+                actionType === 'return' ? 'btn-order-action-return-theme' : 'btn-order-action-cancel-theme'
+            );
+        }
+
+        orderActionModal.classList.remove('hidden');
+        if (orderActionReasonSelect) orderActionReasonSelect.focus();
+    }
+
+    function resolveOrderActionReason() {
+        const selected = orderActionReasonSelect ? orderActionReasonSelect.value.trim() : '';
+        if (!selected) return { selectedReason: '', customReason: '', reason: '' };
+
+        if (selected === 'Other') {
+            const customReason = orderActionOtherReason ? orderActionOtherReason.value.trim() : '';
+            return { selectedReason: 'Other', customReason, reason: customReason };
+        }
+        return { selectedReason: selected, customReason: '', reason: selected };
+    }
+
+    function showOrderActionSuccess(message) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: message,
+                confirmButtonColor: '#2563eb'
+            });
+        } else {
+            window.alert(message);
+        }
+    }
+
+    async function submitOrderAction() {
+        const { orderId, action } = pendingOrderAction;
+        if (!orderId || !action) {
+            showToast('Missing order reference. Please try again.', 'danger');
+            return;
+        }
+
+        const { reason, selectedReason, customReason } = resolveOrderActionReason();
+        if (!reason) {
+            showToast(
+                selectedReason === 'Other' || orderActionReasonSelect?.value === 'Other'
+                    ? 'Please type your custom reason in the text field.'
+                    : 'Please select a reason before confirming.',
+                'warning'
+            );
+            return;
+        }
+
+        const endpoint = action === 'return'
+            ? `/api/orders/${encodeURIComponent(orderId)}/return`
+            : `/api/orders/${encodeURIComponent(orderId)}/cancel`;
+
+        const originalBtnHtml = orderActionConfirmBtn ? orderActionConfirmBtn.innerHTML : '';
+        if (orderActionConfirmBtn) {
+            orderActionConfirmBtn.disabled = true;
+            orderActionConfirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+        }
+
+        try {
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ reason, selectedReason, customReason })
+            });
+
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                closeOrderActionModal();
+                showOrderActionSuccess(data.message || 'Request processed successfully.');
+                await fetchUserOrders();
+                await fetchDashboardStats();
+            } else {
+                showToast(data.message || 'Request failed. Please try again.', 'danger');
+            }
+        } catch (error) {
+            console.error('Order action error:', error);
+            showToast('Server error while processing your request.', 'danger');
+        } finally {
+            if (orderActionConfirmBtn) {
+                orderActionConfirmBtn.disabled = false;
+                orderActionConfirmBtn.innerHTML = originalBtnHtml;
+            }
+        }
+    }
+
+    if (orderActionReasonSelect) {
+        orderActionReasonSelect.addEventListener('change', toggleOrderActionOtherField);
+    }
+
+    if (orderActionForm) {
+        orderActionForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            submitOrderAction();
+        });
+    }
+
+    if (closeOrderActionModalBtn) {
+        closeOrderActionModalBtn.addEventListener('click', closeOrderActionModal);
+    }
+    if (orderActionCloseBtn) {
+        orderActionCloseBtn.addEventListener('click', closeOrderActionModal);
+    }
+    if (orderActionModal) {
+        orderActionModal.addEventListener('click', (e) => {
+            if (e.target === orderActionModal) closeOrderActionModal();
+        });
+    }
+
+    // =================================================================
     // ৯. ইউজারের লাইভ অর্ডারসমূহ লোড করা (Fetch & Render Orders)
     // =================================================================
     async function fetchUserOrders() {
         if (!ordersListTbody) return;
         
         try {
-            ordersListTbody.innerHTML = `<tr><td colspan="5" class="text-center" style="padding:2rem;"><i class="fa-solid fa-spinner fa-spin" style="font-size:2rem; color:var(--primary-color);"></i><br><br>Loading your orders...</td></tr>`;
+            ordersListTbody.innerHTML = `<tr class="orders-state-row"><td colspan="6" class="text-center orders-loading-cell"><i class="fa-solid fa-spinner fa-spin orders-loading-icon"></i><br><br>Loading your orders...</td></tr>`;
 
             const res = await fetch('/api/orders/my-orders', {
                 method: 'GET',
@@ -605,50 +895,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 let orderList = rawData.data || rawData.orders || (Array.isArray(rawData) ? rawData : []);
 
                 if (!orderList || orderList.length === 0) {
-                    ordersListTbody.innerHTML = `<tr><td colspan="5" class="text-center" style="padding:2rem; color:var(--text-muted);"><i class="fa-solid fa-box-open" style="font-size:3rem; margin-bottom:10px; opacity:0.5;"></i><br>You haven't placed any orders yet.</td></tr>`;
+                    ordersListTbody.innerHTML = `<tr class="orders-state-row"><td colspan="6" class="text-center orders-empty-cell"><i class="fa-solid fa-box-open orders-empty-icon"></i><br>You haven't placed any orders yet.</td></tr>`;
                     return;
                 }
 
-                // --- নতুন অর্ডার সবার উপরে দেখানোর সর্টিং লজিক (Newest First) ---
                 orderList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-                orderList.forEach(order => {
-                    const orderDate = new Date(order.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-                    const itemsHtml = buildOrderItemsHtml(order.items, order);
-
-                    const currentStatus = order.status || 'Pending';
-                    let statusBadgeClass = 'pending';
-                    
-                    if (currentStatus.toLowerCase() === 'delivered') {
-                        statusBadgeClass = 'delivered';
-                    } else if (currentStatus.toLowerCase() === 'shipped') {
-                        statusBadgeClass = 'shipped';
-                    }
-
-                    const displayOrderId = order.orderId ? order.orderId : (order._id ? order._id.substring(order._id.length - 6).toUpperCase() : 'N/A');
-
-                    const row = document.createElement('tr');
-                    row.className = 'clickable-order-row';
-                    row.setAttribute('data-id', order._id);
-
-                    const grandTotal = Number(order.grandTotal ?? order.totalAmount) || 0;
-
-                    row.innerHTML = `
-                        <td><a href="#" class="order-id-link" data-id="${order._id}">#${displayOrderId}</a></td>
-                        <td>${orderDate}</td>
-                        <td class="order-products-cell">${itemsHtml}</td>
-                        <td style="font-weight:600; color:var(--primary-color);">৳${grandTotal}</td>
-                        <td><span class="status-badge ${statusBadgeClass}">${currentStatus}</span></td>
-                    `;
-                    ordersListTbody.appendChild(row);
-                });
+                ordersListTbody.innerHTML = orderList.map(order => buildOrderRowHtml(order)).join('');
 
             } else {
-                ordersListTbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:var(--danger); padding:2rem;"><i class="fa-solid fa-triangle-exclamation"></i> Failed to load orders. (${rawData.message || 'Error'})</td></tr>`;
+                ordersListTbody.innerHTML = `<tr class="orders-state-row"><td colspan="6" class="text-center orders-error-cell"><i class="fa-solid fa-triangle-exclamation"></i> Failed to load orders. (${escapeHtml(rawData.message || 'Error')})</td></tr>`;
             }
         } catch (error) {
             console.error('Fetch Orders Error:', error);
-            ordersListTbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:var(--danger); padding:2rem;"><i class="fa-solid fa-server"></i> Server connection error.</td></tr>`;
+            ordersListTbody.innerHTML = `<tr class="orders-state-row"><td colspan="6" class="text-center orders-error-cell"><i class="fa-solid fa-server"></i> Server connection error.</td></tr>`;
         }
     }
 
@@ -988,8 +1247,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =================================================================
-    // ১৩. ওয়ালেট ও লয়্যালটি পয়েন্ট (Wallet & Points Converter)
+    // ১২. ওয়ালেট ও লয়্যালটি পয়েন্ট (Wallet & Points Converter)
     // =================================================================
+    let cachedRewardSettings = {
+        cashbackPercentage: 1,
+        takaToPointsRatio: 100,
+        pointsToTakaConversionRate: 10,
+        pointsConversionUnit: 100
+    };
+
+    function applyRewardSettingsUI(settings) {
+        if (!settings) return;
+        cachedRewardSettings = { ...cachedRewardSettings, ...settings };
+
+        const unit = Number(cachedRewardSettings.pointsConversionUnit || 100);
+        const takaRate = Number(cachedRewardSettings.pointsToTakaConversionRate ?? 10);
+
+        const rateEl = document.getElementById('conversion-rate-text');
+        if (rateEl) {
+            rateEl.innerHTML = `<i class="fa-solid fa-circle-info"></i> Conversion Rate: ${unit} Points = ৳${takaRate.toLocaleString()} Wallet Balance`;
+        }
+
+        const pointsInput = document.getElementById('points-to-convert');
+        if (pointsInput) {
+            pointsInput.min = unit;
+            pointsInput.step = unit;
+            pointsInput.placeholder = `Minimum ${unit} points (multiples of ${unit})`;
+        }
+    }
+
     function updateWalletDisplay(balance, points) {
         const balanceEl = document.getElementById('main-balance-amount');
         const pointsEl = document.getElementById('current-points-calc');
@@ -1005,14 +1291,36 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         list.innerHTML = '';
-        history.slice(0, 8).forEach(tx => {
-            const date = new Date(tx.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-            const isDeduct = tx.type === 'debit';
+        history.slice(0, 12).forEach(tx => {
+            const date = new Date(tx.date).toLocaleDateString('en-US', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const txType = String(tx.type || '').toLowerCase();
+            const isDeduct = txType === 'debit';
+            const isRefund = txType === 'refund';
             const sign = isDeduct ? '-' : '+';
+            const itemClass = isRefund ? 'history-item history-item--refund' : 'history-item';
+            const icon = isRefund
+                ? '<i class="fa-solid fa-rotate-left history-icon history-icon--refund"></i>'
+                : (txType === 'conversion'
+                    ? '<i class="fa-solid fa-arrows-rotate history-icon"></i>'
+                    : '<i class="fa-solid fa-gift history-icon"></i>');
+            const label = tx.note || tx.type || 'Transaction';
+
             list.innerHTML += `
-                <li class="history-item">
-                    <span>${tx.note || tx.type} <small style="color:var(--text-muted);">• ${date}</small></span>
-                    <span class="history-amount ${isDeduct ? 'deduct' : ''}">${sign}৳${Number(tx.amount || 0).toLocaleString()}</span>
+                <li class="${itemClass}">
+                    <span class="history-item-main">
+                        ${icon}
+                        <span class="history-item-copy">
+                            <span class="history-item-note">${escapeHtml(label)}</span>
+                            <small class="history-item-date">${date}</small>
+                        </span>
+                    </span>
+                    <span class="history-amount ${isDeduct ? 'deduct' : ''} ${isRefund ? 'refund' : ''}">${sign}৳${Number(tx.amount || 0).toLocaleString()}</span>
                 </li>
             `;
         });
@@ -1027,6 +1335,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 updateWalletDisplay(data.walletBalance || 0, data.loyaltyPoints || 0);
                 renderCashbackHistory(data.walletHistory || []);
+                applyRewardSettingsUI(data.rewardSettings);
             }
         } catch (error) {
             console.error('Fetch Wallet Error:', error);
@@ -1038,17 +1347,18 @@ document.addEventListener('DOMContentLoaded', () => {
         convertPointsBtn.addEventListener('click', async () => {
             const input = document.getElementById('points-to-convert');
             const points = Number(input ? input.value : 0);
+            const minPoints = Number(cachedRewardSettings.pointsConversionUnit || 100);
 
             if (!points || points <= 0) {
                 showToast('Please enter the number of points to convert.', 'warning');
                 return;
             }
-            if (points < 100) {
-                showToast('Minimum 100 points are required.', 'warning');
+            if (points < minPoints) {
+                showToast(`Minimum ${minPoints} points are required.`, 'warning');
                 return;
             }
-            if (points % 100 !== 0) {
-                showToast('Points must be in multiples of 100.', 'warning');
+            if (points % minPoints !== 0) {
+                showToast(`Points must be in multiples of ${minPoints}.`, 'warning');
                 return;
             }
 
@@ -1072,6 +1382,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (input) input.value = '';
                     updateWalletDisplay(data.walletBalance, data.loyaltyPoints);
                     renderCashbackHistory(data.walletHistory || []);
+                    applyRewardSettingsUI(data.rewardSettings);
                     // ড্যাশবোর্ড স্ট্যাট কার্ডও আপডেট করা
                     const balanceCard = document.getElementById('stat-wallet-balance');
                     const pointsCard = document.getElementById('stat-loyalty-points');
@@ -1304,6 +1615,62 @@ document.addEventListener('DOMContentLoaded', () => {
     const addressModal = document.getElementById('address-modal');
     const addressForm = document.getElementById('address-form');
     const addressModalTitle = document.getElementById('address-modal-title');
+    const addressDistrict = document.getElementById('address-district');
+    const addressUpazila = document.getElementById('address-upazila');
+
+    function populateAddressDistrictOptions(selectedDistrict = '') {
+        if (!addressDistrict || !Array.isArray(window.BANGLADESH_DISTRICTS)) return;
+
+        addressDistrict.innerHTML = '<option value="">Select district</option>';
+        window.BANGLADESH_DISTRICTS.forEach((district) => {
+            const option = document.createElement('option');
+            option.value = district;
+            option.textContent = district;
+            addressDistrict.appendChild(option);
+        });
+
+        if (selectedDistrict) addressDistrict.value = selectedDistrict;
+    }
+
+    function populateAddressUpazilaOptions(district, selectedUpazila = '') {
+        if (!addressUpazila) return;
+
+        addressUpazila.innerHTML = '<option value="">Select upazila / thana</option>';
+        const upazilas = typeof window.getUpazilasForDistrict === 'function'
+            ? window.getUpazilasForDistrict(district)
+            : [];
+
+        if (!district || upazilas.length === 0) {
+            addressUpazila.disabled = true;
+            return;
+        }
+
+        upazilas.forEach((upazila) => {
+            const option = document.createElement('option');
+            option.value = upazila;
+            option.textContent = upazila;
+            addressUpazila.appendChild(option);
+        });
+
+        addressUpazila.disabled = false;
+        if (selectedUpazila) addressUpazila.value = selectedUpazila;
+    }
+
+    function formatSavedAddressDisplay(addr = {}) {
+        return buildCompositeAddress({
+            fullAddress: addr.fullAddress || '',
+            upazila: addr.upazilaOrThana || addr.upazila || addr.thana || '',
+            district: addr.district || ''
+        }) || addr.fullAddress || '';
+    }
+
+    populateAddressDistrictOptions();
+
+    if (addressDistrict) {
+        addressDistrict.addEventListener('change', () => {
+            populateAddressUpazilaOptions(addressDistrict.value);
+        });
+    }
 
     function openAddressModal(editData = null) {
         if (!addressModal) return;
@@ -1320,10 +1687,17 @@ document.addEventListener('DOMContentLoaded', () => {
             phoneField.value = editData.phone || '';
             fullField.value = editData.fullAddress || '';
             defaultField.checked = !!editData.isDefault;
+            populateAddressDistrictOptions(editData.district || '');
+            populateAddressUpazilaOptions(
+                editData.district || '',
+                editData.upazilaOrThana || editData.upazila || editData.thana || ''
+            );
         } else {
             addressModalTitle.textContent = 'Add New Address';
             addressForm.reset();
             idField.value = '';
+            populateAddressDistrictOptions();
+            populateAddressUpazilaOptions('');
         }
         addressModal.classList.remove('hidden');
     }
@@ -1368,14 +1742,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const addCard = document.getElementById('add-address-card');
         addresses.forEach(addr => {
+            const displayAddress = formatSavedAddressDisplay(addr);
             const card = document.createElement('div');
             card.className = 'card address-card' + (addr.isDefault ? ' active' : '');
             card.innerHTML = `
                 <span class="address-tag">
-                    <i class="fa-solid fa-location-dot"></i> ${addr.label || 'Address'}${addr.isDefault ? ' (Default)' : ''}
+                    <i class="fa-solid fa-location-dot"></i> ${escapeHtml(addr.label || 'Address')}${addr.isDefault ? ' (Default)' : ''}
                 </span>
-                <p class="address-text">${addr.fullAddress}</p>
-                ${addr.phone ? `<p class="address-phone-text"><i class="fa-solid fa-phone"></i> ${addr.phone}</p>` : ''}
+                <p class="address-text">${escapeHtml(displayAddress)}</p>
+                ${addr.phone ? `<p class="address-phone-text"><i class="fa-solid fa-phone"></i> ${escapeHtml(addr.phone)}</p>` : ''}
                 <div class="address-card-actions">
                     <button class="btn-address-edit" data-id="${addr._id}"><i class="fa-regular fa-pen-to-square"></i> Edit</button>
                     <button class="btn-address-delete" data-id="${addr._id}"><i class="fa-regular fa-trash-can"></i> Delete</button>
@@ -1422,15 +1797,27 @@ document.addEventListener('DOMContentLoaded', () => {
         addressForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const addressId = document.getElementById('address-id').value;
+            const district = addressDistrict?.value?.trim() || '';
+            const upazilaOrThana = addressUpazila?.value?.trim() || '';
             const payload = {
                 label: document.getElementById('address-label').value.trim(),
                 phone: document.getElementById('address-phone').value.trim(),
+                district,
+                upazilaOrThana,
                 fullAddress: document.getElementById('address-full').value.trim(),
                 isDefault: document.getElementById('address-default').checked
             };
 
+            if (!district) {
+                showToast('Please select a district.', 'warning');
+                return;
+            }
+            if (!upazilaOrThana) {
+                showToast('Please select an upazila / thana.', 'warning');
+                return;
+            }
             if (!payload.fullAddress) {
-                showToast('Full address is required.', 'warning');
+                showToast('Street / village / house details are required.', 'warning');
                 return;
             }
 
@@ -1630,17 +2017,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // অর্ডার আইডিতে ক্লিক করলে ডিটেইলস পেজে নিয়ে যাওয়ার লজিক
 document.addEventListener('click', function(e) {
-    // "Write Review" বাটনে ক্লিক হলে অর্ডার-ডিটেইলস পেজে নেভিগেট করা যাবে না
     if (e.target.closest('.btn-write-review')) return;
+
+    const actionBtn = e.target.closest('.order-action-btn');
+    if (actionBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const orderId = actionBtn.getAttribute('data-id');
+        if (actionBtn.classList.contains('btn-order-view') && orderId) {
+            window.location.href = `/order-details.html?id=${orderId}`;
+            return;
+        }
+        if (actionBtn.classList.contains('btn-order-cancel')) {
+            openOrderActionModal(orderId, 'cancel');
+            return;
+        }
+        if (actionBtn.classList.contains('btn-order-return')) {
+            openOrderActionModal(orderId, 'return');
+        }
+        return;
+    }
 
     const _orderTarget = e.target.closest('.order-id-link') || e.target.closest('.clickable-order-row');
     if (_orderTarget) {
-        e.preventDefault(); // ব্রাউজারের ডিফল্ট আচরণ (# যাওয়া) বন্ধ করবে
-        
+        e.preventDefault();
+
         const orderId = _orderTarget.getAttribute('data-id');
-        
+
         if (orderId) {
-            // এখানে আপনার অর্ডার ডিটেইলস পেজের পাথ দিন
             window.location.href = `/order-details.html?id=${orderId}`;
         }
     }

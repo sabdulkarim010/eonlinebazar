@@ -31,7 +31,13 @@ const {
     buildLockedOrderTotals,
     roundMoney,
     isValidDistrict
-} = require('../utils/deliveryChargeService'); 
+} = require('../utils/deliveryChargeService');
+const { syncCheckoutAddressToProfile } = require('../utils/savedAddress');
+const {
+    loadRewardSettings,
+    creditOrderDeliveryRewards,
+    isWithinRefundUndoWindow
+} = require('../utils/rewardSettings');
 
 /**
  * 🌟 হেল্পার: একটি অর্ডার-আইটেমের ভ্যারিয়েন্ট প্রোডাক্টের variants অ্যারের কোন
@@ -160,7 +166,7 @@ const createOrder = async (req, res) => {
                 ? { $or: [{ _id: targetId }, { productId: targetId }] }
                 : { productId: targetId };
 
-            const prod = await Product.findOne(query).select('price buyingPrice variants name image productId');
+            const prod = await Product.findOne(query).select('price buyingPrice variants name image productId category');
             if (!prod) {
                 return res.status(400).json({
                     success: false,
@@ -180,6 +186,7 @@ const createOrder = async (req, res) => {
             item.quantity = quantity;
             if (!item.name) item.name = prod.name;
             if (!item.productId) item.productId = prod.productId || String(prod._id);
+            item.category = prod.category || 'General';
 
             const vIdx = findVariantIndex(prod, item);
             let buyingPrice = 0;
@@ -377,32 +384,19 @@ const createOrder = async (req, res) => {
             }
         }
 
-        // 🌟 নতুন: লগইন করা ইউজারকে লয়্যালটি পয়েন্ট ও ক্যাশব্যাক দেওয়া
-        // রেট: প্রতি ৳১০ খরচে ১ পয়েন্ট (ডাবল পয়েন্ট অফার), এবং ১% ইনস্ট্যান্ট ক্যাশব্যাক
         if (userId) {
-            try {
-                const earnedPoints = Math.floor(grandTotal / 10);
-                const cashback = Math.round(grandTotal * 0.01);
+            const addressSyncResult = await syncCheckoutAddressToProfile(userId, req.body, {
+                shippingDistrict,
+                customerPhone
+            });
 
-                const rewardUpdate = {
-                    $inc: { loyaltyPoints: earnedPoints, walletBalance: cashback }
-                };
-                if (cashback > 0) {
-                    rewardUpdate.$push = {
-                        walletHistory: {
-                            $each: [{
-                                type: 'cashback',
-                                amount: cashback,
-                                note: `Cashback for order ${orderId}`,
-                                date: new Date()
-                            }],
-                            $position: 0
-                        }
-                    };
-                }
-                await User.findByIdAndUpdate(userId, rewardUpdate);
-            } catch (rewardErr) {
-                console.error("⚠️ Reward credit error (order still placed):", rewardErr.message);
+            if (addressSyncResult.saved) {
+                console.log('✅ Checkout address synced to user profile.');
+            } else if (!addressSyncResult.skipped) {
+                console.warn(
+                    '⚠️ Checkout address profile sync skipped:',
+                    addressSyncResult.reason || 'unknown'
+                );
             }
         }
 
@@ -494,15 +488,46 @@ const updateOrderStatus = async (req, res) => {
         }
 
         const isDelivered = status.toLowerCase() === 'delivered';
+        const statusLower = status.toLowerCase();
+        const updatePayload = { status, isDelivered };
+
+        if (isDelivered) {
+            updatePayload.deliveredAt = new Date();
+        }
+
+        if (statusLower === 'cancelled' || statusLower === 'canceled') {
+            updatePayload.cancelledBy = 'Admin';
+            updatePayload.isDelivered = false;
+        }
+
+        const existingOrder = await Order.findById(req.params.id);
+        if (!existingOrder) {
+            return res.status(404).json({ success: false, message: "Order not found!" });
+        }
+
+        if ((statusLower === 'cancelled' || statusLower === 'canceled') && !existingOrder.cancelReason) {
+            updatePayload.cancelReason = String(req.body?.cancelReason || 'Cancelled by admin').trim();
+        }
+
+        const wasDelivered = existingOrder.isDelivered === true
+            || String(existingOrder.status || '').trim().toLowerCase() === 'delivered';
 
         const updatedOrder = await Order.findByIdAndUpdate(
-            req.params.id, 
-            { $set: { status, isDelivered } }, 
+            req.params.id,
+            { $set: updatePayload },
             { new: true }
         );
 
         if (!updatedOrder) {
             return res.status(404).json({ success: false, message: "Order not found!" });
+        }
+
+        if (isDelivered && !wasDelivered && updatedOrder.user) {
+            try {
+                await creditOrderDeliveryRewards(updatedOrder);
+            } catch (rewardErr) {
+                console.error('⚠️ Reward credit error on delivery:', rewardErr.message);
+            }
         }
 
         res.json({ success: true, message: "Order status updated successfully!", data: updatedOrder });
@@ -537,6 +562,374 @@ const trackOrder = async (req, res) => {
     } catch (error) {
         console.error("Tracking Error:", error);
         res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+const RETURN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+function normalizeOrderStatus(status) {
+    return String(status || '').trim().toLowerCase();
+}
+
+function getOrderDeliveryDate(order) {
+    return order.deliveredAt || order.deliveryDate || order.updatedAt || null;
+}
+
+function isOrderWithinReturnWindow(order) {
+    if (normalizeOrderStatus(order.status) !== 'delivered') return false;
+
+    const deliveryDate = getOrderDeliveryDate(order);
+    if (!deliveryDate) return false;
+
+    const delivered = new Date(deliveryDate);
+    if (Number.isNaN(delivered.getTime())) return false;
+
+    const diffMs = Date.now() - delivered.getTime();
+    return diffMs >= 0 && diffMs <= RETURN_WINDOW_MS;
+}
+
+function assertOrderOwnership(order, userId) {
+    if (!order.user || order.user.toString() !== userId) {
+        const err = new Error('You are not authorized to modify this order.');
+        err.statusCode = 403;
+        throw err;
+    }
+}
+
+/** Resolve final reason text from dropdown + optional custom "Other" input */
+function resolveSubmittedReason(body = {}) {
+    const selected = String(body.selectedReason || body.reasonCode || '').trim();
+    const custom = String(body.customReason || '').trim();
+    const fallback = String(body.reason || '').trim();
+
+    if (selected === 'Other') {
+        return custom || fallback;
+    }
+    return selected || fallback;
+}
+
+// ৯. ইউজার অর্ডার বাতিল (Cancel Order)
+const cancelUserOrder = async (req, res) => {
+    try {
+        const cancelReason = resolveSubmittedReason(req.body);
+        if (!cancelReason) {
+            return res.status(400).json({ success: false, message: 'Please provide a reason for cancellation.' });
+        }
+
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found.' });
+        }
+
+        assertOrderOwnership(order, req.user.id);
+
+        const status = normalizeOrderStatus(order.status);
+        if (status === 'cancelled' || status === 'canceled') {
+            return res.status(400).json({ success: false, message: 'This order is already cancelled.' });
+        }
+        if (status !== 'pending' && status !== 'processing') {
+            return res.status(400).json({
+                success: false,
+                message: `Order cannot be cancelled while status is "${order.status}".`
+            });
+        }
+
+        order.status = 'Cancelled';
+        order.cancelReason = cancelReason;
+        order.cancelledBy = 'Customer';
+        order.actionReason = cancelReason;
+        await order.save();
+
+        res.json({
+            success: true,
+            message: 'Your order has been cancelled successfully.',
+            data: order
+        });
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        if (statusCode >= 500) console.error('Cancel Order Error:', err);
+        res.status(statusCode).json({
+            success: false,
+            message: err.statusCode ? err.message : 'Failed to cancel order.'
+        });
+    }
+};
+
+// ১০. ইউজার রিটার্ন রিকোয়েস্ট (Return Order — admin approval required)
+const returnUserOrder = async (req, res) => {
+    try {
+        const returnReason = resolveSubmittedReason(req.body);
+        if (!returnReason) {
+            return res.status(400).json({ success: false, message: 'Please provide a reason for the return request.' });
+        }
+
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found.' });
+        }
+
+        assertOrderOwnership(order, req.user.id);
+
+        const status = normalizeOrderStatus(order.status);
+        if (status === 'return requested') {
+            return res.status(400).json({ success: false, message: 'A return has already been requested for this order.' });
+        }
+        if (status !== 'delivered') {
+            return res.status(400).json({
+                success: false,
+                message: `Return requests are only allowed for delivered orders. Current status: "${order.status}".`
+            });
+        }
+        if (!isOrderWithinReturnWindow(order)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Return window has expired. Returns are only allowed within 7 days of delivery.'
+            });
+        }
+
+        order.status = 'Return Requested';
+        order.returnReason = returnReason;
+        order.actionReason = returnReason;
+        await order.save();
+
+        res.json({
+            success: true,
+            message: 'Return request submitted successfully. Our team will review it shortly.',
+            data: order
+        });
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        if (statusCode >= 500) console.error('Return Order Error:', err);
+        res.status(statusCode).json({
+            success: false,
+            message: err.statusCode ? err.message : 'Failed to submit return request.'
+        });
+    }
+};
+
+function getOrderRefundAmount(order) {
+    return Number(order?.grandTotal ?? order?.totalAmount) || 0;
+}
+
+function getOrderDisplayId(order) {
+    if (order.orderId) return order.orderId;
+    if (order._id) return String(order._id).slice(-6).toUpperCase();
+    return 'N/A';
+}
+
+// ১১. অ্যাডমিন: রিটার্ন রিকোয়েস্ট অনুমোদন ও ওয়ালেট রিফান্ড
+const approveOrderReturn = async (req, res) => {
+    const orderId = req.params.id;
+
+    try {
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found.' });
+        }
+
+        if (normalizeOrderStatus(order.status) !== 'return requested') {
+            return res.status(400).json({
+                success: false,
+                message: `Only orders with status "Return Requested" can be approved. Current status: "${order.status}".`
+            });
+        }
+
+        if (!order.user) {
+            return res.status(400).json({ success: false, message: 'This order is not linked to a registered user account.' });
+        }
+
+        const user = await User.findById(order.user);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Customer account not found for this order.' });
+        }
+
+        const refundAmount = getOrderRefundAmount(order);
+        if (refundAmount <= 0) {
+            return res.status(400).json({ success: false, message: 'Invalid refund amount for this order.' });
+        }
+
+        const displayOrderId = getOrderDisplayId(order);
+        const refundNote = `Refund for returned order #${displayOrderId}`;
+
+        const updatedOrder = await Order.findOneAndUpdate(
+            { _id: orderId, status: 'Return Requested' },
+            {
+                $set: {
+                    status: 'Returned',
+                    refundedAt: new Date(),
+                    refundAmount,
+                    statusBeforeRefund: order.status || 'Return Requested'
+                }
+            },
+            { new: true }
+        );
+
+        if (!updatedOrder) {
+            return res.status(409).json({
+                success: false,
+                message: 'Return approval could not be completed. The order may have already been processed.'
+            });
+        }
+
+        try {
+            user.walletBalance = Number(user.walletBalance || 0) + refundAmount;
+            user.walletHistory.unshift({
+                type: 'refund',
+                amount: refundAmount,
+                note: refundNote,
+                date: new Date()
+            });
+            await user.save();
+        } catch (walletErr) {
+            await Order.findByIdAndUpdate(orderId, {
+                $set: { status: 'Return Requested' },
+                $unset: { refundedAt: '', refundAmount: '', statusBeforeRefund: '' }
+            });
+            throw walletErr;
+        }
+
+        res.json({
+            success: true,
+            message: `Return approved. ৳${refundAmount.toLocaleString()} refunded to customer wallet.`,
+            data: {
+                order: updatedOrder,
+                refundAmount,
+                walletBalance: user.walletBalance,
+                walletHistoryEntry: user.walletHistory[0]
+            }
+        });
+    } catch (err) {
+        console.error('Approve Return Error:', err);
+        res.status(500).json({ success: false, message: 'Failed to approve return and process refund.' });
+    }
+};
+
+const SPENT_REFUND_FUNDS_MESSAGE = 'Cannot undo. Customer has already spent the refunded wallet funds.';
+
+// ১২. অ্যাডমিন: ভুল রিফান্ড নিরাপদে উল্টানো (Safe Undo Refund)
+const undoOrderRefund = async (req, res) => {
+    const orderId = req.params.id;
+
+    try {
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found.' });
+        }
+
+        const status = normalizeOrderStatus(order.status);
+        if (status !== 'returned' && status !== 'refunded') {
+            return res.status(400).json({
+                success: false,
+                message: `Only returned or refunded orders can have their refund undone. Current status: "${order.status}".`
+            });
+        }
+
+        const settings = await loadRewardSettings();
+        if (settings.refundUndoWindowHours <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Refund undo is disabled in master settings.'
+            });
+        }
+
+        const refundedAt = order.refundedAt || order.updatedAt;
+        if (!isWithinRefundUndoWindow(refundedAt, settings.refundUndoWindowHours)) {
+            return res.status(400).json({
+                success: false,
+                message: `Refund undo window has expired (${settings.refundUndoWindowHours} hours).`
+            });
+        }
+
+        if (!order.user) {
+            return res.status(400).json({ success: false, message: 'This order is not linked to a registered user account.' });
+        }
+
+        const refundAmount = Number(order.refundAmount) || getOrderRefundAmount(order);
+        if (refundAmount <= 0) {
+            return res.status(400).json({ success: false, message: 'Invalid refund amount for this order.' });
+        }
+
+        const user = await User.findById(order.user);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Customer account not found for this order.' });
+        }
+
+        if (Number(user.walletBalance || 0) < refundAmount) {
+            return res.status(400).json({
+                success: false,
+                message: SPENT_REFUND_FUNDS_MESSAGE
+            });
+        }
+
+        const revertStatus = order.statusBeforeRefund || 'Return Requested';
+        const previousRefundMeta = {
+            status: order.status,
+            refundedAt: order.refundedAt,
+            refundAmount: order.refundAmount,
+            statusBeforeRefund: order.statusBeforeRefund
+        };
+
+        const updatedOrder = await Order.findOneAndUpdate(
+            { _id: orderId, status: { $in: ['Returned', 'Refunded'] } },
+            {
+                $set: { status: revertStatus, refundedAt: null, refundAmount: 0 },
+                $unset: { statusBeforeRefund: '' }
+            },
+            { new: true }
+        );
+
+        if (!updatedOrder) {
+            return res.status(409).json({
+                success: false,
+                message: 'Refund undo could not be completed. The order may have already been updated.'
+            });
+        }
+
+        try {
+            const userAfter = await User.findOneAndUpdate(
+                { _id: order.user, walletBalance: { $gte: refundAmount } },
+                {
+                    $inc: { walletBalance: -refundAmount },
+                    $push: {
+                        walletHistory: {
+                            $each: [{
+                                type: 'debit',
+                                amount: refundAmount,
+                                note: 'Reversal: Refund cancelled by Admin',
+                                date: new Date()
+                            }],
+                            $position: 0
+                        }
+                    }
+                },
+                { new: true }
+            );
+
+            if (!userAfter) {
+                await Order.findByIdAndUpdate(orderId, { $set: previousRefundMeta });
+                return res.status(400).json({
+                    success: false,
+                    message: SPENT_REFUND_FUNDS_MESSAGE
+                });
+            }
+
+            res.json({
+                success: true,
+                message: `Refund reversed. ৳${refundAmount.toLocaleString()} deducted from customer wallet. Order status restored to "${revertStatus}".`,
+                data: {
+                    order: updatedOrder,
+                    refundAmount,
+                    walletBalance: userAfter.walletBalance,
+                    walletHistoryEntry: userAfter.walletHistory[0]
+                }
+            });
+        } catch (walletErr) {
+            await Order.findByIdAndUpdate(orderId, { $set: previousRefundMeta });
+            throw walletErr;
+        }
+    } catch (err) {
+        console.error('Undo Refund Error:', err);
+        res.status(500).json({ success: false, message: 'Failed to undo refund.' });
     }
 };
 
@@ -589,6 +982,10 @@ module.exports = {
     deleteOrder, 
     trackOrder,
     getDashboardStats,
+    cancelUserOrder,
+    returnUserOrder,
+    approveOrderReturn,
+    undoOrderRefund,
 };
 
 

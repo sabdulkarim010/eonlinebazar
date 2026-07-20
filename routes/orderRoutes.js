@@ -19,7 +19,9 @@ const {
     deleteOrder,
     trackOrder, 
     getMyOrders, 
-    getDashboardStats
+    getDashboardStats,
+    cancelUserOrder,
+    returnUserOrder
 } = require('../controllers/orderController');
 
 // অ্যাডমিন ও ইউজার ভেরিফিকেশন 
@@ -63,7 +65,14 @@ router.get('/', getOrders);
 // ৩. ডাইনামিক রাউটস (Dynamic Routes) - এগুলো সব সময় নিচে থাকবে
 // =================================================================
 
-// ক. নির্দিষ্ট একটি অর্ডারের বিস্তারিত দেখার রুট (🌟 নিরাপত্তা নিশ্চিত করতে verifyUser যুক্ত করা হলো)
+// ক. ইউজার অর্ডার বাতিল / রিটার্ন রিকোয়েস্ট (/:id এর আগে রাখতে হবে)
+// URL: POST /api/orders/:id/cancel
+router.post('/:id/cancel', verifyUser, cancelUserOrder);
+
+// URL: POST /api/orders/:id/return
+router.post('/:id/return', verifyUser, returnUserOrder);
+
+// খ. নির্দিষ্ট একটি অর্ডারের বিস্তারিত দেখার রুট (🌟 নিরাপত্তা নিশ্চিত করতে verifyUser যুক্ত করা হলো)
 // URL: GET /api/orders/:id
 router.get('/:id', verifyUser, getOrderById);
 

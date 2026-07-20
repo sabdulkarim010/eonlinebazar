@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800&family=Poppins:wght@700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/checkout-step-header.css">
     <link rel="stylesheet" href="css/cart.css">
     <link rel="stylesheet" href="css/checkout.css">
     <link rel="stylesheet" href="css/footer.css">
@@ -17,26 +18,24 @@
 </head>
 <body>
 
-<header class="checkout-custom-header">
-    <div class="checkout-header-container">
-        <div class="header-left-action">
-            <a href="/cart" class="back-to-cart-link">
-                <i class="fa-solid fa-chevron-left"></i>
-                <span class="back-to-cart-desktop">Back to Cart</span>
-                <span class="back-to-cart-mobile">Back</span>
+<header class="checkout-step-header">
+    <div class="checkout-step-header__container">
+        <div class="checkout-step-header__left">
+            <a href="/cart" class="checkout-step-header__back-link">
+                <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+                <span class="checkout-step-header__back-desktop">Back to Cart</span>
+                <span class="checkout-step-header__back-mobile">Back</span>
             </a>
         </div>
-
-        <div class="header-middle-progress">
-            <span class="secure-badge">
-                <i class="fa-solid fa-lock"></i>
-                <span class="secure-desktop">SECURE CHECKOUT</span>
-                <span class="secure-mobile">SECURE</span>
+        <div class="checkout-step-header__center">
+            <span class="checkout-step-header__secure-badge">
+                <i class="fa-solid fa-lock" aria-hidden="true"></i>
+                <span class="checkout-step-header__secure-desktop">SECURE CHECKOUT</span>
+                <span class="checkout-step-header__secure-mobile">SECURE</span>
             </span>
-            <span class="step-indicator">Step 2 of 3</span>
+            <span class="checkout-step-header__step">Step 2 of 3</span>
         </div>
-
-        <a href="/" class="header-right-brand" data-store-logo-slot data-logo-variant="compact" aria-label="EonlineBazar Home"></a>
+        <a href="/" class="checkout-step-header__brand" data-store-logo-slot data-logo-variant="checkout-header" aria-label="EonlineBazar Home"></a>
     </div>
 </header>
 
@@ -94,6 +93,14 @@
 
             <div class="shipping-info-section-wrapper" id="shippingFormSection">
                 <h3><i class="fa-solid fa-truck-fast"></i> Shipping Information</h3>
+
+                <div class="saved-addresses-section" id="savedAddressesSection" hidden>
+                    <div class="saved-addresses-heading">
+                        <h4><i class="fa-solid fa-map-location-dot"></i> Select a Delivery Address</h4>
+                        <p>Choose a saved address to auto-fill your shipping details instantly.</p>
+                    </div>
+                    <div class="saved-address-cards" id="savedAddressCards" role="radiogroup" aria-label="Select a delivery address"></div>
+                </div>
                 
                 <form id="checkoutShippingForm" onsubmit="event.preventDefault();">
                     <div class="form-group-field">
@@ -148,6 +155,14 @@
                             <textarea id="shippingCourierNote" rows="2" placeholder="Any specific instructions for delivery man"></textarea>
                         </div>
                     </div>
+
+                    <label class="checkout-save-address-toggle" for="saveAddressToProfile">
+                        <input type="checkbox" id="saveAddressToProfile">
+                        <span class="checkout-save-address-copy">
+                            <strong>Save this address to my profile</strong>
+                            <small>For faster checkout on future orders</small>
+                        </span>
+                    </label>
 
                     <div class="checkout-action-area">
                         <button type="button" id="proceedToPaymentBtn" class="payment-gateway-next-btn">

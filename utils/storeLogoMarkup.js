@@ -1,13 +1,28 @@
 const { normalizeBrandingPublicUrl } = require('./brandingPaths');
-const { renderDefaultLogoSvg } = require('./defaultStoreLogoSvg');
 
 const LOGO_MAX_HEIGHTS = Object.freeze({
-    navbar: 42,
+    navbar: 32,
     compact: 28,
+    'checkout-header': 55,
     nav: 32,
     footer: 36,
     track: 40,
-    default: 45
+    default: 32
+});
+
+const LOGO_MAX_WIDTHS = Object.freeze({
+    navbar: 140,
+    compact: 140,
+    'checkout-header': 180,
+    nav: 130,
+    footer: 160,
+    track: 180,
+    default: 140
+});
+
+const LOGO_IMG_CLASSES = Object.freeze({
+    'checkout-header': 'store-brand-logo checkout-step-header__logo-img',
+    default: 'store-brand-logo h-8 w-auto object-contain'
 });
 
 function escapeHtml(value) {
@@ -22,8 +37,11 @@ function getStoreLogoUrl(settings = {}) {
     return normalizeBrandingPublicUrl(settings.logoPath || settings.logoUrl || settings.storeLogo || '');
 }
 
-function renderTextFallback(storeName, variant = 'default') {
-    return renderDefaultLogoSvg({ storeName, variant });
+function renderTextFallback(storeName, variant) {
+    if (variant === 'checkout-header') {
+        return `<span class="store-brand-text-fallback checkout-step-header__text-fallback">${escapeHtml(storeName || 'EOnlineBazar')}</span>`;
+    }
+    return `<span class="store-brand-text-fallback">${escapeHtml(storeName || 'EOnlineBazar')}</span>`;
 }
 
 function renderStoreLogoMarkup(settings = {}, options = {}) {
@@ -31,12 +49,15 @@ function renderStoreLogoMarkup(settings = {}, options = {}) {
     const storeName = settings.storeName || 'EonlineBazar';
     const logoUrl = getStoreLogoUrl(settings);
     const maxHeight = LOGO_MAX_HEIGHTS[variant] || LOGO_MAX_HEIGHTS.default;
+    const maxWidth = LOGO_MAX_WIDTHS[variant] || LOGO_MAX_WIDTHS.default;
     const cacheVersion = options.cacheVersion || Date.now();
 
     if (logoUrl) {
         const base = logoUrl.split('?')[0];
         const src = `${base}?v=${cacheVersion}`;
-        return `<img src="${escapeHtml(src)}" alt="${escapeHtml(storeName)} Logo" class="store-brand-logo" data-store-logo="" style="max-height:${maxHeight}px;width:auto;object-fit:contain;">`;
+        const imgClass = LOGO_IMG_CLASSES[variant] || LOGO_IMG_CLASSES.default;
+        const display = variant === 'checkout-header' ? 'block' : 'inline-block';
+        return `<img src="${escapeHtml(src)}" alt="${escapeHtml(storeName)} Logo" class="${imgClass}" data-store-logo="" style="max-height:${maxHeight}px;max-width:${maxWidth}px;width:auto;object-fit:contain;display:${display};vertical-align:middle;">`;
     }
 
     return renderTextFallback(storeName, variant);
@@ -61,6 +82,8 @@ function injectStoreLogoSlots(html, settings = {}) {
 
 module.exports = {
     LOGO_MAX_HEIGHTS,
+    LOGO_MAX_WIDTHS,
+    LOGO_IMG_CLASSES,
     getStoreLogoUrl,
     renderStoreLogoMarkup,
     renderTextFallback,

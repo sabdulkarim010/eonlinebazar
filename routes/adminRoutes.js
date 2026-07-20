@@ -10,9 +10,11 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController'); 
+const { approveOrderReturn, undoOrderRefund } = require('../controllers/orderController');
 const adminSecurityController = require('../controllers/adminSecurityController');
 const twoFactorController = require('../controllers/twoFactorController');
 const settingsController = require('../controllers/settingsController');
+const masterSettingsController = require('../controllers/masterSettingsController');
 const upload = require('../middlewares/uploadMiddleware');
 const { brandingUpload } = upload;
 const { verifyAdmin } = require('../middlewares/authMiddleware');
@@ -27,6 +29,13 @@ router.get('/customers/:id/orders', verifyAdmin, adminController.getCustomerOrde
 router.get('/customers/:id', verifyAdmin, adminController.getCustomerById);
 router.put('/customers/:id', verifyAdmin, adminController.updateCustomer);
 router.patch('/customers/:id/status', verifyAdmin, adminController.updateCustomerStatus);
+
+// ১খ. অর্ডার রিটার্ন অনুমোদন ও ওয়ালেট রিফান্ড
+// URL: PUT /api/admin/orders/:id/approve-return
+router.put('/orders/:id/approve-return', verifyAdmin, approveOrderReturn);
+
+// URL: POST /api/admin/orders/:id/undo-refund
+router.post('/orders/:id/undo-refund', verifyAdmin, undoOrderRefund);
 
 // ২. অ্যাডমিন লগইন করার রাস্তা (POST)
 // পাইপলাইন: ব্ল্যাকলিস্ট গেট → জিও-ফেন্স (রিজিয়ন লক) → রেট-লিমিট → কন্ট্রোলার
@@ -71,6 +80,12 @@ router.get('/logs', verifyAdmin, adminController.getSecurityLogs);
 router.get('/settings', verifyAdmin, settingsController.getSettings);
 router.put('/settings', verifyAdmin, settingsController.updateSettings);
 router.post('/settings', verifyAdmin, settingsController.updateSettings);
+
+// ৫খ. মাস্টার সেটিংস — ক্যাশব্যাক, পয়েন্ট, রিফান্ড উইন্ডো (Singleton)
+// URL: GET|POST|PUT /api/admin/master-settings
+router.get('/master-settings', verifyAdmin, masterSettingsController.getMasterSettings);
+router.put('/master-settings', verifyAdmin, masterSettingsController.updateMasterSettings);
+router.post('/master-settings', verifyAdmin, masterSettingsController.updateMasterSettings);
 
 // ৫ক. অ্যাডমিন প্ল্যাটফর্ম সেটিংস (GET / PUT)
 router.get('/platform-settings', verifyAdmin, adminController.getAdminSettings);

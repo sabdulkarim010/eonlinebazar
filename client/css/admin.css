@@ -358,6 +358,175 @@ a {
 .status-suspended { background-color: rgba(100, 116, 139, 0.15); color: #475569; }
 .status-processing { background-color: rgba(14, 165, 233, 0.1); color: var(--info-color); }
 .status-cancelled { background-color: rgba(239, 68, 68, 0.1); color: var(--danger-color); }
+.status-cancelled-customer { background-color: rgba(239, 68, 68, 0.12); color: #b91c1c; border: 1px solid rgba(239, 68, 68, 0.22); }
+.status-cancelled-admin { background-color: rgba(100, 116, 139, 0.14); color: #475569; border: 1px solid rgba(100, 116, 139, 0.28); }
+.status-return-requested { background-color: rgba(245, 158, 11, 0.14); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.28); }
+.status-returned { background-color: rgba(14, 165, 233, 0.12); color: #0369a1; border: 1px solid rgba(14, 165, 233, 0.25); }
+
+.order-status-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 150px;
+}
+
+.view-reason-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 999px;
+    border: 1px solid rgba(37, 99, 235, 0.25);
+    background: rgba(37, 99, 235, 0.08);
+    color: #2563eb;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+    font-family: inherit;
+}
+
+.view-reason-btn:hover {
+    background: #2563eb;
+    color: #fff;
+    border-color: #2563eb;
+}
+
+.view-reason-btn i {
+    font-size: 12px;
+}
+
+.dynamic-data-table tr.order-row-return-requested {
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.02));
+    box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+.dynamic-data-table tr.order-row-return-requested td {
+    border-top-color: rgba(245, 158, 11, 0.18);
+    border-bottom-color: rgba(245, 158, 11, 0.18);
+}
+
+.approve-return-btn {
+    color: #b45309 !important;
+    border: 1px solid rgba(245, 158, 11, 0.35) !important;
+    background: rgba(245, 158, 11, 0.12) !important;
+    font-weight: 700;
+    padding: 6px 10px !important;
+    gap: 6px;
+    width: auto;
+    min-width: 0;
+}
+
+.approve-return-btn .approve-return-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.order-reason-modal-box {
+    max-width: 520px;
+}
+
+.order-reason-modal-subtitle {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--text-muted, #64748b);
+    font-weight: 500;
+}
+
+.order-reason-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.order-reason-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(100, 116, 139, 0.06);
+    border: 1px solid rgba(100, 116, 139, 0.12);
+}
+
+.order-reason-meta-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted, #64748b);
+}
+
+.order-reason-text-box {
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px dashed rgba(37, 99, 235, 0.25);
+    background: rgba(37, 99, 235, 0.04);
+}
+
+.order-reason-text-box p {
+    margin: 8px 0 0;
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--text-main, #1e293b);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+@media (max-width: 768px) {
+    .order-reason-meta-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.approve-return-btn:hover:not(:disabled) {
+    background: #f59e0b !important;
+    color: #fff !important;
+    border-color: #f59e0b !important;
+}
+
+.approve-return-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.undo-refund-btn {
+    display: inline-flex;
+    align-items: center;
+    color: #b91c1c !important;
+    border: 1px solid rgba(239, 68, 68, 0.4) !important;
+    background: rgba(239, 68, 68, 0.1) !important;
+    font-weight: 700;
+    padding: 6px 10px !important;
+    gap: 6px;
+    width: auto;
+    min-width: 0;
+    margin-top: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.undo-refund-btn .undo-refund-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.undo-refund-btn:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.18) !important;
+    border-color: rgba(239, 68, 68, 0.55) !important;
+    color: #991b1b !important;
+}
+
+.undo-refund-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
 
 /* Global Action Buttons (অ্যাকশন বাটন) */
 .action-btn { 
@@ -1280,16 +1449,21 @@ a {
 
 /* Actions Column Fix (বাটনগুলো একদম সেন্টারে রাখার জন্য) */
 .col-actions {
-    vertical-align: middle; /* ফ্লেক্সবক্স সরিয়ে টেবিলের ডিফল্ট সেন্টার ব্যবহার করা হলো */
-    white-space: nowrap; /* বাটন যেন নিচে না নামে */
+    vertical-align: middle;
+    white-space: normal;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 150px;
 }
 
 .col-actions button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    vertical-align: middle; /* বাটনগুলোকে লাইনের মাঝখানে রাখবে */
-    margin-right: 8px; /* gap এর বদলে margin ব্যবহার করা হলো */
+    vertical-align: middle;
+    margin-right: 0;
 }
 
 .col-actions button:last-child {
@@ -2303,6 +2477,13 @@ a {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
+.catalog-meta-muted {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted, #64748b);
+    font-style: italic;
+}
+.col-cashback { min-width: 120px; }
 .catalog-add-btn {
     flex-shrink: 0;
     margin-top: 0 !important;
@@ -2758,6 +2939,35 @@ a {
    Two-Factor Authentication (2FA) settings card
 ================================================================== */
 .settings-card-sub { margin: -6px 0 16px; font-size: 13px; color: #64748b; line-height: 1.5; }
+
+.master-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 20px;
+}
+
+.master-settings-preview {
+    margin: 18px 0 20px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px dashed rgba(37, 99, 235, 0.25);
+    background: rgba(37, 99, 235, 0.05);
+    font-size: 13px;
+    color: #334155;
+    line-height: 1.5;
+}
+
+.master-settings-preview strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #1e293b;
+}
+
+@media (max-width: 900px) {
+    .master-settings-grid {
+        grid-template-columns: 1fr;
+    }
+}
 .form-hint { display: block; margin-top: 6px; font-size: 12px; color: #64748b; line-height: 1.45; }
 .form-hint strong { color: #475569; font-weight: 600; }
 

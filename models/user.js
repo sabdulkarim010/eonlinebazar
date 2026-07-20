@@ -6,6 +6,8 @@ const { wishlistItemSchema } = require('./wishlist');
 /* প্রতিটি সেভ করা ঠিকানার সাব-স্কিমা (Addresses Management) */
 const addressSchema = new mongoose.Schema({
     label: { type: String, default: 'Home', trim: true },
+    district: { type: String, trim: true, default: '' },
+    upazilaOrThana: { type: String, trim: true, default: '' },
     fullAddress: { type: String, required: true, trim: true },
     phone: { type: String, default: '', trim: true },
     isDefault: { type: Boolean, default: false },
@@ -14,7 +16,7 @@ const addressSchema = new mongoose.Schema({
 
 /* ওয়ালেট / পয়েন্ট ট্রানজেকশন লগ (Cashback & Conversion History) */
 const walletHistorySchema = new mongoose.Schema({
-    type: { type: String, default: 'credit' }, // credit | debit | conversion | cashback
+    type: { type: String, default: 'credit' }, // credit | debit | conversion | cashback | refund
     amount: { type: Number, default: 0 },
     note: { type: String, default: '' },
     date: { type: Date, default: Date.now }
@@ -145,7 +147,7 @@ const userSchema = new mongoose.Schema({
 });
 
 // Migrate legacy documents that still store a single `name` field
-userSchema.pre('validate', function (next) {
+userSchema.pre('validate', function () {
     if ((!this.firstName || !this.lastName) && this._doc && this._doc.name) {
         const parts = String(this._doc.name).trim().split(/\s+/).filter(Boolean);
         if (!this.firstName) this.firstName = parts[0] || 'User';
@@ -153,7 +155,6 @@ userSchema.pre('validate', function (next) {
             this.lastName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || 'User';
         }
     }
-    next();
 });
 
 // Backward compatibility: login, profile, admin, and emails still read `name`

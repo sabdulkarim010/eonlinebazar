@@ -7,7 +7,8 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     initRealTimeValidation();
-    initPasswordToggle(); // 🌟 নতুন: পাসওয়ার্ড দেখার ফাংশন চালু করা হলো
+    initPasswordToggle();
+    initRegisterLocationDropdowns();
     
     // ইমেইল ভেরিফাই করে আসার পর URL চেক করে মেসেজ দেখানো
     const urlParams = new URLSearchParams(window.location.search);
@@ -143,8 +144,6 @@ function initRealTimeValidation() {
 
     const regFirstName = document.getElementById('regFirstName');
     const regLastName = document.getElementById('regLastName');
-    const regGender = document.getElementById('regGender');
-    const regDateOfBirth = document.getElementById('regDateOfBirth');
     const regContact = document.getElementById('regContact');
     const regEmail = document.getElementById('regEmail');
     const regPassword = document.getElementById('regPassword');
@@ -168,43 +167,6 @@ function initRealTimeValidation() {
 
     if (regLastName) {
         regLastName.addEventListener('input', () => validateNameField(regLastName, 'reg-lastname-error', 'Last name'));
-    }
-
-    if (regGender) {
-        const syncGenderLabel = () => {
-            regGender.classList.toggle('has-value', regGender.value !== '');
-        };
-        regGender.addEventListener('change', syncGenderLabel);
-        syncGenderLabel();
-    }
-
-    if (regDateOfBirth) {
-        const syncDobLabel = () => {
-            regDateOfBirth.classList.toggle('has-value', regDateOfBirth.value !== '');
-        };
-        regDateOfBirth.addEventListener('input', () => {
-            syncDobLabel();
-            const value = regDateOfBirth.value;
-            if (!value) {
-                regDateOfBirth.classList.remove('is-valid', 'is-invalid');
-                document.getElementById('reg-dob-error').innerText = "";
-                document.getElementById('reg-dob-error').style.display = "none";
-                return;
-            }
-
-            const dob = new Date(value);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const minAgeDate = new Date(today.getFullYear() - 120, today.getMonth(), today.getDate());
-            const isValid = !Number.isNaN(dob.getTime()) && dob <= today && dob >= minAgeDate;
-
-            validateField(
-                regDateOfBirth,
-                document.getElementById('reg-dob-error'),
-                isValid,
-                "Please enter a valid date of birth."
-            );
-        });
     }
 
     if (regContact) {
@@ -235,6 +197,76 @@ function initRealTimeValidation() {
             validateField(regPassword, document.getElementById('reg-password-error'), isValid, "Password must be at least 6 characters.");
         });
     }
+
+    const regDistrict = document.getElementById('regDistrict');
+    const regUpazila = document.getElementById('regUpazila');
+
+    if (regDistrict) {
+        const syncDistrictLabel = () => {
+            regDistrict.classList.toggle('has-value', regDistrict.value !== '');
+        };
+        regDistrict.addEventListener('change', syncDistrictLabel);
+        syncDistrictLabel();
+    }
+
+    if (regUpazila) {
+        const syncUpazilaLabel = () => {
+            regUpazila.classList.toggle('has-value', regUpazila.value !== '');
+        };
+        regUpazila.addEventListener('change', syncUpazilaLabel);
+        syncUpazilaLabel();
+    }
+}
+
+/* =========================================================================
+   ৩.৫. রেজিস্ট্রেশন District → Upazila ক্যাসকেডিং
+   ========================================================================= */
+function initRegisterLocationDropdowns() {
+    const regDistrict = document.getElementById('regDistrict');
+    const regUpazila = document.getElementById('regUpazila');
+    if (!regDistrict || !regUpazila) return;
+
+    function populateRegDistrictOptions() {
+        if (!Array.isArray(window.BANGLADESH_DISTRICTS)) return;
+
+        regDistrict.innerHTML = '<option value="">Select District (Optional)</option>';
+        window.BANGLADESH_DISTRICTS.forEach((district) => {
+            const option = document.createElement('option');
+            option.value = district;
+            option.textContent = district;
+            regDistrict.appendChild(option);
+        });
+    }
+
+    function populateRegUpazilaOptions(district) {
+        regUpazila.innerHTML = '<option value="">Select Upazila / Thana</option>';
+        regUpazila.classList.remove('has-value');
+
+        const upazilas = typeof window.getUpazilasForDistrict === 'function'
+            ? window.getUpazilasForDistrict(district)
+            : [];
+
+        if (!district || upazilas.length === 0) {
+            regUpazila.disabled = true;
+            return;
+        }
+
+        upazilas.forEach((upazila) => {
+            const option = document.createElement('option');
+            option.value = upazila;
+            option.textContent = upazila;
+            regUpazila.appendChild(option);
+        });
+
+        regUpazila.disabled = false;
+    }
+
+    populateRegDistrictOptions();
+    populateRegUpazilaOptions('');
+
+    regDistrict.addEventListener('change', () => {
+        populateRegUpazilaOptions(regDistrict.value);
+    });
 }
 
 /* =========================================================================
@@ -351,10 +383,10 @@ async function handleRegisterSubmit(e) {
 
     const firstName = document.getElementById('regFirstName').value.trim();
     const lastName = document.getElementById('regLastName').value.trim();
-    const genderEl = document.getElementById('regGender');
-    const gender = genderEl && genderEl.value ? genderEl.value : '';
-    const dateOfBirthEl = document.getElementById('regDateOfBirth');
-    const dateOfBirth = dateOfBirthEl && dateOfBirthEl.value ? dateOfBirthEl.value : '';
+    const regDistrictEl = document.getElementById('regDistrict');
+    const regUpazilaEl = document.getElementById('regUpazila');
+    const district = regDistrictEl && regDistrictEl.value ? regDistrictEl.value.trim() : '';
+    const upazilaOrThana = regUpazilaEl && regUpazilaEl.value ? regUpazilaEl.value.trim() : '';
     const mobile = document.getElementById('regContact').value.trim();
     const email = document.getElementById('regEmail').value.trim();
     const password = document.getElementById('regPassword').value;
@@ -364,18 +396,13 @@ async function handleRegisterSubmit(e) {
         return;
     }
 
-    if (dateOfBirthEl && dateOfBirthEl.classList.contains('is-invalid')) {
-        showCustomToast("Please enter a valid date of birth or leave it empty.", "error");
-        return;
-    }
-
     const regBtn = document.querySelector('#registerForm .btn-primary');
     regBtn.innerText = "Creating Account...";
     regBtn.disabled = true;
 
     const payload = { firstName, lastName, mobile, email, password };
-    if (gender) payload.gender = gender;
-    if (dateOfBirth) payload.dateOfBirth = dateOfBirth;
+    if (district) payload.district = district;
+    if (upazilaOrThana) payload.upazilaOrThana = upazilaOrThana;
 
     try {
         const response = await fetch('/api/customer/register', {

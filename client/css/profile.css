@@ -617,11 +617,7 @@ body {
         line-height: 1.1;
     }
     
-    /* টেবিলটিকে মোবাইলের জন্য মানানসই করা */
-    .orders-table th, .orders-table td {
-        padding: 3px;
-        font-size: 0.85rem;
-    }
+    /* টেবিল — মোবাইলে কার্ড লেআউট (নিচের @768px ব্লকে) */
 }
 
 
@@ -653,10 +649,7 @@ body {
         word-break: break-word;
     }
     
-    .orders-table th, .orders-table td {
-        padding: 6px 4px;
-        font-size: 0.75rem;
-    }
+    /* টেবিল — মোবাইলে কার্ড লেআউট */
 }
 
 
@@ -808,27 +801,65 @@ body {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
-    font-size: 0.95rem;
-    min-width: 700px;
+    font-size: 0.9rem;
+    min-width: 680px;
 }
 
 .orders-table th {
     background-color: rgba(100, 116, 139, 0.05);
     color: var(--text-muted);
     font-weight: 700;
-    padding: 12px 18px;
-    border-bottom: 2px solid var(--border-color);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
     text-transform: uppercase;
-    font-size: 0.85rem;
-    letter-spacing: 0.5px;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
 }
 
 .orders-table td {
-    padding: 12px 18px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--border-color);
     vertical-align: middle;
     color: var(--text-main);
-    line-height: 1.4;
+    line-height: 1.35;
+    font-size: 0.88rem;
+}
+
+.order-total-cell {
+    white-space: nowrap;
+}
+
+.order-total-amount {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.orders-list-card {
+    padding: 1.25rem;
+}
+
+.orders-empty-cell,
+.orders-loading-cell,
+.orders-error-cell {
+    padding: 1.5rem !important;
+    color: var(--text-muted);
+}
+
+.orders-empty-icon {
+    font-size: 2.25rem;
+    margin-bottom: 10px;
+    opacity: 0.5;
+    display: block;
+}
+
+.orders-loading-icon {
+    font-size: 1.75rem;
+    color: var(--primary-color);
+}
+
+.orders-error-cell {
+    color: var(--danger) !important;
 }
 
 /* =================================================================
@@ -836,7 +867,7 @@ body {
    একটি অর্ডারে একাধিক আইটেম থাকলে সেগুলো একই সেলে একটির নিচে আরেকটি বসবে
    ================================================================= */
 .order-products-cell {
-    max-width: 280px;
+    max-width: 240px;
 }
 
 .order-products-stack {
@@ -917,11 +948,11 @@ body {
     color: var(--primary-color);
     font-weight: 700;
     text-decoration: none;
-    cursor: pointer; /* কার্সর পয়েন্টার করা হলো */
+    cursor: pointer;
     transition: var(--transition-smooth);
-    padding: 4px 8px; /* ক্লিকেবল এরিয়া একটু বড় করার জন্য */
+    padding: 2px 6px;
     border-radius: 6px;
-    display: inline-block; /* প্যাডিং ঠিকমতো কাজ করার জন্য */
+    display: inline-block;
 }
 
 .order-id-link:hover { 
@@ -939,17 +970,161 @@ body {
 .status-badge {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 0.85rem;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
     font-weight: 600;
+    line-height: 1.2;
+    border: 1px solid transparent;
+    white-space: nowrap;
 }
-.status-badge.pending { background-color: rgba(245, 158, 11, 0.1); color: var(--warning); }
-.status-badge.processing { background-color: rgba(59, 130, 246, 0.1); color: var(--info); }
-.status-badge.shipped { background-color: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
-.status-badge.delivered { background-color: rgba(16, 185, 129, 0.1); color: var(--success); }
-.status-badge.cancelled { background-color: rgba(239, 68, 68, 0.1); color: var(--danger); }
+.status-badge.pending { background-color: rgba(245, 158, 11, 0.12); color: #b45309; border-color: rgba(245, 158, 11, 0.25); }
+.status-badge.processing { background-color: rgba(59, 130, 246, 0.12); color: #1d4ed8; border-color: rgba(59, 130, 246, 0.25); }
+.status-badge.shipped { background-color: rgba(139, 92, 246, 0.12); color: #6d28d9; border-color: rgba(139, 92, 246, 0.25); }
+.status-badge.delivered { background-color: rgba(16, 185, 129, 0.12); color: #047857; border-color: rgba(16, 185, 129, 0.25); }
+.status-badge.cancelled { background-color: rgba(239, 68, 68, 0.12); color: #b91c1c; border-color: rgba(239, 68, 68, 0.25); }
+.status-badge.return-requested { background-color: rgba(234, 179, 8, 0.14); color: #a16207; border-color: rgba(234, 179, 8, 0.3); }
+.status-badge.returned { background-color: rgba(14, 165, 233, 0.12); color: #0369a1; border-color: rgba(14, 165, 233, 0.28); }
+
+[data-theme="dark"] .status-badge.return-requested { color: #fde047; }
+[data-theme="dark"] .status-badge.returned { color: #7dd3fc; }
+
+/* Order action reason modal */
+.order-action-modal-content {
+    max-width: 520px;
+}
+
+.order-action-modal-icon {
+    color: var(--primary-color);
+}
+
+.order-action-form {
+    padding: 1.5rem 2rem 2rem;
+}
+
+.order-action-lead {
+    margin: 0 0 1.25rem;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.order-action-form .input-group.full-width {
+    grid-column: auto;
+}
+
+.order-action-other-group {
+    margin-top: 0.25rem;
+    transition: opacity 0.2s ease;
+}
+
+.order-action-other-group.hidden {
+    display: none;
+}
+
+.order-action-form-actions {
+    margin-top: 1.5rem;
+    justify-content: flex-end;
+}
+
+.order-action-form-actions .btn {
+    padding: 11px 22px;
+    font-size: 0.92rem;
+}
+
+#order-action-confirm-btn.btn-order-action-cancel-theme {
+    background-color: var(--danger);
+    box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2);
+}
+
+#order-action-confirm-btn.btn-order-action-cancel-theme:hover {
+    background-color: #dc2626;
+}
+
+#order-action-confirm-btn.btn-order-action-return-theme {
+    background-color: var(--warning);
+    box-shadow: 0 4px 6px rgba(245, 158, 11, 0.25);
+}
+
+#order-action-confirm-btn.btn-order-action-return-theme:hover {
+    background-color: #d97706;
+}
+
+[data-theme="dark"] .status-badge.pending { color: #fbbf24; }
+[data-theme="dark"] .status-badge.processing { color: #93c5fd; }
+[data-theme="dark"] .status-badge.shipped { color: #c4b5fd; }
+[data-theme="dark"] .status-badge.delivered { color: #6ee7b7; }
+[data-theme="dark"] .status-badge.cancelled { color: #fca5a5; }
+
+/* Order action buttons (Cancel / Return / View Details) */
+.order-actions-td {
+    min-width: 140px;
+}
+
+.order-actions-cell {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.order-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 5px 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    font-family: inherit;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.order-action-btn i {
+    font-size: 0.72rem;
+}
+
+.btn-order-view {
+    background: rgba(37, 99, 235, 0.08);
+    color: var(--primary-color);
+    border-color: rgba(37, 99, 235, 0.22);
+}
+
+.btn-order-view:hover {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--primary-color);
+}
+
+.btn-order-cancel {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+    border-color: rgba(239, 68, 68, 0.28);
+}
+
+.btn-order-cancel:hover {
+    background: var(--danger);
+    color: #fff;
+    border-color: var(--danger);
+}
+
+.btn-order-return {
+    background: rgba(245, 158, 11, 0.14);
+    color: #b45309;
+    border-color: rgba(245, 158, 11, 0.35);
+}
+
+.btn-order-return:hover {
+    background: var(--warning);
+    color: #fff;
+    border-color: var(--warning);
+}
 
 /* Track Order Button */
 .btn-track-order {
@@ -1026,6 +1201,60 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
+}
+
+.history-item-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+
+.history-icon {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(37, 99, 235, 0.08);
+    color: var(--primary-color);
+    font-size: 0.78rem;
+}
+
+.history-icon--refund {
+    background: rgba(245, 158, 11, 0.14);
+    color: #b45309;
+}
+
+.history-item-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.history-item-note {
+    color: var(--text-main);
+    font-weight: 500;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.history-item-date {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
+.history-item--refund {
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.06), transparent);
+    border-radius: 8px;
+    padding-left: 8px;
+    padding-right: 8px;
+    margin-bottom: 2px;
 }
 
 .history-item:last-child { border-bottom: none; }
@@ -1033,6 +1262,7 @@ body {
 
 .history-amount { font-weight: 700; color: var(--success); }
 .history-amount.deduct { color: var(--danger); }
+.history-amount.refund { color: #b45309; }
 
 
 
@@ -1457,9 +1687,160 @@ body {
     .form-grid { grid-template-columns: 1fr; }
     .input-group.full-width { grid-column: 1; }
     
-    /* Table overflow */
-    .table-responsive { border: none; border-radius: 0; }
-    .orders-table { font-size: 0.82rem; }
+    /* Table overflow — desktop only; mobile uses card layout */
+    .orders-table-responsive {
+        border: none;
+        border-radius: 0;
+        overflow-x: visible;
+    }
+
+    .orders-table--responsive {
+        min-width: 0;
+        font-size: 0.82rem;
+    }
+
+    .orders-table--responsive thead {
+        display: none;
+    }
+
+    .orders-table--responsive tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .orders-table--responsive tr.order-card-row,
+    .orders-table--responsive tr.clickable-order-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 12px;
+        padding: 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        background: var(--bg-card);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .orders-table--responsive tr:hover {
+        background-color: var(--bg-card);
+    }
+
+    .orders-table--responsive tr:last-child td {
+        border-bottom: none;
+    }
+
+    .orders-table--responsive td {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        padding: 0;
+        border: none;
+    }
+
+    .orders-table--responsive td::before {
+        content: attr(data-label);
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text-muted);
+    }
+
+    .orders-table--responsive td[data-label="Order ID"] {
+        grid-column: 1 / -1;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .orders-table--responsive td[data-label="Order ID"]::before {
+        display: none;
+    }
+
+    .orders-table--responsive td.order-products-cell {
+        grid-column: 1 / -1;
+        max-width: none;
+    }
+
+    .orders-table--responsive td.order-actions-td {
+        grid-column: 1 / -1;
+        padding-top: 8px;
+        border-top: 1px dashed var(--border-color);
+    }
+
+    .orders-table--responsive td.order-actions-td::before {
+        margin-bottom: 2px;
+    }
+
+    .orders-table--responsive .order-actions-cell {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .orders-table--responsive .order-action-btn {
+        width: 100%;
+        padding: 8px 12px;
+        font-size: 0.78rem;
+    }
+
+    .orders-table--responsive tr.orders-state-row {
+        display: block;
+        padding: 0;
+        border: none;
+        box-shadow: none;
+        background: transparent;
+    }
+
+    .orders-table--responsive tr.orders-state-row td {
+        display: block;
+    }
+
+    .orders-table--responsive tr.orders-state-row td::before {
+        display: none;
+    }
+
+    .orders-table--responsive .orders-empty-cell,
+    .orders-table--responsive .orders-loading-cell,
+    .orders-table--responsive .orders-error-cell {
+        display: block;
+        grid-column: 1 / -1;
+        border: 1px dashed var(--border-color);
+        border-radius: 12px;
+    }
+
+    .orders-table--responsive .orders-empty-cell::before,
+    .orders-table--responsive .orders-loading-cell::before,
+    .orders-table--responsive .orders-error-cell::before {
+        display: none;
+    }
+
+    .orders-list-card {
+        padding: 0.65rem;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        margin-bottom: 0.75rem;
+    }
+
+    #my-orders .content-header {
+        margin-bottom: 0.5rem;
+    }
+
+    .order-action-form {
+        padding: 1.1rem 1.25rem 1.35rem;
+    }
+
+    .order-action-form-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .order-action-form-actions .btn {
+        width: 100%;
+    }
     
     /* Modals */
     .modal-content { width: 95%; margin: 10px; max-height: 85vh; }
@@ -1566,6 +1947,14 @@ body {
 /* ক্লিকেবল অর্ডার রো (ড্যাশবোর্ড + My Orders) */
 .clickable-order-row { cursor: pointer; }
 .clickable-order-row:hover { background-color: rgba(37, 99, 235, 0.04); }
+.order-actions-td,
+.order-actions-cell,
+.order-action-btn {
+    cursor: default;
+}
+.order-action-btn {
+    cursor: pointer;
+}
 
 /* ---------- ডার্ক মোড টেক্সট ভিজিবিলিটি ফিক্স ---------- */
 .card h2, .card h3, .card h4 { color: var(--text-main); }
@@ -1874,6 +2263,240 @@ body {
 }
 
 /* ---------- রেসপন্সিভ ফাইন-টিউন ---------- */
+/* =================================================================
+   ১৬. প্রোফাইল সেটিংস — প্রিমিয়াম ফর্ম (Profile Settings Premium UI)
+   ================================================================= */
+.profile-settings-header p {
+    max-width: 720px;
+}
+
+.profile-settings-card {
+    padding: 0;
+    overflow: hidden;
+    border-radius: 18px;
+    box-shadow: var(--shadow-md);
+}
+
+.profile-settings-form {
+    padding: 2rem 2.25rem 2.25rem;
+}
+
+.profile-form-section + .profile-form-divider {
+    margin-top: 0.25rem;
+}
+
+.profile-form-divider {
+    height: 1px;
+    margin: 2rem 0;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        var(--border-color) 12%,
+        var(--border-color) 88%,
+        transparent
+    );
+}
+
+.profile-section-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+}
+
+.profile-section-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(37, 99, 235, 0.04));
+    color: var(--primary-color);
+    font-size: 1.15rem;
+    border: 1px solid rgba(37, 99, 235, 0.12);
+}
+
+.profile-section-icon--location {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.04));
+    color: var(--success);
+    border-color: rgba(16, 185, 129, 0.15);
+}
+
+.profile-section-copy h3 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 0.35rem;
+    letter-spacing: -0.02em;
+}
+
+.profile-section-copy p {
+    margin: 0;
+    font-size: 0.92rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    max-width: 560px;
+}
+
+.profile-form-grid {
+    gap: 1.5rem 1.75rem;
+}
+
+.profile-settings-form .input-group label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--text-main);
+}
+
+.badge-readonly,
+.badge-primary {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    vertical-align: middle;
+}
+
+.badge-readonly {
+    background: rgba(100, 116, 139, 0.12);
+    color: var(--text-muted);
+}
+
+.badge-primary {
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--primary-color);
+}
+
+.profile-settings-form .input-wrapper input,
+.profile-settings-form .input-wrapper textarea,
+.profile-settings-form .input-wrapper select {
+    padding: 13px 16px 13px 48px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    background-color: #f1f5f9;
+    border: 1.5px solid transparent;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="dark"] .profile-settings-form .input-wrapper input,
+[data-theme="dark"] .profile-settings-form .input-wrapper textarea,
+[data-theme="dark"] .profile-settings-form .input-wrapper select {
+    background-color: rgba(15, 23, 42, 0.45);
+}
+
+.profile-settings-form .input-wrapper input:focus,
+.profile-settings-form .input-wrapper textarea:focus,
+.profile-settings-form .input-wrapper select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    background-color: var(--bg-card);
+}
+
+.profile-settings-form .input-wrapper input[type="date"] {
+    color-scheme: light;
+}
+
+[data-theme="dark"] .profile-settings-form .input-wrapper input[type="date"] {
+    color-scheme: dark;
+}
+
+.input-wrapper--disabled input {
+    cursor: not-allowed;
+    opacity: 0.72;
+    background-color: rgba(100, 116, 139, 0.08) !important;
+}
+
+.profile-form-actions {
+    margin-top: 2rem;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--border-color);
+    justify-content: flex-end;
+}
+
+.btn-profile-save {
+    min-width: 200px;
+    padding: 14px 32px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    background: linear-gradient(135deg, var(--primary-color), #4f46e5);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.28);
+}
+
+.btn-profile-save:hover {
+    background: linear-gradient(135deg, var(--primary-hover), #4338ca);
+    box-shadow: 0 12px 28px rgba(37, 99, 235, 0.35);
+    transform: translateY(-2px);
+}
+
+.btn-profile-save:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+@media (max-width: 992px) {
+    .profile-settings-form {
+        padding: 1.75rem 1.5rem 2rem;
+    }
+
+    .profile-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-form-grid .input-group.full-width {
+        grid-column: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .profile-settings-form {
+        padding: 1.25rem 1rem 1.5rem;
+    }
+
+    .profile-section-header {
+        margin-bottom: 1.25rem;
+        gap: 0.85rem;
+    }
+
+    .profile-section-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        font-size: 1rem;
+    }
+
+    .profile-section-copy h3 {
+        font-size: 1.05rem;
+    }
+
+    .profile-section-copy p {
+        font-size: 0.85rem;
+    }
+
+    .profile-form-divider {
+        margin: 1.5rem 0;
+    }
+
+    .profile-form-actions {
+        margin-top: 1.5rem;
+        padding-top: 1.25rem;
+    }
+
+    .btn-profile-save {
+        width: 100%;
+        min-width: unset;
+    }
+}
+
 @media (max-width: 768px) {
     .address-form-body {
         grid-template-columns: 1fr;

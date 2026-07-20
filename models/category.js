@@ -17,6 +17,12 @@ const categorySchema = new mongoose.Schema({
         unique: true, 
         trim: true 
     },
+    customCashbackPercentage: {
+        type: Number,
+        default: null,
+        min: 0,
+        max: 100
+    },
     createdAt: { 
         type: Date, 
         default: Date.now 

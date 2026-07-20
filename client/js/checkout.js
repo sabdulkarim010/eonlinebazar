@@ -19,6 +19,10 @@ let deliverySettings = {
 };
 let selectedShippingDistrict = '';
 let selectedShippingUpazila = '';
+let checkoutProfileCache = null;
+let savedCheckoutAddresses = [];
+let selectedSavedAddressId = null;
+let isApplyingSavedAddress = false;
 
 // 🌟 টোকেন চেক (কাস্টমার লগইন আছে কি না জানার জন্য)
 const customerToken = localStorage.getItem('token') || localStorage.getItem('customerToken');
@@ -141,14 +145,15 @@ function showCouponToast(message, type = 'success') {
     alert(message);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     initCheckoutCouponVisibility();
 
     populateCheckoutDistrictOptions();
     initDistrictSelector();
     initUpazilaSelector();
+    initSavedAddressManualEditWatchers();
+    await initializeCheckoutPage();
     initLiveValidationEngine();
-    initializeCheckoutPage();
     
     const proceedBtn = document.getElementById('proceedToPaymentBtn');
     if (proceedBtn) proceedBtn.addEventListener('click', handleProceedToPayment);
@@ -256,6 +261,265 @@ async function fetchCustomerProfileForCheckout() {
     return null;
 }
 
+async function fetchSavedAddressesForCheckout() {
+    if (!customerToken) return [];
+
+    try {
+        const res = await fetch('/api/customer/addresses', {
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${customerToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        const data = await res.json();
+        if (res.ok && data.success) return data.addresses || [];
+    } catch (err) {
+        console.error('Failed to load saved addresses for checkout:', err);
+    }
+    return [];
+}
+
+function escapeCheckoutHtml(str) {
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatSavedAddressCardLine(addr = {}) {
+    const locality = [
+        addr.upazilaOrThana || addr.upazila || addr.thana,
+        addr.district
+    ].filter(Boolean).join(', ');
+    const street = addr.fullAddress || '';
+    return [street, locality].filter(Boolean).join(' — ');
+}
+
+function updateSaveAddressCheckboxState() {
+    const saveCheckbox = document.getElementById('saveAddressToProfile');
+    if (!saveCheckbox) return;
+
+    if (selectedSavedAddressId) {
+        saveCheckbox.checked = false;
+        saveCheckbox.disabled = true;
+        saveCheckbox.closest('.checkout-save-address-toggle')?.classList.add('is-disabled');
+    } else {
+        saveCheckbox.disabled = false;
+        saveCheckbox.closest('.checkout-save-address-toggle')?.classList.remove('is-disabled');
+    }
+}
+
+function forceUncheckSavedAddressRadio(radio, card) {
+    if (!radio) return;
+
+    radio.checked = false;
+    radio.removeAttribute('checked');
+    radio.removeAttribute('data-was-checked');
+    radio.blur();
+
+    if (card) {
+        card.classList.remove('is-selected');
+    }
+
+    requestAnimationFrame(() => {
+        radio.checked = false;
+        radio.removeAttribute('checked');
+    });
+}
+
+function resetSavedAddressRadioVisualState() {
+    document.querySelectorAll('.saved-address-card').forEach((card) => {
+        const radio = card.querySelector('input[type="radio"]');
+        forceUncheckSavedAddressRadio(radio, card);
+    });
+}
+
+function clearSavedAddressSelection(revertToProfile = false) {
+    selectedSavedAddressId = null;
+    resetSavedAddressRadioVisualState();
+    updateSaveAddressCheckboxState();
+    if (revertToProfile) {
+        revertCheckoutFormToProfileSettings();
+    }
+}
+
+function revertCheckoutFormToProfileSettings() {
+    if (checkoutProfileCache) {
+        applyProfileToCheckoutForm(checkoutProfileCache);
+    } else {
+        applyCheckoutAddressFallback();
+        recalculateCheckoutDelivery();
+    }
+}
+
+function notifyShippingLocationFieldsChanged() {
+    const districtEl = document.getElementById('shippingDistrict');
+    const upazilaEl = document.getElementById('shippingUpazila');
+
+    updateDeliveryZoneHint();
+
+    if (districtEl) {
+        districtEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (upazilaEl && upazilaEl.value) {
+        upazilaEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    recalculateCheckoutDelivery();
+}
+
+function handleSavedAddressRadioClick(event) {
+    const radio = event.currentTarget;
+    const card = radio.closest('.saved-address-card');
+    if (!card) return;
+
+    const wasChecked = radio.getAttribute('data-was-checked') === 'true';
+
+    if (wasChecked) {
+        event.preventDefault();
+        event.stopPropagation();
+        forceUncheckSavedAddressRadio(radio, card);
+        selectedSavedAddressId = null;
+        updateSaveAddressCheckboxState();
+        revertCheckoutFormToProfileSettings();
+        return;
+    }
+
+    document.querySelectorAll('.saved-address-card input[type="radio"]').forEach((otherRadio) => {
+        if (otherRadio !== radio) {
+            forceUncheckSavedAddressRadio(otherRadio, otherRadio.closest('.saved-address-card'));
+        }
+    });
+
+    radio.checked = true;
+    radio.setAttribute('data-was-checked', 'true');
+    card.classList.add('is-selected');
+
+    const addressId = card.getAttribute('data-address-id');
+    const addr = savedCheckoutAddresses.find((item) => String(item._id) === String(addressId));
+    if (!addr) return;
+
+    selectedSavedAddressId = addr._id;
+    applySavedAddressToCheckoutForm(addr, checkoutProfileCache);
+    updateSaveAddressCheckboxState();
+}
+
+function handleSavedAddressCardMouseDown(event) {
+    const card = event.currentTarget;
+    const radio = card.querySelector('input[type="radio"]');
+    if (!radio || radio.getAttribute('data-was-checked') !== 'true') return;
+
+    event.preventDefault();
+}
+
+function renderSavedAddressCards(addresses = []) {
+    const section = document.getElementById('savedAddressesSection');
+    const container = document.getElementById('savedAddressCards');
+    if (!section || !container) return;
+
+    savedCheckoutAddresses = Array.isArray(addresses) ? addresses : [];
+
+    if (!savedCheckoutAddresses.length) {
+        section.hidden = true;
+        container.innerHTML = '';
+        return;
+    }
+
+    section.hidden = false;
+    container.innerHTML = savedCheckoutAddresses.map((addr) => {
+        const id = addr._id || '';
+        const label = escapeCheckoutHtml(addr.label || 'Address');
+        const line = escapeCheckoutHtml(formatSavedAddressCardLine(addr));
+        const phone = escapeCheckoutHtml(addr.phone || '');
+
+        return `
+            <label class="saved-address-card" data-address-id="${escapeCheckoutHtml(id)}">
+                <input type="radio" name="savedDeliveryAddress" value="${escapeCheckoutHtml(id)}">
+                <div class="saved-address-card__top">
+                    <span class="saved-address-card__label">${label}</span>
+                </div>
+                <p class="saved-address-card__line">${line}</p>
+                ${phone ? `<p class="saved-address-card__phone"><i class="fa-solid fa-phone"></i> ${phone}</p>` : ''}
+            </label>
+        `;
+    }).join('');
+
+    container.querySelectorAll('.saved-address-card').forEach((card) => {
+        const radio = card.querySelector('input[type="radio"]');
+        if (!radio) return;
+
+        card.addEventListener('mousedown', handleSavedAddressCardMouseDown);
+        radio.addEventListener('click', handleSavedAddressRadioClick);
+    });
+}
+
+function applySavedAddressToCheckoutForm(addr = {}, profile = checkoutProfileCache) {
+    isApplyingSavedAddress = true;
+
+    const district = addr.district || '';
+    const upazila = addr.upazilaOrThana || addr.upazila || addr.thana || '';
+    const street = addr.fullAddress || '';
+
+    populateCheckoutDistrictOptions(district);
+    selectedShippingDistrict = district;
+    validationState.district = Boolean(district);
+    localStorage.setItem('shippingDistrict', district);
+    localStorage.setItem('checkout_district', district);
+
+    populateCheckoutUpazilaOptions(district, upazila);
+    selectedShippingUpazila = upazila;
+    validationState.upazila = Boolean(upazila);
+    localStorage.setItem('checkout_upazila', upazila);
+
+    const nameEl = document.getElementById('shippingFullName');
+    const phoneEl = document.getElementById('shippingMobile');
+    const addressEl = document.getElementById('shippingAddress');
+
+    if (nameEl && profile?.name) {
+        nameEl.value = profile.name;
+        nameEl.dispatchEvent(new Event('input'));
+    }
+    if (phoneEl && addr.phone) {
+        phoneEl.value = addr.phone;
+        phoneEl.dispatchEvent(new Event('input'));
+    }
+    if (addressEl) {
+        addressEl.value = street;
+        addressEl.dispatchEvent(new Event('input'));
+    }
+
+    localStorage.setItem('checkout_name', nameEl?.value || profile?.name || '');
+    localStorage.setItem('checkout_phone', phoneEl?.value || addr.phone || '');
+    localStorage.setItem('checkout_full_address', street);
+    localStorage.setItem('checkout_address', buildCompleteDeliveryAddress({
+        streetText: street,
+        upazila,
+        district
+    }));
+
+    notifyShippingLocationFieldsChanged();
+    isApplyingSavedAddress = false;
+}
+
+function initSavedAddressManualEditWatchers() {
+    const watchIds = ['shippingDistrict', 'shippingUpazila', 'shippingFullName', 'shippingMobile', 'shippingAddress'];
+    watchIds.forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', () => {
+            if (isApplyingSavedAddress) return;
+            if (selectedSavedAddressId) clearSavedAddressSelection(true);
+        });
+        el.addEventListener('change', () => {
+            if (isApplyingSavedAddress) return;
+            if (selectedSavedAddressId) clearSavedAddressSelection(true);
+        });
+    });
+}
+
 function cacheCheckoutProfileLocally(profile = {}) {
     const upazila = profile.upazila || profile.thana || '';
     const streetText = buildStreetAddressText({
@@ -331,6 +595,7 @@ function populateCheckoutUpazilaOptions(district, selectedUpazila = '') {
 }
 
 function applyProfileToCheckoutForm(profile = {}) {
+    isApplyingSavedAddress = true;
     cacheCheckoutProfileLocally(profile);
 
     const district = profile.district || '';
@@ -348,27 +613,26 @@ function applyProfileToCheckoutForm(profile = {}) {
     const phoneEl = document.getElementById('shippingMobile');
     const addressEl = document.getElementById('shippingAddress');
 
-    if (nameEl && profile.name) {
-        nameEl.value = profile.name;
+    if (nameEl) {
+        nameEl.value = profile.name || '';
         nameEl.dispatchEvent(new Event('input'));
     }
-    if (phoneEl && (profile.phone || profile.mobile)) {
-        phoneEl.value = profile.phone || profile.mobile;
+    if (phoneEl) {
+        phoneEl.value = profile.phone || profile.mobile || '';
         phoneEl.dispatchEvent(new Event('input'));
     }
     if (addressEl) {
-        addressEl.value = buildStreetAddressText({
-            fullAddress: profile.fullAddress || '',
-            upazila,
-            thana: profile.thana || ''
-        });
+        addressEl.value = profile.fullAddress || '';
         addressEl.dispatchEvent(new Event('input'));
     }
 
-    updateDeliveryZoneHint();
+    notifyShippingLocationFieldsChanged();
+    isApplyingSavedAddress = false;
 }
 
 function applyCheckoutAddressFallback() {
+    isApplyingSavedAddress = true;
+
     const district = localStorage.getItem('checkout_district')
         || localStorage.getItem('shippingDistrict')
         || '';
@@ -392,26 +656,22 @@ function applyCheckoutAddressFallback() {
 
     const cachedName = localStorage.getItem('checkout_name');
     const cachedPhone = localStorage.getItem('checkout_phone');
-    const streetText = buildStreetAddressText({
-        fullAddress,
-        upazila,
-        thana: upazila
-    }) || localStorage.getItem('checkout_address') || '';
 
-    if (nameEl && cachedName && !nameEl.value.trim()) {
+    if (nameEl && cachedName) {
         nameEl.value = cachedName;
         nameEl.dispatchEvent(new Event('input'));
     }
-    if (phoneEl && cachedPhone && !phoneEl.value.trim()) {
+    if (phoneEl && cachedPhone) {
         phoneEl.value = cachedPhone;
         phoneEl.dispatchEvent(new Event('input'));
     }
-    if (addressEl && streetText && !addressEl.value.trim()) {
-        addressEl.value = streetText;
+    if (addressEl && fullAddress) {
+        addressEl.value = fullAddress;
         addressEl.dispatchEvent(new Event('input'));
     }
 
     updateDeliveryZoneHint();
+    isApplyingSavedAddress = false;
 }
 
 function recalculateCheckoutDelivery() {
@@ -420,10 +680,15 @@ function recalculateCheckoutDelivery() {
 }
 
 async function initializeCheckoutPage() {
-    const [, profile] = await Promise.all([
+    const [, profile, addresses] = await Promise.all([
         fetchDeliverySettings(),
-        fetchCustomerProfileForCheckout()
+        fetchCustomerProfileForCheckout(),
+        fetchSavedAddressesForCheckout()
     ]);
+
+    checkoutProfileCache = profile;
+
+    renderSavedAddressCards(addresses);
 
     if (profile) {
         applyProfileToCheckoutForm(profile);
@@ -439,6 +704,12 @@ function initDistrictSelector() {
     if (!selectEl) return;
 
     selectEl.addEventListener('change', () => {
+        if (isApplyingSavedAddress) {
+            updateDeliveryZoneHint();
+            recalculateCheckoutDelivery();
+            return;
+        }
+
         selectedShippingDistrict = selectEl.value.trim();
         validationState.district = Boolean(selectedShippingDistrict);
         localStorage.setItem('shippingDistrict', selectedShippingDistrict);
@@ -457,6 +728,11 @@ function initUpazilaSelector() {
     if (!selectEl) return;
 
     selectEl.addEventListener('change', () => {
+        if (isApplyingSavedAddress) {
+            recalculateCheckoutDelivery();
+            return;
+        }
+
         selectedShippingUpazila = selectEl.value.trim();
         validationState.upazila = Boolean(selectedShippingUpazila);
         localStorage.setItem('checkout_upazila', selectedShippingUpazila);
@@ -1011,6 +1287,11 @@ async function handleProceedToPaymentAsync() {
         customerAddress: addressVal,
         shippingDistrict,
         shippingUpazila,
+        shippingStreetAddress: streetAddressVal,
+        saveAddressToProfile: document.getElementById('saveAddressToProfile')?.checked === true,
+        saveAddressAsDefault: document.getElementById('saveAddressToProfile')?.checked === true,
+        addressLabel: 'Home',
+        selectedSavedAddressId: selectedSavedAddressId || null,
         subtotal,
         subTotal: subtotal,
         discountAmount,

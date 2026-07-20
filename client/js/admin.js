@@ -72,6 +72,7 @@ let ordersPerPage = 10;       // প্রতি পেজে ডিফল্ট
 let isStockAscending = true;
 let adminPlatformTimezone = 'Asia/Dhaka';
 let adminCurrencySymbol = '৳';
+let adminRewardSettings = { refundUndoWindowHours: 72 };
 
 /** Format a monetary amount using the admin-configured currency symbol */
 function formatAdminPrice(amount) {
@@ -83,6 +84,35 @@ function formatAdminPrice(amount) {
 
 function getOrderGrandTotal(order) {
     return Number(order?.grandTotal ?? order?.totalAmount) || 0;
+}
+
+function cacheAdminRewardSettings(settings) {
+    if (!settings) return;
+    adminRewardSettings = {
+        refundUndoWindowHours: Number(settings.refundUndoWindowHours ?? adminRewardSettings.refundUndoWindowHours ?? 72)
+    };
+}
+
+function isWithinRefundUndoWindowClient(refundedAt, windowHours) {
+    const hours = Number(windowHours);
+    if (!refundedAt || hours <= 0) return false;
+
+    const refunded = new Date(refundedAt);
+    if (Number.isNaN(refunded.getTime())) return false;
+
+    const elapsedMs = Date.now() - refunded.getTime();
+    return elapsedMs >= 0 && elapsedMs <= hours * 60 * 60 * 1000;
+}
+
+function canUndoRefund(order) {
+    if (!order) return false;
+
+    const statusLower = String(order.status || '').toLowerCase();
+    if (statusLower !== 'returned' && statusLower !== 'refunded') return false;
+
+    const windowHours = adminRewardSettings.refundUndoWindowHours ?? 72;
+    const refundedAt = order.refundedAt || order.updatedAt;
+    return isWithinRefundUndoWindowClient(refundedAt, windowHours);
 }
 
 /** Format a signed profit/loss delta (e.g. +৳ 120) */
@@ -282,6 +312,7 @@ const ADMIN_PAGE_META = {
     'view-security':        { title: 'Security Logs',           subtitle: 'Monitor authentication events and system security activity.' },
     'view-sessions':        { title: 'Active Devices & Sessions', subtitle: 'Review and remotely revoke logged-in admin devices.' },
     'view-audit':           { title: 'Security & Audit',         subtitle: 'Login history, intrusion attempts, and IP blacklist firewall.' },
+    'view-master-settings': { title: 'Master Settings',          subtitle: 'Configure global cashback, loyalty points, conversion, and refund rules.' },
     'view-settings':        { title: 'Admin Settings',          subtitle: 'Configure your admin profile and platform preferences.' }
 };
 
@@ -919,12 +950,27 @@ async function fetchLiveOrders() {
     tableBody.innerHTML = `<tr><td colspan="8" class="loading-cell">Syncing live orders...</td></tr>`; 
     
     try {
-        const response = await fetch('/api/orders', {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const [response, settingsRes] = await Promise.all([
+            fetch('/api/orders', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            }),
+            fetch('/api/admin/master-settings', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+        ]);
         
         const data = await response.json();
+
+        try {
+            const settingsData = await settingsRes.json();
+            if (settingsData.success && settingsData.data) {
+                cacheAdminRewardSettings(settingsData.data);
+            }
+        } catch (settingsErr) {
+            console.warn('Could not load refund undo window from master settings:', settingsErr);
+        }
         
         // ব্যাকএন্ড ডাটা ফরম্যাট যাচাই ও রিভার্স (সর্বশেষ অর্ডার আগে দেখানোর জন্য) করা
         if (data && data.success && Array.isArray(data.data)) {
@@ -976,6 +1022,126 @@ window.filterAndRenderOrders = function() {
 };
 
 /**
+ * ৭.২ক: অর্ডার cancel/return reason ও status badge হেল্পার
+ */
+function getOrderReasonDetails(order) {
+    if (!order) return null;
+
+    const statusLower = String(order.status || 'pending').toLowerCase();
+    const cancelReason = String(order.cancelReason || order.actionReason || '').trim();
+    const returnReason = String(order.returnReason || order.actionReason || '').trim();
+
+    if (statusLower === 'cancelled' || statusLower === 'canceled') {
+        if (!cancelReason) return null;
+        const by = order.cancelledBy === 'Admin' ? 'Admin' : 'Customer';
+        return {
+            actionType: 'Cancellation',
+            initiatedBy: by,
+            reason: cancelReason
+        };
+    }
+
+    if (statusLower === 'return requested' && returnReason) {
+        return {
+            actionType: 'Return Request',
+            initiatedBy: 'Customer',
+            reason: returnReason
+        };
+    }
+
+    if (statusLower === 'returned' && returnReason) {
+        return {
+            actionType: 'Return (Refunded)',
+            initiatedBy: 'Customer',
+            reason: returnReason
+        };
+    }
+
+    return null;
+}
+
+function buildAdminOrderStatusCell(order) {
+    const orderId = order._id;
+    const statusLower = String(order.status || 'pending').toLowerCase();
+    const isCancelled = statusLower === 'cancelled' || statusLower === 'canceled';
+    const isReturnRequested = statusLower === 'return requested';
+    const isReturned = statusLower === 'returned';
+    const isRefunded = statusLower === 'refunded';
+
+    let badgeHtml = '';
+
+    if (isCancelled) {
+        const by = order.cancelledBy === 'Admin' ? 'Admin' : 'Customer';
+        const badgeClass = by === 'Admin' ? 'status-cancelled-admin' : 'status-cancelled-customer';
+        badgeHtml = `<span class="status-badge ${badgeClass}"><i class="fa-solid fa-ban"></i> Cancelled (${by})</span>`;
+    } else if (isReturnRequested) {
+        badgeHtml = `<span class="status-badge status-return-requested"><i class="fa-solid fa-rotate-left"></i> Return Requested</span>`;
+    } else if (isReturned) {
+        badgeHtml = `<span class="status-badge status-returned"><i class="fa-solid fa-check-double"></i> Returned</span>`;
+    } else if (isRefunded) {
+        badgeHtml = `<span class="status-badge status-returned"><i class="fa-solid fa-money-bill-wave"></i> Refunded</span>`;
+    } else {
+        badgeHtml = `
+            <select onchange="changeOrderStatus('${orderId}', this.value)" class="filter-box">
+                <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>⏳ Pending</option>
+                <option value="Processing" ${order.status === 'Processing' ? 'selected' : ''}>⚙️ Processing</option>
+                <option value="Shipped" ${order.status === 'Shipped' ? 'selected' : ''}>🚚 Shipped</option>
+                <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>✅ Delivered</option>
+                <option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>❌ Cancelled</option>
+            </select>`;
+    }
+
+    const reasonDetails = getOrderReasonDetails(order);
+    const reasonBtn = reasonDetails
+        ? `<button type="button" class="view-reason-btn" onclick="showOrderReasonDetails('${orderId}')" title="View ${reasonDetails.actionType.toLowerCase()} reason">
+                <i class="fa-solid fa-circle-info"></i><span>View Reason</span>
+           </button>`
+        : '';
+
+    const undoRefundBtn = canUndoRefund(order)
+        ? `<button type="button" class="undo-refund-btn" onclick="undoOrderRefund('${orderId}')" title="Reverse refund and restore return request">
+                <i class="fa-solid fa-rotate-left"></i><span class="undo-refund-label">Undo Refund</span>
+           </button>`
+        : '';
+
+    return `<div class="order-status-cell">${badgeHtml}${undoRefundBtn}${reasonBtn}</div>`;
+}
+
+window.showOrderReasonDetails = function(orderId) {
+    const order = globalOrders.find(o => String(o._id) === String(orderId));
+    const details = getOrderReasonDetails(order);
+
+    if (!order || !details) {
+        showToast('No reason details found for this order.', 'warning');
+        return;
+    }
+
+    const displayId = order.orderId || String(order._id).slice(-6).toUpperCase();
+    const modal = document.getElementById('orderReasonModal');
+    const orderIdEl = document.getElementById('orderReasonOrderId');
+    const actionTypeEl = document.getElementById('orderReasonActionType');
+    const initiatedByEl = document.getElementById('orderReasonInitiatedBy');
+    const reasonTextEl = document.getElementById('orderReasonText');
+    const subtitleEl = document.getElementById('orderReasonModalSubtitle');
+
+    if (orderIdEl) orderIdEl.textContent = `#${displayId}`;
+    if (actionTypeEl) actionTypeEl.textContent = details.actionType;
+    if (initiatedByEl) initiatedByEl.textContent = details.initiatedBy;
+    if (reasonTextEl) reasonTextEl.textContent = details.reason;
+    if (subtitleEl) {
+        subtitleEl.textContent = details.actionType === 'Cancellation'
+            ? `This order was cancelled by the ${details.initiatedBy.toLowerCase()}.`
+            : 'This is the reason the customer submitted for their return request.';
+    }
+    if (modal) modal.style.display = 'flex';
+};
+
+window.closeOrderReasonModal = function() {
+    const modal = document.getElementById('orderReasonModal');
+    if (modal) modal.style.display = 'none';
+};
+
+/**
  * ৭.৩: ডাইনামিক অর্ডার টেবিল রেন্ডারিং এবং পেজিনেশন প্রসেসর
  * ফিল্টারকৃত ডাটাকে লিমিট অনুযায়ী টেবিলে সুন্দর করে সাজিয়ে ফুটিয়ে তোলে
  */
@@ -1022,7 +1188,20 @@ window.renderOrderTable = function() {
             order.items.forEach(item => itemsList += `<li><i class="fa-solid fa-cube"></i> ${item.name} <b>(x${item.quantity})</b></li>`);
         }
 
+        const statusLower = (order.status || 'pending').toLowerCase();
+        const isReturnRequested = statusLower === 'return requested';
+
+        const statusCellHtml = buildAdminOrderStatusCell(order);
+
+        const approveReturnBtn = isReturnRequested
+            ? `<button type="button" class="page-nav-btn approve-return-btn" onclick="approveOrderReturn('${orderId}')" title="Approve Return & Refund Wallet">
+                    <i class="fa-solid fa-hand-holding-dollar"></i><span class="approve-return-label">Approve Return</span>
+               </button>`
+            : '';
+
         const tr = document.createElement('tr');
+        tr.dataset.orderId = orderId;
+        if (isReturnRequested) tr.classList.add('order-row-return-requested');
         tr.innerHTML = `
             <td><b>#${displayId}</b></td>
             <td>${dateHtml}</td>
@@ -1033,16 +1212,9 @@ window.renderOrderTable = function() {
             <td><span>${order.customerAddress}</span></td>
             <td><ul style="padding-left: 0; list-style:none; margin:0;">${itemsList}</ul></td>
             <td><b>${formatAdminPrice(getOrderGrandTotal(order))}</b></td>
-            <td>
-                <select onchange="changeOrderStatus('${orderId}', this.value)" class="filter-box">
-                    <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>⏳ Pending</option>
-                    <option value="Processing" ${order.status === 'Processing' ? 'selected' : ''}>⚙️ Processing</option>
-                    <option value="Shipped" ${order.status === 'Shipped' ? 'selected' : ''}>🚚 Shipped</option>
-                    <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>✅ Delivered</option>
-                    <option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>❌ Cancelled</option>
-                </select>
-            </td>
+            <td>${statusCellHtml}</td>
             <td class="col-actions">
+                ${approveReturnBtn}
                 <button class="page-nav-btn" onclick="viewInvoice('${orderId}')" title="View Invoice"><i class="fa-solid fa-file-invoice"></i></button>
                 <button class="page-nav-btn" onclick="deleteOrder('${orderId}')" title="Delete Order"><i class="fa-solid fa-trash-can"></i></button>
             </td>
@@ -1074,6 +1246,165 @@ window.changeOrderStatus = async function(orderId, newStatus) {
     } catch (error) {
         showToast("Server connection error!", 'error');
     }
+};
+
+/**
+ * ৭.৪ক: Return Requested অর্ডার অনুমোদন ও ওয়ালেট রিফান্ড
+ */
+window.approveOrderReturn = function(orderId) {
+    showCustomConfirm(
+        'Approve Return',
+        'Approve this return and refund the order total to the customer wallet?',
+        async () => {
+            const approveBtn = document.querySelector(`tr[data-order-id="${orderId}"] .approve-return-btn`);
+            const originalHtml = approveBtn ? approveBtn.innerHTML : '';
+
+            if (approveBtn) {
+                approveBtn.disabled = true;
+                approveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            }
+
+            try {
+                const response = await fetch(`/api/admin/orders/${orderId}/approve-return`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    const idx = globalOrders.findIndex(o => String(o._id) === String(orderId));
+                    if (idx !== -1) {
+                        const updated = result.data?.order || {};
+                        globalOrders[idx] = {
+                            ...globalOrders[idx],
+                            status: updated.status || 'Returned',
+                            refundedAt: updated.refundedAt || new Date().toISOString(),
+                            refundAmount: updated.refundAmount ?? result.data?.refundAmount ?? getOrderGrandTotal(globalOrders[idx]),
+                            statusBeforeRefund: updated.statusBeforeRefund || 'Return Requested'
+                        };
+                    }
+                    showAdminSuccess(
+                        'Return Approved',
+                        result.message || `Refund processed. Order marked as Returned.`
+                    );
+                    filterAndRenderOrders();
+                } else {
+                    showToast(result.message || 'Failed to approve return.', 'error');
+                    if (approveBtn) {
+                        approveBtn.disabled = false;
+                        approveBtn.innerHTML = originalHtml;
+                    }
+                }
+            } catch (error) {
+                console.error('Approve return error:', error);
+                showToast('Server connection error!', 'error');
+                if (approveBtn) {
+                    approveBtn.disabled = false;
+                    approveBtn.innerHTML = originalHtml;
+                }
+            }
+        },
+        'warning'
+    );
+};
+
+/**
+ * ৭.৪খ: Returned/Refunded অর্ডারের রিফান্ড নিরাপদে উল্টানো (Safe Undo Refund)
+ */
+window.undoOrderRefund = function(orderId) {
+    const order = globalOrders.find(o => String(o._id) === String(orderId));
+    const refundAmount = order ? getOrderGrandTotal(order) : 0;
+
+    showCustomConfirm(
+        'Undo Refund',
+        refundAmount > 0
+            ? `Reverse the ৳${refundAmount.toLocaleString()} wallet refund? The amount will be deducted from the customer's wallet and the order will return to Return Requested.`
+            : 'Reverse this refund? The amount will be deducted from the customer wallet and the order will return to Return Requested.',
+        async () => {
+            const undoBtn = document.querySelector(`tr[data-order-id="${orderId}"] .undo-refund-btn`);
+            const originalHtml = undoBtn ? undoBtn.innerHTML : '';
+
+            if (undoBtn) {
+                undoBtn.disabled = true;
+                undoBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            }
+
+            try {
+                const response = await fetch(`/api/admin/orders/${orderId}/undo-refund`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    const idx = globalOrders.findIndex(o => String(o._id) === String(orderId));
+                    if (idx !== -1) {
+                        const updated = result.data?.order || {};
+                        globalOrders[idx] = {
+                            ...globalOrders[idx],
+                            status: updated.status || 'Return Requested',
+                            refundedAt: null,
+                            refundAmount: 0,
+                            statusBeforeRefund: ''
+                        };
+                    }
+
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Refund Undone',
+                            text: result.message || 'Refund reversed successfully.',
+                            confirmButtonColor: '#3b82f6'
+                        });
+                    } else {
+                        showAdminSuccess('Refund Undone', result.message || 'Refund reversed successfully.');
+                    }
+                    filterAndRenderOrders();
+                } else {
+                    const errMsg = result.message || 'Failed to undo refund.';
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: errMsg.includes('already spent') ? 'Cannot Undo Refund' : 'Undo Failed',
+                            text: errMsg,
+                            confirmButtonColor: '#ef4444'
+                        });
+                    } else {
+                        showToast(errMsg, 'error');
+                    }
+                    if (undoBtn) {
+                        undoBtn.disabled = false;
+                        undoBtn.innerHTML = originalHtml;
+                    }
+                }
+            } catch (error) {
+                console.error('Undo refund error:', error);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Server Error',
+                        text: 'Could not connect to the server. Please try again.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                } else {
+                    showToast('Server connection error!', 'error');
+                }
+                if (undoBtn) {
+                    undoBtn.disabled = false;
+                    undoBtn.innerHTML = originalHtml;
+                }
+            }
+        },
+        'danger'
+    );
 };
 
 /**
@@ -1726,6 +2057,87 @@ function collectVariations(mode) {
 }
 window.collectVariations = collectVariations;
 
+function formatCategoryCashbackDisplay(cat) {
+    const val = cat?.customCashbackPercentage;
+    if (val === null || val === undefined || val === '') {
+        return '<span class="catalog-meta-muted">Global default</span>';
+    }
+    return `<span class="status-badge status-verified">${Number(val)}%</span>`;
+}
+
+let _categoryEditId = null;
+
+window.openCategoryEditModal = function(cat) {
+    const modal = document.getElementById('categoryEditModal');
+    const nameInput = document.getElementById('editCategoryNameInput');
+    const cashbackInput = document.getElementById('editCategoryCashbackInput');
+    if (!modal || !nameInput || !cashbackInput || !cat) return;
+
+    _categoryEditId = cat._id;
+    nameInput.value = cat.name || '';
+    const cashbackVal = cat.customCashbackPercentage;
+    cashbackInput.value = (cashbackVal === null || cashbackVal === undefined || cashbackVal === '')
+        ? ''
+        : String(cashbackVal);
+
+    const saveBtn = document.getElementById('editCategorySaveBtn');
+    const newSaveBtn = saveBtn.cloneNode(true);
+    saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+    newSaveBtn.addEventListener('click', saveCategoryEdit);
+
+    modal.style.display = 'flex';
+    nameInput.focus();
+    nameInput.select();
+};
+
+window.closeCategoryEditModal = function() {
+    const modal = document.getElementById('categoryEditModal');
+    if (modal) modal.style.display = 'none';
+    _categoryEditId = null;
+};
+
+async function saveCategoryEdit() {
+    if (!_categoryEditId) return;
+
+    const nameInput = document.getElementById('editCategoryNameInput');
+    const cashbackInput = document.getElementById('editCategoryCashbackInput');
+    const newName = nameInput?.value.trim();
+    const cashbackRaw = cashbackInput?.value.trim();
+
+    if (!newName) return showToast('Please enter a category name.', 'warning');
+
+    if (cashbackRaw !== '') {
+        const parsed = Number(cashbackRaw);
+        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+            return showToast('Custom cashback must be between 0 and 100, or left blank.', 'warning');
+        }
+    }
+
+    try {
+        const res = await fetch(`/api/categories/${_categoryEditId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                name: newName,
+                customCashbackPercentage: cashbackRaw === '' ? null : Number(cashbackRaw)
+            })
+        });
+        const result = await res.json();
+        if (result.success) {
+            showAdminSuccess('Category Updated', result.message || 'Category updated successfully.');
+            closeCategoryEditModal();
+            await fetchCategories();
+        } else {
+            showToast(result.message || 'Failed to update category', 'error');
+        }
+    } catch (error) {
+        showToast('Server error while updating category!', 'error');
+    }
+}
+
 /**
  * ৯.৪: অ্যাডমিন প্যানেলের ম্যানেজমেন্ট টেবিলে ক্যাটাগরির লিস্ট রেন্ডার করা (এডিট বাটন সহ)
  */
@@ -1736,7 +2148,7 @@ function renderCategoryTable() {
     tbody.innerHTML = '';
     
     if (globalCategories.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="cell-empty">No categories yet. Add one using the form above.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="cell-empty">No categories yet. Add one using the form above.</td></tr>';
         return;
     }
 
@@ -1744,23 +2156,39 @@ function renderCategoryTable() {
         const safeName = escHtml(cat.name);
         return `<tr>
             <td class="cell-name">${safeName}</td>
+            <td class="cell-cashback">${formatCategoryCashbackDisplay(cat)}</td>
             <td class="cell-date">${formatCatalogDate(cat.createdAt)}</td>
             <td>${catalogActionsHtml(
-                `editCategory('${cat._id}', ${JSON.stringify(cat.name)})`,
+                `openCategoryEditById('${cat._id}')`,
                 `deleteCategory('${cat._id}')`
             )}</td>
         </tr>`;
     }).join('');
 }
 
+window.openCategoryEditById = function(id) {
+    const cat = globalCategories.find(c => String(c._id) === String(id));
+    if (!cat) return showToast('Category not found.', 'warning');
+    openCategoryEditModal(cat);
+};
+
 /**
  * ৯.৫: নতুন ক্যাটাগরি তৈরি করে ডাটাবেজে সেভ করা
  */
 window.addCategory = async function() {
     const nameInput = document.getElementById('newCategoryName');
+    const cashbackInput = document.getElementById('newCategoryCashback');
     const name = nameInput.value.trim();
+    const cashbackRaw = cashbackInput?.value.trim() || '';
     
     if (!name) return showToast("Please enter a category name!", "warning");
+
+    if (cashbackRaw !== '') {
+        const parsed = Number(cashbackRaw);
+        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+            return showToast('Custom cashback must be between 0 and 100, or left blank.', 'warning');
+        }
+    }
 
     try {
         const res = await fetch('/api/categories', {
@@ -1769,13 +2197,17 @@ window.addCategory = async function() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}` 
             },
-            body: JSON.stringify({ name })
+            body: JSON.stringify({
+                name,
+                customCashbackPercentage: cashbackRaw === '' ? null : Number(cashbackRaw)
+            })
         });
         const result = await res.json();
         
         if (result.success) {
             showAdminSuccess('Category Added', result.message || 'Category added successfully!');
             nameInput.value = '';
+            if (cashbackInput) cashbackInput.value = '';
             await fetchCategories();
         } else {
             showToast(result.message, "error");
@@ -1786,41 +2218,10 @@ window.addCategory = async function() {
 };
 
 /**
- * ৯.৬: বিদ্যমান ক্যাটাগরির নাম এডিট (আপডেট) করা
+ * @deprecated Use openCategoryEditById — kept for backward compatibility if referenced elsewhere.
  */
-window.editCategory = async function(id, currentName) {
-    openCatalogQuickEdit({
-        title: 'Edit Category',
-        label: 'Category Name',
-        value: currentName,
-        placeholder: 'e.g., Electronics',
-        onSave: async (newName) => {
-            if (newName === currentName) {
-                closeCatalogQuickEdit();
-                return;
-            }
-            try {
-                const res = await fetch(`/api/categories/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ name: newName })
-                });
-                const result = await res.json();
-                if (result.success) {
-                    showAdminSuccess('Category Updated', 'Category renamed successfully.');
-                    closeCatalogQuickEdit();
-                    await fetchCategories();
-                } else {
-                    showToast(result.message || 'Failed to update category', 'error');
-                }
-            } catch (error) {
-                showToast('Server error while updating category!', 'error');
-            }
-        }
-    });
+window.editCategory = function(id) {
+    openCategoryEditById(id);
 };
 
 /**
@@ -3928,6 +4329,67 @@ async function saveDeliverySettings(payload) {
     return res.json();
 }
 
+function applyMasterSettingsToUI(settings) {
+    if (!settings) return;
+
+    cacheAdminRewardSettings(settings);
+
+    const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el && val !== undefined && val !== null) el.value = val;
+    };
+
+    setVal('masterCashbackPercentage', settings.cashbackPercentage);
+    setVal('masterTakaToPointsRatio', settings.takaToPointsRatio);
+    setVal('masterPointsConversionRate', settings.pointsToTakaConversionRate);
+    setVal('masterRefundUndoWindow', settings.refundUndoWindowHours);
+
+    updateMasterSettingsPreview();
+}
+
+function updateMasterSettingsPreview() {
+    const previewEl = document.getElementById('masterSettingsPreviewText');
+    if (!previewEl) return;
+
+    const cashback = Number(document.getElementById('masterCashbackPercentage')?.value || 0);
+    const takaRatio = Number(document.getElementById('masterTakaToPointsRatio')?.value || 100);
+    const conversion = Number(document.getElementById('masterPointsConversionRate')?.value || 0);
+    const refundHours = Number(document.getElementById('masterRefundUndoWindow')?.value || 0);
+
+    const pointsPerThousand = takaRatio > 0 ? (1000 / takaRatio).toFixed(2) : '0';
+    previewEl.textContent =
+        `৳1,000 order → ${cashback}% cashback (৳${(1000 * cashback / 100).toFixed(0)}) + ~${pointsPerThousand} pts · 100 pts → ৳${conversion} · Refund undo: ${refundHours}h`;
+}
+
+async function fetchMasterSettings() {
+    try {
+        const res = await fetch('/api/admin/master-settings', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success && data.data) {
+            applyMasterSettingsToUI(data.data);
+        } else {
+            showToast(data.message || 'Failed to load master settings.', 'error');
+        }
+    } catch (err) {
+        console.error('Failed to load master settings:', err);
+        showToast('Error: Could not load master settings.', 'error');
+    }
+}
+
+async function saveMasterSettings(payload) {
+    const res = await fetch('/api/admin/master-settings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+    });
+    return res.json();
+}
+
 async function saveStoreBrandingForm(form) {
     const formData = new FormData(form);
     const logoFile = formData.get('logo');
@@ -4054,6 +4516,43 @@ function showLocalBrandingPreview(assetType, file) {
 
 function setupAdminSettingsForms() {
     populateShopHomeCityOptions();
+
+    ['masterCashbackPercentage', 'masterTakaToPointsRatio', 'masterPointsConversionRate', 'masterRefundUndoWindow']
+        .forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('input', updateMasterSettingsPreview);
+        });
+
+    const masterForm = document.getElementById('masterSettingsForm');
+    if (masterForm) {
+        masterForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const payload = {
+                cashbackPercentage: document.getElementById('masterCashbackPercentage')?.value,
+                takaToPointsRatio: document.getElementById('masterTakaToPointsRatio')?.value,
+                pointsToTakaConversionRate: document.getElementById('masterPointsConversionRate')?.value,
+                refundUndoWindowHours: document.getElementById('masterRefundUndoWindow')?.value
+            };
+
+            const submitBtn = document.getElementById('masterSettingsSaveBtn');
+            const restore = setButtonLoading(submitBtn, 'Saving...');
+            try {
+                const result = await saveMasterSettings(payload);
+                if (result.success) {
+                    showToast('Success: Master settings saved!', 'success');
+                    if (result.data) applyMasterSettingsToUI(result.data);
+                } else {
+                    showToast(`Error: ${result.message || 'Failed to save master settings.'}`, 'error');
+                }
+            } catch (err) {
+                console.error('Save master settings error:', err);
+                showToast('Error: Could not reach the server. Please try again.', 'error');
+            } finally {
+                restore();
+            }
+        });
+    }
 
     const profileForm = document.getElementById('adminProfileForm');
     if (profileForm) {
@@ -4353,6 +4852,7 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-security': fetchSecurityLogs,
         'view-sessions': fetchAdminSessions,
         'view-audit': initAuditView,
+        'view-master-settings': fetchMasterSettings,
         'view-settings': fetchAdminSettings
     };
     if (typeof refreshMap[targetId] === 'function') refreshMap[targetId]();

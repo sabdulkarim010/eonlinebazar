@@ -13,6 +13,21 @@ const router = express.Router();
 const Category = require('../models/category');
 const { verifyAdmin } = require('../middlewares/authMiddleware');
 
+function parseCustomCashbackPercentage(raw, { required = false } = {}) {
+    if (raw === undefined) {
+        return required
+            ? { error: 'Custom cashback must be a number between 0 and 100, or left blank.' }
+            : undefined;
+    }
+    if (raw === null || raw === '') return null;
+
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+        return { error: 'Custom cashback must be a number between 0 and 100, or left blank.' };
+    }
+    return parsed;
+}
+
 // ১. সব ক্যাটাগরি ডাটাবেজ থেকে নিয়ে আসা
 router.get('/', async (req, res) => {
     try {
@@ -26,14 +41,22 @@ router.get('/', async (req, res) => {
 // ২. নতুন ক্যাটাগরি তৈরি করা
 router.post('/', verifyAdmin, async (req, res) => {
     try {
-        const { name } = req.body;
+        const { name, customCashbackPercentage } = req.body;
         if (!name) return res.status(400).json({ success: false, message: "ক্যাটাগরির নাম দেওয়া আবশ্যক!" });
+
+        const parsedCashback = parseCustomCashbackPercentage(customCashbackPercentage);
+        if (parsedCashback && parsedCashback.error) {
+            return res.status(400).json({ success: false, message: parsedCashback.error });
+        }
 
         // চেক করা ক্যাটাগরি আগে থেকেই আছে কি না
         const existingCategory = await Category.findOne({ name });
         if (existingCategory) return res.status(400).json({ success: false, message: "এই ক্যাটাগরিটি আগেই তৈরি করা হয়েছে!" });
 
-        const newCategory = new Category({ name });
+        const newCategory = new Category({
+            name,
+            customCashbackPercentage: parsedCashback === undefined ? null : parsedCashback
+        });
         await newCategory.save();
 
         res.status(201).json({ success: true, message: "ক্যাটাগরি সফলভাবে যুক্ত হয়েছে!", data: newCategory });
@@ -64,19 +87,30 @@ router.put('/:id', verifyAdmin, async (req, res) => {
         const oldName = category.name;
         const newName = req.body.name;
 
+        if (newName !== undefined && !String(newName).trim()) {
+            return res.status(400).json({ success: false, message: 'Category name is required.' });
+        }
+
+        const parsedCashback = parseCustomCashbackPercentage(req.body.customCashbackPercentage);
+        if (parsedCashback && parsedCashback.error) {
+            return res.status(400).json({ success: false, message: parsedCashback.error });
+        }
+
         // ১. ক্যাটাগরির নাম আপডেট করা
-        category.name = newName;
+        if (newName !== undefined) category.name = String(newName).trim();
+        if (parsedCashback !== undefined) category.customCashbackPercentage = parsedCashback;
         await category.save();
 
         // ২. প্রোডাক্ট কালেকশনে সেই ক্যাটাগরির সব প্রোডাক্টের নাম আপডেট করা
-        // এখানে ধরে নিচ্ছি আপনার প্রোডাক্ট মডেলের নাম 'Product' এবং ফিল্ডের নাম 'category'
-        const Product = require('../models/product'); // প্রোডাক্ট মডেল ইমপোর্ট করুন
-        await Product.updateMany(
-            { category: oldName }, 
-            { $set: { category: newName } }
-        );
+        if (newName !== undefined && String(newName).trim() !== oldName) {
+            const Product = require('../models/product');
+            await Product.updateMany(
+                { category: oldName },
+                { $set: { category: String(newName).trim() } }
+            );
+        }
 
-        res.status(200).json({ success: true, message: "Category and linked products updated!" });
+        res.status(200).json({ success: true, message: "Category and linked products updated!", data: category });
     } catch (error) {
         res.status(500).json({ success: false, message: "Update failed!" });
     }

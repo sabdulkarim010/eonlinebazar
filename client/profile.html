@@ -21,7 +21,7 @@
         <button id="mobile-menu-toggle" class="mobile-toggle-btn" title="Open Menu">
             <i class="fa-solid fa-bars"></i>
         </button>
-        <a href="/" class="nav-logo" data-store-logo-slot data-logo-variant="nav"></a>
+        <a href="/" class="nav-logo" data-store-logo-slot data-logo-variant="nav" style="display: inline-block; vertical-align: middle;"></a>
     </div>
     
     <div class="nav-right">
@@ -133,8 +133,8 @@
 
     <div class="card dashboard-orders-card">
         <h3><i class="fa-solid fa-clock-rotate-left primary-icon-color"></i> Recent Order Activity</h3>
-        <div class="table-responsive mt-15">
-            <table class="orders-table">
+        <div class="table-responsive orders-table-responsive mt-15">
+            <table class="orders-table orders-table--responsive">
                 <thead>
                     <tr>
                         <th>Order ID</th>
@@ -142,11 +142,12 @@
                         <th>Products</th>
                         <th>Total Amount</th>
                         <th>Status</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="dashboard-orders-tbody">
                     <tr>
-                        <td colspan="5" class="text-center p-20">
+                        <td colspan="6" class="text-center p-20">
                             <i class="fa-solid fa-spinner fa-spin"></i> Loading recent activity...
                         </td>
                     </tr>
@@ -175,9 +176,9 @@
                 </div>
             </div>
 
-            <div class="card">
-                <div class="table-responsive">
-                    <table class="orders-table">
+            <div class="card orders-list-card">
+                <div class="table-responsive orders-table-responsive">
+                    <table class="orders-table orders-table--responsive">
                         <thead>
                             <tr>
                                 <th>Order ID</th>
@@ -185,11 +186,12 @@
                                 <th>Products</th>
                                 <th>Total Amount</th>
                                 <th>Status</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="orders-list-tbody">
                             <tr>
-                                <td colspan="5" class="text-center p-20">
+                                <td colspan="6" class="text-center p-20">
                                     <i class="fa-solid fa-spinner fa-spin"></i> Loading orders...
                                 </td>
                             </tr>
@@ -234,7 +236,7 @@
                         <span class="balance-label">Current Funds</span>
                         <h2 id="main-balance-amount" class="main-balance-amount">৳0.00</h2>
                     </div>
-                    <h4 class="cashback-title">Cashback History</h4>
+                    <h4 class="cashback-title">Wallet Transaction History</h4>
                     <ul class="cashback-history-list" id="cashback-list">
                         <li class="history-item empty">No recent cashback transactions.</li>
                     </ul>
@@ -251,9 +253,9 @@
                         <label for="points-to-convert">Enter Points to Convert</label>
                         <div class="input-wrapper mt-8">
                             <i class="fa-solid fa-calculator input-icon"></i>
-                            <input type="number" id="points-to-convert" placeholder="Minimum 100 points">
+                            <input type="number" id="points-to-convert" placeholder="Minimum 100 points" min="100" step="100">
                         </div>
-                        <p class="conversion-rate-text mt-8"><i class="fa-solid fa-circle-info"></i> Conversion Rate: 100 Points = ৳10 Wallet Balance</p>
+                        <p class="conversion-rate-text mt-8" id="conversion-rate-text"><i class="fa-solid fa-circle-info"></i> Conversion Rate: 100 Points = ৳10 Wallet Balance</p>
                         <button type="button" id="convert-points-btn" class="btn btn-primary w-100 flex-center mt-15">
                             <i class="fa-solid fa-rotate"></i> Convert to Cash
                         </button>
@@ -276,79 +278,131 @@
         </section>
 
         <section id="profile-info" class="tab-content">
-            <div class="content-header">
-                <h2>Account Settings</h2>
-                <p>Update your details here. The address saved here will automatically be used for your future orders.</p>
+            <div class="content-header profile-settings-header">
+                <h2>Profile Settings</h2>
+                <p>Keep your account complete and up to date. Saved details auto-fill at checkout and help us personalize your experience.</p>
             </div>
 
-            <div class="card">
-                <form id="profile-form" novalidate>
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label for="profile-name">Full Name</label>
-                            <div class="input-wrapper">
-                                <i class="fa-regular fa-user input-icon"></i>
-                                <input type="text" id="profile-name" required placeholder="Enter your full name">
+            <div class="card profile-settings-card">
+                <form id="profile-form" class="profile-settings-form" novalidate>
+
+                    <div class="profile-form-section">
+                        <div class="profile-section-header">
+                            <div class="profile-section-icon" aria-hidden="true">
+                                <i class="fa-regular fa-id-card"></i>
+                            </div>
+                            <div class="profile-section-copy">
+                                <h3>Personal Information</h3>
+                                <p>Name, contact details, and optional demographic info for your account.</p>
                             </div>
                         </div>
 
-                        <div class="input-group">
-                            <label for="profile-email">Email Address <span class="badge-readonly">Read Only</span></label>
-                            <div class="input-wrapper disabled">
-                                <i class="fa-regular fa-envelope input-icon"></i>
-                                <input type="email" id="profile-email" readonly title="Email cannot be changed">
+                        <div class="form-grid profile-form-grid">
+                            <div class="input-group">
+                                <label for="profile-name">Full Name</label>
+                                <div class="input-wrapper">
+                                    <i class="fa-regular fa-user input-icon"></i>
+                                    <input type="text" id="profile-name" required placeholder="Enter your full name" autocomplete="name">
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="input-group">
-                            <label for="profile-phone">Phone Number</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-phone input-icon"></i>
-                                <input type="tel" id="profile-phone" placeholder="e.g. +880123456789">
+                            <div class="input-group">
+                                <label for="profile-email">Email Address <span class="badge-readonly">Read Only</span></label>
+                                <div class="input-wrapper input-wrapper--disabled">
+                                    <i class="fa-regular fa-envelope input-icon"></i>
+                                    <input type="email" id="profile-email" readonly title="Email cannot be changed" autocomplete="email">
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="input-group">
-                            <label for="profile-district">District <span class="badge-primary">Auto-fill ready</span></label>
-                            <div class="input-wrapper select-wrapper">
-                                <i class="fa-solid fa-map input-icon"></i>
-                                <select id="profile-district" required>
-                                    <option value="">Select district</option>
-                                </select>
+                            <div class="input-group">
+                                <label for="profile-phone">Phone Number</label>
+                                <div class="input-wrapper">
+                                    <i class="fa-solid fa-phone input-icon"></i>
+                                    <input type="tel" id="profile-phone" placeholder="e.g. 01XXXXXXXXX" autocomplete="tel">
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="input-group">
-                            <label for="profile-upazila">Upazila / Thana</label>
-                            <div class="input-wrapper select-wrapper">
-                                <i class="fa-solid fa-location-crosshairs input-icon"></i>
-                                <select id="profile-upazila" required disabled>
-                                    <option value="">Select upazila / thana</option>
-                                </select>
+                            <div class="input-group">
+                                <label for="profile-gender">Gender</label>
+                                <div class="input-wrapper select-wrapper">
+                                    <i class="fa-solid fa-venus-mars input-icon"></i>
+                                    <select id="profile-gender" aria-label="Gender">
+                                        <option value="">Select Gender</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="input-group full-width">
-                            <label for="profile-full-address">Full Address / Village / Street</label>
-                            <div class="input-wrapper text-area-wrapper">
-                                <i class="fa-solid fa-location-dot input-icon"></i>
-                                <textarea id="profile-full-address" rows="3" placeholder="House, road, village, area, post office details"></textarea>
-                            </div>
-                            <small class="profile-field-hint">Saved district and upazila will auto-fill on checkout for delivery fee calculation.</small>
-                        </div>
-
-                        <div class="input-group full-width legacy-address-group" style="display:none;">
-                            <label for="profile-address">Legacy Address Snapshot</label>
-                            <div class="input-wrapper text-area-wrapper">
-                                <i class="fa-solid fa-location-dot input-icon"></i>
-                                <textarea id="profile-address" rows="2" readonly></textarea>
+                            <div class="input-group">
+                                <label for="profile-dob">Date of Birth</label>
+                                <div class="input-wrapper">
+                                    <i class="fa-regular fa-calendar input-icon"></i>
+                                    <input type="date" id="profile-dob" aria-label="Date of birth">
+                                </div>
+                                <small class="profile-field-hint">Optional — helps us tailor offers and improve store analytics.</small>
                             </div>
                         </div>
                     </div>
 
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary" id="save-profile-btn">
-                            <i class="fa-regular fa-floppy-disk"></i> Save Changes
+                    <div class="profile-form-divider" role="separator" aria-hidden="true"></div>
+
+                    <div class="profile-form-section">
+                        <div class="profile-section-header">
+                            <div class="profile-section-icon profile-section-icon--location" aria-hidden="true">
+                                <i class="fa-solid fa-truck-fast"></i>
+                            </div>
+                            <div class="profile-section-copy">
+                                <h3>Shipping &amp; Location Details</h3>
+                                <p>Your default delivery address used for orders and shipping fee calculation.</p>
+                            </div>
+                        </div>
+
+                        <div class="form-grid profile-form-grid">
+                            <div class="input-group">
+                                <label for="profile-district">District <span class="badge-primary">Auto-fill ready</span></label>
+                                <div class="input-wrapper select-wrapper">
+                                    <i class="fa-solid fa-map input-icon"></i>
+                                    <select id="profile-district" required>
+                                        <option value="">Select district</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="profile-upazila">Upazila / Thana</label>
+                                <div class="input-wrapper select-wrapper">
+                                    <i class="fa-solid fa-location-crosshairs input-icon"></i>
+                                    <select id="profile-upazila" required disabled>
+                                        <option value="">Select upazila / thana</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="input-group full-width">
+                                <label for="profile-full-address">Full Address / Village / Street</label>
+                                <div class="input-wrapper text-area-wrapper">
+                                    <i class="fa-solid fa-location-dot input-icon"></i>
+                                    <textarea id="profile-full-address" rows="3" placeholder="House, road, village, area, post office details"></textarea>
+                                </div>
+                                <small class="profile-field-hint">Saved district and upazila will auto-fill on checkout for delivery fee calculation.</small>
+                            </div>
+
+                            <div class="input-group full-width legacy-address-group" style="display:none;">
+                                <label for="profile-address">Legacy Address Snapshot</label>
+                                <div class="input-wrapper text-area-wrapper">
+                                    <i class="fa-solid fa-location-dot input-icon"></i>
+                                    <textarea id="profile-address" rows="2" readonly></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions profile-form-actions">
+                        <button type="submit" class="btn btn-primary btn-profile-save" id="save-profile-btn">
+                            <i class="fa-regular fa-floppy-disk"></i>
+                            <span>Update Profile</span>
                         </button>
                     </div>
                 </form>
@@ -570,11 +624,31 @@
                 </div>
             </div>
 
+            <div class="input-group">
+                <label for="address-district">District</label>
+                <div class="input-wrapper select-wrapper">
+                    <i class="fa-solid fa-map input-icon"></i>
+                    <select id="address-district" required>
+                        <option value="">Select district</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="address-upazila">Upazila / Thana</label>
+                <div class="input-wrapper select-wrapper">
+                    <i class="fa-solid fa-location-crosshairs input-icon"></i>
+                    <select id="address-upazila" required disabled>
+                        <option value="">Select upazila / thana</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="input-group full-width">
-                <label for="address-full">Full Address</label>
+                <label for="address-full">Street / Village / House Details</label>
                 <div class="input-wrapper text-area-wrapper">
                     <i class="fa-solid fa-location-dot input-icon"></i>
-                    <textarea id="address-full" rows="3" placeholder="House, Road, Area, City, District" required></textarea>
+                    <textarea id="address-full" rows="3" placeholder="House, road, village, area, post office details" required></textarea>
                 </div>
             </div>
 
@@ -593,8 +667,48 @@
     </div>
 </div>
 
+<div id="order-action-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="order-action-modal-title">
+    <div class="modal-content order-action-modal-content">
+        <div class="modal-header">
+            <h2 id="order-action-modal-title"><i class="fa-solid fa-circle-question order-action-modal-icon"></i> <span id="order-action-modal-title-text">Order Action</span></h2>
+            <span class="close-modal" id="close-order-action-modal" title="Close">&times;</span>
+        </div>
+
+        <form id="order-action-form" class="order-action-form" novalidate>
+            <p class="order-action-lead">Please provide a reason for this action.</p>
+
+            <div class="input-group">
+                <label for="order-action-reason-select">Select a reason</label>
+                <div class="input-wrapper select-wrapper">
+                    <i class="fa-solid fa-list-ul input-icon"></i>
+                    <select id="order-action-reason-select" required aria-label="Reason for action">
+                        <option value="">Choose a reason...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="input-group full-width order-action-other-group hidden" id="order-action-other-group" aria-hidden="true">
+                <label for="order-action-other-reason">Tell us more <span class="badge-readonly">Required for Other</span></label>
+                <div class="input-wrapper text-area-wrapper">
+                    <i class="fa-regular fa-comment-dots input-icon"></i>
+                    <textarea id="order-action-other-reason" rows="4" placeholder="Type your custom reason here..." aria-label="Custom reason"></textarea>
+                </div>
+                <small class="profile-field-hint">This field appears when you select &ldquo;Other&rdquo; from the list above.</small>
+            </div>
+
+            <div class="form-actions order-action-form-actions">
+                <button type="button" class="btn btn-light" id="order-action-close-btn">Close</button>
+                <button type="submit" class="btn btn-primary" id="order-action-confirm-btn">
+                    <i class="fa-solid fa-check"></i> Confirm
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div id="toast-container" class="toast-wrapper"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="js/session-guard.js"></script>
 <script src="js/cart.js"></script>
 <script src="js/bd-districts.js"></script>

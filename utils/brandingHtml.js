@@ -30,23 +30,13 @@ function buildInlineSettings(settings, cacheVersion) {
 }
 
 function injectBrandingScripts(html) {
-    const scripts = [
-        '<script src="/js/store-logo-svg.js"></script>',
-        '<script src="/js/store-branding.js"></script>'
-    ].join('\n    ');
+    const script = '<script src="/js/store-branding.js"></script>';
 
-    if (html.includes('store-logo-svg.js') && html.includes('store-branding.js')) {
-        return html;
+    if (html.includes('store-branding.js')) {
+        return html.replace(/\s*<script[^>]*src="\/js\/store-logo-svg\.js"[^>]*><\/script>\s*/gi, '');
     }
 
-    if (html.includes('store-branding.js') && !html.includes('store-logo-svg.js')) {
-        return html.replace(
-            /(<script[^>]*src="\/js\/store-branding\.js"[^>]*><\/script>)/i,
-            `<script src="/js/store-logo-svg.js"></script>\n    $1`
-        );
-    }
-
-    return html.replace('</head>', `    ${scripts}\n</head>`);
+    return html.replace('</head>', `    ${script}\n</head>`);
 }
 
 function injectInlineSettingsScript(html, inlineSettings) {
@@ -59,14 +49,14 @@ function injectInlineSettingsScript(html, inlineSettings) {
         );
     }
 
-    if (html.includes('store-logo-svg.js')) {
+    if (html.includes('store-branding.js')) {
         return html.replace(
-            /(<script[^>]*src="\/js\/store-logo-svg\.js"[^>]*><\/script>)/i,
+            /(<script[^>]*src="\/js\/store-branding\.js"[^>]*><\/script>)/i,
             `${settingsScript}\n    $1`
         );
     }
 
-    return html.replace('</head>', `${settingsScript}\n    <script src="/js/store-logo-svg.js"></script>\n    <script src="/js/store-branding.js"></script>\n</head>`);
+    return html.replace('</head>', `${settingsScript}\n    <script src="/js/store-branding.js"></script>\n</head>`);
 }
 
 function injectPoppinsFont(html) {

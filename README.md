@@ -2,9 +2,9 @@
 
 # 🛒 EOnlineBazar
 
-### A Full-Stack, Security-Hardened E-Commerce Platform
+### A Fully Dynamic, Production-Ready Full-Stack E-Commerce Platform
 
-*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **dynamic delivery charge & layered Bangladesh address management**, custom store branding, and a finance analytics dashboard.*
+*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **advanced order management with customer cancel/return workflows**, **admin refund controls with safe undo**, **master settings & category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, custom store branding, and a finance analytics dashboard.*
 
 ![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-3.2.0-success)
+![Version](https://img.shields.io/badge/Version-3.3.0-success)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 ![Maintained](https://img.shields.io/badge/Maintained-Yes-blue)
@@ -27,6 +27,11 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v3.3.0](#-whats-new--v330-checkout-orders-rewards--admin-controls)
+- [Smart Checkout Address Integration](#-smart-checkout-address-integration)
+- [Advanced Order Management & Tracking](#-advanced-order-management--tracking)
+- [Admin Panel — Order Security & Refund Controls](#-admin-panel--order-security--refund-controls)
+- [Master Settings & Dynamic Rewards](#-master-settings--dynamic-rewards)
 - [What's New — v3.2.0](#-whats-new--v320-time-sensitive-coupon-automation)
 - [Time-Sensitive Coupon Automation](#-time-sensitive-coupon-automation-system)
 - [What's New — v3.1.0](#-whats-new--v310-dynamic-delivery--address-management)
@@ -47,14 +52,234 @@
 
 ## 📖 Overview
 
-**EOnlineBazar** is a production-ready, full-stack e-commerce platform built on **Node.js / Express 5** with a **MongoDB (Atlas)** database and a lightweight **Vanilla JavaScript** frontend served directly by Express. It follows a clean **MVC architecture** (`Models → Controllers → Routes`) and ships with everything a modern online store needs: secure customer authentication, a shopping cart, a persistent **My Wishlist**, order placement & live tracking, product reviews with image uploads, a loyalty wallet, an enterprise catalog engine, a dedicated **Super Admin Panel**, and a **Finance & Analytics** dashboard.
+**EOnlineBazar** is a **fully dynamic, production-ready**, full-stack e-commerce platform built on **Node.js / Express 5** with a **MongoDB (Atlas)** database and a lightweight **Vanilla JavaScript** frontend served directly by Express. It follows a clean **MVC architecture** (`Models → Controllers → Routes`) and ships with everything a modern online store needs: secure customer authentication, a shopping cart, a persistent **My Wishlist**, smart checkout with profile-aware address selection, order placement & live tracking with customer cancel/return workflows, product reviews with image uploads, a loyalty wallet with admin-controlled reward economics, an enterprise catalog engine, a dedicated **Super Admin Panel** with refund reversal safeguards, and a **Finance & Analytics** dashboard.
 
-Three things set it apart:
+Six things set it apart:
 
 1. **A database-backed session security layer** — every login (customer *and* admin) generates a unique session embedded inside the JWT, so users and admins can view all their **active devices** (IP, geo-location, browser & device) and **remotely log out** any device in real time.
 2. **A Fortified Admin Security Suite** — multi-option Two-Factor Authentication (**Email OTP**, **Google Authenticator / TOTP**, and **SMS OTP**), **Geo-Fencing (Region Lock)**, brute-force **auto IP-blacklisting**, rate-limiting, and a full login-history / security-audit trail.
-3. **Dynamic Delivery Charge & Address Management** — admin-configurable shipping rules, Bangladesh **District → Upazila/Thana** cascading address fields, checkout auto-fill, real-time fee preview, and **server-side price re-validation** before orders are persisted.
-4. **Time-Sensitive Coupon Automation** — precise hour/minute expiry scheduling, a server-side **ACTIVE / EXPIRED** status engine with bulk auto-expiry, checkout visibility synced to live availability, and hardened order-time coupon validation.
+3. **Smart Checkout & Order Lifecycle** — profile-first address pre-fill, toggleable saved-address cards, customer cancellation/return reason modals, admin return approval with wallet refunds, and a configurable **Safe Undo Refund** window with spent-funds safety checks.
+4. **Dynamic Delivery Charge & Address Management** — admin-configurable shipping rules, Bangladesh **District → Upazila/Thana** cascading address fields, checkout auto-fill, real-time fee preview, and **server-side price re-validation** before orders are persisted.
+5. **Master Settings & Category-Specific Rewards** — global cashback, points earning ratio, points-to-taka conversion, and refund-undo window controlled from one admin panel, with per-category cashback overrides and zero-value toggles to disable rewards platform-wide.
+6. **Time-Sensitive Coupon Automation** — precise hour/minute expiry scheduling, a server-side **ACTIVE / EXPIRED** status engine with bulk auto-expiry, checkout visibility synced to live availability, and hardened order-time coupon validation.
+
+---
+
+## 🆕 What's New — v3.3.0 (Checkout, Orders, Rewards & Admin Controls)
+
+This release delivers a professional-grade **checkout ↔ profile address pipeline**, **customer-driven order lifecycle management**, **admin refund governance**, and a **centralized rewards economics engine** — all wired through shared server utilities so storefront and admin surfaces stay in sync.
+
+| Capability | Highlights |
+|------------|------------|
+| **📍 Smart Checkout Address Integration** | Profile Settings address loads first on `/checkout`; saved-address radio cards support **select → unselect → revert to profile**; manual edits clear the selection; optional **Save this address to my profile** sync after order placement. |
+| **📦 Advanced Order Management** | Mobile-responsive order **card views** in the profile dashboard; compact desktop table layouts; customer **Cancel** and **Return Request** flows with reason modals; **3–7-day post-delivery return window** validation; `cancelledBy` tracking (`Customer` vs `Admin`). |
+| **🛡️ Admin Refund & Return Controls** | Distinct cancellation badges (customer vs admin); return approval auto-credits the **exact paid amount** to wallet with transaction history; **Safe Undo Refund** within a configurable hour window with spent-funds verification. |
+| **⚙️ Master Settings & Dynamic Rewards** | Global panel for cashback %, points ratio, conversion rate, and refund-undo hours; **category-specific cashback overrides** with global fallback; setting any rate to **0** instantly disables that reward type platform-wide. |
+
+> 📌 See the dedicated sections below for workflow diagrams, schema fields, and API specifications.
+
+---
+
+## 🛒 Smart Checkout Address Integration
+
+A profile-aware checkout address system that prioritizes the customer's **primary Profile Settings address** on first load, while still supporting a multi-address address book with intuitive toggle behavior.
+
+### Feature Overview
+
+#### Profile-First Initial Load
+- On `/checkout` load, `initializeCheckoutPage()` fetches the customer profile and saved addresses in parallel.
+- **Profile Settings address always wins on first paint** — `applyProfileToCheckoutForm()` pre-fills name, phone, district, upazila/thana, and street from the profile before any saved-address card is selected.
+- If the user is not logged in, the form falls back to cached `localStorage` values from a prior session.
+
+#### Toggleable Saved Delivery Address Cards
+- Logged-in customers with saved addresses see a **radio-card picker** (`#savedAddressCards`) above the manual form.
+- **First click** on a card selects it and applies that address to all shipping fields (including real-time delivery charge recalculation).
+- **Second click on the same card** unchecks the radio, clears the selection, and **reverts the form to Profile Settings** — no page reload required.
+- Manual edits to any shipping field automatically clear the saved-address selection and revert to profile values, preventing stale mismatches.
+
+#### Manual Override & Profile Sync
+- Customers can type a one-off address without selecting a saved card.
+- The **"Save this address to my profile"** checkbox (`#saveAddressToProfile`) is enabled only when no saved card is selected.
+- On order placement, `syncCheckoutAddressToProfile()` (via `utils/savedAddress.js`) persists the entered address to the user's address book when requested, with duplicate detection and default-address promotion.
+
+### Architectural Workflow
+
+```mermaid
+flowchart TD
+    A[Checkout page load] --> B[Fetch profile + saved addresses]
+    B --> C[Apply Profile Settings to form]
+    C --> D{Saved addresses exist?}
+    D -->|Yes| E[Render radio address cards]
+    D -->|No| F[Manual form only]
+    E --> G{User selects card?}
+    G -->|First click| H[Apply saved address + recalc delivery]
+    G -->|Second click same card| I[Uncheck + revert to profile]
+    G -->|Manual edit| I
+    H --> J[Place order]
+    F --> J
+    I --> J
+    J --> K{saveAddressToProfile checked?}
+    K -->|Yes| L[syncCheckoutAddressToProfile]
+    K -->|No| M[Order complete]
+    L --> M
+```
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `client/js/checkout.js` | Profile-first init, saved-address card UI, toggle logic, save-to-profile flag |
+| `client/checkout.html` | Saved-address section markup and save checkbox |
+| `utils/savedAddress.js` | Address parsing, duplicate check, checkout → profile sync |
+| `controllers/orderController.js` | Calls sync after successful order creation |
+| `controllers/userController.js` | Address book CRUD API |
+
+---
+
+## 📦 Advanced Order Management & Tracking
+
+End-to-end order lifecycle management for customers and admins — from responsive history views through structured cancel/return workflows with auditable reason capture.
+
+### Feature Overview
+
+#### Mobile-Responsive Order Views
+- The customer profile **My Orders** table uses `orders-table--responsive` CSS (`client/css/profile.css`) to transform rows into **stacked mobile cards** with `data-label` attributes for accessible field labels.
+- Desktop layouts retain a **compact, information-dense table** with stacked product lines per order, status badges, and inline action buttons.
+- Admin **Live Orders** (`client/js/admin.js`) renders optimized status cells with contextual badges and action controls.
+
+#### Customer Order Cancellation
+- Customers can cancel orders in **Pending** or **Processing** status from the profile dashboard.
+- A dedicated **reason modal** (`#order-action-modal`) presents predefined dropdown options:
+  - Changed my mind · Ordered by mistake · Delivery taking too long · Defective product · **Other**
+- Selecting **Other** dynamically reveals a required free-text textarea; `resolveSubmittedReason()` merges dropdown + custom input on both client and server.
+- The order document stores `cancelReason`, `actionReason`, and **`cancelledBy: 'Customer'`** for admin audit visibility.
+
+#### Return Request Workflow
+- Delivered orders within the **3–7-day post-delivery window** expose a **Return Order** action in the customer profile.
+- Server-side validation (`isOrderWithinReturnWindow()` in `orderController.js`) ensures: order ownership, **Delivered** status only, delivery timestamp present, and the request falls within the eligible period after delivery (`RETURN_WINDOW_MS` = 7 days from `deliveredAt`).
+- The same reason modal collects structured return justification; successful submission sets status to **`Return Requested`** and persists `returnReason`.
+- Client-side button visibility in `profile.js` mirrors the same window logic — preventing UI actions the API would reject.
+
+#### Admin Cancellation Tracking
+- When an admin cancels via status update, the backend sets **`cancelledBy: 'Admin'`** and captures the admin-provided reason.
+- Admin panel badges distinguish **`Cancelled (Customer)`** (red) vs **`Cancelled (Admin)`** (slate) for instant visual triage.
+
+### Order Schema — Lifecycle Fields (`models/order.js`)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `cancelReason` | `String` | Customer or admin cancellation reason text |
+| `cancelledBy` | `Enum: ['Customer', 'Admin', '']` | Who initiated the cancellation |
+| `returnReason` | `String` | Customer return request justification |
+| `actionReason` | `String` | Legacy mirror of cancel/return reason |
+| `deliveredAt` | `Date` | Delivery timestamp — anchors return window validation |
+| `refundedAt` | `Date` | When wallet refund was processed |
+| `refundAmount` | `Number` | Exact amount credited to wallet |
+| `statusBeforeRefund` | `String` | Status restored on refund undo |
+
+### Related API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `POST` | `/api/orders/:id/cancel` | Customer cancel with reason payload (`selectedReason`, `customReason`) | User |
+| `POST` | `/api/orders/:id/return` | Customer return request with reason payload | User |
+| `PUT` | `/api/admin/orders/:id/approve-return` | Admin approve return → wallet refund | Admin |
+| `POST` | `/api/admin/orders/:id/undo-refund` | Admin safe refund reversal | Admin |
+| `GET` | `/api/orders/my-orders` | Customer order history with lifecycle fields | User |
+
+---
+
+## 🛡️ Admin Panel — Order Security & Refund Controls
+
+Enterprise-grade refund governance for the Super Admin panel — full visibility into cancellation and return reasons, wallet-integrated return approval, and a safety-checked refund reversal mechanism.
+
+### Feature Overview
+
+#### Enhanced Live Order Tracking
+- Status cells render **context-aware badges**: `Cancelled (Customer)`, `Cancelled (Admin)`, `Return Requested`, `Returned`, `Refunded`.
+- A **View Reason** control exposes cancellation/return details in a modal via `getOrderReasonDetails()` — including `initiatedBy` and full reason text.
+- Return-requested orders surface an **Approve Return** action; returned/refunded orders within the undo window show **Undo Refund**.
+
+#### Return Approval & Wallet Integration
+- `approveOrderReturn()` atomically transitions status **`Return Requested` → `Returned`**, records `refundedAt` and `refundAmount` (exact `grandTotal` paid), and credits the customer's **wallet balance**.
+- A **`walletHistory`** entry of type `refund` is prepended with a descriptive note (`Refund for returned order #…`).
+- If wallet credit fails, the order status is **rolled back** to `Return Requested` — no orphaned refunds.
+
+#### Safe Refund Reversal ("Undo Refund")
+- Admins can reverse an accidental refund within **`refundUndoWindowHours`** (default **72h**, configurable in Master Settings).
+- `undoOrderRefund()` performs layered safety checks:
+  1. Order status must be **`Returned`** or **`Refunded`**
+  2. Refund undo window must not have expired (`isWithinRefundUndoWindow()`)
+  3. Customer **wallet balance must be ≥ refund amount** — blocks undo if funds were already spent
+- On success: wallet debited, `walletHistory` reversal entry logged, order status restored to `statusBeforeRefund`.
+- On wallet debit failure: order refund metadata is **restored** to prevent inconsistent state.
+
+### Refund Undo Workflow
+
+```mermaid
+flowchart LR
+    A[Admin clicks Undo Refund] --> B{Within undo window?}
+    B -->|No| C[Reject — window expired]
+    B -->|Yes| D{Wallet balance ≥ refund?}
+    D -->|No| E[Reject — funds spent]
+    D -->|Yes| F[Atomic order status revert]
+    F --> G[Debit wallet + log reversal]
+    G --> H[Success response]
+```
+
+---
+
+## ⚙️ Master Settings & Dynamic Rewards
+
+A centralized, admin-controlled rewards economics engine with global defaults, per-category cashback overrides, and zero-value toggles for instant platform-wide disable.
+
+### Feature Overview
+
+#### Global Master Settings Panel
+From **Admin Panel → Master Settings**, admins configure the singleton `Setting` document (`models/Setting.js`):
+
+| Setting | Default | Purpose |
+|---------|---------|---------|
+| `cashbackPercentage` | `1%` | Global wallet cashback on delivered orders |
+| `takaToPointsRatio` | `100` | Taka spent per 1 loyalty point earned (e.g. ৳100 → 1 pt) |
+| `pointsToTakaConversionRate` | `10` | Taka credited per 100 points converted |
+| `refundUndoWindowHours` | `72` | Hours admins may undo an accidental wallet refund |
+
+Changes are persisted via `PUT /api/admin/master-settings` and logged to the **Security & Audit** trail.
+
+#### Category-Specific Cashback Override
+- Each category (`models/category.js`) may define `customCashbackPercentage` (0–100) or leave it `null`.
+- `resolveCategoryCashbackRate()` in `utils/rewardSettings.js` uses the category override when set; otherwise falls back to the global `cashbackPercentage`.
+- `calculateOrderCashbackFromItems()` sums per-line cashback at checkout reward credit time using the category map — enabling promotions like *"Electronics 5%, everything else 1%"*.
+
+#### Dynamic Zero-Setting Toggle
+- Setting **`cashbackPercentage` to `0`** disables all wallet cashback (category overrides with `0` also disable per-category).
+- Setting **`takaToPointsRatio` to `0`** disables loyalty point earning (`isPointsEarningEnabled()`).
+- Setting **`pointsToTakaConversionRate` to `0`** disables point-to-wallet conversion.
+- Setting **`refundUndoWindowHours` to `0`** disables the admin Undo Refund button entirely.
+- Rewards credit runs once on delivery via `creditOrderDeliveryRewards()` — respects disabled settings without double-crediting (`rewardsCredited` flag).
+
+#### Live Preview
+- The admin panel renders a real-time preview string: *"৳1,000 order → X% cashback + ~Y pts · 100 pts → ৳Z · Refund undo: Nh"* — updated as inputs change.
+
+### Related API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/admin/master-settings` | Read global reward & refund settings | Admin |
+| `PUT` | `/api/admin/master-settings` | Update master settings | Admin |
+| `POST` | `/api/categories` | Create category with optional `customCashbackPercentage` | Admin |
+| `PUT` | `/api/categories/:id` | Update category cashback override | Admin |
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `controllers/masterSettingsController.js` | Admin CRUD for master settings |
+| `utils/rewardSettings.js` | Normalization, cashback/points math, delivery reward credit, refund undo window |
+| `models/Setting.js` | Singleton master settings schema |
+| `models/category.js` | Per-category `customCashbackPercentage` field |
+| `routes/categoryRoutes.js` | Category cashback parse & validation |
 
 ---
 
@@ -535,7 +760,7 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 ### 🛍️ Core E-Commerce Modules
 
 #### Catalog Management Engine
-- **📂 Categories** — Full CRUD; renaming a category **syncs all linked products** automatically.
+- **📂 Categories** — Full CRUD with optional **`customCashbackPercentage`** override; renaming a category **syncs all linked products** automatically.
 - **🏷️ Brands** — Full CRUD with a clean grid layout, automatic **slug generation** (Unicode/Bengali-aware), and strict product-to-brand **database references**.
 - **🎛️ Attributes (Variants)** — Professional variation system (**Size**, **Color**, **Material**…) with per-variant **SKU, price & separate stock tracking**.
 - **🎟️ Coupons & Discounts** — Enterprise promo engine (Shopify/Daraz-style):
@@ -548,13 +773,14 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 
 #### Product & Order Systems
 - **🛍️ Product Catalog** — Up to 10 images, categories, brand, variations, highlights, stock levels, **selling price + buying price** (live profit preview), and detailed descriptions.
-- **📦 Order Management & Tracking** — Place orders, view history, public order tracking, and per-item **buying-price snapshots** at checkout for accurate profit reporting.
+- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, customer **Cancel** / **Return Request** workflows with reason modals, public order tracking, `cancelledBy` audit field, and per-item **buying-price snapshots** at checkout.
+- **🔄 Admin Return & Refund Pipeline** — Approve returns with automatic wallet credit, transaction history logging, and **Safe Undo Refund** within a configurable hour window (spent-funds safety check).
 - **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, free-shipping threshold, **locked server-side totals** on every order, and district-aware invoices.
-- **📍 Layered Address Management** — Profile-level **District → Upazila/Thana → Full Address** with checkout auto-fill and cascading Bangladesh location dropdowns.
+- **📍 Smart Checkout Address Integration** — Profile-first checkout pre-fill, toggleable saved-address radio cards (select / unselect / revert), manual override with **Save to profile** sync, and cascading Bangladesh location dropdowns.
 - **🛒 Shopping Cart** — Server-synced cart with quantity updates, selection toggles, guest-cart merge, and post-order cleanup.
 - **⭐ Reviews & Ratings** — Star ratings and reviews with optional photo upload; averages update automatically.
 - **📍 Address Book** — Manage multiple delivery addresses with default-address sync.
-- **💰 Wallet & Loyalty Points** — Convert points to wallet balance (100 points = ৳10) with transaction history.
+- **💰 Wallet & Loyalty Points** — Admin-configurable cashback, points earning, and conversion rates; category-specific cashback overrides; convert points to wallet balance with transaction history.
 
 #### ❤️ My Wishlist
 
@@ -578,12 +804,14 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 - **Custom Currency Formatting** — Currency Code (`BDT`) & Symbol (`৳`) applied to every admin price column.
 - **Timezone Synchronization** — dynamically updates the admin dashboard header's **live digital clock**.
 - **Delivery Charge Control** — configure Shop Home City, inside/outside rates, and free-shipping threshold from the admin settings panel.
+- **Master Settings Panel** — global cashback %, points earning ratio, points-to-taka conversion rate, and refund undo window hours — all with live preview.
+- **Category Cashback Overrides** — per-category custom cashback percentages with seamless fallback to global defaults.
 - **Account & Profile** — username/password change (current-password gated), display name, store name, and admin avatar upload.
 
 ### 🖥️ Super Admin Panel (`/admin`)
 - **📊 Dashboard Overview** — Live metrics (total/verified/pending/blocked users) and a **6-month registration growth chart** (Chart.js).
 - **👥 Customer Management** — View, edit, block, suspend, reactivate; order-count badges; per-customer order history modal.
-- **📦 Live Orders** — Real-time table with status updates, invoice view/print, search, filter, and pagination.
+- **📦 Live Orders** — Real-time table with distinct customer/admin cancellation badges, return approval, safe refund undo, reason visibility, invoice view/print, search, filter, and pagination.
 - **🛍️ Product CRUD** — Add/edit with images, buying/selling price, live profit preview, bulk delete, CSV export, and print-ready tables.
 - **🔔 Professional UX** — SweetAlert2 toasts + modal confirmations, asynchronous DOM re-rendering (instant UI sync, no manual refresh).
 
@@ -637,17 +865,17 @@ eonlinebazar-fullstack/
 │   ├── wishlist.js                    # Wishlist item subdocument schema (productId, name, price, image…)
 │   ├── userSession.js                 # Active customer device / login sessions
 │   ├── admin.js                       # Admin account, 2FA config & platform settings (currency, timezone, branding)
-│   ├── Settings.js                    # Singleton delivery charge & free-shipping settings
+│   ├── Settings.js                    # Singleton delivery charge, free-shipping & master reward settings
 │   ├── adminSession.js                # Active admin device / login sessions
 │   ├── loginAttempt.js                # Login history & failed/blocked attempt audit
 │   ├── blacklistedIp.js               # Auto + manual IP bans (TTL-expiring)
 │   ├── securityLog.js                 # Admin/customer security & auth event log
 │   ├── product.js                     # Products (images, buyingPrice, variations, reviews)
-│   ├── category.js                    # Product categories
+│   ├── category.js                    # Product categories (optional customCashbackPercentage)
 │   ├── brand.js                       # Product brands (slug + product references)
 │   ├── attribute.js                   # Product attributes / variants (Size, Color…)
 │   ├── coupon.js                      # Coupons & discounts (status ACTIVE/EXPIRED, precise expiryDate, usage limits)
-│   ├── order.js                       # Orders with locked subTotal/deliveryCharge/grandTotal + buyingPrice snapshots
+│   ├── order.js                       # Orders with lifecycle fields (cancelReason, cancelledBy, returnReason, refund metadata)
 │   ├── cart.js                        # Shopping cart
 │   └── review.js                      # Product reviews & ratings
 │
@@ -657,6 +885,7 @@ eonlinebazar-fullstack/
 │   ├── wishlistController.js          # Wishlist toggle (add/remove) with product snapshot enrichment
 │   ├── adminController.js             # Admin customers, platform branding, logs, profile
 │   ├── settingsController.js          # Delivery charge & free-shipping settings (admin API)
+│   ├── masterSettingsController.js    # Global cashback, points, conversion & refund-undo settings
 │   ├── storeController.js             # Public storefront branding + delivery settings + districts
 │   ├── adminSecurityController.js     # 2-step login, admin sessions, IP blacklist, login history
 │   ├── twoFactorController.js         # Self-service 2FA manager (Email / TOTP / SMS)
@@ -664,7 +893,7 @@ eonlinebazar-fullstack/
 │   ├── brandController.js             # Brand CRUD + slug generation
 │   ├── attributeController.js         # Attribute / variant CRUD
 │   ├── couponController.js            # Coupon CRUD + active-check + apply/validate/redeem + auto-expiry sweeps
-│   ├── orderController.js             # Orders, tracking, server-side price locking & buyingPrice snapshots
+│   ├── orderController.js             # Orders, cancel/return, return approval, refund undo, server-side price locking
 │   ├── cartController.js              # Cart operations
 │   ├── reviewController.js            # Review system
 │   └── financeController.js           # Revenue, profit & chart analytics
@@ -697,6 +926,8 @@ eonlinebazar-fullstack/
 │   ├── smsSender.js                   # SMS 2FA delivery abstraction (console/Twilio/custom)
 │   ├── deliveryChargeService.js       # Shared delivery zone + fee + locked-total computation
 │   ├── applicationTime.js             # Centralized server clock + platform timezone for coupon expiry
+│   ├── rewardSettings.js              # Cashback/points math, category overrides, delivery rewards, refund undo window
+│   ├── savedAddress.js                # Checkout address parsing, duplicate check, profile sync
 │   ├── bangladeshDistricts.js         # District list, normalization & inside/outside matching
 │   └── securityLogger.js             # Fire-and-forget security event writer
 │
@@ -960,21 +1191,25 @@ Base URL: `http://localhost:3000`
 | `DELETE` | `/api/cart/remove/:productId` | Remove item | User |
 | `POST` | `/api/cart/merge` | Merge guest cart | User |
 | `DELETE` | `/api/cart/clear-ordered` | Clear checked-out items | User |
-| `POST` | `/api/orders` | Place order (server re-prices items, re-validates coupon, **locks delivery charge & totals**) | User |
+| `POST` | `/api/orders` | Place order (server re-prices items, re-validates coupon, **locks delivery charge & totals**, optional address sync) | User |
 | `GET`  | `/api/orders/my-orders` | User's order history | User |
 | `GET`  | `/api/orders/track` | Public order tracking | Public |
 | `GET`  | `/api/orders/:id` | Single order details | User |
+| **`POST`** | **`/api/orders/:id/cancel`** | **Customer cancel with reason (`selectedReason`, `customReason`) — sets `cancelledBy: 'Customer'`** | **User** |
+| **`POST`** | **`/api/orders/:id/return`** | **Customer return request with reason — 3–7-day post-delivery window validation** | **User** |
 | `GET`  | `/api/orders` | All orders (admin panel) | Public¹ |
-| `PUT`  | `/api/orders/:id` | Update order status | Public¹ |
+| `PUT`  | `/api/orders/:id` | Update order status (admin cancel sets `cancelledBy: 'Admin'`) | Public¹ |
+| **`PUT`** | **`/api/admin/orders/:id/approve-return`** | **Approve return → credit exact paid amount to customer wallet** | **Admin** |
+| **`POST`** | **`/api/admin/orders/:id/undo-refund`** | **Safe refund reversal within configured undo window** | **Admin** |
 | `DELETE` | `/api/orders/:id` | Delete order | Public¹ |
 
 ### 🗂️ Catalog — Categories, Brands, Attributes
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| `GET`  | `/api/categories` | List categories | Public |
-| `POST` | `/api/categories` | Create category | Admin |
-| `PUT`  | `/api/categories/:id` | Rename (syncs linked products) | Admin |
+| `GET`  | `/api/categories` | List categories (includes `customCashbackPercentage` when set) | Public |
+| `POST` | `/api/categories` | Create category (optional `customCashbackPercentage` override) | Admin |
+| `PUT`  | `/api/categories/:id` | Rename / update category cashback override (syncs linked products) | Admin |
 | `DELETE` | `/api/categories/:id` | Delete category | Admin |
 | `GET`  | `/api/brands` | List brands | Public |
 | `POST` | `/api/brands` | Create brand (auto slug) | Admin |
@@ -1039,6 +1274,8 @@ Base URL: `http://localhost:3000`
 | `GET`  | `/api/admin/customers/:id/orders` | Customer order history | Admin |
 | `GET`  | `/api/admin/settings` | Delivery charge settings (shop home city, rates, free-shipping threshold) | Admin |
 | `PUT`  | `/api/admin/settings` | Save delivery charge settings | Admin |
+| **`GET`** | **`/api/admin/master-settings`** | **Global cashback, points ratio, conversion rate & refund undo window** | **Admin** |
+| **`PUT`** | **`/api/admin/master-settings`** | **Save master reward & refund settings** | **Admin** |
 | `GET`  | `/api/admin/platform-settings` | Platform & profile settings (currency, timezone, branding…) | Admin |
 | `PUT`  | `/api/admin/platform-settings` | Save platform settings (current-password gated) | Admin |
 | `POST` | `/api/admin/upload-branding` | Upload store logo or favicon (`assetType`) | Admin |
@@ -1143,6 +1380,28 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 
 ## 📜 Changelog
 
+### `v3.3.0` — Checkout, Orders, Rewards & Admin Controls
+
+**📍 Smart Checkout Address Integration**
+- Checkout now **prioritizes Profile Settings address** on initial page load before any saved-address card is selected.
+- Toggleable **saved delivery address radio cards** — first click selects; second click on the same card unchecks and **reverts to profile settings**.
+- Manual field edits auto-clear saved-address selection; **"Save this address to my profile"** checkbox syncs one-off addresses via `utils/savedAddress.js`.
+
+**📦 Advanced Order Management & Tracking**
+- Mobile-responsive **order card views** (`orders-table--responsive`) and optimized compact desktop table layouts in the customer profile.
+- **Customer Order Cancellation** — reason modal with predefined dropdown options and dynamic **Other** free-text field; persists `cancelReason` and `cancelledBy: 'Customer'`.
+- **Return Request Workflow** — 3–7-day post-delivery window validation (server: `RETURN_WINDOW_MS` = 7 days from `deliveredAt`); dual client/server enforcement.
+
+**🛡️ Admin Panel & Security Controls**
+- Enhanced live order tracking with **distinct badges** for customer vs admin cancellations and full cancellation/return reason visibility.
+- **Return Approval & Wallet Integration** — admins approve returns; system refunds the **exact paid amount** to wallet with detailed `walletHistory` logging.
+- **Safe Refund Reversal ("Undo Refund")** — configurable undo window (`refundUndoWindowHours`); blocks reversal if customer has already spent refunded funds.
+
+**⚙️ Master Settings & Dynamic Rewards**
+- New **Master Settings Panel** — global cashback %, points earning ratio, points-to-taka conversion rate, and refund undo window hours.
+- **Category-Specific Cashback Override** — `customCashbackPercentage` per category with seamless fallback to global defaults.
+- **Dynamic zero-setting toggle** — set any rate to `0` to instantly disable that reward type platform-wide.
+
 ### Admin UX — Wide Edit Product Modal
 **🖥️ Desktop-first product editing**
 - The **Manage Products → Edit Product Details** modal now uses a wide responsive grid layout (`~896px` max width on desktop) so core fields, variation rows, and image previews breathe on laptop and monitor screens.
@@ -1238,6 +1497,7 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 *Built with ❤️ using Node.js, Express & MongoDB.*
 
 </div>
+
 
 
 

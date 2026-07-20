@@ -87,6 +87,7 @@
                         </ul>
                     </li>
 
+                    <li data-target="view-master-settings"><i class="fa-solid fa-sliders"></i> Master Settings</li>
                     <li data-target="view-settings"><i class="fa-solid fa-gear"></i> Admin Settings</li>
 
                 </ul>
@@ -247,6 +248,8 @@
                 <option value="processing">Processing</option>
                 <option value="shipped">Shipped</option>
                 <option value="delivered">Delivered</option>
+                <option value="return requested">Return Requested</option>
+                <option value="returned">Returned</option>
                 <option value="cancelled">Cancelled</option>
             </select>
         </div>
@@ -320,6 +323,10 @@
                 <label for="newCategoryName">New Category Name</label>
                 <input type="text" id="newCategoryName" placeholder="e.g., Smart Phones, Electronics">
             </div>
+            <div class="catalog-field">
+                <label for="newCategoryCashback">Custom Cashback % (Leave blank to use Global Default)</label>
+                <input type="number" id="newCategoryCashback" min="0" max="100" step="0.01" placeholder="e.g., 5">
+            </div>
             <button type="button" onclick="addCategory()" class="btn-submit catalog-add-btn">
                 <i class="fa-solid fa-plus"></i> Add Category
             </button>
@@ -330,6 +337,7 @@
             <thead>
                 <tr>
                     <th class="col-name">Category Name</th>
+                    <th class="col-cashback">Cashback %</th>
                     <th class="col-date">Date Added</th>
                     <th class="col-actions">Actions</th>
                 </tr>
@@ -1055,6 +1063,58 @@
             </section>
 
 
+<section id="view-master-settings" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <h3>Master Settings</h3>
+        <p class="section-subtitle">Control global cashback, loyalty points, conversion rates, and refund policies for the entire platform.</p>
+    </div>
+
+    <div class="settings-grid">
+        <div class="settings-card settings-card-wide master-settings-card">
+            <h4 class="settings-card-title"><i class="fa-solid fa-coins"></i> Rewards &amp; Refund Engine</h4>
+            <p class="settings-card-sub">These values replace hardcoded cashback and points logic across checkout, orders, and wallet flows.</p>
+
+            <form id="masterSettingsForm" class="master-settings-form" novalidate>
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label for="masterCashbackPercentage">Order Cashback Percentage (%)</label>
+                        <input type="number" id="masterCashbackPercentage" min="0" max="100" step="0.01" placeholder="1" required>
+                        <small class="field-hint">Percentage of order total credited to the customer wallet after delivery. Set to 0 to disable cashback.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="masterTakaToPointsRatio">Points Earned per Taka Spent</label>
+                        <input type="number" id="masterTakaToPointsRatio" min="0" step="1" placeholder="100" required>
+                        <small class="field-hint">How many taka a customer must spend to earn 1 loyalty point (e.g. 100 = 1 point per ৳100). Set to 0 to disable points earning.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="masterPointsConversionRate">Points Conversion Rate (100 Points = X Taka)</label>
+                        <input type="number" id="masterPointsConversionRate" min="0" step="0.01" placeholder="10" required>
+                        <small class="field-hint">Wallet taka value when a customer converts 100 loyalty points.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="masterRefundUndoWindow">Refund Undo Window (Hours)</label>
+                        <input type="number" id="masterRefundUndoWindow" min="0" step="1" placeholder="72" required>
+                        <small class="field-hint">How long admins can reverse an approved refund after wallet credit (0 = disabled).</small>
+                    </div>
+                </div>
+
+                <div class="master-settings-preview" id="masterSettingsPreview">
+                    <strong>Live preview:</strong>
+                    <span id="masterSettingsPreviewText">Loading current rules...</span>
+                </div>
+
+                <button type="submit" class="btn-submit" id="masterSettingsSaveBtn">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Master Settings
+                </button>
+            </form>
+        </div>
+    </div>
+</section>
+
+
 <section id="view-settings" class="admin-section" style="display: none;">
                 <div class="section-header-box">
                     <h3>Admin & Platform Settings</h3>
@@ -1405,6 +1465,30 @@
 </div>
 
 
+<!-- Category edit modal (name + optional custom cashback) -->
+<div id="categoryEditModal" class="custom-modal-overlay" style="display: none;">
+    <div class="custom-modal-box" style="max-width: 460px;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-tags"></i> Edit Category</h3>
+            <button type="button" class="close-icon-btn" onclick="closeCategoryEditModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="editCategoryNameInput">Category Name</label>
+                <input type="text" id="editCategoryNameInput" placeholder="e.g., Electronics">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="editCategoryCashbackInput">Custom Cashback % (Leave blank to use Global Default)</label>
+                <input type="number" id="editCategoryCashbackInput" min="0" max="100" step="0.01" placeholder="e.g., 5">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeCategoryEditModal()">Cancel</button>
+            <button type="button" class="btn-primary" id="editCategorySaveBtn"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        </div>
+    </div>
+</div>
+
 <!-- Catalog quick-edit modal (replaces native prompt for Categories/Brands/Attributes) -->
 <div id="catalogQuickEditModal" class="custom-modal-overlay" style="display: none;">
     <div class="custom-modal-box" style="max-width: 420px;">
@@ -1482,6 +1566,42 @@
 </div>
 
     <div id="toastContainer" class="admin-toast-stack" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Order cancel/return reason viewer -->
+    <div id="orderReasonModal" class="custom-modal-overlay order-reason-modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="orderReasonModalTitle" onclick="if(event.target===this) closeOrderReasonModal()">
+        <div class="custom-modal-box order-reason-modal-box">
+            <div class="modal-header">
+                <div>
+                    <h3 id="orderReasonModalTitle"><i class="fa-solid fa-comment-dots"></i> Order Reason Details</h3>
+                    <p class="order-reason-modal-subtitle" id="orderReasonModalSubtitle">Customer or admin action context</p>
+                </div>
+                <button type="button" class="close-icon-btn" onclick="closeOrderReasonModal()" aria-label="Close reason modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body order-reason-modal-body">
+                <div class="order-reason-meta-grid">
+                    <div class="order-reason-meta-item">
+                        <span class="order-reason-meta-label">Order ID</span>
+                        <strong id="orderReasonOrderId">—</strong>
+                    </div>
+                    <div class="order-reason-meta-item">
+                        <span class="order-reason-meta-label">Action Type</span>
+                        <strong id="orderReasonActionType">—</strong>
+                    </div>
+                    <div class="order-reason-meta-item">
+                        <span class="order-reason-meta-label">Initiated By</span>
+                        <strong id="orderReasonInitiatedBy">—</strong>
+                    </div>
+                </div>
+                <div class="order-reason-text-box">
+                    <span class="order-reason-meta-label">Reason</span>
+                    <p id="orderReasonText">—</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeOrderReasonModal()">Close</button>
+            </div>
+        </div>
+    </div>
 
     <script src="/js/bd-districts.js"></script>
     <script type="module" src="/js/admin.js"></script>

@@ -63,7 +63,11 @@ header {
     z-index: 1000;
     background-color: var(--amazon-dark);
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    padding: 5px 0;
+    padding: 4px 0;
+}
+
+.amazon-header {
+    overflow: visible;
 }
 
 .main-nav {
@@ -71,7 +75,20 @@ header {
     align-items: center;
     justify-content: space-between;
     gap: 15px;
-    flex-wrap: nowrap; /* ডেস্কটপে সোজা এক লাইনে রাখবে */
+    flex-wrap: nowrap;
+    min-height: 48px;
+    max-height: 56px;
+}
+
+.main-nav > .search-box-container {
+    flex: 1;
+    align-self: center;
+    min-width: 0;
+}
+
+.main-nav > .nav-right {
+    flex-shrink: 0;
+    align-self: center;
 }
 
 /* বাম অংশ: লগো */
@@ -89,6 +106,28 @@ header {
     text-decoration: none;
     display: inline-flex;
     align-items: center;
+    flex-shrink: 0;
+    line-height: 1;
+    max-height: 40px;
+    overflow: hidden;
+}
+
+.logo-box.has-store-logo {
+    font-size: inherit;
+    max-height: 40px;
+}
+
+/* Tailwind-equivalent logo sizing utilities */
+.h-8 {
+    height: 2rem;
+}
+
+.w-auto {
+    width: auto;
+}
+
+.object-contain {
+    object-fit: contain;
 }
 
 .logo-bold {
@@ -123,12 +162,13 @@ header {
 
 /* Dark amazon header — white pill behind uploaded logo */
 .amazon-header .logo-box:has(.store-brand-logo),
-.amazon-header .logo-box:has(.store-brand-svg),
+.amazon-header .logo-box:has(.store-brand-text-fallback),
 .amazon-header .logo-box[data-store-logo-slot] {
     background: #ffffff;
     border-radius: 8px;
-    padding: 4px 10px;
+    padding: 2px 8px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+    align-self: center;
 }
 
 a[data-store-logo-slot] {
@@ -141,15 +181,41 @@ a[data-store-logo-slot] {
 /* Global uploaded store logo (Admin → Store Branding) */
 .store-brand-logo,
 img[data-store-logo] {
-    display: block;
-    max-height: 42px;
-    max-width: 180px;
+    display: inline-block;
+    vertical-align: middle;
+    max-height: 32px;
+    max-width: 140px;
     width: auto;
     height: auto;
     object-fit: contain;
 }
 
-/* Inline SVG fallback logo (cart + checkmark + typography) */
+.amazon-header .logo-box .store-brand-logo,
+.amazon-header .logo-box img[data-store-logo] {
+    max-height: 32px;
+    max-width: 140px;
+}
+
+.store-brand-text-fallback {
+    display: inline-block;
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: #1f2937;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.amazon-header .store-brand-text-fallback {
+    color: #1f2937;
+}
+
+.logo-box.has-store-brand-text,
+.logo-area.has-store-brand-text,
+.footer-logo-text.has-store-brand-text {
+    font-size: inherit;
+}
+
+/* Legacy SVG fallback styles — admin panel only */
 .store-brand-svg {
     display: inline-flex;
     align-items: center;
@@ -206,22 +272,23 @@ img[data-store-logo] {
     display: none;
 }
 
-/* Dark amazon header — light pill so dark SVG stays readable */
-.amazon-header .logo-box:has(.store-brand-svg--navbar),
-.amazon-header .logo-box.has-store-brand-svg {
+/* Dark amazon header — light pill for text fallback on dark bar */
+.amazon-header .logo-box:has(.store-brand-text-fallback),
+.amazon-header .logo-box.has-store-brand-text {
     background: #ffffff;
     border-radius: 8px;
     padding: 4px 10px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
 
-.logo-box.has-store-brand-svg {
+.logo-box.has-store-brand-text {
     font-size: inherit;
 }
 
 .logo-box.has-store-logo,
 .logo-box .store-brand-logo {
-    max-height: 38px;
+    max-height: 32px;
+    max-width: 140px;
 }
 
 .header-brand-logo.has-store-logo,
@@ -259,6 +326,14 @@ img[data-store-logo] {
     max-width: 180px;
 }
 
+.checkout-step-header__brand.has-store-logo .store-brand-logo,
+.checkout-step-header__brand .store-brand-logo,
+.checkout-step-header__brand img[data-store-logo] {
+    max-height: 55px;
+    max-width: 180px;
+}
+
+.store-brand-text-fallback,
 .store-brand-fallback {
     display: inline-flex;
     align-items: center;
@@ -267,6 +342,7 @@ img[data-store-logo] {
     font-weight: 700;
 }
 
+.logo-area .store-brand-text-fallback,
 .logo-area .store-brand-fallback {
     margin: 0;
     color: inherit;
@@ -275,6 +351,7 @@ img[data-store-logo] {
 a.header-brand-logo,
 a.header-right-brand,
 a.payment-header-right-brand,
+a.checkout-step-header__brand,
 a.nav-logo,
 a.logo-area {
     text-decoration: none;
@@ -580,8 +657,15 @@ a.logo-area {
     .logo-box {
         order: 1;
         margin: 0;
-        line-height: 1.2;
+        line-height: 1;
         font-size: 30px;
+        max-height: 36px;
+    }
+
+    .logo-box .store-brand-logo,
+    .logo-box img[data-store-logo] {
+        max-height: 28px;
+        max-width: 120px;
     }
 
     /* ডানপাশের কন্টেইনার (অ্যাকাউন্ট এবং কার্ট থাকবে পাশাপাশি উপরে ডানে) */
@@ -684,6 +768,13 @@ a.logo-area {
 
     .logo-box{
         font-size: 30px;
+        max-height: 34px;
+    }
+
+    .logo-box .store-brand-logo,
+    .logo-box img[data-store-logo] {
+        max-height: 26px;
+        max-width: 110px;
     }
 }
 

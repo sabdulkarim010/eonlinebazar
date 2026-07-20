@@ -12,6 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@700;800&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/checkout-step-header.css">
     <link rel="stylesheet" href="css/cart.css">
     <link rel="stylesheet" href="css/footer.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
@@ -19,24 +20,26 @@
 </head>
 <body>
 
-    <header class="cart-premium-sticky-header">
-    <div class="header-back-action">
-        <a href="/">
-            <i class="fa-solid fa-chevron-left"></i>
-            <span class="text-desktop">Continue Shopping</span>
-            <span class="text-mobile">Back</span>
-        </a>
-    </div> <div class="header-status-center">
-        <span class="premium-secure-badge">
-            <i class="fa-solid fa-lock"></i>
-            <span class="secure-desktop">Secure Checkout</span>
-            <span class="secure-mobile">Secure</span>
-        </span>
-        <span class="step-text-indicator">Step 1 of 3</span>
-    </div>
-
-    <a href="/" class="header-brand-logo" data-store-logo-slot data-logo-variant="compact" aria-label="EonlineBazar Home"></a>
-</header>
+    <header class="checkout-step-header">
+        <div class="checkout-step-header__container">
+            <div class="checkout-step-header__left">
+                <a href="/" class="checkout-step-header__back-link">
+                    <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+                    <span class="checkout-step-header__back-desktop">Continue Shopping</span>
+                    <span class="checkout-step-header__back-mobile">Back</span>
+                </a>
+            </div>
+            <div class="checkout-step-header__center">
+                <span class="checkout-step-header__secure-badge">
+                    <i class="fa-solid fa-lock" aria-hidden="true"></i>
+                    <span class="checkout-step-header__secure-desktop">SECURE CHECKOUT</span>
+                    <span class="checkout-step-header__secure-mobile">SECURE</span>
+                </span>
+                <span class="checkout-step-header__step">Step 1 of 3</span>
+            </div>
+            <a href="/" class="checkout-step-header__brand" data-store-logo-slot data-logo-variant="checkout-header" aria-label="EonlineBazar Home"></a>
+        </div>
+    </header>
 
     <div class="shopping-cart-main-container">
         

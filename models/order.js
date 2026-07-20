@@ -61,11 +61,22 @@ const orderSchema = new mongoose.Schema({
     shippingFee: { type: Number, default: 0, min: 0 },
     paymentMethod: { type: String, required: true, default: 'COD' }, 
     status: { type: String, default: 'Pending' },
-    isDelivered: { type: Boolean, default: false }, 
+    isDelivered: { type: Boolean, default: false },
+    deliveredAt: { type: Date, default: null },
+    cancelReason: { type: String, default: '', trim: true },
+    cancelledBy: { type: String, enum: ['Customer', 'Admin', ''], default: '' },
+    returnReason: { type: String, default: '', trim: true },
+    actionReason: { type: String, default: '', trim: true }, // legacy — mirrors cancel/return reason
+    refundedAt: { type: Date, default: null },
+    refundAmount: { type: Number, default: 0, min: 0 },
+    statusBeforeRefund: { type: String, default: '' },
+    rewardsCredited: { type: Boolean, default: false },
+    rewardsPointsEarned: { type: Number, default: 0, min: 0 },
+    rewardsCashbackAmount: { type: Number, default: 0, min: 0 },
     items: { type: [orderItemSchema], default: [] },
     note: { type: String, default: "" }, 
     createdAt: { type: Date, default: Date.now }
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model('Order', orderSchema);
 
