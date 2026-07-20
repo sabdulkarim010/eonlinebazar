@@ -7,8 +7,8 @@
 // ==========================================================================
 const API_BASE_URL = '/api/products'; 
 let currentProductData = null;
-let selectedVariant = null;    // Currently selected product variant (Size/Color)
-// 👈 প্রোডাক্টের ডাটা গ্লোবালি ধরে রাখার জন্য নতুন ভেরিয়েবল
+/** Per-attribute selection, e.g. { Size: variantObj, Color: variantObj } */
+let selectedVariantsByAttr = {};
 
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -43,6 +43,7 @@ async function fetchProductDetails(id) {
         renderProductInfo(product);
         renderVariants(product);
         renderProductImages(product);
+        initializeDefaultVariantSelections(product);
         renderHighlights(product); 
         renderDescriptions(product);
         
@@ -126,6 +127,70 @@ function getVariantPrice(v) {
     return (Number.isFinite(p) && p > 0) ? p : Number(currentProductData.price) || 0;
 }
 
+function normalizeAttrName(name) {
+    return String(name || '').trim().toLowerCase();
+}
+
+function isColorAttribute(name) {
+    const n = normalizeAttrName(name);
+    return n === 'color' || n === 'colour';
+}
+
+function isSizeAttribute(name) {
+    return normalizeAttrName(name) === 'size';
+}
+
+function getProductImages(product) {
+    const mainImageUrl = product.image || 'images/placeholder.jpg';
+    return product.images && product.images.length > 0 ? product.images : [mainImageUrl];
+}
+
+/** Color value (lowercase) → { index, variant } based on variant order vs. images array */
+function getColorImageMap(product) {
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+    const colorVariants = variants.filter(v => isColorAttribute(v.attribute) && (v.value || '').trim());
+    const images = getProductImages(product);
+    const map = {};
+    colorVariants.forEach((cv, i) => {
+        const key = String(cv.value).trim().toLowerCase();
+        const index = Math.min(i, images.length - 1);
+        map[key] = { index, variant: cv, url: images[index] };
+    });
+    return map;
+}
+
+/** Image gallery index → color variant (for thumbnail → color sync) */
+function getImageIndexToColorMap(product) {
+    const byColor = getColorImageMap(product);
+    const map = {};
+    Object.values(byColor).forEach(entry => {
+        map[entry.index] = entry;
+    });
+    return map;
+}
+
+function getSelectedVariantByType(type) {
+    return Object.entries(selectedVariantsByAttr).find(([attr]) => {
+        if (type === 'color') return isColorAttribute(attr);
+        if (type === 'size') return isSizeAttribute(attr);
+        return false;
+    })?.[1] || null;
+}
+
+function getCombinedVariantKey() {
+    return Object.values(selectedVariantsByAttr)
+        .map(v => getVariantKey(v))
+        .sort()
+        .join('|');
+}
+
+function getCombinedVariantLabel() {
+    return Object.values(selectedVariantsByAttr)
+        .filter(v => v.attribute && v.value)
+        .map(v => `${v.attribute}: ${v.value}`)
+        .join(', ');
+}
+
 /** attribute অনুযায়ী ভ্যারিয়েন্ট গ্রুপ করা (রেন্ডার অর্ডার ধরে রেখে) */
 function groupVariantsByAttribute(variants) {
     const groups = [];
@@ -151,7 +216,7 @@ function renderVariants(product) {
 
     const variants = Array.isArray(product.variants) ? product.variants.filter(v => (v.attribute || v.value)) : [];
 
-    selectedVariant = null;
+    selectedVariantsByAttr = {};
 
     if (variants.length === 0) {
         wrap.classList.add('hidden');
@@ -174,9 +239,12 @@ function renderVariants(product) {
             const stock = Number(v.stock) || 0;
             const disabled = stock <= 0;
             const price = getVariantPrice(v);
-            const showPrice = Number(v.price) > 0 && Number(v.price) !== Number(product.price);
+            const showPrice = !isColorAttribute(group.attribute)
+                && Number(v.price) > 0
+                && Number(v.price) !== Number(product.price);
             html += `<div class="variant-badge${disabled ? ' is-disabled' : ''}"
                         data-variant-key="${escapeHtml(key)}"
+                        data-variant-attr="${escapeHtml(v.attribute || '')}"
                         role="button" tabindex="${disabled ? -1 : 0}"
                         aria-disabled="${disabled}">
                         <span class="variant-badge-value">${escapeHtml(v.value || v.attribute)}</span>
@@ -189,23 +257,30 @@ function renderVariants(product) {
     html += `<div class="variant-hint" id="variantHint"></div>`;
     wrap.innerHTML = html;
 
-    // প্রতিটি ব্যাজে ক্লিক লিসেনার যুক্ত করা
     wrap.querySelectorAll('.variant-badge').forEach(badge => {
         if (badge.classList.contains('is-disabled')) return;
         const key = badge.getAttribute('data-variant-key');
         const variant = variants.find(v => getVariantKey(v) === key);
-        badge.addEventListener('click', () => selectVariant(variant));
+        badge.addEventListener('click', () => selectVariantOption(variant));
         badge.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectVariant(variant); }
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectVariantOption(variant); }
         });
     });
+}
 
-    // 🌟 প্রথম ইন-স্টক ভ্যারিয়েন্ট স্বয়ংক্রিয়ভাবে সিলেক্ট (Shopify স্টাইল)
-    const firstAvailable = variants.find(v => (Number(v.stock) || 0) > 0);
-    if (firstAvailable) {
-        selectVariant(firstAvailable);
-    } else {
-        // সব ভ্যারিয়েন্ট আউট-অফ-স্টক
+/** Default Size / Color (and other groups) after gallery + selectors are rendered */
+function initializeDefaultVariantSelections(product) {
+    const variants = Array.isArray(product.variants) ? product.variants.filter(v => (v.attribute || v.value)) : [];
+    if (variants.length === 0) return;
+
+    const groups = groupVariantsByAttribute(variants);
+    groups.forEach(group => {
+        const pick = group.items.find(v => (Number(v.stock) || 0) > 0) || group.items[0];
+        if (pick) selectVariantOption(pick, { skipHint: true });
+    });
+
+    const anyInStock = variants.some(v => (Number(v.stock) || 0) > 0);
+    if (!anyInStock) {
         updateStockStatus(0);
         setAddToCartEnabled(false);
         const hint = document.getElementById('variantHint');
@@ -213,38 +288,85 @@ function renderVariants(product) {
     }
 }
 
-/** একটি ভ্যারিয়েন্ট সিলেক্ট করা — দাম, স্টক ও UI ইনস্ট্যান্টলি আপডেট হয় */
-function selectVariant(variant) {
-    if (!variant) return;
-    selectedVariant = variant;
-
+function updateVariantBadgeUI(attr, variant) {
     const key = getVariantKey(variant);
     const wrap = document.getElementById('variantSelectorWrap');
-    if (wrap) {
-        wrap.querySelectorAll('.variant-badge').forEach(b => {
-            b.classList.toggle('is-active', b.getAttribute('data-variant-key') === key);
-        });
-        // সংশ্লিষ্ট গ্রুপের লেবেলে সিলেক্ট করা ভ্যালু দেখানো
-        const attr = (variant.attribute || 'Option').trim() || 'Option';
-        const label = wrap.querySelector(`.variant-selected-value[data-attr-value="${cssEscape(attr)}"]`);
-        if (label) label.innerText = variant.value || '';
-    }
+    if (!wrap) return;
 
-    // 💰 দাম ইনস্ট্যান্ট আপডেট
-    const price = getVariantPrice(variant);
+    wrap.querySelectorAll('.variant-badge').forEach(b => {
+        const badgeAttr = (b.getAttribute('data-variant-attr') || '').trim();
+        if (badgeAttr !== attr) return;
+        b.classList.toggle('is-active', b.getAttribute('data-variant-key') === key);
+    });
+
+    const label = wrap.querySelector(`.variant-selected-value[data-attr-value="${cssEscape(attr)}"]`);
+    if (label) label.innerText = variant.value || '';
+}
+
+function syncMainImageFromColor(colorVariant) {
+    if (!currentProductData || !colorVariant) return;
+
+    const colorKey = String(colorVariant.value || '').trim().toLowerCase();
+    const entry = getColorImageMap(currentProductData)[colorKey];
+    if (!entry) return;
+
+    const mainImg = document.getElementById('mainProductImg');
+    const stickyImg = document.getElementById('stickyBarImg');
+    if (mainImg) mainImg.src = entry.url;
+    if (stickyImg) stickyImg.src = entry.url;
+
+    document.querySelectorAll('.thumb-img').forEach((thumb, index) => {
+        thumb.classList.toggle('active', index === entry.index);
+    });
+}
+
+function syncPriceFromSelection() {
+    const sizeVariant = getSelectedVariantByType('size');
+    const priceSource = sizeVariant || Object.values(selectedVariantsByAttr)[0];
+    const price = priceSource ? getVariantPrice(priceSource) : Number(currentProductData?.price) || 0;
+
     const priceEl = document.getElementById('productPrice');
     const stickyPrice = document.getElementById('stickyBarPrice');
     if (priceEl) priceEl.innerText = `৳ ${price.toLocaleString()}`;
     if (stickyPrice) stickyPrice.innerText = `৳ ${price.toLocaleString()}`;
+}
 
-    // 📦 স্টক স্ট্যাটাস আপডেট ও কোয়ান্টিটি ক্ল্যাম্প
-    const stock = Number(variant.stock) || 0;
+function syncStockFromSelection() {
+    const sizeVariant = getSelectedVariantByType('size');
+    const stockSource = sizeVariant || Object.values(selectedVariantsByAttr)[0];
+    const stock = stockSource
+        ? Number(stockSource.stock) || 0
+        : Number(currentProductData?.stock) || 0;
+
     updateStockStatus(stock);
     clampQuantityToStock(stock);
     setAddToCartEnabled(stock > 0);
+}
 
-    const hint = document.getElementById('variantHint');
-    if (hint) hint.innerText = '';
+/** Select one option within an attribute group — Color syncs image; Size syncs price */
+function selectVariantOption(variant, options = {}) {
+    if (!variant) return;
+
+    const attr = (variant.attribute || 'Option').trim() || 'Option';
+    selectedVariantsByAttr[attr] = variant;
+    updateVariantBadgeUI(attr, variant);
+
+    if (isColorAttribute(attr)) {
+        syncMainImageFromColor(variant);
+    }
+
+    if (isSizeAttribute(attr)) {
+        syncPriceFromSelection();
+        syncStockFromSelection();
+    } else if (!getSelectedVariantByType('size')) {
+        syncPriceFromSelection();
+        syncStockFromSelection();
+    }
+
+    if (!options.skipHint) {
+        const hint = document.getElementById('variantHint');
+        if (hint) hint.innerText = '';
+    }
 }
 
 /** CSS attribute-selector নিরাপদ করার হেল্পার */
@@ -286,10 +408,21 @@ function clampQuantityToStock(stock) {
     qtyInput.value = val;
 }
 
-/** বর্তমানে কার্যকর স্টক (ভ্যারিয়েন্ট থাকলে সেটির, নইলে প্রোডাক্টের) */
+/** বর্তমানে কার্যকর স্টক (Size ভ্যারিয়েন্ট অগ্রাধিকার, নইলে প্রোডাক্টের) */
 function getAvailableStock() {
-    if (selectedVariant) return Number(selectedVariant.stock) || 0;
+    const sizeVariant = getSelectedVariantByType('size');
+    if (sizeVariant) return Number(sizeVariant.stock) || 0;
+    const any = Object.values(selectedVariantsByAttr)[0];
+    if (any) return Number(any.stock) || 0;
     return Number(currentProductData && currentProductData.stock) || 0;
+}
+
+function getEffectivePrice() {
+    const sizeVariant = getSelectedVariantByType('size');
+    if (sizeVariant) return getVariantPrice(sizeVariant);
+    const any = Object.values(selectedVariantsByAttr)[0];
+    if (any) return getVariantPrice(any);
+    return Number(currentProductData?.price) || 0;
 }
 
 // 👈 নতুন ফাংশন: ডাটাবেজ থেকে হাইলাইটস অ্যারে রেন্ডার করার জন্য
@@ -316,27 +449,40 @@ function renderProductImages(product) {
     const stickyImg = document.getElementById('stickyBarImg');
     const gallery = document.getElementById('thumbGallery');
 
-    const mainImageUrl = product.image || 'images/placeholder.jpg';
+    const imagesArray = getProductImages(product);
+    const mainImageUrl = imagesArray[0];
+    const indexToColor = getImageIndexToColorMap(product);
 
     if (mainImg) mainImg.src = mainImageUrl;
     if (stickyImg) stickyImg.src = mainImageUrl;
 
     if (gallery) {
-        gallery.innerHTML = ''; // পুরোনো থাম্বনেইল ক্লিয়ার করা
-        
-        // যদি গ্যালারি ইমেজ অ্যারে থাকে তবে লুপ চলবে, না থাকলে শুধু মেইন ইমেজ দেখাবে
-        const imagesArray = product.images && product.images.length > 0 ? product.images : [mainImageUrl];
-        
+        gallery.innerHTML = '';
+
         imagesArray.forEach((imgUrl, index) => {
             const imgBtn = document.createElement('img');
             imgBtn.src = imgUrl;
             imgBtn.classList.add('thumb-img');
+            imgBtn.dataset.imageIndex = String(index);
+
+            const colorEntry = indexToColor[index];
+            if (colorEntry) {
+                imgBtn.dataset.colorValue = colorEntry.variant.value;
+                imgBtn.title = colorEntry.variant.value;
+            }
+
             if (index === 0) imgBtn.classList.add('active');
 
             imgBtn.addEventListener('click', () => {
+                if (colorEntry) {
+                    selectVariantOption(colorEntry.variant);
+                    return;
+                }
+
                 document.querySelectorAll('.thumb-img').forEach(t => t.classList.remove('active'));
                 imgBtn.classList.add('active');
                 if (mainImg) mainImg.src = imgUrl;
+                if (stickyImg) stickyImg.src = imgUrl;
             });
 
             gallery.appendChild(imgBtn);
@@ -471,7 +617,7 @@ function setupEventListeners() {
         const base = {
             id: prodId,
             name: currentProductData.name,
-            price: Number(currentProductData.price) || 0,
+            price: getEffectivePrice(),
             icon: currentProductData.icon || currentProductData.image || '📦',
             quantity: quantity,
             selected: true,
@@ -481,27 +627,30 @@ function setupEventListeners() {
             variantValue: '',
             variantSku: ''
         };
-        if (selectedVariant) {
-            base.price = getVariantPrice(selectedVariant);
-            base.variantId = getVariantKey(selectedVariant);
-            base.variantAttribute = (selectedVariant.attribute || '').trim();
-            base.variantValue = (selectedVariant.value || '').trim();
-            base.variantSku = (selectedVariant.sku || '').trim();
-            base.variantLabel = base.variantAttribute && base.variantValue
-                ? `${base.variantAttribute}: ${base.variantValue}`
-                : base.variantValue;
+        const selectedList = Object.values(selectedVariantsByAttr);
+        if (selectedList.length > 0) {
+            base.variantId = getCombinedVariantKey();
+            base.variantLabel = getCombinedVariantLabel();
+            base.variantAttribute = selectedList.map(v => v.attribute).filter(Boolean).join(', ');
+            base.variantValue = selectedList.map(v => v.value).filter(Boolean).join(', ');
+            base.variantSku = selectedList.map(v => (v.sku || '').trim()).filter(Boolean).join('|');
         }
         return base;
     };
 
     /** ভ্যারিয়েন্ট থাকা সত্ত্বেও সিলেক্ট না করলে ব্লক করা */
     const ensureVariantSelected = () => {
-        const hasVariants = Array.isArray(currentProductData.variants) &&
-            currentProductData.variants.some(v => v.attribute || v.value);
-        if (hasVariants && !selectedVariant) {
+        const variants = Array.isArray(currentProductData.variants)
+            ? currentProductData.variants.filter(v => v.attribute || v.value)
+            : [];
+        if (variants.length === 0) return true;
+
+        const groups = groupVariantsByAttribute(variants);
+        const missing = groups.filter(g => !selectedVariantsByAttr[g.attribute]);
+        if (missing.length > 0) {
             const hint = document.getElementById('variantHint');
-            if (hint) hint.innerText = 'Please select an available option first.';
-            showToast("Please select a product option first.", "error");
+            if (hint) hint.innerText = 'Please select all options before adding to cart.';
+            showToast("Please select all product options first.", "error");
             return false;
         }
         return true;

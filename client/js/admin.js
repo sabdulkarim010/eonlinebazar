@@ -1498,6 +1498,12 @@ function renderBrandDropdown() {
    PRODUCT VARIATIONS BUILDER (Shopify/Daraz স্টাইল ডাইনামিক ভ্যারিয়েশন)
    ========================================================================== */
 
+/** Color-type attributes do not carry price/stock in this store architecture */
+function isColorVariationAttribute(attr) {
+    const n = String(attr || '').trim().toLowerCase();
+    return n === 'color' || n === 'colour';
+}
+
 /** অ্যাট্রিবিউট নাম ও মানের জন্য শেয়ার্ড datalist তৈরি/রিফ্রেশ করা */
 function ensureVariationDatalists() {
     let nameList = document.getElementById('attrNameList');
@@ -1524,18 +1530,77 @@ function ensureVariationDatalists() {
 /** একটি ভ্যারিয়েশন সারির HTML তৈরি করা */
 function variationRowHtml(mode, data) {
     const d = data || {};
-    const price = (d.price !== undefined && d.price !== null && d.price !== 0) ? d.price : (d.price === 0 ? 0 : '');
-    const stock = (d.stock !== undefined && d.stock !== null) ? d.stock : '';
-    return `<div class="variations-row" data-vrow>
-        <input list="attrNameList" class="v-input v-attr" placeholder="Size" value="${escHtml(d.attribute || '')}">
-        <input list="attrValueList" class="v-input v-value" placeholder="M" value="${escHtml(d.value || '')}">
+    const isColor = isColorVariationAttribute(d.attribute);
+    const price = isColor ? '' : ((d.price !== undefined && d.price !== null && d.price !== 0) ? d.price : (d.price === 0 ? 0 : ''));
+    const stock = isColor ? '' : ((d.stock !== undefined && d.stock !== null) ? d.stock : '');
+    return `<div class="variations-row${isColor ? ' is-color-row' : ''}" data-vrow>
+        <input list="attrNameList" class="v-input v-attr" placeholder="Size" value="${escHtml(d.attribute || '')}" required>
+        <input list="attrValueList" class="v-input v-value" placeholder="M" value="${escHtml(d.value || '')}" required>
         <input class="v-input v-sku" placeholder="SKU-01" value="${escHtml(d.sku || '')}">
-        <input type="number" min="0" class="v-input v-price" placeholder="0" value="${price === '' ? '' : price}">
-        <input type="number" min="0" class="v-input v-stock" placeholder="0" value="${stock === '' ? '' : stock}" oninput="syncVariationStock('${mode}')">
+        <input type="number" min="0" class="v-input v-price" placeholder="0" value="${price === '' ? '' : price}"${isColor ? ' disabled' : ' required'}>
+        <input type="number" min="0" class="v-input v-stock" placeholder="0" value="${stock === '' ? '' : stock}" oninput="syncVariationStock('${mode}')"${isColor ? ' disabled' : ' required'}>
         <button type="button" class="v-remove" title="Remove variation" onclick="removeVariationRow(this, '${mode}')">
             <i class="fa-solid fa-xmark"></i>
         </button>
     </div>`;
+}
+
+/** Attribute selection drives which inputs are editable on a variation row */
+function applyVariationRowAttributeState(row, mode) {
+    if (!row) return;
+
+    const attrInput = row.querySelector('.v-attr');
+    const priceInput = row.querySelector('.v-price');
+    const stockInput = row.querySelector('.v-stock');
+    if (!attrInput) return;
+
+    const isColor = isColorVariationAttribute(attrInput.value);
+    row.classList.toggle('is-color-row', isColor);
+
+    if (priceInput) {
+        if (isColor) {
+            priceInput.value = '';
+            priceInput.disabled = true;
+            priceInput.removeAttribute('required');
+            priceInput.placeholder = '—';
+        } else {
+            priceInput.disabled = false;
+            priceInput.placeholder = '0';
+            priceInput.setAttribute('required', 'required');
+        }
+    }
+
+    if (stockInput) {
+        if (isColor) {
+            stockInput.value = '';
+            stockInput.disabled = true;
+            stockInput.removeAttribute('required');
+            stockInput.placeholder = '—';
+        } else {
+            stockInput.disabled = false;
+            stockInput.placeholder = '0';
+            stockInput.setAttribute('required', 'required');
+        }
+    }
+
+    syncVariationStock(mode);
+}
+
+function bindVariationRowListeners(row, mode) {
+    const attrInput = row.querySelector('.v-attr');
+    if (!attrInput || attrInput.dataset.variationBound === '1') return;
+
+    attrInput.dataset.variationBound = '1';
+    const onAttrChange = () => applyVariationRowAttributeState(row, mode);
+    attrInput.addEventListener('input', onAttrChange);
+    attrInput.addEventListener('change', onAttrChange);
+    onAttrChange();
+}
+
+function bindAllVariationRows(mode) {
+    const body = document.getElementById(mode === 'edit' ? 'editVariationsBody' : 'addVariationsBody');
+    if (!body) return;
+    body.querySelectorAll('[data-vrow]').forEach(row => bindVariationRowListeners(row, mode));
 }
 
 /** নতুন ভ্যারিয়েশন সারি যোগ করা (mode: 'add' | 'edit') */
@@ -1545,8 +1610,9 @@ window.addVariationRow = function(mode, data) {
     const body = document.getElementById(bodyId);
     if (!body) return;
     body.insertAdjacentHTML('beforeend', variationRowHtml(mode, data));
+    const row = body.lastElementChild;
+    if (row) bindVariationRowListeners(row, mode);
     refreshVariationsEmptyState(mode);
-    syncVariationStock(mode);
 };
 
 /** ভ্যারিয়েশন সারি মুছে ফেলা */
@@ -1571,7 +1637,11 @@ window.syncVariationStock = function(mode) {
 
     if (rows.length > 0) {
         let sum = 0;
-        rows.forEach(r => { sum += Number(r.querySelector('.v-stock')?.value) || 0; });
+        rows.forEach(r => {
+            const attr = (r.querySelector('.v-attr')?.value || '').trim();
+            if (isColorVariationAttribute(attr)) return;
+            sum += Number(r.querySelector('.v-stock')?.value) || 0;
+        });
         stockInput.value = sum;
         stockInput.readOnly = true;
         stockInput.classList.add('stock-auto-locked');
@@ -1605,8 +1675,8 @@ function renderVariations(mode, list) {
     if (!body) return;
     ensureVariationDatalists();
     body.innerHTML = (list || []).map(v => variationRowHtml(mode, v)).join('');
+    bindAllVariationRows(mode);
     refreshVariationsEmptyState(mode);
-    syncVariationStock(mode);
 }
 
 /** ফর্ম সাবমিটের সময় ভ্যারিয়েশন ডাটা সংগ্রহ করা */
@@ -1618,8 +1688,9 @@ function collectVariations(mode) {
         const attribute = (r.querySelector('.v-attr')?.value || '').trim();
         const value = (r.querySelector('.v-value')?.value || '').trim();
         const sku = (r.querySelector('.v-sku')?.value || '').trim();
-        const price = Number(r.querySelector('.v-price')?.value) || 0;
-        const stock = Number(r.querySelector('.v-stock')?.value) || 0;
+        const isColor = isColorVariationAttribute(attribute);
+        const price = isColor ? 0 : (Number(r.querySelector('.v-price')?.value) || 0);
+        const stock = isColor ? 0 : (Number(r.querySelector('.v-stock')?.value) || 0);
         if (attribute || value) out.push({ attribute, value, sku, price, stock });
     });
     return out;

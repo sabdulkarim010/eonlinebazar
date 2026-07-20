@@ -1758,6 +1758,12 @@ a {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
+.variations-row.is-color-row .v-price,
+.variations-row.is-color-row .v-stock {
+    opacity: 0.45;
+    background: #f1f5f9;
+    cursor: not-allowed;
+}
 .variations-row .v-remove {
     display: inline-flex;
     align-items: center;
