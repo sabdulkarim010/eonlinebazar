@@ -12,7 +12,68 @@
    ========================================================================== */
 let allProducts = [];
 
+const HOME_BRANDING_DEFAULT_FAVICON = '/images/favicon.png';
+const HOME_LEGACY_BRANDING_PREFIX = '/images/branding/';
+const HOME_PUBLIC_BRANDING_PREFIX = '/uploads/branding/';
+
+function normalizeHomeBrandingPath(url) {
+    if (!url || typeof url !== 'string') return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const withLeadingSlash = url.startsWith('/') ? url : `/${url}`;
+    return withLeadingSlash.replace(
+        new RegExp(`^${HOME_LEGACY_BRANDING_PREFIX}`),
+        HOME_PUBLIC_BRANDING_PREFIX
+    );
+}
+
+function cacheBustHomeBrandingPath(url) {
+    const normalized = normalizeHomeBrandingPath(url);
+    if (!normalized) return '';
+    return `${normalized.split('?')[0]}?v=${Date.now()}`;
+}
+
+/**
+ * Loads active store favicon + header logo for the home page from MongoDB settings.
+ */
+async function initHomeStoreBranding() {
+    const faviconEl = document.getElementById('dynamic-favicon')
+        || document.getElementById('siteFavicon');
+    const logoBox = document.getElementById('home-brand-logo')
+        || document.querySelector('header.amazon-header .logo-box');
+    if (!faviconEl && !logoBox) return;
+
+    try {
+        const res = await fetch('/api/store/branding', { cache: 'no-store' });
+        const json = await res.json();
+        if (!json.success || !json.data) return;
+
+        const settings = json.data;
+        const faviconPath = settings.faviconPath || settings.faviconUrl;
+        const logoPath = settings.logoPath || settings.logoUrl;
+        const storeName = settings.storeName || 'EonlineBazar';
+
+        if (faviconPath && faviconEl) {
+            faviconEl.href = cacheBustHomeBrandingPath(faviconPath);
+            faviconEl.type = faviconPath.endsWith('.ico') ? 'image/x-icon' : 'image/png';
+        }
+
+        if (logoPath && logoBox) {
+            const img = document.createElement('img');
+            img.src = cacheBustHomeBrandingPath(logoPath);
+            img.alt = storeName;
+            img.className = 'store-brand-logo';
+            img.setAttribute('data-store-logo', '');
+            logoBox.innerHTML = '';
+            logoBox.appendChild(img);
+            logoBox.classList.add('has-store-logo');
+        }
+    } catch (err) {
+        console.warn('Home page branding load failed:', err);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    initHomeStoreBranding();
     fetchAndRenderProducts();
 });
 

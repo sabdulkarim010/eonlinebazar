@@ -17,7 +17,6 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <link rel="stylesheet" href="/css/admin.css">
-    <link rel="icon" id="adminFavicon" href="data:," type="image/x-icon">
 
     <script>
     if (!localStorage.getItem('adminToken')) {
@@ -1042,7 +1041,7 @@
                 <div class="settings-grid">
                     <div class="settings-card">
                         <h4 class="settings-card-title"><i class="fa-solid fa-user-shield"></i> Admin Profile</h4>
-                        <form id="adminSettingsForm">
+                        <form id="adminProfileForm" novalidate>
                             <div class="form-group">
                                 <label>Display Name</label>
                                 <input type="text" id="settingsDisplayName" placeholder="Your name shown in sidebar">
@@ -1186,6 +1185,7 @@
 
                     <div class="settings-card settings-card-wide">
                         <h4 class="settings-card-title"><i class="fa-solid fa-image"></i> Store Branding</h4>
+                        <form id="storeBrandingForm" enctype="multipart/form-data" novalidate>
                         <div class="branding-upload-grid">
                             <div class="branding-upload-box">
                                 <label>Store Logo</label>
@@ -1193,7 +1193,7 @@
                                     <img id="settingsLogoPreview" alt="Store logo preview" style="display:none;">
                                     <span id="settingsLogoPlaceholder" class="branding-placeholder"><i class="fa-solid fa-store"></i> No logo uploaded</span>
                                 </div>
-                                <input type="file" id="settingsLogoInput" accept="image/*" hidden>
+                                <input type="file" id="settingsLogoInput" name="logo" accept="image/*" hidden>
                                 <button type="button" class="btn-secondary" onclick="document.getElementById('settingsLogoInput').click()">
                                     <i class="fa-solid fa-upload"></i> Choose Logo
                                 </button>
@@ -1204,7 +1204,7 @@
                                     <img id="settingsFaviconPreview" alt="Favicon preview" style="display:none;">
                                     <span id="settingsFaviconPlaceholder" class="branding-placeholder"><i class="fa-solid fa-star"></i> No favicon</span>
                                 </div>
-                                <input type="file" id="settingsFaviconInput" accept="image/*" hidden>
+                                <input type="file" id="settingsFaviconInput" name="favicon" accept="image/*" hidden>
                                 <button type="button" class="btn-secondary" onclick="document.getElementById('settingsFaviconInput').click()">
                                     <i class="fa-solid fa-upload"></i> Choose Favicon
                                 </button>
@@ -1212,10 +1212,11 @@
                         </div>
                         <p class="branding-hint"><i class="fa-solid fa-circle-info"></i> Pick a logo and/or favicon, preview it, then click <strong>Save Store Branding</strong> to publish it live across the platform.</p>
                         <div class="branding-save-row">
-                            <button type="button" id="saveBrandingBtn" class="btn-submit branding-save-btn">
+                            <button type="submit" id="saveBrandingBtn" class="btn-submit branding-save-btn">
                                 <i class="fa-solid fa-cloud-arrow-up"></i> Save Store Branding
                             </button>
                         </div>
+                        </form>
                     </div>
                 </div>
             </section>

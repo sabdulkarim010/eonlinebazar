@@ -11,6 +11,7 @@
 require('dotenv').config(); 
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const requestIp = require('request-ip');
 const connectDB = require('./config/db');
@@ -28,9 +29,21 @@ const attributeRoutes = require('./routes/attributeRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const financeRoutes = require('./routes/financeRoutes');
 const couponRoutes = require('./routes/couponRoutes');
+const storeRoutes = require('./routes/storeRoutes');
+const storeSettingsMiddleware = require('./middlewares/storeSettingsMiddleware');
+const { applyBrandingToHtml } = require('./utils/brandingHtml');
+const { DEFAULT_SETTINGS } = require('./utils/storeSettingsService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const CLIENT_DIR = path.join(__dirname, 'client');
+
+function sendClientHtml(res, filename) {
+    const absPath = path.join(CLIENT_DIR, filename);
+    const settings = res.locals.settings || DEFAULT_SETTINGS;
+    const html = applyBrandingToHtml(fs.readFileSync(absPath, 'utf8'), settings);
+    res.type('html').send(html);
+}
 
 // ২. ডাটাবেজ কানেক্ট করা
 connectDB();
@@ -43,6 +56,9 @@ app.use(express.json());
 // request-ip: প্রতিটি রিকোয়েস্টে আসল ক্লায়েন্ট IP req.clientIp-তে সেট করে
 // (অ্যাক্টিভ ডিভাইস ও লোকেশন ট্র্যাকিং-এ ব্যবহৃত হয়)
 app.use(requestIp.mw());
+
+// Global store branding/settings from MongoDB — available as res.locals.settings on every request
+app.use(storeSettingsMiddleware);
 
 /********************************************************************
  # .HTML EXTENSION STRIPPER & REDIRECT MIDDLEWARE (🌟 ফিক্স করা হয়েছে)
@@ -68,8 +84,17 @@ app.use((req, res, next) => {
     next();
 });
 
+// Inject dynamic store branding loader for direct .html requests before static fallback
+app.use((req, res, next) => {
+    if (req.method !== 'GET' || !req.path.endsWith('.html')) return next();
+    const filename = req.path.replace(/^\//, '');
+    const absPath = path.join(CLIENT_DIR, filename);
+    if (!fs.existsSync(absPath)) return next();
+    return sendClientHtml(res, filename);
+});
+
 // স্ট্যাটিক ফাইলগুলো সার্ভ করার জন্য 'client' ফোল্ডার লিংক করা
-app.use(express.static(path.join(__dirname, 'client')));
+app.use(express.static(CLIENT_DIR));
 
 // ৪. এপিআই রুটসমূহ যুক্ত করা
 app.use('/api/products', productRoutes);
@@ -84,6 +109,7 @@ app.use('/api/attributes', attributeRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/coupons', couponRoutes);
+app.use('/api/store', storeRoutes);
 
 /********************************************************************
  # FRONTEND UI ROUTES (ক্লিন ইউআরএল লজিক)
@@ -91,91 +117,91 @@ app.use('/api/coupons', couponRoutes);
 
 // হোমপেজ রুট
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'index.html'));
+    sendClientHtml(res, 'index.html');
 });
 
 app.get('/index', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'index.html'));
+    sendClientHtml(res, 'index.html');
 });
 
 // কাস্টমার প্রোফাইল, লগইন ও রেজিস্ট্রেশন রুট
 app.get('/profile', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'profile.html'));
+    sendClientHtml(res, 'profile.html');
 });
 
 app.get('/login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'login.html'));
+    sendClientHtml(res, 'login.html');
 });
 
 app.get('/register', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'register.html'));
+    sendClientHtml(res, 'register.html');
 });
 
 app.get('/forgot-password', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'forgot-password.html'));
+    sendClientHtml(res, 'forgot-password.html');
 });
 
 // অর্ডার ট্র্যাকিং ও শপিং পেজসমূহ
 app.get('/order-track', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'order-track.html'));
+    sendClientHtml(res, 'order-track.html');
 });
 
 // 🟢 নতুন যোগ করা হলো: Order Details পেজের ক্লিন রুট
 app.get('/order-details', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'order-details.html'));
+    sendClientHtml(res, 'order-details.html');
 });
 
 app.get('/product-details', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'product-details.html'));
+    sendClientHtml(res, 'product-details.html');
 });
 
 // 🌟 সার্চ রেজাল্ট পেজের ক্লিন রুট (?q=keyword দিয়ে অ্যাক্সেস)
 app.get('/search', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'search.html'));
+    sendClientHtml(res, 'search.html');
 });
 
 app.get('/cart', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'cart.html'));
+    sendClientHtml(res, 'cart.html');
 });
 
 app.get('/checkout', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'checkout.html'));
+    sendClientHtml(res, 'checkout.html');
 });
 
 app.get('/payment', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'payment.html'));
+    sendClientHtml(res, 'payment.html');
 });
 
 // ইনফরমেশনাল ও লেআউট পেজসমূহ
 app.get('/about', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'about.html'));
+    sendClientHtml(res, 'about.html');
 });
 
 app.get('/contact', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'contact.html'));
+    sendClientHtml(res, 'contact.html');
 });
 
 app.get('/footer', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'footer.html'));
+    sendClientHtml(res, 'footer.html');
 });
 
 // অ্যাডমিন প্যানেল রুটসমূহ
 app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'admin.html'));
+    sendClientHtml(res, 'admin.html');
 });
 
 // Dashboard alias (same panel as /admin)
 app.get('/admin/dashboard', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'admin.html'));
+    sendClientHtml(res, 'admin.html');
 });
 
 app.get('/admin-login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'admin-login.html'));
+    sendClientHtml(res, 'admin-login.html');
 });
 
 // Login alias
 app.get('/admin/login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'admin-login.html'));
+    sendClientHtml(res, 'admin-login.html');
 });
 
 // Full admin logout: clear server-side cookies and cleanly redirect to the
@@ -194,14 +220,14 @@ app.get('/admin/logout', (req, res) => {
 // The client-side script guards access: without a valid handoff token it
 // bounces the visitor back to /admin-login.
 function serveAdminOtpPage(req, res) {
-    res.sendFile(path.join(__dirname, 'client', 'verify-otp.html'));
+    sendClientHtml(res, 'verify-otp.html');
 }
 app.get('/admin/verify-otp', serveAdminOtpPage);
 app.get('/verify-otp', serveAdminOtpPage);
 
 // ফাইন্যান্স ড্যাশবোর্ড লগইন পেজের ক্লিন রুট
 app.get('/finance-login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'finance-login.html'));
+    sendClientHtml(res, 'finance-login.html');
 });
 
 /********************************************************************
@@ -255,7 +281,7 @@ function isValidFinanceToken(token) {
 // ফাইন্যান্স ড্যাশবোর্ড সার্ভ করার হ্যান্ডলার — ক্লায়েন্ট-সাইড টোকেন গেট (অ্যাডমিন প্যানেলের মতো)
 // localStorage-এ adminToken থাকলেও ব্রাউজার নেভিগেশনে কুকি/হেডার যায় না; তাই HTML সরাসরি সerv করা হয়।
 function serveFinanceDashboard(req, res) {
-    res.sendFile(path.join(__dirname, 'client', 'finance-analytics.html'));
+    sendClientHtml(res, 'finance-analytics.html');
 }
 
 // ফাইন্যান্স ও অ্যানালিটিক্স প্যানেলের ক্লিন রুট (সার্ভার-সাইড গার্ডসহ)
@@ -275,7 +301,8 @@ app.use((req, res) => {
         return res.status(404).json({ success: false, message: "API endpoint not found!" });
     }
     // নরমাল পেজ ভুল হলে হোমপেজে বা আপনার কাস্টম ৪০৪ পেজে রিডাইরেক্ট করবে
-    res.status(404).sendFile(path.join(__dirname, 'client', 'index.html')); 
+    res.status(404);
+    sendClientHtml(res, 'index.html'); 
 });
 
 // ৫. সার্ভার স্টার্ট করা

@@ -97,6 +97,39 @@ header {
     color: var(--amazon-gold);
 }
 
+/* Global uploaded store logo (Admin → Store Branding) */
+.store-brand-logo,
+img[data-store-logo] {
+    display: block;
+    max-height: 42px;
+    max-width: 180px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+.logo-box.has-store-logo,
+.logo-box .store-brand-logo {
+    max-height: 38px;
+}
+
+.header-brand-logo.has-store-logo,
+.header-brand-logo .store-brand-logo {
+    max-height: 28px;
+    max-width: 140px;
+}
+
+.brand-logo-text.has-store-logo,
+.header-right-brand.has-store-logo {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.nav-logo.has-store-logo .store-brand-logo {
+    max-height: 32px;
+}
+
 .menu-toggle {
     display: none; /* ডেস্কটপে মোবাইল মেনু বাটন হাইд থাকবে */
     color: var(--white);

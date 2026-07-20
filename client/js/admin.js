@@ -3345,27 +3345,99 @@ function applyAdminSettingsToUI(settings) {
     const sidebarName = document.querySelector('.admin-profile .info h4');
     if (sidebarName && settings.displayName) sidebarName.textContent = settings.displayName;
 
-    const logoImg = document.getElementById('settingsLogoPreview');
-    const logoPh = document.getElementById('settingsLogoPlaceholder');
-    const sidebarLogo = document.getElementById('sidebarStoreLogo');
-    const sidebarIcon = document.getElementById('sidebarStoreIcon');
-    if (settings.logoUrl) {
-        if (logoImg) { logoImg.src = settings.logoUrl; logoImg.style.display = 'block'; }
-        if (logoPh) logoPh.style.display = 'none';
-        if (sidebarLogo) { sidebarLogo.src = settings.logoUrl; sidebarLogo.style.display = 'block'; }
-        if (sidebarIcon) sidebarIcon.style.display = 'none';
-    }
-
-    const favImg = document.getElementById('settingsFaviconPreview');
-    const favPh = document.getElementById('settingsFaviconPlaceholder');
-    const faviconLink = document.getElementById('adminFavicon');
-    if (settings.faviconUrl) {
-        if (favImg) { favImg.src = settings.faviconUrl; favImg.style.display = 'block'; }
-        if (favPh) favPh.style.display = 'none';
-        if (faviconLink) faviconLink.href = settings.faviconUrl;
-    }
-
+    applyBrandingPreviewFromSettings(settings);
     startLiveClock();
+}
+
+const brandingPreviewObjectUrls = { logo: null, favicon: null };
+
+function normalizeBrandingUrl(url) {
+    if (!url) return '';
+    if (url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) {
+        return url;
+    }
+    return url.replace(/^\/images\/branding\//, '/uploads/branding/');
+}
+
+function cacheBustBrandingUrl(url) {
+    const resolved = normalizeBrandingUrl(url);
+    if (!resolved || resolved.startsWith('blob:') || resolved.startsWith('data:')) return resolved;
+    return resolved.includes('?') ? `${resolved}&t=${Date.now()}` : `${resolved}?t=${Date.now()}`;
+}
+
+function revokeBrandingObjectUrl(assetType) {
+    if (brandingPreviewObjectUrls[assetType]) {
+        URL.revokeObjectURL(brandingPreviewObjectUrls[assetType]);
+        brandingPreviewObjectUrls[assetType] = null;
+    }
+}
+
+function setBrandingPreviewImage(assetType, url) {
+    const isLogo = assetType === 'logo';
+    const img = document.getElementById(isLogo ? 'settingsLogoPreview' : 'settingsFaviconPreview');
+    const ph = document.getElementById(isLogo ? 'settingsLogoPlaceholder' : 'settingsFaviconPlaceholder');
+    if (!img) return;
+
+    if (!url) {
+        img.removeAttribute('src');
+        img.style.display = 'none';
+        if (ph) ph.style.display = 'flex';
+        return;
+    }
+
+    const resolved = (url.startsWith('blob:') || url.startsWith('data:'))
+        ? url
+        : cacheBustBrandingUrl(url);
+
+    img.onerror = () => {
+        img.style.display = 'none';
+        if (ph) ph.style.display = 'flex';
+    };
+    img.onload = () => {
+        img.style.display = 'block';
+        if (ph) ph.style.display = 'none';
+    };
+    img.src = resolved;
+}
+
+function updateSiteFaviconLink(url) {
+    const href = cacheBustBrandingUrl(url || '/images/favicon.png');
+    let faviconLink = document.getElementById('adminFavicon')
+        || document.getElementById('siteFavicon')
+        || document.querySelector('link[rel="icon"], link[rel="shortcut icon"]');
+
+    if (!faviconLink) {
+        faviconLink = document.createElement('link');
+        faviconLink.id = 'adminFavicon';
+        faviconLink.rel = 'icon';
+        document.head.appendChild(faviconLink);
+    }
+
+    faviconLink.href = href;
+    faviconLink.type = href.endsWith('.ico') ? 'image/x-icon' : 'image/png';
+}
+
+function applyBrandingPreviewFromSettings(settings) {
+    if (settings.logoUrl) {
+        setBrandingPreviewImage('logo', settings.logoUrl);
+        const sidebarLogo = document.getElementById('sidebarStoreLogo');
+        const sidebarIcon = document.getElementById('sidebarStoreIcon');
+        const bust = cacheBustBrandingUrl(settings.logoUrl);
+        if (sidebarLogo) {
+            sidebarLogo.src = bust;
+            sidebarLogo.style.display = 'block';
+        }
+        if (sidebarIcon) sidebarIcon.style.display = 'none';
+    } else {
+        setBrandingPreviewImage('logo', null);
+    }
+
+    if (settings.faviconUrl) {
+        setBrandingPreviewImage('favicon', settings.faviconUrl);
+        updateSiteFaviconLink(settings.faviconUrl);
+    } else {
+        setBrandingPreviewImage('favicon', null);
+    }
 }
 
 async function fetchAdminSettings() {
@@ -3382,6 +3454,18 @@ async function fetchAdminSettings() {
     if (typeof window.refreshTwoFactorSettings === 'function') window.refreshTwoFactorSettings();
 }
 
+async function saveAdminProfile(payload) {
+    const res = await fetch('/api/admin/profile', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+    });
+    return res.json();
+}
+
 async function saveAdminSettings(payload) {
     const res = await fetch('/api/admin/settings', {
         method: 'PUT',
@@ -3394,17 +3478,82 @@ async function saveAdminSettings(payload) {
     return res.json();
 }
 
-async function uploadStoreBrandingAsset(file, assetType) {
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('assetType', assetType);
+async function saveStoreBrandingForm(form) {
+    const formData = new FormData(form);
+    const logoFile = formData.get('logo');
+    const faviconFile = formData.get('favicon');
+    const hasLogo = logoFile instanceof File && logoFile.size > 0;
+    const hasFavicon = faviconFile instanceof File && faviconFile.size > 0;
 
-    const res = await fetch('/api/admin/upload-branding', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-    });
-    return res.json();
+    if (!hasLogo && !hasFavicon) {
+        showToast('Please choose a logo or favicon before saving.', 'warning');
+        return;
+    }
+
+    const saveBtn = form.querySelector('button[type="submit"]');
+    const restore = setButtonLoading(saveBtn, 'Saving...');
+
+    try {
+        const res = await fetch('/api/admin/upload-branding', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+        });
+
+        let result;
+        try {
+            result = await res.json();
+        } catch (parseErr) {
+            throw new Error('Invalid server response.');
+        }
+
+        if (result.success) {
+            showToast('Success: Store Branding updated successfully!', 'success');
+            if (result.logoUrl) applyBrandingAsset('logo', result.logoUrl);
+            if (result.faviconUrl) applyBrandingAsset('favicon', result.faviconUrl);
+            window.__STORE_SETTINGS__ = {
+                ...(window.__STORE_SETTINGS__ || {}),
+                storeName: document.getElementById('settingsStoreName')?.value?.trim() || window.__STORE_SETTINGS__?.storeName || 'EonlineBazar',
+                logoPath: result.logoUrl || window.__STORE_SETTINGS__?.logoPath || '',
+                faviconPath: result.faviconUrl || window.__STORE_SETTINGS__?.faviconPath || '/images/favicon.png',
+                logoUrl: result.logoUrl || window.__STORE_SETTINGS__?.logoUrl || '',
+                faviconUrl: result.faviconUrl || window.__STORE_SETTINGS__?.faviconUrl || '/images/favicon.png',
+                v: Date.now()
+            };
+            if (typeof window.refreshStoreBranding === 'function') window.refreshStoreBranding();
+            form.reset();
+        } else {
+            showToast(`Error: ${result.message || 'Failed to upload store branding.'}`, 'error');
+            fetchAdminSettings();
+        }
+    } catch (err) {
+        console.error('Store branding upload error:', err);
+        showToast('Error: Could not reach the server. Please try again.', 'error');
+        fetchAdminSettings();
+    } finally {
+        restore();
+    }
+}
+window.saveStoreBranding = () => {
+    const form = document.getElementById('storeBrandingForm');
+    if (form) saveStoreBrandingForm(form);
+};
+
+/**
+ * Handles a logo/favicon file selection: validates it and shows an instant local preview.
+ */
+function previewBrandingFile(input, assetType, label) {
+    const file = input.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        showToast(`Error: Please choose a valid image file for the ${label}.`, 'error');
+        input.value = '';
+        return;
+    }
+
+    showLocalBrandingPreview(assetType, file);
+    showToast(`${label} ready — click "Save Store Branding" to publish it.`, 'info');
 }
 
 /**
@@ -3430,30 +3579,20 @@ function setButtonLoading(btn, loadingText = 'Saving...') {
  */
 function applyBrandingAsset(assetType, url) {
     if (!url) return;
-    const bust = url.includes('?') ? `${url}&t=${Date.now()}` : `${url}?t=${Date.now()}`;
 
     if (assetType === 'logo') {
-        const logoImg = document.getElementById('settingsLogoPreview');
-        const logoPh = document.getElementById('settingsLogoPlaceholder');
+        setBrandingPreviewImage('logo', url);
         const sidebarLogo = document.getElementById('sidebarStoreLogo');
         const sidebarIcon = document.getElementById('sidebarStoreIcon');
-        if (logoImg) { logoImg.src = bust; logoImg.style.display = 'block'; }
-        if (logoPh) logoPh.style.display = 'none';
-        if (sidebarLogo) { sidebarLogo.src = bust; sidebarLogo.style.display = 'block'; }
+        const bust = cacheBustBrandingUrl(url);
+        if (sidebarLogo) {
+            sidebarLogo.src = bust;
+            sidebarLogo.style.display = 'block';
+        }
         if (sidebarIcon) sidebarIcon.style.display = 'none';
     } else if (assetType === 'favicon') {
-        const favImg = document.getElementById('settingsFaviconPreview');
-        const favPh = document.getElementById('settingsFaviconPlaceholder');
-        let faviconLink = document.getElementById('adminFavicon');
-        if (favImg) { favImg.src = bust; favImg.style.display = 'block'; }
-        if (favPh) favPh.style.display = 'none';
-        // Re-create the <link rel="icon"> so browsers reliably repaint the tab icon
-        if (faviconLink) faviconLink.remove();
-        faviconLink = document.createElement('link');
-        faviconLink.id = 'adminFavicon';
-        faviconLink.rel = 'icon';
-        faviconLink.href = bust;
-        document.head.appendChild(faviconLink);
+        setBrandingPreviewImage('favicon', url);
+        updateSiteFaviconLink(url);
     }
 }
 
@@ -3461,129 +3600,40 @@ function applyBrandingAsset(assetType, url) {
  * ফাইল সিলেক্ট করার সঙ্গে সঙ্গে লোকাল প্রিভিউ দেখায় (আপলোডের আগেই)
  */
 function showLocalBrandingPreview(assetType, file) {
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-        if (assetType === 'logo') {
-            const logoImg = document.getElementById('settingsLogoPreview');
-            const logoPh = document.getElementById('settingsLogoPlaceholder');
-            if (logoImg) { logoImg.src = ev.target.result; logoImg.style.display = 'block'; }
-            if (logoPh) logoPh.style.display = 'none';
-        } else {
-            const favImg = document.getElementById('settingsFaviconPreview');
-            const favPh = document.getElementById('settingsFaviconPlaceholder');
-            if (favImg) { favImg.src = ev.target.result; favImg.style.display = 'block'; }
-            if (favPh) favPh.style.display = 'none';
-        }
-    };
-    reader.readAsDataURL(file);
+    revokeBrandingObjectUrl(assetType);
+    const objectUrl = URL.createObjectURL(file);
+    brandingPreviewObjectUrls[assetType] = objectUrl;
+    setBrandingPreviewImage(assetType, objectUrl);
 }
-
-// Staged (chosen but not-yet-saved) branding assets. Files are held here after
-// the admin picks them and are only uploaded when "Save Store Branding" is clicked.
-const pendingBrandingFiles = { logo: null, favicon: null };
-
-/**
- * Handles a logo/favicon file selection: validates it, shows an instant local
- * preview, and stages the file for the unified "Save Store Branding" action.
- * NOTE: this no longer uploads on selection — uploading happens on Save.
- */
-function stageBrandingFile(input, assetType, label) {
-    const file = input.files[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-        showToast(`Error: Please choose a valid image file for the ${label}.`, 'error');
-        input.value = '';
-        return;
-    }
-
-    pendingBrandingFiles[assetType] = file;
-    showLocalBrandingPreview(assetType, file);
-    reflectPendingBrandingState();
-    showToast(`${label} ready — click "Save Store Branding" to publish it.`, 'info');
-}
-
-/** Visually highlights the Save button while there are unsaved branding changes. */
-function reflectPendingBrandingState() {
-    const btn = document.getElementById('saveBrandingBtn');
-    if (!btn) return;
-    const hasPending = !!(pendingBrandingFiles.logo || pendingBrandingFiles.favicon);
-    btn.classList.toggle('has-pending', hasPending);
-}
-
-/**
- * Uploads every staged branding asset via multipart/form-data, saves it
- * permanently on the server, and applies the new logo/favicon live across the
- * layout (header logo + browser tab icon) with no page reload required.
- */
-async function saveStoreBranding() {
-    const tasks = [];
-    if (pendingBrandingFiles.logo) tasks.push({ assetType: 'logo', label: 'Store logo', file: pendingBrandingFiles.logo });
-    if (pendingBrandingFiles.favicon) tasks.push({ assetType: 'favicon', label: 'Favicon', file: pendingBrandingFiles.favicon });
-
-    if (tasks.length === 0) {
-        showToast('Please choose a logo or favicon before saving.', 'warning');
-        return;
-    }
-
-    const saveBtn = document.getElementById('saveBrandingBtn');
-    const restore = setButtonLoading(saveBtn, 'Saving...');
-
-    const saved = [];
-    const failed = [];
-    try {
-        for (const task of tasks) {
-            try {
-                const result = await uploadStoreBrandingAsset(task.file, task.assetType);
-                if (result.success) {
-                    applyBrandingAsset(task.assetType, result.url);
-                    pendingBrandingFiles[task.assetType] = null;
-                    saved.push(task.label);
-                } else {
-                    failed.push(`${task.label}: ${result.message || 'upload failed'}`);
-                }
-            } catch (err) {
-                console.error(`${task.label} upload error:`, err);
-                failed.push(`${task.label}: network error`);
-            }
-        }
-
-        if (saved.length) {
-            showToast(`Success: ${saved.join(' & ')} saved and applied live!`, 'success');
-        }
-        if (failed.length) {
-            showToast(`Error: ${failed.join(' | ')}.`, 'error');
-            // Roll the failed previews back to the persisted branding
-            fetchAdminSettings();
-        }
-    } finally {
-        restore();
-        reflectPendingBrandingState();
-    }
-}
-window.saveStoreBranding = saveStoreBranding;
 
 function setupAdminSettingsForms() {
-    const profileForm = document.getElementById('adminSettingsForm');
+    const profileForm = document.getElementById('adminProfileForm');
     if (profileForm) {
         profileForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            const displayName = document.getElementById('settingsDisplayName')?.value?.trim();
+            const username = document.getElementById('settingsUsername')?.value?.trim();
             const currentPassword = document.getElementById('settingsCurrentPassword')?.value;
-            if (!currentPassword) return showToast('Error: Current password is required to save changes.', 'warning');
+            const newPassword = document.getElementById('settingsNewPassword')?.value;
+
+            if (!currentPassword) {
+                return showToast('Error: Current password is required to save changes.', 'warning');
+            }
 
             const submitBtn = profileForm.querySelector('button[type="submit"]');
             const restore = setButtonLoading(submitBtn, 'Saving...');
             try {
-                const result = await saveAdminSettings({
+                const result = await saveAdminProfile({
+                    displayName,
+                    username,
                     currentPassword,
-                    username: document.getElementById('settingsUsername')?.value?.trim(),
-                    newPassword: document.getElementById('settingsNewPassword')?.value || undefined,
-                    displayName: document.getElementById('settingsDisplayName')?.value?.trim()
+                    ...(newPassword ? { newPassword } : {})
                 });
 
                 if (result.success) {
-                    showToast('Success: Admin profile updated successfully!', 'success');
-                    applyAdminSettingsToUI(result.data);
+                    showToast('Success: Admin Profile updated successfully!', 'success');
+                    if (result.data) applyAdminSettingsToUI(result.data);
                     document.getElementById('settingsCurrentPassword').value = '';
                     document.getElementById('settingsNewPassword').value = '';
                 } else {
@@ -3632,19 +3682,22 @@ function setupAdminSettingsForms() {
         });
     }
 
+    const brandingForm = document.getElementById('storeBrandingForm');
+    if (brandingForm) {
+        brandingForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await saveStoreBrandingForm(brandingForm);
+        });
+    }
+
     const logoInput = document.getElementById('settingsLogoInput');
     if (logoInput) {
-        logoInput.addEventListener('change', () => stageBrandingFile(logoInput, 'logo', 'Store logo'));
+        logoInput.addEventListener('change', () => previewBrandingFile(logoInput, 'logo', 'Store logo'));
     }
 
     const favInput = document.getElementById('settingsFaviconInput');
     if (favInput) {
-        favInput.addEventListener('change', () => stageBrandingFile(favInput, 'favicon', 'Favicon'));
-    }
-
-    const saveBrandingBtn = document.getElementById('saveBrandingBtn');
-    if (saveBrandingBtn) {
-        saveBrandingBtn.addEventListener('click', saveStoreBranding);
+        favInput.addEventListener('change', () => previewBrandingFile(favInput, 'favicon', 'Favicon'));
     }
 }
 

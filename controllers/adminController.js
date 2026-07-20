@@ -11,8 +11,14 @@ const User = require('../models/user');
 const Admin = require('../models/admin'); 
 const Order = require('../models/order');
 const SecurityLog = require('../models/securityLog');
-const { cloudinary } = require('../middlewares/uploadMiddleware'); 
+const cloudinary = require('cloudinary').v2;
 const jwt = require('jsonwebtoken');
+const {
+    brandingPublicPath,
+    deleteLocalBrandingAsset,
+    normalizeBrandingPublicUrl
+} = require('../utils/brandingPaths');
+const { clearStoreSettingsCache } = require('../utils/storeSettingsService');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 
 // ==============================================================
@@ -347,10 +353,82 @@ const getAdminSettings = async (req, res) => {
         if (!admin) {
             return res.status(404).json({ success: false, message: 'Admin not found.' });
         }
+        admin.logoUrl = normalizeBrandingPublicUrl(admin.logoUrl);
+        admin.faviconUrl = normalizeBrandingPublicUrl(admin.faviconUrl);
         res.status(200).json({ success: true, data: admin });
     } catch (error) {
         console.error('Get Admin Settings Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load settings.' });
+    }
+};
+
+// ==============================================================
+// ১১.১. অ্যাডমিন প্রোফাইল আপডেট (ডিসপ্লে নেম, ইউজারনেম, পাসওয়ার্ড)
+// ==============================================================
+const updateAdminProfile = async (req, res) => {
+    try {
+        const { currentPassword, username, newPassword, displayName } = req.body;
+
+        if (!currentPassword) {
+            return res.status(400).json({ success: false, message: 'Current password is required.' });
+        }
+
+        const admin = await Admin.findOne({ username: req.admin?.username || 'admin' });
+        if (!admin) {
+            return res.status(404).json({ success: false, message: 'Admin not found.' });
+        }
+
+        if (admin.password !== currentPassword) {
+            await logSecurityEvent({
+                action: 'Admin Profile Update Failed',
+                actor: admin.username,
+                actorType: 'admin',
+                ipAddress: getClientIp(req),
+                details: 'Incorrect current password'
+            });
+            return res.status(401).json({ success: false, message: 'Current password is incorrect.' });
+        }
+
+        if (username && username !== admin.username) {
+            const exists = await Admin.findOne({ username, _id: { $ne: admin._id } });
+            if (exists) {
+                return res.status(400).json({ success: false, message: 'Username already taken.' });
+            }
+            admin.username = String(username).trim();
+        }
+
+        if (newPassword) {
+            if (String(newPassword).length < 6) {
+                return res.status(400).json({ success: false, message: 'New password must be at least 6 characters.' });
+            }
+            admin.password = String(newPassword);
+        }
+
+        if (displayName !== undefined) {
+            admin.displayName = String(displayName).trim();
+        }
+
+        await admin.save();
+
+        await logSecurityEvent({
+            action: 'Admin Profile Updated',
+            actor: admin.username,
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: 'Display name, username, or password changed'
+        });
+
+        const safe = admin.toObject();
+        delete safe.password;
+
+        res.status(200).json({
+            success: true,
+            message: 'Admin profile updated successfully.',
+            data: safe
+        });
+    } catch (error) {
+        console.error('Update Admin Profile Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update admin profile.' });
     }
 };
 
@@ -428,17 +506,31 @@ const updateAdminSettings = async (req, res) => {
     }
 };
 
+async function deleteCloudinaryBrandingAsset(oldUrl) {
+    if (!oldUrl || !oldUrl.includes('cloudinary.com')) return;
+    try {
+        const urlParts = oldUrl.split('/');
+        const filename = urlParts[urlParts.length - 1].split('.')[0];
+        const folder = urlParts[urlParts.length - 2];
+        await cloudinary.uploader.destroy(`${folder}/${filename}`);
+    } catch (cloudErr) {
+        console.error('Old branding asset delete error:', cloudErr);
+    }
+}
+
 // ==============================================================
-// ১৩. স্টোর লোগো / ফ্যাভিকন আপলোড
+// ১৩. স্টোর লোগো / ফ্যাভিকন আপলোড (local public directory)
 // ==============================================================
 const uploadStoreBranding = async (req, res) => {
     try {
-        const assetType = req.body.assetType || req.query.assetType;
-        if (!['logo', 'favicon'].includes(assetType)) {
-            return res.status(400).json({ success: false, message: 'assetType must be logo or favicon.' });
-        }
-        if (!req.file) {
-            return res.status(400).json({ success: false, message: 'No image file provided.' });
+        const logoFile = req.files?.logo?.[0];
+        const faviconFile = req.files?.favicon?.[0];
+
+        if (!logoFile && !faviconFile) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please choose a logo or favicon to upload.'
+            });
         }
 
         const admin = await Admin.findOne({ username: req.admin?.username || 'admin' });
@@ -446,54 +538,43 @@ const uploadStoreBranding = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Admin not found.' });
         }
 
-        const field = assetType === 'logo' ? 'logoUrl' : 'faviconUrl';
-        const oldUrl = admin[field];
+        const response = { success: true, message: 'Store branding updated successfully.' };
 
-        if (oldUrl && oldUrl.includes('cloudinary.com')) {
-            try {
-                const urlParts = oldUrl.split('/');
-                const filename = urlParts[urlParts.length - 1].split('.')[0];
-                const folder = urlParts[urlParts.length - 2];
-                await cloudinary.uploader.destroy(`${folder}/${filename}`);
-            } catch (cloudErr) {
-                console.error('Old branding asset delete error:', cloudErr);
+        if (logoFile) {
+            const newLogoUrl = brandingPublicPath(logoFile.filename);
+            if (admin.logoUrl && normalizeBrandingPublicUrl(admin.logoUrl) !== newLogoUrl) {
+                await deleteCloudinaryBrandingAsset(admin.logoUrl);
+                deleteLocalBrandingAsset(admin.logoUrl);
             }
+            admin.logoUrl = newLogoUrl;
+            response.logoUrl = admin.logoUrl;
         }
 
-        const stream = cloudinary.uploader.upload_stream(
-            {
-                folder: 'EonlineBazar_Branding',
-                public_id: assetType === 'logo' ? 'store_logo' : 'store_favicon',
-                overwrite: true,
-                invalidate: true,
-                resource_type: 'image'
-            },
-            async (error, result) => {
-                if (error) {
-                    return res.status(500).json({ success: false, message: 'Image upload failed.' });
-                }
-
-                admin[field] = result.secure_url;
-                await admin.save();
-
-                await logSecurityEvent({
-                    action: `Store ${assetType === 'logo' ? 'Logo' : 'Favicon'} Updated`,
-                    actor: admin.username,
-                    actorType: 'admin',
-                    ipAddress: getClientIp(req),
-                    details: `${assetType} uploaded to Cloudinary`
-                });
-
-                res.status(200).json({
-                    success: true,
-                    message: `${assetType === 'logo' ? 'Logo' : 'Favicon'} updated successfully.`,
-                    url: result.secure_url,
-                    assetType
-                });
+        if (faviconFile) {
+            const newFaviconUrl = brandingPublicPath(faviconFile.filename);
+            if (admin.faviconUrl && normalizeBrandingPublicUrl(admin.faviconUrl) !== newFaviconUrl) {
+                await deleteCloudinaryBrandingAsset(admin.faviconUrl);
+                deleteLocalBrandingAsset(admin.faviconUrl);
             }
-        );
+            admin.faviconUrl = newFaviconUrl;
+            response.faviconUrl = admin.faviconUrl;
+        }
 
-        stream.end(req.file.buffer);
+        await admin.save();
+        clearStoreSettingsCache();
+
+        await logSecurityEvent({
+            action: 'Store Branding Updated',
+            actor: admin.username,
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: [
+                logoFile ? 'logo uploaded' : null,
+                faviconFile ? 'favicon uploaded' : null
+            ].filter(Boolean).join(', ')
+        });
+
+        res.status(200).json(response);
     } catch (error) {
         console.error('Upload Store Branding Error:', error);
         res.status(500).json({ success: false, message: 'Server error during upload.' });
@@ -514,6 +595,7 @@ module.exports = {
     getSecurityLogs,
     verifyAdminToken,
     getAdminSettings,
+    updateAdminProfile,
     updateAdminSettings,
     uploadStoreBranding
 };

@@ -13,6 +13,7 @@ const adminController = require('../controllers/adminController');
 const adminSecurityController = require('../controllers/adminSecurityController');
 const twoFactorController = require('../controllers/twoFactorController');
 const upload = require('../middlewares/uploadMiddleware');
+const { brandingUpload } = upload;
 const { verifyAdmin } = require('../middlewares/authMiddleware');
 const { checkBlacklist, adminLoginLimiter } = require('../middlewares/adminSecurity');
 const { geoFence } = require('../middlewares/geoFencing');
@@ -66,13 +67,22 @@ router.get('/logs', verifyAdmin, adminController.getSecurityLogs);
 router.get('/settings', verifyAdmin, adminController.getAdminSettings);
 router.put('/settings', verifyAdmin, adminController.updateAdminSettings);
 
-// ৬. স্টোর লোগো / ফ্যাভিকন আপলোড (POST)
-router.post('/upload-branding', verifyAdmin, upload.single('image'), adminController.uploadStoreBranding);
+// ৬. স্টোর লোগো / ফ্যাভিকন আপলোড (POST — multipart logo + favicon)
+router.post(
+    '/upload-branding',
+    verifyAdmin,
+    brandingUpload.fields([
+        { name: 'logo', maxCount: 1 },
+        { name: 'favicon', maxCount: 1 }
+    ]),
+    adminController.uploadStoreBranding
+);
 
 // ৭. প্রোফাইল পিকচার আপলোড করার রাস্তা (POST)
 router.post('/update-profile-pic', verifyAdmin, upload.single('profilePic'), adminController.updateProfilePic);
 
-// ৮. পেজ রিফ্রেশ করলে ডাটাবেজ থেকে প্রোফাইল ছবি তুলে আনার রাস্তা (GET)
+// ৮. অ্যাডমিন প্রোফাইল (GET ছবি / PUT প্রোফাইল ডিটেইলস)
 router.get('/profile', verifyAdmin, adminController.getAdminProfile);
+router.put('/profile', verifyAdmin, adminController.updateAdminProfile);
 
 module.exports = router;
