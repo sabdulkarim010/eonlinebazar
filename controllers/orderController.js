@@ -17,7 +17,17 @@ const {
     redeemCoupon,
     recordCouponUserUse,
     releaseCouponSlot
-} = require('./couponController'); 
+} = require('./couponController');
+const {
+    getDeliverySettings,
+    resolveDistrictLabel,
+    resolveDeliveryZone,
+    toShippingLocationLabel,
+    computeDeliveryCharge,
+    buildLockedOrderTotals,
+    roundMoney,
+    isValidDistrict
+} = require('../utils/deliveryChargeService'); 
 
 /**
  * 🌟 হেল্পার: একটি অর্ডার-আইটেমের ভ্যারিয়েন্ট প্রোডাক্টের variants অ্যারের কোন
@@ -53,13 +63,48 @@ function findVariantIndex(product, item) {
     return -1;
 }
 
+/** Verified selling price from catalog — never trust client item.price. */
+function resolveSellingPrice(product, item) {
+    if (!product) return NaN;
+
+    const vIdx = findVariantIndex(product, item);
+    if (vIdx > -1) {
+        const variantPrice = Number(product.variants[vIdx].price);
+        if (Number.isFinite(variantPrice) && variantPrice >= 0) return variantPrice;
+    }
+
+    return Number(product.price);
+}
+
+function buildLockedPricingPayload({
+    subTotal,
+    discountAmount,
+    deliveryCharge,
+    merchandisePayable,
+    grandTotal,
+    shippingDistrict,
+    shippingLocationType,
+    deliveryLocationType
+}) {
+    return {
+        subTotal: roundMoney(subTotal),
+        discountAmount: roundMoney(discountAmount),
+        deliveryCharge: roundMoney(deliveryCharge),
+        merchandisePayable: roundMoney(merchandisePayable),
+        grandTotal: roundMoney(grandTotal),
+        totalAmount: roundMoney(grandTotal),
+        shippingDistrict,
+        shippingLocationType,
+        deliveryLocationType
+    };
+}
+
 // ১. নতুন অর্ডার তৈরি করা এবং স্টক কমানো
 const createOrder = async (req, res) => {
     try {
         const customerName = req.body.customerName || req.body.name;
         const customerPhone = req.body.customerPhone || req.body.phone;
         const customerAddress = req.body.customerAddress || req.body.shippingAddress || req.body.address;
-        let totalAmount = Number(req.body.totalAmount || req.body.total || req.body.totalPrice) || 0;
         const items = req.body.items || req.body.orderItems || req.body.cart || [];
         const note = req.body.note || req.body.notes || '';
         const couponCode = String(req.body.couponCode || req.body.coupon || '').trim().toUpperCase();
@@ -72,54 +117,84 @@ const createOrder = async (req, res) => {
             return res.status(400).json({ success: false, message: "অনুগ্রহ করে নাম, phone নম্বর এবং সম্পূর্ণ ঠিকানা প্রদান করুন।" });
         }
 
-        const userId = req.user ? req.user.id : (req.body.userId || null);
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ success: false, message: 'Your order must include at least one item.' });
+        }
 
-        // 🌟 প্রতিটি আইটেমে প্রোডাক্টের ক্রয়মূল্য (buyingPrice) স্ন্যাপশট হিসেবে যুক্ত করা।
+        const userId = req.user ? req.user.id : (req.body.userId || null);
+        const shippingDistrict = resolveDistrictLabel(
+            req.body.shippingDistrict || req.body.customerDistrict || req.body.district
+        );
+
+        if (!shippingDistrict || !isValidDistrict(shippingDistrict)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please select a valid shipping district.'
+            });
+        }
+
+        // Never trust client-supplied totals or line prices — verified below from DB catalog + Settings.
+        // 🌟 প্রতিটি আইটেমে প্রোডাক্টের বিক্রয় ও ক্রয়মূল্য (buyingPrice) স্ন্যাপশট হিসেবে যুক্ত করা।
         // ভবিষ্যতে প্রোডাক্টের দাম বদলালেও এই অর্ডারের প্রফিট/লস নির্ভুল থাকবে।
-        let normalizedItems = Array.isArray(items) ? items : [];
+        let normalizedItems = [];
         let totalBuyingPrice = 0;
         let subtotal = 0;
 
-        if (normalizedItems.length > 0) {
-            normalizedItems = await Promise.all(normalizedItems.map(async (rawItem) => {
-                const item = { ...rawItem };
-                const targetId = item.id || item.productId || item._id;
-                const quantity = Number(item.quantity) || 1;
-                const linePrice = Number(item.price) || 0;
-                subtotal += linePrice * quantity;
+        for (const rawItem of items) {
+            const item = { ...rawItem };
+            const targetId = item.id || item.productId || item._id;
+            const quantity = Math.max(1, Number(item.quantity) || 1);
 
-                // আইটেমে সরাসরি buyingPrice না থাকলে প্রোডাক্ট ক্যাটালগ থেকে আনা
-                let buyingPrice = Number(item.buyingPrice);
-                if (!Number.isFinite(buyingPrice) || buyingPrice <= 0) {
-                    if (targetId) {
-                        let query = mongoose.Types.ObjectId.isValid(targetId)
-                            ? { $or: [{ _id: targetId }, { productId: targetId }] }
-                            : { productId: targetId };
-                        try {
-                            const prod = await Product.findOne(query).select('buyingPrice variants');
-                            if (prod) {
-                                // 🌟 ভ্যারিয়েন্ট অর্ডার হলে আগে ঐ ভ্যারিয়েন্টের ক্রয়মূল্য দেখা হয়
-                                const vIdx = findVariantIndex(prod, item);
-                                const variantBuying = vIdx > -1 ? Number(prod.variants[vIdx].buyingPrice) : 0;
-                                buyingPrice = (Number.isFinite(variantBuying) && variantBuying > 0)
-                                    ? variantBuying
-                                    : (Number(prod.buyingPrice) || 0);
-                            } else {
-                                buyingPrice = 0;
-                            }
-                        } catch (_) {
-                            buyingPrice = 0;
-                        }
-                    } else {
-                        buyingPrice = 0;
-                    }
-                }
+            if (!targetId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Each order item must include a valid product id.'
+                });
+            }
 
-                item.buyingPrice = buyingPrice;
-                totalBuyingPrice += buyingPrice * quantity;
-                return item;
-            }));
+            const query = mongoose.Types.ObjectId.isValid(targetId)
+                ? { $or: [{ _id: targetId }, { productId: targetId }] }
+                : { productId: targetId };
+
+            const prod = await Product.findOne(query).select('price buyingPrice variants name image productId');
+            if (!prod) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Product not found: ${targetId}`
+                });
+            }
+
+            const verifiedPrice = resolveSellingPrice(prod, item);
+            if (!Number.isFinite(verifiedPrice) || verifiedPrice < 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Unable to verify price for "${prod.name || targetId}".`
+                });
+            }
+
+            item.price = verifiedPrice;
+            item.quantity = quantity;
+            if (!item.name) item.name = prod.name;
+            if (!item.productId) item.productId = prod.productId || String(prod._id);
+
+            const vIdx = findVariantIndex(prod, item);
+            let buyingPrice = 0;
+            if (vIdx > -1) {
+                const variantBuying = Number(prod.variants[vIdx].buyingPrice);
+                buyingPrice = (Number.isFinite(variantBuying) && variantBuying > 0)
+                    ? variantBuying
+                    : (Number(prod.buyingPrice) || 0);
+            } else {
+                buyingPrice = Number(prod.buyingPrice) || 0;
+            }
+
+            item.buyingPrice = buyingPrice;
+            subtotal += verifiedPrice * quantity;
+            totalBuyingPrice += buyingPrice * quantity;
+            normalizedItems.push(item);
         }
+
+        subtotal = roundMoney(subtotal);
 
         // Server-side coupon re-validation (never trust client discount alone)
         let discountAmount = 0;
@@ -139,7 +214,6 @@ const createOrder = async (req, res) => {
                 });
             }
             discountAmount = couponResult.breakdown.discountAmount;
-            totalAmount = couponResult.breakdown.finalTotal;
             appliedCouponCode = couponResult.breakdown.code;
             couponDocId = couponResult.coupon._id;
 
@@ -151,10 +225,37 @@ const createOrder = async (req, res) => {
                     message: 'This coupon has reached its usage limit.'
                 });
             }
-        } else if (subtotal > 0) {
-            // No coupon — prefer item-derived subtotal when available
-            totalAmount = Math.round(subtotal * 100) / 100;
         }
+
+        const deliverySettings = await getDeliverySettings();
+        const deliveryLocationType = resolveDeliveryZone(deliverySettings, shippingDistrict);
+        const shippingLocationType = toShippingLocationLabel(deliveryLocationType);
+        const deliveryCharge = computeDeliveryCharge(deliverySettings, {
+            customerDistrict: shippingDistrict,
+            subtotal
+        });
+        const lockedTotals = buildLockedOrderTotals({
+            itemSubtotal: subtotal,
+            discountAmount,
+            deliveryCharge
+        });
+        const {
+            subTotal,
+            grandTotal,
+            deliveryCharge: lockedDeliveryCharge,
+            merchandisePayable
+        } = lockedTotals;
+
+        const lockedPricing = buildLockedPricingPayload({
+            subTotal,
+            discountAmount,
+            deliveryCharge: lockedDeliveryCharge,
+            merchandisePayable,
+            grandTotal,
+            shippingDistrict,
+            shippingLocationType,
+            deliveryLocationType
+        });
 
         const newOrder = new Order({
             orderId,
@@ -162,10 +263,17 @@ const createOrder = async (req, res) => {
             customerName,
             customerPhone,
             customerAddress,
-            totalAmount,
-            subtotal: Math.round(subtotal * 100) / 100,
+            subTotal,
+            deliveryCharge: lockedDeliveryCharge,
+            grandTotal,
+            shippingLocationType,
+            shippingDistrict,
+            totalAmount: grandTotal,
+            subtotal: subTotal,
             discountAmount,
             couponCode: appliedCouponCode,
+            deliveryLocationType,
+            shippingFee: lockedDeliveryCharge,
             totalBuyingPrice: Math.round(totalBuyingPrice),
             paymentMethod, 
             items: normalizedItems,
@@ -196,9 +304,9 @@ const createOrder = async (req, res) => {
             }
         }
 
-        if (Array.isArray(items) && items.length > 0) {
-            for (const item of items) {
-                const targetId = item.id || item.productId || item._id; 
+        if (normalizedItems.length > 0) {
+            for (const item of normalizedItems) {
+                const targetId = item.id || item.productId || item._id;
                 const quantityOrdered = Number(item.quantity) || 1; 
 
                 if (!targetId) continue;
@@ -233,8 +341,8 @@ const createOrder = async (req, res) => {
         // রেট: প্রতি ৳১০ খরচে ১ পয়েন্ট (ডাবল পয়েন্ট অফার), এবং ১% ইনস্ট্যান্ট ক্যাশব্যাক
         if (userId) {
             try {
-                const earnedPoints = Math.floor(totalAmount / 10);
-                const cashback = Math.round(totalAmount * 0.01);
+                const earnedPoints = Math.floor(grandTotal / 10);
+                const cashback = Math.round(grandTotal * 0.01);
 
                 const rewardUpdate = {
                     $inc: { loyaltyPoints: earnedPoints, walletBalance: cashback }
@@ -258,10 +366,11 @@ const createOrder = async (req, res) => {
             }
         }
 
-        res.status(201).json({ 
-            success: true, 
-            message: "Order placed successfully! ধন্যবাদ আব্দুল করিম ভাই।", 
-            data: newOrder 
+        res.status(201).json({
+            success: true,
+            message: "Order placed successfully! ধন্যবাদ আব্দুল করিম ভাই।",
+            data: newOrder.toObject(),
+            lockedPricing
         });
 
     } catch (err) {

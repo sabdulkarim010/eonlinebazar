@@ -4,7 +4,7 @@
 
 ### A Full-Stack, Security-Hardened E-Commerce Platform
 
-*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, Coupons), custom store branding, and a finance analytics dashboard.*
+*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, Coupons), **dynamic delivery charge & layered Bangladesh address management**, custom store branding, and a finance analytics dashboard.*
 
 ![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-3.0.0-success)
+![Version](https://img.shields.io/badge/Version-3.1.0-success)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 ![Maintained](https://img.shields.io/badge/Maintained-Yes-blue)
@@ -27,6 +27,8 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v3.1.0](#-whats-new--v310-dynamic-delivery--address-management)
+- [Dynamic Delivery & Address Management](#-dynamic-delivery-charge--address-management-system)
 - [What's New — v3.0.0](#-whats-new--v300-the-fortified-security--branding-release)
 - [Feature Roadmap (Past & Present)](#-feature-roadmap-past--present)
 - [Tech Stack](#-tech-stack)
@@ -45,10 +47,200 @@
 
 **EOnlineBazar** is a production-ready, full-stack e-commerce platform built on **Node.js / Express 5** with a **MongoDB (Atlas)** database and a lightweight **Vanilla JavaScript** frontend served directly by Express. It follows a clean **MVC architecture** (`Models → Controllers → Routes`) and ships with everything a modern online store needs: secure customer authentication, a shopping cart, a persistent **My Wishlist**, order placement & live tracking, product reviews with image uploads, a loyalty wallet, an enterprise catalog engine, a dedicated **Super Admin Panel**, and a **Finance & Analytics** dashboard.
 
-Two things set it apart:
+Three things set it apart:
 
 1. **A database-backed session security layer** — every login (customer *and* admin) generates a unique session embedded inside the JWT, so users and admins can view all their **active devices** (IP, geo-location, browser & device) and **remotely log out** any device in real time.
 2. **A Fortified Admin Security Suite** — multi-option Two-Factor Authentication (**Email OTP**, **Google Authenticator / TOTP**, and **SMS OTP**), **Geo-Fencing (Region Lock)**, brute-force **auto IP-blacklisting**, rate-limiting, and a full login-history / security-audit trail.
+3. **Dynamic Delivery Charge & Address Management** — admin-configurable shipping rules, Bangladesh **District → Upazila/Thana** cascading address fields, checkout auto-fill, real-time fee preview, and **server-side price re-validation** before orders are persisted.
+
+---
+
+## 🆕 What's New — v3.1.0 (Dynamic Delivery & Address Management)
+
+This release introduces a fully automated, tamper-resistant shipping and address pipeline — no manual shipping-option pickers for customers.
+
+| Capability | Highlights |
+|------------|------------|
+| **🚚 Automated Shipping Fees** | Delivery charge is computed from the customer's **district** vs. the admin's **Shop Home City** — inside-city vs. outside-city rates apply automatically. |
+| **📍 Layered Profile Address** | Customers save **District → Upazila/Thana → Full Address** in their profile; checkout forms **auto-populate** from saved data. |
+| **⚙️ Admin Delivery Control Panel** | Configure **Shop Home City**, **Inside/Outside City** rates, and a **Free Shipping** order threshold from the Super Admin panel. |
+| **🔒 Server-Side Price Locking** | Subtotals, discounts, delivery fees, and grand totals are **re-calculated on the backend** from catalog prices + `Settings` before MongoDB write — client-supplied totals are never trusted. |
+
+> 📌 See the dedicated [Dynamic Delivery & Address Management](#-dynamic-delivery-charge--address-management-system) section below for schema details, workflow diagrams, and API endpoints.
+
+---
+
+## 🚚 Dynamic Delivery Charge & Address Management System
+
+A comprehensive, highly automated shipping and address pipeline built for Bangladesh e-commerce. Customers never pick a shipping tier manually — the platform derives the correct fee from structured location data and admin-defined rules, then **locks verified totals on the server** at order placement.
+
+### Feature Overview
+
+#### Automated Shipping Fee Calculation
+- Shipping fees are **calculated dynamically** — there is no manual "Inside City / Outside City" selector for customers.
+- The system compares the customer's **shipping district** against the admin-configured **Shop Home City**.
+- **Inside-city rate** applies when districts match; **outside-city rate** applies otherwise.
+- If the merchandise **subtotal meets or exceeds** the admin's **Free Shipping Minimum Amount**, delivery charge is **৳0** (set threshold to `0` to always offer free shipping).
+
+#### Profile Address Auto-Fill
+- Customers save a **layered address** on their profile:
+  - **District** (64 Bangladesh districts)
+  - **Upazila / Thana** (cascading dropdown, populated from `bd-upazilas.js`)
+  - **Full Address** (street, house, landmark, etc.)
+- On checkout, saved profile fields **automatically pre-populate** the shipping form — reducing friction and input errors.
+- District selection drives **real-time delivery charge preview** in the order summary.
+
+#### Dynamic Admin Control Panel
+From **Admin Panel → Settings**, admins configure delivery rules without code changes:
+
+| Setting | Purpose | Default |
+|---------|---------|---------|
+| `shopHomeCity` | The shop's home district (reference for inside/outside matching) | `Dhaka` |
+| `deliveryInsideCity` | Shipping fee when customer district matches shop home city | `৳60` |
+| `deliveryOutsideCity` | Shipping fee for all other districts | `৳120` |
+| `freeShippingMinAmount` | Merchandise subtotal threshold for free delivery | `৳1000` |
+
+Changes are persisted in the singleton `Settings` document and exposed to the storefront via a public API.
+
+#### Server-Side Security Validation
+Client-side checkout previews are for UX only. On `POST /api/orders`, the backend:
+
+1. **Re-fetches catalog prices** from MongoDB (never trusts client line-item prices).
+2. **Re-validates coupons** and applies discounts server-side.
+3. **Re-computes delivery charge** via `utils/deliveryChargeService.js` using live `Settings`.
+4. **Builds locked totals** (`subTotal`, `deliveryCharge`, `grandTotal`) and persists them on the order document.
+
+Any tampered client payload (inflated discounts, zeroed shipping fees, etc.) is overwritten with verified server values before the order is written.
+
+---
+
+### Database Schema Extensions
+
+#### `Settings` Model (`models/Settings.js`)
+
+Singleton document (`key: 'global'`) storing platform-wide delivery rules:
+
+```javascript
+{
+  key: { type: String, default: 'global', unique: true },  // Singleton guard
+
+  shopHomeCity: {
+    type: String,
+    default: 'Dhaka',
+    trim: true
+  },
+  deliveryInsideCity: {
+    type: Number,
+    default: 60,
+    min: 0
+  },
+  deliveryOutsideCity: {
+    type: Number,
+    default: 120,
+    min: 0
+  },
+  freeShippingMinAmount: {
+    type: Number,
+    default: 1000,
+    min: 0
+  }
+}
+```
+
+#### `User` Model Updates (`models/user.js`)
+
+Layered profile address fields for auto-fill at checkout:
+
+```javascript
+{
+  district:   { type: String, trim: true, default: '' },  // Bangladesh district
+  upazila:    { type: String, trim: true, default: '' },  // Upazila name
+  thana:      { type: String, trim: true, default: '' },  // Thana (synced with upazila)
+  fullAddress:{ type: String, trim: true, default: '' }   // Street / house / landmark
+}
+```
+
+> **Note:** `thana` mirrors `upazila` when only one is supplied — preserving compatibility with both naming conventions used across Bangladesh.
+
+#### `Order` Model Updates (`models/order.js`)
+
+Locked financial and shipping fields written at checkout (server-authoritative):
+
+```javascript
+{
+  subTotal:             { type: Number, required: true, default: 0, min: 0 },
+  deliveryCharge:       { type: Number, required: true, default: 0, min: 0 },
+  grandTotal:           { type: Number, required: true, default: 0, min: 0 },
+  shippingDistrict:     { type: String, default: '', trim: true },
+  shippingLocationType: { type: String, enum: ['Inside City', 'Outside City'], default: 'Inside City' }
+}
+```
+
+Legacy fields (`subtotal`, `shippingFee`, `deliveryLocationType`, `totalAmount`) remain for backwards compatibility with older orders.
+
+---
+
+### Architectural Workflow
+
+```mermaid
+flowchart LR
+    subgraph Admin
+        A1[Admin sets Shop Home City<br/>Inside / Outside rates<br/>Free Shipping threshold]
+    end
+
+    subgraph Customer
+        C1[Profile: save District → Upazila → Full Address]
+        C2[Checkout: auto-fill address<br/>+ real-time fee preview]
+        C3[Place order]
+    end
+
+    subgraph Backend
+        B1[Load Settings + validate district]
+        B2[Re-price items from Product catalog]
+        B3[Re-validate coupon]
+        B4[computeDeliveryCharge]
+        B5[buildLockedOrderTotals → MongoDB]
+    end
+
+    A1 -->|Settings document| B1
+    C1 --> C2
+    C2 --> C3
+    C3 --> B1
+    B1 --> B2 --> B3 --> B4 --> B5
+```
+
+**End-to-end pipeline:**
+
+1. **Admin sets rules** — Shop Home City, inside/outside rates, and free-shipping threshold saved via `PUT /api/admin/settings`.
+2. **User saves profile address** — Cascading **District → Upazila/Thana** dropdowns on `/profile`; data stored on the `User` document.
+3. **Checkout auto-fills & evaluates pricing** — `checkout.js` loads public delivery settings, pre-fills from profile, and recalculates shipping on every district/subtotal change.
+4. **Backend interceptor locks records** — `orderController.createOrder` ignores client totals, recomputes everything, and writes immutable `subTotal`, `deliveryCharge`, `grandTotal`, and `shippingDistrict` to MongoDB.
+
+#### Shared Delivery Logic (`utils/deliveryChargeService.js`)
+
+Both checkout preview and order placement use the same helpers:
+
+```javascript
+resolveDeliveryZone(settings, customerDistrict)   // 'inside' | 'outside'
+computeDeliveryCharge(settings, { customerDistrict, subtotal })
+buildLockedOrderTotals({ itemSubtotal, discountAmount, deliveryCharge })
+```
+
+District normalization and validation live in `utils/bangladeshDistricts.js`; upazila/thana data is served to the frontend via `client/js/bd-districts.js` and `client/js/bd-upazilas.js`.
+
+---
+
+### Related API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/store/delivery-settings` | Public delivery rules for checkout preview | Public |
+| `GET` | `/api/store/districts` | List of valid Bangladesh districts | Public |
+| `GET` | `/api/admin/settings` | Admin: read delivery settings | Admin |
+| `PUT` | `/api/admin/settings` | Admin: update delivery settings | Admin |
+| `POST` | `/api/orders` | Place order (server re-validates all totals) | User |
+
+> **Profile update:** `PUT /api/customer/update-profile` accepts `district`, `upazila`, `thana`, and `fullAddress` for the layered address system.
 
 ---
 
@@ -101,6 +293,8 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 #### Product & Order Systems
 - **🛍️ Product Catalog** — Up to 10 images, categories, brand, variations, highlights, stock levels, **selling price + buying price** (live profit preview), and detailed descriptions.
 - **📦 Order Management & Tracking** — Place orders, view history, public order tracking, and per-item **buying-price snapshots** at checkout for accurate profit reporting.
+- **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, free-shipping threshold, **locked server-side totals** on every order, and district-aware invoices.
+- **📍 Layered Address Management** — Profile-level **District → Upazila/Thana → Full Address** with checkout auto-fill and cascading Bangladesh location dropdowns.
 - **🛒 Shopping Cart** — Server-synced cart with quantity updates, selection toggles, guest-cart merge, and post-order cleanup.
 - **⭐ Reviews & Ratings** — Star ratings and reviews with optional photo upload; averages update automatically.
 - **📍 Address Book** — Manage multiple delivery addresses with default-address sync.
@@ -127,6 +321,7 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 - **Custom Store Branding** — live server-side Logo & Favicon upload with instant dynamic previews (Cloudinary).
 - **Custom Currency Formatting** — Currency Code (`BDT`) & Symbol (`৳`) applied to every admin price column.
 - **Timezone Synchronization** — dynamically updates the admin dashboard header's **live digital clock**.
+- **Delivery Charge Control** — configure Shop Home City, inside/outside rates, and free-shipping threshold from the admin settings panel.
 - **Account & Profile** — username/password change (current-password gated), display name, store name, and admin avatar upload.
 
 ### 🖥️ Super Admin Panel (`/admin`)
@@ -182,10 +377,11 @@ eonlinebazar-fullstack/
 │   └── db.js                          # MongoDB (Atlas) connection
 │
 ├── models/                            # Mongoose schemas (data layer)
-│   ├── user.js                        # Customer + addresses, embedded wishlist[], wallet, accountStatus
+│   ├── user.js                        # Customer + layered address (district/upazila/thana), wishlist[], wallet
 │   ├── wishlist.js                    # Wishlist item subdocument schema (productId, name, price, image…)
 │   ├── userSession.js                 # Active customer device / login sessions
 │   ├── admin.js                       # Admin account, 2FA config & platform settings (currency, timezone, branding)
+│   ├── Settings.js                    # Singleton delivery charge & free-shipping settings
 │   ├── adminSession.js                # Active admin device / login sessions
 │   ├── loginAttempt.js                # Login history & failed/blocked attempt audit
 │   ├── blacklistedIp.js               # Auto + manual IP bans (TTL-expiring)
@@ -195,7 +391,7 @@ eonlinebazar-fullstack/
 │   ├── brand.js                       # Product brands (slug + product references)
 │   ├── attribute.js                   # Product attributes / variants (Size, Color…)
 │   ├── coupon.js                      # Coupons & discounts (usage limits, per-user tracking)
-│   ├── order.js                       # Orders with buyingPrice snapshots per line item
+│   ├── order.js                       # Orders with locked subTotal/deliveryCharge/grandTotal + buyingPrice snapshots
 │   ├── cart.js                        # Shopping cart
 │   └── review.js                      # Product reviews & ratings
 │
@@ -203,14 +399,16 @@ eonlinebazar-fullstack/
 │   ├── authController.js              # Customer session list / revoke / logout-others
 │   ├── userController.js              # Customer auth, profile, wishlist CRUD, addresses, wallet
 │   ├── wishlistController.js          # Wishlist toggle (add/remove) with product snapshot enrichment
-│   ├── adminController.js             # Admin customers, settings, branding, logs, profile
+│   ├── adminController.js             # Admin customers, platform branding, logs, profile
+│   ├── settingsController.js          # Delivery charge & free-shipping settings (admin API)
+│   ├── storeController.js             # Public storefront branding + delivery settings + districts
 │   ├── adminSecurityController.js     # 2-step login, admin sessions, IP blacklist, login history
 │   ├── twoFactorController.js         # Self-service 2FA manager (Email / TOTP / SMS)
 │   ├── productController.js           # Product CRUD + reviews
 │   ├── brandController.js             # Brand CRUD + slug generation
 │   ├── attributeController.js         # Attribute / variant CRUD
 │   ├── couponController.js            # Coupon CRUD + storefront apply/validate/redeem
-│   ├── orderController.js             # Orders, tracking, buyingPrice snapshots
+│   ├── orderController.js             # Orders, tracking, server-side price locking & buyingPrice snapshots
 │   ├── cartController.js              # Cart operations
 │   ├── reviewController.js            # Review system
 │   └── financeController.js           # Revenue, profit & chart analytics
@@ -219,7 +417,8 @@ eonlinebazar-fullstack/
 │   ├── authRoutes.js                  # /api/auth
 │   ├── userRoutes.js                  # /api/customer (+ wishlist GET/POST/DELETE)
 │   ├── wishlistRoutes.js              # /api/wishlist (toggle endpoint)
-│   ├── adminRoutes.js                 # /api/admin (+ 2FA, sessions, blacklist)
+│   ├── adminRoutes.js                 # /api/admin (+ 2FA, sessions, blacklist, delivery settings)
+│   ├── storeRoutes.js                 # /api/store (public branding, delivery settings, districts)
 │   ├── productRoutes.js               # /api/products
 │   ├── categoryRoutes.js              # /api/categories (handler logic inline)
 │   ├── brandRoutes.js                 # /api/brands
@@ -240,6 +439,8 @@ eonlinebazar-fullstack/
 │   ├── deviceParser.js                # Client IP + geo-location + User-Agent fingerprinting
 │   ├── mailer.js                      # SMTP transport + branded 2FA OTP email template
 │   ├── smsSender.js                   # SMS 2FA delivery abstraction (console/Twilio/custom)
+│   ├── deliveryChargeService.js       # Shared delivery zone + fee + locked-total computation
+│   ├── bangladeshDistricts.js         # District list, normalization & inside/outside matching
 │   └── securityLogger.js             # Fire-and-forget security event writer
 │
 ├── client/                            # Static frontend (served by Express)
@@ -259,7 +460,7 @@ eonlinebazar-fullstack/
 │   ├── finance-login.html             # Finance password gate
 │   ├── finance-analytics.html         # Finance & analytics dashboard
 │   ├── css/                           # Page-scoped stylesheets (admin.css, verify-otp.css…)
-│   ├── js/                            # Page scripts (admin.js, wishlist.js, profile.js, session-guard.js…)
+│   ├── js/                            # Page scripts (admin.js, checkout.js, profile.js, bd-districts.js…)
 │   └── images/                        # Static assets (favicon.png…)
 │
 ├── server.js                          # App entry: middleware, routes, clean URLs, page guards
@@ -469,7 +670,7 @@ Base URL: `http://localhost:3000`
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
 | `GET`  | `/api/customer/profile` | Get profile | User |
-| `PUT`  | `/api/customer/update-profile` | Update name / phone / address | User |
+| `PUT`  | `/api/customer/update-profile` | Update name / phone / **district / upazila / thana / fullAddress** | User |
 | `PUT`  | `/api/customer/change-password` | Change password | User |
 | `POST` | `/api/customer/update-avatar` | Upload avatar (Cloudinary) | User |
 | `POST` | `/api/customer/convert-points` | Convert loyalty points to wallet | User |
@@ -502,7 +703,7 @@ Base URL: `http://localhost:3000`
 | `DELETE` | `/api/cart/remove/:productId` | Remove item | User |
 | `POST` | `/api/cart/merge` | Merge guest cart | User |
 | `DELETE` | `/api/cart/clear-ordered` | Clear checked-out items | User |
-| `POST` | `/api/orders` | Place order (snapshots `buyingPrice`, redeems coupon) | User |
+| `POST` | `/api/orders` | Place order (server re-prices items, re-validates coupon, **locks delivery charge & totals**) | User |
 | `GET`  | `/api/orders/my-orders` | User's order history | User |
 | `GET`  | `/api/orders/track` | Public order tracking | Public |
 | `GET`  | `/api/orders/:id` | Single order details | User |
@@ -577,11 +778,21 @@ Base URL: `http://localhost:3000`
 | `PUT`  | `/api/admin/customers/:id` | Edit customer | Admin |
 | `PATCH` | `/api/admin/customers/:id/status` | Block / suspend / activate | Admin |
 | `GET`  | `/api/admin/customers/:id/orders` | Customer order history | Admin |
-| `GET`  | `/api/admin/settings` | Platform & profile settings | Admin |
-| `PUT`  | `/api/admin/settings` | Save settings (currency, timezone… — current-password gated) | Admin |
+| `GET`  | `/api/admin/settings` | Delivery charge settings (shop home city, rates, free-shipping threshold) | Admin |
+| `PUT`  | `/api/admin/settings` | Save delivery charge settings | Admin |
+| `GET`  | `/api/admin/platform-settings` | Platform & profile settings (currency, timezone, branding…) | Admin |
+| `PUT`  | `/api/admin/platform-settings` | Save platform settings (current-password gated) | Admin |
 | `POST` | `/api/admin/upload-branding` | Upload store logo or favicon (`assetType`) | Admin |
 | `GET`  | `/api/admin/profile` | Admin profile image URL | Admin |
 | `POST` | `/api/admin/update-profile-pic` | Upload admin avatar | Admin |
+
+### 🏪 Storefront — Public Settings
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET`  | `/api/store/branding` | Store name, logo & favicon URLs | Public |
+| `GET`  | `/api/store/delivery-settings` | Delivery rules for checkout (rates, home city, free-shipping threshold) | Public |
+| `GET`  | `/api/store/districts` | Valid Bangladesh district list | Public |
 
 ### 📊 Finance & Analytics
 
@@ -652,6 +863,7 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 - Passwords: `bcryptjs` hashing. Trust-proxy enabled for accurate client IPs behind CDNs.
 - Upload safety: images only, max 5 MB, memory storage → Cloudinary stream.
 - Sensitive pages: `Cache-Control: no-store`; secure cookies cleared on logout.
+- **Order pricing integrity:** `POST /api/orders` re-fetches catalog prices, re-validates coupons, and recomputes delivery charges from `Settings` — client-supplied totals are discarded before persistence.
 
 ---
 
@@ -670,6 +882,24 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 ---
 
 ## 📜 Changelog
+
+### `v3.1.0` — Dynamic Delivery & Address Management
+**🚚 Automated Shipping**
+- New singleton `Settings` model for **Shop Home City**, **Inside/Outside City** rates, and **Free Shipping** threshold.
+- Shared `deliveryChargeService.js` powers both checkout preview and order placement.
+- Public `/api/store/delivery-settings` and `/api/store/districts` endpoints for the storefront.
+
+**📍 Layered Address System**
+- User profile fields: `district`, `upazila`, `thana`, `fullAddress` with cascading Bangladesh dropdowns.
+- Checkout auto-fill from saved profile; real-time delivery charge preview on district/subtotal change.
+
+**🔒 Server-Side Price Locking**
+- Orders persist locked `subTotal`, `deliveryCharge`, `grandTotal`, and `shippingDistrict`.
+- Backend ignores client-supplied prices/totals — re-prices from catalog, re-validates coupons, recomputes shipping.
+
+**🛠️ Admin Panel**
+- Delivery settings UI in Super Admin panel with district picker and rate/threshold inputs.
+- Security audit log entry on delivery settings updates.
 
 ### `v3.0.0` — The Fortified Security & Branding Release
 **🔐 Multi-Layered 2FA**

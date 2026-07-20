@@ -1104,6 +1104,34 @@
                         </form>
                     </div>
 
+                    <div class="settings-card">
+                        <h4 class="settings-card-title"><i class="fa-solid fa-truck"></i> Delivery Settings</h4>
+                        <p class="settings-card-sub">Configure delivery charges and free-shipping rules applied at checkout.</p>
+                        <form id="deliverySettingsForm">
+                            <div class="form-group">
+                                <label for="settingsShopHomeCity">Shop Home City / District</label>
+                                <select id="settingsShopHomeCity" required></select>
+                                <small class="form-hint">Customer districts matching this city automatically receive the inside-city delivery rate.</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="settingsDeliveryInsideCity">Inside City Delivery Charge (৳)</label>
+                                <input type="number" id="settingsDeliveryInsideCity" min="0" step="1" placeholder="60" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="settingsDeliveryOutsideCity">Outside City Delivery Charge (৳)</label>
+                                <input type="number" id="settingsDeliveryOutsideCity" min="0" step="1" placeholder="120" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="settingsFreeShippingMinAmount">Minimum Order Amount for Free Shipping (৳)</label>
+                                <input type="number" id="settingsFreeShippingMinAmount" min="0" step="1" placeholder="1000" required>
+                                <small class="form-hint">Orders above this total get free delivery. Set to <strong>0</strong> for a global flat free-shipping offer.</small>
+                            </div>
+                            <button type="submit" class="btn-submit">
+                                <i class="fa-solid fa-floppy-disk"></i> Save Delivery Settings
+                            </button>
+                        </form>
+                    </div>
+
                     <div class="settings-card settings-card-wide twofa-card">
                         <h4 class="settings-card-title"><i class="fa-solid fa-user-lock"></i> Two-Factor Authentication (2FA)</h4>
                         <p class="settings-card-sub">Choose how you verify admin logins. We recommend Google Authenticator for the strongest protection.</p>
@@ -1384,14 +1412,29 @@
             <p><b>Address:</b> <span id="invCustomerAddress"></span></p>
             
             <p><b>Payment Method:</b> <span id="invPaymentMethod" style="color: #2563eb; font-weight: 600;"></span></p>
+            <p><b>Delivery District / Zone:</b> <span id="invShippingLocation"></span></p>
             <p><b>Courier Note:</b> <span id="invNote"></span></p>
         </div>
         <div class="invoice-details-section">
             <h4>Order Details</h4>
             <div id="invItemsList" class="invoice-items-list"></div>
         </div>
+        <div class="invoice-summary-box">
+            <div class="invoice-summary-row">
+                <span>Subtotal</span>
+                <strong id="invSubTotal"></strong>
+            </div>
+            <div class="invoice-summary-row" id="invDiscountRow" style="display:none;">
+                <span>Discount (<span id="invCouponCode"></span>)</span>
+                <strong id="invDiscountAmount" class="text-success"></strong>
+            </div>
+            <div class="invoice-summary-row">
+                <span>Delivery Charge</span>
+                <strong id="invDeliveryCharge"></strong>
+            </div>
+        </div>
         <div class="invoice-total-box">
-            <span>Total Amount</span>
+            <span>Grand Total</span>
             <b id="invTotalAmount"></b>
         </div>
         <button class="btn-print no-print" onclick="printInvoice()"><i class="fa-solid fa-print"></i> Print Invoice</button>
@@ -1400,6 +1443,7 @@
 
     <div id="toastContainer" class="admin-toast-stack" aria-live="polite" aria-atomic="true"></div>
 
+    <script src="/js/bd-districts.js"></script>
     <script type="module" src="/js/admin.js"></script>
 
 </body>

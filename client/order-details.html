@@ -35,6 +35,8 @@
                 <p><strong>Name:</strong> <span id="customer-name">Loading...</span></p>
                 <p><strong>Phone:</strong> <span id="customer-phone">Loading...</span></p>
                 <p><strong>Address:</strong> <span id="shipping-address">Loading...</span></p>
+                <p><strong>Delivery District:</strong> <span id="shipping-district">Loading...</span></p>
+                <p><strong>Delivery Zone:</strong> <span id="shipping-location-type">Loading...</span></p>
             </div>
 
             <div class="items-card">
@@ -60,13 +62,20 @@
                     <span>Subtotal:</span>
                     <span id="subtotal-amount">৳0.00</span>
                 </div>
+                <div class="summary-row" id="order-discount-row" style="display:none;">
+                    <span>Discount (<span id="order-coupon-code"></span>):</span>
+                    <span id="order-discount-amount" class="discount-value">-৳0.00</span>
+                </div>
                 <div class="summary-row">
-                    <span>Shipping Fee:</span>
-                    <span id="shipping-fee">৳0.00</span>
+                    <span>Delivery Charge:</span>
+                    <span class="delivery-value-wrap">
+                        <span id="shipping-fee">৳0.00</span>
+                        <span class="free-shipping-badge" id="order-free-shipping-badge" style="display:none;">Free Shipping</span>
+                    </span>
                 </div>
                 <hr>
                 <div class="summary-row total-row">
-                    <span>Total Amount:</span>
+                    <span>Grand Total:</span>
                     <span id="total-amount">৳0.00</span>
                 </div>
             </div>

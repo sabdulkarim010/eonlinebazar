@@ -308,11 +308,40 @@
                             </div>
                         </div>
 
+                        <div class="input-group">
+                            <label for="profile-district">District <span class="badge-primary">Auto-fill ready</span></label>
+                            <div class="input-wrapper select-wrapper">
+                                <i class="fa-solid fa-map input-icon"></i>
+                                <select id="profile-district" required>
+                                    <option value="">Select district</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="profile-upazila">Upazila / Thana</label>
+                            <div class="input-wrapper select-wrapper">
+                                <i class="fa-solid fa-location-crosshairs input-icon"></i>
+                                <select id="profile-upazila" required disabled>
+                                    <option value="">Select upazila / thana</option>
+                                </select>
+                            </div>
+                        </div>
+
                         <div class="input-group full-width">
-                            <label for="profile-address">Default Shipping Address <span class="badge-primary">Auto-fill ready</span></label>
+                            <label for="profile-full-address">Full Address / Village / Street</label>
                             <div class="input-wrapper text-area-wrapper">
                                 <i class="fa-solid fa-location-dot input-icon"></i>
-                                <textarea id="profile-address" rows="3" placeholder="Enter your complete delivery address (House, Road, Area, City)"></textarea>
+                                <textarea id="profile-full-address" rows="3" placeholder="House, road, village, area, post office details"></textarea>
+                            </div>
+                            <small class="profile-field-hint">Saved district and upazila will auto-fill on checkout for delivery fee calculation.</small>
+                        </div>
+
+                        <div class="input-group full-width legacy-address-group" style="display:none;">
+                            <label for="profile-address">Legacy Address Snapshot</label>
+                            <div class="input-wrapper text-area-wrapper">
+                                <i class="fa-solid fa-location-dot input-icon"></i>
+                                <textarea id="profile-address" rows="2" readonly></textarea>
                             </div>
                         </div>
                     </div>
@@ -568,6 +597,8 @@
 
 <script src="js/session-guard.js"></script>
 <script src="js/cart.js"></script>
+<script src="js/bd-districts.js"></script>
+<script src="js/bd-upazilas.js"></script>
 <script src="js/profile.js"></script>
 </body>
 </html>

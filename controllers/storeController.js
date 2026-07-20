@@ -1,4 +1,6 @@
 const { getStoreSettings } = require('../utils/storeSettingsService');
+const { getDeliverySettings } = require('../utils/deliveryChargeService');
+const { BANGLADESH_DISTRICTS } = require('../utils/bangladeshDistricts');
 
 const getPublicStoreBranding = async (req, res) => {
     try {
@@ -21,5 +23,17 @@ const getPublicStoreBranding = async (req, res) => {
 };
 
 module.exports = {
-    getPublicStoreBranding
+    getPublicStoreBranding,
+    getPublicDeliverySettings: async (req, res) => {
+        try {
+            const data = await getDeliverySettings();
+            res.status(200).json({ success: true, data });
+        } catch (error) {
+            console.error('Get Public Delivery Settings Error:', error);
+            res.status(500).json({ success: false, message: 'Failed to load delivery settings.' });
+        }
+    },
+    getPublicDistricts: (req, res) => {
+        res.status(200).json({ success: true, data: BANGLADESH_DISTRICTS });
+    }
 };

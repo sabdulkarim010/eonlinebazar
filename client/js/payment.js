@@ -55,19 +55,21 @@ function loadCheckoutSessionData() {
     }
 
     let totalItems = 0;
-    let subtotal = 0;
+    let calculatedSubtotal = 0;
 
     if (sessionData.items && sessionData.items.length > 0) {
         sessionData.items.forEach(item => {
             totalItems += (parseInt(item.quantity) || 1);
-            subtotal += parseFloat(item.price) * (parseInt(item.quantity) || 1);
+            calculatedSubtotal += parseFloat(item.price) * (parseInt(item.quantity) || 1);
         });
     }
 
+    const subtotal = Number(sessionData.subtotal) || calculatedSubtotal;
     const discountAmount = Number(sessionData.discountAmount) || 0;
+    const deliveryCharge = Number(sessionData.deliveryCharge ?? sessionData.shippingFee) || 0;
     const payable = Number.isFinite(Number(sessionData.totalAmount))
         ? Number(sessionData.totalAmount)
-        : Math.max(0, subtotal - discountAmount);
+        : Math.max(0, subtotal - discountAmount + deliveryCharge);
 
     document.getElementById('summaryItemsCount').innerText = `${totalItems} Item${totalItems !== 1 ? 's' : ''}`;
 
@@ -80,6 +82,16 @@ function loadCheckoutSessionData() {
         if (couponLabel) couponLabel.innerText = sessionData.couponCode || '';
     } else if (discountRow) {
         discountRow.style.display = 'none';
+    }
+
+    const deliveryChargeEl = document.getElementById('summaryDeliveryCharge');
+    const freeShippingBadge = document.getElementById('summaryFreeShippingBadge');
+    if (deliveryChargeEl) {
+        deliveryChargeEl.innerText = deliveryCharge === 0 ? '৳0' : `৳${deliveryCharge}`;
+        deliveryChargeEl.style.display = deliveryCharge === 0 ? 'none' : 'inline';
+    }
+    if (freeShippingBadge) {
+        freeShippingBadge.style.display = deliveryCharge === 0 ? 'inline-flex' : 'none';
     }
 
     document.getElementById('summaryPayableTotal').innerText = `৳${payable}`;
@@ -208,11 +220,19 @@ window.handleFinalOrderSubmission = async function() {
             customerName: sessionData.customerName,
             customerPhone: sessionData.customerPhone,
             customerAddress: sessionData.customerAddress,
+            shippingDistrict: sessionData.shippingDistrict || '',
             items: sessionData.items,
             subtotal: Number(sessionData.subtotal) || 0,
             discountAmount: Number(sessionData.discountAmount) || 0,
             couponCode: sessionData.couponCode || '',
-            totalAmount: Number(sessionData.totalAmount) || 0,
+            deliveryLocationType: sessionData.deliveryLocationType || 'inside',
+            shippingLocationType: sessionData.shippingLocationType
+                || (sessionData.deliveryLocationType === 'outside' ? 'Outside City' : 'Inside City'),
+            deliveryCharge: Number(sessionData.deliveryCharge ?? sessionData.shippingFee) || 0,
+            shippingFee: Number(sessionData.deliveryCharge ?? sessionData.shippingFee) || 0,
+            subTotal: Number(sessionData.subTotal ?? sessionData.subtotal) || 0,
+            grandTotal: Number(sessionData.grandTotal ?? sessionData.totalAmount) || 0,
+            totalAmount: Number(sessionData.grandTotal ?? sessionData.totalAmount) || 0,
             paymentMethod: finalMethod,
             status: "Pending",
             note: sessionData.note || localStorage.getItem('shippingCourierNote') || ""
@@ -233,6 +253,21 @@ window.handleFinalOrderSubmission = async function() {
         const result = await response.json();
 
         if (result.success) {
+            const verifiedOrderId = result.data?.orderId || orderData.orderId;
+            const lockedPricing = result.lockedPricing || {
+                subTotal: result.data?.subTotal,
+                deliveryCharge: result.data?.deliveryCharge,
+                grandTotal: result.data?.grandTotal,
+                totalAmount: result.data?.totalAmount
+            };
+
+            if (lockedPricing && Object.keys(lockedPricing).length > 0) {
+                localStorage.setItem('lastOrderLockedPricing', JSON.stringify({
+                    orderId: verifiedOrderId,
+                    ...lockedPricing
+                }));
+            }
+
             // 🟢 ফিক্স: চেক করা হচ্ছে অর্ডারটি Buy Now থেকে এসেছে কিনা
             const isBuyNow = localStorage.getItem('isBuyNowMode') === 'true';
 
@@ -266,8 +301,8 @@ window.handleFinalOrderSubmission = async function() {
             // ৫. সাকসেস মডাল শো
             const successModal = document.getElementById('orderSuccessModal');
             if (successModal) {
-                document.getElementById('modalOrderId').innerText = orderData.orderId;
-                document.getElementById('modalGatewayMessage').innerHTML = `Your order <strong>${orderData.orderId}</strong> via <strong>${finalMethod}</strong> has been placed.`;
+                document.getElementById('modalOrderId').innerText = verifiedOrderId;
+                document.getElementById('modalGatewayMessage').innerHTML = `Your order <strong>${verifiedOrderId}</strong> via <strong>${finalMethod}</strong> has been placed.`;
                 document.getElementById('modalDeliveryDate').innerText = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toLocaleDateString();
                 
                 successModal.style.setProperty('display', 'flex', 'important');
@@ -276,7 +311,7 @@ window.handleFinalOrderSubmission = async function() {
                 const copyBtn = document.getElementById('copyOrderIdBtn');
                 if (copyBtn) {
                     copyBtn.onclick = function() {
-                        navigator.clipboard.writeText(orderData.orderId).then(() => {
+                        navigator.clipboard.writeText(verifiedOrderId).then(() => {
                             const originalHTML = copyBtn.innerHTML;
                             copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
                             setTimeout(() => copyBtn.innerHTML = originalHTML, 2000);

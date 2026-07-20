@@ -739,6 +739,19 @@ body {
 .text-area-wrapper .input-icon { top: 18px; }
 .text-area-wrapper textarea { resize: vertical; min-height: 120px; }
 
+.profile-field-hint {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-muted, #64748b);
+    line-height: 1.45;
+}
+
+.select-wrapper select {
+    appearance: none;
+    cursor: pointer;
+}
+
 /* Buttons */
 .form-actions { 
     margin-top: 2.5rem; 

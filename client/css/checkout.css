@@ -245,8 +245,107 @@ File Name: css/checkout.css
 }
 
 .grand-total-row strong {
-    color: #16a34a; /* টোটাল অ্যামাউন্ট চমৎকার সবুজ কালার */
-    font-size: 20px;
+    color: #ea580c;
+    font-size: 18px;
+}
+
+.delivery-location-selector {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.form-group-field select,
+.input-box-wrapper select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    color: #334155;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-group-field select:focus,
+.input-box-wrapper select:focus {
+    border-color: var(--primary-color, #f97316);
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
+}
+
+.district-match-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.45;
+}
+
+.location-option {
+    position: relative;
+    display: block;
+    cursor: pointer;
+}
+
+.location-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.location-option-body {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    color: #334155;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.location-option-body i {
+    color: #64748b;
+    font-size: 16px;
+}
+
+.location-option input[type="radio"]:checked + .location-option-body {
+    border-color: var(--primary-color, #f97316);
+    background: #fff7ed;
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
+}
+
+.location-option input[type="radio"]:checked + .location-option-body i,
+.location-option input[type="radio"]:checked + .location-option-body strong {
+    color: var(--primary-color, #f97316);
+}
+
+.checkout-delivery-value-wrap,
+.summary-delivery-value-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.free-shipping-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #15803d;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+@media (max-width: 640px) {
+    .delivery-location-selector {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* =========================================================================

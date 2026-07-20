@@ -420,9 +420,19 @@ exports.getUserProfile = async (req, res) => {
    ======================================================= */
 exports.updateUserProfile = async (req, res) => {
     try {
-        const { name, firstName, lastName, phone, mobile, address } = req.body;
+        const {
+            name,
+            firstName,
+            lastName,
+            phone,
+            mobile,
+            address,
+            district,
+            upazila,
+            thana,
+            fullAddress
+        } = req.body;
         
-        // 🌟 ফিক্স: ফ্রন্টএন্ড থেকে 'phone' বা 'mobile' যেকোনো একটি আসলেই যেন ডাটাবেজের সঠিক ফিল্ড আপডেট হয়
         const contactNumber = (phone !== undefined ? phone : mobile);
 
         const updateFields = {};
@@ -434,7 +444,25 @@ exports.updateUserProfile = async (req, res) => {
             updateFields.firstName = parts[0] || '';
             updateFields.lastName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || '';
         }
-        if (address !== undefined) updateFields.address = address;
+        if (district !== undefined) updateFields.district = String(district).trim();
+        if (upazila !== undefined) updateFields.upazila = String(upazila).trim();
+        if (thana !== undefined) {
+            updateFields.thana = String(thana).trim();
+        } else if (upazila !== undefined) {
+            updateFields.thana = String(upazila).trim();
+        }
+        if (fullAddress !== undefined) updateFields.fullAddress = String(fullAddress).trim();
+
+        const resolvedDistrict = updateFields.district;
+        const resolvedUpazila = updateFields.upazila || updateFields.thana;
+        const resolvedFullAddress = updateFields.fullAddress;
+        if (resolvedDistrict || resolvedUpazila || resolvedFullAddress) {
+            const parts = [resolvedFullAddress, resolvedUpazila, resolvedDistrict].filter(Boolean);
+            updateFields.address = parts.join(', ');
+        } else if (address !== undefined) {
+            updateFields.address = String(address).trim();
+        }
+
         if (contactNumber !== undefined) {
             updateFields.phone = contactNumber;
             updateFields.mobile = contactNumber;

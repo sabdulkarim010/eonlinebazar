@@ -93,7 +93,8 @@ function displayTrackingResult(order) {
     
     // ১. বেসিক ইনফো সেট করা
     resOrderId.innerText = order.orderId;
-    resTotal.innerText = `৳ ${order.totalAmount}`;
+    const grandTotal = Number(order.grandTotal ?? order.totalAmount) || 0;
+    resTotal.innerText = `৳ ${grandTotal}`;
 
     // ২. স্ট্যাটাস এবং স্টেপার আপডেট করা
     const status = order.status || "Pending";

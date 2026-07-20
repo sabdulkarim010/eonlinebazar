@@ -40,6 +40,15 @@ const orderSchema = new mongoose.Schema({
     customerName: String,
     customerPhone: String,
     customerAddress: String,
+    subTotal: { type: Number, required: true, default: 0, min: 0 },
+    deliveryCharge: { type: Number, required: true, default: 0, min: 0 },
+    grandTotal: { type: Number, required: true, default: 0, min: 0 },
+    shippingLocationType: {
+        type: String,
+        enum: ['Inside City', 'Outside City'],
+        default: 'Inside City'
+    },
+    shippingDistrict: { type: String, default: '', trim: true },
     totalAmount: Number,
     // অর্ডারের মোট ক্রয়মূল্য (সব আইটেমের buyingPrice × quantity যোগফল) —
     // দ্রুত প্রফিট/লস রিপোর্টিংয়ের জন্য অর্ডার লেভেলে সংরক্ষিত।
@@ -48,6 +57,8 @@ const orderSchema = new mongoose.Schema({
     subtotal: { type: Number, default: 0 },
     discountAmount: { type: Number, default: 0 },
     couponCode: { type: String, default: '', trim: true, uppercase: true },
+    deliveryLocationType: { type: String, enum: ['inside', 'outside'], default: 'inside' },
+    shippingFee: { type: Number, default: 0, min: 0 },
     paymentMethod: { type: String, required: true, default: 'COD' }, 
     status: { type: String, default: 'Pending' },
     isDelivered: { type: Boolean, default: false }, 

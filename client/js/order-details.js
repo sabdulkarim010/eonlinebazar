@@ -61,6 +61,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function resolveOrderFinancials(order) {
+        const subTotal = Number(order.subTotal ?? order.subtotal) || 0;
+        const discountAmount = Number(order.discountAmount) || 0;
+        const deliveryCharge = Number(order.deliveryCharge ?? order.shippingFee) || 0;
+        const grandTotal = Number(order.grandTotal ?? order.totalAmount)
+            || Math.max(0, subTotal - discountAmount + deliveryCharge);
+        const shippingDistrict = order.shippingDistrict || '';
+        const shippingLocationType = order.shippingLocationType
+            || (order.deliveryLocationType === 'outside' ? 'Outside City' : 'Inside City');
+
+        return { subTotal, discountAmount, deliveryCharge, grandTotal, shippingDistrict, shippingLocationType };
+    }
+
     // =========================================================
     // 🌟 SECTION 3: FETCH & RENDER ORDER DATA
     // =========================================================
@@ -122,6 +135,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('customer-phone').textContent = order.customerPhone || 'N/A';
         document.getElementById('shipping-address').textContent = order.customerAddress || 'N/A';
 
+        const financials = resolveOrderFinancials(order);
+        const shippingDistrictEl = document.getElementById('shipping-district');
+        const shippingLocationEl = document.getElementById('shipping-location-type');
+        if (shippingDistrictEl) shippingDistrictEl.textContent = financials.shippingDistrict || 'N/A';
+        if (shippingLocationEl) shippingLocationEl.textContent = financials.shippingLocationType;
+
         // অর্ডার আইটেম ও প্রোডাক্ট ইমেজ রেন্ডার
         if (elements.itemsContainer) {
             elements.itemsContainer.innerHTML = ''; 
@@ -170,12 +189,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            const shippingFee = order.shippingFee || order.deliveryCharge || 0;
-            const totalAmount = order.totalAmount || (subtotal + shippingFee);
+            const storedSubTotal = financials.subTotal;
+            const displaySubtotal = storedSubTotal > 0 ? storedSubTotal : subtotal;
+            const discountRow = document.getElementById('order-discount-row');
+            const discountEl = document.getElementById('order-discount-amount');
+            const couponCodeEl = document.getElementById('order-coupon-code');
+            const shippingFeeEl = document.getElementById('shipping-fee');
+            const freeShippingBadge = document.getElementById('order-free-shipping-badge');
 
-            document.getElementById('subtotal-amount').textContent = `৳${subtotal}`;
-            document.getElementById('shipping-fee').textContent = `৳${shippingFee}`;
-            document.getElementById('total-amount').textContent = `৳${totalAmount}`;
+            document.getElementById('subtotal-amount').textContent = `৳${displaySubtotal}`;
+
+            if (financials.discountAmount > 0 && discountRow) {
+                discountRow.style.display = 'flex';
+                if (discountEl) discountEl.textContent = `-৳${financials.discountAmount}`;
+                if (couponCodeEl) couponCodeEl.textContent = order.couponCode || '';
+            } else if (discountRow) {
+                discountRow.style.display = 'none';
+            }
+
+            if (shippingFeeEl) {
+                shippingFeeEl.textContent = financials.deliveryCharge === 0 ? '৳0' : `৳${financials.deliveryCharge}`;
+                shippingFeeEl.style.display = financials.deliveryCharge === 0 ? 'none' : 'inline';
+            }
+            if (freeShippingBadge) {
+                freeShippingBadge.style.display = financials.deliveryCharge === 0 ? 'inline-flex' : 'none';
+            }
+
+            document.getElementById('total-amount').textContent = `৳${financials.grandTotal}`;
         }
 
         if (elements.orderContent) elements.orderContent.classList.remove('hidden');

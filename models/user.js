@@ -87,6 +87,26 @@ const userSchema = new mongoose.Schema({
         trim: true,
         default: ''
     },
+    district: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    upazila: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    thana: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    fullAddress: {
+        type: String,
+        trim: true,
+        default: ''
+    },
 
     // 🟢 নতুন: ওয়ালেট ব্যালেন্স এবং লয়্যালটি পয়েন্ট (Wallet & Loyalty Points)
     walletBalance: {

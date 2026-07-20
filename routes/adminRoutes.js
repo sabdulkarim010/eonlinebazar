@@ -12,6 +12,7 @@ const router = express.Router();
 const adminController = require('../controllers/adminController'); 
 const adminSecurityController = require('../controllers/adminSecurityController');
 const twoFactorController = require('../controllers/twoFactorController');
+const settingsController = require('../controllers/settingsController');
 const upload = require('../middlewares/uploadMiddleware');
 const { brandingUpload } = upload;
 const { verifyAdmin } = require('../middlewares/authMiddleware');
@@ -63,9 +64,14 @@ router.get('/verify-token', verifyAdmin, adminController.verifyAdminToken);
 // ৪. সিকিউরিটি লগস (GET)
 router.get('/logs', verifyAdmin, adminController.getSecurityLogs);
 
-// ৫. অ্যাডমিন সেটিংস (GET / PUT)
-router.get('/settings', verifyAdmin, adminController.getAdminSettings);
-router.put('/settings', verifyAdmin, adminController.updateAdminSettings);
+// ৫. সিস্টেম ডেলিভারি সেটিংস (GET / PUT / POST)
+router.get('/settings', verifyAdmin, settingsController.getSettings);
+router.put('/settings', verifyAdmin, settingsController.updateSettings);
+router.post('/settings', verifyAdmin, settingsController.updateSettings);
+
+// ৫ক. অ্যাডমিন প্ল্যাটফর্ম সেটিংস (GET / PUT)
+router.get('/platform-settings', verifyAdmin, adminController.getAdminSettings);
+router.put('/platform-settings', verifyAdmin, adminController.updateAdminSettings);
 
 // ৬. স্টোর লোগো / ফ্যাভিকন আপলোড (POST — multipart logo + favicon)
 router.post(

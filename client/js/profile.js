@@ -47,6 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const profileName = document.getElementById('profile-name');
     const profileEmail = document.getElementById('profile-email');
     const profilePhone = document.getElementById('profile-phone');
+    const profileDistrict = document.getElementById('profile-district');
+    const profileUpazila = document.getElementById('profile-upazila');
+    const profileFullAddress = document.getElementById('profile-full-address');
     const profileAddress = document.getElementById('profile-address');
     
     const passwordForm = document.getElementById('password-form');
@@ -180,6 +183,89 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================
     // ৬. ইউজারের প্রোфাইল ডাটা ফেচ করা (Fetch Profile & Auto-Cache)
     // =================================================================
+    // =================================================================
+    // 5.5 Profile address cascading (District -> Upazila)
+    // =================================================================
+    function populateProfileDistrictOptions(selectedDistrict = '') {
+        if (!profileDistrict || !Array.isArray(window.BANGLADESH_DISTRICTS)) return;
+
+        profileDistrict.innerHTML = '<option value="">Select district</option>';
+        window.BANGLADESH_DISTRICTS.forEach((district) => {
+            const option = document.createElement('option');
+            option.value = district;
+            option.textContent = district;
+            profileDistrict.appendChild(option);
+        });
+
+        if (selectedDistrict) profileDistrict.value = selectedDistrict;
+    }
+
+    function populateProfileUpazilaOptions(district, selectedUpazila = '') {
+        if (!profileUpazila) return;
+
+        profileUpazila.innerHTML = '<option value="">Select upazila / thana</option>';
+        const upazilas = typeof window.getUpazilasForDistrict === 'function'
+            ? window.getUpazilasForDistrict(district)
+            : [];
+
+        if (!district || upazilas.length === 0) {
+            profileUpazila.disabled = true;
+            return;
+        }
+
+        upazilas.forEach((upazila) => {
+            const option = document.createElement('option');
+            option.value = upazila;
+            option.textContent = upazila;
+            profileUpazila.appendChild(option);
+        });
+
+        profileUpazila.disabled = false;
+        if (selectedUpazila) profileUpazila.value = selectedUpazila;
+    }
+
+    function buildCompositeAddress({ fullAddress = '', upazila = '', district = '' } = {}) {
+        return [fullAddress, upazila, district].filter(Boolean).join(', ');
+    }
+
+    function cacheProfileAddressForCheckout(user = {}) {
+        const composite = buildCompositeAddress({
+            fullAddress: user.fullAddress || '',
+            upazila: user.upazila || user.thana || '',
+            district: user.district || ''
+        }) || user.address || '';
+
+        localStorage.setItem('checkout_name', user.name || '');
+        localStorage.setItem('checkout_phone', user.phone || user.mobile || '');
+        localStorage.setItem('checkout_address', composite);
+        localStorage.setItem('checkout_district', user.district || '');
+        localStorage.setItem('checkout_upazila', user.upazila || user.thana || '');
+        localStorage.setItem('checkout_full_address', user.fullAddress || '');
+        localStorage.setItem('shippingDistrict', user.district || '');
+    }
+
+    function applyProfileAddressToUI(user = {}) {
+        const district = user.district || '';
+        const upazila = user.upazila || user.thana || '';
+        const fullAddress = user.fullAddress || '';
+
+        populateProfileDistrictOptions(district);
+        populateProfileUpazilaOptions(district, upazila);
+
+        if (profileFullAddress) profileFullAddress.value = fullAddress;
+        if (profileAddress) {
+            profileAddress.value = buildCompositeAddress({ fullAddress, upazila, district }) || user.address || '';
+        }
+    }
+
+    populateProfileDistrictOptions();
+
+    if (profileDistrict) {
+        profileDistrict.addEventListener('change', () => {
+            populateProfileUpazilaOptions(profileDistrict.value);
+        });
+    }
+
     async function fetchUserProfile() {
         try {
             const res = await fetch('/api/customer/profile', {
@@ -206,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (profileEmail) profileEmail.value = data.email || '';
                 // 🌟 ফিক্স: পুরোনো ইউজারদের নম্বর 'mobile' ফিল্ডে থাকতে পারে, তাই দুটোই চেক করা হলো
                 if (profilePhone) profilePhone.value = data.phone || data.mobile || '';
-                if (profileAddress) profileAddress.value = data.address || '';
+                applyProfileAddressToUI(data);
 
                 const displayNameEls = document.querySelectorAll('.user-display-name');
                 displayNameEls.forEach(el => {
@@ -217,9 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateWalletDisplay(data.walletBalance || 0, data.loyaltyPoints || 0);
                 renderCashbackHistory(data.walletHistory || []);
 
-                localStorage.setItem('checkout_name', data.name || '');
-                localStorage.setItem('checkout_phone', data.phone || data.mobile || '');
-                localStorage.setItem('checkout_address', data.address || '');
+                cacheProfileAddressForCheckout(data);
 
             } else {
                 showToast(data.message || 'Failed to load profile.', 'danger');
@@ -337,13 +421,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
 
                             const displayOrderId = order.orderId ? order.orderId : (order._id ? order._id.substring(order._id.length - 6).toUpperCase() : 'N/A');
+                            const grandTotal = Number(order.grandTotal ?? order.totalAmount) || 0;
 
                             dashboardTableBody.innerHTML += `
                                 <tr class="clickable-order-row" data-id="${order._id}">
                                     <td><a href="#" class="order-id-link" data-id="${order._id}">#${displayOrderId}</a></td>
                                     <td>${orderDate}</td>
                                     <td class="order-products-cell">${itemsHtml}</td>
-                                    <td style="font-weight:600; color:var(--primary-color);">৳${order.totalAmount || 0}</td>
+                                    <td style="font-weight:600; color:var(--primary-color);">৳${grandTotal}</td>
                                     <td><span class="status-badge ${statusBadgeClass}">${currentStatus}</span></td>
                                 </tr>
                             `;
@@ -366,10 +451,31 @@ document.addEventListener('DOMContentLoaded', () => {
         profileForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
+            const district = profileDistrict?.value?.trim() || '';
+            const upazila = profileUpazila?.value?.trim() || '';
+            const fullAddress = profileFullAddress?.value?.trim() || '';
+
+            if (!district) {
+                showToast('Please select your district.', 'warning');
+                return;
+            }
+            if (!upazila) {
+                showToast('Please select your upazila / thana.', 'warning');
+                return;
+            }
+            if (!fullAddress) {
+                showToast('Please enter your village, street, or house details.', 'warning');
+                return;
+            }
+
             const updatedData = {
                 name: profileName.value.trim(),
                 phone: profilePhone.value.trim(),
-                address: profileAddress.value.trim()
+                district,
+                upazila,
+                thana: upazila,
+                fullAddress,
+                address: buildCompositeAddress({ fullAddress, upazila, district })
             };
 
             if (!updatedData.name) {
@@ -399,11 +505,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (res.ok) {
                     showToast('Profile updated successfully!', 'success');
-                    if (sidebarName) sidebarName.textContent = data.user.name;
-                    
-                    localStorage.setItem('checkout_name', data.user.name);
-                    localStorage.setItem('checkout_phone', data.user.phone || '');
-                    localStorage.setItem('checkout_address', data.user.address || '');
+                    const user = data.user || data;
+                    if (sidebarName) sidebarName.textContent = user.name || updatedData.name;
+                    applyProfileAddressToUI(user);
+                    cacheProfileAddressForCheckout(user);
                 } else {
                     showToast(data.message || 'Update failed.', 'danger');
                 }
@@ -526,11 +631,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     row.className = 'clickable-order-row';
                     row.setAttribute('data-id', order._id);
 
+                    const grandTotal = Number(order.grandTotal ?? order.totalAmount) || 0;
+
                     row.innerHTML = `
                         <td><a href="#" class="order-id-link" data-id="${order._id}">#${displayOrderId}</a></td>
                         <td>${orderDate}</td>
                         <td class="order-products-cell">${itemsHtml}</td>
-                        <td style="font-weight:600; color:var(--primary-color);">৳${order.totalAmount || 0}</td>
+                        <td style="font-weight:600; color:var(--primary-color);">৳${grandTotal}</td>
                         <td><span class="status-badge ${statusBadgeClass}">${currentStatus}</span></td>
                     `;
                     ordersListTbody.appendChild(row);

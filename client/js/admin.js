@@ -81,6 +81,10 @@ function formatAdminPrice(amount) {
     return `${sym} ${num.toLocaleString()}`;
 }
 
+function getOrderGrandTotal(order) {
+    return Number(order?.grandTotal ?? order?.totalAmount) || 0;
+}
+
 /** Format a signed profit/loss delta (e.g. +৳ 120) */
 function formatAdminProfit(amount) {
     const sym = adminCurrencySymbol || '৳';
@@ -883,7 +887,7 @@ window.viewCustomerOrders = async function(userId) {
                 <tr>
                     <td><b>${order.orderId || 'N/A'}</b></td>
                     <td>${dateStr}</td>
-                    <td><b>${formatAdminPrice(order.totalAmount || 0)}</b></td>
+                    <td><b>${formatAdminPrice(getOrderGrandTotal(order))}</b></td>
                     <td><span class="status-badge status-${statusClass === 'delivered' ? 'verified' : 'pending'}">${order.status || 'Pending'}</span></td>
                     <td>${order.paymentMethod || 'COD'}</td>
                 </tr>`;
@@ -1028,7 +1032,7 @@ window.renderOrderTable = function() {
             </td>
             <td><span>${order.customerAddress}</span></td>
             <td><ul style="padding-left: 0; list-style:none; margin:0;">${itemsList}</ul></td>
-            <td><b>${formatAdminPrice(order.totalAmount)}</b></td>
+            <td><b>${formatAdminPrice(getOrderGrandTotal(order))}</b></td>
             <td>
                 <select onchange="changeOrderStatus('${orderId}', this.value)" class="filter-box">
                     <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>⏳ Pending</option>
@@ -1108,17 +1112,42 @@ window.viewInvoice = function(orderId) {
     const modal = document.getElementById('invoiceModal');
     if (!order || !modal) return showToast("Invoice data not found!", "error");
 
+    const subTotal = Number(order.subTotal ?? order.subtotal) || 0;
+    const discountAmount = Number(order.discountAmount) || 0;
+    const deliveryCharge = Number(order.deliveryCharge ?? order.shippingFee) || 0;
+    const grandTotal = Number(order.grandTotal ?? order.totalAmount)
+        || Math.max(0, subTotal - discountAmount + deliveryCharge);
+    const shippingLocationType = order.shippingLocationType
+        || (order.deliveryLocationType === 'outside' ? 'Outside City' : 'Inside City');
+    const shippingDistrict = order.shippingDistrict || 'N/A';
+
     // মডালে কাস্টমার ডাটা পুশ করা
     document.getElementById('invOrderId').innerText = order.orderId || '#' + orderId.slice(-6).toUpperCase();
     document.getElementById('invCustomerName').innerText = order.customerName || 'N/A';
     document.getElementById('invCustomerPhone').innerText = order.customerPhone || 'N/A';
     document.getElementById('invCustomerAddress').innerText = order.customerAddress || 'N/A';
     
-    // 🟢 নতুন যুক্ত করা অংশ: ডাটাবেজ থেকে পেমেন্ট মেথড এবং নোট নিয়ে মডালে বসানো
     document.getElementById('invPaymentMethod').innerText = order.paymentMethod ? order.paymentMethod : "COD";
+    document.getElementById('invShippingLocation').innerText = `${shippingDistrict} (${shippingLocationType})`;
     document.getElementById('invNote').innerText = order.note && order.note.trim() !== "" ? order.note : "No note provided";
 
-    document.getElementById('invTotalAmount').innerText = formatAdminPrice(order.totalAmount || 0);
+    document.getElementById('invSubTotal').innerText = formatAdminPrice(subTotal);
+
+    const discountRow = document.getElementById('invDiscountRow');
+    if (discountAmount > 0 && discountRow) {
+        discountRow.style.display = 'flex';
+        document.getElementById('invDiscountAmount').innerText = `-${formatAdminPrice(discountAmount)}`;
+        document.getElementById('invCouponCode').innerText = order.couponCode || '';
+    } else if (discountRow) {
+        discountRow.style.display = 'none';
+    }
+
+    const deliveryEl = document.getElementById('invDeliveryCharge');
+    if (deliveryEl) {
+        deliveryEl.innerText = deliveryCharge === 0 ? 'Free Shipping' : formatAdminPrice(deliveryCharge);
+    }
+
+    document.getElementById('invTotalAmount').innerText = formatAdminPrice(grandTotal);
 
     // আইটেম লিস্ট জেনারেট করা
     const itemsContainer = document.getElementById('invItemsList');
@@ -3513,11 +3542,20 @@ function applyBrandingPreviewFromSettings(settings) {
 
 async function fetchAdminSettings() {
     try {
-        const res = await fetch('/api/admin/settings', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (data.success && data.data) applyAdminSettingsToUI(data.data);
+        const [platformRes, deliveryRes] = await Promise.all([
+            fetch('/api/admin/platform-settings', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }),
+            fetch('/api/admin/settings', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+        ]);
+
+        const platformData = await platformRes.json();
+        if (platformData.success && platformData.data) applyAdminSettingsToUI(platformData.data);
+
+        const deliveryData = await deliveryRes.json();
+        if (deliveryData.success && deliveryData.data) applyDeliverySettingsToUI(deliveryData.data);
     } catch (err) {
         console.error('Failed to load admin settings:', err);
     }
@@ -3538,6 +3576,53 @@ async function saveAdminProfile(payload) {
 }
 
 async function saveAdminSettings(payload) {
+    const res = await fetch('/api/admin/platform-settings', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+    });
+    return res.json();
+}
+
+function populateDistrictSelect(selectEl, selectedValue = '') {
+    if (!selectEl || !Array.isArray(window.BANGLADESH_DISTRICTS)) return;
+
+    const current = String(selectedValue || selectEl.value || '').trim();
+    selectEl.innerHTML = '<option value="">Select district</option>';
+    window.BANGLADESH_DISTRICTS.forEach((district) => {
+        const option = document.createElement('option');
+        option.value = district;
+        option.textContent = district;
+        selectEl.appendChild(option);
+    });
+
+    if (current) selectEl.value = current;
+}
+
+function populateShopHomeCityOptions(selectedValue = '') {
+    populateDistrictSelect(document.getElementById('settingsShopHomeCity'), selectedValue);
+}
+
+function applyDeliverySettingsToUI(settings) {
+    if (!settings) return;
+
+    populateShopHomeCityOptions(settings.shopHomeCity || 'Dhaka');
+
+    const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el && val !== undefined && val !== null) el.value = val;
+    };
+
+    setVal('settingsShopHomeCity', settings.shopHomeCity || 'Dhaka');
+    setVal('settingsDeliveryInsideCity', settings.deliveryInsideCity);
+    setVal('settingsDeliveryOutsideCity', settings.deliveryOutsideCity);
+    setVal('settingsFreeShippingMinAmount', settings.freeShippingMinAmount);
+}
+
+async function saveDeliverySettings(payload) {
     const res = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: {
@@ -3678,6 +3763,8 @@ function showLocalBrandingPreview(assetType, file) {
 }
 
 function setupAdminSettingsForms() {
+    populateShopHomeCityOptions();
+
     const profileForm = document.getElementById('adminProfileForm');
     if (profileForm) {
         profileForm.addEventListener('submit', async (e) => {
@@ -3746,6 +3833,41 @@ function setupAdminSettingsForms() {
                 }
             } catch (err) {
                 console.error('Save platform settings error:', err);
+                showToast('Error: Could not reach the server. Please try again.', 'error');
+            } finally {
+                restore();
+            }
+        });
+    }
+
+    const deliveryForm = document.getElementById('deliverySettingsForm');
+    if (deliveryForm) {
+        deliveryForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const shopHomeCity = document.getElementById('settingsShopHomeCity')?.value;
+            const deliveryInsideCity = document.getElementById('settingsDeliveryInsideCity')?.value;
+            const deliveryOutsideCity = document.getElementById('settingsDeliveryOutsideCity')?.value;
+            const freeShippingMinAmount = document.getElementById('settingsFreeShippingMinAmount')?.value;
+
+            const submitBtn = deliveryForm.querySelector('button[type="submit"]');
+            const restore = setButtonLoading(submitBtn, 'Saving...');
+            try {
+                const result = await saveDeliverySettings({
+                    shopHomeCity,
+                    deliveryInsideCity,
+                    deliveryOutsideCity,
+                    freeShippingMinAmount
+                });
+
+                if (result.success) {
+                    showToast('Success: Delivery settings saved successfully!', 'success');
+                    if (result.data) applyDeliverySettingsToUI(result.data);
+                } else {
+                    showToast(`Error: ${result.message || 'Failed to save delivery settings.'}`, 'error');
+                }
+            } catch (err) {
+                console.error('Save delivery settings error:', err);
                 showToast('Error: Could not reach the server. Please try again.', 'error');
             } finally {
                 restore();
