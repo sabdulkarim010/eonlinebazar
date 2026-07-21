@@ -55,16 +55,16 @@
                 </div>
 
             <div class="checkout-summary-block" id="orderSummarySection">
-                <div class="coupon-apply-box" id="checkout-coupon-container" style="display: none;">
+                <div class="coupon-apply-box coupon-apply-box--compact" id="checkout-coupon-container" style="display: none;">
                     <label for="checkoutCouponInput" class="coupon-apply-label">
-                        <i class="fa-solid fa-ticket"></i> Apply Coupon
+                        <i class="fa-solid fa-ticket"></i> Promo Code
                     </label>
                     <div class="coupon-apply-row">
-                        <input type="text" id="checkoutCouponInput" class="coupon-apply-input" placeholder="Enter coupon code" maxlength="32" autocomplete="off">
+                        <input type="text" id="checkoutCouponInput" class="coupon-apply-input" placeholder="Enter code" maxlength="32" autocomplete="off" spellcheck="false">
                         <button type="button" id="checkoutApplyCouponBtn" class="coupon-apply-btn">Apply</button>
                         <button type="button" id="checkoutRemoveCouponBtn" class="coupon-remove-btn" style="display:none;">Remove</button>
                     </div>
-                    <p class="coupon-applied-msg" id="checkoutCouponAppliedMsg" style="display:none;"></p>
+                    <p class="coupon-feedback-msg" id="checkoutCouponFeedbackMsg" style="display:none;" role="status" aria-live="polite"></p>
                 </div>
 
                 <div class="summary-row">
@@ -84,6 +84,13 @@
                     <span class="checkout-delivery-value-wrap">
                         <strong id="checkoutDeliveryCharge">৳0</strong>
                         <span class="free-shipping-badge" id="checkoutFreeShippingBadge" style="display:none;">Free Shipping Eligible</span>
+                    </span>
+                </div>
+                <div class="summary-row checkout-delivery-estimate-row" id="checkoutDeliveryEstimateRow">
+                    <span>Estimated Delivery:</span>
+                    <span class="delivery-estimate-badge checkout-delivery-badge" id="checkoutDeliveryBadge">
+                        <i class="fa-regular fa-clock" aria-hidden="true"></i>
+                        <strong id="checkoutDeliveryDateRange">Select district</strong>
                     </span>
                 </div>
                 <div class="summary-row grand-total-row">
@@ -226,6 +233,8 @@
     <script src="js/main.js"></script>
     <script src="js/bd-districts.js"></script>
     <script src="js/bd-upazilas.js"></script>
+    <script src="js/shipping-estimator.js"></script>
+    <script src="js/coupon-ui.js"></script>
     <script src="js/productThumbnail.js"></script>
     <script src="js/checkout.js"></script>
 </body>

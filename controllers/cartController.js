@@ -1,81 +1,32 @@
 /* File Name: Controllers/cartController.js */
 
 const Cart = require('../models/cart');
-
-/**
- * 🌟 হেল্পার: একটি আইটেম থেকে ভ্যারিয়েন্ট তথ্য নরমালাইজ করা।
- * ফ্রন্টএন্ড বিভিন্ন নামে পাঠাতে পারে, তাই সব কেস হ্যান্ডেল করা হয়।
- * ভ্যারিয়েন্ট না থাকলে সব ফিল্ড খালি স্ট্রিং হয় (backward-compatible)।
- */
-function normalizeVariant(src = {}) {
-    const attribute = String(src.variantAttribute || src.attribute || '').trim();
-    const value = String(src.variantValue || src.value || '').trim();
-    const sku = String(src.variantSku || src.sku || '').trim();
-    let variantId = String(src.variantId || '').trim();
-    if (!variantId && (attribute || value || sku)) {
-        // sku অগ্রাধিকার পায়, নইলে attribute::value কী
-        variantId = sku || `${attribute}::${value}`;
-    }
-    const variantLabel = String(src.variantLabel || '').trim() ||
-        (attribute && value ? `${attribute}: ${value}` : (value || ''));
-    return { variantId, variantLabel, variantAttribute: attribute, variantValue: value, variantSku: sku };
-}
-
-/**
- * 🌟 হেল্পার: দুটি কার্ট লাইন একই কি না — একই productId এবং একই variantId হলে
- * সেগুলো একই লাইন হিসেবে গণ্য হয় (একই প্রোডাক্টের ভিন্ন ভ্যারিয়েন্ট আলাদা লাইন)।
- */
-function isSameLine(dbItem, productId, variantId) {
-    return String(dbItem.productId) === String(productId) &&
-        String(dbItem.variantId || '') === String(variantId || '');
-}
+const {
+    normalizeVariant,
+    isSameLine,
+    normalizeGuestCartItems,
+    mergeGuestCartIntoUserCart
+} = require('../utils/cartMergeService');
 
 // ১. হাইব্রিড মার্জ লজিক (লগইন করার পর ফ্রন্টএন্ড থেকে লোকাল স্টোরেজের ডাটা আসবে)
 exports.mergeCart = async (req, res) => {
     try {
-        const { cartItems } = req.body; 
-        const userId = req.user.id; 
+        const { cartItems } = req.body;
+        const userId = req.user.id;
+        const guestItems = normalizeGuestCartItems(cartItems);
 
-        let userCart = await Cart.findOne({ userId });
-
-        const buildItem = (item) => {
-            const variant = normalizeVariant(item);
-            return {
-                productId: item.id || item.productId,
-                name: item.name,
-                price: item.price,
-                image: item.image || item.products || '',
-                icon: item.icon,
-                quantity: item.quantity,
-                selected: item.selected !== false,
-                ...variant
-            };
-        };
-
-        if (!userCart) {
-            // যদি ডাটাবেজে আগে থেকে কার্ট না থাকে, নতুন তৈরি হবে
-            const formattedItems = cartItems.map(buildItem);
-            userCart = new Cart({ userId, items: formattedItems });
-        } else {
-            // যদি আগে থেকেই কার্ট থাকে, তাহলে মার্জ হবে (variant-aware)
-            cartItems.forEach(localItem => {
-                const variant = normalizeVariant(localItem);
-                const localId = localItem.id || localItem.productId;
-                const existingItem = userCart.items.find(dbItem =>
-                    isSameLine(dbItem, localId, variant.variantId)
-                );
-                if (existingItem) {
-                    existingItem.quantity += localItem.quantity;
-                } else {
-                    userCart.items.push(buildItem(localItem));
-                }
+        if (guestItems.length === 0) {
+            const existing = await Cart.findOne({ userId });
+            return res.status(200).json({
+                message: 'Cart merged successfully',
+                cart: existing ? existing.items : []
             });
         }
 
-        await userCart.save();
-        res.status(200).json({ message: "Cart merged successfully", cart: userCart.items });
+        const userCart = await mergeGuestCartIntoUserCart(userId, guestItems);
+        res.status(200).json({ message: 'Cart merged successfully', cart: userCart.items });
     } catch (error) {
-        res.status(500).json({ message: "Server error during cart merge", error: error.message });
+        res.status(500).json({ message: 'Server error during cart merge', error: error.message });
     }
 };
 

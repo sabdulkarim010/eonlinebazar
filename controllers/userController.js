@@ -10,6 +10,7 @@
 
 const User = require('../models/user');
 const UserSession = require('../models/userSession');
+const Cart = require('../models/cart');
 const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken'); 
 const nodemailer = require('nodemailer'); 
@@ -21,6 +22,12 @@ const requestIp = require('request-ip');
 const { logSecurityEvent } = require('../utils/securityLogger');
 const { isValidDistrict, resolveDistrictLabel } = require('../utils/bangladeshDistricts');
 const { formatSavedAddressLine, parseSavedAddressPayload } = require('../utils/savedAddress');
+const {
+    mergeGuestCartIntoUserCart,
+    normalizeGuestCartItems,
+    resolveGuestCartFromRequest,
+    toClientCartItem
+} = require('../utils/cartMergeService');
 const {
     loadRewardSettings,
     calculatePointsCashValue,
@@ -333,11 +340,42 @@ exports.loginUser = async (req, res) => {
             details: `${device} · ${browser}`
         });
 
+        let cartPayload = { merged: false, itemCount: 0, items: [] };
+        try {
+            const guestCartRaw = resolveGuestCartFromRequest(req);
+            const guestItems = normalizeGuestCartItems(guestCartRaw);
+
+            if (guestItems.length > 0) {
+                const mergedCart = await mergeGuestCartIntoUserCart(user._id, guestItems);
+                const mergedItems = (mergedCart.items || []).map(toClientCartItem);
+                cartPayload = {
+                    merged: true,
+                    itemCount: mergedItems.length,
+                    items: mergedItems
+                };
+            } else {
+                const existingCart = await Cart.findOne({ userId: user._id });
+                const existingItems = (existingCart?.items || []).map(toClientCartItem);
+                cartPayload = {
+                    merged: false,
+                    itemCount: existingItems.length,
+                    items: existingItems
+                };
+            }
+
+            if (req.session?.cart) {
+                delete req.session.cart;
+            }
+        } catch (mergeError) {
+            console.error('Guest cart merge failed during login (login continues):', mergeError);
+        }
+
         res.status(200).json({
             success: true,
             message: "Login successful",
             token,
-            user: { id: user._id, name: user.name, firstName: user.firstName, lastName: user.lastName, email: user.email, mobile: user.mobile }
+            user: { id: user._id, name: user.name, firstName: user.firstName, lastName: user.lastName, email: user.email, mobile: user.mobile },
+            cart: cartPayload
         });
 
     } catch (error) {

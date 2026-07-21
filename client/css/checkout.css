@@ -983,3 +983,35 @@ File Name: css/checkout.css
     }
 }
 
+/* =========================================================================
+   🚚 DELIVERY ESTIMATE BADGE (Checkout Summary)
+   ========================================================================= */
+.checkout-delivery-estimate-row {
+    align-items: center;
+}
+
+.checkout-delivery-badge {
+    max-width: min(100%, 260px);
+    text-align: right;
+    justify-content: flex-end;
+}
+
+.checkout-delivery-badge strong {
+    font-weight: 700;
+    color: inherit;
+}
+
+@media (max-width: 640px) {
+    .checkout-delivery-estimate-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .checkout-delivery-badge {
+        max-width: 100%;
+        text-align: left;
+        justify-content: flex-start;
+    }
+}
+

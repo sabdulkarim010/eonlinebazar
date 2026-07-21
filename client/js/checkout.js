@@ -36,97 +36,35 @@ let validationState = {
 };
 
 let checkoutCouponsAvailable = false;
+let checkoutCouponController = null;
+
+function getAppliedCoupon() {
+    return window.CouponUI ? window.CouponUI.getAppliedCoupon() : null;
+}
+
+function setAppliedCoupon(data) {
+    if (window.CouponUI) window.CouponUI.setAppliedCoupon(data);
+}
 
 function hideCheckoutCouponSection() {
     checkoutCouponsAvailable = false;
     const container = document.getElementById('checkout-coupon-container');
     if (container) container.style.display = 'none';
-
     setAppliedCoupon(null);
-
-    const discountRow = document.getElementById('checkoutDiscountRow');
-    if (discountRow) discountRow.style.display = 'none';
-
-    const msgEl = document.getElementById('checkoutCouponAppliedMsg');
-    if (msgEl) msgEl.style.display = 'none';
-
-    const removeBtn = document.getElementById('checkoutRemoveCouponBtn');
-    if (removeBtn) removeBtn.style.display = 'none';
-
-    const applyBtn = document.getElementById('checkoutApplyCouponBtn');
-    if (applyBtn) applyBtn.style.display = 'inline-flex';
-
-    const input = document.getElementById('checkoutCouponInput');
-    if (input) {
-        input.value = '';
-        input.disabled = false;
-    }
-}
-
-function showCheckoutCouponSection() {
-    checkoutCouponsAvailable = true;
-    const container = document.getElementById('checkout-coupon-container');
-    if (container) container.style.display = 'block';
-}
-
-function getCheckoutSubtotal() {
-    const checkedItems = getCheckoutItems();
-    return checkedItems.reduce(
-        (sum, item) => sum + (parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 1),
-        0
-    );
+    CouponUI?.syncCouponPanel({ prefix: 'checkout', subtotal: 0, couponsAvailable: false });
 }
 
 async function refreshCheckoutCouponAvailability() {
+    if (checkoutCouponController?.recheckAvailability) {
+        return checkoutCouponController.recheckAvailability();
+    }
+
+    const available = await (window.CouponUI?.checkActiveCoupons() || Promise.resolve(false));
+    checkoutCouponsAvailable = available;
     const container = document.getElementById('checkout-coupon-container');
-    if (!container) return false;
-
-    try {
-        const res = await fetch('/api/coupons/active-check', { cache: 'no-store' });
-        if (!res.ok) {
-            hideCheckoutCouponSection();
-            return false;
-        }
-
-        const data = await res.json();
-        const hasActive = data && data.hasActiveCoupon === true;
-
-        if (hasActive) {
-            showCheckoutCouponSection();
-            return true;
-        }
-
-        hideCheckoutCouponSection();
-        return false;
-    } catch (err) {
-        console.error('Coupon availability check failed:', err);
-        hideCheckoutCouponSection();
-        return false;
-    }
-}
-
-async function initCheckoutCouponVisibility() {
-    const available = await refreshCheckoutCouponAvailability();
-    if (!available) {
-        const subtotal = getCheckoutSubtotal();
-        if (subtotal > 0) updateCheckoutTotals(subtotal);
-    }
-}
-
-function getAppliedCoupon() {
-    try {
-        return JSON.parse(localStorage.getItem('appliedCoupon')) || null;
-    } catch (_) {
-        return null;
-    }
-}
-
-function setAppliedCoupon(data) {
-    if (!data) {
-        localStorage.removeItem('appliedCoupon');
-        return;
-    }
-    localStorage.setItem('appliedCoupon', JSON.stringify(data));
+    if (container) container.style.display = available ? 'block' : 'none';
+    if (!available) setAppliedCoupon(null);
+    return available;
 }
 
 function showCouponToast(message, type = 'success') {
@@ -146,7 +84,18 @@ function showCouponToast(message, type = 'success') {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    initCheckoutCouponVisibility();
+    if (window.CouponUI) {
+        checkoutCouponController = await CouponUI.bindCouponForm({
+            prefix: 'checkout',
+            getSubtotal: getCheckoutSubtotal,
+            getToken: () => customerToken,
+            onAvailabilityChange: (available) => {
+                checkoutCouponsAvailable = available;
+            },
+            onTotalsChange: (subtotal) => updateCheckoutTotals(subtotal)
+        });
+        checkoutCouponsAvailable = checkoutCouponController?.couponsAvailable === true;
+    }
 
     populateCheckoutDistrictOptions();
     initDistrictSelector();
@@ -157,22 +106,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     const proceedBtn = document.getElementById('proceedToPaymentBtn');
     if (proceedBtn) proceedBtn.addEventListener('click', handleProceedToPayment);
-
-    const applyBtn = document.getElementById('checkoutApplyCouponBtn');
-    if (applyBtn) applyBtn.addEventListener('click', applyCheckoutCoupon);
-
-    const removeBtn = document.getElementById('checkoutRemoveCouponBtn');
-    if (removeBtn) removeBtn.addEventListener('click', removeCheckoutCoupon);
-
-    const couponInput = document.getElementById('checkoutCouponInput');
-    if (couponInput) {
-        couponInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                applyCheckoutCoupon();
-            }
-        });
-    }
 
     fetch('/api/products')
         .then(res => res.json())
@@ -219,8 +152,8 @@ function updateDeliveryZoneHint() {
 
     const zoneLabel = resolveShippingZoneLabel();
     hintEl.textContent = zoneLabel === 'Inside City'
-        ? `Matched with shop home city (${deliverySettings.shopHomeCity}) — inside-city rate applied.`
-        : `Outside shop home city (${deliverySettings.shopHomeCity}) — outside-city rate applied.`;
+        ? `Matched with shop home city (${deliverySettings.shopHomeCity}) — ৳${deliverySettings.deliveryInsideCity}, est. 2-3 business days.`
+        : `Outside shop home city (${deliverySettings.shopHomeCity}) — ৳${deliverySettings.deliveryOutsideCity}, est. 4-6 business days.`;
 }
 
 async function fetchDeliverySettings() {
@@ -768,6 +701,40 @@ function calculateDeliveryCharge(subtotal) {
         : Number(deliverySettings.deliveryOutsideCity) || 0;
 }
 
+function updateCheckoutDeliveryEstimate(subtotal) {
+    const dateRangeEl = document.getElementById('checkoutDeliveryDateRange');
+    const badgeEl = document.getElementById('checkoutDeliveryBadge');
+    const estimateRow = document.getElementById('checkoutDeliveryEstimateRow');
+    const SE = window.ShippingEstimator;
+
+    if (!dateRangeEl || !SE) return;
+
+    const district = selectedShippingDistrict || deliverySettings.shopHomeCity;
+    const quote = SE.calculateShippingQuote(deliverySettings, {
+        district,
+        subtotal
+    });
+
+    if (!selectedShippingDistrict) {
+        dateRangeEl.textContent = 'Select district';
+        if (badgeEl) badgeEl.classList.remove('is-outside');
+        if (estimateRow) estimateRow.style.opacity = '0.75';
+        return;
+    }
+
+    if (estimateRow) estimateRow.style.opacity = '1';
+    dateRangeEl.textContent = quote.estimatedDelivery
+        ? quote.estimatedDelivery.label
+        : quote.estimatedDelivery?.businessDayLabel || '—';
+
+    if (badgeEl) {
+        badgeEl.classList.toggle('is-outside', quote.zone === 'outside');
+        badgeEl.title = quote.estimatedDelivery
+            ? `${quote.estimatedDelivery.businessDayLabel} (${quote.shippingLocationType})`
+            : '';
+    }
+}
+
 function updateCheckoutTotals(subtotal) {
     const subtotalText = document.getElementById('checkoutSubtotal');
     const deliveryChargeEl = document.getElementById('checkoutDeliveryCharge');
@@ -789,6 +756,8 @@ function updateCheckoutTotals(subtotal) {
         freeShippingBadge.style.display = qualifiesForFreeShipping && deliveryCharge === 0 ? 'inline-flex' : 'none';
     }
     if (grandTotalText) grandTotalText.innerText = `৳${grandTotal}`;
+
+    updateCheckoutDeliveryEstimate(subtotal);
 
     return { subtotal, merchandisePayable, deliveryCharge, grandTotal };
 }
@@ -945,138 +914,14 @@ function renderCheckoutCart() {
 }
 
 function syncCheckoutCouponUI(subtotal) {
-    if (!checkoutCouponsAvailable) {
-        const applied = getAppliedCoupon();
-        if (applied) setAppliedCoupon(null);
-
-        const discountRow = document.getElementById('checkoutDiscountRow');
-        const msgEl = document.getElementById('checkoutCouponAppliedMsg');
-        const removeBtn = document.getElementById('checkoutRemoveCouponBtn');
-        const applyBtn = document.getElementById('checkoutApplyCouponBtn');
-        const input = document.getElementById('checkoutCouponInput');
-
-        if (discountRow) discountRow.style.display = 'none';
-        if (msgEl) msgEl.style.display = 'none';
-        if (removeBtn) removeBtn.style.display = 'none';
-        if (applyBtn) applyBtn.style.display = 'none';
-        if (input) {
-            input.value = '';
-            input.disabled = false;
-        }
-        return subtotal;
-    }
-
-    const applied = getAppliedCoupon();
-    const discountRow = document.getElementById('checkoutDiscountRow');
-    const discountEl = document.getElementById('checkoutDiscountAmount');
-    const codeLabel = document.getElementById('checkoutCouponCodeLabel');
-    const msgEl = document.getElementById('checkoutCouponAppliedMsg');
-    const removeBtn = document.getElementById('checkoutRemoveCouponBtn');
-    const applyBtn = document.getElementById('checkoutApplyCouponBtn');
-    const input = document.getElementById('checkoutCouponInput');
-
-    const subtotalMatch = applied && Math.round(Number(applied.subtotal) * 100) === Math.round(Number(subtotal) * 100);
-    if (applied && applied.code && Number(applied.discountAmount) > 0 && subtotalMatch) {
-        if (discountRow) discountRow.style.display = 'flex';
-        if (discountEl) discountEl.innerText = `-৳${applied.discountAmount}`;
-        if (codeLabel) codeLabel.innerText = applied.code;
-        if (msgEl) {
-            msgEl.style.display = 'block';
-            msgEl.innerText = `Coupon "${applied.code}" applied — you save ৳${applied.discountAmount}`;
-        }
-        if (removeBtn) removeBtn.style.display = 'inline-flex';
-        if (applyBtn) applyBtn.style.display = 'none';
-        if (input) {
-            input.value = applied.code;
-            input.disabled = true;
-        }
-        return Number(applied.finalTotal);
-    }
-
-    if (applied && !subtotalMatch) {
-        setAppliedCoupon(null);
-    }
-
-    if (discountRow) discountRow.style.display = 'none';
-    if (msgEl) msgEl.style.display = 'none';
-    if (removeBtn) removeBtn.style.display = 'none';
-    if (applyBtn) applyBtn.style.display = 'inline-flex';
-    if (input && !getAppliedCoupon()) {
-        input.disabled = false;
-    }
-    return subtotal;
-}
-
-async function applyCheckoutCoupon() {
-    if (!checkoutCouponsAvailable) {
-        hideCheckoutCouponSection();
-        showCouponToast('No active coupons are available at this time.', 'warning');
-        updateCheckoutTotals(getCheckoutSubtotal());
-        return;
-    }
-
-    const input = document.getElementById('checkoutCouponInput');
-    const code = (input?.value || '').trim().toUpperCase();
-    if (!code) return showCouponToast('Please enter a coupon code.', 'warning');
-
-    const checkedItems = getCheckoutItems();
-    let subtotal = 0;
-    checkedItems.forEach(item => {
-        subtotal += (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1);
+    if (!window.CouponUI) return subtotal;
+    const result = CouponUI.syncCouponPanel({
+        prefix: 'checkout',
+        subtotal,
+        couponsAvailable: checkoutCouponsAvailable,
+        preserveFeedback: true
     });
-
-    if (subtotal <= 0) return showCouponToast('Your cart is empty.', 'warning');
-
-    const applyBtn = document.getElementById('checkoutApplyCouponBtn');
-    if (applyBtn) {
-        applyBtn.disabled = true;
-        applyBtn.textContent = 'Applying...';
-    }
-
-    try {
-        const headers = { 'Content-Type': 'application/json' };
-        if (customerToken) headers['Authorization'] = `Bearer ${customerToken}`;
-
-        const res = await fetch('/api/coupons/apply', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ code, subtotal })
-        });
-        const result = await res.json();
-
-        if (result.success && result.data) {
-            setAppliedCoupon({
-                code: result.data.code,
-                discountAmount: result.data.discountAmount,
-                subtotal: result.data.subtotal,
-                finalTotal: result.data.finalTotal,
-                discountType: result.data.discountType,
-                discountValue: result.data.discountValue
-            });
-            showCouponToast('Coupon applied successfully!', 'success');
-            renderCheckoutCart();
-        } else {
-            showCouponToast(result.message || 'Invalid coupon code', 'error');
-        }
-    } catch (err) {
-        showCouponToast('Failed to apply coupon. Please try again.', 'error');
-    } finally {
-        if (applyBtn) {
-            applyBtn.disabled = false;
-            applyBtn.textContent = 'Apply';
-        }
-    }
-}
-
-function removeCheckoutCoupon() {
-    setAppliedCoupon(null);
-    const input = document.getElementById('checkoutCouponInput');
-    if (input) {
-        input.value = '';
-        input.disabled = false;
-    }
-    showCouponToast('Coupon removed.', 'success');
-    renderCheckoutCart();
+    return result.merchandisePayable;
 }
 
 /* =========================================================================
@@ -1260,6 +1105,10 @@ async function handleProceedToPaymentAsync() {
 
     const deliveryCharge = calculateDeliveryCharge(subtotal);
     const totalAmount = Math.round((merchandisePayable + deliveryCharge) * 100) / 100;
+    const SE = window.ShippingEstimator;
+    const shippingQuote = SE
+        ? SE.calculateShippingQuote(deliverySettings, { district: shippingDistrict, subtotal })
+        : null;
 
     const checkoutOrderSession = {
         orderId: `EOB${Math.floor(100000 + Math.random() * 900000)}`, 
@@ -1281,6 +1130,7 @@ async function handleProceedToPaymentAsync() {
         shippingLocationType,
         deliveryCharge,
         shippingFee: deliveryCharge,
+        estimatedDelivery: shippingQuote?.estimatedDelivery || null,
         totalAmount,
         grandTotal: totalAmount,
         status: "Pending",

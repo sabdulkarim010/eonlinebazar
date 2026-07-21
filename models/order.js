@@ -74,7 +74,8 @@ const orderSchema = new mongoose.Schema({
     rewardsPointsEarned: { type: Number, default: 0, min: 0 },
     rewardsCashbackAmount: { type: Number, default: 0, min: 0 },
     items: { type: [orderItemSchema], default: [] },
-    note: { type: String, default: "" }, 
+    note: { type: String, default: "" },
+    estimatedDelivery: { type: String, default: '' },
     createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 

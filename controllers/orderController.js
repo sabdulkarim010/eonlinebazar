@@ -32,6 +32,7 @@ const {
     roundMoney,
     isValidDistrict
 } = require('../utils/deliveryChargeService');
+const { getDeliveryEstimate } = require('../utils/deliveryEstimateService');
 const { syncCheckoutAddressToProfile } = require('../utils/savedAddress');
 const {
     loadRewardSettings,
@@ -296,6 +297,7 @@ const createOrder = async (req, res) => {
         const deliverySettings = await getDeliverySettings();
         const deliveryLocationType = resolveDeliveryZone(deliverySettings, shippingDistrict);
         const shippingLocationType = toShippingLocationLabel(deliveryLocationType);
+        const deliveryEstimate = getDeliveryEstimate(deliveryLocationType);
         const deliveryCharge = computeDeliveryCharge(deliverySettings, {
             customerDistrict: shippingDistrict,
             subtotal
@@ -340,6 +342,7 @@ const createOrder = async (req, res) => {
             couponCode: appliedCouponCode,
             deliveryLocationType,
             shippingFee: lockedDeliveryCharge,
+            estimatedDelivery: deliveryEstimate.label,
             totalBuyingPrice: Math.round(totalBuyingPrice),
             paymentMethod, 
             items: normalizedItems,

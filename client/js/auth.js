@@ -311,6 +311,9 @@ async function handleLoginSubmit(e) {
     
     const rememberMeCheckbox = document.getElementById('rememberMe');
     const rememberMe = rememberMeCheckbox ? rememberMeCheckbox.checked : false;
+    const guestCartItems = window.CartMerge
+        ? CartMerge.getGuestCartFromStorage()
+        : (JSON.parse(localStorage.getItem('cart') || '[]') || []);
 
     if (!rawLoginInput || password.length < 6 || !isValidLoginInput(rawLoginInput)) {
         showCustomToast("Please fill all fields correctly.", "error");
@@ -328,7 +331,7 @@ async function handleLoginSubmit(e) {
         const response = await fetch('/api/customer/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ loginInput, password, rememberMe }) 
+            body: JSON.stringify({ loginInput, password, rememberMe, guestCartItems })
         });
         
         const data = await response.json();
@@ -341,6 +344,16 @@ async function handleLoginSubmit(e) {
             
             if (data.user && data.user.name) {
                 localStorage.setItem('userName', data.user.name);
+            }
+
+            if (window.CartMerge) {
+                try {
+                    await CartMerge.syncCartAfterLogin(data, data.token);
+                } catch (cartSyncError) {
+                    console.error('Cart sync after login failed:', cartSyncError);
+                }
+            } else if (Array.isArray(guestCartItems) && guestCartItems.length > 0) {
+                localStorage.removeItem('cart');
             }
             
             if (forgotPassLink) forgotPassLink.style.display = 'none';

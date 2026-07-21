@@ -431,7 +431,7 @@ const applyCoupon = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Coupon applied successfully!',
+            message: `Promo code applied! You saved ৳${result.breakdown.discountAmount}.`,
             data: {
                 ...result.breakdown,
                 couponId: result.coupon._id,

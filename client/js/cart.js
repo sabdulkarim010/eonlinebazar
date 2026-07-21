@@ -319,7 +319,6 @@ function updateCartTotal() {
     const totalSpan = document.getElementById('cartDrawerTotal');
     const itemsCountSpan = document.getElementById('cartSelectedItemsCount');
     const subtotalEl = document.getElementById('cartSubtotalAmount');
-    const grandTotalEl = document.getElementById('cartGrandTotalAmount');
     const checkoutRedirectBtn = document.getElementById('proceedToCheckoutBtn');
     const summarySection = document.getElementById('cartSummarySection');
 
@@ -330,20 +329,17 @@ function updateCartTotal() {
     let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
     let checkedItems = currentCart.filter(item => item.selected !== false);
     let uniqueSelectedCount = checkedItems.length;
-    let grandTotal = 0;
+    let subtotal = 0;
 
     checkedItems.forEach(item => {
-        grandTotal += item.price * (item.quantity || 1);
+        subtotal += item.price * (item.quantity || 1);
     });
 
-    const payable = grandTotal;
-
-    if (totalSpan) totalSpan.innerText = payable;
+    if (totalSpan) totalSpan.innerText = subtotal;
     if (itemsCountSpan) itemsCountSpan.innerText = `${uniqueSelectedCount} Items`;
-    if (subtotalEl) subtotalEl.innerText = `৳${grandTotal}`;
-    if (grandTotalEl) grandTotalEl.innerText = `৳${payable}`;
+    if (subtotalEl) subtotalEl.innerText = `৳${subtotal}`;
 
-    if (profileTotalEl) profileTotalEl.innerText = `৳${grandTotal}`;
+    if (profileTotalEl) profileTotalEl.innerText = `৳${subtotal}`;
     if (profileCountEl) profileCountEl.innerText = uniqueSelectedCount;
 
     if (currentCart.length === 0 || uniqueSelectedCount === 0) {

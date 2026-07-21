@@ -4,7 +4,7 @@
 
 ### A Fully Dynamic, Production-Ready Full-Stack E-Commerce Platform
 
-*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **advanced order management with customer cancel/return workflows**, **admin refund controls with safe undo**, **master settings & category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, custom store branding, and a finance analytics dashboard.*
+*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **admin refund controls with safe undo**, **master settings & category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, custom store branding, and a finance analytics dashboard.*
 
 ![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
@@ -32,6 +32,7 @@
 - [Advanced Order Management & Tracking](#-advanced-order-management--tracking)
 - [Smart Tab Navigation & Contextual Routing (User Profile)](#-smart-tab-navigation--contextual-routing-user-profile)
 - [Mobile & Desktop UI/UX Polish (Cart & Wishlist)](#-mobile--desktop-uiux-polish-cart--wishlist)
+- [Checkout Experience & Cart Enhancements](#-checkout-experience--cart-enhancements)
 - [Admin Panel — Order Security & Refund Controls](#-admin-panel--order-security--refund-controls)
 - [Master Settings & Dynamic Rewards](#-master-settings--dynamic-rewards)
 - [What's New — v3.2.0](#-whats-new--v320-time-sensitive-coupon-automation)
@@ -54,13 +55,13 @@
 
 ## 📖 Overview
 
-**EOnlineBazar** is a **fully dynamic, production-ready**, full-stack e-commerce platform built on **Node.js / Express 5** with a **MongoDB (Atlas)** database and a lightweight **Vanilla JavaScript** frontend served directly by Express. It follows a clean **MVC architecture** (`Models → Controllers → Routes`) and ships with everything a modern online store needs: secure customer authentication, a shopping cart, a persistent **My Wishlist**, smart checkout with profile-aware address selection, order placement & live tracking with customer cancel/return workflows, product reviews with image uploads, a loyalty wallet with admin-controlled reward economics, an enterprise catalog engine, a dedicated **Super Admin Panel** with refund reversal safeguards, and a **Finance & Analytics** dashboard.
+**EOnlineBazar** is a **fully dynamic, production-ready**, full-stack e-commerce platform built on **Node.js / Express 5** with a **MongoDB (Atlas)** database and a lightweight **Vanilla JavaScript** frontend served directly by Express. It follows a clean **MVC architecture** (`Models → Controllers → Routes`) and ships with everything a modern online store needs: secure customer authentication, a shopping cart with **guest-to-auth merge**, a persistent **My Wishlist**, smart checkout with profile-aware address selection, **dynamic shipping quotes & delivery estimates**, **AJAX promo-code recalculation**, order placement & live tracking with customer cancel/return workflows, product reviews with image uploads, a loyalty wallet with admin-controlled reward economics, an enterprise catalog engine, a dedicated **Super Admin Panel** with refund reversal safeguards, and a **Finance & Analytics** dashboard.
 
 Six things set it apart:
 
 1. **A database-backed session security layer** — every login (customer *and* admin) generates a unique session embedded inside the JWT, so users and admins can view all their **active devices** (IP, geo-location, browser & device) and **remotely log out** any device in real time.
 2. **A Fortified Admin Security Suite** — multi-option Two-Factor Authentication (**Email OTP**, **Google Authenticator / TOTP**, and **SMS OTP**), **Geo-Fencing (Region Lock)**, brute-force **auto IP-blacklisting**, rate-limiting, and a full login-history / security-audit trail.
-3. **Smart Checkout & Order Lifecycle** — profile-first address pre-fill, toggleable saved-address cards, customer cancellation/return reason modals, admin return approval with wallet refunds, and a configurable **Safe Undo Refund** window with spent-funds safety checks.
+3. **Smart Checkout & Order Lifecycle** — profile-first address pre-fill, toggleable saved-address cards, **location-based shipping & delivery date previews**, **AJAX promo-code recalculation**, guest-to-auth **cart merge**, customer cancellation/return reason modals, admin return approval with wallet refunds, and a configurable **Safe Undo Refund** window with spent-funds safety checks.
 4. **Dynamic Delivery Charge & Address Management** — admin-configurable shipping rules, Bangladesh **District → Upazila/Thana** cascading address fields, checkout auto-fill, real-time fee preview, and **server-side price re-validation** before orders are persisted.
 5. **Master Settings & Category-Specific Rewards** — global cashback, points earning ratio, points-to-taka conversion, and refund-undo window controlled from one admin panel, with per-category cashback overrides and zero-value toggles to disable rewards platform-wide.
 6. **Time-Sensitive Coupon Automation** — precise hour/minute expiry scheduling, a server-side **ACTIVE / EXPIRED** status engine with bulk auto-expiry, checkout visibility synced to live availability, and hardened order-time coupon validation.
@@ -79,6 +80,7 @@ This release delivers a professional-grade **checkout ↔ profile address pipeli
 | **⚙️ Master Settings & Dynamic Rewards** | Global panel for cashback %, points ratio, conversion rate, and refund-undo hours; **category-specific cashback overrides** with global fallback; setting any rate to **0** instantly disables that reward type platform-wide. |
 | **🔄 Smart Tab Navigation & Contextual Routing** | Query-param tab activation (`/profile?tab=orders`) for seamless **order-details ↔ profile** transitions; contextual **Back to Dashboard / My Orders** links; sub-tabs show **← Back to Dashboard** instead of ejecting to home; `history.replaceState()` for clean F5 reload. |
 | **📱 Cart & Wishlist UI/UX Polish** | Streamlined **divider-line** cart rows (no heavy per-item cards); tightened vertical padding and grid gaps in **My Cart Summary** and **My Wishlist** for ultra-compact mobile layouts. |
+| **🛒 Checkout Experience & Cart Enhancements** | Checkout-only **district selection** and **promo codes** for a cleaner `/cart`; real-time **inside/outside Dhaka** shipping + **business-day delivery estimates**; shared **`CouponUI`** module for flat/percentage discounts with live subtotal/grand-total updates; automatic **guest → auth cart merge** on login/OAuth. |
 
 > 📌 See the dedicated sections below for workflow diagrams, schema fields, and API specifications.
 
@@ -260,6 +262,80 @@ Space-efficient layout refinements for the customer profile **My Cart** tab — 
 | `client/css/cart.css` | Flat divider-line cart preview rows; reduced padding and hover treatment |
 | `client/css/profile.css` | Compact wishlist grid, tightened section headers, mobile breakpoint density |
 | `client/js/profile.js` | Cart/wishlist fetch and render on **My Cart** tab activation |
+
+---
+
+## 🛒 Checkout Experience & Cart Enhancements
+
+A unified checkout-first flow for shipping, promotions, and cart persistence — keeping `/cart` focused on item review while `/checkout` owns district selection, promo codes, delivery estimates, and final totals.
+
+### Feature Overview
+
+#### Dynamic Shipping & Delivery Calculation (Checkout)
+- Integrated **location-based shipping charges** (Inside/Outside Dhaka rates from admin `Settings`) and **real-time estimated delivery date ranges** directly into the Checkout workflow.
+- **`client/js/shipping-estimator.js`** mirrors server-side `deliveryChargeService.js` + `deliveryEstimateService.js` — computing zone (`inside` / `outside`), fee, free-shipping eligibility, and **business-day windows** (2–3 days inside city · 4–6 days outside; Friday/Saturday excluded for Bangladesh).
+- District changes on `/checkout` instantly recalculate delivery charge, grand total, and the **`#checkoutDeliveryDateRange`** badge — no full-page reload.
+- Public **`GET /api/store/shipping-quote?district=&subtotal=`** returns a server-authoritative quote (zone, `deliveryCharge`, `estimatedDelivery`) for optional AJAX previews; order placement still re-validates on the backend.
+- Streamlined the **Cart view UI** by keeping **district selection** and **promo codes exclusively on the Checkout page** for a cleaner, faster cart experience.
+
+#### Instant Coupon & Promo Code Engine
+- Enhanced promo code validation to support both **flat amount** and **percentage-based** discounts (with optional max-discount cap enforced server-side in `couponController.js`).
+- Extracted shared **`client/js/coupon-ui.js`** (`CouponUI` module) — binds apply/remove handlers, persists `appliedCoupon` in `localStorage`, and calls **`POST /api/coupons/apply`** via Fetch.
+- Implemented **dynamic subtotal and grand total recalculations** via client-side AJAX/Fetch without requiring full-page reloads — `updateCheckoutTotals()` and `CouponUI.syncCouponPanel()` refresh merchandise payable, discount row, delivery charge, and grand total on every cart or coupon change.
+- Stale coupons are auto-cleared when the cart subtotal drifts from the validated amount; checkout still probes **`GET /api/coupons/active-check`** before showing the promo input.
+
+#### Seamless Cart Persistence & Merge System (Guest to Auth)
+- Built an automatic **cart merge algorithm** during user authentication (login / OAuth) via `utils/cartMergeService.js` and **`client/js/cart-merge.js`** (`CartMerge.syncCartAfterLogin`).
+- Preserves items added by guest users in **temporary `localStorage` cart state** and seamlessly merges them into the user's permanent **MongoDB cart** upon logging in.
+- **Variant-aware deduplication** — matching `productId` + `variantId` lines increment quantity; new lines are appended; merged cart is returned in the login response or via **`POST /api/cart/merge`**.
+- `/cart` page load performs the same merge when an authenticated user still has local guest items, then clears `localStorage` and fetches the live DB cart.
+
+### Architectural Workflow
+
+```mermaid
+flowchart TD
+    A[Guest adds items → localStorage cart] --> B{User logs in / OAuth}
+    B --> C[Login body includes guestCartItems]
+    C --> D[mergeGuestCartIntoUserCart]
+    D --> E{Duplicate productId + variantId?}
+    E -->|Yes| F[Increment quantity]
+    E -->|No| G[Append new line]
+    F --> H[Persist MongoDB Cart]
+    G --> H
+    H --> I[Clear localStorage + update navbar badge]
+
+    J[User opens /checkout] --> K[Select district]
+    K --> L[Recalc shipping + delivery estimate]
+    L --> M{Apply promo code?}
+    M -->|Yes| N[POST /api/coupons/apply]
+    N --> O[CouponUI sync totals via Fetch]
+    M -->|No| O
+    O --> P[Grand total = merchandise + delivery]
+```
+
+### Related API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/store/shipping-quote` | District + subtotal → zone, delivery charge, estimated delivery window | Public |
+| `POST` | `/api/coupons/apply` | Validate & compute flat/percentage discount for current subtotal | Optional User |
+| `POST` | `/api/cart/merge` | Merge guest `cartItems` into authenticated user's DB cart | User |
+| `POST` | `/api/customer/login` | Accepts `guestCartItems`; returns merged cart in response | Public |
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `client/js/shipping-estimator.js` | Client-side zone, fee, free-shipping, and business-day delivery estimate |
+| `client/js/coupon-ui.js` | Shared promo apply/remove UI, Fetch validation, live total sync |
+| `client/js/cart-merge.js` | Guest cart read/clear, post-login merge orchestration, `cart:merged` event |
+| `client/js/checkout.js` | Checkout-only district + coupon wiring, `updateCheckoutTotals()` |
+| `client/js/cart.js` | Lean cart page (no district/promo); hybrid guest/DB sync + merge on load |
+| `utils/deliveryEstimateService.js` | Server-side business-day delivery window by zone |
+| `utils/cartMergeService.js` | Variant-aware guest → user cart merge (login + API) |
+| `controllers/storeController.js` | `getPublicShippingQuote` endpoint |
+| `controllers/userController.js` | Login-time guest cart merge |
+| `controllers/couponController.js` | Flat/percentage discount computation & validation |
 
 ---
 
@@ -788,6 +864,7 @@ District normalization and validation live in `utils/bangladeshDistricts.js`; up
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
 | `GET` | `/api/store/delivery-settings` | Public delivery rules for checkout preview | Public |
+| `GET` | `/api/store/shipping-quote` | District + subtotal → zone, fee, and estimated delivery window | Public |
 | `GET` | `/api/store/districts` | List of valid Bangladesh districts | Public |
 | `GET` | `/api/admin/settings` | Admin: read delivery settings | Admin |
 | `PUT` | `/api/admin/settings` | Admin: update delivery settings | Admin |
@@ -849,9 +926,9 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 - **🛍️ Product Catalog** — Up to 10 images, categories, brand, variations, highlights, stock levels, **selling price + buying price** (live profit preview), and detailed descriptions.
 - **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, customer **Cancel** / **Return Request** workflows with reason modals, public order tracking, `cancelledBy` audit field, and per-item **buying-price snapshots** at checkout.
 - **🔄 Admin Return & Refund Pipeline** — Approve returns with automatic wallet credit, transaction history logging, and **Safe Undo Refund** within a configurable hour window (spent-funds safety check).
-- **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, free-shipping threshold, **locked server-side totals** on every order, and district-aware invoices.
+- **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, free-shipping threshold, **real-time delivery date estimates** on checkout, **locked server-side totals** on every order, and district-aware invoices.
 - **📍 Smart Checkout Address Integration** — Profile-first checkout pre-fill, toggleable saved-address radio cards (select / unselect / revert), manual override with **Save to profile** sync, and cascading Bangladesh location dropdowns.
-- **🛒 Shopping Cart** — Server-synced cart with quantity updates, selection toggles, guest-cart merge, post-order cleanup, and a **compact divider-line summary** in the profile dashboard.
+- **🛒 Shopping Cart & Checkout Enhancements** — Server-synced cart with quantity updates, selection toggles, **checkout-only district & promo UI**, **AJAX coupon recalculation** (flat/percentage), **guest-cart merge** on login/OAuth (variant-aware quantity increment), post-order cleanup, and a **compact divider-line summary** in the profile dashboard.
 - **⭐ Reviews & Ratings** — Star ratings and reviews with optional photo upload; averages update automatically.
 - **📍 Address Book** — Manage multiple delivery addresses with default-address sync.
 - **💰 Wallet & Loyalty Points** — Admin-configurable cashback, points earning, and conversion rates; category-specific cashback overrides; convert points to wallet balance with transaction history.
@@ -1000,6 +1077,8 @@ eonlinebazar-fullstack/
 │   ├── mailer.js                      # SMTP transport + branded 2FA OTP email template
 │   ├── smsSender.js                   # SMS 2FA delivery abstraction (console/Twilio/custom)
 │   ├── deliveryChargeService.js       # Shared delivery zone + fee + locked-total computation
+│   ├── deliveryEstimateService.js     # Business-day delivery window estimates by shipping zone
+│   ├── cartMergeService.js            # Variant-aware guest → user cart merge (login + API)
 │   ├── applicationTime.js             # Centralized server clock + platform timezone for coupon expiry
 │   ├── rewardSettings.js              # Cashback/points math, category overrides, delivery rewards, refund undo window
 │   ├── savedAddress.js                # Checkout address parsing, duplicate check, profile sync
@@ -1024,6 +1103,9 @@ eonlinebazar-fullstack/
 │   ├── finance-analytics.html         # Finance & analytics dashboard
 │   ├── css/                           # Page-scoped stylesheets (admin.css, verify-otp.css…)
 │   ├── js/                            # Page scripts (admin.js, checkout.js, profile.js, bd-districts.js…)
+│   │   ├── shipping-estimator.js      # Client shipping quote + delivery estimate helpers
+│   │   ├── coupon-ui.js               # Shared promo apply/remove + live total sync
+│   │   └── cart-merge.js              # Guest cart merge after login/OAuth
 │   └── images/                        # Static assets (favicon.png…)
 │
 ├── server.js                          # App entry: middleware, routes, clean URLs, page guards
@@ -1363,6 +1445,7 @@ Base URL: `http://localhost:3000`
 |--------|----------|-------------|------|
 | `GET`  | `/api/store/branding` | Store name, logo & favicon URLs | Public |
 | `GET`  | `/api/store/delivery-settings` | Delivery rules for checkout (rates, home city, free-shipping threshold) | Public |
+| `GET`  | `/api/store/shipping-quote` | District + subtotal → zone, delivery charge, estimated delivery window | Public |
 | `GET`  | `/api/store/districts` | Valid Bangladesh district list | Public |
 
 ### 📊 Finance & Analytics
@@ -1486,6 +1569,12 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 **📱 Mobile & Desktop UI/UX Polish (Cart & Wishlist)**
 - Replaced heavy per-item card wrappers with a **compact divider layout** (`border-bottom`) in the profile cart summary.
 - Optimized vertical padding and grid gaps in **My Cart Summary** and **My Wishlist** for ultra-compact, space-efficient mobile layouts.
+
+**🛒 Checkout Experience & Cart Enhancements**
+- **Dynamic Shipping & Delivery Calculation (Checkout)** — integrated inside/outside Dhaka rates and **business-day delivery date ranges** into `/checkout`; district selection and promo codes moved off `/cart` for a cleaner cart view.
+- **Instant Coupon & Promo Code Engine** — shared `coupon-ui.js` supports **flat** and **percentage** discounts; subtotal/grand total recalculate via Fetch without full-page reloads.
+- **Seamless Cart Persistence & Merge (Guest → Auth)** — `cartMergeService.js` + `cart-merge.js` merge `localStorage` guest carts on login/OAuth; duplicate `productId` + `variantId` lines auto-increment quantity.
+- New public endpoint **`GET /api/store/shipping-quote`** for server-authoritative shipping + delivery estimate previews.
 
 ### Admin UX — Wide Edit Product Modal
 **🖥️ Desktop-first product editing**

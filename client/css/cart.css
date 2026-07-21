@@ -290,6 +290,32 @@ body {
     padding-top: 20px;
 }
 
+.cart-summary-compact {
+    margin-top: 20px;
+    padding-top: 14px;
+}
+
+.cart-summary-compact .subtotal-row {
+    margin-bottom: 4px;
+    font-size: 13px;
+}
+
+.cart-summary-compact .cart-summary-subtotal {
+    margin-bottom: 14px;
+}
+
+.cart-summary-compact .cart-summary-subtotal strong {
+    font-size: 18px;
+    color: #16a34a;
+    font-weight: 800;
+}
+
+.cart-summary-compact .checkout-redirect-btn {
+    margin-top: 4px;
+    padding: 12px 28px;
+    font-size: 14px;
+}
+
 .subtotal-row {
     font-size: 14px;
     color: #64748b;
@@ -909,73 +935,283 @@ body {
 .coupon-apply-box {
     background: #fffaf5;
     border: 1px dashed #fdba74;
-    border-radius: 10px;
-    padding: 14px 16px;
-    margin-bottom: 16px;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    text-align: left;
 }
+
+.coupon-apply-box--compact {
+    padding: 8px 10px;
+    margin-bottom: 10px;
+}
+
+.coupon-apply-box.has-applied-coupon {
+    border-color: #86efac;
+    background: #f0fdf4;
+}
+
 .coupon-apply-label {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    font-size: 14px;
+    gap: 6px;
+    font-size: 12px;
     font-weight: 700;
     color: #9a3412;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
 }
+
 .coupon-apply-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    align-items: stretch;
+    gap: 6px;
 }
+
 .coupon-apply-input {
-    flex: 1 1 160px;
+    flex: 1 1 120px;
     min-width: 0;
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-size: 14px;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
     text-transform: uppercase;
-    letter-spacing: 0.4px;
+    letter-spacing: 0.35px;
     background: #fff;
 }
+
 .coupon-apply-input:focus {
     outline: none;
     border-color: #f97316;
-    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.12);
 }
+
+.coupon-apply-input:disabled {
+    background: #f8fafc;
+    color: #64748b;
+}
+
+.coupon-apply-btn,
+.coupon-remove-btn {
+    font-size: 12px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
 .coupon-apply-btn {
     border: none;
     background: #f97316;
     color: #fff;
     font-weight: 700;
-    padding: 10px 18px;
-    border-radius: 8px;
     cursor: pointer;
     transition: background 0.2s ease;
 }
+
 .coupon-apply-btn:hover { background: #ea580c; }
+
 .coupon-apply-btn:disabled {
     opacity: 0.65;
     cursor: not-allowed;
 }
+
 .coupon-remove-btn {
     border: 1px solid #fecaca;
     background: #fef2f2;
     color: #b91c1c;
     font-weight: 600;
-    padding: 10px 14px;
-    border-radius: 8px;
     cursor: pointer;
 }
+
 .coupon-remove-btn:hover { background: #fee2e2; }
+
+.coupon-feedback-msg,
 .coupon-applied-msg {
-    margin: 10px 0 0;
-    font-size: 13px;
+    margin: 6px 0 0;
+    font-size: 12px;
     font-weight: 600;
+    line-height: 1.4;
+}
+
+.coupon-feedback-msg.is-success,
+.coupon-applied-msg.is-success {
     color: #15803d;
 }
+
+.coupon-feedback-msg.is-error {
+    color: #dc2626;
+}
+
+.coupon-feedback-msg.is-warning {
+    color: #b45309;
+}
+
+.discount-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
 .discount-row strong,
 .discount-row #cartDiscountAmount,
 .discount-row #checkoutDiscountAmount {
     color: #16a34a !important;
+}
+
+/* =========================================================================
+   🚚 SHIPPING & DELIVERY ESTIMATOR (Cart)
+   ========================================================================= */
+.shipping-estimator-widget {
+    margin-top: 20px;
+    padding: 14px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.shipping-estimator-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+    letter-spacing: 0.2px;
+}
+
+.shipping-estimator-header i {
+    color: #16a34a;
+    font-size: 14px;
+}
+
+.shipping-estimator-body {
+    display: grid;
+    gap: 8px;
+}
+
+.shipping-estimator-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.shipping-estimator-select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    color: #334155;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.shipping-estimator-select:focus {
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.12);
+}
+
+.shipping-estimator-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.shipping-estimator-fee {
+    font-size: 13px;
+    color: #475569;
+}
+
+.shipping-estimator-fee strong {
+    color: #1e293b;
+    font-weight: 700;
+}
+
+.delivery-estimate-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #ecfdf5;
+    color: #047857;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.delivery-estimate-badge i {
+    font-size: 11px;
+}
+
+.delivery-estimate-badge.is-outside {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.shipping-estimator-hint {
+    margin: 0;
+    font-size: 11px;
+    color: #94a3b8;
+    line-height: 1.4;
+}
+
+.shipping-fee-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.cart-delivery-summary-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    margin: 4px 0 8px;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid #e2e8f0;
+}
+
+.cart-delivery-summary-row__charge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.cart-delivery-summary-row__charge strong {
+    color: #1e293b;
+    font-weight: 700;
+}
+
+.cart-delivery-summary-row__badge {
+    font-size: 11px;
+}
+
+.cart-free-shipping-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+}
+
+@media (max-width: 640px) {
+    .cart-delivery-summary-row {
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+        padding: 8px;
+    }
 }
