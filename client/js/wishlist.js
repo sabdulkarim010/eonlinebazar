@@ -43,7 +43,7 @@
 
     function showWishlistToast(message, type = 'success') {
         if (typeof window.showToast === 'function') {
-            window.showToast(message, type === 'error' ? 'error' : 'success');
+            window.showToast(message, type);
             return;
         }
 
@@ -168,11 +168,19 @@
             if (data.added) {
                 savedProductIds.add(normalizeId(productId));
                 setHeartVisual(btn, true);
-                showWishlistToast('Success: Added to Wishlist!', 'success');
+                if (typeof window.showWishlistAddedToast === 'function') {
+                    window.showWishlistAddedToast();
+                } else {
+                    showWishlistToast('❤️ Saved to Wishlist!', 'wishlist');
+                }
             } else {
                 savedProductIds.delete(normalizeId(productId));
                 setHeartVisual(btn, false);
-                showWishlistToast('Removed from Wishlist', 'success');
+                if (typeof window.showWishlistRemovedToast === 'function') {
+                    window.showWishlistRemovedToast();
+                } else {
+                    showWishlistToast('Item removed from Wishlist', 'info');
+                }
             }
         } catch (error) {
             console.error('Wishlist toggle error:', error);

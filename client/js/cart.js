@@ -33,6 +33,9 @@ fetch('/api/products')
     })
     .then(data => {
         globalProductCatalog = Array.isArray(data) ? data : (data.data || data.products || []);
+        window.globalProductCatalog = globalProductCatalog;
+        document.dispatchEvent(new CustomEvent('productCatalogReady'));
+        renderCartDrawerItems();
         
         // 🌟 হাইব্রিড মার্জ লজিক: ইউজার লগইন থাকলে লোকাল স্টোরেজের কার্ট ডাটাবেজে পাঠিয়ে মার্জ হবে
         if (customerToken) {
@@ -206,6 +209,14 @@ function renderCartDrawerItems() {
         const vid = encVariant(item.variantId);
         const variantTag = item.variantLabel
             ? `<span class="cart-item-variant" style="display:block; font-size:11px; color:#64748b;">${item.variantLabel}</span>` : '';
+
+        const SA = window.StockAlert;
+        const stock = SA ? SA.getItemStock(item, realProduct) : null;
+        const stockBadge = SA ? SA.buildStockAlertHtml(stock) : '';
+        const plusDisabled = SA ? SA.isIncreaseDisabled(stock, quantity) : false;
+        const plusDisabledAttr = plusDisabled ? 'disabled' : '';
+        const plusBtnClass = plusDisabled ? 'qty-btn qty-btn--disabled' : 'qty-btn';
+        const plusControlClass = plusDisabled ? 'qty-control-btn qty-control-btn--disabled' : 'qty-control-btn';
         
         const row = document.createElement('div');
         
@@ -220,12 +231,13 @@ function renderCartDrawerItems() {
                 <div class="cart-item-info">
                     <div class="cart-item-name" title="${item.name}">${item.name}</div>
                     ${variantTag}
+                    ${stockBadge}
                     <div class="cart-item-price">৳${item.price}</div>
                 </div>
                 <div class="cart-item-qty-box">
                     <button class="qty-btn" onclick="updateQty('${item.id}', -1, '${vid}')">-</button>
                     <span class="qty-val">${quantity}</span>
-                    <button class="qty-btn" onclick="updateQty('${item.id}', 1, '${vid}')">+</button>
+                    <button class="${plusBtnClass}" ${plusDisabledAttr} onclick="updateQty('${item.id}', 1, '${vid}')">+</button>
                 </div>
                 <button class="cart-delete-btn" onclick="deleteCartItem('${item.id}', '${vid}')">
                     <i class="fa fa-trash"></i>
@@ -241,6 +253,7 @@ function renderCartDrawerItems() {
                     <div class="cart-item-info-box">
                         <span class="product-title-text">${item.name}</span>
                         ${item.variantLabel ? `<span class="product-variant-text">${item.variantLabel}</span>` : ''}
+                        ${stockBadge}
                         <span class="product-unit-price">৳${item.price}</span>
                     </div>
                 </div>
@@ -249,7 +262,7 @@ function renderCartDrawerItems() {
                     <div class="cart-quantity-controller">
                         <button class="qty-control-btn" onclick="updateQty('${item.id}', -1, '${vid}')"><i class="fa-solid fa-minus"></i></button>
                         <div class="qty-display-number">${quantity}</div>
-                        <button class="qty-control-btn" onclick="updateQty('${item.id}', 1, '${vid}')"><i class="fa-solid fa-plus"></i></button>
+                        <button class="${plusControlClass}" ${plusDisabledAttr} onclick="updateQty('${item.id}', 1, '${vid}')"><i class="fa-solid fa-plus"></i></button>
                     </div>
                     <div class="cart-item-total-price">৳${itemTotal}</div>
                     <button class="cart-item-trash-btn" onclick="deleteCartItem('${item.id}', '${vid}')" title="Remove Product">
@@ -405,7 +418,13 @@ window.updateQty = function(productId, change, variantIdEnc) {
                     if (matched) availableStock = Number(matched.stock || 0);
                 }
                 if ((item.quantity + change) > availableStock) {
-                    alert(`দুঃখিত! এই অপশনটির জন্য স্টকে সর্বোচ্চ ${availableStock} টি এভেইলেবল আছে।`);
+                    if (typeof window.showStockExceededToast === 'function') {
+                        window.showStockExceededToast();
+                    } else if (typeof window.showToast === 'function') {
+                        window.showToast('⚠️ Requested quantity exceeds available stock', 'error');
+                    } else {
+                        alert(`দুঃখিত! এই অপশনটির জন্য স্টকে সর্বোচ্চ ${availableStock} টি এভেইলেবল আছে।`);
+                    }
                     return;
                 }
             }
@@ -467,9 +486,10 @@ window.deleteCartItem = function(productId, variantIdEnc) {
         renderCartDrawerItems();
     }
 
-    const btn = window.event ? window.event.target.closest('button') : null;
-    if (btn && typeof showCardNotification === 'function') {
-        showCardNotification(btn, "Item removed!", "warning");
+    if (typeof window.showCartRemovedToast === 'function') {
+        window.showCartRemovedToast();
+    } else if (typeof window.showToast === 'function') {
+        window.showToast('Item removed from Cart', 'info');
     }
 };
 
@@ -477,25 +497,16 @@ window.deleteCartItem = function(productId, variantIdEnc) {
 /* ==========================================================================
    SECTION 6: TOAST NOTIFICATIONS & ANIMATIONS (নোটিফিকেশন ও ফ্লাইং ইফেক্ট)
    ========================================================================== */
+function notifyToast(message, type = 'success') {
+    if (typeof window.showToast === 'function') {
+        window.showToast(message, type);
+        return true;
+    }
+    return false;
+}
+
 function showCardNotification(clickedButton, message, type = 'success') {
-    if (!clickedButton) return;
-    const productCard = clickedButton.closest('.product-card') || clickedButton.closest('.cart-item-card');
-    if (!productCard || !(productCard instanceof HTMLElement)) return;
-
-    const oldToast = productCard.querySelector('.card-toast');
-    if (oldToast) oldToast.remove();
-
-    const toast = document.createElement('div');
-    toast.className = `card-toast ${type}`;
-    toast.innerHTML = type === 'success' ? `✅ ${message}` : `⚠️ ${message}`;
-    
-    productCard.appendChild(toast);
-
-    setTimeout(() => toast.classList.add('show'), 50);
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, 2500);
+    notifyToast(message, type);
 }
 
 function triggerFlyAnimation(clickedButton, assetData) {
@@ -575,7 +586,7 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
         realProduct.variants.some(v => v.attribute || v.value)) {
         const detailId = realProduct._id || realProduct.productId || productId;
         if (clickedButton && typeof showCardNotification === 'function') {
-            showCardNotification(clickedButton, "Select options...", "success");
+            showCardNotification(clickedButton, 'Select product options first', 'info');
         }
         setTimeout(() => { window.location.href = `/product-details.html?id=${detailId}`; }, 350);
         return;
@@ -587,12 +598,20 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
         let quantityToAdd = currentQtyInCart + 1;
 
         if (availableStock <= 0) {
-            showCardNotification(clickedButton, "Out of stock!", "error");
+            if (typeof window.showOutOfStockToast === 'function') {
+                window.showOutOfStockToast();
+            } else {
+                showCardNotification(clickedButton, 'Out of stock!', 'error');
+            }
             return;
         }
         
         if (quantityToAdd > availableStock) {
-            showCardNotification(clickedButton, `Stock limit: ${availableStock}`, "warning");
+            if (typeof window.showStockExceededToast === 'function') {
+                window.showStockExceededToast();
+            } else {
+                showCardNotification(clickedButton, `Stock limit: ${availableStock}`, 'warning');
+            }
             return;
         }
     }
@@ -627,17 +646,21 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
             if (Array.isArray(updatedData)) {
                 syncCartFromServerItems(updatedData);
                 if (existingItem) {
-                    showCardNotification(clickedButton, "Quantity increased!", 'success');
+                    notifyToast('🛒 Cart quantity updated!', 'success');
                 } else {
                     triggerFlyAnimation(clickedButton, productImage);
-                    showCardNotification(clickedButton, "Added to bag!", 'success');
+                    if (typeof window.showCartAddedToast === 'function') {
+                        window.showCartAddedToast();
+                    } else {
+                        showCardNotification(clickedButton, 'Added to bag!', 'success');
+                    }
                 }
                 return;
             }
 
             if (existingItem) {
                 existingItem.quantity += 1;
-                showCardNotification(clickedButton, "Quantity increased!", 'success');
+                notifyToast('🛒 Cart quantity updated!', 'success');
             } else {
                 triggerFlyAnimation(clickedButton, productImage);
                 cart.unshift({
@@ -649,7 +672,11 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
                     quantity: 1,
                     selected: true
                 });
-                showCardNotification(clickedButton, "Added to bag!", 'success');
+                if (typeof window.showCartAddedToast === 'function') {
+                    window.showCartAddedToast();
+                } else {
+                    showCardNotification(clickedButton, 'Added to bag!', 'success');
+                }
             }
             updateCartCount();
             renderCartDrawerItems();
@@ -660,7 +687,7 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
         // গেস্ট ইউজারের জন্য লোকাল স্টোরেজ লজিক
         if (existingItem) {
             existingItem.quantity = (existingItem.quantity || 1) + 1;
-            showCardNotification(clickedButton, "Quantity increased!", 'success');
+            notifyToast('🛒 Cart quantity updated!', 'success');
         } else {
             triggerFlyAnimation(clickedButton, productImage);
 
@@ -679,7 +706,11 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
         setTimeout(() => {
             updateCartCount();
             if (!existingItem) {
-                showCardNotification(clickedButton, "Added to bag!", 'success');
+                if (typeof window.showCartAddedToast === 'function') {
+                    window.showCartAddedToast();
+                } else {
+                    showCardNotification(clickedButton, 'Added to bag!', 'success');
+                }
             }
             renderCartDrawerItems();
         }, 800);

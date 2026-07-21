@@ -148,9 +148,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // স্ট্যাটাস ও Track Order বাটন লজিক
         const status = (order.status || 'pending').toLowerCase();
         const statusEl = document.getElementById('order-status');
+        const statusClass = status.replace(/\s+/g, '-');
         if (statusEl) {
             statusEl.textContent = status;
-            statusEl.className = `status-badge ${status}`;
+            statusEl.className = `status-badge ${statusClass}`;
+        }
+
+        if (window.OrderStatusTimeline) {
+            OrderStatusTimeline.renderOrderStatusUI({
+                status: order.status || status,
+                timelineEl: document.getElementById('order-status-timeline'),
+                bannerEl: document.getElementById('order-cancelled-banner')
+            });
         }
 
         if (elements.trackBtn) {

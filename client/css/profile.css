@@ -1813,28 +1813,152 @@ a.top-back-btn {
 
 .order-details-body { padding: 2rem 2.5rem; }
 
-/* 🌟 প্রগ্রেসিভ ট্র্যাকিং টাইমলাইন */
-.order-tracking-timeline {
-    display: flex; justify-content: space-between; align-items: center;
-    margin: 1rem 0 3rem; position: relative;
+/* 🌟 Order status timeline (shared with order-details page) */
+.order-status-timeline-card {
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin: 0 0 2rem;
 }
-.order-tracking-timeline::before {
-    content: ''; position: absolute; top: 18px; left: 0; width: 100%; height: 4px;
-    background: var(--border-color); z-index: 1; border-radius: 4px;
-}
-.order-tracking-timeline .step {
-    position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 10px; flex: 1;
-}
-.step-icon {
-    width: 40px; height: 40px; background: var(--bg-card); border: 4px solid var(--border-color);
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    font-size: 1rem; color: var(--text-muted); transition: var(--transition-smooth);
-}
-.step-label { font-size: 0.9rem; font-weight: 700; color: var(--text-muted); }
 
-/* Active Steps */
-.step.active .step-icon { background: var(--primary-color); border-color: var(--primary-color); color: white; box-shadow: 0 0 0 4px rgba(37,99,235,0.1); }
-.step.active .step-label { color: var(--primary-color); }
+.order-status-timeline-card h3 {
+    margin-bottom: 16px;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.order-status-timeline-card--modal {
+    margin-bottom: 1.5rem;
+}
+
+.order-cancelled-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 16px;
+    margin-bottom: 1.25rem;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border: 1px solid #fecaca;
+    color: #991b1b;
+}
+
+.order-cancelled-banner > i {
+    font-size: 1.3rem;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.order-cancelled-banner__text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.order-cancelled-banner__text strong {
+    font-size: 0.95rem;
+    color: #b91c1c;
+}
+
+.order-cancelled-banner__text span {
+    font-size: 0.85rem;
+    color: #991b1b;
+}
+
+.order-status-timeline-host {
+    overflow-x: auto;
+}
+
+.order-status-timeline {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: min(100%, 560px);
+    position: relative;
+    padding: 8px 0 0;
+}
+
+.order-status-timeline::before {
+    content: '';
+    position: absolute;
+    top: 28px;
+    left: 10%;
+    right: 10%;
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 999px;
+    z-index: 0;
+}
+
+.order-timeline-step {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    text-align: center;
+}
+
+.order-timeline-step__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-card);
+    border: 3px solid var(--border-color);
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    transition: var(--transition-smooth);
+}
+
+.order-timeline-step__label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    line-height: 1.25;
+    max-width: 92px;
+}
+
+.order-timeline-step.completed .order-timeline-step__icon,
+.order-timeline-step.active .order-timeline-step__icon {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+.order-timeline-step.completed .order-timeline-step__label,
+.order-timeline-step.active .order-timeline-step__label {
+    color: var(--primary-color);
+}
+
+.order-timeline-step.active .order-timeline-step__icon {
+    transform: scale(1.06);
+}
+
+.order-status-timeline--cancelled .order-timeline-step__icon,
+.order-timeline-step.is-cancelled .order-timeline-step__icon {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+    color: var(--text-muted);
+    box-shadow: none;
+}
+
+.order-status-timeline--cancelled .order-timeline-step__label,
+.order-timeline-step.is-cancelled .order-timeline-step__label {
+    color: var(--text-muted);
+}
 
 /* Order Info Grid */
 .order-info-grid {
@@ -2436,8 +2560,43 @@ a.top-back-btn {
     .main-balance-amount { font-size: 2rem; }
     .btn { width: 100%; justify-content: center; } 
     .form-actions { flex-direction: column; gap: 10px; }
-    .order-tracking-timeline .step-label { font-size: 0.75rem; }
-    .step-icon { width: 30px; height: 30px; font-size: 0.8rem; }
+
+    .order-status-timeline {
+        flex-direction: column;
+        align-items: stretch;
+        min-width: 100%;
+        gap: 0;
+        padding-left: 8px;
+    }
+
+    .order-status-timeline::before {
+        top: 12px;
+        bottom: 12px;
+        left: 27px;
+        right: auto;
+        width: 4px;
+        height: auto;
+    }
+
+    .order-timeline-step {
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 14px;
+        text-align: left;
+        padding: 10px 0;
+    }
+
+    .order-timeline-step__label {
+        max-width: none;
+        font-size: 0.85rem;
+    }
+
+    .order-timeline-step__icon {
+        width: 30px;
+        height: 30px;
+        font-size: 0.8rem;
+    }
 }
 
 /* =================================================================

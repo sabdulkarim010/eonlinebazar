@@ -34,6 +34,13 @@
                 <p class="order-date">Placed on: <span id="order-date">Loading...</span></p>
             </div>
 
+            <div id="order-cancelled-banner" class="order-cancelled-banner hidden" role="alert" aria-live="polite"></div>
+
+            <div id="order-status-timeline-wrap" class="order-status-timeline-card">
+                <h3><i class="fa-solid fa-route"></i> Order Progress</h3>
+                <div id="order-status-timeline" class="order-status-timeline-host"></div>
+            </div>
+
             <div class="shipping-info-card">
                 <h3><i class="fa-solid fa-location-dot"></i> Shipping Information</h3>
                 <p><strong>Name:</strong> <span id="customer-name">Loading...</span></p>
@@ -118,6 +125,7 @@
     <script src="js/session-guard.js"></script>
     <script src="js/productThumbnail.js"></script>
     <script src="js/invoiceDownload.js"></script>
+    <script src="js/orderStatusTimeline.js"></script>
     <script src="js/order-details.js"></script>
 </body>
 </html>

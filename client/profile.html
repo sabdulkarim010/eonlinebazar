@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="css/cart.css">
     <link rel="stylesheet" href="css/profile.css">
     <link rel="stylesheet" href="css/product-thumbnail.css">
+    <link rel="stylesheet" href="css/toast.css">
 </head>
 <body>
 
@@ -535,23 +536,10 @@
         </div>
         
         <div class="order-details-body">
-            <div class="order-tracking-timeline">
-                <div class="step active">
-                    <span class="step-icon"><i class="fa-solid fa-circle-check"></i></span>
-                    <span class="step-label">Placed</span>
-                </div>
-                <div class="step active">
-                    <span class="step-icon"><i class="fa-solid fa-box"></i></span>
-                    <span class="step-label">Packed</span>
-                </div>
-                <div class="step">
-                    <span class="step-icon"><i class="fa-solid fa-truck-fast"></i></span>
-                    <span class="step-label">Shipped</span>
-                </div>
-                <div class="step">
-                    <span class="step-icon"><i class="fa-solid fa-house-chimney-user"></i></span>
-                    <span class="step-label">Delivered</span>
-                </div>
+            <div id="order-cancelled-banner-modal" class="order-cancelled-banner hidden" role="alert" aria-live="polite"></div>
+            <div id="order-status-timeline-wrap-modal" class="order-status-timeline-card order-status-timeline-card--modal">
+                <h3><i class="fa-solid fa-route"></i> Order Progress</h3>
+                <div id="order-status-timeline-modal" class="order-status-timeline-host"></div>
             </div>
 
             <div class="order-info-grid">
@@ -797,7 +785,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="js/session-guard.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/stockAlert.js"></script>
 <script src="js/cart.js"></script>
+<script src="js/orderStatusTimeline.js"></script>
 <script src="js/bd-districts.js"></script>
 <script src="js/bd-upazilas.js"></script>
 <script src="js/productThumbnail.js"></script>

@@ -107,24 +107,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     function showToast(message, type = 'success') {
-        let container = document.getElementById('toast-container');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'toast-container';
-            container.className = 'toast-wrapper';
-            document.body.appendChild(container);
+        if (typeof window.showToast === 'function') {
+            window.showToast(message, type);
         }
-        
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        let icon = type === 'danger' ? 'fa-circle-exclamation' : (type === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-check');
-        toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
-        container.appendChild(toast);
-
-        setTimeout(() => {
-            toast.style.animation = 'toastSlideIn 0.3s ease reverse forwards';
-            setTimeout(() => toast.remove(), 300);
-        }, 4000);
     }
 
     // =================================================================
@@ -478,8 +463,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const key = String(status || 'pending').toLowerCase();
         const map = {
             pending: 'pending',
+            placed: 'pending',
             processing: 'processing',
             shipped: 'shipped',
+            'out for delivery': 'out-for-delivery',
+            'out-for-delivery': 'out-for-delivery',
             delivered: 'delivered',
             cancelled: 'cancelled',
             canceled: 'cancelled',
@@ -1795,6 +1783,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================
     // ১৪. উইশলিস্ট (My Wishlist)
     // =================================================================
+    let lastWishlistItems = [];
+
     async function fetchWishlist() {
         const container = document.getElementById('wishlist-items-list');
         if (!container) return;
@@ -1818,6 +1808,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('wishlist-items-list');
         if (!container) return;
 
+        lastWishlistItems = items || [];
+
         if (!items || items.length === 0) {
             container.innerHTML = `
                 <div class="wishlist-empty">
@@ -1836,6 +1828,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? PT.buildThumbnailHtml(item, { variant: 'compact', alt: item.name, escapeHtml })
                 : '';
 
+            const SA = window.StockAlert;
+            const catalog = window.globalProductCatalog || [];
+            const realProduct = SA ? SA.findCatalogProduct(catalog, item.productId) : null;
+            const stock = SA ? SA.getItemStock({ productId: item.productId }, realProduct) : null;
+            const stockBadge = SA ? SA.buildStockAlertHtml(stock) : '';
+            const outOfStock = SA ? SA.isOutOfStock(stock) : false;
+
             const card = document.createElement('div');
             card.className = 'wishlist-card';
             card.dataset.productId = String(item.productId || '');
@@ -1844,9 +1843,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="wishlist-info">
                     <h4 class="wishlist-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name || 'Product')}</h4>
                     <span class="wishlist-price">৳${Number(item.price || 0).toLocaleString()}</span>
+                    ${stockBadge}
                 </div>
                 <div class="wishlist-actions">
-                    <button type="button" class="wishlist-cart-btn" data-id="${escapeHtml(item.productId)}" data-name="${escapeHtml(item.name || '')}" data-price="${Number(item.price || 0)}" data-image="${escapeHtml(meta.image)}" data-icon="${escapeHtml(meta.emoji)}" title="Add to cart">
+                    <button type="button" class="wishlist-cart-btn${outOfStock ? ' is-out-of-stock' : ''}" data-id="${escapeHtml(item.productId)}" data-name="${escapeHtml(item.name || '')}" data-price="${Number(item.price || 0)}" data-image="${escapeHtml(meta.image)}" data-icon="${escapeHtml(meta.emoji)}" title="${outOfStock ? 'Out of stock' : 'Add to cart'}"${outOfStock ? ' disabled' : ''}>
                         <i class="fa-solid fa-cart-plus"></i>
                     </button>
                     <button type="button" class="wishlist-remove-btn" data-id="${escapeHtml(item.productId)}" title="Remove from wishlist">
@@ -1858,6 +1858,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    document.addEventListener('productCatalogReady', () => {
+        if (lastWishlistItems.length > 0) {
+            renderWishlist(lastWishlistItems);
+        }
+    });
+
     async function addWishlistItemToCart(cartBtn) {
         const productId = cartBtn.getAttribute('data-id');
         const name = cartBtn.getAttribute('data-name') || '';
@@ -1868,6 +1874,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!productId) {
             showToast('Product reference missing.', 'danger');
+            return;
+        }
+
+        if (cartBtn.classList.contains('is-out-of-stock') || cartBtn.disabled) {
+            if (typeof window.showOutOfStockToast === 'function') {
+                window.showOutOfStockToast();
+            } else {
+                showToast('This item is out of stock.', 'warning');
+            }
             return;
         }
 
@@ -1907,7 +1922,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.renderCartDrawerItems();
             }
 
-            showToast('Success: Added to cart!', 'success');
+            if (typeof window.showCartAddedToast === 'function') {
+                window.showCartAddedToast();
+            } else {
+                showToast('🛒 Added to Cart successfully!', 'success');
+            }
         } catch (error) {
             console.error('Wishlist add-to-cart error:', error);
             showToast('Server error while adding to cart.', 'danger');
@@ -1964,7 +1983,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 await fetchWishlist();
             }
 
-            showToast('Removed from Wishlist', 'success');
+            if (typeof window.showWishlistRemovedToast === 'function') {
+                window.showWishlistRemovedToast();
+            } else {
+                showToast('Item removed from Wishlist', 'info');
+            }
         } catch (error) {
             console.error('Remove Wishlist Error:', error);
             showToast('Server error.', 'danger');

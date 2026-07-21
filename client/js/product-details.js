@@ -659,7 +659,11 @@ function setupEventListeners() {
             const next = parseInt(qtyInput.value) + 1;
             const stock = getAvailableStock();
             if (stock > 0 && next > stock) {
-                showToast(`Only ${stock} in stock for this option.`, "error");
+                if (typeof window.showStockExceededToast === 'function') {
+                    window.showStockExceededToast();
+                } else {
+                    showToast(`Only ${stock} in stock for this option.`, 'error');
+                }
                 return;
             }
             qtyInput.value = next;
@@ -734,6 +738,9 @@ function setupEventListeners() {
 
         const stock = getAvailableStock();
         if (Array.isArray(currentProductData.variants) && currentProductData.variants.length && stock <= 0) {
+            if (typeof window.showOutOfStockToast === 'function') {
+                return window.showOutOfStockToast();
+            }
             return showToast("This option is out of stock.", "error");
         }
 
@@ -759,7 +766,11 @@ function setupEventListeners() {
         localStorage.setItem('cart', JSON.stringify(cart));
         if (typeof window.updateCartCount === 'function') window.updateCartCount();
         const label = newItem.variantLabel ? ` (${newItem.variantLabel})` : '';
-        showToast(`Product${label} added to cart successfully! 🛒`, "success");
+        if (typeof window.showCartAddedToast === 'function') {
+            window.showCartAddedToast();
+        } else {
+            showToast(`Product${label} added to cart successfully! 🛒`, 'success');
+        }
     };
     
 
@@ -770,6 +781,9 @@ function setupEventListeners() {
 
         const stockAvail = getAvailableStock();
         if (Array.isArray(currentProductData.variants) && currentProductData.variants.length && stockAvail <= 0) {
+            if (typeof window.showOutOfStockToast === 'function') {
+                return window.showOutOfStockToast();
+            }
             return showToast("This option is out of stock.", "error");
         }
 
@@ -829,56 +843,12 @@ function setupTabSystem() {
 }
 
 // ==========================================================================
-// 🌟 SECTION 8: CUSTOM TOAST NOTIFICATION (WITH CLOSE BUTTON)
+// 🌟 SECTION 8: GLOBAL TOAST DELEGATE
 // ==========================================================================
-function showToast(message, type = "success") {
-    const oldToast = document.getElementById('custom-toast');
-    if (oldToast) oldToast.remove();
-
-    const toast = document.createElement('div');
-    toast.id = 'custom-toast';
-    
-    // মিক্সড সিএসএস রিমুভ করে জাভাস্ক্রিপ্ট অবজেক্ট স্টাইল দেওয়া হলো
-    toast.style.cssText = `
-        position: fixed; bottom: 30px; right: 30px; padding: 15px 20px;
-        background: ${type === 'success' ? '#111827' : '#ef4444'};
-        color: #fff; font-family: sans-serif; font-size: 15px; font-weight: 500;
-        border-radius: 8px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
-        z-index: 9999; transform: translateY(100px); opacity: 0; transition: all 0.4s ease;
-        display: flex; align-items: center; justify-content: space-between; gap: 20px;
-        min-width: 300px;
-    `;
-    
-    toast.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 18px;">${type === 'success' ? '✅' : '⚠️'}</span>
-            <span>${message}</span>
-        </div>
-        <span class="btn-close-toast" style="cursor: pointer; font-size: 24px; line-height: 1; opacity: 0.7; transition: 0.2s;">&times;</span>
-    `;
-    
-    document.body.appendChild(toast);
-
-    setTimeout(() => { 
-        toast.style.transform = 'translateY(0)'; 
-        toast.style.opacity = '1'; 
-    }, 50);
-
-    const closeBtn = toast.querySelector('.btn-close-toast');
-    closeBtn.addEventListener('mouseenter', () => closeBtn.style.opacity = '1');
-    closeBtn.addEventListener('mouseleave', () => closeBtn.style.opacity = '0.7');
-    
-    const dismissToast = () => {
-        toast.style.transform = 'translateY(100px)';
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 400);
-    };
-    
-    closeBtn.addEventListener('click', dismissToast);
-
-    setTimeout(() => {
-        if (document.body.contains(toast)) dismissToast();
-    }, 4000);
+function showToast(message, type = 'success') {
+    if (typeof window.showToast === 'function') {
+        window.showToast(message, type);
+    }
 }
 
 

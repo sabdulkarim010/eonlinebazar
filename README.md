@@ -4,7 +4,7 @@
 
 ### A Fully Dynamic, Production-Ready Full-Stack E-Commerce Platform
 
-*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **admin refund controls with safe undo**, **master settings & category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, custom store branding, and a finance analytics dashboard.*
+*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **master settings & category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, custom store branding, and a finance analytics dashboard.*
 
 ![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
@@ -34,6 +34,7 @@
 - [Mobile & Desktop UI/UX Polish (Cart & Wishlist)](#-mobile--desktop-uiux-polish-cart--wishlist)
 - [Checkout Experience & Cart Enhancements](#-checkout-experience--cart-enhancements)
 - [Profile Security & Order Invoice Enhancements](#-profile-security--order-invoice-enhancements)
+- [Performance & Engagement Enhancements](#-performance--engagement-enhancements)
 - [Admin Panel — Order Security & Refund Controls](#-admin-panel--order-security--refund-controls)
 - [Master Settings & Dynamic Rewards](#-master-settings--dynamic-rewards)
 - [What's New — v3.2.0](#-whats-new--v320-time-sensitive-coupon-automation)
@@ -83,6 +84,7 @@ This release delivers a professional-grade **checkout ↔ profile address pipeli
 | **📱 Cart & Wishlist UI/UX Polish** | Streamlined **divider-line** cart rows (no heavy per-item cards); tightened vertical padding and grid gaps in **My Cart Summary** and **My Wishlist** for ultra-compact mobile layouts. |
 | **🛒 Checkout Experience & Cart Enhancements** | Checkout-only **district selection** and **promo codes** for a cleaner `/cart`; real-time **inside/outside Dhaka** shipping + **business-day delivery estimates**; shared **`CouponUI`** module for flat/percentage discounts with live subtotal/grand-total updates; automatic **guest → auth cart merge** on login/OAuth. |
 | **🔒 Profile Security & Order Invoice Enhancements** | **`bcrypt`** password change with current-password gate; **6-digit OTP** verification for email/phone updates; single **Primary / Default** address flag with checkout auto-select & pre-fill; **1-click PDF invoice** download from **My Orders** and **Order Details** (`Invoice-ORDER_ID.pdf`). |
+| **⚡ Performance & Engagement Enhancements** | Interactive **order status timeline** on Order Details (`Placed → Processing → Shipped → Out for Delivery → Delivered`); **real-time low-stock FOMO badges** on Cart & Wishlist; lightweight **global toast notifications** for cart, wishlist, and stock feedback — no full-page reloads. |
 
 > 📌 See the dedicated sections below for workflow diagrams, schema fields, and API specifications.
 
@@ -414,6 +416,45 @@ flowchart TD
 | `utils/savedAddress.js` | Checkout → profile sync with default-address promotion |
 | `routes/userRoutes.js` | Profile security & OTP routes |
 | `routes/orderRoutes.js` | `GET /:id/invoice` invoice download route |
+
+---
+
+## ⚡ Performance & Engagement Enhancements
+
+Storefront UX upgrades that improve order transparency, inventory urgency, and real-time feedback — keeping customers informed and engaged without blocking page interactions or triggering full reloads.
+
+### Feature Overview
+
+#### Visual Order Status Timeline Tracker
+- Integrated an interactive, step-based order tracking timeline (**Placed ➔ Processing ➔ Shipped ➔ Out for Delivery ➔ Delivered**) in the **Order Details** view (`/order-details`).
+- The shared `OrderStatusTimeline` module (`client/js/orderStatusTimeline.js`) dynamically highlights current order progress based on live order status from the database — completed steps, active step, and full delivery completion states.
+- Responsive horizontal timeline layout with mobile-friendly stacking (`client/css/order-details.css`, `client/css/profile.css`) and accessible `role="list"` semantics.
+- Displays a dedicated **Order Cancelled** alert banner when status is `Cancelled`; the timeline enters a muted cancelled visual state. **Return Requested** and **Returned** orders retain their dedicated status badges on the order header for clear at-a-glance triage.
+
+#### Real-time Inventory & Low Stock Alerts (FOMO Engine)
+- Added real-time stock awareness badges across **Cart** (`/cart`) and **Wishlist** (profile **My Cart** tab) via the shared `StockAlert` helper (`client/js/stockAlert.js`).
+- Dynamically flags items with low stock (**`🔥 Only X left in stock - order soon!`**) when inventory is **≤ 3** to encourage faster checkout decisions.
+- Automatically restricts quantity **+** expansion (`isIncreaseDisabled`) and renders **`Out of Stock`** indicators when inventory hits zero — variant-aware stock resolution matches `productId` + `variantId` / SKU against the live catalog.
+
+#### Global Non-Blocking Toast Notification System
+- Integrated a lightweight, responsive **Toast Notification** engine (`client/js/toast.js` + `client/css/toast.css`) for real-time user feedback across the customer storefront.
+- Displays sleek, auto-dismissing toast popups (default **3s**, max **4** visible, hover-to-pause) for **cart additions**, **wishlist updates**, and **stock errors** without triggering full-page reloads.
+- Pre-built helpers: `showCartAddedToast()`, `showWishlistAddedToast()`, `showStockExceededToast()`, `showOutOfStockToast()` — wired into `cart.js`, `profile.js`, `product-details.js`, and storefront pages that include `toast.js`.
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `client/js/orderStatusTimeline.js` | Shared timeline renderer — step mapping, cancelled banner, progress highlighting |
+| `client/js/order-details.js` | Fetches order data and invokes `OrderStatusTimeline.renderOrderStatusUI()` |
+| `client/order-details.html` | Order Progress card markup (`#order-status-timeline`, `#order-cancelled-banner`) |
+| `client/css/order-details.css` | Timeline track, step markers, cancelled/return status badge styling |
+| `client/js/stockAlert.js` | Variant-aware stock lookup, low-stock / out-of-stock badge HTML, qty-cap logic |
+| `client/js/cart.js` | Cart row stock badges, quantity guardrails, stock-exceeded toast feedback |
+| `client/js/profile.js` | Wishlist mini-card stock badges, out-of-stock cart guard, global toast delegation |
+| `client/css/cart.css` | `.stock-alert-badge`, `.stock-low`, `.stock-out` badge styles |
+| `client/js/toast.js` | Global `#global-toast-stack` engine, typed icons, auto-dismiss & manual close |
+| `client/css/toast.css` | Responsive toast stack positioning and type-specific color themes |
 
 ---
 
@@ -1002,11 +1043,11 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 
 #### Product & Order Systems
 - **🛍️ Product Catalog** — Up to 10 images, categories, brand, variations, highlights, stock levels, **selling price + buying price** (live profit preview), and detailed descriptions.
-- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, customer **Cancel** / **Return Request** workflows with reason modals, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, and **1-click PDF invoice download** from My Orders and Order Details.
+- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals, dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, and **1-click PDF invoice download** from My Orders and Order Details.
 - **🔄 Admin Return & Refund Pipeline** — Approve returns with automatic wallet credit, transaction history logging, and **Safe Undo Refund** within a configurable hour window (spent-funds safety check).
 - **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, free-shipping threshold, **real-time delivery date estimates** on checkout, **locked server-side totals** on every order, and district-aware invoices.
 - **📍 Smart Checkout Address Integration** — Profile-first checkout pre-fill, toggleable saved-address radio cards (select / unselect / revert), manual override with **Save to profile** sync, and cascading Bangladesh location dropdowns.
-- **🛒 Shopping Cart & Checkout Enhancements** — Server-synced cart with quantity updates, selection toggles, **checkout-only district & promo UI**, **AJAX coupon recalculation** (flat/percentage), **guest-cart merge** on login/OAuth (variant-aware quantity increment), post-order cleanup, and a **compact divider-line summary** in the profile dashboard.
+- **🛒 Shopping Cart & Checkout Enhancements** — Server-synced cart with quantity updates, selection toggles, **real-time low-stock FOMO badges** and out-of-stock quantity guardrails, **checkout-only district & promo UI**, **AJAX coupon recalculation** (flat/percentage), **guest-cart merge** on login/OAuth (variant-aware quantity increment), post-order cleanup, and a **compact divider-line summary** in the profile dashboard.
 - **⭐ Reviews & Ratings** — Star ratings and reviews with optional photo upload; averages update automatically.
 - **📍 Address Book** — Manage multiple delivery addresses with **single Primary / Default** flag; default address auto-selects and pre-fills checkout; profile sync from checkout respects default promotion.
 - **🔒 Profile Security** — `bcrypt` password change (current-password gated), **6-digit OTP** verification for email/phone updates, active session/device management on the Security tab.
@@ -1017,7 +1058,8 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 A fully implemented customer favourites system with MongoDB-backed persistence and seamless AJAX interactions across the storefront and profile dashboard.
 
 - **Persistent Storage** — Wishlist items are saved persistently in MongoDB as an embedded array on the user's account (`User.wishlist`), linked to their profile. Favourites remain intact after placing orders, logging out, or starting a new session — items are only removed when the customer explicitly deletes them.
-- **AJAX-powered Toggle** — Storefront product grids (home, search, etc.) use a sleek client-side **Fetch API** integration: clicking the heart icon calls `POST /api/wishlist/toggle` to add or remove items dynamically, with instant visual feedback and custom Toast notifications — no hard page refreshes required.
+- **AJAX-powered Toggle** — Storefront product grids (home, search, etc.) use a sleek client-side **Fetch API** integration: clicking the heart icon calls `POST /api/wishlist/toggle` to add or remove items dynamically, with instant visual feedback and the **global toast notification engine** — no hard page refreshes required.
+- **Real-time Stock Awareness** — Wishlist mini-cards surface **low-stock FOMO badges** (`🔥 Only X left in stock`) and **Out of Stock** indicators with add-to-cart guardrails, synced against live catalog inventory.
 - **Unified Profile Integration** — The **My Wishlist** panel is fully integrated into the Customer Profile dashboard (`/profile` → **My Cart** tab). Each item ships with a functional **blue Cart button** (adds straight to the active cart summary via `/api/cart/add`) and a **red Delete button** that removes the item instantly from the DOM after a successful toggle, backed by custom Toast success/error feedback.
 - **Optimized Mini-Card UI** — Wishlist items render in a compact, scaled-down **premium mini-card grid** (`wishlist-grid` / `wishlist-card`) with responsive breakpoints and **tightened mobile spacing**, designed for high visual consistency with the rest of the customer dashboard styling.
 - **Profile Tab Navigation** — Query-param deep links (`/profile?tab=orders`), contextual back buttons on order details, and reload-safe `replaceState` cleanup for a seamless dashboard experience.
@@ -1054,6 +1096,7 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 ### 🌐 Platform
 - **Clean URLs** — Automatic `.html` stripping and 301 redirects for SEO-friendly routes.
 - **Server-side page guards** for the finance dashboard and 2FA handoff page.
+- **Global Toast Notifications** — Lightweight, non-blocking `#global-toast-stack` popups for cart, wishlist, and stock feedback across the customer storefront (auto-dismiss, mobile-responsive, max 4 visible).
 
 ---
 
@@ -1186,7 +1229,10 @@ eonlinebazar-fullstack/
 │   │   ├── shipping-estimator.js      # Client shipping quote + delivery estimate helpers
 │   │   ├── coupon-ui.js               # Shared promo apply/remove + live total sync
 │   │   ├── cart-merge.js              # Guest cart merge after login/OAuth
-│   │   └── invoiceDownload.js         # 1-click order PDF invoice fetch + browser download
+│   │   ├── invoiceDownload.js         # 1-click order PDF invoice fetch + browser download
+│   │   ├── orderStatusTimeline.js     # Step-based order progress timeline + cancelled banner
+│   │   ├── stockAlert.js              # Low-stock FOMO badges + out-of-stock qty guardrails
+│   │   └── toast.js                   # Global non-blocking toast notification engine
 │   └── images/                        # Static assets (favicon.png…)
 │
 ├── server.js                          # App entry: middleware, routes, clean URLs, page guards
@@ -1665,6 +1711,11 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 - **Multi-Factor OTP Verification & Security** — secure password change with **`bcrypt`** hashing and current-password validation; **6-digit OTP** flow for email and phone updates via Security tab (`request-contact-otp` / `verify-contact-otp`).
 - **Primary / Default Address Management** — single **`isDefault`** flag per address book; default card **auto-selects on checkout load** and syncs profile pre-fill for faster purchases.
 - **1-Click PDF Invoice Generation & Download** — dynamic **`pdfkit`** invoices from **My Orders** and **Order Details**; branded **`Invoice-ORDER_ID.pdf`** with itemized billing, shipping info, fees, discounts, and payment status; owner-only **`GET /api/orders/:id/invoice`**.
+
+**⚡ Performance & Engagement Enhancements**
+- **Visual Order Status Timeline Tracker** — interactive step-based timeline on Order Details (**Placed ➔ Processing ➔ Shipped ➔ Out for Delivery ➔ Delivered**); dynamically highlights progress from live DB status; responsive mobile layout; dedicated **Order Cancelled** banner and status badges for cancelled/returned orders.
+- **Real-time Inventory & Low Stock Alerts (FOMO Engine)** — stock awareness badges on Cart and Wishlist; **`🔥 Only X left in stock - order soon!`** when inventory ≤ 3; quantity expansion blocked and **`Out of Stock`** indicators when inventory hits zero (variant-aware).
+- **Global Non-Blocking Toast Notification System** — lightweight `#global-toast-stack` engine with auto-dismissing popups for cart additions, wishlist updates, and stock errors — no full-page reloads.
 
 ### Admin UX — Wide Edit Product Modal
 **🖥️ Desktop-first product editing**
