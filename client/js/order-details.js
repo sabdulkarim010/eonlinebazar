@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingSpinner: document.getElementById('loading-spinner'),
         orderContent: document.getElementById('order-content'),
         trackBtn: document.getElementById('track-order-btn'),
+        invoiceBtn: document.getElementById('download-invoice-btn'),
         itemsContainer: document.getElementById('order-items-container'),
         
         // মডাল এলিমেন্টস
@@ -80,6 +81,9 @@ document.addEventListener('DOMContentLoaded', () => {
         showError('Invalid Order ID.');
         return;
     }
+
+    let currentOrderMongoId = orderId;
+    let currentDisplayOrderId = orderId;
 
     function showError(message) {
         if (elements.loadingSpinner) {
@@ -132,6 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderOrderDetails(order) {
         // বেসিক ইনফরমেশন
         const displayId = order.orderId || (order._id ? order._id.substring(order._id.length - 6).toUpperCase() : orderId);
+        currentOrderMongoId = order._id || orderId;
+        currentDisplayOrderId = displayId;
         document.getElementById('order-id-display').textContent = `#${displayId}`;
         
         const orderDate = new Date(order.createdAt || Date.now()).toLocaleDateString('en-US', {
@@ -154,6 +160,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 elements.trackBtn.classList.add('hidden'); 
             }
+        }
+
+        if (elements.invoiceBtn) {
+            elements.invoiceBtn.classList.remove('hidden');
         }
 
         // কাস্টমার ইনফরমেশন
@@ -429,6 +439,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // 🌟 SECTION 6: INITIALIZATION
     // =========================================================
     setupModalEvents();
+
+    if (elements.invoiceBtn) {
+        elements.invoiceBtn.addEventListener('click', () => {
+            if (typeof window.downloadOrderInvoice === 'function') {
+                window.downloadOrderInvoice(currentOrderMongoId, currentDisplayOrderId, elements.invoiceBtn);
+            }
+        });
+    }
+
     fetchOrderDetails();
 });
 

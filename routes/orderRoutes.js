@@ -21,7 +21,8 @@ const {
     getMyOrders, 
     getDashboardStats,
     cancelUserOrder,
-    returnUserOrder
+    returnUserOrder,
+    downloadOrderInvoice
 } = require('../controllers/orderController');
 
 // অ্যাডমিন ও ইউজার ভেরিফিকেশন 
@@ -71,6 +72,9 @@ router.post('/:id/cancel', verifyUser, cancelUserOrder);
 
 // URL: POST /api/orders/:id/return
 router.post('/:id/return', verifyUser, returnUserOrder);
+
+// URL: GET /api/orders/:id/invoice
+router.get('/:id/invoice', verifyUser, downloadOrderInvoice);
 
 // খ. নির্দিষ্ট একটি অর্ডারের বিস্তারিত দেখার রুট (🌟 নিরাপত্তা নিশ্চিত করতে verifyUser যুক্ত করা হলো)
 // URL: GET /api/orders/:id

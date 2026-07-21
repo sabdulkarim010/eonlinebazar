@@ -313,11 +313,12 @@
                             </div>
 
                             <div class="input-group">
-                                <label for="profile-phone">Phone Number</label>
-                                <div class="input-wrapper">
+                                <label for="profile-phone">Phone Number <span class="badge-readonly">Security</span></label>
+                                <div class="input-wrapper input-wrapper--disabled">
                                     <i class="fa-solid fa-phone input-icon"></i>
-                                    <input type="tel" id="profile-phone" placeholder="e.g. 01XXXXXXXXX" autocomplete="tel">
+                                    <input type="tel" id="profile-phone" readonly title="Update phone via Security tab" autocomplete="tel">
                                 </div>
+                                <small class="profile-field-hint">Change your phone number under <strong>Security</strong> with OTP verification.</small>
                             </div>
 
                             <div class="input-group">
@@ -410,19 +411,29 @@
         <section id="security-settings" class="tab-content">
             <div class="content-header">
                 <h2>Security Settings & Activity</h2>
-                <p>Change your password regularly and monitor account login sessions to secure your account.</p>
+                <p>Change your password, verify email or phone updates, and monitor active login sessions.</p>
             </div>
 
-            <div class="security-dual-grid">
-                <div class="card">
-                    <form id="password-form" novalidate>
-                        <div class="form-grid single-column">
+            <div class="security-stack">
+                <div class="card security-card security-card--compact">
+                    <div class="security-card-head">
+                        <div class="profile-section-icon" aria-hidden="true"><i class="fa-solid fa-lock"></i></div>
+                        <div>
+                            <h3 class="security-card-title">Change Password</h3>
+                            <p class="security-subtext">Use a strong password you do not reuse elsewhere.</p>
+                        </div>
+                    </div>
+
+                    <div id="password-feedback" class="security-inline-feedback hidden" role="alert" aria-live="polite"></div>
+
+                    <form id="password-form" class="security-compact-form" novalidate>
+                        <div class="security-form-grid">
                             <div class="input-group">
                                 <label for="current-password">Current Password</label>
                                 <div class="input-wrapper">
                                     <i class="fa-solid fa-lock input-icon"></i>
-                                    <input type="password" id="current-password" required placeholder="••••••••">
-                                    <i class="fa-regular fa-eye-slash toggle-password"></i>
+                                    <input type="password" id="current-password" required placeholder="••••••••" autocomplete="current-password">
+                                    <i class="fa-regular fa-eye-slash toggle-password" data-target="current-password" title="Show/hide password"></i>
                                 </div>
                             </div>
 
@@ -430,26 +441,69 @@
                                 <label for="new-password">New Password</label>
                                 <div class="input-wrapper">
                                     <i class="fa-solid fa-key input-icon"></i>
-                                    <input type="password" id="new-password" required placeholder="Minimum 6 characters">
+                                    <input type="password" id="new-password" required placeholder="Min. 6 characters" autocomplete="new-password">
+                                    <i class="fa-regular fa-eye-slash toggle-password" data-target="new-password" title="Show/hide password"></i>
                                 </div>
-                                <small class="password-hint">Must contain letters and numbers.</small>
                             </div>
 
                             <div class="input-group">
                                 <label for="confirm-password">Confirm New Password</label>
                                 <div class="input-wrapper">
                                     <i class="fa-solid fa-check-double input-icon"></i>
-                                    <input type="password" id="confirm-password" required placeholder="••••••••">
+                                    <input type="password" id="confirm-password" required placeholder="Re-enter new password" autocomplete="new-password">
+                                    <i class="fa-regular fa-eye-slash toggle-password" data-target="confirm-password" title="Show/hide password"></i>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-primary" id="change-pass-btn">
+                        <div class="form-actions security-form-actions">
+                            <button type="submit" class="btn btn-primary btn-compact" id="change-pass-btn">
                                 <i class="fa-solid fa-shield-check"></i> Update Password
                             </button>
                         </div>
                     </form>
+                </div>
+
+                <div class="card security-card security-card--compact">
+                    <div class="security-card-head">
+                        <div class="profile-section-icon profile-section-icon--location" aria-hidden="true"><i class="fa-solid fa-user-shield"></i></div>
+                        <div>
+                            <h3 class="security-card-title">Email &amp; Phone Verification</h3>
+                            <p class="security-subtext">Sensitive contact changes require a one-time 6-digit code (valid 5 minutes).</p>
+                        </div>
+                    </div>
+
+                    <div id="contact-feedback" class="security-inline-feedback hidden" role="alert" aria-live="polite"></div>
+
+                    <div class="contact-update-grid">
+                        <div class="contact-update-block">
+                            <label for="security-new-email">New Email Address</label>
+                            <div class="contact-update-row">
+                                <div class="input-wrapper">
+                                    <i class="fa-regular fa-envelope input-icon"></i>
+                                    <input type="email" id="security-new-email" placeholder="you@example.com" autocomplete="email">
+                                </div>
+                                <button type="button" class="btn btn-light btn-compact" id="request-email-otp-btn">
+                                    <i class="fa-solid fa-paper-plane"></i> Send OTP
+                                </button>
+                            </div>
+                            <small class="profile-field-hint">Current: <span id="security-current-email">—</span></small>
+                        </div>
+
+                        <div class="contact-update-block">
+                            <label for="security-new-phone">New Phone Number</label>
+                            <div class="contact-update-row">
+                                <div class="input-wrapper">
+                                    <i class="fa-solid fa-phone input-icon"></i>
+                                    <input type="tel" id="security-new-phone" placeholder="01XXXXXXXXX" autocomplete="tel">
+                                </div>
+                                <button type="button" class="btn btn-light btn-compact" id="request-phone-otp-btn">
+                                    <i class="fa-solid fa-comment-sms"></i> Send OTP
+                                </button>
+                            </div>
+                            <small class="profile-field-hint">Current: <span id="security-current-phone">—</span></small>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="card sessions-card">
@@ -704,6 +758,41 @@
     </div>
 </div>
 
+<div id="contact-otp-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="contact-otp-title">
+    <div class="modal-content contact-otp-modal-content">
+        <div class="modal-header">
+            <h2 id="contact-otp-title"><i class="fa-solid fa-shield-halved modal-title-icon"></i> Verify OTP Code</h2>
+            <span class="close-modal" id="close-contact-otp-modal" title="Close">&times;</span>
+        </div>
+
+        <div class="contact-otp-body">
+            <p id="contact-otp-subtext" class="contact-otp-subtext">Enter the 6-digit code we sent to your contact.</p>
+
+            <form id="contact-otp-form" novalidate autocomplete="off">
+                <div class="otp-inputs" id="contactOtpInputs">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 1" autocomplete="one-time-code">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 2">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 3">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 4">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 5">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 6">
+                </div>
+
+                <div class="otp-timer" id="contactOtpTimer" aria-live="polite"></div>
+
+                <div id="contact-otp-feedback" class="security-inline-feedback hidden" role="alert"></div>
+
+                <div class="form-actions contact-otp-actions">
+                    <button type="button" class="btn btn-light" id="cancel-contact-otp-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="verify-contact-otp-btn">
+                        <i class="fa-solid fa-circle-check"></i> Verify &amp; Update
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div id="toast-container" class="toast-wrapper"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -712,6 +801,7 @@
 <script src="js/bd-districts.js"></script>
 <script src="js/bd-upazilas.js"></script>
 <script src="js/productThumbnail.js"></script>
+<script src="js/invoiceDownload.js"></script>
 <script src="js/profile.js"></script>
 </body>
 </html>

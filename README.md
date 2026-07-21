@@ -4,7 +4,7 @@
 
 ### A Fully Dynamic, Production-Ready Full-Stack E-Commerce Platform
 
-*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **admin refund controls with safe undo**, **master settings & category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, custom store branding, and a finance analytics dashboard.*
+*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **admin refund controls with safe undo**, **master settings & category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, custom store branding, and a finance analytics dashboard.*
 
 ![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
@@ -33,6 +33,7 @@
 - [Smart Tab Navigation & Contextual Routing (User Profile)](#-smart-tab-navigation--contextual-routing-user-profile)
 - [Mobile & Desktop UI/UX Polish (Cart & Wishlist)](#-mobile--desktop-uiux-polish-cart--wishlist)
 - [Checkout Experience & Cart Enhancements](#-checkout-experience--cart-enhancements)
+- [Profile Security & Order Invoice Enhancements](#-profile-security--order-invoice-enhancements)
 - [Admin Panel — Order Security & Refund Controls](#-admin-panel--order-security--refund-controls)
 - [Master Settings & Dynamic Rewards](#-master-settings--dynamic-rewards)
 - [What's New — v3.2.0](#-whats-new--v320-time-sensitive-coupon-automation)
@@ -55,13 +56,13 @@
 
 ## 📖 Overview
 
-**EOnlineBazar** is a **fully dynamic, production-ready**, full-stack e-commerce platform built on **Node.js / Express 5** with a **MongoDB (Atlas)** database and a lightweight **Vanilla JavaScript** frontend served directly by Express. It follows a clean **MVC architecture** (`Models → Controllers → Routes`) and ships with everything a modern online store needs: secure customer authentication, a shopping cart with **guest-to-auth merge**, a persistent **My Wishlist**, smart checkout with profile-aware address selection, **dynamic shipping quotes & delivery estimates**, **AJAX promo-code recalculation**, order placement & live tracking with customer cancel/return workflows, product reviews with image uploads, a loyalty wallet with admin-controlled reward economics, an enterprise catalog engine, a dedicated **Super Admin Panel** with refund reversal safeguards, and a **Finance & Analytics** dashboard.
+**EOnlineBazar** is a **fully dynamic, production-ready**, full-stack e-commerce platform built on **Node.js / Express 5** with a **MongoDB (Atlas)** database and a lightweight **Vanilla JavaScript** frontend served directly by Express. It follows a clean **MVC architecture** (`Models → Controllers → Routes`) and ships with everything a modern online store needs: secure customer authentication, a shopping cart with **guest-to-auth merge**, a persistent **My Wishlist**, smart checkout with profile-aware address selection, **dynamic shipping quotes & delivery estimates**, **AJAX promo-code recalculation**, order placement & live tracking with customer cancel/return workflows, **OTP-gated profile security & 1-click PDF invoices**, product reviews with image uploads, a loyalty wallet with admin-controlled reward economics, an enterprise catalog engine, a dedicated **Super Admin Panel** with refund reversal safeguards, and a **Finance & Analytics** dashboard.
 
 Six things set it apart:
 
 1. **A database-backed session security layer** — every login (customer *and* admin) generates a unique session embedded inside the JWT, so users and admins can view all their **active devices** (IP, geo-location, browser & device) and **remotely log out** any device in real time.
 2. **A Fortified Admin Security Suite** — multi-option Two-Factor Authentication (**Email OTP**, **Google Authenticator / TOTP**, and **SMS OTP**), **Geo-Fencing (Region Lock)**, brute-force **auto IP-blacklisting**, rate-limiting, and a full login-history / security-audit trail.
-3. **Smart Checkout & Order Lifecycle** — profile-first address pre-fill, toggleable saved-address cards, **location-based shipping & delivery date previews**, **AJAX promo-code recalculation**, guest-to-auth **cart merge**, customer cancellation/return reason modals, admin return approval with wallet refunds, and a configurable **Safe Undo Refund** window with spent-funds safety checks.
+3. **Smart Checkout & Order Lifecycle** — profile-first address pre-fill, **default-address auto-select**, toggleable saved-address cards, **location-based shipping & delivery date previews**, **AJAX promo-code recalculation**, guest-to-auth **cart merge**, customer cancellation/return reason modals, **1-click PDF invoice downloads**, admin return approval with wallet refunds, and a configurable **Safe Undo Refund** window with spent-funds safety checks.
 4. **Dynamic Delivery Charge & Address Management** — admin-configurable shipping rules, Bangladesh **District → Upazila/Thana** cascading address fields, checkout auto-fill, real-time fee preview, and **server-side price re-validation** before orders are persisted.
 5. **Master Settings & Category-Specific Rewards** — global cashback, points earning ratio, points-to-taka conversion, and refund-undo window controlled from one admin panel, with per-category cashback overrides and zero-value toggles to disable rewards platform-wide.
 6. **Time-Sensitive Coupon Automation** — precise hour/minute expiry scheduling, a server-side **ACTIVE / EXPIRED** status engine with bulk auto-expiry, checkout visibility synced to live availability, and hardened order-time coupon validation.
@@ -81,6 +82,7 @@ This release delivers a professional-grade **checkout ↔ profile address pipeli
 | **🔄 Smart Tab Navigation & Contextual Routing** | Query-param tab activation (`/profile?tab=orders`) for seamless **order-details ↔ profile** transitions; contextual **Back to Dashboard / My Orders** links; sub-tabs show **← Back to Dashboard** instead of ejecting to home; `history.replaceState()` for clean F5 reload. |
 | **📱 Cart & Wishlist UI/UX Polish** | Streamlined **divider-line** cart rows (no heavy per-item cards); tightened vertical padding and grid gaps in **My Cart Summary** and **My Wishlist** for ultra-compact mobile layouts. |
 | **🛒 Checkout Experience & Cart Enhancements** | Checkout-only **district selection** and **promo codes** for a cleaner `/cart`; real-time **inside/outside Dhaka** shipping + **business-day delivery estimates**; shared **`CouponUI`** module for flat/percentage discounts with live subtotal/grand-total updates; automatic **guest → auth cart merge** on login/OAuth. |
+| **🔒 Profile Security & Order Invoice Enhancements** | **`bcrypt`** password change with current-password gate; **6-digit OTP** verification for email/phone updates; single **Primary / Default** address flag with checkout auto-select & pre-fill; **1-click PDF invoice** download from **My Orders** and **Order Details** (`Invoice-ORDER_ID.pdf`). |
 
 > 📌 See the dedicated sections below for workflow diagrams, schema fields, and API specifications.
 
@@ -336,6 +338,82 @@ flowchart TD
 | `controllers/storeController.js` | `getPublicShippingQuote` endpoint |
 | `controllers/userController.js` | Login-time guest cart merge |
 | `controllers/couponController.js` | Flat/percentage discount computation & validation |
+
+---
+
+## 🔒 Profile Security & Order Invoice Enhancements
+
+Customer profile hardening and order receipt tooling — secure credential management, OTP-gated contact updates, single primary address enforcement, and one-click branded PDF invoice downloads from the profile dashboard and order detail views.
+
+### Feature Overview
+
+#### Multi-Factor OTP Verification & Security
+- Implemented secure **password change** functionality using **`bcrypt`** password hashing and validation — current password is verified before a new hash is persisted; mismatched confirm fields and reuse of the current password are rejected server-side.
+- Added a **6-digit OTP (One Time Password)** verification flow for updating sensitive account information (**Email** and **Phone Number**) to prevent unauthorized profile modifications.
+- OTP requests are issued via **`POST /api/customer/profile/request-contact-otp`** (email delivery through SMTP; SMS via the shared gateway abstraction) and confirmed through a modal **6-cell OTP input** on the **Security** tab (`client/profile.html`).
+- Successful verification commits `pendingEmail` / `pendingMobile` to the live profile fields; failed attempts, duplicate contacts, and expired codes are logged to the **Security & Audit** trail.
+
+#### Primary / Default Address Management
+- Refined **multi-address management** logic allowing users to flag a single **"Primary / Default"** shipping address (`isDefault` on the address subdocument in `models/user.js`).
+- Promoting an address to default atomically clears the flag on all other saved addresses — both in the address book CRUD API and in checkout **Save to profile** sync (`utils/savedAddress.js`).
+- Ensured default addresses **automatically sync and pre-fill during the Checkout flow** for a faster purchase experience — `autoSelectDefaultSavedAddress()` in `client/js/checkout.js` selects the default card on load; default addresses display a **Default** badge in both checkout picker cards and the profile address list.
+
+#### 1-Click PDF Invoice Generation & Download
+- Integrated **dynamic PDF invoice creation** accessible from both the **`My Orders`** profile tab and the **`Order Details`** view — no separate print modal required for customers.
+- Generates branded, professional PDF receipts (**`Invoice-ORDER_ID.pdf`**) featuring itemized billing, customer shipping info, shipping fees, discounts, and **payment status** ready for instant download or printing.
+- Server-side generation uses **`pdfkit`** (`utils/invoicePdf.js`) with an EOnlineBazar branded header, line-item table (product, qty, unit price, line total), subtotal/discount/delivery/grand-total summary, and zone-aware payment status labels.
+- **`GET /api/orders/:id/invoice`** enforces order ownership via `verifyUser`; the client helper **`client/js/invoiceDownload.js`** streams the blob and triggers a browser download with loading/disabled state on the action button.
+
+### Security & Invoice Workflow
+
+```mermaid
+flowchart TD
+    A[Profile → Security tab] --> B{Action?}
+    B -->|Change password| C[Verify current password via bcrypt]
+    C --> D[Hash & save new password]
+    B -->|Update email/phone| E[POST request-contact-otp]
+    E --> F[6-digit OTP sent email/SMS]
+    F --> G[User enters OTP in modal]
+    G --> H[POST verify-contact-otp → commit pending contact]
+
+    I[My Orders or Order Details] --> J[Click Download Invoice]
+    J --> K[GET /api/orders/:id/invoice]
+    K --> L{Owner match?}
+    L -->|Yes| M[generateOrderInvoicePdf → Invoice-ORDER_ID.pdf]
+    L -->|No| N[403 Forbidden]
+
+    O[Address book / Checkout] --> P[Set isDefault on one address]
+    P --> Q[Clear isDefault on all others]
+    Q --> R[Checkout auto-selects default card on load]
+```
+
+### Related API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `PUT` | `/api/customer/change-password` | Change password (current + new + confirm); `bcrypt` hash | User |
+| `PUT` | `/api/customer/profile/change-password` | Alias for password change from Security tab | User |
+| `POST` | `/api/customer/profile/request-contact-otp` | Request 6-digit OTP for email or mobile update (`type`, `value`) | User |
+| `POST` | `/api/customer/profile/verify-contact-otp` | Verify OTP and commit pending email/phone | User |
+| `GET/POST/PUT/DELETE` | `/api/customer/addresses` | Address book CRUD with **`isDefault`** single-primary enforcement | User |
+| **`GET`** | **`/api/orders/:id/invoice`** | **Download branded PDF invoice (`Invoice-ORDER_ID.pdf`) — owner-only** | **User** |
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `client/profile.html` | Security tab (password form, email/phone OTP triggers, OTP modal) |
+| `client/js/profile.js` | Password change, OTP request/verify UI, address default toggle, My Orders invoice button |
+| `client/order-details.html` | Order detail page with **Download Invoice** action |
+| `client/js/order-details.js` | Wires invoice download button to shared helper |
+| `client/js/invoiceDownload.js` | 1-click PDF fetch, blob download, button loading state |
+| `client/js/checkout.js` | `autoSelectDefaultSavedAddress()`, default badge on saved-address cards |
+| `controllers/userController.js` | `changePassword`, `requestContactUpdateOtp`, `verifyContactUpdateOtp`, address default logic |
+| `controllers/orderController.js` | `downloadOrderInvoice` — ownership check + PDF response headers |
+| `utils/invoicePdf.js` | Branded PDF layout, itemized table, financials & payment status |
+| `utils/savedAddress.js` | Checkout → profile sync with default-address promotion |
+| `routes/userRoutes.js` | Profile security & OTP routes |
+| `routes/orderRoutes.js` | `GET /:id/invoice` invoice download route |
 
 ---
 
@@ -924,13 +1002,14 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 
 #### Product & Order Systems
 - **🛍️ Product Catalog** — Up to 10 images, categories, brand, variations, highlights, stock levels, **selling price + buying price** (live profit preview), and detailed descriptions.
-- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, customer **Cancel** / **Return Request** workflows with reason modals, public order tracking, `cancelledBy` audit field, and per-item **buying-price snapshots** at checkout.
+- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, customer **Cancel** / **Return Request** workflows with reason modals, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, and **1-click PDF invoice download** from My Orders and Order Details.
 - **🔄 Admin Return & Refund Pipeline** — Approve returns with automatic wallet credit, transaction history logging, and **Safe Undo Refund** within a configurable hour window (spent-funds safety check).
 - **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, free-shipping threshold, **real-time delivery date estimates** on checkout, **locked server-side totals** on every order, and district-aware invoices.
 - **📍 Smart Checkout Address Integration** — Profile-first checkout pre-fill, toggleable saved-address radio cards (select / unselect / revert), manual override with **Save to profile** sync, and cascading Bangladesh location dropdowns.
 - **🛒 Shopping Cart & Checkout Enhancements** — Server-synced cart with quantity updates, selection toggles, **checkout-only district & promo UI**, **AJAX coupon recalculation** (flat/percentage), **guest-cart merge** on login/OAuth (variant-aware quantity increment), post-order cleanup, and a **compact divider-line summary** in the profile dashboard.
 - **⭐ Reviews & Ratings** — Star ratings and reviews with optional photo upload; averages update automatically.
-- **📍 Address Book** — Manage multiple delivery addresses with default-address sync.
+- **📍 Address Book** — Manage multiple delivery addresses with **single Primary / Default** flag; default address auto-selects and pre-fills checkout; profile sync from checkout respects default promotion.
+- **🔒 Profile Security** — `bcrypt` password change (current-password gated), **6-digit OTP** verification for email/phone updates, active session/device management on the Security tab.
 - **💰 Wallet & Loyalty Points** — Admin-configurable cashback, points earning, and conversion rates; category-specific cashback overrides; convert points to wallet balance with transaction history.
 
 #### ❤️ My Wishlist
@@ -988,7 +1067,7 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 | **Authentication** | JSON Web Tokens (`jsonwebtoken`), `bcryptjs` |
 | **2FA** | `speakeasy` (TOTP), `qrcode` (QR generation), `nodemailer` (Email OTP), SMS gateway abstraction |
 | **Security & Intelligence** | `express-rate-limit`, `geoip-lite` (geo-fencing + geo-location), `request-ip`, `ua-parser-js` |
-| **File / Media** | `multer`, `sharp`, `cloudinary`, `streamifier` |
+| **File / Media** | `multer`, `sharp`, `cloudinary`, `streamifier`, `pdfkit` (order invoice PDFs) |
 | **Config** | `dotenv` |
 
 ### Core Dependencies
@@ -996,7 +1075,7 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 ```json
 "bcryptjs"           "cloudinary"        "dotenv"        "express"
 "express-rate-limit" "geoip-lite"        "jsonwebtoken"  "mongoose"
-"multer"             "nodemailer"        "qrcode"        "request-ip"
+"multer"             "nodemailer"        "pdfkit"        "qrcode"        "request-ip"
 "sharp"              "speakeasy"         "streamifier"   "ua-parser-js"
 ```
 
@@ -1045,7 +1124,7 @@ eonlinebazar-fullstack/
 │   ├── brandController.js             # Brand CRUD + slug generation
 │   ├── attributeController.js         # Attribute / variant CRUD
 │   ├── couponController.js            # Coupon CRUD + active-check + apply/validate/redeem + auto-expiry sweeps
-│   ├── orderController.js             # Orders, cancel/return, return approval, refund undo, server-side price locking
+│   ├── orderController.js             # Orders, cancel/return, return approval, refund undo, invoice PDF, server-side price locking
 │   ├── cartController.js              # Cart operations
 │   ├── reviewController.js            # Review system
 │   └── financeController.js           # Revenue, profit & chart analytics
@@ -1081,7 +1160,8 @@ eonlinebazar-fullstack/
 │   ├── cartMergeService.js            # Variant-aware guest → user cart merge (login + API)
 │   ├── applicationTime.js             # Centralized server clock + platform timezone for coupon expiry
 │   ├── rewardSettings.js              # Cashback/points math, category overrides, delivery rewards, refund undo window
-│   ├── savedAddress.js                # Checkout address parsing, duplicate check, profile sync
+│   ├── savedAddress.js                # Checkout address parsing, duplicate check, profile sync, default promotion
+│   ├── invoicePdf.js                  # Branded PDF invoice generation (pdfkit) for customer order downloads
 │   ├── bangladeshDistricts.js         # District list, normalization & inside/outside matching
 │   └── securityLogger.js             # Fire-and-forget security event writer
 │
@@ -1093,8 +1173,8 @@ eonlinebazar-fullstack/
 │   ├── search.html                    # Search results (?q=)
 │   ├── cart.html / checkout.html      # Cart & checkout flow
 │   ├── payment.html                   # Payment page
-│   ├── profile.html                   # Customer dashboard (cart, wishlist, wallet, addresses, sessions)
-│   ├── order-track.html / order-details.html
+│   ├── profile.html                   # Customer dashboard (cart, wishlist, wallet, addresses, security, sessions)
+│   ├── order-track.html / order-details.html  # Order tracking + detail view with PDF invoice download
 │   ├── about.html / contact.html / footer.html
 │   ├── admin-login.html               # Admin authentication
 │   ├── verify-otp.html                # 2-Step Verification (Email / TOTP / SMS)
@@ -1105,7 +1185,8 @@ eonlinebazar-fullstack/
 │   ├── js/                            # Page scripts (admin.js, checkout.js, profile.js, bd-districts.js…)
 │   │   ├── shipping-estimator.js      # Client shipping quote + delivery estimate helpers
 │   │   ├── coupon-ui.js               # Shared promo apply/remove + live total sync
-│   │   └── cart-merge.js              # Guest cart merge after login/OAuth
+│   │   ├── cart-merge.js              # Guest cart merge after login/OAuth
+│   │   └── invoiceDownload.js         # 1-click order PDF invoice fetch + browser download
 │   └── images/                        # Static assets (favicon.png…)
 │
 ├── server.js                          # App entry: middleware, routes, clean URLs, page guards
@@ -1315,15 +1396,18 @@ Base URL: `http://localhost:3000`
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
 | `GET`  | `/api/customer/profile` | Get profile | User |
-| `PUT`  | `/api/customer/update-profile` | Update name / phone / **district / upazila / thana / fullAddress** | User |
-| `PUT`  | `/api/customer/change-password` | Change password | User |
+| `PUT`  | `/api/customer/update-profile` | Update name / **district / upazila / thana / fullAddress** (email & phone via OTP Security flow) | User |
+| `PUT`  | `/api/customer/change-password` | Change password (`bcrypt`; current + new + confirm) | User |
+| `PUT`  | `/api/customer/profile/change-password` | Alias — change password from Security tab | User |
+| **`POST`** | **`/api/customer/profile/request-contact-otp`** | **Request 6-digit OTP for email or mobile update** | **User** |
+| **`POST`** | **`/api/customer/profile/verify-contact-otp`** | **Verify OTP and commit pending email/phone** | **User** |
 | `POST` | `/api/customer/update-avatar` | Upload avatar (Cloudinary) | User |
 | `POST` | `/api/customer/convert-points` | Convert loyalty points to wallet | User |
 | `GET`  | `/api/customer/wishlist` | List saved wishlist items | User |
 | `POST` | `/api/customer/wishlist` | Add item to wishlist | User |
 | `DELETE` | `/api/customer/wishlist/:productId` | Remove item from wishlist | User |
 | `POST` | `/api/wishlist/toggle` | AJAX heart-icon toggle (add/remove with product snapshot) | User |
-| `GET/POST/PUT/DELETE` | `/api/customer/addresses` | Address book CRUD | User |
+| `GET/POST/PUT/DELETE` | `/api/customer/addresses` | Address book CRUD (**`isDefault`** single-primary enforcement) | User |
 
 ### 🛍️ Products & Reviews
 
@@ -1352,6 +1436,7 @@ Base URL: `http://localhost:3000`
 | `GET`  | `/api/orders/my-orders` | User's order history | User |
 | `GET`  | `/api/orders/track` | Public order tracking | Public |
 | `GET`  | `/api/orders/:id` | Single order details | User |
+| **`GET`** | **`/api/orders/:id/invoice`** | **Download branded PDF invoice (`Invoice-ORDER_ID.pdf`) — owner-only** | **User** |
 | **`POST`** | **`/api/orders/:id/cancel`** | **Customer cancel with reason (`selectedReason`, `customReason`) — sets `cancelledBy: 'Customer'`** | **User** |
 | **`POST`** | **`/api/orders/:id/return`** | **Customer return request with reason — 3–7-day post-delivery window validation** | **User** |
 | `GET`  | `/api/orders` | All orders (admin panel) | Public¹ |
@@ -1508,7 +1593,7 @@ POST /api/admin/login
 ### 📋 Security logging & audit
 Events written to `SecurityLog` (via `utils/securityLogger.js`) and `LoginAttempt` include:
 - Admin login success/failure, OTP requested/failed, geo-blocks, and 2FA method/config changes.
-- Customer login success/failure/blocked/suspended attempts.
+- Customer login success/failure/blocked/suspended attempts; **password changes** and **contact-update OTP** events.
 - Admin customer edits & status changes; settings & branding updates; IP auto/manual bans.
 
 Viewable in the admin panel under **Security & Audit** (Login History + IP Blacklist Manager) and **Security Logs**.
@@ -1575,6 +1660,11 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 - **Instant Coupon & Promo Code Engine** — shared `coupon-ui.js` supports **flat** and **percentage** discounts; subtotal/grand total recalculate via Fetch without full-page reloads.
 - **Seamless Cart Persistence & Merge (Guest → Auth)** — `cartMergeService.js` + `cart-merge.js` merge `localStorage` guest carts on login/OAuth; duplicate `productId` + `variantId` lines auto-increment quantity.
 - New public endpoint **`GET /api/store/shipping-quote`** for server-authoritative shipping + delivery estimate previews.
+
+**🔒 Profile Security & Order Invoice Enhancements**
+- **Multi-Factor OTP Verification & Security** — secure password change with **`bcrypt`** hashing and current-password validation; **6-digit OTP** flow for email and phone updates via Security tab (`request-contact-otp` / `verify-contact-otp`).
+- **Primary / Default Address Management** — single **`isDefault`** flag per address book; default card **auto-selects on checkout load** and syncs profile pre-fill for faster purchases.
+- **1-Click PDF Invoice Generation & Download** — dynamic **`pdfkit`** invoices from **My Orders** and **Order Details**; branded **`Invoice-ORDER_ID.pdf`** with itemized billing, shipping info, fees, discounts, and payment status; owner-only **`GET /api/orders/:id/invoice`**.
 
 ### Admin UX — Wide Edit Product Modal
 **🖥️ Desktop-first product editing**

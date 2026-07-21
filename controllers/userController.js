@@ -21,7 +21,7 @@ const geoip = require('geoip-lite');
 const requestIp = require('request-ip');
 const { logSecurityEvent } = require('../utils/securityLogger');
 const { isValidDistrict, resolveDistrictLabel } = require('../utils/bangladeshDistricts');
-const { formatSavedAddressLine, parseSavedAddressPayload } = require('../utils/savedAddress');
+const { formatSavedAddressLine, parseSavedAddressPayload, syncUserProfileFromAddress } = require('../utils/savedAddress');
 const {
     mergeGuestCartIntoUserCart,
     normalizeGuestCartItems,
@@ -33,6 +33,46 @@ const {
     calculatePointsCashValue,
     POINTS_CONVERSION_UNIT
 } = require('../utils/rewardSettings');
+const { sendAdminOtpSms } = require('../utils/smsSender');
+
+const PROFILE_OTP_TTL_MS = 5 * 60 * 1000;
+const MIN_PASSWORD_LENGTH = 6;
+
+function generateProfileOtp() {
+    return String(crypto.randomInt(100000, 1000000));
+}
+
+function normalizeProfileOtp(value) {
+    return String(value || '').replace(/\D/g, '').slice(0, 6);
+}
+
+function maskEmail(email = '') {
+    const [local, domain] = String(email).split('@');
+    if (!local || !domain) return '***';
+    const visible = local.slice(0, Math.min(2, local.length));
+    return `${visible}***@${domain}`;
+}
+
+function maskPhone(phone = '') {
+    const digits = String(phone).replace(/\D/g, '');
+    if (digits.length < 4) return '***';
+    return `***${digits.slice(-4)}`;
+}
+
+function isValidBangladeshMobile(value = '') {
+    const digits = String(value).replace(/\D/g, '');
+    return /^01[3-9]\d{8}$/.test(digits);
+}
+
+function clearProfileUpdateOtpFields() {
+    return {
+        profileUpdateOtp: null,
+        profileUpdateOtpExpires: null,
+        profileUpdateType: null,
+        pendingEmail: null,
+        pendingMobile: null
+    };
+}
 
 // ইমেইল পাঠানোর কনফিগারেশন
 const transporter = nodemailer.createTransport({
@@ -534,8 +574,20 @@ exports.updateUserProfile = async (req, res) => {
         }
 
         if (contactNumber !== undefined) {
-            updateFields.phone = contactNumber;
-            updateFields.mobile = contactNumber;
+            const user = await User.findById(req.user.id).select('email mobile phone');
+            if (!user) {
+                return res.status(404).json({ success: false, message: "User not found." });
+            }
+
+            const normalizedPhone = String(contactNumber).replace(/\D/g, '');
+            const currentPhone = String(user.mobile || user.phone || '').replace(/\D/g, '');
+
+            if (normalizedPhone && normalizedPhone !== currentPhone) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Phone number changes require OTP verification. Use Security → Update Phone."
+                });
+            }
         }
 
         if (gender !== undefined) {
@@ -676,22 +728,279 @@ exports.updateUserAvatar = async (req, res) => {
    ======================================================= */
 exports.changePassword = async (req, res) => {
     try {
-        const { currentPassword, newPassword } = req.body;
+        const { currentPassword, newPassword, confirmPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "Current password and new password are required."
+            });
+        }
+
+        if (String(newPassword).length < MIN_PASSWORD_LENGTH) {
+            return res.status(400).json({
+                success: false,
+                message: `New password must be at least ${MIN_PASSWORD_LENGTH} characters.`
+            });
+        }
+
+        if (confirmPassword !== undefined && newPassword !== confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "New password and confirm password do not match."
+            });
+        }
+
         const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found." });
+        }
 
         const isMatch = await bcrypt.compare(currentPassword, user.password);
         if (!isMatch) {
+            await logSecurityEvent({
+                action: 'Customer Password Change Failed',
+                actor: user.email,
+                actorType: 'customer',
+                ipAddress: getClientIp(req),
+                details: 'Incorrect current password'
+            });
             return res.status(400).json({ success: false, message: "Incorrect current password." });
+        }
+
+        const sameAsCurrent = await bcrypt.compare(newPassword, user.password);
+        if (sameAsCurrent) {
+            return res.status(400).json({
+                success: false,
+                message: "New password must be different from your current password."
+            });
         }
 
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(newPassword, salt);
         await user.save();
 
+        await logSecurityEvent({
+            action: 'Customer Password Changed',
+            actor: user.email,
+            actorType: 'customer',
+            ipAddress: getClientIp(req),
+            details: 'Password updated from profile security tab'
+        });
+
         res.status(200).json({ success: true, message: "Password changed successfully!" });
     } catch (error) {
         console.error("Change Password Error:", error);
         res.status(500).json({ success: false, message: "Server error while changing password." });
+    }
+};
+
+/* =======================================================
+   ৮.১ ইমেইল / ফোন আপডেট — OTP অনুরোধ (Request Contact OTP)
+   ======================================================= */
+exports.requestContactUpdateOtp = async (req, res) => {
+    try {
+        const type = String(req.body.type || '').trim().toLowerCase();
+        const rawValue = String(req.body.value || '').trim();
+
+        if (!['email', 'mobile'].includes(type)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid update type. Use email or mobile."
+            });
+        }
+
+        if (!rawValue) {
+            return res.status(400).json({
+                success: false,
+                message: type === 'email' ? "Please enter a new email address." : "Please enter a new phone number."
+            });
+        }
+
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found." });
+        }
+
+        let normalizedValue = rawValue;
+        if (type === 'email') {
+            normalizedValue = rawValue.toLowerCase();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedValue)) {
+                return res.status(400).json({ success: false, message: "Please enter a valid email address." });
+            }
+            if (normalizedValue === user.email) {
+                return res.status(400).json({ success: false, message: "This is already your current email address." });
+            }
+            const taken = await User.findOne({ email: normalizedValue, _id: { $ne: user._id } });
+            if (taken) {
+                return res.status(400).json({ success: false, message: "This email is already registered to another account." });
+            }
+        } else {
+            normalizedValue = rawValue.replace(/\D/g, '');
+            if (!isValidBangladeshMobile(normalizedValue)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Please enter a valid Bangladesh mobile number (e.g. 01XXXXXXXXX)."
+                });
+            }
+            const currentMobile = String(user.mobile || user.phone || '').replace(/\D/g, '');
+            if (normalizedValue === currentMobile) {
+                return res.status(400).json({ success: false, message: "This is already your current phone number." });
+            }
+            const taken = await User.findOne({
+                mobile: normalizedValue,
+                _id: { $ne: user._id }
+            });
+            if (taken) {
+                return res.status(400).json({ success: false, message: "This phone number is already registered to another account." });
+            }
+        }
+
+        const otp = generateProfileOtp();
+        const otpExpiry = Date.now() + PROFILE_OTP_TTL_MS;
+
+        user.profileUpdateOtp = otp;
+        user.profileUpdateOtpExpires = otpExpiry;
+        user.profileUpdateType = type;
+        user.pendingEmail = type === 'email' ? normalizedValue : null;
+        user.pendingMobile = type === 'mobile' ? normalizedValue : null;
+        await user.save();
+
+        let delivery = { delivered: false, channel: type === 'email' ? 'email' : 'sms' };
+
+        if (type === 'email') {
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: normalizedValue,
+                subject: 'eOnlineBazar - Verify Your New Email',
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px; max-width: 500px; margin: auto;">
+                        <h2 style="color: #2563eb;">eOnlineBazar · Security Verification</h2>
+                        <p>Hi <b>${user.name}</b>,</p>
+                        <p>Use this 6-digit code to confirm your new email address:</p>
+                        <h1 style="color: #2563eb; letter-spacing: 5px; text-align: center;">${otp}</h1>
+                        <p style="color: #64748b; font-size: 13px; text-align: center;">This code expires in 5 minutes. Do not share it with anyone.</p>
+                    </div>
+                `
+            };
+
+            try {
+                if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+                    await transporter.sendMail(mailOptions);
+                    delivery.delivered = true;
+                } else {
+                    console.log(`[Profile OTP] Email to ${normalizedValue}: ${otp} (EMAIL_USER/EMAIL_PASS not set)`);
+                }
+            } catch (mailErr) {
+                console.error('[Profile OTP] Email send failed:', mailErr.message);
+                console.log(`[Profile OTP] Fallback — Email to ${normalizedValue}: ${otp}`);
+            }
+        } else {
+            const smsResult = await sendAdminOtpSms({
+                to: normalizedValue,
+                otp,
+                username: user.name,
+                expiresInMinutes: 5
+            });
+            delivery.delivered = !!smsResult.delivered;
+            if (!smsResult.delivered) {
+                console.log(`[Profile OTP] SMS to ${normalizedValue}: ${otp}`);
+            }
+        }
+
+        await logSecurityEvent({
+            action: 'Customer Contact Update OTP Sent',
+            actor: user.email,
+            actorType: 'customer',
+            ipAddress: getClientIp(req),
+            details: `${type} → ${type === 'email' ? maskEmail(normalizedValue) : maskPhone(normalizedValue)}`
+        });
+
+        res.status(200).json({
+            success: true,
+            message: `Verification code sent to ${type === 'email' ? maskEmail(normalizedValue) : maskPhone(normalizedValue)}.`,
+            type,
+            maskedDestination: type === 'email' ? maskEmail(normalizedValue) : maskPhone(normalizedValue),
+            expiresInMinutes: 5,
+            delivered: delivery.delivered
+        });
+    } catch (error) {
+        console.error('Request Contact OTP Error:', error);
+        res.status(500).json({ success: false, message: "Failed to send verification code. Please try again." });
+    }
+};
+
+/* =======================================================
+   ৮.২ ইমেইল / ফোন আপডেট — OTP যাচাই (Verify Contact OTP)
+   ======================================================= */
+exports.verifyContactUpdateOtp = async (req, res) => {
+    try {
+        const otp = normalizeProfileOtp(req.body.otp);
+
+        if (!otp || otp.length !== 6) {
+            return res.status(400).json({ success: false, message: "Please enter the 6-digit verification code." });
+        }
+
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found." });
+        }
+
+        if (!user.profileUpdateOtp || !user.profileUpdateOtpExpires || !user.profileUpdateType) {
+            return res.status(400).json({
+                success: false,
+                message: "No pending verification request. Please request a new code."
+            });
+        }
+
+        if (Date.now() > Number(user.profileUpdateOtpExpires)) {
+            Object.assign(user, clearProfileUpdateOtpFields());
+            await user.save();
+            return res.status(400).json({ success: false, message: "Verification code expired. Please request a new one." });
+        }
+
+        if (user.profileUpdateOtp !== otp) {
+            return res.status(400).json({ success: false, message: "Invalid verification code. Please try again." });
+        }
+
+        const updateType = user.profileUpdateType;
+        let updatedValue = '';
+
+        if (updateType === 'email' && user.pendingEmail) {
+            user.email = user.pendingEmail;
+            updatedValue = user.pendingEmail;
+        } else if (updateType === 'mobile' && user.pendingMobile) {
+            user.mobile = user.pendingMobile;
+            user.phone = user.pendingMobile;
+            updatedValue = user.pendingMobile;
+        } else {
+            return res.status(400).json({ success: false, message: "Pending update data is missing. Please start again." });
+        }
+
+        Object.assign(user, clearProfileUpdateOtpFields());
+        await user.save();
+
+        await logSecurityEvent({
+            action: 'Customer Contact Updated',
+            actor: updatedValue,
+            actorType: 'customer',
+            ipAddress: getClientIp(req),
+            details: `${updateType} verified via OTP`
+        });
+
+        const safeUser = await User.findById(req.user.id).select('-password');
+
+        res.status(200).json({
+            success: true,
+            message: updateType === 'email'
+                ? "Email address updated successfully!"
+                : "Phone number updated successfully!",
+            type: updateType,
+            user: safeUser
+        });
+    } catch (error) {
+        console.error('Verify Contact OTP Error:', error);
+        res.status(500).json({ success: false, message: "Server error during verification." });
     }
 };
 
@@ -846,6 +1155,7 @@ exports.addAddress = async (req, res) => {
 
         if (makeDefault) {
             user.address = formatSavedAddressLine(user.addresses[user.addresses.length - 1]);
+            syncUserProfileFromAddress(user, user.addresses[user.addresses.length - 1]);
         }
 
         await user.save();
@@ -886,6 +1196,7 @@ exports.updateAddress = async (req, res) => {
             user.addresses.forEach(addr => { addr.isDefault = false; });
             target.isDefault = true;
             user.address = formatSavedAddressLine(target);
+            syncUserProfileFromAddress(user, target);
         }
 
         await user.save();
@@ -919,6 +1230,7 @@ exports.deleteAddress = async (req, res) => {
         if (wasDefault && user.addresses.length > 0) {
             user.addresses[0].isDefault = true;
             user.address = formatSavedAddressLine(user.addresses[0]);
+            syncUserProfileFromAddress(user, user.addresses[0]);
         } else if (user.addresses.length === 0) {
             user.address = '';
         }

@@ -369,10 +369,10 @@ function renderSavedAddressCards(addresses = []) {
         const phone = escapeCheckoutHtml(addr.phone || '');
 
         return `
-            <label class="saved-address-card" data-address-id="${escapeCheckoutHtml(id)}">
+            <label class="saved-address-card${addr.isDefault ? ' saved-address-card--default' : ''}" data-address-id="${escapeCheckoutHtml(id)}">
                 <input type="radio" name="savedDeliveryAddress" value="${escapeCheckoutHtml(id)}">
                 <div class="saved-address-card__top">
-                    <span class="saved-address-card__label">${label}</span>
+                    <span class="saved-address-card__label">${label}${addr.isDefault ? ' <span class="saved-address-card__default">Default</span>' : ''}</span>
                 </div>
                 <p class="saved-address-card__line">${line}</p>
                 ${phone ? `<p class="saved-address-card__phone"><i class="fa-solid fa-phone"></i> ${phone}</p>` : ''}
@@ -387,6 +387,35 @@ function renderSavedAddressCards(addresses = []) {
         card.addEventListener('mousedown', handleSavedAddressCardMouseDown);
         radio.addEventListener('click', handleSavedAddressRadioClick);
     });
+}
+
+function autoSelectDefaultSavedAddress(addresses = []) {
+    const defaultAddr = (Array.isArray(addresses) ? addresses : []).find((addr) => addr.isDefault);
+    if (!defaultAddr || !defaultAddr._id) return false;
+
+    const container = document.getElementById('savedAddressCards');
+    if (!container) return false;
+
+    const card = container.querySelector(`.saved-address-card[data-address-id="${defaultAddr._id}"]`);
+    if (!card) return false;
+
+    const radio = card.querySelector('input[type="radio"]');
+    if (!radio) return false;
+
+    document.querySelectorAll('.saved-address-card input[type="radio"]').forEach((otherRadio) => {
+        if (otherRadio !== radio) {
+            forceUncheckSavedAddressRadio(otherRadio, otherRadio.closest('.saved-address-card'));
+        }
+    });
+
+    radio.checked = true;
+    radio.setAttribute('data-was-checked', 'true');
+    card.classList.add('is-selected');
+
+    selectedSavedAddressId = defaultAddr._id;
+    applySavedAddressToCheckoutForm(defaultAddr, checkoutProfileCache);
+    updateSaveAddressCheckboxState();
+    return true;
 }
 
 function applySavedAddressToCheckoutForm(addr = {}, profile = checkoutProfileCache) {
@@ -623,10 +652,14 @@ async function initializeCheckoutPage() {
 
     renderSavedAddressCards(addresses);
 
-    if (profile) {
-        applyProfileToCheckoutForm(profile);
-    } else {
-        applyCheckoutAddressFallback();
+    const defaultSelected = autoSelectDefaultSavedAddress(addresses);
+
+    if (!defaultSelected) {
+        if (profile) {
+            applyProfileToCheckoutForm(profile);
+        } else {
+            applyCheckoutAddressFallback();
+        }
     }
 
     recalculateCheckoutDelivery();

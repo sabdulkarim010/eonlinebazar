@@ -34,6 +34,7 @@ const {
 } = require('../utils/deliveryChargeService');
 const { getDeliveryEstimate } = require('../utils/deliveryEstimateService');
 const { syncCheckoutAddressToProfile } = require('../utils/savedAddress');
+const { generateOrderInvoicePdf, resolveInvoiceNumber } = require('../utils/invoicePdf');
 const {
     loadRewardSettings,
     creditOrderDeliveryRewards,
@@ -479,6 +480,35 @@ const getOrderById = async (req, res) => {
         res.json({ success: true, data: orderObj });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+// Download order invoice as PDF (customer-owned orders only)
+const downloadOrderInvoice = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found.' });
+        }
+
+        if (order.user && order.user.toString() !== req.user.id) {
+            return res.status(403).json({ success: false, message: 'You cannot download this invoice.' });
+        }
+
+        const orderObj = order.toObject();
+        await enrichOrderItemsWithImages(orderObj);
+
+        const pdfBuffer = await generateOrderInvoicePdf(orderObj);
+        const invoiceNo = resolveInvoiceNumber(orderObj);
+        const filename = `Invoice-${invoiceNo}.pdf`;
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+        return res.send(pdfBuffer);
+    } catch (err) {
+        console.error('Invoice PDF Error:', err);
+        return res.status(500).json({ success: false, message: 'Failed to generate invoice PDF.' });
     }
 };
 
@@ -981,6 +1011,7 @@ module.exports = {
     getOrders, 
     getMyOrders, 
     getOrderById, 
+    downloadOrderInvoice,
     updateOrderStatus, 
     deleteOrder, 
     trackOrder,

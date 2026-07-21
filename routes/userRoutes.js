@@ -28,6 +28,9 @@ router.post('/reset-password', userController.resetPassword);
 router.get('/profile', verifyUser, userController.getUserProfile);
 router.put('/update-profile', verifyUser, userController.updateUserProfile);
 router.put('/change-password', verifyUser, userController.changePassword);
+router.put('/profile/change-password', verifyUser, userController.changePassword);
+router.post('/profile/request-contact-otp', verifyUser, userController.requestContactUpdateOtp);
+router.post('/profile/verify-contact-otp', verifyUser, userController.verifyContactUpdateOtp);
 
 // ছবি আপলোডের রাউট
 router.post('/update-avatar', verifyUser, upload.single('avatar'), userController.updateUserAvatar);

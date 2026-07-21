@@ -139,6 +139,32 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: null
     },
+
+    // Profile email/phone change OTP (Security tab verification)
+    profileUpdateOtp: {
+        type: String,
+        default: null
+    },
+    profileUpdateOtpExpires: {
+        type: Date,
+        default: null
+    },
+    profileUpdateType: {
+        type: String,
+        enum: ['email', 'mobile', null],
+        default: null
+    },
+    pendingEmail: {
+        type: String,
+        default: null,
+        trim: true,
+        lowercase: true
+    },
+    pendingMobile: {
+        type: String,
+        default: null,
+        trim: true
+    },
     
     createdAt: {
         type: Date,

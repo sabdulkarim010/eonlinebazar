@@ -14,7 +14,10 @@
         <div class="header-section">
             <a id="smart-back-btn" href="/profile" class="back-btn" aria-label="Back" style="text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: #2563eb;">← Back</a>
             <h2>Order Details</h2>
-            <a href="#" id="track-order-btn" class="track-btn hidden"><i class="fa-solid fa-truck-fast"></i> Track Order</a>
+            <div class="header-actions">
+                <button type="button" id="download-invoice-btn" class="btn-invoice-download hidden"><i class="fa-solid fa-file-pdf"></i> Download Invoice</button>
+                <a href="#" id="track-order-btn" class="track-btn hidden"><i class="fa-solid fa-truck-fast"></i> Track Order</a>
+            </div>
         </div>
 
         <div id="loading-spinner" class="text-center">
@@ -114,6 +117,7 @@
     
     <script src="js/session-guard.js"></script>
     <script src="js/productThumbnail.js"></script>
+    <script src="js/invoiceDownload.js"></script>
     <script src="js/order-details.js"></script>
 </body>
 </html>

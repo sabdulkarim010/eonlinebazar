@@ -55,7 +55,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const profileAddress = document.getElementById('profile-address');
     
     const passwordForm = document.getElementById('password-form');
-    const togglePasswordIcon = document.querySelector('.toggle-password');
+    const passwordFeedback = document.getElementById('password-feedback');
+    const contactFeedback = document.getElementById('contact-feedback');
+    const securityCurrentEmail = document.getElementById('security-current-email');
+    const securityCurrentPhone = document.getElementById('security-current-phone');
+    const contactOtpModal = document.getElementById('contact-otp-modal');
+    const contactOtpForm = document.getElementById('contact-otp-form');
+    const contactOtpSubtext = document.getElementById('contact-otp-subtext');
+    const contactOtpFeedback = document.getElementById('contact-otp-feedback');
+    const contactOtpTimer = document.getElementById('contactOtpTimer');
+    const requestEmailOtpBtn = document.getElementById('request-email-otp-btn');
+    const requestPhoneOtpBtn = document.getElementById('request-phone-otp-btn');
+
+    let pendingContactUpdate = { type: null, maskedDestination: '', expiresAt: null };
+    let contactOtpTimerInterval = null;
     
     const ordersListTbody = document.getElementById('orders-list-tbody');
     const mainBalanceAmount = document.getElementById('main-balance-amount');
@@ -70,9 +83,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const menuItems = document.querySelectorAll('.sidebar-menu .menu-item[data-tab]');
     const tabContents = document.querySelectorAll('.tab-content');
 
-    // =================================================================
-    // ২. প্রিমিয়াম টোস্ট নোটিফিকেশন সিস্টেম (Advanced Toast System)
-    // =================================================================
+    function showInlineFeedback(el, message, type = 'success') {
+        if (!el) {
+            if (message) showToast(message, type === 'success' ? 'success' : 'danger');
+            return;
+        }
+        if (!message) {
+            el.classList.add('hidden');
+            el.textContent = '';
+            el.classList.remove('is-success', 'is-error');
+            return;
+        }
+        const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
+        el.innerHTML = `<i class="fa-solid ${icon}"></i><span>${escapeHtml(message)}</span>`;
+        el.classList.remove('hidden', 'is-success', 'is-error');
+        el.classList.add(type === 'success' ? 'is-success' : 'is-error');
+    }
+
+    function updateSecurityContactDisplays(user = {}) {
+        if (securityCurrentEmail) securityCurrentEmail.textContent = user.email || '—';
+        if (securityCurrentPhone) {
+            securityCurrentPhone.textContent = user.phone || user.mobile || '—';
+        }
+    }
     function showToast(message, type = 'success') {
         let container = document.getElementById('toast-container');
         if (!container) {
@@ -400,8 +433,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (profileName) profileName.value = data.name || '';
                 if (profileEmail) profileEmail.value = data.email || '';
-                // 🌟 ফিক্স: পুরোনো ইউজারদের নম্বর 'mobile' ফিল্ডে থাকতে পারে, তাই দুটোই চেক করা হলো
                 if (profilePhone) profilePhone.value = data.phone || data.mobile || '';
+                updateSecurityContactDisplays(data);
                 if (profileGender) profileGender.value = data.gender || '';
                 if (profileDob) profileDob.value = formatDateForInput(data.dateOfBirth);
                 applyProfileAddressToUI(data);
@@ -522,8 +555,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function buildOrderActionsHtml(order) {
         const orderId = order._id || order.orderId || '';
+        const displayOrderId = getDisplayOrderId(order);
         const status = String(order.status || 'Pending').toLowerCase();
         const buttons = [];
+
+        buttons.push(`<button type="button" class="order-action-btn btn-order-invoice" data-id="${escapeHtml(orderId)}" data-invoice-id="${escapeHtml(displayOrderId)}" data-action="invoice" title="Download invoice PDF">
+            <i class="fa-solid fa-file-pdf" aria-hidden="true"></i><span>Invoice</span>
+        </button>`);
 
         if (status === 'pending') {
             buttons.push(`<button type="button" class="order-action-btn btn-order-cancel order-action-btn--compact" data-id="${escapeHtml(orderId)}" data-action="cancel" title="Cancel this order">
@@ -536,8 +574,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 <i class="fa-solid fa-rotate-left" aria-hidden="true"></i><span>Return</span>
             </button>`);
         }
-
-        if (buttons.length === 0) return '';
 
         return `<div class="order-actions-cell">${buttons.join('')}</div>`;
     }
@@ -664,7 +700,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const updatedData = {
                 name: profileName.value.trim(),
-                phone: profilePhone.value.trim(),
                 gender,
                 dateOfBirth,
                 district,
@@ -1202,68 +1237,328 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================
     // ১১. সিকিউরিটি এবং পাসওয়ার্ড আপডেট লজিক (Security & Password)
     // =================================================================
+    function setButtonLoading(btn, loading, loadingHtml) {
+        if (!btn) return;
+        if (loading) {
+            if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
+            btn.innerHTML = loadingHtml;
+            btn.disabled = true;
+        } else {
+            btn.innerHTML = btn.dataset.originalHtml || btn.innerHTML;
+            btn.disabled = false;
+        }
+    }
+
     if (passwordForm) {
         passwordForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            showInlineFeedback(passwordFeedback, '');
+
             const currentPassword = document.getElementById('current-password').value;
             const newPassword = document.getElementById('new-password').value;
             const confirmPassword = document.getElementById('confirm-password').value;
 
+            if (!currentPassword) {
+                showInlineFeedback(passwordFeedback, 'Please enter your current password.', 'error');
+                return;
+            }
+
             if (newPassword.length < 6) {
-                showToast('New password must be at least 6 characters!', 'warning');
+                showInlineFeedback(passwordFeedback, 'New password must be at least 6 characters.', 'error');
                 return;
             }
 
             if (newPassword !== confirmPassword) {
-                showToast('Confirm password does not match!', 'warning');
+                showInlineFeedback(passwordFeedback, 'Confirm password does not match.', 'error');
                 return;
             }
 
-            try {
-                const submitBtn = passwordForm.querySelector('button[type="submit"]');
-                const originalText = submitBtn.innerHTML;
-                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Updating...';
-                submitBtn.disabled = true;
+            const submitBtn = passwordForm.querySelector('button[type="submit"]');
 
-                const res = await fetch('/api/customer/change-password', {
+            try {
+                setButtonLoading(submitBtn, true, '<i class="fa-solid fa-spinner fa-spin"></i> Updating...');
+
+                const res = await fetch('/api/customer/profile/change-password', {
                     method: 'PUT',
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ currentPassword, newPassword })
+                    body: JSON.stringify({ currentPassword, newPassword, confirmPassword })
                 });
 
                 const data = await res.json();
-                
-                submitBtn.innerHTML = originalText;
-                submitBtn.disabled = false;
+                setButtonLoading(submitBtn, false);
 
-                if (res.ok) {
-                    showToast('Password updated successfully!', 'success');
+                if (res.ok && data.success) {
+                    showInlineFeedback(passwordFeedback, data.message || 'Password updated successfully!', 'success');
+                    showToast(data.message || 'Password updated successfully!', 'success');
                     passwordForm.reset();
                 } else {
-                    showToast(data.message || 'Failed to change password.', 'danger');
+                    showInlineFeedback(passwordFeedback, data.message || 'Failed to change password.', 'error');
                 }
             } catch (error) {
                 console.error('Change Password Error:', error);
-                showToast('Server error during password update.', 'danger');
+                setButtonLoading(submitBtn, false);
+                showInlineFeedback(passwordFeedback, 'Server error during password update.', 'error');
             }
         });
     }
 
-    if (togglePasswordIcon) {
-        togglePasswordIcon.addEventListener('click', () => {
-            const passwordInput = document.getElementById('current-password');
+    document.querySelectorAll('.toggle-password').forEach((icon) => {
+        icon.addEventListener('click', () => {
+            const targetId = icon.getAttribute('data-target');
+            const passwordInput = targetId ? document.getElementById(targetId) : null;
             if (!passwordInput) return;
-            
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                togglePasswordIcon.classList.replace('fa-eye-slash', 'fa-eye');
-            } else {
-                passwordInput.type = 'password';
-                togglePasswordIcon.classList.replace('fa-eye', 'fa-eye-slash');
+
+            const show = passwordInput.type === 'password';
+            passwordInput.type = show ? 'text' : 'password';
+            icon.classList.toggle('fa-eye-slash', !show);
+            icon.classList.toggle('fa-eye', show);
+        });
+    });
+
+    // --- Contact update OTP flow ---
+    function clearContactOtpTimer() {
+        if (contactOtpTimerInterval) {
+            clearInterval(contactOtpTimerInterval);
+            contactOtpTimerInterval = null;
+        }
+    }
+
+    function resetContactOtpCells() {
+        document.querySelectorAll('#contactOtpInputs .otp-cell').forEach((cell) => {
+            cell.value = '';
+            cell.classList.remove('filled', 'error');
+        });
+    }
+
+    function collectContactOtp() {
+        return Array.from(document.querySelectorAll('#contactOtpInputs .otp-cell'))
+            .map((cell) => cell.value.trim())
+            .join('');
+    }
+
+    function initContactOtpInputs() {
+        const cells = Array.from(document.querySelectorAll('#contactOtpInputs .otp-cell'));
+        const wrap = document.getElementById('contactOtpInputs');
+        if (!cells.length) return;
+
+        cells.forEach((cell, index) => {
+            cell.addEventListener('input', () => {
+                cell.value = cell.value.replace(/\D/g, '').slice(0, 1);
+                cell.classList.toggle('filled', !!cell.value);
+                if (cell.value && index < cells.length - 1) cells[index + 1].focus();
+                if (collectContactOtp().length === 6 && contactOtpForm) {
+                    contactOtpForm.requestSubmit();
+                }
+            });
+
+            cell.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !cell.value && index > 0) {
+                    cells[index - 1].focus();
+                }
+            });
+
+            cell.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const pasted = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+                pasted.split('').forEach((digit, i) => {
+                    if (cells[i]) {
+                        cells[i].value = digit;
+                        cells[i].classList.add('filled');
+                    }
+                });
+                if (pasted.length === 6 && contactOtpForm) contactOtpForm.requestSubmit();
+            });
+        });
+
+        if (wrap) {
+            wrap.addEventListener('animationend', () => wrap.classList.remove('shake'));
+        }
+    }
+
+    function startContactOtpTimer(expiresAt) {
+        clearContactOtpTimer();
+        if (!contactOtpTimer) return;
+
+        function tick() {
+            const remainingMs = expiresAt - Date.now();
+            if (remainingMs <= 0) {
+                contactOtpTimer.textContent = 'Code expired — request a new OTP.';
+                contactOtpTimer.classList.add('expired');
+                clearContactOtpTimer();
+                return;
             }
+            const mins = Math.floor(remainingMs / 60000);
+            const secs = Math.floor((remainingMs % 60000) / 1000);
+            contactOtpTimer.textContent = `Expires in ${mins}:${String(secs).padStart(2, '0')}`;
+            contactOtpTimer.classList.remove('expired');
+        }
+
+        tick();
+        contactOtpTimerInterval = setInterval(tick, 1000);
+    }
+
+    function closeContactOtpModal() {
+        if (contactOtpModal) contactOtpModal.classList.add('hidden');
+        showInlineFeedback(contactOtpFeedback, '');
+        resetContactOtpCells();
+        clearContactOtpTimer();
+        pendingContactUpdate = { type: null, maskedDestination: '', expiresAt: null };
+    }
+
+    function openContactOtpModal(type, maskedDestination) {
+        if (!contactOtpModal) return;
+        pendingContactUpdate.type = type;
+        pendingContactUpdate.maskedDestination = maskedDestination;
+        pendingContactUpdate.expiresAt = Date.now() + 5 * 60 * 1000;
+
+        if (contactOtpSubtext) {
+            const channel = type === 'email' ? 'email' : 'phone';
+            contactOtpSubtext.innerHTML = `Enter the 6-digit code sent to your ${channel}: <b>${escapeHtml(maskedDestination)}</b>`;
+        }
+
+        resetContactOtpCells();
+        showInlineFeedback(contactOtpFeedback, '');
+        startContactOtpTimer(pendingContactUpdate.expiresAt);
+        contactOtpModal.classList.remove('hidden');
+
+        const firstCell = document.querySelector('#contactOtpInputs .otp-cell');
+        if (firstCell) firstCell.focus();
+    }
+
+    async function requestContactOtp(type) {
+        showInlineFeedback(contactFeedback, '');
+
+        const input = type === 'email'
+            ? document.getElementById('security-new-email')
+            : document.getElementById('security-new-phone');
+        const btn = type === 'email' ? requestEmailOtpBtn : requestPhoneOtpBtn;
+        const value = input ? input.value.trim() : '';
+
+        if (!value) {
+            showInlineFeedback(
+                contactFeedback,
+                type === 'email' ? 'Please enter a new email address.' : 'Please enter a new phone number.',
+                'error'
+            );
+            return;
+        }
+
+        try {
+            setButtonLoading(btn, true, '<i class="fa-solid fa-spinner fa-spin"></i>');
+
+            const res = await fetch('/api/customer/profile/request-contact-otp', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ type, value })
+            });
+
+            const data = await res.json();
+            setButtonLoading(btn, false);
+
+            if (res.ok && data.success) {
+                showInlineFeedback(contactFeedback, data.message, 'success');
+                showToast(data.message, 'success');
+                openContactOtpModal(type, data.maskedDestination || value);
+            } else {
+                showInlineFeedback(contactFeedback, data.message || 'Could not send verification code.', 'error');
+            }
+        } catch (error) {
+            console.error('Request contact OTP error:', error);
+            setButtonLoading(btn, false);
+            showInlineFeedback(contactFeedback, 'Server error while sending verification code.', 'error');
+        }
+    }
+
+    if (requestEmailOtpBtn) {
+        requestEmailOtpBtn.addEventListener('click', () => requestContactOtp('email'));
+    }
+    if (requestPhoneOtpBtn) {
+        requestPhoneOtpBtn.addEventListener('click', () => requestContactOtp('mobile'));
+    }
+
+    if (contactOtpForm) {
+        contactOtpForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showInlineFeedback(contactOtpFeedback, '');
+
+            const otp = collectContactOtp();
+            if (otp.length !== 6) {
+                showInlineFeedback(contactOtpFeedback, 'Please enter all 6 digits.', 'error');
+                return;
+            }
+
+            if (pendingContactUpdate.expiresAt && Date.now() > pendingContactUpdate.expiresAt) {
+                showInlineFeedback(contactOtpFeedback, 'Code expired. Please request a new OTP.', 'error');
+                return;
+            }
+
+            const verifyBtn = document.getElementById('verify-contact-otp-btn');
+
+            try {
+                setButtonLoading(verifyBtn, true, '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...');
+
+                const res = await fetch('/api/customer/profile/verify-contact-otp', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ otp })
+                });
+
+                const data = await res.json();
+                setButtonLoading(verifyBtn, false);
+
+                if (res.ok && data.success) {
+                    showToast(data.message, 'success');
+                    closeContactOtpModal();
+
+                    const user = data.user || {};
+                    if (sidebarEmail) sidebarEmail.textContent = user.email || sidebarEmail.textContent;
+                    if (profileEmail) profileEmail.value = user.email || profileEmail.value;
+                    if (profilePhone) profilePhone.value = user.phone || user.mobile || profilePhone.value;
+                    updateSecurityContactDisplays(user);
+                    cacheProfileAddressForCheckout(user);
+
+                    const emailInput = document.getElementById('security-new-email');
+                    const phoneInput = document.getElementById('security-new-phone');
+                    if (emailInput) emailInput.value = '';
+                    if (phoneInput) phoneInput.value = '';
+
+                    if (currentUser) {
+                        currentUser.email = user.email || currentUser.email;
+                        currentUser.mobile = user.mobile || currentUser.mobile;
+                        localStorage.setItem('userInfo', JSON.stringify(currentUser));
+                    }
+                } else {
+                    showInlineFeedback(contactOtpFeedback, data.message || 'Verification failed.', 'error');
+                    const wrap = document.getElementById('contactOtpInputs');
+                    if (wrap) wrap.classList.add('shake');
+                    document.querySelectorAll('#contactOtpInputs .otp-cell').forEach((cell) => cell.classList.add('error'));
+                }
+            } catch (error) {
+                console.error('Verify contact OTP error:', error);
+                setButtonLoading(verifyBtn, false);
+                showInlineFeedback(contactOtpFeedback, 'Server error during verification.', 'error');
+            }
+        });
+    }
+
+    initContactOtpInputs();
+
+    const closeContactOtpModalBtn = document.getElementById('close-contact-otp-modal');
+    const cancelContactOtpBtn = document.getElementById('cancel-contact-otp-btn');
+    if (closeContactOtpModalBtn) closeContactOtpModalBtn.addEventListener('click', closeContactOtpModal);
+    if (cancelContactOtpBtn) cancelContactOtpBtn.addEventListener('click', closeContactOtpModal);
+    if (contactOtpModal) {
+        contactOtpModal.addEventListener('click', (e) => {
+            if (e.target === contactOtpModal) closeContactOtpModal();
         });
     }
 
@@ -1840,6 +2135,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p class="address-text">${escapeHtml(displayAddress)}</p>
                 ${addr.phone ? `<p class="address-phone-text"><i class="fa-solid fa-phone"></i> ${escapeHtml(addr.phone)}</p>` : ''}
                 <div class="address-card-actions">
+                    ${!addr.isDefault ? `<button class="btn-address-default" data-id="${addr._id}" title="Set as default delivery address"><i class="fa-solid fa-star"></i> Set Default</button>` : ''}
                     <button class="btn-address-edit" data-id="${addr._id}"><i class="fa-regular fa-pen-to-square"></i> Edit</button>
                     <button class="btn-address-delete" data-id="${addr._id}"><i class="fa-regular fa-trash-can"></i> Delete</button>
                 </div>
@@ -1853,6 +2149,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('click', async (e) => {
         const editBtn = e.target.closest('.btn-address-edit');
         const deleteBtn = e.target.closest('.btn-address-delete');
+        const defaultBtn = e.target.closest('.btn-address-default');
 
         if (editBtn) {
             const card = editBtn.closest('.address-card');
@@ -1876,6 +2173,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (error) {
                 console.error('Delete Address Error:', error);
+                showToast('Server error.', 'danger');
+            }
+        }
+
+        if (defaultBtn) {
+            const card = defaultBtn.closest('.address-card');
+            const addr = card?._addressData;
+            if (!addr) return;
+
+            try {
+                const res = await fetch(`/api/customer/addresses/${addr._id}`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        label: addr.label || 'Home',
+                        phone: addr.phone || '',
+                        district: addr.district || '',
+                        upazilaOrThana: addr.upazilaOrThana || addr.upazila || addr.thana || '',
+                        fullAddress: addr.fullAddress || '',
+                        isDefault: true
+                    })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast('Default address updated.', 'success');
+                    renderAddresses(data.addresses || []);
+                    const defaultAddress = (data.addresses || []).find((item) => item.isDefault);
+                    if (defaultAddress) {
+                        applyProfileAddressToUI({
+                            district: defaultAddress.district,
+                            upazila: defaultAddress.upazilaOrThana,
+                            fullAddress: defaultAddress.fullAddress,
+                            phone: defaultAddress.phone
+                        });
+                        cacheProfileAddressForCheckout({
+                            name: profileName?.value || '',
+                            phone: defaultAddress.phone || profilePhone?.value || '',
+                            district: defaultAddress.district,
+                            upazila: defaultAddress.upazilaOrThana,
+                            fullAddress: defaultAddress.fullAddress
+                        });
+                    }
+                } else {
+                    showToast(data.message || 'Failed to set default address.', 'danger');
+                }
+            } catch (error) {
+                console.error('Set Default Address Error:', error);
                 showToast('Server error.', 'danger');
             }
         }
@@ -1931,6 +2275,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     showToast(data.message || 'Address saved!', 'success');
                     renderAddresses(data.addresses || []);
                     closeAddressModal();
+
+                    if (payload.isDefault) {
+                        const defaultAddress = (data.addresses || []).find((item) => item.isDefault);
+                        if (defaultAddress) {
+                            applyProfileAddressToUI({
+                                district: defaultAddress.district,
+                                upazila: defaultAddress.upazilaOrThana,
+                                fullAddress: defaultAddress.fullAddress,
+                                phone: defaultAddress.phone
+                            });
+                            cacheProfileAddressForCheckout({
+                                name: profileName?.value || '',
+                                phone: defaultAddress.phone || profilePhone?.value || '',
+                                district: defaultAddress.district,
+                                upazila: defaultAddress.upazilaOrThana,
+                                fullAddress: defaultAddress.fullAddress
+                            });
+                        }
+                    }
                 } else {
                     showToast(data.message || 'Failed to save address.', 'danger');
                 }
@@ -2142,6 +2505,14 @@ document.addEventListener('click', function(e) {
         }
         if (actionBtn.classList.contains('btn-order-return')) {
             openOrderActionModal(orderId, 'return');
+            return;
+        }
+        if (actionBtn.classList.contains('btn-order-invoice')) {
+            const invoiceId = actionBtn.getAttribute('data-invoice-id');
+            if (typeof window.downloadOrderInvoice === 'function') {
+                window.downloadOrderInvoice(orderId, invoiceId, actionBtn);
+            }
+            return;
         }
         return;
     }

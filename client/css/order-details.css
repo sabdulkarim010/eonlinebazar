@@ -75,6 +75,13 @@ body {
     color: var(--text-main);
 }
 
+.header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 .back-btn {
     text-decoration: none;
     color: #475569;
@@ -121,6 +128,36 @@ body {
     background-color: var(--primary-hover);
     transform: translateY(-1px);
     box-shadow: 0 6px 8px -1px rgba(37, 99, 235, 0.3);
+}
+
+.btn-invoice-download {
+    border: none;
+    background-color: #ffffff;
+    color: var(--primary-color);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(37, 99, 235, 0.25);
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.08);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: inherit;
+}
+
+.btn-invoice-download:hover {
+    background-color: #eff6ff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.15);
+}
+
+.btn-invoice-download:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
 }
 
 /* =========================================================

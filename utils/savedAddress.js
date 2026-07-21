@@ -10,6 +10,23 @@ function formatSavedAddressLine(addr) {
     return parts.length ? parts.join(', ') : String(addr.fullAddress || '').trim();
 }
 
+/**
+ * Mirror a saved address into legacy top-level profile fields used by checkout prefill.
+ */
+function syncUserProfileFromAddress(user, addr) {
+    if (!user || !addr) return user;
+
+    user.district = addr.district || '';
+    user.upazila = addr.upazilaOrThana || addr.upazila || addr.thana || '';
+    user.thana = user.upazila;
+    user.fullAddress = addr.fullAddress || '';
+    if (addr.phone) {
+        user.phone = addr.phone;
+    }
+    user.address = formatSavedAddressLine(addr);
+    return user;
+}
+
 function isTruthyFlag(value) {
     if (value === true || value === 1) return true;
     if (typeof value === 'string') {
@@ -128,7 +145,7 @@ async function saveAddressForUser(userId, payload, { skipDuplicate = true } = {}
             if (isDefault) {
                 user.addresses.forEach((addr) => { addr.isDefault = false; });
                 existing.isDefault = true;
-                user.address = formatSavedAddressLine(existing);
+                syncUserProfileFromAddress(user, existing);
                 await user.save();
                 return { saved: true, updated: true, addresses: user.addresses };
             }
@@ -152,6 +169,7 @@ async function saveAddressForUser(userId, payload, { skipDuplicate = true } = {}
 
     if (makeDefault) {
         user.address = formatSavedAddressLine(user.addresses[user.addresses.length - 1]);
+        syncUserProfileFromAddress(user, user.addresses[user.addresses.length - 1]);
     }
 
     await user.save();
@@ -190,14 +208,28 @@ async function syncCheckoutAddressToProfile(userId, body = {}, options = {}) {
             options.customerPhone || body.customerPhone || body.phone || body.mobile || ''
         ).trim();
 
+        const markDefault = shouldMarkCheckoutAddressDefault(body);
+
         const result = await saveAddressForUser(userId, {
             label: body.addressLabel || body.label || 'Home',
             fullAddress: shippingStreetAddress,
             phone: customerPhone,
             district: shippingDistrict,
             upazilaOrThana: shippingUpazila,
-            isDefault: true
+            isDefault: markDefault
         });
+
+        if (result.saved && markDefault && result.addresses) {
+            const defaultAddr = result.addresses.find((addr) => addr.isDefault)
+                || result.addresses[result.addresses.length - 1];
+            if (defaultAddr) {
+                const user = await User.findById(userId);
+                if (user) {
+                    syncUserProfileFromAddress(user, defaultAddr);
+                    await user.save();
+                }
+            }
+        }
 
         return result;
     } catch (error) {
@@ -214,6 +246,8 @@ module.exports = {
     parseSavedAddressPayload,
     saveAddressForUser,
     syncCheckoutAddressToProfile,
+    syncUserProfileFromAddress,
     shouldSaveCheckoutAddress,
+    shouldMarkCheckoutAddressDefault,
     resolveCheckoutStreetAddress
 };
