@@ -141,8 +141,39 @@ function isSizeAttribute(name) {
 }
 
 function getProductImages(product) {
-    const mainImageUrl = product.image || 'images/placeholder.jpg';
-    return product.images && product.images.length > 0 ? product.images : [mainImageUrl];
+    const PT = window.ProductThumbnail;
+    if (PT && typeof PT.pickAllValidImages === 'function') {
+        const valid = PT.pickAllValidImages(product);
+        if (valid.length > 0) return valid;
+    }
+    return [];
+}
+
+function clearDetailsMediaFallback(mainBox) {
+    if (!mainBox) return;
+    mainBox.querySelectorAll('.product-details-media-fallback').forEach((el) => el.remove());
+}
+
+function renderDetailsMediaFallback(product, mainBox) {
+    const PT = window.ProductThumbnail;
+    if (!mainBox || !PT) return;
+
+    clearDetailsMediaFallback(mainBox);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'product-details-media-fallback';
+    wrap.innerHTML = PT.buildThumbnailHtml(product, { variant: 'detail', alt: product.name || 'Product' });
+    mainBox.appendChild(wrap);
+}
+
+function attachMainImageFallback(mainImg, product, mainBox) {
+    if (!mainImg) return;
+
+    mainImg.onerror = function () {
+        this.onerror = null;
+        this.style.display = 'none';
+        renderDetailsMediaFallback(product, mainBox);
+    };
 }
 
 /** Color value (lowercase) → { index, variant } based on variant order vs. images array */
@@ -448,13 +479,41 @@ function renderProductImages(product) {
     const mainImg = document.getElementById('mainProductImg');
     const stickyImg = document.getElementById('stickyBarImg');
     const gallery = document.getElementById('thumbGallery');
+    const mainBox = document.querySelector('.main-image-box');
+
+    clearDetailsMediaFallback(mainBox);
 
     const imagesArray = getProductImages(product);
-    const mainImageUrl = imagesArray[0];
     const indexToColor = getImageIndexToColorMap(product);
 
-    if (mainImg) mainImg.src = mainImageUrl;
-    if (stickyImg) stickyImg.src = mainImageUrl;
+    if (imagesArray.length === 0) {
+        if (mainImg) {
+            mainImg.style.display = 'none';
+            mainImg.removeAttribute('src');
+        }
+        if (stickyImg) {
+            stickyImg.style.display = 'none';
+            stickyImg.removeAttribute('src');
+        }
+        if (gallery) gallery.innerHTML = '';
+        renderDetailsMediaFallback(product, mainBox);
+        return;
+    }
+
+    if (mainImg) mainImg.style.display = '';
+    if (stickyImg) stickyImg.style.display = '';
+
+    const mainImageUrl = imagesArray[0];
+    if (mainImg) {
+        mainImg.src = mainImageUrl;
+        attachMainImageFallback(mainImg, product, mainBox);
+    }
+    if (stickyImg) {
+        stickyImg.src = mainImageUrl;
+        stickyImg.onerror = function () {
+            this.style.display = 'none';
+        };
+    }
 
     if (gallery) {
         gallery.innerHTML = '';
@@ -481,8 +540,16 @@ function renderProductImages(product) {
 
                 document.querySelectorAll('.thumb-img').forEach(t => t.classList.remove('active'));
                 imgBtn.classList.add('active');
-                if (mainImg) mainImg.src = imgUrl;
-                if (stickyImg) stickyImg.src = imgUrl;
+                if (mainImg) {
+                    mainImg.style.display = '';
+                    mainImg.src = imgUrl;
+                    attachMainImageFallback(mainImg, product, mainBox);
+                }
+                if (stickyImg) {
+                    stickyImg.style.display = '';
+                    stickyImg.src = imgUrl;
+                }
+                clearDetailsMediaFallback(mainBox);
             });
 
             gallery.appendChild(imgBtn);
@@ -614,11 +681,15 @@ function setupEventListeners() {
      */
     const buildCartItem = (quantity) => {
         const prodId = currentProductData._id || currentProductData.productId || currentProductData.id;
+        const mediaMeta = (window.ProductThumbnail && window.ProductThumbnail.getDisplayMeta)
+            ? window.ProductThumbnail.getDisplayMeta(currentProductData)
+            : { image: currentProductData.image || '', emoji: currentProductData.icon || '' };
         const base = {
             id: prodId,
             name: currentProductData.name,
             price: getEffectivePrice(),
-            icon: currentProductData.icon || currentProductData.image || '📦',
+            icon: mediaMeta.emoji || '',
+            products: mediaMeta.image || '',
             quantity: quantity,
             selected: true,
             variantId: '',

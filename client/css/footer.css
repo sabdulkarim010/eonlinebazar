@@ -75,6 +75,15 @@ footer.compact-footer .footer-logo-text {
     font-weight: bold;
     color: #ffffff;
     margin-bottom: 4px;
+    display: inline-flex;
+    align-items: center;
+}
+
+footer.compact-footer .footer-logo-text img,
+footer.compact-footer .footer-logo-text .store-brand-logo {
+    max-height: 36px;
+    width: auto;
+    object-fit: contain;
 }
 
 footer.compact-footer .copyright-text {

@@ -826,7 +826,7 @@ function fetchCartData() {
                 name: item.name,
                 price: Number(item.price),
                 products: item.image || '',
-                icon: item.icon || '📦',
+                icon: item.icon || '',
                 quantity: item.quantity,
                 selected: item.selected !== false,
                 variantId: item.variantId || '',
@@ -913,33 +913,14 @@ function renderCheckoutCart() {
 
         const clone = template.content.cloneNode(true);
         const mediaFrame = clone.querySelector('.cart-media-frame-box');
-        
-        let realProduct = globalProductCatalog.find(p => String(p._id) === String(item.id) || String(p.productId) === String(item.id) || String(p.id) === String(item.id));
-        
-        let displayEmoji = (realProduct && realProduct.icon) ? realProduct.icon.trim() : (item.icon || "📦");
-        let imageFile = (realProduct && realProduct.image) ? realProduct.image.trim() : ((realProduct && realProduct.products) ? realProduct.products.trim() : (item.products || item.image || ''));
 
-        if (imageFile !== '') {
-            let lowerPath = imageFile.toLowerCase();
-            if (lowerPath.includes('.jpg') || lowerPath.includes('.png') || lowerPath.includes('.jpeg') || lowerPath.includes('.webp')) {
-                let imagePath = imageFile;
-                if (!imagePath.startsWith('/') && !imagePath.startsWith('http') && !imagePath.startsWith('products/')) {
-                    imagePath = '/products/' + imagePath;
-                } else if (imagePath.startsWith('products/')) {
-                    imagePath = '/' + imagePath;
-                }
-                
-                mediaFrame.innerHTML = `
-                    <img src="${imagePath}" alt="${item.name}" 
-                         style="width:100%; height:100%; object-fit:cover; border-radius:4px;"
-                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                    <span style="font-size:24px; display:none; justify-content:center; align-items:center; width:100%; height:100%;">${displayEmoji}</span>
-                `;
-            } else {
-                mediaFrame.innerHTML = `<span style="font-size:24px; display:flex; justify-content:center; align-items:center; width:100%; height:100%; background:#f9f9f9; border-radius:4px;">${displayEmoji}</span>`;
-            }
-        } else {
-            mediaFrame.innerHTML = `<span style="font-size:24px; display:flex; justify-content:center; align-items:center; width:100%; height:100%; background:#f9f9f9; border-radius:4px;">${displayEmoji}</span>`;
+        let realProduct = globalProductCatalog.find(p => String(p._id) === String(item.id) || String(p.productId) === String(item.id) || String(p.id) === String(item.id));
+
+        const PT = window.ProductThumbnail;
+        if (PT && mediaFrame) {
+            PT.mountCartItemInto(mediaFrame, item, realProduct, { variant: 'compact', alt: item.name || 'Product' });
+        } else if (mediaFrame) {
+            mediaFrame.innerHTML = '<div class="no-photo-badge"><span>NO PHOTO</span></div>';
         }
         
         clone.querySelector('.cart-item-name-text').innerText =

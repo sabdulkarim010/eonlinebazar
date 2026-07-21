@@ -38,6 +38,12 @@ const {
     creditOrderDeliveryRewards,
     isWithinRefundUndoWindow
 } = require('../utils/rewardSettings');
+const {
+    enrichOrderItemsWithImages,
+    enrichOrdersWithImages,
+    pickImageFromSources,
+    pickEmojiFromSources
+} = require('../utils/orderItemImages');
 
 /**
  * 🌟 হেল্পার: একটি অর্ডার-আইটেমের ভ্যারিয়েন্ট প্রোডাক্টের variants অ্যারের কোন
@@ -166,7 +172,7 @@ const createOrder = async (req, res) => {
                 ? { $or: [{ _id: targetId }, { productId: targetId }] }
                 : { productId: targetId };
 
-            const prod = await Product.findOne(query).select('price buyingPrice variants name image productId category');
+            const prod = await Product.findOne(query).select('price buyingPrice variants name image images icon productId category');
             if (!prod) {
                 return res.status(400).json({
                     success: false,
@@ -200,6 +206,19 @@ const createOrder = async (req, res) => {
             }
 
             item.buyingPrice = buyingPrice;
+
+            const snapshotImage = pickImageFromSources(item, prod);
+            const snapshotEmoji = pickEmojiFromSources(item, prod);
+            if (snapshotImage) {
+                item.image = snapshotImage;
+                item.imageUrl = snapshotImage;
+                item.products = snapshotImage;
+            }
+            if (snapshotEmoji) {
+                item.emoji = snapshotEmoji;
+                item.icon = snapshotEmoji;
+            }
+
             subtotal += verifiedPrice * quantity;
             totalBuyingPrice += buyingPrice * quantity;
             normalizedItems.push(item);
@@ -427,7 +446,8 @@ const getOrders = async (req, res) => {
 const getMyOrders = async (req, res) => {
     try {
         const myOrders = await Order.find({ user: req.user.id }).sort({ updatedAt: -1 });
-        res.json({ success: true, data: myOrders });
+        const enrichedOrders = await enrichOrdersWithImages(myOrders);
+        res.json({ success: true, data: enrichedOrders });
     } catch (err) {
         console.error("Order Fetch Error:", err);
         res.status(500).json({ success: false, message: "অর্ডার হিস্ট্রি লোড করতে ব্যর্থ হয়েছে।" });
@@ -451,27 +471,7 @@ const getOrderById = async (req, res) => {
         const orderObj = order.toObject();
 
         // আইটেমগুলোর ইমেজ ডাটাবেজের Product কালেকশন থেকে লাইভ খুঁজে নিয়ে আসা
-        if (orderObj.items && Array.isArray(orderObj.items)) {
-            for (let item of orderObj.items) {
-                const targetId = item.id || item.productId || item._id;
-                if (targetId) {
-                    let query = {};
-                    if (mongoose.Types.ObjectId.isValid(targetId)) {
-                        query = { $or: [{ _id: targetId }, { productId: targetId }] };
-                    } else {
-                        query = { productId: targetId };
-                    }
-                    
-                    // শুধুমাত্র image ফিল্ডটি সিলেক্ট করে নিয়ে আসা
-                    const prod = await Product.findOne(query).select('image');
-                    if (prod) {
-                        item.image = prod.image; // আইটেমের ভেতরে ইমেজ পুশ করা হলো
-                    } else {
-                        item.image = ''; // ছবি না পাওয়া গেলে ফাকা থাকবে
-                    }
-                }
-            }
-        }
+        await enrichOrderItemsWithImages(orderObj);
 
         res.json({ success: true, data: orderObj });
     } catch (err) {
@@ -944,7 +944,7 @@ const getDashboardStats = async (req, res) => {
             o.status && o.status.toLowerCase() === 'pending'
         ).length;
         
-        const recentOrders = orders.slice(0, 4);
+        const recentOrders = await enrichOrdersWithImages(orders.slice(0, 4));
 
         // 🌟 নতুন: ইউজারের আসল ওয়ালেট ব্যালেন্স ও লয়্যালটি পয়েন্ট ডাটাবেজ থেকে আনা
         const user = await User.findById(userId).select('walletBalance loyaltyPoints');

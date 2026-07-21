@@ -12,6 +12,7 @@
     <!-- cart.css must load BEFORE profile.css so profile.css owns the dashboard's global theming (body color, dark mode) -->
     <link rel="stylesheet" href="css/cart.css">
     <link rel="stylesheet" href="css/profile.css">
+    <link rel="stylesheet" href="css/product-thumbnail.css">
 </head>
 <body>
 
@@ -61,7 +62,7 @@
             <a href="profile.html" class="menu-item active auto-refresh-link" data-tab="dashboard-overview">
                 <i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span>
             </a>
-            <a href="profile.html" class="menu-item auto-refresh-link" data-tab="my-orders">
+            <a href="profile.html?tab=orders" class="menu-item auto-refresh-link" data-tab="my-orders">
                 <i class="fa-solid fa-box-open"></i> <span>My Orders</span>
             </a>
             <a href="profile.html" class="menu-item auto-refresh-link" data-tab="my-cart">
@@ -88,10 +89,7 @@
     <main class="main-content">
 
         <div class="profile-top-actions">
-            <button type="button" id="back-to-home-btn" class="back-to-home-btn" title="Back to Home" aria-label="Back to Home">
-                <i class="fa-solid fa-arrow-left"></i>
-                <span class="back-btn-text">Back to Home</span>
-            </button>
+            <a href="/" id="profile-back-link" class="top-back-btn back-to-home-btn" aria-label="Back to Home">← Back to Home</a>
         </div>
 
         <section id="dashboard-overview" class="tab-content active">
@@ -142,7 +140,7 @@
                         <th>Products</th>
                         <th>Total Amount</th>
                         <th>Status</th>
-                        <th>Actions</th>
+                        <th class="order-actions-th">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="dashboard-orders-tbody">
@@ -169,7 +167,7 @@
 </section>
 
         <section id="my-orders" class="tab-content">
-            <div class="content-header orders-header-wrapper">
+            <div class="content-header orders-header-wrapper" id="orders-section">
                 <div class="header-text">
                     <h2>My Orders</h2>
                     <p>Track your recent orders, view status, and manage invoices.</p>
@@ -186,7 +184,7 @@
                                 <th>Products</th>
                                 <th>Total Amount</th>
                                 <th>Status</th>
-                                <th>Actions</th>
+                                <th class="order-actions-th">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="orders-list-tbody">
@@ -201,22 +199,22 @@
             </div>
         </section>
 
-        <section id="my-cart" class="tab-content">
-            <div class="content-header">
+        <section id="my-cart" class="tab-content profile-cart-tab">
+            <div class="content-header cart-section-header">
                 <h2>My Cart Summary</h2>
                 <p>Items currently saved in your shopping cart.</p>
             </div>
-            <div class="card">
-                <div id="cart-items-preview-list">
+            <div class="card cart-section-card cart-preview-card">
+                <div id="cart-items-preview-list" class="cart-preview-list">
                     <p class="text-center empty-cart-text">Your cart is empty. <a href="/" class="shop-now-link">Shop Now</a></p>
                 </div>
             </div>
 
-            <div class="content-header wishlist-header">
+            <div class="content-header wishlist-header wishlist-section-header">
                 <h2><i class="fa-solid fa-heart primary-icon-color"></i> My Wishlist</h2>
                 <p>Saved items stay here permanently until you remove them.</p>
             </div>
-            <div class="card">
+            <div class="card wishlist-section-card">
                 <div id="wishlist-items-list" class="wishlist-grid">
                     <p class="text-center wishlist-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading your wishlist...</p>
                 </div>
@@ -713,6 +711,7 @@
 <script src="js/cart.js"></script>
 <script src="js/bd-districts.js"></script>
 <script src="js/bd-upazilas.js"></script>
+<script src="js/productThumbnail.js"></script>
 <script src="js/profile.js"></script>
 </body>
 </html>

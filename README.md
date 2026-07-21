@@ -30,6 +30,8 @@
 - [What's New — v3.3.0](#-whats-new--v330-checkout-orders-rewards--admin-controls)
 - [Smart Checkout Address Integration](#-smart-checkout-address-integration)
 - [Advanced Order Management & Tracking](#-advanced-order-management--tracking)
+- [Smart Tab Navigation & Contextual Routing (User Profile)](#-smart-tab-navigation--contextual-routing-user-profile)
+- [Mobile & Desktop UI/UX Polish (Cart & Wishlist)](#-mobile--desktop-uiux-polish-cart--wishlist)
 - [Admin Panel — Order Security & Refund Controls](#-admin-panel--order-security--refund-controls)
 - [Master Settings & Dynamic Rewards](#-master-settings--dynamic-rewards)
 - [What's New — v3.2.0](#-whats-new--v320-time-sensitive-coupon-automation)
@@ -75,6 +77,8 @@ This release delivers a professional-grade **checkout ↔ profile address pipeli
 | **📦 Advanced Order Management** | Mobile-responsive order **card views** in the profile dashboard; compact desktop table layouts; customer **Cancel** and **Return Request** flows with reason modals; **3–7-day post-delivery return window** validation; `cancelledBy` tracking (`Customer` vs `Admin`). |
 | **🛡️ Admin Refund & Return Controls** | Distinct cancellation badges (customer vs admin); return approval auto-credits the **exact paid amount** to wallet with transaction history; **Safe Undo Refund** within a configurable hour window with spent-funds verification. |
 | **⚙️ Master Settings & Dynamic Rewards** | Global panel for cashback %, points ratio, conversion rate, and refund-undo hours; **category-specific cashback overrides** with global fallback; setting any rate to **0** instantly disables that reward type platform-wide. |
+| **🔄 Smart Tab Navigation & Contextual Routing** | Query-param tab activation (`/profile?tab=orders`) for seamless **order-details ↔ profile** transitions; contextual **Back to Dashboard / My Orders** links; sub-tabs show **← Back to Dashboard** instead of ejecting to home; `history.replaceState()` for clean F5 reload. |
+| **📱 Cart & Wishlist UI/UX Polish** | Streamlined **divider-line** cart rows (no heavy per-item cards); tightened vertical padding and grid gaps in **My Cart Summary** and **My Wishlist** for ultra-compact mobile layouts. |
 
 > 📌 See the dedicated sections below for workflow diagrams, schema fields, and API specifications.
 
@@ -186,6 +190,76 @@ End-to-end order lifecycle management for customers and admins — from responsi
 | `PUT` | `/api/admin/orders/:id/approve-return` | Admin approve return → wallet refund | Admin |
 | `POST` | `/api/admin/orders/:id/undo-refund` | Admin safe refund reversal | Admin |
 | `GET` | `/api/orders/my-orders` | Customer order history with lifecycle fields | User |
+
+---
+
+## 🔄 Smart Tab Navigation & Contextual Routing (User Profile)
+
+Profile dashboard navigation that preserves user context across **order-details** and **profile** sub-views — with intelligent back links, URL-driven tab activation, and reload-safe state cleanup.
+
+### Feature Overview
+
+#### Persistent State Management
+- Deep links such as `/profile?tab=orders` activate the correct profile sub-tab on load via `applyInitialProfileTabFromUrl()` in `client/js/profile.js`.
+- `resolveProfileTabKey()` normalizes aliases (`orders`, `my-orders`, `dashboard`, etc.) to the canonical tab IDs used in the DOM (`my-orders`, `dashboard-overview`, …).
+- Order rows opened from the profile pass a **`from`** query parameter (`dashboard` or `orders`) to `/order-details`, so the detail page knows which parent view to return to.
+
+#### Dynamic Contextual Back Button
+- **Dashboard Recent Activity → Order Details** — renders `← Back to Dashboard` linking to `/profile?tab=dashboard`, returning the user to the main overview.
+- **My Orders → Order Details** — renders `← Back to My Orders` linking to `/profile?tab=orders`, keeping the user within the active orders tab.
+- **Profile sub-tabs** (Wallet, Addresses, Security, etc.) dynamically adjust the top navigation to show **`← Back to Dashboard`** (via in-page tab switch + `pushState`) instead of abruptly sending the user back to the home page.
+- On the Dashboard overview itself, the back control remains **`← Back to Home`** (`/`).
+
+#### Clean Reload Behavior
+- After tab state is initialized from the URL, `window.history.replaceState({}, document.title, window.location.pathname)` strips temporary `?tab=` (and hash) parameters.
+- Pressing reload (**F5**) on a deep-linked profile view gracefully defaults back to the **Dashboard overview** on a clean `/profile` URL — preventing stale tab state from persisting across refreshes.
+
+### Navigation Workflow
+
+```mermaid
+flowchart TD
+    A[User opens /profile?tab=orders] --> B[resolveProfileTabKey → my-orders]
+    B --> C[activateProfileTab + replaceState → /profile]
+    C --> D{User opens order details}
+    D -->|from=dashboard| E[Back → Dashboard overview]
+    D -->|from=orders| F[Back → My Orders tab]
+    G[User on sub-tab e.g. Wallet] --> H[Top nav: ← Back to Dashboard]
+    H --> I[In-page tab switch — no home redirect]
+    J[User presses F5] --> K[Clean /profile → Dashboard overview]
+```
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `client/js/profile.js` | URL tab activation, alias resolution, `replaceState` cleanup, `updateTopBackButton()` |
+| `client/js/order-details.js` | Contextual smart back button (`from=dashboard` / `from=orders` + referrer fallback) |
+| `client/profile.html` | Sidebar menu links with `?tab=orders` deep links and `data-tab` attributes |
+
+---
+
+## 📱 Mobile & Desktop UI/UX Polish (Cart & Wishlist)
+
+Space-efficient layout refinements for the customer profile **My Cart** tab — reducing visual clutter and unnecessary scrolling on mobile while maintaining a polished desktop experience.
+
+### Feature Overview
+
+#### Compact Divider Layout (Cart Summary)
+- Replaced heavy individual **card wrappers** around cart preview rows with a streamlined container using light **`border-bottom`** dividers (`#cart-items-preview-list .cart-preview-item` in `client/css/cart.css`).
+- Rows use transparent backgrounds, zero box-shadow, and subtle hover states — creating a clean, list-style presentation that reads faster on small screens.
+
+#### Whitespace Elimination (Cart & Wishlist)
+- Optimized vertical padding, row gaps, and section spacing in both **My Cart Summary** and **My Wishlist** views (`client/css/profile.css` + `client/css/cart.css`).
+- Wishlist mini-cards use tighter grid gaps and scaled-down typography/buttons at mobile breakpoints (`wishlist-grid`, `wishlist-card`).
+- The combined effect is an **ultra-compact, space-efficient responsive layout** that minimizes vertical scrolling without sacrificing touch targets or readability.
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `client/css/cart.css` | Flat divider-line cart preview rows; reduced padding and hover treatment |
+| `client/css/profile.css` | Compact wishlist grid, tightened section headers, mobile breakpoint density |
+| `client/js/profile.js` | Cart/wishlist fetch and render on **My Cart** tab activation |
 
 ---
 
@@ -777,7 +851,7 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 - **🔄 Admin Return & Refund Pipeline** — Approve returns with automatic wallet credit, transaction history logging, and **Safe Undo Refund** within a configurable hour window (spent-funds safety check).
 - **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, free-shipping threshold, **locked server-side totals** on every order, and district-aware invoices.
 - **📍 Smart Checkout Address Integration** — Profile-first checkout pre-fill, toggleable saved-address radio cards (select / unselect / revert), manual override with **Save to profile** sync, and cascading Bangladesh location dropdowns.
-- **🛒 Shopping Cart** — Server-synced cart with quantity updates, selection toggles, guest-cart merge, and post-order cleanup.
+- **🛒 Shopping Cart** — Server-synced cart with quantity updates, selection toggles, guest-cart merge, post-order cleanup, and a **compact divider-line summary** in the profile dashboard.
 - **⭐ Reviews & Ratings** — Star ratings and reviews with optional photo upload; averages update automatically.
 - **📍 Address Book** — Manage multiple delivery addresses with default-address sync.
 - **💰 Wallet & Loyalty Points** — Admin-configurable cashback, points earning, and conversion rates; category-specific cashback overrides; convert points to wallet balance with transaction history.
@@ -789,7 +863,8 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 - **Persistent Storage** — Wishlist items are saved persistently in MongoDB as an embedded array on the user's account (`User.wishlist`), linked to their profile. Favourites remain intact after placing orders, logging out, or starting a new session — items are only removed when the customer explicitly deletes them.
 - **AJAX-powered Toggle** — Storefront product grids (home, search, etc.) use a sleek client-side **Fetch API** integration: clicking the heart icon calls `POST /api/wishlist/toggle` to add or remove items dynamically, with instant visual feedback and custom Toast notifications — no hard page refreshes required.
 - **Unified Profile Integration** — The **My Wishlist** panel is fully integrated into the Customer Profile dashboard (`/profile` → **My Cart** tab). Each item ships with a functional **blue Cart button** (adds straight to the active cart summary via `/api/cart/add`) and a **red Delete button** that removes the item instantly from the DOM after a successful toggle, backed by custom Toast success/error feedback.
-- **Optimized Mini-Card UI** — Wishlist items render in a compact, scaled-down **premium mini-card grid** (`wishlist-grid` / `wishlist-card`) with responsive breakpoints, designed for high visual consistency with the rest of the customer dashboard styling.
+- **Optimized Mini-Card UI** — Wishlist items render in a compact, scaled-down **premium mini-card grid** (`wishlist-grid` / `wishlist-card`) with responsive breakpoints and **tightened mobile spacing**, designed for high visual consistency with the rest of the customer dashboard styling.
+- **Profile Tab Navigation** — Query-param deep links (`/profile?tab=orders`), contextual back buttons on order details, and reload-safe `replaceState` cleanup for a seamless dashboard experience.
 
 ### 🛡️ Advanced Security Suite (Recent Updates)
 - **Multi-layered Two-Factor Authentication** — Email OTP, Google Authenticator / TOTP, and SMS OTP (console gateway with Twilio/custom hooks ready).
@@ -1401,6 +1476,16 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 - New **Master Settings Panel** — global cashback %, points earning ratio, points-to-taka conversion rate, and refund undo window hours.
 - **Category-Specific Cashback Override** — `customCashbackPercentage` per category with seamless fallback to global defaults.
 - **Dynamic zero-setting toggle** — set any rate to `0` to instantly disable that reward type platform-wide.
+
+**🔄 Smart Tab Navigation & Contextual Routing (User Profile)**
+- Search query-based tab activation (`/profile?tab=orders`) ensures smooth navigation when transitioning between **order-details** and **profile** sub-views.
+- **Dynamic contextual back button** on order details — `← Back to Dashboard` when opened from Recent Activity; `← Back to My Orders` when opened from the orders tab.
+- Profile sub-tabs show **`← Back to Dashboard`** (in-page switch) instead of kicking the user to the home page.
+- HTML5 **`history.replaceState()`** strips temporary URL query parameters after init — F5 reload defaults to the Dashboard overview on clean `/profile`.
+
+**📱 Mobile & Desktop UI/UX Polish (Cart & Wishlist)**
+- Replaced heavy per-item card wrappers with a **compact divider layout** (`border-bottom`) in the profile cart summary.
+- Optimized vertical padding and grid gaps in **My Cart Summary** and **My Wishlist** for ultra-compact, space-efficient mobile layouts.
 
 ### Admin UX — Wide Edit Product Modal
 **🖥️ Desktop-first product editing**

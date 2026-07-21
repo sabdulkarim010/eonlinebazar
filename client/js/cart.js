@@ -84,7 +84,7 @@ function fetchLiveDBCart() {
             name: item.name,
             price: Number(item.price),
             products: item.image || '',
-            icon: item.icon || '📦',
+            icon: item.icon || '',
             quantity: item.quantity,
             selected: item.selected !== false,
             variantId: item.variantId || '',
@@ -110,7 +110,7 @@ function syncCartFromServerItems(dbCartItems) {
         name: item.name,
         price: Number(item.price),
         products: item.image || '',
-        icon: item.icon || '📦',
+        icon: item.icon || '',
         quantity: item.quantity,
         selected: item.selected !== false,
         variantId: item.variantId || '',
@@ -163,6 +163,15 @@ function renderCartDrawerItems() {
     let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
     container.innerHTML = '';
 
+    const isProfilePreview = pageContainer && pageContainer.id === 'cart-items-preview-list';
+    let itemsHost = container;
+    if (isProfilePreview && currentCart.length > 0) {
+        const itemsWrapper = document.createElement('div');
+        itemsWrapper.className = 'cart-preview-items-inner';
+        container.appendChild(itemsWrapper);
+        itemsHost = itemsWrapper;
+    }
+
     // ১. কার্ট খালি থাকলে Empty Bag দেখাবে
     if (currentCart.length === 0) {
         container.innerHTML = `
@@ -185,32 +194,11 @@ function renderCartDrawerItems() {
     // ২. কার্ট আইটেম রেন্ডারিং লুপ
     currentCart.forEach((item, index) => {
         let realProduct = globalProductCatalog.find(p => String(p._id) === String(item.id) || String(p.productId) === String(item.id) || String(p.id) === String(item.id));
-        
-        let correctEmoji = (realProduct && realProduct.icon) ? realProduct.icon.trim() : (item.icon || "📦");
-        let imageFile = (realProduct && realProduct.image) ? realProduct.image.trim() : ((realProduct && realProduct.products) ? realProduct.products.trim() : (item.products || item.image || ''));
 
-        let mediaHTML = `📦`;
-
-        if (imageFile !== '') {
-            let lowerPath = imageFile.toLowerCase();
-            if (lowerPath.includes('.jpg') || lowerPath.includes('.png') || lowerPath.includes('.jpeg') || lowerPath.includes('.webp')) {
-                let imagePath = imageFile;
-                if (!imagePath.startsWith('/') && !imagePath.startsWith('http') && !imagePath.startsWith('products/')) {
-                    imagePath = '/products/' + imagePath;
-                } else if (imagePath.startsWith('products/')) {
-                    imagePath = '/' + imagePath;
-                }
-                
-                mediaHTML = `
-                    <img src="${imagePath}" alt="${item.name}" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
-                    <span class="product-emoji-icon" style="font-size: 24px; display:none;">${correctEmoji}</span>
-                `;
-            } else {
-                mediaHTML = `<span class="product-emoji-icon" style="font-size: 24px; display:inline-block;">${correctEmoji}</span>`;
-            }
-        } else {
-            mediaHTML = `<span class="product-emoji-icon" style="font-size: 24px; display:inline-block;">${correctEmoji}</span>`;
-        }
+        const PT = window.ProductThumbnail;
+        const mediaHTML = PT
+            ? PT.buildForCartItem(item, realProduct, { variant: 'compact', alt: item.name || 'Product' })
+            : '<div class="no-photo-badge"><span>NO PHOTO</span></div>';
 
         const isChecked = item.selected !== false ? 'checked' : '';
         const quantity = item.quantity || 1;
@@ -244,17 +232,16 @@ function renderCartDrawerItems() {
                 </button>
             `;
         } else {
-            row.className = `cart-item-card ${item.selected === false ? 'is-unchecked' : ''}`;
+            const profileItemClass = isProfilePreview ? ' cart-preview-item' : '';
+            row.className = `cart-item-card${profileItemClass}${item.selected === false ? ' is-unchecked' : ''}`;
             row.innerHTML = `
                 <div class="cart-item-left-group">
-                    <input type="checkbox" class="cart-item-checkbox" data-id="${item.id}" ${isChecked} onchange="toggleItemSelection('${item.id}', '${vid}')" style="cursor:pointer; transform: scale(1.2);">
-                    <div class="cart-item-media-box" style="width:50px; height:50px; display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0; background:#f9f9f9; border-radius:6px; margin-left: 10px;">
-                        ${mediaHTML}
-                    </div>
-                    <div class="cart-item-info-box" style="margin-left: 10px;">
-                        <span class="product-title-text" style="display:block; font-weight:600; color:#1e293b;">${item.name}</span>
-                        ${item.variantLabel ? `<span class="product-variant-text" style="display:block; color:#64748b; font-size:12px;">${item.variantLabel}</span>` : ''}
-                        <span class="product-unit-price" style="display:block; color:#f97316; font-size:14px;">৳${item.price}</span>
+                    <input type="checkbox" class="cart-item-checkbox" data-id="${item.id}" ${isChecked} onchange="toggleItemSelection('${item.id}', '${vid}')">
+                    <div class="cart-item-media-box">${mediaHTML}</div>
+                    <div class="cart-item-info-box">
+                        <span class="product-title-text">${item.name}</span>
+                        ${item.variantLabel ? `<span class="product-variant-text">${item.variantLabel}</span>` : ''}
+                        <span class="product-unit-price">৳${item.price}</span>
                     </div>
                 </div>
                 
@@ -264,27 +251,27 @@ function renderCartDrawerItems() {
                         <div class="qty-display-number">${quantity}</div>
                         <button class="qty-control-btn" onclick="updateQty('${item.id}', 1, '${vid}')"><i class="fa-solid fa-plus"></i></button>
                     </div>
-                    <div class="cart-item-total-price" style="font-weight:bold; min-width:60px; text-align:right;">৳${itemTotal}</div>
+                    <div class="cart-item-total-price">৳${itemTotal}</div>
                     <button class="cart-item-trash-btn" onclick="deleteCartItem('${item.id}', '${vid}')" title="Remove Product">
                         <i class="fa-solid fa-trash-can"></i>
                     </button>
                 </div>
             `;
         }
-        container.appendChild(row);
+        itemsHost.appendChild(row);
     });
 
     // ৩. প্রোফাইল পেজের জন্য ডাইনামিক চেকআউট প্যানেল যুক্ত করা
-    if (pageContainer && container.id === 'cart-items-preview-list') {
+    if (isProfilePreview) {
         const dynamicSummary = document.createElement('div');
         dynamicSummary.className = 'profile-dynamic-checkout-panel';
         dynamicSummary.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:20px; border-radius:10px; margin-top:20px; border:1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-                <div>
-                    <span style="color:#64748b; font-size:14px; display:block; margin-bottom:5px;">Selected Items: <strong id="profileCartItemsCount">0</strong></span>
-                    <h3 style="margin:0; color:#0f172a; font-size:22px;">Total: <span id="profileCartTotalAmount">৳0</span></h3>
+            <div class="profile-cart-summary-bar">
+                <div class="profile-cart-summary-meta">
+                    <span class="profile-cart-summary-count">Selected Items: <strong id="profileCartItemsCount">0</strong></span>
+                    <h3 class="profile-cart-summary-total">Total: <span id="profileCartTotalAmount">৳0</span></h3>
                 </div>
-                <button id="profileCheckoutBtn" style="background:#f97316; color:#fff; border:none; padding:12px 24px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:15px; transition:all 0.3s ease; display:flex; align-items:center; gap:8px; box-shadow: 0 4px 10px rgba(249, 115, 22, 0.3);">
+                <button type="button" id="profileCheckoutBtn" class="profile-cart-checkout-btn">
                     Proceed to Order <i class="fa-solid fa-arrow-right"></i>
                 </button>
             </div>
@@ -526,7 +513,7 @@ function triggerFlyAnimation(clickedButton, assetData) {
     let targetVisualElement = null;
 
     const liveImg = productCard.querySelector('img');
-    const liveEmoji = productCard.querySelector('.product-emoji, .emoji-box, .item-emoji, .product-emoji-icon');
+    const liveEmoji = productCard.querySelector('.prod-emoji-box, .product-emoji, .product-emoji-display, .emoji-box, .item-emoji, .product-emoji-icon');
 
     if (liveImg && liveImg.src) {
         finalAssetHTML = `<img src="${liveImg.src}" alt="flying-prod" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">`;
@@ -614,8 +601,12 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
         }
     }
 
-    // আইকন লজিক তৈরি করা
-    const productIcon = productImage && !productImage.includes('.') ? productImage : '📦';
+    const PT = window.ProductThumbnail;
+    const mediaMeta = PT
+        ? PT.getDisplayMeta(realProduct || { image: productImage, products: productImage })
+        : { image: productImage || '', emoji: '' };
+    const productIcon = mediaMeta.emoji || '';
+    const resolvedImage = mediaMeta.image || productImage || '';
 
     if (customerToken) {
         // 🌟 লগইন থাকলে সরাসরি ব্যাকএন্ড API এর মাধ্যমে সম্পূর্ণ ডাটা ডাটাবেজে অ্যাড হবে
@@ -631,7 +622,7 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
                 quantity: 1,
                 name: productName,
                 price: Number(productPrice),
-                image: productImage || '',
+                image: resolvedImage || '',
                 icon: productIcon
             })
         })
@@ -657,7 +648,7 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
                     id: productId,
                     name: productName,
                     price: Number(productPrice),
-                    products: productImage || '',
+                    products: resolvedImage || '',
                     icon: productIcon,
                     quantity: 1,
                     selected: true

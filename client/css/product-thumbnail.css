@@ -1,0 +1,209 @@
+/* Shared product media — strict image → emoji → NO PHOTO hierarchy */
+
+.prod-thumb-img {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 8px;
+    flex-shrink: 0;
+    background: #f8fafc;
+    display: block;
+}
+
+.prod-emoji-box {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f3f4f6;
+    border-radius: 8px;
+    font-size: 26px;
+    line-height: 1;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.no-photo-badge {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e2e8f0;
+    border-radius: 8px;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border: 1px dashed #cbd5e1;
+    flex-shrink: 0;
+    user-select: none;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.no-photo-badge span {
+    line-height: 1.1;
+    text-align: center;
+    padding: 0 2px;
+}
+
+/* Card variant — product grid on shop / trending */
+.product-img-box .prod-thumb-img--card {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 4px;
+    background: transparent;
+}
+
+.product-img-box .prod-emoji-box--card {
+    width: 100%;
+    height: 100%;
+    font-size: 70px;
+    background: #f3f4f6;
+    border-radius: 4px;
+}
+
+.product-img-box .no-photo-badge--card {
+    width: 100%;
+    height: 100%;
+    font-size: 12px;
+    background: #e2e8f0;
+    color: #64748b;
+    border: 1px dashed #cbd5e1;
+    border-radius: 4px;
+}
+
+/* Product details page — main image area fallback */
+.product-details-media-fallback {
+    width: 100%;
+    height: 100%;
+    min-height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.prod-thumb-img--detail {
+    width: 100%;
+    height: 100%;
+    max-height: 420px;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+.prod-emoji-box--detail {
+    width: 100%;
+    height: 100%;
+    min-height: 280px;
+    font-size: 5rem;
+    background: #f3f4f6;
+    border-radius: 8px;
+}
+
+.no-photo-badge--detail {
+    width: 100%;
+    height: 100%;
+    min-height: 280px;
+    font-size: 14px;
+    background: #e2e8f0;
+    color: #64748b;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+}
+
+/* Cart / checkout inline media frames */
+.cart-item-media .prod-thumb-img,
+.cart-item-media .prod-emoji-box,
+.cart-item-media .no-photo-badge,
+.cart-item-media-box .prod-thumb-img,
+.cart-item-media-box .prod-emoji-box,
+.cart-item-media-box .no-photo-badge,
+.cart-media-frame-box .prod-thumb-img,
+.cart-media-frame-box .prod-emoji-box,
+.cart-media-frame-box .no-photo-badge {
+    width: 100%;
+    height: 100%;
+    border-radius: 6px;
+}
+
+.cart-item-media .prod-emoji-box,
+.cart-item-media-box .prod-emoji-box,
+.cart-media-frame-box .prod-emoji-box {
+    font-size: 22px;
+}
+
+.cart-item-media .no-photo-badge,
+.cart-item-media-box .no-photo-badge,
+.cart-media-frame-box .no-photo-badge {
+    font-size: 8px;
+}
+
+/* Order list wrapper */
+.order-card-thumb-wrap {
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.order-card-thumb-wrap .prod-thumb-img,
+.order-card-thumb-wrap .prod-emoji-box,
+.order-card-thumb-wrap .no-photo-badge {
+    flex-shrink: 0;
+}
+
+.order-card-more-badge {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    background: #0f172a;
+    color: #ffffff;
+    font-size: 0.58rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 999px;
+    border: 1.5px solid #ffffff;
+    line-height: 1.25;
+    z-index: 1;
+}
+
+/* Wishlist compact media */
+.wishlist-media .prod-thumb-img,
+.wishlist-media .prod-emoji-box,
+.wishlist-media .no-photo-badge {
+    width: 100%;
+    height: 100%;
+    max-width: 58px;
+    max-height: 58px;
+}
+
+.wishlist-media .prod-emoji-box {
+    font-size: 1.35rem;
+}
+
+.wishlist-media .no-photo-badge {
+    font-size: 9px;
+}
+
+/* Order details line items */
+.order-item-media .prod-thumb-img,
+.order-item-media .prod-emoji-box,
+.order-item-media .no-photo-badge {
+    width: 45px;
+    height: 45px;
+    border-radius: 6px;
+}
+
+.order-item-media .no-photo-badge {
+    font-size: 8px;
+}
+
+.order-item-media .prod-emoji-box {
+    font-size: 22px;
+}

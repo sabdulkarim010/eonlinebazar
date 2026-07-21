@@ -1,13 +1,13 @@
 const { normalizeBrandingPublicUrl } = require('./brandingPaths');
 
 const LOGO_MAX_HEIGHTS = Object.freeze({
-    navbar: 32,
-    compact: 28,
-    'checkout-header': 55,
-    nav: 32,
+    navbar: 36,
+    compact: 36,
+    'checkout-header': 28,
+    nav: 36,
     footer: 36,
-    track: 40,
-    default: 32
+    track: 36,
+    default: 36
 });
 
 const LOGO_MAX_WIDTHS = Object.freeze({

@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // এইচটিএমএল-এর 'id="mobile-menu-toggle"' এর সাথে মিল রেখে পরিবর্তন করা হলো
     const mobileToggleBtn = document.getElementById('mobile-menu-toggle'); 
     const sidebar = document.querySelector('.sidebar');
-    const menuItems = document.querySelectorAll('[data-tab]');
+    const menuItems = document.querySelectorAll('.sidebar-menu .menu-item[data-tab]');
     const tabContents = document.querySelectorAll('.tab-content');
 
     // =================================================================
@@ -124,16 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initTheme();
 
     // =================================================================
-    // Back to Home navigation
-    // =================================================================
-    const backToHomeBtn = document.getElementById('back-to-home-btn');
-    if (backToHomeBtn) {
-        backToHomeBtn.addEventListener('click', () => {
-            window.location.href = '/';
-        });
-    }
-
-    // =================================================================
     // ৪. মোবাইল ড্রয়ার টগল লজিক (Responsive Drawer)
     // =================================================================
     if (mobileToggleBtn && sidebar) {
@@ -155,32 +145,130 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================
     // ৫. ড্যাশবোর্ড ট্যাব সুইচিং (Tab System)
     // =================================================================
+    function resolveProfileTabKey(raw) {
+        if (!raw) return null;
+        const key = String(raw).trim().toLowerCase();
+        const aliases = {
+            dashboard: 'dashboard-overview',
+            orders: 'my-orders',
+            'my-orders': 'my-orders',
+            'orders-section': 'my-orders',
+            'recent-orders': 'my-orders'
+        };
+        if (aliases[key]) return aliases[key];
+        return document.getElementById(key) ? key : null;
+    }
+
+    function getProfileScrollTarget(tabId) {
+        if (tabId === 'my-orders') {
+            return document.getElementById('orders-section') || document.getElementById('my-orders');
+        }
+        return document.getElementById(tabId);
+    }
+
+    function refreshTabData(targetTab) {
+        if (['my-orders', 'dashboard-overview'].includes(targetTab) && typeof fetchUserOrders === 'function') {
+            fetchUserOrders();
+        }
+        if (targetTab === 'dashboard-overview' && typeof fetchDashboardStats === 'function') {
+            fetchDashboardStats();
+        }
+        if (targetTab === 'my-cart') {
+            if (typeof fetchLiveDBCart === 'function') fetchLiveDBCart();
+            if (typeof fetchWishlist === 'function') fetchWishlist();
+        }
+        if (targetTab === 'addresses-settings' && typeof fetchAddresses === 'function') fetchAddresses();
+        if (targetTab === 'security-settings' && typeof fetchSessions === 'function') fetchSessions();
+        if (targetTab === 'wallet-points' && typeof fetchWalletData === 'function') fetchWalletData();
+    }
+
+    function updateTopBackButton(activeTabName) {
+        const backBtn = document.querySelector('.top-back-btn') || document.getElementById('profile-back-link');
+        if (!backBtn) return;
+
+        const isDashboard = !activeTabName
+            || activeTabName === 'dashboard-overview'
+            || activeTabName === 'dashboard';
+
+        if (isDashboard) {
+            backBtn.textContent = '← Back to Home';
+            backBtn.setAttribute('href', '/');
+            backBtn.setAttribute('aria-label', 'Back to Home');
+            backBtn.onclick = null;
+            return;
+        }
+
+        backBtn.textContent = '← Back to Dashboard';
+        backBtn.setAttribute('href', '/profile');
+        backBtn.setAttribute('aria-label', 'Back to Dashboard');
+        backBtn.onclick = function (e) {
+            e.preventDefault();
+            activateProfileTab('dashboard-overview', { scroll: true });
+            window.history.pushState({}, document.title, '/profile');
+        };
+    }
+
+    function activateProfileTab(targetTab, { scroll = false } = {}) {
+        if (!targetTab || !document.getElementById(targetTab)) return;
+
+        menuItems.forEach((item) => item.classList.remove('active'));
+        tabContents.forEach((content) => content.classList.remove('active'));
+
+        menuItems.forEach((item) => {
+            if (item.getAttribute('data-tab') === targetTab) {
+                item.classList.add('active');
+            }
+        });
+
+        const activeSection = document.getElementById(targetTab);
+        if (activeSection) {
+            activeSection.classList.add('active');
+        }
+
+        if (window.innerWidth <= 768 && sidebar) sidebar.classList.remove('open');
+
+        refreshTabData(targetTab);
+
+        if (scroll) {
+            const section = getProfileScrollTarget(targetTab);
+            if (section) {
+                requestAnimationFrame(() => {
+                    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+            }
+        }
+
+        updateTopBackButton(targetTab);
+    }
+
+    function applyInitialProfileTabFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab');
+        const hashParam = (window.location.hash || '').replace(/^#/, '').trim();
+        const requestedTab = tabParam || hashParam;
+
+        if (requestedTab) {
+            const initialTab = resolveProfileTabKey(requestedTab);
+            activateProfileTab(initialTab || 'dashboard-overview', { scroll: Boolean(initialTab) });
+
+            // Strip ?tab= (and hash) so reload always lands on clean /profile → Dashboard
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else {
+            activateProfileTab('dashboard-overview');
+        }
+    }
+
     menuItems.forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
-            const targetTab = item.getAttribute('data-tab');
-            menuItems.forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
-
-            tabContents.forEach(content => {
-                content.classList.remove('active');
-                if (content.id === targetTab) content.classList.add('active');
-            });
-
-            if (window.innerWidth <= 768 && sidebar) sidebar.classList.remove('open');
-
-            // লাইভ ডেটা রিফ্রেশ
-            if (['my-orders', 'dashboard-overview'].includes(targetTab) && typeof fetchUserOrders === 'function') fetchUserOrders();
-            if (targetTab === 'dashboard-overview') fetchDashboardStats();
-            if (targetTab === 'my-cart') {
-                if (typeof fetchLiveDBCart === 'function') fetchLiveDBCart();
-                fetchWishlist();
-            }
-            if (targetTab === 'addresses-settings') fetchAddresses();
-            if (targetTab === 'security-settings') fetchSessions();
-            if (targetTab === 'wallet-points') fetchWalletData();
+            activateProfileTab(item.getAttribute('data-tab'));
         });
     });
+
+    applyInitialProfileTabFromUrl();
+
+    const defaultActiveTab = document.querySelector('.tab-content.active');
+    updateTopBackButton(defaultActiveTab ? defaultActiveTab.id : 'dashboard-overview');
 
     // =================================================================
     // ৬. ইউজারের প্রোфাইল ডাটা ফেচ করা (Fetch Profile & Auto-Cache)
@@ -386,94 +474,103 @@ document.addEventListener('DOMContentLoaded', () => {
         return diffMs >= 0 && diffMs <= sevenDaysMs;
     }
 
+    function buildOrderThumbnailHtml(items) {
+        const PT = window.ProductThumbnail;
+        const safeItems = Array.isArray(items) ? items : [];
+        const first = safeItems[0] || {};
+        const moreCount = Math.max(0, safeItems.length - 1);
+        const badge = moreCount > 0
+            ? `<span class="order-card-more-badge">+${moreCount}</span>`
+            : '';
+
+        const media = PT
+            ? PT.buildThumbnailHtml(first, { variant: 'compact', loading: 'lazy', escapeHtml })
+            : '';
+
+        return `<div class="order-card-thumb-wrap">${media}${badge}</div>`;
+    }
+
+    function buildOrderPreviewHtml(items, grandTotal) {
+        const safeItems = Array.isArray(items) ? items : [];
+        const thumb = buildOrderThumbnailHtml(safeItems);
+        const totalBlock = `<div class="order-card-total-mobile"><span class="order-total-amount">৳${Number(grandTotal || 0).toLocaleString()}</span></div>`;
+
+        if (safeItems.length === 0) {
+            return `<div class="order-card-body">${thumb}<div class="order-card-product-info"><span class="order-card-product-name">Unknown Item</span></div>${totalBlock}</div>`;
+        }
+
+        const first = safeItems[0];
+        const name = first.name || 'Unknown Item';
+        const qty = first.quantity || first.qty || 1;
+        const moreCount = safeItems.length - 1;
+        const moreText = moreCount > 0
+            ? `<span class="order-card-more-text">+${moreCount} more item${moreCount > 1 ? 's' : ''}</span>`
+            : '';
+
+        return `<div class="order-card-body">
+            ${thumb}
+            <div class="order-card-product-info">
+                <span class="order-card-product-name">${escapeHtml(name)}</span>
+                <span class="order-card-product-meta">
+                    <span class="order-card-product-qty">×${qty}</span>
+                    ${moreText}
+                </span>
+            </div>
+            ${totalBlock}
+        </div>`;
+    }
+
     function buildOrderActionsHtml(order) {
         const orderId = order._id || order.orderId || '';
         const status = String(order.status || 'Pending').toLowerCase();
         const buttons = [];
 
-        buttons.push(`<button type="button" class="order-action-btn btn-order-view" data-id="${escapeHtml(orderId)}" title="View order details">
-            <i class="fa-solid fa-eye" aria-hidden="true"></i><span>View Details</span>
-        </button>`);
-
-        if (status === 'pending' || status === 'processing') {
-            buttons.push(`<button type="button" class="order-action-btn btn-order-cancel" data-id="${escapeHtml(orderId)}" data-action="cancel" title="Cancel this order">
-                <i class="fa-solid fa-ban" aria-hidden="true"></i><span>Cancel Order</span>
+        if (status === 'pending') {
+            buttons.push(`<button type="button" class="order-action-btn btn-order-cancel order-action-btn--compact" data-id="${escapeHtml(orderId)}" data-action="cancel" title="Cancel this order">
+                <span>Cancel</span>
             </button>`);
         }
 
         if (isWithinReturnWindow(order)) {
-            buttons.push(`<button type="button" class="order-action-btn btn-order-return" data-id="${escapeHtml(orderId)}" data-action="return" title="Request a return">
-                <i class="fa-solid fa-rotate-left" aria-hidden="true"></i><span>Return Order</span>
+            buttons.push(`<button type="button" class="order-action-btn btn-order-return order-action-btn--desktop-only" data-id="${escapeHtml(orderId)}" data-action="return" title="Request a return">
+                <i class="fa-solid fa-rotate-left" aria-hidden="true"></i><span>Return</span>
             </button>`);
         }
+
+        if (buttons.length === 0) return '';
 
         return `<div class="order-actions-cell">${buttons.join('')}</div>`;
     }
 
     function buildOrderRowHtml(order) {
         const orderDate = formatOrderDate(order.createdAt);
-        const itemsHtml = buildOrderItemsHtml(order.items, order);
         const currentStatus = order.status || 'Pending';
         const statusBadgeClass = getStatusBadgeClass(currentStatus);
         const displayOrderId = getDisplayOrderId(order);
         const orderId = order._id || '';
         const grandTotal = Number(order.grandTotal ?? order.totalAmount) || 0;
+        const previewHtml = buildOrderPreviewHtml(order.items, grandTotal);
+        const actionsHtml = buildOrderActionsHtml(order);
+        const actionsCellClass = actionsHtml
+            ? 'order-actions-td order-card-actions-cell'
+            : 'order-actions-td order-card-actions-cell order-card-actions-cell--empty';
 
         return `
-            <tr class="clickable-order-row order-card-row" data-id="${escapeHtml(orderId)}">
-                <td data-label="Order ID"><a href="#" class="order-id-link" data-id="${escapeHtml(orderId)}">#${escapeHtml(displayOrderId)}</a></td>
-                <td data-label="Date">${orderDate}</td>
-                <td class="order-products-cell" data-label="Products">${itemsHtml}</td>
-                <td class="order-total-cell" data-label="Total Amount"><span class="order-total-amount">৳${grandTotal.toLocaleString()}</span></td>
-                <td data-label="Status"><span class="status-badge ${statusBadgeClass}">${escapeHtml(currentStatus)}</span></td>
-                <td class="order-actions-td" data-label="Actions">${buildOrderActionsHtml(order)}</td>
+            <tr class="clickable-order-row order-card-row" data-id="${escapeHtml(orderId)}" tabindex="0" role="link" aria-label="View order #${escapeHtml(displayOrderId)}">
+                <td class="order-card-id-cell" data-label="Order ID"><span class="order-id-link">#${escapeHtml(displayOrderId)}</span></td>
+                <td class="order-card-date-cell" data-label="Date"><span class="order-card-date-text">${orderDate}</span></td>
+                <td class="order-card-preview-cell" data-label="Products">${previewHtml}</td>
+                <td class="order-total-cell order-card-total-cell order-card-total-desktop" data-label="Total Amount"><span class="order-total-amount">৳${grandTotal.toLocaleString()}</span></td>
+                <td class="order-card-status-cell" data-label="Status"><span class="status-badge ${statusBadgeClass}">${escapeHtml(currentStatus)}</span></td>
+                <td class="${actionsCellClass}" data-label="Actions">${actionsHtml}</td>
             </tr>
         `;
     }
 
-    // =================================================================
-    // ৬.০ অর্ডার আইটেম স্ট্যাকিং হেল্পার (Stacked Order Items Renderer)
-    // একাধিক প্রোডাক্ট একই সেলে একটির নিচে আরেকটি করে সাজানো হয়
-    // =================================================================
+    // Legacy helper kept for any inline references — preview renderer replaces stacked list in order cards.
     function buildOrderItemsHtml(items, order = {}) {
-        const safeItems = Array.isArray(items) ? items : [];
-
-        if (safeItems.length === 0) {
-            return `<div class="order-products-stack">
-                        <span class="order-product-line">
-                            <span class="order-product-name">Unknown Item</span>
-                        </span>
-                    </div>`;
-        }
-
-        // 🔒 Verified Purchase: শুধুমাত্র "Delivered" অর্ডারের প্রোডাক্টের জন্যই রিভিউ বাটন দেখানো হবে
-        const isDelivered = String(order.status || '').toLowerCase() === 'delivered';
-        const orderId = order._id || order.orderId || '';
-
-        const lines = safeItems.map(item => {
-            const name = item.name || 'Unknown Item';
-            const qty = item.quantity || item.qty || 1;
-            const productId = item.id || item.productId || item._id || '';
-
-            const reviewBtn = (isDelivered && productId)
-                ? `<button type="button" class="btn-write-review"
-                        data-order-id="${escapeHtml(orderId)}"
-                        data-product-id="${escapeHtml(productId)}"
-                        data-product-name="${escapeHtml(name)}">
-                        <i class="fa-regular fa-star"></i> Write Review
-                   </button>`
-                : '';
-
-            return `<div class="order-product-item">
-                        <span class="order-product-line">
-                            <span class="order-product-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
-                            <span class="order-product-qty">× ${qty}</span>
-                        </span>
-                        ${reviewBtn}
-                    </div>`;
-        }).join('');
-
-        return `<div class="order-products-stack">${lines}</div>`;
+        const total = Number(order.grandTotal ?? order.totalAmount) || 0;
+        return buildOrderPreviewHtml(items, total);
     }
 
     // =================================================================
@@ -1403,16 +1500,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================
     // ১৪. উইশলিস্ট (My Wishlist)
     // =================================================================
-    function resolveProductImage(imageFile) {
-        if (!imageFile) return '';
-        const lower = imageFile.toLowerCase();
-        const isImg = ['.jpg', '.png', '.jpeg', '.webp'].some(ext => lower.includes(ext));
-        if (!isImg) return '';
-        if (imageFile.startsWith('http') || imageFile.startsWith('/')) return imageFile;
-        if (imageFile.startsWith('products/')) return '/' + imageFile;
-        return '/products/' + imageFile;
-    }
-
     async function fetchWishlist() {
         const container = document.getElementById('wishlist-items-list');
         if (!container) return;
@@ -1448,10 +1535,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         container.innerHTML = '';
         items.forEach(item => {
-            const imgSrc = resolveProductImage(item.image);
-            const media = imgSrc
-                ? `<img src="${imgSrc}" alt="${escapeHtml(item.name)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><span class="wishlist-emoji" style="display:none;">${item.icon || '📦'}</span>`
-                : `<span class="wishlist-emoji">${item.icon || '📦'}</span>`;
+            const PT = window.ProductThumbnail;
+            const meta = PT ? PT.getDisplayMeta(item) : { image: item.image || '', emoji: item.icon || '' };
+            const media = PT
+                ? PT.buildThumbnailHtml(item, { variant: 'compact', alt: item.name, escapeHtml })
+                : '';
 
             const card = document.createElement('div');
             card.className = 'wishlist-card';
@@ -1463,7 +1551,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="wishlist-price">৳${Number(item.price || 0).toLocaleString()}</span>
                 </div>
                 <div class="wishlist-actions">
-                    <button type="button" class="wishlist-cart-btn" data-id="${escapeHtml(item.productId)}" data-name="${escapeHtml(item.name || '')}" data-price="${Number(item.price || 0)}" data-image="${escapeHtml(item.image || '')}" data-icon="${escapeHtml(item.icon || '📦')}" title="Add to cart">
+                    <button type="button" class="wishlist-cart-btn" data-id="${escapeHtml(item.productId)}" data-name="${escapeHtml(item.name || '')}" data-price="${Number(item.price || 0)}" data-image="${escapeHtml(meta.image)}" data-icon="${escapeHtml(meta.emoji)}" title="Add to cart">
                         <i class="fa-solid fa-cart-plus"></i>
                     </button>
                     <button type="button" class="wishlist-remove-btn" data-id="${escapeHtml(item.productId)}" title="Remove from wishlist">
@@ -1480,8 +1568,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const name = cartBtn.getAttribute('data-name') || '';
         const price = cartBtn.getAttribute('data-price') || '0';
         const image = cartBtn.getAttribute('data-image') || '';
-        const icon = cartBtn.getAttribute('data-icon') || '📦';
-        const productIcon = icon || (image && !image.includes('.') ? image : '📦');
+        const icon = cartBtn.getAttribute('data-icon') || '';
+        const productIcon = icon || '';
 
         if (!productId) {
             showToast('Product reference missing.', 'danger');
@@ -2015,7 +2103,30 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchWishlist();
 
 
-// অর্ডার আইডিতে ক্লিক করলে ডিটেইলস পেজে নিয়ে যাওয়ার লজিক
+function resolveOrderNavigationSource(row) {
+    if (!row) return 'orders';
+    const dashboardTbody = document.getElementById('dashboard-orders-tbody');
+    if (dashboardTbody && dashboardTbody.contains(row)) return 'dashboard';
+    return 'orders';
+}
+
+function navigateToOrderDetails(orderId, from) {
+    if (!orderId) return;
+    const source = from || 'orders';
+    window.location.href = `/order-details?id=${encodeURIComponent(orderId)}&from=${encodeURIComponent(source)}`;
+}
+
+// Entire order card navigates to order details; action buttons stop propagation above.
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const row = e.target.closest('.clickable-order-row.order-card-row');
+    if (!row || !row.contains(e.target)) return;
+    if (e.target.closest('.order-action-btn')) return;
+    e.preventDefault();
+    const orderId = row.getAttribute('data-id');
+    if (orderId) navigateToOrderDetails(orderId, resolveOrderNavigationSource(row));
+});
+
 document.addEventListener('click', function(e) {
     if (e.target.closest('.btn-write-review')) return;
 
@@ -2025,10 +2136,6 @@ document.addEventListener('click', function(e) {
         e.stopPropagation();
 
         const orderId = actionBtn.getAttribute('data-id');
-        if (actionBtn.classList.contains('btn-order-view') && orderId) {
-            window.location.href = `/order-details.html?id=${orderId}`;
-            return;
-        }
         if (actionBtn.classList.contains('btn-order-cancel')) {
             openOrderActionModal(orderId, 'cancel');
             return;
@@ -2039,14 +2146,14 @@ document.addEventListener('click', function(e) {
         return;
     }
 
-    const _orderTarget = e.target.closest('.order-id-link') || e.target.closest('.clickable-order-row');
+    const _orderTarget = e.target.closest('.clickable-order-row');
     if (_orderTarget) {
         e.preventDefault();
 
         const orderId = _orderTarget.getAttribute('data-id');
 
         if (orderId) {
-            window.location.href = `/order-details.html?id=${orderId}`;
+            navigateToOrderDetails(orderId, resolveOrderNavigationSource(_orderTarget));
         }
     }
 });

@@ -12,9 +12,35 @@
 document.addEventListener('DOMContentLoaded', () => {
     
     // =========================================================
-    // 🌟 SECTION 1: GLOBAL VARIABLES & DOM ELEMENTS
+    // 🌟 SECTION 0: SMART BACK NAVIGATION (dashboard vs my orders)
     // =========================================================
     const urlParams = new URLSearchParams(window.location.search);
+    const source = urlParams.get('from');
+    const backBtn = document.getElementById('smart-back-btn');
+
+    if (backBtn) {
+        if (source === 'dashboard') {
+            backBtn.textContent = '← Back to Dashboard';
+            backBtn.href = '/profile?tab=dashboard';
+            backBtn.setAttribute('aria-label', 'Back to Dashboard');
+        } else if (source === 'orders') {
+            backBtn.textContent = '← Back to My Orders';
+            backBtn.href = '/profile?tab=orders';
+            backBtn.setAttribute('aria-label', 'Back to My Orders');
+        } else if (document.referrer && document.referrer.includes('tab=orders')) {
+            backBtn.textContent = '← Back to My Orders';
+            backBtn.href = '/profile?tab=orders';
+            backBtn.setAttribute('aria-label', 'Back to My Orders');
+        } else {
+            backBtn.textContent = '← Back to Dashboard';
+            backBtn.href = '/profile?tab=dashboard';
+            backBtn.setAttribute('aria-label', 'Back to Dashboard');
+        }
+    }
+
+    // =========================================================
+    // 🌟 SECTION 1: GLOBAL VARIABLES & DOM ELEMENTS
+    // =========================================================
     const orderId = urlParams.get('id');
     const token = localStorage.getItem('token');
     
@@ -165,16 +191,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         actionButtonHTML = `<button onclick="window.openReviewModal('${targetId}', '${targetName}')" class="btn-review-table"><i class="fa-solid fa-pen-to-square"></i> Review / Edit</button>`;
                     }
 
-                    // প্রোডাক্ট ইমেজ রেন্ডারিং
-                    const imageHtml = item.image 
-                        ? `<img src="${item.image}" alt="${targetName}" style="width: 45px; height: 45px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">` 
-                        : `<div style="width: 45px; height: 45px; background: #e2e8f0; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #64748b;">No Img</div>`;
+                    const PT = window.ProductThumbnail;
+                    const mediaHtml = PT
+                        ? `<div class="order-item-media">${PT.buildThumbnailHtml(item, { variant: 'compact', alt: targetName })}</div>`
+                        : `<div class="order-item-media"><div class="no-photo-badge"><span>NO PHOTO</span></div></div>`;
 
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td>
                             <div style="display: flex; align-items: center; gap: 12px;">
-                                ${imageHtml}
+                                ${mediaHtml}
                                 <div style="display: flex; flex-direction: column; align-items: flex-start;">
                                     <span style="font-weight: 500;">${targetName}</span>
                                     ${actionButtonHTML}

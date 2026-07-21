@@ -6,12 +6,13 @@
     <title>Order Details | EOnlineBazar</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/order-details.css">
+    <link rel="stylesheet" href="css/product-thumbnail.css">
 </head>
 <body>
 
     <div class="order-details-container">
         <div class="header-section">
-            <a href="/profile.html" class="back-btn"><i class="fa-solid fa-arrow-left"></i> Back to Profile</a>
+            <a id="smart-back-btn" href="/profile" class="back-btn" aria-label="Back" style="text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: #2563eb;">← Back</a>
             <h2>Order Details</h2>
             <a href="#" id="track-order-btn" class="track-btn hidden"><i class="fa-solid fa-truck-fast"></i> Track Order</a>
         </div>
@@ -112,6 +113,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <script src="js/session-guard.js"></script>
+    <script src="js/productThumbnail.js"></script>
     <script src="js/order-details.js"></script>
 </body>
 </html>

@@ -143,45 +143,16 @@ function renderProducts(list) {
         productLink.style.color = 'inherit';
         productLink.style.display = 'block';
 
-        const imageSource = product.image ? product.image.trim() : (product.photo ? product.photo.trim() : '');
-        const iconData = product.icon ? product.icon.trim() : '';
-
         const imgBox = document.createElement('div');
         imgBox.className = 'product-img-box';
 
-        const applyFallback = () => {
-            imgBox.innerHTML = '';
-            if (iconData !== '') {
-                imgBox.innerHTML = `<div class="product-emoji-display" style="font-size: 40px; text-align: center; padding: 20px;">${iconData}</div>`;
-            } else {
-                imgBox.innerHTML = `<div class="no-photo-box" style="text-align: center; padding: 20px; color: #888;">NO PHOTO</div>`;
-            }
-        };
+        const PT = window.ProductThumbnail;
+        const meta = PT ? PT.getDisplayMeta(product) : { image: product.image || product.photo || '', emoji: product.icon || '' };
+        const imageSource = meta.image;
+        const iconData = meta.emoji;
 
-        let hasValidImage = false;
-        if (imageSource !== '') {
-            const lowerPath = imageSource.toLowerCase();
-            if (lowerPath.includes('.jpg') || lowerPath.includes('.png') || lowerPath.includes('.jpeg') || lowerPath.includes('.webp') || lowerPath.includes('.heic')) {
-                hasValidImage = true;
-            }
-        }
-
-        if (hasValidImage) {
-            let finalImagePath = imageSource;
-            if (!finalImagePath.startsWith('/') && !finalImagePath.startsWith('http') && !finalImagePath.startsWith('products/') && !finalImagePath.startsWith('uploads/')) {
-                finalImagePath = '/products/' + finalImagePath;
-            } else if (finalImagePath.startsWith('products/') || finalImagePath.startsWith('uploads/')) {
-                finalImagePath = '/' + finalImagePath;
-            }
-
-            const imgElement = document.createElement('img');
-            imgElement.src = finalImagePath;
-            imgElement.alt = product.name || 'Product Image';
-            imgElement.className = 'product-img';
-            imgElement.onerror = applyFallback;
-            imgBox.appendChild(imgElement);
-        } else {
-            applyFallback();
+        if (PT) {
+            PT.mountInto(imgBox, product, { variant: 'card', alt: product.name || 'Product Image' });
         }
 
         const productInfo = document.createElement('div');

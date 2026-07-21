@@ -72,23 +72,26 @@ header {
 
 .main-nav {
     display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 8px 0 10px;
+    min-height: auto;
+    max-height: none;
+}
+
+.header-row-top {
+    display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 15px;
-    flex-wrap: nowrap;
-    min-height: 48px;
-    max-height: 56px;
+    width: 100%;
+    gap: 12px;
+    min-height: 40px;
 }
 
-.main-nav > .search-box-container {
-    flex: 1;
-    align-self: center;
-    min-width: 0;
-}
-
-.main-nav > .nav-right {
-    flex-shrink: 0;
-    align-self: center;
+.header-row-search {
+    width: 100%;
+    margin-top: 8px;
 }
 
 /* বাম অংশ: লগো */
@@ -108,13 +111,13 @@ header {
     align-items: center;
     flex-shrink: 0;
     line-height: 1;
-    max-height: 40px;
+    max-height: 44px;
     overflow: hidden;
 }
 
 .logo-box.has-store-logo {
     font-size: inherit;
-    max-height: 40px;
+    max-height: 44px;
 }
 
 /* Tailwind-equivalent logo sizing utilities */
@@ -139,24 +142,38 @@ header {
     color: var(--amazon-gold);
 }
 
+/* Global image logo normalization (header, footer, layout slots) */
+header img[data-store-logo],
+header .store-brand-logo,
+footer img[data-store-logo],
+footer .store-brand-logo,
+.logo-box img,
+.footer-logo-text img,
+[data-store-logo-slot] img {
+    max-height: 36px;
+    width: auto;
+    object-fit: contain;
+}
+
 /* Dynamic store logo slots (Admin → Store Branding, injected server-side) */
 .store-logo-static {
     display: inline-block;
     vertical-align: middle;
-    max-height: 46px;
+    max-height: 36px;
     width: auto;
     height: auto;
+    object-fit: contain;
 }
 
 .store-logo-static--compact {
-    max-height: 32px;
+    max-height: 36px;
     max-width: 130px;
 }
 
 .header-brand-logo .store-logo-static--compact,
 .header-right-brand .store-logo-static--compact,
 .payment-header-right-brand .store-logo-static--compact {
-    max-height: 32px;
+    max-height: 36px;
     max-width: 130px;
 }
 
@@ -183,7 +200,7 @@ a[data-store-logo-slot] {
 img[data-store-logo] {
     display: inline-block;
     vertical-align: middle;
-    max-height: 32px;
+    max-height: 36px;
     max-width: 140px;
     width: auto;
     height: auto;
@@ -192,7 +209,7 @@ img[data-store-logo] {
 
 .amazon-header .logo-box .store-brand-logo,
 .amazon-header .logo-box img[data-store-logo] {
-    max-height: 32px;
+    max-height: 36px;
     max-width: 140px;
 }
 
@@ -287,13 +304,13 @@ img[data-store-logo] {
 
 .logo-box.has-store-logo,
 .logo-box .store-brand-logo {
-    max-height: 32px;
+    max-height: 36px;
     max-width: 140px;
 }
 
 .header-brand-logo.has-store-logo,
 .header-brand-logo .store-brand-logo {
-    max-height: 28px;
+    max-height: 36px;
     max-width: 140px;
 }
 
@@ -305,12 +322,12 @@ img[data-store-logo] {
 }
 
 .nav-logo.has-store-logo .store-brand-logo {
-    max-height: 32px;
+    max-height: 36px;
 }
 
 .payment-header-right-brand.has-store-logo,
 .payment-header-right-brand .store-brand-logo {
-    max-height: 28px;
+    max-height: 36px;
     max-width: 140px;
 }
 
@@ -322,15 +339,18 @@ img[data-store-logo] {
 
 .logo-area.has-store-logo,
 .logo-area .store-brand-logo {
-    max-height: 40px;
+    max-height: 36px;
     max-width: 180px;
 }
 
 .checkout-step-header__brand.has-store-logo .store-brand-logo,
 .checkout-step-header__brand .store-brand-logo,
 .checkout-step-header__brand img[data-store-logo] {
-    max-height: 55px;
-    max-width: 180px;
+    max-height: 28px;
+    max-width: 120px;
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
 }
 
 .store-brand-text-fallback,
@@ -376,11 +396,16 @@ a.logo-area {
 .search-box-container {
     display: flex;
     width: 100%;
-    height: 35px;
+    height: 38px;
     border-radius: 4px;
     overflow: hidden;
     background-color: var(--white);
     transition: box-shadow 0.2s;
+}
+
+.main-nav .search-box-container {
+    flex: 1;
+    min-width: 0;
 }
 
 .search-box-container:focus-within {
@@ -434,8 +459,23 @@ a.logo-area {
 
 .nav-user-account {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
     cursor: pointer;
+    gap: 8px;
+}
+
+.nav-user-avatar-img {
+    display: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.nav-user-avatar-img.is-visible {
+    display: block;
 }
 
 .nav-line-1 {
@@ -458,8 +498,12 @@ a.logo-area {
     padding: 5px;
 }
 
+.nav-cart-icon-wrapper,
 .cart-icon-wrapper {
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 24px;
 }
 
@@ -489,10 +533,18 @@ a.logo-area {
     white-space: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
-    scrollbar-width: none; /* Firefox */
+    scrollbar-width: none;
     background-color: var(--amazon-light);
     color: var(--white);
-    padding: 6px 0;
+    padding: 8px 0;
+    margin-top: 0;
+    position: relative;
+    z-index: 999;
+    clear: both;
+}
+
+.amazon-header + .sub-navbar {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .sub-navbar::-webkit-scrollbar {
@@ -637,53 +689,106 @@ a.logo-area {
 /* ==========================================================================
    ৪. রেসপনসিভ মিডিয়া কোয়েরি (মোবাইল ও ট্যাবলেট ফ্লেক্সবক্স লেআউট)
    ========================================================================== */
-   
-/* =========================================================================
-   📟 ১. পোর্ট্রেট ট্যাবলেট ও বড় স্ক্রিনের মোবাইল ভিউ (সর্বোচ্চ ৭৬৮px)
-   ========================================================================= */
-@media screen and (max-width: 768px) {
-    /* মেইন হেডার কন্টেইনার স্লিম ও টাইট করা হলো */
-    .container.main-nav {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
+
+/* --- Desktop: single horizontal row [Logo | Search | Profile | Cart] --- */
+@media screen and (min-width: 768px) {
+    .main-nav {
+        flex-direction: row;
+        flex-wrap: nowrap;
         align-items: center;
-        padding: 1px 12px; /* উপরে-নিচের অতিরিক্ত গ্যাপ এক ধাক্কায় গায়েব */
-        min-height: auto;
-        gap: 2px;
+        gap: 15px;
+        padding: 4px 0;
+        min-height: 48px;
+        max-height: 56px;
     }
 
-    /* লোগো থাকবে উপরে বামে */
-    .logo-box {
+    /* Flatten rows when search is present */
+    .main-nav:has(.header-row-search) .header-row-top,
+    .main-nav:has(.header-row-search) .header-row-search {
+        display: contents;
+    }
+
+    .main-nav:has(.header-row-search) .logo-box {
         order: 1;
+        flex-shrink: 0;
+    }
+
+    .main-nav:has(.header-row-search) .search-box-container {
+        order: 2;
+        flex: 1;
+        min-width: 0;
+        height: 35px;
+        border-radius: 4px;
+    }
+
+    .main-nav:has(.header-row-search) .nav-right {
+        order: 3;
+        flex-shrink: 0;
+        align-self: center;
+        padding-right: 10px;
+    }
+
+    /* Simple headers without search (about, contact) */
+    .main-nav:not(:has(.header-row-search)) .header-row-top {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .header-row-search {
+        margin-top: 0;
+    }
+
+    .nav-user-account {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0;
+    }
+
+    .nav-line-1,
+    .nav-line-2 {
+        display: block;
+    }
+
+    .cart-text {
+        display: inline;
+    }
+}
+
+/* --- Mobile: 2-row layout [Logo + Actions] / [Full-width Search] --- */
+@media screen and (max-width: 767px) {
+    header {
+        padding: 6px 0 8px;
+    }
+
+    .container.main-nav {
+        padding: 0 12px;
+    }
+
+    .header-row-top {
+        min-height: 38px;
+    }
+
+    .logo-box {
         margin: 0;
         line-height: 1;
         font-size: 30px;
-        max-height: 36px;
+        max-height: 40px;
     }
 
-    .logo-box .store-brand-logo,
-    .logo-box img[data-store-logo] {
-        max-height: 28px;
-        max-width: 120px;
-    }
-
-    /* ডানপাশের কন্টেইনার (অ্যাকাউন্ট এবং কার্ট থাকবে পাশাপাশি উপরে ডানে) */
     .nav-right {
-        order: 2;
         display: flex;
         align-items: center;
-        gap: 15px;
+        gap: 14px;
         margin: 0;
+        padding-right: 0;
+        flex-shrink: 0;
     }
 
-    /* অ্যাকাউন্ট সেকশন */
     .nav-user-account {
-        display: flex;
+        flex-direction: row;
         align-items: center;
     }
 
-    /* মোবাইলে শুধু 'Sign in' লেখাটি থাকবে */
     .nav-line-1 {
         display: inline-block;
         font-size: 12px;
@@ -691,119 +796,91 @@ a.logo-area {
         font-weight: 500;
     }
 
-    /* নিচের 'Account' লেখাটি বড় হওয়ায় মোবাইলে হাইড থাকবে */
     .nav-line-2 {
         display: none;
     }
 
-    /* কার্ট বক্স */
-    .nav-cart-box {
-        display: flex;
-        align-items: center;
-    }
-
-    /* কার্টের পাশের 'Bag' বা এক্সট্রা টেক্সট হাইড থাকবে */
-    .nav-cart-box span[class^="cart-text"] {
+    .nav-cart-box span.cart-text {
         display: none;
     }
 
-    /* সার্চ বক্স পুরো ১০০% উইডথ নিয়ে লোগো ও কার্টের নিচে নেমে যাবে */
-    .search-box-container {
-        order: 3;
-        width: 100%;
-        margin-top: 4px; /* লোগো থেকে সার্চ বারের নিখুঁত দূরত্ব */
-        margin-bottom: 3px;
+    .header-row-search {
+        margin-top: 8px;
     }
 
-    /* সাব-ন্যাভবার বা ক্যাটাগরি মেনু নিচে না ভেঙে ডানে স্ক্রল হবে */
-    .nav-id, .sub-navbar { 
-        display: flex;
-        overflow-x: auto;
-        white-space: nowrap;
-        gap: 5px;
-        padding: 8px 10px;
+    .search-box-container {
+        width: 100%;
+        height: 40px;
+        border-radius: 20px;
+    }
+
+    .search-category {
+        border-top-left-radius: 20px;
+        border-bottom-left-radius: 20px;
+    }
+
+    .search-submit-btn {
+        border-top-right-radius: 20px;
+        border-bottom-right-radius: 20px;
+    }
+
+    .sub-navbar {
+        padding: 8px 0;
+    }
+
+    .sub-flex {
+        padding: 0 4px;
     }
 }
 
-/* =========================================================================
-   📱 ২. স্ট্যান্ডার্ড স্মার্টফোন ভিউ (সর্বোচ্চ ৫৪০px)
-   ========================================================================= */
+/* --- Standard smartphone refinements --- */
 @media screen and (max-width: 540px) {
-    /* পুরো সার্চ কন্টেইনারের ভেতরের ফ্লেক্স বিন্যাস */
-    .search-box-container {
-        display: flex;
-        width: 100%;
-        padding: 0;
-        margin: 0;
-    }
-    .container.main-nav{
-        padding:0;
-        gap: 0;
-    }
-    /* ➔ ক্যাটাগরি বক্সের জন্য ফিক্স: এটিকে সংকুচিত হতে দেওয়া যাবে না */
     .search-category {
-        flex: 0 0 105px; /* ফ্লেক্সের প্রথম '0 0' মানে এটি কোনো অবস্থাতেই চাপ খাবে না এবং ফিক্সড ১০৫px চওড়া হবে */
+        flex: 0 0 105px;
         font-size: 11.5px;
-        padding: 0;
-        border-right: 1px solid #cbd5e1; /* মাঝখানে সুন্দর বিভাজক বর্ডার */
-        box-sizing: border-box;
-    }
-
-    /* ➔ মেইন ফিক্স: সার্চ ইনপুট বক্সটিকে ছোট ও ব্যালেন্সড করা হলো */
-    .search-input {
-        flex: 1; /* স্ক্রিনের বাকি যতটুকু জায়গা খালি থাকবে শুধু ততটুকুই ইনপুট বক্স নেবে, জোর করে ক্যাটাগরিকে চাপবে না */
-        min-width: 0; /* ফ্লেক্স বক্সের ডিফল্ট বড় হওয়ার প্রবণতা বন্ধ করবে */
-        font-size: 12px;
         padding: 0 8px;
-    }
-
-    /* সার্চ আইকন বাটন মোবাইলের জন্য ফিক্সড */
-    .search-icon {
-        flex: 0 0 40px; /* সার্চ আইকন বাটনটি ফিক্সড ৪০px থাকবে */
-        font-size: 13px;
-        align-self: stretch;
-        border: none;
-
-    }
-
-    .logo-box{
-        font-size: 30px;
-        max-height: 34px;
-    }
-
-    .logo-box .store-brand-logo,
-    .logo-box img[data-store-logo] {
-        max-height: 26px;
-        max-width: 110px;
-    }
-}
-
-/* =========================================================================
-   🔋 ৩. আল্ট্রা-স্মল স্মার্টফোন ভিউ (সর্বোচ্চ ৩৬০px - ছোট স্ক্রিনের জন্য)
-   ========================================================================= */
-@media screen and (max-width: 360px) {
-    /* অতি ছোট স্ক্রিনে আরও একটু কম্প্যাক্ট করা হলো */
-    .search-category {
-        flex: 0 0 95px; /* ৩৬০px স্ক্রিনের জন্য পারফেক্ট ৯৫px */
-        font-size: 11px;
-        padding: 5 4px;
+        border-right: 1px solid #cbd5e1;
+        box-sizing: border-box;
     }
 
     .search-input {
         flex: 1;
+        min-width: 0;
+        font-size: 12px;
+        padding: 0 8px;
+    }
+
+    .search-submit-btn {
+        flex: 0 0 42px;
+        font-size: 14px;
+    }
+}
+
+/* --- Ultra-small screens --- */
+@media screen and (max-width: 360px) {
+    .search-category {
+        flex: 0 0 95px;
+        font-size: 11px;
+        padding: 0 6px;
+    }
+
+    .search-input {
         font-size: 11.5px;
         padding: 0 6px;
     }
 
-    .search-icon {
-        flex: 0 0 36px; /* বাটন সামান্য ছোট করা হলো */
-        font-size: 12px;
+    .search-submit-btn {
+        flex: 0 0 38px;
+        font-size: 13px;
     }
 
-    .logo-box{
+    .nav-right {
+        gap: 10px;
+    }
+
+    .logo-box {
         font-size: 25px;
     }
-
 }
 
 
