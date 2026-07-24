@@ -6,6 +6,8 @@
  ********************************************************************/
 
 const Settings = require('../models/Settings');
+const Setting = require('../models/Setting');
+const { resolveFreeShippingThreshold } = require('./announcementSettings');
 const {
     normalizeDistrict,
     districtsMatch,
@@ -27,16 +29,58 @@ const SHIPPING_LOCATION_LABELS = {
 
 const roundMoney = (value) => Math.round((Number(value) || 0) * 100) / 100;
 
-const toPublicSettings = (doc) => ({
-    shopHomeCity: resolveDistrictLabel(doc?.shopHomeCity) || DEFAULT_SETTINGS.shopHomeCity,
-    deliveryInsideCity: doc?.deliveryInsideCity ?? DEFAULT_SETTINGS.deliveryInsideCity,
-    deliveryOutsideCity: doc?.deliveryOutsideCity ?? DEFAULT_SETTINGS.deliveryOutsideCity,
-    freeShippingMinAmount: doc?.freeShippingMinAmount ?? DEFAULT_SETTINGS.freeShippingMinAmount
-});
+/**
+ * @param {object} doc - delivery Settings document
+ * @param {object} [masterDoc] - master Setting document; when supplied its
+ *   freeShippingThreshold wins, since that is the value the Admin Panel's
+ *   Master Settings form owns. Both fields are mirrored on every save, so
+ *   omitting masterDoc still yields the same number.
+ */
+const toPublicSettings = (doc, masterDoc = null) => {
+    const legacyThreshold = doc?.freeShippingMinAmount ?? DEFAULT_SETTINGS.freeShippingMinAmount;
+    const freeShippingThreshold = masterDoc
+        ? resolveFreeShippingThreshold(masterDoc, legacyThreshold)
+        : legacyThreshold;
+
+    return {
+        shopHomeCity: resolveDistrictLabel(doc?.shopHomeCity) || DEFAULT_SETTINGS.shopHomeCity,
+        deliveryInsideCity: doc?.deliveryInsideCity ?? DEFAULT_SETTINGS.deliveryInsideCity,
+        deliveryOutsideCity: doc?.deliveryOutsideCity ?? DEFAULT_SETTINGS.deliveryOutsideCity,
+        freeShippingMinAmount: freeShippingThreshold,
+        freeShippingThreshold
+    };
+};
 
 async function getDeliverySettings() {
-    const settings = await Settings.getOrCreate();
-    return toPublicSettings(settings);
+    const [deliveryDoc, masterDoc] = await Promise.all([
+        Settings.getOrCreate(),
+        Setting.getOrCreate()
+    ]);
+    return toPublicSettings(deliveryDoc, masterDoc);
+}
+
+/**
+ * Free-shipping progress for a given subtotal — the single place that decides
+ * whether shipping is waived, so the badge, the cart hint, and the order
+ * totals can never disagree.
+ */
+function getFreeShippingProgress(settings, subtotal = 0) {
+    const threshold = Number(settings?.freeShippingThreshold ?? settings?.freeShippingMinAmount);
+    const merchandiseSubtotal = Math.max(0, Number(subtotal) || 0);
+    const activeThreshold = Number.isFinite(threshold) && threshold > 0 ? threshold : 0;
+
+    if (activeThreshold === 0) {
+        return { threshold: 0, subtotal: merchandiseSubtotal, unlocked: true, remaining: 0, progressPercent: 100 };
+    }
+
+    const unlocked = merchandiseSubtotal >= activeThreshold;
+    return {
+        threshold: activeThreshold,
+        subtotal: merchandiseSubtotal,
+        unlocked,
+        remaining: unlocked ? 0 : roundMoney(activeThreshold - merchandiseSubtotal),
+        progressPercent: Math.min(100, Math.round((merchandiseSubtotal / activeThreshold) * 100))
+    };
 }
 
 function parseIncomingLocationType(value) {
@@ -64,10 +108,7 @@ function computeDeliveryCharge(settings, { customerDistrict, locationType, subto
         ...(settings || {})
     };
 
-    const merchandiseSubtotal = Math.max(0, Number(subtotal) || 0);
-    const threshold = Number(config.freeShippingMinAmount);
-
-    if (threshold === 0 || merchandiseSubtotal >= threshold) {
+    if (getFreeShippingProgress(config, subtotal).unlocked) {
         return 0;
     }
 
@@ -134,6 +175,7 @@ module.exports = {
     resolveDistrictLabel,
     resolveDeliveryZone,
     toShippingLocationLabel,
+    getFreeShippingProgress,
     computeDeliveryCharge,
     buildLockedOrderTotals,
     getOrderFinancials,

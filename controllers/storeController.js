@@ -4,10 +4,14 @@ const {
     computeDeliveryCharge,
     resolveDeliveryZone,
     toShippingLocationLabel,
+    getFreeShippingProgress,
     roundMoney
 } = require('../utils/deliveryChargeService');
 const { getDeliveryEstimate } = require('../utils/deliveryEstimateService');
 const { BANGLADESH_DISTRICTS } = require('../utils/bangladeshDistricts');
+const { loadRewardSettings } = require('../utils/rewardSettings');
+const { toPublicAnnouncementPayload } = require('../utils/announcementSettings');
+const Setting = require('../models/Setting');
 
 const getPublicStoreBranding = async (req, res) => {
     try {
@@ -44,6 +48,25 @@ module.exports = {
     getPublicDistricts: (req, res) => {
         res.status(200).json({ success: true, data: BANGLADESH_DISTRICTS });
     },
+    getPublicAnnouncement: async (req, res) => {
+        try {
+            const [masterDoc, rewardSettings, deliverySettings] = await Promise.all([
+                Setting.getOrCreate(),
+                loadRewardSettings(),
+                getDeliverySettings()
+            ]);
+
+            const announcement = toPublicAnnouncementPayload(
+                { ...masterDoc.toObject(), freeShippingThreshold: deliverySettings.freeShippingThreshold },
+                rewardSettings
+            );
+
+            res.status(200).json({ success: true, data: { ...announcement, rewardSettings } });
+        } catch (error) {
+            console.error('Get Public Announcement Error:', error);
+            res.status(500).json({ success: false, message: 'Failed to load announcement.' });
+        }
+    },
     getPublicShippingQuote: async (req, res) => {
         try {
             const district = String(req.query.district || '').trim();
@@ -57,6 +80,7 @@ module.exports = {
                 subtotal
             }));
             const estimate = getDeliveryEstimate(zone);
+            const freeShipping = getFreeShippingProgress(settings, subtotal);
 
             res.status(200).json({
                 success: true,
@@ -68,6 +92,8 @@ module.exports = {
                     deliveryInsideCity: settings.deliveryInsideCity,
                     deliveryOutsideCity: settings.deliveryOutsideCity,
                     freeShippingMinAmount: settings.freeShippingMinAmount,
+                    freeShippingThreshold: settings.freeShippingThreshold,
+                    freeShipping,
                     shopHomeCity: settings.shopHomeCity,
                     estimatedDelivery: estimate
                 }

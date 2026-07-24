@@ -11,6 +11,7 @@
 const User = require('../models/user');
 const UserSession = require('../models/userSession');
 const Cart = require('../models/cart');
+const Setting = require('../models/Setting');
 const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken'); 
 const nodemailer = require('nodemailer'); 
@@ -33,6 +34,8 @@ const {
     calculatePointsCashValue,
     POINTS_CONVERSION_UNIT
 } = require('../utils/rewardSettings');
+const { toPublicAnnouncementPayload } = require('../utils/announcementSettings');
+const { getDeliverySettings } = require('../utils/deliveryChargeService');
 const { sendAdminOtpSms } = require('../utils/smsSender');
 
 const PROFILE_OTP_TTL_MS = 5 * 60 * 1000;
@@ -511,9 +514,19 @@ exports.getUserProfile = async (req, res) => {
             return res.status(404).json({ success: false, message: "User not found." });
         }
 
-        const rewardSettings = await loadRewardSettings();
+        const [rewardSettings, masterSettings, deliverySettings] = await Promise.all([
+            loadRewardSettings(),
+            Setting.getOrCreate(),
+            getDeliverySettings()
+        ]);
+
         const profile = user.toObject();
         profile.rewardSettings = rewardSettings;
+        profile.deliverySettings = deliverySettings;
+        profile.announcement = toPublicAnnouncementPayload(
+            { ...masterSettings.toObject(), freeShippingThreshold: deliverySettings.freeShippingThreshold },
+            rewardSettings
+        );
 
         res.status(200).json(profile);
     } catch (error) {

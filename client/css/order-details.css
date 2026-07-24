@@ -73,6 +73,187 @@ body {
 .header-section h2 {
     font-size: 1.5rem;
     color: var(--text-main);
+    flex: 1;
+}
+
+/* =========================================================
+   🌟 SECTION 2B: ORDER ACTION BAR (Invoice / Cancel / Return)
+   ========================================================= */
+.order-action-bar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.od-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 40px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: inherit;
+    text-decoration: none;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.od-action-invoice {
+    background-color: #ffffff;
+    color: var(--primary-color);
+    border-color: rgba(37, 99, 235, 0.25);
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.08);
+}
+
+.od-action-invoice:hover {
+    background-color: #eff6ff;
+    transform: translateY(-1px);
+}
+
+.od-action-track {
+    background-color: var(--primary-color);
+    color: #ffffff;
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+}
+
+.od-action-track:hover {
+    background-color: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+.od-action-cancel {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+    border-color: rgba(239, 68, 68, 0.28);
+}
+
+.od-action-cancel:hover {
+    background: var(--danger);
+    color: #fff;
+    border-color: var(--danger);
+}
+
+.od-action-return {
+    background: rgba(245, 158, 11, 0.14);
+    color: #b45309;
+    border-color: rgba(245, 158, 11, 0.35);
+}
+
+.od-action-return:hover {
+    background: var(--warning);
+    color: #fff;
+    border-color: var(--warning);
+}
+
+.od-action-muted {
+    background: #f1f5f9;
+    color: var(--text-main);
+    border-color: var(--border-color);
+}
+
+.od-action-muted:hover {
+    background: #e2e8f0;
+}
+
+.od-action-primary {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--primary-color);
+}
+
+.od-action-primary:hover {
+    background: var(--primary-hover);
+}
+
+.od-action-primary.btn-order-action-cancel-theme {
+    background-color: var(--danger);
+    border-color: var(--danger);
+}
+
+.od-action-primary.btn-order-action-cancel-theme:hover {
+    background-color: #dc2626;
+}
+
+.od-action-primary.btn-order-action-return-theme {
+    background-color: var(--warning);
+    border-color: var(--warning);
+}
+
+.od-action-primary.btn-order-action-return-theme:hover {
+    background-color: #d97706;
+}
+
+.od-action-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+@media (min-width: 768px) {
+    .order-action-bar {
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        max-width: 100%;
+    }
+}
+
+.order-action-modal-content {
+    max-width: 520px;
+}
+
+.order-action-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.order-action-lead {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.order-action-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.order-action-select,
+.order-action-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: var(--text-main);
+    font-family: inherit;
+    background: #fff;
+}
+
+.order-action-select:focus,
+.order-action-textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.order-action-other-group.hidden {
+    display: none;
+}
+
+.order-action-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 6px;
 }
 
 .header-actions {
@@ -649,23 +830,39 @@ body {
    ========================================================= */
 @media (max-width: 600px) {
     .header-section {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .track-btn {
-        width: 100%;
-        justify-content: center;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
     }
 
+    .order-action-bar {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .od-action-btn {
+        width: 100%;
+        height: 44px;
+    }
+
+    .order-action-form-actions {
+        flex-direction: column;
+    }
+
+    .order-action-form-actions .od-action-btn {
+        width: 100%;
+    }
+    
     .summary-card {
         max-width: 100%;
         margin-left: 0;
     }
     
     .info-header {
-        flex-direction: column;
-        align-items: flex-start;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
         gap: 10px;
     }
 

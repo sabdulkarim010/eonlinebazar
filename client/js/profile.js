@@ -433,6 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateWalletDisplay(data.walletBalance || 0, data.loyaltyPoints || 0);
                 renderCashbackHistory(data.walletHistory || []);
                 applyRewardSettingsUI(data.rewardSettings);
+                applyAnnouncementUI(data.announcement);
 
                 cacheProfileAddressForCheckout(data);
 
@@ -541,29 +542,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>`;
     }
 
-    function buildOrderActionsHtml(order) {
-        const orderId = order._id || order.orderId || '';
-        const displayOrderId = getDisplayOrderId(order);
-        const status = String(order.status || 'Pending').toLowerCase();
-        const buttons = [];
-
-        buttons.push(`<button type="button" class="order-action-btn btn-order-invoice" data-id="${escapeHtml(orderId)}" data-invoice-id="${escapeHtml(displayOrderId)}" data-action="invoice" title="Download invoice PDF">
-            <i class="fa-solid fa-file-pdf" aria-hidden="true"></i><span>Invoice</span>
-        </button>`);
-
-        if (status === 'pending') {
-            buttons.push(`<button type="button" class="order-action-btn btn-order-cancel order-action-btn--compact" data-id="${escapeHtml(orderId)}" data-action="cancel" title="Cancel this order">
-                <span>Cancel</span>
-            </button>`);
-        }
-
-        if (isWithinReturnWindow(order)) {
-            buttons.push(`<button type="button" class="order-action-btn btn-order-return order-action-btn--desktop-only" data-id="${escapeHtml(orderId)}" data-action="return" title="Request a return">
-                <i class="fa-solid fa-rotate-left" aria-hidden="true"></i><span>Return</span>
-            </button>`);
-        }
-
-        return `<div class="order-actions-cell">${buttons.join('')}</div>`;
+    function buildOrderActionsHtml() {
+        return '';
     }
 
     function buildOrderRowHtml(order) {
@@ -574,19 +554,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const orderId = order._id || '';
         const grandTotal = Number(order.grandTotal ?? order.totalAmount) || 0;
         const previewHtml = buildOrderPreviewHtml(order.items, grandTotal);
-        const actionsHtml = buildOrderActionsHtml(order);
-        const actionsCellClass = actionsHtml
-            ? 'order-actions-td order-card-actions-cell'
-            : 'order-actions-td order-card-actions-cell order-card-actions-cell--empty';
 
         return `
             <tr class="clickable-order-row order-card-row" data-id="${escapeHtml(orderId)}" tabindex="0" role="link" aria-label="View order #${escapeHtml(displayOrderId)}">
-                <td class="order-card-id-cell" data-label="Order ID"><span class="order-id-link">#${escapeHtml(displayOrderId)}</span></td>
-                <td class="order-card-date-cell" data-label="Date"><span class="order-card-date-text">${orderDate}</span></td>
+                <td class="order-card-id-cell" data-label="Order ID">
+                    <div class="order-card-header-meta">
+                        <span class="order-id-link">#${escapeHtml(displayOrderId)}</span>
+                        <span class="order-card-date-inline order-card-date-text"><span class="order-card-date-sep" aria-hidden="true">•</span> ${orderDate}</span>
+                    </div>
+                </td>
+                <td class="order-card-date-cell order-card-date-cell--desktop" data-label="Date"><span class="order-card-date-text">${orderDate}</span></td>
                 <td class="order-card-preview-cell" data-label="Products">${previewHtml}</td>
                 <td class="order-total-cell order-card-total-cell order-card-total-desktop" data-label="Total Amount"><span class="order-total-amount">৳${grandTotal.toLocaleString()}</span></td>
                 <td class="order-card-status-cell" data-label="Status"><span class="status-badge ${statusBadgeClass}">${escapeHtml(currentStatus)}</span></td>
-                <td class="${actionsCellClass}" data-label="Actions">${actionsHtml}</td>
+                <td class="order-actions-td order-card-actions-cell order-card-actions-cell--empty" data-label="Actions"></td>
             </tr>
         `;
     }
@@ -1656,6 +1637,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function applyAnnouncementUI(announcement) {
+        const cardEl = document.getElementById('dashboard-announcement-card');
+        const textEl = document.getElementById('dashboard-announcement-text');
+        const highlightsEl = document.getElementById('dashboard-announcement-highlights');
+        if (!cardEl || !textEl) return;
+
+        const displayText = announcement?.displayText;
+        if (!displayText) {
+            cardEl.classList.add('hidden');
+            textEl.textContent = '';
+            if (highlightsEl) highlightsEl.innerHTML = '';
+            return;
+        }
+
+        cardEl.classList.remove('hidden');
+        textEl.textContent = displayText;
+
+        if (!highlightsEl) return;
+
+        // Live chips for the free-shipping threshold, cashback rate and points
+        // rate exactly as configured in the admin panel.
+        const highlights = Array.isArray(announcement.highlights) ? announcement.highlights : [];
+        highlightsEl.innerHTML = highlights.map((item) => `
+            <li class="announcement-highlight">
+                <i class="fa-solid fa-${escapeHtml(item.icon || 'tag')}" aria-hidden="true"></i>
+                <span class="announcement-highlight-label">${escapeHtml(item.label)}</span>
+                <span class="announcement-highlight-value">${escapeHtml(item.value)}</span>
+            </li>
+        `).join('');
+    }
+
     function updateWalletDisplay(balance, points) {
         const balanceEl = document.getElementById('main-balance-amount');
         const pointsEl = document.getElementById('current-points-calc');
@@ -2524,18 +2536,6 @@ document.addEventListener('click', function(e) {
         const orderId = actionBtn.getAttribute('data-id');
         if (actionBtn.classList.contains('btn-order-cancel')) {
             openOrderActionModal(orderId, 'cancel');
-            return;
-        }
-        if (actionBtn.classList.contains('btn-order-return')) {
-            openOrderActionModal(orderId, 'return');
-            return;
-        }
-        if (actionBtn.classList.contains('btn-order-invoice')) {
-            const invoiceId = actionBtn.getAttribute('data-invoice-id');
-            if (typeof window.downloadOrderInvoice === 'function') {
-                window.downloadOrderInvoice(orderId, invoiceId, actionBtn);
-            }
-            return;
         }
         return;
     }

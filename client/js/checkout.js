@@ -15,7 +15,8 @@ let deliverySettings = {
     shopHomeCity: 'Dhaka',
     deliveryInsideCity: 60,
     deliveryOutsideCity: 120,
-    freeShippingMinAmount: 1000
+    freeShippingMinAmount: 1000,
+    freeShippingThreshold: 1000
 };
 let selectedShippingDistrict = '';
 let selectedShippingUpazila = '';
@@ -161,11 +162,18 @@ async function fetchDeliverySettings() {
         const res = await fetch('/api/store/delivery-settings');
         const data = await res.json();
         if (data.success && data.data) {
+            // The admin panel's Master Settings threshold is authoritative; the
+            // legacy field is kept mirrored, so either key resolves the same.
+            const threshold = Number(
+                data.data.freeShippingThreshold ?? data.data.freeShippingMinAmount
+            ) || 0;
+
             deliverySettings = {
                 shopHomeCity: data.data.shopHomeCity || 'Dhaka',
                 deliveryInsideCity: Number(data.data.deliveryInsideCity) || 0,
                 deliveryOutsideCity: Number(data.data.deliveryOutsideCity) || 0,
-                freeShippingMinAmount: Number(data.data.freeShippingMinAmount) || 0
+                freeShippingMinAmount: threshold,
+                freeShippingThreshold: threshold
             };
             return true;
         }
@@ -714,11 +722,32 @@ function getCheckoutSubtotal() {
     }, 0);
 }
 
-function calculateDeliveryCharge(subtotal) {
-    const threshold = Number(deliverySettings.freeShippingMinAmount);
+/**
+ * Free-shipping state for a subtotal, mirroring the server's rule so the badge
+ * and the charged fee can never disagree.
+ */
+function getFreeShippingProgress(subtotal) {
+    const rawThreshold = Number(
+        deliverySettings.freeShippingThreshold ?? deliverySettings.freeShippingMinAmount
+    );
+    const threshold = Number.isFinite(rawThreshold) && rawThreshold > 0 ? rawThreshold : 0;
     const merchandiseSubtotal = Math.max(0, Number(subtotal) || 0);
 
-    if (threshold === 0 || merchandiseSubtotal >= threshold) {
+    if (threshold === 0) {
+        return { threshold: 0, unlocked: true, remaining: 0, progressPercent: 100 };
+    }
+
+    const unlocked = merchandiseSubtotal >= threshold;
+    return {
+        threshold,
+        unlocked,
+        remaining: unlocked ? 0 : Math.round((threshold - merchandiseSubtotal) * 100) / 100,
+        progressPercent: Math.min(100, Math.round((merchandiseSubtotal / threshold) * 100))
+    };
+}
+
+function calculateDeliveryCharge(subtotal) {
+    if (getFreeShippingProgress(subtotal).unlocked) {
         return 0;
     }
 
@@ -768,6 +797,37 @@ function updateCheckoutDeliveryEstimate(subtotal) {
     }
 }
 
+/**
+ * Shows "🎉 Free Shipping Unlocked!" once the subtotal clears the admin
+ * threshold, and otherwise tells the customer exactly how much more to add.
+ */
+function renderFreeShippingStatus(subtotal, badgeEl) {
+    const progress = getFreeShippingProgress(subtotal);
+    const wrapEl = document.getElementById('checkoutFreeShippingProgress');
+    const textEl = document.getElementById('checkoutFreeShippingProgressText');
+    const barEl = document.getElementById('checkoutFreeShippingProgressBar');
+
+    if (badgeEl) {
+        badgeEl.textContent = '🎉 Free Shipping Unlocked!';
+        badgeEl.style.display = progress.unlocked ? 'inline-flex' : 'none';
+    }
+
+    if (!wrapEl || !textEl || !barEl) return;
+
+    // Nothing useful to show when every order already ships free.
+    if (progress.threshold === 0) {
+        wrapEl.style.display = 'none';
+        return;
+    }
+
+    wrapEl.style.display = 'block';
+    wrapEl.classList.toggle('is-unlocked', progress.unlocked);
+    barEl.style.width = `${progress.progressPercent}%`;
+    textEl.textContent = progress.unlocked
+        ? `🎉 Free Shipping Unlocked! You saved the delivery charge on this order.`
+        : `Add ৳${progress.remaining.toLocaleString('en-US')} more to unlock FREE shipping (৳${progress.threshold.toLocaleString('en-US')} minimum).`;
+}
+
 function updateCheckoutTotals(subtotal) {
     const subtotalText = document.getElementById('checkoutSubtotal');
     const deliveryChargeEl = document.getElementById('checkoutDeliveryCharge');
@@ -783,11 +843,7 @@ function updateCheckoutTotals(subtotal) {
         deliveryChargeEl.innerText = deliveryCharge === 0 ? '৳0' : `৳${deliveryCharge}`;
         deliveryChargeEl.style.display = deliveryCharge === 0 ? 'none' : 'inline';
     }
-    if (freeShippingBadge) {
-        const qualifiesForFreeShipping = Number(deliverySettings.freeShippingMinAmount) === 0
-            || subtotal >= Number(deliverySettings.freeShippingMinAmount);
-        freeShippingBadge.style.display = qualifiesForFreeShipping && deliveryCharge === 0 ? 'inline-flex' : 'none';
-    }
+    renderFreeShippingStatus(subtotal, freeShippingBadge);
     if (grandTotalText) grandTotalText.innerText = `৳${grandTotal}`;
 
     updateCheckoutDeliveryEstimate(subtotal);
@@ -893,6 +949,8 @@ function renderCheckoutCart() {
             deliveryChargeEl.style.display = 'inline';
         }
         if (freeShippingBadge) freeShippingBadge.style.display = 'none';
+        const freeShippingProgress = document.getElementById('checkoutFreeShippingProgress');
+        if (freeShippingProgress) freeShippingProgress.style.display = 'none';
         if (proceedBtn) proceedBtn.style.display = 'none'; 
         if (shippingSection) shippingSection.style.display = 'none';
         if (orderSummarySection) orderSummarySection.style.display = 'none';

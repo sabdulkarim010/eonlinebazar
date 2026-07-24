@@ -4673,22 +4673,89 @@ function applyMasterSettingsToUI(settings) {
     setVal('masterTakaToPointsRatio', settings.takaToPointsRatio);
     setVal('masterPointsConversionRate', settings.pointsToTakaConversionRate);
     setVal('masterRefundUndoWindow', settings.refundUndoWindowHours);
+    setVal('masterFreeShippingThreshold', settings.freeShippingThreshold);
 
+    applyAnnouncementSettingsToUI(settings);
     updateMasterSettingsPreview();
+}
+
+function applyAnnouncementSettingsToUI(settings) {
+    if (!settings) return;
+
+    const textEl = document.getElementById('announcementText');
+    const activeEl = document.getElementById('isAnnouncementActive');
+
+    if (textEl && settings.announcementText !== undefined) {
+        textEl.value = settings.announcementText || '';
+    }
+    if (activeEl && settings.isAnnouncementActive !== undefined) {
+        activeEl.checked = settings.isAnnouncementActive !== false;
+    }
+
+    updateAnnouncementSettingsPreview();
+}
+
+/**
+ * Mirrors the server's announcement builder so the admin sees the exact
+ * sentence customers will get before saving.
+ */
+function buildAnnouncementPreviewText() {
+    const threshold = Number(document.getElementById('masterFreeShippingThreshold')?.value || 0);
+    const cashback = Number(document.getElementById('masterCashbackPercentage')?.value || 0);
+    const takaPerPoint = Number(document.getElementById('masterTakaToPointsRatio')?.value || 0);
+
+    const shippingSentence = threshold > 0
+        ? `Enjoy Free Shipping on orders over ৳${threshold.toLocaleString('en-US')}!`
+        : 'Enjoy Free Shipping on every order!';
+
+    const perks = [];
+    if (cashback > 0) perks.push(`${cashback}% cashback straight to your wallet`);
+    if (takaPerPoint > 0) perks.push(`1 loyalty point for every ৳${takaPerPoint.toLocaleString('en-US')} you spend`);
+
+    return perks.length === 0
+        ? shippingSentence
+        : `${shippingSentence} Earn ${perks.join(' and ')}.`;
+}
+
+function updateAnnouncementSettingsPreview() {
+    const previewEl = document.getElementById('announcementSettingsPreviewText');
+    if (!previewEl) return;
+
+    const isActive = document.getElementById('isAnnouncementActive')?.checked !== false;
+    const customText = document.getElementById('announcementText')?.value?.trim() || '';
+
+    if (!isActive) {
+        previewEl.textContent = 'Announcement hidden from customer dashboard.';
+        return;
+    }
+
+    previewEl.textContent = customText || buildAnnouncementPreviewText();
 }
 
 function updateMasterSettingsPreview() {
     const previewEl = document.getElementById('masterSettingsPreviewText');
+
+    // The announcement copy quotes the cashback and points rates, so it has to
+    // refresh whenever the rewards fields change too.
+    updateAnnouncementSettingsPreview();
     if (!previewEl) return;
 
     const cashback = Number(document.getElementById('masterCashbackPercentage')?.value || 0);
     const takaRatio = Number(document.getElementById('masterTakaToPointsRatio')?.value || 100);
     const conversion = Number(document.getElementById('masterPointsConversionRate')?.value || 0);
     const refundHours = Number(document.getElementById('masterRefundUndoWindow')?.value || 0);
+    const threshold = Number(document.getElementById('masterFreeShippingThreshold')?.value || 0);
 
     const pointsPerThousand = takaRatio > 0 ? (1000 / takaRatio).toFixed(2) : '0';
+    let shippingNote = 'free shipping on every order';
+    if (threshold > 0) {
+        const thresholdLabel = `৳${threshold.toLocaleString('en-US')}`;
+        shippingNote = 1000 >= threshold
+            ? `free shipping (meets ${thresholdLabel} threshold)`
+            : `shipping charged (${thresholdLabel} threshold not met)`;
+    }
     previewEl.textContent =
-        `৳1,000 order → ${cashback}% cashback (৳${(1000 * cashback / 100).toFixed(0)}) + ~${pointsPerThousand} pts · 100 pts → ৳${conversion} · Refund undo: ${refundHours}h`;
+        `৳1,000 order → ${cashback}% cashback (৳${(1000 * cashback / 100).toFixed(0)}) + ~${pointsPerThousand} pts · 100 pts → ৳${conversion} · Refund undo: ${refundHours}h · ${shippingNote}`;
 }
 
 async function fetchMasterSettings() {
@@ -4709,7 +4776,7 @@ async function fetchMasterSettings() {
 }
 
 async function saveMasterSettings(payload) {
-    const res = await fetch('/api/admin/master-settings', {
+    const res = await fetch('/api/admin/master-settings/update', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -4847,18 +4914,32 @@ function showLocalBrandingPreview(assetType, file) {
 function setupAdminSettingsForms() {
     populateShopHomeCityOptions();
 
-    ['masterCashbackPercentage', 'masterTakaToPointsRatio', 'masterPointsConversionRate', 'masterRefundUndoWindow']
-        .forEach((id) => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('input', updateMasterSettingsPreview);
-        });
+    [
+        'masterCashbackPercentage',
+        'masterTakaToPointsRatio',
+        'masterPointsConversionRate',
+        'masterRefundUndoWindow',
+        'masterFreeShippingThreshold',
+        'announcementText',
+        'isAnnouncementActive'
+    ].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', updateMasterSettingsPreview);
+        if (el.type === 'checkbox') el.addEventListener('change', updateMasterSettingsPreview);
+    });
 
+    // One form, one save action: announcement, free shipping, rewards and the
+    // refund window all travel to /api/admin/master-settings/update together.
     const masterForm = document.getElementById('masterSettingsForm');
     if (masterForm) {
         masterForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const payload = {
+                announcementText: document.getElementById('announcementText')?.value?.trim() || '',
+                isAnnouncementActive: document.getElementById('isAnnouncementActive')?.checked !== false,
+                freeShippingThreshold: document.getElementById('masterFreeShippingThreshold')?.value,
                 cashbackPercentage: document.getElementById('masterCashbackPercentage')?.value,
                 takaToPointsRatio: document.getElementById('masterTakaToPointsRatio')?.value,
                 pointsToTakaConversionRate: document.getElementById('masterPointsConversionRate')?.value,
@@ -4870,8 +4951,10 @@ function setupAdminSettingsForms() {
             try {
                 const result = await saveMasterSettings(payload);
                 if (result.success) {
-                    showToast('Success: Master settings saved!', 'success');
+                    showToast('Success: Master settings saved across store, checkout & dashboard!', 'success');
                     if (result.data) applyMasterSettingsToUI(result.data);
+                    // The delivery card shares the free-shipping threshold.
+                    fetchAdminSettings();
                 } else {
                     showToast(`Error: ${result.message || 'Failed to save master settings.'}`, 'error');
                 }
@@ -4982,6 +5065,8 @@ function setupAdminSettingsForms() {
                 if (result.success) {
                     showToast('Success: Delivery settings saved successfully!', 'success');
                     if (result.data) applyDeliverySettingsToUI(result.data);
+                    // Master Settings shares the free-shipping threshold.
+                    fetchMasterSettings();
                 } else {
                     showToast(`Error: ${result.message || 'Failed to save delivery settings.'}`, 'error');
                 }

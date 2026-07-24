@@ -58,6 +58,13 @@
             <p class="subtotal-row">Selected Items: <strong id="cartSelectedItemsCount">0 Items</strong></p>
             <p class="subtotal-row cart-summary-subtotal">Subtotal: <strong id="cartSubtotalAmount">৳0</strong></p>
 
+            <div class="free-shipping-progress" id="cartFreeShippingProgress" style="display:none;">
+                <p class="free-shipping-progress-text" id="cartFreeShippingProgressText"></p>
+                <div class="free-shipping-progress-track">
+                    <span class="free-shipping-progress-bar" id="cartFreeShippingProgressBar"></span>
+                </div>
+            </div>
+
             <button type="button" id="proceedToCheckoutBtn" class="checkout-redirect-btn">
                 Proceed to Checkout <i class="fa-solid fa-arrow-right"></i>
             </button>
@@ -72,6 +79,7 @@
     <script src="js/main.js"></script>
     <script src="js/productThumbnail.js"></script>
     <script src="js/stockAlert.js"></script>
+    <script src="js/shipping-estimator.js"></script>
     <script src="js/cart.js"></script>
 </body>
 </html>

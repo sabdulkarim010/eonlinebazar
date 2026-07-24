@@ -4,7 +4,7 @@
 
 ### A Fully Dynamic, Production-Ready Full-Stack E-Commerce Platform
 
-*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **master settings & category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, custom store branding, and a finance analytics dashboard.*
+*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **unified master store settings engine** (announcements, free-shipping threshold, cashback, loyalty points & refund windows), **dynamic free-shipping waiver & live dashboard announcements**, **category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, custom store branding, and a finance analytics dashboard.*
 
 ![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-3.3.0-success)
+![Version](https://img.shields.io/badge/Version-3.4.0-success)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 ![Maintained](https://img.shields.io/badge/Maintained-Yes-blue)
@@ -27,7 +27,11 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v3.4.0](#-whats-new--v340-unified-store-settings-free-shipping--orders-ux)
 - [What's New — v3.3.0](#-whats-new--v330-checkout-orders-rewards--admin-controls)
+- [Dynamic Store Settings & Admin Engine](#-dynamic-store-settings--admin-engine)
+- [Dynamic Free Shipping Threshold & Announcements](#-dynamic-free-shipping-threshold--dynamic-announcements)
+- [UI/UX & Responsive Orders List Refactoring](#-uiux--responsive-orders-list-refactoring)
 - [Smart Checkout Address Integration](#-smart-checkout-address-integration)
 - [Advanced Order Management & Tracking](#-advanced-order-management--tracking)
 - [Smart Tab Navigation & Contextual Routing (User Profile)](#-smart-tab-navigation--contextual-routing-user-profile)
@@ -66,8 +70,197 @@ Six things set it apart:
 2. **A Fortified Admin Security Suite** — multi-option Two-Factor Authentication (**Email OTP**, **Google Authenticator / TOTP**, and **SMS OTP**), **Geo-Fencing (Region Lock)**, brute-force **auto IP-blacklisting**, rate-limiting, and a full login-history / security-audit trail.
 3. **Smart Checkout & Order Lifecycle** — profile-first address pre-fill, **default-address auto-select**, toggleable saved-address cards, **location-based shipping & delivery date previews**, **AJAX promo-code recalculation**, guest-to-auth **cart merge**, customer cancellation/return reason modals, **1-click PDF invoice downloads**, admin return approval with wallet refunds, and a configurable **Safe Undo Refund** window with spent-funds safety checks.
 4. **Dynamic Delivery Charge & Address Management** — admin-configurable shipping rules, Bangladesh **District → Upazila/Thana** cascading address fields, checkout auto-fill, real-time fee preview, and **server-side price re-validation** before orders are persisted.
-5. **Master Settings & Category-Specific Rewards** — global cashback, points earning ratio, points-to-taka conversion, and refund-undo window controlled from one admin panel, with per-category cashback overrides and zero-value toggles to disable rewards platform-wide.
+5. **Unified Master Store Settings Engine** — one admin form controls announcement copy, **free-shipping threshold**, global cashback, points earning ratio, points-to-taka conversion, and refund-undo window; values sync to checkout, cart, order placement, and the customer dashboard in real time.
 6. **Time-Sensitive Coupon Automation** — precise hour/minute expiry scheduling, a server-side **ACTIVE / EXPIRED** status engine with bulk auto-expiry, checkout visibility synced to live availability, and hardened order-time coupon validation.
+
+---
+
+## 🆕 What's New — v3.4.0 (Unified Store Settings, Free Shipping & Orders UX)
+
+This release delivers a **single source of truth** for store-wide economics and messaging — fixing missing admin API routes, unifying fragmented settings forms, and wiring the free-shipping threshold through cart, checkout, and the customer dashboard.
+
+| Capability | Highlights |
+|------------|------------|
+| **⚙️ Unified Master Settings Engine** | One **Save Master Settings** action persists announcement text, free-shipping threshold, cashback %, points ratio, conversion rate, and refund-undo window together; legacy field aliases (`orderCashbackPercent`, `pointsPerTaka`, `freeShippingThreshold`, …) accepted on read/write. |
+| **🔌 Fixed & Extended Admin APIs** | New canonical endpoint **`POST /api/admin/master-settings/update`** plus legacy aliases (`/announcement-settings`, `/settings/announcement`); public **`GET /api/store/announcement`** for live storefront messaging. |
+| **🚚 Automated Free Shipping Waiver** | Admin-defined **`freeShippingThreshold`** (e.g. ৳2000) drives cart, checkout, and server-side order totals; subtotal ≥ threshold ⇒ **`shippingFee = 0`** and **`🎉 Free Shipping Unlocked!`** badge; below threshold shows a progress bar and *"Add ৳X more…"* hint. |
+| **📣 Dynamic Customer Dashboard Announcements** | **Latest Announcement** card on `/profile` pulls live DB settings — custom text or auto-generated copy from threshold + reward rates; live highlight chips for free shipping, cashback, and loyalty points. |
+| **📱 Ultra-Compact Order History UX** | **My Orders** refactored for maximum readability: Order ID + Date inline (`#EOB… • Date`); entire row/card is clickable; Invoice / Cancel / View Details actions moved to **Order Details** only. |
+
+> 📌 See the dedicated sections below for schema fields, API specifications, and workflow diagrams.
+
+---
+
+## ⚙️ Dynamic Store Settings & Admin Engine
+
+A centralized, admin-controlled **Store Settings Engine** that replaces fragmented announcement and rewards forms with one cohesive configuration surface — backed by a unified MongoDB singleton and field-level partial saves that preserve existing store configs.
+
+### Feature Overview
+
+#### Unified Master Settings Panel
+From **Admin Panel → Master Settings** (`/admin` → **Master Settings**), admins manage the singleton `Setting` document (`models/Setting.js`, `key: 'master'`) through **one form** and **one save button**:
+
+| Setting | Schema Field | Aliases (API) | Default | Purpose |
+|---------|--------------|---------------|---------|---------|
+| Announcement Message | `announcementText` | — | `''` | Custom dashboard banner copy; blank ⇒ auto-generated from live threshold + reward rates |
+| Free Shipping Threshold | `freeShippingThreshold` | `freeShippingMinAmount`, `freeShippingLimit` | falls back to delivery `Settings` | Merchandise subtotal at/above this value waives delivery fees store-wide |
+| Show Announcement | `isAnnouncementActive` | — | `true` | Toggle **Latest Announcement** visibility on every customer profile |
+| Order Cashback % | `cashbackPercentage` | `orderCashbackPercent` | `1` | Global wallet cashback credited after delivery |
+| Points per Taka Spent | `takaToPointsRatio` | `pointsPerTaka` | `100` | Taka spent to earn 1 loyalty point (e.g. ৳100 → 1 pt) |
+| Points Conversion Rate | `pointsToTakaConversionRate` | `pointsConversionRate` | `10` | Taka credited when converting 100 loyalty points |
+| Refund Undo Window | `refundUndoWindowHours` | `refundUndoWindow` | `72` | Hours admins may reverse an accidental wallet refund |
+
+> **Backward compatibility:** The legacy delivery document (`models/Settings.js`, `key: 'global'`) retains `freeShippingMinAmount`. Saving either **Master Settings** or **Delivery Settings** mirrors the threshold into both documents so checkout, announcements, and order placement never drift apart.
+
+#### Fixed Backend API Endpoints
+Previously missing routes that caused `"API endpoint not found!"` on stale server instances are now registered and aliased:
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/admin/master-settings` | Read unified settings payload (rewards + announcement + threshold) | Admin |
+| `POST` | `/api/admin/master-settings/update` | **Canonical unified save** — announcement, threshold, rewards & refund window | Admin |
+| `PUT` / `POST` | `/api/admin/master-settings` | Legacy save (rewards fields only; partial writes preserved) | Admin |
+| `GET` / `POST` | `/api/admin/announcement-settings` | Legacy announcement-only read/save | Admin |
+| `GET` / `POST` | `/api/admin/settings/announcement` | Legacy alias for announcement settings | Admin |
+
+All writes are **field-level partial updates** — sending only announcement fields does not wipe reward rates, and vice versa.
+
+#### Live Admin Previews
+- **Customer sees:** auto-generated announcement sentence mirroring the exact copy customers receive on `/profile`.
+- **Live preview:** sample order economics (*"৳1,000 order → X% cashback + ~Y pts · Refund undo: Nh · free-shipping note"*) updated as inputs change.
+
+### Architectural Workflow
+
+```mermaid
+flowchart TD
+    A[Admin opens Master Settings] --> B[Single form: announcement + threshold + rewards]
+    B --> C[POST /api/admin/master-settings/update]
+    C --> D[(Setting key: master)]
+    C --> E[(Settings key: global — threshold mirror)]
+    D --> F[GET /api/store/delivery-settings]
+    D --> G[GET /api/store/announcement]
+    D --> H[GET /api/customer/profile]
+    F --> I[Cart + Checkout shipping math]
+    G --> J[Public announcement payload]
+    H --> K[Profile Latest Announcement widget]
+    I --> L{subtotal ≥ threshold?}
+    L -->|Yes| M[shippingFee = 0 + Free Shipping badge]
+    L -->|No| N[Standard zone rate + progress hint]
+```
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `controllers/masterSettingsController.js` | Unified read/save, alias parsing, delivery threshold mirror |
+| `models/Setting.js` | Master singleton schema (`freeShippingThreshold`, announcement fields, reward rates) |
+| `utils/announcementSettings.js` | Announcement normalization, display-text builder, highlight chips |
+| `utils/rewardSettings.js` | Cashback/points math, delivery reward credit, refund undo window |
+| `client/admin.html` | Unified Master Settings form (single **Save Master Settings** button) |
+| `client/js/admin.js` | Form wiring, live previews, `POST /master-settings/update` save handler |
+
+---
+
+## 🚚 Dynamic Free Shipping Threshold & Dynamic Announcements
+
+Store-wide free-shipping rules and customer-facing announcements are now driven by the same admin-configured threshold — eliminating the previous split between a text-only "discount/offer" field and the delivery charge document.
+
+### Automated Free Shipping Waiver
+
+#### Server-Side Authority (`utils/deliveryChargeService.js`)
+- `getFreeShippingProgress(settings, subtotal)` is the **single rule** for waiver eligibility — used by order placement, shipping quotes, and all storefront calculators.
+- `computeDeliveryCharge()` returns **`0`** when progress reports `unlocked: true` (threshold `0` = free shipping on every order).
+- Public **`GET /api/store/shipping-quote?district=&subtotal=`** now includes a `freeShipping` object: `{ threshold, subtotal, unlocked, remaining, progressPercent }`.
+
+#### Cart & Checkout Integration
+| Surface | Behavior |
+|---------|----------|
+| **`/cart`** | Live progress bar — *"Add ৳X more to unlock FREE shipping"* or **`🎉 Free Shipping Unlocked!`** |
+| **`/checkout`** | Delivery charge hidden when waived; success badge **`🎉 Free Shipping Unlocked!`**; progress track turns green at threshold |
+| **Order placement** | Backend re-computes delivery from live `Settings` + master threshold — client-supplied `shippingFee` never trusted |
+
+Threshold resolution order: **`Setting.freeShippingThreshold`** → legacy **`Settings.freeShippingMinAmount`** → legacy **`announcementDiscount`** numeric fallback → platform default.
+
+### Dynamic Customer Dashboard Announcements
+
+The **Latest Announcement** card on the customer profile dashboard (`client/profile.html`, served at `/profile`) renders live values from MongoDB — not hardcoded placeholder copy.
+
+#### Display Logic (`utils/announcementSettings.js`)
+1. If `isAnnouncementActive === false` → card hidden (`displayText: null`).
+2. If `announcementText` is set → show custom admin copy verbatim.
+3. Otherwise → auto-generate: *"Enjoy Free Shipping on orders over ৳[threshold]!"* plus live cashback/points clauses when those rates are > 0.
+
+#### Live Highlight Chips
+Below the announcement sentence, the profile widget renders compact chips sourced from admin settings:
+
+| Chip Key | Example Value |
+|----------|----------------|
+| `freeShipping` | `Orders over ৳2,000` |
+| `cashback` | `3% per delivered order` |
+| `points` | `1 point per ৳50` |
+
+Data arrives via **`GET /api/customer/profile`** (`profile.announcement`) and the public **`GET /api/store/announcement`** endpoint.
+
+### Related API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/store/delivery-settings` | Rates, home city, resolved `freeShippingThreshold` | Public |
+| `GET` | `/api/store/shipping-quote` | Zone, fee, delivery estimate, `freeShipping` progress | Public |
+| `GET` | `/api/store/announcement` | Live announcement text, highlights, reward snapshot | Public |
+| `GET` | `/api/customer/profile` | Profile payload includes `announcement` + `deliverySettings` | User |
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `utils/deliveryChargeService.js` | Threshold resolution, `getFreeShippingProgress`, locked order totals |
+| `utils/announcementSettings.js` | Display text builder, highlight chips, public payload |
+| `client/js/checkout.js` | Badge rendering, progress bar, `calculateDeliveryCharge()` |
+| `client/js/cart.js` | Cart summary free-shipping progress hint |
+| `client/js/shipping-estimator.js` | Shared client-side progress + quote helper |
+| `client/js/profile.js` | `applyAnnouncementUI()` — text + highlight chips |
+
+---
+
+## 📱 UI/UX & Responsive Orders List Refactoring
+
+A focused refactor of the customer **My Orders** experience — trading cluttered per-row action buttons for a cleaner, tap-friendly list that routes all deep actions through **Order Details**.
+
+### Ultra-Compact Order History View
+
+#### Inline Order ID & Date
+- Order rows/cards now show **`#EOB… • Date`** on a single line in the ID column (`order-card-header-meta`), eliminating redundant vertical whitespace on mobile.
+- Desktop retains a dedicated Date column; mobile collapses date into the ID cell for a tighter card layout.
+
+#### Clickable Rows — Actions Moved to Order Details
+- Every order row uses **`clickable-order-row order-card-row`** with `tabindex="0"`, `role="link"`, and keyboard Enter/Space support.
+- **Removed from list view:** inline Invoice download, Cancel, and View Details buttons (`buildOrderActionsHtml()` returns empty; actions column is visually blank).
+- **Retained in Order Details** (`/order-details`): PDF invoice download, order cancellation (Pending/Processing), return request (delivered window), visual status timeline, and contextual smart back navigation.
+
+#### Responsive Layout
+- `orders-table--responsive` CSS transforms the desktop table into stacked mobile cards with `data-label` attributes for accessible field labels.
+- Product preview thumbnails, quantity meta, and total amount blocks are tightened for high information density without sacrificing readability.
+
+### Navigation Workflow
+
+```mermaid
+flowchart LR
+    A[My Orders list] -->|Click entire row| B[/order-details?id=…&from=orders]
+    B --> C[Download Invoice]
+    B --> D[Cancel / Return actions]
+    B --> E[Status timeline]
+    B -->|Back| F[/profile?tab=orders]
+```
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `client/js/profile.js` | `buildOrderRowHtml()`, clickable-row delegation, empty list actions |
+| `client/js/order-details.js` | Invoice, cancel/return controls, status timeline, smart back button |
+| `client/css/profile.css` | Inline ID/date meta, compact card rows, responsive table transforms |
+| `client/css/order-details.css` | Order detail action bar, invoice button, timeline layout |
 
 ---
 
@@ -156,7 +349,8 @@ End-to-end order lifecycle management for customers and admins — from responsi
 
 #### Mobile-Responsive Order Views
 - The customer profile **My Orders** table uses `orders-table--responsive` CSS (`client/css/profile.css`) to transform rows into **stacked mobile cards** with `data-label` attributes for accessible field labels.
-- Desktop layouts retain a **compact, information-dense table** with stacked product lines per order, status badges, and inline action buttons.
+- **v3.4.0:** Order ID and date render **inline** (`#EOB… • Date`) to save vertical space; the **entire row is clickable** and navigates to Order Details — list-level Invoice / Cancel / View Details buttons removed for a cleaner interface (actions live on `/order-details` only).
+- Desktop layouts retain a **compact, information-dense table** with product preview thumbnails, status badges, and an intentionally empty actions column.
 - Admin **Live Orders** (`client/js/admin.js`) renders optimized status cells with contextual badges and action controls.
 
 #### Customer Order Cancellation
@@ -279,8 +473,8 @@ A unified checkout-first flow for shipping, promotions, and cart persistence —
 
 #### Dynamic Shipping & Delivery Calculation (Checkout)
 - Integrated **location-based shipping charges** (Inside/Outside Dhaka rates from admin `Settings`) and **real-time estimated delivery date ranges** directly into the Checkout workflow.
-- **`client/js/shipping-estimator.js`** mirrors server-side `deliveryChargeService.js` + `deliveryEstimateService.js` — computing zone (`inside` / `outside`), fee, free-shipping eligibility, and **business-day windows** (2–3 days inside city · 4–6 days outside; Friday/Saturday excluded for Bangladesh).
-- District changes on `/checkout` instantly recalculate delivery charge, grand total, and the **`#checkoutDeliveryDateRange`** badge — no full-page reload.
+- **`client/js/shipping-estimator.js`** mirrors server-side `deliveryChargeService.js` + `deliveryEstimateService.js` — computing zone (`inside` / `outside`), fee, **`getFreeShippingProgress()`** eligibility, and **business-day windows** (2–3 days inside city · 4–6 days outside; Friday/Saturday excluded for Bangladesh).
+- District changes on `/checkout` instantly recalculate delivery charge, grand total, the **`#checkoutDeliveryDateRange`** badge, and the **free-shipping progress bar** — no full-page reload.
 - Public **`GET /api/store/shipping-quote?district=&subtotal=`** returns a server-authoritative quote (zone, `deliveryCharge`, `estimatedDelivery`) for optional AJAX previews; order placement still re-validates on the backend.
 - Streamlined the **Cart view UI** by keeping **district selection** and **promo codes exclusively on the Checkout page** for a cleaner, faster cart experience.
 
@@ -363,7 +557,7 @@ Customer profile hardening and order receipt tooling — secure credential manag
 - Ensured default addresses **automatically sync and pre-fill during the Checkout flow** for a faster purchase experience — `autoSelectDefaultSavedAddress()` in `client/js/checkout.js` selects the default card on load; default addresses display a **Default** badge in both checkout picker cards and the profile address list.
 
 #### 1-Click PDF Invoice Generation & Download
-- Integrated **dynamic PDF invoice creation** accessible from both the **`My Orders`** profile tab and the **`Order Details`** view — no separate print modal required for customers.
+- Integrated **dynamic PDF invoice creation** accessible from the **`Order Details`** view (reachable by clicking any order row in **My Orders**) — no separate print modal required for customers.
 - Generates branded, professional PDF receipts (**`Invoice-ORDER_ID.pdf`**) featuring itemized billing, customer shipping info, shipping fees, discounts, and **payment status** ready for instant download or printing.
 - Server-side generation uses **`pdfkit`** (`utils/invoicePdf.js`) with an EOnlineBazar branded header, line-item table (product, qty, unit price, line total), subtotal/discount/delivery/grand-total summary, and zone-aware payment status labels.
 - **`GET /api/orders/:id/invoice`** enforces order ownership via `verifyUser`; the client helper **`client/js/invoiceDownload.js`** streams the blob and triggers a browser download with loading/disabled state on the action button.
@@ -380,7 +574,7 @@ flowchart TD
     F --> G[User enters OTP in modal]
     G --> H[POST verify-contact-otp → commit pending contact]
 
-    I[My Orders or Order Details] --> J[Click Download Invoice]
+    I[My Orders row click → Order Details] --> J[Click Download Invoice]
     J --> K[GET /api/orders/:id/invoice]
     K --> L{Owner match?}
     L -->|Yes| M[generateOrderInvoicePdf → Invoice-ORDER_ID.pdf]
@@ -576,6 +770,8 @@ flowchart LR
 
 ## ⚙️ Master Settings & Dynamic Rewards
 
+> **v3.4.0 update:** Master Settings is now part of the [Unified Store Settings Engine](#-dynamic-store-settings--admin-engine). The section below documents reward economics; announcement + free-shipping threshold details live in the dedicated sections above.
+
 A centralized, admin-controlled rewards economics engine with global defaults, per-category cashback overrides, and zero-value toggles for instant platform-wide disable.
 
 ### Feature Overview
@@ -589,8 +785,11 @@ From **Admin Panel → Master Settings**, admins configure the singleton `Settin
 | `takaToPointsRatio` | `100` | Taka spent per 1 loyalty point earned (e.g. ৳100 → 1 pt) |
 | `pointsToTakaConversionRate` | `10` | Taka credited per 100 points converted |
 | `refundUndoWindowHours` | `72` | Hours admins may undo an accidental wallet refund |
+| `freeShippingThreshold` | mirrors delivery `Settings` | Canonical free-shipping waiver threshold (synced bidirectionally) |
+| `announcementText` | `''` | Optional custom **Latest Announcement** copy on customer profiles |
+| `isAnnouncementActive` | `true` | Show/hide the announcement card platform-wide |
 
-Changes are persisted via `PUT /api/admin/master-settings` and logged to the **Security & Audit** trail.
+Changes are persisted via **`POST /api/admin/master-settings/update`** (canonical) or legacy `PUT /api/admin/master-settings`, and logged to the **Security & Audit** trail.
 
 #### Category-Specific Cashback Override
 - Each category (`models/category.js`) may define `customCashbackPercentage` (0–100) or leave it `null`.
@@ -611,8 +810,11 @@ Changes are persisted via `PUT /api/admin/master-settings` and logged to the **S
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| `GET` | `/api/admin/master-settings` | Read global reward & refund settings | Admin |
-| `PUT` | `/api/admin/master-settings` | Update master settings | Admin |
+| `GET` | `/api/admin/master-settings` | Read unified reward, announcement & threshold settings | Admin |
+| **`POST`** | **`/api/admin/master-settings/update`** | **Canonical unified save (announcement + threshold + rewards)** | **Admin** |
+| `PUT` / `POST` | `/api/admin/master-settings` | Legacy save (rewards fields; partial writes) | Admin |
+| `GET` / `POST` | `/api/admin/announcement-settings` | Legacy announcement-only read/save | Admin |
+| `GET` / `POST` | `/api/admin/settings/announcement` | Legacy announcement alias | Admin |
 | `POST` | `/api/categories` | Create category with optional `customCashbackPercentage` | Admin |
 | `PUT` | `/api/categories/:id` | Update category cashback override | Admin |
 
@@ -620,9 +822,10 @@ Changes are persisted via `PUT /api/admin/master-settings` and logged to the **S
 
 | File | Role |
 |------|------|
-| `controllers/masterSettingsController.js` | Admin CRUD for master settings |
+| `controllers/masterSettingsController.js` | Unified admin read/save, alias parsing, delivery threshold mirror |
 | `utils/rewardSettings.js` | Normalization, cashback/points math, delivery reward credit, refund undo window |
-| `models/Setting.js` | Singleton master settings schema |
+| `utils/announcementSettings.js` | Announcement normalization, display text, highlight chips |
+| `models/Setting.js` | Singleton master settings schema (rewards + threshold + announcement) |
 | `models/category.js` | Per-category `customCashbackPercentage` field |
 | `routes/categoryRoutes.js` | Category cashback parse & validation |
 
@@ -904,7 +1107,8 @@ A comprehensive, highly automated shipping and address pipeline built for Bangla
 - Shipping fees are **calculated dynamically** — there is no manual "Inside City / Outside City" selector for customers.
 - The system compares the customer's **shipping district** against the admin-configured **Shop Home City**.
 - **Inside-city rate** applies when districts match; **outside-city rate** applies otherwise.
-- If the merchandise **subtotal meets or exceeds** the admin's **Free Shipping Minimum Amount**, delivery charge is **৳0** (set threshold to `0` to always offer free shipping).
+- If the merchandise **subtotal meets or exceeds** the admin's **Free Shipping Threshold** (`Setting.freeShippingThreshold`, mirrored to `Settings.freeShippingMinAmount`), delivery charge is **৳0** (set threshold to `0` to always offer free shipping).
+- **`getFreeShippingProgress()`** in `utils/deliveryChargeService.js` is the single waiver rule shared by cart, checkout, shipping quotes, and order placement.
 
 #### Profile Address Auto-Fill
 - Customers save a **layered address** on their profile:
@@ -922,7 +1126,8 @@ From **Admin Panel → Settings**, admins configure delivery rules without code 
 | `shopHomeCity` | The shop's home district (reference for inside/outside matching) | `Dhaka` |
 | `deliveryInsideCity` | Shipping fee when customer district matches shop home city | `৳60` |
 | `deliveryOutsideCity` | Shipping fee for all other districts | `৳120` |
-| `freeShippingMinAmount` | Merchandise subtotal threshold for free delivery | `৳1000` |
+| `freeShippingMinAmount` | Merchandise subtotal threshold for free delivery (mirrored from Master Settings) | `৳1000` |
+| `freeShippingThreshold` | Resolved canonical threshold returned in public API payloads | same as above |
 
 Changes are persisted in the singleton `Settings` document and exposed to the storefront via a public API.
 
@@ -1045,7 +1250,9 @@ flowchart LR
 Both checkout preview and order placement use the same helpers:
 
 ```javascript
-resolveDeliveryZone(settings, customerDistrict)   // 'inside' | 'outside'
+getDeliverySettings()                              // resolves threshold from Setting + Settings
+getFreeShippingProgress(settings, subtotal)        // { threshold, unlocked, remaining, progressPercent }
+resolveDeliveryZone(settings, customerDistrict)    // 'inside' | 'outside'
 computeDeliveryCharge(settings, { customerDistrict, subtotal })
 buildLockedOrderTotals({ itemSubtotal, discountAmount, deliveryCharge })
 ```
@@ -1058,8 +1265,9 @@ District normalization and validation live in `utils/bangladeshDistricts.js`; up
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| `GET` | `/api/store/delivery-settings` | Public delivery rules for checkout preview | Public |
-| `GET` | `/api/store/shipping-quote` | District + subtotal → zone, fee, and estimated delivery window | Public |
+| `GET` | `/api/store/delivery-settings` | Public delivery rules for checkout preview (includes resolved threshold) | Public |
+| `GET` | `/api/store/shipping-quote` | District + subtotal → zone, fee, estimated delivery window, `freeShipping` progress | Public |
+| `GET` | `/api/store/announcement` | Live announcement text, highlight chips, reward snapshot | Public |
 | `GET` | `/api/store/districts` | List of valid Bangladesh districts | Public |
 | `GET` | `/api/admin/settings` | Admin: read delivery settings | Admin |
 | `PUT` | `/api/admin/settings` | Admin: update delivery settings | Admin |
@@ -1119,9 +1327,9 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 
 #### Product & Order Systems
 - **🛍️ Product Catalog** — Up to 10 images, categories, brand, variations, highlights, stock levels, **selling price + buying price** (live profit preview), and detailed descriptions.
-- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals, dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, and **1-click PDF invoice download** from My Orders and Order Details.
+- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **clickable order rows** (v3.4.0) with inline ID/date meta, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals (actions on detail view only), dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, and **1-click PDF invoice download** from Order Details.
 - **🔄 Admin Return & Refund Pipeline** — Approve returns with automatic wallet credit, transaction history logging, and **Safe Undo Refund** within a configurable hour window (spent-funds safety check).
-- **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, free-shipping threshold, **real-time delivery date estimates** on checkout, **locked server-side totals** on every order, and district-aware invoices.
+- **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, **unified free-shipping threshold** (Master Settings ↔ Delivery Settings mirror), **real-time free-shipping progress** on cart/checkout, **real-time delivery date estimates** on checkout, **locked server-side totals** on every order, and district-aware invoices.
 - **📍 Smart Checkout Address Integration** — Profile-first checkout pre-fill, toggleable saved-address radio cards (select / unselect / revert), manual override with **Save to profile** sync, and cascading Bangladesh location dropdowns.
 - **🛒 Shopping Cart & Checkout Enhancements** — Server-synced cart with quantity updates, selection toggles, **real-time low-stock FOMO badges** and out-of-stock quantity guardrails, **checkout-only district & promo UI**, **AJAX coupon recalculation** (flat/percentage), **guest-cart merge** on login/OAuth (variant-aware quantity increment), post-order cleanup, and a **compact divider-line summary** in the profile dashboard.
 - **⭐ Reviews & Ratings** — Star ratings and reviews with optional photo upload; averages update automatically.
@@ -1152,8 +1360,8 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 - **Custom Store Branding** — live server-side Logo & Favicon upload with instant dynamic previews (Cloudinary).
 - **Custom Currency Formatting** — Currency Code (`BDT`) & Symbol (`৳`) applied to every admin price column.
 - **Timezone Synchronization** — dynamically updates the admin dashboard header's **live digital clock**.
-- **Delivery Charge Control** — configure Shop Home City, inside/outside rates, and free-shipping threshold from the admin settings panel.
-- **Master Settings Panel** — global cashback %, points earning ratio, points-to-taka conversion rate, and refund undo window hours — all with live preview.
+- **Delivery Charge Control** — configure Shop Home City, inside/outside rates, and free-shipping threshold from the admin settings panel (synced with Master Settings).
+- **Unified Master Settings Panel** — single form for announcement text, free-shipping threshold, global cashback %, points earning ratio, points-to-taka conversion rate, and refund undo window — all with live preview.
 - **Category Cashback Overrides** — per-category custom cashback percentages with seamless fallback to global defaults.
 - **Account & Profile** — username/password change (current-password gated), display name, store name, and admin avatar upload.
 
@@ -1215,7 +1423,8 @@ eonlinebazar-fullstack/
 │   ├── wishlist.js                    # Wishlist item subdocument schema (productId, name, price, image…)
 │   ├── userSession.js                 # Active customer device / login sessions
 │   ├── admin.js                       # Admin account, 2FA config & platform settings (currency, timezone, branding)
-│   ├── Settings.js                    # Singleton delivery charge, free-shipping & master reward settings
+│   ├── Settings.js                    # Singleton delivery charge settings (key: global)
+│   ├── Setting.js                     # Singleton master store settings (key: master — rewards, threshold, announcement)
 │   ├── adminSession.js                # Active admin device / login sessions
 │   ├── loginAttempt.js                # Login history & failed/blocked attempt audit
 │   ├── blacklistedIp.js               # Auto + manual IP bans (TTL-expiring)
@@ -1235,8 +1444,8 @@ eonlinebazar-fullstack/
 │   ├── wishlistController.js          # Wishlist toggle (add/remove) with product snapshot enrichment
 │   ├── adminController.js             # Admin customers, dashboard analytics, platform branding, logs, profile
 │   ├── settingsController.js          # Delivery charge & free-shipping settings (admin API)
-│   ├── masterSettingsController.js    # Global cashback, points, conversion & refund-undo settings
-│   ├── storeController.js             # Public storefront branding + delivery settings + districts
+│   ├── masterSettingsController.js    # Unified master settings — announcement, threshold, rewards & refund window
+│   ├── storeController.js             # Public storefront branding, delivery settings, shipping quotes & announcements
 │   ├── adminSecurityController.js     # 2-step login, admin sessions, IP blacklist, login history
 │   ├── twoFactorController.js         # Self-service 2FA manager (Email / TOTP / SMS)
 │   ├── productController.js           # Product CRUD + reviews
@@ -1274,8 +1483,9 @@ eonlinebazar-fullstack/
 │   ├── deviceParser.js                # Client IP + geo-location + User-Agent fingerprinting
 │   ├── mailer.js                      # SMTP transport + branded 2FA OTP email template
 │   ├── smsSender.js                   # SMS 2FA delivery abstraction (console/Twilio/custom)
-│   ├── deliveryChargeService.js       # Shared delivery zone + fee + locked-total computation
+│   ├── deliveryChargeService.js       # Shared delivery zone + fee + free-shipping progress + locked totals
 │   ├── deliveryEstimateService.js     # Business-day delivery window estimates by shipping zone
+│   ├── announcementSettings.js        # Live announcement text, highlight chips & public payload builder
 │   ├── cartMergeService.js            # Variant-aware guest → user cart merge (login + API)
 │   ├── applicationTime.js             # Centralized server clock + platform timezone for coupon expiry
 │   ├── rewardSettings.js              # Cashback/points math, category overrides, delivery rewards, refund undo window
@@ -1639,8 +1849,11 @@ Base URL: `http://localhost:3000`
 | `GET`  | `/api/admin/customers/:id/orders` | Customer order history | Admin |
 | `GET`  | `/api/admin/settings` | Delivery charge settings (shop home city, rates, free-shipping threshold) | Admin |
 | `PUT`  | `/api/admin/settings` | Save delivery charge settings | Admin |
-| **`GET`** | **`/api/admin/master-settings`** | **Global cashback, points ratio, conversion rate & refund undo window** | **Admin** |
-| **`PUT`** | **`/api/admin/master-settings`** | **Save master reward & refund settings** | **Admin** |
+| **`GET`** | **`/api/admin/master-settings`** | **Unified cashback, points, conversion, refund window, announcement & free-shipping threshold** | **Admin** |
+| **`POST`** | **`/api/admin/master-settings/update`** | **Canonical unified save — announcement + threshold + rewards** | **Admin** |
+| **`PUT` / `POST`** | **`/api/admin/master-settings`** | **Legacy save (rewards fields; partial writes preserved)** | **Admin** |
+| **`GET` / `POST`** | **`/api/admin/announcement-settings`** | **Legacy announcement-only read/save** | **Admin** |
+| **`GET` / `POST`** | **`/api/admin/settings/announcement`** | **Legacy announcement alias** | **Admin** |
 | `GET`  | `/api/admin/platform-settings` | Platform & profile settings (currency, timezone, branding…) | Admin |
 | `PUT`  | `/api/admin/platform-settings` | Save platform settings (current-password gated) | Admin |
 | `POST` | `/api/admin/upload-branding` | Upload store logo or favicon (`assetType`) | Admin |
@@ -1652,8 +1865,9 @@ Base URL: `http://localhost:3000`
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
 | `GET`  | `/api/store/branding` | Store name, logo & favicon URLs | Public |
-| `GET`  | `/api/store/delivery-settings` | Delivery rules for checkout (rates, home city, free-shipping threshold) | Public |
-| `GET`  | `/api/store/shipping-quote` | District + subtotal → zone, delivery charge, estimated delivery window | Public |
+| `GET`  | `/api/store/delivery-settings` | Delivery rules for checkout (rates, home city, resolved free-shipping threshold) | Public |
+| `GET`  | `/api/store/shipping-quote` | District + subtotal → zone, delivery charge, estimated delivery window, free-shipping progress | Public |
+| **`GET`** | **`/api/store/announcement`** | **Live announcement text, highlight chips & reward snapshot** | **Public** |
 | `GET`  | `/api/store/districts` | Valid Bangladesh district list | Public |
 
 ### 📊 Finance & Analytics
@@ -1745,6 +1959,26 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 ---
 
 ## 📜 Changelog
+
+### `v3.4.0` — Unified Store Settings, Free Shipping & Orders UX
+
+**⚙️ Dynamic Store Settings & Admin Engine**
+- Merged **Announcement & Banner** and **Rewards & Refund** forms into one **Master Settings** panel with a single **Save Master Settings** action.
+- Extended `models/Setting.js` with `freeShippingThreshold`, `announcementText`, and `isAnnouncementActive`; accepts API aliases (`orderCashbackPercent`, `pointsPerTaka`, `pointsConversionRate`, `refundUndoWindow`).
+- Fixed and registered missing admin routes — canonical **`POST /api/admin/master-settings/update`** plus legacy aliases (`/announcement-settings`, `/settings/announcement`).
+- Field-level partial saves preserve untouched settings when legacy endpoints are used.
+
+**🚚 Dynamic Free Shipping Threshold & Announcements**
+- Connected admin **`freeShippingThreshold`** directly to cart, checkout, and server-side order totals via shared **`getFreeShippingProgress()`**.
+- Subtotal ≥ threshold ⇒ **`shippingFee = 0`**, **`🎉 Free Shipping Unlocked!`** badge, and green progress track; below threshold shows remaining spend hint on cart and checkout.
+- Bidirectional mirror between Master Settings and Delivery Settings keeps `Setting.freeShippingThreshold` and `Settings.freeShippingMinAmount` in sync.
+- **Latest Announcement** on `/profile` (`client/profile.html`) pulls live DB values — custom text or auto-generated copy from threshold + reward rates; live highlight chips for free shipping, cashback, and points.
+- New public endpoint **`GET /api/store/announcement`**; profile API includes `announcement` + `deliverySettings` payloads.
+
+**📱 UI/UX & Responsive Orders List Refactoring**
+- Refactored **My Orders** for ultra-compact mobile/desktop layouts — Order ID and date inline (`#EOB… • Date`).
+- Removed cluttered list-level action buttons (Invoice, Cancel, View Details); **entire order row/card is clickable** to open Order Details.
+- Invoice download and order cancellation/return controls retained strictly inside **`/order-details`**.
 
 ### `v3.3.0` — Checkout, Orders, Rewards & Admin Controls
 

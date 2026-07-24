@@ -3137,9 +3137,70 @@ a {
     color: #1e293b;
 }
 
+.master-settings-grid .form-group-full {
+    grid-column: 1 / -1;
+}
+
+.master-settings-grid textarea {
+    width: 100%;
+    min-height: 92px;
+    resize: vertical;
+}
+
+.checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    color: #1e293b;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #2563eb;
+}
+
+/* Shared footer for the unified "Save Master Settings" action */
+.master-settings-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 22px;
+    padding: 18px 20px;
+    border-radius: 14px;
+    border: 1px solid rgba(37, 99, 235, 0.18);
+    background: rgba(37, 99, 235, 0.04);
+}
+
+.master-settings-actions-hint {
+    margin: 0;
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.5;
+}
+
+.master-settings-actions-hint i {
+    color: #2563eb;
+    margin-right: 6px;
+}
+
+.master-settings-actions .btn-submit {
+    margin: 0;
+    white-space: nowrap;
+}
+
 @media (max-width: 900px) {
     .master-settings-grid {
         grid-template-columns: 1fr;
+    }
+
+    .master-settings-actions {
+        flex-direction: column;
+        align-items: stretch;
     }
 }
 .form-hint { display: block; margin-top: 6px; font-size: 12px; color: #64748b; line-height: 1.45; }

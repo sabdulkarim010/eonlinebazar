@@ -342,6 +342,52 @@ File Name: css/checkout.css
     text-transform: uppercase;
 }
 
+/* Live progress toward the admin-configured free-shipping threshold */
+.free-shipping-progress {
+    margin: 10px 0 4px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px dashed rgba(249, 115, 22, 0.35);
+    background: rgba(249, 115, 22, 0.06);
+}
+
+.free-shipping-progress.is-unlocked {
+    border-color: rgba(21, 128, 61, 0.35);
+    background: rgba(34, 197, 94, 0.08);
+}
+
+.free-shipping-progress-text {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #9a3412;
+    line-height: 1.45;
+}
+
+.free-shipping-progress.is-unlocked .free-shipping-progress-text {
+    color: #15803d;
+}
+
+.free-shipping-progress-track {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.3);
+    overflow: hidden;
+}
+
+.free-shipping-progress-bar {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #fb923c, #f97316);
+    transition: width 0.35s ease;
+}
+
+.free-shipping-progress.is-unlocked .free-shipping-progress-bar {
+    background: linear-gradient(90deg, #4ade80, #16a34a);
+}
+
 @media (max-width: 640px) {
     .delivery-location-selector {
         grid-template-columns: 1fr;

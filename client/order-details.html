@@ -14,10 +14,6 @@
         <div class="header-section">
             <a id="smart-back-btn" href="/profile" class="back-btn" aria-label="Back" style="text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: #2563eb;">← Back</a>
             <h2>Order Details</h2>
-            <div class="header-actions">
-                <button type="button" id="download-invoice-btn" class="btn-invoice-download hidden"><i class="fa-solid fa-file-pdf"></i> Download Invoice</button>
-                <a href="#" id="track-order-btn" class="track-btn hidden"><i class="fa-solid fa-truck-fast"></i> Track Order</a>
-            </div>
         </div>
 
         <div id="loading-spinner" class="text-center">
@@ -32,6 +28,21 @@
                     <span id="order-status" class="status-badge">Pending</span>
                 </div>
                 <p class="order-date">Placed on: <span id="order-date">Loading...</span></p>
+            </div>
+
+            <div class="order-action-bar hidden" id="order-action-bar" aria-label="Order actions">
+                <button type="button" id="download-invoice-btn" class="od-action-btn od-action-invoice hidden">
+                    <i class="fa-solid fa-file-pdf" aria-hidden="true"></i> Download Invoice
+                </button>
+                <a href="#" id="track-order-btn" class="od-action-btn od-action-track hidden">
+                    <i class="fa-solid fa-truck-fast" aria-hidden="true"></i> Track Order
+                </a>
+                <button type="button" id="order-cancel-btn" class="od-action-btn od-action-cancel hidden">
+                    <i class="fa-solid fa-ban" aria-hidden="true"></i> Cancel Order
+                </button>
+                <button type="button" id="order-return-btn" class="od-action-btn od-action-return hidden">
+                    <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Return Item
+                </button>
             </div>
 
             <div id="order-cancelled-banner" class="order-cancelled-banner hidden" role="alert" aria-live="polite"></div>
@@ -92,6 +103,36 @@
             </div>
 
         </div> 
+    </div>
+
+    <div id="order-action-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="order-action-modal-title">
+        <div class="modal-content order-action-modal-content">
+            <div class="modal-header">
+                <h3 id="order-action-modal-title"><i class="fa-solid fa-circle-question"></i> <span id="order-action-modal-title-text">Order Action</span></h3>
+                <span id="close-order-action-modal" class="close-btn" title="Close">&times;</span>
+            </div>
+
+            <form id="order-action-form" class="order-action-form" novalidate>
+                <p class="order-action-lead">Please provide a reason for this action.</p>
+
+                <label for="order-action-reason-select" class="order-action-label">Select a reason</label>
+                <select id="order-action-reason-select" class="order-action-select" required aria-label="Reason for action">
+                    <option value="">Choose a reason...</option>
+                </select>
+
+                <div class="order-action-other-group hidden" id="order-action-other-group" aria-hidden="true">
+                    <label for="order-action-other-reason" class="order-action-label">Tell us more</label>
+                    <textarea id="order-action-other-reason" class="order-action-textarea" rows="4" placeholder="Type your custom reason here..." aria-label="Custom reason"></textarea>
+                </div>
+
+                <div class="order-action-form-actions">
+                    <button type="button" class="od-action-btn od-action-muted" id="order-action-close-btn">Close</button>
+                    <button type="submit" class="od-action-btn od-action-primary" id="order-action-confirm-btn">
+                        <i class="fa-solid fa-check" aria-hidden="true"></i> Confirm
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <div id="review-modal" class="modal-overlay hidden">

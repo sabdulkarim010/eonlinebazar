@@ -81,11 +81,19 @@
                 .then((res) => res.json())
                 .then((data) => {
                     if (data && data.success && data.data) {
+                        const rawThreshold = data.data.freeShippingThreshold ?? data.data.freeShippingMinAmount;
+                        // 0 is a valid threshold (free shipping for everyone),
+                        // so only fall back when the value is missing entirely.
+                        const threshold = Number.isFinite(Number(rawThreshold))
+                            ? Number(rawThreshold)
+                            : DEFAULT_SETTINGS.freeShippingMinAmount;
+
                         cachedSettings = {
                             shopHomeCity: data.data.shopHomeCity || DEFAULT_SETTINGS.shopHomeCity,
                             deliveryInsideCity: Number(data.data.deliveryInsideCity) || DEFAULT_SETTINGS.deliveryInsideCity,
                             deliveryOutsideCity: Number(data.data.deliveryOutsideCity) || DEFAULT_SETTINGS.deliveryOutsideCity,
-                            freeShippingMinAmount: Number(data.data.freeShippingMinAmount) || DEFAULT_SETTINGS.freeShippingMinAmount
+                            freeShippingMinAmount: threshold,
+                            freeShippingThreshold: threshold
                         };
                         return cachedSettings;
                     }
@@ -115,16 +123,38 @@
         return normalizeZone(zone) === 'outside' ? 'Outside City' : 'Inside City';
     }
 
+    /**
+     * How close a subtotal is to the admin-configured free-shipping threshold.
+     * Shared by the cart hint and the checkout badge.
+     */
+    function getFreeShippingProgress(settings, subtotal = 0) {
+        const config = { ...DEFAULT_SETTINGS, ...(settings || {}) };
+        const rawThreshold = Number(config.freeShippingThreshold ?? config.freeShippingMinAmount);
+        const threshold = Number.isFinite(rawThreshold) && rawThreshold > 0 ? rawThreshold : 0;
+        const merchandiseSubtotal = Math.max(0, Number(subtotal) || 0);
+
+        if (threshold === 0) {
+            return { threshold: 0, subtotal: merchandiseSubtotal, unlocked: true, remaining: 0, progressPercent: 100 };
+        }
+
+        const unlocked = merchandiseSubtotal >= threshold;
+        return {
+            threshold,
+            subtotal: merchandiseSubtotal,
+            unlocked,
+            remaining: unlocked ? 0 : roundMoney(threshold - merchandiseSubtotal),
+            progressPercent: Math.min(100, Math.round((merchandiseSubtotal / threshold) * 100))
+        };
+    }
+
     function calculateShippingQuote(settings, { district = '', subtotal = 0 } = {}) {
         const config = { ...DEFAULT_SETTINGS, ...(settings || {}) };
-        const merchandiseSubtotal = Math.max(0, Number(subtotal) || 0);
-        const threshold = Number(config.freeShippingMinAmount);
         const effectiveDistrict = String(district || '').trim() || config.shopHomeCity;
         const zone = resolveDeliveryZone(config, effectiveDistrict);
-        const qualifiesForFreeShipping = threshold === 0 || merchandiseSubtotal >= threshold;
+        const freeShipping = getFreeShippingProgress(config, subtotal);
 
         let deliveryCharge = 0;
-        if (!qualifiesForFreeShipping) {
+        if (!freeShipping.unlocked) {
             deliveryCharge = zone === 'outside'
                 ? Number(config.deliveryOutsideCity) || 0
                 : Number(config.deliveryInsideCity) || 0;
@@ -137,7 +167,8 @@
             zone,
             shippingLocationType: toShippingLocationLabel(zone),
             deliveryCharge: roundMoney(deliveryCharge),
-            freeShippingApplied: qualifiesForFreeShipping,
+            freeShippingApplied: freeShipping.unlocked,
+            freeShipping,
             estimatedDelivery: estimate
         };
     }
@@ -180,6 +211,7 @@
         ESTIMATE_RULES,
         fetchDeliverySettings,
         calculateShippingQuote,
+        getFreeShippingProgress,
         getDeliveryEstimate,
         getSavedShippingDistrict,
         persistShippingDistrict,

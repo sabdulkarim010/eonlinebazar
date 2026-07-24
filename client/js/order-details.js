@@ -52,9 +52,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const elements = {
         loadingSpinner: document.getElementById('loading-spinner'),
         orderContent: document.getElementById('order-content'),
+        actionBar: document.getElementById('order-action-bar'),
         trackBtn: document.getElementById('track-order-btn'),
         invoiceBtn: document.getElementById('download-invoice-btn'),
+        cancelBtn: document.getElementById('order-cancel-btn'),
+        returnBtn: document.getElementById('order-return-btn'),
         itemsContainer: document.getElementById('order-items-container'),
+
+        orderActionModal: document.getElementById('order-action-modal'),
+        orderActionForm: document.getElementById('order-action-form'),
+        orderActionTitleText: document.getElementById('order-action-modal-title-text'),
+        orderActionReasonSelect: document.getElementById('order-action-reason-select'),
+        orderActionOtherGroup: document.getElementById('order-action-other-group'),
+        orderActionOtherReason: document.getElementById('order-action-other-reason'),
+        orderActionConfirmBtn: document.getElementById('order-action-confirm-btn'),
+        closeOrderActionModalBtn: document.getElementById('close-order-action-modal'),
+        orderActionCloseBtn: document.getElementById('order-action-close-btn'),
         
         // মডাল এলিমেন্টস
         modal: document.getElementById('review-modal'),
@@ -66,6 +79,16 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn: document.getElementById('submit-review-btn'),
         uploadContainer: document.querySelector('.file-upload-container')
     };
+
+    const ORDER_ACTION_REASONS = [
+        { value: 'Changed my mind', label: 'Changed my mind' },
+        { value: 'Ordered by mistake', label: 'Ordered by mistake' },
+        { value: 'Delivery taking too long', label: 'Delivery taking too long' },
+        { value: 'Defective product', label: 'Defective product' },
+        { value: 'Other', label: 'Other (type your own reason)' }
+    ];
+
+    let pendingOrderAction = { orderId: null, action: null };
 
     let currentReviewProductId = null;
     let selectedRating = 5; // ডিফল্ট রেটিং
@@ -102,6 +125,243 @@ document.addEventListener('DOMContentLoaded', () => {
             || (order.deliveryLocationType === 'outside' ? 'Outside City' : 'Inside City');
 
         return { subTotal, discountAmount, deliveryCharge, grandTotal, shippingDistrict, shippingLocationType };
+    }
+
+    function getOrderDeliveryDate(order) {
+        return order.deliveredAt || order.deliveryDate || order.updatedAt || null;
+    }
+
+    function isWithinReturnWindow(order) {
+        if (String(order.status || '').toLowerCase() !== 'delivered') return false;
+
+        const deliveryDate = getOrderDeliveryDate(order);
+        if (!deliveryDate) return false;
+
+        const delivered = new Date(deliveryDate);
+        if (Number.isNaN(delivered.getTime())) return false;
+
+        const diffMs = Date.now() - delivered.getTime();
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        return diffMs >= 0 && diffMs <= sevenDaysMs;
+    }
+
+    function populateOrderActionReasons() {
+        if (!elements.orderActionReasonSelect) return;
+
+        elements.orderActionReasonSelect.innerHTML = '<option value="">Choose a reason...</option>';
+        ORDER_ACTION_REASONS.forEach(({ value, label }) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = label;
+            elements.orderActionReasonSelect.appendChild(option);
+        });
+    }
+
+    function toggleOrderActionOtherField() {
+        if (!elements.orderActionReasonSelect || !elements.orderActionOtherGroup) return;
+        const isOther = elements.orderActionReasonSelect.value === 'Other';
+        elements.orderActionOtherGroup.classList.toggle('hidden', !isOther);
+        elements.orderActionOtherGroup.setAttribute('aria-hidden', isOther ? 'false' : 'true');
+        if (elements.orderActionOtherReason) {
+            elements.orderActionOtherReason.required = isOther;
+            if (!isOther) elements.orderActionOtherReason.value = '';
+            else elements.orderActionOtherReason.focus();
+        }
+    }
+
+    function resetOrderActionForm() {
+        if (elements.orderActionForm) elements.orderActionForm.reset();
+        toggleOrderActionOtherField();
+        if (elements.orderActionConfirmBtn) {
+            elements.orderActionConfirmBtn.disabled = false;
+            elements.orderActionConfirmBtn.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> Confirm';
+            elements.orderActionConfirmBtn.classList.remove('btn-order-action-cancel-theme', 'btn-order-action-return-theme');
+        }
+    }
+
+    function closeOrderActionModal() {
+        if (elements.orderActionModal) elements.orderActionModal.classList.add('hidden');
+        pendingOrderAction = { orderId: null, action: null };
+        resetOrderActionForm();
+    }
+
+    function openOrderActionModal(actionType) {
+        if (!elements.orderActionModal || !currentOrderMongoId || !actionType) return;
+
+        pendingOrderAction = { orderId: currentOrderMongoId, action: actionType };
+        resetOrderActionForm();
+        populateOrderActionReasons();
+
+        if (elements.orderActionTitleText) {
+            elements.orderActionTitleText.textContent = actionType === 'return' ? 'Return Request' : 'Cancel Order';
+        }
+        if (elements.orderActionConfirmBtn) {
+            elements.orderActionConfirmBtn.classList.add(
+                actionType === 'return' ? 'btn-order-action-return-theme' : 'btn-order-action-cancel-theme'
+            );
+        }
+
+        elements.orderActionModal.classList.remove('hidden');
+        if (elements.orderActionReasonSelect) elements.orderActionReasonSelect.focus();
+    }
+
+    function resolveOrderActionReason() {
+        const selected = elements.orderActionReasonSelect ? elements.orderActionReasonSelect.value.trim() : '';
+        if (!selected) return { selectedReason: '', customReason: '', reason: '' };
+
+        if (selected === 'Other') {
+            const customReason = elements.orderActionOtherReason ? elements.orderActionOtherReason.value.trim() : '';
+            return { selectedReason: 'Other', customReason, reason: customReason };
+        }
+        return { selectedReason: selected, customReason: '', reason: selected };
+    }
+
+    async function submitOrderAction() {
+        const { orderId, action } = pendingOrderAction;
+        if (!orderId || !action) return;
+
+        const { reason, selectedReason, customReason } = resolveOrderActionReason();
+        if (!reason) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Reason required',
+                text: selectedReason === 'Other' || elements.orderActionReasonSelect?.value === 'Other'
+                    ? 'Please type your custom reason in the text field.'
+                    : 'Please select a reason before confirming.',
+                confirmButtonColor: '#2563eb'
+            });
+            return;
+        }
+
+        const endpoint = action === 'return'
+            ? `/api/orders/${encodeURIComponent(orderId)}/return`
+            : `/api/orders/${encodeURIComponent(orderId)}/cancel`;
+
+        const originalBtnHtml = elements.orderActionConfirmBtn ? elements.orderActionConfirmBtn.innerHTML : '';
+        if (elements.orderActionConfirmBtn) {
+            elements.orderActionConfirmBtn.disabled = true;
+            elements.orderActionConfirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+        }
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ reason, selectedReason, customReason })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                closeOrderActionModal();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: data.message || 'Request processed successfully.',
+                    confirmButtonColor: '#2563eb'
+                }).then(() => fetchOrderDetails());
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Request failed',
+                    text: data.message || 'Please try again.',
+                    confirmButtonColor: '#d33'
+                });
+            }
+        } catch (error) {
+            console.error('Order action error:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Server error while processing your request.',
+                confirmButtonColor: '#d33'
+            });
+        } finally {
+            if (elements.orderActionConfirmBtn) {
+                elements.orderActionConfirmBtn.disabled = false;
+                elements.orderActionConfirmBtn.innerHTML = originalBtnHtml;
+            }
+        }
+    }
+
+    function renderOrderActionBar(order, status) {
+        const showBar = elements.actionBar;
+        if (!showBar) return;
+
+        let visibleCount = 0;
+
+        if (elements.invoiceBtn) {
+            elements.invoiceBtn.classList.remove('hidden');
+            visibleCount += 1;
+        }
+
+        if (elements.trackBtn) {
+            if (status !== 'delivered') {
+                elements.trackBtn.classList.remove('hidden');
+                elements.trackBtn.href = `/order-track.html?id=${order._id || orderId}`;
+                visibleCount += 1;
+            } else {
+                elements.trackBtn.classList.add('hidden');
+            }
+        }
+
+        if (elements.cancelBtn) {
+            if (status === 'pending') {
+                elements.cancelBtn.classList.remove('hidden');
+                visibleCount += 1;
+            } else {
+                elements.cancelBtn.classList.add('hidden');
+            }
+        }
+
+        if (elements.returnBtn) {
+            if (isWithinReturnWindow(order)) {
+                elements.returnBtn.classList.remove('hidden');
+                visibleCount += 1;
+            } else {
+                elements.returnBtn.classList.add('hidden');
+            }
+        }
+
+        showBar.classList.toggle('hidden', visibleCount === 0);
+    }
+
+    function setupOrderActionEvents() {
+        if (elements.orderActionReasonSelect) {
+            elements.orderActionReasonSelect.addEventListener('change', toggleOrderActionOtherField);
+        }
+
+        if (elements.orderActionForm) {
+            elements.orderActionForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                submitOrderAction();
+            });
+        }
+
+        if (elements.closeOrderActionModalBtn) {
+            elements.closeOrderActionModalBtn.addEventListener('click', closeOrderActionModal);
+        }
+
+        if (elements.orderActionCloseBtn) {
+            elements.orderActionCloseBtn.addEventListener('click', closeOrderActionModal);
+        }
+
+        if (elements.orderActionModal) {
+            elements.orderActionModal.addEventListener('click', (e) => {
+                if (e.target === elements.orderActionModal) closeOrderActionModal();
+            });
+        }
+
+        if (elements.cancelBtn) {
+            elements.cancelBtn.addEventListener('click', () => openOrderActionModal('cancel'));
+        }
+
+        if (elements.returnBtn) {
+            elements.returnBtn.addEventListener('click', () => openOrderActionModal('return'));
+        }
     }
 
     // =========================================================
@@ -162,18 +422,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        if (elements.trackBtn) {
-            if (status !== 'delivered') {
-                elements.trackBtn.classList.remove('hidden');
-                elements.trackBtn.href = `/order-track.html?id=${order._id || orderId}`;
-            } else {
-                elements.trackBtn.classList.add('hidden'); 
-            }
-        }
-
-        if (elements.invoiceBtn) {
-            elements.invoiceBtn.classList.remove('hidden');
-        }
+        renderOrderActionBar(order, status);
 
         // কাস্টমার ইনফরমেশন
         document.getElementById('customer-name').textContent = order.customerName || userInfo?.name || 'N/A';
@@ -448,6 +697,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 🌟 SECTION 6: INITIALIZATION
     // =========================================================
     setupModalEvents();
+    setupOrderActionEvents();
+    populateOrderActionReasons();
 
     if (elements.invoiceBtn) {
         elements.invoiceBtn.addEventListener('click', () => {

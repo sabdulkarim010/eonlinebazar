@@ -1176,12 +1176,44 @@
         <p class="section-subtitle">Control global cashback, loyalty points, conversion rates, and refund policies for the entire platform.</p>
     </div>
 
-    <div class="settings-grid">
-        <div class="settings-card settings-card-wide master-settings-card">
-            <h4 class="settings-card-title"><i class="fa-solid fa-coins"></i> Rewards &amp; Refund Engine</h4>
-            <p class="settings-card-sub">These values replace hardcoded cashback and points logic across checkout, orders, and wallet flows.</p>
+    <form id="masterSettingsForm" class="master-settings-form" novalidate>
+        <div class="settings-grid">
+            <div class="settings-card settings-card-wide master-settings-card">
+                <h4 class="settings-card-title"><i class="fa-solid fa-bullhorn"></i> Announcement &amp; Free Shipping</h4>
+                <p class="settings-card-sub">The threshold below drives the real checkout shipping fee <em>and</em> the "Latest Announcement" card on every customer dashboard.</p>
 
-            <form id="masterSettingsForm" class="master-settings-form" novalidate>
+                <div class="master-settings-grid">
+                    <div class="form-group form-group-full">
+                        <label for="announcementText">Announcement Message Text</label>
+                        <textarea id="announcementText" rows="3" placeholder="Leave blank to auto-generate from your live settings"></textarea>
+                        <small class="field-hint">Leave blank to auto-generate the message from the free shipping threshold and reward rates below.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="masterFreeShippingThreshold">Free Shipping Threshold (৳)</label>
+                        <input type="number" id="masterFreeShippingThreshold" min="0" step="1" placeholder="2000" required>
+                        <small class="field-hint">Orders with a subtotal at or above this amount ship free. Set to <strong>0</strong> to give every order free shipping.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label" for="isAnnouncementActive">
+                            <input type="checkbox" id="isAnnouncementActive" checked>
+                            Show announcement on customer dashboard
+                        </label>
+                        <small class="field-hint">Uncheck to hide the announcement card from all customer profiles.</small>
+                    </div>
+                </div>
+
+                <div class="master-settings-preview" id="announcementSettingsPreview">
+                    <strong>Customer sees:</strong>
+                    <span id="announcementSettingsPreviewText">Loading preview...</span>
+                </div>
+            </div>
+
+            <div class="settings-card settings-card-wide master-settings-card">
+                <h4 class="settings-card-title"><i class="fa-solid fa-coins"></i> Rewards &amp; Refund Engine</h4>
+                <p class="settings-card-sub">These values replace hardcoded cashback and points logic across checkout, orders, and wallet flows.</p>
+
                 <div class="master-settings-grid">
                     <div class="form-group">
                         <label for="masterCashbackPercentage">Order Cashback Percentage (%)</label>
@@ -1212,13 +1244,19 @@
                     <strong>Live preview:</strong>
                     <span id="masterSettingsPreviewText">Loading current rules...</span>
                 </div>
-
-                <button type="submit" class="btn-submit" id="masterSettingsSaveBtn">
-                    <i class="fa-solid fa-floppy-disk"></i> Save Master Settings
-                </button>
-            </form>
+            </div>
         </div>
-    </div>
+
+        <div class="master-settings-actions">
+            <p class="master-settings-actions-hint">
+                <i class="fa-solid fa-circle-info"></i>
+                One save updates the announcement, checkout shipping rules, wallet cashback, and loyalty points together.
+            </p>
+            <button type="submit" class="btn-submit" id="masterSettingsSaveBtn">
+                <i class="fa-solid fa-floppy-disk"></i> Save Master Settings
+            </button>
+        </div>
+    </form>
 </section>
 
 
@@ -1314,7 +1352,7 @@
                             <div class="form-group">
                                 <label for="settingsFreeShippingMinAmount">Minimum Order Amount for Free Shipping (৳)</label>
                                 <input type="number" id="settingsFreeShippingMinAmount" min="0" step="1" placeholder="1000" required>
-                                <small class="form-hint">Orders above this total get free delivery. Set to <strong>0</strong> for a global flat free-shipping offer.</small>
+                                <small class="form-hint">Orders at or above this total get free delivery. Set to <strong>0</strong> for a global flat free-shipping offer. This is the same value as <strong>Master Settings &rarr; Free Shipping Threshold</strong> — saving either card updates both.</small>
                             </div>
                             <button type="submit" class="btn-submit">
                                 <i class="fa-solid fa-floppy-disk"></i> Save Delivery Settings

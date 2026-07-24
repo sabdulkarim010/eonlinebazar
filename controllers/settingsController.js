@@ -7,6 +7,7 @@
  ********************************************************************/
 
 const Settings = require('../models/Settings');
+const Setting = require('../models/Setting');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { toPublicSettings, resolveDistrictLabel } = require('../utils/deliveryChargeService');
 const { isValidDistrict, BANGLADESH_DISTRICTS } = require('../utils/bangladeshDistricts');
@@ -65,6 +66,15 @@ const updateSettings = async (req, res) => {
         settings.deliveryOutsideCity = outside.value;
         settings.freeShippingMinAmount = freeShipping.value;
         await settings.save();
+
+        // Master Settings owns the threshold for the announcement and the
+        // storefront badges; mirror it here so both cards always agree.
+        const masterSettings = await Setting.getOrCreate();
+        if (Number(masterSettings.freeShippingThreshold) !== freeShipping.value) {
+            masterSettings.freeShippingThreshold = freeShipping.value;
+            masterSettings.announcementDiscount = String(freeShipping.value);
+            await masterSettings.save();
+        }
 
         await logSecurityEvent({
             action: 'Delivery Settings Updated',

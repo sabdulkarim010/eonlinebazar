@@ -328,6 +328,39 @@ window.toggleItemSelection = function(productId, variantIdEnc) {
     }
 };
 
+// Cached copy of the admin's store settings so the cart can show live
+// free-shipping progress without refetching on every quantity change.
+let cartDeliverySettings = null;
+
+function renderCartFreeShippingProgress(subtotal) {
+    const wrapEl = document.getElementById('cartFreeShippingProgress');
+    const textEl = document.getElementById('cartFreeShippingProgressText');
+    const barEl = document.getElementById('cartFreeShippingProgressBar');
+    const SE = window.ShippingEstimator;
+    if (!wrapEl || !textEl || !barEl || !SE) return;
+
+    if (!cartDeliverySettings) {
+        SE.fetchDeliverySettings().then((settings) => {
+            cartDeliverySettings = settings;
+            renderCartFreeShippingProgress(subtotal);
+        });
+        return;
+    }
+
+    const progress = SE.getFreeShippingProgress(cartDeliverySettings, subtotal);
+    if (progress.threshold === 0 || subtotal <= 0) {
+        wrapEl.style.display = 'none';
+        return;
+    }
+
+    wrapEl.style.display = 'block';
+    wrapEl.classList.toggle('is-unlocked', progress.unlocked);
+    barEl.style.width = `${progress.progressPercent}%`;
+    textEl.textContent = progress.unlocked
+        ? '🎉 Free Shipping Unlocked!'
+        : `Add ৳${progress.remaining.toLocaleString('en-US')} more to unlock FREE shipping (৳${progress.threshold.toLocaleString('en-US')} minimum).`;
+}
+
 function updateCartTotal() {
     const totalSpan = document.getElementById('cartDrawerTotal');
     const itemsCountSpan = document.getElementById('cartSelectedItemsCount');
@@ -354,6 +387,8 @@ function updateCartTotal() {
 
     if (profileTotalEl) profileTotalEl.innerText = `৳${subtotal}`;
     if (profileCountEl) profileCountEl.innerText = uniqueSelectedCount;
+
+    renderCartFreeShippingProgress(subtotal);
 
     if (currentCart.length === 0 || uniqueSelectedCount === 0) {
         if (summarySection) summarySection.style.display = 'none';

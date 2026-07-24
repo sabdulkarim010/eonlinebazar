@@ -84,11 +84,24 @@ router.get('/settings', verifyAdmin, settingsController.getSettings);
 router.put('/settings', verifyAdmin, settingsController.updateSettings);
 router.post('/settings', verifyAdmin, settingsController.updateSettings);
 
-// ৫খ. মাস্টার সেটিংস — ক্যাশব্যাক, পয়েন্ট, রিফান্ড উইন্ডো (Singleton)
+// ৫খ. মাস্টার সেটিংস — অ্যানাউন্সমেন্ট, ফ্রি শিপিং, ক্যাশব্যাক, পয়েন্ট, রিফান্ড (Singleton)
+// একটি সেভ অ্যাকশনেই সব সেটিংস আপডেট হয়।
 // URL: GET|POST|PUT /api/admin/master-settings
 router.get('/master-settings', verifyAdmin, masterSettingsController.getMasterSettings);
 router.put('/master-settings', verifyAdmin, masterSettingsController.updateMasterSettings);
 router.post('/master-settings', verifyAdmin, masterSettingsController.updateMasterSettings);
+
+// URL: POST|PUT /api/admin/master-settings/update — unified "Save Master Settings"
+router.post('/master-settings/update', verifyAdmin, masterSettingsController.updateMasterSettings);
+router.put('/master-settings/update', verifyAdmin, masterSettingsController.updateMasterSettings);
+
+// URL: GET|POST /api/admin/announcement-settings (legacy announcement-only save)
+router.get('/announcement-settings', verifyAdmin, masterSettingsController.getAnnouncementSettings);
+router.post('/announcement-settings', verifyAdmin, masterSettingsController.updateAnnouncementSettings);
+
+// URL: GET|POST /api/admin/settings/announcement (legacy alias)
+router.get('/settings/announcement', verifyAdmin, masterSettingsController.getAnnouncementSettings);
+router.post('/settings/announcement', verifyAdmin, masterSettingsController.updateAnnouncementSettings);
 
 // ৫ক. অ্যাডমিন প্ল্যাটফর্ম সেটিংস (GET / PUT)
 router.get('/platform-settings', verifyAdmin, adminController.getAdminSettings);
