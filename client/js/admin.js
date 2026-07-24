@@ -65,6 +65,11 @@ let currentFilteredOrders = [];
 
 // ২.৩: চার্ট এবং পেজিনেশন কন্ট্রোল ভেরিয়েবল
 let growthChartInstance = null;
+let salesTrendChartInstance = null;
+let topProductsChartInstance = null;
+let dashboardAnalytics = null;
+let salesTrendPeriod = 'daily';
+let topProductsChartType = 'bar';
 let currentPage = 1;          // প্রোডাক্ট পেজের বর্তমান পেজ নম্বর
 const itemsPerPage = 10;      // প্রতি পেজে ডিফল্ট প্রোডাক্ট সংখ্যা
 let currentOrderPage = 1;     // অর্ডারের বর্তমান পেজ নম্বর
@@ -528,10 +533,335 @@ async function fetchDashboardData() {
         updateMetricsCards(allCustomers);
         renderCustomerTable(allCustomers);
         renderGrowthChart(allCustomers);
+        await fetchDashboardAnalytics();
 
     } catch (error) {
         console.error("Dashboard Fetch Error:", error);
         showCustomerError("Server connection error.");
+    }
+}
+
+/**
+ * ৫.২ক: Sales & Order Analytics — revenue, order counts, charts & stock alerts
+ */
+async function fetchDashboardAnalytics() {
+    try {
+        const response = await fetch('/api/admin/dashboard-analytics', {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+
+        const data = await response.json();
+        if (!data.success || !data.analytics) return;
+
+        dashboardAnalytics = data.analytics;
+        updateSalesMetricsCards(dashboardAnalytics);
+        renderSalesTrendChart(dashboardAnalytics.salesTrend);
+        renderTopProductsChart(dashboardAnalytics.topProducts);
+        renderInventoryAlerts(dashboardAnalytics.inventoryAlerts);
+    } catch (error) {
+        console.error('Dashboard Analytics Fetch Error:', error);
+    }
+}
+
+function updateSalesMetricsCards(analytics) {
+    if (!analytics) return;
+
+    const { revenue, orderCounts, totalCustomers } = analytics;
+
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    };
+
+    setText('stat-alltime-revenue', formatAdminPrice(revenue?.allTime || 0));
+    setText('stat-revenue-breakdown', `Today: ${formatAdminPrice(revenue?.daily || 0)} · This Month: ${formatAdminPrice(revenue?.monthly || 0)}`);
+    setText('stat-pending-orders', orderCounts?.pending ?? 0);
+    setText('stat-return-requests', orderCounts?.returnRequests ?? 0);
+    setText('stat-total-customers', totalCustomers ?? 0);
+    setText('stat-total-orders', orderCounts?.total ?? 0);
+    setText('stat-processing-orders', orderCounts?.processing ?? 0);
+    setText('stat-delivered-orders', orderCounts?.delivered ?? 0);
+}
+
+function renderSalesTrendChart(salesTrend) {
+    const ctx = document.getElementById('salesTrendChart');
+    if (!ctx || typeof Chart === 'undefined' || !salesTrend) return;
+
+    if (salesTrendChartInstance) salesTrendChartInstance.destroy();
+
+    const series = salesTrendPeriod === 'monthly' ? salesTrend.monthly : salesTrend.daily;
+    const labels = series?.labels || [];
+    const values = series?.revenue || [];
+
+    salesTrendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Revenue',
+                data: values,
+                borderColor: '#8b5cf6',
+                backgroundColor: 'rgba(139, 92, 246, 0.12)',
+                borderWidth: 2.5,
+                tension: 0.35,
+                fill: true,
+                pointRadius: 3,
+                pointHoverRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => ` Revenue: ${formatAdminPrice(context.parsed.y)}`
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: (value) => formatAdminPrice(value)
+                    }
+                },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+}
+
+function renderTopProductsChart(topProducts) {
+    const ctx = document.getElementById('topProductsChart');
+    if (!ctx || typeof Chart === 'undefined') return;
+
+    if (topProductsChartInstance) topProductsChartInstance.destroy();
+
+    const products = topProducts || [];
+    const labels = products.map((p) => p.name || 'Unknown');
+    const quantities = products.map((p) => p.quantity || 0);
+    const palette = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+
+    if (topProductsChartType === 'pie') {
+        topProductsChartInstance = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels,
+                datasets: [{
+                    data: quantities,
+                    backgroundColor: palette,
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => ` ${context.label}: ${context.parsed} units sold`
+                        }
+                    }
+                }
+            }
+        });
+        return;
+    }
+
+    topProductsChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Units Sold',
+                data: quantities,
+                backgroundColor: palette,
+                borderRadius: 6,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => ` ${context.parsed.y} units sold`
+                    }
+                }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+}
+
+function renderInventoryAlerts(inventoryAlerts) {
+    const container = document.getElementById('inventoryAlertsList');
+    const countLabel = document.getElementById('inventoryAlertCount');
+    if (!container) return;
+
+    const outOfStock = inventoryAlerts?.outOfStock || [];
+    const lowStock = inventoryAlerts?.lowStock || [];
+    const allAlerts = [
+        ...outOfStock.map((p) => ({ ...p, alertType: 'out' })),
+        ...lowStock.map((p) => ({ ...p, alertType: 'low' }))
+    ];
+
+    if (countLabel) {
+        countLabel.textContent = allAlerts.length === 0
+            ? 'All clear'
+            : `${allAlerts.length} alert${allAlerts.length === 1 ? '' : 's'}`;
+    }
+
+    if (allAlerts.length === 0) {
+        container.innerHTML = `
+            <div class="inventory-alert-empty">
+                <i class="fa-solid fa-circle-check"></i>
+                <p>All products are well stocked.</p>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = allAlerts.map((product) => {
+        const isOut = product.alertType === 'out';
+        const badgeClass = isOut ? 'out' : 'low';
+        const badgeText = isOut
+            ? '⚠️ Out of Stock'
+            : `🔥 Low Stock: ${product.stock} left`;
+        const itemClass = isOut ? 'out-of-stock' : 'low-stock';
+        const thumb = product.image
+            ? `<img src="${product.image}" class="inventory-alert-thumb" alt="" onerror="this.outerHTML='<span class=\\'inventory-alert-thumb\\'>${product.icon || '📦'}</span>'">`
+            : `<span class="inventory-alert-thumb">${product.icon || '📦'}</span>`;
+
+        return `
+            <div class="inventory-alert-item ${itemClass}">
+                <div class="inventory-alert-info">
+                    ${thumb}
+                    <div class="inventory-alert-meta">
+                        <strong>${product.name || 'Unnamed Product'}</strong>
+                        <span>${product.productId || 'N/A'} · ${product.category || 'General'}</span>
+                    </div>
+                </div>
+                <div class="inventory-alert-actions">
+                    <span class="inventory-alert-badge ${badgeClass}">${badgeText}</span>
+                    <button type="button" class="btn-update-stock" onclick="quickUpdateStock('${product._id}')">
+                        <i class="fa-solid fa-pen"></i> Update Stock
+                    </button>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+window.quickUpdateStock = async function(productId) {
+    let product = globalProducts.find((p) => String(p._id) === String(productId));
+    if (!product) {
+        await fetchLiveProducts();
+        product = globalProducts.find((p) => String(p._id) === String(productId));
+    }
+    if (!product) {
+        showToast('Product not found. Open Manage Products to update stock.', 'warning');
+        return;
+    }
+
+    if (typeof Swal === 'undefined') {
+        editProduct(productId);
+        return;
+    }
+
+    const { value: newStock, isConfirmed } = await Swal.fire({
+        title: 'Update Stock',
+        html: `<p style="margin-bottom:8px;font-size:14px;color:#64748b;">${product.name}</p>`,
+        input: 'number',
+        inputValue: Number(product.stock) || 0,
+        inputAttributes: { min: 0, step: 1 },
+        showCancelButton: true,
+        confirmButtonText: 'Save Stock',
+        confirmButtonColor: '#3b82f6'
+    });
+
+    if (!isConfirmed || newStock === undefined || newStock === null || newStock === '') return;
+
+    const formData = new FormData();
+    formData.append('name', product.name);
+    formData.append('price', product.price);
+    formData.append('buyingPrice', product.buyingPrice || 0);
+    formData.append('stock', newStock);
+    formData.append('category', product.category || 'General');
+    formData.append('brand', (product.brand && product.brand._id) ? product.brand._id : (product.brand || ''));
+    formData.append('variants', JSON.stringify(product.variants || []));
+    formData.append('icon', product.icon || '📦');
+    formData.append('description', product.description || '');
+
+    try {
+        const res = await fetch(`/api/products/${productId}`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+        });
+        const result = await res.json();
+
+        if (res.ok && result.success) {
+            const updated = result.data || result.product;
+            if (updated && updated._id) upsertProductInState(updated);
+            showAdminSuccess('Stock Updated', `Stock set to ${newStock} for ${product.name}`);
+            fetchDashboardAnalytics();
+        } else {
+            showToast(result.message || 'Stock update failed.', 'error');
+        }
+    } catch (err) {
+        showToast('Server error during stock update.', 'error');
+    }
+};
+
+function setupAnalyticsChartToggles() {
+    const dailyBtn = document.getElementById('salesTrendDailyBtn');
+    const monthlyBtn = document.getElementById('salesTrendMonthlyBtn');
+    const barBtn = document.getElementById('topProductsBarBtn');
+    const pieBtn = document.getElementById('topProductsPieBtn');
+
+    const setActive = (buttons, activeBtn) => {
+        buttons.forEach((btn) => {
+            if (!btn) return;
+            btn.classList.toggle('active', btn === activeBtn);
+        });
+    };
+
+    if (dailyBtn && monthlyBtn) {
+        dailyBtn.addEventListener('click', () => {
+            salesTrendPeriod = 'daily';
+            setActive([dailyBtn, monthlyBtn], dailyBtn);
+            if (dashboardAnalytics?.salesTrend) renderSalesTrendChart(dashboardAnalytics.salesTrend);
+        });
+        monthlyBtn.addEventListener('click', () => {
+            salesTrendPeriod = 'monthly';
+            setActive([dailyBtn, monthlyBtn], monthlyBtn);
+            if (dashboardAnalytics?.salesTrend) renderSalesTrendChart(dashboardAnalytics.salesTrend);
+        });
+    }
+
+    if (barBtn && pieBtn) {
+        barBtn.addEventListener('click', () => {
+            topProductsChartType = 'bar';
+            setActive([barBtn, pieBtn], barBtn);
+            if (dashboardAnalytics?.topProducts) renderTopProductsChart(dashboardAnalytics.topProducts);
+        });
+        pieBtn.addEventListener('click', () => {
+            topProductsChartType = 'pie';
+            setActive([barBtn, pieBtn], pieBtn);
+            if (dashboardAnalytics?.topProducts) renderTopProductsChart(dashboardAnalytics.topProducts);
+        });
     }
 }
 
@@ -4779,6 +5109,7 @@ function initDashboard() {
     fetchLiveOrders();      // লাইভ অর্ডারস
     fetchLiveProducts();    // ম্যানেজ প্রোডাক্টস ডাটা
     fetchSecurityLogs();    // সিকিউরিটি লগস
+    setupAnalyticsChartToggles();
 }
 
 /* ==========================================================================

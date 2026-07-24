@@ -36,6 +36,7 @@
 - [Profile Security & Order Invoice Enhancements](#-profile-security--order-invoice-enhancements)
 - [Performance & Engagement Enhancements](#-performance--engagement-enhancements)
 - [Admin Panel — Order Security & Refund Controls](#-admin-panel--order-security--refund-controls)
+- [Admin Analytics & Inventory Management Controls](#-admin-analytics--inventory-management-controls)
 - [Master Settings & Dynamic Rewards](#-master-settings--dynamic-rewards)
 - [What's New — v3.2.0](#-whats-new--v320-time-sensitive-coupon-automation)
 - [Time-Sensitive Coupon Automation](#-time-sensitive-coupon-automation-system)
@@ -57,7 +58,7 @@
 
 ## 📖 Overview
 
-**EOnlineBazar** is a **fully dynamic, production-ready**, full-stack e-commerce platform built on **Node.js / Express 5** with a **MongoDB (Atlas)** database and a lightweight **Vanilla JavaScript** frontend served directly by Express. It follows a clean **MVC architecture** (`Models → Controllers → Routes`) and ships with everything a modern online store needs: secure customer authentication, a shopping cart with **guest-to-auth merge**, a persistent **My Wishlist**, smart checkout with profile-aware address selection, **dynamic shipping quotes & delivery estimates**, **AJAX promo-code recalculation**, order placement & live tracking with customer cancel/return workflows, **OTP-gated profile security & 1-click PDF invoices**, product reviews with image uploads, a loyalty wallet with admin-controlled reward economics, an enterprise catalog engine, a dedicated **Super Admin Panel** with refund reversal safeguards, and a **Finance & Analytics** dashboard.
+**EOnlineBazar** is a **fully dynamic, production-ready**, full-stack e-commerce platform built on **Node.js / Express 5** with a **MongoDB (Atlas)** database and a lightweight **Vanilla JavaScript** frontend served directly by Express. It follows a clean **MVC architecture** (`Models → Controllers → Routes`) and ships with everything a modern online store needs: secure customer authentication, a shopping cart with **guest-to-auth merge**, a persistent **My Wishlist**, smart checkout with profile-aware address selection, **dynamic shipping quotes & delivery estimates**, **AJAX promo-code recalculation**, order placement & live tracking with customer cancel/return workflows, **OTP-gated profile security & 1-click PDF invoices**, product reviews with image uploads, a loyalty wallet with admin-controlled reward economics, an enterprise catalog engine, a dedicated **Super Admin Panel** with **sales analytics, inventory alerts**, refund reversal safeguards, and a **Finance & Analytics** dashboard.
 
 Six things set it apart:
 
@@ -85,6 +86,7 @@ This release delivers a professional-grade **checkout ↔ profile address pipeli
 | **🛒 Checkout Experience & Cart Enhancements** | Checkout-only **district selection** and **promo codes** for a cleaner `/cart`; real-time **inside/outside Dhaka** shipping + **business-day delivery estimates**; shared **`CouponUI`** module for flat/percentage discounts with live subtotal/grand-total updates; automatic **guest → auth cart merge** on login/OAuth. |
 | **🔒 Profile Security & Order Invoice Enhancements** | **`bcrypt`** password change with current-password gate; **6-digit OTP** verification for email/phone updates; single **Primary / Default** address flag with checkout auto-select & pre-fill; **1-click PDF invoice** download from **My Orders** and **Order Details** (`Invoice-ORDER_ID.pdf`). |
 | **⚡ Performance & Engagement Enhancements** | Interactive **order status timeline** on Order Details (`Placed → Processing → Shipped → Out for Delivery → Delivered`); **real-time low-stock FOMO badges** on Cart & Wishlist; lightweight **global toast notifications** for cart, wishlist, and stock feedback — no full-page reloads. |
+| **📊 Admin Analytics & Inventory Management** | Interactive **Sales & Business Analytics Dashboard** with live revenue/order KPIs and Chart.js trend charts; **Automated Low-Stock & Inventory Alert System** with color-coded badges and inline **Update Stock** quick actions on the admin Overview tab. |
 
 > 📌 See the dedicated sections below for workflow diagrams, schema fields, and API specifications.
 
@@ -495,6 +497,80 @@ flowchart LR
     F --> G[Debit wallet + log reversal]
     G --> H[Success response]
 ```
+
+---
+
+## 📊 Admin Analytics & Inventory Management Controls
+
+Real-time sales intelligence and proactive inventory monitoring for the Super Admin panel — live MongoDB aggregation powers the Overview dashboard, Chart.js visualizations, and an actionable low-stock alert widget without disrupting existing admin auth, order workflows, or customer-management modules.
+
+### Feature Overview
+
+#### Interactive Sales & Business Analytics Dashboard
+- Integrated **dynamic metric cards** on **Admin Panel → Overview** (`view-overview`) calculating real-time:
+  - **Revenue** — Daily, Monthly, and All-time totals (aggregated from **Delivered** orders via `grandTotal` / `totalAmount`)
+  - **Order counters** — Total Orders, Pending, Processing, Delivered, and Return Requests
+  - **Total Customers** — live user count from the `User` collection
+- Secondary **order-status mini-cards** surface Total / Processing / Delivered counts at a glance alongside primary KPIs.
+- Embedded **Chart.js** data visualization (CDN-loaded, already used by the admin panel):
+  - **Sales Trend line chart** — toggle **Daily** (last 30 days) or **Monthly** (last 12 months) revenue series
+  - **Top 5 Selling Products chart** — toggle **Bar** or **Pie** distribution driven by completed-order item quantities
+- All chart and card data is fetched from a dedicated admin API (`GET /api/admin/dashboard-analytics`) protected by **`verifyAdmin`** — no hard-coded demo values.
+- Existing **Customer Insights** metrics (total/verified/pending/blocked users) and the **6-month registration growth chart** remain on the Overview tab below the sales analytics block.
+
+#### Automated Low-Stock & Inventory Alert System
+- Added an intelligent **Inventory Alerts** widget on the admin Overview dashboard.
+- Backend query flags products with **`stock <= 5`**, sorted ascending by stock level:
+  - **`⚠️ Out of Stock`** — red alert badge when `stock === 0`
+  - **`🔥 Low Stock: X left`** — amber alert badge when `1 ≤ stock ≤ 5`
+- Each alert row shows product thumbnail/icon, name, SKU/id, and category for fast triage.
+- **Direct, inline quick-action controls** — **Update Stock** opens a SweetAlert2 prompt and persists via `PUT /api/products/:id` (reusing existing product update auth), then refreshes alerts without a full page reload.
+- Distinct from the storefront **FOMO engine** (`client/js/stockAlert.js`, threshold ≤ 3 on Cart/Wishlist) — this admin widget is operator-facing with restock tooling.
+
+### Analytics Data Flow
+
+```mermaid
+flowchart LR
+    A[Admin Overview load] --> B[GET /api/admin/dashboard-analytics]
+    B --> C[Order + Product + User aggregation]
+    C --> D[Metric cards & order counters]
+    C --> E[Sales trend + Top 5 charts]
+    C --> F[Inventory alert widget]
+    F --> G{Update Stock clicked?}
+    G -->|Yes| H[PUT /api/products/:id]
+    H --> I[Refresh analytics + product state]
+```
+
+### Related API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| **`GET`** | **`/api/admin/dashboard-analytics`** | **Sales KPIs, order counters, revenue trends, top products & inventory alerts** | **Admin** |
+
+**Response shape (`analytics` object):**
+
+| Key | Contents |
+|-----|----------|
+| `revenue` | `{ daily, monthly, allTime }` — Delivered-order revenue totals |
+| `orderCounts` | `{ total, pending, processing, delivered, returnRequests }` |
+| `totalCustomers` | Registered user count |
+| `topProducts` | Top 5 by units sold on Delivered orders (`name`, `quantity`, `productId`) |
+| `salesTrend` | `{ daily: { labels, revenue }, monthly: { labels, revenue } }` — Chart.js series |
+| `inventoryAlerts` | `{ outOfStock[], lowStock[] }` — products with `stock <= 5` |
+
+> Refreshed automatically on Overview load, sidebar navigation to **Overview**, and via the header **Sync Data** button (`fetchDashboardData()` pipeline).
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `controllers/adminController.js` | `getDashboardAnalytics()` — revenue, order counts, top products, trends & stock alerts |
+| `routes/adminRoutes.js` | `GET /dashboard-analytics` route (`verifyAdmin`) |
+| `client/admin.html` | Overview markup — sales metric cards, Chart.js canvases, inventory alert widget |
+| `client/js/admin.js` | `fetchDashboardAnalytics()`, chart renderers, `quickUpdateStock()`, toggle handlers |
+| `client/css/admin.css` | Responsive analytics grid, chart toggles, inventory alert badge styles |
+| `models/order.js` | Order status, `grandTotal`, `items[]` — source for revenue & top-product aggregation |
+| `models/product.js` | `stock` field — source for low/out-of-stock alert queries |
 
 ---
 
@@ -1082,7 +1158,7 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 - **Account & Profile** — username/password change (current-password gated), display name, store name, and admin avatar upload.
 
 ### 🖥️ Super Admin Panel (`/admin`)
-- **📊 Dashboard Overview** — Live metrics (total/verified/pending/blocked users) and a **6-month registration growth chart** (Chart.js).
+- **📊 Dashboard Overview** — **Sales & Business Analytics** (revenue daily/monthly/all-time, order counters, Chart.js sales trend + top-5 product charts) plus **Inventory Alerts** widget with inline stock updates; **Customer Insights** metrics (total/verified/pending/blocked users) and a **6-month registration growth chart** (Chart.js).
 - **👥 Customer Management** — View, edit, block, suspend, reactivate; order-count badges; per-customer order history modal.
 - **📦 Live Orders** — Real-time table with distinct customer/admin cancellation badges, return approval, safe refund undo, reason visibility, invoice view/print, search, filter, and pagination.
 - **🛍️ Product CRUD** — Add/edit with images, buying/selling price, live profit preview, bulk delete, CSV export, and print-ready tables.
@@ -1157,7 +1233,7 @@ eonlinebazar-fullstack/
 │   ├── authController.js              # Customer session list / revoke / logout-others
 │   ├── userController.js              # Customer auth, profile, wishlist CRUD, addresses, wallet
 │   ├── wishlistController.js          # Wishlist toggle (add/remove) with product snapshot enrichment
-│   ├── adminController.js             # Admin customers, platform branding, logs, profile
+│   ├── adminController.js             # Admin customers, dashboard analytics, platform branding, logs, profile
 │   ├── settingsController.js          # Delivery charge & free-shipping settings (admin API)
 │   ├── masterSettingsController.js    # Global cashback, points, conversion & refund-undo settings
 │   ├── storeController.js             # Public storefront branding + delivery settings + districts
@@ -1556,6 +1632,7 @@ Base URL: `http://localhost:3000`
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
 | `GET`  | `/api/admin/customers` | List customers (includes `orderCount`) | Admin |
+| **`GET`** | **`/api/admin/dashboard-analytics`** | **Sales KPIs, order counters, revenue trends, top products & inventory alerts** | **Admin** |
 | `GET`  | `/api/admin/customers/:id` | Customer profile | Admin |
 | `PUT`  | `/api/admin/customers/:id` | Edit customer | Admin |
 | `PATCH` | `/api/admin/customers/:id/status` | Block / suspend / activate | Admin |
@@ -1685,6 +1762,10 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 - Enhanced live order tracking with **distinct badges** for customer vs admin cancellations and full cancellation/return reason visibility.
 - **Return Approval & Wallet Integration** — admins approve returns; system refunds the **exact paid amount** to wallet with detailed `walletHistory` logging.
 - **Safe Refund Reversal ("Undo Refund")** — configurable undo window (`refundUndoWindowHours`); blocks reversal if customer has already spent refunded funds.
+
+**📊 Admin Analytics & Inventory Management Controls**
+- **Interactive Sales & Business Analytics Dashboard** — dynamic metric cards for real-time Revenue (Daily, Monthly, All-time), Total Orders, Pending, Processing, Delivered, and Return Requests; Chart.js **Sales Trend** line charts (daily/monthly toggle) and **Top 5 Selling Products** bar/pie charts driven by live DB aggregation on Delivered orders.
+- **Automated Low-Stock & Inventory Alert System** — Overview widget flags **`🔥 Low Stock: X left`** and **`⚠️ Out of Stock`** items with color-coded badges; inline **Update Stock** quick actions persist via existing product update API and refresh alerts asynchronously.
 
 **⚙️ Master Settings & Dynamic Rewards**
 - New **Master Settings Panel** — global cashback %, points earning ratio, points-to-taka conversion rate, and refund undo window hours.

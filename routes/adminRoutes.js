@@ -24,6 +24,9 @@ const { geoFence } = require('../middlewares/geoFencing');
 // ১. কাস্টমারদের ডাটা পাওয়ার রাস্তা (GET)
 router.get('/customers', verifyAdmin, adminController.getAllCustomers);
 
+// ১গ. Sales & Order Analytics Dashboard (GET)
+router.get('/dashboard-analytics', verifyAdmin, adminController.getDashboardAnalytics);
+
 // ১ক. নির্দিষ্ট কাস্টমার, আপডেট, স্ট্যাটাস ও অর্ডার হিস্ট্রি
 router.get('/customers/:id/orders', verifyAdmin, adminController.getCustomerOrders);
 router.get('/customers/:id', verifyAdmin, adminController.getCustomerById);
