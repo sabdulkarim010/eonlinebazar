@@ -60,10 +60,15 @@ function dispatchAdminWhatsAppAlertSafely(order) {
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { notifyOrderConfirmationEmail } = require('../utils/mailer');
 const { findVariantIndex, getVariantAttributes, getVariantLineId } = require('../utils/variantHelpers');
+const { deductWalletForOrder, creditWalletForUser, reverseWalletCredit } = require('../utils/walletService');
+const { loadFlashSaleSettings, resolveProductFlashPrice } = require('../utils/flashSaleService');
 
 /** Verified selling price from catalog — never trust client item.price. */
-function resolveSellingPrice(product, item) {
+function resolveSellingPriceFromSettings(product, item, flashSettings) {
     if (!product) return NaN;
+
+    const flashPrice = resolveProductFlashPrice(product, item, flashSettings);
+    if (Number.isFinite(flashPrice) && flashPrice >= 0) return flashPrice;
 
     const vIdx = findVariantIndex(product, item);
     if (vIdx > -1) {
@@ -137,6 +142,7 @@ const createOrder = async (req, res) => {
         let normalizedItems = [];
         let totalBuyingPrice = 0;
         let subtotal = 0;
+        const flashSettings = await loadFlashSaleSettings();
 
         for (const rawItem of items) {
             const item = { ...rawItem };
@@ -162,7 +168,7 @@ const createOrder = async (req, res) => {
                 });
             }
 
-            const verifiedPrice = resolveSellingPrice(prod, item);
+            const verifiedPrice = resolveSellingPriceFromSettings(prod, item, flashSettings);
             if (!Number.isFinite(verifiedPrice) || verifiedPrice < 0) {
                 return res.status(400).json({
                     success: false,
@@ -306,6 +312,26 @@ const createOrder = async (req, res) => {
             deliveryLocationType
         });
 
+        const wantsWallet = req.body.applyWallet === true
+            || req.body.useWallet === true
+            || req.body.applyWalletBalance === true;
+        let walletApplied = 0;
+        let finalGrandTotal = grandTotal;
+        let resolvedPaymentMethod = paymentMethod;
+
+        if (wantsWallet && userId) {
+            const walletUser = await User.findById(userId).select('walletBalance');
+            const availableWallet = roundMoney(Number(walletUser?.walletBalance) || 0);
+            if (availableWallet > 0) {
+                walletApplied = roundMoney(Math.min(availableWallet, grandTotal));
+                finalGrandTotal = roundMoney(Math.max(0, grandTotal - walletApplied));
+                if (finalGrandTotal <= 0) {
+                    finalGrandTotal = 0;
+                    resolvedPaymentMethod = 'Wallet';
+                }
+            }
+        }
+
         const newOrder = new Order({
             orderId,
             user: userId,
@@ -314,18 +340,19 @@ const createOrder = async (req, res) => {
             customerAddress,
             subTotal,
             deliveryCharge: lockedDeliveryCharge,
-            grandTotal,
+            grandTotal: finalGrandTotal,
             shippingLocationType,
             shippingDistrict,
-            totalAmount: grandTotal,
+            totalAmount: finalGrandTotal,
             subtotal: subTotal,
             discountAmount,
+            walletApplied,
             couponCode: appliedCouponCode,
             deliveryLocationType,
             shippingFee: lockedDeliveryCharge,
             estimatedDelivery: deliveryEstimate.label,
             totalBuyingPrice: Math.round(totalBuyingPrice),
-            paymentMethod, 
+            paymentMethod: resolvedPaymentMethod,
             items: normalizedItems,
             note,
             status: 'Pending',
@@ -343,6 +370,41 @@ const createOrder = async (req, res) => {
                 }
             }
             throw saveErr;
+        }
+
+        if (walletApplied > 0 && userId) {
+            try {
+                const walletAfter = await deductWalletForOrder(
+                    userId,
+                    walletApplied,
+                    newOrder.orderId,
+                    'Used for Order placement'
+                );
+                if (!walletAfter) {
+                    await Order.findByIdAndDelete(newOrder._id);
+                    if (couponDocId) {
+                        try {
+                            await releaseCouponSlot(couponDocId);
+                        } catch (rbErr) {
+                            console.error('⚠️ Coupon rollback error:', rbErr.message);
+                        }
+                    }
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Insufficient wallet balance. Please refresh and try again.'
+                    });
+                }
+            } catch (walletErr) {
+                await Order.findByIdAndDelete(newOrder._id);
+                if (couponDocId) {
+                    try {
+                        await releaseCouponSlot(couponDocId);
+                    } catch (rbErr) {
+                        console.error('⚠️ Coupon rollback error:', rbErr.message);
+                    }
+                }
+                throw walletErr;
+            }
         }
 
         // Track per-user usage only after a successful order save
@@ -418,7 +480,14 @@ const createOrder = async (req, res) => {
             success: true,
             message: "Order placed successfully! ধন্যবাদ আব্দুল করিম ভাই।",
             data: newOrder.toObject(),
-            lockedPricing
+            lockedPricing: {
+                ...lockedPricing,
+                walletApplied,
+                grandTotal: finalGrandTotal,
+                totalAmount: finalGrandTotal,
+                merchandisePayable,
+                paymentMethod: resolvedPaymentMethod
+            }
         });
 
     } catch (err) {
@@ -523,6 +592,7 @@ const createManualOrder = async (req, res) => {
         let normalizedItems = [];
         let totalBuyingPrice = 0;
         let subtotal = 0;
+        const flashSettings = await loadFlashSaleSettings();
 
         for (const rawItem of items) {
             const item = { ...rawItem };
@@ -569,7 +639,7 @@ const createManualOrder = async (req, res) => {
                 });
             }
 
-            const verifiedPrice = resolveSellingPrice(prod, item);
+            const verifiedPrice = resolveSellingPriceFromSettings(prod, item, flashSettings);
             if (!Number.isFinite(verifiedPrice) || verifiedPrice < 0) {
                 return res.status(400).json({
                     success: false,
@@ -1017,7 +1087,9 @@ const returnUserOrder = async (req, res) => {
 };
 
 function getOrderRefundAmount(order) {
-    return Number(order?.grandTotal ?? order?.totalAmount) || 0;
+    const payable = Number(order?.grandTotal ?? order?.totalAmount) || 0;
+    const walletUsed = Number(order?.walletApplied) || 0;
+    return roundMoney(payable + walletUsed);
 }
 
 function getOrderDisplayId(order) {
@@ -1058,7 +1130,6 @@ const approveOrderReturn = async (req, res) => {
         }
 
         const displayOrderId = getOrderDisplayId(order);
-        const refundNote = `Refund for returned order #${displayOrderId}`;
 
         const updatedOrder = await Order.findOneAndUpdate(
             { _id: orderId, status: 'Return Requested' },
@@ -1081,14 +1152,12 @@ const approveOrderReturn = async (req, res) => {
         }
 
         try {
-            user.walletBalance = Number(user.walletBalance || 0) + refundAmount;
-            user.walletHistory.unshift({
-                type: 'refund',
-                amount: refundAmount,
-                note: refundNote,
-                date: new Date()
-            });
-            await user.save();
+            await creditWalletForUser(
+                order.user,
+                refundAmount,
+                displayOrderId,
+                'Refund for returned items'
+            );
         } catch (walletErr) {
             await Order.findByIdAndUpdate(orderId, {
                 $set: { status: 'Return Requested' },
@@ -1097,14 +1166,16 @@ const approveOrderReturn = async (req, res) => {
             throw walletErr;
         }
 
+        const walletUser = await User.findById(order.user).select('walletBalance walletHistory');
+
         res.json({
             success: true,
             message: `Return approved. ৳${refundAmount.toLocaleString()} refunded to customer wallet.`,
             data: {
                 order: updatedOrder,
                 refundAmount,
-                walletBalance: user.walletBalance,
-                walletHistoryEntry: user.walletHistory[0]
+                walletBalance: walletUser?.walletBalance || 0,
+                walletHistoryEntry: walletUser?.walletHistory?.[0] || null
             }
         });
     } catch (err) {
@@ -1195,24 +1266,7 @@ const undoOrderRefund = async (req, res) => {
         }
 
         try {
-            const userAfter = await User.findOneAndUpdate(
-                { _id: order.user, walletBalance: { $gte: refundAmount } },
-                {
-                    $inc: { walletBalance: -refundAmount },
-                    $push: {
-                        walletHistory: {
-                            $each: [{
-                                type: 'debit',
-                                amount: refundAmount,
-                                note: 'Reversal: Refund cancelled by Admin',
-                                date: new Date()
-                            }],
-                            $position: 0
-                        }
-                    }
-                },
-                { new: true }
-            );
+            const userAfter = await reverseWalletCredit(order.user, refundAmount);
 
             if (!userAfter) {
                 await Order.findByIdAndUpdate(orderId, { $set: previousRefundMeta });

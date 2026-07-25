@@ -21,6 +21,12 @@ const {
     clearWhatsAppSettingsCache,
     VALID_ALERT_PROVIDERS
 } = require('../utils/whatsappService');
+const {
+    normalizeFlashSaleSettings,
+    parseFlashSaleProductIds,
+    resolveFlashSaleEndDate,
+    toPublicFlashSalePayload
+} = require('../utils/flashSaleService');
 
 const VALID_SMS_GATEWAY_PROVIDERS = ['Greenweb BD', 'BulkSMS BD', 'AlphaSMS', 'Generic API', ''];
 
@@ -57,7 +63,10 @@ const FIELD_ALIASES = {
     takaToPointsRatio: ['takaToPointsRatio', 'pointsPerTaka'],
     pointsToTakaConversionRate: ['pointsToTakaConversionRate', 'pointsConversionRate'],
     refundUndoWindowHours: ['refundUndoWindowHours', 'refundUndoWindow'],
-    freeShippingThreshold: ['freeShippingThreshold', 'freeShippingMinAmount', 'freeShippingLimit']
+    freeShippingThreshold: ['freeShippingThreshold', 'freeShippingMinAmount', 'freeShippingLimit'],
+    vipMinTotalSpent: ['vipMinTotalSpent'],
+    vipMinOrderCount: ['vipMinOrderCount'],
+    frequentBuyerMinOrders: ['frequentBuyerMinOrders']
 };
 
 const NUMERIC_FIELD_RULES = {
@@ -65,7 +74,10 @@ const NUMERIC_FIELD_RULES = {
     takaToPointsRatio: { label: 'Points earned per taka spent', min: 0 },
     pointsToTakaConversionRate: { label: 'Points conversion rate', min: 0 },
     refundUndoWindowHours: { label: 'Refund undo window (hours)', min: 0 },
-    freeShippingThreshold: { label: 'Free shipping threshold', min: 0 }
+    freeShippingThreshold: { label: 'Free shipping threshold', min: 0 },
+    vipMinTotalSpent: { label: 'VIP minimum total spent', min: 0 },
+    vipMinOrderCount: { label: 'VIP minimum order count', min: 0 },
+    frequentBuyerMinOrders: { label: 'Frequent buyer minimum orders', min: 0 }
 };
 
 /**
@@ -140,6 +152,11 @@ const buildUnifiedPayload = async (settingsDoc) => {
         ...rewards,
         ...announcement,
         ...toPublicAnnouncementPayload(announcement, rewards),
+        ...normalizeFlashSaleSettings(settingsDoc),
+        ...toPublicFlashSalePayload(settingsDoc),
+        vipMinTotalSpent: settingsDoc.vipMinTotalSpent,
+        vipMinOrderCount: settingsDoc.vipMinOrderCount,
+        frequentBuyerMinOrders: settingsDoc.frequentBuyerMinOrders,
         deliveryInsideCity: deliverySettings.deliveryInsideCity,
         deliveryOutsideCity: deliverySettings.deliveryOutsideCity,
         freeShippingMinAmount: announcement.freeShippingThreshold,
@@ -211,6 +228,40 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
     if (body.enableSmsNotifications !== undefined) {
         settings.enableSmsNotifications = parseBoolean(body.enableSmsNotifications, false);
         changes.push(`SMS notifications: ${settings.enableSmsNotifications}`);
+    }
+
+    if (body.flashSaleEnabled !== undefined) {
+        settings.flashSaleEnabled = parseBoolean(body.flashSaleEnabled, false);
+        changes.push(`Flash sale: ${settings.flashSaleEnabled ? 'enabled' : 'disabled'}`);
+    }
+
+    if (body.flashSaleTitle !== undefined) {
+        settings.flashSaleTitle = String(body.flashSaleTitle || 'Flash Sale').trim() || 'Flash Sale';
+        changes.push(`Flash sale title updated`);
+    }
+
+    if (body.flashSaleEndDate !== undefined || body.flashSaleEndTime !== undefined) {
+        const endDate = resolveFlashSaleEndDate(body.flashSaleEndDate, body.flashSaleEndTime);
+        settings.flashSaleEndDate = endDate;
+        changes.push(endDate ? `Flash sale ends ${endDate.toISOString()}` : 'Flash sale end cleared');
+    }
+
+    if (body.flashSaleDiscountPercent !== undefined) {
+        const parsedDiscount = parsePositiveNumber(
+            body.flashSaleDiscountPercent,
+            'Flash sale discount percentage',
+            { min: 0, max: 100 }
+        );
+        if (parsedDiscount.error) {
+            return res.status(400).json({ success: false, message: parsedDiscount.error });
+        }
+        settings.flashSaleDiscountPercent = parsedDiscount.value;
+        changes.push(`Flash sale discount: ${parsedDiscount.value}%`);
+    }
+
+    if (body.flashSaleProductIds !== undefined) {
+        settings.flashSaleProductIds = parseFlashSaleProductIds(body.flashSaleProductIds);
+        changes.push(`Flash sale products: ${settings.flashSaleProductIds.length}`);
     }
 
     const deliverySettings = await Settings.getOrCreate();

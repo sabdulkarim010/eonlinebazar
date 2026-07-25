@@ -1061,3 +1061,50 @@ File Name: css/checkout.css
     }
 }
 
+.checkout-wallet-panel {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px dashed #fcd34d;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.checkout-wallet-balance-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-weight: 600;
+    color: #92400e;
+}
+
+.checkout-wallet-toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #78350f;
+}
+
+.checkout-wallet-toggle input {
+    margin-top: 3px;
+    accent-color: #f59e0b;
+}
+
+.checkout-wallet-toggle small {
+    color: #b45309;
+    font-weight: 600;
+}
+
+.wallet-deduct-row strong,
+.payable-after-wallet-row strong {
+    color: #059669;
+}
+
+.payable-after-wallet-row {
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(245, 158, 11, 0.35);
+    font-size: 15px;
+}

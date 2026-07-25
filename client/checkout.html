@@ -103,6 +103,25 @@
                     <span>Grand Total:</span>
                     <strong id="checkoutGrandTotal">৳0</strong>
                 </div>
+
+                <div class="checkout-wallet-panel" id="checkoutWalletPanel" style="display:none;">
+                    <div class="checkout-wallet-balance-row">
+                        <span><i class="fa-solid fa-wallet"></i> Your Wallet Balance</span>
+                        <strong id="checkoutWalletBalance">৳0</strong>
+                    </div>
+                    <label class="checkout-wallet-toggle" for="applyWalletCheckbox">
+                        <input type="checkbox" id="applyWalletCheckbox">
+                        <span>Apply Wallet Balance <small id="checkoutWalletAvailableLabel">(Available: ৳0)</small></span>
+                    </label>
+                    <div class="summary-row wallet-deduct-row" id="checkoutWalletDeductRow" style="display:none;">
+                        <span>Wallet Applied:</span>
+                        <strong id="checkoutWalletApplied">-৳0</strong>
+                    </div>
+                    <div class="summary-row payable-after-wallet-row" id="checkoutPayableRow" style="display:none;">
+                        <span>Amount to Pay:</span>
+                        <strong id="checkoutPayableTotal">৳0</strong>
+                    </div>
+                </div>
             </div>
 
             <div class="shipping-info-section-wrapper" id="shippingFormSection">

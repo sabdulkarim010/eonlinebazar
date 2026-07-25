@@ -13,6 +13,7 @@ const { upload } = require('../middlewares/uploadMiddleware'); // এখান�
 const cloudinary = require('cloudinary').v2; // ক্লাউডিনারি সরাসরি এখান থেকে ইমপোর্ট করুন
 const mongoose = require('mongoose');
 const { parseVariants, applyProductStockFields } = require('../utils/variantHelpers');
+const { loadFlashSaleSettings, applyFlashSaleToProducts } = require('../utils/flashSaleService');
 
 function parseHasVariants(raw) {
     if (raw === true || raw === 'true' || raw === 1 || raw === '1') return true;
@@ -61,8 +62,12 @@ async function resolveBrand(brandInput) {
 // ১. সব প্রোডাক্ট দেখা (পাবলিক)
 const getProducts = async (req, res) => {
     try {
-        const products = await Product.find().sort({ createdAt: -1 });
-        res.json(products); 
+        const [products, flashSettings] = await Promise.all([
+            Product.find().sort({ createdAt: -1 }),
+            loadFlashSaleSettings()
+        ]);
+        const enriched = applyFlashSaleToProducts(products, flashSettings);
+        res.json(enriched);
     } catch (err) {
         console.error("Error fetching products:", err);
         res.status(500).json({ success: false, message: "Failed to fetch products" });
@@ -142,19 +147,22 @@ const searchProducts = async (req, res) => {
         }
 
         // মোট গণনা ও পেজিনেটেড রেজাল্ট সমান্তরালে আনা
-        const [total, products] = await Promise.all([
+        const [total, products, flashSettings] = await Promise.all([
             Product.countDocuments(filter),
-            Product.find(filter).sort(sortOption).skip(skip).limit(limit)
+            Product.find(filter).sort(sortOption).skip(skip).limit(limit),
+            loadFlashSaleSettings()
         ]);
+
+        const enrichedProducts = applyFlashSaleToProducts(products, flashSettings);
 
         return res.json({
             success: true,
             query: q,
-            count: products.length,
+            count: enrichedProducts.length,
             total,
             page,
             totalPages: Math.ceil(total / limit),
-            data: products
+            data: enrichedProducts
         });
     } catch (err) {
         console.error('Product Search Error:', err);

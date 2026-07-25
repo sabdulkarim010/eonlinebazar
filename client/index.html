@@ -97,6 +97,26 @@
 
 
     <main class="container products-container">
+        <section id="flashSaleBanner" class="flash-sale-banner" style="display:none;" aria-live="polite">
+            <div class="flash-sale-banner__content">
+                <div class="flash-sale-banner__copy">
+                    <span class="flash-sale-banner__eyebrow">Limited Time Offer</span>
+                    <h2 id="flashSaleTitle">⚡ Flash Sale</h2>
+                    <p id="flashSaleSubtitle">Grab exclusive discounts before the timer hits zero.</p>
+                </div>
+                <div class="flash-sale-banner__timer-wrap">
+                    <span class="flash-sale-banner__timer-label">Ends in</span>
+                    <div class="flash-sale-countdown" id="flashSaleCountdown">
+                        <div class="flash-sale-countdown__unit"><strong id="flashHours">00</strong><small>Hours</small></div>
+                        <span class="flash-sale-countdown__sep">:</span>
+                        <div class="flash-sale-countdown__unit"><strong id="flashMinutes">00</strong><small>Minutes</small></div>
+                        <span class="flash-sale-countdown__sep">:</span>
+                        <div class="flash-sale-countdown__unit"><strong id="flashSeconds">00</strong><small>Seconds</small></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <h2 class="section-title">Trending Products</h2>
         <div id="productGrid" class="product-layout-grid">
         </div>

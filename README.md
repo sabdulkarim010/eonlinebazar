@@ -4,7 +4,7 @@
 
 ### A Fully Dynamic, Production-Ready Full-Stack E-Commerce Platform
 
-*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), **Role-Based Access Control (RBAC) with dynamic Staff Management**, real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **1-click multi-provider courier dispatch (Steadfast / Pathao / RedX) with Smart Hybrid Mode from the admin panel**, **dual-WhatsApp routing with background UltraMsg/Green API order alerts**, **staff manual POS / phone order entry**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **unified master store settings engine** (announcements, free-shipping threshold, cashback, loyalty points & refund windows), **dynamic free-shipping waiver & live dashboard announcements**, **category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, **admin-configurable SMS gateway & automated order confirmation emails**, custom store branding, and an **advanced Finance & P/L analytics dashboard** with itemized profit formulas, dynamic date-range filtering, and a dark/light theme engine.*
+*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), **Role-Based Access Control (RBAC) with dynamic Staff Management**, real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge, **real-time wallet balance deduction**), **advanced order management with customer cancel/return workflows**, **1-click multi-provider courier dispatch (Steadfast / Pathao / RedX) with Smart Hybrid Mode from the admin panel**, **dual-WhatsApp routing with background UltraMsg/Green API order alerts**, **staff manual POS / phone order entry**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **unified master store settings engine** (announcements, free-shipping threshold, cashback, loyalty points, refund windows, **VIP segmentation thresholds**, **Flash Sale scheduling**), **dynamic free-shipping waiver & live dashboard announcements**, **category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, **admin-configurable SMS gateway & automated order confirmation emails**, custom store branding, and an **advanced Finance & P/L analytics dashboard** with itemized profit formulas, dynamic date-range filtering, and a dark/light theme engine.*
 
 ![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-4.0.0-success)
+![Version](https://img.shields.io/badge/Version-4.1.0-success)
 ![RBAC](https://img.shields.io/badge/RBAC-Staff%20Management-6f42c1)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
@@ -28,6 +28,7 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v4.1.0](#-whats-new--v410-wallet-checkout-vip-segmentation--flash-sale-engine)
 - [What's New — v4.0.0](#-whats-new--v400-automated-background-whatsapp-alerts--staff-manual-order-engine)
 - [What's New — v3.9.0](#-whats-new--v390-multi-attribute-variant-matrix--dynamic-stock-engine)
 - [What's New — v3.8.0](#-whats-new--v380-advanced-finance-analytics--theme-engine)
@@ -50,6 +51,9 @@
 - [Stock Out & Low Stock Automated Alert Engine](#️-stock-out--low-stock-automated-alert-engine)
 - [Multi-Attribute Combination Matrix & Dynamic Stock Engine](#-multi-attribute-combination-matrix--dynamic-stock-engine)
 - [Admin Panel — Order Security & Refund Controls](#-admin-panel--order-security--refund-controls)
+- [Store Wallet, Dynamic Checkout Deduction & Refund Engine](#-store-wallet-dynamic-checkout-deduction--refund-engine)
+- [VIP Customer Segmentation & Retention Logic](#-vip-customer-segmentation--retention-logic)
+- [Flash Sale & Bulk Coupon Engine](#-flash-sale--bulk-coupon-engine)
 - [Admin Analytics & Inventory Management Controls](#-admin-analytics--inventory-management-controls)
 - [Super Admin RBAC & Staff Management Architecture](#-super-admin-rbac--staff-management-architecture)
 - [Master Settings & Dynamic Rewards](#-master-settings--dynamic-rewards)
@@ -82,14 +86,30 @@ Eight things set it apart:
 
 1. **A database-backed session security layer** — every login (customer *and* admin) generates a unique session embedded inside the JWT, so users and admins can view all their **active devices** (IP, geo-location, browser & device) and **remotely log out** any device in real time.
 2. **A Fortified Admin Security Suite** — multi-option Two-Factor Authentication (**Email OTP**, **Google Authenticator / TOTP**, and **SMS OTP**), **Geo-Fencing (Region Lock)**, brute-force **auto IP-blacklisting**, rate-limiting, and a full login-history / security-audit trail.
-3. **Smart Checkout & Order Lifecycle** — profile-first address pre-fill, **default-address auto-select**, toggleable saved-address cards, **location-based shipping & delivery date previews**, **AJAX promo-code recalculation**, guest-to-auth **cart merge**, customer cancellation/return reason modals, **1-click PDF invoice downloads**, admin return approval with wallet refunds, and a configurable **Safe Undo Refund** window with spent-funds safety checks.
+3. **Smart Checkout & Order Lifecycle** — profile-first address pre-fill, **default-address auto-select**, toggleable saved-address cards, **location-based shipping & delivery date previews**, **AJAX promo-code recalculation**, **interactive wallet balance deduction on checkout/payment** (full or partial coverage with atomic ledger debits), guest-to-auth **cart merge**, customer cancellation/return reason modals, **1-click PDF invoice downloads**, admin return approval with wallet refunds, and a configurable **Safe Undo Refund** window with spent-funds safety checks.
 4. **Dynamic Delivery Charge & Address Management** — admin-configurable shipping rules, Bangladesh **District → Upazila/Thana** cascading address fields, checkout auto-fill, real-time fee preview, and **server-side price re-validation** before orders are persisted.
-5. **Unified Master Store Settings Engine** — one admin form controls announcement copy, **free-shipping threshold**, global cashback, points earning ratio, points-to-taka conversion, and refund-undo window; values sync to checkout, cart, order placement, and the customer dashboard in real time.
+5. **Unified Master Store Settings Engine** — one admin form controls announcement copy, **free-shipping threshold**, global cashback, points earning ratio, points-to-taka conversion, refund-undo window, **VIP segmentation thresholds**, and **Flash Sale scheduling**; values sync to checkout, cart, order placement, customer dashboard, and storefront in real time.
 6. **Time-Sensitive Coupon Automation** — precise hour/minute expiry scheduling, a server-side **ACTIVE / EXPIRED** status engine with bulk auto-expiry, checkout visibility synced to live availability, and hardened order-time coupon validation.
 7. **Super Admin RBAC & Staff Management** — a dynamic permission engine lets the owner create staff accounts with granular operational rights; unified `/admin/login` detects `superadmin` vs `staff`, the sidebar and API both enforce the same permission matrix, and blocked accounts lose access on the very next request.
 8. **Isolated Multi-Provider Courier Dispatch** — one-click **`Send to Courier`** from **Live Orders** (Steadfast, Pathao, RedX) with **Smart Hybrid Mode**: live API booking when credentials are configured, mock tracking IDs (`SF-PENDING-XXXXX`) when absent; customer-facing courier badges on **Order Details** and **Track Your Order** without disturbing status timelines.
 9. **Dual-WhatsApp Routing & Background Order Alerts** — isolated public customer chat line vs private admin alert number; **non-blocking server-side POST** dispatch on every checkout (UltraMsg, Green API, CallMeBot, or direct webhook) with structured payload formatting — no admin panel session required.
 10. **Staff Manual Order Creation (POS Engine)** — admin modal for phone/chat orders with searchable product picker, **multi-variant stock validation**, automated inventory deduction, and instant **Finance & Analytics** ledger integration.
+11. **Customer Retention & Promotions Layer** — **store wallet checkout deduction**, automated refund credits, **VIP / Frequent Buyer segmentation** with admin filter tabs, and a **Flash Sale engine** with homepage countdown and dynamic discounted pricing.
+
+---
+
+## 🆕 What's New — v4.1.0 (Wallet Checkout, VIP Segmentation & Flash Sale Engine)
+
+This release completes the **Customer Retention, Wallet Engine, VIP Segmentation, and Flash Sale** systems — wiring checkout, admin, and storefront surfaces through shared backend utilities.
+
+| Capability | Highlights |
+|------------|------------|
+| **💳 Checkout Wallet Deduction** | Live wallet balance on `/checkout` and `/payment`; **Apply Wallet Balance** checkbox; dynamic **Amount to Pay** recalculation; auto **Paid via Wallet** when fully covered; atomic **`DEBIT`** ledger entries via `utils/walletService.js`. |
+| **🔄 Admin Refund Workflow** | Return approval credits wallet with **`CREDIT`** transactions (`referenceOrder`, descriptive notes); refund amount includes **`walletApplied + grandTotal`**; rollback-safe undo via shared reversal helper. |
+| **👑 VIP Customer Segmentation** | Master Settings thresholds (`vipMinTotalSpent`, `vipMinOrderCount`, `frequentBuyerMinOrders`); admin tabs **[All] \| [👑 VIP / Top Buyers] \| [Frequent Buyers]**; spent + segment badges in customer table. |
+| **⚡ Flash Sale Engine** | Master Settings panel — enable/title/end date-time/discount %/featured product IDs; public **`GET /api/store/flash-sale`**; homepage **HH : MM : SS** countdown; server-side flash pricing on catalog + order placement. |
+
+> 📌 See dedicated sections: [Store Wallet Engine](#-store-wallet-dynamic-checkout-deduction--refund-engine) · [VIP Segmentation](#-vip-customer-segmentation--retention-logic) · [Flash Sale Engine](#-flash-sale--bulk-coupon-engine).
 
 ---
 
@@ -482,6 +502,7 @@ Data arrives via **`GET /api/customer/profile`** (`profile.announcement`) and th
 | `GET` | `/api/store/delivery-settings` | Rates, home city, resolved `freeShippingThreshold` | Public |
 | `GET` | `/api/store/shipping-quote` | Zone, fee, delivery estimate, `freeShipping` progress | Public |
 | `GET` | `/api/store/announcement` | Live announcement text, highlights, reward snapshot | Public |
+| `GET` | `/api/store/flash-sale` | Active flash sale config, countdown end time & featured product IDs | Public |
 | `GET` | `/api/customer/profile` | Profile payload includes `announcement` + `deliverySettings` | User |
 
 ### Key Files
@@ -655,6 +676,7 @@ End-to-end order lifecycle management for customers and admins — from responsi
 | `deliveredAt` | `Date` | Delivery timestamp — anchors return window validation |
 | `refundedAt` | `Date` | When wallet refund was processed |
 | `refundAmount` | `Number` | Exact amount credited to wallet |
+| `walletApplied` | `Number` | Wallet balance used at checkout (deducted atomically on placement) |
 | `statusBeforeRefund` | `String` | Status restored on refund undo |
 | `courierProvider` | `String` | Courier used for booking (e.g. `Steadfast`) |
 | `courierTrackingId` | `String` | Public tracking code returned by the courier API |
@@ -1053,9 +1075,11 @@ Enterprise-grade refund governance for the Super Admin panel — full visibility
 - **One-click multi-provider courier dispatch** — **`🚚 Send to Courier`** with **Smart Hybrid Mode** (live Steadfast API when credentials are configured; mock `SF/PT/RX-PENDING-XXXXX` IDs when absent); saves tracking IDs, marks the order **Shipped**, and shows a clickable **`🚚 Sent`** tracking badge on booked rows.
 
 #### Return Approval & Wallet Integration
-- `approveOrderReturn()` atomically transitions status **`Return Requested` → `Returned`**, records `refundedAt` and `refundAmount` (exact `grandTotal` paid), and credits the customer's **wallet balance**.
-- A **`walletHistory`** entry of type `refund` is prepended with a descriptive note (`Refund for returned order #…`).
+- `approveOrderReturn()` atomically transitions status **`Return Requested` → `Returned`**, records `refundedAt` and `refundAmount` (full order value: **`grandTotal + walletApplied`**), and credits the customer's **wallet balance**.
+- A **`walletHistory`** entry of type **`CREDIT`** is prepended with `referenceOrder`, amount, and note (`Refund for returned items`).
 - If wallet credit fails, the order status is **rolled back** to `Return Requested` — no orphaned refunds.
+
+> 📌 Checkout-time wallet debits, payment-step UX, and the full ledger model are documented in [Store Wallet, Dynamic Checkout Deduction & Refund Engine](#-store-wallet-dynamic-checkout-deduction--refund-engine).
 
 #### Safe Refund Reversal ("Undo Refund")
 - Admins can reverse an accidental refund within **`refundUndoWindowHours`** (default **72h**, configurable in Master Settings).
@@ -1078,6 +1102,152 @@ flowchart LR
     F --> G[Debit wallet + log reversal]
     G --> H[Success response]
 ```
+
+---
+
+## 💳 Store Wallet, Dynamic Checkout Deduction & Refund Engine
+
+A production-ready **store wallet** layer that connects checkout, payment, order persistence, and admin refund governance through atomic balance operations and a full transaction ledger.
+
+### Checkout Wallet Deduction
+
+- **Real-time interactive deduction** on the **Checkout** summary and **Payment** step for logged-in customers with a positive `walletBalance`.
+- Prominent **Your Wallet Balance** display with an **Apply Wallet Balance (Available: ৳XXX)** checkbox.
+- **Dynamic Grand Total adjustment** — JavaScript recalculates payable amount instantly:
+  - **Full coverage** — when wallet ≥ order total, payable becomes **৳0** and **Paid via Wallet** is auto-selected on the payment step.
+  - **Partial coverage** — wallet amount is deducted from the grand total; the remaining balance is collected via **COD** or the selected payment gateway.
+- Summary rows surface **Wallet Applied** and **Amount to Pay** before proceeding to payment.
+
+### Backend Order & Ledger Logic
+
+- `POST /api/orders` accepts `applyWallet: true` — the server never trusts client wallet amounts; it computes `walletApplied = min(user.walletBalance, grandTotal)` after coupon and delivery totals are locked.
+- **`walletApplied`** is persisted on `models/order.js`; `paymentMethod` becomes **`Wallet`** when the order is fully covered.
+- **`utils/walletService.js`** performs atomic debits via `findOneAndUpdate` with a balance guard; on failure the order (and coupon slot, if any) is rolled back.
+- Each debit appends a ledger record:
+
+  `{ type: 'DEBIT', amount, referenceOrder: orderId, note: 'Used for Order placement' }`
+
+- Wallet history lives on `User.walletHistory[]` with optional **`referenceOrder`** for traceability.
+
+### Admin Refund Workflow
+
+- When an admin approves a **Return Requested** order, **`creditWalletForUser()`** automatically credits the approved refund amount back to `user.walletBalance`.
+- Refund totals include any wallet used at checkout: **`grandTotal + walletApplied`** — ensuring the customer receives the full value they paid.
+- Each credit appends a ledger record:
+
+  `{ type: 'CREDIT', amount, referenceOrder: orderId, note: 'Refund for returned items' }`
+
+- **Safe Undo Refund** debits the wallet with a **`DEBIT`** reversal entry when balance permits, restoring the prior order status within `refundUndoWindowHours`.
+
+### Wallet Transaction Ledger
+
+| Type | Trigger | Fields recorded |
+|------|---------|-----------------|
+| `DEBIT` | Checkout wallet application | `amount`, `referenceOrder`, `note`, `date` |
+| `CREDIT` | Admin return/refund approval | `amount`, `referenceOrder`, `note`, `date` |
+| `DEBIT` | Refund undo (admin) | `amount`, `note`, `date` |
+| `credit` / `conversion` / `cashback` | Points conversion, delivery rewards | Legacy-compatible types preserved |
+
+Customers view the ledger on **Profile → Wallet & Points**; credits and debits render with signed amounts and descriptive notes.
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `utils/walletService.js` | Atomic debit/credit/reversal helpers + ledger entry builder |
+| `controllers/orderController.js` | Wallet application on `createOrder`, refund credit on `approveOrderReturn` |
+| `models/user.js` | `walletBalance`, `walletHistory[]` (with `referenceOrder`) |
+| `models/order.js` | `walletApplied` snapshot per order |
+| `client/js/checkout.js` | Wallet UI, checkbox, live total recalculation |
+| `client/js/payment.js` | Wallet summary, auto-select **Paid via Wallet** |
+| `client/js/profile.js` | Wallet balance display + transaction history rendering |
+
+---
+
+## 👑 VIP Customer Segmentation & Retention Logic
+
+An admin-driven **customer retention** layer that scores buyers by lifetime spend and order volume, then surfaces actionable segments in the customer management console.
+
+### Dynamic Threshold Settings (Master Settings)
+
+Configured from **Admin Panel → Master Settings → VIP Customer Segmentation** (`models/Setting.js`):
+
+| Setting | Default | Purpose |
+|---------|---------|---------|
+| `vipMinTotalSpent` | `10000` | Minimum lifetime spend (৳) to qualify as **VIP / Top Buyer** |
+| `vipMinOrderCount` | `5` | Minimum completed order count to qualify as **VIP / Top Buyer** |
+| `frequentBuyerMinOrders` | `3` | Minimum orders for **Frequent Buyer** tag (when not VIP) |
+
+A customer is tagged **VIP** when **either** spend **or** order-count threshold is met. **Frequent Buyer** applies when order count meets the frequent threshold but VIP criteria are not satisfied.
+
+### Admin Customer Management
+
+- **Quick-filter tabs** above the customer table:
+  - **[All Customers]**
+  - **[👑 VIP / Top Buyers]**
+  - **[Frequent Buyers]**
+- Table columns include **Total Spent**, **Segment badge**, and a 👑 indicator on VIP names.
+- Aggregation runs server-side in `getAllCustomers()` — totals sum **`grandTotal + walletApplied`** across non-cancelled orders for accurate lifetime value.
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `controllers/adminController.js` | Order aggregation, segment resolution, threshold-aware enrichment |
+| `models/Setting.js` | VIP / frequent-buyer threshold fields |
+| `controllers/masterSettingsController.js` | Persist thresholds via unified Master Settings save |
+| `client/js/admin.js` | Segment tabs, badges, filtered table rendering |
+| `client/admin.html` | Customer segment tab UI + threshold form inputs |
+
+---
+
+## ⚡ Flash Sale & Bulk Coupon Engine
+
+A time-bound promotional engine that pairs **admin-scheduled flash events** with **storefront countdown UX** and **server-authoritative discounted pricing** — complementing the existing time-sensitive **Coupon** system for bulk / campaign-style promotions.
+
+### Admin Master Settings Control Panel
+
+From **Admin Panel → Master Settings → Flash Sale Engine**:
+
+| Control | Purpose |
+|---------|---------|
+| **Enable / Disable** | Master toggle for the flash sale window |
+| **Sale Title** | Headline shown on the homepage banner |
+| **End Date & Time** | Paired `<input type="date">` + `<input type="time">` → ISO expiry timestamp |
+| **Discount Percentage** | Global percentage off featured products (0–100) |
+| **Featured Products** | Comma-separated `productId` or MongoDB `_id` values |
+
+Saved via **`POST /api/admin/master-settings/update`** alongside other master settings. Live preview text confirms title, discount, product count, and end datetime before save.
+
+### Storefront Display & Dynamic Pricing
+
+- **Homepage banner** (`#flashSaleBanner`) renders when the sale is active — gradient **⚡ Flash Sale** block with sale title and subtitle.
+- **Live JavaScript countdown** ticks **Hours : Minutes : Seconds** until expiry; banner auto-hides and product prices revert when the timer reaches zero.
+- **`GET /api/store/flash-sale`** exposes public payload: `{ isActive, flashSaleTitle, flashSaleDiscountPercent, flashSaleProductIds, endsAt, serverNow }`.
+- **`utils/flashSaleService.js`** applies effective prices on **`GET /api/products`** and search results; **`orderController.createOrder`** re-validates flash prices server-side so clients cannot bypass discounts.
+- Product cards show **strikethrough original price**, discounted price, and a **-% badge** during active flash windows.
+
+### Relationship to Coupon Engine
+
+| System | Scope | Mechanism |
+|--------|-------|-----------|
+| **Coupons** | Code-based, cart/checkout | User-entered promo codes with usage limits & expiry |
+| **Flash Sale** | Admin-selected catalog subset | Automatic price override until scheduled end time |
+
+Both systems coexist — coupons adjust merchandise subtotals; flash sale sets catalog selling prices before checkout math begins.
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `utils/flashSaleService.js` | Active-window checks, product matching, price computation, public payload |
+| `models/Setting.js` | Flash sale schema fields |
+| `controllers/masterSettingsController.js` | Admin read/save for flash sale config |
+| `controllers/productController.js` | Flash-adjusted product list + search results |
+| `controllers/storeController.js` | `GET /api/store/flash-sale` |
+| `client/js/main.js` | Banner, countdown timer, sale price markup on product cards |
+| `client/index.html` | Flash sale banner markup |
+| `client/css/home.css` | Banner + countdown + sale price styles |
 
 ---
 
@@ -1407,6 +1577,14 @@ From **Admin Panel → Master Settings**, admins configure the singleton `Settin
 | `freeShippingThreshold` | mirrors delivery `Settings` | Canonical free-shipping waiver threshold (synced bidirectionally) |
 | `announcementText` | `''` | Optional custom **Latest Announcement** copy on customer profiles |
 | `isAnnouncementActive` | `true` | Show/hide the announcement card platform-wide |
+| `flashSaleEnabled` | `false` | Master toggle for scheduled flash sale events |
+| `flashSaleTitle` | `'Flash Sale'` | Homepage banner headline |
+| `flashSaleEndDate` | `null` | ISO expiry timestamp (date + time composed in admin UI) |
+| `flashSaleDiscountPercent` | `0` | Percentage discount applied to featured products |
+| `flashSaleProductIds` | `[]` | Featured product `productId` / `_id` list |
+| `vipMinTotalSpent` | `10000` | VIP segmentation — minimum lifetime spend (৳) |
+| `vipMinOrderCount` | `5` | VIP segmentation — minimum order count |
+| `frequentBuyerMinOrders` | `3` | Frequent Buyer segmentation — minimum order count |
 
 Changes are persisted via **`POST /api/admin/master-settings/update`** (canonical) or legacy `PUT /api/admin/master-settings`, and logged to the **Security & Audit** trail.
 
@@ -2307,14 +2485,17 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 #### Product & Order Systems
 - **🛍️ Product Catalog** — Up to 10 images, categories, brand, **simple or matrix variations**, highlights, **flexible stock** (`stockQuantity` for simple products; per-combination stock for variant products), **selling price + buying price** (live profit preview), and detailed descriptions.
 - **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **clickable order rows** (v3.4.0) with inline ID/date meta, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals (actions on detail view only), dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, **1-click PDF invoice download** from Order Details, **automated order confirmation emails** on every successful checkout, **background WhatsApp admin order alerts** (v4.0.0), **staff manual POS / phone order entry** with variant stock validation (v4.0.0), and **admin one-click multi-provider courier dispatch** (Steadfast / Pathao / RedX) with Smart Hybrid Mode and customer tracking badges (v3.7.0).
-- **🔄 Admin Return & Refund Pipeline** — Approve returns with automatic wallet credit, transaction history logging, and **Safe Undo Refund** within a configurable hour window (spent-funds safety check).
+- **🔄 Admin Return & Refund Pipeline** — Approve returns with automatic wallet **`CREDIT`**, full **`walletApplied + grandTotal`** refund math, transaction history logging, and **Safe Undo Refund** within a configurable hour window (spent-funds safety check).
+- **💳 Checkout Wallet Deduction** — Live wallet balance on checkout/payment, **Apply Wallet Balance** checkbox, dynamic payable recalculation, **Paid via Wallet** auto-selection, and atomic **`DEBIT`** ledger entries on order placement.
+- **👑 VIP Customer Segmentation** — Configurable spend/order thresholds; admin filter tabs **[All] \| [VIP / Top Buyers] \| [Frequent Buyers]** with segment badges and lifetime spend column.
+- **⚡ Flash Sale Engine** — Master Settings scheduling (title, end date-time, discount %, featured products); homepage **HH:MM:SS** countdown; server-side flash pricing on catalog and checkout.
 - **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, **unified free-shipping threshold** (Master Settings ↔ Delivery Settings mirror), **real-time free-shipping progress** on cart/checkout, **real-time delivery date estimates** on checkout, **locked server-side totals** on every order, and district-aware invoices.
 - **📍 Smart Checkout Address Integration** — Profile-first checkout pre-fill, toggleable saved-address radio cards (select / unselect / revert), manual override with **Save to profile** sync, and cascading Bangladesh location dropdowns.
 - **🛒 Shopping Cart & Checkout Enhancements** — Server-synced cart with quantity updates, selection toggles, **real-time low-stock FOMO badges** and out-of-stock quantity guardrails, **checkout-only district & promo UI**, **AJAX coupon recalculation** (flat/percentage), **guest-cart merge** on login/OAuth (variant-aware quantity increment), post-order cleanup, and a **compact divider-line summary** in the profile dashboard.
 - **⭐ Reviews & Ratings** — Star ratings and reviews with optional photo upload; averages update automatically.
 - **📍 Address Book** — Manage multiple delivery addresses with **single Primary / Default** flag; default address auto-selects and pre-fills checkout; profile sync from checkout respects default promotion.
 - **🔒 Profile Security** — `bcrypt` password change (current-password gated), **6-digit OTP** verification for email/phone updates, active session/device management on the Security tab.
-- **💰 Wallet & Loyalty Points** — Admin-configurable cashback, points earning, and conversion rates; category-specific cashback overrides; convert points to wallet balance with transaction history.
+- **💰 Wallet & Loyalty Points** — Admin-configurable cashback, points earning, and conversion rates; category-specific cashback overrides; **checkout wallet deduction** with full **CREDIT/DEBIT** ledger; convert points to wallet balance with transaction history.
 
 #### ❤️ My Wishlist
 
@@ -2482,6 +2663,8 @@ eonlinebazar-fullstack/
 │   ├── variantHelpers.js              # Combination variant parse, stock aggregation, order/cart line matching
 │   ├── applicationTime.js             # Centralized server clock + platform timezone for coupon expiry
 │   ├── rewardSettings.js              # Cashback/points math, category overrides, delivery rewards, refund undo window
+│   ├── walletService.js               # Atomic wallet debit/credit/reversal + ledger entry builder
+│   ├── flashSaleService.js            # Flash sale window, featured product pricing, public payload
 │   ├── savedAddress.js                # Checkout address parsing, duplicate check, profile sync, default promotion
 │   ├── invoicePdf.js                  # Branded PDF invoice generation (pdfkit) for customer order downloads
 │   ├── bangladeshDistricts.js         # District list, normalization & inside/outside matching
@@ -2793,7 +2976,7 @@ Base URL: `http://localhost:3000`
 | `DELETE` | `/api/cart/remove/:productId` | Remove item | User |
 | `POST` | `/api/cart/merge` | Merge guest cart | User |
 | `DELETE` | `/api/cart/clear-ordered` | Clear checked-out items | User |
-| `POST` | `/api/orders` | Place order (server re-prices items, re-validates coupon, **locks delivery charge & totals**, optional address sync) | User |
+| `POST` | `/api/orders` | Place order (server re-prices items, re-validates coupon, **locks delivery charge & totals**, optional **`applyWallet`** atomic debit, optional address sync) | User |
 | `GET`  | `/api/orders/my-orders` | User's order history | User |
 | `GET`  | `/api/orders/track` | Public order tracking | Public |
 | `GET`  | `/api/orders/:id` | Single order details | User |
@@ -2917,6 +3100,7 @@ Base URL: `http://localhost:3000`
 | `GET`  | `/api/store/delivery-settings` | Delivery rules for checkout (rates, home city, resolved free-shipping threshold) | Public |
 | `GET`  | `/api/store/shipping-quote` | District + subtotal → zone, delivery charge, estimated delivery window, free-shipping progress | Public |
 | **`GET`** | **`/api/store/announcement`** | **Live announcement text, highlight chips & reward snapshot** | **Public** |
+| **`GET`** | **`/api/store/flash-sale`** | **Active flash sale config, countdown end time & featured product IDs** | **Public** |
 | `GET`  | `/api/store/districts` | Valid Bangladesh district list | Public |
 
 ### 📊 Finance & Analytics
@@ -3028,6 +3212,28 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 ---
 
 ## 📜 Changelog
+
+### `v4.1.0` — Wallet Checkout, VIP Segmentation & Flash Sale Engine
+
+**💳 Store Wallet & Dynamic Checkout Deduction**
+- Checkout summary and payment step show live **wallet balance** with **Apply Wallet Balance (Available: ৳XXX)** checkbox.
+- Client-side **Grand Total** and **Amount to Pay** recalculate instantly for full or partial wallet coverage; payment step auto-selects **Paid via Wallet** when payable is ৳0.
+- `orderController.createOrder` accepts `applyWallet`; server computes `walletApplied`, persists on order, adjusts `grandTotal`, and atomically debits via `utils/walletService.js`.
+- Ledger entries use standardized **`DEBIT`** / **`CREDIT`** types with `referenceOrder` on `User.walletHistory[]`.
+
+**🔄 Admin Refund Workflow**
+- `approveOrderReturn()` credits wallet with **`CREDIT`** entries (`Refund for returned items`); refund amount = **`grandTotal + walletApplied`**.
+- `undoOrderRefund()` uses shared `reverseWalletCredit()` with balance guard and **`DEBIT`** reversal logging.
+
+**👑 VIP Customer Segmentation**
+- New Master Settings fields: `vipMinTotalSpent`, `vipMinOrderCount`, `frequentBuyerMinOrders`.
+- `getAllCustomers()` aggregates lifetime spend and order count; enriches `isVip`, `isFrequentBuyer`, `segment`.
+- Admin customer table: filter tabs **[All] \| [👑 VIP / Top Buyers] \| [Frequent Buyers]**, **Total Spent** column, segment badges.
+
+**⚡ Flash Sale & Bulk Coupon Engine**
+- Master Settings **Flash Sale Engine** card — enable, title, end date/time, discount %, featured product IDs.
+- Public **`GET /api/store/flash-sale`**; `utils/flashSaleService.js` applies discounted prices on product APIs and order placement.
+- Homepage **⚡ Flash Sale** banner with live **Hours : Minutes : Seconds** countdown; prices revert automatically on expiry.
 
 ### `v4.0.0` — Automated Background WhatsApp Alerts & Staff Manual Order Engine
 
@@ -3175,7 +3381,7 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 
 **🛡️ Admin Panel & Security Controls**
 - Enhanced live order tracking with **distinct badges** for customer vs admin cancellations and full cancellation/return reason visibility.
-- **Return Approval & Wallet Integration** — admins approve returns; system refunds the **exact paid amount** to wallet with detailed `walletHistory` logging.
+- **Return Approval & Wallet Integration** — admins approve returns; system refunds the **full order value** (`grandTotal + walletApplied`) to wallet with **`CREDIT`** `walletHistory` logging and `referenceOrder` traceability.
 - **Safe Refund Reversal ("Undo Refund")** — configurable undo window (`refundUndoWindowHours`); blocks reversal if customer has already spent refunded funds.
 
 **📊 Admin Analytics & Inventory Management Controls**

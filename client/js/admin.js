@@ -374,6 +374,37 @@ function getOrderCountBadge(count) {
     return `<span class="${cls}">${n} order${n !== 1 ? 's' : ''}</span>`;
 }
 
+function getCustomerSegmentBadge(user) {
+    if (user.isVip) {
+        return '<span class="segment-badge segment-badge--vip"><i class="fa-solid fa-crown"></i> VIP / Top Buyer</span>';
+    }
+    if (user.isFrequentBuyer) {
+        return '<span class="segment-badge segment-badge--frequent"><i class="fa-solid fa-repeat"></i> Frequent Buyer</span>';
+    }
+    return '<span class="segment-badge segment-badge--standard">Standard</span>';
+}
+
+let customerSegmentFilter = 'all';
+let customerSegmentThresholds = null;
+
+function filterCustomersBySegment(customers, segment = customerSegmentFilter) {
+    const list = Array.isArray(customers) ? customers : [];
+    if (segment === 'vip') return list.filter((user) => user.isVip);
+    if (segment === 'frequent') return list.filter((user) => user.isFrequentBuyer);
+    return list;
+}
+
+function setupCustomerSegmentTabs() {
+    const tabs = document.querySelectorAll('#customerSegmentTabs .segment-tab');
+    tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            customerSegmentFilter = tab.getAttribute('data-segment') || 'all';
+            tabs.forEach((btn) => btn.classList.toggle('active', btn === tab));
+            renderCustomerTable(filterCustomersBySegment(allCustomers, customerSegmentFilter));
+        });
+    });
+}
+
 
 /* ==========================================================================
    CORE MODULE 4: SPA ROUTER ENGINE (সিঙ্গেল পেজ নেভিগেশন সিস্টেম)
@@ -523,6 +554,7 @@ async function fetchDashboardData() {
         // ব্যাকএন্ড রেসপন্সের বিভিন্ন ফরম্যাট হ্যান্ডেল করা
         if (data && data.success) {
             allCustomers = data.customers || data.data || [];
+            customerSegmentThresholds = data.segmentThresholds || customerSegmentThresholds;
         } else if (Array.isArray(data)) {
             allCustomers = data;
         } else {
@@ -532,7 +564,7 @@ async function fetchDashboardData() {
 
         // ডাটা পাওয়ার পর ড্যাশবোর্ডের কার্ড, চার্ট ও টেবিল আপডেট করা
         updateMetricsCards(allCustomers);
-        renderCustomerTable(allCustomers);
+        renderCustomerTable(filterCustomersBySegment(allCustomers, customerSegmentFilter));
         renderGrowthChart(allCustomers);
         await fetchDashboardAnalytics();
 
@@ -997,7 +1029,7 @@ function renderCustomerTable(customers) {
     if (!tbody) return;
 
     if (customers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="loading-container">No records found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="loading-container">No records found.</td></tr>`;
         return;
     }
 
@@ -1006,6 +1038,7 @@ function renderCustomerTable(customers) {
         const displayId = user._id ? user._id.toString().slice(-6).toUpperCase() : `USR-${index + 1}`;
         const accountStatus = user.accountStatus || 'active';
         const uid = user._id;
+        const totalSpent = Number(user.totalSpent) || 0;
 
         let statusActionBtn = '';
         if (accountStatus === 'blocked') {
@@ -1023,10 +1056,12 @@ function renderCustomerTable(customers) {
         tableHTML += `
             <tr>
                 <td><b>#${displayId}</b></td>
-                <td>${user.name || 'N/A'}</td>
+                <td>${user.name || 'N/A'}${user.isVip ? ' 👑' : ''}</td>
                 <td>${user.email || 'N/A'}</td>
                 <td>${user.mobile || 'N/A'}</td>
                 <td>${getOrderCountBadge(user.orderCount)}</td>
+                <td><span class="spent-badge">${formatAdminPrice(totalSpent)}</span></td>
+                <td>${getCustomerSegmentBadge(user)}</td>
                 <td>${getCustomerStatusHtml(user)}</td>
                 <td class="col-actions customer-actions">
                     <button class="action-btn view" onclick="viewCustomerDetails('${uid}')" title="View Profile"><i class="fa-solid fa-eye"></i></button>
@@ -1046,7 +1081,7 @@ function renderCustomerTable(customers) {
  */
 function showCustomerError(msg) {
     const tbody = document.getElementById('customerTableBody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-status-error">${msg}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-status-error">${msg}</td></tr>`;
 }
 
 /**
@@ -5442,7 +5477,11 @@ function applyMasterSettingsToUI(settings) {
     setVal('masterPointsConversionRate', settings.pointsToTakaConversionRate);
     setVal('masterRefundUndoWindow', settings.refundUndoWindowHours);
     setVal('masterFreeShippingThreshold', settings.freeShippingThreshold);
+    setVal('vipMinTotalSpent', settings.vipMinTotalSpent);
+    setVal('vipMinOrderCount', settings.vipMinOrderCount);
+    setVal('frequentBuyerMinOrders', settings.frequentBuyerMinOrders);
 
+    applyFlashSaleSettingsToUI(settings);
     applyAnnouncementSettingsToUI(settings);
     applySmsSettingsToUI(settings);
     applyCourierSettingsToUI(settings);
@@ -5611,6 +5650,65 @@ function updateSmsSettingsPreview() {
     }
 
     previewEl.textContent = `Enabled — ${provider} · Sender: ${senderId} · credentials loaded from Master Settings.`;
+}
+
+function applyFlashSaleSettingsToUI(settings) {
+    if (!settings) return;
+
+    const enabledEl = document.getElementById('flashSaleEnabled');
+    if (enabledEl) enabledEl.checked = settings.flashSaleEnabled === true;
+
+    const titleEl = document.getElementById('flashSaleTitle');
+    if (titleEl && settings.flashSaleTitle !== undefined) titleEl.value = settings.flashSaleTitle || '';
+
+    const discountEl = document.getElementById('flashSaleDiscountPercent');
+    if (discountEl && settings.flashSaleDiscountPercent !== undefined) {
+        discountEl.value = settings.flashSaleDiscountPercent;
+    }
+
+    const productsEl = document.getElementById('flashSaleProductIds');
+    if (productsEl && Array.isArray(settings.flashSaleProductIds)) {
+        productsEl.value = settings.flashSaleProductIds.join(', ');
+    }
+
+    const endDateEl = document.getElementById('flashSaleEndDate');
+    const endTimeEl = document.getElementById('flashSaleEndTime');
+    if (settings.flashSaleEndDate || settings.endsAt) {
+        const end = new Date(settings.flashSaleEndDate || settings.endsAt);
+        if (!Number.isNaN(end.getTime())) {
+            if (endDateEl) endDateEl.value = end.toISOString().slice(0, 10);
+            if (endTimeEl) endTimeEl.value = end.toTimeString().slice(0, 5);
+        }
+    }
+
+    updateFlashSaleSettingsPreview();
+}
+
+function updateFlashSaleSettingsPreview() {
+    const previewEl = document.getElementById('flashSaleSettingsPreviewText');
+    if (!previewEl) return;
+
+    const enabled = document.getElementById('flashSaleEnabled')?.checked === true;
+    const title = document.getElementById('flashSaleTitle')?.value?.trim() || 'Flash Sale';
+    const discount = Number(document.getElementById('flashSaleDiscountPercent')?.value || 0);
+    const endDate = document.getElementById('flashSaleEndDate')?.value;
+    const endTime = document.getElementById('flashSaleEndTime')?.value || '23:59';
+    const productCount = (document.getElementById('flashSaleProductIds')?.value || '')
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean).length;
+
+    if (!enabled) {
+        previewEl.textContent = 'Flash sale is currently inactive.';
+        return;
+    }
+
+    if (!endDate || discount <= 0 || productCount === 0) {
+        previewEl.textContent = `${title} enabled — add end date, discount, and at least one product ID to go live.`;
+        return;
+    }
+
+    previewEl.textContent = `${title} · ${discount}% off · ${productCount} product(s) · ends ${endDate} ${endTime}`;
 }
 
 function applyAnnouncementSettingsToUI(settings) {
@@ -5871,7 +5969,15 @@ function setupAdminSettingsForms() {
         'enableWhatsAppOrderAlerts',
         'whatsAppAlertProvider',
         'whatsAppAlertApiKey',
-        'whatsAppAlertInstanceId'
+        'whatsAppAlertInstanceId',
+        'flashSaleTitle',
+        'flashSaleEndDate',
+        'flashSaleEndTime',
+        'flashSaleDiscountPercent',
+        'flashSaleProductIds',
+        'vipMinTotalSpent',
+        'vipMinOrderCount',
+        'frequentBuyerMinOrders'
     ].forEach((id) => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -5880,6 +5986,11 @@ function setupAdminSettingsForms() {
             el.addEventListener('change', updateMasterSettingsPreview);
         }
     });
+
+    const flashEnabledEl = document.getElementById('flashSaleEnabled');
+    if (flashEnabledEl) {
+        flashEnabledEl.addEventListener('change', updateFlashSaleSettingsPreview);
+    }
 
     // One form, one save action: announcement, free shipping, rewards and the
     // refund window all travel to /api/admin/master-settings/update together.
@@ -5908,7 +6019,16 @@ function setupAdminSettingsForms() {
                 cashbackPercentage: document.getElementById('masterCashbackPercentage')?.value,
                 takaToPointsRatio: document.getElementById('masterTakaToPointsRatio')?.value,
                 pointsToTakaConversionRate: document.getElementById('masterPointsConversionRate')?.value,
-                refundUndoWindowHours: document.getElementById('masterRefundUndoWindow')?.value
+                refundUndoWindowHours: document.getElementById('masterRefundUndoWindow')?.value,
+                flashSaleEnabled: document.getElementById('flashSaleEnabled')?.checked === true,
+                flashSaleTitle: document.getElementById('flashSaleTitle')?.value?.trim() || 'Flash Sale',
+                flashSaleEndDate: document.getElementById('flashSaleEndDate')?.value || '',
+                flashSaleEndTime: document.getElementById('flashSaleEndTime')?.value || '23:59',
+                flashSaleDiscountPercent: document.getElementById('flashSaleDiscountPercent')?.value,
+                flashSaleProductIds: document.getElementById('flashSaleProductIds')?.value || '',
+                vipMinTotalSpent: document.getElementById('vipMinTotalSpent')?.value,
+                vipMinOrderCount: document.getElementById('vipMinOrderCount')?.value,
+                frequentBuyerMinOrders: document.getElementById('frequentBuyerMinOrders')?.value
             };
 
             const submitBtn = document.getElementById('masterSettingsSaveBtn');
@@ -6174,6 +6294,7 @@ function initDashboard() {
     fetchLiveProducts();    // ম্যানেজ প্রোডাক্টস ডাটা
     fetchSecurityLogs();    // সিকিউরিটি লগস
     setupAnalyticsChartToggles();
+    setupCustomerSegmentTabs();
 }
 
 /* ==========================================================================

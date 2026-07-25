@@ -25,25 +25,100 @@ const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const Coupon = require('../models/coupon');
 const { getApplicationNow } = require('../utils/applicationTime');
 
+const Setting = require('../models/Setting');
+
+const VIP_DEFAULTS = {
+    vipMinTotalSpent: 10000,
+    vipMinOrderCount: 5,
+    frequentBuyerMinOrders: 3
+};
+
+function resolveCustomerSegment(userStats = {}, thresholds = VIP_DEFAULTS) {
+    const orderCount = Number(userStats.orderCount) || 0;
+    const totalSpent = Number(userStats.totalSpent) || 0;
+    const vipMinSpent = Number(thresholds.vipMinTotalSpent ?? VIP_DEFAULTS.vipMinTotalSpent);
+    const vipMinOrders = Number(thresholds.vipMinOrderCount ?? VIP_DEFAULTS.vipMinOrderCount);
+    const frequentMin = Number(thresholds.frequentBuyerMinOrders ?? VIP_DEFAULTS.frequentBuyerMinOrders);
+
+    const isVip = totalSpent >= vipMinSpent || orderCount >= vipMinOrders;
+    const isFrequent = !isVip && orderCount >= frequentMin;
+
+    let segment = 'all';
+    if (isVip) segment = 'vip';
+    else if (isFrequent) segment = 'frequent';
+
+    return {
+        orderCount,
+        totalSpent,
+        segment,
+        isVip,
+        isFrequentBuyer: isFrequent
+    };
+}
+
 // ==============================================================
 // ১. কাস্টমারদের তালিকা নিয়ে আসার ফাংশন 
 // ==============================================================
 const getAllCustomers = async (req, res) => {
     try {
-        const customers = await User.find({}).select('-password').sort({ createdAt: -1 }).lean();
-
-        const orderCounts = await Order.aggregate([
-            { $match: { user: { $ne: null } } },
-            { $group: { _id: '$user', count: { $sum: 1 } } }
+        const [customers, orderStats, masterSettings] = await Promise.all([
+            User.find({}).select('-password').sort({ createdAt: -1 }).lean(),
+            Order.aggregate([
+                {
+                    $match: {
+                        user: { $ne: null },
+                        status: { $nin: ['Cancelled', 'Canceled'] }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$user',
+                        orderCount: { $sum: 1 },
+                        totalSpent: {
+                            $sum: {
+                                $add: [
+                                    { $ifNull: ['$grandTotal', 0] },
+                                    { $ifNull: ['$walletApplied', 0] }
+                                ]
+                            }
+                        }
+                    }
+                }
+            ]),
+            Setting.getOrCreate()
         ]);
-        const countMap = new Map(orderCounts.map(o => [String(o._id), o.count]));
 
-        const enriched = customers.map(c => ({
-            ...c,
-            orderCount: countMap.get(String(c._id)) || 0
-        }));
+        const statsMap = new Map(
+            orderStats.map((row) => [String(row._id), {
+                orderCount: row.orderCount || 0,
+                totalSpent: Math.round(Number(row.totalSpent) || 0)
+            }])
+        );
 
-        res.status(200).json({ success: true, customers: enriched });
+        const thresholds = {
+            vipMinTotalSpent: masterSettings.vipMinTotalSpent,
+            vipMinOrderCount: masterSettings.vipMinOrderCount,
+            frequentBuyerMinOrders: masterSettings.frequentBuyerMinOrders
+        };
+
+        const enriched = customers.map((customer) => {
+            const stats = statsMap.get(String(customer._id)) || { orderCount: 0, totalSpent: 0 };
+            const segmentMeta = resolveCustomerSegment(stats, thresholds);
+            return {
+                ...customer,
+                orderCount: segmentMeta.orderCount,
+                totalSpent: segmentMeta.totalSpent,
+                segment: segmentMeta.segment,
+                isVip: segmentMeta.isVip,
+                isFrequentBuyer: segmentMeta.isFrequentBuyer
+            };
+        });
+
+        res.status(200).json({
+            success: true,
+            customers: enriched,
+            segmentThresholds: thresholds
+        });
     } catch (error) {
         console.error("🔴 কাস্টমার ডাটা ফেচ করতে এরর:", error);
         res.status(500).json({ success: false, message: 'সার্ভার এরর।' });

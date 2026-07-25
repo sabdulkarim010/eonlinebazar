@@ -56,6 +56,7 @@ const orderSchema = new mongoose.Schema({
     // Coupon / discount snapshot (optional — backwards compatible with legacy orders)
     subtotal: { type: Number, default: 0 },
     discountAmount: { type: Number, default: 0 },
+    walletApplied: { type: Number, default: 0, min: 0 },
     couponCode: { type: String, default: '', trim: true, uppercase: true },
     deliveryLocationType: { type: String, enum: ['inside', 'outside'], default: 'inside' },
     shippingFee: { type: Number, default: 0, min: 0 },

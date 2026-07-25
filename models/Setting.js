@@ -66,6 +66,46 @@ const settingSchema = new mongoose.Schema({
     enableSmsNotifications: {
         type: Boolean,
         default: false
+    },
+    // ⚡ Flash Sale control panel (Master Settings / Catalog)
+    flashSaleEnabled: {
+        type: Boolean,
+        default: false
+    },
+    flashSaleTitle: {
+        type: String,
+        default: 'Flash Sale',
+        trim: true
+    },
+    flashSaleEndDate: {
+        type: Date,
+        default: null
+    },
+    flashSaleDiscountPercent: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 100
+    },
+    flashSaleProductIds: {
+        type: [String],
+        default: []
+    },
+    // 👑 VIP segmentation thresholds (Admin Customer Management)
+    vipMinTotalSpent: {
+        type: Number,
+        default: 10000,
+        min: 0
+    },
+    vipMinOrderCount: {
+        type: Number,
+        default: 5,
+        min: 0
+    },
+    frequentBuyerMinOrders: {
+        type: Number,
+        default: 3,
+        min: 0
     }
 }, {
     timestamps: true

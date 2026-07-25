@@ -38,6 +38,8 @@ let validationState = {
 
 let checkoutCouponsAvailable = false;
 let checkoutCouponController = null;
+let checkoutWalletBalance = 0;
+let applyWalletAtCheckout = false;
 
 function getAppliedCoupon() {
     return window.CouponUI ? window.CouponUI.getAppliedCoupon() : null;
@@ -104,6 +106,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSavedAddressManualEditWatchers();
     await initializeCheckoutPage();
     initLiveValidationEngine();
+    initCheckoutWalletControls();
     
     const proceedBtn = document.getElementById('proceedToPaymentBtn');
     if (proceedBtn) proceedBtn.addEventListener('click', handleProceedToPayment);
@@ -195,11 +198,70 @@ async function fetchCustomerProfileForCheckout() {
             }
         });
         const data = await res.json();
-        if (res.ok && data) return data;
+        if (res.ok && data) {
+            checkoutWalletBalance = Math.max(0, Number(data.walletBalance) || 0);
+            updateCheckoutWalletUI();
+            return data;
+        }
     } catch (err) {
         console.error('Failed to load profile for checkout:', err);
     }
     return null;
+}
+
+function initCheckoutWalletControls() {
+    const checkbox = document.getElementById('applyWalletCheckbox');
+    if (!checkbox) return;
+
+    checkbox.addEventListener('change', () => {
+        applyWalletAtCheckout = checkbox.checked && checkoutWalletBalance > 0;
+        updateCheckoutTotals(getCheckoutSubtotal());
+    });
+}
+
+function updateCheckoutWalletUI() {
+    const panel = document.getElementById('checkoutWalletPanel');
+    const balanceEl = document.getElementById('checkoutWalletBalance');
+    const availableLabel = document.getElementById('checkoutWalletAvailableLabel');
+    const checkbox = document.getElementById('applyWalletCheckbox');
+
+    if (!panel) return;
+
+    if (!customerToken || checkoutWalletBalance <= 0) {
+        panel.style.display = 'none';
+        applyWalletAtCheckout = false;
+        if (checkbox) checkbox.checked = false;
+        return;
+    }
+
+    panel.style.display = 'block';
+    const formatted = checkoutWalletBalance.toLocaleString('en-US');
+    if (balanceEl) balanceEl.innerText = `৳${formatted}`;
+    if (availableLabel) availableLabel.innerText = `(Available: ৳${formatted})`;
+}
+
+function calculateWalletApplication(grandTotal) {
+    if (!applyWalletAtCheckout || checkoutWalletBalance <= 0) {
+        return { walletApplied: 0, payableTotal: grandTotal };
+    }
+    const walletApplied = Math.min(checkoutWalletBalance, grandTotal);
+    const payableTotal = Math.round((grandTotal - walletApplied) * 100) / 100;
+    return { walletApplied, payableTotal };
+}
+
+function renderCheckoutWalletSummary(grandTotal) {
+    const deductRow = document.getElementById('checkoutWalletDeductRow');
+    const payableRow = document.getElementById('checkoutPayableRow');
+    const walletAppliedEl = document.getElementById('checkoutWalletApplied');
+    const payableEl = document.getElementById('checkoutPayableTotal');
+    const { walletApplied, payableTotal } = calculateWalletApplication(grandTotal);
+
+    if (deductRow) deductRow.style.display = walletApplied > 0 ? 'flex' : 'none';
+    if (payableRow) payableRow.style.display = walletApplied > 0 ? 'flex' : 'none';
+    if (walletAppliedEl) walletAppliedEl.innerText = `-৳${walletApplied.toLocaleString('en-US')}`;
+    if (payableEl) payableEl.innerText = `৳${payableTotal.toLocaleString('en-US')}`;
+
+    return { walletApplied, payableTotal };
 }
 
 async function fetchSavedAddressesForCheckout() {
@@ -846,9 +908,17 @@ function updateCheckoutTotals(subtotal) {
     renderFreeShippingStatus(subtotal, freeShippingBadge);
     if (grandTotalText) grandTotalText.innerText = `৳${grandTotal}`;
 
+    const walletSummary = renderCheckoutWalletSummary(grandTotal);
     updateCheckoutDeliveryEstimate(subtotal);
 
-    return { subtotal, merchandisePayable, deliveryCharge, grandTotal };
+    return {
+        subtotal,
+        merchandisePayable,
+        deliveryCharge,
+        grandTotal,
+        walletApplied: walletSummary.walletApplied,
+        payableTotal: walletSummary.payableTotal
+    };
 }
 
 /* =========================================================================
@@ -1196,6 +1266,8 @@ async function handleProceedToPaymentAsync() {
 
     const deliveryCharge = calculateDeliveryCharge(subtotal);
     const totalAmount = Math.round((merchandisePayable + deliveryCharge) * 100) / 100;
+    const walletSummary = calculateWalletApplication(totalAmount);
+    const payableAfterWallet = walletSummary.payableTotal;
     const SE = window.ShippingEstimator;
     const shippingQuote = SE
         ? SE.calculateShippingQuote(deliverySettings, { district: shippingDistrict, subtotal })
@@ -1224,6 +1296,9 @@ async function handleProceedToPaymentAsync() {
         estimatedDelivery: shippingQuote?.estimatedDelivery || null,
         totalAmount,
         grandTotal: totalAmount,
+        walletApplied: walletSummary.walletApplied,
+        payableAfterWallet,
+        applyWallet: applyWalletAtCheckout && walletSummary.walletApplied > 0,
         status: "Pending",
         items: checkedItems,
         note: noteVal

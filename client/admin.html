@@ -320,8 +320,13 @@
 
 <section id="view-customers" class="admin-section" style="display: none;">
                 <div class="table-container">
-                    <div class="table-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px;">
+                    <div class="table-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; flex-wrap: wrap; gap: 12px;">
                         <h3 id="table-title">All Registered Customers</h3>
+                        <div class="customer-segment-tabs" id="customerSegmentTabs">
+                            <button type="button" class="segment-tab active" data-segment="all">All Customers</button>
+                            <button type="button" class="segment-tab" data-segment="vip">👑 VIP / Top Buyers</button>
+                            <button type="button" class="segment-tab" data-segment="frequent">Frequent Buyers</button>
+                        </div>
                     </div>
                     <table class="data-table">
                         <thead>
@@ -331,12 +336,14 @@
                                 <th>EMAIL ADDRESS</th>
                                 <th>MOBILE CONTACT</th>
                                 <th>ORDERS</th>
+                                <th>TOTAL SPENT</th>
+                                <th>SEGMENT</th>
                                 <th>ACCOUNT STATUS</th>
                                 <th>ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody id="customerTableBody">
-                            <tr><td colspan="7" class="loading-container"><div class="spinner"></div><p>Loading customers...</p></td></tr>
+                            <tr><td colspan="9" class="loading-container"><div class="spinner"></div><p>Loading customers...</p></td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1413,6 +1420,72 @@
                 <div class="master-settings-preview" id="whatsappSettingsPreview">
                     <strong>WhatsApp engine:</strong>
                     <span id="whatsappSettingsPreviewText">Configure public and private numbers above.</span>
+                </div>
+            </div>
+
+            <div class="settings-card settings-card-wide master-settings-card">
+                <h4 class="settings-card-title"><i class="fa-solid fa-bolt"></i> Flash Sale Engine</h4>
+                <p class="settings-card-sub">Schedule a homepage flash sale with a live countdown and automatic discounted pricing on selected products.</p>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label class="checkbox-label" for="flashSaleEnabled">
+                            <input type="checkbox" id="flashSaleEnabled">
+                            Enable Flash Sale
+                        </label>
+                        <small class="field-hint">When enabled and before the end date, featured products show discounted prices on the storefront.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="flashSaleTitle">Sale Title</label>
+                        <input type="text" id="flashSaleTitle" placeholder="⚡ Mega Flash Sale">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="flashSaleEndDate">End Date</label>
+                        <input type="date" id="flashSaleEndDate">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="flashSaleEndTime">End Time</label>
+                        <input type="time" id="flashSaleEndTime" value="23:59">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="flashSaleDiscountPercent">Discount Percentage (%)</label>
+                        <input type="number" id="flashSaleDiscountPercent" min="0" max="100" step="1" placeholder="20">
+                    </div>
+
+                    <div class="form-group form-group-full">
+                        <label for="flashSaleProductIds">Featured Product IDs</label>
+                        <textarea id="flashSaleProductIds" rows="3" placeholder="Comma-separated product IDs or MongoDB _id values"></textarea>
+                        <small class="field-hint">Paste product <code>productId</code> or <code>_id</code> values separated by commas. Only these products receive the flash discount.</small>
+                    </div>
+                </div>
+
+                <div class="master-settings-preview" id="flashSaleSettingsPreview">
+                    <strong>Storefront:</strong>
+                    <span id="flashSaleSettingsPreviewText">Flash sale is currently inactive.</span>
+                </div>
+            </div>
+
+            <div class="settings-card settings-card-wide master-settings-card">
+                <h4 class="settings-card-title"><i class="fa-solid fa-crown"></i> VIP Customer Segmentation</h4>
+                <p class="settings-card-sub">Thresholds power the All Customers filter tabs and VIP badges in the admin customer table.</p>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label for="vipMinTotalSpent">VIP Minimum Total Spent (৳)</label>
+                        <input type="number" id="vipMinTotalSpent" min="0" step="1" placeholder="10000">
+                    </div>
+                    <div class="form-group">
+                        <label for="vipMinOrderCount">VIP Minimum Order Count</label>
+                        <input type="number" id="vipMinOrderCount" min="0" step="1" placeholder="5">
+                    </div>
+                    <div class="form-group">
+                        <label for="frequentBuyerMinOrders">Frequent Buyer Minimum Orders</label>
+                        <input type="number" id="frequentBuyerMinOrders" min="0" step="1" placeholder="3">
+                    </div>
                 </div>
             </div>
 

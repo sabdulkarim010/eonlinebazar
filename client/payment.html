@@ -91,6 +91,20 @@
                             </div>
                         </label>
 
+                        <label class="payment-method-card" for="methodWallet" id="methodWalletCard" style="display:none;">
+                            <div class="card-radio-wrapper">
+                                <input type="radio" id="methodWallet" name="paymentGateway" value="Wallet">
+                                <span class="custom-radio-circle"></span>
+                            </div>
+                            <div class="method-details">
+                                <span class="method-title">Paid via Wallet</span>
+                                <span class="method-subtitle">Your order is fully covered by wallet balance</span>
+                            </div>
+                            <div class="method-logo-box">
+                                <i class="fa-solid fa-wallet logo-fallback-icon wallet-color"></i>
+                            </div>
+                        </label>
+
                         <label class="payment-method-card" for="methodCOD">
                             <div class="card-radio-wrapper">
                                 <input type="radio" id="methodCOD" name="paymentGateway" value="COD">
@@ -142,8 +156,11 @@
                             <span>Discount (<span id="summaryCouponCode"></span>):</span>
                             <strong id="summaryDiscountAmount" style="color:#16a34a;">-৳0</strong>
                         </div>
+                        <div class="price-row" id="summaryWalletRow" style="display: none;">
+                            <span>Wallet Applied:</span>
+                            <strong id="summaryWalletApplied" style="color:#16a34a;">-৳0</strong>
+                        </div>
                         <div class="price-row">
-                            <span>Delivery Charge:</span>
                             <span class="summary-delivery-value-wrap">
                                 <strong id="summaryDeliveryCharge">৳0</strong>
                                 <span class="free-shipping-badge" id="summaryFreeShippingBadge" style="display:none;">Free Shipping</span>

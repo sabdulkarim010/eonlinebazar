@@ -11,8 +11,11 @@
    SECTION 1: GLOBAL VARIABLES & INITIALIZATION (শুরু এবং ভেরিয়েবল)
    ========================================================================== */
 let allProducts = [];
+let flashSaleState = null;
+let flashSaleCountdownTimer = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+    initFlashSaleEngine();
     fetchAndRenderProducts();
 });
 
@@ -92,8 +95,7 @@ function displayProducts(productsToDisplay) {
         productInfo.innerHTML = `
             <h4 class="product-name">${product.name || 'Unknown Product'}</h4>
             <div class="product-price-row">
-                <span class="currency">৳</span>
-                <span class="price-amount">${product.price || '0'}</span>
+                ${buildProductPriceMarkup(product)}
             </div>
         `;
 
@@ -140,6 +142,100 @@ function displayProducts(productsToDisplay) {
             window.WishlistEngine.refreshHearts(productGrid);
         });
     }
+}
+
+
+
+/* ==========================================================================
+   SECTION 3B: FLASH SALE ENGINE (Banner, Countdown, Dynamic Pricing)
+   ========================================================================== */
+async function initFlashSaleEngine() {
+    try {
+        const res = await fetch('/api/store/flash-sale');
+        const data = await res.json();
+        if (data.success && data.data) {
+            flashSaleState = data.data;
+            renderFlashSaleBanner(flashSaleState);
+        }
+    } catch (error) {
+        console.error('Flash sale load error:', error);
+    }
+}
+
+function renderFlashSaleBanner(state) {
+    const banner = document.getElementById('flashSaleBanner');
+    if (!banner || !state?.isActive) {
+        if (banner) banner.style.display = 'none';
+        if (flashSaleCountdownTimer) clearInterval(flashSaleCountdownTimer);
+        return;
+    }
+
+    banner.style.display = 'block';
+    const titleEl = document.getElementById('flashSaleTitle');
+    const subtitleEl = document.getElementById('flashSaleSubtitle');
+    if (titleEl) titleEl.textContent = state.flashSaleTitle || '⚡ Flash Sale';
+    if (subtitleEl) {
+        subtitleEl.textContent = `Up to ${state.flashSaleDiscountPercent || 0}% off on selected products — hurry before time runs out!`;
+    }
+
+    startFlashSaleCountdown(state.endsAt);
+}
+
+function startFlashSaleCountdown(endsAt) {
+    const endTime = new Date(endsAt).getTime();
+    if (Number.isNaN(endTime)) return;
+
+    const hoursEl = document.getElementById('flashHours');
+    const minutesEl = document.getElementById('flashMinutes');
+    const secondsEl = document.getElementById('flashSeconds');
+    const banner = document.getElementById('flashSaleBanner');
+
+    const tick = () => {
+        const diff = endTime - Date.now();
+        if (diff <= 0) {
+            if (hoursEl) hoursEl.textContent = '00';
+            if (minutesEl) minutesEl.textContent = '00';
+            if (secondsEl) secondsEl.textContent = '00';
+            if (banner) banner.style.display = 'none';
+            if (flashSaleCountdownTimer) clearInterval(flashSaleCountdownTimer);
+            flashSaleState = { ...(flashSaleState || {}), isActive: false };
+            fetchAndRenderProducts();
+            return;
+        }
+
+        const totalSeconds = Math.floor(diff / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        if (hoursEl) hoursEl.textContent = String(hours).padStart(2, '0');
+        if (minutesEl) minutesEl.textContent = String(minutes).padStart(2, '0');
+        if (secondsEl) secondsEl.textContent = String(seconds).padStart(2, '0');
+    };
+
+    tick();
+    if (flashSaleCountdownTimer) clearInterval(flashSaleCountdownTimer);
+    flashSaleCountdownTimer = setInterval(tick, 1000);
+}
+
+function buildProductPriceMarkup(product) {
+    const currentPrice = Number(product.price) || 0;
+    const originalPrice = Number(product.originalPrice) || 0;
+    const onFlashSale = product.flashSaleActive === true && originalPrice > currentPrice;
+
+    if (onFlashSale) {
+        return `
+            <span class="price-original">৳${originalPrice.toLocaleString('en-US')}</span>
+            <span class="currency">৳</span>
+            <span class="price-amount">${currentPrice.toLocaleString('en-US')}</span>
+            <span class="flash-sale-tag">-${product.flashSaleDiscountPercent || 0}%</span>
+        `;
+    }
+
+    return `
+        <span class="currency">৳</span>
+        <span class="price-amount">${currentPrice.toLocaleString('en-US')}</span>
+    `;
 }
 
 

@@ -16,9 +16,10 @@ const addressSchema = new mongoose.Schema({
 
 /* ওয়ালেট / পয়েন্ট ট্রানজেকশন লগ (Cashback & Conversion History) */
 const walletHistorySchema = new mongoose.Schema({
-    type: { type: String, default: 'credit' }, // credit | debit | conversion | cashback | refund
+    type: { type: String, default: 'credit' }, // CREDIT | DEBIT | conversion | cashback | refund
     amount: { type: Number, default: 0 },
     note: { type: String, default: '' },
+    referenceOrder: { type: String, default: '', trim: true },
     date: { type: Date, default: Date.now }
 });
 

@@ -38,6 +38,8 @@ function loadCheckoutSessionData() {
         return;
     }
 
+    window.__checkoutSession = sessionData;
+
     document.getElementById('summaryCustomerName').innerText = sessionData.customerName || "N/A";
     document.getElementById('summaryCustomerMobile').innerText = sessionData.customerPhone || sessionData.customerMobile || "N/A";
     document.getElementById('summaryCustomerAddress').innerText = sessionData.customerAddress || "N/A";
@@ -67,11 +69,24 @@ function loadCheckoutSessionData() {
     const subtotal = Number(sessionData.subtotal) || calculatedSubtotal;
     const discountAmount = Number(sessionData.discountAmount) || 0;
     const deliveryCharge = Number(sessionData.deliveryCharge ?? sessionData.shippingFee) || 0;
-    const payable = Number.isFinite(Number(sessionData.totalAmount))
-        ? Number(sessionData.totalAmount)
+    const walletApplied = Number(sessionData.walletApplied) || 0;
+    const grandBeforeWallet = Number.isFinite(Number(sessionData.grandTotal))
+        ? Number(sessionData.grandTotal)
         : Math.max(0, subtotal - discountAmount + deliveryCharge);
+    const payable = Number.isFinite(Number(sessionData.payableAfterWallet))
+        ? Number(sessionData.payableAfterWallet)
+        : Math.max(0, grandBeforeWallet - walletApplied);
 
     document.getElementById('summaryItemsCount').innerText = `${totalItems} Item${totalItems !== 1 ? 's' : ''}`;
+
+    const walletRow = document.getElementById('summaryWalletRow');
+    const walletEl = document.getElementById('summaryWalletApplied');
+    if (walletApplied > 0 && walletRow) {
+        walletRow.style.display = 'flex';
+        if (walletEl) walletEl.innerText = `-৳${walletApplied.toLocaleString('en-US')}`;
+    } else if (walletRow) {
+        walletRow.style.display = 'none';
+    }
 
     const discountRow = document.getElementById('summaryDiscountRow');
     const discountEl = document.getElementById('summaryDiscountAmount');
@@ -95,6 +110,37 @@ function loadCheckoutSessionData() {
     }
 
     document.getElementById('summaryPayableTotal').innerText = `৳${payable}`;
+
+    configureWalletPaymentMode(sessionData, payable, walletApplied);
+}
+
+function configureWalletPaymentMode(sessionData, payable, walletApplied) {
+    const walletCard = document.getElementById('methodWalletCard');
+    const walletRadio = document.getElementById('methodWallet');
+    const cards = document.querySelectorAll('.payment-method-card');
+    const fullyPaidByWallet = payable <= 0 && walletApplied > 0;
+
+    if (fullyPaidByWallet && walletCard && walletRadio) {
+        walletCard.style.display = '';
+        cards.forEach((card) => {
+            if (card.id === 'methodWalletCard') {
+                card.classList.add('active-method');
+            } else {
+                card.classList.remove('active-method');
+                card.style.opacity = '0.45';
+                card.style.pointerEvents = 'none';
+            }
+        });
+        walletRadio.checked = true;
+        updatePaymentInstructions('Wallet');
+        return;
+    }
+
+    if (walletCard) walletCard.style.display = 'none';
+    cards.forEach((card) => {
+        card.style.opacity = '';
+        card.style.pointerEvents = '';
+    });
 }
 
 /* =========================================================================
@@ -182,6 +228,18 @@ function updatePaymentInstructions(method) {
                 </div>
             `;
             break;
+
+        case "Wallet":
+            htmlContent = `
+                <p><strong><i class="fa-solid fa-wallet"></i> Paid via Wallet:</strong></p>
+                <p style="font-size: 13px; color: #475569; margin-top: 5px;">
+                    Your wallet balance fully covers this order. No additional online payment or cash on delivery collection is required for the merchandise total.
+                </p>
+                <div class="instruction-important-note" style="color: #166534; background: #e2fbe8; padding: 8px; border-radius: 4px;">
+                    <i class="fa-solid fa-circle-check"></i> Confirm below to place the order and deduct the wallet amount instantly.
+                </div>
+            `;
+            break;
             
         default:
             htmlContent = `<p>Please select a valid payment method to proceed.</p>`;
@@ -237,7 +295,9 @@ window.handleFinalOrderSubmission = async function() {
             shippingFee: Number(sessionData.deliveryCharge ?? sessionData.shippingFee) || 0,
             subTotal: Number(sessionData.subTotal ?? sessionData.subtotal) || 0,
             grandTotal: Number(sessionData.grandTotal ?? sessionData.totalAmount) || 0,
-            totalAmount: Number(sessionData.grandTotal ?? sessionData.totalAmount) || 0,
+            totalAmount: Number(sessionData.payableAfterWallet ?? sessionData.grandTotal ?? sessionData.totalAmount) || 0,
+            walletApplied: Number(sessionData.walletApplied) || 0,
+            applyWallet: sessionData.applyWallet === true,
             paymentMethod: finalMethod,
             status: "Pending",
             note: sessionData.note || localStorage.getItem('shippingCourierNote') || ""

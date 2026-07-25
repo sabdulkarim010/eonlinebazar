@@ -1693,7 +1693,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const txType = String(tx.type || '').toLowerCase();
             const isDeduct = txType === 'debit';
-            const isRefund = txType === 'refund';
+            const isRefund = txType === 'refund' || txType === 'credit';
             const sign = isDeduct ? '-' : '+';
             const itemClass = isRefund ? 'history-item history-item--refund' : 'history-item';
             const icon = isRefund

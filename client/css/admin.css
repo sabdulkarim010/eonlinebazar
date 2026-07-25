@@ -2282,6 +2282,66 @@ a {
     color: var(--text-muted);
 }
 
+.customer-segment-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.segment-tab {
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #475569;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.segment-tab:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.segment-tab.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+}
+
+.segment-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.segment-badge--vip {
+    background: rgba(245, 158, 11, 0.15);
+    color: #b45309;
+}
+
+.segment-badge--frequent {
+    background: rgba(59, 130, 246, 0.12);
+    color: #2563eb;
+}
+
+.segment-badge--standard {
+    background: rgba(148, 163, 184, 0.15);
+    color: #64748b;
+}
+
+.spent-badge {
+    font-weight: 700;
+    color: #0f766e;
+}
+
 @media (max-width: 600px) {
     .customer-view-grid { grid-template-columns: 1fr; }
 }

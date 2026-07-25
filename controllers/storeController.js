@@ -13,6 +13,7 @@ const { BANGLADESH_DISTRICTS } = require('../utils/bangladeshDistricts');
 const { loadRewardSettings } = require('../utils/rewardSettings');
 const { toPublicAnnouncementPayload } = require('../utils/announcementSettings');
 const Setting = require('../models/Setting');
+const { loadFlashSaleSettings, toPublicFlashSalePayload } = require('../utils/flashSaleService');
 
 const getPublicStoreBranding = async (req, res) => {
     try {
@@ -106,6 +107,18 @@ module.exports = {
         } catch (error) {
             console.error('Get Public Shipping Quote Error:', error);
             res.status(500).json({ success: false, message: 'Failed to calculate shipping quote.' });
+        }
+    },
+    getPublicFlashSale: async (req, res) => {
+        try {
+            const flashSettings = await loadFlashSaleSettings();
+            res.status(200).json({
+                success: true,
+                data: toPublicFlashSalePayload(flashSettings)
+            });
+        } catch (error) {
+            console.error('Get Public Flash Sale Error:', error);
+            res.status(500).json({ success: false, message: 'Failed to load flash sale settings.' });
         }
     }
 };
