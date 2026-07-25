@@ -46,6 +46,8 @@ const {
     pickImageFromSources,
     pickEmojiFromSources
 } = require('../utils/orderItemImages');
+const { notifyOrderPlaced, notifyOrderStatusUpdated } = require('../utils/smsService');
+const { notifyOrderConfirmationEmail } = require('../utils/mailer');
 
 /**
  * 🌟 হেল্পার: একটি অর্ডার-আইটেমের ভ্যারিয়েন্ট প্রোডাক্টের variants অ্যারের কোন
@@ -423,6 +425,15 @@ const createOrder = async (req, res) => {
             }
         }
 
+        let recipientEmail = String(req.body.customerEmail || req.body.email || '').trim();
+        if (!recipientEmail && userId) {
+            const orderUser = await User.findById(userId).select('email').lean();
+            recipientEmail = String(orderUser?.email || '').trim();
+        }
+
+        notifyOrderPlaced(newOrder);
+        notifyOrderConfirmationEmail({ to: recipientEmail, order: newOrder.toObject() });
+
         res.status(201).json({
             success: true,
             message: "Order placed successfully! ধন্যবাদ আব্দুল করিম ভাই।",
@@ -561,6 +572,10 @@ const updateOrderStatus = async (req, res) => {
             } catch (rewardErr) {
                 console.error('⚠️ Reward credit error on delivery:', rewardErr.message);
             }
+        }
+
+        if (String(existingOrder.status || '') !== String(updatedOrder.status || '')) {
+            notifyOrderStatusUpdated(updatedOrder, updatedOrder.status);
         }
 
         res.json({ success: true, message: "Order status updated successfully!", data: updatedOrder });

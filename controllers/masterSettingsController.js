@@ -16,6 +16,14 @@ const {
     toPublicAnnouncementPayload
 } = require('../utils/announcementSettings');
 
+const VALID_SMS_GATEWAY_PROVIDERS = ['Greenweb BD', 'BulkSMS BD', 'AlphaSMS', 'Generic API', ''];
+
+const toPublicSmsSettings = (deliverySettings = {}) => ({
+    smsGatewayProvider: deliverySettings.smsGatewayProvider || '',
+    smsApiKey: deliverySettings.smsApiKey || '',
+    smsSenderId: deliverySettings.smsSenderId || ''
+});
+
 const toPublicMasterSettings = (doc) => normalizeRewardSettings(doc);
 
 /**
@@ -116,7 +124,9 @@ const buildUnifiedPayload = async (settingsDoc) => {
         orderCashbackPercent: rewards.cashbackPercentage,
         pointsPerTaka: rewards.takaToPointsRatio,
         pointsConversionRate: rewards.pointsToTakaConversionRate,
-        refundUndoWindow: rewards.refundUndoWindowHours
+        refundUndoWindow: rewards.refundUndoWindowHours,
+        enableSmsNotifications: settingsDoc.enableSmsNotifications === true,
+        ...toPublicSmsSettings(deliverySettings)
     };
 };
 
@@ -172,6 +182,43 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
     if (body.isAnnouncementActive !== undefined) {
         settings.isAnnouncementActive = parseBoolean(body.isAnnouncementActive);
         changes.push(`Announcement active: ${settings.isAnnouncementActive}`);
+    }
+
+    if (body.enableSmsNotifications !== undefined) {
+        settings.enableSmsNotifications = parseBoolean(body.enableSmsNotifications, false);
+        changes.push(`SMS notifications: ${settings.enableSmsNotifications}`);
+    }
+
+    const deliverySettings = await Settings.getOrCreate();
+
+    if (body.smsGatewayProvider !== undefined) {
+        const provider = String(body.smsGatewayProvider || '').trim();
+        if (provider && !VALID_SMS_GATEWAY_PROVIDERS.includes(provider)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid SMS gateway provider selected.'
+            });
+        }
+        deliverySettings.smsGatewayProvider = provider;
+        changes.push(`SMS gateway: ${provider || 'none'}`);
+    }
+
+    if (body.smsApiKey !== undefined) {
+        deliverySettings.smsApiKey = String(body.smsApiKey ?? '').trim();
+        changes.push('SMS API key updated');
+    }
+
+    if (body.smsSenderId !== undefined) {
+        deliverySettings.smsSenderId = String(body.smsSenderId ?? '').trim();
+        changes.push(`SMS sender ID: ${deliverySettings.smsSenderId || 'none'}`);
+    }
+
+    if (
+        body.smsGatewayProvider !== undefined
+        || body.smsApiKey !== undefined
+        || body.smsSenderId !== undefined
+    ) {
+        await deliverySettings.save();
     }
 
     // The legacy free-text field stays in sync with the numeric threshold so

@@ -37,6 +37,22 @@ const settingsSchema = new mongoose.Schema({
         type: Number,
         default: 1000,
         min: 0
+    },
+    smsGatewayProvider: {
+        type: String,
+        enum: ['Greenweb BD', 'BulkSMS BD', 'AlphaSMS', 'Generic API', ''],
+        default: '',
+        trim: true
+    },
+    smsApiKey: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    smsSenderId: {
+        type: String,
+        default: '',
+        trim: true
     }
 }, {
     timestamps: true

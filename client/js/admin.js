@@ -4677,7 +4677,56 @@ function applyMasterSettingsToUI(settings) {
     setVal('masterFreeShippingThreshold', settings.freeShippingThreshold);
 
     applyAnnouncementSettingsToUI(settings);
+    applySmsSettingsToUI(settings);
     updateMasterSettingsPreview();
+}
+
+function applySmsSettingsToUI(settings) {
+    if (!settings) return;
+
+    const smsToggle = document.getElementById('enableSmsNotifications');
+    if (smsToggle && settings.enableSmsNotifications !== undefined) {
+        smsToggle.checked = settings.enableSmsNotifications === true;
+    }
+
+    const providerEl = document.getElementById('smsGatewayProvider');
+    if (providerEl && settings.smsGatewayProvider !== undefined) {
+        providerEl.value = settings.smsGatewayProvider || '';
+    }
+
+    const apiKeyEl = document.getElementById('smsApiKey');
+    if (apiKeyEl && settings.smsApiKey !== undefined) {
+        apiKeyEl.value = settings.smsApiKey || '';
+    }
+
+    const senderEl = document.getElementById('smsSenderId');
+    if (senderEl && settings.smsSenderId !== undefined) {
+        senderEl.value = settings.smsSenderId || '';
+    }
+
+    updateSmsSettingsPreview();
+}
+
+function updateSmsSettingsPreview() {
+    const previewEl = document.getElementById('smsSettingsPreviewText');
+    if (!previewEl) return;
+
+    const enabled = document.getElementById('enableSmsNotifications')?.checked === true;
+    const provider = document.getElementById('smsGatewayProvider')?.value || '';
+    const hasKey = Boolean(document.getElementById('smsApiKey')?.value?.trim());
+    const senderId = document.getElementById('smsSenderId')?.value?.trim() || 'EOBAZAR';
+
+    if (!enabled) {
+        previewEl.textContent = 'Disabled — enable the toggle to send order and status SMS.';
+        return;
+    }
+
+    if (!provider || !hasKey) {
+        previewEl.textContent = 'Enabled — select a gateway provider and enter your API key to go live.';
+        return;
+    }
+
+    previewEl.textContent = `Enabled — ${provider} · Sender: ${senderId} · credentials loaded from Master Settings.`;
 }
 
 function applyAnnouncementSettingsToUI(settings) {
@@ -4739,6 +4788,7 @@ function updateMasterSettingsPreview() {
     // The announcement copy quotes the cashback and points rates, so it has to
     // refresh whenever the rewards fields change too.
     updateAnnouncementSettingsPreview();
+    updateSmsSettingsPreview();
     if (!previewEl) return;
 
     const cashback = Number(document.getElementById('masterCashbackPercentage')?.value || 0);
@@ -4922,12 +4972,18 @@ function setupAdminSettingsForms() {
         'masterRefundUndoWindow',
         'masterFreeShippingThreshold',
         'announcementText',
-        'isAnnouncementActive'
+        'isAnnouncementActive',
+        'enableSmsNotifications',
+        'smsGatewayProvider',
+        'smsApiKey',
+        'smsSenderId'
     ].forEach((id) => {
         const el = document.getElementById(id);
         if (!el) return;
         el.addEventListener('input', updateMasterSettingsPreview);
-        if (el.type === 'checkbox') el.addEventListener('change', updateMasterSettingsPreview);
+        if (el.type === 'checkbox' || el.tagName === 'SELECT') {
+            el.addEventListener('change', updateMasterSettingsPreview);
+        }
     });
 
     // One form, one save action: announcement, free shipping, rewards and the
@@ -4940,6 +4996,10 @@ function setupAdminSettingsForms() {
             const payload = {
                 announcementText: document.getElementById('announcementText')?.value?.trim() || '',
                 isAnnouncementActive: document.getElementById('isAnnouncementActive')?.checked !== false,
+                enableSmsNotifications: document.getElementById('enableSmsNotifications')?.checked === true,
+                smsGatewayProvider: document.getElementById('smsGatewayProvider')?.value || '',
+                smsApiKey: document.getElementById('smsApiKey')?.value?.trim() || '',
+                smsSenderId: document.getElementById('smsSenderId')?.value?.trim() || '',
                 freeShippingThreshold: document.getElementById('masterFreeShippingThreshold')?.value,
                 cashbackPercentage: document.getElementById('masterCashbackPercentage')?.value,
                 takaToPointsRatio: document.getElementById('masterTakaToPointsRatio')?.value,

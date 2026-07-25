@@ -238,8 +238,155 @@ async function sendAdminOtpEmail({ to, otp, username, ip, location, expiresInMin
     }
 }
 
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function formatMoneyBdt(value) {
+    return `৳${Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+}
+
+function buildOrderItemsRows(items = []) {
+    if (!Array.isArray(items) || items.length === 0) {
+        return `<tr><td colspan="3" style="padding:12px;color:#64748b;">No items recorded</td></tr>`;
+    }
+
+    return items.map((item) => {
+        const qty = Math.max(1, Number(item.quantity) || 1);
+        const lineTotal = Number(item.price || 0) * qty;
+        const variant = item.variantLabel || item.variantValue || '';
+        const name = escapeHtml(item.name || 'Product');
+        const variantText = variant ? `<br><small style="color:#64748b;">${escapeHtml(variant)}</small>` : '';
+
+        return `
+            <tr>
+                <td style="padding:12px;border-bottom:1px solid #e2e8f0;">${name}${variantText}</td>
+                <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:center;">${qty}</td>
+                <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:right;">${formatMoneyBdt(lineTotal)}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function buildOrderConfirmationHtml(order = {}) {
+    const orderId = escapeHtml(order.orderId || 'N/A');
+    const customerName = escapeHtml(order.customerName || 'Customer');
+    const customerAddress = escapeHtml(order.customerAddress || '—');
+    const shippingDistrict = escapeHtml(order.shippingDistrict || '');
+    const paymentMethod = escapeHtml(order.paymentMethod || 'COD');
+    const subTotal = formatMoneyBdt(order.subTotal ?? order.subtotal);
+    const deliveryCharge = formatMoneyBdt(order.deliveryCharge ?? order.shippingFee);
+    const discountAmount = Number(order.discountAmount || 0);
+    const grandTotal = formatMoneyBdt(order.grandTotal ?? order.totalAmount);
+    const discountRow = discountAmount > 0
+        ? `<tr><td style="padding:8px 0;color:#64748b;">Discount</td><td style="padding:8px 0;text-align:right;color:#16a34a;">- ${formatMoneyBdt(discountAmount)}</td></tr>`
+        : '';
+
+    return `
+        <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+            <div style="background:#0f172a;padding:24px;text-align:center;">
+                <h2 style="color:#f8fafc;margin:0;">EonlineBazar</h2>
+                <p style="color:#94a3b8;margin:8px 0 0;font-size:14px;">Order Confirmation</p>
+            </div>
+            <div style="padding:28px;">
+                <p style="color:#111827;font-size:16px;">Dear <b>${customerName}</b>,</p>
+                <p style="color:#374151;">Thank you for shopping with us. Your order has been placed successfully.</p>
+
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin:20px 0;">
+                    <p style="margin:0 0 8px;color:#64748b;font-size:13px;">Order ID</p>
+                    <p style="margin:0;font-size:22px;font-weight:700;color:#0f172a;">#${orderId}</p>
+                </div>
+
+                <h3 style="color:#0f172a;margin:24px 0 12px;font-size:16px;">Ordered Items</h3>
+                <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                    <thead>
+                        <tr style="background:#f1f5f9;">
+                            <th style="padding:12px;text-align:left;">Item</th>
+                            <th style="padding:12px;text-align:center;">Qty</th>
+                            <th style="padding:12px;text-align:right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${buildOrderItemsRows(order.items)}
+                    </tbody>
+                </table>
+
+                <div style="margin-top:20px;padding-top:12px;border-top:1px solid #e2e8f0;">
+                    <table style="width:100%;font-size:14px;">
+                        <tr><td style="padding:8px 0;color:#64748b;">Subtotal</td><td style="padding:8px 0;text-align:right;">${subTotal}</td></tr>
+                        ${discountRow}
+                        <tr><td style="padding:8px 0;color:#64748b;">Delivery Charge</td><td style="padding:8px 0;text-align:right;">${deliveryCharge}</td></tr>
+                        <tr><td style="padding:12px 0;font-weight:700;color:#0f172a;">Grand Total</td><td style="padding:12px 0;text-align:right;font-weight:700;color:#0f172a;font-size:18px;">${grandTotal}</td></tr>
+                    </table>
+                </div>
+
+                <h3 style="color:#0f172a;margin:24px 0 8px;font-size:16px;">Delivery Address</h3>
+                <p style="color:#374151;line-height:1.6;margin:0;">${customerAddress}${shippingDistrict ? `<br>${shippingDistrict}` : ''}</p>
+
+                <p style="color:#64748b;font-size:13px;margin-top:24px;">Payment method: <b>${paymentMethod}</b></p>
+                <p style="color:#64748b;font-size:12px;margin-top:20px;">If you have questions about your order, contact EonlineBazar support.</p>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Send a customer order confirmation email via Gmail/SMTP.
+ * Never throws — logs success/failure and returns { delivered }.
+ */
+async function sendOrderConfirmationEmail({ to, order }) {
+    const recipientEmail = String(to || '').trim();
+    const orderId = order?.orderId || 'N/A';
+
+    if (!recipientEmail) {
+        console.error('EMAIL ERROR: No customer email available for order confirmation.');
+        return { delivered: false, reason: 'Missing recipient email' };
+    }
+
+    if (!SMTP_USER || !SMTP_PASS) {
+        console.error('EMAIL ERROR: SMTP not configured (set SMTP_USER / SMTP_PASS in .env).');
+        return { delivered: false, reason: 'Email transport not configured' };
+    }
+
+    const mailOptions = {
+        from: `"EonlineBazar Orders" <${SMTP_USER}>`,
+        to: recipientEmail,
+        subject: `Order Confirmed: #${orderId} - EonlineBazar`,
+        html: buildOrderConfirmationHtml(order)
+    };
+
+    try {
+        const portUsed = await withTimeout(
+            sendWithFailover(mailOptions),
+            OVERALL_SEND_DEADLINE_MS,
+            'Order confirmation email'
+        );
+        console.log(`SUCCESS: Order email sent to ${recipientEmail}`);
+        return { delivered: true, port: portUsed };
+    } catch (err) {
+        console.error('EMAIL ERROR:', err.message || err);
+        return { delivered: false, reason: err.message };
+    }
+}
+
+/** Fire-and-forget order email — never blocks or crashes order creation. */
+function notifyOrderConfirmationEmail({ to, order }) {
+    setImmediate(() => {
+        sendOrderConfirmationEmail({ to, order }).catch((err) => {
+            console.error('EMAIL ERROR:', err.message || err);
+        });
+    });
+}
+
 module.exports = {
     sendAdminOtpEmail,
+    sendOrderConfirmationEmail,
+    notifyOrderConfirmationEmail,
+    buildOrderConfirmationHtml,
     getTransportForPort,
     buildTransportForPort,
     // Backward-compat alias for older imports expecting createSmtpTransport().

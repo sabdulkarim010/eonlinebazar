@@ -1214,6 +1214,50 @@
             </div>
 
             <div class="settings-card settings-card-wide master-settings-card">
+                <h4 class="settings-card-title"><i class="fa-solid fa-comment-sms"></i> SMS Notifications</h4>
+                <p class="settings-card-sub">Configure your Bangladeshi SMS gateway here. Values saved below are stored in MongoDB and override <code>.env</code> — no code changes needed when switching providers.</p>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label class="checkbox-label" for="enableSmsNotifications">
+                            <input type="checkbox" id="enableSmsNotifications">
+                            Enable customer SMS notifications
+                        </label>
+                        <small class="field-hint">When enabled, customers receive SMS on order placement and when admins update order status.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="smsGatewayProvider">SMS Gateway Provider</label>
+                        <select id="smsGatewayProvider">
+                            <option value="">— Select provider —</option>
+                            <option value="Greenweb BD">Greenweb BD</option>
+                            <option value="BulkSMS BD">BulkSMS BD</option>
+                            <option value="AlphaSMS">AlphaSMS</option>
+                            <option value="Generic API">Generic API</option>
+                        </select>
+                        <small class="field-hint">Choose your Bangladeshi SMS provider. Use <strong>Generic API</strong> for custom endpoints via <code>SMS_API_URL</code> in <code>.env</code>.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="smsApiKey">SMS API Key / Token</label>
+                        <input type="text" id="smsApiKey" placeholder="Paste gateway API key or token" autocomplete="off">
+                        <small class="field-hint">Stored securely in MongoDB. Overrides <code>SMS_API_KEY</code> from <code>.env</code>.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="smsSenderId">SMS Sender ID</label>
+                        <input type="text" id="smsSenderId" placeholder="e.g. EOBAZAR" maxlength="20">
+                        <small class="field-hint">Approved sender name/ID from your gateway. Overrides <code>SMS_SENDER_ID</code> from <code>.env</code>.</small>
+                    </div>
+                </div>
+
+                <div class="master-settings-preview" id="smsSettingsPreview">
+                    <strong>SMS engine:</strong>
+                    <span id="smsSettingsPreviewText">Configure gateway credentials above, then enable notifications.</span>
+                </div>
+            </div>
+
+            <div class="settings-card settings-card-wide master-settings-card">
                 <h4 class="settings-card-title"><i class="fa-solid fa-coins"></i> Rewards &amp; Refund Engine</h4>
                 <p class="settings-card-sub">These values replace hardcoded cashback and points logic across checkout, orders, and wallet flows.</p>
 

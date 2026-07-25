@@ -62,6 +62,10 @@ const settingSchema = new mongoose.Schema({
     isAnnouncementActive: {
         type: Boolean,
         default: true
+    },
+    enableSmsNotifications: {
+        type: Boolean,
+        default: false
     }
 }, {
     timestamps: true

@@ -4,7 +4,7 @@
 
 ### A Fully Dynamic, Production-Ready Full-Stack E-Commerce Platform
 
-*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), **Role-Based Access Control (RBAC) with dynamic Staff Management**, real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **unified master store settings engine** (announcements, free-shipping threshold, cashback, loyalty points & refund windows), **dynamic free-shipping waiver & live dashboard announcements**, **category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, custom store branding, and a finance analytics dashboard.*
+*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), **Role-Based Access Control (RBAC) with dynamic Staff Management**, real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **unified master store settings engine** (announcements, free-shipping threshold, cashback, loyalty points & refund windows), **dynamic free-shipping waiver & live dashboard announcements**, **category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, **admin-configurable SMS gateway & automated order confirmation emails**, custom store branding, and a finance analytics dashboard.*
 
 ![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-3.5.0-success)
+![Version](https://img.shields.io/badge/Version-3.6.0-success)
 ![RBAC](https://img.shields.io/badge/RBAC-Staff%20Management-6f42c1)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
@@ -28,6 +28,7 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v3.6.0](#-whats-new--v360-dynamic-sms-gateway--order-email-notifications)
 - [What's New — v3.5.0](#-whats-new--v350-super-admin-rbac--staff-management)
 - [What's New — v3.4.0](#-whats-new--v340-unified-store-settings-free-shipping--orders-ux)
 - [What's New — v3.3.0](#-whats-new--v330-checkout-orders-rewards--admin-controls)
@@ -45,6 +46,7 @@
 - [Admin Analytics & Inventory Management Controls](#-admin-analytics--inventory-management-controls)
 - [Super Admin RBAC & Staff Management Architecture](#-super-admin-rbac--staff-management-architecture)
 - [Master Settings & Dynamic Rewards](#-master-settings--dynamic-rewards)
+- [Dynamic SMS Gateway & Email Notification System](#-dynamic-sms-gateway--email-notification-system)
 - [What's New — v3.2.0](#-whats-new--v320-time-sensitive-coupon-automation)
 - [Time-Sensitive Coupon Automation](#-time-sensitive-coupon-automation-system)
 - [What's New — v3.1.0](#-whats-new--v310-dynamic-delivery--address-management)
@@ -76,6 +78,21 @@ Six things set it apart:
 5. **Unified Master Store Settings Engine** — one admin form controls announcement copy, **free-shipping threshold**, global cashback, points earning ratio, points-to-taka conversion, and refund-undo window; values sync to checkout, cart, order placement, and the customer dashboard in real time.
 6. **Time-Sensitive Coupon Automation** — precise hour/minute expiry scheduling, a server-side **ACTIVE / EXPIRED** status engine with bulk auto-expiry, checkout visibility synced to live availability, and hardened order-time coupon validation.
 7. **Super Admin RBAC & Staff Management** — a dynamic permission engine lets the owner create staff accounts with granular operational rights; unified `/admin/login` detects `superadmin` vs `staff`, the sidebar and API both enforce the same permission matrix, and blocked accounts lose access on the very next request.
+
+---
+
+## 🆕 What's New — v3.6.0 (Dynamic SMS Gateway & Order Email Notifications)
+
+This release delivers a **fully admin-configurable customer notification engine** — SMS gateway credentials live in MongoDB (no redeploy to switch providers), and every successful checkout triggers a branded order confirmation email with fail-safe async dispatch.
+
+| Capability | Highlights |
+|------------|------------|
+| **📩 Admin-Configurable SMS Gateway** | Master Settings card for **Greenweb BD**, **BulkSMS BD**, **AlphaSMS**, and **Generic API** — API key & sender ID saved to `models/Settings.js`, overriding `.env` at runtime. |
+| **📱 Automated SMS Dispatch** | Order placement + admin status-update texts with background `setImmediate` processing; toggle via `enableSmsNotifications`; errors never roll back orders. |
+| **📧 Order Confirmation Emails** | Nodemailer hook in `createOrder` sends responsive HTML emails (Order ID, items, ৳ totals, shipping address) via Gmail/SMTP with 465→587 failover. |
+| **🛡️ Fail-Safe Checkout** | Both notification channels log `SUCCESS:` / `EMAIL ERROR:` / `[SMS]` messages and resolve asynchronously — checkout always completes regardless of gateway status. |
+
+> 📌 See the dedicated [Dynamic SMS Gateway & Email Notification System](#-dynamic-sms-gateway--email-notification-system) section below for schema fields, provider routing, templates, and workflow diagrams.
 
 ---
 
@@ -129,8 +146,12 @@ From **Admin Panel → Master Settings** (`/admin` → **Master Settings**), adm
 | Points per Taka Spent | `takaToPointsRatio` | `pointsPerTaka` | `100` | Taka spent to earn 1 loyalty point (e.g. ৳100 → 1 pt) |
 | Points Conversion Rate | `pointsToTakaConversionRate` | `pointsConversionRate` | `10` | Taka credited when converting 100 loyalty points |
 | Refund Undo Window | `refundUndoWindowHours` | `refundUndoWindow` | `72` | Hours admins may reverse an accidental wallet refund |
+| SMS Notifications | `enableSmsNotifications` | — | `false` | Master toggle for customer order/status SMS dispatch |
+| SMS Gateway Provider | `smsGatewayProvider` *(in `Settings`)* | — | `''` | Greenweb BD, BulkSMS BD, AlphaSMS, or Generic API |
+| SMS API Key | `smsApiKey` *(in `Settings`)* | — | `''` | Gateway token saved to MongoDB — overrides `.env` |
+| SMS Sender ID | `smsSenderId` *(in `Settings`)* | — | `''` | Approved sender label — overrides `.env` |
 
-> **Backward compatibility:** The legacy delivery document (`models/Settings.js`, `key: 'global'`) retains `freeShippingMinAmount`. Saving either **Master Settings** or **Delivery Settings** mirrors the threshold into both documents so checkout, announcements, and order placement never drift apart.
+> **Backward compatibility:** The legacy delivery document (`models/Settings.js`, `key: 'global'`) retains `freeShippingMinAmount` **and SMS gateway credentials**. Saving **Master Settings** mirrors the threshold into both documents and persists SMS provider fields to the global `Settings` singleton so checkout notifications never depend on redeploys.
 
 #### Fixed Backend API Endpoints
 Previously missing routes that caused `"API endpoint not found!"` on stale server instances are now registered and aliased:
@@ -996,6 +1017,114 @@ Changes are persisted via **`POST /api/admin/master-settings/update`** (canonica
 
 ---
 
+## 📩 Dynamic SMS Gateway & Email Notification System
+
+A production-ready **customer notification layer** that pairs an admin-configurable Bangladeshi SMS gateway with automated **Gmail/SMTP order confirmation emails** — both wired into the checkout pipeline with fail-safe, non-blocking background dispatch so order creation never stalls on third-party delivery.
+
+### Feature Overview
+
+#### Admin-Configurable SMS Gateway Engine
+From **Admin Panel → Master Settings → SMS Notifications** (`client/admin.html`), operators configure the full SMS stack through the unified **Save Master Settings** action — credentials are persisted to MongoDB and take precedence over any `.env` fallbacks:
+
+| Setting | Schema / Document | Options / Type | Purpose |
+|---------|-------------------|------------------|---------|
+| Enable SMS | `Setting.enableSmsNotifications` | Boolean | Master toggle for customer order & status SMS |
+| Gateway Provider | `Settings.smsGatewayProvider` | `Greenweb BD` · `BulkSMS BD` · `AlphaSMS` · `Generic API` | Selects built-in HTTP integration or custom endpoint |
+| API Key / Token | `Settings.smsApiKey` | String | Gateway credential stored in DB — overrides `SMS_API_KEY` |
+| Sender ID | `Settings.smsSenderId` | String | Approved sender label — overrides `SMS_SENDER_ID` |
+
+**Built-in provider routing** (`utils/smsService.js`):
+
+| Provider | Transport | Endpoint |
+|----------|-----------|----------|
+| **Greenweb BD** | GET query-string | `api.greenweb.com.bd/api.php` |
+| **BulkSMS BD** | GET query-string | `bulksmsbd.net/api/smsapi` |
+| **AlphaSMS** | POST JSON | `api.sms.net.bd/sendsms` |
+| **Generic API** | POST/GET (via `SMS_API_METHOD`) | Custom `SMS_API_URL` from `.env` |
+
+**Automated SMS dispatch triggers:**
+- **Order placement** — confirmation text with order ID, amount (BDT), and track link after MongoDB save.
+- **Admin status updates** — customer notified when order status changes via `updateOrderStatus`.
+- **Fail-safe background processing** — `dispatchSmsNotification()` runs on `setImmediate`; errors are logged quietly and never roll back orders.
+
+> **Admin/security OTP flows** (`utils/smsSender.js`) reuse the same transport but are **not** gated by the customer SMS toggle — console fallback ensures 2FA is never hard-blocked in dev.
+
+#### Automated Order Confirmation Emails
+On every successful checkout, `orderController.createOrder` resolves the customer's email (`req.body.customerEmail` → logged-in `User.email`) and fires **`notifyOrderConfirmationEmail()`** — an asynchronous Nodemailer hook that never blocks the HTTP response.
+
+| Detail | Value |
+|--------|-------|
+| **Subject** | `Order Confirmed: #{orderId} - EonlineBazar` |
+| **Transport** | Gmail/SMTP via `utils/mailer.js` (465 → 587 port failover) |
+| **HTML body** | Branded responsive layout with **Order ID**, **item summary table**, **subtotal / discount / delivery / grand total (৳)**, and **shipping address** |
+| **Logging** | `SUCCESS: Order email sent to <email>` on delivery · `EMAIL ERROR: <reason>` on failure |
+
+Robust **try/catch** and deadline-bounded SMTP attempts guarantee smooth checkout performance regardless of mail-server status — a failed email is logged, not thrown.
+
+### Architectural Workflow
+
+```mermaid
+flowchart TD
+    A[Customer confirms payment] --> B[POST /api/orders]
+    B --> C[orderController.createOrder]
+    C --> D[(Order saved to MongoDB)]
+    D --> E[notifyOrderConfirmationEmail — async]
+    D --> F[notifyOrderPlaced SMS — async]
+    E --> G{SMTP configured?}
+    G -->|Yes| H[Nodemailer sendWithFailover]
+    G -->|No| I[EMAIL ERROR logged — order still succeeds]
+    H --> J[SUCCESS log + customer inbox]
+    F --> K{enableSmsNotifications + API key?}
+    K -->|Yes| L[smsService → DB gateway config]
+    K -->|No| M[SMS skipped / console fallback]
+    L --> N[SUCCESS log + customer SMS]
+    O[Admin updates order status] --> P[notifyOrderStatusUpdated — async]
+    P --> L
+```
+
+### SMS Message Templates
+
+| Event | Template |
+|-------|----------|
+| **Order Confirmation** | `Dear {name}, your order #{orderId} of BDT {amount} at EonlineBazar has been placed successfully! Track order: {link}` |
+| **Status Update** | `Dear {name}, your order #{orderId} status has been updated to: {status}.` |
+| **Verification OTP** *(optional)* | `Your EonlineBazar verification code is {otp}.` |
+
+Track links resolve via optional `STORE_PUBLIC_URL` → `/order-track.html?orderId=…&phone=…`.
+
+### Configuration Priority
+
+```
+MongoDB (Admin Master Settings)  →  .env fallbacks  →  dev console fallback
+```
+
+| Variable | Required | Purpose |
+|----------|:--------:|---------|
+| `SMTP_USER` / `SMTP_PASS` | ✅* | Gmail App Password for order confirmation + OTP emails |
+| `Settings.smsApiKey` | ⛔ | Gateway token (Admin Panel preferred over `SMS_API_KEY`) |
+| `Settings.smsSenderId` | ⛔ | Sender label (Admin Panel preferred over `SMS_SENDER_ID`) |
+| `SMS_API_URL` | ⛔ | Endpoint for **Generic API** provider only |
+| `SMS_API_METHOD` | ⛔ | `post` (default) or `get` |
+| `STORE_PUBLIC_URL` | ⛔ | Public store URL for SMS track links |
+
+> \* Without SMTP configured, order emails log `EMAIL ERROR` and checkout still completes successfully.
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `models/Settings.js` | Global singleton — `smsGatewayProvider`, `smsApiKey`, `smsSenderId` |
+| `models/Setting.js` | Master singleton — `enableSmsNotifications` toggle |
+| `controllers/masterSettingsController.js` | Unified read/save for SMS fields + reward/announcement settings |
+| `controllers/orderController.js` | Post-save hooks: `notifyOrderConfirmationEmail` + `notifyOrderPlaced` |
+| `utils/smsService.js` | DB-backed gateway routing, templates, async dispatch helpers |
+| `utils/smsSender.js` | Admin/security OTP wrapper (delegates to `smsService`) |
+| `utils/mailer.js` | SMTP transport, order confirmation HTML builder, port failover |
+| `client/admin.html` | Master Settings → **SMS Notifications** card (provider dropdown + credentials) |
+| `client/js/admin.js` | SMS form wiring, live preview, unified save payload |
+
+---
+
 ## 🆕 What's New — v3.2.0 (Time-Sensitive Coupon Automation)
 
 This release upgrades the enterprise coupon engine with **precise datetime expiry**, **automated status transitions**, and **checkout-aware availability** — eliminating stale promo UI and closing client-side discount bypass vectors.
@@ -1492,7 +1621,7 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 
 #### Product & Order Systems
 - **🛍️ Product Catalog** — Up to 10 images, categories, brand, variations, highlights, stock levels, **selling price + buying price** (live profit preview), and detailed descriptions.
-- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **clickable order rows** (v3.4.0) with inline ID/date meta, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals (actions on detail view only), dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, and **1-click PDF invoice download** from Order Details.
+- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **clickable order rows** (v3.4.0) with inline ID/date meta, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals (actions on detail view only), dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, **1-click PDF invoice download** from Order Details, and **automated order confirmation emails** on every successful checkout.
 - **🔄 Admin Return & Refund Pipeline** — Approve returns with automatic wallet credit, transaction history logging, and **Safe Undo Refund** within a configurable hour window (spent-funds safety check).
 - **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, **unified free-shipping threshold** (Master Settings ↔ Delivery Settings mirror), **real-time free-shipping progress** on cart/checkout, **real-time delivery date estimates** on checkout, **locked server-side totals** on every order, and district-aware invoices.
 - **📍 Smart Checkout Address Integration** — Profile-first checkout pre-fill, toggleable saved-address radio cards (select / unselect / revert), manual override with **Save to profile** sync, and cascading Bangladesh location dropdowns.
@@ -1526,7 +1655,8 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 - **Custom Currency Formatting** — Currency Code (`BDT`) & Symbol (`৳`) applied to every admin price column.
 - **Timezone Synchronization** — dynamically updates the admin dashboard header's **live digital clock**.
 - **Delivery Charge Control** — configure Shop Home City, inside/outside rates, and free-shipping threshold from the admin settings panel (synced with Master Settings).
-- **Unified Master Settings Panel** — single form for announcement text, free-shipping threshold, global cashback %, points earning ratio, points-to-taka conversion rate, and refund undo window — all with live preview.
+- **Unified Master Settings Panel** — single form for announcement text, free-shipping threshold, global cashback %, points earning ratio, points-to-taka conversion rate, refund undo window, and **SMS gateway configuration** — all with live preview.
+- **📩 Customer Notification Engine** — admin-configurable SMS gateway (Greenweb BD, BulkSMS BD, AlphaSMS, Generic API) with MongoDB-stored credentials; automated order confirmation emails via Nodemailer with fail-safe async dispatch.
 - **Category Cashback Overrides** — per-category custom cashback percentages with seamless fallback to global defaults.
 - **Account & Profile** — username/password change (current-password gated), display name, store name, and admin avatar upload.
 
@@ -1620,7 +1750,7 @@ eonlinebazar-fullstack/
 │   ├── brandController.js             # Brand CRUD + slug generation
 │   ├── attributeController.js         # Attribute / variant CRUD
 │   ├── couponController.js            # Coupon CRUD + active-check + apply/validate/redeem + auto-expiry sweeps
-│   ├── orderController.js             # Orders, cancel/return, return approval, refund undo, invoice PDF, server-side price locking
+│   ├── orderController.js             # Orders, cancel/return, return approval, refund undo, invoice PDF, order email/SMS hooks
 │   ├── cartController.js              # Cart operations
 │   ├── reviewController.js            # Review system
 │   └── financeController.js           # Revenue, profit & chart analytics
@@ -1651,8 +1781,9 @@ eonlinebazar-fullstack/
 │
 ├── utils/                             # Shared helpers
 │   ├── deviceParser.js                # Client IP + geo-location + User-Agent fingerprinting
-│   ├── mailer.js                      # SMTP transport + branded 2FA OTP email template
-│   ├── smsSender.js                   # SMS 2FA delivery abstraction (console/Twilio/custom)
+│   ├── mailer.js                      # SMTP transport, admin 2FA OTP + order confirmation HTML emails
+│   ├── smsService.js                  # DB-backed SMS gateway engine (order/status/OTP templates)
+│   ├── smsSender.js                   # Admin/security SMS OTP wrapper (console fallback)
 │   ├── deliveryChargeService.js       # Shared delivery zone + fee + free-shipping progress + locked totals
 │   ├── deliveryEstimateService.js     # Business-day delivery window estimates by shipping zone
 │   ├── announcementSettings.js        # Live announcement text, highlight chips & public payload builder
@@ -1739,18 +1870,18 @@ ALLOWED_COUNTRIES=BD,SA
 GEO_ALLOW_PRIVATE=true
 
 # ===============================================================
-# 📱 SMS 2FA GATEWAY
-# SMS_PROVIDER = console | twilio | custom
-#   console → OTP printed to the server terminal (default, dev-safe)
-#   twilio  → uncomment creds below and enable in utils/smsSender.js
-#   custom  → wire your local HTTP gateway in utils/smsSender.js
+# 📱 SMS GATEWAY (Admin Panel overrides these when saved in Master Settings)
+# SMS_PROVIDER = console | twilio | custom   ← legacy; customer SMS now uses Master Settings
+# SMS_GATEWAY_PROVIDER=Greenweb BD           ← fallback if not set in Admin Panel
+# SMS_API_METHOD = post | get  (GET suits Greenweb-style query APIs)
+# STORE_PUBLIC_URL = public store origin for order-tracking links in SMS
+# Generic API provider uses SMS_API_URL from .env as its endpoint fallback.
 # ===============================================================
 SMS_PROVIDER=console
 SMS_SENDER_ID=EOBAZAR
-# TWILIO_ACCOUNT_SID=
-# TWILIO_AUTH_TOKEN=
-# TWILIO_FROM_NUMBER=
-# SMS_API_URL=
+SMS_API_METHOD=post
+# STORE_PUBLIC_URL=https://your-store-domain.com
+# SMS_API_URL=https://your-custom-gateway.example/send
 # SMS_API_KEY=
 
 # ===============================================================
@@ -1792,7 +1923,11 @@ CLOUDINARY_API_SECRET=your_api_secret
 | `ALLOWED_COUNTRIES` | ⛔ | Geo-fence allow-list (empty = disabled) |
 | `GEO_ALLOW_PRIVATE` | ⛔ | Permit localhost/LAN through geo-fence (dev) |
 | `SMS_PROVIDER` | ⛔ | `console` (default) / `twilio` / `custom` |
-| `SMS_SENDER_ID` | ⛔ | Sender label prepended to SMS body |
+| `SMS_SENDER_ID` | ⛔ | Sender label used by the SMS gateway |
+| `SMS_API_URL` | ⛔ | Custom gateway endpoint (BulksmsBD, Greenweb, AlphaSMS, etc.) |
+| `SMS_API_KEY` | ⛔ | API token/key for the custom gateway |
+| `SMS_API_METHOD` | ⛔ | `post` (JSON body, default) or `get` (query-string) |
+| `STORE_PUBLIC_URL` | ⛔ | Public store URL for order-tracking links in confirmation SMS |
 | `TOTP_ISSUER` | ⛔ | Label shown in Google Authenticator |
 | `SMTP_HOST/PORT/USER/PASS` | ✅* | Email OTP & password-reset delivery |
 | `EMAIL_USER/EMAIL_PASS` | ⛔ | Legacy SMTP fallback |
@@ -1855,7 +1990,8 @@ The app runs at **http://localhost:3000**.
 
 - [ ] Set a strong, unique `JWT_SECRET` and rotate default admin passwords.
 - [ ] Restrict `ALLOWED_COUNTRIES` and set `GEO_ALLOW_PRIVATE=false`.
-- [ ] Configure a real SMS provider (`SMS_PROVIDER=twilio` or `custom`) if using SMS 2FA.
+- [ ] Configure a real SMS provider (`SMS_PROVIDER=twilio` or `custom`) if using SMS 2FA or customer order notifications.
+- [ ] Enable **Master Settings → SMS Notifications** in the Admin Panel when the gateway is ready.
 - [ ] Configure production SMTP credentials for reliable email OTP delivery.
 - [ ] Ensure `trust proxy` works behind your CDN/reverse proxy (already enabled in `server.js`).
 - [ ] Serve over **HTTPS** so secure cookies and 2FA flows behave correctly.
@@ -2163,6 +2299,20 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 ---
 
 ## 📜 Changelog
+
+### `v3.6.0` — Dynamic SMS Gateway & Order Email Notifications
+
+**📩 Dynamic SMS Gateway Engine**
+- New **SMS Notifications** card in **Master Settings** — configure provider (`Greenweb BD`, `BulkSMS BD`, `AlphaSMS`, `Generic API`), API key, and sender ID without code changes.
+- Extended `models/Settings.js` with `smsGatewayProvider`, `smsApiKey`, and `smsSenderId`; credentials saved to MongoDB override `.env` at send time.
+- Added `enableSmsNotifications` toggle on `models/Setting.js` for customer order/status SMS dispatch.
+- New `utils/smsService.js` — DB-backed gateway routing, message templates, and fail-safe `dispatchSmsNotification()` background processing.
+- Automated SMS on order placement and admin status updates; failures logged silently — never block checkout.
+
+**📧 Automated Order Confirmation Emails**
+- New `sendOrderConfirmationEmail()` / `notifyOrderConfirmationEmail()` in `utils/mailer.js` — responsive HTML with Order ID, item summary, totals (৳), and delivery address.
+- Wired into `orderController.createOrder` immediately after MongoDB save; resolves email from request body or logged-in user profile.
+- Robust async try/catch with `SUCCESS:` / `EMAIL ERROR:` console logging; SMTP port failover (465 → 587) inherited from existing mailer infrastructure.
 
 ### `v3.5.0` — Super Admin RBAC & Staff Management
 
