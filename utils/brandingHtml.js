@@ -25,6 +25,7 @@ function buildInlineSettings(settings, cacheVersion) {
         logoUrl: logoPath,
         faviconUrl: faviconPath,
         storeLogo: logoPath,
+        publicSupportWhatsApp: settings.publicSupportWhatsApp || '',
         v: cacheVersion
     };
 }

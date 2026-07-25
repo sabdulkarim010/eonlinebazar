@@ -84,6 +84,12 @@ const orderSchema = new mongoose.Schema({
     courierBookedAt: { type: Date, default: null },
     note: { type: String, default: "" },
     estimatedDelivery: { type: String, default: '' },
+    orderSource: {
+        type: String,
+        enum: ['online', 'manual'],
+        default: 'online'
+    },
+    createdByAdmin: { type: String, default: '', trim: true },
     createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 

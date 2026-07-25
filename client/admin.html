@@ -152,6 +152,13 @@
                         <input type="date" id="hiddenDatePicker" class="hidden-date-input" aria-label="Pick a date">
                     </div>
                     <button type="button" id="refreshDataBtn" class="sync-btn"><i class="fa-solid fa-rotate"></i> Sync Data</button>
+                    <div class="whatsapp-alert-badge-wrap" id="whatsappAlertBadgeWrap" style="display: none;">
+                        <button type="button" id="whatsappAlertBadgeBtn" class="whatsapp-alert-badge-btn" title="Pending WhatsApp order alerts">
+                            <i class="fa-brands fa-whatsapp"></i>
+                            <span class="whatsapp-alert-badge-count" id="whatsappAlertBadgeCount">0</span>
+                        </button>
+                        <div class="whatsapp-alert-dropdown" id="whatsappAlertDropdown" style="display: none;"></div>
+                    </div>
                 </div>
             </header>
 
@@ -336,13 +343,18 @@
             </section>
 
 <section id="view-orders" class="admin-section" style="display: none;">
-    <div class="section-header-box">
+    <div class="section-header-box orders-section-header">
         <div class="header-titles">
             <h3>Live incoming orders</h3>
             <p class="section-subtitle">Real-time monitoring engine for order processing</p>
         </div>
-        <div class="live-indicator-box">
-            <span class="live-indicator-text"><span class="pulse"></span> Live Syncing</span>
+        <div class="orders-header-actions">
+            <button type="button" class="btn-submit manual-order-open-btn" id="openManualOrderModalBtn" data-permission="manage_orders">
+                <i class="fa-solid fa-plus"></i> Create Manual Order
+            </button>
+            <div class="live-indicator-box">
+                <span class="live-indicator-text"><span class="pulse"></span> Live Syncing</span>
+            </div>
         </div>
     </div>
 
@@ -1349,6 +1361,62 @@
             </div>
 
             <div class="settings-card settings-card-wide master-settings-card">
+                <h4 class="settings-card-title"><i class="fa-brands fa-whatsapp"></i> WhatsApp Configuration</h4>
+                <p class="settings-card-sub">Two isolated numbers: one shown to customers for chat &amp; inquiries, and one kept private for instant order alerts to your admin team.</p>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label for="publicSupportWhatsApp">Public Customer WhatsApp Number</label>
+                        <input type="tel" id="publicSupportWhatsApp" placeholder="e.g. 8801712345678" autocomplete="off">
+                        <small class="field-hint">Shown on the storefront floating WhatsApp button and customer chat links. Updates live without a server restart.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="privateAdminAlertWhatsApp">Private Admin Notification WhatsApp Number</label>
+                        <input type="tel" id="privateAdminAlertWhatsApp" placeholder="e.g. 8801812345678" autocomplete="off">
+                        <small class="field-hint">Never exposed to customers. Backend sends new-order alerts here when the toggle below is enabled.</small>
+                    </div>
+
+                    <div class="form-group form-group-full">
+                        <label class="checkbox-label" for="enableWhatsAppOrderAlerts">
+                            <input type="checkbox" id="enableWhatsAppOrderAlerts">
+                            Enable instant order WhatsApp notifications
+                        </label>
+                        <small class="field-hint">When enabled, every new order triggers an automated WhatsApp alert to the private admin number above.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="whatsAppAlertProvider">Alert Gateway Provider</label>
+                        <select id="whatsAppAlertProvider">
+                            <option value="">— Select provider —</option>
+                            <option value="CallMeBot">CallMeBot (free — register at callmebot.com)</option>
+                            <option value="UltraMsg">UltraMsg</option>
+                            <option value="Green API">Green API</option>
+                            <option value="Generic">Generic HTTP</option>
+                        </select>
+                        <small class="field-hint">Required for automatic delivery. Without a gateway, alerts queue in the admin panel with a one-click <strong>wa.me</strong> link.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="whatsAppAlertApiKey">Alert API Key / Token</label>
+                        <input type="text" id="whatsAppAlertApiKey" placeholder="Gateway API key or CallMeBot apikey" autocomplete="off">
+                        <small class="field-hint">Stored in MongoDB. Overrides <code>WHATSAPP_ALERT_API_KEY</code> from <code>.env</code>.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="whatsAppAlertInstanceId">Instance ID (UltraMsg / Green API)</label>
+                        <input type="text" id="whatsAppAlertInstanceId" placeholder="e.g. instance1150 or Green API instance id" autocomplete="off">
+                        <small class="field-hint">Not needed for CallMeBot. Required for UltraMsg and Green API.</small>
+                    </div>
+                </div>
+
+                <div class="master-settings-preview" id="whatsappSettingsPreview">
+                    <strong>WhatsApp engine:</strong>
+                    <span id="whatsappSettingsPreviewText">Configure public and private numbers above.</span>
+                </div>
+            </div>
+
+            <div class="settings-card settings-card-wide master-settings-card">
                 <h4 class="settings-card-title"><i class="fa-solid fa-coins"></i> Rewards &amp; Refund Engine</h4>
                 <p class="settings-card-sub">These values replace hardcoded cashback and points logic across checkout, orders, and wallet flows.</p>
 
@@ -1388,7 +1456,7 @@
         <div class="master-settings-actions">
             <p class="master-settings-actions-hint">
                 <i class="fa-solid fa-circle-info"></i>
-                One save updates the announcement, checkout shipping rules, wallet cashback, and loyalty points together.
+                One save updates the announcement, checkout shipping rules, wallet cashback, loyalty points, SMS, courier, and WhatsApp settings together.
             </p>
             <button type="submit" class="btn-submit" id="masterSettingsSaveBtn">
                 <i class="fa-solid fa-floppy-disk"></i> Save Master Settings
@@ -1875,6 +1943,134 @@
         <div class="modal-footer">
             <button type="button" class="btn-secondary" onclick="closeCustomerOrdersModal()">Close</button>
         </div>
+    </div>
+</div>
+
+
+<!-- Manual POS / Phone Order Entry -->
+<div id="manualOrderModal" class="custom-modal-overlay" style="display: none;">
+    <div class="custom-modal-box manual-order-modal-box">
+        <div class="modal-header">
+            <div>
+                <h3><i class="fa-solid fa-cart-plus"></i> Create Manual Order</h3>
+                <p class="edit-modal-subtitle">Staff POS or phone order entry with live variant stock checks</p>
+            </div>
+            <button type="button" class="close-icon-btn" onclick="closeManualOrderModal()" aria-label="Close manual order modal">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <form id="manualOrderForm" class="manual-order-form" novalidate>
+            <div class="modal-body manual-order-body">
+                <div class="manual-order-grid">
+                    <div class="form-group">
+                        <label for="manualCustomerName">Customer Name</label>
+                        <input type="text" id="manualCustomerName" required placeholder="Full name">
+                    </div>
+                    <div class="form-group">
+                        <label for="manualCustomerPhone">Phone Number</label>
+                        <input type="tel" id="manualCustomerPhone" required placeholder="01XXXXXXXXX">
+                    </div>
+                    <div class="form-group form-group-full">
+                        <label for="manualCustomerAddress">Delivery Address</label>
+                        <textarea id="manualCustomerAddress" rows="2" required placeholder="House, road, area, city"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="manualDeliveryArea">Delivery Area</label>
+                        <select id="manualDeliveryArea">
+                            <option value="inside">Inside Dhaka</option>
+                            <option value="outside">Outside Dhaka</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="manualPaymentStatus">Payment Status</label>
+                        <select id="manualPaymentStatus">
+                            <option value="COD">COD (Cash on Delivery)</option>
+                            <option value="Paid">Paid</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="manual-order-picker-card">
+                    <h4><i class="fa-solid fa-box-open"></i> Add Products</h4>
+                    <div class="manual-order-picker-row">
+                        <div class="form-group manual-order-search-group">
+                            <label for="manualProductSearch">Search Product</label>
+                            <input type="search" id="manualProductSearch" placeholder="Type product name…" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="manualProductSelect">Product</label>
+                            <select id="manualProductSelect">
+                                <option value="">— Select product —</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="manualVariantSelect">Size / Color Variant</label>
+                            <select id="manualVariantSelect" disabled>
+                                <option value="">— Default (no variant) —</option>
+                            </select>
+                        </div>
+                        <div class="form-group manual-order-qty-group">
+                            <label for="manualItemQuantity">Qty</label>
+                            <input type="number" id="manualItemQuantity" min="1" value="1">
+                        </div>
+                        <div class="form-group manual-order-add-group">
+                            <label class="manual-order-hidden-label">&nbsp;</label>
+                            <button type="button" class="btn-secondary" id="manualAddLineBtn">
+                                <i class="fa-solid fa-plus"></i> Add Line
+                            </button>
+                        </div>
+                    </div>
+                    <p class="manual-order-stock-hint" id="manualVariantStockHint">Select a product to see price and stock.</p>
+                </div>
+
+                <div class="manual-order-lines-wrap">
+                    <table class="catalog-table manual-order-lines-table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Variant</th>
+                                <th>Unit Price</th>
+                                <th>Qty</th>
+                                <th>Line Total</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="manualOrderLinesBody">
+                            <tr class="manual-order-empty-row">
+                                <td colspan="6">No items added yet.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="manual-order-pricing-grid">
+                    <div class="form-group">
+                        <label for="manualDiscountAmount">Manual Discount (৳)</label>
+                        <input type="number" id="manualDiscountAmount" min="0" step="1" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="manualShippingFee">Shipping Fee (৳)</label>
+                        <input type="number" id="manualShippingFee" min="0" step="1" value="0">
+                    </div>
+                    <div class="form-group form-group-full">
+                        <label for="manualOrderNote">Internal Note (optional)</label>
+                        <input type="text" id="manualOrderNote" placeholder="Phone order ref, counter note, etc.">
+                    </div>
+                </div>
+
+                <div class="manual-order-totals" id="manualOrderTotalsPreview">
+                    Subtotal: ৳0 · Discount: ৳0 · Shipping: ৳0 · <strong>Grand Total: ৳0</strong>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeManualOrderModal()">Cancel</button>
+                <button type="submit" class="btn-primary" id="manualOrderSubmitBtn">
+                    <i class="fa-solid fa-check"></i> Create Order
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 

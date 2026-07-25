@@ -1,4 +1,5 @@
 const { getStoreSettings } = require('../utils/storeSettingsService');
+const { getPublicWhatsAppSettings } = require('../utils/whatsappService');
 const {
     getDeliverySettings,
     computeDeliveryCharge,
@@ -15,7 +16,10 @@ const Setting = require('../models/Setting');
 
 const getPublicStoreBranding = async (req, res) => {
     try {
-        const settings = await getStoreSettings({ forceRefresh: true });
+        const [settings, whatsappSettings] = await Promise.all([
+            getStoreSettings({ forceRefresh: true }),
+            getPublicWhatsAppSettings({ forceRefresh: true })
+        ]);
 
         res.status(200).json({
             success: true,
@@ -25,7 +29,8 @@ const getPublicStoreBranding = async (req, res) => {
                 faviconUrl: settings.faviconPath,
                 logoPath: settings.logoPath,
                 faviconPath: settings.faviconPath,
-                storeLogo: settings.logoPath
+                storeLogo: settings.logoPath,
+                publicSupportWhatsApp: whatsappSettings.publicSupportWhatsApp
             }
         });
     } catch (error) {

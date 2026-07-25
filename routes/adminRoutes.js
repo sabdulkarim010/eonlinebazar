@@ -11,12 +11,13 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController'); 
 const { getFinanceAnalytics } = require('../controllers/financeController');
-const { approveOrderReturn, undoOrderRefund } = require('../controllers/orderController');
+const { approveOrderReturn, undoOrderRefund, createManualOrder } = require('../controllers/orderController');
 const adminSecurityController = require('../controllers/adminSecurityController');
 const twoFactorController = require('../controllers/twoFactorController');
 const settingsController = require('../controllers/settingsController');
 const masterSettingsController = require('../controllers/masterSettingsController');
 const courierController = require('../controllers/courierController');
+const whatsappAlertsController = require('../controllers/whatsappAlertsController');
 const upload = require('../middlewares/uploadMiddleware');
 const { brandingUpload } = upload;
 const staffController = require('../controllers/staffController');
@@ -60,6 +61,13 @@ router.put('/orders/:id/approve-return', verifyAdmin, checkPermission('manage_or
 
 // URL: POST /api/admin/orders/:id/undo-refund
 router.post('/orders/:id/undo-refund', verifyAdmin, checkPermission('manage_orders'), undoOrderRefund);
+
+// URL: POST /api/admin/orders/manual — staff POS / phone order entry
+router.post('/orders/manual', verifyAdmin, checkPermission('manage_orders'), createManualOrder);
+
+// URL: GET /api/admin/whatsapp-alerts/pending — wa.me fallback queue for undelivered alerts
+router.get('/whatsapp-alerts/pending', verifyAdmin, checkPermission('manage_orders'), whatsappAlertsController.getPendingWhatsAppAlertsHandler);
+router.delete('/whatsapp-alerts/:id', verifyAdmin, checkPermission('manage_orders'), whatsappAlertsController.dismissWhatsAppAlertHandler);
 
 // ১গ. 🚚 এক ক্লিকে কুরিয়ার পার্সেল বুকিং (Steadfast) + কনফিগ স্ট্যাটাস
 // URL: POST /api/admin/orders/:id/send-courier

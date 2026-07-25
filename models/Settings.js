@@ -71,6 +71,42 @@ const settingsSchema = new mongoose.Schema({
         type: String,
         default: '',
         trim: true
+    },
+    // 📱 Dual WhatsApp — public customer chat vs private admin order alerts
+    publicSupportWhatsApp: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    privateAdminAlertWhatsApp: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    enableWhatsAppOrderAlerts: {
+        type: Boolean,
+        default: false
+    },
+    whatsAppAlertProvider: {
+        type: String,
+        enum: ['CallMeBot', 'UltraMsg', 'Green API', 'Generic', ''],
+        default: '',
+        trim: true
+    },
+    whatsAppAlertApiKey: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    whatsAppAlertInstanceId: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    whatsAppAlertWebhookUrl: {
+        type: String,
+        default: '',
+        trim: true
     }
 }, {
     timestamps: true

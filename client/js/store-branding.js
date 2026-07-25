@@ -89,6 +89,7 @@
             storeLogo: logoPath,
             faviconPath: raw.faviconPath || raw.faviconUrl || DEFAULT_FAVICON,
             faviconUrl: raw.faviconPath || raw.faviconUrl || DEFAULT_FAVICON,
+            publicSupportWhatsApp: raw.publicSupportWhatsApp || '',
             v: raw.v || Date.now()
         };
     }
@@ -202,6 +203,9 @@
         applySiteFavicon(normalized.faviconPath);
         collectLogoSlots().forEach((slot) => applyLogoToSlot(slot, normalized));
         window.__STORE_SETTINGS__ = normalized;
+        if (typeof window.applyPublicWhatsAppLinks === 'function') {
+            window.applyPublicWhatsAppLinks();
+        }
     }
 
     async function fetchBrandingFromApi() {

@@ -4065,3 +4065,225 @@ a {
     .staff-password-row { flex-direction: column; }
     .permission-chip-list { max-width: none; }
 }
+
+/* — Manual POS / Phone Order Entry — */
+.orders-section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.orders-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.manual-order-open-btn {
+    margin: 0;
+    white-space: nowrap;
+}
+
+.manual-order-modal-box {
+    max-width: 980px;
+    width: 100%;
+    max-height: 92vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.manual-order-body {
+    overflow-y: auto;
+    max-height: calc(92vh - 140px);
+}
+
+.manual-order-grid,
+.manual-order-pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
+    margin-bottom: 16px;
+}
+
+.manual-order-grid .form-group-full,
+.manual-order-pricing-grid .form-group-full {
+    grid-column: 1 / -1;
+}
+
+.manual-order-picker-card {
+    background: var(--bg-secondary, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.manual-order-picker-card h4 {
+    margin: 0 0 12px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.manual-order-picker-row {
+    display: grid;
+    grid-template-columns: 1.2fr 1.4fr 1.4fr 0.5fr auto;
+    gap: 12px;
+    align-items: end;
+}
+
+.manual-order-search-group { min-width: 0; }
+.manual-order-qty-group input { width: 100%; }
+.manual-order-hidden-label { visibility: hidden; }
+
+.manual-order-stock-hint {
+    margin: 10px 0 0;
+    font-size: 12.5px;
+    color: var(--text-muted, #64748b);
+}
+
+.manual-order-lines-wrap {
+    margin-bottom: 16px;
+    overflow-x: auto;
+}
+
+.manual-order-lines-table td,
+.manual-order-lines-table th {
+    font-size: 13px;
+}
+
+.manual-order-empty-row td {
+    text-align: center;
+    color: var(--text-muted, #64748b);
+    padding: 18px;
+}
+
+.manual-order-remove-btn {
+    border: none;
+    background: transparent;
+    color: var(--danger-color, #ef4444);
+    cursor: pointer;
+    padding: 4px 8px;
+}
+
+.manual-order-totals {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 14px;
+    color: #065f46;
+}
+
+@media (max-width: 900px) {
+    .manual-order-picker-row,
+    .manual-order-grid,
+    .manual-order-pricing-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* — WhatsApp pending alert badge — */
+.whatsapp-alert-badge-wrap {
+    position: relative;
+}
+
+.whatsapp-alert-badge-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    border: 1px solid #bbf7d0;
+    background: #ecfdf5;
+    color: #16a34a;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.whatsapp-alert-badge-count {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+}
+
+.whatsapp-alert-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: min(320px, 90vw);
+    max-height: 360px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+    z-index: 1200;
+    padding: 8px;
+}
+
+.whatsapp-alert-item {
+    padding: 10px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.whatsapp-alert-item:last-child {
+    border-bottom: none;
+}
+
+.whatsapp-alert-item-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.whatsapp-alert-reason {
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+.whatsapp-alert-send-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #16a34a;
+    text-decoration: none;
+}
+
+.whatsapp-alert-dismiss {
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}

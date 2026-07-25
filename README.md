@@ -4,7 +4,7 @@
 
 ### A Fully Dynamic, Production-Ready Full-Stack E-Commerce Platform
 
-*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), **Role-Based Access Control (RBAC) with dynamic Staff Management**, real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **1-click Steadfast Courier parcel booking from the admin panel**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **unified master store settings engine** (announcements, free-shipping threshold, cashback, loyalty points & refund windows), **dynamic free-shipping waiver & live dashboard announcements**, **category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, **admin-configurable SMS gateway & automated order confirmation emails**, custom store branding, and an **advanced Finance & P/L analytics dashboard** with itemized profit formulas, dynamic date-range filtering, and a dark/light theme engine.*
+*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), **Role-Based Access Control (RBAC) with dynamic Staff Management**, real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **1-click Steadfast Courier parcel booking from the admin panel**, **dual-WhatsApp routing with background UltraMsg/Green API order alerts**, **staff manual POS / phone order entry**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **unified master store settings engine** (announcements, free-shipping threshold, cashback, loyalty points & refund windows), **dynamic free-shipping waiver & live dashboard announcements**, **category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, **admin-configurable SMS gateway & automated order confirmation emails**, custom store branding, and an **advanced Finance & P/L analytics dashboard** with itemized profit formulas, dynamic date-range filtering, and a dark/light theme engine.*
 
 ![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-3.9.0-success)
+![Version](https://img.shields.io/badge/Version-4.0.0-success)
 ![RBAC](https://img.shields.io/badge/RBAC-Staff%20Management-6f42c1)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
@@ -28,6 +28,7 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v4.0.0](#-whats-new--v400-automated-background-whatsapp-alerts--staff-manual-order-engine)
 - [What's New — v3.9.0](#-whats-new--v390-multi-attribute-variant-matrix--dynamic-stock-engine)
 - [What's New — v3.8.0](#-whats-new--v380-advanced-finance-analytics--theme-engine)
 - [What's New — v3.7.0](#-whats-new--v370-automated-courier-integration--admin-orders-ui-overhaul)
@@ -36,6 +37,7 @@
 - [What's New — v3.4.0](#-whats-new--v340-unified-store-settings-free-shipping--orders-ux)
 - [What's New — v3.3.0](#-whats-new--v330-checkout-orders-rewards--admin-controls)
 - [Dynamic Store Settings & Admin Engine](#-dynamic-store-settings--admin-engine)
+- [WhatsApp Infrastructure & Order Alert Engine](#-whatsapp-infrastructure--order-alert-engine)
 - [Dynamic Free Shipping Threshold & Announcements](#-dynamic-free-shipping-threshold--dynamic-announcements)
 - [UI/UX & Responsive Orders List Refactoring](#-uiux--responsive-orders-list-refactoring)
 - [Smart Checkout Address Integration](#-smart-checkout-address-integration)
@@ -86,6 +88,25 @@ Eight things set it apart:
 6. **Time-Sensitive Coupon Automation** — precise hour/minute expiry scheduling, a server-side **ACTIVE / EXPIRED** status engine with bulk auto-expiry, checkout visibility synced to live availability, and hardened order-time coupon validation.
 7. **Super Admin RBAC & Staff Management** — a dynamic permission engine lets the owner create staff accounts with granular operational rights; unified `/admin/login` detects `superadmin` vs `staff`, the sidebar and API both enforce the same permission matrix, and blocked accounts lose access on the very next request.
 8. **One-Click Courier Parcel Booking** — Steadfast Courier API integration from **Live Orders** with MongoDB-stored credentials, atomic booking locks, tracking ID persistence, and automatic **Shipped** status updates — no redeploy required to rotate API keys.
+9. **Dual-WhatsApp Routing & Background Order Alerts** — isolated public customer chat line vs private admin alert number; **non-blocking server-side POST** dispatch on every checkout (UltraMsg, Green API, CallMeBot, or direct webhook) with structured payload formatting — no admin panel session required.
+10. **Staff Manual Order Creation (POS Engine)** — admin modal for phone/chat orders with searchable product picker, **multi-variant stock validation**, automated inventory deduction, and instant **Finance & Analytics** ledger integration.
+
+---
+
+## 🆕 What's New — v4.0.0 (Automated Background WhatsApp Alerts & Staff Manual Order Engine)
+
+This release delivers a **production-grade WhatsApp operations layer** and a **staff POS / phone-order entry workflow** — both wired into checkout, inventory, and the Finance analytics engine without blocking order placement.
+
+| Capability | Highlights |
+|------------|------------|
+| **📱 Dual-WhatsApp Routing** | Separate **public customer chat number** (storefront `wa.me` floating button) and **private admin alert line** — both managed from **Master Settings → WhatsApp Configuration** in MongoDB (`models/Settings.js`). |
+| **🔔 Background WhatsApp Order Alerts** | `notifyAdminOrderPlaced()` fires on **`setImmediate`** after every online checkout and manual order save — HTTP **POST** to **UltraMsg**, **Green API**, **CallMeBot**, generic webhook, or direct webhook fallback; **15 s timeout**; failures never roll back orders. |
+| **🧾 Structured Alert Payload** | Instant message includes **Order ID**, **Customer name & phone**, **delivery address**, **item list with variants**, **total (৳)**, and **payment method**. |
+| **➕ Staff Manual Order (POS)** | **Create Manual Order** modal in **Live Orders** — customer info, Inside/Outside Dhaka area, searchable product + variant picker, manual discount/shipping, COD/Paid status; **`POST /api/admin/orders/manual`**. |
+| **📦 Variant-Aware Inventory** | Manual and online orders deduct **exact combination-row stock** via shared `findVariantIndex()`; pre-save validation rejects insufficient variant inventory. |
+| **📈 Finance Ledger Sync** | Manual orders persist `buyingPrice` snapshots and locked totals — immediately counted by **`computeFinanceMetricsJs`** / **`GET /api/admin/analytics`**. |
+
+> 📌 See the dedicated [WhatsApp Infrastructure & Order Alert Engine](#-whatsapp-infrastructure--order-alert-engine) section below for dual-number routing, provider chain, message templates, API routes, and key files.
 
 ---
 
@@ -205,8 +226,15 @@ From **Admin Panel → Master Settings** (`/admin` → **Master Settings**), adm
 | Default Courier Provider | `defaultCourierProvider` *(in `Settings`)* | — | `''` | `Steadfast`, `Pathao`, or `RedX` — automated booking live for **Steadfast** |
 | Courier API Key | `courierApiKey` *(in `Settings`)* | — | `''` | Steadfast `Api-Key` header — overrides `.env` |
 | Courier Secret Key | `courierSecretKey` *(in `Settings`)* | — | `''` | Steadfast `Secret-Key` header — overrides `.env` |
+| Public Customer WhatsApp | `publicSupportWhatsApp` *(in `Settings`)* | — | `''` | Storefront floating chat button — live `wa.me` links without redeploy |
+| Private Admin Alert WhatsApp | `privateAdminAlertWhatsApp` *(in `Settings`)* | — | `''` | Hidden internal line for background order notifications |
+| Enable WhatsApp Order Alerts | `enableWhatsAppOrderAlerts` *(in `Settings`)* | — | `false` | Master toggle for automated admin WhatsApp dispatch |
+| WhatsApp Alert Provider | `whatsAppAlertProvider` *(in `Settings`)* | — | `''` | `UltraMsg` · `Green API` · `CallMeBot` · `Generic` |
+| WhatsApp Alert API Key | `whatsAppAlertApiKey` *(in `Settings`)* | — | `''` | Gateway token — overrides `WHATSAPP_ALERT_API_KEY` |
+| WhatsApp Alert Instance ID | `whatsAppAlertInstanceId` *(in `Settings`)* | — | `''` | UltraMsg / Green API instance identifier |
+| WhatsApp Alert Webhook URL | `whatsAppAlertWebhookUrl` *(in `Settings`)* | — | `''` | Direct HTTP POST fallback when primary API is unavailable |
 
-> **Backward compatibility:** The legacy delivery document (`models/Settings.js`, `key: 'global'`) retains `freeShippingMinAmount`, **SMS gateway credentials**, and **courier API credentials**. Saving **Master Settings** mirrors the threshold into both documents and persists SMS/courier provider fields to the global `Settings` singleton so checkout notifications and parcel booking never depend on redeploys.
+> **Backward compatibility:** The legacy delivery document (`models/Settings.js`, `key: 'global'`) retains `freeShippingMinAmount`, **SMS gateway credentials**, **courier API credentials**, and **WhatsApp alert credentials**. Saving **Master Settings** mirrors the threshold into both documents and persists SMS/courier/WhatsApp provider fields to the global `Settings` singleton so checkout notifications, parcel booking, and admin alerts never depend on redeploys.
 
 #### Fixed Backend API Endpoints
 Previously missing routes that caused `"API endpoint not found!"` on stale server instances are now registered and aliased:
@@ -254,6 +282,154 @@ flowchart TD
 | `utils/rewardSettings.js` | Cashback/points math, delivery reward credit, refund undo window |
 | `client/admin.html` | Unified Master Settings form (single **Save Master Settings** button) |
 | `client/js/admin.js` | Form wiring, live previews, `POST /master-settings/update` save handler |
+
+---
+
+## 📱 WhatsApp Infrastructure & Order Alert Engine
+
+A **dual-number WhatsApp architecture** paired with a **fully server-side background alert pipeline** — customer-facing chat links update live from Master Settings, while operational order notifications fire automatically on every checkout **without requiring the admin panel to be open**.
+
+### Feature Overview
+
+#### Dual-WhatsApp Routing
+
+| Line | Schema Field | Visibility | Purpose |
+|------|--------------|------------|---------|
+| **Public Customer Chat** | `Settings.publicSupportWhatsApp` | Storefront (`wa.me` floating button on `index.html`, `search.html`) | Customer inquiries & pre-sales chat |
+| **Private Admin Alerts** | `Settings.privateAdminAlertWhatsApp` | **Never exposed** on public APIs | Internal operational notifications only |
+
+- Public number is injected via `storeSettingsMiddleware` → `window.__STORE_SETTINGS__` and **`GET /api/store/branding`** — updates apply instantly after **Save Master Settings** (no server restart).
+- Private number is readable only through authenticated **`GET /api/admin/master-settings`** responses.
+
+#### Background WhatsApp Order Alerts (UltraMsg / Green API Integration)
+
+From **Admin Panel → Master Settings → WhatsApp Configuration** (`client/admin.html`), operators configure the full alert stack through the unified **Save Master Settings** action:
+
+| Setting | Schema Field | Type | Purpose |
+|---------|--------------|------|---------|
+| Enable Order Alerts | `enableWhatsAppOrderAlerts` | Boolean | Master toggle — both conditions below must pass before dispatch |
+| Private Admin Number | `privateAdminAlertWhatsApp` | String | Recipient for structured order alerts (normalized to `8801XXXXXXXXX`) |
+| Alert Provider | `whatsAppAlertProvider` | `UltraMsg` · `Green API` · `CallMeBot` · `Generic` | Selects primary HTTP integration driver |
+| API Key / Token | `whatsAppAlertApiKey` | String | Gateway credential — overrides `WHATSAPP_ALERT_API_KEY` |
+| Instance ID | `whatsAppAlertInstanceId` | String | Required for **UltraMsg** and **Green API** |
+| Webhook URL | `whatsAppAlertWebhookUrl` | String | Direct JSON **POST** fallback when primary API is unavailable |
+
+**Background delivery chain** (`utils/whatsappService.js`) — runs on `setImmediate` after MongoDB order save:
+
+```
+1. UltraMsg / Green API  (when provider + credentials configured in Master Settings)
+2. Direct HTTP webhook POST  (Master Settings or WHATSAPP_ALERT_WEBHOOK_URL)
+3. CallMeBot  (when only an API key is present)
+4. In-memory wa.me fallback queue  (admin header badge — optional manual send)
+```
+
+| Provider | Transport | Endpoint |
+|----------|-----------|----------|
+| **UltraMsg** | POST JSON | `https://api.ultramsg.com/{instanceId}/messages/chat` |
+| **Green API** | POST JSON | `https://api.green-api.com/waInstance{instanceId}/sendMessage/{apiToken}` |
+| **CallMeBot** | GET | `https://api.callmebot.com/whatsapp.php` |
+| **Generic / Webhook** | POST JSON | Custom URL — body includes `{ to, phone, message, text }` |
+
+**Automated dispatch triggers:**
+- **Website checkout** — `orderController.createOrder` → `dispatchAdminWhatsAppAlertSafely()` immediately after order + stock save.
+- **Staff manual order** — `orderController.createManualOrder` → same background hook.
+- **Fail-safe processing** — wrapped in non-blocking `try…catch`; API timeouts (default **15 s**) log errors only — **customer order placement is never interrupted**.
+
+#### Structured Alert Message Template
+
+```
+📦 *New Order Alert - EOnlineBazar*
+
+• Order ID: #ORD-12345
+• Customer: Karim (8801316345101)
+• Address: House 12, Road 5, Dhaka
+• Total: ৳1,250
+• Payment: COD
+• Items:
+  - Premium Shirt (M / Blue) x2
+  - Sneakers x1
+```
+
+Phone numbers are auto-normalized — `+880 1316-345101` → `8801316345101`.
+
+#### Staff Manual Order Creation (POS Engine)
+
+From **Admin Panel → Live Orders → Create Manual Order** (`#manualOrderModal` in `client/admin.html`):
+
+| Field | Description |
+|-------|-------------|
+| **Customer Info** | Name, phone, full delivery address |
+| **Delivery Area** | Inside Dhaka / Outside Dhaka → sets `shippingLocationType` |
+| **Product Picker** | Searchable catalog dropdown + **Size/Color variant** selector with live price & stock hint |
+| **Line Items** | Multi-row cart with quantity; validates aggregate stock before add |
+| **Pricing Override** | Manual discount (৳), shipping fee (৳), payment status (**COD** / **Paid**) |
+| **Inventory** | Exact variant-row stock deduction via `deductOrderStock()` + `findVariantIndex()` |
+| **Finance Integration** | Persists `subTotal`, `discountAmount`, `deliveryCharge`, `grandTotal`, per-line `buyingPrice` → feeds P/L analytics instantly |
+| **WhatsApp Hook** | Same background admin alert fires on successful manual save |
+
+Orders are tagged `orderSource: 'manual'` with `createdByAdmin` audit metadata.
+
+### Architectural Workflow
+
+```mermaid
+flowchart TD
+    A[Customer checkout OR staff manual order] --> B[POST /api/orders or /api/admin/orders/manual]
+    B --> C[orderController — validate, price lock, save order]
+    C --> D[(MongoDB Order + stock deduction)]
+    D --> E[HTTP 201 response to client]
+    D --> F[dispatchAdminWhatsAppAlertSafely — setImmediate]
+    F --> G{enableWhatsAppOrderAlerts AND privateAdminAlertWhatsApp?}
+    G -->|No| H[Log skip reason — order already succeeded]
+    G -->|Yes| I[formatAdminOrderAlertMessage]
+    I --> J{Primary provider configured?}
+    J -->|UltraMsg / Green API| K[HTTP POST with 15s timeout]
+    J -->|No| L[Direct webhook POST fallback]
+    K --> M{Delivered?}
+    L --> M
+    M -->|Yes| N[SUCCESS log — admin WhatsApp inbox]
+    M -->|No| O[Queue wa.me fallback + admin header badge]
+```
+
+### Related API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| **`POST`** | **`/api/admin/orders/manual`** | **Staff POS / phone order entry with variant stock validation** | **Admin + `manage_orders`** |
+| **`GET`** | **`/api/admin/whatsapp-alerts/pending`** | **Pending wa.me fallback alerts (undelivered gateway attempts)** | **Admin + `manage_orders`** |
+| **`DELETE`** | **`/api/admin/whatsapp-alerts/:id`** | **Dismiss a queued fallback alert** | **Admin + `manage_orders`** |
+| `GET` | `/api/store/branding` | Public store branding + `publicSupportWhatsApp` | Public |
+
+### Configuration Priority
+
+```
+MongoDB (Master Settings → WhatsApp Configuration)  →  .env fallbacks  →  wa.me admin badge fallback
+```
+
+| Variable | Required | Purpose |
+|----------|:--------:|---------|
+| `Settings.enableWhatsAppOrderAlerts` | ✅ | Must be `true` in Master Settings |
+| `Settings.privateAdminAlertWhatsApp` | ✅ | Admin recipient (e.g. `8801XXXXXXXXX`) |
+| `Settings.whatsAppAlertProvider` | ⛔ | `UltraMsg`, `Green API`, `CallMeBot`, or `Generic` |
+| `Settings.whatsAppAlertApiKey` | ⛔ | API token (preferred over `WHATSAPP_ALERT_API_KEY`) |
+| `Settings.whatsAppAlertInstanceId` | ⛔ | UltraMsg / Green API instance ID |
+| `WHATSAPP_ALERT_WEBHOOK_URL` | ⛔ | Direct JSON POST fallback URL |
+| `WHATSAPP_ALERT_TIMEOUT_MS` | ⛔ | HTTP timeout (default `15000`) |
+| `PUBLIC_SUPPORT_WHATSAPP` | ⛔ | Storefront chat fallback when DB field is empty |
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `models/Settings.js` | Global singleton — dual WhatsApp numbers, alert toggle, gateway credentials |
+| `utils/whatsappService.js` | Background dispatch, provider chain, message formatter, phone sanitizer, pending alert queue |
+| `controllers/orderController.js` | `createOrder`, `createManualOrder`, `dispatchAdminWhatsAppAlertSafely()` |
+| `controllers/masterSettingsController.js` | Unified read/save for WhatsApp fields + other Master Settings |
+| `controllers/whatsappAlertsController.js` | Pending fallback alert API |
+| `middlewares/storeSettingsMiddleware.js` | Injects `publicSupportWhatsApp` into every HTML response |
+| `utils/brandingHtml.js` | Embeds public WhatsApp in `window.__STORE_SETTINGS__` |
+| `client/admin.html` | Master Settings → **WhatsApp Configuration** card + **Create Manual Order** modal |
+| `client/js/admin.js` | WhatsApp settings form, manual order POS UI, pending alert badge |
+| `client/js/whatsapp.js` | Dynamic storefront `wa.me` link builder |
 
 ---
 
@@ -447,7 +623,7 @@ End-to-end order lifecycle management for customers and admins — from responsi
 - The customer profile **My Orders** table uses `orders-table--responsive` CSS (`client/css/profile.css`) to transform rows into **stacked mobile cards** with `data-label` attributes for accessible field labels.
 - **v3.4.0:** Order ID and date render **inline** (`#EOB… • Date`) to save vertical space; the **entire row is clickable** and navigates to Order Details — list-level Invoice / Cancel / View Details buttons removed for a cleaner interface (actions live on `/order-details` only).
 - Desktop layouts retain a **compact, information-dense table** with product preview thumbnails, status badges, and an intentionally empty actions column.
-- Admin **Live Orders** (`client/js/admin.js`) renders a **premium sticky-header data table** with a horizontal action toolbar (courier booking, invoice, delete), compact column spacing, and contextual status badges.
+- Admin **Live Orders** (`client/js/admin.js`) renders a **premium sticky-header data table** with a horizontal action toolbar (courier booking, invoice, delete), **Create Manual Order** POS modal (v4.0.0), compact column spacing, and contextual status badges. Background **WhatsApp order alerts** fire server-side on every new order — no admin session required.
 
 #### Customer Order Cancellation
 - Customers can cancel orders in **Pending** or **Processing** status from the profile dashboard.
@@ -493,6 +669,8 @@ End-to-end order lifecycle management for customers and admins — from responsi
 | `PUT` | `/api/admin/orders/:id/approve-return` | Admin approve return → wallet refund | Admin + `manage_orders` |
 | `POST` | `/api/admin/orders/:id/undo-refund` | Admin safe refund reversal | Admin + `manage_orders` |
 | **`POST`** | **`/api/admin/orders/:id/send-courier`** | **Book parcel via Steadfast API — saves tracking IDs & sets status to `Shipped`** | **Admin + `manage_orders`** |
+| **`POST`** | **`/api/admin/orders/manual`** | **Staff POS / phone order entry — variant stock validation & finance snapshots** | **Admin + `manage_orders`** |
+| **`GET`** | **`/api/admin/whatsapp-alerts/pending`** | **Pending wa.me fallback alerts when gateway delivery fails** | **Admin + `manage_orders`** |
 | **`GET`** | **`/api/admin/courier/status`** | **Read courier config readiness (provider + credentials configured)** | **Admin** |
 | `GET` | `/api/orders/my-orders` | Customer order history with lifecycle fields | User |
 
@@ -1323,6 +1501,7 @@ flowchart TD
     C --> D[(Order saved to MongoDB)]
     D --> E[notifyOrderConfirmationEmail — async]
     D --> F[notifyOrderPlaced SMS — async]
+    D --> W[notifyAdminOrderPlaced WhatsApp — async background POST]
     E --> G{SMTP configured?}
     G -->|Yes| H[Nodemailer sendWithFailover]
     G -->|No| I[EMAIL ERROR logged — order still succeeds]
@@ -1331,6 +1510,10 @@ flowchart TD
     K -->|Yes| L[smsService → DB gateway config]
     K -->|No| M[SMS skipped / console fallback]
     L --> N[SUCCESS log + customer SMS]
+    W --> X{enableWhatsAppOrderAlerts + admin number + gateway?}
+    X -->|Yes| Y[whatsappService → UltraMsg / Green API / webhook POST]
+    X -->|No| Z[WhatsApp skipped / wa.me badge fallback]
+    Y --> AA[SUCCESS log + admin WhatsApp inbox]
     O[Admin updates order status] --> P[notifyOrderStatusUpdated — async]
     P --> L
 ```
@@ -1369,7 +1552,7 @@ MongoDB (Admin Master Settings)  →  .env fallbacks  →  dev console fallback
 | `models/Settings.js` | Global singleton — `smsGatewayProvider`, `smsApiKey`, `smsSenderId` |
 | `models/Setting.js` | Master singleton — `enableSmsNotifications` toggle |
 | `controllers/masterSettingsController.js` | Unified read/save for SMS fields + reward/announcement settings |
-| `controllers/orderController.js` | Post-save hooks: `notifyOrderConfirmationEmail` + `notifyOrderPlaced` |
+| `controllers/orderController.js` | Post-save hooks: `notifyOrderConfirmationEmail`, `notifyOrderPlaced`, `notifyAdminOrderPlaced`, `createManualOrder` |
 | `utils/smsService.js` | DB-backed gateway routing, templates, async dispatch helpers |
 | `utils/smsSender.js` | Admin/security OTP wrapper (delegates to `smsService`) |
 | `utils/mailer.js` | SMTP transport, order confirmation HTML builder, port failover |
@@ -2081,7 +2264,7 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 
 #### Product & Order Systems
 - **🛍️ Product Catalog** — Up to 10 images, categories, brand, **simple or matrix variations**, highlights, **flexible stock** (`stockQuantity` for simple products; per-combination stock for variant products), **selling price + buying price** (live profit preview), and detailed descriptions.
-- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **clickable order rows** (v3.4.0) with inline ID/date meta, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals (actions on detail view only), dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, **1-click PDF invoice download** from Order Details, **automated order confirmation emails** on every successful checkout, and **admin one-click Steadfast Courier parcel booking** with tracking ID persistence (v3.7.0).
+- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **clickable order rows** (v3.4.0) with inline ID/date meta, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals (actions on detail view only), dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, **1-click PDF invoice download** from Order Details, **automated order confirmation emails** on every successful checkout, **background WhatsApp admin order alerts** (v4.0.0), **staff manual POS / phone order entry** with variant stock validation (v4.0.0), and **admin one-click Steadfast Courier parcel booking** with tracking ID persistence (v3.7.0).
 - **🔄 Admin Return & Refund Pipeline** — Approve returns with automatic wallet credit, transaction history logging, and **Safe Undo Refund** within a configurable hour window (spent-funds safety check).
 - **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, **unified free-shipping threshold** (Master Settings ↔ Delivery Settings mirror), **real-time free-shipping progress** on cart/checkout, **real-time delivery date estimates** on checkout, **locked server-side totals** on every order, and district-aware invoices.
 - **📍 Smart Checkout Address Integration** — Profile-first checkout pre-fill, toggleable saved-address radio cards (select / unselect / revert), manual override with **Save to profile** sync, and cascading Bangladesh location dropdowns.
@@ -2115,7 +2298,7 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 - **Custom Currency Formatting** — Currency Code (`BDT`) & Symbol (`৳`) applied to every admin price column.
 - **Timezone Synchronization** — dynamically updates the admin dashboard header's **live digital clock**.
 - **Delivery Charge Control** — configure Shop Home City, inside/outside rates, and free-shipping threshold from the admin settings panel (synced with Master Settings).
-- **Unified Master Settings Panel** — single form for announcement text, free-shipping threshold, global cashback %, points earning ratio, points-to-taka conversion rate, refund undo window, **SMS gateway configuration**, and **courier booking credentials** — all with live preview.
+- **Unified Master Settings Panel** — single form for announcement text, free-shipping threshold, global cashback %, points earning ratio, points-to-taka conversion rate, refund undo window, **SMS gateway configuration**, **WhatsApp dual-number & background alert configuration**, and **courier booking credentials** — all with live preview.
 - **📩 Customer Notification Engine** — admin-configurable SMS gateway (Greenweb BD, BulkSMS BD, AlphaSMS, Generic API) with MongoDB-stored credentials; automated order confirmation emails via Nodemailer with fail-safe async dispatch.
 - **🚚 Courier Parcel Booking** — Steadfast API integration from Live Orders; MongoDB-stored API key/secret; atomic booking lock; tracking ID + consignment ID saved on the order document.
 - **Category Cashback Overrides** — per-category custom cashback percentages with seamless fallback to global defaults.
@@ -2124,7 +2307,8 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 ### 🖥️ Super Admin Panel (`/admin`)
 - **📊 Dashboard Overview** — **Sales & Business Analytics** (revenue daily/monthly/all-time, order counters, Chart.js sales trend + top-5 product charts) plus **Inventory Alerts** widget with inline stock updates; **Customer Insights** metrics (total/verified/pending/blocked users) and a **6-month registration growth chart** (Chart.js). *(Requires `view_analytics` for staff.)*
 - **👥 Customer Management** — View, edit, block, suspend, reactivate; order-count badges; per-customer order history modal. *(Requires `manage_customers`.)*
-- **📦 Live Orders** — Premium sticky-header table with compact spacing, horizontal action toolbar (**Send to Courier**, Invoice, Delete), distinct customer/admin cancellation badges, return approval, safe refund undo, reason visibility, invoice view/print, search, filter, and pagination. *(Requires `manage_orders`.)*
+- **📦 Live Orders** — Premium sticky-header table with compact spacing, horizontal action toolbar (**Send to Courier**, Invoice, Delete), **Create Manual Order** POS modal (v4.0.0), distinct customer/admin cancellation badges, return approval, safe refund undo, reason visibility, invoice view/print, search, filter, and pagination. *(Requires `manage_orders`.)*
+- **📱 WhatsApp Alert Badge** — Header badge surfaces pending wa.me fallback alerts when the background gateway cannot auto-deliver (v4.0.0).
 - **🛍️ Product CRUD** — Add/edit with images, buying/selling price, live profit preview, **Simple Product / Variant Matrix** inventory modes, bulk delete, CSV export, and print-ready tables. *(Requires `manage_inventory`.)*
 - **👤 Staff Management** — Create, permission-assign, block, reset password, and delete staff accounts with a dynamic permission matrix. *(Super Admin only.)*
 - **🔔 Professional UX** — SweetAlert2 toasts + modal confirmations, asynchronous DOM re-rendering (instant UI sync, no manual refresh), permission-aware sidebar gating.
@@ -2359,7 +2543,14 @@ SMS_API_METHOD=post
 # STEADFAST_API_URL=https://portal.steadfast.com.bd/api/v1/create_order
 # STEADFAST_API_KEY=your_steadfast_api_key
 # STEADFAST_SECRET_KEY=your_steadfast_secret_key
-# COURIER_API_TIMEOUT_MS=20000
+
+# 📱 WHATSAPP ORDER ALERTS (Master Settings preferred — background server-side dispatch)
+# WHATSAPP_ALERT_PROVIDER=UltraMsg          # UltraMsg | Green API | CallMeBot | Generic
+# WHATSAPP_ALERT_API_KEY=your_api_token
+# WHATSAPP_ALERT_INSTANCE_ID=instance1150     # Required for UltraMsg / Green API
+# WHATSAPP_ALERT_WEBHOOK_URL=https://your-webhook.example/send
+# WHATSAPP_ALERT_TIMEOUT_MS=15000
+# PUBLIC_SUPPORT_WHATSAPP=8801521377735       # Storefront chat fallback
 
 # ===============================================================
 # 🔑 GOOGLE AUTHENTICATOR (TOTP)
@@ -2408,6 +2599,12 @@ CLOUDINARY_API_SECRET=your_api_secret
 | `STEADFAST_API_KEY` / `COURIER_API_KEY` | ⛔ | Steadfast `Api-Key` fallback when not set in Master Settings |
 | `STEADFAST_SECRET_KEY` / `COURIER_SECRET_KEY` | ⛔ | Steadfast `Secret-Key` fallback when not set in Master Settings |
 | `STEADFAST_API_URL` | ⛔ | Override Steadfast create-order endpoint |
+| `WHATSAPP_ALERT_PROVIDER` | ⛔ | `UltraMsg`, `Green API`, `CallMeBot`, or `Generic` (Master Settings preferred) |
+| `WHATSAPP_ALERT_API_KEY` | ⛔ | Gateway token for background admin order alerts |
+| `WHATSAPP_ALERT_INSTANCE_ID` | ⛔ | UltraMsg / Green API instance ID |
+| `WHATSAPP_ALERT_WEBHOOK_URL` | ⛔ | Direct JSON POST fallback when primary API unavailable |
+| `WHATSAPP_ALERT_TIMEOUT_MS` | ⛔ | HTTP timeout for WhatsApp dispatch (default `15000`) |
+| `PUBLIC_SUPPORT_WHATSAPP` | ⛔ | Storefront customer chat number fallback |
 | `COURIER_API_TIMEOUT_MS` | ⛔ | Courier HTTP timeout in ms (default `20000`) |
 | `TOTP_ISSUER` | ⛔ | Label shown in Google Authenticator |
 | `SMTP_HOST/PORT/USER/PASS` | ✅* | Email OTP & password-reset delivery |
@@ -2566,6 +2763,9 @@ Base URL: `http://localhost:3000`
 | **`PUT`** | **`/api/admin/orders/:id/approve-return`** | **Approve return → credit exact paid amount to customer wallet** | **Admin + `manage_orders`** |
 | **`POST`** | **`/api/admin/orders/:id/undo-refund`** | **Safe refund reversal within configured undo window** | **Admin + `manage_orders`** |
 | **`POST`** | **`/api/admin/orders/:id/send-courier`** | **Book Steadfast parcel — save tracking IDs & set status to `Shipped`** | **Admin + `manage_orders`** |
+| **`POST`** | **`/api/admin/orders/manual`** | **Staff manual / POS order with variant inventory deduction** | **Admin + `manage_orders`** |
+| **`GET`** | **`/api/admin/whatsapp-alerts/pending`** | **Undelivered WhatsApp fallback alert queue** | **Admin + `manage_orders`** |
+| **`DELETE`** | **`/api/admin/whatsapp-alerts/:id`** | **Dismiss a queued fallback alert** | **Admin + `manage_orders`** |
 | **`GET`** | **`/api/admin/courier/status`** | **Courier config readiness (provider + credentials configured)** | **Admin** |
 | `DELETE` | `/api/orders/:id` | Delete order | Admin + `manage_orders` |
 
@@ -2671,7 +2871,7 @@ Base URL: `http://localhost:3000`
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| `GET`  | `/api/store/branding` | Store name, logo & favicon URLs | Public |
+| `GET`  | `/api/store/branding` | Store name, logo, favicon URLs & **`publicSupportWhatsApp`** | Public |
 | `GET`  | `/api/store/delivery-settings` | Delivery rules for checkout (rates, home city, resolved free-shipping threshold) | Public |
 | `GET`  | `/api/store/shipping-quote` | District + subtotal → zone, delivery charge, estimated delivery window, free-shipping progress | Public |
 | **`GET`** | **`/api/store/announcement`** | **Live announcement text, highlight chips & reward snapshot** | **Public** |
@@ -2786,6 +2986,28 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 ---
 
 ## 📜 Changelog
+
+### `v4.0.0` — Automated Background WhatsApp Alerts & Staff Manual Order Engine
+
+**📱 Dual-WhatsApp Routing**
+- Extended `models/Settings.js` with **`publicSupportWhatsApp`**, **`privateAdminAlertWhatsApp`**, **`enableWhatsAppOrderAlerts`**, and gateway fields (`whatsAppAlertProvider`, `whatsAppAlertApiKey`, `whatsAppAlertInstanceId`, `whatsAppAlertWebhookUrl`).
+- Storefront **`wa.me`** links update live from Master Settings via `storeSettingsMiddleware`, `brandingHtml.js`, and `client/js/whatsapp.js` — no redeploy required.
+- Private admin number is **never exposed** on public store APIs.
+
+**🔔 Background WhatsApp Order Alert Engine**
+- New `utils/whatsappService.js` — non-blocking **`setImmediate`** dispatch on every checkout and manual order save; **HTTP POST** to **UltraMsg**, **Green API**, **CallMeBot**, generic webhook, or direct webhook fallback with **15 s timeout**.
+- Structured alert template: Order ID, customer name/phone, address, item list with variants, total (৳), payment method.
+- Phone auto-normalization (`+880 …` → `880…`); `dispatchAdminWhatsAppAlertSafely()` in `orderController.js` ensures API failures never interrupt order placement.
+- Pending **wa.me fallback queue** + admin header badge via **`GET /api/admin/whatsapp-alerts/pending`**.
+
+**➕ Staff Manual Order Creation (POS Engine)**
+- New **`POST /api/admin/orders/manual`** — staff phone/chat order entry with customer info, Inside/Outside Dhaka area, manual discount & shipping, COD/Paid status.
+- **Create Manual Order** modal in **Live Orders** — searchable product picker, Size/Color variant selector, live stock validation, line-item cart.
+- Exact **variant-row stock deduction** via shared `findVariantIndex()` / `deductOrderStock()`; orders tagged `orderSource: 'manual'`.
+- **`buyingPrice` snapshots** and locked totals feed **Finance & Analytics** (`computeFinanceMetricsJs`) immediately.
+
+**⚙️ Master Settings UI**
+- New **WhatsApp Configuration** card in `client/admin.html` — public/private numbers, alert toggle, provider dropdown, API key, instance ID; unified save via **`POST /api/admin/master-settings/update`**.
 
 ### `v3.9.0` — Multi-Attribute Variant Matrix & Dynamic Stock Engine
 

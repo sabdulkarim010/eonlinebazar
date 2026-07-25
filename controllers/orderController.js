@@ -47,8 +47,19 @@ const {
     pickEmojiFromSources
 } = require('../utils/orderItemImages');
 const { notifyOrderPlaced, notifyOrderStatusUpdated } = require('../utils/smsService');
+const { notifyAdminOrderPlaced } = require('../utils/whatsappService');
+
+/** Fire-and-forget WhatsApp alert — must never block or fail order placement. */
+function dispatchAdminWhatsAppAlertSafely(order) {
+    try {
+        notifyAdminOrderPlaced(order);
+    } catch (err) {
+        console.error('[Order] WhatsApp alert scheduling failed (non-blocking):', err.message);
+    }
+}
+const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { notifyOrderConfirmationEmail } = require('../utils/mailer');
-const { findVariantIndex } = require('../utils/variantHelpers');
+const { findVariantIndex, getVariantAttributes, getVariantLineId } = require('../utils/variantHelpers');
 
 /** Verified selling price from catalog — never trust client item.price. */
 function resolveSellingPrice(product, item) {
@@ -399,6 +410,8 @@ const createOrder = async (req, res) => {
         }
 
         notifyOrderPlaced(newOrder);
+        console.log(`[Order] ✓ Order #${newOrder.orderId} saved — scheduling background WhatsApp alert`);
+        dispatchAdminWhatsAppAlertSafely(newOrder);
         notifyOrderConfirmationEmail({ to: recipientEmail, order: newOrder.toObject() });
 
         res.status(201).json({
@@ -411,6 +424,287 @@ const createOrder = async (req, res) => {
     } catch (err) {
         console.error("🔴 Order Save Error:", err);
         res.status(500).json({ success: false, message: "অর্ডার প্রসেস করতে ব্যর্থ হয়েছে।", error: err.message });
+    }
+};
+
+function buildVariantSnapshot(product, vIdx) {
+    if (!product || vIdx <= -1 || !Array.isArray(product.variants)) return {};
+
+    const variant = product.variants[vIdx];
+    const attrs = getVariantAttributes(variant);
+    const label = Object.entries(attrs)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(' / ');
+
+    return {
+        variantId: getVariantLineId(variant),
+        variantSku: String(variant.sku || '').trim(),
+        variantLabel: label,
+        variantAttribute: Object.keys(attrs).join(', '),
+        variantValue: Object.values(attrs).join(', ')
+    };
+}
+
+function resolveAvailableStock(product, vIdx) {
+    if (!product) return 0;
+    if (vIdx > -1 && Array.isArray(product.variants)) {
+        return Math.max(0, Number(product.variants[vIdx].stock) || 0);
+    }
+    const stockQty = Number(product.stockQuantity);
+    if (Number.isFinite(stockQty)) return Math.max(0, stockQty);
+    return Math.max(0, Number(product.stock) || 0);
+}
+
+async function deductOrderStock(normalizedItems) {
+    for (const item of normalizedItems) {
+        const targetId = item.id || item.productId || item._id;
+        const quantityOrdered = Number(item.quantity) || 1;
+        if (!targetId) continue;
+
+        const query = mongoose.Types.ObjectId.isValid(targetId)
+            ? { $or: [{ _id: targetId }, { productId: targetId }] }
+            : { productId: targetId };
+
+        const product = await Product.findOne(query);
+        if (!product) continue;
+
+        const vIdx = findVariantIndex(product, item);
+        if (vIdx > -1) {
+            const current = Number(product.variants[vIdx].stock) || 0;
+            product.variants[vIdx].stock = Math.max(0, current - quantityOrdered);
+            product.stock = Math.max(0, (Number(product.stock) || 0) - quantityOrdered);
+            product.markModified('variants');
+            await product.save();
+        } else {
+            await Product.updateOne(query, { $inc: { stock: -quantityOrdered, stockQuantity: -quantityOrdered } });
+        }
+    }
+}
+
+/**
+ * Staff POS / phone-order entry — admin creates orders with manual pricing,
+ * variant-aware stock deduction, and finance-ready buyingPrice snapshots.
+ */
+const createManualOrder = async (req, res) => {
+    try {
+        const customerName = String(req.body.customerName || req.body.name || '').trim();
+        const customerPhone = String(req.body.customerPhone || req.body.phone || '').trim();
+        const customerAddress = String(
+            req.body.customerAddress || req.body.shippingAddress || req.body.address || ''
+        ).trim();
+        const items = req.body.items || req.body.orderItems || [];
+        const note = String(req.body.note || req.body.notes || '').trim();
+        const manualDiscount = roundMoney(Number(req.body.manualDiscount ?? req.body.discountAmount) || 0);
+        const shippingFee = roundMoney(Number(req.body.shippingFee ?? req.body.deliveryCharge) || 0);
+        const paymentStatus = String(req.body.paymentStatus || req.body.paymentMethod || 'COD').trim();
+        const deliveryAreaRaw = String(
+            req.body.deliveryArea || req.body.shippingLocationType || req.body.deliveryLocationType || 'inside'
+        ).trim().toLowerCase();
+
+        if (!customerName || !customerPhone || !customerAddress) {
+            return res.status(400).json({
+                success: false,
+                message: 'Customer name, phone, and delivery address are required.'
+            });
+        }
+
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Add at least one product line to the manual order.'
+            });
+        }
+
+        const deliveryLocationType = deliveryAreaRaw.includes('outside') ? 'outside' : 'inside';
+        const shippingLocationType = toShippingLocationLabel(deliveryLocationType);
+        const shippingDistrict = deliveryLocationType === 'inside' ? 'Dhaka' : 'Outside Dhaka';
+        const deliveryEstimate = getDeliveryEstimate(deliveryLocationType);
+
+        let normalizedItems = [];
+        let totalBuyingPrice = 0;
+        let subtotal = 0;
+
+        for (const rawItem of items) {
+            const item = { ...rawItem };
+            const targetId = item.id || item.productId || item._id;
+            const quantity = Math.max(1, Number(item.quantity) || 1);
+
+            if (!targetId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Each line item must include a valid product id.'
+                });
+            }
+
+            const query = mongoose.Types.ObjectId.isValid(targetId)
+                ? { $or: [{ _id: targetId }, { productId: targetId }] }
+                : { productId: targetId };
+
+            const prod = await Product.findOne(query).select(
+                'price buyingPrice variants name image images icon productId category stock stockQuantity hasVariants'
+            );
+            if (!prod) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Product not found: ${targetId}`
+                });
+            }
+
+            const vIdx = findVariantIndex(prod, item);
+            const hasVariants = Array.isArray(prod.variants) && prod.variants.length > 0;
+
+            if (hasVariants && vIdx <= -1) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Select a valid Size/Color variant for "${prod.name}".`
+                });
+            }
+
+            const availableStock = resolveAvailableStock(prod, vIdx);
+            if (quantity > availableStock) {
+                const variantHint = vIdx > -1 ? buildVariantSnapshot(prod, vIdx).variantLabel : 'default';
+                return res.status(400).json({
+                    success: false,
+                    message: `Insufficient stock for "${prod.name}" (${variantHint || 'default'}). Available: ${availableStock}, requested: ${quantity}.`
+                });
+            }
+
+            const verifiedPrice = resolveSellingPrice(prod, item);
+            if (!Number.isFinite(verifiedPrice) || verifiedPrice < 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Unable to verify price for "${prod.name || targetId}".`
+                });
+            }
+
+            item.price = verifiedPrice;
+            item.quantity = quantity;
+            item.name = prod.name;
+            item.productId = prod.productId || String(prod._id);
+            item.category = prod.category || 'General';
+
+            let buyingPrice = 0;
+            if (vIdx > -1) {
+                Object.assign(item, buildVariantSnapshot(prod, vIdx));
+                const variantBuying = Number(prod.variants[vIdx].buyingPrice);
+                buyingPrice = (Number.isFinite(variantBuying) && variantBuying > 0)
+                    ? variantBuying
+                    : (Number(prod.buyingPrice) || 0);
+            } else {
+                buyingPrice = Number(prod.buyingPrice) || 0;
+            }
+
+            item.buyingPrice = buyingPrice;
+
+            const snapshotImage = pickImageFromSources(item, prod);
+            const snapshotEmoji = pickEmojiFromSources(item, prod);
+            if (snapshotImage) {
+                item.image = snapshotImage;
+                item.imageUrl = snapshotImage;
+                item.products = snapshotImage;
+            }
+            if (snapshotEmoji) {
+                item.emoji = snapshotEmoji;
+                item.icon = snapshotEmoji;
+            }
+
+            subtotal += verifiedPrice * quantity;
+            totalBuyingPrice += buyingPrice * quantity;
+            normalizedItems.push(item);
+        }
+
+        subtotal = roundMoney(subtotal);
+
+        if (manualDiscount > subtotal) {
+            return res.status(400).json({
+                success: false,
+                message: 'Manual discount cannot exceed the merchandise subtotal.'
+            });
+        }
+
+        const lockedTotals = buildLockedOrderTotals({
+            itemSubtotal: subtotal,
+            discountAmount: manualDiscount,
+            deliveryCharge: shippingFee
+        });
+
+        const {
+            subTotal,
+            grandTotal,
+            deliveryCharge: lockedDeliveryCharge,
+            discountAmount,
+            merchandisePayable
+        } = lockedTotals;
+
+        const isPaid = paymentStatus.toLowerCase() === 'paid';
+        const paymentMethod = isPaid ? 'Paid' : 'COD';
+        const status = isPaid ? 'Processing' : 'Pending';
+        const orderId = req.body.orderId || `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
+        const staffNote = note ? `[Manual POS] ${note}` : '[Manual POS] Staff phone / counter entry';
+
+        const newOrder = new Order({
+            orderId,
+            user: null,
+            customerName,
+            customerPhone,
+            customerAddress,
+            subTotal,
+            deliveryCharge: lockedDeliveryCharge,
+            grandTotal,
+            shippingLocationType,
+            shippingDistrict,
+            totalAmount: grandTotal,
+            subtotal: subTotal,
+            discountAmount,
+            deliveryLocationType,
+            shippingFee: lockedDeliveryCharge,
+            estimatedDelivery: deliveryEstimate.label,
+            totalBuyingPrice: Math.round(totalBuyingPrice),
+            paymentMethod,
+            items: normalizedItems,
+            note: staffNote,
+            status,
+            isDelivered: false,
+            orderSource: 'manual',
+            createdByAdmin: req.admin?.username || req.admin?.displayName || 'admin'
+        });
+
+        await newOrder.save();
+        await deductOrderStock(normalizedItems);
+
+        console.log(`[Order] ✓ Manual order #${newOrder.orderId} saved — scheduling background WhatsApp alert`);
+        dispatchAdminWhatsAppAlertSafely(newOrder);
+
+        await logSecurityEvent({
+            action: 'Manual Order Created',
+            actor: req.admin?.username || 'admin',
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `${orderId} · ${customerName} · ৳${grandTotal} · ${normalizedItems.length} item(s) · ${paymentMethod}`
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'Manual order created successfully.',
+            data: newOrder.toObject(),
+            lockedPricing: buildLockedPricingPayload({
+                subTotal,
+                discountAmount,
+                deliveryCharge: lockedDeliveryCharge,
+                merchandisePayable,
+                grandTotal,
+                shippingDistrict,
+                shippingLocationType,
+                deliveryLocationType
+            })
+        });
+    } catch (err) {
+        console.error('Manual Order Error:', err);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to create manual order.',
+            error: err.message
+        });
     }
 };
 
@@ -989,7 +1283,8 @@ const getDashboardStats = async (req, res) => {
 };
 
 module.exports = { 
-    createOrder, 
+    createOrder,
+    createManualOrder,
     getOrders, 
     getMyOrders, 
     getOrderById, 

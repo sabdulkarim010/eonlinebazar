@@ -16,6 +16,11 @@ const {
     toPublicAnnouncementPayload
 } = require('../utils/announcementSettings');
 const { VALID_COURIER_PROVIDERS } = require('../utils/courierService');
+const {
+    sanitizeWhatsAppInput,
+    clearWhatsAppSettingsCache,
+    VALID_ALERT_PROVIDERS
+} = require('../utils/whatsappService');
 
 const VALID_SMS_GATEWAY_PROVIDERS = ['Greenweb BD', 'BulkSMS BD', 'AlphaSMS', 'Generic API', ''];
 
@@ -29,6 +34,16 @@ const toPublicCourierSettings = (deliverySettings = {}) => ({
     defaultCourierProvider: deliverySettings.defaultCourierProvider || '',
     courierApiKey: deliverySettings.courierApiKey || '',
     courierSecretKey: deliverySettings.courierSecretKey || ''
+});
+
+const toPublicWhatsAppSettings = (deliverySettings = {}) => ({
+    publicSupportWhatsApp: deliverySettings.publicSupportWhatsApp || '',
+    privateAdminAlertWhatsApp: deliverySettings.privateAdminAlertWhatsApp || '',
+    enableWhatsAppOrderAlerts: deliverySettings.enableWhatsAppOrderAlerts === true,
+    whatsAppAlertProvider: deliverySettings.whatsAppAlertProvider || '',
+    whatsAppAlertApiKey: deliverySettings.whatsAppAlertApiKey || '',
+    whatsAppAlertInstanceId: deliverySettings.whatsAppAlertInstanceId || '',
+    whatsAppAlertWebhookUrl: deliverySettings.whatsAppAlertWebhookUrl || ''
 });
 
 const toPublicMasterSettings = (doc) => normalizeRewardSettings(doc);
@@ -134,7 +149,8 @@ const buildUnifiedPayload = async (settingsDoc) => {
         refundUndoWindow: rewards.refundUndoWindowHours,
         enableSmsNotifications: settingsDoc.enableSmsNotifications === true,
         ...toPublicSmsSettings(deliverySettings),
-        ...toPublicCourierSettings(deliverySettings)
+        ...toPublicCourierSettings(deliverySettings),
+        ...toPublicWhatsAppSettings(deliverySettings)
     };
 };
 
@@ -252,8 +268,82 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
         changes.push('Courier secret key updated');
     }
 
+    if (body.publicSupportWhatsApp !== undefined) {
+        const rawPublic = String(body.publicSupportWhatsApp ?? '').trim();
+        if (rawPublic) {
+            const normalizedPublic = sanitizeWhatsAppInput(rawPublic);
+            if (!normalizedPublic) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid public customer WhatsApp number.'
+                });
+            }
+            deliverySettings.publicSupportWhatsApp = normalizedPublic;
+        } else {
+            deliverySettings.publicSupportWhatsApp = '';
+        }
+        deliverySettingsDirty = true;
+        changes.push(`Public WhatsApp: ${deliverySettings.publicSupportWhatsApp || 'none'}`);
+    }
+
+    if (body.privateAdminAlertWhatsApp !== undefined) {
+        const rawPrivate = String(body.privateAdminAlertWhatsApp ?? '').trim();
+        if (rawPrivate) {
+            const normalizedPrivate = sanitizeWhatsAppInput(rawPrivate);
+            if (!normalizedPrivate) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid private admin alert WhatsApp number.'
+                });
+            }
+            deliverySettings.privateAdminAlertWhatsApp = normalizedPrivate;
+        } else {
+            deliverySettings.privateAdminAlertWhatsApp = '';
+        }
+        deliverySettingsDirty = true;
+        changes.push(`Admin alert WhatsApp: ${deliverySettings.privateAdminAlertWhatsApp ? 'configured' : 'cleared'}`);
+    }
+
+    if (body.enableWhatsAppOrderAlerts !== undefined) {
+        deliverySettings.enableWhatsAppOrderAlerts = parseBoolean(body.enableWhatsAppOrderAlerts, false);
+        deliverySettingsDirty = true;
+        changes.push(`WhatsApp order alerts: ${deliverySettings.enableWhatsAppOrderAlerts}`);
+    }
+
+    if (body.whatsAppAlertProvider !== undefined) {
+        const provider = String(body.whatsAppAlertProvider || '').trim();
+        if (provider && !VALID_ALERT_PROVIDERS.includes(provider)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid WhatsApp alert provider selected.'
+            });
+        }
+        deliverySettings.whatsAppAlertProvider = provider;
+        deliverySettingsDirty = true;
+        changes.push(`WhatsApp alert provider: ${provider || 'none'}`);
+    }
+
+    if (body.whatsAppAlertApiKey !== undefined) {
+        deliverySettings.whatsAppAlertApiKey = String(body.whatsAppAlertApiKey ?? '').trim();
+        deliverySettingsDirty = true;
+        changes.push('WhatsApp alert API key updated');
+    }
+
+    if (body.whatsAppAlertInstanceId !== undefined) {
+        deliverySettings.whatsAppAlertInstanceId = String(body.whatsAppAlertInstanceId ?? '').trim();
+        deliverySettingsDirty = true;
+        changes.push(`WhatsApp alert instance: ${deliverySettings.whatsAppAlertInstanceId || 'none'}`);
+    }
+
+    if (body.whatsAppAlertWebhookUrl !== undefined) {
+        deliverySettings.whatsAppAlertWebhookUrl = String(body.whatsAppAlertWebhookUrl ?? '').trim();
+        deliverySettingsDirty = true;
+        changes.push(`WhatsApp webhook: ${deliverySettings.whatsAppAlertWebhookUrl ? 'configured' : 'cleared'}`);
+    }
+
     if (deliverySettingsDirty) {
         await deliverySettings.save();
+        clearWhatsAppSettingsCache();
     }
 
     // The legacy free-text field stays in sync with the numeric threshold so
@@ -316,5 +406,6 @@ module.exports = {
     updateAnnouncementSettings,
     buildUnifiedPayload,
     toPublicMasterSettings,
-    toPublicCourierSettings
+    toPublicCourierSettings,
+    toPublicWhatsAppSettings
 };
