@@ -45,6 +45,7 @@
 - [Checkout Experience & Cart Enhancements](#-checkout-experience--cart-enhancements)
 - [Profile Security & Order Invoice Enhancements](#-profile-security--order-invoice-enhancements)
 - [Performance & Engagement Enhancements](#-performance--engagement-enhancements)
+- [Stock Out & Low Stock Automated Alert Engine](#️-stock-out--low-stock-automated-alert-engine)
 - [Multi-Attribute Combination Matrix & Dynamic Stock Engine](#-multi-attribute-combination-matrix--dynamic-stock-engine)
 - [Admin Panel — Order Security & Refund Controls](#-admin-panel--order-security--refund-controls)
 - [Admin Analytics & Inventory Management Controls](#-admin-analytics--inventory-management-controls)
@@ -374,7 +375,7 @@ This release delivers a professional-grade **checkout ↔ profile address pipeli
 | **🛒 Checkout Experience & Cart Enhancements** | Checkout-only **district selection** and **promo codes** for a cleaner `/cart`; real-time **inside/outside Dhaka** shipping + **business-day delivery estimates**; shared **`CouponUI`** module for flat/percentage discounts with live subtotal/grand-total updates; automatic **guest → auth cart merge** on login/OAuth. |
 | **🔒 Profile Security & Order Invoice Enhancements** | **`bcrypt`** password change with current-password gate; **6-digit OTP** verification for email/phone updates; single **Primary / Default** address flag with checkout auto-select & pre-fill; **1-click PDF invoice** download from **My Orders** and **Order Details** (`Invoice-ORDER_ID.pdf`). |
 | **⚡ Performance & Engagement Enhancements** | Interactive **order status timeline** on Order Details (`Placed → Processing → Shipped → Out for Delivery → Delivered`); **real-time low-stock FOMO badges** on Cart & Wishlist; lightweight **global toast notifications** for cart, wishlist, and stock feedback — no full-page reloads. |
-| **📊 Admin Analytics & Inventory Management** | Interactive **Sales & Business Analytics Dashboard** with live revenue/order KPIs and Chart.js trend charts; **Automated Low-Stock & Inventory Alert System** with color-coded badges and inline **Update Stock** quick actions on the admin Overview tab. |
+| **📊 Admin Analytics & Inventory Management** | Interactive **Sales & Business Analytics Dashboard** with live revenue/order KPIs and Chart.js trend charts; **Automated Low-Stock & Inventory Alert System** with color-coded badges and inline **Update Stock** quick actions on the admin Overview tab. *(See [Stock Out & Low Stock Automated Alert Engine](#️-stock-out--low-stock-automated-alert-engine).)* |
 
 > 📌 See the dedicated sections below for workflow diagrams, schema fields, and API specifications.
 
@@ -730,9 +731,11 @@ Storefront UX upgrades that improve order transparency, inventory urgency, and r
 - Displays a dedicated **Order Cancelled** alert banner when status is `Cancelled`; the timeline enters a muted cancelled visual state. **Return Requested** and **Returned** orders retain their dedicated status badges on the order header for clear at-a-glance triage.
 
 #### Real-time Inventory & Low Stock Alerts (FOMO Engine)
-- Added real-time stock awareness badges across **Cart** (`/cart`) and **Wishlist** (profile **My Cart** tab) via the shared `StockAlert` helper (`client/js/stockAlert.js`).
+- Storefront urgency badges powered by the shared **`StockAlert`** helper (`client/js/stockAlert.js`) on **Cart**, **Wishlist**, and **Product Details** pages.
 - Dynamically flags items with low stock (**`🔥 Only X left in stock - order soon!`**) when inventory is **≤ 3** to encourage faster checkout decisions.
 - Automatically restricts quantity **+** expansion (`isIncreaseDisabled`) and renders **`Out of Stock`** indicators when inventory hits zero — variant-aware stock resolution matches `productId` + `variantId` / SKU against the live catalog.
+
+> 📌 See the dedicated [Stock Out & Low Stock Automated Alert Engine](#️-stock-out--low-stock-automated-alert-engine) section for the full admin dashboard widget, Manage Products badges, and storefront urgency architecture.
 
 #### Global Non-Blocking Toast Notification System
 - Integrated a lightweight, responsive **Toast Notification** engine (`client/js/toast.js` + `client/css/toast.css`) for real-time user feedback across the customer storefront.
@@ -917,13 +920,10 @@ Real-time sales intelligence and proactive inventory monitoring for the Super Ad
 - Existing **Customer Insights** metrics (total/verified/pending/blocked users) and the **6-month registration growth chart** remain on the Overview tab below the sales analytics block.
 
 #### Automated Low-Stock & Inventory Alert System
-- Added an intelligent **Inventory Alerts** widget on the admin Overview dashboard.
-- Backend query flags products with **`stock <= 5`**, sorted ascending by stock level:
-  - **`⚠️ Out of Stock`** — red alert badge when `stock === 0`
-  - **`🔥 Low Stock: X left`** — amber alert badge when `1 ≤ stock ≤ 5`
-- Each alert row shows product thumbnail/icon, name, SKU/id, and category for fast triage.
-- **Direct, inline quick-action controls** — **Update Stock** opens a SweetAlert2 prompt and persists via `PUT /api/products/:id` (reusing existing product update auth), then refreshes alerts without a full page reload.
-- Distinct from the storefront **FOMO engine** (`client/js/stockAlert.js`, threshold ≤ 3 on Cart/Wishlist) — this admin widget is operator-facing with restock tooling.
+- Operator-facing **Inventory Alerts** widget, **Manage Products** color-coded stock badges, and inline **Update Stock** quick actions on the Super Admin Overview tab.
+- Backend query flags products with **`stock <= 5`**, sorted ascending by stock level — **Out of Stock** (red) at zero units, **Low Stock** (amber) under 5 units.
+
+> 📌 Full workflow, threshold matrix, data flow, and key files: [Stock Out & Low Stock Automated Alert Engine](#️-stock-out--low-stock-automated-alert-engine).
 
 ### Analytics Data Flow
 
@@ -969,6 +969,96 @@ flowchart LR
 | `client/css/admin.css` | Responsive analytics grid, chart toggles, inventory alert badge styles |
 | `models/order.js` | Order status, `grandTotal`, `items[]` — source for revenue & top-product aggregation |
 | `models/product.js` | `stock` field — source for low/out-of-stock alert queries |
+
+---
+
+## ⚠️ Stock Out & Low Stock Automated Alert Engine
+
+End-to-end **Automated Stock Alerting & Low Stock Notification System** spanning the Super Admin dashboard, **Manage Products** catalog table, and customer storefront — operators receive proactive restock signals with one-click fixes, while shoppers see real-time inventory urgency cues that drive purchasing conversion.
+
+### Admin Dashboard Automated Alerts
+
+#### Real-time Inventory Alerts Widget
+- Live **`Inventory Alerts`** widget on the **Super Admin Dashboard → Overview** tab (`view-overview`), refreshed on Overview load, sidebar navigation, and via the header **Sync Data** action.
+- Powered by **`GET /api/admin/dashboard-analytics`** (`verifyAdmin` + `view_analytics`) — backend aggregation flags products at **`stock <= 5`**, sorted ascending by stock level:
+  - **`Out of Stock`** — zero inventory (`stock === 0`)
+  - **`Low Stock`** — threshold under **5 units** (`1 ≤ stock ≤ 5`)
+- Each alert row surfaces product thumbnail/icon, name, SKU/id, and category for fast operator triage.
+- Dynamic alert counter (`#inventoryAlertCount`) displays **"All clear"** when every product is above the low-stock threshold.
+
+#### Quick Action Update Stock Shortcuts
+- Integrated **`Update Stock`** button on every alert element opens a SweetAlert2 quantity prompt.
+- Persists via **`PUT /api/products/:id`** (reuses existing product-update auth) through `quickUpdateStock()` in `client/js/admin.js`.
+- Analytics and alert list refresh in place after save — no full page reload required.
+
+#### Visual Status Indicators — Manage Products Table
+- Color-coded warning badges across the **Manage Products** table (`renderProductTable()` in `client/js/admin.js`):
+  - **Red** — **`Out of Stock`** badge (`stock-status stock-out`) when `stock <= 0`
+  - **Orange / Yellow** — **`Low: X`** badge (`stock-status stock-low`) when `1 ≤ stock ≤ 5`
+  - **Green** — **`In Stock: X`** badge (`stock-status stock-normal`) when `stock > 5`
+- Stock-status filter dropdown supports **Low Stock Alert** and **Out of Stock** views for targeted catalog triage.
+
+### Frontend Urgency Indicators
+
+#### Dynamic Stock Urgency Badges
+- Shared **`StockAlert`** module (`client/js/stockAlert.js`) resolves **variant-aware** inventory against the live catalog (`productId` + `variantId` / SKU via `VariantUtils`).
+- **Cart** (`/cart`) and **Product Details** (`/product-details`) — plus **Wishlist** mini-cards in the profile dashboard — render:
+  - **`🔥 Only X left in stock - order soon!`** urgency badge (`stock-alert-badge stock-low`) when inventory **≤ 3**
+  - **`Out of Stock`** badge (`stock-alert-badge stock-out`) with quantity **+** expansion blocked when inventory hits zero
+- **Product Details** live stock badge updates on variant matrix selection — shows **`In Stock (X left)`** when remaining units **≤ 5**, or **`Out of Stock`** when zero; unavailable combination pills render dimmed with an **Out of Stock** tag.
+
+> **Threshold summary:** Admin alerting (dashboard widget + Manage Products badges) uses **≤ 5** units. Storefront FOMO urgency badges on Cart, Wishlist, and Product pages fire at **≤ 3** units to maximize conversion without over-warning.
+
+### Alert Data Flow
+
+```mermaid
+flowchart TB
+    subgraph Admin["Super Admin Panel"]
+        A[Overview Dashboard] --> B[Inventory Alerts Widget]
+        B --> C{Update Stock?}
+        C -->|Yes| D[PUT /api/products/:id]
+        D --> E[Refresh analytics + alerts]
+        F[Manage Products Table] --> G[Color-coded stock badges]
+    end
+    subgraph Storefront["Customer Storefront"]
+        H[Cart / Wishlist / Product Details] --> I[StockAlert.resolve stock]
+        I --> J{stock <= 3?}
+        J -->|Yes| K["🔥 Only X left - order soon!"]
+        J -->|No, stock = 0| L[Out of Stock + qty guard]
+    end
+    M[GET /api/admin/dashboard-analytics] --> B
+    M --> N["inventoryAlerts: outOfStock[], lowStock[]"]
+```
+
+### Related API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| **`GET`** | **`/api/admin/dashboard-analytics`** | Sales KPIs, revenue trends, top products & **`inventoryAlerts`** payload | **Admin + `view_analytics`** |
+| **`PUT`** | **`/api/products/:id`** | Inline stock restock from alert **Update Stock** quick action | **Admin + `manage_inventory`** |
+
+**`inventoryAlerts` response shape:**
+
+| Key | Contents |
+|-----|----------|
+| `outOfStock[]` | Products with `stock === 0` |
+| `lowStock[]` | Products with `1 ≤ stock ≤ 5` |
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `controllers/adminController.js` | `getDashboardAnalytics()` — builds `inventoryAlerts { outOfStock[], lowStock[] }` |
+| `routes/adminRoutes.js` | `GET /dashboard-analytics` route (`verifyAdmin` + `view_analytics`) |
+| `client/admin.html` | Overview `#inventoryAlertsList` widget + Manage Products table markup |
+| `client/js/admin.js` | `renderInventoryAlerts()`, `quickUpdateStock()`, Manage Products stock badge rendering |
+| `client/css/admin.css` | `.inventory-alert-*`, `.stock-status.stock-out` / `.stock-low` / `.stock-normal` |
+| `client/js/stockAlert.js` | Storefront urgency badge HTML, qty-cap logic, variant stock resolution |
+| `client/js/cart.js` | Cart row stock badges, quantity guardrails, stock-exceeded toast feedback |
+| `client/js/profile.js` | Wishlist mini-card stock badges, out-of-stock cart guard |
+| `client/js/product-details.js` | Live variant stock status badge on Product Details |
+| `client/css/cart.css` | `.stock-alert-badge`, `.stock-low`, `.stock-out` badge styles |
+| `models/product.js` | `stock` / `stockQuantity` fields — source for alert queries |
 
 ---
 
@@ -2852,7 +2942,7 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 
 **⚡ Performance & Engagement Enhancements**
 - **Visual Order Status Timeline Tracker** — interactive step-based timeline on Order Details (**Placed ➔ Processing ➔ Shipped ➔ Out for Delivery ➔ Delivered**); dynamically highlights progress from live DB status; responsive mobile layout; dedicated **Order Cancelled** banner and status badges for cancelled/returned orders.
-- **Real-time Inventory & Low Stock Alerts (FOMO Engine)** — stock awareness badges on Cart and Wishlist; **`🔥 Only X left in stock - order soon!`** when inventory ≤ 3; quantity expansion blocked and **`Out of Stock`** indicators when inventory hits zero (variant-aware).
+- **Real-time Inventory & Low Stock Alerts (FOMO Engine)** — automated stock alerting across admin dashboard and storefront; **`🔥 Only X left in stock - order soon!`** urgency badges on Cart and Product pages (≤ 3 units); admin **Inventory Alerts** widget and Manage Products color-coded badges (≤ 5 units); quantity expansion blocked and **`Out of Stock`** indicators when inventory hits zero (variant-aware). *(See [Stock Out & Low Stock Automated Alert Engine](#️-stock-out--low-stock-automated-alert-engine).)*
 - **Global Non-Blocking Toast Notification System** — lightweight `#global-toast-stack` engine with auto-dismissing popups for cart additions, wishlist updates, and stock errors — no full-page reloads.
 
 ### Admin UX — Wide Edit Product Modal
