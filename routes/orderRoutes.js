@@ -27,6 +27,7 @@ const {
 
 // অ্যাডমিন ও ইউজার ভেরিফিকেশন 
 const { verifyAdmin, verifyUser } = require('../middlewares/authMiddleware');
+const { checkPermission } = require('../middlewares/rbac');
 
 /********************************************************************
  # ORDER ROUTES (অর্ডারের এপিআই রাস্তাসমূহ)
@@ -58,8 +59,10 @@ router.get('/track', trackOrder);
 router.post('/', verifyUser, createOrder); 
 
 // খ. সব অর্ডার দেখার রুট (অ্যাডমিন প্যানেলের জন্য)
+// 🔒 আগে এটি সম্পূর্ণ অসুরক্ষিত ছিল — যে কেউ সব কাস্টমারের অর্ডার দেখতে পারত।
+// এখন অ্যাডমিন টোকেন + manage_orders পারমিশন বাধ্যতামূলক।
 // URL: GET /api/orders
-router.get('/', getOrders);
+router.get('/', verifyAdmin, checkPermission('manage_orders'), getOrders);
 
 
 // =================================================================
@@ -80,13 +83,13 @@ router.get('/:id/invoice', verifyUser, downloadOrderInvoice);
 // URL: GET /api/orders/:id
 router.get('/:id', verifyUser, getOrderById);
 
-// খ. অর্ডারের স্ট্যাটাস আপডেট করার রুট
+// খ. অর্ডারের স্ট্যাটাস আপডেট করার রুট (🔒 অ্যাডমিন + manage_orders)
 // URL: PUT /api/orders/:id
-router.put('/:id', updateOrderStatus);
+router.put('/:id', verifyAdmin, checkPermission('manage_orders'), updateOrderStatus);
 
-// গ. অর্ডার ডিলিট করার রুট
+// গ. অর্ডার ডিলিট করার রুট (🔒 অ্যাডমিন + manage_orders)
 // URL: DELETE /api/orders/:id
-router.delete('/:id', deleteOrder);
+router.delete('/:id', verifyAdmin, checkPermission('manage_orders'), deleteOrder);
 
 module.exports = router;
 

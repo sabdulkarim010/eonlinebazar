@@ -47,7 +47,20 @@ function sendClientHtml(res, filename) {
 }
 
 // ২. ডাটাবেজ কানেক্ট করা
-connectDB();
+// কানেকশনের পরপরই RBAC ডিফল্ট ব্যাকফিল করা হয় — RBAC চালুর আগে তৈরি হওয়া
+// অ্যাডমিন ডকুমেন্টে role/status ফিল্ড না থাকলে সেগুলো superadmin/active হিসেবে
+// সেট হয়, যাতে মালিকের অ্যাক্সেস কোনোভাবেই নষ্ট না হয়।
+connectDB().then(async () => {
+    try {
+        const Admin = require('./models/admin');
+        const { rolesBackfilled, statusBackfilled } = await Admin.ensureRbacDefaults();
+        if (rolesBackfilled || statusBackfilled) {
+            console.log(`🛡️  RBAC backfill: ${rolesBackfilled} role(s), ${statusBackfilled} status field(s) normalized.`);
+        }
+    } catch (err) {
+        console.error('RBAC bootstrap error:', err.message);
+    }
+});
 
 // ৩. প্রয়োজনীয় মিডলওয়্যারসমূহ
 // প্রক্সি/হোস্টিং (Render, Vercel, Nginx ইত্যাদি)-এর পেছনে আসল ক্লায়েন্ট IP পেতে
@@ -192,6 +205,13 @@ app.get('/admin-login', (req, res) => {
 // Login alias
 app.get('/admin/login', (req, res) => {
     sendClientHtml(res, 'admin-login.html');
+});
+
+// 🚫 Access Denied — RBAC মিডলওয়্যার পেজ নেভিগেশন ব্লক করলে এখানে পাঠায়
+// (API কল হলে JSON 403 ফেরত যায়, পেজ লোড হলে এই ভিউ)
+app.get('/admin/access-denied', (req, res) => {
+    res.status(403);
+    sendClientHtml(res, 'access-denied.html');
 });
 
 // Full admin logout: clear server-side cookies and cleanly redirect to the

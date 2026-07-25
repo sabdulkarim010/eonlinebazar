@@ -11,6 +11,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const UserSession = require('../models/userSession');
 const AdminSession = require('../models/adminSession');
+const { attachAdminAccount } = require('./rbac');
 
 // ১. অ্যাডমিন ভেরিফাই করার জন্য (🌟 role-based + session-aware, নিরাপত্তা-হার্ডেনড)
 const verifyAdmin = async (req, res, next) => {
@@ -65,7 +66,13 @@ const verifyAdmin = async (req, res, next) => {
             }
         }
 
-        req.admin = decoded;
+        // 🛡️ RBAC: টোকেনের পেলোডে ভরসা না করে প্রতিটি রিকোয়েস্টে ডাটাবেজ থেকে
+        // অ্যাকাউন্টটি লোড করা হয়। ফলে সুপার অ্যাডমিন কারো পারমিশন বদলালে বা
+        // অ্যাকাউন্ট ব্লক করলে সেটি পরের রিকোয়েস্টেই কার্যকর হয় — রি-লগইন লাগে না।
+        // ব্লকড/ডিলিটেড হলে attachAdminAccount নিজেই রেসপন্স পাঠায়।
+        const account = await attachAdminAccount(req, res, decoded);
+        if (!account) return;
+
         next();
     } catch (err) {
         return res.status(401).json({

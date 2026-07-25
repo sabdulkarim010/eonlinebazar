@@ -1,4 +1,5 @@
 const Admin = require('../models/admin');
+const { ROLES } = require('../config/permissions');
 const { normalizeBrandingPublicUrl } = require('./brandingPaths');
 
 const DEFAULT_SETTINGS = Object.freeze({
@@ -36,8 +37,12 @@ function mapAdminToSettings(admin) {
 }
 
 async function fetchStoreSettingsFromDb() {
-    const admin = await Admin.findOne()
+    // Store branding lives on the owner's account. Staff accounts share the
+    // Admin collection, so the lookup is scoped to the super admin — otherwise
+    // an unfiltered findOne() could return a staff document and blank the logo.
+    const admin = await Admin.findOne({ role: ROLES.SUPER_ADMIN })
         .select('storeName logoUrl faviconUrl currency currencySymbol timezone')
+        .sort({ createdAt: 1 })
         .lean();
     return mapAdminToSettings(admin);
 }

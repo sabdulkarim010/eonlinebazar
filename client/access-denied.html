@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Denied | EonlineBazar Admin</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+        }
+
+        .denied-card {
+            width: 100%;
+            max-width: 520px;
+            background: #ffffff;
+            color: #334155;
+            border-radius: 16px;
+            padding: 40px 36px;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.45);
+        }
+
+        .denied-icon {
+            width: 84px;
+            height: 84px;
+            margin: 0 auto 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fee2e2;
+            color: #ef4444;
+            font-size: 36px;
+        }
+
+        h1 { font-size: 26px; font-weight: 700; color: #0f172a; margin-bottom: 10px; }
+
+        .denied-lead { font-size: 15px; line-height: 1.65; color: #64748b; }
+
+        .denied-permission {
+            margin-top: 22px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            font-size: 14px;
+            color: #475569;
+            display: none;
+        }
+
+        .denied-permission code {
+            display: inline-block;
+            margin-top: 6px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            background: #0f172a;
+            color: #38bdf8;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .denied-actions {
+            margin-top: 30px;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .denied-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 22px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .denied-btn.primary { background: #3b82f6; color: #fff; }
+        .denied-btn.primary:hover { background: #2563eb; }
+        .denied-btn.ghost { background: #fff; color: #475569; border-color: #cbd5e1; }
+        .denied-btn.ghost:hover { background: #f8fafc; border-color: #94a3b8; }
+
+        .denied-footnote { margin-top: 26px; font-size: 13px; color: #94a3b8; }
+    </style>
+</head>
+<body>
+
+    <main class="denied-card" role="alert">
+        <div class="denied-icon"><i class="fa-solid fa-lock"></i></div>
+
+        <h1>Access Denied</h1>
+        <p class="denied-lead">
+            You do not have permission to open this section of the admin panel.
+            If you believe you should have access, ask the Super Admin to grant it
+            from <strong>Staff Management</strong>.
+        </p>
+
+        <div class="denied-permission" id="permissionBox">
+            Required permission
+            <br>
+            <code id="permissionKey">—</code>
+        </div>
+
+        <div class="denied-actions">
+            <a class="denied-btn primary" href="/admin"><i class="fa-solid fa-gauge-high"></i> Back to Dashboard</a>
+            <a class="denied-btn ghost" href="/admin/logout"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign Out</a>
+        </div>
+
+        <p class="denied-footnote">EonlineBazar · Role Based Access Control</p>
+    </main>
+
+    <script>
+        // The RBAC middleware appends ?permission=<key> so the blocked staff
+        // member knows exactly what to request from the Super Admin.
+        const requested = new URLSearchParams(window.location.search).get('permission');
+        if (requested) {
+            document.getElementById('permissionKey').textContent = requested;
+            document.getElementById('permissionBox').style.display = 'block';
+        }
+    </script>
+
+</body>
+</html>

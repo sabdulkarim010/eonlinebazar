@@ -3307,3 +3307,209 @@ a {
     .twofa-methods { grid-template-columns: 1fr; }
     .twofa-qr-box img { width: 160px; height: 160px; }
 }
+
+
+/* --------------------------------------------------------------------------
+   STAFF MANAGEMENT & RBAC (স্টাফ ম্যানেজমেন্ট ও পারমিশন কন্ট্রোল)
+   -------------------------------------------------------------------------- */
+
+.staff-create-card { margin-bottom: 26px; }
+
+.staff-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 18px;
+    margin-bottom: 8px;
+}
+
+.staff-password-row { display: flex; gap: 10px; align-items: stretch; }
+.staff-password-row input { flex: 1; min-width: 0; }
+.staff-password-row .btn-secondary { white-space: nowrap; }
+
+.field-hint { display: block; margin-top: 6px; font-size: 12px; color: var(--text-muted); line-height: 1.45; }
+.req-star { color: var(--danger-color); }
+
+/* — Permission checkbox matrix — */
+.staff-permissions-block {
+    margin: 22px 0 18px;
+    padding: 18px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #f8fafc;
+}
+
+.staff-permissions-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.staff-permissions-head h5 { font-size: 14px; font-weight: 700; color: var(--secondary-color); }
+.staff-permissions-head h5 i { color: var(--primary-color); margin-right: 6px; }
+
+.staff-permissions-bulk { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: var(--primary-color);
+    font-weight: 600;
+    cursor: pointer;
+}
+.link-btn:hover { text-decoration: underline; }
+.dot-divider { color: #cbd5e1; }
+
+.permission-grid { display: flex; flex-direction: column; gap: 18px; }
+
+.permission-group-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+.permission-group-items {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 12px;
+}
+
+.permission-item {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.permission-item:hover { border-color: #93c5fd; transform: translateY(-1px); }
+.permission-item.checked { border-color: var(--primary-color); background: #eff6ff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12); }
+
+.permission-item input[type="checkbox"] {
+    width: 17px;
+    height: 17px;
+    margin-top: 2px;
+    flex-shrink: 0;
+    accent-color: var(--primary-color);
+    cursor: pointer;
+}
+
+.permission-item-icon {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #fff;
+    background: linear-gradient(135deg, #64748b, #475569);
+}
+.permission-item.checked .permission-item-icon { background: linear-gradient(135deg, #3b82f6, #6366f1); }
+
+.permission-item-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.permission-item-body strong { font-size: 13.5px; color: var(--secondary-color); }
+.permission-item-body small { font-size: 11.5px; color: var(--text-muted); line-height: 1.45; }
+
+.staff-2fa-group { margin-bottom: 4px; }
+
+/* — Staff table — */
+.staff-table td { vertical-align: middle; }
+.staff-row-blocked { background: rgba(239, 68, 68, 0.035); }
+
+.staff-identity { display: flex; align-items: center; gap: 12px; }
+.staff-identity strong { display: block; font-size: 14px; color: var(--secondary-color); }
+.staff-identity small { font-size: 11.5px; color: var(--text-muted); }
+
+.staff-avatar {
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 15px;
+    color: #fff;
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+}
+
+.staff-username {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 12.5px;
+    color: #334155;
+}
+
+.permission-chip-list { display: flex; flex-wrap: wrap; gap: 6px; max-width: 320px; }
+.permission-chip {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    white-space: nowrap;
+}
+.permission-chip.empty { background: #f1f5f9; color: var(--text-muted); border-color: #e2e8f0; }
+
+.status-badge.active { background: rgba(16, 185, 129, 0.12); color: #047857; }
+.status-badge.blocked { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
+.status-badge i { margin-right: 5px; }
+
+.staff-actions { display: flex; gap: 6px; }
+.staff-actions .action-btn {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.staff-actions .action-btn:hover { transform: translateY(-1px); }
+.staff-actions .action-btn.edit:hover { color: var(--primary-color); border-color: var(--primary-color); }
+.staff-actions .action-btn.reset:hover { color: #8b5cf6; border-color: #8b5cf6; }
+.staff-actions .action-btn.block:hover { color: var(--warning-color); border-color: var(--warning-color); }
+.staff-actions .action-btn.activate:hover { color: var(--success-color); border-color: var(--success-color); }
+.staff-actions .action-btn.delete:hover { color: var(--danger-color); border-color: var(--danger-color); }
+
+.empty-row, .empty-hint {
+    padding: 26px 16px;
+    text-align: center;
+    font-size: 13.5px;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
+/* — Staff editor modal — */
+.staff-edit-modal-box { max-width: 720px; width: 100%; max-height: 88vh; overflow-y: auto; }
+.staff-edit-modal-box .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.staff-edit-modal-box .btn-submit { margin-top: 0; }
+
+@media (max-width: 768px) {
+    .staff-form-grid { grid-template-columns: 1fr; }
+    .permission-group-items { grid-template-columns: 1fr; }
+    .staff-password-row { flex-direction: column; }
+    .permission-chip-list { max-width: none; }
+}

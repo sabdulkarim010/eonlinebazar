@@ -4,7 +4,7 @@
 
 ### A Fully Dynamic, Production-Ready Full-Stack E-Commerce Platform
 
-*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **unified master store settings engine** (announcements, free-shipping threshold, cashback, loyalty points & refund windows), **dynamic free-shipping waiver & live dashboard announcements**, **category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, custom store branding, and a finance analytics dashboard.*
+*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), **Role-Based Access Control (RBAC) with dynamic Staff Management**, real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **unified master store settings engine** (announcements, free-shipping threshold, cashback, loyalty points & refund windows), **dynamic free-shipping waiver & live dashboard announcements**, **category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, custom store branding, and a finance analytics dashboard.*
 
 ![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
@@ -15,7 +15,8 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-3.4.0-success)
+![Version](https://img.shields.io/badge/Version-3.5.0-success)
+![RBAC](https://img.shields.io/badge/RBAC-Staff%20Management-6f42c1)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 ![Maintained](https://img.shields.io/badge/Maintained-Yes-blue)
@@ -27,6 +28,7 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v3.5.0](#-whats-new--v350-super-admin-rbac--staff-management)
 - [What's New — v3.4.0](#-whats-new--v340-unified-store-settings-free-shipping--orders-ux)
 - [What's New — v3.3.0](#-whats-new--v330-checkout-orders-rewards--admin-controls)
 - [Dynamic Store Settings & Admin Engine](#-dynamic-store-settings--admin-engine)
@@ -41,6 +43,7 @@
 - [Performance & Engagement Enhancements](#-performance--engagement-enhancements)
 - [Admin Panel — Order Security & Refund Controls](#-admin-panel--order-security--refund-controls)
 - [Admin Analytics & Inventory Management Controls](#-admin-analytics--inventory-management-controls)
+- [Super Admin RBAC & Staff Management Architecture](#-super-admin-rbac--staff-management-architecture)
 - [Master Settings & Dynamic Rewards](#-master-settings--dynamic-rewards)
 - [What's New — v3.2.0](#-whats-new--v320-time-sensitive-coupon-automation)
 - [Time-Sensitive Coupon Automation](#-time-sensitive-coupon-automation-system)
@@ -72,6 +75,23 @@ Six things set it apart:
 4. **Dynamic Delivery Charge & Address Management** — admin-configurable shipping rules, Bangladesh **District → Upazila/Thana** cascading address fields, checkout auto-fill, real-time fee preview, and **server-side price re-validation** before orders are persisted.
 5. **Unified Master Store Settings Engine** — one admin form controls announcement copy, **free-shipping threshold**, global cashback, points earning ratio, points-to-taka conversion, and refund-undo window; values sync to checkout, cart, order placement, and the customer dashboard in real time.
 6. **Time-Sensitive Coupon Automation** — precise hour/minute expiry scheduling, a server-side **ACTIVE / EXPIRED** status engine with bulk auto-expiry, checkout visibility synced to live availability, and hardened order-time coupon validation.
+7. **Super Admin RBAC & Staff Management** — a dynamic permission engine lets the owner create staff accounts with granular operational rights; unified `/admin/login` detects `superadmin` vs `staff`, the sidebar and API both enforce the same permission matrix, and blocked accounts lose access on the very next request.
+
+---
+
+## 🆕 What's New — v3.5.0 (Super Admin RBAC & Staff Management)
+
+This release introduces a **production-grade Role-Based Access Control (RBAC) engine** — the Super Admin can delegate day-to-day operations to staff without sharing the owner password, while every protected route and sidebar item is guarded server-side.
+
+| Capability | Highlights |
+|------------|------------|
+| **👥 Dynamic Staff Account Creation** | Super Admin creates staff with name, username, email, and **bcrypt-hashed** password; optional email 2FA per account; full lifecycle — edit permissions, **Active ⇄ Blocked** (instant session revocation), reset password, permanent delete. |
+| **🔑 Granular Permission Engine** | Nine operational permissions assigned per staff member via a dynamic checkbox matrix (`view_analytics`, `manage_orders`, `manage_inventory`, `manage_catalog`, `manage_coupons`, `manage_customers`, `manage_settings`, `manage_security`, `manage_staff`). |
+| **🔐 Unified Login & Middleware Security** | Single **`/admin/login`** endpoint for owner and staff; JWT + `AdminSession` unchanged; `checkPermission('…')` middleware blocks unauthorized API calls with **403**; `/admin/access-denied` page for browser navigations. |
+| **🎯 Permission-Aware Admin UI** | Sidebar sections, Finance shortcut, and platform settings cards hide automatically for staff lacking the required permission; Super Admin sees the full panel including **Staff Management**. |
+| **🛡️ Hardened Admin Order Routes** | Previously public `GET/PUT/DELETE /api/orders` admin operations now require **`verifyAdmin` + `manage_orders`** — closing a critical security gap. |
+
+> 📌 See the dedicated [Super Admin RBAC & Staff Management Architecture](#-super-admin-rbac--staff-management-architecture) section below for schema fields, permission matrix, API specifications, and workflow diagrams.
 
 ---
 
@@ -389,8 +409,8 @@ End-to-end order lifecycle management for customers and admins — from responsi
 |--------|----------|-------------|------|
 | `POST` | `/api/orders/:id/cancel` | Customer cancel with reason payload (`selectedReason`, `customReason`) | User |
 | `POST` | `/api/orders/:id/return` | Customer return request with reason payload | User |
-| `PUT` | `/api/admin/orders/:id/approve-return` | Admin approve return → wallet refund | Admin |
-| `POST` | `/api/admin/orders/:id/undo-refund` | Admin safe refund reversal | Admin |
+| `PUT` | `/api/admin/orders/:id/approve-return` | Admin approve return → wallet refund | Admin + `manage_orders` |
+| `POST` | `/api/admin/orders/:id/undo-refund` | Admin safe refund reversal | Admin + `manage_orders` |
 | `GET` | `/api/orders/my-orders` | Customer order history with lifecycle fields | User |
 
 ---
@@ -709,7 +729,7 @@ Real-time sales intelligence and proactive inventory monitoring for the Super Ad
 - Embedded **Chart.js** data visualization (CDN-loaded, already used by the admin panel):
   - **Sales Trend line chart** — toggle **Daily** (last 30 days) or **Monthly** (last 12 months) revenue series
   - **Top 5 Selling Products chart** — toggle **Bar** or **Pie** distribution driven by completed-order item quantities
-- All chart and card data is fetched from a dedicated admin API (`GET /api/admin/dashboard-analytics`) protected by **`verifyAdmin`** — no hard-coded demo values.
+- All chart and card data is fetched from a dedicated admin API (`GET /api/admin/dashboard-analytics`) protected by **`verifyAdmin` + `view_analytics`** — no hard-coded demo values.
 - Existing **Customer Insights** metrics (total/verified/pending/blocked users) and the **6-month registration growth chart** remain on the Overview tab below the sales analytics block.
 
 #### Automated Low-Stock & Inventory Alert System
@@ -739,7 +759,7 @@ flowchart LR
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| **`GET`** | **`/api/admin/dashboard-analytics`** | **Sales KPIs, order counters, revenue trends, top products & inventory alerts** | **Admin** |
+| **`GET`** | **`/api/admin/dashboard-analytics`** | **Sales KPIs, order counters, revenue trends, top products & inventory alerts** | **Admin + `view_analytics`** |
 
 **Response shape (`analytics` object):**
 
@@ -759,12 +779,157 @@ flowchart LR
 | File | Role |
 |------|------|
 | `controllers/adminController.js` | `getDashboardAnalytics()` — revenue, order counts, top products, trends & stock alerts |
-| `routes/adminRoutes.js` | `GET /dashboard-analytics` route (`verifyAdmin`) |
+| `routes/adminRoutes.js` | `GET /dashboard-analytics` route (`verifyAdmin` + `view_analytics`) |
 | `client/admin.html` | Overview markup — sales metric cards, Chart.js canvases, inventory alert widget |
 | `client/js/admin.js` | `fetchDashboardAnalytics()`, chart renderers, `quickUpdateStock()`, toggle handlers |
 | `client/css/admin.css` | Responsive analytics grid, chart toggles, inventory alert badge styles |
 | `models/order.js` | Order status, `grandTotal`, `items[]` — source for revenue & top-product aggregation |
 | `models/product.js` | `stock` field — source for low/out-of-stock alert queries |
+
+---
+
+## 🔐 Super Admin RBAC & Staff Management Architecture
+
+A **production-grade Role-Based Access Control (RBAC) engine** that lets the Super Admin delegate operational work to staff accounts without sharing the owner password — while every sidebar item and API route is guarded by the same permission matrix on both the frontend and backend.
+
+### Feature Overview
+
+#### Dynamic Staff Account Creation
+From **Admin Panel → Staff Management** (`/admin` → **Staff Management**, Super Admin only), the owner manages the full staff lifecycle:
+
+| Action | Behaviour |
+|--------|-----------|
+| **Create** | Name, username, email, password (min 8 chars, **bcrypt-hashed** on save), and a dynamic permission checklist rendered from the server catalog |
+| **Edit** | Update name, email, permissions, and optional email-2FA requirement — changes apply on the staff member's **very next request** (no re-login) |
+| **Block / Activate** | Toggle `status` between `active` and `blocked`; blocking **instantly revokes every live session** across all devices |
+| **Reset Password** | Set a custom password or auto-generate a strong one (shown once); all existing sessions are revoked |
+| **Delete** | Permanently removes the account record and all associated access |
+
+> Staff sign in at the same **`/admin/login`** page as the Super Admin. The `role` field is set server-side at creation — request bodies cannot escalate a staff account to `superadmin`.
+
+#### Granular Permission Engine
+Permissions are defined once in `config/permissions.js` and consumed by the middleware, staff API, and admin UI checkbox matrix:
+
+| Permission Key | Label | Typical Scope |
+|----------------|-------|---------------|
+| `view_analytics` | View Analytics | Dashboard Overview KPIs, Chart.js trends, Finance & Analytics panel |
+| `manage_orders` | Manage Orders | Live Orders, order status updates, return approval, refund undo |
+| `manage_inventory` | Manage Inventory | Add / edit / delete products, stock updates |
+| `manage_catalog` | Manage Catalog | Categories, brands, attributes |
+| `manage_coupons` | Manage Coupons | Coupon CRUD, toggle, expiry scheduling |
+| `manage_customers` | Manage Customers | Customer list, edit, block/suspend, order history |
+| `manage_settings` | Manage Settings | Master Settings, delivery charges, store branding, platform preferences |
+| `manage_security` | Security & Audit | Security logs, login history, IP blacklist |
+| `manage_staff` | Manage Staff | Staff Management panel *(Super Admin role gate applies in addition)* |
+
+**Super Admin bypass:** Accounts with `role: 'superadmin'` skip every `checkPermission()` gate automatically — existing owner access is never restricted.
+
+#### Secure Unified Login & Middleware Security
+The existing JWT + `AdminSession` authentication pipeline is unchanged; RBAC layers on top:
+
+```
+POST /api/admin/login  →  credentials verified (bcrypt)  →  blocked? → 403
+                        →  2FA challenge (optional)     →  JWT issued (role: 'admin' token type)
+Every protected request →  verifyAdmin (JWT + session)  →  attachAdminAccount (live DB reload)
+                        →  checkPermission('…')         →  superadmin? bypass : staff.permissions[]?
+                        →  unauthorized                 →  403 JSON  |  redirect /admin/access-denied
+```
+
+Key security properties:
+- **Live permission enforcement** — `verifyAdmin` reloads the account from MongoDB on every request; revoking a permission or blocking an account takes effect immediately.
+- **Legacy password upgrade** — pre-RBAC plaintext owner passwords are transparently re-hashed to bcrypt on the next successful login.
+- **Session revocation on block / password reset** — `AdminSession` records are deleted so stale JWTs cannot continue operating.
+- **Finance panel gated** — admin JWT access to `/finance-analytics` now requires `view_analytics` (dedicated finance password flow unchanged).
+
+#### Permission-Aware Admin UI
+`client/js/admin-staff.js` fetches `GET /api/admin/me` and `GET /api/admin/permissions` on panel load, then:
+- Hides sidebar items whose `data-target` maps to a permission the staff member lacks (`SECTION_PERMISSIONS` in `config/permissions.js`).
+- Reveals **Staff Management** only when `role === 'superadmin'`.
+- Hides Finance shortcut, platform settings cards, and any element tagged `data-permission="…"`.
+- Redirects staff away from an active section they cannot access to the first allowed view.
+
+### Admin Schema — RBAC Fields (`models/admin.js`)
+
+| Field | Type | Values / Notes |
+|-------|------|----------------|
+| `role` | `String` | `'superadmin'` (owner, full bypass) · `'staff'` (permission-gated) |
+| `permissions` | `[String]` | Subset of keys from `config/permissions.js`; ignored for bypass by superadmin |
+| `status` | `String` | `'active'` · `'blocked'` — blocked accounts cannot log in or call APIs |
+| `name` | `String` | Display name shown in staff table and sidebar profile |
+| `createdBy` | `String` | Username of the Super Admin who created the account |
+| `lastLoginAt` | `Date` | Updated on each successful login |
+| `passwordChangedAt` | `Date` | Set when password is hashed or reset |
+
+> On server boot, `Admin.ensureRbacDefaults()` backfills missing `role` / `status` fields on legacy documents as `superadmin` / `active` so existing owner accounts are never locked out.
+
+### RBAC Workflow
+
+```mermaid
+flowchart TD
+    A[Super Admin opens Staff Management] --> B[Create staff + tick permissions]
+    B --> C[POST /api/admin/staff]
+    C --> D[Staff logs in at /admin/login]
+    D --> E{status active?}
+    E -->|No| F[403 ACCOUNT_BLOCKED]
+    E -->|Yes| G[JWT + AdminSession issued]
+    G --> H[Panel loads — sidebar gated by permissions]
+    H --> I{API request}
+    I --> J[verifyAdmin + attachAdminAccount]
+    J --> K{superadmin OR has permission?}
+    K -->|Yes| L[200 — action proceeds]
+    K -->|No| M[403 PERMISSION_DENIED]
+    N[Super Admin blocks staff] --> O[PATCH /status → blocked]
+    O --> P[All AdminSessions deleted]
+    P --> Q[Next staff request → 401/403]
+```
+
+### Related API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| **`GET`** | **`/api/admin/me`** | Current signed-in admin identity, role, permissions & status | **Admin** |
+| **`GET`** | **`/api/admin/permissions`** | Permission catalog + sidebar section map for UI gating | **Admin** |
+| **`GET`** | **`/api/admin/staff`** | List all staff accounts with summary counters | **Super Admin** |
+| **`POST`** | **`/api/admin/staff`** | Create staff account `{ name, username, email, password, permissions[], requireTwoFactor? }` | **Super Admin** |
+| **`PUT`** | **`/api/admin/staff/:id`** | Update name, email, permissions, 2FA requirement | **Super Admin** |
+| **`PATCH`** | **`/api/admin/staff/:id/status`** | Toggle `active` ⇄ `blocked` (instant session revocation) | **Super Admin** |
+| **`POST`** | **`/api/admin/staff/:id/reset-password`** | Reset password `{ newPassword? }` — auto-generates if omitted | **Super Admin** |
+| **`DELETE`** | **`/api/admin/staff/:id`** | Permanently delete staff account + revoke sessions | **Super Admin** |
+
+**Permission-protected admin routes (examples):**
+
+| Route Group | Required Permission |
+|-------------|---------------------|
+| `GET /api/admin/dashboard-analytics` | `view_analytics` |
+| `GET/PUT/DELETE /api/orders` (admin ops) | `manage_orders` |
+| `POST/PUT/DELETE /api/products` | `manage_inventory` |
+| `POST/PUT/DELETE /api/categories`, `/brands`, `/attributes` | `manage_catalog` |
+| `GET/POST/PUT/DELETE /api/coupons` (admin CRUD) | `manage_coupons` |
+| `GET/PUT/PATCH /api/admin/customers` | `manage_customers` |
+| `PUT/POST /api/admin/master-settings`, branding upload | `manage_settings` |
+| `GET /api/admin/logs`, `/blacklist`, `/login-history` | `manage_security` |
+
+> **Auth legend for permission gates:** routes marked **Admin** require `verifyAdmin`; individual operations additionally require `checkPermission('…')`. Staff routes require **`requireSuperAdmin`** in addition to `manage_staff`.
+
+**Access Denied page:** `GET /admin/access-denied` — served with **403** when a browser navigation hits a blocked route; API calls receive `{ success: false, reason: 'PERMISSION_DENIED', requiredPermission, redirect }`.
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `config/permissions.js` | Single source of truth — permission keys, labels, groups, sidebar map, sanitizers |
+| `models/admin.js` | RBAC schema fields, bcrypt pre-save hook, `verifyPassword()`, `hasPermission()`, `ensureRbacDefaults()` |
+| `middlewares/rbac.js` | `checkPermission()`, `requireSuperAdmin`, `attachAdminAccount`, access-denied helpers |
+| `middlewares/authMiddleware.js` | `verifyAdmin` — JWT + session validation + live account attach |
+| `controllers/staffController.js` | Staff CRUD, status toggle, password reset, permission catalog API |
+| `controllers/adminSecurityController.js` | Login with bcrypt verify, blocked-account gate, legacy password upgrade |
+| `routes/staffRoutes.js` | `/api/admin/staff/*` mounted under admin routes |
+| `routes/adminRoutes.js` | Permission gates on customers, analytics, settings, security routes |
+| `routes/orderRoutes.js` | Hardened admin order list/update/delete (`manage_orders`) |
+| `client/admin.html` | Staff Management section + edit modal + permission-aware `data-permission` attrs |
+| `client/js/admin-staff.js` | Staff console UI, sidebar gating, create/edit/block/reset/delete handlers |
+| `client/access-denied.html` | Clean 403 page for unauthorized browser navigations |
+| `server.js` | RBAC backfill on boot + `/admin/access-denied` page route |
 
 ---
 
@@ -1366,14 +1531,15 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 - **Account & Profile** — username/password change (current-password gated), display name, store name, and admin avatar upload.
 
 ### 🖥️ Super Admin Panel (`/admin`)
-- **📊 Dashboard Overview** — **Sales & Business Analytics** (revenue daily/monthly/all-time, order counters, Chart.js sales trend + top-5 product charts) plus **Inventory Alerts** widget with inline stock updates; **Customer Insights** metrics (total/verified/pending/blocked users) and a **6-month registration growth chart** (Chart.js).
-- **👥 Customer Management** — View, edit, block, suspend, reactivate; order-count badges; per-customer order history modal.
-- **📦 Live Orders** — Real-time table with distinct customer/admin cancellation badges, return approval, safe refund undo, reason visibility, invoice view/print, search, filter, and pagination.
-- **🛍️ Product CRUD** — Add/edit with images, buying/selling price, live profit preview, bulk delete, CSV export, and print-ready tables.
-- **🔔 Professional UX** — SweetAlert2 toasts + modal confirmations, asynchronous DOM re-rendering (instant UI sync, no manual refresh).
+- **📊 Dashboard Overview** — **Sales & Business Analytics** (revenue daily/monthly/all-time, order counters, Chart.js sales trend + top-5 product charts) plus **Inventory Alerts** widget with inline stock updates; **Customer Insights** metrics (total/verified/pending/blocked users) and a **6-month registration growth chart** (Chart.js). *(Requires `view_analytics` for staff.)*
+- **👥 Customer Management** — View, edit, block, suspend, reactivate; order-count badges; per-customer order history modal. *(Requires `manage_customers`.)*
+- **📦 Live Orders** — Real-time table with distinct customer/admin cancellation badges, return approval, safe refund undo, reason visibility, invoice view/print, search, filter, and pagination. *(Requires `manage_orders`.)*
+- **🛍️ Product CRUD** — Add/edit with images, buying/selling price, live profit preview, bulk delete, CSV export, and print-ready tables. *(Requires `manage_inventory`.)*
+- **👤 Staff Management** — Create, permission-assign, block, reset password, and delete staff accounts with a dynamic permission matrix. *(Super Admin only.)*
+- **🔔 Professional UX** — SweetAlert2 toasts + modal confirmations, asynchronous DOM re-rendering (instant UI sync, no manual refresh), permission-aware sidebar gating.
 
 ### 💹 Finance & Analytics (`/finance-analytics`)
-- Secure password gate (`ADMIN_DASHBOARD_PASSWORD`) with a dedicated finance token (also accepts an admin JWT).
+- Secure password gate (`ADMIN_DASHBOARD_PASSWORD`) with a dedicated finance token (also accepts an admin JWT with **`view_analytics`** permission).
 - KPIs: Total Revenue, Net Profit, Daily/Monthly Profit, Avg. Order Value, Profit Margin.
 - Charts: 12-month Revenue vs Profit (line) and Top Selling Categories (pie).
 
@@ -1416,13 +1582,14 @@ A clean **MVC** backend paired with a static, Express-served frontend:
 eonlinebazar-fullstack/
 │
 ├── config/
-│   └── db.js                          # MongoDB (Atlas) connection
+│   ├── db.js                          # MongoDB (Atlas) connection
+│   └── permissions.js                 # RBAC permission catalog, sidebar map & sanitizers
 │
 ├── models/                            # Mongoose schemas (data layer)
 │   ├── user.js                        # Customer + layered address (district/upazila/thana), wishlist[], wallet
 │   ├── wishlist.js                    # Wishlist item subdocument schema (productId, name, price, image…)
 │   ├── userSession.js                 # Active customer device / login sessions
-│   ├── admin.js                       # Admin account, 2FA config & platform settings (currency, timezone, branding)
+│   ├── admin.js                       # Admin account — RBAC fields, 2FA, bcrypt hashing & platform settings
 │   ├── Settings.js                    # Singleton delivery charge settings (key: global)
 │   ├── Setting.js                     # Singleton master store settings (key: master — rewards, threshold, announcement)
 │   ├── adminSession.js                # Active admin device / login sessions
@@ -1443,6 +1610,7 @@ eonlinebazar-fullstack/
 │   ├── userController.js              # Customer auth, profile, wishlist CRUD, addresses, wallet
 │   ├── wishlistController.js          # Wishlist toggle (add/remove) with product snapshot enrichment
 │   ├── adminController.js             # Admin customers, dashboard analytics, platform branding, logs, profile
+│   ├── staffController.js             # Staff CRUD, permission catalog, status toggle & password reset
 │   ├── settingsController.js          # Delivery charge & free-shipping settings (admin API)
 │   ├── masterSettingsController.js    # Unified master settings — announcement, threshold, rewards & refund window
 │   ├── storeController.js             # Public storefront branding, delivery settings, shipping quotes & announcements
@@ -1461,7 +1629,8 @@ eonlinebazar-fullstack/
 │   ├── authRoutes.js                  # /api/auth
 │   ├── userRoutes.js                  # /api/customer (+ wishlist GET/POST/DELETE)
 │   ├── wishlistRoutes.js              # /api/wishlist (toggle endpoint)
-│   ├── adminRoutes.js                 # /api/admin (+ 2FA, sessions, blacklist, delivery settings)
+│   ├── adminRoutes.js                 # /api/admin (+ 2FA, sessions, blacklist, RBAC staff routes)
+│   ├── staffRoutes.js                 # /api/admin/staff (Super Admin staff management)
 │   ├── storeRoutes.js                 # /api/store (public branding, delivery settings, districts)
 │   ├── productRoutes.js               # /api/products
 │   ├── categoryRoutes.js              # /api/categories (handler logic inline)
@@ -1474,7 +1643,8 @@ eonlinebazar-fullstack/
 │   └── financeRoutes.js              # /api/finance
 │
 ├── middlewares/                       # Cross-cutting request pipeline
-│   ├── authMiddleware.js              # verifyUser (session-aware) & verifyAdmin (role JWT)
+│   ├── authMiddleware.js              # verifyUser (session-aware) & verifyAdmin (JWT + live account attach)
+│   ├── rbac.js                          # checkPermission(), requireSuperAdmin, attachAdminAccount
 │   ├── adminSecurity.js               # checkBlacklist gate, rate limiter, intrusion detection
 │   ├── geoFencing.js                  # Admin login Region Lock (geoip-lite)
 │   └── uploadMiddleware.js            # Multer + Cloudinary stream upload (5 MB images)
@@ -1505,13 +1675,15 @@ eonlinebazar-fullstack/
 │   ├── profile.html                   # Customer dashboard (cart, wishlist, wallet, addresses, security, sessions)
 │   ├── order-track.html / order-details.html  # Order tracking + detail view with PDF invoice download
 │   ├── about.html / contact.html / footer.html
-│   ├── admin-login.html               # Admin authentication
+│   ├── admin-login.html               # Unified admin authentication (Super Admin + Staff)
+│   ├── access-denied.html             # RBAC 403 page for unauthorized browser navigations
 │   ├── verify-otp.html                # 2-Step Verification (Email / TOTP / SMS)
-│   ├── admin.html                     # Super Admin panel (SPA)
+│   ├── admin.html                     # Super Admin panel (SPA — includes Staff Management)
 │   ├── finance-login.html             # Finance password gate
 │   ├── finance-analytics.html         # Finance & analytics dashboard
 │   ├── css/                           # Page-scoped stylesheets (admin.css, verify-otp.css…)
-│   ├── js/                            # Page scripts (admin.js, checkout.js, profile.js, bd-districts.js…)
+│   ├── js/                            # Page scripts (admin.js, admin-staff.js, checkout.js, profile.js…)
+│   │   ├── admin-staff.js             # RBAC sidebar gating + Staff Management console
 │   │   ├── shipping-estimator.js      # Client shipping quote + delivery estimate helpers
 │   │   ├── coupon-ui.js               # Shared promo apply/remove + live total sync
 │   │   ├── cart-merge.js              # Guest cart merge after login/OAuth
@@ -1687,7 +1859,7 @@ The app runs at **http://localhost:3000**.
 - [ ] Configure production SMTP credentials for reliable email OTP delivery.
 - [ ] Ensure `trust proxy` works behind your CDN/reverse proxy (already enabled in `server.js`).
 - [ ] Serve over **HTTPS** so secure cookies and 2FA flows behave correctly.
-- [ ] Harden the currently-open order routes with `verifyAdmin` (see API notes).
+- [ ] Review staff permission assignments after creating accounts — grant only the minimum operational rights needed.
 - [ ] Use a process manager (e.g. **PM2**) or containerize for zero-downtime restarts:
   ```bash
   npm i -g pm2
@@ -1701,6 +1873,7 @@ The app runs at **http://localhost:3000**.
 | Admin login | `/admin-login` (alias `/admin/login`) |
 | 2-Step Verification | `/admin/verify-otp` |
 | Admin panel | `/admin` (alias `/admin/dashboard`) |
+| Access Denied | `/admin/access-denied` |
 | Finance dashboard | `/finance-analytics` (alias `/admin/finance`) |
 
 ---
@@ -1709,7 +1882,7 @@ The app runs at **http://localhost:3000**.
 
 Base URL: `http://localhost:3000`
 
-> **Auth legend:** `Public` · `User` = customer Bearer JWT (`verifyUser`) · `Admin` = admin Bearer JWT (`verifyAdmin`) · `Finance` = finance session token
+> **Auth legend:** `Public` · `User` = customer Bearer JWT (`verifyUser`) · `Admin` = admin Bearer JWT (`verifyAdmin`) · `Finance` = finance session token · Permission-gated routes additionally require `checkPermission('…')` (Super Admin bypasses all checks)
 
 ### 🔑 Authentication & Sessions
 
@@ -1747,9 +1920,9 @@ Base URL: `http://localhost:3000`
 |--------|----------|-------------|------|
 | `GET`  | `/api/products` | List all products | Public |
 | `GET`  | `/api/products/:id` | Get single product | Public |
-| `POST` | `/api/products` | Create product (up to 10 images) | Admin |
-| `PUT`  | `/api/products/:id` | Update product | Admin |
-| `DELETE` | `/api/products/:id` | Delete product | Admin |
+| `POST` | `/api/products` | Create product (up to 10 images) | Admin + `manage_inventory` |
+| `PUT`  | `/api/products/:id` | Update product | Admin + `manage_inventory` |
+| `DELETE` | `/api/products/:id` | Delete product | Admin + `manage_inventory` |
 | `GET`  | `/api/reviews/:productId` | Get product reviews | Public |
 | `POST` | `/api/reviews` | Add/update review (with photo) | User |
 
@@ -1771,28 +1944,28 @@ Base URL: `http://localhost:3000`
 | **`GET`** | **`/api/orders/:id/invoice`** | **Download branded PDF invoice (`Invoice-ORDER_ID.pdf`) — owner-only** | **User** |
 | **`POST`** | **`/api/orders/:id/cancel`** | **Customer cancel with reason (`selectedReason`, `customReason`) — sets `cancelledBy: 'Customer'`** | **User** |
 | **`POST`** | **`/api/orders/:id/return`** | **Customer return request with reason — 3–7-day post-delivery window validation** | **User** |
-| `GET`  | `/api/orders` | All orders (admin panel) | Public¹ |
-| `PUT`  | `/api/orders/:id` | Update order status (admin cancel sets `cancelledBy: 'Admin'`) | Public¹ |
-| **`PUT`** | **`/api/admin/orders/:id/approve-return`** | **Approve return → credit exact paid amount to customer wallet** | **Admin** |
-| **`POST`** | **`/api/admin/orders/:id/undo-refund`** | **Safe refund reversal within configured undo window** | **Admin** |
-| `DELETE` | `/api/orders/:id` | Delete order | Public¹ |
+| `GET`  | `/api/orders` | All orders (admin panel) | Admin + `manage_orders` |
+| `PUT`  | `/api/orders/:id` | Update order status (admin cancel sets `cancelledBy: 'Admin'`) | Admin + `manage_orders` |
+| **`PUT`** | **`/api/admin/orders/:id/approve-return`** | **Approve return → credit exact paid amount to customer wallet** | **Admin + `manage_orders`** |
+| **`POST`** | **`/api/admin/orders/:id/undo-refund`** | **Safe refund reversal within configured undo window** | **Admin + `manage_orders`** |
+| `DELETE` | `/api/orders/:id` | Delete order | Admin + `manage_orders` |
 
 ### 🗂️ Catalog — Categories, Brands, Attributes
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
 | `GET`  | `/api/categories` | List categories (includes `customCashbackPercentage` when set) | Public |
-| `POST` | `/api/categories` | Create category (optional `customCashbackPercentage` override) | Admin |
-| `PUT`  | `/api/categories/:id` | Rename / update category cashback override (syncs linked products) | Admin |
-| `DELETE` | `/api/categories/:id` | Delete category | Admin |
+| `POST` | `/api/categories` | Create category (optional `customCashbackPercentage` override) | Admin + `manage_catalog` |
+| `PUT`  | `/api/categories/:id` | Rename / update category cashback override (syncs linked products) | Admin + `manage_catalog` |
+| `DELETE` | `/api/categories/:id` | Delete category | Admin + `manage_catalog` |
 | `GET`  | `/api/brands` | List brands | Public |
-| `POST` | `/api/brands` | Create brand (auto slug) | Admin |
-| `PUT`  | `/api/brands/:id` | Update brand | Admin |
-| `DELETE` | `/api/brands/:id` | Delete brand | Admin |
+| `POST` | `/api/brands` | Create brand (auto slug) | Admin + `manage_catalog` |
+| `PUT`  | `/api/brands/:id` | Update brand | Admin + `manage_catalog` |
+| `DELETE` | `/api/brands/:id` | Delete brand | Admin + `manage_catalog` |
 | `GET`  | `/api/attributes` | List attributes | Public |
-| `POST` | `/api/attributes` | Create attribute | Admin |
-| `PUT`  | `/api/attributes/:id` | Update attribute | Admin |
-| `DELETE` | `/api/attributes/:id` | Delete attribute | Admin |
+| `POST` | `/api/attributes` | Create attribute | Admin + `manage_catalog` |
+| `PUT`  | `/api/attributes/:id` | Update attribute | Admin + `manage_catalog` |
+| `DELETE` | `/api/attributes/:id` | Delete attribute | Admin + `manage_catalog` |
 
 ### 🎟️ Coupons
 
@@ -1800,12 +1973,12 @@ Base URL: `http://localhost:3000`
 |--------|----------|-------------|------|
 | **`GET`** | **`/api/coupons/active-check`** | **Bulk-expire overdue coupons (server time); return `{ hasActiveCoupon, serverTime, timezone }`** | **Public** |
 | `POST` | `/api/coupons/apply` | Validate coupon & return price breakdown (runs expiry sweep first) | Public/User² |
-| `GET`  | `/api/coupons` | List coupons (auto-expires overdue records) | Admin |
-| `GET`  | `/api/coupons/:id` | Get single coupon | Admin |
-| `POST` | `/api/coupons` | Create coupon (precise `expiryDate` required) | Admin |
-| `PUT`  | `/api/coupons/:id` | Update coupon (status re-derived on save) | Admin |
-| `PATCH` | `/api/coupons/:id/toggle` | Toggle `ACTIVE` / `EXPIRED` (blocked if past expiry) | Admin |
-| `DELETE` | `/api/coupons/:id` | Delete coupon | Admin |
+| `GET`  | `/api/coupons` | List coupons (auto-expires overdue records) | Admin + `manage_coupons` |
+| `GET`  | `/api/coupons/:id` | Get single coupon | Admin + `manage_coupons` |
+| `POST` | `/api/coupons` | Create coupon (precise `expiryDate` required) | Admin + `manage_coupons` |
+| `PUT`  | `/api/coupons/:id` | Update coupon (status re-derived on save) | Admin + `manage_coupons` |
+| `PATCH` | `/api/coupons/:id/toggle` | Toggle `ACTIVE` / `EXPIRED` (blocked if past expiry) | Admin + `manage_coupons` |
+| `DELETE` | `/api/coupons/:id` | Delete coupon | Admin + `manage_coupons` |
 
 ### 🔐 Admin Authentication & 2FA
 
@@ -1824,39 +1997,54 @@ Base URL: `http://localhost:3000`
 | `PUT`  | `/api/admin/2fa/method` | Choose active method (`email`/`totp`/`sms`) | Admin |
 | `POST` | `/api/admin/logout` | Revoke current session + clear cookies | Admin |
 
+### 👥 Staff Management & RBAC *(v3.5.0)*
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| **`GET`** | **`/api/admin/me`** | Current signed-in admin identity, role, permissions & status | **Admin** |
+| **`GET`** | **`/api/admin/permissions`** | Permission catalog + sidebar section map for UI gating | **Admin** |
+| **`GET`** | **`/api/admin/staff`** | List all staff accounts with summary counters | **Super Admin** |
+| **`POST`** | **`/api/admin/staff`** | Create staff account `{ name, username, email, password, permissions[], requireTwoFactor? }` | **Super Admin** |
+| **`PUT`** | **`/api/admin/staff/:id`** | Update name, email, permissions, 2FA requirement | **Super Admin** |
+| **`PATCH`** | **`/api/admin/staff/:id/status`** | Toggle `active` ⇄ `blocked` (instant session revocation) | **Super Admin** |
+| **`POST`** | **`/api/admin/staff/:id/reset-password`** | Reset password `{ newPassword? }` — auto-generates if omitted | **Super Admin** |
+| **`DELETE`** | **`/api/admin/staff/:id`** | Permanently delete staff account + revoke sessions | **Super Admin** |
+
+> Staff routes require **`verifyAdmin` + `checkPermission('manage_staff')` + `requireSuperAdmin`**. Super Admin accounts cannot be managed via this API — the owner is managed from Admin Settings only.
+
 ### 🖥️ Admin Sessions, Blacklist & Audit
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| `GET`  | `/api/admin/sessions` | List active admin devices (flags "This Device") | Admin |
-| `POST` | `/api/admin/sessions/logout/:id` | Remotely terminate a device session | Admin |
-| `POST` | `/api/admin/sessions/logout-others` | Log out all other admin devices | Admin |
-| `GET`  | `/api/admin/blacklist` | List blocked IPs (auto + manual) | Admin |
-| `POST` | `/api/admin/blacklist` | Manually blacklist an IP (`{ ip, reason, hours }`) | Admin |
-| `DELETE` | `/api/admin/blacklist/:id` | Unblock an IP (by id or address) | Admin |
-| `GET`  | `/api/admin/login-history` | Login history & failed/blocked attempts feed | Admin |
-| `GET`  | `/api/admin/logs` | Security & auth event logs | Admin |
+| `GET`  | `/api/admin/sessions` | List active admin devices (flags "This Device") | Admin + `manage_security` |
+| `POST` | `/api/admin/sessions/logout/:id` | Remotely terminate a device session | Admin + `manage_security` |
+| `POST` | `/api/admin/sessions/logout-others` | Log out all other admin devices | Admin + `manage_security` |
+| `GET`  | `/api/admin/blacklist` | List blocked IPs (auto + manual) | Admin + `manage_security` |
+| `POST` | `/api/admin/blacklist` | Manually blacklist an IP (`{ ip, reason, hours }`) | Admin + `manage_security` |
+| `DELETE` | `/api/admin/blacklist/:id` | Unblock an IP (by id or address) | Admin + `manage_security` |
+| `GET`  | `/api/admin/login-history` | Login history & failed/blocked attempts feed | Admin + `manage_security` |
+| `GET`  | `/api/admin/logs` | Security & auth event logs | Admin + `manage_security` |
 
 ### 🛠️ Admin — Customers & Platform Settings
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| `GET`  | `/api/admin/customers` | List customers (includes `orderCount`) | Admin |
-| **`GET`** | **`/api/admin/dashboard-analytics`** | **Sales KPIs, order counters, revenue trends, top products & inventory alerts** | **Admin** |
-| `GET`  | `/api/admin/customers/:id` | Customer profile | Admin |
-| `PUT`  | `/api/admin/customers/:id` | Edit customer | Admin |
-| `PATCH` | `/api/admin/customers/:id/status` | Block / suspend / activate | Admin |
-| `GET`  | `/api/admin/customers/:id/orders` | Customer order history | Admin |
-| `GET`  | `/api/admin/settings` | Delivery charge settings (shop home city, rates, free-shipping threshold) | Admin |
-| `PUT`  | `/api/admin/settings` | Save delivery charge settings | Admin |
-| **`GET`** | **`/api/admin/master-settings`** | **Unified cashback, points, conversion, refund window, announcement & free-shipping threshold** | **Admin** |
-| **`POST`** | **`/api/admin/master-settings/update`** | **Canonical unified save — announcement + threshold + rewards** | **Admin** |
-| **`PUT` / `POST`** | **`/api/admin/master-settings`** | **Legacy save (rewards fields; partial writes preserved)** | **Admin** |
-| **`GET` / `POST`** | **`/api/admin/announcement-settings`** | **Legacy announcement-only read/save** | **Admin** |
-| **`GET` / `POST`** | **`/api/admin/settings/announcement`** | **Legacy announcement alias** | **Admin** |
-| `GET`  | `/api/admin/platform-settings` | Platform & profile settings (currency, timezone, branding…) | Admin |
-| `PUT`  | `/api/admin/platform-settings` | Save platform settings (current-password gated) | Admin |
-| `POST` | `/api/admin/upload-branding` | Upload store logo or favicon (`assetType`) | Admin |
+| `GET`  | `/api/admin/customers` | List customers (includes `orderCount`) | Admin + `manage_customers` |
+| **`GET`** | **`/api/admin/dashboard-analytics`** | **Sales KPIs, order counters, revenue trends, top products & inventory alerts** | **Admin + `view_analytics`** |
+| `GET`  | `/api/admin/customers/:id` | Customer profile | Admin + `manage_customers` |
+| `PUT`  | `/api/admin/customers/:id` | Edit customer | Admin + `manage_customers` |
+| `PATCH` | `/api/admin/customers/:id/status` | Block / suspend / activate | Admin + `manage_customers` |
+| `GET`  | `/api/admin/customers/:id/orders` | Customer order history | Admin + `manage_customers` |
+| `GET`  | `/api/admin/settings` | Delivery charge settings (shop home city, rates, free-shipping threshold) | Admin + `manage_settings` |
+| `PUT`  | `/api/admin/settings` | Save delivery charge settings | Admin + `manage_settings` |
+| **`GET`** | **`/api/admin/master-settings`** | **Unified cashback, points, conversion, refund window, announcement & free-shipping threshold** | **Admin + `manage_settings`** |
+| **`POST`** | **`/api/admin/master-settings/update`** | **Canonical unified save — announcement + threshold + rewards** | **Admin + `manage_settings`** |
+| **`PUT` / `POST`** | **`/api/admin/master-settings`** | **Legacy save (rewards fields; partial writes preserved)** | **Admin + `manage_settings`** |
+| **`GET` / `POST`** | **`/api/admin/announcement-settings`** | **Legacy announcement-only read/save** | **Admin + `manage_settings`** |
+| **`GET` / `POST`** | **`/api/admin/settings/announcement`** | **Legacy announcement alias** | **Admin + `manage_settings`** |
+| `GET`  | `/api/admin/platform-settings` | Platform & profile settings (currency, timezone, branding…) | Admin + `manage_settings` |
+| `PUT`  | `/api/admin/platform-settings` | Save platform settings (current-password gated) | Admin + `manage_settings` |
+| `POST` | `/api/admin/upload-branding` | Upload store logo or favicon (`assetType`) | Admin + `manage_settings` |
 | `GET`  | `/api/admin/profile` | Admin profile image URL | Admin |
 | `POST` | `/api/admin/update-profile-pic` | Upload admin avatar | Admin |
 
@@ -1875,10 +2063,9 @@ Base URL: `http://localhost:3000`
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
 | `POST` | `/api/finance/admin-login` | Issue finance session token | Public |
-| `GET`  | `/api/finance/overview` | Revenue, profit, margin KPIs | Finance |
-| `GET`  | `/api/finance/chart-data` | 12-month charts & category breakdown | Finance |
+| `GET`  | `/api/finance/overview` | Revenue, profit, margin KPIs | Finance **or** Admin + `view_analytics` |
+| `GET`  | `/api/finance/chart-data` | 12-month charts & category breakdown | Finance **or** Admin + `view_analytics` |
 
-> ¹ Order list/update/delete routes are currently unauthenticated at the route layer — harden with `verifyAdmin` for production.
 > ² `/api/coupons/apply` uses optional customer auth: a valid Bearer token enables per-user limit enforcement; guests can still preview.
 > **Customer account status:** `active` · `suspended` · `blocked` — suspended/blocked users cannot log in.
 
@@ -1910,6 +2097,23 @@ POST /api/admin/login
    A short-lived signed `otpToken` carries the chosen method into Step 2.
 2. **Step 2** — `POST /api/admin/verify-otp` validates the code (`speakeasy.totp.verify` for TOTP, timezone-safe epoch-ms compare for Email/SMS), issues a **24h JWT** embedding a session id (`sid`), and creates an `AdminSession`.
 3. `verifyAdmin` rejects customer tokens **and** validates the `AdminSession` (remote logout ⇒ instant 401 on the device's next request).
+4. **RBAC layer (v3.5.0)** — after JWT/session validation, `attachAdminAccount` reloads the live `Admin` document from MongoDB on every request (permissions, `status`, and `role` are never trusted from the JWT alone). Blocked accounts receive **403**; staff accounts pass through `checkPermission('…')` on protected routes — Super Admin (`role: 'superadmin'`) bypasses all permission gates automatically.
+
+### 🔐 RBAC & Staff Account Security *(v3.5.0)*
+
+```
+Every protected admin request
+   → verifyAdmin        (JWT signature + AdminSession exists)
+   → attachAdminAccount (fresh MongoDB reload — status, role, permissions[])
+   → checkPermission    (403 if staff lacks required key; superadmin bypasses)
+   → requireSuperAdmin  (staff-management routes only)
+```
+
+- **Unified login** — Super Admin and staff share `POST /api/admin/login`; credentials are verified with **bcrypt** (legacy plaintext passwords are transparently upgraded on next successful login).
+- **Blocked accounts** — `status: 'blocked'` rejects login and API access; blocking a staff member deletes all `AdminSession` records instantly.
+- **Live permission changes** — editing a staff member's permission checklist takes effect on their very next request without requiring re-login.
+- **403 Access Denied** — unauthorized browser navigations redirect to `/admin/access-denied`; API calls return `{ success: false, reason: 'PERMISSION_DENIED', requiredPermission }`.
+- **Order route hardening** — `GET/PUT/DELETE /api/orders` (admin operations) now require **`verifyAdmin` + `manage_orders`** (previously unauthenticated at the route layer).
 
 ### 🌍 Geo-Fencing (Region Lock)
 - `geoip-lite` resolves the login IP → alpha-2 country code **offline** (no external API call).
@@ -1936,7 +2140,7 @@ Events written to `SecurityLog` (via `utils/securityLogger.js`) and `LoginAttemp
 Viewable in the admin panel under **Security & Audit** (Login History + IP Blacklist Manager) and **Security Logs**.
 
 ### Additional hardening
-- Passwords: `bcryptjs` hashing. Trust-proxy enabled for accurate client IPs behind CDNs.
+- Passwords: `bcryptjs` hashing for **customers and admin/staff accounts**. Trust-proxy enabled for accurate client IPs behind CDNs.
 - Upload safety: images only, max 5 MB, memory storage → Cloudinary stream.
 - Sensitive pages: `Cache-Control: no-store`; secure cookies cleared on logout.
 - **Order pricing integrity:** `POST /api/orders` re-fetches catalog prices, re-validates coupons (**`status` + exact `expiryDate`**), and recomputes delivery charges from `Settings` — client-supplied totals are discarded before persistence.
@@ -1959,6 +2163,28 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 ---
 
 ## 📜 Changelog
+
+### `v3.5.0` — Super Admin RBAC & Staff Management
+
+**🔐 Role-Based Access Control Engine**
+- Extended `models/admin.js` with `role`, `permissions[]`, `status`, `name`, `createdBy`, and `lastLoginAt`; bcrypt pre-save hook with legacy plaintext upgrade on login.
+- Central permission catalog in `config/permissions.js` — nine operational keys (`view_analytics`, `manage_orders`, `manage_inventory`, `manage_catalog`, `manage_coupons`, `manage_customers`, `manage_settings`, `manage_security`, `manage_staff`).
+- New `middlewares/rbac.js` — `checkPermission()`, `requireSuperAdmin`, `attachAdminAccount`, and access-denied helpers layered on existing `verifyAdmin`.
+
+**👥 Dynamic Staff Management**
+- Super Admin console at **Admin Panel → Staff Management** — create, edit, block/activate, reset password, and delete staff accounts with a dynamic permission checkbox matrix.
+- Staff API at `/api/admin/staff/*` (list, create, update, status toggle, password reset, delete) plus `/api/admin/me` and `/api/admin/permissions` for UI gating.
+- Staff sign in at the same `/admin/login` endpoint; sidebar sections and platform settings cards hide automatically based on assigned permissions.
+
+**🛡️ Route Hardening & Access Control**
+- Permission gates applied across admin routes (customers, analytics, settings, security, catalog, coupons, products).
+- **Security fix:** `GET/PUT/DELETE /api/orders` admin operations now require **`verifyAdmin` + `manage_orders`**.
+- Finance panel admin JWT access requires **`view_analytics`**; dedicated finance password flow unchanged.
+- New **`/admin/access-denied`** page (403) for unauthorized browser navigations.
+
+**🔄 Boot & Legacy Compatibility**
+- `Admin.ensureRbacDefaults()` backfills missing `role`/`status` on server boot so existing owner accounts remain `superadmin` / `active`.
+- Store branding lookup scoped to `role: 'superadmin'` — staff documents no longer affect storefront branding resolution.
 
 ### `v3.4.0` — Unified Store Settings, Free Shipping & Orders UX
 

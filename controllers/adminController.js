@@ -12,6 +12,7 @@ const Admin = require('../models/admin');
 const Order = require('../models/order');
 const Product = require('../models/product');
 const SecurityLog = require('../models/securityLog');
+const AdminSession = require('../models/adminSession');
 const cloudinary = require('cloudinary').v2;
 const jwt = require('jsonwebtoken');
 const {
@@ -50,7 +51,10 @@ const getAllCustomers = async (req, res) => {
 };
 
 // ==============================================================
-// ২. অ্যাডমিন লগইন ফাংশন (ডাটাবেজ কানেক্টেড)
+// ২. পুরোনো অ্যাডমিন লগইন ফাংশন — ⚠️ DEPRECATED, কোনো রাউটে ব্যবহৃত নয়।
+// আসল লগইন এখন adminSecurityController.loginAdmin (bcrypt + 2FA + ডিভাইস
+// সেশন + RBAC স্ট্যাটাস চেক)। এটি শুধু রেফারেন্সের জন্য রাখা হলো, তাই
+// পাসওয়ার্ড যাচাইও হ্যাশ-অ্যাওয়্যার verifyPassword() দিয়ে করা হয়েছে।
 // ==============================================================
 const loginAdmin = async (req, res) => {
     try {
@@ -62,7 +66,7 @@ const loginAdmin = async (req, res) => {
         if (!admin && username === "admin" && password === process.env.ADMIN_PASSWORD) {
             admin = new Admin({ username: "admin", password: process.env.ADMIN_PASSWORD });
             await admin.save(); 
-        } else if (!admin || admin.password !== password) {
+        } else if (!admin || !(await admin.verifyPassword(password))) {
             await logSecurityEvent({
                 action: 'Admin Login Failed',
                 actor: username || 'unknown',
@@ -113,7 +117,9 @@ const updateProfilePic = async (req, res) => {
         }
 
         // 🌟 ফিক্স: নতুন ছবি আপলোডের আগে পুরোনো ছবি ক্লাউডিনারি থেকে ডিলিট করা
-        const existingAdmin = await Admin.findOne({ username: 'admin' });
+        // (স্টাফ অ্যাকাউন্টও নিজের ছবি বদলাতে পারে — তাই লগইন করা ইউজারনেম ব্যবহার)
+        const currentUsername = req.admin?.username;
+        const existingAdmin = await Admin.findOne({ username: currentUsername });
         if (existingAdmin && existingAdmin.image) {
             const oldImageUrl = existingAdmin.image;
             if (oldImageUrl.includes('cloudinary.com')) {
@@ -140,10 +146,14 @@ const updateProfilePic = async (req, res) => {
 
                 // ডাটাবেজে নতুন ছবির লিংক আপডেট করা
                 const updatedAdmin = await Admin.findOneAndUpdate(
-                    { username: 'admin' }, 
+                    { username: currentUsername },
                     { image: result.secure_url },
-                    { returnDocument: 'after', upsert: true } // না থাকলে তৈরি করবে (upsert)
+                    { returnDocument: 'after' }
                 );
+
+                if (!updatedAdmin) {
+                    return res.status(404).json({ success: false, message: "অ্যাডমিন অ্যাকাউন্ট পাওয়া যায়নি।" });
+                }
 
                 res.status(200).json({
                     success: true,
@@ -166,7 +176,8 @@ const updateProfilePic = async (req, res) => {
 // ==============================================================
 const getAdminProfile = async (req, res) => {
     try {
-        const admin = await Admin.findOne({ username: 'admin' });
+        // লগইন করা অ্যাকাউন্টের নিজের প্রোফাইল (সুপার অ্যাডমিন বা স্টাফ)
+        const admin = await Admin.findOne({ username: req.admin?.username });
         
         if (!admin) {
             return res.status(404).json({ success: false, message: "অ্যাডমিন পাওয়া যায়নি।" });
@@ -174,7 +185,11 @@ const getAdminProfile = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            image: admin.image 
+            image: admin.image,
+            username: admin.username,
+            name: admin.name || admin.displayName || admin.username,
+            role: admin.role,
+            permissions: Array.isArray(admin.permissions) ? admin.permissions : []
         });
     } catch (error) {
         console.error("Get Profile Error:", error);
@@ -388,7 +403,8 @@ const updateAdminProfile = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Admin not found.' });
         }
 
-        if (admin.password !== currentPassword) {
+        const currentPasswordOk = await admin.verifyPassword(currentPassword);
+        if (!currentPasswordOk) {
             await logSecurityEvent({
                 action: 'Admin Profile Update Failed',
                 actor: admin.username,
@@ -399,26 +415,39 @@ const updateAdminProfile = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Current password is incorrect.' });
         }
 
+        const previousUsername = admin.username;
+        let usernameChanged = false;
+
         if (username && username !== admin.username) {
             const exists = await Admin.findOne({ username, _id: { $ne: admin._id } });
             if (exists) {
                 return res.status(400).json({ success: false, message: 'Username already taken.' });
             }
             admin.username = String(username).trim();
+            usernameChanged = true;
         }
 
         if (newPassword) {
             if (String(newPassword).length < 6) {
                 return res.status(400).json({ success: false, message: 'New password must be at least 6 characters.' });
             }
+            // মডেলের pre-save হুক এটিকে bcrypt হ্যাশে রূপান্তর করবে
             admin.password = String(newPassword);
         }
 
         if (displayName !== undefined) {
             admin.displayName = String(displayName).trim();
+            if (!admin.isSuperAdmin()) admin.name = admin.displayName;
         }
 
         await admin.save();
+
+        // ইউজারনেম বা পাসওয়ার্ড বদলালে পুরোনো টোকেন/সেশন আর বৈধ নয় —
+        // সব ডিভাইস সাইন-আউট করে ফ্রন্টএন্ডকে রি-লগইন করতে বলা হয়।
+        const requireRelogin = usernameChanged || !!newPassword;
+        if (requireRelogin) {
+            await AdminSession.deleteMany({ adminUsername: previousUsername });
+        }
 
         await logSecurityEvent({
             action: 'Admin Profile Updated',
@@ -433,7 +462,10 @@ const updateAdminProfile = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Admin profile updated successfully.',
+            message: requireRelogin
+                ? 'Profile updated. Please sign in again with your new credentials.'
+                : 'Admin profile updated successfully.',
+            requireRelogin,
             data: safe
         });
     } catch (error) {
@@ -467,7 +499,8 @@ const updateAdminSettings = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Admin not found.' });
         }
 
-        if (admin.password !== currentPassword) {
+        const currentPasswordOk = await admin.verifyPassword(currentPassword);
+        if (!currentPasswordOk) {
             await logSecurityEvent({
                 action: 'Admin Settings Change Failed',
                 actor: admin.username,
@@ -478,15 +511,21 @@ const updateAdminSettings = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Current password is incorrect.' });
         }
 
+        const previousUsername = admin.username;
+        let usernameChanged = false;
+
         if (username && username !== admin.username) {
             const exists = await Admin.findOne({ username, _id: { $ne: admin._id } });
             if (exists) {
                 return res.status(400).json({ success: false, message: 'Username already taken.' });
             }
             admin.username = String(username).trim();
+            usernameChanged = true;
         }
 
-        if (newPassword && String(newPassword).length >= 6) {
+        const passwordChanged = !!(newPassword && String(newPassword).length >= 6);
+        if (passwordChanged) {
+            // মডেলের pre-save হুক এটিকে bcrypt হ্যাশে রূপান্তর করবে
             admin.password = String(newPassword);
         }
 
@@ -497,6 +536,12 @@ const updateAdminSettings = async (req, res) => {
         if (timezone !== undefined) admin.timezone = String(timezone).trim();
 
         await admin.save();
+
+        // ইউজারনেম বা পাসওয়ার্ড বদলালে পুরোনো টোকেন আর বৈধ নয় → সব ডিভাইস সাইন-আউট
+        const requireRelogin = usernameChanged || passwordChanged;
+        if (requireRelogin) {
+            await AdminSession.deleteMany({ adminUsername: previousUsername });
+        }
 
         await logSecurityEvent({
             action: 'Admin Settings Updated',
@@ -509,7 +554,14 @@ const updateAdminSettings = async (req, res) => {
         const safe = admin.toObject();
         delete safe.password;
 
-        res.status(200).json({ success: true, message: 'Settings saved successfully.', data: safe });
+        res.status(200).json({
+            success: true,
+            message: requireRelogin
+                ? 'Settings saved. Please sign in again with your new credentials.'
+                : 'Settings saved successfully.',
+            requireRelogin,
+            data: safe
+        });
     } catch (error) {
         console.error('Update Admin Settings Error:', error);
         res.status(500).json({ success: false, message: 'Failed to save settings.' });

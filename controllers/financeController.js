@@ -13,6 +13,7 @@
 const jwt = require('jsonwebtoken');
 const Order = require('../models/order');
 const Product = require('../models/product');
+const Admin = require('../models/admin');
 
 // ফাইন্যান্স ড্যাশবোর্ড সেশন টোকেনের মেয়াদ ও স্কোপ
 const FINANCE_TOKEN_TTL = process.env.FINANCE_TOKEN_TTL || '8h';
@@ -385,7 +386,7 @@ const financeAdminLogin = async (req, res) => {
    গ্রহণযোগ্য: ফাইন্যান্স-স্কোপড টোকেন, অথবা বিদ্যমান অ্যাডমিন প্যানেল টোকেন
    (role: 'admin'), যাতে আগের অ্যাডমিন ইন্টিগ্রেশন ভেঙে না যায়।
    ========================================================================= */
-const verifyFinanceToken = (req, res, next) => {
+const verifyFinanceToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -412,6 +413,30 @@ const verifyFinanceToken = (req, res, next) => {
                 message: 'Invalid finance session. Please log in again.',
                 redirect: '/finance-login'
             });
+        }
+
+        // 🛡️ RBAC: অ্যাডমিন প্যানেলের টোকেন দিয়ে ঢুকলে অ্যাকাউন্টটি এখনো সক্রিয়
+        // কিনা এবং প্রফিট/মার্জিন ডাটা দেখার অনুমতি (view_analytics) আছে কিনা
+        // যাচাই করা হয়। ফাইন্যান্স-স্কোপড টোকেন (আলাদা পাসওয়ার্ড) আগের মতোই চলে।
+        if (decoded.scope !== FINANCE_TOKEN_SCOPE && decoded.username) {
+            const account = await Admin.findOne({ username: decoded.username });
+
+            if (!account || account.isBlocked()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'This admin account is blocked or no longer exists.',
+                    redirect: '/finance-login'
+                });
+            }
+
+            if (!account.hasPermission('view_analytics')) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Access denied. You do not have permission to view finance analytics.',
+                    reason: 'PERMISSION_DENIED',
+                    redirect: '/admin/access-denied'
+                });
+            }
         }
 
         req.financeAdmin = decoded;

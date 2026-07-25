@@ -318,6 +318,7 @@ const ADMIN_PAGE_META = {
     'view-sessions':        { title: 'Active Devices & Sessions', subtitle: 'Review and remotely revoke logged-in admin devices.' },
     'view-audit':           { title: 'Security & Audit',         subtitle: 'Login history, intrusion attempts, and IP blacklist firewall.' },
     'view-master-settings': { title: 'Master Settings',          subtitle: 'Configure global cashback, loyalty points, conversion, and refund rules.' },
+    'view-staff':           { title: 'Staff Management',         subtitle: 'Create staff accounts, assign permissions, and control access instantly.' },
     'view-settings':        { title: 'Admin Settings',          subtitle: 'Configure your admin profile and platform preferences.' }
 };
 
@@ -4996,6 +4997,13 @@ function setupAdminSettingsForms() {
                     if (result.data) applyAdminSettingsToUI(result.data);
                     document.getElementById('settingsCurrentPassword').value = '';
                     document.getElementById('settingsNewPassword').value = '';
+
+                    // Changing the username or password invalidates this token —
+                    // the server already revoked every session, so sign back in.
+                    if (result.requireRelogin) {
+                        showToast(result.message || 'Please sign in again with your new credentials.', 'info');
+                        setTimeout(() => { window.location.href = '/admin/logout'; }, 1800);
+                    }
                 } else {
                     showToast(`Error: ${result.message || 'Failed to update profile.'}`, 'error');
                 }
@@ -5030,6 +5038,11 @@ function setupAdminSettingsForms() {
                     showToast('Success: Platform preferences saved!', 'success');
                     applyAdminSettingsToUI(result.data);
                     document.getElementById('platformCurrentPassword').value = '';
+
+                    if (result.requireRelogin) {
+                        showToast(result.message || 'Please sign in again with your new credentials.', 'info');
+                        setTimeout(() => { window.location.href = '/admin/logout'; }, 1800);
+                    }
                 } else {
                     showToast(`Error: ${result.message || 'Failed to save platform settings.'}`, 'error');
                 }
@@ -5269,6 +5282,8 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-sessions': fetchAdminSessions,
         'view-audit': initAuditView,
         'view-master-settings': fetchMasterSettings,
+        // Staff Management lives in js/admin-staff.js (Super Admin only)
+        'view-staff': () => window.loadStaffSection && window.loadStaffSection(),
         'view-settings': fetchAdminSettings
     };
     if (typeof refreshMap[targetId] === 'function') refreshMap[targetId]();

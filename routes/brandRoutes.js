@@ -12,17 +12,20 @@ const express = require('express');
 const router = express.Router();
 const { getBrands, createBrand, updateBrand, deleteBrand } = require('../controllers/brandController');
 const { verifyAdmin } = require('../middlewares/authMiddleware');
+const { checkPermission } = require('../middlewares/rbac');
+
+const canManageCatalog = checkPermission('manage_catalog');
 
 // ১. সব ব্র্যান্ড নিয়ে আসা (পাবলিক)
 router.get('/', getBrands);
 
 // ২. নতুন ব্র্যান্ড তৈরি (অ্যাডমিন)
-router.post('/', verifyAdmin, createBrand);
+router.post('/', verifyAdmin, canManageCatalog, createBrand);
 
 // ৩. ব্র্যান্ড আপডেট (অ্যাডমিন)
-router.put('/:id', verifyAdmin, updateBrand);
+router.put('/:id', verifyAdmin, canManageCatalog, updateBrand);
 
 // ৪. ব্র্যান্ড ডিলিট (অ্যাডমিন)
-router.delete('/:id', verifyAdmin, deleteBrand);
+router.delete('/:id', verifyAdmin, canManageCatalog, deleteBrand);
 
 module.exports = router;

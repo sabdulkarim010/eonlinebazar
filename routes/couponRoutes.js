@@ -12,6 +12,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const UserSession = require('../models/userSession');
 const { verifyAdmin } = require('../middlewares/authMiddleware');
+const { checkPermission } = require('../middlewares/rbac');
 const {
     getCoupons,
     getCouponById,
@@ -63,12 +64,14 @@ async function optionalVerifyUser(req, res, next) {
 router.post('/apply', optionalVerifyUser, applyCoupon);
 router.get('/active-check', checkActiveCoupons);
 
-// Admin — list / CRUD
-router.get('/', verifyAdmin, getCoupons);
-router.get('/:id', verifyAdmin, getCouponById);
-router.post('/', verifyAdmin, createCoupon);
-router.put('/:id', verifyAdmin, updateCoupon);
-router.patch('/:id/toggle', verifyAdmin, toggleCouponStatus);
-router.delete('/:id', verifyAdmin, deleteCoupon);
+// Admin — list / CRUD (permission: manage_coupons)
+const canManageCoupons = checkPermission('manage_coupons');
+
+router.get('/', verifyAdmin, canManageCoupons, getCoupons);
+router.get('/:id', verifyAdmin, canManageCoupons, getCouponById);
+router.post('/', verifyAdmin, canManageCoupons, createCoupon);
+router.put('/:id', verifyAdmin, canManageCoupons, updateCoupon);
+router.patch('/:id/toggle', verifyAdmin, canManageCoupons, toggleCouponStatus);
+router.delete('/:id', verifyAdmin, canManageCoupons, deleteCoupon);
 
 module.exports = router;

@@ -17,28 +17,40 @@ const settingsController = require('../controllers/settingsController');
 const masterSettingsController = require('../controllers/masterSettingsController');
 const upload = require('../middlewares/uploadMiddleware');
 const { brandingUpload } = upload;
+const staffController = require('../controllers/staffController');
+const staffRoutes = require('./staffRoutes');
 const { verifyAdmin } = require('../middlewares/authMiddleware');
+const { checkPermission } = require('../middlewares/rbac');
 const { checkBlacklist, adminLoginLimiter } = require('../middlewares/adminSecurity');
 const { geoFence } = require('../middlewares/geoFencing');
 
+// 🛡️ Super Admin staff management — own gate chain, see routes/staffRoutes.js
+// URL: /api/admin/staff
+router.use('/staff', staffRoutes);
+
+// 🛡️ RBAC discovery endpoints — readable by any signed-in admin. The panel uses
+// them to render only the sections the current account is allowed to open.
+router.get('/permissions', verifyAdmin, staffController.getPermissionCatalogue);
+router.get('/me', verifyAdmin, staffController.getCurrentAdmin);
+
 // ১. কাস্টমারদের ডাটা পাওয়ার রাস্তা (GET)
-router.get('/customers', verifyAdmin, adminController.getAllCustomers);
+router.get('/customers', verifyAdmin, checkPermission('manage_customers'), adminController.getAllCustomers);
 
 // ১গ. Sales & Order Analytics Dashboard (GET)
-router.get('/dashboard-analytics', verifyAdmin, adminController.getDashboardAnalytics);
+router.get('/dashboard-analytics', verifyAdmin, checkPermission('view_analytics'), adminController.getDashboardAnalytics);
 
 // ১ক. নির্দিষ্ট কাস্টমার, আপডেট, স্ট্যাটাস ও অর্ডার হিস্ট্রি
-router.get('/customers/:id/orders', verifyAdmin, adminController.getCustomerOrders);
-router.get('/customers/:id', verifyAdmin, adminController.getCustomerById);
-router.put('/customers/:id', verifyAdmin, adminController.updateCustomer);
-router.patch('/customers/:id/status', verifyAdmin, adminController.updateCustomerStatus);
+router.get('/customers/:id/orders', verifyAdmin, checkPermission('manage_customers'), adminController.getCustomerOrders);
+router.get('/customers/:id', verifyAdmin, checkPermission('manage_customers'), adminController.getCustomerById);
+router.put('/customers/:id', verifyAdmin, checkPermission('manage_customers'), adminController.updateCustomer);
+router.patch('/customers/:id/status', verifyAdmin, checkPermission('manage_customers'), adminController.updateCustomerStatus);
 
 // ১খ. অর্ডার রিটার্ন অনুমোদন ও ওয়ালেট রিফান্ড
 // URL: PUT /api/admin/orders/:id/approve-return
-router.put('/orders/:id/approve-return', verifyAdmin, approveOrderReturn);
+router.put('/orders/:id/approve-return', verifyAdmin, checkPermission('manage_orders'), approveOrderReturn);
 
 // URL: POST /api/admin/orders/:id/undo-refund
-router.post('/orders/:id/undo-refund', verifyAdmin, undoOrderRefund);
+router.post('/orders/:id/undo-refund', verifyAdmin, checkPermission('manage_orders'), undoOrderRefund);
 
 // ২. অ্যাডমিন লগইন করার রাস্তা (POST)
 // পাইপলাইন: ব্ল্যাকলিস্ট গেট → জিও-ফেন্স (রিজিয়ন লক) → রেট-লিমিট → কন্ট্রোলার
@@ -64,11 +76,11 @@ router.get('/sessions', verifyAdmin, adminSecurityController.getAdminSessions);
 router.post('/sessions/logout-others', verifyAdmin, adminSecurityController.logoutOtherSessions);
 router.post('/sessions/logout/:id', verifyAdmin, adminSecurityController.logoutSession);
 
-// 🛡️ IP Blacklist Manager + Login History
-router.get('/blacklist', verifyAdmin, adminSecurityController.getBlacklist);
-router.post('/blacklist', verifyAdmin, adminSecurityController.addBlacklist);
-router.delete('/blacklist/:id', verifyAdmin, adminSecurityController.removeBlacklist);
-router.get('/login-history', verifyAdmin, adminSecurityController.getLoginHistory);
+// 🛡️ IP Blacklist Manager + Login History (permission: manage_security)
+router.get('/blacklist', verifyAdmin, checkPermission('manage_security'), adminSecurityController.getBlacklist);
+router.post('/blacklist', verifyAdmin, checkPermission('manage_security'), adminSecurityController.addBlacklist);
+router.delete('/blacklist/:id', verifyAdmin, checkPermission('manage_security'), adminSecurityController.removeBlacklist);
+router.get('/login-history', verifyAdmin, checkPermission('manage_security'), adminSecurityController.getLoginHistory);
 
 // ৩. টোকেন ভেরিফিকেশন (GET)
 router.get('/verify-token', verifyAdmin, adminController.verifyAdminToken);
@@ -77,40 +89,42 @@ router.get('/verify-token', verifyAdmin, adminController.verifyAdminToken);
 router.post('/sync-data', verifyAdmin, adminController.syncAdminData);
 
 // ৪. সিকিউরিটি লগস (GET)
-router.get('/logs', verifyAdmin, adminController.getSecurityLogs);
+router.get('/logs', verifyAdmin, checkPermission('manage_security'), adminController.getSecurityLogs);
 
 // ৫. সিস্টেম ডেলিভারি সেটিংস (GET / PUT / POST)
+// পড়া সবার জন্য খোলা (অর্ডার/চেকআউট ভিউ এই ভ্যালুগুলো দেখায়), লেখা কেবল manage_settings-এ
 router.get('/settings', verifyAdmin, settingsController.getSettings);
-router.put('/settings', verifyAdmin, settingsController.updateSettings);
-router.post('/settings', verifyAdmin, settingsController.updateSettings);
+router.put('/settings', verifyAdmin, checkPermission('manage_settings'), settingsController.updateSettings);
+router.post('/settings', verifyAdmin, checkPermission('manage_settings'), settingsController.updateSettings);
 
 // ৫খ. মাস্টার সেটিংস — অ্যানাউন্সমেন্ট, ফ্রি শিপিং, ক্যাশব্যাক, পয়েন্ট, রিফান্ড (Singleton)
 // একটি সেভ অ্যাকশনেই সব সেটিংস আপডেট হয়।
 // URL: GET|POST|PUT /api/admin/master-settings
 router.get('/master-settings', verifyAdmin, masterSettingsController.getMasterSettings);
-router.put('/master-settings', verifyAdmin, masterSettingsController.updateMasterSettings);
-router.post('/master-settings', verifyAdmin, masterSettingsController.updateMasterSettings);
+router.put('/master-settings', verifyAdmin, checkPermission('manage_settings'), masterSettingsController.updateMasterSettings);
+router.post('/master-settings', verifyAdmin, checkPermission('manage_settings'), masterSettingsController.updateMasterSettings);
 
 // URL: POST|PUT /api/admin/master-settings/update — unified "Save Master Settings"
-router.post('/master-settings/update', verifyAdmin, masterSettingsController.updateMasterSettings);
-router.put('/master-settings/update', verifyAdmin, masterSettingsController.updateMasterSettings);
+router.post('/master-settings/update', verifyAdmin, checkPermission('manage_settings'), masterSettingsController.updateMasterSettings);
+router.put('/master-settings/update', verifyAdmin, checkPermission('manage_settings'), masterSettingsController.updateMasterSettings);
 
 // URL: GET|POST /api/admin/announcement-settings (legacy announcement-only save)
 router.get('/announcement-settings', verifyAdmin, masterSettingsController.getAnnouncementSettings);
-router.post('/announcement-settings', verifyAdmin, masterSettingsController.updateAnnouncementSettings);
+router.post('/announcement-settings', verifyAdmin, checkPermission('manage_settings'), masterSettingsController.updateAnnouncementSettings);
 
 // URL: GET|POST /api/admin/settings/announcement (legacy alias)
 router.get('/settings/announcement', verifyAdmin, masterSettingsController.getAnnouncementSettings);
-router.post('/settings/announcement', verifyAdmin, masterSettingsController.updateAnnouncementSettings);
+router.post('/settings/announcement', verifyAdmin, checkPermission('manage_settings'), masterSettingsController.updateAnnouncementSettings);
 
-// ৫ক. অ্যাডমিন প্ল্যাটফর্ম সেটিংস (GET / PUT)
+// ৫ক. অ্যাডমিন প্ল্যাটফর্ম সেটিংস (GET নিজের প্রোফাইল / PUT স্টোর প্রেফারেন্স)
 router.get('/platform-settings', verifyAdmin, adminController.getAdminSettings);
-router.put('/platform-settings', verifyAdmin, adminController.updateAdminSettings);
+router.put('/platform-settings', verifyAdmin, checkPermission('manage_settings'), adminController.updateAdminSettings);
 
 // ৬. স্টোর লোগো / ফ্যাভিকন আপলোড (POST — multipart logo + favicon)
 router.post(
     '/upload-branding',
     verifyAdmin,
+    checkPermission('manage_settings'),
     brandingUpload.fields([
         { name: 'logo', maxCount: 1 },
         { name: 'favicon', maxCount: 1 }

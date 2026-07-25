@@ -12,6 +12,10 @@ const express = require('express');
 const router = express.Router();
 const Category = require('../models/category');
 const { verifyAdmin } = require('../middlewares/authMiddleware');
+const { checkPermission } = require('../middlewares/rbac');
+
+// ক্যাটালগ (ক্যাটাগরি/ব্র্যান্ড/অ্যাট্রিবিউট) পরিবর্তনের পারমিশন গেট
+const canManageCatalog = checkPermission('manage_catalog');
 
 function parseCustomCashbackPercentage(raw, { required = false } = {}) {
     if (raw === undefined) {
@@ -39,7 +43,7 @@ router.get('/', async (req, res) => {
 });
 
 // ২. নতুন ক্যাটাগরি তৈরি করা
-router.post('/', verifyAdmin, async (req, res) => {
+router.post('/', verifyAdmin, canManageCatalog, async (req, res) => {
     try {
         const { name, customCashbackPercentage } = req.body;
         if (!name) return res.status(400).json({ success: false, message: "ক্যাটাগরির নাম দেওয়া আবশ্যক!" });
@@ -66,7 +70,7 @@ router.post('/', verifyAdmin, async (req, res) => {
 });
 
 // ৩. ক্যাটাগরি ডিলিট করা
-router.delete('/:id', verifyAdmin, async (req, res) => {
+router.delete('/:id', verifyAdmin, canManageCatalog, async (req, res) => {
     try {
         const deletedCategory = await Category.findByIdAndDelete(req.params.id);
         if (!deletedCategory) return res.status(404).json({ success: false, message: "ক্যাটাগরি পাওয়া যায়নি!" });
@@ -79,7 +83,7 @@ router.delete('/:id', verifyAdmin, async (req, res) => {
 
 
 // PUT রাউট আপডেট
-router.put('/:id', verifyAdmin, async (req, res) => {
+router.put('/:id', verifyAdmin, canManageCatalog, async (req, res) => {
     try {
         const category = await Category.findById(req.params.id);
         if (!category) return res.status(404).json({ success: false, message: "Category not found" });

@@ -25,6 +25,7 @@ const { sendAdminOtpEmail } = require('../utils/mailer');
 const { sendAdminOtpSms } = require('../utils/smsSender');
 const { recordLoginAttempt, findActiveBan } = require('../middlewares/adminSecurity');
 const { logSecurityEvent } = require('../utils/securityLogger');
+const { ROLES, ACCOUNT_STATUS } = require('../config/permissions');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'eOnlineBazarSecretKey123';
 const OTP_TTL_MINUTES = 5;
@@ -110,12 +111,52 @@ async function issueAdminSession(admin, fp) {
         lastActive: new Date()
     });
 
+    await Admin.updateOne({ _id: admin._id }, { $set: { lastLoginAt: new Date() } });
+
+    // `role: 'admin'` stays as the *token type* (every existing guard keys off
+    // it). The RBAC role travels as `accountRole` — but nothing trusts it:
+    // verifyAdmin re-reads role and permissions from MongoDB on each request.
     const token = jwt.sign(
-        { username: admin.username, role: 'admin', sid: sessionId },
+        {
+            username: admin.username,
+            role: 'admin',
+            accountRole: admin.role || ROLES.SUPER_ADMIN,
+            sid: sessionId
+        },
         JWT_SECRET,
         { expiresIn: '24h' }
     );
     return { sessionId, token };
+}
+
+/**
+ * Reject suspended accounts at the door. Any live session is destroyed so a
+ * blocked staff member is signed out everywhere the instant they try again.
+ */
+async function rejectIfBlocked(res, admin, fp) {
+    if (!admin.isBlocked || !admin.isBlocked()) return false;
+
+    await AdminSession.deleteMany({ adminUsername: admin.username });
+    await recordLoginAttempt({
+        fingerprint: fp,
+        username: admin.username,
+        status: 'blocked',
+        details: 'Login refused — account blocked by Super Admin'
+    });
+    await logSecurityEvent({
+        action: 'Blocked Account Login Attempt',
+        actor: admin.username,
+        actorType: 'admin',
+        ipAddress: fp.ipAddress,
+        details: `Suspended account tried to sign in · ${fp.device} · ${fp.location}`
+    });
+
+    res.status(403).json({
+        success: false,
+        reason: 'ACCOUNT_BLOCKED',
+        message: 'This account has been blocked by the Super Admin. Please contact the store owner.'
+    });
+    return true;
 }
 
 /**
@@ -213,23 +254,44 @@ exports.loginAdmin = async (req, res) => {
         let admin = await Admin.findOne({ username }).select('+totpSecret');
 
         // Bootstrap: প্রথমবার সঠিক ক্রেডেনশিয়ালে অ্যাডমিন তৈরি
+        // (এই অ্যাকাউন্টটি সব সময় সুপার অ্যাডমিন — মালিকের অ্যাক্সেস)
         if (!admin && username === 'admin' && password === process.env.ADMIN_PASSWORD) {
             admin = new Admin({
                 username: 'admin',
                 password: process.env.ADMIN_PASSWORD,
-                email: process.env.SMTP_USER || process.env.EMAIL_USER || ''
+                email: process.env.SMTP_USER || process.env.EMAIL_USER || '',
+                role: ROLES.SUPER_ADMIN,
+                status: ACCOUNT_STATUS.ACTIVE
             });
             await admin.save();
-        } else if (!admin || admin.password !== password) {
-            await recordLoginAttempt({ fingerprint: fp, username, status: 'failed', details: 'Invalid admin credentials' });
-            await logSecurityEvent({
-                action: 'Admin Login Failed',
-                actor: username || 'unknown',
-                actorType: 'admin',
-                ipAddress: fp.ipAddress,
-                details: `Invalid credentials · ${fp.device} · ${fp.location}`
-            });
-            return res.status(401).json({ success: false, message: 'Invalid username or password.' });
+        } else {
+            const passwordOk = admin ? await admin.verifyPassword(password) : false;
+
+            if (!passwordOk) {
+                await recordLoginAttempt({ fingerprint: fp, username, status: 'failed', details: 'Invalid admin credentials' });
+                await logSecurityEvent({
+                    action: 'Admin Login Failed',
+                    actor: username || 'unknown',
+                    actorType: 'admin',
+                    ipAddress: fp.ipAddress,
+                    details: `Invalid credentials · ${fp.device} · ${fp.location}`
+                });
+                return res.status(401).json({ success: false, message: 'Invalid username or password.' });
+            }
+
+            // 🚫 Suspended staff never get past the password step.
+            if (await rejectIfBlocked(res, admin, fp)) return;
+
+            // 🔐 Legacy accounts stored their password in plain text. Now that the
+            // credential is proven correct, re-save it so the pre-save hook
+            // replaces it with a bcrypt digest. One silent upgrade, no lockout.
+            if (!admin.isPasswordHashed()) {
+                admin.password = String(password);
+                // The value is unchanged, so Mongoose would consider the path
+                // clean and skip the hashing hook — force it to run.
+                admin.markModified('password');
+                await admin.save();
+            }
         }
 
         // ── Resolve the admin's chosen 2FA method ──
@@ -255,7 +317,14 @@ exports.loginAdmin = async (req, res) => {
                 details: `2FA disabled · ${fp.device} · ${fp.location}`
             });
 
-            return res.status(200).json({ success: true, message: 'Login successful!', token, image: admin.image });
+            return res.status(200).json({
+                success: true,
+                message: 'Login successful!',
+                token,
+                image: admin.image,
+                role: admin.role || ROLES.SUPER_ADMIN,
+                permissions: Array.isArray(admin.permissions) ? admin.permissions : []
+            });
         }
 
         // ── Step 1 success → dispatch the 2FA challenge for the chosen method ──
@@ -339,6 +408,9 @@ exports.verifyOtp = async (req, res) => {
             return otpFail(res, 404, 'USER_NOT_FOUND', 'Admin account not found.', { restart: true });
         }
 
+        // 🚫 The Super Admin may have blocked this account between step 1 and step 2.
+        if (await rejectIfBlocked(res, user, fp)) return;
+
         // Which channel issued this challenge? (email | sms | totp)
         const method = payload.method || 'email';
 
@@ -417,29 +489,10 @@ exports.verifyOtp = async (req, res) => {
         }
 
         // Create session BEFORE burning the OTP — if session write fails, code stays reusable
-        const sessionId = crypto.randomUUID();
-        await AdminSession.create({
-            sessionId,
-            adminUsername: user.username,
-            ipAddress: fp.ipAddress,
-            location: fp.location,
-            os: fp.os,
-            browser: fp.browser,
-            deviceType: fp.deviceType,
-            device: fp.device,
-            userAgent: fp.userAgent,
-            status: 'active',
-            lastActive: new Date()
-        });
+        const { token } = await issueAdminSession(user, fp);
 
         // One-time use — clear only after session is safely created
         await Admin.updateOne({ _id: user._id }, clearOtpFields());
-
-        const token = jwt.sign(
-            { username: user.username, role: 'admin', sid: sessionId },
-            JWT_SECRET,
-            { expiresIn: '24h' }
-        );
 
         await recordLoginAttempt({ fingerprint: fp, username: user.username, status: 'success', details: 'OTP verified — login complete' });
         await logSecurityEvent({
@@ -455,7 +508,9 @@ exports.verifyOtp = async (req, res) => {
             reason: 'OK',
             message: 'Login successful!',
             token,
-            image: user.image
+            image: user.image,
+            role: user.role || ROLES.SUPER_ADMIN,
+            permissions: Array.isArray(user.permissions) ? user.permissions : []
         });
     } catch (error) {
         console.error('Admin Verify OTP (Step 2) Error:', error);
