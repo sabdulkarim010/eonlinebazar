@@ -29,6 +29,7 @@ const brandRoutes = require('./routes/brandRoutes');
 const attributeRoutes = require('./routes/attributeRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const financeRoutes = require('./routes/financeRoutes');
+const { getFinanceAnalytics, verifyFinanceToken } = require('./controllers/financeController');
 const couponRoutes = require('./routes/couponRoutes');
 const storeRoutes = require('./routes/storeRoutes');
 const storeSettingsMiddleware = require('./middlewares/storeSettingsMiddleware');
@@ -113,6 +114,10 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/store', storeRoutes);
+
+// Finance analytics — explicit path expected by the dashboard UI
+// URL: GET /admin/api/analytics?period=&startDate=&endDate=
+app.get('/admin/api/analytics', verifyFinanceToken, getFinanceAnalytics);
 
 /********************************************************************
  # FRONTEND UI ROUTES (ক্লিন ইউআরএল লজিক)

@@ -16,6 +16,22 @@
 
     <!-- Page-scoped stylesheet (CSS only) -->
     <link rel="stylesheet" href="css/finance-analytics.css">
+
+    <!-- Applied before first paint so the saved theme never flashes -->
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('financeTheme');
+                if (!saved) {
+                    saved = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+                        ? 'light' : 'dark';
+                }
+                document.documentElement.setAttribute('data-theme', saved);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
 </head>
 
 <body>
@@ -41,7 +57,40 @@
                 </div>
             </div>
             <div class="fa-header-right">
+                <div class="fa-date-range" id="dateRangeControl">
+                    <button class="fa-btn fa-btn-outline fa-date-trigger" id="dateRangeBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="dateRangePanel">
+                        <i class="fa-solid fa-calendar-days"></i>
+                        <span id="dateRangeLabel">This Month</span>
+                        <i class="fa-solid fa-chevron-down fa-date-chevron"></i>
+                    </button>
+                    <div class="fa-date-panel" id="dateRangePanel" hidden role="dialog" aria-label="Select date range">
+                        <div class="fa-date-presets" role="group" aria-label="Quick ranges">
+                            <button class="fa-date-preset" type="button" data-period="today">Today</button>
+                            <button class="fa-date-preset" type="button" data-period="yesterday">Yesterday</button>
+                            <button class="fa-date-preset" type="button" data-period="7days">Last 7 Days</button>
+                            <button class="fa-date-preset fa-date-preset--active" type="button" data-period="thismonth">This Month</button>
+                            <button class="fa-date-preset" type="button" data-period="all">All Time</button>
+                            <button class="fa-date-preset" type="button" data-period="custom">Custom Range</button>
+                        </div>
+                        <div class="fa-date-custom" id="customDateFields">
+                            <div class="fa-date-field">
+                                <label for="startDateInput">Start Date:</label>
+                                <input class="fa-date-input" type="date" id="startDateInput" name="startDateInput">
+                            </div>
+                            <div class="fa-date-field">
+                                <label for="endDateInput">End Date:</label>
+                                <input class="fa-date-input" type="date" id="endDateInput" name="endDateInput">
+                            </div>
+                            <button class="fa-btn fa-btn-ghost fa-date-apply" id="applyCustomFilterBtn" type="button">Apply Custom Filter</button>
+                        </div>
+                    </div>
+                </div>
                 <span class="fa-updated" id="lastUpdated">—</span>
+                <button class="fa-btn fa-btn-outline fa-theme-toggle" id="themeToggleBtn" type="button"
+                        aria-pressed="false" title="Switch between dark and light theme">
+                    <i class="fa-solid fa-moon" id="themeToggleIcon"></i>
+                    <span id="themeToggleLabel">Dark</span>
+                </button>
                 <button class="fa-btn fa-btn-ghost" id="refreshBtn" type="button">
                     <i class="fa-solid fa-arrows-rotate"></i>
                     <span>Refresh</span>
@@ -65,18 +114,18 @@
             <article class="fa-card fa-kpi fa-kpi--sales">
                 <div class="fa-kpi-icon"><i class="fa-solid fa-bangladeshi-taka-sign"></i></div>
                 <div class="fa-kpi-body">
-                    <p class="fa-kpi-label">Daily Sales</p>
-                    <h2 class="fa-kpi-value" id="kpiDailySales">৳0</h2>
-                    <span class="fa-kpi-meta" id="kpiDailyOrders">0 orders today</span>
+                    <p class="fa-kpi-label" id="kpiSalesLabel">Period Sales</p>
+                    <h2 class="fa-kpi-value" id="kpiGrossRevenue">৳0</h2>
+                    <span class="fa-kpi-meta" id="kpiGrossRevenueMeta">Gross revenue in range</span>
                 </div>
             </article>
 
             <article class="fa-card fa-kpi fa-kpi--profit">
                 <div class="fa-kpi-icon"><i class="fa-solid fa-sack-dollar"></i></div>
                 <div class="fa-kpi-body">
-                    <p class="fa-kpi-label">Monthly Profit</p>
-                    <h2 class="fa-kpi-value" id="kpiMonthlyProfit">৳0</h2>
-                    <span class="fa-kpi-meta" id="kpiMonthlyRevenue">৳0 revenue this month</span>
+                    <p class="fa-kpi-label">Net Profit</p>
+                    <h2 class="fa-kpi-value" id="kpiNetProfit">৳0</h2>
+                    <span class="fa-kpi-meta" id="kpiNetProfitMeta">After COGS, discounts &amp; shipping</span>
                 </div>
             </article>
 
@@ -92,9 +141,9 @@
             <article class="fa-card fa-kpi fa-kpi--net">
                 <div class="fa-kpi-icon"><i class="fa-solid fa-chart-pie"></i></div>
                 <div class="fa-kpi-body">
-                    <p class="fa-kpi-label">Net Profit</p>
-                    <h2 class="fa-kpi-value" id="kpiNetProfit">৳0</h2>
-                    <span class="fa-kpi-meta" id="kpiProfitMargin">0% margin</span>
+                    <p class="fa-kpi-label">Profit Margin</p>
+                    <h2 class="fa-kpi-value" id="kpiProfitMargin">0%</h2>
+                    <span class="fa-kpi-meta" id="kpiDiscountsMeta">৳0 discounts &amp; redemptions</span>
                 </div>
             </article>
 
@@ -103,20 +152,20 @@
         <!-- ===================== SECONDARY STATS ===================== -->
         <section class="fa-mini-grid" aria-label="Secondary statistics">
             <div class="fa-card fa-mini">
-                <span class="fa-mini-label">Total Revenue</span>
-                <strong class="fa-mini-value" id="statTotalRevenue">৳0</strong>
+                <span class="fa-mini-label">Product Cost (COGS)</span>
+                <strong class="fa-mini-value" id="statCOGS">৳0</strong>
             </div>
             <div class="fa-card fa-mini">
-                <span class="fa-mini-label">Daily Profit</span>
-                <strong class="fa-mini-value" id="statDailyProfit">৳0</strong>
+                <span class="fa-mini-label">Discounts &amp; Redemptions</span>
+                <strong class="fa-mini-value" id="statDiscounts">৳0</strong>
             </div>
             <div class="fa-card fa-mini">
-                <span class="fa-mini-label">Monthly Orders</span>
-                <strong class="fa-mini-value" id="statMonthlyOrders">0</strong>
+                <span class="fa-mini-label">Shipping Expenses</span>
+                <strong class="fa-mini-value" id="statShipping">৳0</strong>
             </div>
             <div class="fa-card fa-mini">
-                <span class="fa-mini-label">Profit Margin</span>
-                <strong class="fa-mini-value" id="statProfitMargin">0%</strong>
+                <span class="fa-mini-label">Orders in Range</span>
+                <strong class="fa-mini-value" id="statOrders">0</strong>
             </div>
         </section>
 
@@ -126,12 +175,12 @@
             <article class="fa-card fa-chart-card fa-chart-card--wide">
                 <div class="fa-chart-head">
                     <div>
-                        <h3 class="fa-chart-title">Revenue vs Profit</h3>
-                        <p class="fa-chart-sub">Last 12 months performance</p>
+                        <h3 class="fa-chart-title">Revenue vs Net Profit</h3>
+                        <p class="fa-chart-sub" id="chartPeriodSub">Selected period performance</p>
                     </div>
                     <div class="fa-legend">
-                        <span class="fa-legend-item"><i class="fa-dot fa-dot--revenue"></i> Revenue</span>
-                        <span class="fa-legend-item"><i class="fa-dot fa-dot--profit"></i> Profit</span>
+                        <span class="fa-legend-item"><i class="fa-dot fa-dot--revenue"></i> Gross Revenue</span>
+                        <span class="fa-legend-item"><i class="fa-dot fa-dot--profit"></i> Net Profit</span>
                     </div>
                 </div>
                 <div class="fa-canvas-wrap">

@@ -11,6 +11,7 @@
  ********************************************************************/
 
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const Order = require('../models/order');
 const Product = require('../models/product');
 const Admin = require('../models/admin');
@@ -105,9 +106,10 @@ function computeItemFinance(item, productCostMap) {
     }
 
     const lineRevenue = sellingPrice * quantity;
-    const lineProfit = (sellingPrice - costPrice) * quantity;
+    const lineCOGS = costPrice * quantity;
+    const lineProfit = lineRevenue - lineCOGS; // Net Profit = Revenue − COGS (per line)
 
-    return { quantity, lineRevenue, lineProfit };
+    return { quantity, lineRevenue, lineCOGS, lineProfit, costPrice, sellingPrice };
 }
 
 // প্রোডাক্ট ক্যাটালগ থেকে costPrice ম্যাপ তৈরি করা (যদি ফিল্ডটি থাকে)
@@ -129,6 +131,754 @@ async function buildProductCostMap() {
     }
     return map;
 }
+
+// প্রোডাক্ট আইডি → ক্যাটাগরি ম্যাপ (পাই চার্ট / ফিল্টার API)
+async function buildCategoryMap() {
+    const map = new Map();
+    try {
+        const products = await Product.find({}, { _id: 1, productId: 1, category: 1 }).lean();
+        for (const p of products) {
+            const cat = p.category || 'General';
+            if (p._id) map.set(String(p._id), cat);
+            if (p.productId) map.set(String(p.productId), cat);
+        }
+    } catch (err) {
+        console.error('⚠️ buildCategoryMap warning:', err.message);
+    }
+    return map;
+}
+
+const roundMoney = (n) => Math.round((toNumber(n, 0) + Number.EPSILON) * 100) / 100;
+
+function startOfDay(d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+}
+
+function endOfDay(d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+}
+
+/* =========================================================================
+   Date-range parsing & bucket helpers (Analytics Filter Engine)
+   ========================================================================= */
+function parseDateRangeQuery(query = {}) {
+    const now = new Date();
+    const rawPeriod = query.period ?? query.preset ?? '';
+    const preset = String(rawPeriod).trim().toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
+    let startDate;
+    let endDate;
+
+    const parseYyyyMmDd = (str) => {
+        if (!str) return null;
+        const m = String(str).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+        const d = new Date(str);
+        return isNaN(d.getTime()) ? null : d;
+    };
+
+    if (query.startDate || query.endDate) {
+        const parsedStart = query.startDate ? parseYyyyMmDd(query.startDate) : null;
+        const parsedEnd = query.endDate ? parseYyyyMmDd(query.endDate) : null;
+        startDate = parsedStart ? startOfDay(parsedStart) : new Date(2000, 0, 1, 0, 0, 0, 0);
+        endDate = parsedEnd ? endOfDay(parsedEnd) : endOfDay(now);
+    } else {
+        switch (preset) {
+            case 'today':
+                startDate = startOfDay(now);
+                endDate = endOfDay(now);
+                break;
+            case 'yesterday': {
+                const y = new Date(now);
+                y.setDate(y.getDate() - 1);
+                startDate = startOfDay(y);
+                endDate = endOfDay(y);
+                break;
+            }
+            case '7days':
+            case '7_days':
+            case 'last_7_days':
+            case 'last7days':
+            case 'last_7':
+                startDate = startOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6));
+                endDate = endOfDay(now);
+                break;
+            case 'all':
+            case 'alltime':
+            case 'all_time':
+                startDate = new Date(2000, 0, 1, 0, 0, 0, 0);
+                endDate = endOfDay(now);
+                break;
+            case 'this_year':
+            case 'thisyear':
+                startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+                endDate = endOfDay(now);
+                break;
+            case 'thismonth':
+            case 'this_month':
+            default:
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+                endDate = endOfDay(now);
+                break;
+        }
+    }
+
+    if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return null;
+    }
+    if (startDate > endDate) {
+        const tmp = startDate;
+        startDate = startOfDay(endDate);
+        endDate = endOfDay(tmp);
+    }
+
+    const resolvedPreset = (query.startDate || query.endDate)
+        ? 'custom'
+        : (preset || 'thismonth');
+    return { startDate, endDate, preset: resolvedPreset };
+}
+
+function resolveGroupBy(startDate, endDate) {
+    const msPerDay = 86400000;
+    const days = Math.ceil((endDate.getTime() - startDate.getTime()) / msPerDay) + 1;
+    return days <= 31 ? 'day' : 'month';
+}
+
+function getBucketKey(date, groupBy) {
+    if (!date || isNaN(date.getTime())) return null;
+    if (groupBy === 'day') {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatBucketLabel(key, groupBy) {
+    if (!key) return '';
+    if (groupBy === 'day') {
+        const [y, m, d] = key.split('-').map(Number);
+        const dt = new Date(y, m - 1, d);
+        return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    const [y, m] = key.split('-').map(Number);
+    const dt = new Date(y, m - 1, 1);
+    return dt.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+}
+
+function buildTimeBuckets(startDate, endDate, groupBy) {
+    const buckets = new Map();
+    const cursor = new Date(startDate);
+
+    if (groupBy === 'day') {
+        cursor.setHours(0, 0, 0, 0);
+        const end = endOfDay(endDate);
+        while (cursor <= end) {
+            const key = getBucketKey(cursor, 'day');
+            buckets.set(key, { key, label: formatBucketLabel(key, 'day'), revenue: 0, profit: 0, cogs: 0, orders: 0 });
+            cursor.setDate(cursor.getDate() + 1);
+        }
+    } else {
+        cursor.setDate(1);
+        cursor.setHours(0, 0, 0, 0);
+        const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+        while (cursor <= end) {
+            const key = getBucketKey(cursor, 'month');
+            buckets.set(key, { key, label: formatBucketLabel(key, 'month'), revenue: 0, profit: 0, cogs: 0, orders: 0 });
+            cursor.setMonth(cursor.getMonth() + 1);
+        }
+    }
+
+    return buckets;
+}
+
+/**
+ * তারিখ-ভিত্তিক অর্ডার কোয়েরি। createdAt সবচেয়ে নির্ভরযোগ্য, কিন্তু খুব
+ * পুরোনো কিছু ডকুমেন্টে সেটি না থাকতে পারে — তখন ObjectId-এর ভেতরে থাকা
+ * টাইমস্ট্যাম্প রেঞ্জ দিয়ে ম্যাচ করা হয়, যাতে কোনো বৈধ অর্ডার বাদ না পড়ে।
+ */
+function buildDateRangeQuery(startDate, endDate) {
+    const toObjectId = (date) => {
+        const hex = Math.floor(date.getTime() / 1000).toString(16).padStart(8, '0');
+        return new mongoose.Types.ObjectId(hex + '0000000000000000');
+    };
+
+    const conditions = [
+        { createdAt: { $gte: startDate, $lte: endDate } },
+        { updatedAt: { $gte: startDate, $lte: endDate }, createdAt: { $exists: false } }
+    ];
+
+    try {
+        conditions.push({
+            createdAt: { $exists: false },
+            _id: { $gte: toObjectId(startDate), $lte: toObjectId(endDate) }
+        });
+    } catch (err) {
+        console.error('⚠️ ObjectId date-range fallback skipped:', err.message);
+    }
+
+    return { $or: conditions };
+}
+
+/**
+ * একটি অর্ডারের সম্পূর্ণ P&L ব্রেকডাউন বের করা।
+ *
+ *   Gross Revenue = চার্জকৃত অ্যামাউন্ট + ইতিমধ্যে বাদ যাওয়া ডিসকাউন্ট
+ *   COGS          = Σ (buyingPrice × quantity)
+ *   Discounts     = discountAmount + couponDiscount + pointsRedeemed + cashback
+ *   Shipping      = deliveryCharge (fallback: shippingFee)
+ *   Net Profit    = Gross Revenue − COGS − Discounts − Shipping
+ *
+ * ⚠️ grandTotal = subTotal − discountAmount + deliveryCharge, অর্থাৎ totalAmount-এ
+ * ডিসকাউন্ট আগেই বাদ দেওয়া আছে। তাই Gross Revenue-তে সেটি ফেরত যোগ (gross-up)
+ * করা হয়, নাহলে ডিসকাউন্ট দুইবার বাদ পড়ে প্রফিট কম দেখাত। রিওয়ার্ড ক্যাশব্যাক
+ * totalAmount-এ ধরা থাকে না, তাই সেটি gross-up ছাড়াই খরচ হিসেবে বাদ যায়।
+ *
+ * অনুপস্থিত/null ফিল্ড সবসময় 0 ধরা হয়, তাই কোনো এজ-কেসে রেসপন্স ভাঙে না।
+ */
+function computeOrderFinance(order, productCostMap, categoryMap, categoryRevenue) {
+    const items = Array.isArray(order.items) ? order.items : [];
+
+    let itemRevenue = 0;
+    let cogs = 0;
+
+    for (const item of items) {
+        if (!item) continue;
+        const { lineRevenue, lineCOGS } = computeItemFinance(item, productCostMap);
+        itemRevenue += lineRevenue;
+        cogs += lineCOGS;
+
+        if (categoryRevenue) {
+            const productId = item.id || item.productId || item._id;
+            const category = (productId && categoryMap.get(String(productId))) || item.category || 'General';
+            categoryRevenue.set(category, (categoryRevenue.get(category) || 0) + lineRevenue);
+        }
+    }
+
+    // শিপিং/ডেলিভারি খরচ
+    const shipping = toNumber(order.deliveryCharge, 0) || toNumber(order.shippingFee, 0);
+
+    // চার্জকৃত টোটাল থেকে ইতিমধ্যে বাদ যাওয়া ছাড় (কুপন / পয়েন্ট / ওয়ালেট)
+    const nettedDiscounts =
+        toNumber(order.discountAmount, 0) +
+        toNumber(order.couponDiscount, 0) +
+        toNumber(order.pointsRedeemed, 0) +
+        toNumber(order.walletApplied, 0);
+
+    // অর্ডারের পরে দেওয়া ক্যাশব্যাক — totalAmount-এ ধরা নেই, তাই সরাসরি খরচ
+    const rewardsExpense = toNumber(order.rewardsCashbackAmount, 0);
+    const discounts = nettedDiscounts + rewardsExpense;
+
+    // চার্জকৃত অ্যামাউন্ট, তারপর ছাড় ফেরত যোগ করে প্রকৃত গ্রস রেভিনিউ
+    let chargedAmount = toNumber(order.totalAmount, 0) || toNumber(order.grandTotal, 0);
+    if (chargedAmount <= 0) {
+        const subTotal = toNumber(order.subTotal, 0) || toNumber(order.subtotal, 0);
+        chargedAmount = subTotal > 0 ? subTotal + shipping : itemRevenue;
+    }
+    const grossRevenue = chargedAmount + nettedDiscounts;
+
+    // আইটেম থেকে COGS না পাওয়া গেলে অর্ডার-লেভেল স্ন্যাপশট, তারপর অনুপাত
+    if (cogs <= 0) {
+        const savedCogs = toNumber(order.totalBuyingPrice, 0);
+        cogs = savedCogs > 0
+            ? savedCogs
+            : (itemRevenue > 0 ? itemRevenue : grossRevenue) * DEFAULT_COST_RATIO;
+    }
+
+    const netProfit = grossRevenue - cogs - discounts - shipping;
+
+    return { grossRevenue, cogs, discounts, shipping, netProfit, itemRevenue };
+}
+
+/**
+ * Reliable JS-based metrics engine (MongoDB date filter + in-memory P&L).
+ * Primary calculation path — resilient to missing fields and legacy documents.
+ */
+async function computeFinanceMetricsJs(startDate, endDate, groupBy) {
+    const productCostMap = await buildProductCostMap();
+    const categoryMap = await buildCategoryMap();
+
+    let orders = [];
+    try {
+        orders = await Order.find(buildDateRangeQuery(startDate, endDate)).lean();
+    } catch (err) {
+        console.error('⚠️ Finance date-range query failed, retrying unfiltered:', err.message);
+        try {
+            orders = await Order.find({}).lean();
+        } catch (fallbackErr) {
+            console.error('🔴 Finance order fetch failed:', fallbackErr.message);
+            orders = [];
+        }
+    }
+
+    const bucketTotals = new Map();
+    const categoryRevenue = new Map();
+
+    let totalRevenue = 0;
+    let totalCOGS = 0;
+    let totalDiscounts = 0;
+    let totalShipping = 0;
+    let netProfit = 0;
+    let totalOrders = 0;
+
+    for (const order of orders) {
+        if (!order || !isCountableOrder(order)) continue;
+
+        // চূড়ান্ত তারিখ যাচাই — কোয়েরি ফলব্যাক হলেও রেঞ্জের বাইরে কিছু ঢুকবে না
+        const orderDate = resolveOrderDate(order);
+        if (!orderDate || orderDate < startDate || orderDate > endDate) continue;
+
+        const finance = computeOrderFinance(order, productCostMap, categoryMap, categoryRevenue);
+        if (finance.grossRevenue <= 0 && finance.cogs <= 0) continue;
+
+        totalRevenue += finance.grossRevenue;
+        totalCOGS += finance.cogs;
+        totalDiscounts += finance.discounts;
+        totalShipping += finance.shipping;
+        netProfit += finance.netProfit;
+        totalOrders += 1;
+
+        const bucketKey = getBucketKey(orderDate, groupBy);
+        if (bucketKey) {
+            const prev = bucketTotals.get(bucketKey) ||
+                { revenue: 0, cogs: 0, profit: 0, discounts: 0, shipping: 0, orders: 0 };
+            prev.revenue += finance.grossRevenue;
+            prev.cogs += finance.cogs;
+            prev.profit += finance.netProfit;
+            prev.discounts += finance.discounts;
+            prev.shipping += finance.shipping;
+            prev.orders += 1;
+            bucketTotals.set(bucketKey, prev);
+        }
+    }
+
+    return {
+        totalRevenue,
+        totalCOGS,
+        totalDiscounts,
+        totalShipping,
+        netProfit,
+        totalOrders,
+        bucketTotals,
+        categoryRevenue
+    };
+}
+
+/**
+ * MongoDB aggregation: $match → $unwind → cost fields → $group (time buckets + totals).
+ * COGS prefers order-item buyingPrice snapshot, then product catalog, then ratio fallback.
+ */
+async function aggregateFinanceByDateRange(startDate, endDate, groupBy) {
+    const dateFormat = groupBy === 'day' ? '%Y-%m-%d' : '%Y-%m';
+    const costRatio = DEFAULT_COST_RATIO;
+
+    const pipeline = [
+        {
+            $match: {
+                createdAt: { $gte: startDate, $lte: endDate }
+            }
+        },
+        {
+            $addFields: {
+                statusLower: { $toLower: { $ifNull: ['$status', ''] } }
+            }
+        },
+        {
+            $match: {
+                statusLower: { $nin: EXCLUDED_STATUSES }
+            }
+        },
+        {
+            $facet: {
+                lineItems: [
+                    { $match: { 'items.0': { $exists: true } } },
+                    { $unwind: '$items' },
+                    {
+                        $lookup: {
+                            from: 'products',
+                            let: { pid: '$items.productId', iid: '$items.id' },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: {
+                                            $or: [
+                                                { $eq: ['$productId', '$$pid'] },
+                                                { $eq: ['$productId', '$$iid'] },
+                                                { $eq: [{ $toString: '$_id' }, '$$pid'] },
+                                                { $eq: [{ $toString: '$_id' }, '$$iid'] }
+                                            ]
+                                        }
+                                    }
+                                },
+                                { $limit: 1 },
+                                {
+                                    $project: {
+                                        buyingPrice: 1,
+                                        costPrice: 1,
+                                        cost: 1,
+                                        purchasePrice: 1,
+                                        category: 1
+                                    }
+                                }
+                            ],
+                            as: 'productMatch'
+                        }
+                    },
+                    {
+                        $addFields: {
+                            quantity: { $max: [1, { $ifNull: ['$items.quantity', 1] }] },
+                            sellingPrice: {
+                                $ifNull: [
+                                    '$items.sellingPrice',
+                                    {
+                                        $ifNull: [
+                                            '$items.price',
+                                            { $ifNull: ['$items.unitPrice', { $ifNull: ['$items.salePrice', 0] }] }
+                                        ]
+                                    }
+                                ]
+                            },
+                            itemBuyingPrice: { $ifNull: ['$items.buyingPrice', 0] },
+                            catalogCost: {
+                                $let: {
+                                    vars: { p: { $arrayElemAt: ['$productMatch', 0] } },
+                                    in: {
+                                        $ifNull: [
+                                            '$$p.buyingPrice',
+                                            {
+                                                $ifNull: [
+                                                    '$$p.costPrice',
+                                                    { $ifNull: ['$$p.cost', { $ifNull: ['$$p.purchasePrice', 0] }] }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                }
+                            },
+                            itemCategory: {
+                                $ifNull: [
+                                    { $arrayElemAt: ['$productMatch.category', 0] },
+                                    { $ifNull: ['$items.category', 'General'] }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        $addFields: {
+                            unitCost: {
+                                $cond: [
+                                    { $gt: ['$itemBuyingPrice', 0] },
+                                    '$itemBuyingPrice',
+                                    {
+                                        $cond: [
+                                            { $gt: ['$catalogCost', 0] },
+                                            '$catalogCost',
+                                            { $multiply: ['$sellingPrice', costRatio] }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        $addFields: {
+                            lineRevenue: { $multiply: ['$sellingPrice', '$quantity'] },
+                            lineCOGS: { $multiply: ['$unitCost', '$quantity'] },
+                            bucketKey: {
+                                $dateToString: { format: dateFormat, date: '$createdAt' }
+                            }
+                        }
+                    },
+                    {
+                        $addFields: {
+                            lineProfit: { $subtract: ['$lineRevenue', '$lineCOGS'] }
+                        }
+                    },
+                    {
+                        $group: {
+                            _id: '$_id',
+                            orderRevenue: { $sum: '$lineRevenue' },
+                            orderCOGS: { $sum: '$lineCOGS' },
+                            orderProfit: { $sum: '$lineProfit' },
+                            bucketKey: { $first: '$bucketKey' },
+                            categories: {
+                                $push: {
+                                    category: '$itemCategory',
+                                    revenue: '$lineRevenue'
+                                }
+                            }
+                        }
+                    }
+                ],
+                emptyItems: [
+                    {
+                        $match: {
+                            $or: [
+                                { items: { $exists: false } },
+                                { items: { $size: 0 } }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields: {
+                            orderRevenue: { $ifNull: ['$totalAmount', { $ifNull: ['$grandTotal', 0] }] },
+                            orderCOGS: {
+                                $cond: [
+                                    { $gt: [{ $ifNull: ['$totalBuyingPrice', 0] }, 0] },
+                                    '$totalBuyingPrice',
+                                    {
+                                        $multiply: [
+                                            { $ifNull: ['$totalAmount', { $ifNull: ['$grandTotal', 0] }] },
+                                            costRatio
+                                        ]
+                                    }
+                                ]
+                            },
+                            bucketKey: {
+                                $dateToString: { format: dateFormat, date: '$createdAt' }
+                            }
+                        }
+                    },
+                    {
+                        $addFields: {
+                            orderProfit: { $subtract: ['$orderRevenue', '$orderCOGS'] }
+                        }
+                    },
+                    {
+                        $project: {
+                            orderRevenue: 1,
+                            orderCOGS: 1,
+                            orderProfit: 1,
+                            bucketKey: 1,
+                            categories: { $literal: [] }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $project: {
+                orders: { $concatArrays: ['$lineItems', '$emptyItems'] }
+            }
+        },
+        { $unwind: '$orders' },
+        { $replaceRoot: { newRoot: '$orders' } },
+        {
+            $group: {
+                _id: null,
+                totalRevenue: { $sum: '$orderRevenue' },
+                totalCOGS: { $sum: '$orderCOGS' },
+                netProfit: { $sum: '$orderProfit' },
+                totalOrders: { $sum: 1 },
+                bucketRows: {
+                    $push: {
+                        bucketKey: '$bucketKey',
+                        revenue: '$orderRevenue',
+                        cogs: '$orderCOGS',
+                        profit: '$orderProfit'
+                    }
+                },
+                categoryRows: { $push: '$categories' }
+            }
+        }
+    ];
+
+    const [aggResult] = await Order.aggregate(pipeline);
+
+    if (!aggResult) {
+        return {
+            totalRevenue: 0,
+            totalCOGS: 0,
+            netProfit: 0,
+            totalOrders: 0,
+            bucketTotals: new Map(),
+            categoryRevenue: new Map()
+        };
+    }
+
+    const bucketTotals = new Map();
+    for (const row of aggResult.bucketRows || []) {
+        if (!row || !row.bucketKey) continue;
+        const prev = bucketTotals.get(row.bucketKey) || { revenue: 0, cogs: 0, profit: 0, orders: 0 };
+        prev.revenue += toNumber(row.revenue, 0);
+        prev.cogs += toNumber(row.cogs, 0);
+        prev.profit += toNumber(row.profit, 0);
+        prev.orders += 1;
+        bucketTotals.set(row.bucketKey, prev);
+    }
+
+    const categoryRevenue = new Map();
+    for (const catGroup of aggResult.categoryRows || []) {
+        if (!Array.isArray(catGroup)) continue;
+        for (const entry of catGroup) {
+            if (!entry) continue;
+            const cat = entry.category || 'General';
+            categoryRevenue.set(cat, (categoryRevenue.get(cat) || 0) + toNumber(entry.revenue, 0));
+        }
+    }
+
+    return {
+        totalRevenue: toNumber(aggResult.totalRevenue, 0),
+        totalCOGS: toNumber(aggResult.totalCOGS, 0),
+        netProfit: toNumber(aggResult.netProfit, 0),
+        totalOrders: toNumber(aggResult.totalOrders, 0),
+        bucketTotals,
+        categoryRevenue
+    };
+}
+
+/* =========================================================================
+   GET /admin/api/analytics | /api/admin/analytics | /api/finance/analytics
+   -------------------------------------------------------------------------
+   Date-range analytics: summary KPIs + chartData time series.
+   Query: startDate & endDate (YYYY-MM-DD) OR period
+   (today|yesterday|7days|thismonth|all|custom).
+   ========================================================================= */
+const getFinanceAnalytics = async (req, res) => {
+    try {
+        const range = parseDateRangeQuery(req.query);
+        if (!range) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid date range. Use period or startDate/endDate (YYYY-MM-DD).'
+            });
+        }
+
+        const groupBy = resolveGroupBy(range.startDate, range.endDate);
+
+        // JS ইঞ্জিন প্রাইমারি — সম্পূর্ণ P&L (COGS, ডিসকাউন্ট, শিপিং) হিসাব করে
+        // এবং পুরোনো/অসম্পূর্ণ ডকুমেন্টেও নিরাপদে কাজ করে।
+        let agg = await computeFinanceMetricsJs(range.startDate, range.endDate, groupBy);
+
+        if (!agg || typeof agg.totalOrders !== 'number') {
+            agg = {
+                totalRevenue: 0,
+                totalCOGS: 0,
+                totalDiscounts: 0,
+                totalShipping: 0,
+                netProfit: 0,
+                totalOrders: 0,
+                bucketTotals: new Map(),
+                categoryRevenue: new Map()
+            };
+        }
+
+        const buckets = buildTimeBuckets(range.startDate, range.endDate, groupBy);
+
+        for (const [key, totals] of (agg.bucketTotals || new Map()).entries()) {
+            if (!buckets.has(key)) {
+                buckets.set(key, {
+                    key,
+                    label: formatBucketLabel(key, groupBy),
+                    revenue: 0,
+                    profit: 0,
+                    cogs: 0,
+                    orders: 0
+                });
+            }
+            const b = buckets.get(key);
+            b.revenue += totals.revenue || 0;
+            b.profit += totals.profit || 0;
+            b.cogs += totals.cogs || 0;
+            b.orders += totals.orders || 0;
+        }
+
+        const sortedBuckets = [...buckets.values()];
+        const totalRevenue = roundMoney(agg.totalRevenue || 0);
+        const totalCOGS = roundMoney(agg.totalCOGS || 0);
+        const totalDiscounts = roundMoney(agg.totalDiscounts || 0);
+        const totalShipping = roundMoney(agg.totalShipping || 0);
+        const netProfit = roundMoney(agg.netProfit || 0);
+        const totalOrders = toNumber(agg.totalOrders, 0);
+        const profitMargin = totalRevenue > 0 ? roundMoney((netProfit / totalRevenue) * 100) : 0;
+        const avgOrderValue = totalOrders > 0 ? roundMoney(totalRevenue / totalOrders) : 0;
+
+        const chartData = sortedBuckets.map((b) => ({
+            label: b.label,
+            key: b.key,
+            revenue: roundMoney(b.revenue),
+            profit: roundMoney(b.profit),
+            cogs: roundMoney(b.cogs),
+            discounts: roundMoney(b.discounts || 0),
+            shipping: roundMoney(b.shipping || 0),
+            orders: b.orders || 0
+        }));
+
+        const summary = {
+            sales: totalRevenue,
+            revenue: totalRevenue,
+            grossRevenue: totalRevenue,
+            profit: netProfit,
+            netProfit,
+            cogs: totalCOGS,
+            discounts: totalDiscounts,
+            shipping: totalShipping,
+            orders: totalOrders,
+            profitMargin,
+            avgOrderValue
+        };
+
+        const sortedCategories = [...(agg.categoryRevenue || new Map()).entries()]
+            .map(([name, revenue]) => ({ name, revenue: roundMoney(revenue) }))
+            .sort((a, b) => b.revenue - a.revenue);
+
+        const TOP_N = 6;
+        let topCategories = sortedCategories.slice(0, TOP_N);
+        const rest = sortedCategories.slice(TOP_N);
+        if (rest.length > 0) {
+            const othersTotal = roundMoney(rest.reduce((sum, c) => sum + c.revenue, 0));
+            if (othersTotal > 0) topCategories.push({ name: 'Others', revenue: othersTotal });
+        }
+
+        const now = new Date();
+
+        return res.json({
+            success: true,
+            currency: 'BDT',
+            generatedAt: now.toISOString(),
+            dateRange: {
+                startDate: range.startDate.toISOString(),
+                endDate: range.endDate.toISOString(),
+                period: range.preset,
+                preset: range.preset,
+                groupBy
+            },
+            summary,
+            chartData,
+            // Backward-compatible payload for existing finance-analytics.js
+            data: {
+                totalRevenue,
+                totalCOGS,
+                totalDiscounts,
+                totalShipping,
+                netProfit,
+                totalOrders,
+                profitMargin,
+                avgOrderValue,
+                periodRevenue: totalRevenue,
+                periodProfit: netProfit,
+                periodOrders: totalOrders,
+                revenueVsProfit: {
+                    labels: chartData.map((row) => row.label),
+                    revenue: chartData.map((row) => row.revenue),
+                    profit: chartData.map((row) => row.profit),
+                    cogs: chartData.map((row) => row.cogs)
+                },
+                topCategories: {
+                    labels: topCategories.map((c) => c.name),
+                    values: topCategories.map((c) => c.revenue)
+                }
+            }
+        });
+    } catch (err) {
+        console.error('🔴 Finance Analytics Error:', err);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to compute analytics for the selected date range.',
+            error: err.message || 'Unknown server error'
+        });
+    }
+};
+
+// Alias kept for older route registrations
+const getAnalyticsFilter = getFinanceAnalytics;
 
 /* =========================================================================
    ১. GET /api/finance/overview — KPI সামারি
@@ -453,6 +1203,8 @@ const verifyFinanceToken = async (req, res, next) => {
 module.exports = {
     getFinanceOverview,
     getFinanceChartData,
+    getFinanceAnalytics,
+    getAnalyticsFilter,
     financeAdminLogin,
     verifyFinanceToken
 };

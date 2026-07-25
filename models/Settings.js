@@ -53,6 +53,24 @@ const settingsSchema = new mongoose.Schema({
         type: String,
         default: '',
         trim: true
+    },
+    // 🚚 Courier gateway credentials — saved from Admin Master Settings and
+    // read at booking time, so providers/keys can be rotated without a deploy.
+    defaultCourierProvider: {
+        type: String,
+        enum: ['Steadfast', 'Pathao', 'RedX', ''],
+        default: '',
+        trim: true
+    },
+    courierApiKey: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    courierSecretKey: {
+        type: String,
+        default: '',
+        trim: true
     }
 }, {
     timestamps: true

@@ -4,7 +4,7 @@
 
 ### A Fully Dynamic, Production-Ready Full-Stack E-Commerce Platform
 
-*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), **Role-Based Access Control (RBAC) with dynamic Staff Management**, real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **unified master store settings engine** (announcements, free-shipping threshold, cashback, loyalty points & refund windows), **dynamic free-shipping waiver & live dashboard announcements**, **category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, **admin-configurable SMS gateway & automated order confirmation emails**, custom store branding, and a finance analytics dashboard.*
+*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), **Role-Based Access Control (RBAC) with dynamic Staff Management**, real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **1-click Steadfast Courier parcel booking from the admin panel**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **unified master store settings engine** (announcements, free-shipping threshold, cashback, loyalty points & refund windows), **dynamic free-shipping waiver & live dashboard announcements**, **category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, **admin-configurable SMS gateway & automated order confirmation emails**, custom store branding, and an **advanced Finance & P/L analytics dashboard** with itemized profit formulas, dynamic date-range filtering, and a dark/light theme engine.*
 
 ![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-3.6.0-success)
+![Version](https://img.shields.io/badge/Version-3.8.0-success)
 ![RBAC](https://img.shields.io/badge/RBAC-Staff%20Management-6f42c1)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
@@ -28,6 +28,8 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v3.8.0](#-whats-new--v380-advanced-finance-analytics--theme-engine)
+- [What's New — v3.7.0](#-whats-new--v370-automated-courier-integration--admin-orders-ui-overhaul)
 - [What's New — v3.6.0](#-whats-new--v360-dynamic-sms-gateway--order-email-notifications)
 - [What's New — v3.5.0](#-whats-new--v350-super-admin-rbac--staff-management)
 - [What's New — v3.4.0](#-whats-new--v340-unified-store-settings-free-shipping--orders-ux)
@@ -47,6 +49,8 @@
 - [Super Admin RBAC & Staff Management Architecture](#-super-admin-rbac--staff-management-architecture)
 - [Master Settings & Dynamic Rewards](#-master-settings--dynamic-rewards)
 - [Dynamic SMS Gateway & Email Notification System](#-dynamic-sms-gateway--email-notification-system)
+- [Automated Courier Integration & Admin Orders UI Overhaul](#-automated-courier-integration--admin-orders-ui-overhaul)
+- [Advanced Sales, Profit/Loss Analytics & Theme Engine](#-advanced-sales-profitloss-analytics--theme-engine)
 - [What's New — v3.2.0](#-whats-new--v320-time-sensitive-coupon-automation)
 - [Time-Sensitive Coupon Automation](#-time-sensitive-coupon-automation-system)
 - [What's New — v3.1.0](#-whats-new--v310-dynamic-delivery--address-management)
@@ -67,9 +71,9 @@
 
 ## 📖 Overview
 
-**EOnlineBazar** is a **fully dynamic, production-ready**, full-stack e-commerce platform built on **Node.js / Express 5** with a **MongoDB (Atlas)** database and a lightweight **Vanilla JavaScript** frontend served directly by Express. It follows a clean **MVC architecture** (`Models → Controllers → Routes`) and ships with everything a modern online store needs: secure customer authentication, a shopping cart with **guest-to-auth merge**, a persistent **My Wishlist**, smart checkout with profile-aware address selection, **dynamic shipping quotes & delivery estimates**, **AJAX promo-code recalculation**, order placement & live tracking with customer cancel/return workflows, **OTP-gated profile security & 1-click PDF invoices**, product reviews with image uploads, a loyalty wallet with admin-controlled reward economics, an enterprise catalog engine, a dedicated **Super Admin Panel** with **sales analytics, inventory alerts**, refund reversal safeguards, and a **Finance & Analytics** dashboard.
+**EOnlineBazar** is a **fully dynamic, production-ready**, full-stack e-commerce platform built on **Node.js / Express 5** with a **MongoDB (Atlas)** database and a lightweight **Vanilla JavaScript** frontend served directly by Express. It follows a clean **MVC architecture** (`Models → Controllers → Routes`) and ships with everything a modern online store needs: secure customer authentication, a shopping cart with **guest-to-auth merge**, a persistent **My Wishlist**, smart checkout with profile-aware address selection, **dynamic shipping quotes & delivery estimates**, **AJAX promo-code recalculation**, order placement & live tracking with customer cancel/return workflows, **OTP-gated profile security & 1-click PDF invoices**, product reviews with image uploads, a loyalty wallet with admin-controlled reward economics, an enterprise catalog engine, a dedicated **Super Admin Panel** with **sales analytics, inventory alerts**, refund reversal safeguards, and an **Advanced Finance & P/L Analytics** dashboard with itemized profit formulas, dynamic date-range filtering, Chart.js visualizations, and persistent dark/light theming.
 
-Six things set it apart:
+Eight things set it apart:
 
 1. **A database-backed session security layer** — every login (customer *and* admin) generates a unique session embedded inside the JWT, so users and admins can view all their **active devices** (IP, geo-location, browser & device) and **remotely log out** any device in real time.
 2. **A Fortified Admin Security Suite** — multi-option Two-Factor Authentication (**Email OTP**, **Google Authenticator / TOTP**, and **SMS OTP**), **Geo-Fencing (Region Lock)**, brute-force **auto IP-blacklisting**, rate-limiting, and a full login-history / security-audit trail.
@@ -78,6 +82,36 @@ Six things set it apart:
 5. **Unified Master Store Settings Engine** — one admin form controls announcement copy, **free-shipping threshold**, global cashback, points earning ratio, points-to-taka conversion, and refund-undo window; values sync to checkout, cart, order placement, and the customer dashboard in real time.
 6. **Time-Sensitive Coupon Automation** — precise hour/minute expiry scheduling, a server-side **ACTIVE / EXPIRED** status engine with bulk auto-expiry, checkout visibility synced to live availability, and hardened order-time coupon validation.
 7. **Super Admin RBAC & Staff Management** — a dynamic permission engine lets the owner create staff accounts with granular operational rights; unified `/admin/login` detects `superadmin` vs `staff`, the sidebar and API both enforce the same permission matrix, and blocked accounts lose access on the very next request.
+8. **One-Click Courier Parcel Booking** — Steadfast Courier API integration from **Live Orders** with MongoDB-stored credentials, atomic booking locks, tracking ID persistence, and automatic **Shipped** status updates — no redeploy required to rotate API keys.
+
+---
+
+## 🆕 What's New — v3.8.0 (Advanced Finance Analytics & Theme Engine)
+
+This release delivers a **production-grade Profit/Loss analytics engine** on the Finance dashboard — itemized COGS-aware formulas, MongoDB aggregation with dynamic date-range filtering, and a premium UI overhaul with persistent dark/light theming and Chart.js-linked KPI cards.
+
+| Capability | Highlights |
+|------------|------------|
+| **📈 Itemized Profit Calculation Engine** | Dynamic P&L formula: **`Net Profit = Gross Revenue − COGS − Item Discounts − Coupon Savings − Loyalty Point Redemptions`**; resilient JS + MongoDB aggregation pipelines with per-line `buyingPrice` snapshots. |
+| **📅 Dynamic Date-Range Filtering** | Real-time analytics across **`Today`**, **`Yesterday`**, **`Last 7 Days`**, **`This Month`**, **`All Time`**, and **Custom Calendar Dates** — query via `period` preset or `startDate`/`endDate` (YYYY-MM-DD). |
+| **🎨 Interactive Financial Dashboard UI** | Persistent **`🌙 Dark / ☀️ Light`** theme toggle (`localStorage` key `financeTheme`); high-`z-index` date-range dropdown layering; KPI cards (Gross Sales, Net Profit, Total Orders, Profit Margin %, Discounts Total) wired to live Chart.js datasets. |
+
+> 📌 See the dedicated [Advanced Sales, Profit/Loss Analytics & Theme Engine](#-advanced-sales-profitloss-analytics--theme-engine) section below for formulas, API routes, data-flow diagrams, and key files.
+
+---
+
+## 🆕 What's New — v3.7.0 (Automated Courier Integration & Admin Orders UI Overhaul)
+
+This release adds **production-ready Steadfast Courier automation** directly inside the admin order workflow, paired with a **premium Live Orders data-table redesign** for faster triage during deep scrolling.
+
+| Capability | Highlights |
+|------------|------------|
+| **🚚 Steadfast Courier API Engine** | One-click **`Send to Courier`** from **Live Orders**; credentials (`courierApiKey`, `courierSecretKey`, `defaultCourierProvider`) saved in **Master Settings** → MongoDB overrides `.env`; POST to Steadfast `create_order` with recipient info, COD amount, and invoice ID. |
+| **📦 Tracking & Status Automation** | On success, persists `courierTrackingId`, `courierConsignmentId`, and `courierStatus` on the order; sets status to **`Shipped`**; fires customer SMS status notification when enabled; logs a security audit event. |
+| **📌 Premium Live Orders Table** | Sticky `<thead>` (`position: sticky`) inside a bounded scroll container; compact `12px 16px` cell padding; green accent **Total** column; `#f8fafc` row hover transitions. |
+| **🎯 Re-architected Actions Column** | Horizontal toolbar — primary **`🚚 Send to Courier`** / green **`Sent`** tracking badge, sleek **Invoice** icon button, and danger-styled **Delete** icon — without breaking status updates, return approval, or refund undo. |
+
+> 📌 See the dedicated [Automated Courier Integration & Admin Orders UI Overhaul](#-automated-courier-integration--admin-orders-ui-overhaul) section below for schema fields, API routes, workflow diagrams, and key files.
 
 ---
 
@@ -150,8 +184,11 @@ From **Admin Panel → Master Settings** (`/admin` → **Master Settings**), adm
 | SMS Gateway Provider | `smsGatewayProvider` *(in `Settings`)* | — | `''` | Greenweb BD, BulkSMS BD, AlphaSMS, or Generic API |
 | SMS API Key | `smsApiKey` *(in `Settings`)* | — | `''` | Gateway token saved to MongoDB — overrides `.env` |
 | SMS Sender ID | `smsSenderId` *(in `Settings`)* | — | `''` | Approved sender label — overrides `.env` |
+| Default Courier Provider | `defaultCourierProvider` *(in `Settings`)* | — | `''` | `Steadfast`, `Pathao`, or `RedX` — automated booking live for **Steadfast** |
+| Courier API Key | `courierApiKey` *(in `Settings`)* | — | `''` | Steadfast `Api-Key` header — overrides `.env` |
+| Courier Secret Key | `courierSecretKey` *(in `Settings`)* | — | `''` | Steadfast `Secret-Key` header — overrides `.env` |
 
-> **Backward compatibility:** The legacy delivery document (`models/Settings.js`, `key: 'global'`) retains `freeShippingMinAmount` **and SMS gateway credentials**. Saving **Master Settings** mirrors the threshold into both documents and persists SMS provider fields to the global `Settings` singleton so checkout notifications never depend on redeploys.
+> **Backward compatibility:** The legacy delivery document (`models/Settings.js`, `key: 'global'`) retains `freeShippingMinAmount`, **SMS gateway credentials**, and **courier API credentials**. Saving **Master Settings** mirrors the threshold into both documents and persists SMS/courier provider fields to the global `Settings` singleton so checkout notifications and parcel booking never depend on redeploys.
 
 #### Fixed Backend API Endpoints
 Previously missing routes that caused `"API endpoint not found!"` on stale server instances are now registered and aliased:
@@ -392,7 +429,7 @@ End-to-end order lifecycle management for customers and admins — from responsi
 - The customer profile **My Orders** table uses `orders-table--responsive` CSS (`client/css/profile.css`) to transform rows into **stacked mobile cards** with `data-label` attributes for accessible field labels.
 - **v3.4.0:** Order ID and date render **inline** (`#EOB… • Date`) to save vertical space; the **entire row is clickable** and navigates to Order Details — list-level Invoice / Cancel / View Details buttons removed for a cleaner interface (actions live on `/order-details` only).
 - Desktop layouts retain a **compact, information-dense table** with product preview thumbnails, status badges, and an intentionally empty actions column.
-- Admin **Live Orders** (`client/js/admin.js`) renders optimized status cells with contextual badges and action controls.
+- Admin **Live Orders** (`client/js/admin.js`) renders a **premium sticky-header data table** with a horizontal action toolbar (courier booking, invoice, delete), compact column spacing, and contextual status badges.
 
 #### Customer Order Cancellation
 - Customers can cancel orders in **Pending** or **Processing** status from the profile dashboard.
@@ -423,6 +460,11 @@ End-to-end order lifecycle management for customers and admins — from responsi
 | `refundedAt` | `Date` | When wallet refund was processed |
 | `refundAmount` | `Number` | Exact amount credited to wallet |
 | `statusBeforeRefund` | `String` | Status restored on refund undo |
+| `courierProvider` | `String` | Courier used for booking (e.g. `Steadfast`) |
+| `courierTrackingId` | `String` | Public tracking code returned by the courier API |
+| `courierConsignmentId` | `String` | Internal consignment ID from the courier API |
+| `courierStatus` | `String` | Booking lifecycle (`unbooked`, `booking`, `in_review`, `failed`, …) |
+| `courierBookedAt` | `Date` | Timestamp when the parcel was successfully booked |
 
 ### Related API Endpoints
 
@@ -432,6 +474,8 @@ End-to-end order lifecycle management for customers and admins — from responsi
 | `POST` | `/api/orders/:id/return` | Customer return request with reason payload | User |
 | `PUT` | `/api/admin/orders/:id/approve-return` | Admin approve return → wallet refund | Admin + `manage_orders` |
 | `POST` | `/api/admin/orders/:id/undo-refund` | Admin safe refund reversal | Admin + `manage_orders` |
+| **`POST`** | **`/api/admin/orders/:id/send-courier`** | **Book parcel via Steadfast API — saves tracking IDs & sets status to `Shipped`** | **Admin + `manage_orders`** |
+| **`GET`** | **`/api/admin/courier/status`** | **Read courier config readiness (provider + credentials configured)** | **Admin** |
 | `GET` | `/api/orders/my-orders` | Customer order history with lifecycle fields | User |
 
 ---
@@ -705,6 +749,8 @@ Enterprise-grade refund governance for the Super Admin panel — full visibility
 - Status cells render **context-aware badges**: `Cancelled (Customer)`, `Cancelled (Admin)`, `Return Requested`, `Returned`, `Refunded`.
 - A **View Reason** control exposes cancellation/return details in a modal via `getOrderReasonDetails()` — including `initiatedBy` and full reason text.
 - Return-requested orders surface an **Approve Return** action; returned/refunded orders within the undo window show **Undo Refund**.
+- **Premium sticky-header table** (v3.7.0) with compact columns, green accent totals, and a horizontal **Actions** toolbar.
+- **One-click Steadfast Courier booking** — **`🚚 Send to Courier`** creates a real consignment, saves tracking IDs, and marks the order **Shipped**; booked rows show a clickable **`🚚 Sent`** tracking badge.
 
 #### Return Approval & Wallet Integration
 - `approveOrderReturn()` atomically transitions status **`Return Requested` → `Returned`**, records `refundedAt` and `refundAmount` (exact `grandTotal` paid), and credits the customer's **wallet balance**.
@@ -1122,6 +1168,212 @@ MongoDB (Admin Master Settings)  →  .env fallbacks  →  dev console fallback
 | `utils/mailer.js` | SMTP transport, order confirmation HTML builder, port failover |
 | `client/admin.html` | Master Settings → **SMS Notifications** card (provider dropdown + credentials) |
 | `client/js/admin.js` | SMS form wiring, live preview, unified save payload |
+
+---
+
+## 🚚 Automated Courier Integration & Admin Orders UI Overhaul
+
+A **Steadfast Courier API engine** wired directly into the admin **Live Orders** workflow — plus a premium data-table redesign that keeps long order queues scannable without breaking existing status, return, invoice, or delete actions.
+
+> **Note:** The admin panel is a static SPA (`client/admin.html` + `client/js/admin.js`) — there is no `views/admin/orders.ejs` template in this repository.
+
+### Steadfast Courier API Engine
+
+#### Admin-Configurable Credentials
+From **Admin Panel → Master Settings → Courier Booking**, operators save courier credentials through the same unified **Save Master Settings** action used for SMS and rewards — no redeploy required to rotate keys or switch the default provider label:
+
+| Setting | Schema / Document | Options / Type | Purpose |
+|---------|-------------------|------------------|---------|
+| Default Courier Provider | `Settings.defaultCourierProvider` | `Steadfast` · `Pathao` · `RedX` | Labels the booking button; **automated API booking is live for Steadfast** |
+| Courier API Key | `Settings.courierApiKey` | String | Sent as Steadfast `Api-Key` header — overrides `STEADFAST_API_KEY` / `COURIER_API_KEY` |
+| Courier Secret Key | `Settings.courierSecretKey` | String | Sent as Steadfast `Secret-Key` header — overrides `STEADFAST_SECRET_KEY` / `COURIER_SECRET_KEY` |
+
+#### One-Click Parcel Booking (`POST /api/admin/orders/:id/send-courier`)
+When an admin clicks **`🚚 Send to Courier`** on an unbooked order:
+
+1. **`utils/courierService.js`** loads credentials from MongoDB (`.env` fallback).
+2. Validates recipient name, 11-digit BD mobile, and delivery address **before** any HTTP call.
+3. POSTs to **`https://portal.steadfast.com.bd/api/v1/create_order`** with:
+   - `invoice` — order ID
+   - `recipient_name`, `recipient_phone`, `recipient_address`
+   - `cod_amount` — `grandTotal` for COD orders, **`0`** for prepaid methods
+4. On success, **`controllers/courierController.js`** atomically:
+   - Saves `courierTrackingId`, `courierConsignmentId`, `courierProvider`, `courierStatus`, `courierBookedAt`
+   - Sets order **`status = 'Shipped'`** (unless already delivered/shipped)
+   - Fires **`notifyOrderStatusUpdated`** when SMS notifications are enabled
+   - Writes a **Security Log** audit entry
+
+**Safety guards:**
+- **Double-click protection** — atomic `courierStatus: 'booking'` claim prevents duplicate consignments; stale locks expire after 2 minutes.
+- **409 Conflict** if the order is already booked or a booking is in progress.
+- **Non-shippable statuses** (`Cancelled`, `Returned`, `Refunded`, `Return Requested`) are rejected before API dispatch.
+- Service **never throws** — all failures return readable `{ success: false, message }` JSON for admin toasts.
+
+#### Order Schema — Courier Fields (`models/order.js`)
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `courierProvider` | `String` | `''` | Active courier (e.g. `Steadfast`) |
+| `courierTrackingId` | `String` | `''` | Public tracking code from the API |
+| `courierConsignmentId` | `String` | `''` | Internal consignment ID |
+| `courierStatus` | `String` | `'unbooked'` | Booking lifecycle state |
+| `courierBookedAt` | `Date` | `null` | Successful booking timestamp |
+
+### Premium Live Orders Data-Table UI
+
+The **Live Orders** view (`#view-orders` in `client/admin.html`) received a scoped CSS + markup overhaul in `client/css/admin.css` and `client/js/admin.js`:
+
+#### Sticky Table Header (`<thead>` Lockdown)
+- Table body scrolls inside **`.orders-table-scroll`** (`max-height: ~68vh`) while column headers stay pinned.
+- `<th>` cells use **`position: sticky; top: 0; z-index: 10`** with a `#f8fafc` background, crisp `border-b`, and subtle shadow — headers remain visible during deep scrolling through large order queues.
+
+#### Re-architected Actions Column
+- Wider **`.order-actions-toolbar`** — `display: flex; align-items: center; gap: 8px; justify-content: flex-end`.
+- **Courier booking** — rounded primary pill **`🚚 Send to Courier`**; booked orders show a green **`🚚 Sent · [tracking]`** badge linking to Steadfast tracking.
+- **Invoice** — sleek blue icon button with hover tooltip (`title="View Invoice"`).
+- **Delete** — danger-styled trash icon (`border-red-200`, `text-red-600`, `hover:bg-red-50` treatment).
+- **Approve Return** pill retained for `Return Requested` rows; **status `<select>`** unchanged in the Status column.
+
+#### Compact Cell Spacing & Modern Aesthetics
+- Uniform cell padding **`12px 16px`** for optimal density.
+- Tighter **Order ID** (blue chip), **Customer** (stacked name + phone), and **Total** columns — reduced horizontal whitespace.
+- **Total Payable** rendered as bold green accent (`#059669`, tabular nums).
+- Row hover: **`#f8fafc`** background with smooth `0.18s` transition.
+- Address and product columns use line-clamp / compact list styling for readability without bloating row height.
+
+### Courier Booking Workflow
+
+```mermaid
+flowchart TD
+    A[Admin clicks Send to Courier] --> B[POST /api/admin/orders/:id/send-courier]
+    B --> C{Already booked?}
+    C -->|Yes| D[409 — show existing tracking ID]
+    C -->|No| E[Atomic booking lock on order]
+    E --> F[courierService.loadCourierConfig]
+    F --> G[POST Steadfast create_order]
+    G -->|Fail| H[Release lock — toast error]
+    G -->|Success| I[Save tracking + consignment IDs]
+    I --> J[Set status = Shipped]
+    J --> K[Optional SMS status notify]
+    K --> L[Security audit log]
+    L --> M[Toast: Parcel booked! Tracking ID: XYZ]
+```
+
+### Related API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| **`POST`** | **`/api/admin/orders/:id/send-courier`** | Book Steadfast parcel; persist tracking IDs; mark order **Shipped** | **Admin + `manage_orders`** |
+| **`GET`** | **`/api/admin/courier/status`** | Returns `{ provider, isConfigured, supportsBooking }` without exposing secrets | **Admin** |
+
+### Configuration Priority
+
+```
+MongoDB (Master Settings → Courier Booking)  →  .env fallbacks  →  booking blocked with clear admin message
+```
+
+| Variable | Required | Purpose |
+|----------|:--------:|---------|
+| `Settings.courierApiKey` | ✅* | Steadfast `Api-Key` (Admin Panel preferred) |
+| `Settings.courierSecretKey` | ✅* | Steadfast `Secret-Key` (Admin Panel preferred) |
+| `STEADFAST_API_URL` | ⛔ | Override create-order endpoint (default: Steadfast portal URL) |
+| `STEADFAST_API_KEY` / `COURIER_API_KEY` | ⛔ | `.env` fallback when DB fields are empty |
+| `STEADFAST_SECRET_KEY` / `COURIER_SECRET_KEY` | ⛔ | `.env` fallback when DB fields are empty |
+| `COURIER_API_TIMEOUT_MS` | ⛔ | HTTP timeout for courier API calls (default `20000`) |
+
+> \* Automated booking requires both API key and secret key — configure them in **Master Settings** or `.env`.
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `models/Settings.js` | Global singleton — `defaultCourierProvider`, `courierApiKey`, `courierSecretKey` |
+| `models/order.js` | Courier tracking fields on each order document |
+| `utils/courierService.js` | Steadfast HTTP engine, phone/COD normalization, fail-safe result objects |
+| `controllers/courierController.js` | Booking route handler, atomic lock, status update, audit logging |
+| `controllers/masterSettingsController.js` | Read/save courier credentials alongside SMS & rewards |
+| `routes/adminRoutes.js` | Registers `POST …/send-courier` and `GET /courier/status` |
+| `client/admin.html` | Master Settings → **Courier Booking** card + Live Orders table shell |
+| `client/js/admin.js` | `buildCourierActionHtml()`, `sendOrderToCourier()`, premium row renderer |
+| `client/css/admin.css` | Scoped `#view-orders` sticky header, action toolbar, compact table styles |
+
+---
+
+## 📊 Advanced Sales, Profit/Loss Analytics & Theme Engine
+
+Enterprise-grade **Profit/Loss intelligence** for the Finance & Analytics panel (`/finance-analytics`) — dynamic itemized formulas, MongoDB-backed date-range aggregation, and a premium dashboard UI with persistent theming and Chart.js visual analytics.
+
+### Feature Overview
+
+#### Itemized Profit Calculation Engine
+- Implemented dynamic itemized profit & loss formulas:
+
+  **`Net Profit = Gross Revenue − COGS (Cost of Goods Sold) − Item Discounts − Coupon Savings − Loyalty Point Redemptions`**
+
+- **Gross Revenue** is grossed-up from the charged order total so discounts already netted in `grandTotal` are not double-counted against profit.
+- **COGS** is computed per line item as **`buyingPrice × quantity`**, preferring the **checkout snapshot** on each order line, then catalog `buyingPrice`, then `FINANCE_DEFAULT_COST_RATIO` fallback.
+- **Discounts & redemptions** aggregate `discountAmount`, `couponDiscount`, `pointsRedeemed`, `walletApplied`, and post-order `rewardsCashbackAmount`.
+- Built custom **MongoDB aggregation pipelines** (`computeFinanceMetricsAggregation`) plus a resilient **JS primary engine** (`computeFinanceMetricsJs`) supporting real-time filtering across any dynamic date range:
+  - **`Today`** · **`Yesterday`** · **`Last 7 Days`** · **`This Month`** · **`All Time`** · **Custom Calendar Dates**
+- Query parameters: `period` (`today` \| `yesterday` \| `7days` \| `thismonth` \| `all` \| `custom`) **or** paired `startDate` / `endDate` (YYYY-MM-DD).
+
+#### Interactive Financial Dashboard UI
+- Integrated a persistent **Dark/Light Theme Toggle** (**`🌙 Dark / ☀️ Light`**) storing user preference in **`localStorage`** (`financeTheme`); applied before first paint to prevent theme flash.
+- Resolved UI/CSS **dropdown overlay issues** using high **`z-index`** layering (`z-index: 9999` on date-range panel, header controls, and preset menus in `finance-analytics.css`).
+- Linked **real-time summary metrics** with dynamic **Chart.js** datasets for instant visual analytics:
+  - **Gross Sales (Gross Revenue)** · **Net Profit** · **Total Orders** · **Profit Margin %** · **Discounts Total**
+  - Secondary mini-stats: **Product Cost (COGS)**, **Discounts & Redemptions**, **Shipping Expenses**, **Orders in Range**
+  - **Revenue vs Net Profit** line chart and **Top Selling Categories** pie chart refresh on every preset/custom range change — no full page reload.
+
+### Analytics Data Flow
+
+```mermaid
+flowchart LR
+    A[Finance dashboard load] --> B[Date preset or custom range]
+    B --> C[GET /api/finance/analytics]
+    C --> D[parseDateRangeQuery + Order aggregation]
+    D --> E[Itemized P&L per order]
+    E --> F[KPI cards + mini-stats]
+    E --> G[Chart.js revenue/profit + category charts]
+    H[Theme toggle] --> I[localStorage financeTheme]
+    I --> J[CSS var swap + chart re-tint]
+```
+
+### Related API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| **`GET`** | **`/api/finance/analytics`** | **Date-range P&L summary + Chart.js series** (`period` or `startDate`/`endDate`) | **Finance token** **or** Admin + `view_analytics` |
+| **`GET`** | **`/api/finance/analytics/filter`** | Backward-compatible alias for the analytics engine | **Finance token** **or** Admin + `view_analytics` |
+| **`GET`** | **`/api/admin/analytics`** | Same analytics payload for authenticated admin sessions | **Admin + `view_analytics`** |
+| **`GET`** | **`/admin/api/analytics`** | Legacy finance-dashboard alias (finance token) | **Finance token** |
+
+**Response shape (`summary` object):**
+
+| Key | Contents |
+|-----|----------|
+| `grossRevenue` / `sales` | Gross revenue for the selected range |
+| `netProfit` / `profit` | Itemized net profit after COGS & discount deductions |
+| `cogs` | Total cost of goods sold |
+| `discounts` | Combined item discounts, coupons, points & wallet redemptions |
+| `orders` | Order count in range |
+| `profitMargin` | `(netProfit / grossRevenue) × 100` |
+| `avgOrderValue` | Average gross revenue per order |
+
+> **`chartData`** returns time-bucketed `{ label, revenue, profit, cogs, orders }` arrays; **`categories`** returns top revenue share by product category for the pie chart.
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `controllers/financeController.js` | `getFinanceAnalytics()`, `computeOrderFinance()`, date-range parser, JS + MongoDB aggregation engines |
+| `routes/financeRoutes.js` | `GET /api/finance/analytics` and `/analytics/filter` |
+| `routes/adminRoutes.js` | `GET /api/admin/analytics` (`verifyAdmin` + `view_analytics`) |
+| `server.js` | Legacy alias `GET /admin/api/analytics` |
+| `client/finance-analytics.html` | KPI grid, date-range presets, theme toggle, Chart.js canvases |
+| `client/js/finance-analytics.js` | `loadAnalyticsData()`, theme persistence, Chart.js renderers, preset/custom handlers |
+| `client/css/finance-analytics.css` | Dark/light CSS tokens, high-`z-index` dropdown layering, responsive KPI/chart grid |
+| `models/order.js` | `items[].buyingPrice` snapshots, `grandTotal`, discount & redemption fields — P&L source data |
 
 ---
 
@@ -1621,7 +1873,7 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 
 #### Product & Order Systems
 - **🛍️ Product Catalog** — Up to 10 images, categories, brand, variations, highlights, stock levels, **selling price + buying price** (live profit preview), and detailed descriptions.
-- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **clickable order rows** (v3.4.0) with inline ID/date meta, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals (actions on detail view only), dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, **1-click PDF invoice download** from Order Details, and **automated order confirmation emails** on every successful checkout.
+- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **clickable order rows** (v3.4.0) with inline ID/date meta, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals (actions on detail view only), dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, **1-click PDF invoice download** from Order Details, **automated order confirmation emails** on every successful checkout, and **admin one-click Steadfast Courier parcel booking** with tracking ID persistence (v3.7.0).
 - **🔄 Admin Return & Refund Pipeline** — Approve returns with automatic wallet credit, transaction history logging, and **Safe Undo Refund** within a configurable hour window (spent-funds safety check).
 - **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, **unified free-shipping threshold** (Master Settings ↔ Delivery Settings mirror), **real-time free-shipping progress** on cart/checkout, **real-time delivery date estimates** on checkout, **locked server-side totals** on every order, and district-aware invoices.
 - **📍 Smart Checkout Address Integration** — Profile-first checkout pre-fill, toggleable saved-address radio cards (select / unselect / revert), manual override with **Save to profile** sync, and cascading Bangladesh location dropdowns.
@@ -1655,23 +1907,26 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 - **Custom Currency Formatting** — Currency Code (`BDT`) & Symbol (`৳`) applied to every admin price column.
 - **Timezone Synchronization** — dynamically updates the admin dashboard header's **live digital clock**.
 - **Delivery Charge Control** — configure Shop Home City, inside/outside rates, and free-shipping threshold from the admin settings panel (synced with Master Settings).
-- **Unified Master Settings Panel** — single form for announcement text, free-shipping threshold, global cashback %, points earning ratio, points-to-taka conversion rate, refund undo window, and **SMS gateway configuration** — all with live preview.
+- **Unified Master Settings Panel** — single form for announcement text, free-shipping threshold, global cashback %, points earning ratio, points-to-taka conversion rate, refund undo window, **SMS gateway configuration**, and **courier booking credentials** — all with live preview.
 - **📩 Customer Notification Engine** — admin-configurable SMS gateway (Greenweb BD, BulkSMS BD, AlphaSMS, Generic API) with MongoDB-stored credentials; automated order confirmation emails via Nodemailer with fail-safe async dispatch.
+- **🚚 Courier Parcel Booking** — Steadfast API integration from Live Orders; MongoDB-stored API key/secret; atomic booking lock; tracking ID + consignment ID saved on the order document.
 - **Category Cashback Overrides** — per-category custom cashback percentages with seamless fallback to global defaults.
 - **Account & Profile** — username/password change (current-password gated), display name, store name, and admin avatar upload.
 
 ### 🖥️ Super Admin Panel (`/admin`)
 - **📊 Dashboard Overview** — **Sales & Business Analytics** (revenue daily/monthly/all-time, order counters, Chart.js sales trend + top-5 product charts) plus **Inventory Alerts** widget with inline stock updates; **Customer Insights** metrics (total/verified/pending/blocked users) and a **6-month registration growth chart** (Chart.js). *(Requires `view_analytics` for staff.)*
 - **👥 Customer Management** — View, edit, block, suspend, reactivate; order-count badges; per-customer order history modal. *(Requires `manage_customers`.)*
-- **📦 Live Orders** — Real-time table with distinct customer/admin cancellation badges, return approval, safe refund undo, reason visibility, invoice view/print, search, filter, and pagination. *(Requires `manage_orders`.)*
+- **📦 Live Orders** — Premium sticky-header table with compact spacing, horizontal action toolbar (**Send to Courier**, Invoice, Delete), distinct customer/admin cancellation badges, return approval, safe refund undo, reason visibility, invoice view/print, search, filter, and pagination. *(Requires `manage_orders`.)*
 - **🛍️ Product CRUD** — Add/edit with images, buying/selling price, live profit preview, bulk delete, CSV export, and print-ready tables. *(Requires `manage_inventory`.)*
 - **👤 Staff Management** — Create, permission-assign, block, reset password, and delete staff accounts with a dynamic permission matrix. *(Super Admin only.)*
 - **🔔 Professional UX** — SweetAlert2 toasts + modal confirmations, asynchronous DOM re-rendering (instant UI sync, no manual refresh), permission-aware sidebar gating.
 
 ### 💹 Finance & Analytics (`/finance-analytics`)
 - Secure password gate (`ADMIN_DASHBOARD_PASSWORD`) with a dedicated finance token (also accepts an admin JWT with **`view_analytics`** permission).
-- KPIs: Total Revenue, Net Profit, Daily/Monthly Profit, Avg. Order Value, Profit Margin.
-- Charts: 12-month Revenue vs Profit (line) and Top Selling Categories (pie).
+- **Advanced P/L engine** — itemized **`Net Profit = Gross Revenue − COGS − Item Discounts − Coupon Savings − Loyalty Point Redemptions`** with dynamic date-range presets (`Today`, `Yesterday`, `Last 7 Days`, `This Month`, `All Time`, Custom).
+- KPIs: **Gross Sales**, **Net Profit**, **Total Orders**, **Profit Margin %**, **Discounts Total**, plus COGS / shipping mini-stats.
+- Charts: **Revenue vs Net Profit** (line) and **Top Selling Categories** (pie) — Chart.js datasets refresh instantly on range change.
+- Persistent **`🌙 Dark / ☀️ Light`** theme toggle with `localStorage` preference and flash-free first paint.
 
 ### 🌐 Platform
 - **Clean URLs** — Automatic `.html` stripping and 301 redirects for SEO-friendly routes.
@@ -1720,7 +1975,7 @@ eonlinebazar-fullstack/
 │   ├── wishlist.js                    # Wishlist item subdocument schema (productId, name, price, image…)
 │   ├── userSession.js                 # Active customer device / login sessions
 │   ├── admin.js                       # Admin account — RBAC fields, 2FA, bcrypt hashing & platform settings
-│   ├── Settings.js                    # Singleton delivery charge settings (key: global)
+│   ├── Settings.js                    # Singleton delivery + SMS + courier settings (key: global)
 │   ├── Setting.js                     # Singleton master store settings (key: master — rewards, threshold, announcement)
 │   ├── adminSession.js                # Active admin device / login sessions
 │   ├── loginAttempt.js                # Login history & failed/blocked attempt audit
@@ -1731,7 +1986,7 @@ eonlinebazar-fullstack/
 │   ├── brand.js                       # Product brands (slug + product references)
 │   ├── attribute.js                   # Product attributes / variants (Size, Color…)
 │   ├── coupon.js                      # Coupons & discounts (status ACTIVE/EXPIRED, precise expiryDate, usage limits)
-│   ├── order.js                       # Orders with lifecycle fields (cancelReason, cancelledBy, returnReason, refund metadata)
+│   ├── order.js                       # Orders with lifecycle + courier tracking fields (cancelReason, courierTrackingId…)
 │   ├── cart.js                        # Shopping cart
 │   └── review.js                      # Product reviews & ratings
 │
@@ -1742,7 +1997,8 @@ eonlinebazar-fullstack/
 │   ├── adminController.js             # Admin customers, dashboard analytics, platform branding, logs, profile
 │   ├── staffController.js             # Staff CRUD, permission catalog, status toggle & password reset
 │   ├── settingsController.js          # Delivery charge & free-shipping settings (admin API)
-│   ├── masterSettingsController.js    # Unified master settings — announcement, threshold, rewards & refund window
+│   ├── masterSettingsController.js    # Unified master settings — announcement, threshold, rewards, SMS & courier credentials
+│   ├── courierController.js           # Admin courier booking API — Steadfast dispatch, atomic lock, status update
 │   ├── storeController.js             # Public storefront branding, delivery settings, shipping quotes & announcements
 │   ├── adminSecurityController.js     # 2-step login, admin sessions, IP blacklist, login history
 │   ├── twoFactorController.js         # Self-service 2FA manager (Email / TOTP / SMS)
@@ -1753,7 +2009,7 @@ eonlinebazar-fullstack/
 │   ├── orderController.js             # Orders, cancel/return, return approval, refund undo, invoice PDF, order email/SMS hooks
 │   ├── cartController.js              # Cart operations
 │   ├── reviewController.js            # Review system
-│   └── financeController.js           # Revenue, profit & chart analytics
+│   └── financeController.js           # Revenue, itemized P&L analytics & date-range aggregation engine
 │
 ├── routes/                            # Express route definitions (routing layer)
 │   ├── authRoutes.js                  # /api/auth
@@ -1784,6 +2040,7 @@ eonlinebazar-fullstack/
 │   ├── mailer.js                      # SMTP transport, admin 2FA OTP + order confirmation HTML emails
 │   ├── smsService.js                  # DB-backed SMS gateway engine (order/status/OTP templates)
 │   ├── smsSender.js                   # Admin/security SMS OTP wrapper (console fallback)
+│   ├── courierService.js              # Steadfast Courier API engine — config load, booking, tracking URLs
 │   ├── deliveryChargeService.js       # Shared delivery zone + fee + free-shipping progress + locked totals
 │   ├── deliveryEstimateService.js     # Business-day delivery window estimates by shipping zone
 │   ├── announcementSettings.js        # Live announcement text, highlight chips & public payload builder
@@ -1811,7 +2068,7 @@ eonlinebazar-fullstack/
 │   ├── verify-otp.html                # 2-Step Verification (Email / TOTP / SMS)
 │   ├── admin.html                     # Super Admin panel (SPA — includes Staff Management)
 │   ├── finance-login.html             # Finance password gate
-│   ├── finance-analytics.html         # Finance & analytics dashboard
+│   ├── finance-analytics.html         # Finance & analytics dashboard (P/L KPIs, theme toggle, Chart.js)
 │   ├── css/                           # Page-scoped stylesheets (admin.css, verify-otp.css…)
 │   ├── js/                            # Page scripts (admin.js, admin-staff.js, checkout.js, profile.js…)
 │   │   ├── admin-staff.js             # RBAC sidebar gating + Staff Management console
@@ -1885,6 +2142,15 @@ SMS_API_METHOD=post
 # SMS_API_KEY=
 
 # ===============================================================
+# 🚚 STEADFAST COURIER (optional .env fallbacks — Master Settings preferred)
+# Credentials saved in Admin Panel override these at booking time.
+# ===============================================================
+# STEADFAST_API_URL=https://portal.steadfast.com.bd/api/v1/create_order
+# STEADFAST_API_KEY=your_steadfast_api_key
+# STEADFAST_SECRET_KEY=your_steadfast_secret_key
+# COURIER_API_TIMEOUT_MS=20000
+
+# ===============================================================
 # 🔑 GOOGLE AUTHENTICATOR (TOTP)
 # Issuer label shown inside the authenticator app
 # ===============================================================
@@ -1928,6 +2194,10 @@ CLOUDINARY_API_SECRET=your_api_secret
 | `SMS_API_KEY` | ⛔ | API token/key for the custom gateway |
 | `SMS_API_METHOD` | ⛔ | `post` (JSON body, default) or `get` (query-string) |
 | `STORE_PUBLIC_URL` | ⛔ | Public store URL for order-tracking links in confirmation SMS |
+| `STEADFAST_API_KEY` / `COURIER_API_KEY` | ⛔ | Steadfast `Api-Key` fallback when not set in Master Settings |
+| `STEADFAST_SECRET_KEY` / `COURIER_SECRET_KEY` | ⛔ | Steadfast `Secret-Key` fallback when not set in Master Settings |
+| `STEADFAST_API_URL` | ⛔ | Override Steadfast create-order endpoint |
+| `COURIER_API_TIMEOUT_MS` | ⛔ | Courier HTTP timeout in ms (default `20000`) |
 | `TOTP_ISSUER` | ⛔ | Label shown in Google Authenticator |
 | `SMTP_HOST/PORT/USER/PASS` | ✅* | Email OTP & password-reset delivery |
 | `EMAIL_USER/EMAIL_PASS` | ⛔ | Legacy SMTP fallback |
@@ -2084,6 +2354,8 @@ Base URL: `http://localhost:3000`
 | `PUT`  | `/api/orders/:id` | Update order status (admin cancel sets `cancelledBy: 'Admin'`) | Admin + `manage_orders` |
 | **`PUT`** | **`/api/admin/orders/:id/approve-return`** | **Approve return → credit exact paid amount to customer wallet** | **Admin + `manage_orders`** |
 | **`POST`** | **`/api/admin/orders/:id/undo-refund`** | **Safe refund reversal within configured undo window** | **Admin + `manage_orders`** |
+| **`POST`** | **`/api/admin/orders/:id/send-courier`** | **Book Steadfast parcel — save tracking IDs & set status to `Shipped`** | **Admin + `manage_orders`** |
+| **`GET`** | **`/api/admin/courier/status`** | **Courier config readiness (provider + credentials configured)** | **Admin** |
 | `DELETE` | `/api/orders/:id` | Delete order | Admin + `manage_orders` |
 
 ### 🗂️ Catalog — Categories, Brands, Attributes
@@ -2199,8 +2471,12 @@ Base URL: `http://localhost:3000`
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
 | `POST` | `/api/finance/admin-login` | Issue finance session token | Public |
-| `GET`  | `/api/finance/overview` | Revenue, profit, margin KPIs | Finance **or** Admin + `view_analytics` |
-| `GET`  | `/api/finance/chart-data` | 12-month charts & category breakdown | Finance **or** Admin + `view_analytics` |
+| `GET`  | `/api/finance/overview` | Revenue, profit, margin KPIs (legacy) | Finance **or** Admin + `view_analytics` |
+| `GET`  | `/api/finance/chart-data` | 12-month charts & category breakdown (legacy) | Finance **or** Admin + `view_analytics` |
+| **`GET`** | **`/api/finance/analytics`** | **Date-range P&L summary + Chart.js series** (`period` or `startDate`/`endDate`) | **Finance** **or** Admin + `view_analytics` |
+| **`GET`** | **`/api/finance/analytics/filter`** | Backward-compatible alias | **Finance** **or** Admin + `view_analytics` |
+| **`GET`** | **`/api/admin/analytics`** | Same analytics payload for admin JWT sessions | **Admin + `view_analytics`** |
+| **`GET`** | **`/admin/api/analytics`** | Legacy finance-dashboard alias | **Finance token** |
 
 > ² `/api/coupons/apply` uses optional customer auth: a valid Bearer token enables per-user limit enforcement; guests can still preview.
 > **Customer account status:** `active` · `suspended` · `blocked` — suspended/blocked users cannot log in.
@@ -2294,11 +2570,41 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 | Admin UI | Profit preview | Live margin badge on Manage Products & edit modal |
 | Admin UI | Edit Product modal | Wide responsive grid layout for desktop data entry (expanded variations & image preview) |
 
-> **Net Profit logic:** `(sellingPrice − buyingPrice) × quantity` using the **buying-price snapshot** on each order line at checkout. Falls back to catalog `buyingPrice`, then `costPrice`, then `FINANCE_DEFAULT_COST_RATIO` (default `0.70`).
+> **Net Profit logic (v3.8.0):** **`Net Profit = Gross Revenue − COGS − Item Discounts − Coupon Savings − Loyalty Point Redemptions`**. COGS uses the **buying-price snapshot** on each order line at checkout (`buyingPrice × quantity`), with fallbacks to catalog `buyingPrice`, `costPrice`, then `FINANCE_DEFAULT_COST_RATIO` (default `0.70`). Gross revenue is grossed-up from the charged total so netted discounts are not applied twice. Legacy overview/chart endpoints (`/api/finance/overview`, `/api/finance/chart-data`) remain available for backward compatibility.
 
 ---
 
 ## 📜 Changelog
+
+### `v3.8.0` — Advanced Finance Analytics & Theme Engine
+
+**📈 Itemized Profit Calculation Engine**
+- New dynamic P&L formula: **`Net Profit = Gross Revenue − COGS − Item Discounts − Coupon Savings − Loyalty Point Redemptions`** in `controllers/financeController.js` (`computeOrderFinance`, `computeItemFinance`).
+- Custom **MongoDB aggregation pipelines** plus resilient **JS primary engine** for date-filtered order analytics — handles legacy/incomplete documents safely.
+- Dynamic date-range presets: **`Today`**, **`Yesterday`**, **`Last 7 Days`**, **`This Month`**, **`All Time`**, and **Custom Calendar Dates** via `parseDateRangeQuery()`.
+- New protected endpoints: **`GET /api/finance/analytics`**, **`GET /api/finance/analytics/filter`**, **`GET /api/admin/analytics`**, and legacy alias **`GET /admin/api/analytics`**.
+
+**🎨 Interactive Financial Dashboard UI**
+- Premium Finance dashboard overhaul in `client/finance-analytics.html`, `client/js/finance-analytics.js`, and `client/css/finance-analytics.css`.
+- Persistent **Dark/Light Theme Toggle** (**`🌙 Dark / ☀️ Light`**) with `localStorage` key `financeTheme` and pre-paint theme application (no flash).
+- Resolved **dropdown overlay z-index** issues (`z-index: 9999`) on date-range preset panel and header controls.
+- Real-time KPI cards — **Gross Sales**, **Net Profit**, **Total Orders**, **Profit Margin %**, **Discounts Total** — linked to **Chart.js** Revenue vs Profit line chart and Top Categories pie chart; instant refresh on preset/custom range change.
+
+### `v3.7.0` — Automated Courier Integration & Admin Orders UI Overhaul
+
+**🚚 Steadfast Courier API Engine**
+- New **Courier Booking** card in **Master Settings** — configure `defaultCourierProvider` (`Steadfast` / `Pathao` / `RedX`), API key, and secret key without code changes.
+- Extended `models/Settings.js` with `courierApiKey`, `courierSecretKey`, and `defaultCourierProvider`; credentials saved to MongoDB override `.env` at booking time.
+- Extended `models/order.js` with `courierTrackingId`, `courierConsignmentId`, `courierProvider`, `courierStatus` (default `'unbooked'`), and `courierBookedAt`.
+- New `utils/courierService.js` — loads DB config, POSTs to Steadfast `create_order`, normalizes BD phone numbers, resolves COD vs prepaid amounts, and returns fail-safe result objects (never throws).
+- New `controllers/courierController.js` — `POST /api/admin/orders/:id/send-courier` with atomic booking lock, duplicate-booking guards, **`Shipped`** status update, optional SMS notify, and security audit logging.
+- New `GET /api/admin/courier/status` — reports provider readiness without exposing secrets.
+
+**📌 Premium Live Orders Data-Table UI**
+- Scoped redesign of `#view-orders` in `client/admin.html`, `client/js/admin.js`, and `client/css/admin.css`.
+- **Sticky `<thead>`** — `position: sticky; top: 0; z-index: 10` inside a bounded `.orders-table-scroll` container for seamless deep-scroll triage.
+- **Re-architected Actions column** — horizontal `.order-actions-toolbar` with primary **`🚚 Send to Courier`** / green **`🚚 Sent`** badge, sleek Invoice icon button, and danger-styled Delete icon — status `<select>`, return approval, and refund undo preserved.
+- **Compact table aesthetics** — `12px 16px` cell padding, tighter Order ID / Customer / Total columns, bold green **Total Payable** accent, and `#f8fafc` row hover transitions.
 
 ### `v3.6.0` — Dynamic SMS Gateway & Order Email Notifications
 

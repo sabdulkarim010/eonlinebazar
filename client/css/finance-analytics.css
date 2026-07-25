@@ -41,6 +41,49 @@
 
     --fa-gap: 22px;
     --fa-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+
+    /* Page backdrop + chart-axis colours are theme-swapped below */
+    --fa-page-bg:
+        radial-gradient(1200px 600px at 12% -10%, rgba(99, 102, 241, 0.18), transparent 55%),
+        radial-gradient(1000px 500px at 110% 10%, rgba(56, 189, 248, 0.14), transparent 50%),
+        linear-gradient(160deg, var(--fa-bg-1), var(--fa-bg-3) 60%, var(--fa-bg-2));
+    --fa-panel-bg: rgba(15, 23, 42, 0.96);
+    --fa-input-bg: rgba(255, 255, 255, 0.05);
+    --fa-preset-bg: rgba(255, 255, 255, 0.04);
+    --fa-grid-line: rgba(255, 255, 255, 0.06);
+    --fa-axis-text: #94a3b8;
+}
+
+/* =========================================================================
+   1b. LIGHT THEME TOKENS (data-theme="light" on <html>)
+   ========================================================================= */
+[data-theme="light"] {
+    --fa-bg-1: #f1f5f9;
+    --fa-bg-2: #e2e8f0;
+    --fa-bg-3: #f8fafc;
+
+    --fa-surface: rgba(255, 255, 255, 0.85);
+    --fa-surface-strong: rgba(255, 255, 255, 0.95);
+    --fa-border: rgba(15, 23, 42, 0.10);
+
+    --fa-text: #0f172a;
+    --fa-text-muted: #475569;
+    --fa-text-dim: #64748b;
+
+    --fa-primary-soft: rgba(99, 102, 241, 0.10);
+
+    --fa-shadow: 0 10px 30px rgba(15, 23, 42, 0.10);
+    --fa-shadow-soft: 0 6px 18px rgba(15, 23, 42, 0.08);
+
+    --fa-page-bg:
+        radial-gradient(1200px 600px at 12% -10%, rgba(99, 102, 241, 0.14), transparent 55%),
+        radial-gradient(1000px 500px at 110% 10%, rgba(56, 189, 248, 0.12), transparent 50%),
+        linear-gradient(160deg, #f8fafc, #eef2f7 60%, #e2e8f0);
+    --fa-panel-bg: rgba(255, 255, 255, 0.98);
+    --fa-input-bg: rgba(15, 23, 42, 0.04);
+    --fa-preset-bg: rgba(15, 23, 42, 0.04);
+    --fa-grid-line: rgba(15, 23, 42, 0.08);
+    --fa-axis-text: #475569;
 }
 
 /* =========================================================================
@@ -60,13 +103,11 @@ body {
     font-family: var(--fa-font);
     color: var(--fa-text);
     min-height: 100vh;
-    background:
-        radial-gradient(1200px 600px at 12% -10%, rgba(99, 102, 241, 0.18), transparent 55%),
-        radial-gradient(1000px 500px at 110% 10%, rgba(56, 189, 248, 0.14), transparent 50%),
-        linear-gradient(160deg, var(--fa-bg-1), var(--fa-bg-3) 60%, var(--fa-bg-2));
+    background: var(--fa-page-bg);
     background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    transition: color 0.25s ease;
 }
 
 /* =========================================================================
@@ -147,7 +188,12 @@ body {
 /* =========================================================================
    5. HEADER
    ========================================================================= */
+/* The header must sit in a higher stacking layer than the cards below it.
+   `.fa-card` uses backdrop-filter, which creates its own stacking context —
+   without this the date dropdown gets painted underneath the KPI cards. */
 .fa-header {
+    position: relative;
+    z-index: 9999;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -257,6 +303,169 @@ body {
 }
 
 /* =========================================================================
+   5b. DATE RANGE SELECTOR
+   ========================================================================= */
+.fa-date-range {
+    position: relative;
+    z-index: 9999;
+}
+
+.fa-date-trigger {
+    min-width: 148px;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--fa-text);
+    background: var(--fa-input-bg);
+}
+
+/* =========================================================================
+   5c. THEME TOGGLE
+   ========================================================================= */
+.fa-theme-toggle {
+    min-width: 92px;
+    justify-content: center;
+    gap: 8px;
+    color: var(--fa-text);
+    background: var(--fa-input-bg);
+    border-color: var(--fa-border);
+}
+
+.fa-theme-toggle:hover {
+    color: var(--fa-text);
+    border-color: rgba(99, 102, 241, 0.45);
+    background: var(--fa-primary-soft);
+}
+
+.fa-theme-toggle i {
+    font-size: 0.9rem;
+}
+
+.fa-date-trigger:hover {
+    color: var(--fa-text);
+    border-color: rgba(99, 102, 241, 0.45);
+    background: rgba(99, 102, 241, 0.12);
+}
+
+.fa-date-chevron {
+    font-size: 0.65rem;
+    opacity: 0.75;
+    transition: transform 0.2s ease;
+}
+
+.fa-date-range.is-open .fa-date-chevron {
+    transform: rotate(180deg);
+}
+
+.fa-date-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 9999;
+    min-width: 280px;
+    padding: 14px;
+    border-radius: var(--fa-radius-sm);
+    background: var(--fa-panel-bg);
+    border: 1px solid var(--fa-border);
+    box-shadow: var(--fa-shadow);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.fa-date-panel[hidden] {
+    display: none;
+}
+
+.fa-date-presets {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.fa-date-preset {
+    padding: 9px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--fa-border);
+    background: var(--fa-preset-bg);
+    color: var(--fa-text-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.fa-date-preset:hover {
+    color: var(--fa-text);
+    border-color: rgba(99, 102, 241, 0.35);
+    background: rgba(99, 102, 241, 0.12);
+}
+
+.fa-date-preset--active {
+    color: #e0e7ff;
+    border-color: rgba(99, 102, 241, 0.55);
+    background: rgba(99, 102, 241, 0.22);
+    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.15);
+}
+
+[data-theme="light"] .fa-date-preset--active {
+    color: #3730a3;
+    background: rgba(99, 102, 241, 0.16);
+}
+
+.fa-date-custom {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--fa-border);
+}
+
+.fa-date-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.fa-date-field label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--fa-text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.fa-date-input {
+    width: 100%;
+    padding: 9px 11px;
+    border-radius: 10px;
+    border: 1px solid var(--fa-border);
+    background: var(--fa-input-bg);
+    color: var(--fa-text);
+    font-family: inherit;
+    font-size: 0.84rem;
+    color-scheme: dark;
+}
+
+[data-theme="light"] .fa-date-input {
+    color-scheme: light;
+}
+
+.fa-date-input:focus {
+    outline: none;
+    border-color: rgba(99, 102, 241, 0.55);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+
+.fa-date-apply {
+    width: 100%;
+    justify-content: center;
+    margin-top: 2px;
+}
+
+/* =========================================================================
    6. ERROR BANNER
    ========================================================================= */
 .fa-error-banner {
@@ -279,19 +488,24 @@ body {
    7. CARDS (Shared)
    ========================================================================= */
 .fa-card {
+    position: relative;
+    z-index: 1;
     background: var(--fa-surface);
     border: 1px solid var(--fa-border);
     border-radius: var(--fa-radius);
     box-shadow: var(--fa-shadow);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
-    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease,
+        background 0.25s ease, color 0.25s ease;
 }
 
 /* =========================================================================
    8. KPI GRID
    ========================================================================= */
 .fa-kpi-grid {
+    position: relative;
+    z-index: 1;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: var(--fa-gap);
@@ -368,6 +582,8 @@ body {
    9. MINI STAT GRID
    ========================================================================= */
 .fa-mini-grid {
+    position: relative;
+    z-index: 1;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: var(--fa-gap);
@@ -399,6 +615,8 @@ body {
    10. CHARTS GRID
    ========================================================================= */
 .fa-charts-grid {
+    position: relative;
+    z-index: 1;
     display: grid;
     grid-template-columns: 1.7fr 1fr;
     gap: var(--fa-gap);
@@ -507,6 +725,12 @@ body {
     .fa-header-right {
         width: 100%;
         justify-content: space-between;
+    }
+
+    .fa-date-panel {
+        left: 0;
+        right: 0;
+        min-width: 0;
     }
 
     .fa-kpi-grid { grid-template-columns: 1fr; }

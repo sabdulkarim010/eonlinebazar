@@ -15,6 +15,8 @@ const router = express.Router();
 const {
     getFinanceOverview,
     getFinanceChartData,
+    getFinanceAnalytics,
+    getAnalyticsFilter,
     financeAdminLogin,
     verifyFinanceToken
 } = require('../controllers/financeController');
@@ -34,5 +36,13 @@ router.get('/overview', verifyFinanceToken, getFinanceOverview);
 // ২. চার্ট ডাটাসেট (প্রোটেক্টেড)
 // URL: GET /api/finance/chart-data
 router.get('/chart-data', verifyFinanceToken, getFinanceChartData);
+
+// ৩. Advanced date-range analytics (প্রোটেক্টেড)
+// URL: GET /api/finance/analytics?period=&startDate=&endDate=
+router.get('/analytics', verifyFinanceToken, getFinanceAnalytics);
+
+// Backward-compatible alias
+// URL: GET /api/finance/analytics/filter
+router.get('/analytics/filter', verifyFinanceToken, getFinanceAnalytics);
 
 module.exports = router;

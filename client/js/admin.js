@@ -1298,6 +1298,7 @@ async function fetchLiveOrders() {
             const settingsData = await settingsRes.json();
             if (settingsData.success && settingsData.data) {
                 cacheAdminRewardSettings(settingsData.data);
+                cacheAdminCourierSettings(settingsData.data);
             }
         } catch (settingsErr) {
             console.warn('Could not load refund undo window from master settings:', settingsErr);
@@ -1390,6 +1391,117 @@ function getOrderReasonDetails(order) {
 
     return null;
 }
+
+/* ============================================================
+   🚚 COURIER BOOKING (Steadfast / Pathao / RedX)
+   ============================================================ */
+
+const COURIER_TRACKING_BASE_URLS = {
+    Steadfast: 'https://steadfast.com.bd/t/',
+    Pathao: 'https://merchant.pathao.com/tracking?consignment_id=',
+    RedX: 'https://redx.com.bd/track-global-parcel/?trackingId='
+};
+
+// Mirrors the server-side guard — these orders can never be handed to a courier.
+const COURIER_BLOCKED_STATUSES = ['cancelled', 'canceled', 'returned', 'refunded', 'return requested'];
+
+// Filled from the Master Settings payload that fetchLiveOrders() already loads,
+// so the button can name the store's configured provider.
+let adminCourierConfig = { provider: 'Steadfast', isConfigured: false };
+
+function cacheAdminCourierSettings(settings) {
+    if (!settings) return;
+    adminCourierConfig = {
+        provider: settings.defaultCourierProvider || 'Steadfast',
+        isConfigured: Boolean(
+            String(settings.courierApiKey || '').trim() && String(settings.courierSecretKey || '').trim()
+        )
+    };
+}
+
+function getCourierTrackingUrl(provider, trackingId) {
+    const base = COURIER_TRACKING_BASE_URLS[provider];
+    const code = String(trackingId || '').trim();
+    if (!base || !code) return '';
+    return `${base}${encodeURIComponent(code)}`;
+}
+
+/**
+ * Renders either the tracking badge (already booked) or the one-click booking
+ * button (not booked yet) for an order row.
+ */
+function buildCourierActionHtml(order) {
+    const trackingId = String(order.courierTrackingId || '').trim();
+    const provider = order.courierProvider || adminCourierConfig.provider || 'Steadfast';
+    const safeProvider = escapeToastText(provider);
+
+    if (trackingId) {
+        const safeTracking = escapeToastText(trackingId);
+        const trackingUrl = getCourierTrackingUrl(provider, trackingId);
+        const badgeLabel = `<span class="order-courier-sent-label">🚚 Sent</span><span class="order-courier-sent-id">${safeTracking}</span>`;
+
+        return trackingUrl
+            ? `<a href="${trackingUrl}" target="_blank" rel="noopener noreferrer" class="order-courier-btn order-courier-sent courier-tracking-badge" title="Track ${safeTracking} on ${safeProvider}">${badgeLabel}</a>`
+            : `<span class="order-courier-btn order-courier-sent courier-tracking-badge" title="Booked with ${safeProvider}">${badgeLabel}</span>`;
+    }
+
+    if (COURIER_BLOCKED_STATUSES.includes(String(order.status || '').trim().toLowerCase())) {
+        return '';
+    }
+
+    return `<button type="button" class="order-courier-btn send-courier-btn" onclick="sendOrderToCourier('${order._id}')" title="Book this parcel with ${safeProvider}">
+                <i class="fa-solid fa-truck-fast" aria-hidden="true"></i>
+                <span class="send-courier-label">Send to Courier</span>
+            </button>`;
+}
+
+/**
+ * ৭.৪খ: এক ক্লিকে কুরিয়ার পার্সেল বুকিং
+ * Steadfast API-তে পার্সেল তৈরি করে ট্র্যাকিং আইডি সংরক্ষণ করে।
+ * @param {string} orderId - অর্ডারের ডাটাবেজ আইডি
+ */
+window.sendOrderToCourier = function(orderId) {
+    const order = globalOrders.find(o => String(o._id) === String(orderId));
+    const provider = order?.courierProvider || adminCourierConfig.provider || 'Steadfast';
+    const displayId = order?.orderId || String(orderId).slice(-6).toUpperCase();
+
+    showCustomConfirm(
+        `Send to ${provider}`,
+        `Book order #${displayId} as a ${provider} parcel? This creates a real consignment and marks the order as Shipped.`,
+        async () => {
+            const bookBtn = document.querySelector(`tr[data-order-id="${orderId}"] .send-courier-btn`);
+            const restore = setButtonLoading(bookBtn, 'Booking...');
+
+            try {
+                const response = await fetch(`/api/admin/orders/${orderId}/send-courier`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast(result.message || 'Parcel booked successfully!', 'success');
+                    fetchLiveOrders();
+                    return;
+                }
+
+                showToast(result.message || 'Courier booking failed.', 'error');
+                // A 409 means the order was already booked elsewhere — resync so
+                // the row shows the tracking badge instead of the button.
+                if (response.status === 409) fetchLiveOrders();
+            } catch (error) {
+                console.error('Courier booking error:', error);
+                showToast('Server connection error! Parcel was not booked.', 'error');
+            } finally {
+                restore();
+            }
+        }
+    );
+};
 
 function buildAdminOrderStatusCell(order) {
     const orderId = order._id;
@@ -1510,23 +1622,24 @@ window.renderOrderTable = function() {
             const dateObj = new Date(order.createdAt);
             const dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
             const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-            dateHtml = `<b>${dateStr}</b><br><small><i class="fa-regular fa-clock"></i> ${timeStr}</small>`;
+            dateHtml = `<span class="order-date-main">${dateStr}</span><span class="order-date-time"><i class="fa-regular fa-clock" aria-hidden="true"></i> ${timeStr}</span>`;
         }
         
         // কাস্টমারের কেনা প্রোডাক্টের তালিকা তৈরি
         let itemsList = '';
         if (order.items) {
-            order.items.forEach(item => itemsList += `<li><i class="fa-solid fa-cube"></i> ${item.name} <b>(x${item.quantity})</b></li>`);
+            order.items.forEach(item => itemsList += `<li><i class="fa-solid fa-cube" aria-hidden="true"></i> ${item.name} <b>(x${item.quantity})</b></li>`);
         }
 
         const statusLower = (order.status || 'pending').toLowerCase();
         const isReturnRequested = statusLower === 'return requested';
 
         const statusCellHtml = buildAdminOrderStatusCell(order);
+        const courierActionHtml = buildCourierActionHtml(order);
 
         const approveReturnBtn = isReturnRequested
-            ? `<button type="button" class="page-nav-btn approve-return-btn" onclick="approveOrderReturn('${orderId}')" title="Approve Return & Refund Wallet">
-                    <i class="fa-solid fa-hand-holding-dollar"></i><span class="approve-return-label">Approve Return</span>
+            ? `<button type="button" class="order-action-pill approve-return-btn" onclick="approveOrderReturn('${orderId}')" title="Approve Return &amp; Refund Wallet">
+                    <i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i><span class="approve-return-label">Approve</span>
                </button>`
             : '';
 
@@ -1534,20 +1647,27 @@ window.renderOrderTable = function() {
         tr.dataset.orderId = orderId;
         if (isReturnRequested) tr.classList.add('order-row-return-requested');
         tr.innerHTML = `
-            <td><b>#${displayId}</b></td>
-            <td>${dateHtml}</td>
-            <td>
-                <b>${order.customerName}</b><br>
-                <small><i class="fa-solid fa-phone"></i> ${order.customerPhone}</small>
+            <td class="col-order-id"><span class="order-id-chip">#${displayId}</span></td>
+            <td class="col-datetime">${dateHtml}</td>
+            <td class="col-customer">
+                <span class="order-customer-name">${order.customerName || '—'}</span>
+                <span class="order-customer-phone"><i class="fa-solid fa-phone" aria-hidden="true"></i> ${order.customerPhone || '—'}</span>
             </td>
-            <td><span>${order.customerAddress}</span></td>
-            <td><ul style="padding-left: 0; list-style:none; margin:0;">${itemsList}</ul></td>
-            <td><b>${formatAdminPrice(getOrderGrandTotal(order))}</b></td>
-            <td>${statusCellHtml}</td>
-            <td class="col-actions">
-                ${approveReturnBtn}
-                <button class="page-nav-btn" onclick="viewInvoice('${orderId}')" title="View Invoice"><i class="fa-solid fa-file-invoice"></i></button>
-                <button class="page-nav-btn" onclick="deleteOrder('${orderId}')" title="Delete Order"><i class="fa-solid fa-trash-can"></i></button>
+            <td class="col-address"><span class="order-address-text">${order.customerAddress || '—'}</span></td>
+            <td class="col-products"><ul class="order-items-list">${itemsList}</ul></td>
+            <td class="col-total"><span class="order-total-amount">${formatAdminPrice(getOrderGrandTotal(order))}</span></td>
+            <td class="col-status">${statusCellHtml}</td>
+            <td class="order-actions-cell">
+                <div class="order-actions-toolbar">
+                    ${courierActionHtml}
+                    ${approveReturnBtn}
+                    <button type="button" class="order-action-icon order-action-invoice" onclick="viewInvoice('${orderId}')" title="View Invoice" aria-label="View Invoice">
+                        <i class="fa-solid fa-file-invoice" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="order-action-icon order-action-delete" onclick="deleteOrder('${orderId}')" title="Delete Order" aria-label="Delete Order">
+                        <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+                    </button>
+                </div>
             </td>
         `;
         tableBody.appendChild(tr);
@@ -1792,6 +1912,21 @@ window.viewInvoice = function(orderId) {
     document.getElementById('invPaymentMethod').innerText = order.paymentMethod ? order.paymentMethod : "COD";
     document.getElementById('invShippingLocation').innerText = `${shippingDistrict} (${shippingLocationType})`;
     document.getElementById('invNote').innerText = order.note && order.note.trim() !== "" ? order.note : "No note provided";
+
+    // 🚚 কুরিয়ার বুকিং ডিটেইলস — শুধু বুক করা অর্ডারের জন্য দেখানো হয়
+    const courierRow = document.getElementById('invCourierRow');
+    const courierInfoEl = document.getElementById('invCourierInfo');
+    const invTrackingId = String(order.courierTrackingId || '').trim();
+    if (courierRow && courierInfoEl) {
+        if (invTrackingId) {
+            const invProvider = order.courierProvider || adminCourierConfig.provider || 'Steadfast';
+            const consignment = order.courierConsignmentId ? ` · Consignment: ${order.courierConsignmentId}` : '';
+            courierInfoEl.innerText = `${invProvider} — ${invTrackingId}${consignment}`;
+            courierRow.style.display = '';
+        } else {
+            courierRow.style.display = 'none';
+        }
+    }
 
     document.getElementById('invSubTotal').innerText = formatAdminPrice(subTotal);
 
@@ -4678,7 +4813,57 @@ function applyMasterSettingsToUI(settings) {
 
     applyAnnouncementSettingsToUI(settings);
     applySmsSettingsToUI(settings);
+    applyCourierSettingsToUI(settings);
     updateMasterSettingsPreview();
+}
+
+function applyCourierSettingsToUI(settings) {
+    if (!settings) return;
+
+    cacheAdminCourierSettings(settings);
+
+    const providerEl = document.getElementById('defaultCourierProvider');
+    if (providerEl && settings.defaultCourierProvider !== undefined) {
+        providerEl.value = settings.defaultCourierProvider || '';
+    }
+
+    const apiKeyEl = document.getElementById('courierApiKey');
+    if (apiKeyEl && settings.courierApiKey !== undefined) {
+        apiKeyEl.value = settings.courierApiKey || '';
+    }
+
+    const secretKeyEl = document.getElementById('courierSecretKey');
+    if (secretKeyEl && settings.courierSecretKey !== undefined) {
+        secretKeyEl.value = settings.courierSecretKey || '';
+    }
+
+    updateCourierSettingsPreview();
+}
+
+function updateCourierSettingsPreview() {
+    const previewEl = document.getElementById('courierSettingsPreviewText');
+    if (!previewEl) return;
+
+    const provider = document.getElementById('defaultCourierProvider')?.value || '';
+    const hasApiKey = Boolean(document.getElementById('courierApiKey')?.value?.trim());
+    const hasSecretKey = Boolean(document.getElementById('courierSecretKey')?.value?.trim());
+
+    if (!provider) {
+        previewEl.textContent = 'No provider selected — pick one to label the booking button in Live Orders.';
+        return;
+    }
+
+    if (!hasApiKey || !hasSecretKey) {
+        const missing = !hasApiKey && !hasSecretKey
+            ? 'API key and secret key'
+            : (!hasApiKey ? 'API key' : 'secret key');
+        previewEl.textContent = `${provider} selected — add the ${missing} to enable one-click booking.`;
+        return;
+    }
+
+    previewEl.textContent = provider === 'Steadfast'
+        ? 'Steadfast ready — "Send to Steadfast" is live on every unbooked order in Live Orders.'
+        : `${provider} credentials saved — automated booking currently supports Steadfast only.`;
 }
 
 function applySmsSettingsToUI(settings) {
@@ -4789,6 +4974,7 @@ function updateMasterSettingsPreview() {
     // refresh whenever the rewards fields change too.
     updateAnnouncementSettingsPreview();
     updateSmsSettingsPreview();
+    updateCourierSettingsPreview();
     if (!previewEl) return;
 
     const cashback = Number(document.getElementById('masterCashbackPercentage')?.value || 0);
@@ -4976,7 +5162,10 @@ function setupAdminSettingsForms() {
         'enableSmsNotifications',
         'smsGatewayProvider',
         'smsApiKey',
-        'smsSenderId'
+        'smsSenderId',
+        'defaultCourierProvider',
+        'courierApiKey',
+        'courierSecretKey'
     ].forEach((id) => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -5000,6 +5189,9 @@ function setupAdminSettingsForms() {
                 smsGatewayProvider: document.getElementById('smsGatewayProvider')?.value || '',
                 smsApiKey: document.getElementById('smsApiKey')?.value?.trim() || '',
                 smsSenderId: document.getElementById('smsSenderId')?.value?.trim() || '',
+                defaultCourierProvider: document.getElementById('defaultCourierProvider')?.value || '',
+                courierApiKey: document.getElementById('courierApiKey')?.value?.trim() || '',
+                courierSecretKey: document.getElementById('courierSecretKey')?.value?.trim() || '',
                 freeShippingThreshold: document.getElementById('masterFreeShippingThreshold')?.value,
                 cashbackPercentage: document.getElementById('masterCashbackPercentage')?.value,
                 takaToPointsRatio: document.getElementById('masterTakaToPointsRatio')?.value,

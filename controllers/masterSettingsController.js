@@ -15,6 +15,7 @@ const {
     normalizeAnnouncementSettings,
     toPublicAnnouncementPayload
 } = require('../utils/announcementSettings');
+const { VALID_COURIER_PROVIDERS } = require('../utils/courierService');
 
 const VALID_SMS_GATEWAY_PROVIDERS = ['Greenweb BD', 'BulkSMS BD', 'AlphaSMS', 'Generic API', ''];
 
@@ -22,6 +23,12 @@ const toPublicSmsSettings = (deliverySettings = {}) => ({
     smsGatewayProvider: deliverySettings.smsGatewayProvider || '',
     smsApiKey: deliverySettings.smsApiKey || '',
     smsSenderId: deliverySettings.smsSenderId || ''
+});
+
+const toPublicCourierSettings = (deliverySettings = {}) => ({
+    defaultCourierProvider: deliverySettings.defaultCourierProvider || '',
+    courierApiKey: deliverySettings.courierApiKey || '',
+    courierSecretKey: deliverySettings.courierSecretKey || ''
 });
 
 const toPublicMasterSettings = (doc) => normalizeRewardSettings(doc);
@@ -126,7 +133,8 @@ const buildUnifiedPayload = async (settingsDoc) => {
         pointsConversionRate: rewards.pointsToTakaConversionRate,
         refundUndoWindow: rewards.refundUndoWindowHours,
         enableSmsNotifications: settingsDoc.enableSmsNotifications === true,
-        ...toPublicSmsSettings(deliverySettings)
+        ...toPublicSmsSettings(deliverySettings),
+        ...toPublicCourierSettings(deliverySettings)
     };
 };
 
@@ -190,6 +198,7 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
     }
 
     const deliverySettings = await Settings.getOrCreate();
+    let deliverySettingsDirty = false;
 
     if (body.smsGatewayProvider !== undefined) {
         const provider = String(body.smsGatewayProvider || '').trim();
@@ -200,24 +209,50 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
             });
         }
         deliverySettings.smsGatewayProvider = provider;
+        deliverySettingsDirty = true;
         changes.push(`SMS gateway: ${provider || 'none'}`);
     }
 
     if (body.smsApiKey !== undefined) {
         deliverySettings.smsApiKey = String(body.smsApiKey ?? '').trim();
+        deliverySettingsDirty = true;
         changes.push('SMS API key updated');
     }
 
     if (body.smsSenderId !== undefined) {
         deliverySettings.smsSenderId = String(body.smsSenderId ?? '').trim();
+        deliverySettingsDirty = true;
         changes.push(`SMS sender ID: ${deliverySettings.smsSenderId || 'none'}`);
     }
 
-    if (
-        body.smsGatewayProvider !== undefined
-        || body.smsApiKey !== undefined
-        || body.smsSenderId !== undefined
-    ) {
+    // 🚚 Courier credentials live on the same global document as the SMS keys,
+    // so the booking engine can read them without a second query.
+    if (body.defaultCourierProvider !== undefined) {
+        const courierProvider = String(body.defaultCourierProvider || '').trim();
+        if (!VALID_COURIER_PROVIDERS.includes(courierProvider)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid courier provider selected.'
+            });
+        }
+        deliverySettings.defaultCourierProvider = courierProvider;
+        deliverySettingsDirty = true;
+        changes.push(`Courier provider: ${courierProvider || 'none'}`);
+    }
+
+    if (body.courierApiKey !== undefined) {
+        deliverySettings.courierApiKey = String(body.courierApiKey ?? '').trim();
+        deliverySettingsDirty = true;
+        changes.push('Courier API key updated');
+    }
+
+    if (body.courierSecretKey !== undefined) {
+        deliverySettings.courierSecretKey = String(body.courierSecretKey ?? '').trim();
+        deliverySettingsDirty = true;
+        changes.push('Courier secret key updated');
+    }
+
+    if (deliverySettingsDirty) {
         await deliverySettings.save();
     }
 
@@ -280,5 +315,6 @@ module.exports = {
     getAnnouncementSettings,
     updateAnnouncementSettings,
     buildUnifiedPayload,
-    toPublicMasterSettings
+    toPublicMasterSettings,
+    toPublicCourierSettings
 };

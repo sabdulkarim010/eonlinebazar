@@ -10,11 +10,13 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController'); 
+const { getFinanceAnalytics } = require('../controllers/financeController');
 const { approveOrderReturn, undoOrderRefund } = require('../controllers/orderController');
 const adminSecurityController = require('../controllers/adminSecurityController');
 const twoFactorController = require('../controllers/twoFactorController');
 const settingsController = require('../controllers/settingsController');
 const masterSettingsController = require('../controllers/masterSettingsController');
+const courierController = require('../controllers/courierController');
 const upload = require('../middlewares/uploadMiddleware');
 const { brandingUpload } = upload;
 const staffController = require('../controllers/staffController');
@@ -39,6 +41,13 @@ router.get('/customers', verifyAdmin, checkPermission('manage_customers'), admin
 // ১গ. Sales & Order Analytics Dashboard (GET)
 router.get('/dashboard-analytics', verifyAdmin, checkPermission('view_analytics'), adminController.getDashboardAnalytics);
 
+// ১ঘ. Finance date-range analytics (GET)
+// URL: GET /api/admin/analytics?period=&startDate=&endDate=
+router.get('/analytics', verifyAdmin, checkPermission('view_analytics'), getFinanceAnalytics);
+
+// Backward-compatible alias
+router.get('/analytics/filter', verifyAdmin, checkPermission('view_analytics'), getFinanceAnalytics);
+
 // ১ক. নির্দিষ্ট কাস্টমার, আপডেট, স্ট্যাটাস ও অর্ডার হিস্ট্রি
 router.get('/customers/:id/orders', verifyAdmin, checkPermission('manage_customers'), adminController.getCustomerOrders);
 router.get('/customers/:id', verifyAdmin, checkPermission('manage_customers'), adminController.getCustomerById);
@@ -51,6 +60,11 @@ router.put('/orders/:id/approve-return', verifyAdmin, checkPermission('manage_or
 
 // URL: POST /api/admin/orders/:id/undo-refund
 router.post('/orders/:id/undo-refund', verifyAdmin, checkPermission('manage_orders'), undoOrderRefund);
+
+// ১গ. 🚚 এক ক্লিকে কুরিয়ার পার্সেল বুকিং (Steadfast) + কনফিগ স্ট্যাটাস
+// URL: POST /api/admin/orders/:id/send-courier
+router.post('/orders/:id/send-courier', verifyAdmin, checkPermission('manage_orders'), courierController.sendOrderToCourier);
+router.get('/courier/status', verifyAdmin, courierController.getCourierConfigStatus);
 
 // ২. অ্যাডমিন লগইন করার রাস্তা (POST)
 // পাইপলাইন: ব্ল্যাকলিস্ট গেট → জিও-ফেন্স (রিজিয়ন লক) → রেট-লিমিট → কন্ট্রোলার

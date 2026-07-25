@@ -365,18 +365,18 @@
         </div>
     </div>
 
-    <div class="table-responsive-wrapper">
-        <table class="dynamic-data-table">
-            <thead>
+    <div class="table-responsive-wrapper orders-table-scroll">
+        <table class="dynamic-data-table orders-live-table">
+            <thead class="orders-table-head">
                 <tr>
-                    <th>Order ID</th>
-                    <th>Date & Time <i class="fa-regular fa-clock"></i></th> 
-                    <th>Customer Info</th>
-                    <th>Delivery Address</th>
-                    <th>Ordered Products</th>
-                    <th>Total Payable</th>
-                    <th>Status</th>
-                    <th>Action</th>
+                    <th class="col-order-id">Order ID</th>
+                    <th class="col-datetime">Date &amp; Time <i class="fa-regular fa-clock" aria-hidden="true"></i></th>
+                    <th class="col-customer">Customer</th>
+                    <th class="col-address">Address</th>
+                    <th class="col-products">Products</th>
+                    <th class="col-total">Total</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-actions-head">Actions</th>
                 </tr>
             </thead>
             <tbody id="adminOrderTableBody">
@@ -1258,6 +1258,41 @@
             </div>
 
             <div class="settings-card settings-card-wide master-settings-card">
+                <h4 class="settings-card-title"><i class="fa-solid fa-truck-fast"></i> Courier Booking</h4>
+                <p class="settings-card-sub">Credentials for one-click parcel booking from the <strong>Live Orders</strong> panel. Saved to MongoDB and they override <code>.env</code> — swap providers or rotate keys with no code changes.</p>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label for="defaultCourierProvider">Default Courier Provider</label>
+                        <select id="defaultCourierProvider">
+                            <option value="">— Select provider —</option>
+                            <option value="Steadfast">Steadfast</option>
+                            <option value="Pathao">Pathao</option>
+                            <option value="RedX">RedX</option>
+                        </select>
+                        <small class="field-hint">Automated booking is live for <strong>Steadfast</strong>. Pathao and RedX can be stored as your default, but must still be booked manually.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="courierApiKey">Courier API Key</label>
+                        <input type="text" id="courierApiKey" placeholder="Paste your Steadfast Api-Key" autocomplete="off">
+                        <small class="field-hint">Sent as the <code>Api-Key</code> header. Find it in your Steadfast merchant portal under API settings.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="courierSecretKey">Courier Secret Key</label>
+                        <input type="password" id="courierSecretKey" placeholder="Paste your Steadfast Secret-Key" autocomplete="new-password">
+                        <small class="field-hint">Sent as the <code>Secret-Key</code> header. Masked here for safety — retype it to change it.</small>
+                    </div>
+                </div>
+
+                <div class="master-settings-preview" id="courierSettingsPreview">
+                    <strong>Courier engine:</strong>
+                    <span id="courierSettingsPreviewText">Add your API key and secret key to enable one-click parcel booking.</span>
+                </div>
+            </div>
+
+            <div class="settings-card settings-card-wide master-settings-card">
                 <h4 class="settings-card-title"><i class="fa-solid fa-coins"></i> Rewards &amp; Refund Engine</h4>
                 <p class="settings-card-sub">These values replace hardcoded cashback and points logic across checkout, orders, and wallet flows.</p>
 
@@ -1861,6 +1896,7 @@
             <p><b>Payment Method:</b> <span id="invPaymentMethod" style="color: #2563eb; font-weight: 600;"></span></p>
             <p><b>Delivery District / Zone:</b> <span id="invShippingLocation"></span></p>
             <p><b>Courier Note:</b> <span id="invNote"></span></p>
+            <p id="invCourierRow" style="display:none;"><b>Courier Booking:</b> <span id="invCourierInfo"></span></p>
         </div>
         <div class="invoice-details-section">
             <h4>Order Details</h4>

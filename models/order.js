@@ -74,6 +74,14 @@ const orderSchema = new mongoose.Schema({
     rewardsPointsEarned: { type: Number, default: 0, min: 0 },
     rewardsCashbackAmount: { type: Number, default: 0, min: 0 },
     items: { type: [orderItemSchema], default: [] },
+    // 🚚 কুরিয়ার বুকিং স্ন্যাপশট — Steadfast/Pathao/RedX-এ পার্সেল বুক করার পর
+    // ফেরত আসা ট্র্যাকিং কোড ও কনসাইনমেন্ট আইডি এখানে জমা থাকে, যাতে অ্যাডমিন
+    // প্যানেল থেকে সরাসরি ট্র্যাক করা যায় এবং একই অর্ডার দুইবার বুক না হয়।
+    courierProvider: { type: String, default: '', trim: true },
+    courierTrackingId: { type: String, default: '', trim: true },
+    courierConsignmentId: { type: String, default: '', trim: true },
+    courierStatus: { type: String, default: 'unbooked', trim: true },
+    courierBookedAt: { type: Date, default: null },
     note: { type: String, default: "" },
     estimatedDelivery: { type: String, default: '' },
     createdAt: { type: Date, default: Date.now }
