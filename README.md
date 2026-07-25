@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-3.8.0-success)
+![Version](https://img.shields.io/badge/Version-3.9.0-success)
 ![RBAC](https://img.shields.io/badge/RBAC-Staff%20Management-6f42c1)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
@@ -28,6 +28,7 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v3.9.0](#-whats-new--v390-multi-attribute-variant-matrix--dynamic-stock-engine)
 - [What's New — v3.8.0](#-whats-new--v380-advanced-finance-analytics--theme-engine)
 - [What's New — v3.7.0](#-whats-new--v370-automated-courier-integration--admin-orders-ui-overhaul)
 - [What's New — v3.6.0](#-whats-new--v360-dynamic-sms-gateway--order-email-notifications)
@@ -44,6 +45,7 @@
 - [Checkout Experience & Cart Enhancements](#-checkout-experience--cart-enhancements)
 - [Profile Security & Order Invoice Enhancements](#-profile-security--order-invoice-enhancements)
 - [Performance & Engagement Enhancements](#-performance--engagement-enhancements)
+- [Multi-Attribute Combination Matrix & Dynamic Stock Engine](#-multi-attribute-combination-matrix--dynamic-stock-engine)
 - [Admin Panel — Order Security & Refund Controls](#-admin-panel--order-security--refund-controls)
 - [Admin Analytics & Inventory Management Controls](#-admin-analytics--inventory-management-controls)
 - [Super Admin RBAC & Staff Management Architecture](#-super-admin-rbac--staff-management-architecture)
@@ -83,6 +85,21 @@ Eight things set it apart:
 6. **Time-Sensitive Coupon Automation** — precise hour/minute expiry scheduling, a server-side **ACTIVE / EXPIRED** status engine with bulk auto-expiry, checkout visibility synced to live availability, and hardened order-time coupon validation.
 7. **Super Admin RBAC & Staff Management** — a dynamic permission engine lets the owner create staff accounts with granular operational rights; unified `/admin/login` detects `superadmin` vs `staff`, the sidebar and API both enforce the same permission matrix, and blocked accounts lose access on the very next request.
 8. **One-Click Courier Parcel Booking** — Steadfast Courier API integration from **Live Orders** with MongoDB-stored credentials, atomic booking locks, tracking ID persistence, and automatic **Shipped** status updates — no redeploy required to rotate API keys.
+
+---
+
+## 🆕 What's New — v3.9.0 (Multi-Attribute Variant Matrix & Dynamic Stock Engine)
+
+This release introduces an **Amazon/Shopify-standard SKU combination engine** — multi-attribute variant matrices (Size × Color × Weight), per-combination pricing and inventory, and a smart storefront selector that filters options and updates price, stock, and SKU in real time.
+
+| Capability | Highlights |
+|------------|------------|
+| **🧩 Combination Matrix (Admin)** | Define attribute types + values; auto-generate every SKU row with individual **Price (৳)**, **Stock**, **SKU**, and optional **variant image URL**; toggle **Simple Product** vs **Variant Matrix** modes. |
+| **📦 Flexible Stock Control** | Simple products use direct **`stockQuantity`** editing; matrix products auto-aggregate **total stock** from all combination rows on save. |
+| **🎯 Smart Storefront Selector** | Interactive pills on **`/product-details`** dynamically disable unavailable combinations, flag out-of-stock options, and live-update **price**, **stock badge**, **SKU**, and **variant image** on full match. |
+| **🛒 Exact-Variant Cart & Orders** | Add-to-cart passes `selectedVariant` metadata; checkout decrements the **exact combination row** (not flat product stock) via shared `findVariantIndex()` matching. |
+
+> 📌 See the dedicated [Multi-Attribute Combination Matrix & Dynamic Stock Engine](#-multi-attribute-combination-matrix--dynamic-stock-engine) section below for schema fields, admin UI workflow, selector logic, and key files.
 
 ---
 
@@ -736,6 +753,106 @@ Storefront UX upgrades that improve order transparency, inventory urgency, and r
 | `client/css/cart.css` | `.stock-alert-badge`, `.stock-low`, `.stock-out` badge styles |
 | `client/js/toast.js` | Global `#global-toast-stack` engine, typed icons, auto-dismiss & manual close |
 | `client/css/toast.css` | Responsive toast stack positioning and type-specific color themes |
+
+---
+
+## 🛍️ Multi-Attribute Combination Matrix & Dynamic Stock Engine
+
+Enterprise-grade variant inventory for the catalog admin and product detail storefront — supports **Simple Products** (single stock count) and **Combination Variant Products** (multi-attribute SKU matrices) without forcing flat, single-attribute variation rows.
+
+> **Implementation note:** The customer-facing selector lives in **`client/product-details.html`** with logic in **`client/js/product-details.js`** (this project serves static HTML/JS via Express rather than EJS views).
+
+### Feature Overview
+
+#### Amazon/Shopify-Standard Combination Matrix
+- **Multi-attribute SKU combinations** — define attribute types (e.g. **Size**, **Color**, **Weight**) with comma-separated values; the admin engine generates the full Cartesian product (e.g. `M / Pink`, `L / Navy Blue`).
+- **Per-combination row fields** on every generated matrix row:
+  - **`attributes`** — Map of key-value pairs (e.g. `{ Size: "M", Color: "Pink" }`)
+  - **`sku`** — unique sellable identifier
+  - **`price`** — individual selling price (৳)
+  - **`stock`** — independent inventory count for that exact combination
+  - **`image`** — optional variant-specific image URL
+- **`hasVariants`** boolean cleanly distinguishes **Simple Products** from **Combination Variant Products** in MongoDB.
+- **Automatic total stock aggregation** — when `hasVariants === true`, product-level **`stock`** and **`stockQuantity`** are computed as the **sum of all combination stocks** on create/update (admin Stock Qty field becomes read-only with live total).
+
+#### Flexible Stock Control (Admin)
+- **Simple Products** (`hasVariants: false`) — admins edit **`stockQuantity`** directly; no variant rows are persisted.
+- **Variant Matrix Products** (`hasVariants: true`) — stock is managed **per combination row** in the matrix table; saving recalculates aggregate inventory automatically.
+- **Manage Products → Edit** reconstructs attribute types and combination rows from stored variants for safe re-editing.
+
+#### Smart Dynamic Variant Selector (Storefront)
+- Reads the product's **`variants`** combination array from **`GET /api/products/:id`** JSON.
+- Renders **attribute selection groups** as interactive pills (Size, Color, etc.).
+- **Vanilla JS matrix listener** (event delegation on `#variantSelectorWrap`):
+  - When a user selects **Size: M**, the engine re-evaluates every other attribute pill against live combination data.
+  - **In-stock combinations** remain clickable and highlighted.
+  - **Existing but out-of-stock combinations** render dimmed with an **Out of Stock** tag.
+  - **Impossible combinations** (no matching row) are disabled and visually struck through.
+  - Invalid cross-attribute selections are **auto-cleared** when a parent attribute changes.
+- On a **full combination match**, the UI live-updates:
+  - **Price (৳)** — from the matched row (falls back to base product price when row price is zero)
+  - **Stock status badge** — **In Stock** (with low-count hint) or **Out of Stock**
+  - **SKU & combination label** — shown in `#selectedVariantMeta`
+  - **Variant image** — uses row `image` URL or color-gallery fallback
+
+#### Add-to-Cart with Exact Variant Combination
+- **Add to Cart / Buy Now** attaches precise variant metadata to each cart line:
+  - `variantId`, `variantSku`, `variantLabel`, `variantAttribute`
+  - **`selectedVariant`** object — `{ attributes, sku, price, stock, image, variantId }`
+- **`utils/cartMergeService.js`** normalizes `selectedVariant` for DB cart persistence and guest → auth merge.
+- **`controllers/orderController.js`** resolves the exact matrix row via **`utils/variantHelpers.js`** → `findVariantIndex()` (SKU-first, then full attribute map) and decrements **that row's `stock`**, not flat product inventory.
+- Cart quantity guardrails (`cart.js`, `stockAlert.js`) resolve stock against the **matched combination row** using the same helper surface.
+
+### Data Model (`models/product.js`)
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `hasVariants` | `Boolean` | `false` = Simple Product; `true` = Combination Matrix Product |
+| `stockQuantity` | `Number` | Primary stock for simple products; mirrors aggregate total for variant products |
+| `stock` | `Number` | Total sellable units (direct count or sum of variant stocks) |
+| `variants[]` | `Array` | Combination rows — each with `attributes`, `sku`, `price`, `buyingPrice`, `stock`, `image` |
+
+Legacy flat `attribute` / `value` sub-fields are retained on variant rows for backward compatibility with older catalog documents.
+
+### Admin Workflow (Add / Edit Product)
+
+1. Choose **Simple Product** or **Variant Matrix** in the product form (`client/admin.html`).
+2. For matrix products: add attribute types + values → **Regenerate Matrix**.
+3. Fill **SKU, Price, Stock**, and optional **Image URL** for each combination row.
+4. Save — backend parses variants, sets `hasVariants`, and aggregates total stock.
+
+### Selector Data Flow
+
+```mermaid
+flowchart LR
+    A[GET /api/products/:id] --> B[renderCombinationMatrix]
+    B --> C[User selects attribute pill]
+    C --> D[refreshCombinationMatrixUI]
+    D --> E{All attributes selected?}
+    E -->|Yes| F[findVariantBySelection]
+    F --> G[Update price / stock / SKU / image]
+    E -->|No| H[Filter pills by partial match + stock]
+    G --> I[Add to Cart with selectedVariant]
+    I --> J[orderController.findVariantIndex]
+    J --> K[Decrement exact variant.stock]
+```
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `models/product.js` | `hasVariants`, `stockQuantity`, combination `variants[]` schema |
+| `utils/variantHelpers.js` | Server-side variant parse/normalize, stock aggregation, order-line matching |
+| `controllers/productController.js` | Create/update product — matrix parse, `applyProductStockFields()` |
+| `controllers/orderController.js` | Exact combination stock decrement on order placement |
+| `utils/cartMergeService.js` | `selectedVariant`-aware cart line normalization |
+| `client/admin.html` | Simple vs Variant Matrix toggle, attribute builder, combination table |
+| `client/js/admin.js` | Matrix generator, stock sum sync, variant payload on save |
+| `client/product-details.html` | Variant selector shell, SKU meta bar, Add to Cart actions |
+| `client/js/product-details.js` | Smart matrix listener, live price/stock/SKU sync, cart item builder |
+| `client/js/variantUtils.js` | Client helpers — `getOptionState`, `findVariantBySelection`, `buildVariantCartMeta` |
+| `client/css/product-details.css` | Pill states (`.is-oos`, `.is-unavailable`), selected-variant meta bar |
+| `client/js/cart.js` / `client/js/stockAlert.js` | Combination-aware stock resolution in cart & wishlist |
 
 ---
 
@@ -1862,7 +1979,8 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 #### Catalog Management Engine
 - **📂 Categories** — Full CRUD with optional **`customCashbackPercentage`** override; renaming a category **syncs all linked products** automatically.
 - **🏷️ Brands** — Full CRUD with a clean grid layout, automatic **slug generation** (Unicode/Bengali-aware), and strict product-to-brand **database references**.
-- **🎛️ Attributes (Variants)** — Professional variation system (**Size**, **Color**, **Material**…) with per-variant **SKU, price & separate stock tracking**.
+- **🎛️ Attributes (Variants)** — Reusable attribute name/value catalog (**Size**, **Color**, **Material**…) feeding the admin matrix builder.
+- **🧩 Multi-Attribute Combination Matrix** — Amazon/Shopify-style **Size × Color × Weight** SKU engine with per-row **price, stock, SKU & image**; automatic total-stock aggregation (`hasVariants` / `stockQuantity` model). *(See [Multi-Attribute Combination Matrix & Dynamic Stock Engine](#-multi-attribute-combination-matrix--dynamic-stock-engine).)*
 - **🎟️ Coupons & Discounts** — Enterprise promo engine (Shopify/Daraz-style):
   - Percentage **or** flat discounts, optional **max-discount cap**.
   - **Min order amount**, **global usage limit**, **per-user limit**, and **precise expiry date-time** (hour & minute scheduling).
@@ -1872,7 +1990,7 @@ Admins pick and switch their preferred method from the settings panel; self-serv
   - Storefront **apply / validate** endpoint with optional customer auth for per-user enforcement; order placement re-validates status + expiry on the backend.
 
 #### Product & Order Systems
-- **🛍️ Product Catalog** — Up to 10 images, categories, brand, variations, highlights, stock levels, **selling price + buying price** (live profit preview), and detailed descriptions.
+- **🛍️ Product Catalog** — Up to 10 images, categories, brand, **simple or matrix variations**, highlights, **flexible stock** (`stockQuantity` for simple products; per-combination stock for variant products), **selling price + buying price** (live profit preview), and detailed descriptions.
 - **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **clickable order rows** (v3.4.0) with inline ID/date meta, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals (actions on detail view only), dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, **1-click PDF invoice download** from Order Details, **automated order confirmation emails** on every successful checkout, and **admin one-click Steadfast Courier parcel booking** with tracking ID persistence (v3.7.0).
 - **🔄 Admin Return & Refund Pipeline** — Approve returns with automatic wallet credit, transaction history logging, and **Safe Undo Refund** within a configurable hour window (spent-funds safety check).
 - **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, **unified free-shipping threshold** (Master Settings ↔ Delivery Settings mirror), **real-time free-shipping progress** on cart/checkout, **real-time delivery date estimates** on checkout, **locked server-side totals** on every order, and district-aware invoices.
@@ -1917,7 +2035,7 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 - **📊 Dashboard Overview** — **Sales & Business Analytics** (revenue daily/monthly/all-time, order counters, Chart.js sales trend + top-5 product charts) plus **Inventory Alerts** widget with inline stock updates; **Customer Insights** metrics (total/verified/pending/blocked users) and a **6-month registration growth chart** (Chart.js). *(Requires `view_analytics` for staff.)*
 - **👥 Customer Management** — View, edit, block, suspend, reactivate; order-count badges; per-customer order history modal. *(Requires `manage_customers`.)*
 - **📦 Live Orders** — Premium sticky-header table with compact spacing, horizontal action toolbar (**Send to Courier**, Invoice, Delete), distinct customer/admin cancellation badges, return approval, safe refund undo, reason visibility, invoice view/print, search, filter, and pagination. *(Requires `manage_orders`.)*
-- **🛍️ Product CRUD** — Add/edit with images, buying/selling price, live profit preview, bulk delete, CSV export, and print-ready tables. *(Requires `manage_inventory`.)*
+- **🛍️ Product CRUD** — Add/edit with images, buying/selling price, live profit preview, **Simple Product / Variant Matrix** inventory modes, bulk delete, CSV export, and print-ready tables. *(Requires `manage_inventory`.)*
 - **👤 Staff Management** — Create, permission-assign, block, reset password, and delete staff accounts with a dynamic permission matrix. *(Super Admin only.)*
 - **🔔 Professional UX** — SweetAlert2 toasts + modal confirmations, asynchronous DOM re-rendering (instant UI sync, no manual refresh), permission-aware sidebar gating.
 
@@ -1981,7 +2099,7 @@ eonlinebazar-fullstack/
 │   ├── loginAttempt.js                # Login history & failed/blocked attempt audit
 │   ├── blacklistedIp.js               # Auto + manual IP bans (TTL-expiring)
 │   ├── securityLog.js                 # Admin/customer security & auth event log
-│   ├── product.js                     # Products (images, buyingPrice, variations, reviews)
+│   ├── product.js                     # Products (images, buyingPrice, hasVariants, stockQuantity, combination variants[])
 │   ├── category.js                    # Product categories (optional customCashbackPercentage)
 │   ├── brand.js                       # Product brands (slug + product references)
 │   ├── attribute.js                   # Product attributes / variants (Size, Color…)
@@ -2044,7 +2162,8 @@ eonlinebazar-fullstack/
 │   ├── deliveryChargeService.js       # Shared delivery zone + fee + free-shipping progress + locked totals
 │   ├── deliveryEstimateService.js     # Business-day delivery window estimates by shipping zone
 │   ├── announcementSettings.js        # Live announcement text, highlight chips & public payload builder
-│   ├── cartMergeService.js            # Variant-aware guest → user cart merge (login + API)
+│   ├── cartMergeService.js            # Variant-aware guest → user cart merge (login + API); selectedVariant normalization
+│   ├── variantHelpers.js              # Combination variant parse, stock aggregation, order/cart line matching
 │   ├── applicationTime.js             # Centralized server clock + platform timezone for coupon expiry
 │   ├── rewardSettings.js              # Cashback/points math, category overrides, delivery rewards, refund undo window
 │   ├── savedAddress.js                # Checkout address parsing, duplicate check, profile sync, default promotion
@@ -2056,7 +2175,7 @@ eonlinebazar-fullstack/
 │   ├── index.html                     # Storefront home
 │   ├── login.html / register.html     # Customer auth
 │   ├── forgot-password.html           # OTP password reset
-│   ├── product-details.html           # Product detail + reviews
+│   ├── product-details.html           # Product detail + reviews + smart variant matrix selector
 │   ├── search.html                    # Search results (?q=)
 │   ├── cart.html / checkout.html      # Cart & checkout flow
 │   ├── payment.html                   # Payment page
@@ -2078,6 +2197,8 @@ eonlinebazar-fullstack/
 │   │   ├── invoiceDownload.js         # 1-click order PDF invoice fetch + browser download
 │   │   ├── orderStatusTimeline.js     # Step-based order progress timeline + cancelled banner
 │   │   ├── stockAlert.js              # Low-stock FOMO badges + out-of-stock qty guardrails
+│   │   ├── variantUtils.js            # Client combination variant helpers (option state, cart meta)
+│   │   ├── product-details.js         # Smart variant matrix selector + exact-variant add-to-cart
 │   │   └── toast.js                   # Global non-blocking toast notification engine
 │   └── images/                        # Static assets (favicon.png…)
 │
@@ -2575,6 +2696,26 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 ---
 
 ## 📜 Changelog
+
+### `v3.9.0` — Multi-Attribute Variant Matrix & Dynamic Stock Engine
+
+**🧩 Amazon/Shopify-Standard Combination Matrix**
+- Overhauled `models/product.js` with **`hasVariants`**, **`stockQuantity`**, and combination **`variants[]`** rows (`attributes` Map, `sku`, `price`, `stock`, `image`).
+- New admin **Simple Product / Variant Matrix** toggle with attribute-type builder, Cartesian combination generator, and per-row **Price / Stock / SKU / Image URL** editing in `client/admin.html` + `client/js/admin.js`.
+- New `utils/variantHelpers.js` — shared parse/normalize, **`applyProductStockFields()`** total-stock aggregation, and **`findVariantIndex()`** for exact order-line matching.
+
+**📦 Flexible Stock Control**
+- Simple products: direct **`stockQuantity`** editing with empty `variants[]`.
+- Matrix products: independent per-combination stock; aggregate **`stock`** / **`stockQuantity`** auto-calculated on save; admin Stock Qty field read-only with live sum preview.
+
+**🎯 Smart Storefront Variant Selector**
+- `client/js/product-details.js` matrix engine — dynamic pill filtering by partial combination + stock state (`in-stock` / `oos` / `unavailable`).
+- Live updates for **price (৳)**, **stock badge**, **SKU**, **combination label**, and **variant image** on full attribute match.
+- New `client/js/variantUtils.js` — `getOptionState()`, `findVariantBySelection()`, `buildVariantCartMeta()`.
+
+**🛒 Exact-Variant Cart & Inventory**
+- Add-to-cart attaches **`selectedVariant`** metadata; `utils/cartMergeService.js` normalizes combination payloads for DB cart lines.
+- `controllers/orderController.js` decrements the **exact combination row's stock** (not flat product inventory) at checkout.
 
 ### `v3.8.0` — Advanced Finance Analytics & Theme Engine
 

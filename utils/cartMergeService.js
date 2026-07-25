@@ -8,6 +8,25 @@
 const Cart = require('../models/cart');
 
 function normalizeVariant(src = {}) {
+    if (src.selectedVariant && typeof src.selectedVariant === 'object') {
+        const sv = src.selectedVariant;
+        const attrs = sv.attributes && typeof sv.attributes === 'object' ? sv.attributes : {};
+        const attrPairs = Object.entries(attrs).map(([k, v]) => `${k}: ${v}`).join(', ');
+        const sku = String(sv.sku || src.variantSku || src.sku || '').trim();
+        let variantId = String(sv.variantId || src.variantId || '').trim();
+        if (!variantId) {
+            variantId = sku || getCombinationKeyFromAttrs(attrs);
+        }
+        const variantLabel = String(src.variantLabel || '').trim() || attrPairs;
+        return {
+            variantId,
+            variantLabel,
+            variantAttribute: attrPairs || String(src.variantAttribute || '').trim(),
+            variantValue: Object.values(attrs).join(', ') || String(src.variantValue || '').trim(),
+            variantSku: sku
+        };
+    }
+
     const attribute = String(src.variantAttribute || src.attribute || '').trim();
     const value = String(src.variantValue || src.value || '').trim();
     const sku = String(src.variantSku || src.sku || '').trim();
@@ -18,6 +37,13 @@ function normalizeVariant(src = {}) {
     const variantLabel = String(src.variantLabel || '').trim() ||
         (attribute && value ? `${attribute}: ${value}` : (value || ''));
     return { variantId, variantLabel, variantAttribute: attribute, variantValue: value, variantSku: sku };
+}
+
+function getCombinationKeyFromAttrs(attributes) {
+    return Object.entries(attributes || {})
+        .map(([k, v]) => `${String(k).trim().toLowerCase()}=${String(v).trim().toLowerCase()}`)
+        .sort()
+        .join('|');
 }
 
 function isSameLine(dbItem, productId, variantId) {

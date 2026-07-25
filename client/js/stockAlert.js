@@ -13,11 +13,13 @@
 
     function resolveVariantStock(realProduct, item) {
         if (!item || !item.variantId || !Array.isArray(realProduct?.variants)) return null;
-        const matched = realProduct.variants.find(v =>
-            (v.sku && v.sku === item.variantSku) ||
-            (`${v.attribute}::${v.value}` === item.variantId) ||
-            (v.value === item.variantValue && v.attribute === item.variantAttribute)
-        );
+        const matched = (global.VariantUtils && global.VariantUtils.matchVariantInProduct)
+            ? global.VariantUtils.matchVariantInProduct(realProduct, item)
+            : realProduct.variants.find(v =>
+                (v.sku && v.sku === item.variantSku) ||
+                (`${v.attribute}::${v.value}` === item.variantId) ||
+                (v.value === item.variantValue && v.attribute === item.variantAttribute)
+            );
         return matched != null ? Number(matched.stock ?? 0) : null;
     }
 

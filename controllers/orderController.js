@@ -48,40 +48,7 @@ const {
 } = require('../utils/orderItemImages');
 const { notifyOrderPlaced, notifyOrderStatusUpdated } = require('../utils/smsService');
 const { notifyOrderConfirmationEmail } = require('../utils/mailer');
-
-/**
- * 🌟 হেল্পার: একটি অর্ডার-আইটেমের ভ্যারিয়েন্ট প্রোডাক্টের variants অ্যারের কোন
- * ইনডেক্সে আছে তা খুঁজে বের করে। sku অগ্রাধিকার পায়, নইলে attribute+value
- * (case-insensitive) মিলিয়ে দেখা হয়। কোনো ভ্যারিয়েন্ট না থাকলে -1 রিটার্ন করে।
- */
-function findVariantIndex(product, item) {
-    if (!product || !Array.isArray(product.variants) || product.variants.length === 0) return -1;
-
-    const norm = (v) => String(v || '').trim().toLowerCase();
-    const sku = norm(item.variantSku || item.sku);
-    const attr = norm(item.variantAttribute || item.attribute);
-    const val = norm(item.variantValue || item.value);
-    const vid = norm(item.variantId);
-
-    // ১. SKU দিয়ে সবচেয়ে নির্ভরযোগ্য ম্যাচ
-    if (sku) {
-        const idx = product.variants.findIndex(v => norm(v.sku) && norm(v.sku) === sku);
-        if (idx > -1) return idx;
-    }
-    // ২. attribute + value কম্বিনেশন
-    if (attr && val) {
-        const idx = product.variants.findIndex(v => norm(v.attribute) === attr && norm(v.value) === val);
-        if (idx > -1) return idx;
-    }
-    // ৩. variantId ("attribute::value" বা sku) দিয়ে fallback ম্যাচ
-    if (vid) {
-        const idx = product.variants.findIndex(v =>
-            norm(v.sku) === vid || `${norm(v.attribute)}::${norm(v.value)}` === vid
-        );
-        if (idx > -1) return idx;
-    }
-    return -1;
-}
+const { findVariantIndex } = require('../utils/variantHelpers');
 
 /** Verified selling price from catalog — never trust client item.price. */
 function resolveSellingPrice(product, item) {

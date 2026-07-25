@@ -799,6 +799,8 @@ window.quickUpdateStock = async function(productId) {
     formData.append('price', product.price);
     formData.append('buyingPrice', product.buyingPrice || 0);
     formData.append('stock', newStock);
+    formData.append('stockQuantity', newStock);
+    formData.append('hasVariants', product.hasVariants ? 'true' : 'false');
     formData.append('category', product.category || 'General');
     formData.append('brand', (product.brand && product.brand._id) ? product.brand._id : (product.brand || ''));
     formData.append('variants', JSON.stringify(product.variants || []));
@@ -2143,7 +2145,9 @@ window.uploadProduct = async function() {
     const name = document.getElementById('prodName').value.trim();
     const price = document.getElementById('prodPrice').value.trim();
     const buyingPrice = document.getElementById('prodBuyingPrice') ? document.getElementById('prodBuyingPrice').value.trim() : '';
-    const stock = document.getElementById('prodStock').value.trim();
+    const stockField = document.getElementById('prodStock');
+    const variantPayload = collectProductVariantPayload('add');
+    const stock = String(variantPayload.stock ?? stockField?.value ?? '').trim();
     const category = document.getElementById('prodCategory').value;
     const brand = document.getElementById('prodBrand') ? document.getElementById('prodBrand').value : '';
     const emoji = document.getElementById('prodEmoji').value.trim();
@@ -2179,11 +2183,13 @@ window.uploadProduct = async function() {
     formData.append('name', name); 
     formData.append('price', price);
     formData.append('buyingPrice', buyingPrice || 0);
-    formData.append('stock', stock); 
+    formData.append('stock', stock);
+    formData.append('stockQuantity', variantPayload.stockQuantity);
+    formData.append('hasVariants', variantPayload.hasVariants ? 'true' : 'false');
+    formData.append('variants', JSON.stringify(variantPayload.variants));
     formData.append('category', category);
     formData.append('brand', brand || '');
-    formData.append('variants', JSON.stringify(collectVariations('add')));
-    formData.append('icon', emoji); 
+    formData.append('icon', emoji);
     formData.append('description', desc);
     formData.append('detailedDescription', detailedDesc); 
     formData.append('highlights', JSON.stringify(highlightsArray)); 
@@ -2208,7 +2214,7 @@ window.uploadProduct = async function() {
             document.getElementById('addProductForm').reset();
 
             // ভ্যারিয়েশন সারি ও ব্র্যান্ড সিলেকশন রিসেট করা
-            renderVariations('add', []);
+            resetProductVariantUI('add');
             if (document.getElementById('prodBrand')) document.getElementById('prodBrand').value = '';
             
             // ডাটা ট্রান্সফার রিসেট ও প্রিভিউ ক্লিয়ার
@@ -2321,16 +2327,333 @@ function renderBrandDropdown() {
 }
 
 /* ==========================================================================
-   PRODUCT VARIATIONS BUILDER (Shopify/Daraz স্টাইল ডাইনামিক ভ্যারিয়েশন)
+   PRODUCT VARIANT MATRIX (Simple vs Combination SKU builder)
    ========================================================================== */
 
-/** Color-type attributes do not carry price/stock in this store architecture */
-function isColorVariationAttribute(attr) {
-    const n = String(attr || '').trim().toLowerCase();
-    return n === 'color' || n === 'colour';
+const variantMatrixState = {
+    add: { mode: 'simple', attributeTypes: [], combinations: [] },
+    edit: { mode: 'simple', attributeTypes: [], combinations: [] }
+};
+
+function getVariantModePrefix(mode) {
+    return mode === 'edit' ? 'edit' : 'add';
 }
 
-/** অ্যাট্রিবিউট নাম ও মানের জন্য শেয়ার্ড datalist তৈরি/রিফ্রেশ করা */
+function parseCommaValues(raw) {
+    return String(raw || '')
+        .split(',')
+        .map(v => v.trim())
+        .filter(Boolean);
+}
+
+function cartesianCombinations(attributeTypes) {
+    const cleaned = (attributeTypes || [])
+        .map(t => ({
+            name: String(t.name || '').trim(),
+            values: [...new Set((t.values || []).map(v => String(v).trim()).filter(Boolean))]
+        }))
+        .filter(t => t.name && t.values.length > 0);
+
+    if (cleaned.length === 0) return [];
+
+    return cleaned.reduce((acc, type) => {
+        if (acc.length === 0) {
+            return type.values.map(value => ({ [type.name]: value }));
+        }
+        const next = [];
+        acc.forEach(combo => {
+            type.values.forEach(value => next.push({ ...combo, [type.name]: value }));
+        });
+        return next;
+    }, []);
+}
+
+function combinationKey(attributes) {
+    return Object.entries(attributes || {})
+        .map(([k, v]) => `${String(k).trim().toLowerCase()}=${String(v).trim().toLowerCase()}`)
+        .sort()
+        .join('|');
+}
+
+function formatCombinationLabel(attributes) {
+    return Object.entries(attributes || {})
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(' / ');
+}
+
+function getVariantAttributesFromDoc(v) {
+    if (!v || typeof v !== 'object') return {};
+    if (v.attributes && typeof v.attributes === 'object') {
+        const out = {};
+        Object.entries(v.attributes).forEach(([k, val]) => {
+            const key = String(k || '').trim();
+            const value = String(val || '').trim();
+            if (key && value) out[key] = value;
+        });
+        return out;
+    }
+    const attribute = String(v.attribute || '').trim();
+    const value = String(v.value || '').trim();
+    if (attribute && value) return { [attribute]: value };
+    return {};
+}
+
+function variantsToMatrixState(variants) {
+    const attrMap = {};
+    const combinations = [];
+
+    (variants || []).forEach(v => {
+        const attributes = getVariantAttributesFromDoc(v);
+        Object.entries(attributes).forEach(([name, value]) => {
+            if (!attrMap[name]) attrMap[name] = new Set();
+            attrMap[name].add(value);
+        });
+        combinations.push({
+            attributes,
+            sku: v.sku || '',
+            price: v.price ?? '',
+            stock: v.stock ?? '',
+            image: v.image || ''
+        });
+    });
+
+    const attributeTypes = Object.entries(attrMap).map(([name, set]) => ({
+        name,
+        values: [...set]
+    }));
+
+    return { attributeTypes, combinations };
+}
+
+function attributeTypeRowHtml(mode, data) {
+    const d = data || {};
+    const valuesStr = Array.isArray(d.values) ? d.values.join(', ') : (d.valuesStr || '');
+    return `<div class="attribute-type-row" data-attr-type-row>
+        <input list="attrNameList" class="v-input attr-type-name" placeholder="Size" value="${escHtml(d.name || '')}">
+        <input class="v-input attr-type-values" placeholder="S, M, L" value="${escHtml(valuesStr)}">
+        <button type="button" class="v-remove" title="Remove attribute" onclick="removeAttributeTypeRow(this, '${mode}')">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>`;
+}
+
+function matrixRowHtml(mode, row) {
+    const attrs = row.attributes || {};
+    const label = formatCombinationLabel(attrs);
+    const key = combinationKey(attrs);
+    return `<div class="matrix-row" data-matrix-row data-combo-key="${escHtml(key)}">
+        <div class="matrix-combo-label" title="${escHtml(label)}">${escHtml(label)}</div>
+        <input class="v-input matrix-sku" placeholder="SKU" value="${escHtml(row.sku || '')}">
+        <input type="number" min="0" step="any" class="v-input matrix-price" placeholder="0" value="${row.price === '' || row.price === undefined || row.price === null ? '' : row.price}">
+        <input type="number" min="0" class="v-input matrix-stock" placeholder="0" value="${row.stock === '' || row.stock === undefined || row.stock === null ? '' : row.stock}" oninput="syncMatrixTotalStock('${mode}')">
+        <input class="v-input matrix-image" placeholder="Optional image URL" value="${escHtml(row.image || '')}">
+    </div>`;
+}
+
+window.setProductVariantMode = function(mode, productType) {
+    const prefix = getVariantModePrefix(mode);
+    const isVariant = productType === 'variant';
+    variantMatrixState[mode].mode = isVariant ? 'variant' : 'simple';
+
+    const panel = document.getElementById(`${prefix}VariantMatrixPanel`);
+    const hint = document.getElementById(`${prefix}SimpleStockHint`);
+    const stockInput = document.getElementById(mode === 'edit' ? 'editProdStock' : 'prodStock');
+
+    if (panel) panel.style.display = isVariant ? 'block' : 'none';
+    if (hint) hint.style.display = isVariant ? 'none' : 'block';
+
+    if (stockInput) {
+        if (isVariant) {
+            syncMatrixTotalStock(mode);
+        } else {
+            stockInput.readOnly = false;
+            stockInput.classList.remove('stock-auto-locked');
+            stockInput.title = '';
+            stockInput.style.background = '';
+            stockInput.style.cursor = '';
+            stockInput.style.color = '';
+        }
+    }
+
+    if (isVariant && variantMatrixState[mode].combinations.length === 0) {
+        generateVariantMatrix(mode);
+    }
+};
+
+window.addAttributeTypeRow = function(mode, data) {
+    ensureVariationDatalists();
+    const list = document.getElementById(`${getVariantModePrefix(mode)}AttributeTypesList`);
+    if (!list) return;
+    list.insertAdjacentHTML('beforeend', attributeTypeRowHtml(mode, data));
+};
+
+window.removeAttributeTypeRow = function(btn, mode) {
+    const row = btn.closest('[data-attr-type-row]');
+    if (row) row.remove();
+};
+
+function collectAttributeTypes(mode) {
+    const list = document.getElementById(`${getVariantModePrefix(mode)}AttributeTypesList`);
+    if (!list) return [];
+    const out = [];
+    list.querySelectorAll('[data-attr-type-row]').forEach(row => {
+        const name = (row.querySelector('.attr-type-name')?.value || '').trim();
+        const values = parseCommaValues(row.querySelector('.attr-type-values')?.value || '');
+        if (name && values.length) out.push({ name, values });
+    });
+    return out;
+}
+
+window.generateVariantMatrix = function(mode) {
+    const attributeTypes = collectAttributeTypes(mode);
+    variantMatrixState[mode].attributeTypes = attributeTypes;
+
+    const existing = {};
+    (variantMatrixState[mode].combinations || []).forEach(row => {
+        existing[combinationKey(row.attributes)] = row;
+    });
+
+    const combos = cartesianCombinations(attributeTypes);
+    const basePrice = document.getElementById(mode === 'edit' ? 'editProdPrice' : 'prodPrice')?.value || '';
+
+    variantMatrixState[mode].combinations = combos.map(attributes => {
+        const key = combinationKey(attributes);
+        const prev = existing[key] || {};
+        return {
+            attributes,
+            sku: prev.sku || '',
+            price: prev.price !== undefined && prev.price !== '' ? prev.price : basePrice,
+            stock: prev.stock ?? '',
+            image: prev.image || ''
+        };
+    });
+
+    renderVariantMatrix(mode);
+};
+
+function renderVariantMatrix(mode) {
+    const prefix = getVariantModePrefix(mode);
+    const body = document.getElementById(`${prefix}VariantMatrixBody`);
+    const wrap = document.getElementById(`${prefix}VariantMatrixWrap`);
+    const empty = document.getElementById(`${prefix}VariantMatrixEmpty`);
+    const rows = variantMatrixState[mode].combinations || [];
+
+    if (body) body.innerHTML = rows.map(r => matrixRowHtml(mode, r)).join('');
+    if (wrap) wrap.style.display = rows.length ? 'block' : 'none';
+    if (empty) empty.style.display = rows.length ? 'none' : 'block';
+    syncMatrixTotalStock(mode);
+}
+
+function collectMatrixCombinations(mode) {
+    const prefix = getVariantModePrefix(mode);
+    const body = document.getElementById(`${prefix}VariantMatrixBody`);
+    if (!body) return [];
+
+    const out = [];
+    body.querySelectorAll('[data-matrix-row]').forEach(row => {
+        const key = row.getAttribute('data-combo-key') || '';
+        const base = (variantMatrixState[mode].combinations || []).find(r => combinationKey(r.attributes) === key);
+        const attributes = base?.attributes || {};
+        const sku = (row.querySelector('.matrix-sku')?.value || '').trim();
+        const price = Number(row.querySelector('.matrix-price')?.value) || 0;
+        const stock = Number(row.querySelector('.matrix-stock')?.value) || 0;
+        const image = (row.querySelector('.matrix-image')?.value || '').trim();
+        if (Object.keys(attributes).length) {
+            out.push({ attributes, sku, price, stock, image });
+        }
+    });
+    return out;
+}
+
+window.syncMatrixTotalStock = function(mode) {
+    const stockInput = document.getElementById(mode === 'edit' ? 'editProdStock' : 'prodStock');
+    const totalEl = document.getElementById(`${getVariantModePrefix(mode)}MatrixTotalStock`);
+    if (variantMatrixState[mode].mode !== 'variant') return;
+
+    const combinations = collectMatrixCombinations(mode);
+    variantMatrixState[mode].combinations = combinations;
+
+    const total = combinations.reduce((sum, r) => sum + (Number(r.stock) || 0), 0);
+    if (totalEl) totalEl.textContent = String(total);
+
+    if (stockInput) {
+        stockInput.value = total;
+        stockInput.readOnly = true;
+        stockInput.classList.add('stock-auto-locked');
+        stockInput.title = 'Auto-calculated from variant matrix (sum of combination stock)';
+    }
+};
+
+function collectProductVariantPayload(mode) {
+    const isVariant = variantMatrixState[mode].mode === 'variant';
+    if (!isVariant) {
+        const stockInput = document.getElementById(mode === 'edit' ? 'editProdStock' : 'prodStock');
+        const stockQuantity = Number(stockInput?.value) || 0;
+        return { hasVariants: false, variants: [], stockQuantity, stock: stockQuantity };
+    }
+
+    const variants = collectMatrixCombinations(mode);
+    const total = variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+    return { hasVariants: variants.length > 0, variants, stockQuantity: total, stock: total };
+}
+
+function loadProductVariantUI(mode, product) {
+    const prefix = getVariantModePrefix(mode);
+    const hasVariants = Boolean(product?.hasVariants) && Array.isArray(product?.variants) && product.variants.length > 0;
+    const productType = hasVariants ? 'variant' : 'simple';
+
+    const radio = document.querySelector(`input[name="${prefix}ProductType"][value="${productType}"]`);
+    if (radio) radio.checked = true;
+
+    if (hasVariants) {
+        const { attributeTypes, combinations } = variantsToMatrixState(product.variants);
+        variantMatrixState[mode] = { mode: 'variant', attributeTypes, combinations };
+
+        const list = document.getElementById(`${prefix}AttributeTypesList`);
+        if (list) {
+            list.innerHTML = attributeTypes.map(t => attributeTypeRowHtml(mode, {
+                name: t.name,
+                values: t.values
+            })).join('');
+        }
+        renderVariantMatrix(mode);
+    } else {
+        variantMatrixState[mode] = { mode: 'simple', attributeTypes: [], combinations: [] };
+        const list = document.getElementById(`${prefix}AttributeTypesList`);
+        if (list) list.innerHTML = '';
+        renderVariantMatrix(mode);
+    }
+
+    setProductVariantMode(mode, productType);
+
+    if (!hasVariants) {
+        const stockInput = document.getElementById(mode === 'edit' ? 'editProdStock' : 'prodStock');
+        const qty = product?.stockQuantity ?? product?.stock ?? '';
+        if (stockInput && qty !== '') stockInput.value = qty;
+    }
+}
+
+function resetProductVariantUI(mode) {
+    const prefix = getVariantModePrefix(mode);
+    variantMatrixState[mode] = { mode: 'simple', attributeTypes: [], combinations: [] };
+    const list = document.getElementById(`${prefix}AttributeTypesList`);
+    if (list) list.innerHTML = '';
+    const radio = document.querySelector(`input[name="${prefix}ProductType"][value="simple"]`);
+    if (radio) radio.checked = true;
+    setProductVariantMode(mode, 'simple');
+    renderVariantMatrix(mode);
+}
+
+/** Legacy alias used after form reset */
+function renderVariations(mode, list) {
+    if (list && list.length) {
+        loadProductVariantUI(mode, { hasVariants: true, variants: list });
+    } else {
+        resetProductVariantUI(mode);
+    }
+}
+
+/** Shared datalists for attribute names (Manage Attributes integration) */
 function ensureVariationDatalists() {
     let nameList = document.getElementById('attrNameList');
     if (!nameList) {
@@ -2340,188 +2663,15 @@ function ensureVariationDatalists() {
     }
     nameList.innerHTML = (globalAttributes || [])
         .map(a => `<option value="${escHtml(a.name)}"></option>`).join('');
-
-    let valueList = document.getElementById('attrValueList');
-    if (!valueList) {
-        valueList = document.createElement('datalist');
-        valueList.id = 'attrValueList';
-        document.body.appendChild(valueList);
-    }
-    const allValues = [];
-    (globalAttributes || []).forEach(a => (a.values || []).forEach(v => allValues.push(v)));
-    valueList.innerHTML = [...new Set(allValues)]
-        .map(v => `<option value="${escHtml(v)}"></option>`).join('');
 }
 
-/** একটি ভ্যারিয়েশন সারির HTML তৈরি করা */
-function variationRowHtml(mode, data) {
-    const d = data || {};
-    const isColor = isColorVariationAttribute(d.attribute);
-    const price = isColor ? '' : ((d.price !== undefined && d.price !== null && d.price !== 0) ? d.price : (d.price === 0 ? 0 : ''));
-    const stock = isColor ? '' : ((d.stock !== undefined && d.stock !== null) ? d.stock : '');
-    return `<div class="variations-row${isColor ? ' is-color-row' : ''}" data-vrow>
-        <input list="attrNameList" class="v-input v-attr" placeholder="Size" value="${escHtml(d.attribute || '')}" required>
-        <input list="attrValueList" class="v-input v-value" placeholder="M" value="${escHtml(d.value || '')}" required>
-        <input class="v-input v-sku" placeholder="SKU-01" value="${escHtml(d.sku || '')}">
-        <input type="number" min="0" class="v-input v-price" placeholder="0" value="${price === '' ? '' : price}"${isColor ? ' disabled' : ' required'}>
-        <input type="number" min="0" class="v-input v-stock" placeholder="0" value="${stock === '' ? '' : stock}" oninput="syncVariationStock('${mode}')"${isColor ? ' disabled' : ' required'}>
-        <button type="button" class="v-remove" title="Remove variation" onclick="removeVariationRow(this, '${mode}')">
-            <i class="fa-solid fa-xmark"></i>
-        </button>
-    </div>`;
-}
-
-/** Attribute selection drives which inputs are editable on a variation row */
-function applyVariationRowAttributeState(row, mode) {
-    if (!row) return;
-
-    const attrInput = row.querySelector('.v-attr');
-    const priceInput = row.querySelector('.v-price');
-    const stockInput = row.querySelector('.v-stock');
-    if (!attrInput) return;
-
-    const isColor = isColorVariationAttribute(attrInput.value);
-    row.classList.toggle('is-color-row', isColor);
-
-    if (priceInput) {
-        if (isColor) {
-            priceInput.value = '';
-            priceInput.disabled = true;
-            priceInput.removeAttribute('required');
-            priceInput.placeholder = '—';
-        } else {
-            priceInput.disabled = false;
-            priceInput.placeholder = '0';
-            priceInput.setAttribute('required', 'required');
-        }
-    }
-
-    if (stockInput) {
-        if (isColor) {
-            stockInput.value = '';
-            stockInput.disabled = true;
-            stockInput.removeAttribute('required');
-            stockInput.placeholder = '—';
-        } else {
-            stockInput.disabled = false;
-            stockInput.placeholder = '0';
-            stockInput.setAttribute('required', 'required');
-        }
-    }
-
-    syncVariationStock(mode);
-}
-
-function bindVariationRowListeners(row, mode) {
-    const attrInput = row.querySelector('.v-attr');
-    if (!attrInput || attrInput.dataset.variationBound === '1') return;
-
-    attrInput.dataset.variationBound = '1';
-    const onAttrChange = () => applyVariationRowAttributeState(row, mode);
-    attrInput.addEventListener('input', onAttrChange);
-    attrInput.addEventListener('change', onAttrChange);
-    onAttrChange();
-}
-
-function bindAllVariationRows(mode) {
-    const body = document.getElementById(mode === 'edit' ? 'editVariationsBody' : 'addVariationsBody');
-    if (!body) return;
-    body.querySelectorAll('[data-vrow]').forEach(row => bindVariationRowListeners(row, mode));
-}
-
-/** নতুন ভ্যারিয়েশন সারি যোগ করা (mode: 'add' | 'edit') */
-window.addVariationRow = function(mode, data) {
-    ensureVariationDatalists();
-    const bodyId = mode === 'edit' ? 'editVariationsBody' : 'addVariationsBody';
-    const body = document.getElementById(bodyId);
-    if (!body) return;
-    body.insertAdjacentHTML('beforeend', variationRowHtml(mode, data));
-    const row = body.lastElementChild;
-    if (row) bindVariationRowListeners(row, mode);
-    refreshVariationsEmptyState(mode);
+window.collectVariations = function(mode) {
+    return collectProductVariantPayload(mode).variants;
 };
 
-/** ভ্যারিয়েশন সারি মুছে ফেলা */
-window.removeVariationRow = function(btn, mode) {
-    const row = btn.closest('[data-vrow]');
-    if (row) row.remove();
-    refreshVariationsEmptyState(mode);
-    syncVariationStock(mode);
-};
-
-/**
- * 🌟 স্টক সেফগার্ড: ভ্যারিয়েশন সারি থাকলে মূল "Stock Qty" ফিল্ড readonly করে
- * ভ্যারিয়েন্ট স্টকের যোগফল স্বয়ংক্রিয়ভাবে বসিয়ে দেয় (ডাটা এন্ট্রি দ্বন্দ্ব এড়াতে)।
- * সারি না থাকলে ফিল্ডটি আবার সম্পাদনযোগ্য হয়।
- */
-window.syncVariationStock = function(mode) {
-    const body = document.getElementById(mode === 'edit' ? 'editVariationsBody' : 'addVariationsBody');
-    const stockInput = document.getElementById(mode === 'edit' ? 'editProdStock' : 'prodStock');
-    if (!stockInput) return;
-
-    const rows = body ? body.querySelectorAll('[data-vrow]') : [];
-
-    if (rows.length > 0) {
-        let sum = 0;
-        rows.forEach(r => {
-            const attr = (r.querySelector('.v-attr')?.value || '').trim();
-            if (isColorVariationAttribute(attr)) return;
-            sum += Number(r.querySelector('.v-stock')?.value) || 0;
-        });
-        stockInput.value = sum;
-        stockInput.readOnly = true;
-        stockInput.classList.add('stock-auto-locked');
-        stockInput.title = 'Auto-calculated from variations (sum of variant stock)';
-        stockInput.style.background = '#f1f5f9';
-        stockInput.style.cursor = 'not-allowed';
-        stockInput.style.color = '#64748b';
-    } else {
-        stockInput.readOnly = false;
-        stockInput.classList.remove('stock-auto-locked');
-        stockInput.title = '';
-        stockInput.style.background = '';
-        stockInput.style.cursor = '';
-        stockInput.style.color = '';
-    }
-};
-
-/** টেবিল/খালি-স্টেট টগল করা */
-function refreshVariationsEmptyState(mode) {
-    const wrap = document.getElementById(mode === 'edit' ? 'editVariationsWrap' : 'addVariationsWrap');
-    const empty = document.getElementById(mode === 'edit' ? 'editVariationsEmpty' : 'addVariationsEmpty');
-    const body = document.getElementById(mode === 'edit' ? 'editVariationsBody' : 'addVariationsBody');
-    const has = !!(body && body.children.length > 0);
-    if (wrap) wrap.style.display = has ? 'block' : 'none';
-    if (empty) empty.style.display = has ? 'none' : 'block';
-}
-
-/** একটি তালিকা থেকে ভ্যারিয়েশন সারিগুলো রেন্ডার করা */
-function renderVariations(mode, list) {
-    const body = document.getElementById(mode === 'edit' ? 'editVariationsBody' : 'addVariationsBody');
-    if (!body) return;
-    ensureVariationDatalists();
-    body.innerHTML = (list || []).map(v => variationRowHtml(mode, v)).join('');
-    bindAllVariationRows(mode);
-    refreshVariationsEmptyState(mode);
-}
-
-/** ফর্ম সাবমিটের সময় ভ্যারিয়েশন ডাটা সংগ্রহ করা */
-function collectVariations(mode) {
-    const body = document.getElementById(mode === 'edit' ? 'editVariationsBody' : 'addVariationsBody');
-    if (!body) return [];
-    const out = [];
-    body.querySelectorAll('[data-vrow]').forEach(r => {
-        const attribute = (r.querySelector('.v-attr')?.value || '').trim();
-        const value = (r.querySelector('.v-value')?.value || '').trim();
-        const sku = (r.querySelector('.v-sku')?.value || '').trim();
-        const isColor = isColorVariationAttribute(attribute);
-        const price = isColor ? 0 : (Number(r.querySelector('.v-price')?.value) || 0);
-        const stock = isColor ? 0 : (Number(r.querySelector('.v-stock')?.value) || 0);
-        if (attribute || value) out.push({ attribute, value, sku, price, stock });
-    });
-    return out;
-}
-window.collectVariations = collectVariations;
+document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('addProductForm')) resetProductVariantUI('add');
+});
 
 function formatCategoryCashbackDisplay(cat) {
     const val = cat?.customCashbackPercentage;
@@ -3966,7 +4116,7 @@ window.editProduct = function(id) {
     if (document.getElementById('editProdName')) document.getElementById('editProdName').value = product.name || '';
     if (document.getElementById('editProdPrice')) document.getElementById('editProdPrice').value = product.price || '';
     if (document.getElementById('editProdBuyingPrice')) document.getElementById('editProdBuyingPrice').value = (product.buyingPrice !== undefined && product.buyingPrice !== null) ? product.buyingPrice : '';
-    if (document.getElementById('editProdStock')) document.getElementById('editProdStock').value = product.stock || '';
+    if (document.getElementById('editProdStock')) document.getElementById('editProdStock').value = product.stockQuantity ?? product.stock ?? '';
     if (typeof updateEditProfitPreview === 'function') updateEditProfitPreview();
     
     // 🌟 ক্যাটাগরি ড্রপডাউনটি রেন্ডার করে ভ্যালু সিলেক্ট করা (ডাটাবেজ ওরিয়েন্টেড সিকিউরড লক)
@@ -3983,7 +4133,7 @@ window.editProduct = function(id) {
     }
 
     // 🌟 বিদ্যমান ভ্যারিয়েশনগুলো এডিট মোডালে রেন্ডার করা
-    renderVariations('edit', product.variants || []);
+    loadProductVariantUI('edit', product);
     
     if (document.getElementById('editProdEmoji')) document.getElementById('editProdEmoji').value = product.icon || '📦';
     if (document.getElementById('editProdDesc')) document.getElementById('editProdDesc').value = product.description || '';
@@ -4105,7 +4255,9 @@ window.updateProductDetails = async function() {
     const name = document.getElementById('editProdName').value.trim();
     const price = document.getElementById('editProdPrice').value.trim();
     const buyingPrice = document.getElementById('editProdBuyingPrice') ? document.getElementById('editProdBuyingPrice').value.trim() : '';
-    const stock = document.getElementById('editProdStock').value.trim();
+    const stockField = document.getElementById('editProdStock');
+    const variantPayload = collectProductVariantPayload('edit');
+    const stock = String(variantPayload.stock ?? stockField?.value ?? '').trim();
     const category = document.getElementById('editProdCategory').value.trim();
     const brand = document.getElementById('editProdBrand') ? document.getElementById('editProdBrand').value : '';
     const emoji = document.getElementById('editProdEmoji').value.trim();
@@ -4133,9 +4285,11 @@ window.updateProductDetails = async function() {
     formData.append('price', price);
     formData.append('buyingPrice', buyingPrice || 0);
     formData.append('stock', stock);
+    formData.append('stockQuantity', variantPayload.stockQuantity);
+    formData.append('hasVariants', variantPayload.hasVariants ? 'true' : 'false');
     formData.append('category', category);
     formData.append('brand', brand || '');
-    formData.append('variants', JSON.stringify(collectVariations('edit')));
+    formData.append('variants', JSON.stringify(variantPayload.variants));
     formData.append('icon', emoji);
     formData.append('description', desc);
     formData.append('detailedDescription', detailedDesc);

@@ -445,11 +445,13 @@ window.updateQty = function(productId, change, variantIdEnc) {
             if (realProduct) {
                 let availableStock = Number(realProduct.stock || 0);
                 if (item.variantId && Array.isArray(realProduct.variants)) {
-                    const matched = realProduct.variants.find(v =>
-                        (v.sku && v.sku === item.variantSku) ||
-                        (`${v.attribute}::${v.value}` === item.variantId) ||
-                        (v.value === item.variantValue && v.attribute === item.variantAttribute)
-                    );
+                    const matched = (window.VariantUtils && window.VariantUtils.matchVariantInProduct)
+                        ? window.VariantUtils.matchVariantInProduct(realProduct, item)
+                        : realProduct.variants.find(v =>
+                            (v.sku && v.sku === item.variantSku) ||
+                            (`${v.attribute}::${v.value}` === item.variantId) ||
+                            (v.value === item.variantValue && v.attribute === item.variantAttribute)
+                        );
                     if (matched) availableStock = Number(matched.stock || 0);
                 }
                 if ((item.quantity + change) > availableStock) {
@@ -617,8 +619,8 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
 
     // 🌟 ভ্যারিয়েন্ট প্রোডাক্ট হলে সরাসরি কার্টে যোগ না করে ডিটেইলস পেজে পাঠানো হয়,
     // যাতে কাস্টমার Size/Color নির্বাচন করতে পারে (Shopify স্টাইল)।
-    if (realProduct && Array.isArray(realProduct.variants) &&
-        realProduct.variants.some(v => v.attribute || v.value)) {
+    if (realProduct && (realProduct.hasVariants || (Array.isArray(realProduct.variants) &&
+        realProduct.variants.some(v => v.attribute || v.value || (v.attributes && Object.keys(v.attributes).length))))) {
         const detailId = realProduct._id || realProduct.productId || productId;
         if (clickedButton && typeof showCardNotification === 'function') {
             showCardNotification(clickedButton, 'Select product options first', 'info');

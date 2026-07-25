@@ -12,34 +12,12 @@ const Brand = require('../models/brand');
 const { upload } = require('../middlewares/uploadMiddleware'); // এখানে শুধু upload ইমপোর্ট হবে
 const cloudinary = require('cloudinary').v2; // ক্লাউডিনারি সরাসরি এখান থেকে ইমপোর্ট করুন
 const mongoose = require('mongoose');
+const { parseVariants, applyProductStockFields } = require('../utils/variantHelpers');
 
-/**
- * 🌟 হেল্পার: ফ্রন্টএন্ড থেকে আসা variants (JSON string বা array) কে পরিষ্কার,
- * নিরাপদ স্ট্রাকচারে রূপান্তর করে। ফাঁকা/অসম্পূর্ণ সারি বাদ দেয়।
- */
-function parseVariants(raw) {
-    if (!raw) return [];
-    let list = raw;
-    if (typeof raw === 'string') {
-        try {
-            list = JSON.parse(raw);
-        } catch (e) {
-            return [];
-        }
-    }
-    if (!Array.isArray(list)) return [];
-
-    return list
-        .map(v => ({
-            attribute: String(v.attribute || '').trim(),
-            value: String(v.value || '').trim(),
-            sku: String(v.sku || '').trim(),
-            price: Number(v.price) || 0,
-            buyingPrice: Number(v.buyingPrice) || 0,
-            stock: Number(v.stock) || 0
-        }))
-        // অন্তত অ্যাট্রিবিউট বা ভ্যালু থাকতে হবে, নইলে সারিটি অর্থহীন
-        .filter(v => v.attribute || v.value);
+function parseHasVariants(raw) {
+    if (raw === true || raw === 'true' || raw === 1 || raw === '1') return true;
+    if (raw === false || raw === 'false' || raw === 0 || raw === '0') return false;
+    return undefined;
 }
 
 /**
@@ -191,33 +169,34 @@ const createProduct = async (req, res) => {
         console.log("Request Body:", req.body); 
         console.log("Files received:", req.files ? req.files.length : 0);
 
-        const { id, name, price, buyingPrice, stock, category, brand, variants, icon, description, detailedDescription, highlights, tags } = req.body;
+        const { id, name, price, buyingPrice, stock, stockQuantity, category, brand, variants, hasVariants, icon, description, detailedDescription, highlights, tags } = req.body;
         
         const parsedHighlights = parseStringArray(highlights);
         const parsedTags = parseStringArray(tags);
 
-        // 🌟 ব্র্যান্ড রিসলভ ও ভ্যারিয়েশন পার্স করা
         const { brand: brandRef, brandName } = await resolveBrand(brand);
         const parsedVariants = parseVariants(variants);
+        const explicitHasVariants = parseHasVariants(hasVariants);
 
-        let newProductData = {
-            // 🚀 ফিক্স: ফ্রন্টএন্ড থেকে ডাটা না আসলে যেন ক্র্যাশ না করে তার জন্য Fallback ভ্যালু দেওয়া হলো
+        let newProductData = applyProductStockFields({
             productId: id || `PROD-${Date.now()}`, 
-            name: name || description || 'Unnamed Product', // Name না থাকলে Description কেই নাম হিসেবে ধরবে
+            name: name || description || 'Unnamed Product',
             price: Number(price) || 0,
-            buyingPrice: Number(buyingPrice) || 0, // 🌟 ক্রয়মূল্য সংরক্ষণ (Finance প্রফিট হিসাবের জন্য)
+            buyingPrice: Number(buyingPrice) || 0,
+            hasVariants: explicitHasVariants !== undefined ? explicitHasVariants : parsedVariants.length > 0,
+            stockQuantity: Number(stockQuantity ?? stock) || 0,
             stock: Number(stock) || 0,
             category: category || 'General',
-            brand: brandRef,          // 🌟 ব্র্যান্ড রেফারেন্স
-            brandName: brandName,     // ক্যাশড ব্র্যান্ড নাম
-            variants: parsedVariants, // 🌟 ভ্যারিয়েশন অ্যারে
+            brand: brandRef,
+            brandName: brandName,
+            variants: parsedVariants,
             icon: icon || '📦',
             description: description || '',
             detailedDescription: detailedDescription || '', 
             highlights: parsedHighlights,
-            tags: parsedTags, // 🌟 সার্চ কিওয়ার্ড ট্যাগ
+            tags: parsedTags,
             images: [] 
-        };
+        });
 
         if (req.files && req.files.length > 0) {
             let uploadedUrls = [];
@@ -251,27 +230,46 @@ const createProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
     try {
         const productIdParam = req.params.id;
-        const { name, price, buyingPrice, stock, category, brand, variants, icon, description, detailedDescription, highlights, tags } = req.body;
+        const { name, price, buyingPrice, stock, stockQuantity, category, brand, variants, hasVariants, icon, description, detailedDescription, highlights, tags } = req.body;
 
         let updateFields = {};
         if (name) updateFields.name = name;
         if (price) updateFields.price = Number(price);
-        // 🌟 buyingPrice আপডেট: "0" সহ যেকোনো সংখ্যা গ্রহণ করতে undefined/'' চেক করা হয়েছে
         if (buyingPrice !== undefined && buyingPrice !== '') updateFields.buyingPrice = Number(buyingPrice) || 0;
-        if (stock) updateFields.stock = Number(stock);
         if (category) updateFields.category = category;
         if (icon) updateFields.icon = icon.trim();
 
-        // 🌟 ব্র্যান্ড আপডেট: পাঠানো হলেই রিসলভ করা (খালি স্ট্রিং = রেফারেন্স ক্লিয়ার)
         if (brand !== undefined) {
             const { brand: brandRef, brandName } = await resolveBrand(brand);
             updateFields.brand = brandRef;
             updateFields.brandName = brandName;
         }
 
-        // 🌟 ভ্যারিয়েশন আপডেট: পাঠানো হলেই সম্পূর্ণ অ্যারে রিপ্লেস করা
-        if (variants !== undefined) {
-            updateFields.variants = parseVariants(variants);
+        const explicitHasVariants = parseHasVariants(hasVariants);
+        if (variants !== undefined || explicitHasVariants !== undefined || stockQuantity !== undefined || stock !== undefined) {
+            const existingProduct = await Product.findOne(
+                mongoose.Types.ObjectId.isValid(productIdParam) ? { _id: productIdParam } : { productId: String(productIdParam) }
+            );
+
+            const nextVariants = variants !== undefined
+                ? parseVariants(variants)
+                : (existingProduct?.variants || []);
+
+            const nextHasVariants = explicitHasVariants !== undefined
+                ? explicitHasVariants
+                : (existingProduct?.hasVariants || false);
+
+            const stockPayload = applyProductStockFields({
+                hasVariants: nextHasVariants,
+                variants: nextVariants,
+                stockQuantity: stockQuantity !== undefined ? Number(stockQuantity) : (existingProduct?.stockQuantity ?? existingProduct?.stock ?? 0),
+                stock: stock !== undefined ? Number(stock) : (existingProduct?.stock ?? 0)
+            });
+
+            updateFields.hasVariants = stockPayload.hasVariants;
+            updateFields.variants = stockPayload.variants;
+            updateFields.stockQuantity = stockPayload.stockQuantity;
+            updateFields.stock = stockPayload.stock;
         }
         if (description) updateFields.description = description;
         if (detailedDescription) updateFields.detailedDescription = detailedDescription;

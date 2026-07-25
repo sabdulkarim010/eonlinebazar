@@ -919,12 +919,56 @@ body {
 }
 
 .variant-badge.is-disabled {
+    opacity: 0.42;
     cursor: not-allowed;
-    opacity: 0.55;
-    background: var(--bg-light);
+    pointer-events: none;
+    background: #f8fafc;
+    border-color: #e2e8f0;
     color: var(--text-muted);
+}
+
+.variant-badge.is-oos {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+}
+
+.variant-badge.is-unavailable {
+    opacity: 0.35;
     text-decoration: line-through;
-    border-style: dashed;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
+.selected-variant-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 18px;
+    margin: 8px 0 4px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.selected-variant-meta.hidden {
+    display: none;
+}
+
+.selected-variant-meta strong {
+    color: var(--text-main);
+    font-weight: 700;
+}
+
+.selected-variant-combo {
+    font-size: 12.5px;
+    color: var(--text-muted);
 }
 
 .variant-badge .variant-oos-tag {

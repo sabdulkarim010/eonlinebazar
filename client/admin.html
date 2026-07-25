@@ -685,29 +685,57 @@
                     <textarea id="prodHighlights" rows="2" placeholder="যেমন: তাজা, শক্তিশালী, ১০০% খাঁটি, প্রিমিয়াম কোয়ালিটি"></textarea>
                 </div>
 
-                <!-- 🌟 Product Variations builder (Size / Color etc. with per-variant stock & price) -->
-                <div class="variations-block" style="margin-top: 22px;">
+                <!-- Variant matrix: Simple Product vs Combination Variant Product -->
+                <div class="variant-matrix-block" style="margin-top: 22px;">
                     <div class="variations-head">
                         <div>
-                            <h4 class="variations-title"><i class="fa-solid fa-layer-group"></i> Product Variations</h4>
-                            <p class="variations-sub">Add attribute combinations (e.g. Size: M) with their own stock &amp; price.</p>
+                            <h4 class="variations-title"><i class="fa-solid fa-layer-group"></i> Product Type &amp; Inventory</h4>
+                            <p class="variations-sub">Choose a simple product with one stock count, or define attribute combinations (Size × Color) with per-SKU price and stock.</p>
                         </div>
-                        <button type="button" class="variation-add-btn" onclick="addVariationRow('add')">
-                            <i class="fa-solid fa-plus"></i> Add Variation
-                        </button>
                     </div>
-                    <div class="variations-table-wrap" id="addVariationsWrap" style="display:none;">
-                        <div class="variations-row variations-row-head">
-                            <span>Attribute</span>
-                            <span>Value</span>
-                            <span>SKU</span>
-                            <span>Price (৳)</span>
-                            <span>Stock</span>
-                            <span></span>
+
+                    <div class="product-type-toggle" role="radiogroup" aria-label="Product type">
+                        <label class="product-type-option">
+                            <input type="radio" name="addProductType" value="simple" checked onchange="setProductVariantMode('add', 'simple')">
+                            <span><i class="fa-solid fa-box"></i> Simple Product</span>
+                        </label>
+                        <label class="product-type-option">
+                            <input type="radio" name="addProductType" value="variant" onchange="setProductVariantMode('add', 'variant')">
+                            <span><i class="fa-solid fa-table-cells"></i> Variant Matrix</span>
+                        </label>
+                    </div>
+
+                    <p class="simple-stock-hint" id="addSimpleStockHint">Stock Qty above applies directly to this product.</p>
+
+                    <div id="addVariantMatrixPanel" class="variant-matrix-panel" style="display:none;">
+                        <div class="matrix-section-head">
+                            <h5>Attribute Types</h5>
+                            <button type="button" class="variation-add-btn" onclick="addAttributeTypeRow('add')">
+                                <i class="fa-solid fa-plus"></i> Add Attribute
+                            </button>
                         </div>
-                        <div id="addVariationsBody"></div>
+                        <div id="addAttributeTypesList" class="attribute-types-list"></div>
+                        <p class="matrix-hint">Enter values comma-separated (e.g. S, M, L). Combinations are generated automatically.</p>
+
+                        <div class="matrix-toolbar">
+                            <button type="button" class="btn-secondary-sm" onclick="generateVariantMatrix('add')">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Regenerate Matrix
+                            </button>
+                            <span class="matrix-total-stock">Total stock: <strong id="addMatrixTotalStock">0</strong></span>
+                        </div>
+
+                        <div class="variant-matrix-wrap" id="addVariantMatrixWrap" style="display:none;">
+                            <div class="matrix-row matrix-row-head">
+                                <span>Combination</span>
+                                <span>SKU</span>
+                                <span>Price (৳)</span>
+                                <span>Stock</span>
+                                <span>Image URL</span>
+                            </div>
+                            <div id="addVariantMatrixBody"></div>
+                        </div>
+                        <p class="variations-empty" id="addVariantMatrixEmpty">Add attribute types and values, then generate the combination matrix.</p>
                     </div>
-                    <p class="variations-empty" id="addVariationsEmpty">No variations added. This product will use its base price &amp; stock.</p>
                 </div>
             </div>
 
@@ -951,29 +979,57 @@
                 </div>
             </div>
 
-            <!-- Product Variations builder (edit) -->
-            <div class="variations-block edit-variations-block">
+            <!-- Variant matrix (edit) -->
+            <div class="variant-matrix-block edit-variations-block">
                 <div class="variations-head">
                     <div>
-                        <h4 class="variations-title"><i class="fa-solid fa-layer-group"></i> Product Variations</h4>
-                        <p class="variations-sub">Manage attribute combinations with their own stock &amp; price.</p>
+                        <h4 class="variations-title"><i class="fa-solid fa-layer-group"></i> Product Type &amp; Inventory</h4>
+                        <p class="variations-sub">Simple products use Stock Quantity directly. Variant products use the combination matrix below.</p>
                     </div>
-                    <button type="button" class="variation-add-btn" onclick="addVariationRow('edit')">
-                        <i class="fa-solid fa-plus"></i> Add Variation
-                    </button>
                 </div>
-                <div class="variations-table-wrap edit-variations-table-wrap" id="editVariationsWrap" style="display:none;">
-                    <div class="variations-row variations-row-head edit-variations-row-head">
-                        <span>Attribute</span>
-                        <span>Value</span>
-                        <span>SKU</span>
-                        <span>Price (৳)</span>
-                        <span>Stock</span>
-                        <span></span>
+
+                <div class="product-type-toggle" role="radiogroup" aria-label="Product type">
+                    <label class="product-type-option">
+                        <input type="radio" name="editProductType" value="simple" checked onchange="setProductVariantMode('edit', 'simple')">
+                        <span><i class="fa-solid fa-box"></i> Simple Product</span>
+                    </label>
+                    <label class="product-type-option">
+                        <input type="radio" name="editProductType" value="variant" onchange="setProductVariantMode('edit', 'variant')">
+                        <span><i class="fa-solid fa-table-cells"></i> Variant Matrix</span>
+                    </label>
+                </div>
+
+                <p class="simple-stock-hint" id="editSimpleStockHint">Stock Quantity above applies directly to this product.</p>
+
+                <div id="editVariantMatrixPanel" class="variant-matrix-panel" style="display:none;">
+                    <div class="matrix-section-head">
+                        <h5>Attribute Types</h5>
+                        <button type="button" class="variation-add-btn" onclick="addAttributeTypeRow('edit')">
+                            <i class="fa-solid fa-plus"></i> Add Attribute
+                        </button>
                     </div>
-                    <div id="editVariationsBody"></div>
+                    <div id="editAttributeTypesList" class="attribute-types-list"></div>
+                    <p class="matrix-hint">Enter values comma-separated (e.g. Pink, Navy Blue). Combinations update when you regenerate.</p>
+
+                    <div class="matrix-toolbar">
+                        <button type="button" class="btn-secondary-sm" onclick="generateVariantMatrix('edit')">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Regenerate Matrix
+                        </button>
+                        <span class="matrix-total-stock">Total stock: <strong id="editMatrixTotalStock">0</strong></span>
+                    </div>
+
+                    <div class="variant-matrix-wrap edit-variations-table-wrap" id="editVariantMatrixWrap" style="display:none;">
+                        <div class="matrix-row matrix-row-head edit-variations-row-head">
+                            <span>Combination</span>
+                            <span>SKU</span>
+                            <span>Price (৳)</span>
+                            <span>Stock</span>
+                            <span>Image URL</span>
+                        </div>
+                        <div id="editVariantMatrixBody"></div>
+                    </div>
+                    <p class="variations-empty" id="editVariantMatrixEmpty">Add attribute types and values, then generate the combination matrix.</p>
                 </div>
-                <p class="variations-empty" id="editVariationsEmpty">No variations. This product uses its base price &amp; stock.</p>
             </div>
 
             <div class="form-group file-upload-group edit-image-section">
@@ -2010,6 +2066,7 @@
     </div>
 
     <script src="/js/bd-districts.js"></script>
+    <script src="/js/variantUtils.js"></script>
     <script type="module" src="/js/admin.js"></script>
     <script type="module" src="/js/admin-staff.js"></script>
 

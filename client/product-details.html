@@ -66,6 +66,11 @@
                 <!-- 🌟 Dynamic variant selectors (Size / Color etc.) — populated by JS if the product has variants -->
                 <div id="variantSelectorWrap" class="variant-selector-wrap hidden"></div>
 
+                <div id="selectedVariantMeta" class="selected-variant-meta hidden" aria-live="polite">
+                    <span class="selected-variant-sku">SKU: <strong id="selectedVariantSku">—</strong></span>
+                    <span class="selected-variant-combo" id="selectedVariantCombo"></span>
+                </div>
+
                 <p id="productShortDesc" class="product-short-desc">Loading description...</p>
 
                 <div class="product-highlights-box">
@@ -178,6 +183,7 @@
     <script src="js/session-guard.js"></script>
     <script src="js/toast.js"></script>
     <script src="js/productThumbnail.js"></script>
+    <script src="js/variantUtils.js"></script>
     <script type="module" src="js/product-details.js"></script>
 </body>
 </html>

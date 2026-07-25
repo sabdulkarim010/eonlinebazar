@@ -7,8 +7,16 @@
 // ==========================================================================
 const API_BASE_URL = '/api/products'; 
 let currentProductData = null;
-/** Per-attribute selection, e.g. { Size: variantObj, Color: variantObj } */
+/** Per-attribute selection for legacy flat variants */
 let selectedVariantsByAttr = {};
+/** Combination matrix selection: { Size: 'M', Color: 'Pink' } */
+let selectedCombinationAttrs = {};
+/** Resolved combination row when all matrix attributes are selected */
+let matchedCombinationVariant = null;
+/** Cached variant rows for active combination matrix product */
+let matrixVariantsCache = [];
+
+const VU = () => window.VariantUtils || {};
 
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -22,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setupEventListeners();
     setupTabSystem();
+    setupCombinationMatrixDelegation();
 });
 
 // ==========================================================================
@@ -93,7 +102,8 @@ function renderProductInfo(product) {
     if (stickyPrice) stickyPrice.innerText = `৳ ${product.price.toLocaleString()}`;
 
     if (stockStatus) {
-        if (product.stock > 0) {
+        const totalStock = Number(product.stockQuantity ?? product.stock) || 0;
+        if (totalStock > 0) {
             stockStatus.innerText = "In Stock";
             stockStatus.style.color = "var(--success-green)";
         } else {
@@ -116,9 +126,18 @@ function escapeHtml(str) {
 
 /** একটি ভ্যারিয়েন্টের ইউনিক কী তৈরি করা (sku অগ্রাধিকার পায়) */
 function getVariantKey(v) {
+    if (VU().getVariantLineId) return VU().getVariantLineId(v);
     const sku = (v.sku || '').trim();
     if (sku) return sku;
     return `${(v.attribute || '').trim()}::${(v.value || '').trim()}`;
+}
+
+function getVariantAttrs(v) {
+    return VU().getVariantAttributes ? VU().getVariantAttributes(v) : {};
+}
+
+function productUsesCombinationMatrix(product) {
+    return VU().usesCombinationMatrix ? VU().usesCombinationMatrix(product) : false;
 }
 
 /** ভ্যারিয়েন্টের কার্যকর দাম — নিজস্ব দাম না থাকলে বেস প্রাইস */
@@ -245,16 +264,260 @@ function renderVariants(product) {
     const wrap = document.getElementById('variantSelectorWrap');
     if (!wrap) return;
 
-    const variants = Array.isArray(product.variants) ? product.variants.filter(v => (v.attribute || v.value)) : [];
-
     selectedVariantsByAttr = {};
+    selectedCombinationAttrs = {};
+    matchedCombinationVariant = null;
+
+    const variants = Array.isArray(product.variants)
+        ? product.variants.filter(v => Object.keys(getVariantAttrs(v)).length > 0 || v.attribute || v.value)
+        : [];
 
     if (variants.length === 0) {
         wrap.classList.add('hidden');
         wrap.innerHTML = '';
+        wrap.dataset.matrixMode = '';
+        matrixVariantsCache = [];
+        showSelectedVariantMeta(false);
         return;
     }
 
+    if (productUsesCombinationMatrix(product)) {
+        renderCombinationMatrix(product, variants, wrap);
+        return;
+    }
+
+    renderLegacyFlatVariants(product, variants, wrap);
+}
+
+/** Amazon/Shopify-style matrix: pick one value per attribute, resolve one combination row */
+function renderCombinationMatrix(product, variants, wrap) {
+    matrixVariantsCache = variants;
+    wrap.classList.remove('hidden');
+    wrap.dataset.matrixMode = '1';
+
+    const groups = VU().extractAttributeGroups ? VU().extractAttributeGroups(variants) : [];
+
+    let html = '';
+    groups.forEach(group => {
+        html += `<div class="variant-group" data-combo-attr-group="${escapeHtml(group.name)}">
+            <span class="variant-group-label">${escapeHtml(group.name)}:
+                <span class="variant-selected-value" data-combo-selected="${escapeHtml(group.name)}">Select</span>
+            </span>
+            <div class="variant-options">`;
+        group.values.forEach(value => {
+            html += `<div class="variant-badge"
+                        data-combo-attr="${escapeHtml(group.name)}"
+                        data-combo-value="${escapeHtml(value)}"
+                        role="button" tabindex="0"
+                        aria-disabled="false">
+                        <span class="variant-badge-value">${escapeHtml(value)}</span>
+                    </div>`;
+        });
+        html += `</div></div>`;
+    });
+    html += `<div class="variant-hint" id="variantHint"></div>`;
+    wrap.innerHTML = html;
+
+    showSelectedVariantMeta(Boolean(product.hasVariants || variants.length));
+    refreshCombinationMatrixUI();
+}
+
+/** Event delegation — one listener for all matrix pill clicks */
+function setupCombinationMatrixDelegation() {
+    const wrap = document.getElementById('variantSelectorWrap');
+    if (!wrap || wrap.dataset.matrixBound === '1') return;
+    wrap.dataset.matrixBound = '1';
+
+    wrap.addEventListener('click', (e) => {
+        const badge = e.target.closest('.variant-badge[data-combo-attr]');
+        if (!badge || badge.classList.contains('is-disabled')) return;
+        if (!currentProductData || !matrixVariantsCache.length) return;
+
+        const attrName = badge.getAttribute('data-combo-attr');
+        const value = badge.getAttribute('data-combo-value');
+        selectCombinationAttribute(attrName, value);
+    });
+
+    wrap.addEventListener('keydown', (e) => {
+        const badge = e.target.closest('.variant-badge[data-combo-attr]');
+        if (!badge || badge.classList.contains('is-disabled')) return;
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        const attrName = badge.getAttribute('data-combo-attr');
+        const value = badge.getAttribute('data-combo-value');
+        selectCombinationAttribute(attrName, value);
+    });
+}
+
+function resolveMatchedCombination() {
+    if (!matrixVariantsCache.length) {
+        matchedCombinationVariant = null;
+        return;
+    }
+    const groups = VU().extractAttributeGroups ? VU().extractAttributeGroups(matrixVariantsCache) : [];
+    const allSelected = groups.every(g => selectedCombinationAttrs[g.name]);
+    matchedCombinationVariant = allSelected && VU().findVariantBySelection
+        ? VU().findVariantBySelection(matrixVariantsCache, selectedCombinationAttrs)
+        : null;
+}
+
+/** Drop selections in other groups that no longer match the changed attribute */
+function pruneInvalidCombinationSelections(changedAttr) {
+    const groups = VU().extractAttributeGroups ? VU().extractAttributeGroups(matrixVariantsCache) : [];
+    groups.forEach(group => {
+        if (group.name === changedAttr) return;
+        const value = selectedCombinationAttrs[group.name];
+        if (!value) return;
+        const state = VU().getOptionState
+            ? VU().getOptionState(matrixVariantsCache, selectedCombinationAttrs, group.name, value)
+            : 'in-stock';
+        if (state === 'unavailable') delete selectedCombinationAttrs[group.name];
+    });
+}
+
+/**
+ * Re-evaluate every pill: highlight in-stock options, dim OOS, disable unavailable.
+ * Example: Size M selected → only Colors that exist as M/* combinations stay active.
+ */
+function refreshCombinationMatrixUI() {
+    const wrap = document.getElementById('variantSelectorWrap');
+    if (!wrap || wrap.dataset.matrixMode !== '1') return;
+
+    wrap.querySelectorAll('.variant-badge[data-combo-attr]').forEach(badge => {
+        const attrName = badge.getAttribute('data-combo-attr');
+        const value = badge.getAttribute('data-combo-value');
+        const state = VU().getOptionState
+            ? VU().getOptionState(matrixVariantsCache, selectedCombinationAttrs, attrName, value)
+            : 'in-stock';
+        const isActive = selectedCombinationAttrs[attrName] === value;
+
+        badge.classList.remove('is-active', 'is-disabled', 'is-oos', 'is-unavailable');
+        if (isActive) badge.classList.add('is-active');
+
+        if (state === 'unavailable') {
+            badge.classList.add('is-disabled', 'is-unavailable');
+            badge.setAttribute('aria-disabled', 'true');
+            badge.tabIndex = -1;
+        } else if (state === 'oos') {
+            badge.classList.add('is-disabled', 'is-oos');
+            badge.setAttribute('aria-disabled', 'true');
+            badge.tabIndex = -1;
+        } else {
+            badge.setAttribute('aria-disabled', 'false');
+            badge.tabIndex = 0;
+        }
+
+        let oosTag = badge.querySelector('.variant-oos-tag');
+        if (state === 'oos') {
+            if (!oosTag) {
+                oosTag = document.createElement('span');
+                oosTag.className = 'variant-oos-tag';
+                oosTag.textContent = 'Out of Stock';
+                badge.appendChild(oosTag);
+            }
+        } else if (oosTag) {
+            oosTag.remove();
+        }
+    });
+
+    const groups = VU().extractAttributeGroups ? VU().extractAttributeGroups(matrixVariantsCache) : [];
+    groups.forEach(group => {
+        const label = wrap.querySelector(`[data-combo-selected="${cssEscape(group.name)}"]`);
+        if (label) label.innerText = selectedCombinationAttrs[group.name] || 'Select';
+    });
+}
+
+function showSelectedVariantMeta(show) {
+    const meta = document.getElementById('selectedVariantMeta');
+    if (meta) meta.classList.toggle('hidden', !show);
+}
+
+function syncCombinationDisplay() {
+    const skuEl = document.getElementById('selectedVariantSku');
+    const comboEl = document.getElementById('selectedVariantCombo');
+    const groups = VU().extractAttributeGroups ? VU().extractAttributeGroups(matrixVariantsCache) : [];
+    const allSelected = groups.every(g => selectedCombinationAttrs[g.name]);
+
+    if (matchedCombinationVariant && allSelected) {
+        const attrs = getVariantAttrs(matchedCombinationVariant);
+        const sku = (matchedCombinationVariant.sku || '').trim();
+        if (skuEl) skuEl.textContent = sku || '—';
+        if (comboEl) comboEl.textContent = Object.entries(attrs).map(([k, v]) => `${k}: ${v}`).join(' · ');
+
+        if (matchedCombinationVariant.image) {
+            const mainImg = document.getElementById('mainProductImg');
+            const stickyImg = document.getElementById('stickyBarImg');
+            if (mainImg) mainImg.src = matchedCombinationVariant.image;
+            if (stickyImg) stickyImg.src = matchedCombinationVariant.image;
+        } else {
+            const colorEntry = Object.entries(attrs).find(([k]) => isColorAttribute(k));
+            if (colorEntry) syncMainImageFromCombinationColor(colorEntry[1]);
+        }
+
+        syncPriceFromSelection();
+        syncStockFromSelection();
+    } else {
+        if (skuEl) skuEl.textContent = '—';
+        if (comboEl) comboEl.textContent = allSelected ? '' : 'Select all options to see SKU and price';
+        if (!allSelected) {
+            setAddToCartEnabled(false);
+        }
+    }
+
+    const hint = document.getElementById('variantHint');
+    if (hint) {
+        if (!allSelected) {
+            hint.innerText = '';
+        } else if (!matchedCombinationVariant) {
+            hint.innerText = 'This combination is not available.';
+        } else if ((Number(matchedCombinationVariant.stock) || 0) <= 0) {
+            hint.innerText = 'Selected combination is out of stock.';
+        } else {
+            hint.innerText = '';
+        }
+    }
+}
+
+function syncMainImageFromCombinationColor(colorValue) {
+    if (!currentProductData || !colorValue) return;
+    const images = getProductImages(currentProductData);
+    const variants = matrixVariantsCache.length ? matrixVariantsCache : (currentProductData.variants || []);
+    const colorVariants = variants.filter(v => {
+        const attrs = getVariantAttrs(v);
+        const colorKey = Object.keys(attrs).find(k => isColorAttribute(k));
+        return colorKey && String(attrs[colorKey]).trim().toLowerCase() === String(colorValue).trim().toLowerCase();
+    });
+    if (!colorVariants.length || !images.length) return;
+
+    const mainImg = document.getElementById('mainProductImg');
+    const stickyImg = document.getElementById('stickyBarImg');
+    const idx = Math.min(variants.indexOf(colorVariants[0]), images.length - 1);
+    const url = colorVariants[0].image || images[Math.max(0, idx)];
+    if (mainImg) mainImg.src = url;
+    if (stickyImg) stickyImg.src = url;
+}
+
+function selectCombinationAttribute(attrName, value) {
+    selectedCombinationAttrs[attrName] = value;
+    pruneInvalidCombinationSelections(attrName);
+    resolveMatchedCombination();
+    refreshCombinationMatrixUI();
+    syncCombinationDisplay();
+}
+
+function applyDefaultCombinationSelection(product, variants) {
+    matrixVariantsCache = variants;
+    const pick = variants.find(v => (Number(v.stock) || 0) > 0) || variants[0];
+    if (!pick) return;
+
+    selectedCombinationAttrs = { ...getVariantAttrs(pick) };
+    resolveMatchedCombination();
+    refreshCombinationMatrixUI();
+    syncCombinationDisplay();
+    showSelectedVariantMeta(true);
+}
+
+function renderLegacyFlatVariants(product, variants, wrap) {
     wrap.classList.remove('hidden');
     const groups = groupVariantsByAttribute(variants);
 
@@ -299,10 +562,29 @@ function renderVariants(product) {
     });
 }
 
-/** Default Size / Color (and other groups) after gallery + selectors are rendered */
 function initializeDefaultVariantSelections(product) {
-    const variants = Array.isArray(product.variants) ? product.variants.filter(v => (v.attribute || v.value)) : [];
+    const variants = Array.isArray(product.variants)
+        ? product.variants.filter(v => Object.keys(getVariantAttrs(v)).length > 0 || v.attribute || v.value)
+        : [];
     if (variants.length === 0) return;
+
+    if (productUsesCombinationMatrix(product)) {
+        applyDefaultCombinationSelection(product, variants);
+
+        const anyInStock = variants.some(v => (Number(v.stock) || 0) > 0);
+        if (!anyInStock) {
+            updateStockStatus(0);
+            setAddToCartEnabled(false);
+            const hint = document.getElementById('variantHint');
+            if (hint) hint.innerText = 'All combinations are currently out of stock.';
+        }
+        return;
+    }
+
+    showSelectedVariantMeta(false);
+    const wrap = document.getElementById('variantSelectorWrap');
+    if (wrap) wrap.dataset.matrixMode = '';
+    matrixVariantsCache = [];
 
     const groups = groupVariantsByAttribute(variants);
     groups.forEach(group => {
@@ -352,6 +634,15 @@ function syncMainImageFromColor(colorVariant) {
 }
 
 function syncPriceFromSelection() {
+    if (matchedCombinationVariant) {
+        const price = getVariantPrice(matchedCombinationVariant);
+        const priceEl = document.getElementById('productPrice');
+        const stickyPrice = document.getElementById('stickyBarPrice');
+        if (priceEl) priceEl.innerText = `৳ ${price.toLocaleString()}`;
+        if (stickyPrice) stickyPrice.innerText = `৳ ${price.toLocaleString()}`;
+        return;
+    }
+
     const sizeVariant = getSelectedVariantByType('size');
     const priceSource = sizeVariant || Object.values(selectedVariantsByAttr)[0];
     const price = priceSource ? getVariantPrice(priceSource) : Number(currentProductData?.price) || 0;
@@ -363,6 +654,14 @@ function syncPriceFromSelection() {
 }
 
 function syncStockFromSelection() {
+    if (matchedCombinationVariant) {
+        const stock = Number(matchedCombinationVariant.stock) || 0;
+        updateStockStatus(stock);
+        clampQuantityToStock(stock);
+        setAddToCartEnabled(stock > 0);
+        return;
+    }
+
     const sizeVariant = getSelectedVariantByType('size');
     const stockSource = sizeVariant || Object.values(selectedVariantsByAttr)[0];
     const stock = stockSource
@@ -410,7 +709,7 @@ function updateStockStatus(stock) {
     const stockStatus = document.getElementById('stockStatus');
     if (!stockStatus) return;
     if (stock > 0) {
-        stockStatus.innerText = "In Stock";
+        stockStatus.innerText = `In Stock${stock <= 5 ? ` (${stock} left)` : ''}`;
         stockStatus.style.color = "var(--success-green)";
     } else {
         stockStatus.innerText = "Out of Stock";
@@ -441,6 +740,8 @@ function clampQuantityToStock(stock) {
 
 /** বর্তমানে কার্যকর স্টক (Size ভ্যারিয়েন্ট অগ্রাধিকার, নইলে প্রোডাক্টের) */
 function getAvailableStock() {
+    if (matchedCombinationVariant) return Number(matchedCombinationVariant.stock) || 0;
+
     const sizeVariant = getSelectedVariantByType('size');
     if (sizeVariant) return Number(sizeVariant.stock) || 0;
     const any = Object.values(selectedVariantsByAttr)[0];
@@ -449,6 +750,8 @@ function getAvailableStock() {
 }
 
 function getEffectivePrice() {
+    if (matchedCombinationVariant) return getVariantPrice(matchedCombinationVariant);
+
     const sizeVariant = getSelectedVariantByType('size');
     if (sizeVariant) return getVariantPrice(sizeVariant);
     const any = Object.values(selectedVariantsByAttr)[0];
@@ -700,10 +1003,29 @@ function setupEventListeners() {
             variantLabel: '',
             variantAttribute: '',
             variantValue: '',
-            variantSku: ''
+            variantSku: '',
+            selectedVariant: null
         };
         const selectedList = Object.values(selectedVariantsByAttr);
-        if (selectedList.length > 0) {
+        if (matchedCombinationVariant && VU().buildVariantCartMeta) {
+            const meta = VU().buildVariantCartMeta(matchedCombinationVariant);
+            Object.assign(base, meta);
+        } else if (matchedCombinationVariant) {
+            const attrs = getVariantAttrs(matchedCombinationVariant);
+            base.variantId = getVariantKey(matchedCombinationVariant);
+            base.variantLabel = Object.entries(attrs).map(([k, v]) => `${k}: ${v}`).join(', ');
+            base.variantAttribute = base.variantLabel;
+            base.variantValue = Object.values(attrs).join(', ');
+            base.variantSku = (matchedCombinationVariant.sku || '').trim();
+            base.selectedVariant = {
+                attributes: attrs,
+                sku: base.variantSku,
+                price: getEffectivePrice(),
+                stock: Number(matchedCombinationVariant.stock) || 0,
+                image: matchedCombinationVariant.image || '',
+                variantId: base.variantId
+            };
+        } else if (selectedList.length > 0) {
             base.variantId = getCombinedVariantKey();
             base.variantLabel = getCombinedVariantLabel();
             base.variantAttribute = selectedList.map(v => v.attribute).filter(Boolean).join(', ');
@@ -716,9 +1038,21 @@ function setupEventListeners() {
     /** ভ্যারিয়েন্ট থাকা সত্ত্বেও সিলেক্ট না করলে ব্লক করা */
     const ensureVariantSelected = () => {
         const variants = Array.isArray(currentProductData.variants)
-            ? currentProductData.variants.filter(v => v.attribute || v.value)
+            ? currentProductData.variants.filter(v => Object.keys(getVariantAttrs(v)).length > 0 || v.attribute || v.value)
             : [];
         if (variants.length === 0) return true;
+
+        if (productUsesCombinationMatrix(currentProductData)) {
+            const groups = VU().extractAttributeGroups ? VU().extractAttributeGroups(variants) : [];
+            const missing = groups.filter(g => !selectedCombinationAttrs[g.name]);
+            if (missing.length > 0 || !matchedCombinationVariant) {
+                const hint = document.getElementById('variantHint');
+                if (hint) hint.innerText = 'Please select all options before adding to cart.';
+                showToast("Please select all product options first.", "error");
+                return false;
+            }
+            return true;
+        }
 
         const groups = groupVariantsByAttribute(variants);
         const missing = groups.filter(g => !selectedVariantsByAttr[g.attribute]);
