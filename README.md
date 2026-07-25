@@ -4,7 +4,7 @@
 
 ### A Fully Dynamic, Production-Ready Full-Stack E-Commerce Platform
 
-*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), **Role-Based Access Control (RBAC) with dynamic Staff Management**, real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **1-click Steadfast Courier parcel booking from the admin panel**, **dual-WhatsApp routing with background UltraMsg/Green API order alerts**, **staff manual POS / phone order entry**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **unified master store settings engine** (announcements, free-shipping threshold, cashback, loyalty points & refund windows), **dynamic free-shipping waiver & live dashboard announcements**, **category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, **admin-configurable SMS gateway & automated order confirmation emails**, custom store branding, and an **advanced Finance & P/L analytics dashboard** with itemized profit formulas, dynamic date-range filtering, and a dark/light theme engine.*
+*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), **Role-Based Access Control (RBAC) with dynamic Staff Management**, real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge), **advanced order management with customer cancel/return workflows**, **1-click multi-provider courier dispatch (Steadfast / Pathao / RedX) with Smart Hybrid Mode from the admin panel**, **dual-WhatsApp routing with background UltraMsg/Green API order alerts**, **staff manual POS / phone order entry**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **unified master store settings engine** (announcements, free-shipping threshold, cashback, loyalty points & refund windows), **dynamic free-shipping waiver & live dashboard announcements**, **category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, **admin-configurable SMS gateway & automated order confirmation emails**, custom store branding, and an **advanced Finance & P/L analytics dashboard** with itemized profit formulas, dynamic date-range filtering, and a dark/light theme engine.*
 
 ![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
@@ -31,7 +31,7 @@
 - [What's New — v4.0.0](#-whats-new--v400-automated-background-whatsapp-alerts--staff-manual-order-engine)
 - [What's New — v3.9.0](#-whats-new--v390-multi-attribute-variant-matrix--dynamic-stock-engine)
 - [What's New — v3.8.0](#-whats-new--v380-advanced-finance-analytics--theme-engine)
-- [What's New — v3.7.0](#-whats-new--v370-automated-courier-integration--admin-orders-ui-overhaul)
+- [What's New — v3.7.0](#-whats-new--v370-courier-logistics--multi-provider-dispatch-engine)
 - [What's New — v3.6.0](#-whats-new--v360-dynamic-sms-gateway--order-email-notifications)
 - [What's New — v3.5.0](#-whats-new--v350-super-admin-rbac--staff-management)
 - [What's New — v3.4.0](#-whats-new--v340-unified-store-settings-free-shipping--orders-ux)
@@ -54,7 +54,7 @@
 - [Super Admin RBAC & Staff Management Architecture](#-super-admin-rbac--staff-management-architecture)
 - [Master Settings & Dynamic Rewards](#-master-settings--dynamic-rewards)
 - [Dynamic SMS Gateway & Email Notification System](#-dynamic-sms-gateway--email-notification-system)
-- [Automated Courier Integration & Admin Orders UI Overhaul](#-automated-courier-integration--admin-orders-ui-overhaul)
+- [Courier Logistics & Multi-Provider Dispatch Engine](#-courier-logistics--multi-provider-dispatch-engine)
 - [Advanced Sales, Profit/Loss Analytics & Theme Engine](#-advanced-sales-profitloss-analytics--theme-engine)
 - [What's New — v3.2.0](#-whats-new--v320-time-sensitive-coupon-automation)
 - [Time-Sensitive Coupon Automation](#-time-sensitive-coupon-automation-system)
@@ -87,7 +87,7 @@ Eight things set it apart:
 5. **Unified Master Store Settings Engine** — one admin form controls announcement copy, **free-shipping threshold**, global cashback, points earning ratio, points-to-taka conversion, and refund-undo window; values sync to checkout, cart, order placement, and the customer dashboard in real time.
 6. **Time-Sensitive Coupon Automation** — precise hour/minute expiry scheduling, a server-side **ACTIVE / EXPIRED** status engine with bulk auto-expiry, checkout visibility synced to live availability, and hardened order-time coupon validation.
 7. **Super Admin RBAC & Staff Management** — a dynamic permission engine lets the owner create staff accounts with granular operational rights; unified `/admin/login` detects `superadmin` vs `staff`, the sidebar and API both enforce the same permission matrix, and blocked accounts lose access on the very next request.
-8. **One-Click Courier Parcel Booking** — Steadfast Courier API integration from **Live Orders** with MongoDB-stored credentials, atomic booking locks, tracking ID persistence, and automatic **Shipped** status updates — no redeploy required to rotate API keys.
+8. **Isolated Multi-Provider Courier Dispatch** — one-click **`Send to Courier`** from **Live Orders** (Steadfast, Pathao, RedX) with **Smart Hybrid Mode**: live API booking when credentials are configured, mock tracking IDs (`SF-PENDING-XXXXX`) when absent; customer-facing courier badges on **Order Details** and **Track Your Order** without disturbing status timelines.
 9. **Dual-WhatsApp Routing & Background Order Alerts** — isolated public customer chat line vs private admin alert number; **non-blocking server-side POST** dispatch on every checkout (UltraMsg, Green API, CallMeBot, or direct webhook) with structured payload formatting — no admin panel session required.
 10. **Staff Manual Order Creation (POS Engine)** — admin modal for phone/chat orders with searchable product picker, **multi-variant stock validation**, automated inventory deduction, and instant **Finance & Analytics** ledger integration.
 
@@ -139,18 +139,20 @@ This release delivers a **production-grade Profit/Loss analytics engine** on the
 
 ---
 
-## 🆕 What's New — v3.7.0 (Automated Courier Integration & Admin Orders UI Overhaul)
+## 🆕 What's New — v3.7.0 (Courier Logistics & Multi-Provider Dispatch Engine)
 
-This release adds **production-ready Steadfast Courier automation** directly inside the admin order workflow, paired with a **premium Live Orders data-table redesign** for faster triage during deep scrolling.
+This release adds an **isolated, future-ready courier dispatch engine** (Steadfast, Pathao, RedX) inside the admin order workflow — with **Smart Hybrid Mode** for live API vs mock testing, customer-facing tracking badges, and a **premium Live Orders data-table redesign** for faster triage during deep scrolling.
 
 | Capability | Highlights |
 |------------|------------|
-| **🚚 Steadfast Courier API Engine** | One-click **`Send to Courier`** from **Live Orders**; credentials (`courierApiKey`, `courierSecretKey`, `defaultCourierProvider`) saved in **Master Settings** → MongoDB overrides `.env`; POST to Steadfast `create_order` with recipient info, COD amount, and invoice ID. |
-| **📦 Tracking & Status Automation** | On success, persists `courierTrackingId`, `courierConsignmentId`, and `courierStatus` on the order; sets status to **`Shipped`**; fires customer SMS status notification when enabled; logs a security audit event. |
+| **🚚 Multi-Provider Dispatch Engine** | One-click **`Send to Courier`** from **Live Orders** with automated provider selection (`Steadfast`, `Pathao`, `RedX`); credentials saved in **Master Settings** → MongoDB overrides `.env`. |
+| **🔀 Smart Hybrid Mode** | **Live API booking** when `courierApiKey` + `courierSecretKey` are configured; **mock tracking IDs** (`SF-PENDING-XXXXX`, `PT-PENDING-XXXXX`, `RX-PENDING-XXXXX`) when keys are absent — order still saves tracking data and moves to **`Shipped`** for safe end-to-end testing. |
+| **📦 Tracking & Status Automation** | Persists `courierTrackingId`, `courierConsignmentId`, and `courierStatus` on the order; sets status to **`Shipped`**; fires customer SMS status notification when enabled; logs a security audit event. |
+| **🛍️ Isolated Customer Displays** | Dynamically embeds **Courier Provider + Tracking ID** badges on **Order Details** and **Track Your Order** — progress timelines remain strictly driven by internal MongoDB order states. |
 | **📌 Premium Live Orders Table** | Sticky `<thead>` (`position: sticky`) inside a bounded scroll container; compact `12px 16px` cell padding; green accent **Total** column; `#f8fafc` row hover transitions. |
 | **🎯 Re-architected Actions Column** | Horizontal toolbar — primary **`🚚 Send to Courier`** / green **`Sent`** tracking badge, sleek **Invoice** icon button, and danger-styled **Delete** icon — without breaking status updates, return approval, or refund undo. |
 
-> 📌 See the dedicated [Automated Courier Integration & Admin Orders UI Overhaul](#-automated-courier-integration--admin-orders-ui-overhaul) section below for schema fields, API routes, workflow diagrams, and key files.
+> 📌 See the dedicated [Courier Logistics & Multi-Provider Dispatch Engine](#-courier-logistics--multi-provider-dispatch-engine) section below for schema fields, hybrid-mode workflow, API routes, and key files.
 
 ---
 
@@ -1048,7 +1050,7 @@ Enterprise-grade refund governance for the Super Admin panel — full visibility
 - A **View Reason** control exposes cancellation/return details in a modal via `getOrderReasonDetails()` — including `initiatedBy` and full reason text.
 - Return-requested orders surface an **Approve Return** action; returned/refunded orders within the undo window show **Undo Refund**.
 - **Premium sticky-header table** (v3.7.0) with compact columns, green accent totals, and a horizontal **Actions** toolbar.
-- **One-click Steadfast Courier booking** — **`🚚 Send to Courier`** creates a real consignment, saves tracking IDs, and marks the order **Shipped**; booked rows show a clickable **`🚚 Sent`** tracking badge.
+- **One-click multi-provider courier dispatch** — **`🚚 Send to Courier`** with **Smart Hybrid Mode** (live Steadfast API when credentials are configured; mock `SF/PT/RX-PENDING-XXXXX` IDs when absent); saves tracking IDs, marks the order **Shipped**, and shows a clickable **`🚚 Sent`** tracking badge on booked rows.
 
 #### Return Approval & Wallet Integration
 - `approveOrderReturn()` atomically transitions status **`Return Requested` → `Returned`**, records `refundedAt` and `refundAmount` (exact `grandTotal` paid), and credits the customer's **wallet balance**.
@@ -1561,52 +1563,78 @@ MongoDB (Admin Master Settings)  →  .env fallbacks  →  dev console fallback
 
 ---
 
-## 🚚 Automated Courier Integration & Admin Orders UI Overhaul
+## 🚚 Courier Logistics & Multi-Provider Dispatch Engine
 
-A **Steadfast Courier API engine** wired directly into the admin **Live Orders** workflow — plus a premium data-table redesign that keeps long order queues scannable without breaking existing status, return, invoice, or delete actions.
+An **isolated, future-ready multi-provider dispatch engine** (Steadfast, Pathao, RedX) wired directly into the admin **Live Orders** workflow and customer order views — plus a premium data-table redesign that keeps long order queues scannable without breaking existing status, return, invoice, or delete actions.
 
-> **Note:** The admin panel is a static SPA (`client/admin.html` + `client/js/admin.js`) — there is no `views/admin/orders.ejs` template in this repository.
+#### One-Click Dispatch (Admin Panel)
+- **Seamless `Send to Courier` action** in the **Live Orders** panel with automated provider selection (**Steadfast**, **Pathao**, **RedX**) driven by `Settings.defaultCourierProvider`.
+- **Smart Hybrid Mode:** Supports authentic API parcel booking when API keys are configured in **Master Settings → Courier Booking**, with dynamic mock tracking code generation (`SF-PENDING-XXXXX`, `PT-PENDING-XXXXX`, `RX-PENDING-XXXXX`) when keys are absent — order records still persist `courierTrackingId` + `courierProvider` and advance to **`Shipped`** for safe testing.
+- Admin confirm dialog and success toast clearly distinguish **live** vs **mock** bookings; security audit log records both paths.
 
-### Steadfast Courier API Engine
+#### Isolated Page Displays
+- Preserves exact UI/UX templates across **Order Details** (`client/order-details.html`) and **Track Your Order** (`client/order-track.html`) — **no layout distortion, no admin/customer view merging**.
+- Dynamically embeds a **Courier Provider + Tracking ID** badge via shared `client/js/courierBadge.js` + `client/css/courier-badge.css`:
+  - **Order Details** — badge renders below the **Order Progress** timeline card.
+  - **Track Your Order** — badge renders below the status message box inside the lookup result panel.
+- Live tracking IDs link to provider tracking pages; mock `*-PENDING-*` IDs show a **(Pending)** label without external links.
 
-#### Admin-Configurable Credentials
+#### Failsafe Tracking Architecture
+- Progress timeline steps on **Order Details** and **Track Your Order** remain **strictly bounded to internal MongoDB order states** (`Pending` → `Processing` → `Shipped` → `Delivered`) — courier badge data is display-only and never drives stepper logic.
+- Third-party courier API downtime or mock-mode operation **cannot crash customer pages**; booking failures return readable admin JSON toasts without affecting storefront rendering.
+
+> **Note:** The admin panel is a static SPA (`client/admin.html` + `client/js/admin.js`) — there is no `views/admin/orders.ejs` template in this repository. Customer pages are static HTML/JS — not EJS views.
+
+### Provider Registry & Admin-Configurable Credentials
+
 From **Admin Panel → Master Settings → Courier Booking**, operators save courier credentials through the same unified **Save Master Settings** action used for SMS and rewards — no redeploy required to rotate keys or switch the default provider label:
 
 | Setting | Schema / Document | Options / Type | Purpose |
 |---------|-------------------|------------------|---------|
-| Default Courier Provider | `Settings.defaultCourierProvider` | `Steadfast` · `Pathao` · `RedX` | Labels the booking button; **automated API booking is live for Steadfast** |
+| Default Courier Provider | `Settings.defaultCourierProvider` | `Steadfast` · `Pathao` · `RedX` | Labels the booking button and mock ID prefix; **live API booking is live for Steadfast** |
 | Courier API Key | `Settings.courierApiKey` | String | Sent as Steadfast `Api-Key` header — overrides `STEADFAST_API_KEY` / `COURIER_API_KEY` |
 | Courier Secret Key | `Settings.courierSecretKey` | String | Sent as Steadfast `Secret-Key` header — overrides `STEADFAST_SECRET_KEY` / `COURIER_SECRET_KEY` |
 
-#### One-Click Parcel Booking (`POST /api/admin/orders/:id/send-courier`)
+| Provider | Live Booking | Tracking URL Base | Mock ID Prefix |
+|----------|:------------:|-------------------|----------------|
+| **Steadfast** | ✅ | `https://steadfast.com.bd/t/` | `SF-PENDING-` |
+| **Pathao** | 🔜 | `https://merchant.pathao.com/tracking?consignment_id=` | `PT-PENDING-` |
+| **RedX** | 🔜 | `https://redx.com.bd/track-global-parcel/?trackingId=` | `RX-PENDING-` |
+
+> Pathao and RedX are fully registered in the provider engine with tracking URL templates and mock dispatch support; automated live API transport ships for **Steadfast** today — additional providers plug into `utils/courierService.js` without changing page templates.
+
+### One-Click Parcel Booking (`POST /api/admin/orders/:id/send-courier`)
+
 When an admin clicks **`🚚 Send to Courier`** on an unbooked order:
 
 1. **`utils/courierService.js`** loads credentials from MongoDB (`.env` fallback).
 2. Validates recipient name, 11-digit BD mobile, and delivery address **before** any HTTP call.
-3. POSTs to **`https://portal.steadfast.com.bd/api/v1/create_order`** with:
-   - `invoice` — order ID
-   - `recipient_name`, `recipient_phone`, `recipient_address`
-   - `cod_amount` — `grandTotal` for COD orders, **`0`** for prepaid methods
+3. **Hybrid dispatch branch:**
+   - **Credentials present** → POST to **`https://portal.steadfast.com.bd/api/v1/create_order`** (Steadfast) with:
+     - `invoice` — order ID
+     - `recipient_name`, `recipient_phone`, `recipient_address`
+     - `cod_amount` — `grandTotal` for COD orders, **`0`** for prepaid methods
+   - **Credentials absent (Mock Mode)** → generates a provider-prefixed pending tracking ID locally — **no external HTTP call**.
 4. On success, **`controllers/courierController.js`** atomically:
    - Saves `courierTrackingId`, `courierConsignmentId`, `courierProvider`, `courierStatus`, `courierBookedAt`
    - Sets order **`status = 'Shipped'`** (unless already delivered/shipped)
    - Fires **`notifyOrderStatusUpdated`** when SMS notifications are enabled
-   - Writes a **Security Log** audit entry
+   - Writes a **Security Log** audit entry (live or mock)
 
 **Safety guards:**
 - **Double-click protection** — atomic `courierStatus: 'booking'` claim prevents duplicate consignments; stale locks expire after 2 minutes.
 - **409 Conflict** if the order is already booked or a booking is in progress.
-- **Non-shippable statuses** (`Cancelled`, `Returned`, `Refunded`, `Return Requested`) are rejected before API dispatch.
+- **Non-shippable statuses** (`Cancelled`, `Returned`, `Refunded`, `Return Requested`) are rejected before dispatch.
 - Service **never throws** — all failures return readable `{ success: false, message }` JSON for admin toasts.
 
 #### Order Schema — Courier Fields (`models/order.js`)
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `courierProvider` | `String` | `''` | Active courier (e.g. `Steadfast`) |
-| `courierTrackingId` | `String` | `''` | Public tracking code from the API |
-| `courierConsignmentId` | `String` | `''` | Internal consignment ID |
-| `courierStatus` | `String` | `'unbooked'` | Booking lifecycle state |
+| `courierProvider` | `String` | `''` | Active courier (e.g. `Steadfast`, `Pathao`, `RedX`) |
+| `courierTrackingId` | `String` | `''` | Public tracking code from API or mock generator |
+| `courierConsignmentId` | `String` | `''` | Internal consignment ID (live bookings) |
+| `courierStatus` | `String` | `'unbooked'` | Booking lifecycle state (`unbooked`, `booking`, `in_review`, `mock_pending`, `failed`, …) |
 | `courierBookedAt` | `Date` | `null` | Successful booking timestamp |
 
 ### Premium Live Orders Data-Table UI
@@ -1619,7 +1647,7 @@ The **Live Orders** view (`#view-orders` in `client/admin.html`) received a scop
 
 #### Re-architected Actions Column
 - Wider **`.order-actions-toolbar`** — `display: flex; align-items: center; gap: 8px; justify-content: flex-end`.
-- **Courier booking** — rounded primary pill **`🚚 Send to Courier`**; booked orders show a green **`🚚 Sent · [tracking]`** badge linking to Steadfast tracking.
+- **Courier booking** — rounded primary pill **`🚚 Send to Courier`**; booked orders show a green **`🚚 Sent · [tracking]`** badge linking to the provider tracking page (live IDs) or a static badge (mock pending IDs).
 - **Invoice** — sleek blue icon button with hover tooltip (`title="View Invoice"`).
 - **Delete** — danger-styled trash icon (`border-red-200`, `text-red-600`, `hover:bg-red-50` treatment).
 - **Approve Return** pill retained for `Return Requested` rows; **status `<select>`** unchanged in the Status column.
@@ -1640,27 +1668,37 @@ flowchart TD
     C -->|Yes| D[409 — show existing tracking ID]
     C -->|No| E[Atomic booking lock on order]
     E --> F[courierService.loadCourierConfig]
-    F --> G[POST Steadfast create_order]
-    G -->|Fail| H[Release lock — toast error]
-    G -->|Success| I[Save tracking + consignment IDs]
-    I --> J[Set status = Shipped]
-    J --> K[Optional SMS status notify]
-    K --> L[Security audit log]
-    L --> M[Toast: Parcel booked! Tracking ID: XYZ]
+    F --> G{API credentials configured?}
+    G -->|No — Mock Mode| H[Generate SF/PT/RX-PENDING-XXXXX]
+    G -->|Yes — Live Mode| I[POST Steadfast create_order]
+    I -->|Fail| J[Release lock — toast error]
+    I -->|Success| K[Save tracking + consignment IDs]
+    H --> K
+    K --> L[Set status = Shipped]
+    L --> M[Optional SMS status notify]
+    M --> N[Security audit log]
+    N --> O[Toast: Parcel booked + tracking ID]
+    O --> P[Customer badge on Order Details / Track Order]
 ```
 
 ### Related API Endpoints
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| **`POST`** | **`/api/admin/orders/:id/send-courier`** | Book Steadfast parcel; persist tracking IDs; mark order **Shipped** | **Admin + `manage_orders`** |
-| **`GET`** | **`/api/admin/courier/status`** | Returns `{ provider, isConfigured, supportsBooking }` without exposing secrets | **Admin** |
+| **`POST`** | **`/api/admin/orders/:id/send-courier`** | Book parcel (live Steadfast or mock); persist tracking IDs; mark order **Shipped** | **Admin + `manage_orders`** |
+| **`GET`** | **`/api/admin/courier/status`** | Returns `{ provider, isConfigured, mockMode, supportsBooking }` without exposing secrets | **Admin** |
 
 ### Configuration Priority
 
 ```
-MongoDB (Master Settings → Courier Booking)  →  .env fallbacks  →  booking blocked with clear admin message
+MongoDB (Master Settings → Courier Booking)  →  .env fallbacks  →  Mock Mode (no keys required)
 ```
+
+| Mode | Condition | Behaviour |
+|------|-----------|-----------|
+| **Live API** | Both `courierApiKey` + `courierSecretKey` present | Authentic Steadfast `create_order` HTTP dispatch |
+| **Mock Mode** | Either credential missing | Local `{PREFIX}-PENDING-{5-char}` tracking ID; order saved & marked **Shipped** |
+| **Unsupported live provider** | Keys present + `Pathao` / `RedX` selected | Clear 422 admin message — switch to Steadfast for live booking or use Mock Mode |
 
 | Variable | Required | Purpose |
 |----------|:--------:|---------|
@@ -1679,13 +1717,17 @@ MongoDB (Master Settings → Courier Booking)  →  .env fallbacks  →  booking
 |------|------|
 | `models/Settings.js` | Global singleton — `defaultCourierProvider`, `courierApiKey`, `courierSecretKey` |
 | `models/order.js` | Courier tracking fields on each order document |
-| `utils/courierService.js` | Steadfast HTTP engine, phone/COD normalization, fail-safe result objects |
-| `controllers/courierController.js` | Booking route handler, atomic lock, status update, audit logging |
+| `utils/courierService.js` | Multi-provider registry, Smart Hybrid Mode (live Steadfast + mock dispatch), phone/COD normalization, fail-safe result objects |
+| `controllers/courierController.js` | Booking route handler, atomic lock, status update, mock/live audit logging |
 | `controllers/masterSettingsController.js` | Read/save courier credentials alongside SMS & rewards |
 | `routes/adminRoutes.js` | Registers `POST …/send-courier` and `GET /courier/status` |
 | `client/admin.html` | Master Settings → **Courier Booking** card + Live Orders table shell |
-| `client/js/admin.js` | `buildCourierActionHtml()`, `sendOrderToCourier()`, premium row renderer |
+| `client/js/admin.js` | `buildCourierActionHtml()`, `sendOrderToCourier()`, mock-aware confirm/toast, premium row renderer |
 | `client/css/admin.css` | Scoped `#view-orders` sticky header, action toolbar, compact table styles |
+| `client/js/courierBadge.js` | Shared customer-facing courier provider + tracking ID badge renderer |
+| `client/css/courier-badge.css` | Isolated badge styles for Order Details & Track Your Order |
+| `client/order-details.html` + `client/js/order-details.js` | Customer order detail view — badge below progress timeline |
+| `client/order-track.html` + `client/js/order-track.js` | Public track-order view — badge below lookup result |
 
 ---
 
@@ -2264,7 +2306,7 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 
 #### Product & Order Systems
 - **🛍️ Product Catalog** — Up to 10 images, categories, brand, **simple or matrix variations**, highlights, **flexible stock** (`stockQuantity` for simple products; per-combination stock for variant products), **selling price + buying price** (live profit preview), and detailed descriptions.
-- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **clickable order rows** (v3.4.0) with inline ID/date meta, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals (actions on detail view only), dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, **1-click PDF invoice download** from Order Details, **automated order confirmation emails** on every successful checkout, **background WhatsApp admin order alerts** (v4.0.0), **staff manual POS / phone order entry** with variant stock validation (v4.0.0), and **admin one-click Steadfast Courier parcel booking** with tracking ID persistence (v3.7.0).
+- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **clickable order rows** (v3.4.0) with inline ID/date meta, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals (actions on detail view only), dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, **1-click PDF invoice download** from Order Details, **automated order confirmation emails** on every successful checkout, **background WhatsApp admin order alerts** (v4.0.0), **staff manual POS / phone order entry** with variant stock validation (v4.0.0), and **admin one-click multi-provider courier dispatch** (Steadfast / Pathao / RedX) with Smart Hybrid Mode and customer tracking badges (v3.7.0).
 - **🔄 Admin Return & Refund Pipeline** — Approve returns with automatic wallet credit, transaction history logging, and **Safe Undo Refund** within a configurable hour window (spent-funds safety check).
 - **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, **unified free-shipping threshold** (Master Settings ↔ Delivery Settings mirror), **real-time free-shipping progress** on cart/checkout, **real-time delivery date estimates** on checkout, **locked server-side totals** on every order, and district-aware invoices.
 - **📍 Smart Checkout Address Integration** — Profile-first checkout pre-fill, toggleable saved-address radio cards (select / unselect / revert), manual override with **Save to profile** sync, and cascading Bangladesh location dropdowns.
@@ -2432,7 +2474,7 @@ eonlinebazar-fullstack/
 │   ├── mailer.js                      # SMTP transport, admin 2FA OTP + order confirmation HTML emails
 │   ├── smsService.js                  # DB-backed SMS gateway engine (order/status/OTP templates)
 │   ├── smsSender.js                   # Admin/security SMS OTP wrapper (console fallback)
-│   ├── courierService.js              # Steadfast Courier API engine — config load, booking, tracking URLs
+│   ├── courierService.js              # Multi-provider courier engine — hybrid live/mock dispatch, tracking URLs
 │   ├── deliveryChargeService.js       # Shared delivery zone + fee + free-shipping progress + locked totals
 │   ├── deliveryEstimateService.js     # Business-day delivery window estimates by shipping zone
 │   ├── announcementSettings.js        # Live announcement text, highlight chips & public payload builder
@@ -3043,15 +3085,19 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 - Resolved **dropdown overlay z-index** issues (`z-index: 9999`) on date-range preset panel and header controls.
 - Real-time KPI cards — **Gross Sales**, **Net Profit**, **Total Orders**, **Profit Margin %**, **Discounts Total** — linked to **Chart.js** Revenue vs Profit line chart and Top Categories pie chart; instant refresh on preset/custom range change.
 
-### `v3.7.0` — Automated Courier Integration & Admin Orders UI Overhaul
+### `v3.7.0` — Courier Logistics & Multi-Provider Dispatch Engine
 
-**🚚 Steadfast Courier API Engine**
+**🚚 Multi-Provider Courier Dispatch Engine**
 - New **Courier Booking** card in **Master Settings** — configure `defaultCourierProvider` (`Steadfast` / `Pathao` / `RedX`), API key, and secret key without code changes.
 - Extended `models/Settings.js` with `courierApiKey`, `courierSecretKey`, and `defaultCourierProvider`; credentials saved to MongoDB override `.env` at booking time.
 - Extended `models/order.js` with `courierTrackingId`, `courierConsignmentId`, `courierProvider`, `courierStatus` (default `'unbooked'`), and `courierBookedAt`.
-- New `utils/courierService.js` — loads DB config, POSTs to Steadfast `create_order`, normalizes BD phone numbers, resolves COD vs prepaid amounts, and returns fail-safe result objects (never throws).
-- New `controllers/courierController.js` — `POST /api/admin/orders/:id/send-courier` with atomic booking lock, duplicate-booking guards, **`Shipped`** status update, optional SMS notify, and security audit logging.
-- New `GET /api/admin/courier/status` — reports provider readiness without exposing secrets.
+- New `utils/courierService.js` — multi-provider registry, **Smart Hybrid Mode** (live Steadfast API when credentials present; mock `{PREFIX}-PENDING-XXXXX` IDs when absent), BD phone normalization, COD vs prepaid resolution, and fail-safe result objects (never throws).
+- New `controllers/courierController.js` — `POST /api/admin/orders/:id/send-courier` with atomic booking lock, duplicate-booking guards, **`Shipped`** status update, optional SMS notify, and live/mock security audit logging.
+- New `GET /api/admin/courier/status` — reports `{ provider, isConfigured, mockMode, supportsBooking }` without exposing secrets.
+
+**🛍️ Isolated Customer Courier Displays**
+- New `client/js/courierBadge.js` + `client/css/courier-badge.css` — shared badge renderer for **Order Details** and **Track Your Order**.
+- Courier provider name + tracking ID embedded below existing progress UI — timelines remain strictly MongoDB status-driven; no admin/customer view merging.
 
 **📌 Premium Live Orders Data-Table UI**
 - Scoped redesign of `#view-orders` in `client/admin.html`, `client/js/admin.js`, and `client/css/admin.css`.

@@ -41,6 +41,13 @@ const VALID_COURIER_PROVIDERS = Object.freeze(['', ...Object.keys(COURIER_PROVID
 
 const DEFAULT_PROVIDER = 'Steadfast';
 
+/** Mock tracking ID prefixes per provider — used when credentials are absent. */
+const MOCK_TRACKING_PREFIXES = Object.freeze({
+    Steadfast: 'SF',
+    Pathao: 'PT',
+    RedX: 'RX'
+});
+
 /**
  * Failure codes let callers pick the right HTTP status: everything the admin
  * can fix locally is a 4xx, while upstream courier faults are a 502.
@@ -103,6 +110,52 @@ function buildTrackingUrl(provider, trackingId) {
     const code = String(trackingId || '').trim();
     if (!base || !code) return '';
     return `${base}${encodeURIComponent(code)}`;
+}
+
+/**
+ * Generate a clean mock tracking ID when no courier credentials are configured.
+ * Format: {PREFIX}-PENDING-{5-char alphanumeric}, e.g. SF-PENDING-A3K9Z
+ */
+function generateMockTrackingId(provider) {
+    const prefix = MOCK_TRACKING_PREFIXES[provider] || 'XX';
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let suffix = '';
+    for (let i = 0; i < 5; i += 1) {
+        suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `${prefix}-PENDING-${suffix}`;
+}
+
+/**
+ * Mock booking path — no external API call. Saves a pending tracking ID so
+ * admin and customer flows can be tested without live courier credentials.
+ */
+function bookMockParcel(order, config) {
+    const { errors } = validateOrderForBooking(order);
+    if (errors.length > 0) {
+        return {
+            success: false,
+            code: COURIER_ERROR_CODES.INVALID_ORDER,
+            provider: config.provider,
+            reason: `Cannot book this parcel — ${errors.join(', ')}.`
+        };
+    }
+
+    const trackingId = generateMockTrackingId(config.provider);
+
+    console.log(`[COURIER] Mock mode — generated tracking ${trackingId} for ${config.providerLabel}`);
+
+    return {
+        success: true,
+        mockMode: true,
+        trackingId,
+        consignmentId: '',
+        courierStatus: 'mock_pending',
+        codAmount: resolveCodAmount(order),
+        provider: config.provider,
+        providerLabel: config.providerLabel,
+        trackingUrl: ''
+    };
 }
 
 /**
@@ -294,13 +347,9 @@ async function bookParcelForOrder(order) {
         };
     }
 
+    // No credentials → mock mode: generate a pending tracking ID locally.
     if (!config.isConfigured) {
-        return {
-            success: false,
-            code: COURIER_ERROR_CODES.NOT_CONFIGURED,
-            provider: config.provider,
-            reason: 'Courier API credentials are not configured — set them in Master Settings → Courier Booking.'
-        };
+        return bookMockParcel(order, config);
     }
 
     const transport = COURIER_PROVIDERS[config.provider]?.booking;
@@ -342,13 +391,16 @@ module.exports = {
     COURIER_PROVIDERS,
     VALID_COURIER_PROVIDERS,
     COURIER_ERROR_CODES,
+    MOCK_TRACKING_PREFIXES,
     DEFAULT_PROVIDER,
     loadCourierConfig,
     buildTrackingUrl,
+    generateMockTrackingId,
     normalizeRecipientPhone,
     resolveCodAmount,
     validateOrderForBooking,
     buildSteadfastPayload,
+    bookMockParcel,
     bookSteadfastParcel,
     bookParcelForOrder
 };

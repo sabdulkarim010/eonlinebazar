@@ -178,16 +178,23 @@ const sendOrderToCourier = async (req, res) => {
         }
 
         await logSecurityEvent({
-            action: 'Courier Parcel Booked',
+            action: result.mockMode ? 'Courier Parcel Booked (Mock)' : 'Courier Parcel Booked',
             actor: req.admin?.username || 'admin',
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: `Order #${claimedOrder.orderId || claimedOrder._id} booked with ${result.providerLabel || result.provider} — tracking ${result.trackingId}, COD ৳${result.codAmount ?? 0}`
+            details: result.mockMode
+                ? `Order #${claimedOrder.orderId || claimedOrder._id} mock-booked with ${result.providerLabel || result.provider} — tracking ${result.trackingId} (no API credentials)`
+                : `Order #${claimedOrder.orderId || claimedOrder._id} booked with ${result.providerLabel || result.provider} — tracking ${result.trackingId}, COD ৳${result.codAmount ?? 0}`
         });
+
+        const successMessage = result.mockMode
+            ? `Mock parcel booked (no API credentials). Tracking ID: ${result.trackingId}`
+            : `Parcel booked successfully! Tracking ID: ${result.trackingId}`;
 
         return res.status(200).json({
             success: true,
-            message: `Parcel booked successfully! Tracking ID: ${result.trackingId}`,
+            message: successMessage,
+            mockMode: Boolean(result.mockMode),
             data: {
                 ...toCourierPayload(claimedOrder),
                 trackingUrl: result.trackingUrl || buildTrackingUrl(result.provider, result.trackingId),
@@ -218,7 +225,8 @@ const getCourierConfigStatus = async (req, res) => {
                 provider: config.provider,
                 providerLabel: config.providerLabel,
                 isConfigured: config.isConfigured,
-                supportsBooking: config.provider === 'Steadfast'
+                mockMode: !config.isConfigured,
+                supportsBooking: config.isConfigured && config.provider === 'Steadfast'
             }
         });
     } catch (error) {

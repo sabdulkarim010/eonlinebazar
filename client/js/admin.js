@@ -1876,15 +1876,17 @@ const COURIER_BLOCKED_STATUSES = ['cancelled', 'canceled', 'returned', 'refunded
 
 // Filled from the Master Settings payload that fetchLiveOrders() already loads,
 // so the button can name the store's configured provider.
-let adminCourierConfig = { provider: 'Steadfast', isConfigured: false };
+let adminCourierConfig = { provider: 'Steadfast', isConfigured: false, mockMode: true };
 
 function cacheAdminCourierSettings(settings) {
     if (!settings) return;
+    const isConfigured = Boolean(
+        String(settings.courierApiKey || '').trim() && String(settings.courierSecretKey || '').trim()
+    );
     adminCourierConfig = {
         provider: settings.defaultCourierProvider || 'Steadfast',
-        isConfigured: Boolean(
-            String(settings.courierApiKey || '').trim() && String(settings.courierSecretKey || '').trim()
-        )
+        isConfigured,
+        mockMode: !isConfigured
     };
 }
 
@@ -1933,13 +1935,19 @@ window.sendOrderToCourier = function(orderId) {
     const order = globalOrders.find(o => String(o._id) === String(orderId));
     const provider = order?.courierProvider || adminCourierConfig.provider || 'Steadfast';
     const displayId = order?.orderId || String(orderId).slice(-6).toUpperCase();
+    const isMockMode = adminCourierConfig.mockMode;
+
+    const confirmTitle = isMockMode ? `Send to ${provider} (Mock Mode)` : `Send to ${provider}`;
+    const confirmBody = isMockMode
+        ? `No courier API credentials are configured. Order #${displayId} will receive a mock tracking ID (e.g. SF-PENDING-XXXXX), be marked as Shipped, and saved to the database.`
+        : `Book order #${displayId} as a ${provider} parcel? This creates a real consignment and marks the order as Shipped.`;
 
     showCustomConfirm(
-        `Send to ${provider}`,
-        `Book order #${displayId} as a ${provider} parcel? This creates a real consignment and marks the order as Shipped.`,
+        confirmTitle,
+        confirmBody,
         async () => {
             const bookBtn = document.querySelector(`tr[data-order-id="${orderId}"] .send-courier-btn`);
-            const restore = setButtonLoading(bookBtn, 'Booking...');
+            const restore = setButtonLoading(bookBtn, isMockMode ? 'Booking (Mock)...' : 'Booking...');
 
             try {
                 const response = await fetch(`/api/admin/orders/${orderId}/send-courier`, {
@@ -1953,7 +1961,10 @@ window.sendOrderToCourier = function(orderId) {
                 const result = await response.json();
 
                 if (result.success) {
-                    showToast(result.message || 'Parcel booked successfully!', 'success');
+                    const toastMsg = result.mockMode
+                        ? (result.message || 'Mock parcel booked! Order marked as Shipped.')
+                        : (result.message || 'Parcel booked successfully!');
+                    showToast(toastMsg, 'success');
                     fetchLiveOrders();
                     return;
                 }

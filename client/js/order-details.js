@@ -422,6 +422,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        if (window.CourierBadge) {
+            CourierBadge.render(document.getElementById('courier-tracking-badge'), order);
+        }
+
         renderOrderActionBar(order, status);
 
         // কাস্টমার ইনফরমেশন

@@ -28,6 +28,7 @@ const statusMessageBox = document.querySelector('.status-message-box');
 // Delivery Estimate Elements
 const trackDeliveryContainer = document.getElementById('trackDeliveryContainer');
 const trackDeliveryDateSpan = document.getElementById('trackDeliveryDate');
+const courierTrackingBadge = document.getElementById('courierTrackingBadge');
 
 
 /* ==========================================================================
@@ -116,6 +117,10 @@ function displayTrackingResult(order) {
     }
 
     // ৪. ফাইনালি রেজাল্ট বক্স শো করা
+    if (window.CourierBadge && courierTrackingBadge) {
+        CourierBadge.render(courierTrackingBadge, order);
+    }
+
     trackingResult.classList.remove('hidden');
 }
 
@@ -185,6 +190,10 @@ function hideAllStates() {
     if (loadingSpinner) loadingSpinner.classList.add('hidden');
     if (trackingResult) trackingResult.classList.add('hidden');
     if (errorState) errorState.classList.add('hidden');
+    if (courierTrackingBadge) {
+        courierTrackingBadge.innerHTML = '';
+        courierTrackingBadge.classList.add('hidden');
+    }
 }
 
 // অর্ডার খুঁজে না পেলে এরর দেখানোর ফাংশন

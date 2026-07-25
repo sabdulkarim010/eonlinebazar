@@ -1,0 +1,50 @@
+/* Shared courier tracking badge — customer-facing pages only */
+
+.courier-tracking-badge-wrap {
+    margin: 16px 0 0;
+}
+
+.courier-customer-badge {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.5;
+    max-width: 100%;
+    word-break: break-word;
+}
+
+.courier-customer-badge--link {
+    text-decoration: none;
+    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.courier-customer-badge--link:hover {
+    background: linear-gradient(135deg, #dbeafe 0%, #dcfce7 100%);
+    border-color: #93c5fd;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+
+.courier-badge-mock {
+    font-weight: 500;
+    color: #b45309;
+    font-size: 0.82rem;
+}
+
+/* Order track page variant */
+.tracking-result-box .courier-tracking-badge-wrap {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.tracking-result-box .courier-customer-badge {
+    width: 100%;
+    justify-content: center;
+}
