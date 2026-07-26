@@ -2931,6 +2931,15 @@ body {
     border-color: var(--border-color);
 }
 
+[data-theme="dark"] #cart-items-preview-list .cart-item-media-box {
+    background: var(--bg-main);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .cart-wishlist-heart-btn { color: #94a3b8; }
+[data-theme="dark"] .cart-wishlist-heart-btn.is-saved,
+[data-theme="dark"] .cart-wishlist-heart-btn:hover { color: #f87171; }
+
 /* ---------- স্ট্যাট কার্ড: সব স্ক্রিনে এক লাইনে ৪টি ---------- */
 .dashboard-stats-grid { grid-template-columns: repeat(4, 1fr) !important; }
 
@@ -2956,6 +2965,7 @@ body {
     background: var(--bg-card);
     transition: var(--transition-smooth);
 }
+
 .wishlist-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
 
 .wishlist-media {
@@ -2968,6 +2978,7 @@ body {
     border-radius: 6px;
     overflow: hidden;
 }
+
 .wishlist-media img { width: 100%; height: 100%; object-fit: contain; }
 .wishlist-emoji { font-size: 1.35rem; line-height: 1; }
 
@@ -3006,7 +3017,9 @@ body {
 }
 .wishlist-cart-btn i, .wishlist-remove-btn i { font-size: 0.65rem; }
 .wishlist-cart-btn { background: var(--primary-color); color: #fff; }
-.wishlist-cart-btn:hover { background: var(--primary-hover); }
+.wishlist-cart-btn:hover:not(:disabled) { background: var(--primary-hover); }
+.wishlist-cart-btn.is-out-of-stock,
+.wishlist-cart-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .wishlist-remove-btn { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
 .wishlist-remove-btn:hover { background: var(--danger); color: #fff; }
 

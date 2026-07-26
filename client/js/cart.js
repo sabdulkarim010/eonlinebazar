@@ -245,27 +245,34 @@ function renderCartDrawerItems() {
             `;
         } else {
             const profileItemClass = isProfilePreview ? ' cart-preview-item' : '';
+            const wishlistIds = window.__profileWishlistProductIds || [];
+            const inWishlist = wishlistIds.some((id) => String(id) === String(item.id));
+            const heartIconClass = inWishlist ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
+            const heartBtnClass = inWishlist ? 'cart-wishlist-heart-btn is-saved' : 'cart-wishlist-heart-btn';
             row.className = `cart-item-card${profileItemClass}${item.selected === false ? ' is-unchecked' : ''}`;
             row.innerHTML = `
                 <div class="cart-item-left-group">
                     <input type="checkbox" class="cart-item-checkbox" data-id="${item.id}" ${isChecked} onchange="toggleItemSelection('${item.id}', '${vid}')">
                     <div class="cart-item-media-box">${mediaHTML}</div>
                     <div class="cart-item-info-box">
-                        <span class="product-title-text">${item.name}</span>
+                        <div class="cart-item-title-row">
+                            <span class="product-title-text">${item.name}</span>
+                            ${isProfilePreview ? `<button type="button" class="${heartBtnClass}" data-product-id="${item.id}" aria-label="${inWishlist ? 'Saved to wishlist' : 'Add to wishlist'}" title="${inWishlist ? 'Saved to wishlist' : 'Add to wishlist'}"><i class="${heartIconClass}"></i></button>` : ''}
+                        </div>
                         ${item.variantLabel ? `<span class="product-variant-text">${item.variantLabel}</span>` : ''}
                         ${stockBadge}
-                        <span class="product-unit-price">৳${item.price}</span>
+                        <span class="product-unit-price">৳${Number(item.price).toLocaleString()}</span>
                     </div>
                 </div>
                 
                 <div class="cart-item-right-group">
                     <div class="cart-quantity-controller">
-                        <button class="qty-control-btn" onclick="updateQty('${item.id}', -1, '${vid}')"><i class="fa-solid fa-minus"></i></button>
+                        <button type="button" class="qty-control-btn" aria-label="Decrease quantity" onclick="updateQty('${item.id}', -1, '${vid}')"><i class="fa-solid fa-minus"></i></button>
                         <div class="qty-display-number">${quantity}</div>
-                        <button class="${plusControlClass}" ${plusDisabledAttr} onclick="updateQty('${item.id}', 1, '${vid}')"><i class="fa-solid fa-plus"></i></button>
+                        <button type="button" class="${plusControlClass}" aria-label="Increase quantity" ${plusDisabledAttr} onclick="updateQty('${item.id}', 1, '${vid}')"><i class="fa-solid fa-plus"></i></button>
                     </div>
-                    <div class="cart-item-total-price">৳${itemTotal}</div>
-                    <button class="cart-item-trash-btn" onclick="deleteCartItem('${item.id}', '${vid}')" title="Remove Product">
+                    <div class="cart-item-total-price">৳${itemTotal.toLocaleString()}</div>
+                    <button type="button" class="cart-item-trash-btn" onclick="deleteCartItem('${item.id}', '${vid}')" title="Remove Product">
                         <i class="fa-solid fa-trash-can"></i>
                     </button>
                 </div>
@@ -274,8 +281,7 @@ function renderCartDrawerItems() {
         itemsHost.appendChild(row);
     });
 
-    // ৩. প্রোফাইল পেজের জন্য ডাইনামিক চেকআউট প্যানেল যুক্ত করা
-    if (isProfilePreview) {
+    if (isProfilePreview && currentCart.length > 0) {
         const dynamicSummary = document.createElement('div');
         dynamicSummary.className = 'profile-dynamic-checkout-panel';
         dynamicSummary.innerHTML = `
@@ -361,13 +367,36 @@ function renderCartFreeShippingProgress(subtotal) {
         : `Add ৳${progress.remaining.toLocaleString('en-US')} more to unlock FREE shipping (৳${progress.threshold.toLocaleString('en-US')} minimum).`;
 }
 
+function wireCheckoutButton(btn) {
+    if (!btn) return;
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    btn.onclick = function() {
+        localStorage.setItem('activeCheckoutSession', 'true');
+        if (window.MiniCartDrawer && typeof window.MiniCartDrawer.close === 'function') {
+            window.MiniCartDrawer.close();
+        }
+        window.location.href = '/checkout';
+    };
+}
+
+function disableCheckoutButton(btn) {
+    if (!btn) return;
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+    btn.onclick = null;
+}
+
 function updateCartTotal() {
     const totalSpan = document.getElementById('cartDrawerTotal');
     const itemsCountSpan = document.getElementById('cartSelectedItemsCount');
+    const miniCartSelectedCount = document.getElementById('miniCartSelectedCount');
     const subtotalEl = document.getElementById('cartSubtotalAmount');
     const checkoutRedirectBtn = document.getElementById('proceedToCheckoutBtn');
+    const miniCartCheckoutBtn = document.getElementById('miniCartCheckoutBtn');
     const summarySection = document.getElementById('cartSummarySection');
-
     const profileTotalEl = document.getElementById('profileCartTotalAmount');
     const profileCountEl = document.getElementById('profileCartItemsCount');
     const profileBtn = document.getElementById('profileCheckoutBtn');
@@ -381,49 +410,27 @@ function updateCartTotal() {
         subtotal += item.price * (item.quantity || 1);
     });
 
-    if (totalSpan) totalSpan.innerText = subtotal;
+    if (totalSpan) totalSpan.innerText = subtotal.toLocaleString();
     if (itemsCountSpan) itemsCountSpan.innerText = `${uniqueSelectedCount} Items`;
-    if (subtotalEl) subtotalEl.innerText = `৳${subtotal}`;
+    if (miniCartSelectedCount) {
+        miniCartSelectedCount.textContent = `${uniqueSelectedCount} item${uniqueSelectedCount === 1 ? '' : 's'} selected`;
+    }
+    if (subtotalEl) subtotalEl.innerText = `৳${subtotal.toLocaleString()}`;
 
-    if (profileTotalEl) profileTotalEl.innerText = `৳${subtotal}`;
+    if (profileTotalEl) profileTotalEl.innerText = `৳${subtotal.toLocaleString()}`;
     if (profileCountEl) profileCountEl.innerText = uniqueSelectedCount;
 
     renderCartFreeShippingProgress(subtotal);
 
-    if (currentCart.length === 0 || uniqueSelectedCount === 0) {
+    const checkoutButtons = [checkoutRedirectBtn, miniCartCheckoutBtn, profileBtn].filter(Boolean);
+    const hasCheckoutItems = currentCart.length > 0 && uniqueSelectedCount > 0;
+
+    if (!hasCheckoutItems) {
         if (summarySection) summarySection.style.display = 'none';
-        if (checkoutRedirectBtn) {
-            checkoutRedirectBtn.disabled = true;
-            checkoutRedirectBtn.style.opacity = '0.5';
-            checkoutRedirectBtn.onclick = null;
-        }
-        if (profileBtn) {
-            profileBtn.disabled = true;
-            profileBtn.style.opacity = '0.5';
-            profileBtn.style.cursor = 'not-allowed';
-            profileBtn.onclick = null;
-        }
+        checkoutButtons.forEach(disableCheckoutButton);
     } else {
         if (summarySection) summarySection.style.display = 'block';
-
-        if (checkoutRedirectBtn) {
-            checkoutRedirectBtn.disabled = false;
-            checkoutRedirectBtn.style.opacity = '1';
-            checkoutRedirectBtn.onclick = function() {
-                localStorage.setItem("activeCheckoutSession", "true");
-                window.location.href = '/checkout';
-            };
-        }
-
-        if (profileBtn) {
-            profileBtn.disabled = false;
-            profileBtn.style.opacity = '1';
-            profileBtn.style.cursor = 'pointer';
-            profileBtn.onclick = function() {
-                localStorage.setItem("activeCheckoutSession", "true");
-                window.location.href = '/checkout';
-            };
-        }
+        checkoutButtons.forEach(wireCheckoutButton);
     }
 }
 
@@ -500,7 +507,8 @@ window.updateQty = function(productId, change, variantIdEnc) {
     }
 };
 
-window.deleteCartItem = function(productId, variantIdEnc) {
+window.deleteCartItem = function(productId, variantIdEnc, options) {
+    const silent = options && options.silent === true;
     const variantId = decVariant(variantIdEnc);
     if (customerToken) {
         // 🌟 লগইন থাকলে ডাটাবেজ থেকে নির্দিষ্ট ভ্যারিয়েন্ট লাইন রিমুভ করা হবে
@@ -523,10 +531,12 @@ window.deleteCartItem = function(productId, variantIdEnc) {
         renderCartDrawerItems();
     }
 
-    if (typeof window.showCartRemovedToast === 'function') {
-        window.showCartRemovedToast();
-    } else if (typeof window.showToast === 'function') {
-        window.showToast('Item removed from Cart', 'info');
+    if (!silent) {
+        if (typeof window.showCartRemovedToast === 'function') {
+            window.showCartRemovedToast();
+        } else if (typeof window.showToast === 'function') {
+            window.showToast('Item removed from Cart', 'info');
+        }
     }
 };
 
@@ -759,6 +769,12 @@ window.updateCartCount = updateCartCount;
 window.renderCartDrawerItems = renderCartDrawerItems;
 window.fetchLiveDBCart = fetchLiveDBCart;
 window.syncCartFromServerItems = syncCartFromServerItems;
+window.getSelectedCartSubtotal = function getSelectedCartSubtotal() {
+    const currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
+    return currentCart
+        .filter(item => item.selected !== false)
+        .reduce((sum, item) => sum + item.price * (item.quantity || 1), 0);
+};
 
 
 /* ==========================================================================

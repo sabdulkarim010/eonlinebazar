@@ -593,6 +593,63 @@ body {
 
 
 /* =========================================================================
+   🛒 PROFILE PAGE: MINIMALIST FULL-WIDTH CART
+   ========================================================================= */
+
+.profile-cart-full-width,
+#cart-items-preview-list.w-full {
+    width: 100%;
+    max-width: 100%;
+}
+
+.cart-item-title-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+}
+
+.cart-item-title-row .product-title-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.cart-wishlist-heart-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease, transform 0.15s ease;
+}
+
+.cart-wishlist-heart-btn:hover {
+    color: #ef4444;
+    transform: scale(1.08);
+}
+
+.cart-wishlist-heart-btn.is-saved,
+.cart-wishlist-heart-btn.is-saved:hover {
+    color: #ef4444;
+}
+
+.cart-wishlist-heart-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.cart-wishlist-heart-btn i {
+    font-size: 0.9375rem;
+    line-height: 1;
+}
+
+/* =========================================================================
    🛒 PROFILE PAGE: COMPACT CART & CHECKOUT PREVIEW
    ========================================================================= */
 

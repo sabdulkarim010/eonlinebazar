@@ -192,8 +192,13 @@ document.addEventListener('DOMContentLoaded', () => {
             fetchDashboardStats();
         }
         if (targetTab === 'my-cart') {
-            if (typeof fetchLiveDBCart === 'function') fetchLiveDBCart();
-            if (typeof fetchWishlist === 'function') fetchWishlist();
+            fetchWishlist().then(() => {
+                if (typeof fetchLiveDBCart === 'function') {
+                    fetchLiveDBCart();
+                } else if (typeof window.renderCartDrawerItems === 'function') {
+                    window.renderCartDrawerItems();
+                }
+            });
         }
         if (targetTab === 'addresses-settings' && typeof fetchAddresses === 'function') fetchAddresses();
         if (targetTab === 'security-settings' && typeof fetchSessions === 'function') fetchSessions();
@@ -280,8 +285,18 @@ document.addEventListener('DOMContentLoaded', () => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
             activateProfileTab(item.getAttribute('data-tab'));
+            window.history.replaceState({}, document.title, '/profile');
         });
     });
+
+    const headerCartBtn = document.querySelector('.cart-badge-container[data-tab="my-cart"]');
+    if (headerCartBtn) {
+        headerCartBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            activateProfileTab('my-cart', { scroll: true });
+            window.history.replaceState({}, document.title, '/profile');
+        });
+    }
 
     applyInitialProfileTabFromUrl();
 
@@ -1821,8 +1836,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!container) return;
 
         lastWishlistItems = items || [];
+        window.__profileWishlistProductIds = (items || []).map((item) => item.productId);
 
         if (!items || items.length === 0) {
+            window.__profileWishlistProductIds = [];
             container.innerHTML = `
                 <div class="wishlist-empty">
                     <i class="fa-regular fa-heart"></i>
@@ -1868,6 +1885,10 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             container.appendChild(card);
         });
+
+        if (typeof window.renderCartDrawerItems === 'function') {
+            window.renderCartDrawerItems();
+        }
     }
 
     document.addEventListener('productCatalogReady', () => {
@@ -2007,6 +2028,60 @@ document.addEventListener('DOMContentLoaded', () => {
             removeBtn.innerHTML = originalHtml;
         }
     }
+
+    async function addCartItemToWishlist(productId, heartBtn) {
+        if (heartBtn?.classList.contains('is-saved')) {
+            showToast('Already in your wishlist', 'info');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/wishlist/toggle', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ productId })
+            });
+            const data = await res.json();
+
+            if (!res.ok || !data.success) {
+                showToast(data.message || 'Could not add to wishlist.', 'danger');
+                return;
+            }
+
+            if (data.added) {
+                if (heartBtn) {
+                    heartBtn.classList.add('is-saved');
+                    const icon = heartBtn.querySelector('i');
+                    if (icon) icon.className = 'fa-solid fa-heart';
+                }
+                if (typeof window.showWishlistAddedToast === 'function') {
+                    window.showWishlistAddedToast();
+                } else {
+                    showToast('Saved to Wishlist', 'success');
+                }
+            } else {
+                showToast('Already in your wishlist', 'info');
+            }
+
+            if (typeof fetchWishlist === 'function') fetchWishlist();
+        } catch (error) {
+            console.error('Add to Wishlist Error:', error);
+            showToast('Server error while saving to wishlist.', 'danger');
+        }
+    }
+
+    document.getElementById('cart-items-preview-list')?.addEventListener('click', async (e) => {
+        const heartBtn = e.target.closest('.cart-wishlist-heart-btn');
+        if (!heartBtn) return;
+        e.preventDefault();
+        const productId = heartBtn.dataset.productId;
+        heartBtn.disabled = true;
+        await addCartItemToWishlist(productId, heartBtn);
+        heartBtn.disabled = false;
+    });
 
     // উইশলিস্টের রিমুভ ও অ্যাড-টু-কার্ট (ইভেন্ট ডেলিগেশন)
     document.addEventListener('click', async (e) => {

@@ -31,10 +31,10 @@
             <i class="fa-solid fa-moon"></i>
         </button>
         
-        <a href="#" class="nav-icon-btn cart-badge-container" data-tab="my-cart">
+        <button type="button" class="nav-icon-btn cart-badge-container" data-tab="my-cart" aria-label="Open My Cart">
             <i class="fa-solid fa-cart-shopping"></i>
             <span id="nav-cart-count" class="cart-count-badge">0</span>
-        </a>
+        </button>
         
         <div class="nav-profile-small-wrapper">
             <img id="nav-avatar" src="https://via.placeholder.com/40" alt="User" class="nav-user-avatar">
@@ -60,25 +60,25 @@
         </div>
 
         <nav class="sidebar-menu">
-            <a href="profile.html" class="menu-item active auto-refresh-link" data-tab="dashboard-overview">
+            <a href="/profile" class="menu-item active auto-refresh-link" data-tab="dashboard-overview">
                 <i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span>
             </a>
-            <a href="profile.html?tab=orders" class="menu-item auto-refresh-link" data-tab="my-orders">
+            <a href="/profile" class="menu-item auto-refresh-link" data-tab="my-orders">
                 <i class="fa-solid fa-box-open"></i> <span>My Orders</span>
             </a>
-            <a href="profile.html" class="menu-item auto-refresh-link" data-tab="my-cart">
+            <a href="/profile" class="menu-item auto-refresh-link" data-tab="my-cart">
                 <i class="fa-solid fa-cart-arrow-down"></i> <span>My Cart</span>
             </a>
-            <a href="profile.html" class="menu-item auto-refresh-link" data-tab="wallet-points">
+            <a href="/profile" class="menu-item auto-refresh-link" data-tab="wallet-points">
                 <i class="fa-solid fa-wallet"></i> <span>Wallet & Points</span>
             </a>
-            <a href="profile.html" class="menu-item auto-refresh-link" data-tab="addresses-settings">
+            <a href="/profile" class="menu-item auto-refresh-link" data-tab="addresses-settings">
                 <i class="fa-solid fa-map-location-dot"></i> <span>Addresses</span>
             </a>
-            <a href="profile.html" class="menu-item auto-refresh-link" data-tab="profile-info">
+            <a href="/profile" class="menu-item auto-refresh-link" data-tab="profile-info">
                 <i class="fa-regular fa-user"></i> <span>Profile Settings</span>
             </a>
-            <a href="profile.html" class="menu-item auto-refresh-link" data-tab="security-settings">
+            <a href="/profile" class="menu-item auto-refresh-link" data-tab="security-settings">
                 <i class="fa-solid fa-shield-halved"></i> <span>Security</span>
             </a>
             <button id="logout-btn" class="menu-item logout">
@@ -203,18 +203,19 @@
 
         <section id="my-cart" class="tab-content profile-cart-tab">
             <div class="content-header cart-section-header">
-                <h2>My Cart Summary</h2>
-                <p>Items currently saved in your shopping cart.</p>
+                <h2><i class="fa-solid fa-bag-shopping primary-icon-color"></i> My Cart &amp; Wishlist</h2>
+                <p>Review items in your bag and manage saved favorites.</p>
             </div>
-            <div class="card cart-section-card cart-preview-card">
-                <div id="cart-items-preview-list" class="cart-preview-list">
+
+            <div class="card cart-section-card cart-preview-card profile-cart-full-width">
+                <div id="cart-items-preview-list" class="cart-preview-list w-full">
                     <p class="text-center empty-cart-text">Your cart is empty. <a href="/" class="shop-now-link">Shop Now</a></p>
                 </div>
             </div>
 
             <div class="content-header wishlist-header wishlist-section-header">
-                <h2><i class="fa-solid fa-heart primary-icon-color"></i> My Wishlist</h2>
-                <p>Saved items stay here permanently until you remove them.</p>
+                <h3><i class="fa-solid fa-heart primary-icon-color"></i> My Wishlist</h3>
+                <p>Saved items stay here until you remove them.</p>
             </div>
             <div class="card wishlist-section-card">
                 <div id="wishlist-items-list" class="wishlist-grid">

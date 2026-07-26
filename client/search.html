@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="css/product-thumbnail.css">
     <link rel="stylesheet" href="css/footer.css">
     <link rel="stylesheet" href="css/whatsapp.css">
-    <link rel="stylesheet" href="css/toast.css">
+    <link rel="stylesheet" href="css/mini-cart-drawer.css">
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -117,7 +117,7 @@
                     </div>
                 </div>
 
-                <div class="nav-cart-box" onclick="window.location.href='/cart'">
+                <div class="nav-cart-box" data-mini-cart-trigger role="button" tabindex="0" aria-label="Open shopping bag">
                     <div class="nav-cart-icon-wrapper">
                         <i class="fa fa-shopping-cart"></i>
                         <span id="cartCountBadge" class="cart-count">0</span>
@@ -179,6 +179,7 @@
 <script src="js/toast.js"></script>
 <script src="js/wishlist.js"></script>
 <script src="js/cart.js"></script>
+<script src="js/mini-cart-drawer.js"></script>
 <script src="js/productThumbnail.js"></script>
 <script src="js/search.js"></script>
 <script src="js/whatsapp.js"></script>

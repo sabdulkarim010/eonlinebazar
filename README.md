@@ -49,6 +49,7 @@
 - [Smart Checkout Address Integration](#-smart-checkout-address-integration)
 - [Advanced Order Management & Tracking](#-advanced-order-management--tracking)
 - [Smart Tab Navigation & Contextual Routing (User Profile)](#-smart-tab-navigation--contextual-routing-user-profile)
+- [User Account & Shopping Cart](#-user-account--shopping-cart)
 - [Mobile & Desktop UI/UX Polish (Cart & Wishlist)](#-mobile--desktop-uiux-polish-cart--wishlist)
 - [Checkout Experience & Cart Enhancements](#-checkout-experience--cart-enhancements)
 - [Profile Security & Order Invoice Enhancements](#-profile-security--order-invoice-enhancements)
@@ -658,7 +659,7 @@ This release delivers a professional-grade **checkout ↔ profile address pipeli
 | **🛡️ Admin Refund & Return Controls** | Distinct cancellation badges (customer vs admin); return approval auto-credits the **exact paid amount** to wallet with transaction history; **Safe Undo Refund** within a configurable hour window with spent-funds verification. |
 | **⚙️ Master Settings & Dynamic Rewards** | Global panel for cashback %, points ratio, conversion rate, and refund-undo hours; **category-specific cashback overrides** with global fallback; setting any rate to **0** instantly disables that reward type platform-wide. |
 | **🔄 Smart Tab Navigation & Contextual Routing** | Query-param tab activation (`/profile?tab=orders`) for seamless **order-details ↔ profile** transitions; contextual **Back to Dashboard / My Orders** links; sub-tabs show **← Back to Dashboard** instead of ejecting to home; `history.replaceState()` for clean F5 reload. |
-| **📱 Cart & Wishlist UI/UX Polish** | Streamlined **divider-line** cart rows (no heavy per-item cards); tightened vertical padding and grid gaps in **My Cart Summary** and **My Wishlist** for ultra-compact mobile layouts. |
+| **📱 Cart & Wishlist UI/UX Polish** | Full-width profile **My Cart** list (no right-hand Order Summary / Promo blocks); **non-destructive wishlist heart** on cart rows; **icon-only Cart/Delete** controls on wishlist mini-cards; header **slide-over mini cart drawer**; clean `/profile` URL routing. *(See [User Account & Shopping Cart](#-user-account--shopping-cart).)* |
 | **🛒 Checkout Experience & Cart Enhancements** | Checkout-only **district selection** and **promo codes** for a cleaner `/cart`; real-time **inside/outside Dhaka** shipping + **business-day delivery estimates**; shared **`CouponUI`** module for flat/percentage discounts with live subtotal/grand-total updates; automatic **guest → auth cart merge** on login/OAuth. |
 | **🔒 Profile Security & Order Invoice Enhancements** | **`bcrypt`** password change with current-password gate; **6-digit OTP** verification for email/phone updates; single **Primary / Default** address flag with checkout auto-select & pre-fill; **1-click PDF invoice** download from **My Orders** and **Order Details** (`Invoice-ORDER_ID.pdf`). |
 | **⚡ Performance & Engagement Enhancements** | Interactive **order status timeline** on Order Details (`Placed → Processing → Shipped → Out for Delivery → Delivered`); **real-time low-stock FOMO badges** on Cart & Wishlist; lightweight **global toast notifications** for cart, wishlist, and stock feedback — no full-page reloads. |
@@ -806,7 +807,8 @@ Profile dashboard navigation that preserves user context across **order-details*
 - On the Dashboard overview itself, the back control remains **`← Back to Home`** (`/`).
 
 #### Clean Reload Behavior
-- After tab state is initialized from the URL, `window.history.replaceState({}, document.title, window.location.pathname)` strips temporary `?tab=` (and hash) parameters.
+- After tab state is initialized from the URL, `window.history.replaceState({}, document.title, window.location.pathname)` strips temporary `?tab=` query parameters **and legacy `#hash` fragment artifacts**.
+- Sidebar tab clicks and the profile header cart shortcut also call `replaceState` to **`/profile`** — keeping the address bar pristine during in-dashboard navigation.
 - Pressing reload (**F5**) on a deep-linked profile view gracefully defaults back to the **Dashboard overview** on a clean `/profile` URL — preventing stale tab state from persisting across refreshes.
 
 ### Navigation Workflow
@@ -831,11 +833,80 @@ flowchart TD
 | `client/js/order-details.js` | Contextual smart back button (`from=dashboard` / `from=orders` + referrer fallback) |
 | `client/profile.html` | Sidebar menu links with `?tab=orders` deep links and `data-tab` attributes |
 
+> 📌 Cart layout, wishlist actions, and header mini-cart integration are documented in [User Account & Shopping Cart](#-user-account--shopping-cart).
+
+---
+
+## 👤 User Account & Shopping Cart
+
+The customer profile dashboard (`/profile`) combines account management with an integrated **My Cart & Wishlist** workspace — streamlined for a clutter-free, full-width experience with quick inline actions, clean URL routing, and a site-wide header mini-cart drawer.
+
+### User Dashboard Layout Streamlining
+
+#### Full-Width My Cart View
+- Simplified the profile **My Cart** tab by removing the right-hand **Order Summary** sidebar and **Promo Code** blocks — cart line items now span the full content width via `.profile-cart-full-width` for a cleaner, distraction-free list.
+- Retained a compact inline **Proceed to Order** summary bar at the bottom of the cart list (selected-item count + subtotal only); shipping quotes, district selection, and promo validation remain exclusively on `/checkout` and `/cart` as documented in [Checkout Experience & Cart Enhancements](#-checkout-experience--cart-enhancements).
+- Cart rows use the existing divider-line preview layout (`.cart-preview-item`) — transparent backgrounds, light `border-bottom` separators, and no heavy per-item card wrappers.
+
+#### Streamlined Cart Action Buttons
+- Added a **non-destructive Wishlist heart toggle** (`.cart-wishlist-heart-btn`) on each profile cart row — calls `POST /api/wishlist/toggle` to save favourites **without removing the item from the cart**.
+- Heart icon reflects live wishlist state (`fa-regular` → `fa-solid`, `.is-saved` class) synced against `window.__profileWishlistProductIds`; successful saves trigger the global toast engine.
+- Standard quantity controls, line-total display, checkbox selection, and trash removal remain on each row.
+
+#### Compact Wishlist Mini-Cards
+- Restored **icon-only action buttons** on wishlist product cards for a minimal dashboard footprint:
+  - **Cart** (`.wishlist-cart-btn`) — adds the saved item straight to the active cart via `/api/cart/add` with stock guardrails.
+  - **Delete** (`.wishlist-remove-btn`) — removes the favourite via `/api/wishlist/toggle` and updates the DOM instantly with toast feedback.
+- Buttons use compact circular styling with `title` tooltips instead of text labels — preserving touch targets on mobile while reducing visual noise.
+
+### Header & Routing Enhancements
+
+#### Clean `/profile` URL Routing
+- Sidebar tab switches and the profile header cart shortcut call `history.replaceState({}, document.title, '/profile')` — the address bar stays on a **pristine `/profile` path** with no `#hash` fragment artifacts or lingering `?tab=` query strings after navigation.
+- Deep links such as `/profile?tab=orders` (or legacy `#my-orders` hash aliases) still activate the correct sub-tab on initial load via `applyInitialProfileTabFromUrl()`, then query/hash params are stripped so **F5 reload gracefully defaults to Dashboard overview** on a clean URL.
+- `resolveProfileTabKey()` normalizes aliases (`orders`, `my-orders`, `cart`, `my-cart`, …) to canonical DOM tab IDs before activation.
+
+#### Optimized Header Slide-over Mini Cart Drawer
+- Site-wide **`MiniCartDrawer`** module (`client/js/mini-cart-drawer.js` + `client/css/mini-cart-drawer.css`) — opens from header **`[data-mini-cart-trigger]`** / `.nav-cart-box` icons across storefront pages.
+- Slide-over panel includes scrollable item list, selected-item count, live subtotal, **Proceed to Checkout** CTA, and a **View My Cart** link — shared rendering via `renderCartDrawerItems()` in `client/js/cart.js`.
+- Drawer state stays in sync when cart quantities change on `/cart`, in the profile preview, or after wishlist **Add to Cart** actions; Escape key and backdrop click close the panel (`body.mini-cart-open` scroll lock).
+- Profile dashboard header cart badge (`.cart-badge-container[data-tab="my-cart"]`) navigates directly to the **My Cart & Wishlist** tab with the same clean `/profile` URL convention.
+
+### Profile Cart & Wishlist Workflow
+
+```mermaid
+flowchart TD
+    A[User clicks header cart icon] --> B{On storefront page?}
+    B -->|Yes| C[MiniCartDrawer slide-over opens]
+    B -->|On /profile| D[activateProfileTab my-cart]
+    C --> E[renderCartDrawerItems — qty / subtotal sync]
+    D --> F[Full-width cart list + inline summary bar]
+    F --> G{Heart toggle clicked?}
+    G -->|Yes| H[POST /api/wishlist/toggle — item stays in cart]
+    H --> I[Refresh wishlist grid below]
+    F --> J[Wishlist mini-card actions]
+    J -->|Cart icon| K[POST /api/cart/add]
+    J -->|Delete icon| L[POST /api/wishlist/toggle remove]
+    M[Tab switch / deep link resolved] --> N[replaceState → clean /profile]
+```
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `client/profile.html` | **My Cart & Wishlist** tab markup — full-width cart card + wishlist grid |
+| `client/js/profile.js` | Tab activation, clean URL `replaceState`, wishlist render, heart/delete/cart handlers |
+| `client/js/cart.js` | Shared cart renderer — profile preview rows, wishlist heart injection, inline summary bar |
+| `client/css/cart.css` | `.profile-cart-full-width`, `.cart-wishlist-heart-btn`, divider-line preview rows |
+| `client/css/profile.css` | Compact `.wishlist-cart-btn` / `.wishlist-remove-btn` icon buttons, wishlist grid density |
+| `client/js/mini-cart-drawer.js` | Header slide-over drawer — open/close, trigger binding, checkout link |
+| `client/css/mini-cart-drawer.css` | Drawer backdrop, panel animation, footer subtotal & CTA styling |
+
 ---
 
 ## 📱 Mobile & Desktop UI/UX Polish (Cart & Wishlist)
 
-Space-efficient layout refinements for the customer profile **My Cart** tab — reducing visual clutter and unnecessary scrolling on mobile while maintaining a polished desktop experience.
+Space-efficient layout refinements for the customer profile **My Cart** tab — reducing visual clutter and unnecessary scrolling on mobile while maintaining a polished desktop experience. *(See also [User Account & Shopping Cart](#-user-account--shopping-cart) for the full-width layout, wishlist toggle, and mini-cart drawer integration.)*
 
 ### Feature Overview
 
@@ -845,8 +916,8 @@ Space-efficient layout refinements for the customer profile **My Cart** tab — 
 
 #### Whitespace Elimination (Cart & Wishlist)
 - Optimized vertical padding, row gaps, and section spacing in both **My Cart Summary** and **My Wishlist** views (`client/css/profile.css` + `client/css/cart.css`).
-- Wishlist mini-cards use tighter grid gaps and scaled-down typography/buttons at mobile breakpoints (`wishlist-grid`, `wishlist-card`).
-- The combined effect is an **ultra-compact, space-efficient responsive layout** that minimizes vertical scrolling without sacrificing touch targets or readability.
+- Wishlist mini-cards use tighter grid gaps, **icon-only Cart/Delete controls**, and scaled-down typography at mobile breakpoints (`wishlist-grid`, `wishlist-card`).
+- Profile cart drops the right-hand Order Summary / Promo column in favour of a **full-width item list** with a slim inline checkout bar — minimizing vertical scrolling without sacrificing touch targets or readability.
 
 ### Key Files
 
@@ -854,7 +925,9 @@ Space-efficient layout refinements for the customer profile **My Cart** tab — 
 |------|------|
 | `client/css/cart.css` | Flat divider-line cart preview rows; reduced padding and hover treatment |
 | `client/css/profile.css` | Compact wishlist grid, tightened section headers, mobile breakpoint density |
-| `client/js/profile.js` | Cart/wishlist fetch and render on **My Cart** tab activation |
+| `client/js/profile.js` | Cart/wishlist fetch and render on **My Cart** tab activation; wishlist heart toggle handler |
+| `client/js/mini-cart-drawer.js` | Header slide-over mini cart — trigger binding and drawer lifecycle |
+| `client/css/mini-cart-drawer.css` | Mini cart drawer panel, backdrop, and footer CTA styling |
 
 ---
 
@@ -2753,7 +2826,7 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 - **⚡ Flash Sale Engine** — Master Settings scheduling (title, end date-time, discount %, featured products); homepage **HH:MM:SS** countdown; server-side flash pricing on catalog and checkout.
 - **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, **unified free-shipping threshold** (Master Settings ↔ Delivery Settings mirror), **real-time free-shipping progress** on cart/checkout, **real-time delivery date estimates** on checkout, **locked server-side totals** on every order, and district-aware invoices.
 - **📍 Smart Checkout Address Integration** — Profile-first checkout pre-fill, toggleable saved-address radio cards (select / unselect / revert), manual override with **Save to profile** sync, and cascading Bangladesh location dropdowns.
-- **🛒 Shopping Cart & Checkout Enhancements** — Server-synced cart with quantity updates, selection toggles, **real-time low-stock FOMO badges** and out-of-stock quantity guardrails, **checkout-only district & promo UI**, **AJAX coupon recalculation** (flat/percentage), **guest-cart merge** on login/OAuth (variant-aware quantity increment), post-order cleanup, and a **compact divider-line summary** in the profile dashboard.
+- **🛒 Shopping Cart & Checkout Enhancements** — Server-synced cart with quantity updates, selection toggles, **real-time low-stock FOMO badges** and out-of-stock quantity guardrails, **checkout-only district & promo UI**, **AJAX coupon recalculation** (flat/percentage), **guest-cart merge** on login/OAuth (variant-aware quantity increment), post-order cleanup, a **full-width profile cart list** with inline Proceed-to-Order bar (no right-hand summary/promo blocks), **non-destructive wishlist heart toggles** on cart rows, and a **header slide-over mini cart drawer**.
 - **⭐ Reviews & Ratings** — Star ratings and reviews with optional photo upload; averages update automatically.
 - **📍 Address Book** — Manage multiple delivery addresses with **single Primary / Default** flag; default address auto-selects and pre-fills checkout; profile sync from checkout respects default promotion.
 - **🔒 Profile Security** — `bcrypt` password change (current-password gated), **6-digit OTP** verification for email/phone updates, active session/device management on the Security tab.
@@ -2766,9 +2839,9 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 - **Persistent Storage** — Wishlist items are saved persistently in MongoDB as an embedded array on the user's account (`User.wishlist`), linked to their profile. Favourites remain intact after placing orders, logging out, or starting a new session — items are only removed when the customer explicitly deletes them.
 - **AJAX-powered Toggle** — Storefront product grids (home, search, etc.) use a sleek client-side **Fetch API** integration: clicking the heart icon calls `POST /api/wishlist/toggle` to add or remove items dynamically, with instant visual feedback and the **global toast notification engine** — no hard page refreshes required.
 - **Real-time Stock Awareness** — Wishlist mini-cards surface **low-stock FOMO badges** (`🔥 Only X left in stock`) and **Out of Stock** indicators with add-to-cart guardrails, synced against live catalog inventory.
-- **Unified Profile Integration** — The **My Wishlist** panel is fully integrated into the Customer Profile dashboard (`/profile` → **My Cart** tab). Each item ships with a functional **blue Cart button** (adds straight to the active cart summary via `/api/cart/add`) and a **red Delete button** that removes the item instantly from the DOM after a successful toggle, backed by custom Toast success/error feedback.
-- **Optimized Mini-Card UI** — Wishlist items render in a compact, scaled-down **premium mini-card grid** (`wishlist-grid` / `wishlist-card`) with responsive breakpoints and **tightened mobile spacing**, designed for high visual consistency with the rest of the customer dashboard styling.
-- **Profile Tab Navigation** — Query-param deep links (`/profile?tab=orders`), contextual back buttons on order details, and reload-safe `replaceState` cleanup for a seamless dashboard experience.
+- **Unified Profile Integration** — The **My Wishlist** panel is fully integrated into the Customer Profile dashboard (`/profile` → **My Cart & Wishlist** tab). Each mini-card ships with compact **icon-only Cart and Delete buttons** — add straight to the active cart via `/api/cart/add` or remove instantly from the DOM after a successful toggle, backed by global toast feedback.
+- **Optimized Mini-Card UI** — Wishlist items render in a compact, scaled-down **premium mini-card grid** (`wishlist-grid` / `wishlist-card`) with responsive breakpoints, **icon-only action controls**, and tightened mobile spacing — designed for high visual consistency with the rest of the customer dashboard styling.
+- **Profile Tab Navigation & Clean URLs** — Query-param deep links (`/profile?tab=orders`) activate the correct tab on load; sidebar navigation and header cart shortcuts maintain a **pristine `/profile` address bar** (no `#hash` artifacts) via `replaceState`; contextual back buttons on order details and reload-safe cleanup documented in [Smart Tab Navigation](#-smart-tab-navigation--contextual-routing-user-profile).
 
 ### 🛡️ Advanced Security Suite (Recent Updates)
 - **Multi-layered Two-Factor Authentication** — Email OTP, Google Authenticator / TOTP, and SMS OTP (console gateway with Twilio/custom hooks ready).
@@ -2995,12 +3068,14 @@ eonlinebazar-fullstack/
 │   ├── admin.html                     # Super Admin panel (SPA — includes Staff Management)
 │   ├── finance-login.html             # Finance password gate
 │   ├── finance-analytics.html         # Finance & analytics dashboard (P/L KPIs, theme toggle, Chart.js)
-│   ├── css/                           # Page-scoped stylesheets (admin.css, verify-otp.css…)
+│   ├── css/                           # Page-scoped stylesheets (admin.css, cart.css, mini-cart-drawer.css…)
 │   ├── js/                            # Page scripts (admin.js, admin-staff.js, checkout.js, profile.js…)
 │   │   ├── admin-staff.js             # RBAC sidebar gating + Enterprise Staff Management console (toggles, presets)
 │   │   ├── shipping-estimator.js      # Client shipping quote + delivery estimate helpers
 │   │   ├── coupon-ui.js               # Shared promo apply/remove + live total sync
 │   │   ├── cart-merge.js              # Guest cart merge after login/OAuth
+│   │   ├── mini-cart-drawer.js        # Site-wide header slide-over mini cart drawer
+│   │   ├── cart.js                    # Shared cart renderer (profile preview, /cart page, drawer sync)
 │   │   ├── invoiceDownload.js         # 1-click order PDF invoice fetch + browser download
 │   │   ├── orderStatusTimeline.js     # Step-based order progress timeline + cancelled banner
 │   │   ├── stockAlert.js              # Low-stock FOMO badges + out-of-stock qty guardrails
@@ -3525,6 +3600,19 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 ---
 
 ## 📜 Changelog
+
+### User Cart & Wishlist UI Simplification *(profile dashboard)*
+
+**👤 User Dashboard Layout Streamlining**
+- Simplified profile **My Cart** tab — removed right-hand **Order Summary** and **Promo Code** blocks for a **full-width** cart list (`.profile-cart-full-width`); retained slim inline **Proceed to Order** summary bar.
+- Added **non-destructive Wishlist heart toggle** on profile cart rows (`.cart-wishlist-heart-btn`) — saves favourites via `POST /api/wishlist/toggle` without removing items from the cart.
+- Restored **icon-only Cart & Delete buttons** on wishlist mini-cards (`.wishlist-cart-btn`, `.wishlist-remove-btn`) for a minimal dashboard experience.
+
+**🧭 Header & Routing Enhancements**
+- Maintained **clean `/profile` URL routing** — sidebar and header cart navigation use `history.replaceState` to strip `#hash` and `?tab=` artifacts after tab activation.
+- Optimized **header slide-over Mini Cart Drawer** (`mini-cart-drawer.js`) — shared `renderCartDrawerItems()` sync, backdrop/Escape close, and profile **View My Cart** deep-link.
+
+**Key files:** `client/profile.html`, `client/js/profile.js`, `client/js/cart.js`, `client/js/mini-cart-drawer.js`, `client/css/cart.css`, `client/css/profile.css`, `client/css/mini-cart-drawer.css`
 
 ### `v4.3.3` — Coupon Management Engine & Admin Settings Polish
 

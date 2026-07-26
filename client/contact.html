@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" href="css/footer.css">
     <link rel="stylesheet" href="css/toast.css">
+    <link rel="stylesheet" href="css/mini-cart-drawer.css">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -22,7 +23,7 @@
                 <a href="/" class="logo-box" data-store-logo-slot data-logo-variant="navbar" aria-label="EonlineBazar Home"></a>
                 <div class="nav-right">
                     <div class="nav-lang">EN</div>
-                    <div class="nav-cart-box" onclick="window.location.href='/checkout'">
+                    <div class="nav-cart-box" data-mini-cart-trigger role="button" tabindex="0" aria-label="Open shopping bag">
                         <div class="nav-cart-icon-wrapper">
                             <i class="fa fa-shopping-cart"></i>
                             <span id="cartCountBadge" class="cart-count">0</span>
@@ -106,7 +107,9 @@
     <script src="js/session-guard.js"></script>
     <script src="js/toast.js"></script>
     <script src="js/main.js"></script>
+    <script src="js/productThumbnail.js"></script>
     <script src="js/cart.js"></script>
+    <script src="js/mini-cart-drawer.js"></script>
     <script src="js/contact.js"></script> </body>
 </html>
 
