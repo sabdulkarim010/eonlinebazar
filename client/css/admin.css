@@ -299,6 +299,64 @@ a {
 
 /* Advanced Table */
 .table-responsive-container { overflow-x: auto; background: var(--card-bg); border-radius: var(--border-radius); box-shadow: var(--shadow-sm); }
+
+/* Manage Products — scrollable body + sticky header row */
+#view-manage-products .products-table-scroll {
+    width: 100%;
+    max-height: min(68vh, 720px);
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--border-radius);
+    background: #ffffff;
+}
+
+#view-manage-products .ultra-admin-table {
+    width: 100%;
+    min-width: 960px;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: #ffffff;
+}
+
+/* Sticky header — every th (incl. Actions) gets opaque bg + z-20 */
+#view-manage-products .ultra-admin-table thead th,
+#view-manage-products .ultra-admin-table thead th.col-actions,
+#view-manage-products .ultra-admin-table thead th.col-checkbox,
+#view-manage-products .ultra-admin-table thead th.sortable-th {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: table-cell;
+    vertical-align: middle;
+    background-color: #ffffff;
+    background-clip: padding-box;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 15px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+    box-shadow: 0 1px 0 0 #e2e8f0, 0 4px 8px -4px rgba(15, 23, 42, 0.08);
+    cursor: default;
+}
+
+#view-manage-products .ultra-admin-table thead th.sortable-th {
+    cursor: pointer;
+}
+
+#view-manage-products .ultra-admin-table tbody td {
+    position: relative;
+    z-index: 1;
+    background-color: #ffffff;
+}
+
+#view-manage-products .ultra-admin-table tbody tr:hover td {
+    background-color: #f8fafc;
+}
+
 .ultra-admin-table { width: 100%; border-collapse: collapse; white-space: nowrap; }
 .ultra-admin-table thead th {
     background-color: #f8fafc; color: var(--text-muted); font-size: 12px; font-weight: 600;
@@ -1243,8 +1301,15 @@ a {
     }
     body.printing-products .ultra-admin-table th {
         background: #f1f5f9 !important;
+        position: static !important;
+        box-shadow: none !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+    }
+    body.printing-products #view-manage-products .products-table-scroll {
+        max-height: none;
+        overflow: visible;
+        border: none;
     }
     body.printing-products .no-print,
     body.printing-products .col-checkbox,
@@ -1843,8 +1908,14 @@ a {
     background-color: rgba(59, 130, 246, 0.03); 
 }
 
-/* Actions Column Fix (বাটনগুলো একদম সেন্টারে রাখার জন্য) */
-.col-actions {
+/* Actions Column Fix (বাটনগুলো একদম সেন্টারে রাখার জন্য) — tbody cells only; th stays table-cell for sticky headers */
+th.col-actions {
+    display: table-cell;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+td.col-actions {
     vertical-align: middle;
     white-space: normal;
     display: flex;
@@ -1854,7 +1925,7 @@ a {
     min-width: 150px;
 }
 
-.col-actions button {
+td.col-actions button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1862,7 +1933,7 @@ a {
     margin-right: 0;
 }
 
-.col-actions button:last-child {
+td.col-actions button:last-child {
     margin-right: 0; /* শেষের বাটনে কোনো মার্জিন থাকবে না */
 }
 
@@ -2998,7 +3069,7 @@ a {
 .variant-matrix-table thead {
     position: sticky;
     top: 0;
-    z-index: 2;
+    z-index: 10;
 }
 .variant-matrix-table th {
     padding: 10px 8px;
@@ -3013,6 +3084,7 @@ a {
     border-bottom: 1px solid #e5e7eb;
     border-right: 1px solid #e5e7eb;
     vertical-align: middle;
+    box-shadow: 0 1px 0 0 #e5e7eb, 0 4px 8px -4px rgba(15, 23, 42, 0.06);
 }
 .variant-matrix-table th:last-child {
     border-right: none;

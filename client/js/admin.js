@@ -71,6 +71,8 @@ let dashboardAnalytics = null;
 let salesTrendPeriod = 'daily';
 let topProductsChartType = 'bar';
 let currentPage = 1;          // প্রোডাক্ট পেজের বর্তমান পেজ নম্বর
+const PRODUCT_PAGINATION_STORAGE_KEY = 'eob_admin_products_pagination';
+let savedProductPageBeforeAction = null;
 const itemsPerPage = 10;      // প্রতি পেজে ডিফল্ট প্রোডাক্ট সংখ্যা
 let currentOrderPage = 1;     // অর্ডারের বর্তমান পেজ নম্বর
 let ordersPerPage = 10;       // প্রতি পেজে ডিফল্ট অর্ডারের সংখ্যা
@@ -328,13 +330,116 @@ function getProdTableBody() {
     return document.getElementById('adminProductTableBody');
 }
 
+/** Snapshot active filters + pagination for restore after edit/save */
+function getProductFilterQueryParams() {
+    return {
+        search: document.getElementById('searchProduct')?.value || '',
+        category: document.getElementById('filterCategory')?.value || 'All',
+        stockStatus: document.getElementById('filterStockStatus')?.value || 'All',
+        priceRange: document.getElementById('filterPriceRange')?.value || 'All',
+        pageSize: document.getElementById('itemsPerPage')?.value || '10',
+        sortKey: currentSort?.key || 'productId',
+        sortAsc: currentSort?.asc !== false
+    };
+}
+
+function saveProductPaginationState() {
+    savedProductPageBeforeAction = currentPage;
+    try {
+        sessionStorage.setItem(PRODUCT_PAGINATION_STORAGE_KEY, JSON.stringify({
+            page: currentPage,
+            ...getProductFilterQueryParams()
+        }));
+    } catch (_) { /* ignore quota / private mode */ }
+    syncProductListUrlState();
+}
+
+function restoreProductPaginationState() {
+    if (savedProductPageBeforeAction != null && savedProductPageBeforeAction > 0) {
+        currentPage = savedProductPageBeforeAction;
+        savedProductPageBeforeAction = null;
+        return;
+    }
+    readProductListUrlState();
+}
+
+function readProductListUrlState() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const page = parseInt(params.get('page'), 10);
+        if (Number.isFinite(page) && page > 0) {
+            currentPage = page;
+        } else {
+            const raw = sessionStorage.getItem(PRODUCT_PAGINATION_STORAGE_KEY);
+            if (raw) {
+                const stored = JSON.parse(raw);
+                if (stored.page) currentPage = Number(stored.page) || 1;
+            }
+        }
+
+        const pageSizeEl = document.getElementById('itemsPerPage');
+        const pageSize = params.get('pageSize');
+        if (pageSizeEl && pageSize) pageSizeEl.value = pageSize;
+
+        const searchEl = document.getElementById('searchProduct');
+        if (searchEl && params.has('search')) searchEl.value = params.get('search');
+
+        const catEl = document.getElementById('filterCategory');
+        if (catEl && params.has('category')) catEl.value = params.get('category');
+
+        const stockEl = document.getElementById('filterStockStatus');
+        if (stockEl && params.has('stockStatus')) stockEl.value = params.get('stockStatus');
+
+        const priceEl = document.getElementById('filterPriceRange');
+        if (priceEl && params.has('priceRange')) priceEl.value = params.get('priceRange');
+    } catch (_) { /* ignore malformed URL / storage */ }
+}
+
+function syncProductListUrlState() {
+    const manageSection = document.getElementById('view-manage-products');
+    if (!manageSection || manageSection.style.display === 'none') return;
+
+    const params = new URLSearchParams(window.location.search);
+    params.set('section', 'manage-products');
+
+    if (currentPage > 1) params.set('page', String(currentPage));
+    else params.delete('page');
+
+    const filters = getProductFilterQueryParams();
+    if (filters.search) params.set('search', filters.search);
+    else params.delete('search');
+
+    if (filters.category && filters.category !== 'All') params.set('category', filters.category);
+    else params.delete('category');
+
+    if (filters.stockStatus && filters.stockStatus !== 'All') params.set('stockStatus', filters.stockStatus);
+    else params.delete('stockStatus');
+
+    if (filters.priceRange && filters.priceRange !== 'All') params.set('priceRange', filters.priceRange);
+    else params.delete('priceRange');
+
+    if (filters.pageSize && filters.pageSize !== '10') params.set('pageSize', filters.pageSize);
+    else params.delete('pageSize');
+
+    const query = params.toString();
+    const newUrl = query
+        ? `${window.location.pathname}?${query}${window.location.hash}`
+        : `${window.location.pathname}${window.location.hash}`;
+
+    history.replaceState(
+        { ...(history.state || {}), productPage: currentPage, productSection: 'manage-products' },
+        '',
+        newUrl
+    );
+}
+
 /** Instant product list sync after edit/delete */
 function removeProductFromState(productId) {
     const id = String(productId);
     globalProducts = globalProducts.filter(p => String(p._id) !== id);
     selectedProductIds.delete(productId);
     if (typeof updateBulkActionPanel === 'function') updateBulkActionPanel();
-    filterAndRenderProducts();
+    filterAndRenderProducts(false);
 }
 
 function upsertProductInState(updatedProduct) {
@@ -349,7 +454,8 @@ function upsertProductInState(updatedProduct) {
     const totalBadge = document.getElementById('total-products-badge');
     if (totalBadge) totalBadge.innerText = `Total: ${globalProducts.length}`;
     updateFilterCategoryDropdown();
-    filterAndRenderProducts();
+    restoreProductPaginationState();
+    filterAndRenderProducts(false);
 }
 
 /** Instant order list sync after delete */
@@ -901,6 +1007,8 @@ window.quickUpdateStock = async function(productId) {
     });
 
     if (!isConfirmed || newStock === undefined || newStock === null || newStock === '') return;
+
+    saveProductPaginationState();
 
     const formData = new FormData();
     formData.append('name', product.name);
@@ -4677,8 +4785,9 @@ window.fetchLiveProducts = async function() {
         if (totalBadge) totalBadge.innerText = `Total: ${globalProducts.length}`;
         
         updateFilterCategoryDropdown();
-        filterAndRenderProducts(); 
-    } catch (e) { 
+        readProductListUrlState();
+        filterAndRenderProducts(false); 
+    } catch (e) {
         tbody.innerHTML = `<tr><td colspan="8" class="table-status-error">Failed to load products.</td></tr>`; 
     }
 };
@@ -4711,7 +4820,7 @@ function updateFilterCategoryDropdown() {
 /**
  * ১০.২: সার্চ কি-ওয়ার্ড, ক্যাটাগরি, স্টক স্ট্যাটাস ও প্রাইস রেঞ্জ অনুযায়ী প্রোডাক্ট ফিল্টারিং
  */
-window.filterAndRenderProducts = function() {
+window.filterAndRenderProducts = function(resetPage = true) {
     const search = (document.getElementById('searchProduct') ? document.getElementById('searchProduct').value : '').toLowerCase();
     const cat = document.getElementById('filterCategory') ? document.getElementById('filterCategory').value : 'All';
     const stockStatus = document.getElementById('filterStockStatus') ? document.getElementById('filterStockStatus').value : 'All';
@@ -4753,8 +4862,9 @@ window.filterAndRenderProducts = function() {
         return 0;
     });
 
-    currentPage = 1; // সার্চ বা ফিল্টার করলে পেজ ১ নম্বর এ রিসেট হবে
+    currentPage = resetPage ? 1 : currentPage;
     renderProductTable();
+    syncProductListUrlState();
 };
 
 /**
@@ -4779,6 +4889,7 @@ window.handleSort = function(key) {
 window.changePageSize = function() {
     currentPage = 1;
     renderProductTable();
+    syncProductListUrlState();
 };
 
 /**
@@ -4855,6 +4966,7 @@ window.renderProductTable = function() {
 
     // প্রোডাক্ট পেজিনেশন নম্বর বাটন রেন্ডার করা
     renderPaginationButtons(totalPages);
+    syncProductListUrlState();
     
     // সিলেক্ট অল চেকবক্স হ্যান্ডলার সিঙ্ক
     const selectAllCheckbox = document.getElementById('selectAllProducts');
@@ -4953,7 +5065,7 @@ window.handleBulkDelete = function() {
             const totalBadge = document.getElementById('total-products-badge');
             if (totalBadge) totalBadge.innerText = `Total: ${globalProducts.length}`;
             updateFilterCategoryDropdown();
-            filterAndRenderProducts();
+            filterAndRenderProducts(false);
             document.getElementById('selectAllProducts').checked = false;
             showAdminSuccess('Products Deleted', `${ids.length} product(s) removed successfully.`);
         } catch (e) {
@@ -5051,6 +5163,8 @@ let selectedFilesEdit = new DataTransfer(); // এডিট মোডালে�
  * @param {string} id - প্রোডাক্টের অবজেক্ট আইডি
  */
 window.editProduct = function(id) {
+    saveProductPaginationState();
+
     selectedFilesEdit = new DataTransfer(); 
 
     const previewBox = document.getElementById('editImgPreviewBox');
@@ -5124,6 +5238,7 @@ window.closeEditModal = function() {
     const modal = document.getElementById('editProductModal');
     if (modal) {
         modal.style.display = 'none';
+        savedProductPageBeforeAction = null;
         selectedFilesEdit = new DataTransfer();
         const editFileInput = document.querySelector('#editProductModal input[type="file"]'); 
         if (editFileInput) {
@@ -5207,6 +5322,8 @@ window.removeEditImage = function(index) {
  * ১১.৩: মডিফাইড ডাটা পুশ করে ক্লাউড ডাটাবেজে প্রোডাক্ট আপডেট সেভ করা
  */
 window.updateProductDetails = async function() {
+    saveProductPaginationState();
+
     const mongoId = document.getElementById('editProdMongoId').value;
     const productId = document.getElementById('editProdId').value.trim();
     const name = document.getElementById('editProdName').value.trim();
@@ -6723,6 +6840,8 @@ function initDashboard() {
     setupWhatsAppAlertBadge();
     fetchAdminSettings();
 
+    readProductListUrlState();
+
     // ২. লোকাল স্টোরেজ থেকে প্রোফাইল পিকচার সেট করা (যদি আগে থেকে থাকে)
     const savedPic = localStorage.getItem('adminProfilePic');
     if (savedPic) {
@@ -6751,6 +6870,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setupSidebarNavigation();
     setupGlobalSearch();
     setupSyncButton();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('section') === 'manage-products') {
+        readProductListUrlState();
+        const productsNav = document.querySelector('.sidebar-menu li[data-target="view-manage-products"]');
+        if (productsNav) navigateAdminSection('view-manage-products', productsNav);
+    }
 
     const profileUploadInput = document.getElementById('adminProfileUpload');
     if (profileUploadInput) {
@@ -6817,7 +6943,10 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-staff': () => window.loadStaffSection && window.loadStaffSection(),
         'view-settings': fetchAdminSettings
     };
-    if (typeof refreshMap[targetId] === 'function') refreshMap[targetId]();
+    if (typeof refreshMap[targetId] === 'function') {
+        if (targetId === 'view-manage-products') readProductListUrlState();
+        refreshMap[targetId]();
+    }
 }
 window.navigateAdminSection = navigateAdminSection;
 
