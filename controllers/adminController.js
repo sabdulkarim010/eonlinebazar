@@ -726,12 +726,13 @@ const syncAdminData = async (req, res) => {
         const now = getApplicationNow();
 
         // Automatically shift outdated coupons before returning synced state
-        await Coupon.updateMany(
-            { status: 'ACTIVE', expiryDate: { $lte: now } },
-            { $set: { status: 'EXPIRED', isActive: false } }
-        );
+        await Coupon.expireDueCoupons(now);
 
-        const coupons = await Coupon.find().sort({ createdAt: -1 }).lean();
+        const rawCoupons = await Coupon.find().sort({ createdAt: -1 }).lean();
+        const coupons = rawCoupons.map((coupon) => ({
+            ...coupon,
+            displayStatus: Coupon.deriveDisplayStatus(coupon, now)
+        }));
 
         res.status(200).json({
             success: true,

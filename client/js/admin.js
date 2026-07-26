@@ -4000,6 +4000,14 @@ window.deleteBrand = function(id) {
    ========================================================================== */
 
 let globalCoupons = [];
+let couponStatusFilter = 'all';
+
+/** Normalize coupon list payloads from GET /api/coupons and sync-data. */
+function normalizeCouponListPayload(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.coupons)) return payload.coupons;
+    return [];
+}
 
 /** Fresh admin token + JSON headers for coupon API calls */
 function getCouponAuthHeaders() {
@@ -4019,6 +4027,25 @@ function setupCouponForm() {
         saveCoupon();
     });
     setupCouponTimeValidation();
+    setupCouponStatusTabs();
+}
+
+function setupCouponStatusTabs() {
+    const tabs = document.querySelectorAll('#couponStatusTabs .coupon-status-tab');
+    if (!tabs.length || document.getElementById('couponStatusTabs')?.dataset.bound === '1') return;
+    document.getElementById('couponStatusTabs').dataset.bound = '1';
+
+    tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            couponStatusFilter = tab.getAttribute('data-coupon-filter') || 'all';
+            tabs.forEach((t) => {
+                const isActive = t === tab;
+                t.classList.toggle('active', isActive);
+                t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+            renderCouponTable();
+        });
+    });
 }
 
 const COUPON_TIME_DEFAULT = '11:59';
@@ -4199,8 +4226,10 @@ async function runAdminDataSync() {
     }
     if (Array.isArray(data.data?.coupons)) {
         globalCoupons = data.data.coupons;
-        renderCouponTable();
+    } else {
+        globalCoupons = normalizeCouponListPayload(data.data);
     }
+    renderCouponTable();
     return data;
 }
 
@@ -4211,7 +4240,7 @@ async function fetchCoupons() {
         });
         const data = await response.json();
         if (data.success) {
-            globalCoupons = data.data || [];
+            globalCoupons = normalizeCouponListPayload(data.data);
             renderCouponTable();
         } else {
             showToast(data.message || 'Failed to load coupons', 'error');
@@ -4222,31 +4251,80 @@ async function fetchCoupons() {
     }
 }
 
-function formatCouponExpiry(dateVal) {
+function formatCouponDateTime(dateVal) {
     if (!dateVal) return '—';
     const d = new Date(dateVal);
     if (Number.isNaN(d.getTime())) return '—';
-    return d.toLocaleString('en-GB', {
-        day: '2-digit',
+
+    const tz = adminPlatformTimezone || 'Asia/Dhaka';
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        day: 'numeric',
         month: 'short',
         year: 'numeric',
-        hour: '2-digit',
+        hour: 'numeric',
         minute: '2-digit',
         hour12: true,
-        timeZone: adminPlatformTimezone || 'Asia/Dhaka'
-    });
-}
+        timeZone: tz
+    }).formatToParts(d);
 
-function resolveCouponStatus(coupon) {
-    if (coupon.status === 'ACTIVE' || coupon.status === 'EXPIRED') {
-        return coupon.status;
+    const map = {};
+    for (const part of parts) {
+        if (part.type !== 'literal') map[part.type] = part.value;
     }
-    return isCouponExpired(coupon.expiryDate) ? 'EXPIRED' : 'ACTIVE';
+
+    const day = map.day || '';
+    const month = map.month || '';
+    const year = map.year || '';
+    const hour = map.hour || '';
+    const minute = map.minute || '';
+    const period = (map.dayPeriod || '').toUpperCase();
+
+    return `${day} ${month} ${year}, ${hour}:${minute} ${period}`;
 }
 
 function isCouponExpired(dateVal) {
     if (!dateVal) return false;
     return Date.now() > new Date(dateVal).getTime();
+}
+
+function resolveCouponDisplayStatus(coupon) {
+    if (coupon.displayStatus === 'ACTIVE' || coupon.displayStatus === 'EXPIRED' || coupon.displayStatus === 'EXHAUSTED') {
+        return coupon.displayStatus;
+    }
+
+    const used = Number(coupon.usedCount) || 0;
+    const limit = Number(coupon.usageLimit) || 0;
+    if (limit > 0 && used >= limit) {
+        return 'EXHAUSTED';
+    }
+
+    const status = String(coupon.status || '').toUpperCase();
+    if (status === 'EXPIRED' || status === 'DISABLED' || isCouponExpired(coupon.expiryDate)) {
+        return 'EXPIRED';
+    }
+
+    return 'ACTIVE';
+}
+
+function filterCouponsByStatus(coupons, filter = couponStatusFilter) {
+    const list = Array.isArray(coupons) ? coupons : [];
+    if (filter === 'active') {
+        return list.filter((coupon) => resolveCouponDisplayStatus(coupon) === 'ACTIVE');
+    }
+    if (filter === 'expired') {
+        return list.filter((coupon) => resolveCouponDisplayStatus(coupon) === 'EXPIRED');
+    }
+    return list;
+}
+
+function renderCouponStatusBadge(status) {
+    if (status === 'ACTIVE') {
+        return '<span class="coupon-status-pill coupon-status-pill--active">🟢 Active</span>';
+    }
+    if (status === 'EXHAUSTED') {
+        return '<span class="coupon-status-pill coupon-status-pill--exhausted">⚪ Exhausted / Usage Limit Met</span>';
+    }
+    return '<span class="coupon-status-pill coupon-status-pill--expired">🔴 Expired</span>';
 }
 
 function getPlatformTimeZoneOffsetMs(timeZone, date) {
@@ -4317,30 +4395,34 @@ function renderCouponTable() {
     const tbody = document.getElementById('couponTableBody');
     if (!tbody) return;
 
-    if (!globalCoupons.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="cell-empty">No coupons yet. Create one using the form above.</td></tr>';
+    const visibleCoupons = filterCouponsByStatus(globalCoupons);
+
+    if (!visibleCoupons.length) {
+        const emptyMsg = globalCoupons.length
+            ? 'No coupons match this filter.'
+            : 'No coupons yet. Create one using the form above.';
+        tbody.innerHTML = `<tr><td colspan="8" class="cell-empty">${emptyMsg}</td></tr>`;
         return;
     }
 
     const cur = typeof adminCurrencySymbol !== 'undefined' ? adminCurrencySymbol : '৳';
 
-    tbody.innerHTML = globalCoupons.map(coupon => {
+    tbody.innerHTML = visibleCoupons.map(coupon => {
         const used = Number(coupon.usedCount) || 0;
         const limit = Number(coupon.usageLimit) || 0;
-        const status = resolveCouponStatus(coupon);
+        const displayStatus = resolveCouponDisplayStatus(coupon);
         const discountLabel = coupon.discountType === 'percentage'
             ? `${coupon.discountValue}%`
             : `${cur}${coupon.discountValue}`;
-        const statusHtml = status === 'ACTIVE'
-            ? '<span class="coupon-status-badge active">ACTIVE</span>'
-            : '<span class="coupon-status-badge expired">EXPIRED</span>';
+        const statusHtml = renderCouponStatusBadge(displayStatus);
 
         return `<tr>
             <td class="cell-name"><code class="coupon-code-chip">${escHtml(coupon.code)}</code></td>
             <td>${escHtml(discountLabel)}${coupon.discountType === 'percentage' && coupon.maxDiscountAmount ? ` <small class="coupon-cap">(max ${cur}${coupon.maxDiscountAmount})</small>` : ''}</td>
             <td>${cur}${Number(coupon.minOrderAmount) || 0}</td>
             <td><strong>${used}</strong> / ${limit} Used</td>
-            <td class="cell-date">${formatCouponExpiry(coupon.expiryDate)}</td>
+            <td class="cell-date">${formatCouponDateTime(coupon.createdAt)}</td>
+            <td class="cell-date">${formatCouponDateTime(coupon.expiryDate)}</td>
             <td>${statusHtml}</td>
             <td>
                 <div class="catalog-actions">

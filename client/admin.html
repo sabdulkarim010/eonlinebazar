@@ -584,7 +584,15 @@
         </div>
     </form>
 
-    <div class="catalog-table-wrap coupon-table-wrap">
+    <div class="coupon-list-toolbar">
+        <div class="coupon-status-tabs" id="couponStatusTabs" role="tablist" aria-label="Filter coupons by status">
+            <button type="button" class="coupon-status-tab active" data-coupon-filter="all" role="tab" aria-selected="true">All Coupons</button>
+            <button type="button" class="coupon-status-tab" data-coupon-filter="active" role="tab" aria-selected="false">Active</button>
+            <button type="button" class="coupon-status-tab" data-coupon-filter="expired" role="tab" aria-selected="false">Expired</button>
+        </div>
+    </div>
+
+    <div class="catalog-table-wrap coupon-table-wrap coupon-table-scroll">
         <table class="catalog-table coupon-analytics-table">
             <thead>
                 <tr>
@@ -592,6 +600,7 @@
                     <th>Discount</th>
                     <th>Min Order</th>
                     <th>Usage</th>
+                    <th>Created</th>
                     <th>Expiry Date &amp; Time</th>
                     <th>Status</th>
                     <th class="col-actions">Actions</th>

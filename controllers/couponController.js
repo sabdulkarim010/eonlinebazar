@@ -199,8 +199,14 @@ const getCoupons = async (req, res) => {
     try {
         const now = getApplicationNow();
         await runCouponAutoExpiry(now);
-        const coupons = await Coupon.find().sort({ createdAt: -1 });
-        res.status(200).json({ success: true, data: coupons });
+
+        const rawCoupons = await Coupon.find().sort({ createdAt: -1 }).lean();
+        const coupons = rawCoupons.map((coupon) => ({
+            ...coupon,
+            displayStatus: Coupon.deriveDisplayStatus(coupon, now)
+        }));
+
+        res.status(200).json({ success: true, data: { coupons } });
     } catch (error) {
         console.error('Coupon Fetch Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load coupons.' });
@@ -211,11 +217,17 @@ const getCouponById = async (req, res) => {
     try {
         const now = getApplicationNow();
         await runCouponAutoExpiry(now);
-        const coupon = await Coupon.findById(req.params.id);
+        const coupon = await Coupon.findById(req.params.id).lean();
         if (!coupon) {
             return res.status(404).json({ success: false, message: 'Coupon not found.' });
         }
-        res.status(200).json({ success: true, data: coupon });
+        res.status(200).json({
+            success: true,
+            data: {
+                ...coupon,
+                displayStatus: Coupon.deriveDisplayStatus(coupon, now)
+            }
+        });
     } catch (error) {
         console.error('Coupon Fetch Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load coupon.' });

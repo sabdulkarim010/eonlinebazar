@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-4.3.2-success)
+![Version](https://img.shields.io/badge/Version-4.3.3-success)
 ![RBAC](https://img.shields.io/badge/RBAC-Staff%20Management-6f42c1)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
@@ -28,6 +28,7 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v4.3.3](#-whats-new--v433-coupon-management--marketing-controls)
 - [What's New — v4.3.2](#-whats-new--v432-enterprise-staff--role-management-redesign)
 - [What's New — v4.3.1](#-whats-new--v431-clean-admin-routing--url-optimization)
 - [What's New — v4.3.0](#-whats-new--v430-super-admin-uiux-overhaul)
@@ -58,6 +59,7 @@
 - [Store Wallet, Dynamic Checkout Deduction & Refund Engine](#-store-wallet-dynamic-checkout-deduction--refund-engine)
 - [VIP Customer Segmentation & Retention Logic](#-vip-customer-segmentation--retention-logic)
 - [Flash Sale & Bulk Coupon Engine](#-flash-sale--bulk-coupon-engine)
+- [Catalog & Marketing Features](#-catalog--marketing-features)
 - [Admin Analytics & Inventory Management Controls](#-admin-analytics--inventory-management-controls)
 - [Super Admin RBAC & Staff Management Architecture](#-super-admin-rbac--staff-management-architecture) — includes [Admin Security & Staff Management](#-admin-security--staff-management)
 - [Master Settings & Dynamic Rewards](#-master-settings--dynamic-rewards)
@@ -93,12 +95,28 @@ Eight things set it apart:
 3. **Smart Checkout & Order Lifecycle** — profile-first address pre-fill, **default-address auto-select**, toggleable saved-address cards, **location-based shipping & delivery date previews**, **AJAX promo-code recalculation**, **interactive wallet balance deduction on checkout/payment** (full or partial coverage with atomic ledger debits), guest-to-auth **cart merge**, customer cancellation/return reason modals, **1-click PDF invoice downloads**, admin return approval with wallet refunds, and a configurable **Safe Undo Refund** window with spent-funds safety checks.
 4. **Dynamic Delivery Charge & Address Management** — admin-configurable shipping rules, Bangladesh **District → Upazila/Thana** cascading address fields, checkout auto-fill, real-time fee preview, and **server-side price re-validation** before orders are persisted.
 5. **Unified Master Store Settings Engine** — one admin form controls announcement copy, **free-shipping threshold**, global cashback, points earning ratio, points-to-taka conversion, refund-undo window, **VIP segmentation thresholds**, and **Flash Sale scheduling**; values sync to checkout, cart, order placement, customer dashboard, and storefront in real time.
-6. **Time-Sensitive Coupon Automation** — precise hour/minute expiry scheduling, a server-side **ACTIVE / EXPIRED** status engine with bulk auto-expiry, checkout visibility synced to live availability, and hardened order-time coupon validation.
+6. **Time-Sensitive Coupon Automation** — precise hour/minute expiry scheduling, a server-side **ACTIVE / EXPIRED** status engine with bulk auto-expiry, **tri-state admin display status** (Active · Expired · Exhausted), **filter tabs for full coupon history**, checkout visibility synced to live availability, and hardened order-time coupon validation.
 7. **Super Admin RBAC & Staff Management** — an **Enterprise Role & Staff Management** dashboard with dual-column credentials/permissions layout, interactive toggle switches, one-click role presets, and polished staff KPI widgets; unified `/admin/login` detects `superadmin` vs `staff`, the sidebar and API both enforce the same permission matrix, and suspended accounts lose access on the very next request.
 8. **Isolated Multi-Provider Courier Dispatch** — one-click **`Send to Courier`** from **Live Orders** (Steadfast, Pathao, RedX) with **Smart Hybrid Mode**: live API booking when credentials are configured, mock tracking IDs (`SF-PENDING-XXXXX`) when absent; customer-facing courier badges on **Order Details** and **Track Your Order** without disturbing status timelines.
 9. **Dual-WhatsApp Routing & Background Order Alerts** — isolated public customer chat line vs private admin alert number; **non-blocking server-side POST** dispatch on every checkout (UltraMsg, Green API, CallMeBot, or direct webhook) with structured payload formatting — no admin panel session required.
 10. **Staff Manual Order Creation (POS Engine)** — admin modal for phone/chat orders with searchable product picker, **multi-variant stock validation**, automated inventory deduction, and instant **Finance & Analytics** ledger integration.
 11. **Customer Retention & Promotions Layer** — **store wallet checkout deduction**, automated refund credits, **VIP / Frequent Buyer segmentation** with admin filter tabs, and a **Flash Sale engine** with homepage countdown and dynamic discounted pricing.
+
+---
+
+## 🆕 What's New — v4.3.3 (Coupon Management & Marketing Controls)
+
+This release hardens the **Manage Coupons** admin pipeline — resilient API fetching, restored historical coupon visibility, tri-state status badges, and dynamic filter tabs — while reaffirming the **Enterprise Staff & System Settings** shell from v4.3.0–v4.3.2.
+
+| Feature | Description |
+|---------|-------------|
+| **🔧 Coupon Fetch Resilience** | Hardened **`GET /api/coupons`** and **`GET /api/coupons/:id`** with structured `try/catch` error responses; auto-expiry sweep runs before every admin read. |
+| **🏷️ Tri-State Display Status** | Each coupon response includes computed **`displayStatus`**: **ACTIVE** · **EXPIRED** · **EXHAUSTED** (usage limit met) — derived via `Coupon.deriveDisplayStatus()` without altering the persisted `ACTIVE \| EXPIRED` DB enum. |
+| **📋 Admin Filter Tabs** | ARIA-compliant **All Coupons · Active · Expired** tabs (`#couponStatusTabs`) with client-side `filterCouponsByStatus()` and empty-state copy when no rows match. |
+| **📅 Standardized Date Formatting** | Created and Expiry columns use platform-timezone-aware `formatCouponDateTime()` — e.g. **`26 Jul 2026, 5:50 PM`** — aligned with the admin header live clock. |
+| **👥 Staff & Settings Polish** *(v4.3.2)* | Dual-column **Enterprise Role & Staff Access** console with toggle-switch permission matrix; pristine **`/admin`** routing and modular **Admin Settings** / **System Settings** tabbed interfaces. |
+
+> 📌 See [Catalog & Marketing Features](#-catalog--marketing-features) for workflow details, API tables, and key files. Coupon expiry scheduling and checkout validation remain documented under [Time-Sensitive Coupon Automation](#-time-sensitive-coupon-automation-system).
 
 ---
 
@@ -1352,6 +1370,93 @@ Both systems coexist — coupons adjust merchandise subtotals; flash sale sets c
 
 ---
 
+## 📣 Catalog & Marketing Features
+
+Production-grade **coupon lifecycle management** and **marketing operations UX** for the Super Admin panel — resilient admin API reads, full historical coupon visibility, tri-state status indicators, and filter-driven directory views. Complements the [Time-Sensitive Coupon Automation](#-time-sensitive-coupon-automation-system) engine (expiry scheduling, server-clock sync, checkout validation) with operator-facing list controls and display semantics.
+
+### Feature Overview
+
+#### Coupon Fetch Resilience & Display Status Engine
+
+**Problem solved:** Admin coupon list fetching could fail silently or omit historical records; expired and exhausted coupons were not reliably visible in **Manage Coupons**.
+
+**Backend — API & exception handling**
+
+- Hardened **`GET /api/coupons`** and **`GET /api/coupons/:id`** in `controllers/couponController.js`:
+  - Wrapped fetch logic in proper `try/catch` blocks with structured `{ success: false, message: 'Failed to load coupons.' }` responses on failure.
+  - Runs `runCouponAutoExpiry(now)` before every admin read so stale `ACTIVE` records are corrected server-side.
+  - Each coupon in the response includes a computed **`displayStatus`** via `Coupon.deriveDisplayStatus(coupon, now)` from `models/coupon.js`.
+- **`POST /api/admin/sync-data`** continues to return a fresh `data.coupons` array with `displayStatus` attached for instant table re-render after **Sync Data**.
+
+**Tri-state display status** (distinct from persisted DB `status` enum `ACTIVE | EXPIRED`):
+
+| Display Status | Condition | Admin Badge |
+|----------------|-----------|-------------|
+| **ACTIVE** | Not expired, not manually expired/disabled, usage limit not reached | 🟢 Active |
+| **EXPIRED** | Past `expiryDate`, or manual `EXPIRED` / legacy `DISABLED` | 🔴 Expired |
+| **EXHAUSTED** | `usedCount >= usageLimit` (when limit > 0) | ⚪ Exhausted / Usage Limit Met |
+
+> **Note:** `EXHAUSTED` is a **derived display status** for admin UX; persisted `status` remains `ACTIVE | EXPIRED`.
+
+#### Admin Coupon Directory — Filter Tabs & Status Badges
+
+- Restored **full coupon history** in **Manage Coupons** (`/admin` → Manage Coupons): all records render regardless of lifecycle state.
+- Status pills use `renderCouponStatusBadge()` in `client/js/admin.js` with explicit visual indicators for Active, Expired, and Exhausted.
+- Client-side fallback `resolveCouponDisplayStatus()` mirrors server logic when `displayStatus` is absent.
+- **Dynamic status filter tabs** in `client/admin.html` (`#couponStatusTabs`):
+
+| Tab | Filter | Behaviour |
+|-----|--------|-----------|
+| **All Coupons** | `data-coupon-filter="all"` | Shows complete historical directory |
+| **Active** | `data-coupon-filter="active"` | Rows where `displayStatus === 'ACTIVE'` |
+| **Expired** | `data-coupon-filter="expired"` | Rows where `displayStatus === 'EXPIRED'` |
+
+- Wired through `setupCouponStatusTabs()` → `filterCouponsByStatus()` → `renderCouponTable()` in `client/js/admin.js`.
+- Empty-state copy when a filter yields no rows: *"No coupons match this filter."*
+
+#### Standardized Expiry & Created Date Formatting
+
+- **Created** and **Expiry** columns use `formatCouponDateTime()` — platform-timezone-aware (`adminPlatformTimezone`, default `Asia/Dhaka`) via `Intl.DateTimeFormat('en-GB', …)`:
+  - Format: **`26 Jul 2026, 5:50 PM`** (day, short month, year, 12-hour clock with AM/PM).
+- Aligns coupon table timestamps with the admin header live clock zone.
+
+#### Staff & System Settings Polish *(v4.3.2 — reaffirmed)*
+
+The marketing and catalog operator shell shares the same admin UX foundation finalized in v4.3.0–v4.3.2:
+
+| Concern | Implementation |
+|---------|----------------|
+| **Dual-column Staff Management** | **Create / Edit Staff Account** — responsive 12-column grid: **Staff Account Credentials** (5 cols) + **Granular Role & Permissions Matrix** (7 cols) with emerald ON / slate OFF **toggle switches** and **Quick Role Presets** via `applyRolePreset()` in `client/js/admin-staff.js`. |
+| **Clean `/admin` routing** | Browser URL stays pristine at **`/admin`** across refresh (`ensureCleanAdminUrl()`); F5 defaults to **Dashboard Overview**. |
+| **Tabbed settings interfaces** | **Admin Settings** — Profile & Security · Store & Shipping · Store Branding (isolated per-section saves). **System Settings** — seven modular configuration cards with targeted `POST /api/admin/master-settings/update` partial payloads. |
+
+> 📌 Deep dives: [Super Admin RBAC & Staff Management Architecture](#-super-admin-rbac--staff-management-architecture) · [Admin & Platform Settings](#-admin--platform-settings) under [Feature Roadmap](#-feature-roadmap-past--present).
+
+### Related API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/coupons` | List all coupons with **`displayStatus`**; auto-expires overdue records first | Admin + `manage_coupons` |
+| `GET` | `/api/coupons/:id` | Single coupon with **`displayStatus`** | Admin + `manage_coupons` |
+| **`POST`** | **`/api/admin/sync-data`** | **Global Sync Data — returns fresh `data.coupons[]` with `displayStatus`** | **Admin** |
+
+> Checkout, apply, and order-time coupon endpoints are documented under [Time-Sensitive Coupon Automation — Related API Endpoints](#related-api-endpoints).
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `controllers/couponController.js` | `getCoupons`, `getCouponById` — exception handling, auto-expiry sweep, `displayStatus` enrichment |
+| `models/coupon.js` | `deriveDisplayStatus()` — ACTIVE / EXPIRED / EXHAUSTED derivation |
+| `controllers/adminController.js` | Sync Data coupon payload with `displayStatus` |
+| `client/js/admin.js` | `setupCouponStatusTabs`, `filterCouponsByStatus`, `renderCouponStatusBadge`, `formatCouponDateTime` |
+| `client/admin.html` | `#couponStatusTabs` filter tab markup |
+| `client/js/admin-staff.js` | Dual-column staff form, toggle switches, Quick Role Presets *(v4.3.2)* |
+
+> 📌 Expiry scheduling, server-clock synchronization, and checkout validation: [Time-Sensitive Coupon Automation System](#-time-sensitive-coupon-automation-system).
+
+---
+
 ## 📊 Admin Analytics & Inventory Management Controls
 
 Real-time sales intelligence and proactive inventory monitoring for the Super Admin panel — live MongoDB aggregation powers the Overview dashboard, Chart.js visualizations, and an actionable low-stock alert widget without disrupting existing admin auth, order workflows, or customer-management modules.
@@ -2268,6 +2373,8 @@ The **Manage Coupons** onboarding panel uses a **sequential grid structure** opt
 | `usedBy` | `[ObjectId]` | Per-user redemption audit trail |
 | `isActive` | `Boolean` (deprecated) | Synced from `status` for legacy compatibility |
 
+**Admin display status (`displayStatus`):** Not persisted — computed at read time by `Coupon.deriveDisplayStatus()` as **ACTIVE**, **EXPIRED**, or **EXHAUSTED** (usage limit met). Returned on admin list/detail responses and Sync Data payloads. *(See [Catalog & Marketing Features](#-catalog--marketing-features).)*
+
 ```javascript
 {
   expiryDate: {
@@ -2346,12 +2453,13 @@ flowchart LR
 |--------|----------|-------------|------|
 | **`GET`** | **`/api/coupons/active-check`** | **Runs bulk expiry sweep against server time; returns `{ hasActiveCoupon, serverTime, timezone }`** | **Public** |
 | `POST` | `/api/coupons/apply` | Validate coupon & return price breakdown (runs expiry sweep first) | Public/User² |
-| `GET` | `/api/coupons` | List coupons (auto-expires overdue records before response) | Admin |
+| `GET` | `/api/coupons` | List coupons with **`displayStatus`** (auto-expires overdue records before response) | Admin |
+| `GET` | `/api/coupons/:id` | Get single coupon with **`displayStatus`** | Admin |
 | `POST` | `/api/coupons` | Create coupon with precise `expiryDate` | Admin |
 | `PUT` | `/api/coupons/:id` | Update coupon (status re-derived on save) | Admin |
 | `PATCH` | `/api/coupons/:id/toggle` | Toggle `ACTIVE` ↔ `EXPIRED` (blocked if past `expiryDate`) | Admin |
 | `DELETE` | `/api/coupons/:id` | Delete coupon | Admin |
-| **`POST`** | **`/api/admin/sync-data`** | **Global Sync Data — flush expired coupons, return fresh `data.coupons` list** | **Admin** |
+| **`POST`** | **`/api/admin/sync-data`** | **Global Sync Data — flush expired coupons, return fresh `data.coupons[]` with `displayStatus`** | **Admin** |
 | `POST` | `/api/orders` | Place order — **re-validates coupon status + expiry server-side** | User |
 
 **`GET /api/coupons/active-check` — handler validation flow:**
@@ -2630,9 +2738,11 @@ Admins pick and switch their preferred method from the settings panel; self-serv
   - Percentage **or** flat discounts, optional **max-discount cap**.
   - **Min order amount**, **global usage limit**, **per-user limit**, and **precise expiry date-time** (hour & minute scheduling).
   - **Automated `ACTIVE` / `EXPIRED` status** — server-side bulk expiry sweeps and Mongoose save hooks keep lifecycle state authoritative.
+  - **Tri-state admin `displayStatus`** — **Active · Expired · Exhausted** badges via `Coupon.deriveDisplayStatus()`; full historical directory with **All · Active · Expired** filter tabs *(v4.3.3)*.
   - **Checkout-aware visibility** — coupon UI on `/checkout` auto-hides when `GET /api/coupons/active-check` reports no eligible promotions.
   - Race-safe **atomic redemption** (`usedCount`) — usage is claimed on successful order placement, released on failure.
   - Storefront **apply / validate** endpoint with optional customer auth for per-user enforcement; order placement re-validates status + expiry on the backend.
+  - *(See [Catalog & Marketing Features](#-catalog--marketing-features) and [Time-Sensitive Coupon Automation](#-time-sensitive-coupon-automation-system).)*
 
 #### Product & Order Systems
 - **🛍️ Product Catalog** — Up to 10 images, categories, brand, **simple or matrix variations**, highlights, **flexible stock**, **per-variant selling + buying price**, list-table **minimum sell/buy price** display for matrix products, **persistent pagination across edit/save**, **opaque sticky table headers** (incl. Actions), live profit preview, and detailed descriptions *(v4.2.0)*.
@@ -3215,8 +3325,8 @@ Base URL: `http://localhost:3000`
 |--------|----------|-------------|------|
 | **`GET`** | **`/api/coupons/active-check`** | **Bulk-expire overdue coupons (server time); return `{ hasActiveCoupon, serverTime, timezone }`** | **Public** |
 | `POST` | `/api/coupons/apply` | Validate coupon & return price breakdown (runs expiry sweep first) | Public/User² |
-| `GET`  | `/api/coupons` | List coupons (auto-expires overdue records) | Admin + `manage_coupons` |
-| `GET`  | `/api/coupons/:id` | Get single coupon | Admin + `manage_coupons` |
+| `GET`  | `/api/coupons` | List coupons with **`displayStatus`** (auto-expires overdue records) | Admin + `manage_coupons` |
+| `GET`  | `/api/coupons/:id` | Get single coupon with **`displayStatus`** | Admin + `manage_coupons` |
 | `POST` | `/api/coupons` | Create coupon (precise `expiryDate` required) | Admin + `manage_coupons` |
 | `PUT`  | `/api/coupons/:id` | Update coupon (status re-derived on save) | Admin + `manage_coupons` |
 | `PATCH` | `/api/coupons/:id/toggle` | Toggle `ACTIVE` / `EXPIRED` (blocked if past expiry) | Admin + `manage_coupons` |
@@ -3229,7 +3339,7 @@ Base URL: `http://localhost:3000`
 | `POST` | `/api/admin/login` | **Step 1** — verify credentials behind blacklist → geo-fence → rate-limit, then dispatch the selected 2FA challenge | Public |
 | `POST` | `/api/admin/verify-otp` | **Step 2** — verify Email/SMS OTP or TOTP, issue 24h JWT + create `AdminSession` | Public |
 | `GET`  | `/api/admin/verify-token` | Validate admin JWT on panel load | Admin |
-| **`POST`** | **`/api/admin/sync-data`** | **Global Sync Data — auto-expire overdue coupons & return fresh coupon list** | **Admin** |
+| **`POST`** | **`/api/admin/sync-data`** | **Global Sync Data — auto-expire overdue coupons & return fresh `data.coupons[]` with `displayStatus`** | **Admin** |
 | `GET`  | `/api/admin/2fa/status` | Current 2FA config (method, masked email/phone) | Admin |
 | `POST` | `/api/admin/2fa/totp/setup` | Generate TOTP secret + QR code | Admin |
 | `POST` | `/api/admin/2fa/totp/verify` | Confirm scan & activate Google Authenticator | Admin |
@@ -3415,6 +3525,21 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 ---
 
 ## 📜 Changelog
+
+### `v4.3.3` — Coupon Management Engine & Admin Settings Polish
+
+**🎟️ Coupon Engine & Expiry Management**
+- Hardened **`GET /api/coupons`** and **`GET /api/coupons/:id`** exception handling — structured error responses; auto-expiry sweep before every admin read.
+- Introduced **`displayStatus`** derivation (**ACTIVE** · **EXPIRED** · **EXHAUSTED**) via `Coupon.deriveDisplayStatus()` — restored full historical coupon visibility in Manage Coupons.
+- Admin **status filter tabs** — **All Coupons · Active · Expired** — with ARIA tab roles and client-side `filterCouponsByStatus()`.
+- Standardized **Created** and **Expiry** column formatting via `formatCouponDateTime()` (platform timezone, `en-GB`, 12-hour AM/PM).
+- **`POST /api/admin/sync-data`** returns fresh `data.coupons[]` with `displayStatus` for instant table re-render.
+
+**👥 Staff & System Settings Polish** *(v4.3.2 reaffirmed)*
+- Dual-column **Enterprise Role & Staff Access** console with toggle-switch permission matrix and Quick Role Presets.
+- Clean **`/admin`** routing preservation and modular **Admin Settings** / **System Settings** tabbed interfaces.
+
+**Key files:** `controllers/couponController.js`, `models/coupon.js`, `controllers/adminController.js`, `client/js/admin.js`, `client/admin.html`
 
 ### `v4.3.2` — Enterprise Staff & Role Management Redesign
 

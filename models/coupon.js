@@ -87,12 +87,45 @@ couponSchema.methods.syncStatusFromExpiry = function (now = getApplicationNow())
 /**
  * Bulk-expire coupons whose precise expiry time has passed (authoritative server clock).
  * Only touches records still marked ACTIVE (idempotent, safe on every request).
+ * Restricts to valid BSON dates so legacy/corrupt expiry values never break admin reads.
  */
 couponSchema.statics.expireDueCoupons = async function (now = getApplicationNow()) {
+    const nowDate = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
     return this.updateMany(
-        { expiryDate: { $lte: now }, status: 'ACTIVE' },
+        {
+            status: 'ACTIVE',
+            expiryDate: { $exists: true, $ne: null, $type: 'date', $lte: nowDate }
+        },
         { $set: { status: 'EXPIRED', isActive: false } }
     );
+};
+
+/**
+ * UI / API display status — Active, date/manual Expired, or usage Exhausted.
+ * Legacy `DISABLED` and manual `EXPIRED` (before expiry date) map to EXPIRED.
+ */
+couponSchema.statics.deriveDisplayStatus = function (coupon, now = getApplicationNow()) {
+    if (!coupon) return 'EXPIRED';
+
+    const used = Number(coupon.usedCount) || 0;
+    const limit = Number(coupon.usageLimit) || 0;
+    if (limit > 0 && used >= limit) {
+        return 'EXHAUSTED';
+    }
+
+    const expiryMs = new Date(coupon.expiryDate).getTime();
+    const status = String(coupon.status || '').toUpperCase();
+
+    if (
+        !Number.isFinite(expiryMs) ||
+        isExpiryReached(coupon.expiryDate, now) ||
+        status === 'EXPIRED' ||
+        status === 'DISABLED'
+    ) {
+        return 'EXPIRED';
+    }
+
+    return 'ACTIVE';
 };
 
 // Normalize code + auto status before save (Mongoose 9+: no next() callback in pre hooks)
