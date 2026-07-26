@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-4.3.1-success)
+![Version](https://img.shields.io/badge/Version-4.3.2-success)
 ![RBAC](https://img.shields.io/badge/RBAC-Staff%20Management-6f42c1)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
@@ -28,6 +28,7 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v4.3.2](#-whats-new--v432-enterprise-staff--role-management-redesign)
 - [What's New — v4.3.1](#-whats-new--v431-clean-admin-routing--url-optimization)
 - [What's New — v4.3.0](#-whats-new--v430-super-admin-uiux-overhaul)
 - [What's New — v4.2.0](#-whats-new--v420-super-admin-table--variant-management-engine)
@@ -58,7 +59,7 @@
 - [VIP Customer Segmentation & Retention Logic](#-vip-customer-segmentation--retention-logic)
 - [Flash Sale & Bulk Coupon Engine](#-flash-sale--bulk-coupon-engine)
 - [Admin Analytics & Inventory Management Controls](#-admin-analytics--inventory-management-controls)
-- [Super Admin RBAC & Staff Management Architecture](#-super-admin-rbac--staff-management-architecture)
+- [Super Admin RBAC & Staff Management Architecture](#-super-admin-rbac--staff-management-architecture) — includes [Admin Security & Staff Management](#-admin-security--staff-management)
 - [Master Settings & Dynamic Rewards](#-master-settings--dynamic-rewards)
 - [Dynamic SMS Gateway & Email Notification System](#-dynamic-sms-gateway--email-notification-system)
 - [Courier Logistics & Multi-Provider Dispatch Engine](#-courier-logistics--multi-provider-dispatch-engine)
@@ -93,11 +94,28 @@ Eight things set it apart:
 4. **Dynamic Delivery Charge & Address Management** — admin-configurable shipping rules, Bangladesh **District → Upazila/Thana** cascading address fields, checkout auto-fill, real-time fee preview, and **server-side price re-validation** before orders are persisted.
 5. **Unified Master Store Settings Engine** — one admin form controls announcement copy, **free-shipping threshold**, global cashback, points earning ratio, points-to-taka conversion, refund-undo window, **VIP segmentation thresholds**, and **Flash Sale scheduling**; values sync to checkout, cart, order placement, customer dashboard, and storefront in real time.
 6. **Time-Sensitive Coupon Automation** — precise hour/minute expiry scheduling, a server-side **ACTIVE / EXPIRED** status engine with bulk auto-expiry, checkout visibility synced to live availability, and hardened order-time coupon validation.
-7. **Super Admin RBAC & Staff Management** — a dynamic permission engine lets the owner create staff accounts with granular operational rights; unified `/admin/login` detects `superadmin` vs `staff`, the sidebar and API both enforce the same permission matrix, and blocked accounts lose access on the very next request.
+7. **Super Admin RBAC & Staff Management** — an **Enterprise Role & Staff Management** dashboard with dual-column credentials/permissions layout, interactive toggle switches, one-click role presets, and polished staff KPI widgets; unified `/admin/login` detects `superadmin` vs `staff`, the sidebar and API both enforce the same permission matrix, and suspended accounts lose access on the very next request.
 8. **Isolated Multi-Provider Courier Dispatch** — one-click **`Send to Courier`** from **Live Orders** (Steadfast, Pathao, RedX) with **Smart Hybrid Mode**: live API booking when credentials are configured, mock tracking IDs (`SF-PENDING-XXXXX`) when absent; customer-facing courier badges on **Order Details** and **Track Your Order** without disturbing status timelines.
 9. **Dual-WhatsApp Routing & Background Order Alerts** — isolated public customer chat line vs private admin alert number; **non-blocking server-side POST** dispatch on every checkout (UltraMsg, Green API, CallMeBot, or direct webhook) with structured payload formatting — no admin panel session required.
 10. **Staff Manual Order Creation (POS Engine)** — admin modal for phone/chat orders with searchable product picker, **multi-variant stock validation**, automated inventory deduction, and instant **Finance & Analytics** ledger integration.
 11. **Customer Retention & Promotions Layer** — **store wallet checkout deduction**, automated refund credits, **VIP / Frequent Buyer segmentation** with admin filter tabs, and a **Flash Sale engine** with homepage countdown and dynamic discounted pricing.
+
+---
+
+## 🆕 What's New — v4.3.2 (Enterprise Staff & Role Management Redesign)
+
+This release elevates **Staff Management** into a premium **Enterprise Role & Staff Access** console — dual-column provisioning, interactive permission toggles, one-click role presets, and a polished staff directory — while preserving the clean `/admin` routing and tabbed settings shell finalized in v4.3.0–v4.3.1.
+
+| Feature | Description |
+|---------|-------------|
+| **🏢 Dual-Column Staff Architecture** | Split **Create / Edit Staff Account** into a responsive **12-column grid** — **Staff Account Credentials** (5 cols) on the left; **Granular Role & Permissions Matrix** (7 cols) on the right. |
+| **🎚️ Permission Toggle Switches** | Replaced basic checkboxes with emerald **ON** / slate **OFF** toggle switches (`.toggle-switch`) and row-level `.is-on` feedback; permissions grouped under category cards — **Insights** 📊 · **Operations** 🛒 · **Administration** ⚙️. |
+| **⚡ One-Click Quick Role Presets** | Preset bar above the matrix — **Full Admin**, **Inventory Manager**, **Customer Support**, **Reset / Clear** — wired through `applyRolePreset()` in `client/js/admin-staff.js`. |
+| **📊 Staff Overview KPI Widgets** | Refreshed **Total Staff**, **Active**, and **Suspended** metric cards with `rounded-xl` borders, subtle elevation, and live summary counters. |
+| **📋 Staff Directory Table** | Scrollable `.staff-table-card` with **sticky header**, compact **Active / Suspended** status pills, permission chips, and row actions. |
+| **🧭 Routing & Settings** *(v4.3.1)* | Pristine **`/admin`** URL across refresh cycles; F5 defaults to **Dashboard Overview**; modular **Admin Settings** (tabbed) and **System Settings** (card grid) with isolated per-section saves. |
+
+> 📌 See [Admin Security & Staff Management](#-admin-security--staff-management) under [Super Admin RBAC & Staff Management Architecture](#-super-admin-rbac--staff-management-architecture) for UI surfaces, preset maps, and key files.
 
 ---
 
@@ -250,7 +268,7 @@ This release introduces a **production-grade Role-Based Access Control (RBAC) en
 | Capability | Highlights |
 |------------|------------|
 | **👥 Dynamic Staff Account Creation** | Super Admin creates staff with name, username, email, and **bcrypt-hashed** password; optional email 2FA per account; full lifecycle — edit permissions, **Active ⇄ Blocked** (instant session revocation), reset password, permanent delete. |
-| **🔑 Granular Permission Engine** | Nine operational permissions assigned per staff member via a dynamic checkbox matrix (`view_analytics`, `manage_orders`, `manage_inventory`, `manage_catalog`, `manage_coupons`, `manage_customers`, `manage_settings`, `manage_security`, `manage_staff`). |
+| **🔑 Granular Permission Engine** | Nine operational permissions assigned per staff member via a dynamic permission matrix (`view_analytics`, `manage_orders`, `manage_inventory`, `manage_catalog`, `manage_coupons`, `manage_customers`, `manage_settings`, `manage_security`, `manage_staff`); **v4.3.2** upgrades the UI to interactive toggle switches with Quick Role Presets. |
 | **🔐 Unified Login & Middleware Security** | Single **`/admin/login`** endpoint for owner and staff; JWT + `AdminSession` unchanged; `checkPermission('…')` middleware blocks unauthorized API calls with **403**; `/admin/access-denied` page for browser navigations. |
 | **🎯 Permission-Aware Admin UI** | Sidebar sections, Finance shortcut, and platform settings cards hide automatically for staff lacking the required permission; Super Admin sees the full panel including **Staff Management**. |
 | **🛡️ Hardened Admin Order Routes** | Previously public `GET/PUT/DELETE /api/orders` admin operations now require **`verifyAdmin` + `manage_orders`** — closing a critical security gap. |
@@ -1499,23 +1517,72 @@ flowchart TB
 
 A **production-grade Role-Based Access Control (RBAC) engine** that lets the Super Admin delegate operational work to staff accounts without sharing the owner password — while every sidebar item and API route is guarded by the same permission matrix on both the frontend and backend.
 
+### 🛡️ Admin Security & Staff Management
+
+#### Enterprise Staff & Role Access System *(v4.3.2)*
+
+Staff Management has been redesigned into an **Enterprise Role & Staff Management** dashboard (`#view-staff` in `client/admin.html`, logic in `client/js/admin-staff.js`, styles in `client/css/admin.css`).
+
+| UI Layer | Component | Description |
+|----------|-----------|-------------|
+| **Staff Overview KPIs** | `.staff-metrics-grid` / `.staff-metric-card` | Polished summary widgets — **Total Staff**, **Active**, **Suspended** — with `rounded-xl` borders, subtle slate elevation (`border-slate-200/80`, `shadow-sm`), and live counters from `GET /api/admin/staff` → `summary`. |
+| **Dual-Column Layout** | `.staff-create-layout` | Responsive **12-column grid** (`grid-cols-1` → `lg:grid-cols-12 gap-6` equivalent): splits provisioning into two enterprise cards instead of a single stacked form. |
+| **Credentials Card** | `.staff-credentials-col` | **Staff Account Credentials** — Full Name, Username, Email, Password (+ **Generate** button), **Active / Suspended** segment control, and **2FA** toggle switch. |
+| **Permissions Matrix Card** | `.staff-permissions-col` | **Granular Role & Permissions Matrix** — server-driven toggles grouped under category cards aligned with `config/permissions.js` groups. |
+| **Toggle Switches** | `.permission-toggle-row` + `.toggle-switch` | Interactive switches replace basic checkboxes; **emerald green when ON**, subtle **slate when OFF**; row highlights via `.is-on`. |
+| **Quick Role Presets** | `.staff-presets-bar` | One-click assignment bar — **[ Full Admin ]** · **[ Inventory Manager ]** · **[ Customer Support ]** · **[ Reset / Clear ]** — calls `applyRolePreset()` to set toggles instantly. |
+| **Staff Directory** | `.staff-table-card` | Scrollable table with **sticky `<thead>`**, compact **Active / Suspended** status badges, permission chips, and inline row actions. |
+| **Edit Modal** | `#staffEditModal` | Mirrors the dual-column architecture — credentials left, permissions matrix + presets right; status changes sync via `PATCH /api/admin/staff/:id/status`. |
+
+**Permission category cards**
+
+| Category | Icon | Permissions |
+|----------|------|-------------|
+| **Insights** | 📊 | View Analytics (dashboard KPIs, revenue charts) |
+| **Operations** | 🛒 | Manage Orders, Inventory, Catalog, Coupons, Customers |
+| **Administration** | ⚙️ | System Settings, Security & Audit, Staff Roles |
+
+**Quick Role Preset maps** (`client/js/admin-staff.js` → `ROLE_PRESETS`)
+
+| Preset | Granted Permission Keys |
+|--------|-------------------------|
+| **Full Admin** | All keys from `GET /api/admin/permissions` catalog |
+| **Inventory Manager** | `manage_inventory`, `manage_catalog` |
+| **Customer Support** | `manage_orders`, `manage_customers` |
+| **Reset / Clear** | *(none — clears all toggles)* |
+
+> **Status terminology:** The UI labels suspended accounts as **Suspended**; the backend field remains `status: 'blocked'`. Creating a suspended account POSTs the staff record, then immediately calls `PATCH /api/admin/staff/:id/status` when needed.
+
+#### Routing Cleanliness & Settings Finalization *(v4.3.0 – v4.3.1)*
+
+The Super Admin SPA maintains a clean operational shell alongside the staff console:
+
+| Concern | Implementation |
+|---------|----------------|
+| **Clean `/admin` URL** | Browser address bar stays strictly **`/admin`** — no `?section=`, `?page=`, or filter query strings during navigation or refresh; `ensureCleanAdminUrl()` strips legacy bookmarks via `history.replaceState()`. |
+| **Reload → Overview** | F5 / hard refresh on `/admin` always defaults to the **Dashboard Overview** tab — deep-link section boot from query params removed. |
+| **Modular Admin Settings** | **Admin Settings** (`view-settings`) — responsive **tabbed SaaS shell**: **Profile & Security** · **Store & Shipping Preferences** · **Store Branding**; uniform `.saas-settings-card` panels with **isolated per-section save buttons**; Store & Branding tabs RBAC-gated via `manage_settings`. |
+| **Modular System Settings** | **System Settings** (`view-master-settings`) — **seven independent configuration cards** (Announcement & Free Shipping, SMS Gateway, Courier Booking, WhatsApp, Flash Sale, VIP Segmentation, Rewards & Refunds); each card POSTs a targeted partial payload to **`POST /api/admin/master-settings/update`**. |
+
+> 📌 Deep dives: [Clean Admin Routing & Navigation Architecture](#-clean-admin-routing--navigation-architecture-v431) · [Admin & Platform Settings](#-admin--platform-settings).
+
 ### Feature Overview
 
 #### Dynamic Staff Account Creation
-From **Admin Panel → Staff Management** (`/admin` → **Staff Management**, Super Admin only), the owner manages the full staff lifecycle:
+From **Admin Panel → Enterprise Role & Staff Management** (`/admin` → **Staff Management**, Super Admin only), the owner manages the full staff lifecycle:
 
 | Action | Behaviour |
 |--------|-----------|
-| **Create** | Name, username, email, password (min 8 chars, **bcrypt-hashed** on save), and a dynamic permission checklist rendered from the server catalog |
-| **Edit** | Update name, email, permissions, and optional email-2FA requirement — changes apply on the staff member's **very next request** (no re-login) |
-| **Block / Activate** | Toggle `status` between `active` and `blocked`; blocking **instantly revokes every live session** across all devices |
+| **Create** | Dual-column form — credentials card (name, username, email, password with **Generate**, **Active / Suspended** status, optional 2FA toggle) + permissions matrix with **toggle switches** and **Quick Role Presets**; min 8-char password **bcrypt-hashed** on save |
+| **Edit** | Modal mirrors create layout — update name, email, permissions (toggles + presets), 2FA requirement, and account status — changes apply on the staff member's **very next request** (no re-login) |
+| **Suspend / Activate** | Toggle `status` between `active` and `blocked` (UI: **Active / Suspended**); suspending **instantly revokes every live session** across all devices |
 | **Reset Password** | Set a custom password or auto-generate a strong one (shown once); all existing sessions are revoked |
 | **Delete** | Permanently removes the account record and all associated access |
 
 > Staff sign in at the same **`/admin/login`** page as the Super Admin. The `role` field is set server-side at creation — request bodies cannot escalate a staff account to `superadmin`.
 
 #### Granular Permission Engine
-Permissions are defined once in `config/permissions.js` and consumed by the middleware, staff API, and admin UI checkbox matrix:
+Permissions are defined once in `config/permissions.js` and consumed by the middleware, staff API, and admin UI **toggle matrix** (rendered dynamically from the server catalog):
 
 | Permission Key | Label | Typical Scope |
 |----------------|-------|---------------|
@@ -1573,7 +1640,7 @@ Key security properties:
 
 ```mermaid
 flowchart TD
-    A[Super Admin opens Staff Management] --> B[Create staff + tick permissions]
+    A[Super Admin opens Staff Management] --> B[Create staff — toggles or Quick Preset]
     B --> C[POST /api/admin/staff]
     C --> D[Staff logs in at /admin/login]
     D --> E{status active?}
@@ -1633,8 +1700,9 @@ flowchart TD
 | `routes/staffRoutes.js` | `/api/admin/staff/*` mounted under admin routes |
 | `routes/adminRoutes.js` | Permission gates on customers, analytics, settings, security routes |
 | `routes/orderRoutes.js` | Hardened admin order list/update/delete (`manage_orders`) |
-| `client/admin.html` | Staff Management section + edit modal + permission-aware `data-permission` attrs |
-| `client/js/admin-staff.js` | Staff console UI, sidebar gating, create/edit/block/reset/delete handlers |
+| `client/admin.html` | Enterprise Staff Management section (`#view-staff`), dual-column create form, edit modal, permission-aware `data-permission` attrs |
+| `client/js/admin-staff.js` | Staff console UI, toggle matrix renderer, Quick Role Presets, sidebar gating, create/edit/suspend/reset/delete handlers |
+| `client/css/admin.css` | Enterprise staff dashboard styles — KPI cards, toggle switches, category cards, sticky staff table |
 | `client/access-denied.html` | Clean 403 page for unauthorized browser navigations |
 | `server.js` | RBAC backfill on boot + `/admin/access-denied` page route |
 
@@ -2663,7 +2731,7 @@ The admin SPA (`client/admin.html` + `client/js/admin.js`) uses **in-panel sideb
 - **📦 Live Orders** — Premium sticky-header table with compact spacing, horizontal action toolbar (**Send to Courier**, Invoice, Delete), **Create Manual Order** POS modal (v4.0.0), distinct customer/admin cancellation badges, return approval, safe refund undo, reason visibility, invoice view/print, search, filter, and pagination. *(Requires `manage_orders`.)*
 - **📱 WhatsApp Alert Badge** — Header badge surfaces pending wa.me fallback alerts when the background gateway cannot auto-deliver (v4.0.0).
 - **🛍️ Product CRUD & Variant Matrix** — Add/edit with images, per-variant buying/selling price, live profit preview, **Simple Product / Variant Matrix** modes with **Attribute Library auto-fill**, dynamic SKU generation, bordered matrix grid with sticky modal headers, **session-based pagination retention** across edit/save workflows *(v4.3.1)*, **fully opaque sticky table headers** (`sticky top-0 z-20`), bulk delete, CSV export, and print-ready tables. *(Requires `manage_inventory`.)*
-- **👤 Staff Management** — Create, permission-assign, block, reset password, and delete staff accounts with a dynamic permission matrix. *(Super Admin only.)*
+- **👤 Enterprise Role & Staff Management** — Dual-column credentials + permissions matrix, interactive toggle switches, **Quick Role Presets** (Full Admin · Inventory Manager · Customer Support), polished KPI widgets, sticky staff directory table, suspend/activate, reset password, and delete. *(Super Admin only.)*
 - **🔔 Professional UX** — SweetAlert2 toasts + modal confirmations, asynchronous DOM re-rendering (instant UI sync, no manual refresh), permission-aware sidebar gating.
 
 ### 💹 Finance & Analytics (`/finance-analytics`)
@@ -2819,7 +2887,7 @@ eonlinebazar-fullstack/
 │   ├── finance-analytics.html         # Finance & analytics dashboard (P/L KPIs, theme toggle, Chart.js)
 │   ├── css/                           # Page-scoped stylesheets (admin.css, verify-otp.css…)
 │   ├── js/                            # Page scripts (admin.js, admin-staff.js, checkout.js, profile.js…)
-│   │   ├── admin-staff.js             # RBAC sidebar gating + Staff Management console
+│   │   ├── admin-staff.js             # RBAC sidebar gating + Enterprise Staff Management console (toggles, presets)
 │   │   ├── shipping-estimator.js      # Client shipping quote + delivery estimate helpers
 │   │   ├── coupon-ui.js               # Shared promo apply/remove + live total sync
 │   │   ├── cart-merge.js              # Guest cart merge after login/OAuth
@@ -3171,20 +3239,20 @@ Base URL: `http://localhost:3000`
 | `PUT`  | `/api/admin/2fa/method` | Choose active method (`email`/`totp`/`sms`) | Admin |
 | `POST` | `/api/admin/logout` | Revoke current session + clear cookies | Admin |
 
-### 👥 Staff Management & RBAC *(v3.5.0)*
+### 👥 Staff Management & RBAC *(v3.5.0 · UI v4.3.2)*
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
 | **`GET`** | **`/api/admin/me`** | Current signed-in admin identity, role, permissions & status | **Admin** |
-| **`GET`** | **`/api/admin/permissions`** | Permission catalog + sidebar section map for UI gating | **Admin** |
-| **`GET`** | **`/api/admin/staff`** | List all staff accounts with summary counters | **Super Admin** |
+| **`GET`** | **`/api/admin/permissions`** | Permission catalog + sidebar section map for UI gating (drives toggle matrix & Quick Presets) | **Admin** |
+| **`GET`** | **`/api/admin/staff`** | List all staff accounts with summary counters (`total`, `active`, `blocked`) for KPI widgets | **Super Admin** |
 | **`POST`** | **`/api/admin/staff`** | Create staff account `{ name, username, email, password, permissions[], requireTwoFactor? }` | **Super Admin** |
 | **`PUT`** | **`/api/admin/staff/:id`** | Update name, email, permissions, 2FA requirement | **Super Admin** |
-| **`PATCH`** | **`/api/admin/staff/:id/status`** | Toggle `active` ⇄ `blocked` (instant session revocation) | **Super Admin** |
+| **`PATCH`** | **`/api/admin/staff/:id/status`** | Toggle `active` ⇄ `blocked` (UI: Active / Suspended; instant session revocation) | **Super Admin** |
 | **`POST`** | **`/api/admin/staff/:id/reset-password`** | Reset password `{ newPassword? }` — auto-generates if omitted | **Super Admin** |
 | **`DELETE`** | **`/api/admin/staff/:id`** | Permanently delete staff account + revoke sessions | **Super Admin** |
 
-> Staff routes require **`verifyAdmin` + `checkPermission('manage_staff')` + `requireSuperAdmin`**. Super Admin accounts cannot be managed via this API — the owner is managed from Admin Settings only.
+> Staff routes require **`verifyAdmin` + `checkPermission('manage_staff')` + `requireSuperAdmin`**. Super Admin accounts cannot be managed via this API — the owner is managed from Admin Settings only. The enterprise UI creates suspended accounts via **POST + PATCH status** when the Suspended segment is selected on create.
 
 ### 🖥️ Admin Sessions, Blacklist & Audit
 
@@ -3278,7 +3346,7 @@ POST /api/admin/login
 3. `verifyAdmin` rejects customer tokens **and** validates the `AdminSession` (remote logout ⇒ instant 401 on the device's next request).
 4. **RBAC layer (v3.5.0)** — after JWT/session validation, `attachAdminAccount` reloads the live `Admin` document from MongoDB on every request (permissions, `status`, and `role` are never trusted from the JWT alone). Blocked accounts receive **403**; staff accounts pass through `checkPermission('…')` on protected routes — Super Admin (`role: 'superadmin'`) bypasses all permission gates automatically.
 
-### 🔐 RBAC & Staff Account Security *(v3.5.0)*
+### 🔐 RBAC & Staff Account Security *(v3.5.0 · UI v4.3.2)*
 
 ```
 Every protected admin request
@@ -3289,8 +3357,10 @@ Every protected admin request
 ```
 
 - **Unified login** — Super Admin and staff share `POST /api/admin/login`; credentials are verified with **bcrypt** (legacy plaintext passwords are transparently upgraded on next successful login).
-- **Blocked accounts** — `status: 'blocked'` rejects login and API access; blocking a staff member deletes all `AdminSession` records instantly.
-- **Live permission changes** — editing a staff member's permission checklist takes effect on their very next request without requiring re-login.
+- **Suspended accounts** — `status: 'blocked'` rejects login and API access; suspending a staff member deletes all `AdminSession` records instantly (UI label: **Suspended**).
+- **Live permission changes** — editing a staff member's permission toggles (or applying a Quick Role Preset) takes effect on their very next request without requiring re-login.
+- **Enterprise staff console** — dual-column create/edit UI, interactive toggle switches, one-click presets, and sticky staff directory table (`client/admin.html`, `client/js/admin-staff.js`, `client/css/admin.css`).
+- **Clean admin routing** — `/admin` URL stays pristine across refresh cycles; F5 defaults to **Dashboard Overview**; Admin Settings and System Settings use modular tabbed/card layouts *(v4.3.0–v4.3.1)*.
 - **403 Access Denied** — unauthorized browser navigations redirect to `/admin/access-denied`; API calls return `{ success: false, reason: 'PERMISSION_DENIED', requiredPermission }`.
 - **Order route hardening** — `GET/PUT/DELETE /api/orders` (admin operations) now require **`verifyAdmin` + `manage_orders`** (previously unauthenticated at the route layer).
 
@@ -3345,6 +3415,21 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 ---
 
 ## 📜 Changelog
+
+### `v4.3.2` — Enterprise Staff & Role Management Redesign
+
+**🏢 Enterprise Staff & Role Access System**
+- Redesigned **Staff Management** (`#view-staff`) into a dual-column **Enterprise Role & Staff Management** dashboard — **Staff Account Credentials** (5 cols) separated from **Granular Role & Permissions Matrix** (7 cols) via `.staff-create-layout`.
+- Replaced basic permission checkboxes with interactive **toggle switches** (emerald ON / slate OFF) and category cards — **Insights** 📊 · **Operations** 🛒 · **Administration** ⚙️ — rendered from `GET /api/admin/permissions`.
+- Added **Quick Role Presets** bar — **Full Admin**, **Inventory Manager**, **Customer Support**, **Reset / Clear** — wired through `applyRolePreset()` / `ROLE_PRESETS` in `client/js/admin-staff.js`.
+- Polished **Staff Overview KPI** widgets (Total Staff, Active, Suspended) with `rounded-xl` borders and subtle elevation; staff directory table uses **sticky headers** and compact **Active / Suspended** status badges.
+- Edit modal mirrors the dual-column layout; **Active / Suspended** segment control syncs via existing `PATCH /api/admin/staff/:id/status`.
+
+**🧭 Routing Cleanliness & Settings Finalization** *(documented alongside v4.3.0–v4.3.1)*
+- Pristine **`/admin`** URL across refresh cycles; F5 defaults to **Dashboard Overview**.
+- Modular **Admin Settings** tabbed shell and **System Settings** card grid with isolated per-section save buttons.
+
+**Key files:** `client/admin.html`, `client/js/admin-staff.js`, `client/css/admin.css`
 
 ### `v4.3.1` — Clean Admin Routing & URL Optimization
 
@@ -3559,8 +3644,8 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 - Central permission catalog in `config/permissions.js` — nine operational keys (`view_analytics`, `manage_orders`, `manage_inventory`, `manage_catalog`, `manage_coupons`, `manage_customers`, `manage_settings`, `manage_security`, `manage_staff`).
 - New `middlewares/rbac.js` — `checkPermission()`, `requireSuperAdmin`, `attachAdminAccount`, and access-denied helpers layered on existing `verifyAdmin`.
 
-**👥 Dynamic Staff Management**
-- Super Admin console at **Admin Panel → Staff Management** — create, edit, block/activate, reset password, and delete staff accounts with a dynamic permission checkbox matrix.
+**👥 Dynamic Staff Management** *(UI elevated in v4.3.2)*
+- Super Admin console at **Admin Panel → Staff Management** — create, edit, suspend/activate, reset password, and delete staff accounts with a dynamic permission matrix *(v4.3.2: dual-column layout, toggle switches, Quick Role Presets)*.
 - Staff API at `/api/admin/staff/*` (list, create, update, status toggle, password reset, delete) plus `/api/admin/me` and `/api/admin/permissions` for UI gating.
 - Staff sign in at the same `/admin/login` endpoint; sidebar sections and platform settings cards hide automatically based on assigned permissions.
 

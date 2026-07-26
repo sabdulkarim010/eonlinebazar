@@ -101,6 +101,29 @@ function generateStrongPassword(length = 14) {
     return Array.from(bytes, n => alphabet[n % alphabet.length]).join('');
 }
 
+/** Category metadata for the permissions matrix UI. */
+const PERMISSION_GROUP_META = {
+    Insights: { emoji: '📊', slug: 'insights' },
+    Operations: { emoji: '🛒', slug: 'operations' },
+    Administration: { emoji: '⚙️', slug: 'administration' },
+    General: { emoji: '🔑', slug: 'general' }
+};
+
+/** One-click permission presets — keys must match config/permissions.js. */
+const ROLE_PRESETS = {
+    fullAdmin: null,
+    inventoryManager: ['manage_inventory', 'manage_catalog'],
+    customerSupport: ['manage_orders', 'manage_customers'],
+    clear: []
+};
+
+function resolvePresetKeys(presetKey) {
+    if (presetKey === 'fullAdmin') {
+        return permissionCatalog.map(p => p.key);
+    }
+    return ROLE_PRESETS[presetKey] || [];
+}
+
 /* ==========================================================================
    IDENTITY & SIDEBAR GATING
    ========================================================================== */
@@ -173,8 +196,13 @@ function applyRoleToSidebar() {
 }
 
 /* ==========================================================================
-   PERMISSION CHECKBOXES (rendered from the server catalog)
+   PERMISSION TOGGLE MATRIX (rendered from the server catalog)
    ========================================================================== */
+
+function syncPermissionRowState(box) {
+    const row = box.closest('.permission-toggle-row');
+    if (row) row.classList.toggle('is-on', box.checked);
+}
 
 function renderPermissionCheckboxes(container, selectedKeys = []) {
     if (!container) return;
@@ -191,42 +219,116 @@ function renderPermissionCheckboxes(container, selectedKeys = []) {
         return acc;
     }, {});
 
-    container.innerHTML = Object.entries(groups).map(([group, items]) => `
-        <div class="permission-group">
-            <span class="permission-group-label">${escapeHtml(group)}</span>
-            <div class="permission-group-items">
+    container.innerHTML = Object.entries(groups).map(([group, items]) => {
+        const meta = PERMISSION_GROUP_META[group] || PERMISSION_GROUP_META.General;
+        return `
+        <div class="permission-category-card permission-category-card--${meta.slug}">
+            <div class="permission-category-header">
+                <span class="permission-category-emoji" aria-hidden="true">${meta.emoji}</span>
+                <span class="permission-category-title">${escapeHtml(group)}</span>
+            </div>
+            <div class="permission-category-items">
                 ${items.map(permission => `
-                    <label class="permission-item ${selected.has(permission.key) ? 'checked' : ''}">
-                        <input type="checkbox" value="${escapeHtml(permission.key)}" ${selected.has(permission.key) ? 'checked' : ''}>
-                        <span class="permission-item-icon"><i class="fa-solid ${escapeHtml(permission.icon || 'fa-key')}"></i></span>
-                        <span class="permission-item-body">
-                            <strong>${escapeHtml(permission.label)}</strong>
-                            <small>${escapeHtml(permission.description || '')}</small>
+                    <label class="permission-toggle-row ${selected.has(permission.key) ? 'is-on' : ''}">
+                        <span class="permission-toggle-main">
+                            <span class="permission-toggle-icon"><i class="fa-solid ${escapeHtml(permission.icon || 'fa-key')}"></i></span>
+                            <span class="permission-toggle-copy">
+                                <strong>${escapeHtml(permission.label)}</strong>
+                                <small>${escapeHtml(permission.description || '')}</small>
+                            </span>
+                        </span>
+                        <span class="toggle-switch">
+                            <input type="checkbox" class="toggle-switch-input permission-toggle-input" value="${escapeHtml(permission.key)}" ${selected.has(permission.key) ? 'checked' : ''}>
+                            <span class="toggle-switch-slider" aria-hidden="true"></span>
                         </span>
                     </label>
                 `).join('')}
             </div>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
 
-    container.querySelectorAll('input[type="checkbox"]').forEach(box => {
+    container.querySelectorAll('.permission-toggle-input').forEach(box => {
         box.addEventListener('change', () => {
-            box.closest('.permission-item')?.classList.toggle('checked', box.checked);
+            syncPermissionRowState(box);
+            clearPresetHighlight(container);
         });
     });
 }
 
 function readSelectedPermissions(container) {
     if (!container) return [];
-    return [...container.querySelectorAll('input[type="checkbox"]:checked')].map(box => box.value);
+    return [...container.querySelectorAll('.permission-toggle-input:checked')].map(box => box.value);
+}
+
+function setPermissionKeys(container, keys = []) {
+    if (!container) return;
+    const allowed = new Set(keys);
+    container.querySelectorAll('.permission-toggle-input').forEach(box => {
+        box.checked = allowed.has(box.value);
+        syncPermissionRowState(box);
+    });
 }
 
 function setAllPermissions(container, checked) {
     if (!container) return;
-    container.querySelectorAll('input[type="checkbox"]').forEach(box => {
+    container.querySelectorAll('.permission-toggle-input').forEach(box => {
         box.checked = checked;
-        box.closest('.permission-item')?.classList.toggle('checked', checked);
+        syncPermissionRowState(box);
     });
+}
+
+function applyRolePreset(container, presetKey) {
+    if (!container) return;
+    setPermissionKeys(container, resolvePresetKeys(presetKey));
+
+    const presetsBar = container.closest('.staff-enterprise-card-body')
+        ?.querySelector('.staff-presets-bar');
+
+    presetsBar?.querySelectorAll('.staff-preset-btn').forEach(btn => {
+        btn.classList.toggle('is-active', btn.dataset.preset === presetKey && presetKey !== 'clear');
+    });
+}
+
+function clearPresetHighlight(container) {
+    const presetsBar = container.closest('.staff-enterprise-card-body')
+        ?.querySelector('.staff-presets-bar');
+    presetsBar?.querySelectorAll('.staff-preset-btn').forEach(btn => btn.classList.remove('is-active'));
+}
+
+function setupPermissionPresets(presetsBar, grid) {
+    if (!presetsBar || !grid || presetsBar.dataset.bound === 'true') return;
+    presetsBar.dataset.bound = 'true';
+
+    presetsBar.querySelectorAll('.staff-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            applyRolePreset(grid, btn.dataset.preset || 'clear');
+            if (btn.dataset.preset === 'clear') {
+                notify('All permission toggles cleared.', 'info');
+            }
+        });
+    });
+}
+
+function getCreateAccountStatus() {
+    const selected = document.querySelector('input[name="staffAccountStatus"]:checked');
+    return selected?.value === 'blocked' ? 'blocked' : 'active';
+}
+
+function resetCreateAccountStatus() {
+    const active = document.getElementById('staffStatusActive');
+    if (active) active.checked = true;
+}
+
+function getEditAccountStatus() {
+    const selected = document.querySelector('input[name="editStaffAccountStatus"]:checked');
+    return selected?.value === 'blocked' ? 'blocked' : 'active';
+}
+
+function setEditAccountStatus(status) {
+    const active = document.getElementById('editStaffStatusActive');
+    const suspended = document.getElementById('editStaffStatusSuspended');
+    if (status === 'blocked' && suspended) suspended.checked = true;
+    else if (active) active.checked = true;
 }
 
 /* ==========================================================================
@@ -268,7 +370,7 @@ function renderStaffTable() {
                 <td>
                     <span class="status-badge ${blocked ? 'blocked' : 'active'}">
                         <i class="fa-solid ${blocked ? 'fa-ban' : 'fa-circle-check'}"></i>
-                        ${blocked ? 'Blocked' : 'Active'}
+                        ${blocked ? 'Suspended' : 'Active'}
                     </span>
                 </td>
                 <td>${escapeHtml(formatDateTime(staff.lastLoginAt))}</td>
@@ -437,7 +539,12 @@ async function loadStaffSection() {
 
     if (!isSuperAdmin()) return;
 
-    renderPermissionCheckboxes(document.getElementById('staffPermissionGrid'));
+    const grid = document.getElementById('staffPermissionGrid');
+    renderPermissionCheckboxes(grid);
+    setupPermissionPresets(
+        document.querySelector('[data-permission-presets="create"]'),
+        grid
+    );
     await fetchStaffAccounts();
 }
 window.loadStaffSection = loadStaffSection;
@@ -459,13 +566,16 @@ function setupCreateStaffForm() {
         notify('Strong password generated — copy it before saving.', 'info');
     });
 
-    document.getElementById('selectAllPermissionsBtn')?.addEventListener('click', () => setAllPermissions(grid, true));
-    document.getElementById('clearAllPermissionsBtn')?.addEventListener('click', () => setAllPermissions(grid, false));
+    setupPermissionPresets(
+        document.querySelector('[data-permission-presets="create"]'),
+        grid
+    );
 
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
 
         const submitBtn = document.getElementById('createStaffBtn');
+        const desiredStatus = getCreateAccountStatus();
         const payload = {
             name: document.getElementById('staffName').value.trim(),
             username: document.getElementById('staffUsername').value.trim().toLowerCase(),
@@ -476,7 +586,7 @@ function setupCreateStaffForm() {
         };
 
         if (payload.permissions.length === 0) {
-            return notify('Tick at least one permission for this staff member.', 'warning');
+            return notify('Enable at least one permission for this staff member.', 'warning');
         }
 
         if (submitBtn) submitBtn.disabled = true;
@@ -487,9 +597,18 @@ function setupCreateStaffForm() {
                 body: JSON.stringify(payload)
             });
 
+            if (desiredStatus === 'blocked' && result.data?.id) {
+                await staffApi(`/api/admin/staff/${result.data.id}/status`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ status: 'blocked' })
+                });
+            }
+
             notify(result.message, 'success');
             form.reset();
+            resetCreateAccountStatus();
             setAllPermissions(grid, false);
+            clearPresetHighlight(grid);
             await fetchStaffAccounts();
         } catch (error) {
             notify(error.message, 'error');
@@ -511,10 +630,16 @@ window.openStaffEditModal = function openStaffEditModal(staffId) {
     document.getElementById('editStaffName').value = staff.name || '';
     document.getElementById('editStaffEmail').value = staff.email || '';
     document.getElementById('editStaffRequireTwoFactor').checked = staff.twoFactorEnabled !== false;
+    setEditAccountStatus(staff.status);
     document.getElementById('staffEditModalSubtitle').textContent =
         `${staff.username} · changes apply on their very next request`;
 
-    renderPermissionCheckboxes(document.getElementById('editStaffPermissionGrid'), staff.permissions || []);
+    const grid = document.getElementById('editStaffPermissionGrid');
+    renderPermissionCheckboxes(grid, staff.permissions || []);
+    setupPermissionPresets(
+        document.querySelector('[data-permission-presets="edit"]'),
+        grid
+    );
     document.getElementById('staffEditModal').style.display = 'flex';
 };
 
@@ -533,6 +658,8 @@ function setupEditStaffForm() {
         const grid = document.getElementById('editStaffPermissionGrid');
         const staffId = document.getElementById('editStaffId').value;
         const permissions = readSelectedPermissions(grid);
+        const desiredStatus = getEditAccountStatus();
+        const staff = staffAccounts.find(s => String(s.id) === String(staffId));
 
         if (permissions.length === 0) {
             return notify('A staff member must keep at least one permission.', 'warning');
@@ -548,6 +675,13 @@ function setupEditStaffForm() {
                     requireTwoFactor: document.getElementById('editStaffRequireTwoFactor').checked
                 })
             });
+
+            if (staff && staff.status !== desiredStatus) {
+                await staffApi(`/api/admin/staff/${staffId}/status`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ status: desiredStatus })
+                });
+            }
 
             notify(result.message, 'success');
             window.closeStaffEditModal();
@@ -684,6 +818,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupStaffRefreshButton();
 
     if (isSuperAdmin() && document.getElementById('staffPermissionGrid')) {
-        renderPermissionCheckboxes(document.getElementById('staffPermissionGrid'));
+        const grid = document.getElementById('staffPermissionGrid');
+        renderPermissionCheckboxes(grid);
+        setupPermissionPresets(
+            document.querySelector('[data-permission-presets="create"]'),
+            grid
+        );
     }
 });
