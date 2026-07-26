@@ -486,7 +486,7 @@ const ADMIN_PAGE_META = {
     'view-audit':           { title: 'Security & Audit',         subtitle: 'Login history, intrusion attempts, and IP blacklist firewall.' },
     'view-master-settings': { title: 'System Settings',          subtitle: 'Configure shipping, notifications, loyalty rewards, and store integrations.' },
     'view-staff':           { title: 'Staff Management',         subtitle: 'Create staff accounts, assign permissions, and control access instantly.' },
-    'view-settings':        { title: 'Admin Settings',          subtitle: 'Configure your admin profile and platform preferences.' }
+    'view-settings':        { title: 'Admin Settings',          subtitle: 'Manage your profile, store preferences, shipping rules, and branding.' }
 };
 
 function updateAdminPageHeader(sectionId, fallbackLabel) {
@@ -5840,15 +5840,19 @@ function setBrandingPreviewImage(assetType, url) {
     const isLogo = assetType === 'logo';
     const img = document.getElementById(isLogo ? 'settingsLogoPreview' : 'settingsFaviconPreview');
     const ph = document.getElementById(isLogo ? 'settingsLogoPlaceholder' : 'settingsFaviconPlaceholder');
+    const dropzone = document.getElementById(isLogo ? 'logoPreviewBox' : 'faviconPreviewBox');
     if (!img) return;
 
     if (!url) {
         img.removeAttribute('src');
         img.style.display = 'none';
         if (ph) ph.style.display = 'flex';
+        if (dropzone) dropzone.classList.remove('has-preview');
         if (isLogo) updateSidebarStoreLogo(null);
         return;
     }
+
+    if (dropzone) dropzone.classList.add('has-preview');
 
     const resolved = (url.startsWith('blob:') || url.startsWith('data:'))
         ? url
@@ -6570,6 +6574,10 @@ function previewBrandingFile(input, assetType, label) {
     }
 
     showLocalBrandingPreview(assetType, file);
+
+    const dropzone = document.getElementById(assetType === 'logo' ? 'logoPreviewBox' : 'faviconPreviewBox');
+    if (dropzone) dropzone.classList.add('has-preview');
+
     showToast(`${label} ready — click "Save Store Branding" to publish it.`, 'info');
 }
 
@@ -6613,6 +6621,92 @@ function showLocalBrandingPreview(assetType, file) {
     const objectUrl = URL.createObjectURL(file);
     brandingPreviewObjectUrls[assetType] = objectUrl;
     setBrandingPreviewImage(assetType, objectUrl);
+}
+
+function setupAdminSettingsTabs() {
+    const tabs = document.querySelectorAll('.admin-settings-tab');
+    const panels = document.querySelectorAll('.admin-settings-panel');
+    if (!tabs.length || !panels.length) return;
+
+    const activateTab = (tab) => {
+        const target = tab.dataset.tab;
+        if (!target) return;
+
+        tabs.forEach((t) => {
+            const isActive = t === tab;
+            t.classList.toggle('is-active', isActive);
+            t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+
+        panels.forEach((panel) => {
+            const isActive = panel.dataset.panel === target;
+            panel.classList.toggle('is-active', isActive);
+            panel.hidden = !isActive;
+        });
+    };
+
+    tabs.forEach((tab) => {
+        tab.addEventListener('click', () => activateTab(tab));
+    });
+}
+
+function assignBrandingFile(input, file, assetType, label) {
+    if (!input || !file) return;
+    if (!file.type.startsWith('image/')) {
+        showToast(`Error: Please choose a valid image file for the ${label}.`, 'error');
+        return;
+    }
+
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    showLocalBrandingPreview(assetType, file);
+
+    const dropzone = document.getElementById(assetType === 'logo' ? 'logoPreviewBox' : 'faviconPreviewBox');
+    if (dropzone) dropzone.classList.add('has-preview');
+
+    showToast(`${label} ready — click "Save Store Branding" to publish it.`, 'info');
+}
+
+function setupBrandingDropzones() {
+    const zones = document.querySelectorAll('.branding-dropzone[data-asset]');
+    zones.forEach((zone) => {
+        const assetType = zone.dataset.asset;
+        const inputId = assetType === 'logo' ? 'settingsLogoInput' : 'settingsFaviconInput';
+        const input = document.getElementById(inputId);
+        const label = assetType === 'logo' ? 'Store logo' : 'Favicon';
+        if (!input) return;
+
+        const openPicker = () => input.click();
+
+        zone.addEventListener('click', (e) => {
+            if (e.target.closest('button')) return;
+            openPicker();
+        });
+
+        zone.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                openPicker();
+            }
+        });
+
+        zone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            zone.classList.add('is-dragover');
+        });
+
+        zone.addEventListener('dragleave', () => {
+            zone.classList.remove('is-dragover');
+        });
+
+        zone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            zone.classList.remove('is-dragover');
+            const file = e.dataTransfer?.files?.[0];
+            if (file) assignBrandingFile(input, file, assetType, label);
+        });
+    });
 }
 
 function setupAdminSettingsForms() {
@@ -6804,6 +6898,9 @@ function setupAdminSettingsForms() {
     if (favInput) {
         favInput.addEventListener('change', () => previewBrandingFile(favInput, 'favicon', 'Favicon'));
     }
+
+    setupAdminSettingsTabs();
+    setupBrandingDropzones();
 }
 
 /**

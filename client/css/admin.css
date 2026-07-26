@@ -3428,6 +3428,433 @@ td.col-actions button:last-child {
     gap: 24px;
     align-items: start;
 }
+
+/* ==========================================================================
+   ADMIN SETTINGS — Tabbed SaaS dashboard (view-settings)
+   ========================================================================== */
+.admin-settings-shell {
+    max-width: 1120px;
+}
+
+.admin-settings-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+    margin-bottom: 24px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.admin-settings-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.admin-settings-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 18px;
+    margin-bottom: -1px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: #64748b;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-settings-tab i {
+    font-size: 13px;
+    opacity: 0.85;
+}
+
+.admin-settings-tab:hover {
+    color: #334155;
+}
+
+.admin-settings-tab.is-active {
+    color: #2563eb;
+    font-weight: 600;
+    border-bottom-color: #2563eb;
+}
+
+.admin-settings-panel {
+    display: none;
+}
+
+.admin-settings-panel.is-active {
+    display: block;
+    animation: adminSettingsFadeIn 0.22s ease;
+}
+
+@keyframes adminSettingsFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.admin-settings-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.admin-settings-duo-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    align-items: stretch;
+}
+
+@media (min-width: 768px) {
+    .admin-settings-duo-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Shared SaaS card shell */
+.saas-settings-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #fff;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.saas-settings-card:hover {
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+.saas-settings-card-header {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.saas-settings-card-header h4 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.saas-settings-card-header h4 i {
+    color: #2563eb;
+    font-size: 15px;
+}
+
+.saas-settings-card-header .settings-card-sub {
+    margin: 0;
+}
+
+.saas-settings-form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.saas-settings-card-body {
+    flex: 1 1 auto;
+}
+
+.saas-settings-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: auto;
+    padding-top: 18px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.saas-settings-save-btn {
+    margin: 0;
+    min-width: 168px;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 14px;
+    padding: 11px 20px;
+}
+
+.saas-settings-save-btn:disabled {
+    opacity: 0.72;
+    cursor: progress;
+}
+
+/* Uniform inputs — Shopify/Stripe-style focus rings */
+.saas-settings-card .form-group {
+    margin-bottom: 16px;
+}
+
+.saas-settings-card .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.saas-settings-card .form-row-custom {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    align-items: flex-start;
+}
+
+.saas-settings-card .form-row-custom .form-group {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.saas-settings-card .form-group > label,
+.branding-upload-box > label {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+}
+
+.saas-settings-card .form-group > input,
+.saas-settings-card .form-group > select,
+.saas-input {
+    width: 100%;
+    box-sizing: border-box;
+    height: 44px;
+    padding: 0 14px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #0f172a;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.saas-settings-card .form-group > select {
+    appearance: auto;
+    -webkit-appearance: auto;
+}
+
+.saas-settings-card .form-group > input::placeholder,
+.saas-input::placeholder {
+    color: #94a3b8;
+    opacity: 1;
+}
+
+.saas-settings-card .form-group > input:focus,
+.saas-settings-card .form-group > select:focus,
+.saas-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.saas-settings-card .form-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.45;
+}
+
+.saas-settings-card .branding-hint {
+    margin: 16px 0 0;
+}
+
+.saas-settings-card .branding-save-btn.has-pending {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
+    animation: brandingPulse 1.6s ease-in-out infinite;
+}
+
+/* Compact 2FA row cards */
+.twofa-methods--compact {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
+.twofa-method--compact {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 14px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    background: #fff;
+    min-height: 118px;
+}
+
+.twofa-method--compact:hover {
+    border-color: #93c5fd;
+    background: #f8fafc;
+    transform: none;
+}
+
+.twofa-method--compact.active {
+    border-color: #2563eb;
+    background: #f8fbff;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.twofa-method--compact .twofa-method-icon {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+    border-radius: 8px;
+}
+
+.twofa-method--compact .twofa-method-body {
+    width: 100%;
+}
+
+.twofa-method--compact .twofa-method-body small {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    line-height: 1.35;
+}
+
+.twofa-method--compact .twofa-badge {
+    align-self: flex-start;
+    margin-left: 0;
+    margin-top: auto;
+}
+
+.twofa-method--compact .twofa-check {
+    top: 8px;
+    right: 8px;
+    font-size: 14px;
+}
+
+.twofa-inline--compact {
+    margin-top: 4px;
+}
+
+.btn-compact {
+    height: 38px;
+    padding: 0 14px;
+    font-size: 13px;
+    border-radius: 8px;
+}
+
+/* Branding drag-and-drop zones */
+.branding-drop-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+
+@media (min-width: 640px) {
+    .branding-drop-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.branding-dropzone {
+    position: relative;
+    min-height: 168px;
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    overflow: hidden;
+}
+
+.branding-dropzone--favicon {
+    min-height: 140px;
+}
+
+.branding-dropzone:hover,
+.branding-dropzone:focus-visible {
+    border-color: #93c5fd;
+    background: #f1f5f9;
+    outline: none;
+}
+
+.branding-dropzone.is-dragover {
+    border-color: #2563eb;
+    background: #eff6ff;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.branding-dropzone-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: inherit;
+    padding: 20px 16px;
+    text-align: center;
+}
+
+.branding-dropzone img {
+    max-width: 100%;
+    max-height: 88px;
+    object-fit: contain;
+}
+
+.branding-dropzone--favicon img {
+    max-height: 48px;
+    max-width: 48px;
+}
+
+.branding-dropzone-hint {
+    font-size: 12.5px;
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.branding-dropzone-hint i {
+    color: #2563eb;
+}
+
+.branding-dropzone.has-preview .branding-dropzone-hint {
+    font-size: 11px;
+    opacity: 0.85;
+}
+
+@media (max-width: 900px) {
+    .saas-settings-card-footer {
+        justify-content: stretch;
+    }
+
+    .saas-settings-save-btn {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .saas-settings-card .form-row-custom {
+        flex-direction: column;
+    }
+
+    .twofa-methods--compact {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .admin-settings-tab {
+        padding: 10px 14px;
+        font-size: 13px;
+    }
+}
+
 .settings-card {
     background: var(--card-bg);
     border: 1px solid #e2e8f0;
@@ -3558,6 +3985,7 @@ td.col-actions button:last-child {
     gap: 8px;
 }
 .branding-hint i { color: var(--primary-color); }
+
 .branding-save-row {
     display: flex;
     justify-content: center;
@@ -4408,7 +4836,7 @@ td.col-actions button:last-child {
     background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0;
 }
 .twofa-badge[data-state="off"]    { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
-.twofa-badge[data-state="ready"]  { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+.twofa-badge[data-state="ready"]  { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
 .twofa-badge[data-state="active"] { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
 
 /* Inline loading spinner for busy buttons */

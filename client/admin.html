@@ -1796,236 +1796,287 @@
 
 
 <section id="view-settings" class="admin-section" style="display: none;">
-                <div class="section-header-box">
-                    <h3>Admin & Platform Settings</h3>
-                    <p class="section-subtitle">Manage your admin profile, store branding, currency, and timezone preferences.</p>
-                </div>
+                <div class="admin-settings-shell">
 
-                <div class="settings-grid">
-                    <div class="settings-card">
-                        <h4 class="settings-card-title"><i class="fa-solid fa-user-shield"></i> Admin Profile</h4>
-                        <form id="adminProfileForm" novalidate>
-                            <div class="form-group">
-                                <label>Display Name</label>
-                                <input type="text" id="settingsDisplayName" placeholder="Your name shown in sidebar">
-                            </div>
-                            <div class="form-group">
-                                <label>Admin Username</label>
-                                <input type="text" id="settingsUsername" placeholder="Login username">
-                            </div>
-                            <div class="form-group">
-                                <label>Current Password <span class="req-star">*</span></label>
-                                <input type="password" id="settingsCurrentPassword" placeholder="Required to save any changes" required>
-                            </div>
-                            <div class="form-group">
-                                <label>New Password (Optional)</label>
-                                <input type="password" id="settingsNewPassword" placeholder="Leave blank to keep current password">
-                            </div>
-                            <button type="submit" class="btn-submit">
-                                <i class="fa-solid fa-floppy-disk"></i> Save Profile
-                            </button>
-                        </form>
-                    </div>
+                    <nav class="admin-settings-tabs" role="tablist" aria-label="Admin settings sections">
+                        <button type="button" class="admin-settings-tab is-active" role="tab" id="adminTabProfile" aria-selected="true" aria-controls="adminPanelProfile" data-tab="profile">
+                            <i class="fa-solid fa-user-shield" aria-hidden="true"></i> Profile &amp; Security
+                        </button>
+                        <button type="button" class="admin-settings-tab" role="tab" id="adminTabStore" aria-selected="false" aria-controls="adminPanelStore" data-tab="store" data-permission="manage_settings">
+                            <i class="fa-solid fa-store" aria-hidden="true"></i> Store &amp; Shipping Preferences
+                        </button>
+                        <button type="button" class="admin-settings-tab" role="tab" id="adminTabBranding" aria-selected="false" aria-controls="adminPanelBranding" data-tab="branding" data-permission="manage_settings">
+                            <i class="fa-solid fa-palette" aria-hidden="true"></i> Store Branding
+                        </button>
+                    </nav>
 
-                    <div class="settings-card" data-permission="manage_settings">
-                        <h4 class="settings-card-title"><i class="fa-solid fa-store"></i> Platform Preferences</h4>
-                        <form id="platformSettingsForm">
-                            <div class="form-group">
-                                <label>Store Name</label>
-                                <input type="text" id="settingsStoreName" placeholder="EonlineBazar">
-                            </div>
-                            <div class="form-row-custom">
-                                <div class="form-group">
-                                    <label>Currency Code</label>
-                                    <input type="text" id="settingsCurrency" placeholder="BDT" maxlength="6">
+                    <!-- Tab 1: Profile & Security -->
+                    <div class="admin-settings-panel is-active" role="tabpanel" id="adminPanelProfile" aria-labelledby="adminTabProfile" data-panel="profile">
+                        <div class="admin-settings-stack">
+
+                            <div class="saas-settings-card">
+                                <div class="saas-settings-card-header">
+                                    <h4><i class="fa-solid fa-id-card"></i> Admin Profile</h4>
+                                    <p class="settings-card-sub">Update your display name, username, and password.</p>
                                 </div>
-                                <div class="form-group">
-                                    <label>Currency Symbol</label>
-                                    <input type="text" id="settingsCurrencySymbol" placeholder="৳" maxlength="4">
+                                <form id="adminProfileForm" class="saas-settings-form" novalidate>
+                                    <div class="saas-settings-card-body">
+                                        <div class="form-group">
+                                            <label for="settingsDisplayName">Display Name</label>
+                                            <input type="text" id="settingsDisplayName" placeholder="Your name shown in sidebar">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="settingsUsername">Admin Username</label>
+                                            <input type="text" id="settingsUsername" placeholder="Login username">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="settingsCurrentPassword">Current Password <span class="req-star">*</span></label>
+                                            <input type="password" id="settingsCurrentPassword" placeholder="Required to save profile changes" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="settingsNewPassword">New Password (Optional)</label>
+                                            <input type="password" id="settingsNewPassword" placeholder="Leave blank to keep current password">
+                                        </div>
+                                    </div>
+                                    <div class="saas-settings-card-footer">
+                                        <button type="submit" class="btn-submit saas-settings-save-btn">
+                                            <i class="fa-solid fa-floppy-disk"></i> Save Profile
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <div class="saas-settings-card twofa-card">
+                                <div class="saas-settings-card-header">
+                                    <h4><i class="fa-solid fa-user-lock"></i> Two-Factor Authentication</h4>
+                                    <p class="settings-card-sub">Choose how you verify admin logins. Google Authenticator offers the strongest protection.</p>
                                 </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Timezone</label>
-                                <select id="settingsTimezone">
-                                    <option value="Asia/Dhaka">Asia/Dhaka (Bangladesh)</option>
-                                    <option value="Asia/Riyadh">Asia/Riyadh (Saudi Arabia)</option>
-                                    <option value="Asia/Kolkata">Asia/Kolkata (India)</option>
-                                    <option value="Asia/Dubai">Asia/Dubai (UAE)</option>
-                                    <option value="Asia/Singapore">Asia/Singapore</option>
-                                    <option value="Europe/London">Europe/London</option>
-                                    <option value="America/New_York">America/New_York</option>
-                                    <option value="UTC">UTC</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Current Password <span class="req-star">*</span></label>
-                                <input type="password" id="platformCurrentPassword" placeholder="Required to save platform settings" required>
-                            </div>
-                            <button type="submit" class="btn-submit">
-                                <i class="fa-solid fa-globe"></i> Save Platform Settings
-                            </button>
-                        </form>
-                    </div>
 
-                    <div class="settings-card" data-permission="manage_settings">
-                        <h4 class="settings-card-title"><i class="fa-solid fa-truck"></i> Delivery Settings</h4>
-                        <p class="settings-card-sub">Configure delivery charges and free-shipping rules applied at checkout.</p>
-                        <form id="deliverySettingsForm">
-                            <div class="form-group">
-                                <label for="settingsShopHomeCity">Shop Home City / District</label>
-                                <select id="settingsShopHomeCity" required></select>
-                                <small class="form-hint">Customer districts matching this city automatically receive the inside-city delivery rate.</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="settingsDeliveryInsideCity">Inside City Delivery Charge (৳)</label>
-                                <input type="number" id="settingsDeliveryInsideCity" min="0" step="1" placeholder="60" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="settingsDeliveryOutsideCity">Outside City Delivery Charge (৳)</label>
-                                <input type="number" id="settingsDeliveryOutsideCity" min="0" step="1" placeholder="120" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="settingsFreeShippingMinAmount">Minimum Order Amount for Free Shipping (৳)</label>
-                                <input type="number" id="settingsFreeShippingMinAmount" min="0" step="1" placeholder="1000" required>
-                                <small class="form-hint">Orders at or above this total get free delivery. Set to <strong>0</strong> for a global flat free-shipping offer. This is the same value as <strong>System Settings &rarr; Free Shipping Threshold</strong> — saving either card updates both.</small>
-                            </div>
-                            <button type="submit" class="btn-submit">
-                                <i class="fa-solid fa-floppy-disk"></i> Save Delivery Settings
-                            </button>
-                        </form>
-                    </div>
+                                <div class="twofa-methods twofa-methods--compact" id="twofaMethods">
+                                    <button type="button" class="twofa-method twofa-method--compact" data-method="email">
+                                        <span class="twofa-method-icon"><i class="fa-solid fa-envelope"></i></span>
+                                        <span class="twofa-method-body">
+                                            <strong>Email OTP</strong>
+                                            <small id="twofaEmailTarget">Code sent to your email</small>
+                                        </span>
+                                        <span class="twofa-badge" id="twofaEmailBadge" data-state="ready">Ready</span>
+                                        <span class="twofa-check"><i class="fa-solid fa-circle-check"></i></span>
+                                    </button>
 
-                    <div class="settings-card settings-card-wide twofa-card">
-                        <h4 class="settings-card-title"><i class="fa-solid fa-user-lock"></i> Two-Factor Authentication (2FA)</h4>
-                        <p class="settings-card-sub">Choose how you verify admin logins. We recommend Google Authenticator for the strongest protection.</p>
+                                    <button type="button" class="twofa-method twofa-method--compact" data-method="totp">
+                                        <span class="twofa-method-icon"><i class="fa-solid fa-key"></i></span>
+                                        <span class="twofa-method-body">
+                                            <strong>Google Authenticator</strong>
+                                            <small id="twofaTotpState">Not configured</small>
+                                        </span>
+                                        <span class="twofa-badge" id="twofaTotpBadge" data-state="off">Not set up</span>
+                                        <span class="twofa-check"><i class="fa-solid fa-circle-check"></i></span>
+                                    </button>
 
-                        <div class="twofa-methods" id="twofaMethods">
-                            <button type="button" class="twofa-method" data-method="email">
-                                <span class="twofa-method-icon"><i class="fa-solid fa-envelope"></i></span>
-                                <span class="twofa-method-body">
-                                    <strong>Email OTP</strong>
-                                    <small id="twofaEmailTarget">Code sent to your email</small>
-                                </span>
-                                <span class="twofa-badge" id="twofaEmailBadge" data-state="ready">Ready</span>
-                                <span class="twofa-check"><i class="fa-solid fa-circle-check"></i></span>
-                            </button>
-
-                            <button type="button" class="twofa-method" data-method="totp">
-                                <span class="twofa-method-icon"><i class="fa-solid fa-key"></i></span>
-                                <span class="twofa-method-body">
-                                    <strong>Google Authenticator</strong>
-                                    <small id="twofaTotpState">Not configured</small>
-                                </span>
-                                <span class="twofa-badge" id="twofaTotpBadge" data-state="off">Not set up</span>
-                                <span class="twofa-check"><i class="fa-solid fa-circle-check"></i></span>
-                            </button>
-
-                            <button type="button" class="twofa-method" data-method="sms">
-                                <span class="twofa-method-icon"><i class="fa-solid fa-comment-sms"></i></span>
-                                <span class="twofa-method-body">
-                                    <strong>SMS OTP</strong>
-                                    <small id="twofaSmsTarget">Add a phone number</small>
-                                </span>
-                                <span class="twofa-badge" id="twofaSmsBadge" data-state="off">Not set up</span>
-                                <span class="twofa-check"><i class="fa-solid fa-circle-check"></i></span>
-                            </button>
-                        </div>
-
-                        <!-- SMS phone number + test-code verification -->
-                        <div class="form-group twofa-phone-group" id="twofaPhoneGroup" style="display:none;">
-                            <label>Phone Number (E.164, e.g. +8801XXXXXXXXX)</label>
-                            <div class="twofa-inline">
-                                <input type="tel" id="twofaPhoneInput" placeholder="+8801712345678">
-                                <button type="button" class="btn-secondary" id="twofaSavePhoneBtn"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-                                <button type="button" class="btn-submit" id="twofaSendSmsBtn"><i class="fa-solid fa-paper-plane"></i> Send Test Code</button>
-                            </div>
-
-                            <div class="twofa-sms-verify" id="twofaSmsVerifyRow" style="display:none;">
-                                <p class="twofa-hint" id="twofaSmsHint">Enter the 6-digit code we sent to your phone.</p>
-                                <div class="twofa-inline">
-                                    <input type="text" inputmode="numeric" maxlength="6" id="twofaSmsCode" placeholder="123456">
-                                    <button type="button" class="btn-submit" id="twofaVerifySmsBtn"><i class="fa-solid fa-check"></i> Verify &amp; Activate SMS</button>
+                                    <button type="button" class="twofa-method twofa-method--compact" data-method="sms">
+                                        <span class="twofa-method-icon"><i class="fa-solid fa-comment-sms"></i></span>
+                                        <span class="twofa-method-body">
+                                            <strong>SMS OTP</strong>
+                                            <small id="twofaSmsTarget">Add a phone number</small>
+                                        </span>
+                                        <span class="twofa-badge" id="twofaSmsBadge" data-state="off">Not set up</span>
+                                        <span class="twofa-check"><i class="fa-solid fa-circle-check"></i></span>
+                                    </button>
                                 </div>
-                            </div>
-                        </div>
 
-                        <!-- Google Authenticator setup panel -->
-                        <div class="twofa-totp-panel" id="twofaTotpPanel" style="display:none;">
-                            <div class="twofa-totp-actions">
-                                <button type="button" class="btn-submit" id="twofaSetupTotpBtn"><i class="fa-solid fa-qrcode"></i> Set up Google Authenticator</button>
-                                <button type="button" class="btn-danger" id="twofaDisableTotpBtn" style="display:none;"><i class="fa-solid fa-ban"></i> Disable</button>
-                            </div>
-
-                            <div class="twofa-qr-wrap" id="twofaQrWrap" style="display:none;">
-                                <div class="twofa-qr-box">
-                                    <img id="twofaQrImg" alt="Scan this QR with Google Authenticator">
+                                <div class="form-group twofa-phone-group" id="twofaPhoneGroup" style="display:none;">
+                                    <label for="twofaPhoneInput">Phone Number (E.164, e.g. +8801XXXXXXXXX)</label>
+                                    <div class="twofa-inline twofa-inline--compact">
+                                        <input type="tel" id="twofaPhoneInput" class="saas-input" placeholder="+8801712345678">
+                                        <button type="button" class="btn-secondary btn-compact" id="twofaSavePhoneBtn"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+                                        <button type="button" class="btn-submit btn-compact" id="twofaSendSmsBtn"><i class="fa-solid fa-paper-plane"></i> Send Test</button>
+                                    </div>
+                                    <div class="twofa-sms-verify" id="twofaSmsVerifyRow" style="display:none;">
+                                        <p class="twofa-hint" id="twofaSmsHint">Enter the 6-digit code we sent to your phone.</p>
+                                        <div class="twofa-inline twofa-inline--compact">
+                                            <input type="text" inputmode="numeric" maxlength="6" id="twofaSmsCode" class="saas-input" placeholder="123456">
+                                            <button type="button" class="btn-submit btn-compact" id="twofaVerifySmsBtn"><i class="fa-solid fa-check"></i> Verify &amp; Activate</button>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="twofa-qr-info">
-                                    <p><strong>1.</strong> Open Google Authenticator → tap <em>＋</em> → <em>Scan a QR code</em>.</p>
-                                    <p><strong>2.</strong> Can't scan? Enter this key manually:</p>
-                                    <code class="twofa-manual-key" id="twofaManualKey">—</code>
-                                    <p><strong>3.</strong> Enter the 6-digit code shown in the app:</p>
-                                    <div class="twofa-inline">
-                                        <input type="text" inputmode="numeric" maxlength="6" id="twofaVerifyCode" placeholder="123456">
-                                        <button type="button" class="btn-submit" id="twofaVerifyTotpBtn"><i class="fa-solid fa-check"></i> Verify &amp; Activate</button>
+
+                                <div class="twofa-totp-panel" id="twofaTotpPanel" style="display:none;">
+                                    <div class="twofa-totp-actions">
+                                        <button type="button" class="btn-submit btn-compact" id="twofaSetupTotpBtn"><i class="fa-solid fa-qrcode"></i> Set up Google Authenticator</button>
+                                        <button type="button" class="btn-danger btn-compact" id="twofaDisableTotpBtn" style="display:none;"><i class="fa-solid fa-ban"></i> Disable</button>
+                                    </div>
+                                    <div class="twofa-qr-wrap" id="twofaQrWrap" style="display:none;">
+                                        <div class="twofa-qr-box">
+                                            <img id="twofaQrImg" alt="Scan this QR with Google Authenticator">
+                                        </div>
+                                        <div class="twofa-qr-info">
+                                            <p><strong>1.</strong> Open Google Authenticator → tap <em>＋</em> → <em>Scan a QR code</em>.</p>
+                                            <p><strong>2.</strong> Can't scan? Enter this key manually:</p>
+                                            <code class="twofa-manual-key" id="twofaManualKey">—</code>
+                                            <p><strong>3.</strong> Enter the 6-digit code shown in the app:</p>
+                                            <div class="twofa-inline twofa-inline--compact">
+                                                <input type="text" inputmode="numeric" maxlength="6" id="twofaVerifyCode" class="saas-input" placeholder="123456">
+                                                <button type="button" class="btn-submit btn-compact" id="twofaVerifyTotpBtn"><i class="fa-solid fa-check"></i> Verify &amp; Activate</button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+
                         </div>
                     </div>
 
-                    <div class="settings-card settings-card-wide" data-permission="manage_settings">
-                        <h4 class="settings-card-title"><i class="fa-solid fa-image"></i> Store Branding</h4>
-                        <form id="storeBrandingForm" enctype="multipart/form-data" novalidate>
-                        <div class="branding-upload-grid">
-                            <div class="branding-upload-box">
-                                <label>Store Logo</label>
-                                <div class="branding-preview" id="logoPreviewBox">
-                                    <img id="settingsLogoPreview" alt="Store logo preview" style="display:none;">
-                                    <div id="settingsLogoPlaceholder" class="store-brand-svg store-brand-svg--preview" aria-label="EOnlineBazar default logo">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 120" width="100%" height="100%" role="img" aria-hidden="true">
-                                            <defs>
-                                                <linearGradient id="eBazarGradSettings" x1="0%" y1="0%" x2="100%" y2="100%">
-                                                    <stop offset="0%" stop-color="#007bff" />
-                                                    <stop offset="100%" stop-color="#00d2ff" />
-                                                </linearGradient>
-                                            </defs>
-                                            <g transform="translate(10, 10)">
-                                                <path d="M45,35 L85,35 L90,95 C90,100 85,105 80,105 L50,105 C45,105 40,100 40,95 Z" fill="url(#eBazarGradSettings)" />
-                                                <path d="M53,35 C53,20 77,20 77,35" fill="none" stroke="#007bff" stroke-width="5" stroke-linecap="round" />
-                                                <path d="M60,55 L75,70 L65,75 L80,90" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
-                                            </g>
-                                            <text x="125" y="82" font-family="'Poppins', 'Segoe UI', sans-serif" font-size="52" font-weight="900" fill="url(#eBazarGradSettings)">E</text>
-                                            <text x="160" y="82" font-family="'Poppins', 'Segoe UI', sans-serif" font-size="45" font-weight="700" fill="#2d3748">Online<tspan fill="#007bff">Bazar</tspan></text>
-                                            <text x="165" y="105" font-family="'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#a0aec0" letter-spacing="4">YOUR PREMIUM STORE</text>
-                                        </svg>
+                    <!-- Tab 2: Store & Shipping Preferences -->
+                    <div class="admin-settings-panel" role="tabpanel" id="adminPanelStore" aria-labelledby="adminTabStore" data-panel="store" hidden>
+                        <div class="admin-settings-duo-grid">
+
+                            <div class="saas-settings-card" data-permission="manage_settings">
+                                <div class="saas-settings-card-header">
+                                    <h4><i class="fa-solid fa-store"></i> Store Information</h4>
+                                    <p class="settings-card-sub">Name, currency, and timezone shown across your storefront.</p>
+                                </div>
+                                <form id="platformSettingsForm" class="saas-settings-form">
+                                    <div class="saas-settings-card-body">
+                                        <div class="form-group">
+                                            <label for="settingsStoreName">Store Name</label>
+                                            <input type="text" id="settingsStoreName" placeholder="EonlineBazar">
+                                        </div>
+                                        <div class="form-row-custom">
+                                            <div class="form-group">
+                                                <label for="settingsCurrency">Currency Code</label>
+                                                <input type="text" id="settingsCurrency" placeholder="BDT" maxlength="6">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="settingsCurrencySymbol">Currency Symbol</label>
+                                                <input type="text" id="settingsCurrencySymbol" placeholder="৳" maxlength="4">
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="settingsTimezone">Timezone</label>
+                                            <select id="settingsTimezone">
+                                                <option value="Asia/Dhaka">Asia/Dhaka (Bangladesh)</option>
+                                                <option value="Asia/Riyadh">Asia/Riyadh (Saudi Arabia)</option>
+                                                <option value="Asia/Kolkata">Asia/Kolkata (India)</option>
+                                                <option value="Asia/Dubai">Asia/Dubai (UAE)</option>
+                                                <option value="Asia/Singapore">Asia/Singapore</option>
+                                                <option value="Europe/London">Europe/London</option>
+                                                <option value="America/New_York">America/New_York</option>
+                                                <option value="UTC">UTC</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="platformCurrentPassword">Current Password <span class="req-star">*</span></label>
+                                            <input type="password" id="platformCurrentPassword" placeholder="Required to save store preferences" required>
+                                        </div>
                                     </div>
-                                </div>
-                                <input type="file" id="settingsLogoInput" name="logo" accept="image/*" hidden>
-                                <button type="button" class="btn-secondary" onclick="document.getElementById('settingsLogoInput').click()">
-                                    <i class="fa-solid fa-upload"></i> Choose Logo
-                                </button>
+                                    <div class="saas-settings-card-footer">
+                                        <button type="submit" class="btn-submit saas-settings-save-btn">
+                                            <i class="fa-solid fa-globe"></i> Save Store Info
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
-                            <div class="branding-upload-box">
-                                <label>Favicon</label>
-                                <div class="branding-preview favicon-preview" id="faviconPreviewBox">
-                                    <img id="settingsFaviconPreview" alt="Favicon preview" style="display:none;">
-                                    <span id="settingsFaviconPlaceholder" class="branding-placeholder"><i class="fa-solid fa-star"></i> No favicon</span>
+
+                            <div class="saas-settings-card" data-permission="manage_settings">
+                                <div class="saas-settings-card-header">
+                                    <h4><i class="fa-solid fa-truck"></i> Delivery Rules</h4>
+                                    <p class="settings-card-sub">Delivery charges and free-shipping thresholds at checkout.</p>
                                 </div>
-                                <input type="file" id="settingsFaviconInput" name="favicon" accept="image/*" hidden>
-                                <button type="button" class="btn-secondary" onclick="document.getElementById('settingsFaviconInput').click()">
-                                    <i class="fa-solid fa-upload"></i> Choose Favicon
-                                </button>
+                                <form id="deliverySettingsForm" class="saas-settings-form">
+                                    <div class="saas-settings-card-body">
+                                        <div class="form-group">
+                                            <label for="settingsShopHomeCity">Shop Home City / District</label>
+                                            <select id="settingsShopHomeCity" required></select>
+                                            <small class="form-hint">Matching districts receive the inside-city delivery rate.</small>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="settingsDeliveryInsideCity">Inside City Charge (৳)</label>
+                                            <input type="number" id="settingsDeliveryInsideCity" min="0" step="1" placeholder="60" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="settingsDeliveryOutsideCity">Outside City Charge (৳)</label>
+                                            <input type="number" id="settingsDeliveryOutsideCity" min="0" step="1" placeholder="120" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="settingsFreeShippingMinAmount">Free Shipping Minimum (৳)</label>
+                                            <input type="number" id="settingsFreeShippingMinAmount" min="0" step="1" placeholder="1000" required>
+                                            <small class="form-hint">Set to <strong>0</strong> for global free shipping. Synced with <strong>System Settings → Free Shipping Threshold</strong>.</small>
+                                        </div>
+                                    </div>
+                                    <div class="saas-settings-card-footer">
+                                        <button type="submit" class="btn-submit saas-settings-save-btn">
+                                            <i class="fa-solid fa-floppy-disk"></i> Save Delivery Rules
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
+
                         </div>
-                        <p class="branding-hint"><i class="fa-solid fa-circle-info"></i> Pick a logo and/or favicon, preview it, then click <strong>Save Store Branding</strong> to publish it live across the platform.</p>
-                        <div class="branding-save-row">
-                            <button type="submit" id="saveBrandingBtn" class="btn-submit branding-save-btn">
-                                <i class="fa-solid fa-cloud-arrow-up"></i> Save Store Branding
-                            </button>
-                        </div>
-                        </form>
                     </div>
+
+                    <!-- Tab 3: Store Branding -->
+                    <div class="admin-settings-panel" role="tabpanel" id="adminPanelBranding" aria-labelledby="adminTabBranding" data-panel="branding" hidden>
+                        <div class="saas-settings-card" data-permission="manage_settings">
+                            <div class="saas-settings-card-header">
+                                <h4><i class="fa-solid fa-image"></i> Store Branding</h4>
+                                <p class="settings-card-sub">Drag and drop your logo and favicon, preview instantly, then publish live.</p>
+                            </div>
+
+                            <form id="storeBrandingForm" class="saas-settings-form" enctype="multipart/form-data" novalidate>
+                                <div class="saas-settings-card-body">
+                                    <div class="branding-drop-grid">
+                                        <div class="branding-upload-box">
+                                            <label for="settingsLogoInput">Store Logo</label>
+                                            <div class="branding-dropzone" id="logoPreviewBox" data-asset="logo" tabindex="0" role="button" aria-label="Upload store logo">
+                                                <div class="branding-dropzone-content">
+                                                    <img id="settingsLogoPreview" alt="Store logo preview" style="display:none;">
+                                                    <div id="settingsLogoPlaceholder" class="store-brand-svg store-brand-svg--preview" aria-label="EOnlineBazar default logo">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 120" width="100%" height="100%" role="img" aria-hidden="true">
+                                                            <defs>
+                                                                <linearGradient id="eBazarGradSettings" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                                    <stop offset="0%" stop-color="#007bff" />
+                                                                    <stop offset="100%" stop-color="#00d2ff" />
+                                                                </linearGradient>
+                                                            </defs>
+                                                            <g transform="translate(10, 10)">
+                                                                <path d="M45,35 L85,35 L90,95 C90,100 85,105 80,105 L50,105 C45,105 40,100 40,95 Z" fill="url(#eBazarGradSettings)" />
+                                                                <path d="M53,35 C53,20 77,20 77,35" fill="none" stroke="#007bff" stroke-width="5" stroke-linecap="round" />
+                                                                <path d="M60,55 L75,70 L65,75 L80,90" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+                                                            </g>
+                                                            <text x="125" y="82" font-family="'Poppins', 'Segoe UI', sans-serif" font-size="52" font-weight="900" fill="url(#eBazarGradSettings)">E</text>
+                                                            <text x="160" y="82" font-family="'Poppins', 'Segoe UI', sans-serif" font-size="45" font-weight="700" fill="#2d3748">Online<tspan fill="#007bff">Bazar</tspan></text>
+                                                            <text x="165" y="105" font-family="'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#a0aec0" letter-spacing="4">YOUR PREMIUM STORE</text>
+                                                        </svg>
+                                                    </div>
+                                                    <span class="branding-dropzone-hint"><i class="fa-solid fa-cloud-arrow-up"></i> Drag &amp; drop or click to upload</span>
+                                                </div>
+                                            </div>
+                                            <input type="file" id="settingsLogoInput" name="logo" accept="image/*" hidden>
+                                        </div>
+
+                                        <div class="branding-upload-box">
+                                            <label for="settingsFaviconInput">Favicon</label>
+                                            <div class="branding-dropzone branding-dropzone--favicon" id="faviconPreviewBox" data-asset="favicon" tabindex="0" role="button" aria-label="Upload favicon">
+                                                <div class="branding-dropzone-content">
+                                                    <img id="settingsFaviconPreview" alt="Favicon preview" style="display:none;">
+                                                    <span id="settingsFaviconPlaceholder" class="branding-placeholder"><i class="fa-solid fa-star"></i> No favicon</span>
+                                                    <span class="branding-dropzone-hint"><i class="fa-solid fa-cloud-arrow-up"></i> Drag &amp; drop or click</span>
+                                                </div>
+                                            </div>
+                                            <input type="file" id="settingsFaviconInput" name="favicon" accept="image/*" hidden>
+                                        </div>
+                                    </div>
+                                    <p class="branding-hint"><i class="fa-solid fa-circle-info"></i> Recommended: PNG or SVG logo (max height 120px) and square favicon (32×32 or 64×64).</p>
+                                </div>
+                                <div class="saas-settings-card-footer">
+                                    <button type="submit" id="saveBrandingBtn" class="btn-submit saas-settings-save-btn branding-save-btn">
+                                        <i class="fa-solid fa-cloud-arrow-up"></i> Save Store Branding
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
                 </div>
             </section>
 

@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-4.2.0-success)
+![Version](https://img.shields.io/badge/Version-4.3.0-success)
 ![RBAC](https://img.shields.io/badge/RBAC-Staff%20Management-6f42c1)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
@@ -28,6 +28,7 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v4.3.0](#-whats-new--v430-super-admin-uiux-overhaul)
 - [What's New — v4.2.0](#-whats-new--v420-super-admin-table--variant-management-engine)
 - [What's New — v4.1.0](#-whats-new--v410-wallet-checkout-vip-segmentation--flash-sale-engine)
 - [What's New — v4.0.0](#-whats-new--v400-automated-background-whatsapp-alerts--staff-manual-order-engine)
@@ -101,14 +102,16 @@ Eight things set it apart:
 
 ## 🆕 What's New — v4.3.0 (Super Admin UI/UX Overhaul)
 
-This release completes the **Super Admin operational UX layer** — modular **System Settings** cards with isolated saves, premium SaaS-grade form styling, and finalized **Manage Products** table ergonomics (opaque sticky headers + pagination retention across edit workflows).
+This release completes the **Super Admin operational UX layer** — a responsive **Admin Settings tabbed SaaS shell** (Profile & Security, Store & Shipping, Store Branding), modular **System Settings** cards with isolated saves, premium form styling with balanced card layouts, and finalized **Manage Products** table matrix standards (fully opaque sticky headers + `?page=X` pagination retention across edit workflows).
 
 | Capability | Highlights |
 |------------|------------|
+| **🗂️ Admin Settings Tabbed SaaS Architecture** | Replaced the monolithic settings view with a **responsive tabbed navigation system** — **Profile & Security**, **Store & Shipping Preferences**, and **Store Branding** — each panel uses uniform `.saas-settings-card` padding, `rounded-xl` borders, and **isolated section save buttons** (Save Profile, Save Store Info, Save Delivery Rules, Save Store Branding); Store & Branding tabs RBAC-gated via `manage_settings`. |
+| **🔐 Compact 2FA Status Badges** | Two-Factor Authentication controls redesigned into a **horizontal 3-column method grid** (Email OTP · Google Authenticator · SMS OTP) with compact row cards and inline **status badges** (`Ready`, `Not set up`, active-state checkmarks) — eliminates prior vertical layout imbalance across security cards. |
 | **⚙️ System Settings Re-architecture** | Rebranded **Master Settings → System Settings** (Shopify/SaaS-aligned); global configs split into **7 independent UI cards** — Announcement & Shipping, SMS Gateway, Courier Booking, WhatsApp, Flash Sale, VIP Segmentation, and Rewards & Refunds — each with a dedicated **Save [Section]** button and targeted AJAX `POST /api/admin/master-settings/update` partial payload (no full-page reload). |
 | **🎨 Premium Settings Card UI** | Elevated white cards (`rounded-xl`, subtle shadow, slate borders), **color-coded accent icon headers** (blue / teal / amber / green / orange / indigo / purple), crisp input typography with **focus-ring states**, per-section loading spinners, and **section-specific toast notifications** (e.g. *"SMS gateway settings updated successfully!"*). |
-| **📌 Finalized Sticky Table Headers** | **Manage Products** main table lockdown complete — every `<th>` (including **Actions**) uses **`position: sticky; top: 0; z-index: 20`** with solid **`#ffffff`** opaque backdrops inside the bounded `.products-table-scroll` container; no header bleed-through during deep vertical scroll. |
-| **📄 Pagination Index Retention** | Active list index preserved across product **edit → save → AJAX re-render** cycles — `?page=X` (plus search/filter params) synced to URL + `sessionStorage` so admins never snap back to page 1 after updating a row mid-catalog. |
+| **📌 Table & Matrix Standards — Sticky Headers** | **Manage Products** catalog table lockdown complete — every `<th>` (including **Actions**) uses **`position: sticky; top: 0; z-index: 20`** with solid **`#ffffff`** opaque backdrops inside the bounded `.products-table-scroll` container; variant matrix modal tables retain sticky combination headers — no header bleed-through during deep vertical scroll. |
+| **📄 Table & Matrix Standards — Page Index Persistence** | Active list index preserved across product **edit → save → AJAX re-render** cycles — **`?page=X`** (plus search/filter params) synced to URL + `sessionStorage` via `saveProductPaginationState()` / `syncProductListUrlState()` so admins never snap back to page 1 after updating a row mid-catalog. |
 
 > 📌 Admin UI ships in **`client/admin.html`**, **`client/js/admin.js`**, and **`client/css/admin.css`** (static Express-served SPA). See [Admin & Platform Settings](#-admin--platform-settings) and the [Changelog](#-changelog) entry for `v4.3.0`.
 
@@ -2516,8 +2519,9 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 - Developer-friendly `GEO_ALLOW_PRIVATE` bypass for localhost / LAN.
 
 ### 🎨 Custom Store Branding & Platform Settings
-- **Live server-side upload** of **Store Logo** and **Favicon** to Cloudinary with **instant dynamic previews** (old assets auto-purged).
-- **Custom currency formatting** — configure a Currency **Code** (e.g. `BDT`) and **Symbol** (e.g. `৳`) applied across all admin price displays.
+- **Tabbed Admin Settings shell** *(v4.3.0)* — **Store Branding**, store info, delivery rules, and profile/security are organized under responsive tabs (**Profile & Security** · **Store & Shipping Preferences** · **Store Branding**) with isolated per-section save buttons.
+- **Live server-side upload** of **Store Logo** and **Favicon** to Cloudinary with **instant dynamic previews** (old assets auto-purged) — drag-and-drop zones in the **Store Branding** tab.
+- **Custom currency formatting** — configure a Currency **Code** (e.g. `BDT`) and **Symbol** (e.g. `৳`) applied across all admin price displays — editable in **Store & Shipping Preferences**.
 - **Timezone Synchronization** — the admin dashboard header's **live digital clock** re-renders in the selected timezone in real time.
 
 ### 🔒 Session & Audit Hardening
@@ -2581,11 +2585,24 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 - **Security & Audit Dashboard** — login history, failed/blocked attempts, and a full security event trail.
 
 ### ⚙️ Admin & Platform Settings
-- **Custom Store Branding** — live server-side Logo & Favicon upload with instant dynamic previews (Cloudinary).
-- **Custom Currency Formatting** — Currency Code (`BDT`) & Symbol (`৳`) applied to every admin price column.
-- **Timezone Synchronization** — dynamically updates the admin dashboard header's **live digital clock**.
-- **Delivery Charge Control** — configure Shop Home City, inside/outside rates, and free-shipping threshold from the admin settings panel (synced with **System Settings**).
-- **⚙️ System Settings (Modular Store Configurations)** — rebranded from *Master Settings* to align with Shopify/SaaS conventions; **seven independent configuration cards** with section-level save actions:
+
+#### 🗂️ Admin Settings — Tabbed SaaS Architecture *(v4.3.0)*
+
+The **Admin Settings** view (`view-settings`) is rebuilt as a responsive, Shopify/SaaS-style tabbed shell (`.admin-settings-shell`) with ARIA-compliant tab panels and permission-aware navigation:
+
+| Tab | Scope | Isolated Save Actions |
+|-----|-------|----------------------|
+| **Profile & Security** | Admin profile (display name, username, password), **Two-Factor Authentication** manager | **Save Profile** |
+| **Store & Shipping Preferences** | Store name, currency code/symbol, timezone, delivery rules (home city, inside/outside rates, free-shipping threshold) | **Save Store Info** · **Save Delivery Rules** |
+| **Store Branding** | Logo & favicon drag-and-drop upload with live Cloudinary previews | **Save Store Branding** |
+
+- **Uniform card layout** — every section uses `.saas-settings-card` with consistent padding, `rounded-xl` borders, slate elevation, and a **dedicated footer save button** per form (no monolithic submit).
+- **Compact 2FA controls** — Email OTP, Google Authenticator (TOTP), and SMS OTP render as a **horizontal 3-column grid** (`.twofa-methods--compact`) with inline **status badges** (`Ready`, `Not set up`, active checkmarks) instead of stacked vertical cards — fixes prior layout imbalance across security panels.
+- **RBAC gating** — **Store & Shipping** and **Store Branding** tabs require `manage_settings`; Profile & Security remains accessible to all authenticated admins.
+
+#### ⚙️ System Settings (Modular Store Configurations)
+
+- **⚙️ System Settings** — rebranded from *Master Settings* to align with Shopify/SaaS conventions; **seven independent configuration cards** with section-level save actions:
   - **Announcement & Free Shipping** — dashboard banner copy, free-shipping threshold, visibility toggle; mirrors into Delivery Settings on save.
   - **SMS Gateway** — provider, API key, sender ID, and notification toggle (MongoDB overrides `.env`).
   - **Courier Booking** — Steadfast / Pathao / RedX credentials for one-click Live Orders dispatch.
@@ -2597,11 +2614,13 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 - **📩 Customer Notification Engine** — admin-configurable SMS gateway (Greenweb BD, BulkSMS BD, AlphaSMS, Generic API) with MongoDB-stored credentials; automated order confirmation emails via Nodemailer with fail-safe async dispatch.
 - **🚚 Courier Parcel Booking** — Steadfast API integration from Live Orders; MongoDB-stored API key/secret; atomic booking lock; tracking ID + consignment ID saved on the order document.
 - **Category Cashback Overrides** — per-category custom cashback percentages with seamless fallback to global defaults.
-- **Account & Profile** — username/password change (current-password gated), display name, store name, and admin avatar upload.
+
+> 📌 **Store Branding**, **currency/timezone**, and **delivery rules** now live under the tabbed **Admin Settings** panels above; **System Settings** covers operational modules (SMS, courier, WhatsApp, flash sale, VIP, rewards).
 
 ### 🖥️ Super Admin Panel (`/admin`)
 - **📊 Dashboard Overview** — **Sales & Business Analytics** (revenue daily/monthly/all-time, order counters, Chart.js sales trend + top-5 product charts) plus **Inventory Alerts** widget with inline stock updates; **Customer Insights** metrics (total/verified/pending/blocked users) and a **6-month registration growth chart** (Chart.js). *(Requires `view_analytics` for staff.)*
 - **👥 Customer Management** — View, edit, block, suspend, reactivate; order-count badges; per-customer order history modal. *(Requires `manage_customers`.)*
+- **🗂️ Admin Settings** — responsive **tabbed SaaS shell** (Profile & Security · Store & Shipping Preferences · Store Branding) with uniform card padding, isolated per-section saves, and compact horizontal **2FA status badges** *(v4.3.0)*.
 - **⚙️ System Settings** — modular configuration hub for shipping, notifications, loyalty economics, courier/WhatsApp integrations, flash sales, and VIP thresholds; independent card saves with toast feedback *(v4.3.0)*.
 - **📦 Live Orders** — Premium sticky-header table with compact spacing, horizontal action toolbar (**Send to Courier**, Invoice, Delete), **Create Manual Order** POS modal (v4.0.0), distinct customer/admin cancellation badges, return approval, safe refund undo, reason visibility, invoice view/print, search, filter, and pagination. *(Requires `manage_orders`.)*
 - **📱 WhatsApp Alert Badge** — Header badge surfaces pending wa.me fallback alerts when the background gateway cannot auto-deliver (v4.0.0).
@@ -3291,6 +3310,19 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 
 ### `v4.3.0` — Super Admin UI/UX Overhaul
 
+**🗂️ Admin Settings Tabbed SaaS Architecture**
+- Converted the monolithic **Admin Settings** view into a **responsive tabbed navigation system** (`.admin-settings-tabs` / `.admin-settings-panel`) with three ARIA-compliant panels:
+  - **Profile & Security** — Admin Profile form + Two-Factor Authentication manager (stacked `.admin-settings-stack`).
+  - **Store & Shipping Preferences** — Store Information + Delivery Rules in a responsive duo grid (`.admin-settings-duo-grid`).
+  - **Store Branding** — Logo/favicon drag-and-drop upload with live Cloudinary previews.
+- New `.saas-settings-card` component system — uniform padding, `rounded-xl` borders, slate elevation, color-coded headers, and **isolated footer save buttons** per form (`Save Profile`, `Save Store Info`, `Save Delivery Rules`, `Save Store Branding`) — eliminates vertical layout imbalance from the prior single-page settings stack.
+- `setupAdminSettingsTabs()` in `client/js/admin.js` wires tab activation, `aria-selected` / `hidden` panel toggling, and RBAC visibility (`data-permission="manage_settings"` on Store & Branding tabs).
+
+**🔐 Compact Two-Factor Authentication (2FA) Controls**
+- Redesigned 2FA method selector into a **horizontal 3-column compact grid** (`.twofa-methods--compact`) — Email OTP, Google Authenticator (TOTP), and SMS OTP render as equal-height row cards.
+- Each method exposes an inline **horizontal status badge** (`.twofa-badge` — `Ready`, `Not set up`, active-state indicators) plus a corner checkmark on the selected method — replaces the previous vertically stacked card layout that caused uneven section heights.
+- TOTP QR setup, SMS phone verify, and compact action buttons (`.btn-compact`, `.twofa-inline--compact`) remain nested inside the active method panel without breaking the balanced card grid.
+
 **⚙️ System Settings Re-architecture**
 - Rebranded sidebar nav, page header, and view metadata from **Master Settings** to **System Settings** — aligned with Shopify/SaaS e-commerce admin conventions.
 - Replaced the monolithic unified form with **seven modular `<form>` cards**, each scoped to a single configuration domain:
@@ -3303,10 +3335,15 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 - New `.system-settings-card` component system in `client/css/admin.css` — white elevated cards (`rounded-xl`, `border-slate-200`, `shadow-sm`), color-coded gradient icon badges (blue / teal / amber / green / orange / indigo / purple), refined label typography, placeholder styling, and **`focus:ring-2`-equivalent focus states** on inputs, selects, and textareas.
 - Live preview panels retained for announcement, SMS, courier, WhatsApp, flash sale, and rewards economics.
 
-**📌 Table & Variant Matrix Finalizations**
-- **Manage Products** sticky header layout finalized — every `<th>` (checkbox, sortable columns, **Actions**) applies **`position: sticky; top: 0; z-index: 20`** with solid **`#ffffff`** opaque backdrop inside `.products-table-scroll`; Actions header remains `display: table-cell` (flex scoped to `td.col-actions` only).
-- **Pagination index retention** confirmed across product edit/save/delete — active **`?page=X`** (and search/filter query params) preserved via `saveProductPaginationState()`, `syncProductListUrlState()`, and post-AJAX `filterAndRenderProducts(false)` so catalog operators stay on the current page after saving edits.
+**📌 System Settings & Table Matrix Standards**
+
+*Sticky table headers (product catalogs)*
+- **Manage Products** sticky header layout finalized across the full catalog matrix — every `<th>` (checkbox, sortable columns, **Actions**) applies **`position: sticky; top: 0; z-index: 20`** with a solid **`#ffffff`** fully opaque backdrop inside `.products-table-scroll`; Actions header remains `display: table-cell` (flex scoped to `td.col-actions` only) — no header bleed-through during deep vertical scroll.
 - Variant Matrix modal tables retain sticky combination headers inside scrollable `.variant-matrix-wrap` panels.
+
+*Saved page index persistence (`?page=X`)*
+- **Pagination index retention** confirmed across product **edit → save → delete** workflows — active **`?page=X`** (and search/filter query params) preserved via `saveProductPaginationState()`, `syncProductListUrlState()`, and post-AJAX `filterAndRenderProducts(false)` so catalog operators stay on the current page after saving edits instead of snapping back to page 1.
+- State mirrored to URL query params and `sessionStorage` for sidebar navigation recovery and deep-link consistency.
 
 **Key files:** `client/admin.html`, `client/js/admin.js`, `client/css/admin.css`, `controllers/masterSettingsController.js`
 
