@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-4.3.0-success)
+![Version](https://img.shields.io/badge/Version-4.3.1-success)
 ![RBAC](https://img.shields.io/badge/RBAC-Staff%20Management-6f42c1)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
@@ -28,6 +28,7 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v4.3.1](#-whats-new--v431-clean-admin-routing--url-optimization)
 - [What's New — v4.3.0](#-whats-new--v430-super-admin-uiux-overhaul)
 - [What's New — v4.2.0](#-whats-new--v420-super-admin-table--variant-management-engine)
 - [What's New — v4.1.0](#-whats-new--v410-wallet-checkout-vip-segmentation--flash-sale-engine)
@@ -100,9 +101,24 @@ Eight things set it apart:
 
 ---
 
+## 🆕 What's New — v4.3.1 (Clean Admin Routing & URL Optimization)
+
+This patch cleans up **Super Admin SPA routing** — the browser address bar stays pristine at `/admin`, reloads default to **Dashboard Overview**, and **Manage Products** pagination survives edit/save cycles via **in-memory + `sessionStorage`** (no query-string pollution).
+
+| Capability | Highlights |
+|------------|------------|
+| **🧭 Clean Admin URL Routing** | Retired `?section=manage-products`, `?page=X`, and filter query params from the address bar; `ensureCleanAdminUrl()` strips legacy bookmarks on boot via `history.replaceState()` — URL locked to `/admin` (mirrors the `/profile` clean-URL pattern). |
+| **📊 Default Reload → Overview** | F5 / hard refresh on `/admin` always lands on the **Dashboard Overview** tab; removed deep-link section boot logic from `DOMContentLoaded`. |
+| **📄 Session-Based Pagination Preservation** | `saveProductPaginationState()` / `readProductListSessionState()` / `persistProductListSessionState()` in `client/js/admin.js` preserve active page, filters, and sort in **`sessionStorage`** (`eob_admin_products_pagination`) + in-memory `savedProductPageBeforeAction` — edit → save → AJAX re-render cycles stay on the current catalog page without mutating the URL. |
+| **🗂️ Tabbed Admin Settings & Variant Matrix** *(v4.3.0)* | Modular **Admin Settings** tab shell (Profile & Security · Store & Shipping · Store Branding) and **System Settings** card grid with isolated per-section saves; **Manage Products** + Variant Matrix modals use **fully opaque sticky `<th>` headers** (`position: sticky; top: 0; z-index: 20`) inside scroll containers. |
+
+> 📌 Implemented in **`client/js/admin.js`** (`ensureCleanAdminUrl`, `persistProductListSessionState`, `readProductListSessionState`). See [Clean Admin Routing & Navigation Architecture](#-clean-admin-routing--navigation-architecture-v431) under the Super Admin Panel and the [Changelog](#-changelog) entry for `v4.3.1`.
+
+---
+
 ## 🆕 What's New — v4.3.0 (Super Admin UI/UX Overhaul)
 
-This release completes the **Super Admin operational UX layer** — a responsive **Admin Settings tabbed SaaS shell** (Profile & Security, Store & Shipping, Store Branding), modular **System Settings** cards with isolated saves, premium form styling with balanced card layouts, and finalized **Manage Products** table matrix standards (fully opaque sticky headers + `?page=X` pagination retention across edit workflows).
+This release completes the **Super Admin operational UX layer** — a responsive **Admin Settings tabbed SaaS shell** (Profile & Security, Store & Shipping, Store Branding), modular **System Settings** cards with isolated saves, premium form styling with balanced card layouts, and finalized **Manage Products** table matrix standards (fully opaque sticky headers + session-based pagination retention across edit workflows). **v4.3.1** adds pristine `/admin` URL routing with Overview-first reload behavior.
 
 | Capability | Highlights |
 |------------|------------|
@@ -111,7 +127,7 @@ This release completes the **Super Admin operational UX layer** — a responsive
 | **⚙️ System Settings Re-architecture** | Rebranded **Master Settings → System Settings** (Shopify/SaaS-aligned); global configs split into **7 independent UI cards** — Announcement & Shipping, SMS Gateway, Courier Booking, WhatsApp, Flash Sale, VIP Segmentation, and Rewards & Refunds — each with a dedicated **Save [Section]** button and targeted AJAX `POST /api/admin/master-settings/update` partial payload (no full-page reload). |
 | **🎨 Premium Settings Card UI** | Elevated white cards (`rounded-xl`, subtle shadow, slate borders), **color-coded accent icon headers** (blue / teal / amber / green / orange / indigo / purple), crisp input typography with **focus-ring states**, per-section loading spinners, and **section-specific toast notifications** (e.g. *"SMS gateway settings updated successfully!"*). |
 | **📌 Table & Matrix Standards — Sticky Headers** | **Manage Products** catalog table lockdown complete — every `<th>` (including **Actions**) uses **`position: sticky; top: 0; z-index: 20`** with solid **`#ffffff`** opaque backdrops inside the bounded `.products-table-scroll` container; variant matrix modal tables retain sticky combination headers — no header bleed-through during deep vertical scroll. |
-| **📄 Table & Matrix Standards — Page Index Persistence** | Active list index preserved across product **edit → save → AJAX re-render** cycles — **`?page=X`** (plus search/filter params) synced to URL + `sessionStorage` via `saveProductPaginationState()` / `syncProductListUrlState()` so admins never snap back to page 1 after updating a row mid-catalog. |
+| **📄 Table & Matrix Standards — Page Index Persistence** | Active list index preserved across product **edit → save → AJAX re-render** cycles via **`sessionStorage`** + in-memory state (`saveProductPaginationState()` / `persistProductListSessionState()`) — admins never snap back to page 1 after updating a row mid-catalog; URL stays clean at `/admin` *(v4.3.1)*. |
 
 > 📌 Admin UI ships in **`client/admin.html`**, **`client/js/admin.js`**, and **`client/css/admin.css`** (static Express-served SPA). See [Admin & Platform Settings](#-admin--platform-settings) and the [Changelog](#-changelog) entry for `v4.3.0`.
 
@@ -127,7 +143,7 @@ This release finalizes the **Super Admin catalog operations layer** — a master
 | **🧩 Dynamic Variant Matrix System** | Per-variant **Selling Price** and **Buying Price** inputs; dynamic SKU auto-generation (`[ID]-[COLOR]-[SIZE]`); smart product **image URL auto-fill** across generated rows; Edit Product modal re-hydration without matrix reset. |
 | **🖥️ Responsive Matrix Grid UI** | Strictly aligned, bordered combination table with full text visibility for long labels (`Color: Navy Blue \| Size: XL`); centered headers and numeric fields; sticky matrix headers inside scrollable modal panels. |
 | **💰 Multi-Pricing & WAC Accounting** | **Manage Products** list shows starting **minimum Sell Price** and **Buy Price** for variant products; backend **Weighted Average Cost (WAC)** retained for Finance dashboard profit margin analytics and inventory valuation. |
-| **📄 Pagination State Preservation** | Active page number (and filter query params like `?page=2`) persist across edit/save/delete cycles — AJAX updates re-render the table without resetting to page 1; state synced to URL + `sessionStorage`. |
+| **📄 Pagination State Preservation** | Active page number and filter state persist across edit/save/delete cycles — AJAX updates re-render the table without resetting to page 1; state held in **`sessionStorage`** + in-memory helpers *(v4.3.1 — no URL query params)*. |
 | **📌 Opaque Sticky Table Headers** | Manage Products main table uses `position: sticky; top: 0; z-index: 20` on **every `<th>`** — including **Actions** — with solid `#ffffff` backgrounds inside a height-constrained `overflow-y: auto` scroll container. |
 
 > 📌 See [Multi-Attribute Combination Matrix & Dynamic Stock Engine](#-multi-attribute-combination-matrix--dynamic-stock-engine) and [Buying Price & Profit Model](#-buying-price--profit-model) for schema fields, admin workflow, WAC logic, pagination helpers, and key files. Admin UI is implemented in **`client/admin.html`**, **`client/js/admin.js`**, and **`client/css/admin.css`** (static Express-served SPA — not EJS views).
@@ -1038,9 +1054,9 @@ Enterprise-grade variant inventory for the catalog admin and product detail stor
 - **Sticky matrix headers** — combination tables inside Add/Edit Product modals use `position: sticky; top: 0; z-index: 10` with solid `#f9fafb` backgrounds inside scrollable `.variant-matrix-wrap` panels.
 - **Automatic total stock aggregation** — when `hasVariants === true`, product-level **`stock`** and **`stockQuantity`** are computed as the **sum of all combination stocks** on create/update (admin Stock Qty field becomes read-only with live total).
 
-#### Super Admin Manage Products Table UX (v4.2.0)
+#### Super Admin Manage Products Table UX (v4.2.0 · routing refined v4.3.1)
 - **Persistent pagination state** — `saveProductPaginationState()` / `restoreProductPaginationState()` in `client/js/admin.js` capture the active page before edit/save; post-AJAX table refresh calls `filterAndRenderProducts(false)` so admins stay on page 2 (or current page) instead of resetting to page 1.
-- **URL + session sync** — query params (`?section=manage-products&page=2&search=…`) and `sessionStorage` mirror active pagination and filter state for deep-link and sidebar navigation recovery.
+- **Session-based state sync** — `readProductListSessionState()` / `persistProductListSessionState()` mirror active pagination and filter state in **`sessionStorage`** (`eob_admin_products_pagination`) for sidebar navigation recovery within the same browser session — the address bar remains `/admin` with no query pollution *(v4.3.1)*.
 - **Scrollable product table container** — `.products-table-scroll` wraps `#productsDataTable` with `max-height: min(68vh, 720px)`, `overflow-y: auto`, and `overflow-x: auto` for reliable vertical scrolling.
 - **Fully opaque sticky headers** — every `<th>` (checkbox, sortable columns, **Actions**) uses `position: sticky; top: 0; z-index: 20` with solid `#ffffff` background and bottom box-shadow; `display: flex` is scoped to `td.col-actions` only so the Actions header remains a proper table cell.
 
@@ -1118,7 +1134,7 @@ flowchart LR
 | `controllers/orderController.js` | Exact combination stock decrement on order placement |
 | `utils/cartMergeService.js` | `selectedVariant`-aware cart line normalization |
 | `client/admin.html` | Manage Products scroll wrapper, variant matrix tables, Edit Product modal shell |
-| `client/js/admin.js` | Matrix generator, dynamic SKU, image auto-fill, edit re-hydration, pagination state preservation (`saveProductPaginationState`, `syncProductListUrlState`) |
+| `client/js/admin.js` | Matrix generator, dynamic SKU, image auto-fill, edit re-hydration, clean-URL admin routing, session-based pagination (`saveProductPaginationState`, `persistProductListSessionState`) |
 | `client/css/admin.css` | Bordered variant matrix grid, Manage Products sticky headers (`z-index: 20`), scroll container styles |
 | `client/product-details.html` | Variant selector shell, SKU meta bar, Add to Cart actions |
 | `client/js/product-details.js` | Smart matrix listener, live price/stock/SKU sync, cart item builder |
@@ -2618,13 +2634,35 @@ The **Admin Settings** view (`view-settings`) is rebuilt as a responsive, Shopif
 > 📌 **Store Branding**, **currency/timezone**, and **delivery rules** now live under the tabbed **Admin Settings** panels above; **System Settings** covers operational modules (SMS, courier, WhatsApp, flash sale, VIP, rewards).
 
 ### 🖥️ Super Admin Panel (`/admin`)
+
+#### 🧭 Clean Admin Routing & Navigation Architecture *(v4.3.1)*
+
+The admin SPA (`client/admin.html` + `client/js/admin.js`) uses **in-panel sidebar navigation** — not URL query parameters — to switch between Dashboard sections. Routing conventions align with standard SaaS admin dashboards and the existing `/profile` clean-URL pattern.
+
+| Behavior | Implementation |
+|----------|----------------|
+| **Pristine address bar** | Browser URL stays strictly **`/admin`** — no `?section=`, `?page=`, or filter query strings appended during navigation, pagination, or product edit/save cycles. |
+| **Legacy URL cleanup** | `ensureCleanAdminUrl()` runs on `DOMContentLoaded` and strips any bookmarked query params via `history.replaceState({}, document.title, window.location.pathname)`. |
+| **Reload → Overview** | F5 / hard refresh on `/admin` always loads the **Dashboard Overview** tab first (HTML default + no URL-based section boot); deep-link section restoration removed from init. |
+| **Pagination without URL pollution** | Manage Products page index, filters, and sort persist in **`sessionStorage`** (`eob_admin_products_pagination`) and in-memory (`savedProductPageBeforeAction`); `saveProductPaginationState()` before edit/save/delete + `filterAndRenderProducts(false)` after AJAX keep operators on the same catalog page. |
+| **Sidebar re-entry** | Navigating back to **Manage Products** within the same browser session restores the last page/filters from `sessionStorage` via `readProductListSessionState()` — without touching the address bar. |
+
+#### 🗂️ Tabbed Admin Settings & Variant Matrix *(v4.3.0)*
+
+| Surface | Navigation & UX |
+|---------|-----------------|
+| **Admin Settings** (`view-settings`) | Responsive **tabbed SaaS shell** — **Profile & Security** · **Store & Shipping Preferences** · **Store Branding** — each panel uses `.saas-settings-card` layout with **isolated per-section save buttons**; Store tabs RBAC-gated via `manage_settings`. |
+| **System Settings** (`view-master-settings`) | **Seven modular configuration cards** (Announcement, SMS, Courier, WhatsApp, Flash Sale, VIP, Rewards) — each card POSTs an isolated partial payload to `POST /api/admin/master-settings/update` with its own **Save [Section]** button. |
+| **Manage Products table** | Bounded `.products-table-scroll` container with **fully opaque sticky headers** on every `<th>` — including **Actions** — using **`position: sticky; top: 0; z-index: 20`** and solid `#ffffff` backdrops; no header bleed-through during deep vertical scroll. |
+| **Variant Matrix modals** | Add/Edit Product combination tables retain **sticky matrix headers** inside scrollable `.variant-matrix-wrap` panels for bulk SKU entry at scale. |
+
 - **📊 Dashboard Overview** — **Sales & Business Analytics** (revenue daily/monthly/all-time, order counters, Chart.js sales trend + top-5 product charts) plus **Inventory Alerts** widget with inline stock updates; **Customer Insights** metrics (total/verified/pending/blocked users) and a **6-month registration growth chart** (Chart.js). *(Requires `view_analytics` for staff.)*
 - **👥 Customer Management** — View, edit, block, suspend, reactivate; order-count badges; per-customer order history modal. *(Requires `manage_customers`.)*
 - **🗂️ Admin Settings** — responsive **tabbed SaaS shell** (Profile & Security · Store & Shipping Preferences · Store Branding) with uniform card padding, isolated per-section saves, and compact horizontal **2FA status badges** *(v4.3.0)*.
 - **⚙️ System Settings** — modular configuration hub for shipping, notifications, loyalty economics, courier/WhatsApp integrations, flash sales, and VIP thresholds; independent card saves with toast feedback *(v4.3.0)*.
 - **📦 Live Orders** — Premium sticky-header table with compact spacing, horizontal action toolbar (**Send to Courier**, Invoice, Delete), **Create Manual Order** POS modal (v4.0.0), distinct customer/admin cancellation badges, return approval, safe refund undo, reason visibility, invoice view/print, search, filter, and pagination. *(Requires `manage_orders`.)*
 - **📱 WhatsApp Alert Badge** — Header badge surfaces pending wa.me fallback alerts when the background gateway cannot auto-deliver (v4.0.0).
-- **🛍️ Product CRUD & Variant Matrix** — Add/edit with images, per-variant buying/selling price, live profit preview, **Simple Product / Variant Matrix** modes with **Attribute Library auto-fill**, dynamic SKU generation, bordered matrix grid with sticky modal headers, **pagination index retention (`?page=X`)** across edit/save workflows, **fully opaque sticky table headers** (`sticky top-0 z-20`), bulk delete, CSV export, and print-ready tables. *(Requires `manage_inventory`.)*
+- **🛍️ Product CRUD & Variant Matrix** — Add/edit with images, per-variant buying/selling price, live profit preview, **Simple Product / Variant Matrix** modes with **Attribute Library auto-fill**, dynamic SKU generation, bordered matrix grid with sticky modal headers, **session-based pagination retention** across edit/save workflows *(v4.3.1)*, **fully opaque sticky table headers** (`sticky top-0 z-20`), bulk delete, CSV export, and print-ready tables. *(Requires `manage_inventory`.)*
 - **👤 Staff Management** — Create, permission-assign, block, reset password, and delete staff accounts with a dynamic permission matrix. *(Super Admin only.)*
 - **🔔 Professional UX** — SweetAlert2 toasts + modal confirmations, asynchronous DOM re-rendering (instant UI sync, no manual refresh), permission-aware sidebar gating.
 
@@ -3308,6 +3346,26 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 
 ## 📜 Changelog
 
+### `v4.3.1` — Clean Admin Routing & URL Optimization
+
+**🧭 Clean Admin Routing & Navigation Architecture**
+- Removed URL query pollution from the Super Admin SPA — the address bar no longer appends `?section=manage-products`, `?page=X`, or filter params during navigation, pagination, or product edit/save cycles.
+- Added **`ensureCleanAdminUrl()`** in `client/js/admin.js` — strips legacy query strings and hashes on boot via `history.replaceState()` so `/admin` stays pristine (aligned with the `/profile` clean-URL pattern).
+- Standardized **F5 reload → Dashboard Overview** — removed `DOMContentLoaded` deep-link boot logic that previously restored Manage Products from `?section=`; refresh always lands on the default Overview tab.
+- Refactored **Manage Products pagination preservation** to **sessionStorage-only**:
+  - **`readProductListSessionState()`** — restores page, filters, and sort from `sessionStorage` when entering Manage Products.
+  - **`persistProductListSessionState()`** — writes active catalog state while Manage Products is visible.
+  - **`saveProductPaginationState()`** — captures page + filters before edit/save/delete; in-memory `savedProductPageBeforeAction` bridges modal workflows.
+  - Post-AJAX **`filterAndRenderProducts(false)`** retains catalog depth without URL mutation.
+- Retired **`syncProductListUrlState()`** and URL-based **`readProductListUrlState()`**.
+
+**🗂️ Tabbed Admin Settings & Variant Matrix** *(carried from v4.3.0)*
+- **Admin Settings** — modular tabbed shell (Profile & Security · Store & Shipping Preferences · Store Branding) with `.saas-settings-card` panels and isolated per-section save buttons.
+- **System Settings** — seven independent configuration cards with targeted **`POST /api/admin/master-settings/update`** partial saves.
+- **Manage Products + Variant Matrix** — fully opaque sticky table headers (`position: sticky; top: 0; z-index: 20`) on every `<th>` inside `.products-table-scroll` and scrollable matrix modal panels.
+
+**Key files:** `client/js/admin.js`, `client/admin.html`, `client/css/admin.css`
+
 ### `v4.3.0` — Super Admin UI/UX Overhaul
 
 **🗂️ Admin Settings Tabbed SaaS Architecture**
@@ -3341,9 +3399,9 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 - **Manage Products** sticky header layout finalized across the full catalog matrix — every `<th>` (checkbox, sortable columns, **Actions**) applies **`position: sticky; top: 0; z-index: 20`** with a solid **`#ffffff`** fully opaque backdrop inside `.products-table-scroll`; Actions header remains `display: table-cell` (flex scoped to `td.col-actions` only) — no header bleed-through during deep vertical scroll.
 - Variant Matrix modal tables retain sticky combination headers inside scrollable `.variant-matrix-wrap` panels.
 
-*Saved page index persistence (`?page=X`)*
-- **Pagination index retention** confirmed across product **edit → save → delete** workflows — active **`?page=X`** (and search/filter query params) preserved via `saveProductPaginationState()`, `syncProductListUrlState()`, and post-AJAX `filterAndRenderProducts(false)` so catalog operators stay on the current page after saving edits instead of snapping back to page 1.
-- State mirrored to URL query params and `sessionStorage` for sidebar navigation recovery and deep-link consistency.
+*Saved page index persistence (sessionStorage)*
+- **Pagination index retention** confirmed across product **edit → save → delete** workflows — active page and filter state preserved via `saveProductPaginationState()`, `persistProductListSessionState()`, and post-AJAX `filterAndRenderProducts(false)` so catalog operators stay on the current page after saving edits instead of snapping back to page 1.
+- State held in **`sessionStorage`** for same-session sidebar navigation recovery; address bar remains clean `/admin` *(routing refined in v4.3.1)*.
 
 **Key files:** `client/admin.html`, `client/js/admin.js`, `client/css/admin.css`, `controllers/masterSettingsController.js`
 
@@ -3373,7 +3431,7 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 **📄 UX & Navigation — Pagination State Preservation**
 - `saveProductPaginationState()` stores active page + filter params before edit/save/delete actions.
 - Post-AJAX refresh uses `filterAndRenderProducts(false)` and `upsertProductInState()` so admins remain on the current page (e.g. page 2) instead of resetting to page 1.
-- State mirrored to URL query params (`?section=manage-products&page=2`) and `sessionStorage` for sidebar navigation and deep-link recovery.
+- State held in **`sessionStorage`** for same-session sidebar navigation recovery *(v4.3.1 — URL query sync removed; see `v4.3.1` changelog)*.
 
 **📌 UX & Navigation — Opaque Sticky Table Headers**
 - Manage Products table wrapper (`.products-table-scroll`) uses `overflow-y: auto` with `max-height: min(68vh, 720px)`.

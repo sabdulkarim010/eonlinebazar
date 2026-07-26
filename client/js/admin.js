@@ -330,8 +330,8 @@ function getProdTableBody() {
     return document.getElementById('adminProductTableBody');
 }
 
-/** Snapshot active filters + pagination for restore after edit/save */
-function getProductFilterQueryParams() {
+/** Snapshot active filters + pagination for restore after edit/save (sessionStorage only — no URL params) */
+function getProductFilterState() {
     return {
         search: document.getElementById('searchProduct')?.value || '',
         category: document.getElementById('filterCategory')?.value || 'All',
@@ -345,13 +345,7 @@ function getProductFilterQueryParams() {
 
 function saveProductPaginationState() {
     savedProductPageBeforeAction = currentPage;
-    try {
-        sessionStorage.setItem(PRODUCT_PAGINATION_STORAGE_KEY, JSON.stringify({
-            page: currentPage,
-            ...getProductFilterQueryParams()
-        }));
-    } catch (_) { /* ignore quota / private mode */ }
-    syncProductListUrlState();
+    persistProductListSessionState(true);
 }
 
 function restoreProductPaginationState() {
@@ -360,77 +354,57 @@ function restoreProductPaginationState() {
         savedProductPageBeforeAction = null;
         return;
     }
-    readProductListUrlState();
+    readProductListSessionState();
 }
 
-function readProductListUrlState() {
+function readProductListSessionState() {
     try {
-        const params = new URLSearchParams(window.location.search);
-        const page = parseInt(params.get('page'), 10);
-        if (Number.isFinite(page) && page > 0) {
-            currentPage = page;
-        } else {
-            const raw = sessionStorage.getItem(PRODUCT_PAGINATION_STORAGE_KEY);
-            if (raw) {
-                const stored = JSON.parse(raw);
-                if (stored.page) currentPage = Number(stored.page) || 1;
-            }
-        }
+        const raw = sessionStorage.getItem(PRODUCT_PAGINATION_STORAGE_KEY);
+        if (!raw) return;
+        const stored = JSON.parse(raw);
+        if (stored.page) currentPage = Number(stored.page) || 1;
 
         const pageSizeEl = document.getElementById('itemsPerPage');
-        const pageSize = params.get('pageSize');
-        if (pageSizeEl && pageSize) pageSizeEl.value = pageSize;
+        if (pageSizeEl && stored.pageSize) pageSizeEl.value = stored.pageSize;
 
         const searchEl = document.getElementById('searchProduct');
-        if (searchEl && params.has('search')) searchEl.value = params.get('search');
+        if (searchEl && stored.search != null) searchEl.value = stored.search;
 
         const catEl = document.getElementById('filterCategory');
-        if (catEl && params.has('category')) catEl.value = params.get('category');
+        if (catEl && stored.category) catEl.value = stored.category;
 
         const stockEl = document.getElementById('filterStockStatus');
-        if (stockEl && params.has('stockStatus')) stockEl.value = params.get('stockStatus');
+        if (stockEl && stored.stockStatus) stockEl.value = stored.stockStatus;
 
         const priceEl = document.getElementById('filterPriceRange');
-        if (priceEl && params.has('priceRange')) priceEl.value = params.get('priceRange');
-    } catch (_) { /* ignore malformed URL / storage */ }
+        if (priceEl && stored.priceRange) priceEl.value = stored.priceRange;
+
+        if (stored.sortKey) {
+            currentSort.key = stored.sortKey;
+            currentSort.asc = stored.sortAsc !== false;
+        }
+    } catch (_) { /* ignore malformed storage */ }
 }
 
-function syncProductListUrlState() {
+/** Persist pagination + filters in sessionStorage while Manage Products is active */
+function persistProductListSessionState(force = false) {
     const manageSection = document.getElementById('view-manage-products');
-    if (!manageSection || manageSection.style.display === 'none') return;
+    if (!force && (!manageSection || manageSection.style.display === 'none')) return;
 
-    const params = new URLSearchParams(window.location.search);
-    params.set('section', 'manage-products');
+    try {
+        sessionStorage.setItem(PRODUCT_PAGINATION_STORAGE_KEY, JSON.stringify({
+            page: currentPage,
+            ...getProductFilterState()
+        }));
+    } catch (_) { /* ignore quota / private mode */ }
+}
 
-    if (currentPage > 1) params.set('page', String(currentPage));
-    else params.delete('page');
-
-    const filters = getProductFilterQueryParams();
-    if (filters.search) params.set('search', filters.search);
-    else params.delete('search');
-
-    if (filters.category && filters.category !== 'All') params.set('category', filters.category);
-    else params.delete('category');
-
-    if (filters.stockStatus && filters.stockStatus !== 'All') params.set('stockStatus', filters.stockStatus);
-    else params.delete('stockStatus');
-
-    if (filters.priceRange && filters.priceRange !== 'All') params.set('priceRange', filters.priceRange);
-    else params.delete('priceRange');
-
-    if (filters.pageSize && filters.pageSize !== '10') params.set('pageSize', filters.pageSize);
-    else params.delete('pageSize');
-
-    const query = params.toString();
-    const newUrl = query
-        ? `${window.location.pathname}?${query}${window.location.hash}`
-        : `${window.location.pathname}${window.location.hash}`;
-
-    history.replaceState(
-        { ...(history.state || {}), productPage: currentPage, productSection: 'manage-products' },
-        '',
-        newUrl
-    );
+/** Strip legacy ?section= / ?page= query params so /admin stays clean on reload */
+function ensureCleanAdminUrl() {
+    if (!window.location.search && !window.location.hash) return;
+    try {
+        window.history.replaceState({}, document.title, window.location.pathname);
+    } catch (_) { /* ignore */ }
 }
 
 /** Instant product list sync after edit/delete */
@@ -4785,7 +4759,7 @@ window.fetchLiveProducts = async function() {
         if (totalBadge) totalBadge.innerText = `Total: ${globalProducts.length}`;
         
         updateFilterCategoryDropdown();
-        readProductListUrlState();
+        readProductListSessionState();
         filterAndRenderProducts(false); 
     } catch (e) {
         tbody.innerHTML = `<tr><td colspan="8" class="table-status-error">Failed to load products.</td></tr>`; 
@@ -4864,7 +4838,7 @@ window.filterAndRenderProducts = function(resetPage = true) {
 
     currentPage = resetPage ? 1 : currentPage;
     renderProductTable();
-    syncProductListUrlState();
+    persistProductListSessionState();
 };
 
 /**
@@ -4889,7 +4863,6 @@ window.handleSort = function(key) {
 window.changePageSize = function() {
     currentPage = 1;
     renderProductTable();
-    syncProductListUrlState();
 };
 
 /**
@@ -4966,7 +4939,7 @@ window.renderProductTable = function() {
 
     // প্রোডাক্ট পেজিনেশন নম্বর বাটন রেন্ডার করা
     renderPaginationButtons(totalPages);
-    syncProductListUrlState();
+    persistProductListSessionState();
     
     // সিলেক্ট অল চেকবক্স হ্যান্ডলার সিঙ্ক
     const selectAllCheckbox = document.getElementById('selectAllProducts');
@@ -6987,8 +6960,6 @@ function initDashboard() {
     setupWhatsAppAlertBadge();
     fetchAdminSettings();
 
-    readProductListUrlState();
-
     // ২. লোকাল স্টোরেজ থেকে প্রোফাইল পিকচার সেট করা (যদি আগে থেকে থাকে)
     const savedPic = localStorage.getItem('adminProfilePic');
     if (savedPic) {
@@ -7013,17 +6984,11 @@ function initDashboard() {
 
 // DOM সম্পূর্ণ লোড হওয়ার পর সিস্টেম বুট করা
 document.addEventListener('DOMContentLoaded', () => {
+    ensureCleanAdminUrl();
     initDashboard();
     setupSidebarNavigation();
     setupGlobalSearch();
     setupSyncButton();
-
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('section') === 'manage-products') {
-        readProductListUrlState();
-        const productsNav = document.querySelector('.sidebar-menu li[data-target="view-manage-products"]');
-        if (productsNav) navigateAdminSection('view-manage-products', productsNav);
-    }
 
     const profileUploadInput = document.getElementById('adminProfileUpload');
     if (profileUploadInput) {
@@ -7091,7 +7056,7 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-settings': fetchAdminSettings
     };
     if (typeof refreshMap[targetId] === 'function') {
-        if (targetId === 'view-manage-products') readProductListUrlState();
+        if (targetId === 'view-manage-products') readProductListSessionState();
         refreshMap[targetId]();
     }
 }
