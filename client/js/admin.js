@@ -484,7 +484,7 @@ const ADMIN_PAGE_META = {
     'view-security':        { title: 'Security Logs',           subtitle: 'Monitor authentication events and system security activity.' },
     'view-sessions':        { title: 'Active Devices & Sessions', subtitle: 'Review and remotely revoke logged-in admin devices.' },
     'view-audit':           { title: 'Security & Audit',         subtitle: 'Login history, intrusion attempts, and IP blacklist firewall.' },
-    'view-master-settings': { title: 'Master Settings',          subtitle: 'Configure global cashback, loyalty points, conversion, and refund rules.' },
+    'view-master-settings': { title: 'System Settings',          subtitle: 'Configure shipping, notifications, loyalty rewards, and store integrations.' },
     'view-staff':           { title: 'Staff Management',         subtitle: 'Create staff accounts, assign permissions, and control access instantly.' },
     'view-settings':        { title: 'Admin Settings',          subtitle: 'Configure your admin profile and platform preferences.' }
 };
@@ -6210,7 +6210,7 @@ function updateSmsSettingsPreview() {
         return;
     }
 
-    previewEl.textContent = `Enabled — ${provider} · Sender: ${senderId} · credentials loaded from Master Settings.`;
+    previewEl.textContent = `Enabled — ${provider} · Sender: ${senderId} · credentials loaded from System Settings.`;
 }
 
 function applyFlashSaleSettingsToUI(settings) {
@@ -6363,11 +6363,11 @@ async function fetchMasterSettings() {
         if (data.success && data.data) {
             applyMasterSettingsToUI(data.data);
         } else {
-            showToast(data.message || 'Failed to load master settings.', 'error');
+            showToast(data.message || 'Failed to load system settings.', 'error');
         }
     } catch (err) {
-        console.error('Failed to load master settings:', err);
-        showToast('Error: Could not load master settings.', 'error');
+        console.error('Failed to load system settings:', err);
+        showToast('Error: Could not load system settings.', 'error');
     }
 }
 
@@ -6381,6 +6381,114 @@ async function saveMasterSettings(payload) {
         body: JSON.stringify(payload)
     });
     return res.json();
+}
+
+/**
+ * Binds an isolated System Settings card form — only its fields are POSTed,
+ * with a section-specific loading state and toast on success.
+ */
+function bindSystemSettingsSectionForm(formId, { getPayload, successMessage, onSuccess } = {}) {
+    const form = document.getElementById(formId);
+    if (!form || typeof getPayload !== 'function') return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const submitBtn = form.querySelector('.system-settings-save-btn');
+        const restore = setButtonLoading(submitBtn, 'Saving...');
+
+        try {
+            const payload = getPayload();
+            const result = await saveMasterSettings(payload);
+
+            if (result.success) {
+                showToast(successMessage || 'Settings updated successfully!', 'success');
+                if (result.data) applyMasterSettingsToUI(result.data);
+                if (typeof onSuccess === 'function') onSuccess(result);
+            } else {
+                showToast(`Error: ${result.message || 'Failed to save settings.'}`, 'error');
+            }
+        } catch (err) {
+            console.error(`Save ${formId} error:`, err);
+            showToast('Error: Could not reach the server. Please try again.', 'error');
+        } finally {
+            restore();
+        }
+    });
+}
+
+function setupSystemSettingsSectionForms() {
+    bindSystemSettingsSectionForm('form-system-announcement', {
+        successMessage: 'Announcement & shipping settings updated successfully!',
+        getPayload: () => ({
+            announcementText: document.getElementById('announcementText')?.value?.trim() || '',
+            isAnnouncementActive: document.getElementById('isAnnouncementActive')?.checked !== false,
+            freeShippingThreshold: document.getElementById('masterFreeShippingThreshold')?.value
+        }),
+        onSuccess: () => fetchAdminSettings()
+    });
+
+    bindSystemSettingsSectionForm('form-system-sms', {
+        successMessage: 'SMS gateway settings updated successfully!',
+        getPayload: () => ({
+            enableSmsNotifications: document.getElementById('enableSmsNotifications')?.checked === true,
+            smsGatewayProvider: document.getElementById('smsGatewayProvider')?.value || '',
+            smsApiKey: document.getElementById('smsApiKey')?.value?.trim() || '',
+            smsSenderId: document.getElementById('smsSenderId')?.value?.trim() || ''
+        })
+    });
+
+    bindSystemSettingsSectionForm('form-system-courier', {
+        successMessage: 'Courier booking settings updated successfully!',
+        getPayload: () => ({
+            defaultCourierProvider: document.getElementById('defaultCourierProvider')?.value || '',
+            courierApiKey: document.getElementById('courierApiKey')?.value?.trim() || '',
+            courierSecretKey: document.getElementById('courierSecretKey')?.value?.trim() || ''
+        })
+    });
+
+    bindSystemSettingsSectionForm('form-system-whatsapp', {
+        successMessage: 'WhatsApp configuration updated successfully!',
+        getPayload: () => ({
+            publicSupportWhatsApp: document.getElementById('publicSupportWhatsApp')?.value?.trim() || '',
+            privateAdminAlertWhatsApp: document.getElementById('privateAdminAlertWhatsApp')?.value?.trim() || '',
+            enableWhatsAppOrderAlerts: document.getElementById('enableWhatsAppOrderAlerts')?.checked === true,
+            whatsAppAlertProvider: document.getElementById('whatsAppAlertProvider')?.value || '',
+            whatsAppAlertApiKey: document.getElementById('whatsAppAlertApiKey')?.value?.trim() || '',
+            whatsAppAlertInstanceId: document.getElementById('whatsAppAlertInstanceId')?.value?.trim() || ''
+        })
+    });
+
+    bindSystemSettingsSectionForm('form-system-flash-sale', {
+        successMessage: 'Flash sale settings updated successfully!',
+        getPayload: () => ({
+            flashSaleEnabled: document.getElementById('flashSaleEnabled')?.checked === true,
+            flashSaleTitle: document.getElementById('flashSaleTitle')?.value?.trim() || 'Flash Sale',
+            flashSaleEndDate: document.getElementById('flashSaleEndDate')?.value || '',
+            flashSaleEndTime: document.getElementById('flashSaleEndTime')?.value || '23:59',
+            flashSaleDiscountPercent: document.getElementById('flashSaleDiscountPercent')?.value,
+            flashSaleProductIds: document.getElementById('flashSaleProductIds')?.value || ''
+        })
+    });
+
+    bindSystemSettingsSectionForm('form-system-vip', {
+        successMessage: 'VIP segmentation thresholds updated successfully!',
+        getPayload: () => ({
+            vipMinTotalSpent: document.getElementById('vipMinTotalSpent')?.value,
+            vipMinOrderCount: document.getElementById('vipMinOrderCount')?.value,
+            frequentBuyerMinOrders: document.getElementById('frequentBuyerMinOrders')?.value
+        })
+    });
+
+    bindSystemSettingsSectionForm('form-system-rewards', {
+        successMessage: 'Rewards & refund settings updated successfully!',
+        getPayload: () => ({
+            cashbackPercentage: document.getElementById('masterCashbackPercentage')?.value,
+            takaToPointsRatio: document.getElementById('masterTakaToPointsRatio')?.value,
+            pointsToTakaConversionRate: document.getElementById('masterPointsConversionRate')?.value,
+            refundUndoWindowHours: document.getElementById('masterRefundUndoWindow')?.value
+        })
+    });
 }
 
 async function saveStoreBrandingForm(form) {
@@ -6553,65 +6661,7 @@ function setupAdminSettingsForms() {
         flashEnabledEl.addEventListener('change', updateFlashSaleSettingsPreview);
     }
 
-    // One form, one save action: announcement, free shipping, rewards and the
-    // refund window all travel to /api/admin/master-settings/update together.
-    const masterForm = document.getElementById('masterSettingsForm');
-    if (masterForm) {
-        masterForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const payload = {
-                announcementText: document.getElementById('announcementText')?.value?.trim() || '',
-                isAnnouncementActive: document.getElementById('isAnnouncementActive')?.checked !== false,
-                enableSmsNotifications: document.getElementById('enableSmsNotifications')?.checked === true,
-                smsGatewayProvider: document.getElementById('smsGatewayProvider')?.value || '',
-                smsApiKey: document.getElementById('smsApiKey')?.value?.trim() || '',
-                smsSenderId: document.getElementById('smsSenderId')?.value?.trim() || '',
-                defaultCourierProvider: document.getElementById('defaultCourierProvider')?.value || '',
-                courierApiKey: document.getElementById('courierApiKey')?.value?.trim() || '',
-                courierSecretKey: document.getElementById('courierSecretKey')?.value?.trim() || '',
-                publicSupportWhatsApp: document.getElementById('publicSupportWhatsApp')?.value?.trim() || '',
-                privateAdminAlertWhatsApp: document.getElementById('privateAdminAlertWhatsApp')?.value?.trim() || '',
-                enableWhatsAppOrderAlerts: document.getElementById('enableWhatsAppOrderAlerts')?.checked === true,
-                whatsAppAlertProvider: document.getElementById('whatsAppAlertProvider')?.value || '',
-                whatsAppAlertApiKey: document.getElementById('whatsAppAlertApiKey')?.value?.trim() || '',
-                whatsAppAlertInstanceId: document.getElementById('whatsAppAlertInstanceId')?.value?.trim() || '',
-                freeShippingThreshold: document.getElementById('masterFreeShippingThreshold')?.value,
-                cashbackPercentage: document.getElementById('masterCashbackPercentage')?.value,
-                takaToPointsRatio: document.getElementById('masterTakaToPointsRatio')?.value,
-                pointsToTakaConversionRate: document.getElementById('masterPointsConversionRate')?.value,
-                refundUndoWindowHours: document.getElementById('masterRefundUndoWindow')?.value,
-                flashSaleEnabled: document.getElementById('flashSaleEnabled')?.checked === true,
-                flashSaleTitle: document.getElementById('flashSaleTitle')?.value?.trim() || 'Flash Sale',
-                flashSaleEndDate: document.getElementById('flashSaleEndDate')?.value || '',
-                flashSaleEndTime: document.getElementById('flashSaleEndTime')?.value || '23:59',
-                flashSaleDiscountPercent: document.getElementById('flashSaleDiscountPercent')?.value,
-                flashSaleProductIds: document.getElementById('flashSaleProductIds')?.value || '',
-                vipMinTotalSpent: document.getElementById('vipMinTotalSpent')?.value,
-                vipMinOrderCount: document.getElementById('vipMinOrderCount')?.value,
-                frequentBuyerMinOrders: document.getElementById('frequentBuyerMinOrders')?.value
-            };
-
-            const submitBtn = document.getElementById('masterSettingsSaveBtn');
-            const restore = setButtonLoading(submitBtn, 'Saving...');
-            try {
-                const result = await saveMasterSettings(payload);
-                if (result.success) {
-                    showToast('Success: Master settings saved across store, checkout & dashboard!', 'success');
-                    if (result.data) applyMasterSettingsToUI(result.data);
-                    // The delivery card shares the free-shipping threshold.
-                    fetchAdminSettings();
-                } else {
-                    showToast(`Error: ${result.message || 'Failed to save master settings.'}`, 'error');
-                }
-            } catch (err) {
-                console.error('Save master settings error:', err);
-                showToast('Error: Could not reach the server. Please try again.', 'error');
-            } finally {
-                restore();
-            }
-        });
-    }
+    setupSystemSettingsSectionForms();
 
     const profileForm = document.getElementById('adminProfileForm');
     if (profileForm) {
@@ -6723,7 +6773,7 @@ function setupAdminSettingsForms() {
                 if (result.success) {
                     showToast('Success: Delivery settings saved successfully!', 'success');
                     if (result.data) applyDeliverySettingsToUI(result.data);
-                    // Master Settings shares the free-shipping threshold.
+                    // System Settings shares the free-shipping threshold.
                     fetchMasterSettings();
                 } else {
                     showToast(`Error: ${result.message || 'Failed to save delivery settings.'}`, 'error');

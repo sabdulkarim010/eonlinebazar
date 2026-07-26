@@ -99,6 +99,21 @@ Eight things set it apart:
 
 ---
 
+## 🆕 What's New — v4.3.0 (Super Admin UI/UX Overhaul)
+
+This release completes the **Super Admin operational UX layer** — modular **System Settings** cards with isolated saves, premium SaaS-grade form styling, and finalized **Manage Products** table ergonomics (opaque sticky headers + pagination retention across edit workflows).
+
+| Capability | Highlights |
+|------------|------------|
+| **⚙️ System Settings Re-architecture** | Rebranded **Master Settings → System Settings** (Shopify/SaaS-aligned); global configs split into **7 independent UI cards** — Announcement & Shipping, SMS Gateway, Courier Booking, WhatsApp, Flash Sale, VIP Segmentation, and Rewards & Refunds — each with a dedicated **Save [Section]** button and targeted AJAX `POST /api/admin/master-settings/update` partial payload (no full-page reload). |
+| **🎨 Premium Settings Card UI** | Elevated white cards (`rounded-xl`, subtle shadow, slate borders), **color-coded accent icon headers** (blue / teal / amber / green / orange / indigo / purple), crisp input typography with **focus-ring states**, per-section loading spinners, and **section-specific toast notifications** (e.g. *"SMS gateway settings updated successfully!"*). |
+| **📌 Finalized Sticky Table Headers** | **Manage Products** main table lockdown complete — every `<th>` (including **Actions**) uses **`position: sticky; top: 0; z-index: 20`** with solid **`#ffffff`** opaque backdrops inside the bounded `.products-table-scroll` container; no header bleed-through during deep vertical scroll. |
+| **📄 Pagination Index Retention** | Active list index preserved across product **edit → save → AJAX re-render** cycles — `?page=X` (plus search/filter params) synced to URL + `sessionStorage` so admins never snap back to page 1 after updating a row mid-catalog. |
+
+> 📌 Admin UI ships in **`client/admin.html`**, **`client/js/admin.js`**, and **`client/css/admin.css`** (static Express-served SPA). See [Admin & Platform Settings](#-admin--platform-settings) and the [Changelog](#-changelog) entry for `v4.3.0`.
+
+---
+
 ## 🆕 What's New — v4.2.0 (Super Admin Table & Variant Management Engine)
 
 This release finalizes the **Super Admin catalog operations layer** — a master **Product Attribute Library**, a dynamic **Variant Matrix** with per-row multi-pricing, **Weighted Average Cost (WAC)** accounting alignment, and production-grade **Manage Products** table UX (persistent pagination + fully opaque sticky headers).
@@ -2569,8 +2584,16 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 - **Custom Store Branding** — live server-side Logo & Favicon upload with instant dynamic previews (Cloudinary).
 - **Custom Currency Formatting** — Currency Code (`BDT`) & Symbol (`৳`) applied to every admin price column.
 - **Timezone Synchronization** — dynamically updates the admin dashboard header's **live digital clock**.
-- **Delivery Charge Control** — configure Shop Home City, inside/outside rates, and free-shipping threshold from the admin settings panel (synced with Master Settings).
-- **Unified Master Settings Panel** — single form for announcement text, free-shipping threshold, global cashback %, points earning ratio, points-to-taka conversion rate, refund undo window, **SMS gateway configuration**, **WhatsApp dual-number & background alert configuration**, and **courier booking credentials** — all with live preview.
+- **Delivery Charge Control** — configure Shop Home City, inside/outside rates, and free-shipping threshold from the admin settings panel (synced with **System Settings**).
+- **⚙️ System Settings (Modular Store Configurations)** — rebranded from *Master Settings* to align with Shopify/SaaS conventions; **seven independent configuration cards** with section-level save actions:
+  - **Announcement & Free Shipping** — dashboard banner copy, free-shipping threshold, visibility toggle; mirrors into Delivery Settings on save.
+  - **SMS Gateway** — provider, API key, sender ID, and notification toggle (MongoDB overrides `.env`).
+  - **Courier Booking** — Steadfast / Pathao / RedX credentials for one-click Live Orders dispatch.
+  - **WhatsApp Configuration** — public customer chat line + private admin alert number with gateway fields.
+  - **Flash Sale Engine** — schedule, discount %, featured product IDs, and live storefront preview.
+  - **VIP Customer Segmentation** — `vipMinTotalSpent`, `vipMinOrderCount`, `frequentBuyerMinOrders` thresholds.
+  - **Cashback / Loyalty & Refunds** — global cashback %, points earning ratio, points-to-taka conversion, refund-undo window with live economics preview.
+  - Each card POSTs an **isolated partial payload** to **`POST /api/admin/master-settings/update`**; per-section loading states and success toasts; premium card layout with color-coded headers and focus-ring inputs *(v4.3.0)*.
 - **📩 Customer Notification Engine** — admin-configurable SMS gateway (Greenweb BD, BulkSMS BD, AlphaSMS, Generic API) with MongoDB-stored credentials; automated order confirmation emails via Nodemailer with fail-safe async dispatch.
 - **🚚 Courier Parcel Booking** — Steadfast API integration from Live Orders; MongoDB-stored API key/secret; atomic booking lock; tracking ID + consignment ID saved on the order document.
 - **Category Cashback Overrides** — per-category custom cashback percentages with seamless fallback to global defaults.
@@ -2579,9 +2602,10 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 ### 🖥️ Super Admin Panel (`/admin`)
 - **📊 Dashboard Overview** — **Sales & Business Analytics** (revenue daily/monthly/all-time, order counters, Chart.js sales trend + top-5 product charts) plus **Inventory Alerts** widget with inline stock updates; **Customer Insights** metrics (total/verified/pending/blocked users) and a **6-month registration growth chart** (Chart.js). *(Requires `view_analytics` for staff.)*
 - **👥 Customer Management** — View, edit, block, suspend, reactivate; order-count badges; per-customer order history modal. *(Requires `manage_customers`.)*
+- **⚙️ System Settings** — modular configuration hub for shipping, notifications, loyalty economics, courier/WhatsApp integrations, flash sales, and VIP thresholds; independent card saves with toast feedback *(v4.3.0)*.
 - **📦 Live Orders** — Premium sticky-header table with compact spacing, horizontal action toolbar (**Send to Courier**, Invoice, Delete), **Create Manual Order** POS modal (v4.0.0), distinct customer/admin cancellation badges, return approval, safe refund undo, reason visibility, invoice view/print, search, filter, and pagination. *(Requires `manage_orders`.)*
 - **📱 WhatsApp Alert Badge** — Header badge surfaces pending wa.me fallback alerts when the background gateway cannot auto-deliver (v4.0.0).
-- **🛍️ Product CRUD** — Add/edit with images, per-variant buying/selling price, live profit preview, **Simple Product / Variant Matrix** modes with **Attribute Library auto-fill**, dynamic SKU generation, bordered matrix grid, **pagination state preservation**, **sticky opaque table headers**, bulk delete, CSV export, and print-ready tables. *(Requires `manage_inventory`.)*
+- **🛍️ Product CRUD & Variant Matrix** — Add/edit with images, per-variant buying/selling price, live profit preview, **Simple Product / Variant Matrix** modes with **Attribute Library auto-fill**, dynamic SKU generation, bordered matrix grid with sticky modal headers, **pagination index retention (`?page=X`)** across edit/save workflows, **fully opaque sticky table headers** (`sticky top-0 z-20`), bulk delete, CSV export, and print-ready tables. *(Requires `manage_inventory`.)*
 - **👤 Staff Management** — Create, permission-assign, block, reset password, and delete staff accounts with a dynamic permission matrix. *(Super Admin only.)*
 - **🔔 Professional UX** — SweetAlert2 toasts + modal confirmations, asynchronous DOM re-rendering (instant UI sync, no manual refresh), permission-aware sidebar gating.
 
@@ -3264,6 +3288,27 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 ---
 
 ## 📜 Changelog
+
+### `v4.3.0` — Super Admin UI/UX Overhaul
+
+**⚙️ System Settings Re-architecture**
+- Rebranded sidebar nav, page header, and view metadata from **Master Settings** to **System Settings** — aligned with Shopify/SaaS e-commerce admin conventions.
+- Replaced the monolithic unified form with **seven modular `<form>` cards**, each scoped to a single configuration domain:
+  - **Announcement & Free Shipping** · **SMS Notifications** · **Courier Booking** · **WhatsApp Configuration** · **Flash Sale Engine** · **VIP Customer Segmentation** · **Rewards & Refund Engine**
+- Each card exposes a dedicated **Save [Section Name]** button (bottom-right footer) that POSTs an **isolated partial payload** to **`POST /api/admin/master-settings/update`** — backend field-level partial writes unchanged; no full-page reload required.
+- Announcement saves still mirror `freeShippingThreshold` into Delivery Settings via `fetchAdminSettings()` refresh.
+- New `bindSystemSettingsSectionForm()` / `setupSystemSettingsSectionForms()` helpers in `client/js/admin.js` wire per-section submit handlers, loading spinners, and targeted success toasts.
+
+**🎨 Premium System Settings Card UI**
+- New `.system-settings-card` component system in `client/css/admin.css` — white elevated cards (`rounded-xl`, `border-slate-200`, `shadow-sm`), color-coded gradient icon badges (blue / teal / amber / green / orange / indigo / purple), refined label typography, placeholder styling, and **`focus:ring-2`-equivalent focus states** on inputs, selects, and textareas.
+- Live preview panels retained for announcement, SMS, courier, WhatsApp, flash sale, and rewards economics.
+
+**📌 Table & Variant Matrix Finalizations**
+- **Manage Products** sticky header layout finalized — every `<th>` (checkbox, sortable columns, **Actions**) applies **`position: sticky; top: 0; z-index: 20`** with solid **`#ffffff`** opaque backdrop inside `.products-table-scroll`; Actions header remains `display: table-cell` (flex scoped to `td.col-actions` only).
+- **Pagination index retention** confirmed across product edit/save/delete — active **`?page=X`** (and search/filter query params) preserved via `saveProductPaginationState()`, `syncProductListUrlState()`, and post-AJAX `filterAndRenderProducts(false)` so catalog operators stay on the current page after saving edits.
+- Variant Matrix modal tables retain sticky combination headers inside scrollable `.variant-matrix-wrap` panels.
+
+**Key files:** `client/admin.html`, `client/js/admin.js`, `client/css/admin.css`, `controllers/masterSettingsController.js`
 
 ### `v4.2.0` — Super Admin Table & Variant Management Engine
 

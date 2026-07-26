@@ -90,7 +90,7 @@
                         </ul>
                     </li>
 
-                    <li data-target="view-master-settings"><i class="fa-solid fa-sliders"></i> Master Settings</li>
+                    <li data-target="view-master-settings"><i class="fa-solid fa-sliders"></i> System Settings</li>
                     <li data-target="view-settings"><i class="fa-solid fa-gear"></i> Admin Settings</li>
 
                 </ul>
@@ -1279,15 +1279,23 @@
 
 <section id="view-master-settings" class="admin-section" style="display: none;">
     <div class="section-header-box">
-        <h3>Master Settings</h3>
-        <p class="section-subtitle">Control global cashback, loyalty points, conversion rates, and refund policies for the entire platform.</p>
+        <h3>System Settings</h3>
+        <p class="section-subtitle">Configure store-wide shipping, notifications, loyalty rewards, and operational integrations — each section saves independently.</p>
     </div>
 
-    <form id="masterSettingsForm" class="master-settings-form" novalidate>
-        <div class="settings-grid">
-            <div class="settings-card settings-card-wide master-settings-card">
-                <h4 class="settings-card-title"><i class="fa-solid fa-bullhorn"></i> Announcement &amp; Free Shipping</h4>
-                <p class="settings-card-sub">The threshold below drives the real checkout shipping fee <em>and</em> the "Latest Announcement" card on every customer dashboard.</p>
+    <div class="system-settings-stack">
+
+        <form id="form-system-announcement" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--blue">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--blue" aria-hidden="true">
+                        <i class="fa-solid fa-bullhorn"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>Announcement &amp; Free Shipping</h4>
+                        <p class="settings-card-sub">The threshold below drives the real checkout shipping fee <em>and</em> the "Latest Announcement" card on every customer dashboard.</p>
+                    </div>
+                </div>
 
                 <div class="master-settings-grid">
                     <div class="form-group form-group-full">
@@ -1315,11 +1323,26 @@
                     <strong>Customer sees:</strong>
                     <span id="announcementSettingsPreviewText">Loading preview...</span>
                 </div>
-            </div>
 
-            <div class="settings-card settings-card-wide master-settings-card">
-                <h4 class="settings-card-title"><i class="fa-solid fa-comment-sms"></i> SMS Notifications</h4>
-                <p class="settings-card-sub">Configure your Bangladeshi SMS gateway here. Values saved below are stored in MongoDB and override <code>.env</code> — no code changes needed when switching providers.</p>
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Announcement &amp; Shipping
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <form id="form-system-sms" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--teal">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--teal" aria-hidden="true">
+                        <i class="fa-solid fa-comment-sms"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>SMS Notifications</h4>
+                        <p class="settings-card-sub">Configure your Bangladeshi SMS gateway here. Values saved below are stored in MongoDB and override <code>.env</code> — no code changes needed when switching providers.</p>
+                    </div>
+                </div>
 
                 <div class="master-settings-grid">
                     <div class="form-group">
@@ -1359,11 +1382,26 @@
                     <strong>SMS engine:</strong>
                     <span id="smsSettingsPreviewText">Configure gateway credentials above, then enable notifications.</span>
                 </div>
-            </div>
 
-            <div class="settings-card settings-card-wide master-settings-card">
-                <h4 class="settings-card-title"><i class="fa-solid fa-truck-fast"></i> Courier Booking</h4>
-                <p class="settings-card-sub">Credentials for one-click parcel booking from the <strong>Live Orders</strong> panel. Saved to MongoDB and they override <code>.env</code> — swap providers or rotate keys with no code changes.</p>
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save SMS Notifications
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <form id="form-system-courier" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--amber">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--amber" aria-hidden="true">
+                        <i class="fa-solid fa-truck-fast"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>Courier Booking</h4>
+                        <p class="settings-card-sub">Credentials for one-click parcel booking from the <strong>Live Orders</strong> panel. Saved to MongoDB and they override <code>.env</code> — swap providers or rotate keys with no code changes.</p>
+                    </div>
+                </div>
 
                 <div class="master-settings-grid">
                     <div class="form-group">
@@ -1394,11 +1432,26 @@
                     <strong>Courier engine:</strong>
                     <span id="courierSettingsPreviewText">Add your API key and secret key to enable one-click parcel booking.</span>
                 </div>
-            </div>
 
-            <div class="settings-card settings-card-wide master-settings-card">
-                <h4 class="settings-card-title"><i class="fa-brands fa-whatsapp"></i> WhatsApp Configuration</h4>
-                <p class="settings-card-sub">Two isolated numbers: one shown to customers for chat &amp; inquiries, and one kept private for instant order alerts to your admin team.</p>
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Courier Booking
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <form id="form-system-whatsapp" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--green">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--green" aria-hidden="true">
+                        <i class="fa-brands fa-whatsapp"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>WhatsApp Configuration</h4>
+                        <p class="settings-card-sub">Two isolated numbers: one shown to customers for chat &amp; inquiries, and one kept private for instant order alerts to your admin team.</p>
+                    </div>
+                </div>
 
                 <div class="master-settings-grid">
                     <div class="form-group">
@@ -1450,11 +1503,26 @@
                     <strong>WhatsApp engine:</strong>
                     <span id="whatsappSettingsPreviewText">Configure public and private numbers above.</span>
                 </div>
-            </div>
 
-            <div class="settings-card settings-card-wide master-settings-card">
-                <h4 class="settings-card-title"><i class="fa-solid fa-bolt"></i> Flash Sale Engine</h4>
-                <p class="settings-card-sub">Schedule a homepage flash sale with a live countdown and automatic discounted pricing on selected products.</p>
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save WhatsApp Configuration
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <form id="form-system-flash-sale" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--orange">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--orange" aria-hidden="true">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>Flash Sale Engine</h4>
+                        <p class="settings-card-sub">Schedule a homepage flash sale with a live countdown and automatic discounted pricing on selected products.</p>
+                    </div>
+                </div>
 
                 <div class="master-settings-grid">
                     <div class="form-group">
@@ -1496,11 +1564,26 @@
                     <strong>Storefront:</strong>
                     <span id="flashSaleSettingsPreviewText">Flash sale is currently inactive.</span>
                 </div>
-            </div>
 
-            <div class="settings-card settings-card-wide master-settings-card">
-                <h4 class="settings-card-title"><i class="fa-solid fa-crown"></i> VIP Customer Segmentation</h4>
-                <p class="settings-card-sub">Thresholds power the All Customers filter tabs and VIP badges in the admin customer table.</p>
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Flash Sale
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <form id="form-system-vip" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--indigo">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--indigo" aria-hidden="true">
+                        <i class="fa-solid fa-crown"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>VIP Customer Segmentation</h4>
+                        <p class="settings-card-sub">Thresholds power the All Customers filter tabs and VIP badges in the admin customer table.</p>
+                    </div>
+                </div>
 
                 <div class="master-settings-grid">
                     <div class="form-group">
@@ -1516,11 +1599,26 @@
                         <input type="number" id="frequentBuyerMinOrders" min="0" step="1" placeholder="3">
                     </div>
                 </div>
-            </div>
 
-            <div class="settings-card settings-card-wide master-settings-card">
-                <h4 class="settings-card-title"><i class="fa-solid fa-coins"></i> Rewards &amp; Refund Engine</h4>
-                <p class="settings-card-sub">These values replace hardcoded cashback and points logic across checkout, orders, and wallet flows.</p>
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save VIP Segmentation
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <form id="form-system-rewards" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--purple">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--purple" aria-hidden="true">
+                        <i class="fa-solid fa-coins"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>Rewards &amp; Refund Engine</h4>
+                        <p class="settings-card-sub">These values replace hardcoded cashback and points logic across checkout, orders, and wallet flows.</p>
+                    </div>
+                </div>
 
                 <div class="master-settings-grid">
                     <div class="form-group">
@@ -1552,19 +1650,16 @@
                     <strong>Live preview:</strong>
                     <span id="masterSettingsPreviewText">Loading current rules...</span>
                 </div>
-            </div>
-        </div>
 
-        <div class="master-settings-actions">
-            <p class="master-settings-actions-hint">
-                <i class="fa-solid fa-circle-info"></i>
-                One save updates the announcement, checkout shipping rules, wallet cashback, loyalty points, SMS, courier, and WhatsApp settings together.
-            </p>
-            <button type="submit" class="btn-submit" id="masterSettingsSaveBtn">
-                <i class="fa-solid fa-floppy-disk"></i> Save Master Settings
-            </button>
-        </div>
-    </form>
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Rewards &amp; Refunds
+                    </button>
+                </div>
+            </div>
+        </form>
+
+    </div>
 </section>
 
 
@@ -1792,7 +1887,7 @@
                             <div class="form-group">
                                 <label for="settingsFreeShippingMinAmount">Minimum Order Amount for Free Shipping (৳)</label>
                                 <input type="number" id="settingsFreeShippingMinAmount" min="0" step="1" placeholder="1000" required>
-                                <small class="form-hint">Orders at or above this total get free delivery. Set to <strong>0</strong> for a global flat free-shipping offer. This is the same value as <strong>Master Settings &rarr; Free Shipping Threshold</strong> — saving either card updates both.</small>
+                                <small class="form-hint">Orders at or above this total get free delivery. Set to <strong>0</strong> for a global flat free-shipping offer. This is the same value as <strong>System Settings &rarr; Free Shipping Threshold</strong> — saving either card updates both.</small>
                             </div>
                             <button type="submit" class="btn-submit">
                                 <i class="fa-solid fa-floppy-disk"></i> Save Delivery Settings
