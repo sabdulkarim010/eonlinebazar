@@ -392,6 +392,10 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
         changes.push(`WhatsApp webhook: ${deliverySettings.whatsAppAlertWebhookUrl ? 'configured' : 'cleared'}`);
     }
 
+    // 💳 Payment methods are no longer edited here — they live in their own
+    // collection behind /api/admin/payment-methods, so the catalog has exactly
+    // one write path. See controllers/paymentMethodController.js.
+
     if (deliverySettingsDirty) {
         await deliverySettings.save();
         clearWhatsAppSettingsCache();

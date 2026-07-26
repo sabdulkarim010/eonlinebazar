@@ -31,6 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     setupTabSystem();
     setupCombinationMatrixDelegation();
+    setupShareButtons();
+    renderActivePaymentBadges();
 });
 
 // ==========================================================================
@@ -1160,6 +1162,168 @@ function setupEventListeners() {
             }
         }
     });
+}
+
+// ==========================================================================
+// 🌟 SECTION 7A: DYNAMIC PAYMENT BADGES (Admin-controlled, uploaded logos)
+// ==========================================================================
+
+function getPaymentSettingsSource(settings = {}) {
+    const nested = settings.systemSettings;
+    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+        return { ...settings, ...nested };
+    }
+    return settings;
+}
+
+function resolveEnabledPaymentMethods(settings = {}) {
+    const src = getPaymentSettingsSource(settings);
+
+    if (Array.isArray(src.enabledPaymentMethods) && src.enabledPaymentMethods.length) {
+        return src.enabledPaymentMethods.filter((method) => method && method.id);
+    }
+
+    const gateways = src.paymentGateways;
+    if (gateways && typeof gateways === 'object' && !Array.isArray(gateways)) {
+        return Object.entries(gateways)
+            .filter(([, entry]) => entry?.enabled === true)
+            .map(([id, entry]) => ({
+                id,
+                name: entry?.name || id,
+                logoUrl: entry?.logoUrl || ''
+            }));
+    }
+
+    const legacyGateways = src.activePaymentGateways;
+    if (legacyGateways && typeof legacyGateways === 'object' && !Array.isArray(legacyGateways)) {
+        return Object.entries(legacyGateways)
+            .filter(([, enabled]) => enabled === true)
+            .map(([id]) => ({
+                id,
+                name: window.PaymentBrandLogos?.DEFAULT_GATEWAY_NAMES?.[id] || id,
+                logoUrl: ''
+            }));
+    }
+
+    return [];
+}
+
+function buildPaymentBadgeHtml(method) {
+    if (!method || !method.id) return '';
+
+    const name = method.name || method.id;
+    const logoUrl = method.logoUrl || '';
+
+    if (logoUrl) {
+        return `<img src="${logoUrl}" alt="${name}" class="payment-brand-logo payment-brand-logo--storefront payment-brand-logo--${String(method.id).toLowerCase()}" loading="lazy" decoding="async">`;
+    }
+
+    return `<span class="payment-name-badge payment-name-badge--${String(method.id).toLowerCase()}">${name}</span>`;
+}
+
+function paintActivePaymentBadges(methods) {
+    const container = document.getElementById('activePaymentBadges');
+    const zone = document.getElementById('paymentIconsZone');
+    if (!container) return;
+
+    const list = Array.isArray(methods) ? methods : [];
+    if (!list.length) {
+        container.innerHTML = '';
+        zone?.classList.add('hidden');
+        return;
+    }
+
+    zone?.classList.remove('hidden');
+    container.innerHTML = list.map(buildPaymentBadgeHtml).join('');
+}
+
+async function renderActivePaymentBadges() {
+    const inline = window.__STORE_SETTINGS__ || {};
+    let methods = resolveEnabledPaymentMethods(inline);
+
+    const src = getPaymentSettingsSource(inline);
+    if (!methods.length && !src.enabledPaymentMethods && !src.paymentGateways && !src.activePaymentGateways) {
+        try {
+            const res = await fetch('/api/store/payment-methods');
+            const data = await res.json();
+            if (data.success && data.data) {
+                methods = resolveEnabledPaymentMethods(data.data);
+            }
+        } catch (err) {
+            console.warn('Payment methods fallback fetch failed:', err);
+        }
+    }
+
+    paintActivePaymentBadges(methods);
+}
+
+// ==========================================================================
+// 🌟 SECTION 7B: SOCIAL SHARE & COPY LINK
+// ==========================================================================
+function getProductSharePayload() {
+    const title = (currentProductData && currentProductData.name)
+        ? String(currentProductData.name).trim()
+        : (document.getElementById('productTitle')?.innerText || 'Check out this product').trim();
+    const url = window.location.href.split('#')[0];
+    const text = `${title} — ${url}`;
+    return { title, url, text };
+}
+
+function openShareWindow(shareUrl) {
+    window.open(shareUrl, '_blank', 'noopener,noreferrer,width=600,height=520');
+}
+
+function setupShareButtons() {
+    const whatsappBtn = document.getElementById('shareWhatsApp');
+    const facebookBtn = document.getElementById('shareFacebook');
+    const messengerBtn = document.getElementById('shareMessenger');
+    const copyBtn = document.getElementById('shareCopyLink');
+
+    if (whatsappBtn) {
+        whatsappBtn.addEventListener('click', () => {
+            const { text } = getProductSharePayload();
+            openShareWindow(`https://wa.me/?text=${encodeURIComponent(text)}`);
+        });
+    }
+
+    if (facebookBtn) {
+        facebookBtn.addEventListener('click', () => {
+            const { url } = getProductSharePayload();
+            openShareWindow(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`);
+        });
+    }
+
+    if (messengerBtn) {
+        messengerBtn.addEventListener('click', () => {
+            const { url } = getProductSharePayload();
+            openShareWindow(`https://www.facebook.com/dialog/send?link=${encodeURIComponent(url)}&redirect_uri=${encodeURIComponent(url)}&display=popup`);
+        });
+    }
+
+    if (copyBtn) {
+        copyBtn.addEventListener('click', async () => {
+            const { url } = getProductSharePayload();
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(url);
+                } else {
+                    const helper = document.createElement('textarea');
+                    helper.value = url;
+                    helper.setAttribute('readonly', '');
+                    helper.style.position = 'fixed';
+                    helper.style.opacity = '0';
+                    document.body.appendChild(helper);
+                    helper.select();
+                    document.execCommand('copy');
+                    helper.remove();
+                }
+                showToast('Link copied to clipboard!', 'success');
+            } catch (err) {
+                console.error('Copy link failed:', err);
+                showToast('Could not copy link. Please copy the URL manually.', 'error');
+            }
+        });
+    }
 }
 
 // ==========================================================================

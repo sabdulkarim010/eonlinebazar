@@ -247,12 +247,79 @@ body {
     font-size: 26px;
     display: flex;
     align-items: center;
+    justify-content: center;
+    min-width: 48px;
+    min-height: 32px;
 }
 
+.method-logo-img {
+    max-width: 56px;
+    max-height: 32px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+.method-fee-hint {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #ecfdf5;
+    color: #047857;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.payment-methods-loading,
+.payment-methods-empty {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 36px 16px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    background: #f8fafc;
+    color: #64748b;
+    text-align: center;
+}
+
+.payment-methods-empty i,
+.payment-methods-loading i {
+    font-size: 22px;
+    color: #94a3b8;
+}
+
+.payment-instruction-copy {
+    font-size: 13px;
+    color: #475569;
+    margin-top: 6px;
+}
+
+.payment-account-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 8px 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    font-size: 13px;
+}
+
+.wallet-color { color: #0f766e; }
 .bkash-color { color: #d12053; }
 .nagad-color { color: #f64a1e; }
 .bank-color { color: #0284c7; }
 .cod-color { color: #475569; }
+
+#summaryProcessingFeeRow strong {
+    color: #b45309;
+}
 
 /* =========================================================================
    📋 ৫. ডাইনামিক ইনস্ট্রাকশন এরিয়া (Dynamic Instruction Box)

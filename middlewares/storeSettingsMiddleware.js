@@ -1,18 +1,33 @@
 const { DEFAULT_SETTINGS, getStoreSettings } = require('../utils/storeSettingsService');
 const { getPublicWhatsAppSettings } = require('../utils/whatsappService');
+const { getPublicPaymentPayload } = require('../utils/paymentMethodService');
 
 async function storeSettingsMiddleware(req, res, next) {
     try {
-        const [settings, whatsappSettings] = await Promise.all([
+        const [settings, whatsappSettings, paymentSettings] = await Promise.all([
             getStoreSettings(),
-            getPublicWhatsAppSettings()
+            getPublicWhatsAppSettings(),
+            getPublicPaymentPayload()
         ]);
         const storeLogo = settings.logoPath || settings.logoUrl || settings.storeLogo || '';
-        res.locals.settings = { ...settings, ...whatsappSettings, storeLogo };
+        res.locals.settings = {
+            ...settings,
+            ...whatsappSettings,
+            ...paymentSettings,
+            storeLogo
+        };
         res.locals.storeLogo = storeLogo;
     } catch (error) {
         console.error('Store settings middleware error:', error);
-        res.locals.settings = { ...DEFAULT_SETTINGS, storeLogo: '' };
+        res.locals.settings = {
+            ...DEFAULT_SETTINGS,
+            methods: [],
+            paymentGateways: {},
+            enabledPaymentMethods: [],
+            activePaymentMethods: [],
+            activePaymentGateways: {},
+            storeLogo: ''
+        };
         res.locals.storeLogo = '';
     }
     next();

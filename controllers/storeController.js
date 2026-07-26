@@ -1,5 +1,6 @@
 const { getStoreSettings } = require('../utils/storeSettingsService');
 const { getPublicWhatsAppSettings } = require('../utils/whatsappService');
+const { getPublicPaymentPayload } = require('../utils/paymentMethodService');
 const {
     getDeliverySettings,
     computeDeliveryCharge,
@@ -17,9 +18,10 @@ const { loadFlashSaleSettings, toPublicFlashSalePayload } = require('../utils/fl
 
 const getPublicStoreBranding = async (req, res) => {
     try {
-        const [settings, whatsappSettings] = await Promise.all([
+        const [settings, whatsappSettings, paymentSettings] = await Promise.all([
             getStoreSettings({ forceRefresh: true }),
-            getPublicWhatsAppSettings({ forceRefresh: true })
+            getPublicWhatsAppSettings({ forceRefresh: true }),
+            getPublicPaymentPayload({ forceRefresh: true })
         ]);
 
         res.status(200).json({
@@ -31,7 +33,12 @@ const getPublicStoreBranding = async (req, res) => {
                 logoPath: settings.logoPath,
                 faviconPath: settings.faviconPath,
                 storeLogo: settings.logoPath,
-                publicSupportWhatsApp: whatsappSettings.publicSupportWhatsApp
+                publicSupportWhatsApp: whatsappSettings.publicSupportWhatsApp,
+                paymentMethods: paymentSettings.methods,
+                paymentGateways: paymentSettings.paymentGateways,
+                enabledPaymentMethods: paymentSettings.enabledPaymentMethods,
+                activePaymentGateways: paymentSettings.activePaymentGateways,
+                activePaymentMethods: paymentSettings.activePaymentMethods
             }
         });
     } catch (error) {
@@ -119,6 +126,15 @@ module.exports = {
         } catch (error) {
             console.error('Get Public Flash Sale Error:', error);
             res.status(500).json({ success: false, message: 'Failed to load flash sale settings.' });
+        }
+    },
+    getPublicPaymentMethods: async (req, res) => {
+        try {
+            const data = await getPublicPaymentPayload({ forceRefresh: req.query.refresh === '1' });
+            res.status(200).json({ success: true, data });
+        } catch (error) {
+            console.error('Get Public Payment Methods Error:', error);
+            res.status(500).json({ success: false, message: 'Failed to load payment methods.' });
         }
     }
 };

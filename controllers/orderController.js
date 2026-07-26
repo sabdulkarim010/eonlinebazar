@@ -62,6 +62,12 @@ const { notifyOrderConfirmationEmail } = require('../utils/mailer');
 const { findVariantIndex, getVariantAttributes, getVariantLineId } = require('../utils/variantHelpers');
 const { deductWalletForOrder, creditWalletForUser, reverseWalletCredit } = require('../utils/walletService');
 const { loadFlashSaleSettings, resolveProductFlashPrice } = require('../utils/flashSaleService');
+const {
+    resolvePaymentMethodForCheckout,
+    computeProcessingFee,
+    buildOrderPaymentSnapshot,
+    WALLET_METHOD_CODE
+} = require('../utils/paymentMethodService');
 
 /** Verified selling price from catalog — never trust client item.price. */
 function resolveSellingPriceFromSettings(product, item, flashSettings) {
@@ -85,17 +91,30 @@ function buildLockedPricingPayload({
     deliveryCharge,
     merchandisePayable,
     grandTotal,
+    processingFee = 0,
+    walletApplied = 0,
+    payableTotal,
+    paymentMethod = '',
     shippingDistrict,
     shippingLocationType,
     deliveryLocationType
 }) {
+    const fee = roundMoney(processingFee);
+    const total = roundMoney(payableTotal ?? grandTotal + fee);
+
     return {
         subTotal: roundMoney(subTotal),
         discountAmount: roundMoney(discountAmount),
         deliveryCharge: roundMoney(deliveryCharge),
         merchandisePayable: roundMoney(merchandisePayable),
+        // grandTotal excludes the gateway surcharge so the merchandise + shipping
+        // figure stays comparable across payment methods.
         grandTotal: roundMoney(grandTotal),
-        totalAmount: roundMoney(grandTotal),
+        processingFee: fee,
+        walletApplied: roundMoney(walletApplied),
+        totalAmount: total,
+        payableTotal: total,
+        paymentMethod,
         shippingDistrict,
         shippingLocationType,
         deliveryLocationType
@@ -112,8 +131,15 @@ const createOrder = async (req, res) => {
         const note = req.body.note || req.body.notes || '';
         const couponCode = String(req.body.couponCode || req.body.coupon || '').trim().toUpperCase();
         
-        const paymentMethod = req.body.paymentMethod || req.body.method || 'COD'; 
-        
+        // 💳 চেকআউট থেকে PaymentMethod-এর _id আসে; code/name-ও গ্রহণ করা হয়
+        // যাতে পুরোনো ক্যাশ করা স্টোরফ্রন্ট বান্ডল কাজ করে যায়।
+        const requestedPaymentMethod = String(
+            req.body.paymentMethodId
+            || req.body.paymentMethod
+            || req.body.method
+            || ''
+        ).trim();
+
         const orderId = req.body.orderId || 'ORD-' + Math.floor(100000 + Math.random() * 900000);
 
         if (!customerName || !customerPhone || !customerAddress) {
@@ -134,6 +160,32 @@ const createOrder = async (req, res) => {
                 success: false,
                 message: 'Please select a valid shipping district.'
             });
+        }
+
+        /*
+         * পেমেন্ট মেথড ভ্যালিডেশন কুপন রিডিম করার আগেই — কারণ এর পরে রিটার্ন
+         * করলে কুপনের ব্যবহৃত স্লট রোলব্যাক করতে হতো। 'Wallet' একটি স্পেশাল
+         * সেন্টিনেল: ওয়ালেট ব্যালেন্স পুরো অর্ডার কভার করলে কোনো গেটওয়ে লাগে না,
+         * তাই তখন ক্যাটালগে কোনো মেথড থাকার দরকার নেই।
+         */
+        const isWalletSettlementRequest = requestedPaymentMethod.toLowerCase() === WALLET_METHOD_CODE;
+        let selectedPaymentMethod = null;
+
+        if (!isWalletSettlementRequest) {
+            if (!requestedPaymentMethod) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Please select a payment method.'
+                });
+            }
+
+            selectedPaymentMethod = await resolvePaymentMethodForCheckout(requestedPaymentMethod);
+            if (!selectedPaymentMethod) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'The selected payment method is no longer available. Please refresh the page and choose another one.'
+                });
+            }
         }
 
         // Never trust client-supplied totals or line prices — verified below from DB catalog + Settings.
@@ -301,36 +353,78 @@ const createOrder = async (req, res) => {
             merchandisePayable
         } = lockedTotals;
 
+        const wantsWallet = req.body.applyWallet === true
+            || req.body.useWallet === true
+            || req.body.applyWalletBalance === true;
+
+        let availableWallet = 0;
+        if (wantsWallet && userId) {
+            const walletUser = await User.findById(userId).select('walletBalance');
+            availableWallet = roundMoney(Number(walletUser?.walletBalance) || 0);
+        }
+
+        /*
+         * ওয়ালেট ব্যালেন্স প্রসেসিং ফি হিসাবের আগেই পড়া হয়: ওয়ালেট পুরো
+         * অর্ডার কভার করলে কোনো গেটওয়ে ব্যবহৃতই হয় না, তাই তখন গেটওয়ে ফি
+         * নেওয়া হলে কাস্টমারের কাছ থেকে বেশি টাকা কাটা হতো।
+         */
+        const walletCoversOrder = availableWallet > 0 && availableWallet >= grandTotal;
+        const processingFee = walletCoversOrder
+            ? 0
+            : computeProcessingFee(selectedPaymentMethod, grandTotal);
+
+        const payableBeforeWallet = roundMoney(grandTotal + processingFee);
+        const walletApplied = availableWallet > 0
+            ? roundMoney(Math.min(availableWallet, payableBeforeWallet))
+            : 0;
+        const finalGrandTotal = roundMoney(Math.max(0, payableBeforeWallet - walletApplied));
+        const settledFromWallet = finalGrandTotal <= 0 && walletApplied > 0;
+
+        // স্টেল ক্লায়েন্ট 'Wallet' পাঠিয়েছে কিন্তু ব্যালেন্স আর যথেষ্ট নয় —
+        // এখানে কুপন স্লট রিলিজ করে পরিষ্কার এরর ফেরত যায়।
+        if (!selectedPaymentMethod && !settledFromWallet) {
+            if (couponDocId) {
+                try {
+                    await releaseCouponSlot(couponDocId);
+                } catch (rbErr) {
+                    console.error('⚠️ Coupon rollback error:', rbErr.message);
+                }
+            }
+            return res.status(400).json({
+                success: false,
+                message: 'Your wallet balance no longer covers this order. Please select a payment method.'
+            });
+        }
+
+        const resolvedPaymentMethod = settledFromWallet
+            ? 'Wallet'
+            : selectedPaymentMethod.name;
+
+        const paymentSnapshot = buildOrderPaymentSnapshot(selectedPaymentMethod, {
+            amount: grandTotal,
+            processingFee
+        });
+
+        if (settledFromWallet) {
+            paymentSnapshot.settledFromWallet = true;
+            paymentSnapshot.status = 'paid';
+            paymentSnapshot.paidAt = new Date();
+        }
+
         const lockedPricing = buildLockedPricingPayload({
             subTotal,
             discountAmount,
             deliveryCharge: lockedDeliveryCharge,
             merchandisePayable,
             grandTotal,
+            processingFee,
+            walletApplied,
+            payableTotal: finalGrandTotal,
+            paymentMethod: resolvedPaymentMethod,
             shippingDistrict,
             shippingLocationType,
             deliveryLocationType
         });
-
-        const wantsWallet = req.body.applyWallet === true
-            || req.body.useWallet === true
-            || req.body.applyWalletBalance === true;
-        let walletApplied = 0;
-        let finalGrandTotal = grandTotal;
-        let resolvedPaymentMethod = paymentMethod;
-
-        if (wantsWallet && userId) {
-            const walletUser = await User.findById(userId).select('walletBalance');
-            const availableWallet = roundMoney(Number(walletUser?.walletBalance) || 0);
-            if (availableWallet > 0) {
-                walletApplied = roundMoney(Math.min(availableWallet, grandTotal));
-                finalGrandTotal = roundMoney(Math.max(0, grandTotal - walletApplied));
-                if (finalGrandTotal <= 0) {
-                    finalGrandTotal = 0;
-                    resolvedPaymentMethod = 'Wallet';
-                }
-            }
-        }
 
         const newOrder = new Order({
             orderId,
@@ -353,6 +447,8 @@ const createOrder = async (req, res) => {
             estimatedDelivery: deliveryEstimate.label,
             totalBuyingPrice: Math.round(totalBuyingPrice),
             paymentMethod: resolvedPaymentMethod,
+            processingFee,
+            payment: paymentSnapshot,
             items: normalizedItems,
             note,
             status: 'Pending',
@@ -709,6 +805,17 @@ const createManualOrder = async (req, res) => {
         const isPaid = paymentStatus.toLowerCase() === 'paid';
         const paymentMethod = isPaid ? 'Paid' : 'COD';
         const status = isPaid ? 'Processing' : 'Pending';
+
+        // POS অর্ডারেও একই পেমেন্ট স্ন্যাপশট রাখা হয় (paymentMethodId পাঠানো
+        // হলে), যাতে অনলাইন ও কাউন্টার — দুই চ্যানেলের লেজার একই কাঠামোয় থাকে।
+        // স্টাফ কোনো মেথড না বাছলে COD/Paid লেবেলসহ খালি স্ন্যাপশট যায়।
+        const posPaymentMethod = req.body.paymentMethodId
+            ? await resolvePaymentMethodForCheckout(req.body.paymentMethodId)
+            : null;
+        const posPaymentSnapshot = buildOrderPaymentSnapshot(posPaymentMethod, { amount: grandTotal });
+        posPaymentSnapshot.status = isPaid ? 'paid' : 'unpaid';
+        if (isPaid) posPaymentSnapshot.paidAt = new Date();
+        if (!posPaymentMethod) posPaymentSnapshot.name = paymentMethod;
         const orderId = req.body.orderId || `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
         const staffNote = note ? `[Manual POS] ${note}` : '[Manual POS] Staff phone / counter entry';
 
@@ -731,6 +838,7 @@ const createManualOrder = async (req, res) => {
             estimatedDelivery: deliveryEstimate.label,
             totalBuyingPrice: Math.round(totalBuyingPrice),
             paymentMethod,
+            payment: posPaymentSnapshot,
             items: normalizedItems,
             note: staffNote,
             status,

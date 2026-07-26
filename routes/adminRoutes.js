@@ -18,8 +18,9 @@ const settingsController = require('../controllers/settingsController');
 const masterSettingsController = require('../controllers/masterSettingsController');
 const courierController = require('../controllers/courierController');
 const whatsappAlertsController = require('../controllers/whatsappAlertsController');
+const paymentMethodController = require('../controllers/paymentMethodController');
 const upload = require('../middlewares/uploadMiddleware');
-const { brandingUpload } = upload;
+const { brandingUpload, paymentMethodLogoUpload } = upload;
 const staffController = require('../controllers/staffController');
 const staffRoutes = require('./staffRoutes');
 const { verifyAdmin } = require('../middlewares/authMiddleware');
@@ -129,6 +130,33 @@ router.post('/master-settings', verifyAdmin, checkPermission('manage_settings'),
 // URL: POST|PUT /api/admin/master-settings/update — unified "Save Master Settings"
 router.post('/master-settings/update', verifyAdmin, checkPermission('manage_settings'), masterSettingsController.updateMasterSettings);
 router.put('/master-settings/update', verifyAdmin, checkPermission('manage_settings'), masterSettingsController.updateMasterSettings);
+
+/********************************************************************
+ # ৫গ. 💳 DYNAMIC PAYMENT METHOD CATALOG (CRUD)
+ # URL: /api/admin/payment-methods
+ # প্রতিটি রুট manage_settings পারমিশনে সুরক্ষিত। লোগো আপলোড multipart
+ # (field: logo) — গেটওয়ে ক্রেডেনশিয়াল সেভের আগেই এনক্রিপ্ট হয়ে যায়।
+ # দ্রষ্টব্য: /reorder অবশ্যই /:id এর আগে — নাহলে "reorder" একটি আইডি হিসেবে ধরা পড়ে।
+ ********************************************************************/
+router.get('/payment-methods', verifyAdmin, checkPermission('manage_settings'), paymentMethodController.listPaymentMethods);
+router.patch('/payment-methods/reorder', verifyAdmin, checkPermission('manage_settings'), paymentMethodController.reorderPaymentMethods);
+router.post(
+    '/payment-methods',
+    verifyAdmin,
+    checkPermission('manage_settings'),
+    paymentMethodLogoUpload,
+    paymentMethodController.createPaymentMethod
+);
+router.get('/payment-methods/:id', verifyAdmin, checkPermission('manage_settings'), paymentMethodController.getPaymentMethod);
+router.put(
+    '/payment-methods/:id',
+    verifyAdmin,
+    checkPermission('manage_settings'),
+    paymentMethodLogoUpload,
+    paymentMethodController.updatePaymentMethod
+);
+router.patch('/payment-methods/:id/toggle', verifyAdmin, checkPermission('manage_settings'), paymentMethodController.togglePaymentMethod);
+router.delete('/payment-methods/:id', verifyAdmin, checkPermission('manage_settings'), paymentMethodController.deletePaymentMethod);
 
 // URL: GET|POST /api/admin/announcement-settings (legacy announcement-only save)
 router.get('/announcement-settings', verifyAdmin, masterSettingsController.getAnnouncementSettings);

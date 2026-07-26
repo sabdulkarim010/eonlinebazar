@@ -3,23 +3,21 @@
  * Project: eOnlineBazar
  * Author: Abdul Karim Sheikh
  * File: js/payment.js
- * Description: Advanced Dynamic Payment Engine - LocalStorage Session Loader,
- * Interactive Payment Card Toggler, Live Instructions Generator, 
- * and MongoDB Fetch API (With Isolated Buy Now Cleanup Logic).
+ * Description: Dynamic Payment Engine — loads active PaymentMethod catalog,
+ * shows manual instructions / automated gateway notice, live processing-fee
+ * totals, and places orders mapped to paymentMethodId for ledger/IPN.
  * =========================================================================
  */
 
-document.addEventListener('DOMContentLoaded', () => {
-    // ১. চেকআউট সেশন থেকে কাস্টমার ও অর্ডারের ডাটা লোড করা
+let checkoutPaymentMethods = [];
+let basePayableBeforeFee = 0;
+let selectedPaymentMethod = null;
+let walletOnlyMode = false;
+
+document.addEventListener('DOMContentLoaded', async () => {
     loadCheckoutSessionData();
+    await loadDynamicPaymentMethods();
 
-    // ২. পেমেন্ট মেথড কার্ডের ক্লিক এবং ইন্টারঅ্যাকশন হ্যান্ডলার
-    initPaymentCardToggler();
-
-    // ৩. প্রথমবার পেজ লোড হওয়ার সময় ডিফল্ট (বিকাশ) ইনস্ট্রাকশন শো করা
-    updatePaymentInstructions("bKash");
-
-    // ৪. ফাইনাল অর্ডার কনফার্মেশন বাটন লিসেনার
     const confirmOrderBtn = document.getElementById('confirmOrderFinalBtn');
     if (confirmOrderBtn) {
         confirmOrderBtn.addEventListener('click', handleFinalOrderSubmission);
@@ -27,42 +25,40 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* =========================================================================
-   📥 ১. সেশন ডাটা লোডার (Load Data from Checkout Session)
+   Session + summary
    ========================================================================= */
 function loadCheckoutSessionData() {
     const sessionData = JSON.parse(localStorage.getItem('activeCheckoutSession'));
-    
+
     if (!sessionData) {
-        alert("No active checkout session found. Redirecting to cart.");
+        alert('No active checkout session found. Redirecting to cart.');
         window.location.href = '/cart';
         return;
     }
 
     window.__checkoutSession = sessionData;
 
-    document.getElementById('summaryCustomerName').innerText = sessionData.customerName || "N/A";
-    document.getElementById('summaryCustomerMobile').innerText = sessionData.customerPhone || sessionData.customerMobile || "N/A";
-    document.getElementById('summaryCustomerAddress').innerText = sessionData.customerAddress || "N/A";
+    document.getElementById('summaryCustomerName').innerText = sessionData.customerName || 'N/A';
+    document.getElementById('summaryCustomerMobile').innerText =
+        sessionData.customerPhone || sessionData.customerMobile || 'N/A';
+    document.getElementById('summaryCustomerAddress').innerText = sessionData.customerAddress || 'N/A';
 
     const noteRow = document.getElementById('summaryCourierNoteRow');
     const noteSpan = document.getElementById('summaryCourierNote');
-    
-    // সেশন ডাটা বা লোকালস্টোরেজ থেকে নোট নেওয়া হচ্ছে
-    const savedNote = sessionData.note || localStorage.getItem('shippingCourierNote') || "";
-    if (savedNote && savedNote.trim() !== "") {
+    const savedNote = sessionData.note || localStorage.getItem('shippingCourierNote') || '';
+    if (savedNote && savedNote.trim() !== '') {
         if (noteSpan) noteSpan.innerText = savedNote;
-        if (noteRow) noteRow.style.display = "block";
-    } else {
-        if (noteRow) noteRow.style.display = "none";
+        if (noteRow) noteRow.style.display = 'block';
+    } else if (noteRow) {
+        noteRow.style.display = 'none';
     }
 
     let totalItems = 0;
     let calculatedSubtotal = 0;
-
     if (sessionData.items && sessionData.items.length > 0) {
-        sessionData.items.forEach(item => {
-            totalItems += (parseInt(item.quantity) || 1);
-            calculatedSubtotal += parseFloat(item.price) * (parseInt(item.quantity) || 1);
+        sessionData.items.forEach((item) => {
+            totalItems += parseInt(item.quantity, 10) || 1;
+            calculatedSubtotal += parseFloat(item.price) * (parseInt(item.quantity, 10) || 1);
         });
     }
 
@@ -77,7 +73,10 @@ function loadCheckoutSessionData() {
         ? Number(sessionData.payableAfterWallet)
         : Math.max(0, grandBeforeWallet - walletApplied);
 
-    document.getElementById('summaryItemsCount').innerText = `${totalItems} Item${totalItems !== 1 ? 's' : ''}`;
+    basePayableBeforeFee = payable;
+
+    document.getElementById('summaryItemsCount').innerText =
+        `${totalItems} Item${totalItems !== 1 ? 's' : ''}`;
 
     const walletRow = document.getElementById('summaryWalletRow');
     const walletEl = document.getElementById('summaryWalletApplied');
@@ -109,172 +108,273 @@ function loadCheckoutSessionData() {
         freeShippingBadge.style.display = deliveryCharge === 0 ? 'inline-flex' : 'none';
     }
 
-    document.getElementById('summaryPayableTotal').innerText = `৳${payable}`;
-
-    configureWalletPaymentMode(sessionData, payable, walletApplied);
+    updatePayableSummary(0, null);
+    walletOnlyMode = payable <= 0 && walletApplied > 0;
 }
 
-function configureWalletPaymentMode(sessionData, payable, walletApplied) {
-    const walletCard = document.getElementById('methodWalletCard');
-    const walletRadio = document.getElementById('methodWallet');
-    const cards = document.querySelectorAll('.payment-method-card');
-    const fullyPaidByWallet = payable <= 0 && walletApplied > 0;
+function computeProcessingFee(method, amount) {
+    if (!method) return 0;
+    const fee = Number(method.processingFee) || 0;
+    if (fee <= 0) return 0;
+    const base = Math.max(0, Number(amount) || 0);
+    const raw = method.feeType === 'flat' ? fee : (base * fee) / 100;
+    return Math.round(raw * 100) / 100;
+}
 
-    if (fullyPaidByWallet && walletCard && walletRadio) {
-        walletCard.style.display = '';
-        cards.forEach((card) => {
-            if (card.id === 'methodWalletCard') {
-                card.classList.add('active-method');
-            } else {
-                card.classList.remove('active-method');
-                card.style.opacity = '0.45';
-                card.style.pointerEvents = 'none';
+function updatePayableSummary(processingFee = 0, method = null) {
+    const feeRow = document.getElementById('summaryProcessingFeeRow');
+    const feeAmountEl = document.getElementById('summaryProcessingFeeAmount');
+    const feeLabelEl = document.getElementById('summaryProcessingFeeLabel');
+    const payableEl = document.getElementById('summaryPayableTotal');
+    const fee = Math.max(0, Number(processingFee) || 0);
+    const total = Math.max(0, basePayableBeforeFee + fee);
+
+    if (feeRow && feeAmountEl) {
+        if (fee > 0 && method) {
+            feeRow.style.display = 'flex';
+            feeAmountEl.innerText = `৳${fee.toLocaleString('en-US')}`;
+            if (feeLabelEl) {
+                feeLabelEl.innerText = method.feeType === 'flat'
+                    ? `${method.name}`
+                    : `${method.processingFee}% · ${method.name}`;
             }
-        });
-        walletRadio.checked = true;
-        updatePaymentInstructions('Wallet');
+        } else {
+            feeRow.style.display = 'none';
+        }
+    }
+
+    if (payableEl) payableEl.innerText = `৳${total.toLocaleString('en-US')}`;
+}
+
+function escapeHtml(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function methodFallbackIcon(method) {
+    const code = String(method?.code || method?.name || '').toLowerCase();
+    if (code.includes('bkash')) return 'fa-mobile-screen-button bkash-color';
+    if (code.includes('nagad')) return 'fa-bolt nagad-color';
+    if (code.includes('bank')) return 'fa-building-columns bank-color';
+    if (code.includes('cod') || code.includes('cash')) return 'fa-truck-ramp-box cod-color';
+    if (code.includes('visa') || code.includes('master') || code.includes('card')) {
+        return 'fa-credit-card bank-color';
+    }
+    return method?.type === 'automated' ? 'fa-shield-halved bank-color' : 'fa-wallet wallet-color';
+}
+
+function formatFeeHint(method) {
+    const fee = Number(method?.processingFee) || 0;
+    if (fee <= 0) return '';
+    return method.feeType === 'flat' ? `+৳${fee} fee` : `+${fee}% fee`;
+}
+
+/* =========================================================================
+   Dynamic catalog
+   ========================================================================= */
+async function loadDynamicPaymentMethods() {
+    const grid = document.getElementById('paymentOptionsGrid');
+    if (!grid) return;
+
+    if (walletOnlyMode) {
+        renderWalletOnlyOption(grid);
         return;
     }
 
-    if (walletCard) walletCard.style.display = 'none';
-    cards.forEach((card) => {
-        card.style.opacity = '';
-        card.style.pointerEvents = '';
-    });
+    try {
+        const res = await fetch('/api/payments/methods');
+        const data = await res.json();
+        const methods = Array.isArray(data?.data?.methods)
+            ? data.data.methods
+            : (Array.isArray(data?.data?.paymentMethods) ? data.data.paymentMethods : []);
+
+        checkoutPaymentMethods = methods
+            .slice()
+            .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0));
+
+        if (!checkoutPaymentMethods.length) {
+            grid.innerHTML = `
+                <div class="payment-methods-empty">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <p>No payment methods are available right now. Please contact support or try again later.</p>
+                </div>`;
+            document.getElementById('paymentInstructionsBox').innerHTML = '';
+            const confirmBtn = document.getElementById('confirmOrderFinalBtn');
+            if (confirmBtn) confirmBtn.disabled = true;
+            return;
+        }
+
+        renderPaymentMethodCards(grid, checkoutPaymentMethods);
+        selectPaymentMethod(checkoutPaymentMethods[0]);
+    } catch (err) {
+        console.error('Failed to load payment methods:', err);
+        grid.innerHTML = `
+            <div class="payment-methods-empty">
+                <i class="fa-solid fa-wifi"></i>
+                <p>Could not load payment methods. Please refresh the page.</p>
+            </div>`;
+    }
 }
 
-/* =========================================================================
-   💳 ২. ইন্টারেক্টিভ কার্ড টগলার (Interactive Payment Card Click Logic)
-   ========================================================================= */
-function initPaymentCardToggler() {
-    const cards = document.querySelectorAll('.payment-method-card');
-    
-    cards.forEach(card => {
-        card.addEventListener('click', function() {
-            cards.forEach(c => c.classList.remove('active-method'));
-            this.classList.add('active-method');
-            
-            const radioBtn = this.querySelector('input[type="radio"]');
-            if (radioBtn) {
-                radioBtn.checked = true;
-                updatePaymentInstructions(radioBtn.value);
-            }
+function renderWalletOnlyOption(grid) {
+    grid.innerHTML = `
+        <label class="payment-method-card active-method" for="methodWallet">
+            <div class="card-radio-wrapper">
+                <input type="radio" id="methodWallet" name="paymentGateway" value="wallet" data-method-id="wallet" checked>
+                <span class="custom-radio-circle"></span>
+            </div>
+            <div class="method-details">
+                <span class="method-title">Paid via Wallet</span>
+                <span class="method-subtitle">Your order is fully covered by wallet balance</span>
+            </div>
+            <div class="method-logo-box">
+                <i class="fa-solid fa-wallet logo-fallback-icon wallet-color"></i>
+            </div>
+        </label>`;
+
+    selectedPaymentMethod = {
+        id: 'wallet',
+        code: 'wallet',
+        name: 'Wallet',
+        type: 'manual',
+        processingFee: 0,
+        feeType: 'flat',
+        instructions: 'Your wallet balance fully covers this order. Confirm below to place the order and deduct the wallet amount instantly.'
+    };
+    updatePaymentInstructions(selectedPaymentMethod);
+    updatePayableSummary(0, null);
+}
+
+function renderPaymentMethodCards(grid, methods) {
+    grid.innerHTML = methods.map((method, index) => {
+        const id = escapeHtml(method.id);
+        const inputId = `paymentMethod_${escapeHtml(method.code || method.id)}`;
+        const feeHint = formatFeeHint(method);
+        const logo = method.logoUrl
+            ? `<img src="${escapeHtml(method.logoUrl)}" alt="${escapeHtml(method.name)}" class="method-logo-img" loading="lazy">`
+            : `<i class="fa-solid ${methodFallbackIcon(method)} logo-fallback-icon"></i>`;
+
+        return `
+            <label class="payment-method-card ${index === 0 ? 'active-method' : ''}" for="${inputId}" data-method-id="${id}">
+                <div class="card-radio-wrapper">
+                    <input type="radio"
+                        id="${inputId}"
+                        name="paymentGateway"
+                        value="${escapeHtml(method.code || method.id)}"
+                        data-method-id="${id}"
+                        ${index === 0 ? 'checked' : ''}>
+                    <span class="custom-radio-circle"></span>
+                </div>
+                <div class="method-details">
+                    <span class="method-title">${escapeHtml(method.name)}</span>
+                    <span class="method-subtitle">${escapeHtml(method.description || (method.type === 'automated' ? 'Secure gateway checkout' : 'Pay using this method'))}</span>
+                    ${feeHint ? `<span class="method-fee-hint">${escapeHtml(feeHint)}</span>` : ''}
+                </div>
+                <div class="method-logo-box">${logo}</div>
+            </label>`;
+    }).join('');
+
+    grid.querySelectorAll('.payment-method-card').forEach((card) => {
+        card.addEventListener('click', () => {
+            const methodId = card.dataset.methodId;
+            const method = checkoutPaymentMethods.find((m) => String(m.id) === String(methodId));
+            if (method) selectPaymentMethod(method);
         });
     });
 }
 
-/* =========================================================================
-   ⚡ ৩. ডাইনামিক ইনস্ট্রাকশন জেনারেটর (Dynamic Gateway Instructions)
-   ========================================================================= */
+function selectPaymentMethod(method) {
+    if (!method) return;
+    selectedPaymentMethod = method;
+
+    document.querySelectorAll('.payment-method-card').forEach((card) => {
+        const isActive = String(card.dataset.methodId) === String(method.id);
+        card.classList.toggle('active-method', isActive);
+        const radio = card.querySelector('input[type="radio"]');
+        if (radio) radio.checked = isActive;
+    });
+
+    const fee = computeProcessingFee(method, basePayableBeforeFee);
+    updatePayableSummary(fee, method);
+    updatePaymentInstructions(method);
+}
+
 function updatePaymentInstructions(method) {
     const instructionBox = document.getElementById('paymentInstructionsBox');
-    if (!instructionBox) return;
+    if (!instructionBox || !method) return;
 
-    let htmlContent = "";
-
-    switch(method) {
-        case "bKash":
-            htmlContent = `
-                <p><strong><i class="fa-solid fa-building-columns"></i> bKash Payment Instructions:</strong></p>
-                <ol style="margin-left: 20px; padding-top: 5px;">
-                    <li>Go to your bKash app or dial *247#</li>
-                    <li>Choose <strong>Send Money</strong> to our Personal Wallet: <strong style="color: #d12053;">017XXXXXXXX</strong></li>
-                    <li>Enter the total payable amount shown in your order summary.</li>
-                    <li>After successful payment, keep the Transaction ID (Txnid) for safety.</li>
-                </ol>
-                <div class="instruction-important-note">
-                    <i class="fa-solid fa-circle-info"></i> Our team will verify your mobile number and payment within 15-30 minutes after placing the order.
-                </div>
-            `;
-            break;
-            
-        case "Nagad":
-            htmlContent = `
-                <p><strong><i class="fa-solid fa-bolt"></i> Nagad Payment Instructions:</strong></p>
-                <ol style="margin-left: 20px; padding-top: 5px;">
-                    <li>Open your Nagad App or dial *167#</li>
-                    <li>Select <strong>Send Money</strong> to our Wallet: <strong style="color: #f64a1e;">019XXXXXXXX</strong></li>
-                    <li>Send the exact amount stated in the summary section.</li>
-                </ol>
-                <div class="instruction-important-note">
-                    <i class="fa-solid fa-circle-info"></i> Please ensure you are sending from your personal Nagad wallet for automated logging.
-                </div>
-            `;
-            break;
-            
-        case "Bank":
-            htmlContent = `
-                <p><strong><i class="fa-solid fa-building-columns"></i> Bank Account Information:</strong></p>
-                <div style="background: #ffffff; padding: 10px; border-radius: 6px; margin-top: 8px; border: 1px solid #e2e8f0;">
-                    <div>Bank Name: <strong>Islami Bank Bangladesh PLC</strong></div>
-                    <div>Account Name: <strong>eOnlineBazar Enterprise</strong></div>
-                    <div>Account No: <strong>2050XXXXXXXXXXXXX</strong></div>
-                    <div>Branch: <strong>Dhaka Main Branch</strong></div>
-                </div>
-                <div class="instruction-important-note">
-                    <i class="fa-solid fa-circle-info"></i> Please mention your Mobile Number in the bank deposit reference field.
-                </div>
-            `;
-            break;
-            
-        case "COD":
-            htmlContent = `
-                <p><strong><i class="fa-solid fa-truck"></i> Cash on Delivery (COD) Selected:</strong></p>
-                <p style="font-size: 13px; color: #475569; margin-top: 5px;">
-                    You don't need to pay online right now! You will check and pay the total amount in cash to the delivery agent once the package safely reaches your doorstep.
-                </p>
-                <div class="instruction-important-note" style="color: #166534; background: #e2fbe8; padding: 8px; border-radius: 4px;">
-                    <i class="fa-solid fa-circle-check"></i> Standard Delivery takes 2-3 working days across Bangladesh.
-                </div>
-            `;
-            break;
-
-        case "Wallet":
-            htmlContent = `
-                <p><strong><i class="fa-solid fa-wallet"></i> Paid via Wallet:</strong></p>
-                <p style="font-size: 13px; color: #475569; margin-top: 5px;">
-                    Your wallet balance fully covers this order. No additional online payment or cash on delivery collection is required for the merchandise total.
-                </p>
-                <div class="instruction-important-note" style="color: #166534; background: #e2fbe8; padding: 8px; border-radius: 4px;">
-                    <i class="fa-solid fa-circle-check"></i> Confirm below to place the order and deduct the wallet amount instantly.
-                </div>
-            `;
-            break;
-            
-        default:
-            htmlContent = `<p>Please select a valid payment method to proceed.</p>`;
-    }
-
-    instructionBox.innerHTML = htmlContent;
-}
-
-/* =========================================================================
-🚀 🔀 ৪. ফাইনাল অর্ডার সাবমিশন (MongoDB API & Cart Sync Integration)
-========================================================================= */
-window.handleFinalOrderSubmission = async function() {
-    const selectedRadio = document.querySelector('input[name="paymentGateway"]:checked');
-
-    if (!selectedRadio) {
-        alert("Please select a payment method first.");
+    if (method.code === 'wallet' || method.id === 'wallet') {
+        instructionBox.innerHTML = `
+            <p><strong><i class="fa-solid fa-wallet"></i> Paid via Wallet</strong></p>
+            <p class="payment-instruction-copy">${escapeHtml(method.instructions)}</p>
+            <div class="instruction-important-note" style="color:#166534;background:#e2fbe8;padding:8px;border-radius:4px;">
+                <i class="fa-solid fa-circle-check"></i> Confirm below to place the order and deduct the wallet amount instantly.
+            </div>`;
         return;
     }
 
-    const finalMethod = selectedRadio.value;
+    if (method.type === 'automated') {
+        instructionBox.innerHTML = `
+            <p><strong><i class="fa-solid fa-shield-halved"></i> Secure Gateway Payment</strong></p>
+            <p class="payment-instruction-copy">
+                You will be redirected to a secure payment gateway to complete your payment for
+                <strong>${escapeHtml(method.name)}</strong>.
+            </p>
+            <div class="instruction-important-note">
+                <i class="fa-solid fa-circle-info"></i>
+                Never share OTP or card details with anyone claiming to be from the store.
+            </div>`;
+        return;
+    }
+
+    const accountLine = method.accountNumber
+        ? `<div class="payment-account-chip">Account: <strong>${escapeHtml(method.accountNumber)}</strong></div>`
+        : '';
+    const instructions = method.instructions
+        ? `<p class="payment-instruction-copy">${escapeHtml(method.instructions).replace(/\n/g, '<br>')}</p>`
+        : `<p class="payment-instruction-copy">Follow the payment steps for <strong>${escapeHtml(method.name)}</strong> and keep your transaction reference.</p>`;
+
+    instructionBox.innerHTML = `
+        <p><strong><i class="fa-solid fa-circle-info"></i> ${escapeHtml(method.name)} Instructions</strong></p>
+        ${accountLine}
+        ${instructions}
+        <div class="instruction-important-note">
+            <i class="fa-solid fa-circle-info"></i>
+            Our team verifies payments shortly after you place the order.
+        </div>`;
+}
+
+/* =========================================================================
+   Place order
+   ========================================================================= */
+window.handleFinalOrderSubmission = async function handleFinalOrderSubmission() {
+    if (!selectedPaymentMethod && !walletOnlyMode) {
+        alert('Please select a payment method first.');
+        return;
+    }
+
     const confirmBtn = document.getElementById('confirmOrderFinalBtn');
-    
     if (confirmBtn) {
-        confirmBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Processing Order...`;
+        confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing Order...';
         confirmBtn.disabled = true;
     }
 
     try {
         const sessionData = JSON.parse(localStorage.getItem('activeCheckoutSession'));
         if (!sessionData || !sessionData.items) {
-            throw new Error("Checkout session expired. Please go back to cart.");
+            throw new Error('Checkout session expired. Please go back to cart.');
         }
 
+        const method = selectedPaymentMethod;
+        const isWallet = walletOnlyMode || method?.code === 'wallet' || method?.id === 'wallet';
+        const processingFee = isWallet ? 0 : computeProcessingFee(method, basePayableBeforeFee);
+
         const orderData = {
-            orderId: sessionData.orderId || "EOB" + Math.floor(100000 + Math.random() * 900000),
+            orderId: sessionData.orderId || `EOB${Math.floor(100000 + Math.random() * 900000)}`,
             customerName: sessionData.customerName,
             customerPhone: sessionData.customerPhone,
             customerAddress: sessionData.customerAddress,
@@ -298,124 +398,148 @@ window.handleFinalOrderSubmission = async function() {
             totalAmount: Number(sessionData.payableAfterWallet ?? sessionData.grandTotal ?? sessionData.totalAmount) || 0,
             walletApplied: Number(sessionData.walletApplied) || 0,
             applyWallet: sessionData.applyWallet === true,
-            paymentMethod: finalMethod,
-            status: "Pending",
-            note: sessionData.note || localStorage.getItem('shippingCourierNote') || ""
+            paymentMethodId: isWallet ? undefined : method.id,
+            paymentMethod: isWallet ? 'Wallet' : (method.code || method.name),
+            status: 'Pending',
+            note: sessionData.note || localStorage.getItem('shippingCourierNote') || ''
         };
 
-        const token = localStorage.getItem('token') || localStorage.getItem('customerToken');
+        const authToken = localStorage.getItem('token') || localStorage.getItem('customerToken');
 
-        // ১. অর্ডার সেভ করার রিকোয়েস্ট
         const response = await fetch('/api/orders', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                Authorization: `Bearer ${authToken}`
             },
             body: JSON.stringify(orderData)
         });
 
         const result = await response.json();
-
-        if (result.success) {
-            const verifiedOrderId = result.data?.orderId || orderData.orderId;
-            const lockedPricing = result.lockedPricing || {
-                subTotal: result.data?.subTotal,
-                deliveryCharge: result.data?.deliveryCharge,
-                grandTotal: result.data?.grandTotal,
-                totalAmount: result.data?.totalAmount
-            };
-
-            if (lockedPricing && Object.keys(lockedPricing).length > 0) {
-                localStorage.setItem('lastOrderLockedPricing', JSON.stringify({
-                    orderId: verifiedOrderId,
-                    ...lockedPricing
-                }));
-            }
-
-            // 🟢 ফিক্স: চেক করা হচ্ছে অর্ডারটি Buy Now থেকে এসেছে কিনা
-            const isBuyNow = localStorage.getItem('isBuyNowMode') === 'true';
-
-            if (isBuyNow) {
-                // যদি Buy Now হয়, তবে মেইন কার্টে কোনো হাত দেওয়া হবে না। শুধু Buy Now মোড ক্লিয়ার হবে।
-                localStorage.removeItem('isBuyNowMode');
-                localStorage.removeItem('buy_now_item');
-            } else {
-                // ২. যদি কার্ট থেকে অর্ডার হয়, তবেই ডাটাবেজ কার্ট ক্লিয়ার করা হবে
-                if (token) {
-                    await fetch('/api/cart/clear-ordered', {
-                        method: 'DELETE',
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    }).catch(err => console.error("DB Cart cleanup failed", err));
-                }
-
-                // ৩. লোকাল কার্ট আপডেট করা (শুধু সিলেক্ট না করা আইটেমগুলো রাখা হবে)
-                let fullCart = JSON.parse(localStorage.getItem('cart')) || [];
-                let remainingCart = fullCart.filter(item => item.selected === false);
-                localStorage.setItem('cart', JSON.stringify(remainingCart));
-            }
-
-            // ৪. চেকআউট সেশন ক্লিনআপ (সবার জন্য সাধারণ ক্লিনআপ)
-            localStorage.removeItem('activeCheckoutSession');
-            localStorage.removeItem('appliedCoupon');
-            localStorage.removeItem('shippingFullName');
-            localStorage.removeItem('shippingMobile');
-            localStorage.removeItem('shippingAddress');
-            localStorage.removeItem('shippingCourierNote');
-
-            // ৫. সাকসেস মডাল শো
-            const successModal = document.getElementById('orderSuccessModal');
-            if (successModal) {
-                document.getElementById('modalOrderId').innerText = verifiedOrderId;
-                document.getElementById('modalGatewayMessage').innerHTML = `Your order <strong>${verifiedOrderId}</strong> via <strong>${finalMethod}</strong> has been placed.`;
-                document.getElementById('modalDeliveryDate').innerText = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toLocaleDateString();
-                
-                successModal.style.setProperty('display', 'flex', 'important');
-
-                // 🛑 অর্ডার আইডি কপি লজিক (ইন্টারঅ্যাক্টিভ)
-                const copyBtn = document.getElementById('copyOrderIdBtn');
-                if (copyBtn) {
-                    copyBtn.onclick = function() {
-                        navigator.clipboard.writeText(verifiedOrderId).then(() => {
-                            const originalHTML = copyBtn.innerHTML;
-                            copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
-                            setTimeout(() => copyBtn.innerHTML = originalHTML, 2000);
-                        });
-                    };
-                }
-            }
-
-            // ৬. রিডাইরেক্ট টাইমার হ্যান্ডলার
-            let timeLeft = 30;
-            const timer = setInterval(() => {
-                timeLeft--;
-                if (document.getElementById('modalTimerCount')) document.getElementById('modalTimerCount').innerText = timeLeft;
-                if (timeLeft <= 0) { clearInterval(timer); window.location.href = '/'; }
-            }, 1000);
-
-            // ৭. কন্টিনিউ শপিং বাটনের জন্য হ্যান্ডলার
-            const continueBtn = document.getElementById('modalCloseAndHomeBtn');
-            if (continueBtn) {
-                continueBtn.onclick = function() {
-                    clearInterval(timer); 
-                    window.location.href = '/';
-                };
-            }
-
-        } else {
-            throw new Error(result.message || "Failed to place order.");
+        if (!result.success) {
+            throw new Error(result.message || 'Failed to place order.');
         }
 
+        const verifiedOrderId = result.data?.orderId || orderData.orderId;
+        const lockedPricing = result.lockedPricing || {
+            subTotal: result.data?.subTotal,
+            deliveryCharge: result.data?.deliveryCharge,
+            processingFee: result.data?.processingFee ?? processingFee,
+            grandTotal: result.data?.grandTotal,
+            totalAmount: result.data?.totalAmount
+        };
+
+        if (lockedPricing && Object.keys(lockedPricing).length > 0) {
+            localStorage.setItem('lastOrderLockedPricing', JSON.stringify({
+                orderId: verifiedOrderId,
+                ...lockedPricing
+            }));
+        }
+
+        const isBuyNow = localStorage.getItem('isBuyNowMode') === 'true';
+        if (isBuyNow) {
+            localStorage.removeItem('isBuyNowMode');
+            localStorage.removeItem('buy_now_item');
+        } else {
+            if (authToken) {
+                await fetch('/api/cart/clear-ordered', {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${authToken}` }
+                }).catch((err) => console.error('DB Cart cleanup failed', err));
+            }
+
+            const fullCart = JSON.parse(localStorage.getItem('cart')) || [];
+            const remainingCart = fullCart.filter((item) => item.selected === false);
+            localStorage.setItem('cart', JSON.stringify(remainingCart));
+        }
+
+        localStorage.removeItem('activeCheckoutSession');
+        localStorage.removeItem('appliedCoupon');
+        localStorage.removeItem('shippingFullName');
+        localStorage.removeItem('shippingMobile');
+        localStorage.removeItem('shippingAddress');
+        localStorage.removeItem('shippingCourierNote');
+
+        // Automated gateways: attempt hosted redirect when the adapter is live.
+        if (!isWallet && method?.type === 'automated') {
+            try {
+                const initRes = await fetch('/api/payments/initiate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        orderId: verifiedOrderId,
+                        paymentMethodId: method.id
+                    })
+                });
+                const initData = await initRes.json();
+                if (initData.success && initData.data?.redirectUrl) {
+                    window.location.href = initData.data.redirectUrl;
+                    return;
+                }
+            } catch (gatewayErr) {
+                console.warn('Gateway initiate deferred:', gatewayErr);
+            }
+        }
+
+        const methodLabel = isWallet ? 'Wallet' : (method?.name || 'selected method');
+        showOrderSuccessModal(verifiedOrderId, methodLabel, method?.type === 'automated');
     } catch (error) {
-        console.error("Order error:", error);
-        alert("Error: " + error.message);
+        console.error('Order error:', error);
+        alert(`Error: ${error.message}`);
         if (confirmBtn) {
-            confirmBtn.innerHTML = `Confirm Order`;
+            confirmBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Confirm & Place Order';
             confirmBtn.disabled = false;
         }
     }
+};
+
+function showOrderSuccessModal(verifiedOrderId, methodLabel, isAutomated = false) {
+    const successModal = document.getElementById('orderSuccessModal');
+    if (!successModal) {
+        window.location.href = '/';
+        return;
+    }
+
+    document.getElementById('modalOrderId').innerText = verifiedOrderId;
+    document.getElementById('modalGatewayMessage').innerHTML = isAutomated
+        ? `Your order <strong>${escapeHtml(verifiedOrderId)}</strong> via <strong>${escapeHtml(methodLabel)}</strong> is placed. Complete payment on the gateway when prompted.`
+        : `Your order <strong>${escapeHtml(verifiedOrderId)}</strong> via <strong>${escapeHtml(methodLabel)}</strong> has been placed.`;
+    document.getElementById('modalDeliveryDate').innerText =
+        new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toLocaleDateString();
+
+    successModal.style.setProperty('display', 'flex', 'important');
+
+    const copyBtn = document.getElementById('copyOrderIdBtn');
+    if (copyBtn) {
+        copyBtn.onclick = function copyOrderId() {
+            navigator.clipboard.writeText(verifiedOrderId).then(() => {
+                const originalHTML = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+                setTimeout(() => { copyBtn.innerHTML = originalHTML; }, 2000);
+            });
+        };
+    }
+
+    let timeLeft = 30;
+    const timer = setInterval(() => {
+        timeLeft -= 1;
+        if (document.getElementById('modalTimerCount')) {
+            document.getElementById('modalTimerCount').innerText = timeLeft;
+        }
+        if (timeLeft <= 0) {
+            clearInterval(timer);
+            window.location.href = '/';
+        }
+    }, 1000);
+
+    const continueBtn = document.getElementById('modalCloseAndHomeBtn');
+    if (continueBtn) {
+        continueBtn.onclick = function goHome() {
+            clearInterval(timer);
+            window.location.href = '/';
+        };
+    }
 }
-
-
-
-

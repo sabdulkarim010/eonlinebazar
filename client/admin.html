@@ -17,6 +17,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <link rel="stylesheet" href="/css/admin.css">
+    <script src="https://cdn.tailwindcss.com"></script>
 
     <script>
     if (!localStorage.getItem('adminToken')) {
@@ -1521,6 +1522,41 @@
             </div>
         </form>
 
+        <section id="paymentMethodsManager" class="system-settings-form" aria-labelledby="paymentMethodsHeading">
+            <div class="system-settings-card system-settings-card--green">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--green" aria-hidden="true">
+                        <i class="fa-solid fa-credit-card"></i>
+                    </div>
+                    <div class="system-settings-card-heading flex-1 min-w-0">
+                        <h4 id="paymentMethodsHeading">Accepted Payment Methods</h4>
+                        <p class="settings-card-sub">Fully dynamic catalog for checkout, product badges, gateway credentials, and future ledger tracking. Drag order or set display order to control checkout sequence.</p>
+                    </div>
+                </div>
+
+                <div id="paymentMethodsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pm-methods-grid" role="list">
+                    <div class="pm-grid-loading" id="paymentMethodsLoading">
+                        <i class="fa-solid fa-spinner fa-spin"></i>
+                        <span>Loading payment methods...</span>
+                    </div>
+                </div>
+
+                <div class="pm-add-footer" id="paymentMethodsAddFooter" hidden>
+                    <button type="button" id="addPaymentMethodBtn" class="pm-add-btn">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>Add New Payment Method</span>
+                    </button>
+                </div>
+
+                <div class="payment-gateway-preview-row" id="paymentGatewayPreviewRow" aria-hidden="true"></div>
+
+                <div class="master-settings-preview" id="paymentGatewaySettingsPreview">
+                    <strong>Checkout &amp; badges:</strong>
+                    <span id="paymentGatewaySettingsPreviewText">Loading payment methods...</span>
+                </div>
+            </div>
+        </section>
+
         <form id="form-system-flash-sale" class="system-settings-form" novalidate>
             <div class="system-settings-card system-settings-card--orange">
                 <div class="system-settings-card-header">
@@ -2435,6 +2471,170 @@
         </div>
     </div>
 
+<div id="paymentMethodModal" class="custom-modal-overlay pm-modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="paymentMethodModalTitle" onclick="if(event.target===this) closePaymentMethodModal()">
+    <div class="custom-modal-box pm-modal-box">
+        <div class="modal-header pm-modal-header relative">
+            <div class="pr-10">
+                <h3 id="paymentMethodModalTitle">Add Payment Method</h3>
+                <p class="pm-modal-subtitle" id="paymentMethodModalSubtitle">Configure a manual wallet or an automated gateway.</p>
+            </div>
+            <button
+                type="button"
+                id="pmModalCloseBtn"
+                class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-full transition"
+                aria-label="Close"
+            >
+                <i class="fa-solid fa-xmark text-lg leading-none" aria-hidden="true"></i>
+            </button>
+        </div>
+        <form id="paymentMethodForm" class="modal-body pm-modal-body" enctype="multipart/form-data" novalidate>
+            <input type="hidden" id="pmFormId" value="">
+
+            <div class="pm-form-grid">
+                <div class="form-group pm-field">
+                    <label for="pmName">Method Name <span class="required">*</span></label>
+                    <input type="text" id="pmName" name="name" maxlength="60" required placeholder="e.g. bKash, SSLCommerz">
+                </div>
+
+                <div class="form-group pm-field">
+                    <label for="pmType">Type <span class="required">*</span></label>
+                    <select id="pmType" name="type" required>
+                        <option value="manual">Manual (customer pays you)</option>
+                        <option value="automated">Automated (gateway redirect)</option>
+                    </select>
+                </div>
+
+                <div class="form-group pm-field">
+                    <label for="pmDescription">Checkout Tagline</label>
+                    <input type="text" id="pmDescription" name="description" maxlength="160" placeholder="Short line under the method name">
+                </div>
+
+                <div class="form-group pm-field">
+                    <label for="pmSortOrder">Display Order</label>
+                    <input type="number" id="pmSortOrder" name="sortOrder" min="0" max="9999" step="1" value="0">
+                </div>
+
+                <div class="form-group pm-field">
+                    <label for="pmProcessingFee">Processing Fee</label>
+                    <input type="number" id="pmProcessingFee" name="processingFee" min="0" step="0.01" value="0">
+                </div>
+
+                <div class="form-group pm-field">
+                    <label for="pmFeeType">Fee Type</label>
+                    <select id="pmFeeType" name="feeType">
+                        <option value="percentage">Percentage (%)</option>
+                        <option value="flat">Flat (৳)</option>
+                    </select>
+                </div>
+
+                <div class="form-group pm-field pm-field--full">
+                    <label for="logoInput">Logo</label>
+                    <div class="pm-logo-row">
+                        <div class="pm-logo-preview-wrap" id="pmLogoPreviewWrap">
+                            <img id="pmLogoPreview" src="" alt="Payment method logo preview" class="pm-logo-preview hidden">
+                            <span class="pm-logo-placeholder" id="pmLogoPlaceholder"><i class="fa-solid fa-image"></i></span>
+                        </div>
+                        <label class="pm-logo-upload-btn" for="logoInput">
+                            <i class="fa-solid fa-upload"></i> Upload logo
+                        </label>
+                        <input
+                            type="file"
+                            id="logoInput"
+                            name="logo"
+                            accept="image/png, image/jpeg, image/jpg, image/webp, image/svg+xml"
+                            class="pm-file-input"
+                        >
+                        <button type="button" id="pmRemoveLogoBtn" class="pm-logo-remove-btn" style="display:none;">Remove</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="pmManualFields" class="pm-type-panel">
+                <h4 class="pm-panel-title"><i class="fa-solid fa-wallet"></i> Manual payment details</h4>
+                <div class="pm-form-grid">
+                    <div class="form-group pm-field">
+                        <label for="pmAccountNumber">Account Number</label>
+                        <input type="text" id="pmAccountNumber" name="accountNumber" maxlength="80" placeholder="Merchant wallet / bank account">
+                    </div>
+                    <div class="form-group pm-field pm-field--full">
+                        <label for="pmInstructions">Customer Instructions</label>
+                        <textarea id="pmInstructions" name="instructions" rows="4" maxlength="2000" placeholder="Dial *247#… Send Money to…"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div id="pmAutomatedFields" class="pm-type-panel" style="display:none;">
+                <h4 class="pm-panel-title"><i class="fa-solid fa-shield-halved"></i> Gateway credentials <span class="pm-secure-chip">AES-256 encrypted</span></h4>
+                <div class="pm-form-grid">
+                    <div class="form-group pm-field">
+                        <label for="pmProvider">Provider <span class="required">*</span></label>
+                        <select id="pmProvider" name="provider">
+                            <option value="sslcommerz">SSLCommerz</option>
+                            <option value="aamarpay">Aamarpay</option>
+                            <option value="shurjopay">ShurjoPay</option>
+                            <option value="stripe">Stripe</option>
+                            <option value="custom">Custom / Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group pm-field">
+                        <label for="pmStoreId">Store ID <span class="required">*</span></label>
+                        <input type="text" id="pmStoreId" name="storeId" maxlength="120" autocomplete="off" placeholder="Gateway store / merchant id">
+                    </div>
+                    <div class="form-group pm-field">
+                        <label for="pmStorePassword">Store Password / Secret</label>
+                        <input type="password" id="pmStorePassword" name="storePassword" maxlength="400" autocomplete="new-password" placeholder="Leave blank to keep existing">
+                        <small class="pm-field-hint" id="pmStorePasswordHint"></small>
+                    </div>
+                    <div class="form-group pm-field">
+                        <label for="pmApiKey">API Key</label>
+                        <input type="password" id="pmApiKey" name="apiKey" maxlength="400" autocomplete="new-password" placeholder="Leave blank to keep existing">
+                        <small class="pm-field-hint" id="pmApiKeyHint"></small>
+                    </div>
+                    <div class="form-group pm-field pm-field--toggle">
+                        <label class="pm-switch-label" for="pmIsSandbox">
+                            <span>Sandbox Mode</span>
+                            <input type="checkbox" id="pmIsSandbox" name="isSandbox" checked class="pm-switch-input">
+                            <span class="pm-switch-ui" aria-hidden="true"></span>
+                        </label>
+                    </div>
+                    <div class="form-group pm-field pm-field--full">
+                        <label for="pmWebhookUrl">Webhook / IPN URL</label>
+                        <div class="pm-webhook-row">
+                            <input type="text" id="pmWebhookUrl" name="webhookUrl" readonly class="pm-webhook-input" placeholder="Auto-generated after save">
+                            <button type="button" id="pmCopyWebhookBtn" class="pm-copy-btn" title="Copy webhook URL"><i class="fa-solid fa-copy"></i></button>
+                        </div>
+                        <small class="pm-field-hint">Paste this into your gateway dashboard for Instant Payment Notifications.</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group pm-field pm-active-row">
+                <label class="flex items-center justify-between w-full cursor-pointer select-none gap-4 rounded-xl px-1 py-1 hover:bg-gray-50 transition-colors" for="pmIsActive">
+                    <span class="text-sm font-semibold text-slate-700">Enabled on checkout</span>
+                    <span class="relative inline-flex shrink-0 items-center">
+                        <input type="checkbox" id="pmIsActive" name="isActive" checked class="peer sr-only">
+                        <span
+                            class="block h-7 w-12 rounded-full bg-gray-300 shadow-inner ring-1 ring-inset ring-gray-400/30 transition-colors duration-200 ease-in-out peer-checked:bg-emerald-600 peer-checked:ring-emerald-700/40 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-emerald-600"
+                            aria-hidden="true"
+                        ></span>
+                        <span
+                            class="pointer-events-none absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow-md ring-1 ring-black/5 transition-transform duration-200 ease-in-out peer-checked:translate-x-5"
+                            aria-hidden="true"
+                        ></span>
+                    </span>
+                </label>
+            </div>
+
+            <div class="modal-footer pm-modal-footer">
+                <button type="button" class="btn-cancel" onclick="closePaymentMethodModal()">Cancel</button>
+                <button type="submit" class="btn-confirm" id="pmFormSubmitBtn">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Payment Method
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 
 <div id="invoiceModal" class="invoice-modal-overlay" style="display: none;">
     <div class="invoice-modal-card">
@@ -2470,6 +2670,10 @@
             <div class="invoice-summary-row">
                 <span>Delivery Charge</span>
                 <strong id="invDeliveryCharge"></strong>
+            </div>
+            <div class="invoice-summary-row" id="invProcessingFeeRow" style="display:none;">
+                <span id="invProcessingFeeLabel">Payment Fee</span>
+                <strong id="invProcessingFee"></strong>
             </div>
         </div>
         <div class="invoice-total-box">
@@ -2611,6 +2815,7 @@
 
     <script src="/js/bd-districts.js"></script>
     <script src="/js/variantUtils.js"></script>
+    <script src="/js/paymentBrandLogos.js"></script>
     <script type="module" src="/js/admin.js"></script>
     <script type="module" src="/js/admin-staff.js"></script>
 

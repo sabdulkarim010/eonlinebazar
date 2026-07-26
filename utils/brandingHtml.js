@@ -26,6 +26,16 @@ function buildInlineSettings(settings, cacheVersion) {
         faviconUrl: faviconPath,
         storeLogo: logoPath,
         publicSupportWhatsApp: settings.publicSupportWhatsApp || '',
+        paymentGateways: settings.paymentGateways || null,
+        enabledPaymentMethods: settings.enabledPaymentMethods || null,
+        activePaymentGateways: settings.activePaymentGateways || null,
+        activePaymentMethods: settings.activePaymentMethods || null,
+        systemSettings: {
+            paymentGateways: settings.paymentGateways || null,
+            enabledPaymentMethods: settings.enabledPaymentMethods || null,
+            activePaymentGateways: settings.activePaymentGateways || null,
+            activePaymentMethods: settings.activePaymentMethods || null
+        },
         v: cacheVersion
     };
 }

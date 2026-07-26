@@ -4,7 +4,7 @@
 
 ### A Fully Dynamic, Production-Ready Full-Stack E-Commerce Platform
 
-*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), **Role-Based Access Control (RBAC) with dynamic Staff Management**, real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge, **real-time wallet balance deduction**), **advanced order management with customer cancel/return workflows**, **1-click multi-provider courier dispatch (Steadfast / Pathao / RedX) with Smart Hybrid Mode from the admin panel**, **dual-WhatsApp routing with background UltraMsg/Green API order alerts**, **staff manual POS / phone order entry**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **unified master store settings engine** (announcements, free-shipping threshold, cashback, loyalty points, refund windows, **VIP segmentation thresholds**, **Flash Sale scheduling**), **dynamic free-shipping waiver & live dashboard announcements**, **category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, **admin-configurable SMS gateway & automated order confirmation emails**, custom store branding, and an **advanced Finance & P/L analytics dashboard** with itemized profit formulas, dynamic date-range filtering, and a dark/light theme engine.*
+*A complete MERN-style online marketplace featuring JWT authentication, a multi-layered admin security suite (Email / Google Authenticator / SMS 2FA + Geo-Fencing), **Role-Based Access Control (RBAC) with dynamic Staff Management**, real-time device & session tracking, an enterprise catalog engine (Categories, Brands, Attributes, **time-sensitive Coupons**), **smart checkout address integration**, **checkout experience & cart enhancements** (dynamic shipping quotes, delivery estimates, instant promo recalculation, guest-cart merge, **real-time wallet balance deduction**), **enterprise-grade dynamic payment methods architecture** (manual wallets + automated gateways with encrypted credentials, processing fees, and IPN readiness), **advanced order management with customer cancel/return workflows**, **1-click multi-provider courier dispatch (Steadfast / Pathao / RedX) with Smart Hybrid Mode from the admin panel**, **dual-WhatsApp routing with background UltraMsg/Green API order alerts**, **staff manual POS / phone order entry**, **profile security with OTP-gated contact updates & PDF invoice downloads**, **performance & engagement tooling** (visual order status timeline, low-stock FOMO badges, global toast notifications), **admin refund controls with safe undo**, **unified master store settings engine** (announcements, free-shipping threshold, cashback, loyalty points, refund windows, **VIP segmentation thresholds**, **Flash Sale scheduling**), **dynamic free-shipping waiver & live dashboard announcements**, **category-specific dynamic rewards**, **dynamic delivery charge & layered Bangladesh address management**, **admin-configurable SMS gateway & automated order confirmation emails**, custom store branding, and an **advanced Finance & P/L analytics dashboard** with itemized profit formulas, dynamic date-range filtering, and a dark/light theme engine.*
 
 ![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-4.3.3-success)
+![Version](https://img.shields.io/badge/Version-4.4.0-success)
 ![RBAC](https://img.shields.io/badge/RBAC-Staff%20Management-6f42c1)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
@@ -28,6 +28,7 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v4.4.0](#-whats-new--v440-dynamic-payment-methods--gateway-architecture)
 - [What's New — v4.3.3](#-whats-new--v433-coupon-management--marketing-controls)
 - [What's New — v4.3.2](#-whats-new--v432-enterprise-staff--role-management-redesign)
 - [What's New — v4.3.1](#-whats-new--v431-clean-admin-routing--url-optimization)
@@ -58,6 +59,7 @@
 - [Multi-Attribute Combination Matrix & Dynamic Stock Engine](#-multi-attribute-combination-matrix--dynamic-stock-engine)
 - [Admin Panel — Order Security & Refund Controls](#-admin-panel--order-security--refund-controls)
 - [Store Wallet, Dynamic Checkout Deduction & Refund Engine](#-store-wallet-dynamic-checkout-deduction--refund-engine)
+- [Dynamic Payment Methods & Gateway Integration](#-dynamic-payment-methods--gateway-integration)
 - [VIP Customer Segmentation & Retention Logic](#-vip-customer-segmentation--retention-logic)
 - [Flash Sale & Bulk Coupon Engine](#-flash-sale--bulk-coupon-engine)
 - [Catalog & Marketing Features](#-catalog--marketing-features)
@@ -87,7 +89,7 @@
 
 ## 📖 Overview
 
-**EOnlineBazar** is a **fully dynamic, production-ready**, full-stack e-commerce platform built on **Node.js / Express 5** with a **MongoDB (Atlas)** database and a lightweight **Vanilla JavaScript** frontend served directly by Express. It follows a clean **MVC architecture** (`Models → Controllers → Routes`) and ships with everything a modern online store needs: secure customer authentication, a shopping cart with **guest-to-auth merge**, a persistent **My Wishlist**, smart checkout with profile-aware address selection, **dynamic shipping quotes & delivery estimates**, **AJAX promo-code recalculation**, order placement & live tracking with customer cancel/return workflows, **OTP-gated profile security & 1-click PDF invoices**, product reviews with image uploads, a loyalty wallet with admin-controlled reward economics, an enterprise catalog engine, a dedicated **Super Admin Panel** with **sales analytics, inventory alerts**, refund reversal safeguards, and an **Advanced Finance & P/L Analytics** dashboard with itemized profit formulas, dynamic date-range filtering, Chart.js visualizations, and persistent dark/light theming.
+**EOnlineBazar** is a **fully dynamic, production-ready**, full-stack e-commerce platform built on **Node.js / Express 5** with a **MongoDB (Atlas)** database and a lightweight **Vanilla JavaScript** frontend served directly by Express. It follows a clean **MVC architecture** (`Models → Controllers → Routes`) and ships with everything a modern online store needs: secure customer authentication, a shopping cart with **guest-to-auth merge**, a persistent **My Wishlist**, smart checkout with profile-aware address selection, **dynamic shipping quotes & delivery estimates**, **AJAX promo-code recalculation**, order placement & live tracking with customer cancel/return workflows, **database-driven payment methods** (manual wallets + automated gateways with encrypted credentials and processing fees), **OTP-gated profile security & 1-click PDF invoices**, product reviews with image uploads, a loyalty wallet with admin-controlled reward economics, an enterprise catalog engine, a dedicated **Super Admin Panel** with **sales analytics, inventory alerts**, refund reversal safeguards, and an **Advanced Finance & P/L Analytics** dashboard with itemized profit formulas, dynamic date-range filtering, Chart.js visualizations, and persistent dark/light theming.
 
 Eight things set it apart:
 
@@ -102,6 +104,24 @@ Eight things set it apart:
 9. **Dual-WhatsApp Routing & Background Order Alerts** — isolated public customer chat line vs private admin alert number; **non-blocking server-side POST** dispatch on every checkout (UltraMsg, Green API, CallMeBot, or direct webhook) with structured payload formatting — no admin panel session required.
 10. **Staff Manual Order Creation (POS Engine)** — admin modal for phone/chat orders with searchable product picker, **multi-variant stock validation**, automated inventory deduction, and instant **Finance & Analytics** ledger integration.
 11. **Customer Retention & Promotions Layer** — **store wallet checkout deduction**, automated refund credits, **VIP / Frequent Buyer segmentation** with admin filter tabs, and a **Flash Sale engine** with homepage countdown and dynamic discounted pricing.
+12. **Enterprise Dynamic Payment Methods Architecture** — database-driven **Manual** (bKash, Nagad, Rocket, Bank Transfer) and **Automated** (SSLCommerz, Aamarpay) gateway catalog with **AES-256-GCM encrypted credentials**, configurable **flat/percentage processing fees**, admin logo upload, checkout display ordering, and **IPN callback readiness** for aggregator webhooks.
+
+---
+
+## 🆕 What's New — v4.4.0 (Dynamic Payment Methods & Gateway Architecture)
+
+This release introduces an **enterprise-grade, database-backed payment methods engine** — replacing hardcoded checkout options with a fully dynamic catalog managed from the admin panel, with encrypted gateway credentials, live processing-fee math, and storefront rendering sorted by display order.
+
+| Feature | Description |
+|---------|-------------|
+| **💳 Dynamic PaymentMethod Schema** | Dedicated `models/PaymentMethod.js` Mongoose model supporting **Manual** wallets (bKash, Nagad, Rocket, Bank Transfer) and **Automated** gateways (SSLCommerz, Aamarpay, ShurjoPay, Stripe, Custom) — single source of truth for checkout, accounting, and IPN routing. |
+| **🔐 Encrypted API Credential Vault** | Gateway secrets (`storePassword`, `apiKey`, `storeId`, `isSandbox`) sealed at rest via **AES-256-GCM** (`utils/cryptoVault.js`); `sealApiCredentials` pre-save middleware refactored to strict **async/await** patterns without callback conflicts. |
+| **💰 Processing Fee Engine** | Per-method **Flat (৳)** or **Percentage (%)** surcharges with `computeFee()` applied at checkout; client-side live total recalculation on method selection. |
+| **🎨 Admin Payment Methods UI** | Redesigned **Accepted Payment Methods** section — high-contrast Tailwind grid, dynamic modal forms with **Manual vs. Automated** conditional inputs, **multi-format logo upload** (PNG, JPG, JPEG, WEBP, SVG) via Multer with FileReader previews, active/inactive toggle switch, and accessible top-right modal close. |
+| **🛒 Dynamic Checkout Rendering** | Refactored `client/payment.html` + `client/js/payment.js` — zero hardcoded payment options; active methods, logos, instructions, and fees render from **`GET /api/payments/methods`** sorted by `sortOrder`. |
+| **📡 IPN Callback Readiness** | `POST\|GET /api/payments/ipn/:code` endpoint and `paymentGatewayAdapters.js` prepared for SSLCommerz / Aamarpay aggregator webhooks; `POST /api/payments/initiate` for hosted-checkout session bootstrap. |
+
+> 📌 See [Dynamic Payment Methods & Gateway Integration](#-dynamic-payment-methods--gateway-integration) for schema fields, admin workflow, API tables, and key files.
 
 ---
 
@@ -956,6 +976,14 @@ A unified checkout-first flow for shipping, promotions, and cart persistence —
 - **Variant-aware deduplication** — matching `productId` + `variantId` lines increment quantity; new lines are appended; merged cart is returned in the login response or via **`POST /api/cart/merge`**.
 - `/cart` page load performs the same merge when an authenticated user still has local guest items, then clears `localStorage` and fetches the live DB cart.
 
+#### Dynamic Payment Step (`/payment`) *(v4.4.0)*
+- The payment step loads **active methods from the database** via **`GET /api/payments/methods`** — no hardcoded bKash/COD/gateway cards.
+- Each method card renders logo, description, fee badge, and type-specific detail (manual instructions or automated gateway notice).
+- **Real-time processing fee recalculation** adjusts **Amount to Pay** when the customer switches methods; wallet deductions from the checkout session are respected.
+- Order submission maps `paymentMethodId` to **`POST /api/orders`** for accurate invoice, ledger, and IPN correlation.
+
+> 📌 Full architecture, admin CRUD, encryption model, and API tables: [Dynamic Payment Methods & Gateway Integration](#-dynamic-payment-methods--gateway-integration).
+
 ### Architectural Workflow
 
 ```mermaid
@@ -1002,6 +1030,8 @@ flowchart TD
 | `controllers/storeController.js` | `getPublicShippingQuote` endpoint |
 | `controllers/userController.js` | Login-time guest cart merge |
 | `controllers/couponController.js` | Flat/percentage discount computation & validation |
+| `client/js/payment.js` | Dynamic payment method fetch, processing-fee totals, order submission |
+| `controllers/paymentIpnController.js` | Public payment methods API & gateway IPN handler |
 
 ---
 
@@ -1351,8 +1381,137 @@ Customers view the ledger on **Profile → Wallet & Points**; credits and debits
 | `models/user.js` | `walletBalance`, `walletHistory[]` (with `referenceOrder`) |
 | `models/order.js` | `walletApplied` snapshot per order |
 | `client/js/checkout.js` | Wallet UI, checkbox, live total recalculation |
-| `client/js/payment.js` | Wallet summary, auto-select **Paid via Wallet** |
+| `client/js/payment.js` | Wallet summary, auto-select **Paid via Wallet**, dynamic method catalog & processing-fee totals |
 | `client/js/profile.js` | Wallet balance display + transaction history rendering |
+
+---
+
+## 💳 Dynamic Payment Methods & Gateway Integration
+
+An **enterprise-grade, database-driven payment catalog** that unifies manual Bangladeshi mobile wallets, bank transfers, and automated payment aggregators under a single `PaymentMethod` schema — with encrypted credential storage, admin CRUD, dynamic checkout rendering, and IPN callback infrastructure ready for production gateway webhooks.
+
+### Feature Overview
+
+#### Dynamic & Enterprise Payment Gateway Architecture
+
+- **Dedicated `PaymentMethod` Mongoose schema** (`models/PaymentMethod.js`) — every accepted method (Manual or Automated) is one document; orders, IPN URLs, and ledger exports reference the stable `code` slug.
+- **Dual payment types:**
+  - **Manual** — bKash, Nagad, Rocket, Bank Transfer, and custom wallet labels; surfaces merchant `accountNumber` and customer-facing `instructions` on checkout.
+  - **Automated** — SSLCommerz, Aamarpay, ShurjoPay, Stripe, and extensible **Custom** providers; credentials stored in nested `apiConfig`.
+- **Encrypted API configuration storage** — sensitive fields (`storePassword`, `apiKey`, `storeId`, `isSandbox`) sealed at rest with **AES-256-GCM** via `utils/cryptoVault.js`; admin reads return **masked** secrets; server-side initiate/IPN paths decrypt on demand.
+- **Dynamic processing fee calculations** — per-method **Flat (৳)** or **Percentage (%)** surcharges via `computeFee(amount)`; percentage fees capped at 100% at schema validation.
+- **Customizable checkout display ordering** — `sortOrder` index drives public method lists; admin **`PATCH /api/admin/payment-methods/reorder`** for drag-free batch reorder.
+- **IPN (Instant Payment Notification) callback readiness** — `POST|GET /api/payments/ipn/:code` resolves the method by `code` and delegates to provider adapters in `utils/paymentGatewayAdapters.js` for future aggregator webhook verification.
+
+| Schema Field | Type | Purpose |
+|--------------|------|---------|
+| `name` | String | Display label on checkout and admin grid |
+| `code` | String (unique) | Stable machine key for orders, IPN URLs, and exports |
+| `type` | `manual` \| `automated` | Determines visible fields and credential handling |
+| `provider` | Enum | Gateway adapter key (`sslcommerz`, `aamarpay`, …) |
+| `logoUrl` | String | Public logo path (uploaded or default brand asset) |
+| `instructions` | String | Manual payment steps shown on checkout |
+| `accountNumber` | String | Merchant wallet / bank account (manual only) |
+| `processingFee` + `feeType` | Number + `flat` \| `percentage` | Surcharge applied to order payable |
+| `sortOrder` | Number | Checkout display sequence (ascending) |
+| `apiConfig` | Subdocument | `storeId`, encrypted `storePassword` / `apiKey`, `isSandbox`, `webhookUrl` |
+| `isActive` | Boolean | Soft toggle without deleting configuration |
+
+#### Admin Management Panel UI/UX Enhancements
+
+From **Admin Panel → System Settings → Accepted Payment Methods** (`client/admin.html`):
+
+- **Modern high-contrast Tailwind grid** — responsive `grid-cols-1 md:grid-cols-2 lg:grid-cols-3` card layout (`.pm-methods-grid`) with logo, name, type badge, fee summary, and action controls.
+- **Dynamic modal forms** — `#paymentMethodModal` renders **Manual** fields (instructions, account number) or **Automated** fields (provider dropdown, sandbox toggle, API credentials) based on selected `type`.
+- **Multi-format logo upload** — Multer `paymentMethodLogoUpload` accepts **PNG, JPG, JPEG, WEBP, and SVG**; files land in `public/uploads/payments/` with real-time **FileReader** client-side image previews before save.
+- **High-contrast active/inactive toggle** — `PATCH /api/admin/payment-methods/:id/toggle` flips `isActive` with immediate grid refresh; inactive methods are excluded from storefront APIs.
+- **Accessible modal UX** — top-right close button, overlay click-to-dismiss, `role="dialog"` / `aria-modal="true"`, and streamlined action buttons (no duplicate save/delete controls).
+
+#### Storefront & Checkout Dynamic Rendering
+
+- **Eliminated hardcoded payment options** — `client/payment.html` and `client/js/payment.js` load the live catalog from **`GET /api/payments/methods`** (alias: **`GET /api/store/payment-methods`**) on page init.
+- **Sorted active methods** — only `isActive: true` entries render, ordered by `sortOrder` then `name`; each card shows logo, description, fee badge, and type-specific detail panel.
+- **Manual method instructions** — selected manual wallets reveal merchant account number and step-by-step payment instructions inline.
+- **Real-time frontend fee calculations** — `updatePaymentTotals()` adjusts **Processing Fee** and **Amount to Pay** rows instantly when the customer switches methods; base payable respects wallet deductions from the checkout session.
+- **Order placement mapping** — `handleFinalOrderSubmission()` sends `paymentMethodId` and resolved method name to **`POST /api/orders`** for accurate ledger, invoice, and IPN correlation.
+
+#### Database & System Stability Fixes
+
+- **`sealApiCredentials` pre-save middleware** — refactored in `models/PaymentMethod.js` to follow modern **async/await-compatible** synchronous sealing logic; manual methods automatically purge stale `apiConfig` / `provider` fields on every save.
+- **Duplicate-free admin interface** — payment method action buttons consolidated in the grid and modal footer; loading skeleton (`#paymentMethodsLoading`) prevents flash of empty state during fetch.
+- **Default method seeding** — `seedDefaultPaymentMethods()` in `utils/paymentMethodService.js` bootstraps common Bangladeshi methods on server start when the catalog is empty.
+
+### Architectural Workflow
+
+```mermaid
+flowchart TD
+    A[Admin opens Accepted Payment Methods] --> B[CRUD via /api/admin/payment-methods]
+    B --> C[(PaymentMethod documents)]
+    C --> D[sealApiCredentials encrypts apiConfig]
+    D --> E[Active methods cached + sorted]
+
+    F[Customer reaches /payment] --> G[GET /api/payments/methods]
+    G --> E
+    E --> H[Render method cards + logos]
+    H --> I{Customer selects method}
+    I --> J[Live processing fee recalc]
+    J --> K{Type?}
+    K -->|Manual| L[Show instructions + account]
+    K -->|Automated| M[POST /api/payments/initiate]
+    M --> N[Redirect to gateway hosted checkout]
+    N --> O[Gateway IPN → /api/payments/ipn/:code]
+    L --> P[POST /api/orders with paymentMethodId]
+    O --> P
+```
+
+### Related API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/payments/methods` | Active payment methods in checkout display order (fees, logos, manual instructions — no secrets) | Public |
+| `GET` | `/api/store/payment-methods` | Storefront alias for the public method list | Public |
+| `POST` | `/api/payments/initiate` | Bootstrap hosted-checkout session for an automated gateway | User |
+| `POST` \| `GET` | `/api/payments/ipn/:code` | IPN / success-callback target for gateway webhooks | Public |
+| `GET` | `/api/admin/payment-methods` | Full admin catalog (masked credentials) | Admin + `manage_settings` |
+| `POST` | `/api/admin/payment-methods` | Create method (multipart logo upload supported) | Admin + `manage_settings` |
+| `GET` | `/api/admin/payment-methods/:id` | Single method detail | Admin + `manage_settings` |
+| `PUT` | `/api/admin/payment-methods/:id` | Update method (partial fields + optional logo) | Admin + `manage_settings` |
+| `PATCH` | `/api/admin/payment-methods/:id/toggle` | Flip `isActive` without deletion | Admin + `manage_settings` |
+| `PATCH` | `/api/admin/payment-methods/reorder` | Batch update `sortOrder` values | Admin + `manage_settings` |
+| `DELETE` | `/api/admin/payment-methods/:id` | Remove method and purge local logo file | Admin + `manage_settings` |
+
+### Configuration & Encryption
+
+| Variable | Required | Purpose |
+|----------|:--------:|---------|
+| `PAYMENT_ENCRYPTION_KEY` | ⛔ | 64-char hex or passphrase for AES-256-GCM credential vault (preferred) |
+| `ENCRYPTION_KEY` | ⛔ | Alias for `PAYMENT_ENCRYPTION_KEY` |
+| `JWT_SECRET` | ✅* | Fallback key derivation when dedicated encryption key is unset (startup warning logged) |
+
+> \* Gateway credentials remain readable server-side for initiate/IPN replay — hashing is intentionally avoided; rotation of `PAYMENT_ENCRYPTION_KEY` requires re-entering credentials in the admin panel.
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `models/PaymentMethod.js` | Schema, `sealApiCredentials`, `computeFee()`, credential decrypt helpers |
+| `controllers/paymentMethodController.js` | Admin CRUD, validation, Multer logo handling, reorder, toggle |
+| `controllers/paymentIpnController.js` | Public method list, gateway initiate, IPN dispatch |
+| `controllers/storeController.js` | Storefront payment-methods alias endpoint |
+| `utils/cryptoVault.js` | AES-256-GCM encrypt/decrypt/mask for gateway secrets |
+| `utils/paymentMethodService.js` | Cache, seed defaults, webhook URL builder, checkout readiness checks |
+| `utils/paymentGatewayService.js` | Gateway session orchestration layer |
+| `utils/paymentGatewayAdapters.js` | Provider-specific initiate/IPN adapter stubs |
+| `utils/paymentLogoPaths.js` | Local logo path helpers and cleanup on delete |
+| `middlewares/uploadMiddleware.js` | `paymentMethodLogoUpload` — PNG/JPG/JPEG/WEBP/SVG Multer config |
+| `routes/paymentRoutes.js` | Public `/api/payments/*` surface |
+| `routes/adminRoutes.js` | Admin `/api/admin/payment-methods/*` CRUD routes |
+| `client/admin.html` | Accepted Payment Methods grid + modal form UI |
+| `client/js/admin.js` | Payment method manager wiring, FileReader previews, toggle/reorder |
+| `client/payment.html` | Dynamic payment step — no hardcoded gateway cards |
+| `client/js/payment.js` | Method fetch, fee recalculation, order submission |
+| `client/js/paymentBrandLogos.js` | Default brand logo fallbacks for known providers |
+| `client/css/payment.css` | Checkout payment step styling |
 
 ---
 
@@ -2822,6 +2981,7 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 - **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **clickable order rows** (v3.4.0) with inline ID/date meta, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals (actions on detail view only), dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, **1-click PDF invoice download** from Order Details, **automated order confirmation emails** on every successful checkout, **background WhatsApp admin order alerts** (v4.0.0), **staff manual POS / phone order entry** with variant stock validation (v4.0.0), and **admin one-click multi-provider courier dispatch** (Steadfast / Pathao / RedX) with Smart Hybrid Mode and customer tracking badges (v3.7.0).
 - **🔄 Admin Return & Refund Pipeline** — Approve returns with automatic wallet **`CREDIT`**, full **`walletApplied + grandTotal`** refund math, transaction history logging, and **Safe Undo Refund** within a configurable hour window (spent-funds safety check).
 - **💳 Checkout Wallet Deduction** — Live wallet balance on checkout/payment, **Apply Wallet Balance** checkbox, dynamic payable recalculation, **Paid via Wallet** auto-selection, and atomic **`DEBIT`** ledger entries on order placement.
+- **💳 Dynamic Payment Methods & Gateway Integration** — Database-backed **Manual** (bKash, Nagad, Rocket, Bank Transfer) and **Automated** (SSLCommerz, Aamarpay) catalog with **AES-256-GCM encrypted credentials**, flat/percentage processing fees, admin logo upload, checkout `sortOrder`, and **IPN callback readiness** — no hardcoded payment cards on `/payment`. *(See [Dynamic Payment Methods & Gateway Integration](#-dynamic-payment-methods--gateway-integration).)*
 - **👑 VIP Customer Segmentation** — Configurable spend/order thresholds; admin filter tabs **[All] \| [VIP / Top Buyers] \| [Frequent Buyers]** with segment badges and lifetime spend column.
 - **⚡ Flash Sale Engine** — Master Settings scheduling (title, end date-time, discount %, featured products); homepage **HH:MM:SS** countdown; server-side flash pricing on catalog and checkout.
 - **🚚 Dynamic Delivery Charges** — Automated inside/outside-city fee calculation from admin `Settings`, **unified free-shipping threshold** (Master Settings ↔ Delivery Settings mirror), **real-time free-shipping progress** on cart/checkout, **real-time delivery date estimates** on checkout, **locked server-side totals** on every order, and district-aware invoices.
@@ -2877,6 +3037,7 @@ The **Admin Settings** view (`view-settings`) is rebuilt as a responsive, Shopif
   - **Flash Sale Engine** — schedule, discount %, featured product IDs, and live storefront preview.
   - **VIP Customer Segmentation** — `vipMinTotalSpent`, `vipMinOrderCount`, `frequentBuyerMinOrders` thresholds.
   - **Cashback / Loyalty & Refunds** — global cashback %, points earning ratio, points-to-taka conversion, refund-undo window with live economics preview.
+  - **Accepted Payment Methods** — dynamic **Manual / Automated** gateway catalog with encrypted credentials, logo upload, processing fees, display ordering, and active/inactive toggles *(v4.4.0)*.
   - Each card POSTs an **isolated partial payload** to **`POST /api/admin/master-settings/update`**; per-section loading states and success toasts; premium card layout with color-coded headers and focus-ring inputs *(v4.3.0)*.
 - **📩 Customer Notification Engine** — admin-configurable SMS gateway (Greenweb BD, BulkSMS BD, AlphaSMS, Generic API) with MongoDB-stored credentials; automated order confirmation emails via Nodemailer with fail-safe async dispatch.
 - **🚚 Courier Parcel Booking** — Steadfast API integration from Live Orders; MongoDB-stored API key/secret; atomic booking lock; tracking ID + consignment ID saved on the order document.
@@ -2982,6 +3143,7 @@ eonlinebazar-fullstack/
 │   ├── brand.js                       # Product brands (slug + product references)
 │   ├── attribute.js                   # Master product attribute library (Color, Size, values[]) — auto-fill source
 │   ├── coupon.js                      # Coupons & discounts (status ACTIVE/EXPIRED, precise expiryDate, usage limits)
+│   ├── PaymentMethod.js               # Dynamic payment catalog — manual wallets + automated gateways, encrypted apiConfig
 │   ├── order.js                       # Orders with lifecycle + courier tracking fields (cancelReason, courierTrackingId…)
 │   ├── cart.js                        # Shopping cart
 │   └── review.js                      # Product reviews & ratings
@@ -3003,6 +3165,8 @@ eonlinebazar-fullstack/
 │   ├── attributeController.js         # Attribute / variant CRUD
 │   ├── couponController.js            # Coupon CRUD + active-check + apply/validate/redeem + auto-expiry sweeps
 │   ├── orderController.js             # Orders, cancel/return, return approval, refund undo, invoice PDF, order email/SMS hooks
+│   ├── paymentMethodController.js     # Admin CRUD for dynamic payment method catalog (logo upload, reorder, toggle)
+│   ├── paymentIpnController.js        # Public payment methods, gateway initiate, IPN/callback handler
 │   ├── cartController.js              # Cart operations
 │   ├── reviewController.js            # Review system
 │   └── financeController.js           # Revenue, itemized P&L analytics & date-range aggregation engine
@@ -3020,6 +3184,7 @@ eonlinebazar-fullstack/
 │   ├── attributeRoutes.js            # /api/attributes
 │   ├── couponRoutes.js                # /api/coupons
 │   ├── orderRoutes.js                 # /api/orders
+│   ├── paymentRoutes.js               # /api/payments (public methods, initiate, IPN)
 │   ├── cartRoutes.js                  # /api/cart
 │   ├── reviewRoutes.js                # /api/reviews
 │   └── financeRoutes.js              # /api/finance
@@ -3029,7 +3194,7 @@ eonlinebazar-fullstack/
 │   ├── rbac.js                          # checkPermission(), requireSuperAdmin, attachAdminAccount
 │   ├── adminSecurity.js               # checkBlacklist gate, rate limiter, intrusion detection
 │   ├── geoFencing.js                  # Admin login Region Lock (geoip-lite)
-│   └── uploadMiddleware.js            # Multer + Cloudinary stream upload (5 MB images)
+│   └── uploadMiddleware.js            # Multer + Cloudinary stream upload (5 MB images); payment logo disk upload (PNG/JPG/WEBP/SVG)
 │
 ├── utils/                             # Shared helpers
 │   ├── deviceParser.js                # Client IP + geo-location + User-Agent fingerprinting
@@ -3048,6 +3213,11 @@ eonlinebazar-fullstack/
 │   ├── flashSaleService.js            # Flash sale window, featured product pricing, public payload
 │   ├── savedAddress.js                # Checkout address parsing, duplicate check, profile sync, default promotion
 │   ├── invoicePdf.js                  # Branded PDF invoice generation (pdfkit) for customer order downloads
+│   ├── cryptoVault.js                 # AES-256-GCM encryption vault for payment gateway credentials
+│   ├── paymentMethodService.js        # Payment catalog cache, default seeding, webhook URL builder
+│   ├── paymentGatewayService.js       # Gateway session orchestration for automated checkout
+│   ├── paymentGatewayAdapters.js      # Provider-specific initiate/IPN adapter layer
+│   ├── paymentLogoPaths.js            # Local payment logo path helpers and cleanup
 │   ├── bangladeshDistricts.js         # District list, normalization & inside/outside matching
 │   └── securityLogger.js             # Fire-and-forget security event writer
 │
@@ -3058,7 +3228,7 @@ eonlinebazar-fullstack/
 │   ├── product-details.html           # Product detail + reviews + smart variant matrix selector
 │   ├── search.html                    # Search results (?q=)
 │   ├── cart.html / checkout.html      # Cart & checkout flow
-│   ├── payment.html                   # Payment page
+│   ├── payment.html                   # Payment page — dynamic method catalog (no hardcoded gateways)
 │   ├── profile.html                   # Customer dashboard (cart, wishlist, wallet, addresses, security, sessions)
 │   ├── order-track.html / order-details.html  # Order tracking + detail view with PDF invoice download
 │   ├── about.html / contact.html / footer.html
@@ -3068,8 +3238,8 @@ eonlinebazar-fullstack/
 │   ├── admin.html                     # Super Admin panel (SPA — includes Staff Management)
 │   ├── finance-login.html             # Finance password gate
 │   ├── finance-analytics.html         # Finance & analytics dashboard (P/L KPIs, theme toggle, Chart.js)
-│   ├── css/                           # Page-scoped stylesheets (admin.css, cart.css, mini-cart-drawer.css…)
-│   ├── js/                            # Page scripts (admin.js, admin-staff.js, checkout.js, profile.js…)
+│   ├── css/                           # Page-scoped stylesheets (admin.css, cart.css, payment.css, mini-cart-drawer.css…)
+│   ├── js/                            # Page scripts (admin.js, admin-staff.js, checkout.js, payment.js, profile.js…)
 │   │   ├── admin-staff.js             # RBAC sidebar gating + Enterprise Staff Management console (toggles, presets)
 │   │   ├── shipping-estimator.js      # Client shipping quote + delivery estimate helpers
 │   │   ├── coupon-ui.js               # Shared promo apply/remove + live total sync
@@ -3081,8 +3251,14 @@ eonlinebazar-fullstack/
 │   │   ├── stockAlert.js              # Low-stock FOMO badges + out-of-stock qty guardrails
 │   │   ├── variantUtils.js            # Client combination variant helpers (option state, cart meta)
 │   │   ├── product-details.js         # Smart variant matrix selector + exact-variant add-to-cart
+│   │   ├── payment.js                 # Dynamic payment method fetch, processing-fee totals, order submission
+│   │   ├── paymentBrandLogos.js       # Default brand logo fallbacks for known providers
 │   │   └── toast.js                   # Global non-blocking toast notification engine
-│   └── images/                        # Static assets (favicon.png…)
+│   └── images/                        # Static assets (favicon.png, payments/ brand logos…)
+│
+├── public/                            # Static public assets served at /
+│   ├── images/payments/               # Default payment brand SVG/PNG assets
+│   └── uploads/payments/              # Admin-uploaded payment method logos (Multer)
 │
 ├── server.js                          # App entry: middleware, routes, clean URLs, page guards
 ├── seed.js                            # Database seeding
@@ -3161,6 +3337,14 @@ SMS_API_METHOD=post
 # PUBLIC_SUPPORT_WHATSAPP=8801521377735       # Storefront chat fallback
 
 # ===============================================================
+# 💳 PAYMENT GATEWAY CREDENTIAL ENCRYPTION (v4.4.0)
+# Seals storePassword / apiKey at rest in PaymentMethod documents.
+# Prefer a dedicated 64-char hex key; JWT_SECRET is a dev fallback only.
+# ===============================================================
+# PAYMENT_ENCRYPTION_KEY=your_64_char_hex_or_passphrase
+# ENCRYPTION_KEY=                         # Alias for PAYMENT_ENCRYPTION_KEY
+
+# ===============================================================
 # 🔑 GOOGLE AUTHENTICATOR (TOTP)
 # Issuer label shown inside the authenticator app
 # ===============================================================
@@ -3213,6 +3397,8 @@ CLOUDINARY_API_SECRET=your_api_secret
 | `WHATSAPP_ALERT_WEBHOOK_URL` | ⛔ | Direct JSON POST fallback when primary API unavailable |
 | `WHATSAPP_ALERT_TIMEOUT_MS` | ⛔ | HTTP timeout for WhatsApp dispatch (default `15000`) |
 | `PUBLIC_SUPPORT_WHATSAPP` | ⛔ | Storefront customer chat number fallback |
+| `PAYMENT_ENCRYPTION_KEY` | ⛔ | AES-256-GCM key for sealing gateway credentials in `PaymentMethod` documents *(v4.4.0)* |
+| `ENCRYPTION_KEY` | ⛔ | Alias for `PAYMENT_ENCRYPTION_KEY` |
 | `COURIER_API_TIMEOUT_MS` | ⛔ | Courier HTTP timeout in ms (default `20000`) |
 | `TOTP_ISSUER` | ⛔ | Label shown in Google Authenticator |
 | `SMTP_HOST/PORT/USER/PASS` | ✅* | Email OTP & password-reset delivery |
@@ -3377,6 +3563,22 @@ Base URL: `http://localhost:3000`
 | **`GET`** | **`/api/admin/courier/status`** | **Courier config readiness (provider + credentials configured)** | **Admin** |
 | `DELETE` | `/api/orders/:id` | Delete order | Admin + `manage_orders` |
 
+### 💳 Payment Methods & Gateway Integration *(v4.4.0)*
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| **`GET`** | **`/api/payments/methods`** | **Active payment methods in checkout display order (logos, fees, manual instructions — no secrets)** | **Public** |
+| **`GET`** | **`/api/store/payment-methods`** | **Storefront alias for the public method list** | **Public** |
+| **`POST`** | **`/api/payments/initiate`** | **Bootstrap hosted-checkout session for an automated gateway** | **User** |
+| **`POST`** \| **`GET`** | **`/api/payments/ipn/:code`** | **IPN / success-callback target for gateway webhooks (resolved by method `code`)** | **Public** |
+| **`GET`** | **`/api/admin/payment-methods`** | **Full admin catalog with masked gateway credentials** | **Admin + `manage_settings`** |
+| **`POST`** | **`/api/admin/payment-methods`** | **Create payment method (multipart logo upload: PNG/JPG/JPEG/WEBP/SVG)** | **Admin + `manage_settings`** |
+| **`GET`** | **`/api/admin/payment-methods/:id`** | **Single method detail** | **Admin + `manage_settings`** |
+| **`PUT`** | **`/api/admin/payment-methods/:id`** | **Update method (partial fields + optional logo replace)** | **Admin + `manage_settings`** |
+| **`PATCH`** | **`/api/admin/payment-methods/:id/toggle`** | **Flip `isActive` without deleting configuration** | **Admin + `manage_settings`** |
+| **`PATCH`** | **`/api/admin/payment-methods/reorder`** | **Batch update `sortOrder` for checkout display sequence** | **Admin + `manage_settings`** |
+| **`DELETE`** | **`/api/admin/payment-methods/:id`** | **Remove method and purge local logo file** | **Admin + `manage_settings`** |
+
 ### 🗂️ Catalog — Categories, Brands, Attributes
 
 | Method | Endpoint | Description | Auth |
@@ -3484,6 +3686,7 @@ Base URL: `http://localhost:3000`
 | `GET`  | `/api/store/shipping-quote` | District + subtotal → zone, delivery charge, estimated delivery window, free-shipping progress | Public |
 | **`GET`** | **`/api/store/announcement`** | **Live announcement text, highlight chips & reward snapshot** | **Public** |
 | **`GET`** | **`/api/store/flash-sale`** | **Active flash sale config, countdown end time & featured product IDs** | **Public** |
+| **`GET`** | **`/api/store/payment-methods`** | **Active payment methods for checkout (sorted by `sortOrder`)** | **Public** |
 | `GET`  | `/api/store/districts` | Valid Bangladesh district list | Public |
 
 ### 📊 Finance & Analytics
@@ -3600,6 +3803,31 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 ---
 
 ## 📜 Changelog
+
+### `v4.4.0` — Dynamic Payment Methods & Gateway Architecture
+
+**💳 Dynamic & Enterprise Payment Gateway Architecture**
+- Introduced dedicated **`models/PaymentMethod.js`** Mongoose schema supporting **Manual** (bKash, Nagad, Rocket, Bank Transfer) and **Automated** (SSLCommerz, Aamarpay, ShurjoPay, Stripe, Custom) gateway configurations.
+- Built dynamic API configuration storage with **AES-256-GCM** database-level encryption for sensitive credentials (`storePassword`, `apiKey`, `storeId`, `isSandbox`) via `utils/cryptoVault.js`.
+- Implemented dynamic **Flat (৳)** / **Percentage (%)** processing fee calculations and customizable checkout display ordering (`sortOrder`).
+- Prepared **IPN callback readiness** — `POST|GET /api/payments/ipn/:code` and `utils/paymentGatewayAdapters.js` for future aggregator webhooks.
+
+**🎨 Admin Management Panel UI/UX Enhancements**
+- Redesigned **Accepted Payment Methods** section into a modern, high-contrast Tailwind grid interface (`#paymentMethodsGrid`).
+- Added dynamic modal forms with conditional inputs tailored to **Manual vs. Automated** payment types.
+- Integrated **Multi-Format Logo Upload** (PNG, JPG, JPEG, WEBP, SVG) powered by Multer with real-time client-side **FileReader** image previews.
+- Enhanced UI controls with high-contrast **active/inactive toggle switch** and accessible **top-right modal close** button.
+
+**🛒 Storefront & Checkout Dynamic Rendering**
+- Refactored `client/payment.html` + `client/js/payment.js` to completely eliminate hardcoded payment options.
+- Payment choices and instructions now dynamically render from active database entries, sorted by `sortOrder`.
+- Added real-time frontend calculations to adjust cart totals based on gateway-specific processing fees.
+
+**🔧 Database & System Stability Fixes**
+- Refactored Mongoose pre-save middleware (`sealApiCredentials`) to strictly follow modern patterns without callback conflicts; manual methods auto-purge stale gateway fields.
+- Streamlined administrative action buttons to ensure a clean, duplicate-free interface.
+
+**Key files:** `models/PaymentMethod.js`, `controllers/paymentMethodController.js`, `controllers/paymentIpnController.js`, `utils/cryptoVault.js`, `utils/paymentMethodService.js`, `utils/paymentGatewayService.js`, `utils/paymentGatewayAdapters.js`, `routes/paymentRoutes.js`, `middlewares/uploadMiddleware.js`, `client/admin.html`, `client/js/admin.js`, `client/payment.html`, `client/js/payment.js`, `client/css/payment.css`
 
 ### User Cart & Wishlist UI Simplification *(profile dashboard)*
 

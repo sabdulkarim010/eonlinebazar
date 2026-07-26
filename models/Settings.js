@@ -107,6 +107,41 @@ const settingsSchema = new mongoose.Schema({
         type: String,
         default: '',
         trim: true
+    },
+    // 💳 Storefront trust badges — toggled from Admin Master Settings
+    activePaymentGateways: {
+        bKash: { type: Boolean, default: true },
+        Nagad: { type: Boolean, default: true },
+        Visa: { type: Boolean, default: true },
+        MasterCard: { type: Boolean, default: true },
+        COD: { type: Boolean, default: true }
+    },
+    paymentGateways: {
+        bKash: {
+            enabled: { type: Boolean, default: true },
+            name: { type: String, default: 'bKash', trim: true },
+            logoUrl: { type: String, default: '', trim: true }
+        },
+        Nagad: {
+            enabled: { type: Boolean, default: true },
+            name: { type: String, default: 'Nagad', trim: true },
+            logoUrl: { type: String, default: '', trim: true }
+        },
+        Visa: {
+            enabled: { type: Boolean, default: true },
+            name: { type: String, default: 'VISA', trim: true },
+            logoUrl: { type: String, default: '', trim: true }
+        },
+        MasterCard: {
+            enabled: { type: Boolean, default: true },
+            name: { type: String, default: 'MasterCard', trim: true },
+            logoUrl: { type: String, default: '', trim: true }
+        },
+        COD: {
+            enabled: { type: Boolean, default: true },
+            name: { type: String, default: 'Cash on Delivery', trim: true },
+            logoUrl: { type: String, default: '', trim: true }
+        }
     }
 }, {
     timestamps: true

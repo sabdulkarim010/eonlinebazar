@@ -466,53 +466,144 @@ body {
 }
 
 /* ==========================================================================
-   🌟 SECTION 11: SHARE & PAYMENT FOOTER
+   🌟 SECTION 11: TRUST & ENGAGEMENT ZONE (Share + Payment Icons)
    ========================================================================== */
-.product-share-trust-wrapper {
+.trust-engagement-zone {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    align-items: center;
-    padding-top: 20px;
-    border-top: 1px solid var(--border-color);
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin-top: 0;
+    padding-top: 12px;
+    border-top: 1px solid #f1f5f9;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
 }
 
-.share-box {
+.share-zone {
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-size: 14px;
+    flex-wrap: nowrap;
+    gap: 8px;
+    min-width: 0;
+    flex-shrink: 0;
 }
 
-.share-icon {
-    width: 30px;
-    height: 30px;
+.payment-icons-zone {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.share-zone-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.share-buttons {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.share-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
     border-radius: 50%;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-    text-decoration: none;
-    font-size: 14px;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.1);
 }
 
-.share-icon.wa { background: #25d366; }
-.share-icon.fb { background: #1877f2; }
-
-.trust-payment-icons {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 24px;
-    color: var(--text-muted);
+.share-btn svg {
+    width: 14px;
+    height: 14px;
+    display: block;
 }
 
-.cod-text {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-main);
+.share-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.14);
+}
+
+.share-btn:active {
+    transform: translateY(0);
+}
+
+.share-btn--whatsapp { background: #25d366; }
+.share-btn--facebook { background: #1877f2; }
+.share-btn--messenger { background: linear-gradient(135deg, #00b2ff 0%, #006aff 50%, #a033ff 100%); }
+.share-btn--copy {
+    background: #fff;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    box-shadow: none;
+}
+
+.share-btn--copy:hover {
+    background: #f8fafc;
+    color: #1e293b;
+}
+
+.payment-icon-row {
     display: flex;
     align-items: center;
-    gap: 5px;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 6px;
+    min-width: 0;
+}
+
+.payment-brand-logo {
+    display: block;
+    flex-shrink: 0;
+    object-fit: contain;
+}
+
+.payment-brand-logo--storefront {
+    height: 24px;
+    width: auto;
+    max-width: 48px;
+}
+
+.payment-brand-logo--visa.payment-brand-logo--storefront {
+    max-width: 52px;
+}
+
+.payment-brand-logo--mastercard.payment-brand-logo--storefront {
+    max-width: 44px;
+}
+
+.payment-name-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #eef2f7;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 /* ==========================================================================
@@ -1014,10 +1105,47 @@ body {
     .action-buttons-group {
         grid-template-columns: 1fr;
     }
-    .product-share-trust-wrapper {
-        flex-direction: column;
-        gap: 15px;
-        align-items: flex-start;
+    .trust-engagement-zone {
+        gap: 6px;
+    }
+
+    .share-zone {
+        gap: 6px;
+    }
+
+    .share-zone-label {
+        font-size: 11px;
+    }
+
+    .share-btn {
+        width: 24px;
+        height: 24px;
+    }
+
+    .share-btn svg {
+        width: 12px;
+        height: 12px;
+    }
+
+    .share-buttons {
+        gap: 4px;
+    }
+
+    .payment-icon-row {
+        gap: 4px;
+    }
+
+    .payment-brand-logo--storefront {
+        height: 20px;
+        max-width: 40px;
+    }
+
+    .payment-brand-logo--visa.payment-brand-logo--storefront {
+        max-width: 44px;
+    }
+
+    .payment-brand-logo--mastercard.payment-brand-logo--storefront {
+        max-width: 36px;
     }
 }
 

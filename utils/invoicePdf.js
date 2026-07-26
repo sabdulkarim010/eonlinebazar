@@ -9,10 +9,11 @@ function resolveOrderFinancials(order = {}) {
     const subTotal = Number(order.subTotal ?? order.subtotal) || 0;
     const discountAmount = Number(order.discountAmount) || 0;
     const deliveryCharge = Number(order.deliveryCharge ?? order.shippingFee) || 0;
+    const processingFee = Number(order.processingFee ?? order.payment?.processingFee) || 0;
     const grandTotal = Number(order.grandTotal ?? order.totalAmount)
-        || Math.max(0, subTotal - discountAmount + deliveryCharge);
+        || Math.max(0, subTotal - discountAmount + deliveryCharge + processingFee);
 
-    return { subTotal, discountAmount, deliveryCharge, grandTotal };
+    return { subTotal, discountAmount, deliveryCharge, processingFee, grandTotal };
 }
 
 function resolveInvoiceNumber(order = {}) {
@@ -171,6 +172,13 @@ function generateOrderInvoicePdf(order = {}) {
             if (financials.discountAmount > 0) {
                 const couponLabel = order.couponCode ? `Discount (${order.couponCode})` : 'Discount';
                 summaryLines.push([couponLabel, `- ${formatCurrency(financials.discountAmount)}`]);
+            }
+
+            if (financials.processingFee > 0) {
+                const feeLabel = order.payment?.name
+                    ? `${order.payment.name} Fee`
+                    : 'Payment Fee';
+                summaryLines.push([feeLabel, formatCurrency(financials.processingFee)]);
             }
 
             doc.font('Helvetica').fontSize(10).fillColor('#334155');

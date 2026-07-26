@@ -47,78 +47,11 @@
                 </div>
 
                 <form id="paymentMethodForm" onsubmit="event.preventDefault();">
-                    <div class="payment-options-grid">
-                        
-                        <label class="payment-method-card active-method" for="methodBkash">
-                            <div class="card-radio-wrapper">
-                                <input type="radio" id="methodBkash" name="paymentGateway" value="bKash" checked>
-                                <span class="custom-radio-circle"></span>
-                            </div>
-                            <div class="method-details">
-                                <span class="method-title">bKash Payment</span>
-                                <span class="method-subtitle">Pay instantly via bKash wallet</span>
-                            </div>
-                            <div class="method-logo-box">
-                                <i class="fa-solid fa-mobile-screen-button logo-fallback-icon bkash-color"></i>
-                            </div>
-                        </label>
-
-                        <label class="payment-method-card" for="methodNagad">
-                            <div class="card-radio-wrapper">
-                                <input type="radio" id="methodNagad" name="paymentGateway" value="Nagad">
-                                <span class="custom-radio-circle"></span>
-                            </div>
-                            <div class="method-details">
-                                <span class="method-title">Nagad Payment</span>
-                                <span class="method-subtitle">Fast and secure Nagad checkout</span>
-                            </div>
-                            <div class="method-logo-box">
-                                <i class="fa-solid fa-bolt logo-fallback-icon nagad-color"></i>
-                            </div>
-                        </label>
-
-                        <label class="payment-method-card" for="methodBank">
-                            <div class="card-radio-wrapper">
-                                <input type="radio" id="methodBank" name="paymentGateway" value="Bank">
-                                <span class="custom-radio-circle"></span>
-                            </div>
-                            <div class="method-details">
-                                <span class="method-title">Bank Transfer</span>
-                                <span class="method-subtitle">Direct deposit to our bank account</span>
-                            </div>
-                            <div class="method-logo-box">
-                                <i class="fa-solid fa-building-columns logo-fallback-icon bank-color"></i>
-                            </div>
-                        </label>
-
-                        <label class="payment-method-card" for="methodWallet" id="methodWalletCard" style="display:none;">
-                            <div class="card-radio-wrapper">
-                                <input type="radio" id="methodWallet" name="paymentGateway" value="Wallet">
-                                <span class="custom-radio-circle"></span>
-                            </div>
-                            <div class="method-details">
-                                <span class="method-title">Paid via Wallet</span>
-                                <span class="method-subtitle">Your order is fully covered by wallet balance</span>
-                            </div>
-                            <div class="method-logo-box">
-                                <i class="fa-solid fa-wallet logo-fallback-icon wallet-color"></i>
-                            </div>
-                        </label>
-
-                        <label class="payment-method-card" for="methodCOD">
-                            <div class="card-radio-wrapper">
-                                <input type="radio" id="methodCOD" name="paymentGateway" value="COD">
-                                <span class="custom-radio-circle"></span>
-                            </div>
-                            <div class="method-details">
-                                <span class="method-title">Cash on Delivery</span>
-                                <span class="method-subtitle">Pay with cash upon receiving product</span>
-                            </div>
-                            <div class="method-logo-box">
-                                <i class="fa-solid fa-truck-ramp-box logo-fallback-icon cod-color"></i>
-                            </div>
-                        </label>
-
+                    <div class="payment-options-grid" id="paymentOptionsGrid" aria-live="polite">
+                        <div class="payment-methods-loading" id="paymentMethodsLoading">
+                            <i class="fa-solid fa-spinner fa-spin"></i>
+                            <span>Loading payment methods...</span>
+                        </div>
                     </div>
 
                     <div id="paymentInstructionsBox" class="payment-instructions-wrapper"></div>
@@ -161,10 +94,15 @@
                             <strong id="summaryWalletApplied" style="color:#16a34a;">-৳0</strong>
                         </div>
                         <div class="price-row">
+                            <span>Delivery Charge:</span>
                             <span class="summary-delivery-value-wrap">
                                 <strong id="summaryDeliveryCharge">৳0</strong>
                                 <span class="free-shipping-badge" id="summaryFreeShippingBadge" style="display:none;">Free Shipping</span>
                             </span>
+                        </div>
+                        <div class="price-row" id="summaryProcessingFeeRow" style="display: none;">
+                            <span>Processing Fee (<span id="summaryProcessingFeeLabel">—</span>):</span>
+                            <strong id="summaryProcessingFeeAmount">৳0</strong>
                         </div>
                         <div class="price-row final-payable-amount-row">
                             <span>Total Payable Amount:</span>

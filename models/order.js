@@ -34,6 +34,55 @@ const orderItemSchema = new mongoose.Schema({
     variantSku: { type: String, default: '' }
 }, { _id: false, strict: false });
 
+/*
+ * প্রতিটি IPN/কলব্যাক ইভেন্টের অডিট ট্রেইল। গেটওয়ে একই ট্রানজেকশনের জন্য
+ * একাধিকবার কলব্যাক পাঠাতে পারে, তাই raw পেলোডসহ সব ইভেন্ট জমা থাকে —
+ * ভবিষ্যতের অটোমেটেড অ্যাকাউন্টিং/রিকনসিলিয়েশনের ভিত্তি।
+ */
+const ipnEventSchema = new mongoose.Schema({
+    receivedAt: { type: Date, default: Date.now },
+    provider: { type: String, default: '', trim: true },
+    status: { type: String, default: '', trim: true },
+    verified: { type: Boolean, default: false },
+    transactionId: { type: String, default: '', trim: true },
+    amount: { type: Number, default: 0 },
+    message: { type: String, default: '', trim: true },
+    raw: { type: mongoose.Schema.Types.Mixed, default: null }
+}, { _id: false });
+
+/*
+ * 💳 অর্ডারের পেমেন্ট স্ন্যাপশট — PaymentMethod ডকুমেন্টের আইডিসহ সেই সময়ের
+ * নাম, ফি, এবং ম্যানুয়াল অ্যাকাউন্ট নম্বর বা গেটওয়ে storeId সংরক্ষণ করে।
+ * ফলে অ্যাডমিন পরে মেথডের নাম/ফি বদলালে বা মেথড ডিলিট করলেও পুরোনো অর্ডারের
+ * লেজার হিসাব অপরিবর্তিত থাকে — মূল কোড না বদলেই মডুলার অ্যাকাউন্টিং সম্ভব।
+ */
+const orderPaymentSchema = new mongoose.Schema({
+    methodId: { type: mongoose.Schema.Types.ObjectId, ref: 'PaymentMethod', default: null },
+    code: { type: String, default: '', trim: true },
+    name: { type: String, default: '', trim: true },
+    type: { type: String, enum: ['manual', 'automated'], default: 'manual' },
+    provider: { type: String, default: '', trim: true },
+    // ম্যানুয়াল মেথডের মার্চেন্ট ওয়ালেট/ব্যাংক নম্বর (রিকনসিলিয়েশনের জন্য)
+    accountNumber: { type: String, default: '', trim: true },
+    // অটোমেটেড গেটওয়ের storeId (কোন মার্চেন্ট অ্যাকাউন্টে টাকা এসেছে)
+    gatewayStoreId: { type: String, default: '', trim: true },
+    isSandbox: { type: Boolean, default: false },
+    processingFee: { type: Number, default: 0, min: 0 },
+    feeType: { type: String, enum: ['flat', 'percentage'], default: 'percentage' },
+    feeRate: { type: Number, default: 0, min: 0 },
+    feeBaseAmount: { type: Number, default: 0, min: 0 },
+    status: {
+        type: String,
+        enum: ['unpaid', 'pending', 'paid', 'failed', 'cancelled', 'refunded'],
+        default: 'unpaid'
+    },
+    transactionId: { type: String, default: '', trim: true },
+    gatewayReference: { type: String, default: '', trim: true },
+    paidAt: { type: Date, default: null },
+    settledFromWallet: { type: Boolean, default: false },
+    ipnHistory: { type: [ipnEventSchema], default: [] }
+}, { _id: false });
+
 const orderSchema = new mongoose.Schema({
     orderId: String,
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }, 
@@ -60,7 +109,11 @@ const orderSchema = new mongoose.Schema({
     couponCode: { type: String, default: '', trim: true, uppercase: true },
     deliveryLocationType: { type: String, enum: ['inside', 'outside'], default: 'inside' },
     shippingFee: { type: Number, default: 0, min: 0 },
-    paymentMethod: { type: String, required: true, default: 'COD' }, 
+    // মানুষ-পাঠযোগ্য লেবেল (ইনভয়েস, টেবিল, SMS) — payment.name এর মিরর
+    paymentMethod: { type: String, required: true, default: 'COD' },
+    // গেটওয়ে প্রসেসিং ফি অর্ডার লেভেলে — grandTotal-এ যোগ হয়ে থাকে
+    processingFee: { type: Number, default: 0, min: 0 },
+    payment: { type: orderPaymentSchema, default: () => ({}) },
     status: { type: String, default: 'Pending' },
     isDelivered: { type: Boolean, default: false },
     deliveredAt: { type: Date, default: null },
@@ -93,6 +146,11 @@ const orderSchema = new mongoose.Schema({
     createdByAdmin: { type: String, default: '', trim: true },
     createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });
+
+// IPN কলব্যাক ট্রানজেকশন আইডি দিয়ে অর্ডার খোঁজে, আর অ্যাকাউন্টিং রিপোর্ট
+// পেমেন্ট মেথড ভিত্তিক গ্রুপিং করে — দুটোরই ইনডেক্স।
+orderSchema.index({ 'payment.transactionId': 1 });
+orderSchema.index({ 'payment.methodId': 1, createdAt: -1 });
 
 module.exports = mongoose.model('Order', orderSchema);
 

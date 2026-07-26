@@ -32,6 +32,8 @@ const financeRoutes = require('./routes/financeRoutes');
 const { getFinanceAnalytics, verifyFinanceToken } = require('./controllers/financeController');
 const couponRoutes = require('./routes/couponRoutes');
 const storeRoutes = require('./routes/storeRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const { seedDefaultPaymentMethods } = require('./utils/paymentMethodService');
 const storeSettingsMiddleware = require('./middlewares/storeSettingsMiddleware');
 const { applyBrandingToHtml } = require('./utils/brandingHtml');
 const { DEFAULT_SETTINGS } = require('./utils/storeSettingsService');
@@ -39,6 +41,7 @@ const { DEFAULT_SETTINGS } = require('./utils/storeSettingsService');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const CLIENT_DIR = path.join(__dirname, 'client');
+const PUBLIC_DIR = path.join(__dirname, 'public');
 
 function sendClientHtml(res, filename) {
     const absPath = path.join(CLIENT_DIR, filename);
@@ -60,6 +63,15 @@ connectDB().then(async () => {
         }
     } catch (err) {
         console.error('RBAC bootstrap error:', err.message);
+    }
+
+    // 💳 পেমেন্ট মেথড ক্যাটালগ বুটস্ট্র্যাপ — কালেকশন খালি থাকলে পুরোনো
+    // Settings.paymentGateways টগল ও আপলোড করা লোগো থেকে মেথডগুলো একবারই
+    // মাইগ্রেট হয়, যাতে ডিপ্লয়ের পর চেকআউটে একই মেথডগুলোই সক্রিয় থাকে।
+    try {
+        await seedDefaultPaymentMethods();
+    } catch (err) {
+        console.error('Payment method bootstrap error:', err.message);
     }
 });
 
@@ -114,6 +126,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/store', storeRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Finance analytics — explicit path expected by the dashboard UI
 // URL: GET /admin/api/analytics?period=&startDate=&endDate=
@@ -307,7 +320,10 @@ app.get('/finance-analytics', serveFinanceDashboard);
 // 🌟 অ্যাডমিন-নেমস্পেসড সিকিউর অ্যালিয়াস রুট: GET /admin/finance
 app.get('/admin/finance', serveFinanceDashboard);
 
-// স্ট্যাটিক assets (CSS/JS/images/uploads) — index.html সরাসরি সerv করবে না; সব HTML পেজ উপরের ব্র্যান্ডেড রুট দিয়ে যায়
+// Static assets — public/ (optional shared assets) then client/ storefront root
+if (fs.existsSync(PUBLIC_DIR)) {
+    app.use(express.static(PUBLIC_DIR, { index: false }));
+}
 app.use(express.static(CLIENT_DIR, { index: false }));
 
 /********************************************************************
