@@ -52,11 +52,11 @@ const brandSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // সেভ/আপডেটের আগে নাম থেকে slug অটো-জেনারেট করা (slug না দিলে)
-brandSchema.pre('save', function (next) {
+// Mongoose 9+: pre hooks are sync/async — no next() callback
+brandSchema.pre('save', function () {
     if (!this.slug && this.name) {
         this.slug = slugify(this.name);
     }
-    next();
 });
 
 brandSchema.statics.slugify = slugify;

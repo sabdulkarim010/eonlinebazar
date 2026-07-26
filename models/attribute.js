@@ -57,11 +57,11 @@ attributeSchema.virtual('terms')
 attributeSchema.set('toJSON', { virtuals: true });
 attributeSchema.set('toObject', { virtuals: true });
 
-attributeSchema.pre('save', function (next) {
+// Mongoose 9+: pre hooks are sync/async — no next() callback
+attributeSchema.pre('save', function () {
     if (!this.slug && this.name) {
         this.slug = slugify(this.name);
     }
-    next();
 });
 
 attributeSchema.statics.slugify = slugify;

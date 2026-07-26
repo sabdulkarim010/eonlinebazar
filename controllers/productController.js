@@ -12,7 +12,7 @@ const Brand = require('../models/brand');
 const { upload } = require('../middlewares/uploadMiddleware'); // এখানে শুধু upload ইমপোর্ট হবে
 const cloudinary = require('cloudinary').v2; // ক্লাউডিনারি সরাসরি এখান থেকে ইমপোর্ট করুন
 const mongoose = require('mongoose');
-const { parseVariants, applyProductStockFields } = require('../utils/variantHelpers');
+const { parseVariants, applyProductStockFields, computeMinVariantPrice, applyPrimaryImageToVariants } = require('../utils/variantHelpers');
 const { loadFlashSaleSettings, applyFlashSaleToProducts } = require('../utils/flashSaleService');
 
 function parseHasVariants(raw) {
@@ -215,7 +215,10 @@ const createProduct = async (req, res) => {
                 uploadedUrls.push(result.secure_url);
             }
             newProductData.image = uploadedUrls[0]; 
-            newProductData.images = uploadedUrls; 
+            newProductData.images = uploadedUrls;
+            if (newProductData.hasVariants && newProductData.variants?.length) {
+                newProductData.variants = applyPrimaryImageToVariants(newProductData.variants, uploadedUrls[0]);
+            }
         }
 
         const newProduct = new Product(newProductData);
@@ -242,8 +245,6 @@ const updateProduct = async (req, res) => {
 
         let updateFields = {};
         if (name) updateFields.name = name;
-        if (price) updateFields.price = Number(price);
-        if (buyingPrice !== undefined && buyingPrice !== '') updateFields.buyingPrice = Number(buyingPrice) || 0;
         if (category) updateFields.category = category;
         if (icon) updateFields.icon = icon.trim();
 
@@ -278,6 +279,26 @@ const updateProduct = async (req, res) => {
             updateFields.variants = stockPayload.variants;
             updateFields.stockQuantity = stockPayload.stockQuantity;
             updateFields.stock = stockPayload.stock;
+            if (stockPayload.hasVariants) {
+                const minPrice = computeMinVariantPrice(stockPayload.variants, Number(price) || existingProduct?.price || 0);
+                if (minPrice > 0) updateFields.price = minPrice;
+                else if (price) updateFields.price = Number(price);
+                if (Number(stockPayload.buyingPrice) > 0) {
+                    updateFields.buyingPrice = stockPayload.buyingPrice;
+                } else if (buyingPrice !== undefined && buyingPrice !== '') {
+                    updateFields.buyingPrice = Number(buyingPrice) || 0;
+                }
+            } else {
+                if (price) updateFields.price = Number(price);
+                if (buyingPrice !== undefined && buyingPrice !== '') {
+                    updateFields.buyingPrice = Number(buyingPrice) || 0;
+                }
+            }
+        } else {
+            if (price) updateFields.price = Number(price);
+            if (buyingPrice !== undefined && buyingPrice !== '') {
+                updateFields.buyingPrice = Number(buyingPrice) || 0;
+            }
         }
         if (description) updateFields.description = description;
         if (detailedDescription) updateFields.detailedDescription = detailedDescription;
@@ -322,7 +343,12 @@ const updateProduct = async (req, res) => {
                 uploadedUrls.push(result.secure_url);
             }
             updateFields.image = uploadedUrls[0]; 
-            updateFields.images = uploadedUrls; 
+            updateFields.images = uploadedUrls;
+            if (updateFields.variants?.length) {
+                updateFields.variants = applyPrimaryImageToVariants(updateFields.variants, uploadedUrls[0]);
+            } else if (existingProduct?.variants?.length) {
+                updateFields.variants = applyPrimaryImageToVariants(existingProduct.variants, uploadedUrls[0]);
+            }
         }
 
         const updatedProduct = await Product.findOneAndUpdate(query, { $set: updateFields }, { returnDocument: 'after' });

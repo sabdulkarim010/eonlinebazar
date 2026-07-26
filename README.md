@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-4.1.0-success)
+![Version](https://img.shields.io/badge/Version-4.2.0-success)
 ![RBAC](https://img.shields.io/badge/RBAC-Staff%20Management-6f42c1)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
@@ -28,6 +28,7 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v4.2.0](#-whats-new--v420-attribute-library-variant-matrix--multi-pricing-engine)
 - [What's New — v4.1.0](#-whats-new--v410-wallet-checkout-vip-segmentation--flash-sale-engine)
 - [What's New — v4.0.0](#-whats-new--v400-automated-background-whatsapp-alerts--staff-manual-order-engine)
 - [What's New — v3.9.0](#-whats-new--v390-multi-attribute-variant-matrix--dynamic-stock-engine)
@@ -95,6 +96,21 @@ Eight things set it apart:
 9. **Dual-WhatsApp Routing & Background Order Alerts** — isolated public customer chat line vs private admin alert number; **non-blocking server-side POST** dispatch on every checkout (UltraMsg, Green API, CallMeBot, or direct webhook) with structured payload formatting — no admin panel session required.
 10. **Staff Manual Order Creation (POS Engine)** — admin modal for phone/chat orders with searchable product picker, **multi-variant stock validation**, automated inventory deduction, and instant **Finance & Analytics** ledger integration.
 11. **Customer Retention & Promotions Layer** — **store wallet checkout deduction**, automated refund credits, **VIP / Frequent Buyer segmentation** with admin filter tabs, and a **Flash Sale engine** with homepage countdown and dynamic discounted pricing.
+
+---
+
+## 🆕 What's New — v4.2.0 (Attribute Library, Variant Matrix & Multi-Pricing Engine)
+
+This release deepens the **catalog and inventory stack** — a master **Product Attribute Library** with auto-fill, an automated variant matrix with dynamic SKU generation, per-variant multi-pricing with Weighted Average Cost (WAC) accounting, and a polished Super Admin matrix grid.
+
+| Capability | Highlights |
+|------------|------------|
+| **🎛️ Product Attribute Library & Auto-Fill** | Master attribute management for **`Color`**, **`Size`**, and custom types; duplicate name validation warnings on the attributes page; saved global attribute values auto-populate product create/edit forms on attribute selection. |
+| **🧩 Automated Variant Matrix System** | Dynamic SKU auto-generation (`[ID]-[COLOR]-[SIZE]`) on matrix creation; automatic product image URL propagation across generated variant rows; fixed Edit Product modal re-hydration — saved matrix combinations, stock, pricing, and images pre-fill without resetting. |
+| **💰 Multi-Pricing & WAC Accounting** | Per-variant **Selling Price** and **Buying Price** inputs; product list table shows starting **minimum Sell Price** and **Buy Price** for variant products; backend **Weighted Average Cost (WAC)** retained for precise profit margin analytics and inventory valuation. |
+| **🖥️ Super Admin Matrix UI/UX** | Redesigned Variant Matrix table — strictly aligned bordered grid, full visibility for long combination labels (`Color: Navy Blue \| Size: XL`), centered headers and numerical inputs. |
+
+> 📌 See the dedicated [Multi-Attribute Combination Matrix & Dynamic Stock Engine](#-multi-attribute-combination-matrix--dynamic-stock-engine) and [Buying Price & Profit Model](#-buying-price--profit-model) sections below for schema fields, admin workflow, WAC logic, and key files.
 
 ---
 
@@ -963,11 +979,16 @@ Storefront UX upgrades that improve order transparency, inventory urgency, and r
 
 ## 🛍️ Multi-Attribute Combination Matrix & Dynamic Stock Engine
 
-Enterprise-grade variant inventory for the catalog admin and product detail storefront — supports **Simple Products** (single stock count) and **Combination Variant Products** (multi-attribute SKU matrices) without forcing flat, single-attribute variation rows.
+Enterprise-grade variant inventory for the catalog admin and product detail storefront — supports **Simple Products** (single stock count) and **Combination Variant Products** (multi-attribute SKU matrices) without forcing flat, single-attribute variation rows. **v4.2.0** adds a master **Attribute Library** with auto-fill, automated matrix generation with dynamic SKUs, per-variant multi-pricing, and a redesigned admin matrix grid.
 
 > **Implementation note:** The customer-facing selector lives in **`client/product-details.html`** with logic in **`client/js/product-details.js`** (this project serves static HTML/JS via Express rather than EJS views).
 
 ### Feature Overview
+
+#### Product Attribute Library & Auto-Fill (v4.2.0)
+- **Master attribute management** — reusable global definitions for **`Color`**, **`Size`**, **`Material`**, and custom attribute types stored in `models/attribute.js` and managed from **Manage Attributes** in the Super Admin panel.
+- **Duplicate name validation** — inline warnings on the attributes page when an admin attempts to create or rename an attribute to a name that already exists in the library.
+- **Auto-fill on product forms** — selecting an attribute type in the Add/Edit Product form pulls saved global values from the attribute library and pre-populates the value field, reducing manual entry and keeping catalog terminology consistent across products.
 
 #### Amazon/Shopify-Standard Combination Matrix
 - **Multi-attribute SKU combinations** — define attribute types (e.g. **Size**, **Color**, **Weight**) with comma-separated values; the admin engine generates the full Cartesian product (e.g. `M / Pink`, `L / Navy Blue`).
@@ -975,9 +996,25 @@ Enterprise-grade variant inventory for the catalog admin and product detail stor
   - **`attributes`** — Map of key-value pairs (e.g. `{ Size: "M", Color: "Pink" }`)
   - **`sku`** — unique sellable identifier
   - **`price`** — individual selling price (৳)
+  - **`buyingPrice`** — per-variant cost basis (৳) for COGS / WAC calculations *(v4.2.0)*
   - **`stock`** — independent inventory count for that exact combination
   - **`image`** — optional variant-specific image URL
 - **`hasVariants`** boolean cleanly distinguishes **Simple Products** from **Combination Variant Products** in MongoDB.
+
+#### Automated Variant Matrix System (v4.2.0)
+- **Dynamic SKU auto-generation** — on matrix creation, each combination row receives a structured SKU in the format **`[PRODUCT_ID]-[COLOR]-[SIZE]`** (attribute tokens normalized from the selected values).
+- **Automatic image URL population** — when a base product image is set, newly generated variant rows inherit the product image URL across the matrix, with per-row overrides still editable.
+- **Edit Product re-hydration fix** — opening **Manage Products → Edit** now correctly restores saved matrix combinations, per-row stock, selling/buying prices, SKUs, and images without clearing or resetting the table.
+
+#### Multi-Pricing & Weighted Average Accounting (v4.2.0)
+- **Per-variant Sell & Buy Price** — each matrix row exposes independent **Selling Price (৳)** and **Buying Price (৳)** inputs in the admin form.
+- **Product list min-price display** — the main **Manage Products** table shows the **starting minimum Sell Price** and **Buy Price** for variant products (derived from the lowest priced combination row).
+- **Backend WAC retention** — Weighted Average Cost calculations remain server-side for accurate profit margin analytics and inventory valuation in the Finance dashboard; order line items still snapshot buying price at checkout.
+
+#### Super Admin Variant Matrix UI/UX (v4.2.0)
+- **Strictly aligned bordered grid** — the Variant Matrix table uses a professional grid layout with consistent column borders and cell alignment.
+- **Full combination label visibility** — long attribute labels such as **`Color: Navy Blue | Size: XL`** render in full without text truncation or ellipsis clipping.
+- **Centered headers & numeric inputs** — table headers and price/stock/SKU fields are center-aligned for improved scanability during bulk data entry.
 - **Automatic total stock aggregation** — when `hasVariants === true`, product-level **`stock`** and **`stockQuantity`** are computed as the **sum of all combination stocks** on create/update (admin Stock Qty field becomes read-only with live total).
 
 #### Flexible Stock Control (Admin)
@@ -1022,9 +1059,9 @@ Legacy flat `attribute` / `value` sub-fields are retained on variant rows for ba
 ### Admin Workflow (Add / Edit Product)
 
 1. Choose **Simple Product** or **Variant Matrix** in the product form (`client/admin.html`).
-2. For matrix products: add attribute types + values → **Regenerate Matrix**.
-3. Fill **SKU, Price, Stock**, and optional **Image URL** for each combination row.
-4. Save — backend parses variants, sets `hasVariants`, and aggregates total stock.
+2. For matrix products: select attribute types from the **Attribute Library** (values auto-fill) or enter custom types + values → **Regenerate Matrix**.
+3. Review auto-generated **SKU** (`[ID]-[COLOR]-[SIZE]`) and inherited **Image URL** per row; adjust **Sell Price**, **Buy Price**, **Stock**, and overrides as needed.
+4. Save — backend parses variants, sets `hasVariants`, aggregates total stock, and persists per-variant buying prices for WAC.
 
 ### Selector Data Flow
 
@@ -1046,13 +1083,15 @@ flowchart LR
 
 | File | Role |
 |------|------|
-| `models/product.js` | `hasVariants`, `stockQuantity`, combination `variants[]` schema |
+| `models/attribute.js` | Master attribute library schema (name, values[]) — feeds product form auto-fill *(v4.2.0)* |
+| `controllers/attributeController.js` | Attribute CRUD + duplicate name validation *(v4.2.0)* |
+| `models/product.js` | `hasVariants`, `stockQuantity`, combination `variants[]` schema (incl. per-row `buyingPrice`) |
 | `utils/variantHelpers.js` | Server-side variant parse/normalize, stock aggregation, order-line matching |
 | `controllers/productController.js` | Create/update product — matrix parse, `applyProductStockFields()` |
 | `controllers/orderController.js` | Exact combination stock decrement on order placement |
 | `utils/cartMergeService.js` | `selectedVariant`-aware cart line normalization |
-| `client/admin.html` | Simple vs Variant Matrix toggle, attribute builder, combination table |
-| `client/js/admin.js` | Matrix generator, stock sum sync, variant payload on save |
+| `client/admin.html` | Simple vs Variant Matrix toggle, attribute library picker, aligned combination matrix grid |
+| `client/js/admin.js` | Matrix generator, dynamic SKU (`[ID]-[COLOR]-[SIZE]`), image auto-fill, edit re-hydration, stock sum sync |
 | `client/product-details.html` | Variant selector shell, SKU meta bar, Add to Cart actions |
 | `client/js/product-details.js` | Smart matrix listener, live price/stock/SKU sync, cart item builder |
 | `client/js/variantUtils.js` | Client helpers — `getOptionState`, `findVariantBySelection`, `buildVariantCartMeta` |
@@ -2472,8 +2511,8 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 #### Catalog Management Engine
 - **📂 Categories** — Full CRUD with optional **`customCashbackPercentage`** override; renaming a category **syncs all linked products** automatically.
 - **🏷️ Brands** — Full CRUD with a clean grid layout, automatic **slug generation** (Unicode/Bengali-aware), and strict product-to-brand **database references**.
-- **🎛️ Attributes (Variants)** — Reusable attribute name/value catalog (**Size**, **Color**, **Material**…) feeding the admin matrix builder.
-- **🧩 Multi-Attribute Combination Matrix** — Amazon/Shopify-style **Size × Color × Weight** SKU engine with per-row **price, stock, SKU & image**; automatic total-stock aggregation (`hasVariants` / `stockQuantity` model). *(See [Multi-Attribute Combination Matrix & Dynamic Stock Engine](#-multi-attribute-combination-matrix--dynamic-stock-engine).)*
+- **🎛️ Product Attribute Library** — Master attribute management (**Color**, **Size**, **Material**…); duplicate name validation warnings; auto-populate saved global values into product create/edit forms on attribute selection *(v4.2.0)*.
+- **🧩 Multi-Attribute Combination Matrix** — Amazon/Shopify-style **Size × Color × Weight** SKU engine with dynamic **`[ID]-[COLOR]-[SIZE]`** SKU auto-generation, per-row **sell price, buy price, stock, SKU & image**, automatic image URL propagation, Edit modal re-hydration, and total-stock aggregation (`hasVariants` / `stockQuantity` model). *(See [Multi-Attribute Combination Matrix & Dynamic Stock Engine](#-multi-attribute-combination-matrix--dynamic-stock-engine).)*
 - **🎟️ Coupons & Discounts** — Enterprise promo engine (Shopify/Daraz-style):
   - Percentage **or** flat discounts, optional **max-discount cap**.
   - **Min order amount**, **global usage limit**, **per-user limit**, and **precise expiry date-time** (hour & minute scheduling).
@@ -2483,7 +2522,7 @@ Admins pick and switch their preferred method from the settings panel; self-serv
   - Storefront **apply / validate** endpoint with optional customer auth for per-user enforcement; order placement re-validates status + expiry on the backend.
 
 #### Product & Order Systems
-- **🛍️ Product Catalog** — Up to 10 images, categories, brand, **simple or matrix variations**, highlights, **flexible stock** (`stockQuantity` for simple products; per-combination stock for variant products), **selling price + buying price** (live profit preview), and detailed descriptions.
+- **🛍️ Product Catalog** — Up to 10 images, categories, brand, **simple or matrix variations**, highlights, **flexible stock** (`stockQuantity` for simple products; per-combination stock for variant products), **per-variant selling + buying price** with list-table **minimum sell/buy price** display for matrix products, live profit preview, and detailed descriptions *(v4.2.0 multi-pricing)*.
 - **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **clickable order rows** (v3.4.0) with inline ID/date meta, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals (actions on detail view only), dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, **1-click PDF invoice download** from Order Details, **automated order confirmation emails** on every successful checkout, **background WhatsApp admin order alerts** (v4.0.0), **staff manual POS / phone order entry** with variant stock validation (v4.0.0), and **admin one-click multi-provider courier dispatch** (Steadfast / Pathao / RedX) with Smart Hybrid Mode and customer tracking badges (v3.7.0).
 - **🔄 Admin Return & Refund Pipeline** — Approve returns with automatic wallet **`CREDIT`**, full **`walletApplied + grandTotal`** refund math, transaction history logging, and **Safe Undo Refund** within a configurable hour window (spent-funds safety check).
 - **💳 Checkout Wallet Deduction** — Live wallet balance on checkout/payment, **Apply Wallet Balance** checkbox, dynamic payable recalculation, **Paid via Wallet** auto-selection, and atomic **`DEBIT`** ledger entries on order placement.
@@ -2532,7 +2571,7 @@ A fully implemented customer favourites system with MongoDB-backed persistence a
 - **👥 Customer Management** — View, edit, block, suspend, reactivate; order-count badges; per-customer order history modal. *(Requires `manage_customers`.)*
 - **📦 Live Orders** — Premium sticky-header table with compact spacing, horizontal action toolbar (**Send to Courier**, Invoice, Delete), **Create Manual Order** POS modal (v4.0.0), distinct customer/admin cancellation badges, return approval, safe refund undo, reason visibility, invoice view/print, search, filter, and pagination. *(Requires `manage_orders`.)*
 - **📱 WhatsApp Alert Badge** — Header badge surfaces pending wa.me fallback alerts when the background gateway cannot auto-deliver (v4.0.0).
-- **🛍️ Product CRUD** — Add/edit with images, buying/selling price, live profit preview, **Simple Product / Variant Matrix** inventory modes, bulk delete, CSV export, and print-ready tables. *(Requires `manage_inventory`.)*
+- **🛍️ Product CRUD** — Add/edit with images, per-variant buying/selling price, live profit preview, **Simple Product / Variant Matrix** inventory modes with **Attribute Library auto-fill**, dynamic SKU generation, aligned matrix grid UI, bulk delete, CSV export, and print-ready tables. *(Requires `manage_inventory`.)*
 - **👤 Staff Management** — Create, permission-assign, block, reset password, and delete staff accounts with a dynamic permission matrix. *(Super Admin only.)*
 - **🔔 Professional UX** — SweetAlert2 toasts + modal confirmations, asynchronous DOM re-rendering (instant UI sync, no manual refresh), permission-aware sidebar gating.
 
@@ -2599,7 +2638,7 @@ eonlinebazar-fullstack/
 │   ├── product.js                     # Products (images, buyingPrice, hasVariants, stockQuantity, combination variants[])
 │   ├── category.js                    # Product categories (optional customCashbackPercentage)
 │   ├── brand.js                       # Product brands (slug + product references)
-│   ├── attribute.js                   # Product attributes / variants (Size, Color…)
+│   ├── attribute.js                   # Master product attribute library (Color, Size, values[]) — auto-fill source
 │   ├── coupon.js                      # Coupons & discounts (status ACTIVE/EXPIRED, precise expiryDate, usage limits)
 │   ├── order.js                       # Orders with lifecycle + courier tracking fields (cancelReason, courierTrackingId…)
 │   ├── cart.js                        # Shopping cart
@@ -3006,9 +3045,9 @@ Base URL: `http://localhost:3000`
 | `POST` | `/api/brands` | Create brand (auto slug) | Admin + `manage_catalog` |
 | `PUT`  | `/api/brands/:id` | Update brand | Admin + `manage_catalog` |
 | `DELETE` | `/api/brands/:id` | Delete brand | Admin + `manage_catalog` |
-| `GET`  | `/api/attributes` | List attributes | Public |
-| `POST` | `/api/attributes` | Create attribute | Admin + `manage_catalog` |
-| `PUT`  | `/api/attributes/:id` | Update attribute | Admin + `manage_catalog` |
+| `GET`  | `/api/attributes` | List attributes (used by product form auto-fill) | Public |
+| `POST` | `/api/attributes` | Create attribute (duplicate name rejected with warning) | Admin + `manage_catalog` |
+| `PUT`  | `/api/attributes/:id` | Update attribute (duplicate name validation) | Admin + `manage_catalog` |
 | `DELETE` | `/api/attributes/:id` | Delete attribute | Admin + `manage_catalog` |
 
 ### 🎟️ Coupons
@@ -3200,18 +3239,42 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 
 | Layer | Field | Purpose |
 |-------|-------|---------|
-| Product catalog | `buyingPrice` | Cost basis set by admin when creating/editing products |
+| Product catalog | `buyingPrice` | Cost basis set by admin when creating/editing simple products |
+| Variant matrix row | `variants[].buyingPrice` | Per-combination cost basis for multi-variant products *(v4.2.0)* |
+| Product list (admin) | Min sell / buy price | Starting minimum **Sell Price** and **Buy Price** displayed for variant products *(v4.2.0)* |
 | Order line item | `buyingPrice` (snapshot) | Frozen at checkout — profit stays accurate even if catalog price changes |
 | Order document | `totalBuyingPrice` | Sum of line-item buying costs |
-| Finance module | Computed profit | `(sellingPrice − buyingPrice) × qty` with fallbacks |
+| Finance module | Computed profit / WAC | `(sellingPrice − buyingPrice) × qty` with Weighted Average Cost fallbacks for inventory valuation |
 | Admin UI | Profit preview | Live margin badge on Manage Products & edit modal |
-| Admin UI | Edit Product modal | Wide responsive grid layout for desktop data entry (expanded variations & image preview) |
+| Admin UI | Edit Product modal | Wide responsive grid layout; per-variant sell/buy price columns; aligned Variant Matrix table *(v4.2.0)* |
 
-> **Net Profit logic (v3.8.0):** **`Net Profit = Gross Revenue − COGS − Item Discounts − Coupon Savings − Loyalty Point Redemptions`**. COGS uses the **buying-price snapshot** on each order line at checkout (`buyingPrice × quantity`), with fallbacks to catalog `buyingPrice`, `costPrice`, then `FINANCE_DEFAULT_COST_RATIO` (default `0.70`). Gross revenue is grossed-up from the charged total so netted discounts are not applied twice. Legacy overview/chart endpoints (`/api/finance/overview`, `/api/finance/chart-data`) remain available for backward compatibility.
+> **Net Profit logic (v3.8.0):** **`Net Profit = Gross Revenue − COGS − Item Discounts − Coupon Savings − Loyalty Point Redemptions`**. COGS uses the **buying-price snapshot** on each order line at checkout (`buyingPrice × quantity`), with fallbacks to catalog `buyingPrice`, variant-row `buyingPrice`, `costPrice`, then `FINANCE_DEFAULT_COST_RATIO` (default `0.70`). **Weighted Average Cost (WAC)** is retained on the backend for precise profit margin analytics and inventory valuation when variant-level costs differ across combinations. Gross revenue is grossed-up from the charged total so netted discounts are not applied twice. Legacy overview/chart endpoints (`/api/finance/overview`, `/api/finance/chart-data`) remain available for backward compatibility.
 
 ---
 
 ## 📜 Changelog
+
+### `v4.2.0` — Attribute Library, Variant Matrix & Multi-Pricing Engine
+
+**🎛️ Product Attribute Library & Auto-Fill**
+- Master attribute management system for global types such as **`Color`**, **`Size`**, and custom labels — CRUD via **Manage Attributes** (`models/attribute.js`, `controllers/attributeController.js`).
+- Duplicate attribute name validation with inline warnings on the attributes admin page when a conflicting name is entered.
+- Product create/edit forms auto-populate saved global attribute values when an attribute type is selected from the library.
+
+**🧩 Automated Variant Matrix System**
+- Dynamic SKU auto-generation on matrix creation — format **`[PRODUCT_ID]-[COLOR]-[SIZE]`** with normalized attribute tokens.
+- Automatic product image URL propagation to all generated variant rows; per-row overrides remain editable.
+- Fixed **Edit Product** modal re-hydration — saved matrix combinations, stock, pricing, SKUs, and images pre-fill correctly without table reset.
+
+**💰 Multi-Pricing & Weighted Average Accounting**
+- Per-variant **Selling Price (৳)** and **Buying Price (৳)** inputs on every matrix combination row.
+- **Manage Products** list table displays starting **minimum Sell Price** and **Buy Price** for variant products.
+- Backend **Weighted Average Cost (WAC)** calculations retained for profit margin analytics and inventory valuation; checkout still snapshots buying price per order line.
+
+**🖥️ Super Admin Variant Matrix UI/UX**
+- Redesigned Variant Matrix table — strictly aligned, bordered grid layout for professional data entry.
+- Full visibility for long combination labels (e.g. **`Color: Navy Blue | Size: XL`**) — no text truncation.
+- Centered table headers and numerical input fields (price, stock, SKU) for improved readability.
 
 ### `v4.1.0` — Wallet Checkout, VIP Segmentation & Flash Sale Engine
 

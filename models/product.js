@@ -14,6 +14,12 @@ const mongoose = require('mongoose');
  * Each row is one sellable SKU with its own attributes map, price, and stock.
  */
 const variantSchema = new mongoose.Schema({
+    /** Human-readable combination label, e.g. "Size: S | Color: Pink" */
+    name: {
+        type: String,
+        trim: true,
+        default: ''
+    },
     attributes: {
         type: Map,
         of: String,

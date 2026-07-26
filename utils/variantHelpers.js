@@ -17,6 +17,17 @@ function getVariantAttributes(variant) {
         if (variant.attributes instanceof Map) {
             return Object.fromEntries(variant.attributes);
         }
+        if (Array.isArray(variant.attributes)) {
+            const out = {};
+            variant.attributes.forEach(entry => {
+                if (Array.isArray(entry) && entry.length >= 2) {
+                    const key = String(entry[0] || '').trim();
+                    const val = String(entry[1] || '').trim();
+                    if (key && val) out[key] = val;
+                }
+            });
+            if (Object.keys(out).length) return out;
+        }
         if (typeof variant.attributes === 'object') {
             const out = {};
             Object.entries(variant.attributes).forEach(([k, v]) => {
@@ -42,6 +53,21 @@ function getCombinationKey(attributes) {
         .join('|');
 }
 
+/** Shopify-style label: "Size: S | Color: Pink" */
+function formatCombinationLabel(attributes) {
+    const entries = Object.entries(attributes || {})
+        .map(([k, v]) => [String(k || '').trim(), String(v || '').trim()])
+        .filter(([k, v]) => k && v);
+    if (!entries.length) return '';
+    return entries.map(([k, v]) => `${k}: ${v}`).join(' | ');
+}
+
+function resolveVariantName(raw, attributes) {
+    const explicit = String(raw?.name || raw?.title || '').trim();
+    if (explicit) return explicit;
+    return formatCombinationLabel(attributes);
+}
+
 /** Public variant line id — sku preferred, else combination key. */
 function getVariantLineId(variant) {
     const sku = String(variant?.sku || '').trim();
@@ -61,7 +87,10 @@ function normalizeVariantInput(raw) {
 
     if (Object.keys(attributes).length === 0 && !sku) return null;
 
+    const name = resolveVariantName(raw, attributes);
+
     return {
+        name,
         attributes,
         sku,
         price: Number.isFinite(price) ? price : 0,
@@ -110,6 +139,40 @@ function sumVariantStock(variants) {
     return variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
 }
 
+/** Minimum positive sell price across variant rows (Shopify "from" price). */
+function computeMinVariantPrice(variants, fallback = 0) {
+    if (!Array.isArray(variants) || variants.length === 0) {
+        return Number(fallback) || 0;
+    }
+    const prices = variants
+        .map(v => Number(v.price))
+        .filter(p => Number.isFinite(p) && p > 0);
+    if (prices.length === 0) return Number(fallback) || 0;
+    return Math.min(...prices);
+}
+
+/** Weighted average buying price across variant rows (falls back to simple average). */
+function computeAggregateBuyingPrice(variants, fallback = 0) {
+    if (!Array.isArray(variants) || variants.length === 0) {
+        return Number(fallback) || 0;
+    }
+
+    const priced = variants.filter(v => Number(v.buyingPrice) > 0);
+    if (priced.length === 0) return Number(fallback) || 0;
+
+    const totalStock = priced.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+    if (totalStock > 0) {
+        const weighted = priced.reduce(
+            (sum, v) => sum + (Number(v.buyingPrice) || 0) * (Number(v.stock) || 0),
+            0
+        );
+        return Math.round((weighted / totalStock) * 100) / 100;
+    }
+
+    const simple = priced.reduce((sum, v) => sum + (Number(v.buyingPrice) || 0), 0) / priced.length;
+    return Math.round(simple * 100) / 100;
+}
+
 /**
  * Apply hasVariants / stockQuantity / stock (total) rules before save.
  */
@@ -124,6 +187,10 @@ function applyProductStockFields(productData) {
         const total = sumVariantStock(variants);
         productData.stock = total;
         productData.stockQuantity = total;
+        const aggregateBuying = computeAggregateBuyingPrice(variants, productData.buyingPrice);
+        if (aggregateBuying > 0) productData.buyingPrice = aggregateBuying;
+        const minPrice = computeMinVariantPrice(variants, productData.price);
+        if (minPrice > 0) productData.price = minPrice;
     } else {
         const qty = Number(productData.stockQuantity);
         const fallback = Number(productData.stock);
@@ -226,15 +293,32 @@ function cartesianCombinations(attributeTypes) {
     }, []);
 }
 
+function applyPrimaryImageToVariants(variants, primaryImage) {
+    const primary = String(primaryImage || '').trim();
+    if (!primary || !Array.isArray(variants)) return variants;
+    return variants.map(v => {
+        const img = String(v?.image || '').trim();
+        if (!img || img.startsWith('data:')) {
+            return { ...v, image: primary };
+        }
+        return v;
+    });
+}
+
 module.exports = {
     getVariantAttributes,
     getCombinationKey,
+    formatCombinationLabel,
+    resolveVariantName,
     getVariantLineId,
     normalizeVariantInput,
     parseVariants,
     sumVariantStock,
+    computeMinVariantPrice,
+    computeAggregateBuyingPrice,
     applyProductStockFields,
     findVariantIndex,
     usesCombinationMatrix,
+    applyPrimaryImageToVariants,
     cartesianCombinations
 };

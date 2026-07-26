@@ -319,8 +319,8 @@
 
 
 <section id="view-customers" class="admin-section" style="display: none;">
-                <div class="table-container">
-                    <div class="table-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; flex-wrap: wrap; gap: 12px;">
+                <div class="table-container customers-table-container">
+                    <div class="table-header customers-table-header">
                         <h3 id="table-title">All Registered Customers</h3>
                         <div class="customer-segment-tabs" id="customerSegmentTabs">
                             <button type="button" class="segment-tab active" data-segment="all">All Customers</button>
@@ -328,24 +328,26 @@
                             <button type="button" class="segment-tab" data-segment="frequent">Frequent Buyers</button>
                         </div>
                     </div>
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>USER ID</th>
-                                <th>FULL NAME</th>
-                                <th>EMAIL ADDRESS</th>
-                                <th>MOBILE CONTACT</th>
-                                <th>ORDERS</th>
-                                <th>TOTAL SPENT</th>
-                                <th>SEGMENT</th>
-                                <th>ACCOUNT STATUS</th>
-                                <th>ACTIONS</th>
-                            </tr>
-                        </thead>
-                        <tbody id="customerTableBody">
-                            <tr><td colspan="9" class="loading-container"><div class="spinner"></div><p>Loading customers...</p></td></tr>
-                        </tbody>
-                    </table>
+                    <div class="customers-table-scroll">
+                        <table class="data-table customers-table">
+                            <thead class="customers-table-head">
+                                <tr>
+                                    <th class="customers-th">User ID</th>
+                                    <th class="customers-th">Full Name</th>
+                                    <th class="customers-th">Email Address</th>
+                                    <th class="customers-th">Mobile Contact</th>
+                                    <th class="customers-th customers-th--num">Orders</th>
+                                    <th class="customers-th customers-th--num">Total Spent</th>
+                                    <th class="customers-th">Segment</th>
+                                    <th class="customers-th">Account Status</th>
+                                    <th class="customers-th customers-th--actions">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customerTableBody" class="customers-table-body">
+                                <tr><td colspan="9" class="loading-container"><div class="spinner"></div><p>Loading customers...</p></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
@@ -611,7 +613,8 @@
         <div class="catalog-add-form catalog-add-form-wide">
             <div class="catalog-field catalog-field-grow">
                 <label for="newAttributeName">Attribute Name</label>
-                <input type="text" id="newAttributeName" placeholder="e.g., Size, Color, Material">
+                <input type="text" id="newAttributeName" placeholder="e.g., Size, Color, Material" oninput="checkAttributeNameDuplicate()">
+                <p id="attributeNameDuplicateWarn" class="field-inline-warn" role="alert" hidden></p>
             </div>
             <div class="catalog-field catalog-field-grow">
                 <label for="newAttributeValues">Values (comma separated)</label>
@@ -734,7 +737,7 @@
                             </button>
                         </div>
                         <div id="addAttributeTypesList" class="attribute-types-list"></div>
-                        <p class="matrix-hint">Enter values comma-separated (e.g. S, M, L). Combinations are generated automatically.</p>
+                        <p class="matrix-hint">Pick a saved attribute name to auto-fill values, then edit or append before regenerating the matrix. Regenerate auto-fills SKU codes and main product image URLs per row.</p>
 
                         <div class="matrix-toolbar">
                             <button type="button" class="btn-secondary-sm" onclick="generateVariantMatrix('add')">
@@ -744,14 +747,27 @@
                         </div>
 
                         <div class="variant-matrix-wrap" id="addVariantMatrixWrap" style="display:none;">
-                            <div class="matrix-row matrix-row-head">
-                                <span>Combination</span>
-                                <span>SKU</span>
-                                <span>Price (৳)</span>
-                                <span>Stock</span>
-                                <span>Image URL</span>
-                            </div>
-                            <div id="addVariantMatrixBody"></div>
+                            <table class="variant-matrix-table" aria-label="Variant combination matrix">
+                                <colgroup>
+                                    <col class="col-combination">
+                                    <col class="col-sku">
+                                    <col class="col-sell">
+                                    <col class="col-buy">
+                                    <col class="col-stock">
+                                    <col class="col-image">
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Combination</th>
+                                        <th scope="col">SKU</th>
+                                        <th scope="col">Sell Price</th>
+                                        <th scope="col">Buy Price</th>
+                                        <th scope="col">Stock</th>
+                                        <th scope="col">Image URL</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="addVariantMatrixBody"></tbody>
+                            </table>
                         </div>
                         <p class="variations-empty" id="addVariantMatrixEmpty">Add attribute types and values, then generate the combination matrix.</p>
                     </div>
@@ -1028,7 +1044,7 @@
                         </button>
                     </div>
                     <div id="editAttributeTypesList" class="attribute-types-list"></div>
-                    <p class="matrix-hint">Enter values comma-separated (e.g. Pink, Navy Blue). Combinations update when you regenerate.</p>
+                    <p class="matrix-hint">Pick a saved attribute name to auto-fill values, then edit or append before regenerating the matrix. Regenerate auto-fills SKU codes and main product image URLs per row.</p>
 
                     <div class="matrix-toolbar">
                         <button type="button" class="btn-secondary-sm" onclick="generateVariantMatrix('edit')">
@@ -1038,14 +1054,27 @@
                     </div>
 
                     <div class="variant-matrix-wrap edit-variations-table-wrap" id="editVariantMatrixWrap" style="display:none;">
-                        <div class="matrix-row matrix-row-head edit-variations-row-head">
-                            <span>Combination</span>
-                            <span>SKU</span>
-                            <span>Price (৳)</span>
-                            <span>Stock</span>
-                            <span>Image URL</span>
-                        </div>
-                        <div id="editVariantMatrixBody"></div>
+                        <table class="variant-matrix-table" aria-label="Variant combination matrix">
+                            <colgroup>
+                                <col class="col-combination">
+                                <col class="col-sku">
+                                <col class="col-sell">
+                                <col class="col-buy">
+                                <col class="col-stock">
+                                <col class="col-image">
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Combination</th>
+                                    <th scope="col">SKU</th>
+                                    <th scope="col">Sell Price</th>
+                                    <th scope="col">Buy Price</th>
+                                    <th scope="col">Stock</th>
+                                    <th scope="col">Image URL</th>
+                                </tr>
+                            </thead>
+                            <tbody id="editVariantMatrixBody"></tbody>
+                        </table>
                     </div>
                     <p class="variations-empty" id="editVariantMatrixEmpty">Add attribute types and values, then generate the combination matrix.</p>
                 </div>
@@ -1548,8 +1577,9 @@
             <h3>Staff Management</h3>
             <p class="section-subtitle">Create staff accounts, grant exactly the permissions they need, and suspend access instantly.</p>
         </div>
-        <button type="button" class="btn-secondary no-print" onclick="loadStaffSection()">
-            <i class="fa-solid fa-rotate"></i> Refresh
+        <button type="button" id="staffRefreshBtn" class="btn-secondary no-print staff-refresh-btn" aria-label="Refresh staff accounts">
+            <i class="fa-solid fa-rotate staff-refresh-btn__icon" aria-hidden="true"></i>
+            <span class="staff-refresh-btn__label">Refresh</span>
         </button>
     </div>
 
@@ -2183,6 +2213,7 @@
             <div class="form-group" style="margin-bottom: 0;">
                 <label id="cqeLabel">Name</label>
                 <input type="text" id="cqeInput" placeholder="">
+                <p id="cqeHint" class="field-hint" style="display: none; margin-top: 8px;"></p>
             </div>
         </div>
         <div class="modal-footer">

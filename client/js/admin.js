@@ -128,6 +128,67 @@ function formatAdminProfit(amount) {
     return `${sign}${sym}${Math.abs(num).toLocaleString()}`;
 }
 
+/** Collect positive numeric values from variant rows (sell or buy price). */
+function collectPositiveVariantPrices(product, field) {
+    const variants = Array.isArray(product?.variants) ? product.variants : [];
+    return variants
+        .map(v => Number(v[field]))
+        .filter(p => Number.isFinite(p) && p > 0);
+}
+
+/** Minimum positive variant price for a field, with product-level fallback. */
+function getVariantMinPrice(product, field, fallback = 0) {
+    const prices = collectPositiveVariantPrices(product, field);
+    if (prices.length) return Math.min(...prices);
+    const fb = Number(fallback) || 0;
+    return fb > 0 ? fb : 0;
+}
+
+function isVariantMatrixProduct(product) {
+    if (!product) return false;
+    if (product.hasVariants === true && Array.isArray(product.variants) && product.variants.length > 0) {
+        return true;
+    }
+    return productUsesVariantMatrix(product);
+}
+
+/** Table cell HTML for sell/buy columns (simple product vs variant matrix). */
+function buildProductTablePriceCells(product) {
+    const isVariant = isVariantMatrixProduct(product);
+
+    if (isVariant) {
+        const minSell = getVariantMinPrice(product, 'price', product.price);
+        const minBuy = getVariantMinPrice(product, 'buyingPrice', 0);
+        const sellPriceHtml = `<b>${formatAdminPrice(minSell)}</b>`;
+
+        let buyPriceHtml;
+        if (minBuy > 0) {
+            const unitProfit = minSell - minBuy;
+            const profitClass = unitProfit >= 0 ? 'profit-positive' : 'profit-negative';
+            buyPriceHtml = `${formatAdminPrice(minBuy)} <span class="unit-profit ${profitClass}">${formatAdminProfit(unitProfit)}</span>`;
+        } else {
+            buyPriceHtml = `<span class="buy-price-empty" title="Set buying prices on variant matrix rows">—</span>`;
+        }
+
+        return { sellPriceHtml, buyPriceHtml };
+    }
+
+    const buyingPrice = Number(product.buyingPrice) || 0;
+    const sellingPrice = Number(product.price) || 0;
+    const sellPriceHtml = `<b>${formatAdminPrice(sellingPrice)}</b>`;
+
+    let buyPriceHtml;
+    if (buyingPrice > 0) {
+        const unitProfit = sellingPrice - buyingPrice;
+        const profitClass = unitProfit >= 0 ? 'profit-positive' : 'profit-negative';
+        buyPriceHtml = `${formatAdminPrice(buyingPrice)} <span class="unit-profit ${profitClass}">${formatAdminProfit(unitProfit)}</span>`;
+    } else {
+        buyPriceHtml = `<span class="buy-price-empty" title="Set a buying price for accurate profit">—</span>`;
+    }
+
+    return { sellPriceHtml, buyPriceHtml };
+}
+
 
 /* ==========================================================================
    CORE MODULE 3: UI UTILITIES - TOASTR & SWEETALERT2
@@ -162,7 +223,7 @@ function escapeToastText(str) {
 /**
  * Modern floating toast notifications for the admin dashboard.
  */
-window.showToast = function(message, type = 'success') {
+window.showToast = function(message, type = 'success', durationMs = 4000) {
     initAdminNotifications();
     const container = document.getElementById('toastContainer');
     if (!container) return;
@@ -194,7 +255,7 @@ window.showToast = function(message, type = 'success') {
     };
 
     toast.querySelector('.admin-toast-close')?.addEventListener('click', dismiss);
-    window.setTimeout(dismiss, 4000);
+    window.setTimeout(dismiss, Math.max(Number(durationMs) || 0, 1000));
 };
 
 /**
@@ -335,15 +396,25 @@ function updateAdminPageHeader(sectionId, fallbackLabel) {
  */
 let _catalogQuickEditSaveHandler = null;
 
-window.openCatalogQuickEdit = function({ title, label, value, placeholder, onSave }) {
+window.openCatalogQuickEdit = function({ title, label, value, placeholder, hint, focusMode, onSave }) {
     const modal = document.getElementById('catalogQuickEditModal');
     const input = document.getElementById('cqeInput');
+    const hintEl = document.getElementById('cqeHint');
     if (!modal || !input) return;
 
     document.getElementById('cqeTitle').textContent = title || 'Edit Item';
     document.getElementById('cqeLabel').textContent = label || 'Name';
     input.value = value || '';
     input.placeholder = placeholder || '';
+    if (hintEl) {
+        if (hint) {
+            hintEl.textContent = hint;
+            hintEl.style.display = 'block';
+        } else {
+            hintEl.textContent = '';
+            hintEl.style.display = 'none';
+        }
+    }
     _catalogQuickEditSaveHandler = onSave;
 
     const saveBtn = document.getElementById('cqeSaveBtn');
@@ -359,7 +430,12 @@ window.openCatalogQuickEdit = function({ title, label, value, placeholder, onSav
 
     modal.style.display = 'flex';
     input.focus();
-    input.select();
+    if (focusMode === 'end') {
+        const len = input.value.length;
+        input.setSelectionRange(len, len);
+    } else {
+        input.select();
+    }
 };
 
 window.closeCatalogQuickEdit = function() {
@@ -1014,15 +1090,54 @@ function renderGrowthChart(customers) {
 function getCustomerStatusHtml(user) {
     const accountStatus = user.accountStatus || 'active';
     if (accountStatus === 'blocked') {
-        return '<span class="status-badge status-blocked"><i class="fa-solid fa-ban"></i> Blocked</span>';
+        return '<span class="status-badge status-blocked customers-status-badge"><i class="fa-solid fa-ban"></i> Blocked</span>';
     }
     if (accountStatus === 'suspended') {
-        return '<span class="status-badge status-suspended"><i class="fa-solid fa-pause"></i> Suspended</span>';
+        return '<span class="status-badge status-suspended customers-status-badge"><i class="fa-solid fa-pause"></i> Suspended</span>';
     }
     const verifyClass = user.isVerified ? 'status-verified' : 'status-pending';
     const verifyText = user.isVerified ? 'Verified' : 'Pending';
-    return `<span class="status-badge ${verifyClass}">${verifyText}</span>`;
+    return `<span class="status-badge ${verifyClass} customers-status-badge">${verifyText}</span>`;
 }
+
+function buildCustomerCopyCell(displayHtml, copyValue) {
+    const safeCopy = escapeHtml(String(copyValue ?? ''));
+    return `
+        <span class="customers-copy-cell">
+            <span class="customers-copy-cell__text">${displayHtml}</span>
+            <button type="button" class="customers-copy-cell__btn" data-copy="${safeCopy}" onclick="copyCustomerField(this)" title="Copy to clipboard" aria-label="Copy">
+                <i class="fa-regular fa-copy" aria-hidden="true"></i>
+            </button>
+        </span>`;
+}
+
+window.copyCustomerField = function(btn) {
+    const value = btn?.getAttribute('data-copy') || '';
+    if (!value) return;
+
+    const onCopied = () => showToast('Copied!', 'success');
+    const onFailed = () => showToast('Could not copy to clipboard.', 'warning');
+
+    if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(value).then(onCopied).catch(onFailed);
+        return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = value;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy') ? onCopied() : onFailed();
+    } catch {
+        onFailed();
+    } finally {
+        textarea.remove();
+    }
+};
 
 function renderCustomerTable(customers) {
     const tbody = document.getElementById('customerTableBody');
@@ -1053,21 +1168,27 @@ function renderCustomerTable(customers) {
                 <button class="action-btn block" onclick="setCustomerStatus('${uid}', 'blocked')" title="Block User"><i class="fa-solid fa-ban"></i></button>`;
         }
 
+        const userIdCopy = user._id ? user._id.toString() : displayId;
+        const emailDisplay = user.email || 'N/A';
+        const mobileDisplay = user.mobile || 'N/A';
+
         tableHTML += `
-            <tr>
-                <td><b>#${displayId}</b></td>
-                <td>${user.name || 'N/A'}${user.isVip ? ' 👑' : ''}</td>
-                <td>${user.email || 'N/A'}</td>
-                <td>${user.mobile || 'N/A'}</td>
-                <td>${getOrderCountBadge(user.orderCount)}</td>
-                <td><span class="spent-badge">${formatAdminPrice(totalSpent)}</span></td>
-                <td>${getCustomerSegmentBadge(user)}</td>
-                <td>${getCustomerStatusHtml(user)}</td>
-                <td class="col-actions customer-actions">
-                    <button class="action-btn view" onclick="viewCustomerDetails('${uid}')" title="View Profile"><i class="fa-solid fa-eye"></i></button>
-                    <button class="action-btn edit" onclick="editCustomer('${uid}')" title="Edit Customer"><i class="fa-solid fa-pen-to-square"></i></button>
-                    <button class="action-btn orders" onclick="viewCustomerOrders('${uid}')" title="Order History"><i class="fa-solid fa-clock-rotate-left"></i></button>
-                    ${statusActionBtn}
+            <tr class="customers-row">
+                <td class="customers-td customers-td--id">${buildCustomerCopyCell(`<b>#${escapeHtml(displayId)}</b>`, userIdCopy)}</td>
+                <td class="customers-td customers-td--name"><span class="customers-name">${escapeHtml(user.name || 'N/A')}${user.isVip ? ' <span class="customers-vip-crown" aria-hidden="true">👑</span>' : ''}</span></td>
+                <td class="customers-td customers-td--email">${emailDisplay !== 'N/A' ? buildCustomerCopyCell(escapeHtml(emailDisplay), emailDisplay) : 'N/A'}</td>
+                <td class="customers-td customers-td--mobile">${mobileDisplay !== 'N/A' ? buildCustomerCopyCell(escapeHtml(mobileDisplay), mobileDisplay) : 'N/A'}</td>
+                <td class="customers-td customers-td--num">${getOrderCountBadge(user.orderCount)}</td>
+                <td class="customers-td customers-td--num"><span class="spent-badge">${formatAdminPrice(totalSpent)}</span></td>
+                <td class="customers-td customers-td--segment">${getCustomerSegmentBadge(user)}</td>
+                <td class="customers-td customers-td--status">${getCustomerStatusHtml(user)}</td>
+                <td class="col-actions customers-td customers-td--actions">
+                    <div class="customer-actions-row">
+                        <button type="button" class="action-btn view" onclick="viewCustomerDetails('${uid}')" title="View Profile"><i class="fa-solid fa-eye"></i></button>
+                        <button type="button" class="action-btn edit" onclick="editCustomer('${uid}')" title="Edit Customer"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button type="button" class="action-btn orders" onclick="viewCustomerOrders('${uid}')" title="Order History"><i class="fa-solid fa-clock-rotate-left"></i></button>
+                        ${statusActionBtn}
+                    </div>
                 </td>
             </tr>
         `;
@@ -1492,7 +1613,7 @@ function populateManualVariantSelect() {
     variantSelect.innerHTML = '<option value="">— Select variant —</option>';
     variants.forEach((variant, index) => {
         const attrs = getVariantAttributesFromDoc(variant);
-        const label = formatCombinationLabel(attrs) || `Variant ${index + 1}`;
+        const label = resolveCombinationLabel({ name: variant.name, attributes: attrs, sku: variant.sku }) || `Row ${index + 1}`;
         const stock = Number(variant.stock) || 0;
         const price = Number(variant.price ?? product.price) || 0;
         const option = document.createElement('option');
@@ -2848,6 +2969,8 @@ const variantMatrixState = {
     edit: { mode: 'simple', attributeTypes: [], combinations: [] }
 };
 
+let globalAttributes = [];
+
 function getVariantModePrefix(mode) {
     return mode === 'edit' ? 'edit' : 'add';
 }
@@ -2857,6 +2980,46 @@ function parseCommaValues(raw) {
         .split(',')
         .map(v => v.trim())
         .filter(Boolean);
+}
+
+function findGlobalAttributeByName(name) {
+    const key = String(name || '').trim().toLowerCase();
+    if (!key) return null;
+    return (globalAttributes || []).find(
+        a => String(a.name || '').trim().toLowerCase() === key
+    ) || null;
+}
+
+function autoFillAttributeValuesFromGlobal(nameInput) {
+    if (!nameInput) return;
+    const attr = findGlobalAttributeByName(nameInput.value);
+    if (!attr || !Array.isArray(attr.values) || !attr.values.length) return;
+
+    const row = nameInput.closest('[data-attr-type-row]');
+    if (!row) return;
+    const valuesInput = row.querySelector('.attr-type-values');
+    if (!valuesInput) return;
+
+    valuesInput.value = attr.values.join(', ');
+}
+
+function setMatrixDerivedFieldLock(el, locked, title) {
+    if (!el) return;
+    el.readOnly = locked;
+    if (locked) {
+        el.classList.add('stock-auto-locked');
+        el.title = title || '';
+    } else {
+        el.classList.remove('stock-auto-locked');
+        el.title = '';
+    }
+}
+
+function unlockSimpleProductDerivedFields(mode) {
+    const priceInput = document.getElementById(mode === 'edit' ? 'editProdPrice' : 'prodPrice');
+    const buyingInput = document.getElementById(mode === 'edit' ? 'editProdBuyingPrice' : 'prodBuyingPrice');
+    const stockInput = document.getElementById(mode === 'edit' ? 'editProdStock' : 'prodStock');
+    [priceInput, buyingInput, stockInput].forEach(el => setMatrixDerivedFieldLock(el, false));
 }
 
 function cartesianCombinations(attributeTypes) {
@@ -2888,14 +3051,157 @@ function combinationKey(attributes) {
         .join('|');
 }
 
+/** Normalize a string segment for SKU codes (uppercase, alphanumeric + hyphens). */
+function normalizeSkuToken(raw, maxLen = 16) {
+    const token = String(raw || '')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    if (!token) return '';
+    return token.length > maxLen ? token.slice(0, maxLen) : token;
+}
+
+/** Derive initials from product name — e.g. "Premium T-Shirt" → "PTS". */
+function getProductNameInitials(name) {
+    return String(name || '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(word => word.replace(/[^a-zA-Z0-9]/g, '').charAt(0))
+        .join('')
+        .toUpperCase();
+}
+
+/** Product-level SKU prefix from Product ID field, falling back to name initials. */
+function getProductSkuPrefix(mode) {
+    const idEl = document.getElementById(mode === 'edit' ? 'editProdId' : 'prodId');
+    const nameEl = document.getElementById(mode === 'edit' ? 'editProdName' : 'prodName');
+    const productId = (idEl?.value || '').trim();
+    if (productId) return normalizeSkuToken(productId, 16);
+    const initials = getProductNameInitials(nameEl?.value || '');
+    return initials || 'PRD';
+}
+
+function getVariantAttributeSortOrder(attrName) {
+    const key = String(attrName || '').trim().toLowerCase();
+    if (key === 'color' || key === 'colour') return 0;
+    if (key === 'size') return 1;
+    return 10;
+}
+
+/** Map attribute value to a compact SKU segment (Color before Size in final SKU). */
+function attributeValueToSkuCode(attrName, value) {
+    const key = String(attrName || '').trim().toLowerCase();
+    const normalized = normalizeSkuToken(value, key === 'size' ? 8 : 12);
+    if (!normalized) return 'VAR';
+
+    if (key === 'color' || key === 'colour') {
+        const compact = normalized.replace(/-/g, '');
+        if (compact.length > 8) return compact.slice(0, 3);
+    }
+    return normalized;
+}
+
+/**
+ * Build variant SKU: [Product ID or Initials]-[Color]-[Size]-[other attrs…]
+ * Example: PTS-PINK-M or PROD55-PNK-L
+ */
+function generateVariantSku(mode, attributes) {
+    const prefix = getProductSkuPrefix(mode);
+    const segments = Object.entries(attributes || {})
+        .filter(([k, v]) => String(k).trim() && String(v).trim())
+        .sort(([a], [b]) => {
+            const orderDiff = getVariantAttributeSortOrder(a) - getVariantAttributeSortOrder(b);
+            return orderDiff !== 0 ? orderDiff : String(a).localeCompare(String(b));
+        })
+        .map(([k, v]) => attributeValueToSkuCode(k, v));
+
+    return [prefix, ...segments].filter(Boolean).join('-');
+}
+
+function resolveProductImagePath(img) {
+    const src = String(img || '').trim();
+    if (!src) return '';
+    if (src.startsWith('http') || src.startsWith('data:') || src.startsWith('/')) return src;
+    return `/products/${src}`;
+}
+
+/** Primary product image from preview box or saved product record (edit mode). */
+function getPrimaryProductImageUrl(mode) {
+    const previewBox = document.getElementById(mode === 'edit' ? 'editImgPreviewBox' : 'imgPreviewBox');
+    const previewImg = previewBox?.querySelector('img');
+    if (previewImg?.src) return previewImg.src.trim();
+
+    if (mode === 'edit') {
+        const mongoId = document.getElementById('editProdMongoId')?.value;
+        const product = (globalProducts || []).find(p => String(p._id) === String(mongoId));
+        if (product) {
+            if (Array.isArray(product.images) && product.images.length) {
+                return resolveProductImagePath(product.images[0]);
+            }
+            if (product.image) return resolveProductImagePath(product.image);
+            if (product.imageUrl) return resolveProductImagePath(product.imageUrl);
+        }
+    }
+    return '';
+}
+
+/** Strip transient data-URL previews before persisting variant rows. */
+function sanitizeVariantImageForSave(image) {
+    const src = String(image || '').trim();
+    if (!src || src.startsWith('data:')) return '';
+    return src;
+}
+
 function formatCombinationLabel(attributes) {
-    return Object.entries(attributes || {})
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(' / ');
+    const entries = Object.entries(attributes || {})
+        .map(([k, v]) => [String(k || '').trim(), String(v || '').trim()])
+        .filter(([k, v]) => k && v);
+    if (!entries.length) return '';
+    return entries.map(([k, v]) => `${k}: ${v}`).join(' | ');
+}
+
+function resolveCombinationLabel(row) {
+    const explicit = String(row?.name || row?.title || '').trim();
+    if (explicit) return explicit;
+    const fromAttrs = formatCombinationLabel(row?.attributes || {});
+    if (fromAttrs) return fromAttrs;
+    const sku = String(row?.sku || '').trim();
+    return sku ? `SKU: ${sku}` : '';
+}
+
+function parseLabelToAttributes(label) {
+    const out = {};
+    String(label || '')
+        .split('|')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .forEach(part => {
+            const idx = part.indexOf(':');
+            if (idx === -1) return;
+            const k = part.slice(0, idx).trim();
+            const v = part.slice(idx + 1).trim();
+            if (k && v) out[k] = v;
+        });
+    return out;
 }
 
 function getVariantAttributesFromDoc(v) {
+    if (window.VariantUtils && typeof window.VariantUtils.getVariantAttributes === 'function') {
+        const attrs = window.VariantUtils.getVariantAttributes(v);
+        if (Object.keys(attrs).length) return attrs;
+    }
     if (!v || typeof v !== 'object') return {};
+    if (v.attributes instanceof Map) {
+        const out = {};
+        v.attributes.forEach((val, key) => {
+            const k = String(key || '').trim();
+            const value = String(val || '').trim();
+            if (k && value) out[k] = value;
+        });
+        if (Object.keys(out).length) return out;
+    }
     if (v.attributes && typeof v.attributes === 'object') {
         const out = {};
         Object.entries(v.attributes).forEach(([k, val]) => {
@@ -2903,12 +3209,21 @@ function getVariantAttributesFromDoc(v) {
             const value = String(val || '').trim();
             if (key && value) out[key] = value;
         });
-        return out;
+        if (Object.keys(out).length) return out;
     }
     const attribute = String(v.attribute || '').trim();
     const value = String(v.value || '').trim();
     if (attribute && value) return { [attribute]: value };
-    return {};
+    return parseLabelToAttributes(v.name || v.title || '');
+}
+
+function productUsesVariantMatrix(product) {
+    if (!product || !Array.isArray(product.variants) || product.variants.length === 0) return false;
+    if (product.hasVariants === true) return true;
+    return product.variants.some(v => {
+        const attrs = getVariantAttributesFromDoc(v);
+        return Object.keys(attrs).length > 0 || String(v.sku || '').trim();
+    });
 }
 
 function variantsToMatrixState(variants) {
@@ -2922,9 +3237,11 @@ function variantsToMatrixState(variants) {
             attrMap[name].add(value);
         });
         combinations.push({
+            name: resolveCombinationLabel({ name: v.name, attributes, sku: v.sku }),
             attributes,
             sku: v.sku || '',
             price: v.price ?? '',
+            buyingPrice: v.buyingPrice ?? '',
             stock: v.stock ?? '',
             image: v.image || ''
         });
@@ -2950,45 +3267,43 @@ function attributeTypeRowHtml(mode, data) {
     </div>`;
 }
 
-function matrixRowHtml(mode, row) {
+function matrixRowHtml(mode, row, index) {
     const attrs = row.attributes || {};
-    const label = formatCombinationLabel(attrs);
-    const key = combinationKey(attrs);
-    return `<div class="matrix-row" data-matrix-row data-combo-key="${escHtml(key)}">
-        <div class="matrix-combo-label" title="${escHtml(label)}">${escHtml(label)}</div>
-        <input class="v-input matrix-sku" placeholder="SKU" value="${escHtml(row.sku || '')}">
-        <input type="number" min="0" step="any" class="v-input matrix-price" placeholder="0" value="${row.price === '' || row.price === undefined || row.price === null ? '' : row.price}">
-        <input type="number" min="0" class="v-input matrix-stock" placeholder="0" value="${row.stock === '' || row.stock === undefined || row.stock === null ? '' : row.stock}" oninput="syncMatrixTotalStock('${mode}')">
-        <input class="v-input matrix-image" placeholder="Optional image URL" value="${escHtml(row.image || '')}">
-    </div>`;
+    const label = resolveCombinationLabel(row);
+    const key = combinationKey(attrs) || String(row.sku || '').trim().toLowerCase() || `idx-${index}`;
+    const attrsJson = escHtml(JSON.stringify(attrs));
+    const priceVal = row.price === '' || row.price === undefined || row.price === null ? '' : row.price;
+    const buyVal = row.buyingPrice === '' || row.buyingPrice === undefined || row.buyingPrice === null ? '' : row.buyingPrice;
+    const stockVal = row.stock === '' || row.stock === undefined || row.stock === null ? '' : row.stock;
+    return `<tr data-matrix-row data-combo-key="${escHtml(key)}" data-combo-attrs="${attrsJson}" data-combo-name="${escHtml(label)}">
+        <td class="matrix-combo-cell"><span class="matrix-combo-label" title="${escHtml(label)}">${escHtml(label)}</span></td>
+        <td class="matrix-input-cell"><input class="v-input matrix-sku" placeholder="Auto-generated SKU" value="${escHtml(row.sku || '')}" title="Auto-filled on regenerate — editable"></td>
+        <td class="matrix-input-cell"><input type="number" min="0" step="any" class="v-input matrix-price" placeholder="0" value="${priceVal}" oninput="syncMatrixTotalStock('${mode}')"></td>
+        <td class="matrix-input-cell"><input type="number" min="0" step="any" class="v-input matrix-buying-price" placeholder="0" value="${buyVal}" oninput="syncMatrixTotalStock('${mode}')"></td>
+        <td class="matrix-input-cell"><input type="number" min="0" class="v-input matrix-stock" placeholder="0" value="${stockVal}" oninput="syncMatrixTotalStock('${mode}')"></td>
+        <td class="matrix-input-cell matrix-image-cell"><input class="v-input matrix-image" placeholder="Defaults to main product image" value="${escHtml(row.image || '')}" title="Auto-filled from main product image on regenerate — editable per variant"></td>
+    </tr>`;
 }
 
-window.setProductVariantMode = function(mode, productType) {
+window.setProductVariantMode = function(mode, productType, options) {
+    const opts = options || {};
     const prefix = getVariantModePrefix(mode);
     const isVariant = productType === 'variant';
     variantMatrixState[mode].mode = isVariant ? 'variant' : 'simple';
 
     const panel = document.getElementById(`${prefix}VariantMatrixPanel`);
     const hint = document.getElementById(`${prefix}SimpleStockHint`);
-    const stockInput = document.getElementById(mode === 'edit' ? 'editProdStock' : 'prodStock');
 
     if (panel) panel.style.display = isVariant ? 'block' : 'none';
     if (hint) hint.style.display = isVariant ? 'none' : 'block';
 
-    if (stockInput) {
-        if (isVariant) {
-            syncMatrixTotalStock(mode);
-        } else {
-            stockInput.readOnly = false;
-            stockInput.classList.remove('stock-auto-locked');
-            stockInput.title = '';
-            stockInput.style.background = '';
-            stockInput.style.cursor = '';
-            stockInput.style.color = '';
-        }
+    if (isVariant) {
+        syncMatrixTotalStock(mode);
+    } else {
+        unlockSimpleProductDerivedFields(mode);
     }
 
-    if (isVariant && variantMatrixState[mode].combinations.length === 0) {
+    if (isVariant && !opts.skipMatrixRegenerate && variantMatrixState[mode].combinations.length === 0) {
         generateVariantMatrix(mode);
     }
 };
@@ -2998,6 +3313,11 @@ window.addAttributeTypeRow = function(mode, data) {
     const list = document.getElementById(`${getVariantModePrefix(mode)}AttributeTypesList`);
     if (!list) return;
     list.insertAdjacentHTML('beforeend', attributeTypeRowHtml(mode, data));
+    const row = list.lastElementChild;
+    const nameInput = row?.querySelector('.attr-type-name');
+    if (nameInput && data?.name) {
+        autoFillAttributeValuesFromGlobal(nameInput);
+    }
 };
 
 window.removeAttributeTypeRow = function(btn, mode) {
@@ -3028,17 +3348,22 @@ window.generateVariantMatrix = function(mode) {
 
     const combos = cartesianCombinations(attributeTypes);
     const basePrice = document.getElementById(mode === 'edit' ? 'editProdPrice' : 'prodPrice')?.value || '';
+    const baseBuyingPrice = document.getElementById(mode === 'edit' ? 'editProdBuyingPrice' : 'prodBuyingPrice')?.value || '';
+    const defaultImage = getPrimaryProductImageUrl(mode);
 
     variantMatrixState[mode].combinations = combos.map(attributes => {
         const key = combinationKey(attributes);
         const prev = existing[key] || {};
-        return {
+        const comboRow = {
             attributes,
-            sku: prev.sku || '',
+            sku: prev.sku || generateVariantSku(mode, attributes),
             price: prev.price !== undefined && prev.price !== '' ? prev.price : basePrice,
+            buyingPrice: prev.buyingPrice !== undefined && prev.buyingPrice !== '' ? prev.buyingPrice : baseBuyingPrice,
             stock: prev.stock ?? '',
-            image: prev.image || ''
+            image: prev.image || defaultImage || ''
         };
+        comboRow.name = resolveCombinationLabel(comboRow);
+        return comboRow;
     });
 
     renderVariantMatrix(mode);
@@ -3051,34 +3376,79 @@ function renderVariantMatrix(mode) {
     const empty = document.getElementById(`${prefix}VariantMatrixEmpty`);
     const rows = variantMatrixState[mode].combinations || [];
 
-    if (body) body.innerHTML = rows.map(r => matrixRowHtml(mode, r)).join('');
+    if (body) body.innerHTML = rows.map((r, i) => matrixRowHtml(mode, r, i)).join('');
     if (wrap) wrap.style.display = rows.length ? 'block' : 'none';
     if (empty) empty.style.display = rows.length ? 'none' : 'block';
     syncMatrixTotalStock(mode);
 }
 
+function parseMatrixRowAttributes(rowEl, fallbackAttributes) {
+    const raw = rowEl.getAttribute('data-combo-attrs');
+    if (raw) {
+        try {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object' && Object.keys(parsed).length) return parsed;
+        } catch (e) { /* use fallback */ }
+    }
+    return fallbackAttributes || {};
+}
+
 function collectMatrixCombinations(mode) {
     const prefix = getVariantModePrefix(mode);
     const body = document.getElementById(`${prefix}VariantMatrixBody`);
-    if (!body) return [];
+    if (!body) return variantMatrixState[mode].combinations || [];
 
     const out = [];
     body.querySelectorAll('[data-matrix-row]').forEach(row => {
         const key = row.getAttribute('data-combo-key') || '';
-        const base = (variantMatrixState[mode].combinations || []).find(r => combinationKey(r.attributes) === key);
-        const attributes = base?.attributes || {};
+        const base = (variantMatrixState[mode].combinations || []).find((r, i) => {
+            const rowKey = combinationKey(r.attributes) || String(r.sku || '').trim().toLowerCase() || `idx-${i}`;
+            return rowKey === key;
+        });
+        const attributes = parseMatrixRowAttributes(row, base?.attributes);
         const sku = (row.querySelector('.matrix-sku')?.value || '').trim();
         const price = Number(row.querySelector('.matrix-price')?.value) || 0;
+        const buyingPrice = Number(row.querySelector('.matrix-buying-price')?.value) || 0;
         const stock = Number(row.querySelector('.matrix-stock')?.value) || 0;
-        const image = (row.querySelector('.matrix-image')?.value || '').trim();
-        if (Object.keys(attributes).length) {
-            out.push({ attributes, sku, price, stock, image });
+        const image = sanitizeVariantImageForSave(row.querySelector('.matrix-image')?.value || '');
+        const comboRow = { attributes, sku, price, buyingPrice, stock, image };
+        comboRow.name = resolveCombinationLabel(comboRow);
+        if (Object.keys(attributes).length || sku) {
+            out.push(comboRow);
         }
     });
     return out;
 }
 
+function sumMatrixStockFromDom(mode) {
+    const prefix = getVariantModePrefix(mode);
+    const body = document.getElementById(`${prefix}VariantMatrixBody`);
+    if (!body) return 0;
+    return [...body.querySelectorAll('.matrix-stock')].reduce(
+        (sum, el) => sum + (Number(el.value) || 0),
+        0
+    );
+}
+
+function computeMatrixMinSellPrice(combinations) {
+    if (!Array.isArray(combinations) || combinations.length === 0) return 0;
+    const prices = combinations
+        .map(r => Number(r.price))
+        .filter(p => Number.isFinite(p) && p > 0);
+    return prices.length ? Math.min(...prices) : 0;
+}
+
+function computeMatrixMinBuyingPrice(combinations) {
+    if (!Array.isArray(combinations) || combinations.length === 0) return 0;
+    const prices = combinations
+        .map(r => Number(r.buyingPrice))
+        .filter(p => Number.isFinite(p) && p > 0);
+    return prices.length ? Math.min(...prices) : 0;
+}
+
 window.syncMatrixTotalStock = function(mode) {
+    const priceInput = document.getElementById(mode === 'edit' ? 'editProdPrice' : 'prodPrice');
+    const buyingInput = document.getElementById(mode === 'edit' ? 'editProdBuyingPrice' : 'prodBuyingPrice');
     const stockInput = document.getElementById(mode === 'edit' ? 'editProdStock' : 'prodStock');
     const totalEl = document.getElementById(`${getVariantModePrefix(mode)}MatrixTotalStock`);
     if (variantMatrixState[mode].mode !== 'variant') return;
@@ -3086,14 +3456,40 @@ window.syncMatrixTotalStock = function(mode) {
     const combinations = collectMatrixCombinations(mode);
     variantMatrixState[mode].combinations = combinations;
 
-    const total = combinations.reduce((sum, r) => sum + (Number(r.stock) || 0), 0);
+    const total = sumMatrixStockFromDom(mode);
     if (totalEl) totalEl.textContent = String(total);
 
     if (stockInput) {
-        stockInput.value = total;
-        stockInput.readOnly = true;
-        stockInput.classList.add('stock-auto-locked');
-        stockInput.title = 'Auto-calculated from variant matrix (sum of combination stock)';
+        stockInput.value = String(total);
+        setMatrixDerivedFieldLock(
+            stockInput,
+            true,
+            'Auto-calculated from variant matrix (sum of combination stock)'
+        );
+    }
+
+    const minSell = computeMatrixMinSellPrice(combinations);
+    if (priceInput) {
+        priceInput.value = minSell > 0 ? String(minSell) : '';
+        setMatrixDerivedFieldLock(
+            priceInput,
+            true,
+            'Auto-calculated minimum sell price across variant rows'
+        );
+    }
+
+    const minBuy = computeMatrixMinBuyingPrice(combinations);
+    if (buyingInput) {
+        buyingInput.value = minBuy > 0 ? String(minBuy) : '';
+        setMatrixDerivedFieldLock(
+            buyingInput,
+            true,
+            'Auto-calculated minimum buy price across variant rows'
+        );
+    }
+
+    if (typeof updateEditProfitPreview === 'function' && mode === 'edit') {
+        updateEditProfitPreview();
     }
 };
 
@@ -3111,8 +3507,9 @@ function collectProductVariantPayload(mode) {
 }
 
 function loadProductVariantUI(mode, product) {
+    ensureVariationDatalists();
     const prefix = getVariantModePrefix(mode);
-    const hasVariants = Boolean(product?.hasVariants) && Array.isArray(product?.variants) && product.variants.length > 0;
+    const hasVariants = productUsesVariantMatrix(product);
     const productType = hasVariants ? 'variant' : 'simple';
 
     const radio = document.querySelector(`input[name="${prefix}ProductType"][value="${productType}"]`);
@@ -3124,10 +3521,14 @@ function loadProductVariantUI(mode, product) {
 
         const list = document.getElementById(`${prefix}AttributeTypesList`);
         if (list) {
-            list.innerHTML = attributeTypes.map(t => attributeTypeRowHtml(mode, {
-                name: t.name,
-                values: t.values
-            })).join('');
+            if (attributeTypes.length) {
+                list.innerHTML = attributeTypes.map(t => attributeTypeRowHtml(mode, {
+                    name: t.name,
+                    values: t.values
+                })).join('');
+            } else {
+                list.innerHTML = attributeTypeRowHtml(mode, { name: '', values: [] });
+            }
         }
         renderVariantMatrix(mode);
     } else {
@@ -3137,12 +3538,14 @@ function loadProductVariantUI(mode, product) {
         renderVariantMatrix(mode);
     }
 
-    setProductVariantMode(mode, productType);
+    setProductVariantMode(mode, productType, { skipMatrixRegenerate: hasVariants });
 
     if (!hasVariants) {
         const stockInput = document.getElementById(mode === 'edit' ? 'editProdStock' : 'prodStock');
         const qty = product?.stockQuantity ?? product?.stock ?? '';
         if (stockInput && qty !== '') stockInput.value = qty;
+    } else {
+        syncMatrixTotalStock(mode);
     }
 }
 
@@ -3184,6 +3587,18 @@ window.collectVariations = function(mode) {
 
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('addProductForm')) resetProductVariantUI('add');
+});
+
+document.addEventListener('change', (e) => {
+    if (e.target?.classList?.contains('attr-type-name')) {
+        autoFillAttributeValuesFromGlobal(e.target);
+    }
+});
+
+document.addEventListener('input', (e) => {
+    if (!e.target?.classList?.contains('attr-type-name')) return;
+    const attr = findGlobalAttributeByName(e.target.value);
+    if (attr) autoFillAttributeValuesFromGlobal(e.target);
 });
 
 function formatCategoryCashbackDisplay(cat) {
@@ -4062,7 +4477,22 @@ window.deleteCoupon = function(id) {
    SECTION 9C: ATTRIBUTE MANAGEMENT ENGINE (অ্যাট্রিবিউট মডিউল)
    ========================================================================== */
 
-let globalAttributes = [];
+window.checkAttributeNameDuplicate = function() {
+    const nameInput = document.getElementById('newAttributeName');
+    const warnEl = document.getElementById('attributeNameDuplicateWarn');
+    if (!nameInput || !warnEl) return false;
+
+    const existing = findGlobalAttributeByName(nameInput.value);
+    if (existing) {
+        warnEl.textContent = `Attribute '${existing.name}' already exists. Click the Edit button on the table below to add more values.`;
+        warnEl.hidden = false;
+        return true;
+    }
+
+    warnEl.hidden = true;
+    warnEl.textContent = '';
+    return false;
+};
 
 async function fetchAttributes() {
     try {
@@ -4071,6 +4501,7 @@ async function fetchAttributes() {
         if (data.success) {
             globalAttributes = data.data || [];
             renderAttributeTable();
+            ensureVariationDatalists();
         }
     } catch (error) {
         console.error("🔴 Attribute load error:", error);
@@ -4108,6 +4539,16 @@ window.addAttribute = async function() {
     const values = valuesInput.value.trim();
     if (!name) return showToast("Please enter an attribute name!", "warning");
 
+    const existing = findGlobalAttributeByName(name);
+    if (existing) {
+        checkAttributeNameDuplicate();
+        showToast(
+            `Attribute '${existing.name}' already exists. Use Edit on the table below to add more values.`,
+            'warning'
+        );
+        return;
+    }
+
     try {
         const res = await fetch('/api/attributes', {
             method: 'POST',
@@ -4116,15 +4557,19 @@ window.addAttribute = async function() {
         });
         const result = await res.json();
         if (result.success) {
-            showAdminSuccess('Attribute Added', result.message || 'Attribute added successfully!');
+            showAdminSuccess('Attribute Added', result.message || 'Attribute saved successfully.');
             nameInput.value = '';
             valuesInput.value = '';
+            checkAttributeNameDuplicate();
             await fetchAttributes();
         } else {
-            showToast(result.message, "error");
+            if ((result.message || '').toLowerCase().includes('already exists')) {
+                checkAttributeNameDuplicate();
+            }
+            showToast(result.message || 'Failed to save attribute. Please try again.', 'error');
         }
     } catch (error) {
-        showToast("Server error while adding attribute!", "error");
+        showToast('Failed to save attribute. Please try again.', 'error');
     }
 };
 
@@ -4132,28 +4577,37 @@ window.editAttribute = function(id) {
     const attr = globalAttributes.find(a => a._id === id);
     if (!attr) return showToast('Attribute not found!', 'error');
 
+    const existingValues = (attr.values || []).join(', ');
     openCatalogQuickEdit({
-        title: `Edit Values — ${attr.name}`,
+        title: `Edit Attribute — ${attr.name}`,
         label: 'Values (comma separated)',
-        value: (attr.values || []).join(', '),
-        placeholder: 'e.g., S, M, L, XL',
+        value: existingValues,
+        placeholder: 'Append values, e.g. Black, Red',
+        hint: existingValues
+            ? `Current values: ${existingValues}. Edit the full list or append new values at the end.`
+            : 'Enter comma-separated values for this attribute.',
+        focusMode: 'end',
         onSave: async (newValues) => {
+            const mergedValues = parseCommaValues(newValues);
+            if (!mergedValues.length) {
+                return showToast('Please enter at least one value.', 'warning');
+            }
             try {
                 const res = await fetch(`/api/attributes/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ values: newValues })
+                    body: JSON.stringify({ values: mergedValues })
                 });
                 const result = await res.json();
                 if (result.success) {
-                    showAdminSuccess('Attribute Updated', 'Attribute values saved successfully.');
+                    showAdminSuccess('Attribute Updated', result.message || 'Attribute updated successfully.');
                     closeCatalogQuickEdit();
                     await fetchAttributes();
                 } else {
-                    showToast(result.message || 'Failed to update attribute', 'error');
+                    showToast(result.message || 'Failed to update attribute. Please try again.', 'error');
                 }
             } catch (error) {
-                showToast('Server error while updating attribute!', 'error');
+                showToast('Failed to update attribute. Please try again.', 'error');
             }
         }
     });
@@ -4172,10 +4626,10 @@ window.deleteAttribute = function(id) {
                 renderAttributeTable();
                 showAdminSuccess('Attribute Deleted', result.message || 'Attribute removed.');
             } else {
-                showToast(result.message, 'error');
+                showToast(result.message || 'Failed to delete attribute. Please try again.', 'error');
             }
         } catch (error) {
-            showToast('Failed to delete attribute', 'error');
+            showToast('Failed to delete attribute. Please try again.', 'error');
         }
     }, 'danger');
 };
@@ -4376,17 +4830,8 @@ window.renderProductTable = function() {
         // বাল্ক সিলেকশন চেকবক্স স্টেট চেক করা
         const isChecked = selectedProductIds.has(prod._id) ? 'checked' : '';
 
-        // 🌟 ক্রয়মূল্য ও প্রতি ইউনিট প্রফিট হিসাব (Selling - Buying)
-        const buyingPrice = Number(prod.buyingPrice) || 0;
-        const sellingPrice = Number(prod.price) || 0;
-        let buyPriceHtml;
-        if (buyingPrice > 0) {
-            const unitProfit = sellingPrice - buyingPrice;
-            const profitClass = unitProfit >= 0 ? 'profit-positive' : 'profit-negative';
-            buyPriceHtml = `${formatAdminPrice(buyingPrice)} <span class="unit-profit ${profitClass}">${formatAdminProfit(unitProfit)}</span>`;
-        } else {
-            buyPriceHtml = `<span class="buy-price-empty" title="Set a buying price for accurate profit">—</span>`;
-        }
+        // Sell/buy price — variant matrix shows minimum only; weighted avg stays in DB for analytics
+        const { sellPriceHtml, buyPriceHtml } = buildProductTablePriceCells(prod);
 
         tbody.innerHTML += `
             <tr>
@@ -4397,7 +4842,7 @@ window.renderProductTable = function() {
                 <td>${imgHtml}</td>
                 <td>${prod.name}</td>
                 <td><span class="status-badge status-verified">${prod.category || 'General'}</span></td>
-                <td><b>${formatAdminPrice(prod.price)}</b></td>
+                <td>${sellPriceHtml}</td>
                 <td class="buy-price-cell">${buyPriceHtml}</td>
                 <td>${stockHtml}</td> 
                 <td class="col-actions no-print">
@@ -4629,7 +5074,6 @@ window.editProduct = function(id) {
     if (document.getElementById('editProdName')) document.getElementById('editProdName').value = product.name || '';
     if (document.getElementById('editProdPrice')) document.getElementById('editProdPrice').value = product.price || '';
     if (document.getElementById('editProdBuyingPrice')) document.getElementById('editProdBuyingPrice').value = (product.buyingPrice !== undefined && product.buyingPrice !== null) ? product.buyingPrice : '';
-    if (document.getElementById('editProdStock')) document.getElementById('editProdStock').value = product.stockQuantity ?? product.stock ?? '';
     if (typeof updateEditProfitPreview === 'function') updateEditProfitPreview();
     
     // 🌟 ক্যাটাগরি ড্রপডাউনটি রেন্ডার করে ভ্যালু সিলেক্ট করা (ডাটাবেজ ওরিয়েন্টেড সিকিউরড লক)

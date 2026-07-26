@@ -5,6 +5,28 @@
     function getVariantAttributes(variant) {
         if (!variant || typeof variant !== 'object') return {};
 
+        if (variant.attributes instanceof Map) {
+            const out = {};
+            variant.attributes.forEach((v, k) => {
+                const key = String(k || '').trim();
+                const val = String(v || '').trim();
+                if (key && val) out[key] = val;
+            });
+            return out;
+        }
+
+        if (Array.isArray(variant.attributes)) {
+            const out = {};
+            variant.attributes.forEach(entry => {
+                if (Array.isArray(entry) && entry.length >= 2) {
+                    const key = String(entry[0] || '').trim();
+                    const val = String(entry[1] || '').trim();
+                    if (key && val) out[key] = val;
+                }
+            });
+            if (Object.keys(out).length) return out;
+        }
+
         if (variant.attributes && typeof variant.attributes === 'object') {
             const out = {};
             Object.entries(variant.attributes).forEach(([k, v]) => {
@@ -19,6 +41,20 @@
         const value = String(variant.value || '').trim();
         if (attribute && value) return { [attribute]: value };
         return {};
+    }
+
+    function formatCombinationLabel(attributes) {
+        const entries = Object.entries(attributes || {})
+            .map(([k, v]) => [String(k || '').trim(), String(v || '').trim()])
+            .filter(([k, v]) => k && v);
+        if (!entries.length) return '';
+        return entries.map(([k, v]) => `${k}: ${v}`).join(' | ');
+    }
+
+    function resolveVariantLabel(variant) {
+        const explicit = String(variant?.name || variant?.title || '').trim();
+        if (explicit) return explicit;
+        return formatCombinationLabel(getVariantAttributes(variant));
     }
 
     function getCombinationKey(attributes) {
@@ -100,7 +136,7 @@
         if (!variant) return null;
         const attributes = getVariantAttributes(variant);
         const variantId = getVariantLineId(variant);
-        const variantLabel = Object.entries(attributes).map(([k, v]) => `${k}: ${v}`).join(', ');
+        const variantLabel = resolveVariantLabel(variant);
         return {
             variantId,
             variantLabel,
@@ -113,7 +149,8 @@
                 price: Number(variant.price) || 0,
                 stock: Number(variant.stock) || 0,
                 image: String(variant.image || '').trim(),
-                variantId
+                variantId,
+                name: variantLabel
             }
         };
     }
@@ -164,6 +201,8 @@
     global.VariantUtils = {
         getVariantAttributes,
         getCombinationKey,
+        formatCombinationLabel,
+        resolveVariantLabel,
         getVariantLineId,
         usesCombinationMatrix,
         extractAttributeGroups,

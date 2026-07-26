@@ -301,24 +301,124 @@ function renderStaffSummary(summary) {
     set('staffBlockedCount', summary?.blocked ?? staffAccounts.filter(s => s.status === 'blocked').length);
 }
 
-async function fetchStaffAccounts() {
+async function fetchStaffAccounts(options = {}) {
+    const { bustCache = false, showTableLoading = true } = options;
     const body = document.getElementById('staffTableBody');
-    if (body) {
+
+    if (body && showTableLoading) {
         body.innerHTML = '<tr><td colspan="7" class="loading-container"><div class="spinner"></div><p>Loading staff accounts...</p></td></tr>';
     }
 
+    const url = bustCache
+        ? `/api/admin/staff?_=${Date.now()}`
+        : '/api/admin/staff';
+
     try {
-        const result = await staffApi('/api/admin/staff');
+        const result = await staffApi(url);
         staffAccounts = result.data || [];
         renderStaffSummary(result.summary);
         renderStaffTable();
+        return true;
     } catch (error) {
         console.error('Load Staff Error:', error);
         if (body) {
             body.innerHTML = `<tr><td colspan="7" class="empty-row">${escapeHtml(error.message)}</td></tr>`;
         }
-        notify(error.message, 'error');
+        if (!options.suppressErrorToast) {
+            notify(error.message, 'error');
+        }
+        return false;
     }
+}
+
+const STAFF_REFRESH_BTN_IDLE_HTML =
+    '<i class="fa-solid fa-rotate staff-refresh-btn__icon" aria-hidden="true"></i>' +
+    '<span class="staff-refresh-btn__label">Refresh</span>';
+
+const STAFF_REFRESH_BTN_LOADING_HTML =
+    '<i class="fa-solid fa-spinner fa-spin staff-refresh-btn__icon" aria-hidden="true"></i>' +
+    '<span class="staff-refresh-btn__label">Refreshing...</span>';
+
+const STAFF_REFRESH_SUCCESS_MESSAGE = '✅ Staff panel and metrics refreshed successfully!';
+
+let staffRefreshInFlight = false;
+
+function setStaffRefreshLoading(loading) {
+    const btn = document.getElementById('staffRefreshBtn');
+    if (!btn) return;
+
+    btn.disabled = loading;
+    btn.setAttribute('aria-busy', loading ? 'true' : 'false');
+    btn.classList.toggle('is-refreshing', loading);
+    btn.innerHTML = loading ? STAFF_REFRESH_BTN_LOADING_HTML : STAFF_REFRESH_BTN_IDLE_HTML;
+}
+
+function showStaffRefreshSuccessToast() {
+    if (typeof window.showToast === 'function') {
+        window.showToast(STAFF_REFRESH_SUCCESS_MESSAGE, 'success', 3000);
+        return;
+    }
+    notify(STAFF_REFRESH_SUCCESS_MESSAGE, 'success');
+}
+
+/**
+ * Refresh button handler — reloads metrics + table via GET /api/admin/staff.
+ * Falls back to a full page reload if the API is unreachable.
+ */
+async function refreshStaffData() {
+    if (staffRefreshInFlight) return;
+    staffRefreshInFlight = true;
+    setStaffRefreshLoading(true);
+
+    let keepLoadingUntilReload = false;
+
+    try {
+        if (!currentAdmin) {
+            await loadCurrentAdmin();
+        }
+
+        if (!isSuperAdmin()) {
+            notify('Only Super Admins can refresh staff data.', 'warning');
+            return;
+        }
+
+        const ok = await fetchStaffAccounts({
+            bustCache: true,
+            showTableLoading: true,
+            suppressErrorToast: true
+        });
+
+        if (!ok) {
+            keepLoadingUntilReload = true;
+            if (typeof window.showToast === 'function') {
+                window.showToast('Staff API unavailable — reloading page…', 'warning', 2500);
+            } else {
+                notify('Staff API unavailable — reloading page…', 'warning');
+            }
+            window.setTimeout(() => window.location.reload(), 900);
+            return;
+        }
+
+        showStaffRefreshSuccessToast();
+    } catch (error) {
+        console.error('Staff refresh failed:', error);
+        keepLoadingUntilReload = true;
+        notify(error.message || 'Could not refresh staff data.', 'error');
+        window.setTimeout(() => window.location.reload(), 900);
+    } finally {
+        staffRefreshInFlight = false;
+        if (!keepLoadingUntilReload) {
+            setStaffRefreshLoading(false);
+        }
+    }
+}
+window.refreshStaffData = refreshStaffData;
+
+function setupStaffRefreshButton() {
+    const btn = document.getElementById('staffRefreshBtn');
+    if (!btn || btn.dataset.bound === 'true') return;
+    btn.dataset.bound = 'true';
+    btn.addEventListener('click', () => refreshStaffData());
 }
 
 /**
@@ -326,7 +426,17 @@ async function fetchStaffAccounts() {
  * Refresh button.
  */
 async function loadStaffSection() {
+    if (!currentAdmin) {
+        try {
+            await loadCurrentAdmin();
+        } catch (error) {
+            console.error('Staff section bootstrap failed:', error);
+            return;
+        }
+    }
+
     if (!isSuperAdmin()) return;
+
     renderPermissionCheckboxes(document.getElementById('staffPermissionGrid'));
     await fetchStaffAccounts();
 }
@@ -571,6 +681,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     applyRoleToSidebar();
     setupCreateStaffForm();
     setupEditStaffForm();
+    setupStaffRefreshButton();
 
     if (isSuperAdmin() && document.getElementById('staffPermissionGrid')) {
         renderPermissionCheckboxes(document.getElementById('staffPermissionGrid'));

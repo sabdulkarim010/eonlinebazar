@@ -442,7 +442,12 @@ function syncCombinationDisplay() {
         const attrs = getVariantAttrs(matchedCombinationVariant);
         const sku = (matchedCombinationVariant.sku || '').trim();
         if (skuEl) skuEl.textContent = sku || '—';
-        if (comboEl) comboEl.textContent = Object.entries(attrs).map(([k, v]) => `${k}: ${v}`).join(' · ');
+        if (comboEl) {
+            const label = VU().resolveVariantLabel
+                ? VU().resolveVariantLabel(matchedCombinationVariant)
+                : Object.entries(attrs).map(([k, v]) => `${k}: ${v}`).join(' | ');
+            comboEl.textContent = label;
+        }
 
         if (matchedCombinationVariant.image) {
             const mainImg = document.getElementById('mainProductImg');
