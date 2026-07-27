@@ -11,7 +11,12 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController'); 
 const { getFinanceAnalytics } = require('../controllers/financeController');
-const { approveOrderReturn, undoOrderRefund, createManualOrder } = require('../controllers/orderController');
+const {
+    approveOrderReturn,
+    undoOrderRefund,
+    createManualOrder,
+    updateOrderShippingAddress
+} = require('../controllers/orderController');
 const adminSecurityController = require('../controllers/adminSecurityController');
 const twoFactorController = require('../controllers/twoFactorController');
 const settingsController = require('../controllers/settingsController');
@@ -65,6 +70,9 @@ router.post('/orders/:id/undo-refund', verifyAdmin, checkPermission('manage_orde
 
 // URL: POST /api/admin/orders/manual — staff POS / phone order entry
 router.post('/orders/manual', verifyAdmin, checkPermission('manage_orders'), createManualOrder);
+
+// URL: PUT /api/admin/orders/:id/address — admin edits shipping / contact details
+router.put('/orders/:id/address', verifyAdmin, checkPermission('manage_orders'), updateOrderShippingAddress);
 
 // URL: GET /api/admin/whatsapp-alerts/pending — wa.me fallback queue for undelivered alerts
 router.get('/whatsapp-alerts/pending', verifyAdmin, checkPermission('manage_orders'), whatsappAlertsController.getPendingWhatsAppAlertsHandler);

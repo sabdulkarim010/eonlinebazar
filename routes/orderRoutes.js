@@ -26,7 +26,7 @@ const {
 } = require('../controllers/orderController');
 
 // অ্যাডমিন ও ইউজার ভেরিফিকেশন 
-const { verifyAdmin, verifyUser } = require('../middlewares/authMiddleware');
+const { verifyAdmin, verifyUser, optionalVerifyUser } = require('../middlewares/authMiddleware');
 const { checkPermission } = require('../middlewares/rbac');
 
 /********************************************************************
@@ -56,7 +56,7 @@ router.get('/track', trackOrder);
 
 // ক. নতুন অর্ডার তৈরি করার রুট
 // URL: POST /api/orders
-router.post('/', verifyUser, createOrder); 
+router.post('/', optionalVerifyUser, createOrder); 
 
 // খ. সব অর্ডার দেখার রুট (অ্যাডমিন প্যানেলের জন্য)
 // 🔒 আগে এটি সম্পূর্ণ অসুরক্ষিত ছিল — যে কেউ সব কাস্টমারের অর্ডার দেখতে পারত।

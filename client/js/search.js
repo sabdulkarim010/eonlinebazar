@@ -340,12 +340,9 @@ function loadFooter() {
 
 function syncNavbarUser() {
     const token = localStorage.getItem('customerToken');
-    const userName = localStorage.getItem('userName');
     if (!token) return;
 
     const navUserLink = document.getElementById('nav-user-link');
-    const navUserLine1 = document.getElementById('nav-user-line1');
-    const navUserLine2 = document.getElementById('nav-user-line2');
     const navUserAvatar = document.getElementById('nav-user-avatar');
 
     if (navUserLink) {
@@ -354,8 +351,10 @@ function syncNavbarUser() {
         navUserLink.style.alignItems = 'center';
         navUserLink.style.cursor = 'pointer';
     }
-    if (navUserLine1) navUserLine1.textContent = 'Hello,';
-    if (navUserLine2) navUserLine2.textContent = userName || 'My Account';
+
+    if (window.EOBSession && typeof window.EOBSession.updateNavbarUI === 'function') {
+        window.EOBSession.updateNavbarUI();
+    }
 
     fetch('/api/customer/profile', { headers: { 'Authorization': `Bearer ${token}` } })
         .then(r => r.json())

@@ -37,7 +37,15 @@
             <div class="product-image-section">
                 <div class="main-image-box">
                     <span class="product-tag-badge" id="productTag">New</span>
-                    <img id="mainProductImg" src="" alt="Product Image">
+                    <button type="button" class="product-carousel-nav product-carousel-nav--prev" id="productCarouselPrev" aria-label="Previous image" hidden>
+                        <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+                    </button>
+                    <div class="product-image-carousel" id="productImageCarousel" tabindex="0" aria-label="Product image gallery — swipe or scroll horizontally">
+                        <div class="product-image-carousel__track" id="productImageCarouselTrack"></div>
+                    </div>
+                    <button type="button" class="product-carousel-nav product-carousel-nav--next" id="productCarouselNext" aria-label="Next image" hidden>
+                        <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                    </button>
                 </div>
                 <div class="thumbnail-images-gallery" id="thumbGallery">
                 </div>

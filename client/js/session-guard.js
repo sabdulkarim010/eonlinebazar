@@ -10,8 +10,8 @@
  *      and redirects to the login page.
  *   2. validateSession()       -> pings the server on page load to confirm the
  *      stored token still maps to a live session.
- *   3. updateNavbarAuthUI()    -> flips the header between "Hello, <name>" and
- *      "Sign in / Account" depending on whether a valid token exists.
+ *   3. updateNavbarAuthUI()    -> flips the header between signed-in name display
+ *      and "Sign in / Account" depending on whether a valid token exists.
  *
  * IMPORTANT: This file must be loaded BEFORE any other page script so that it
  * can wrap window.fetch before those scripts make any requests.
@@ -24,7 +24,7 @@
     var TOKEN_KEYS = ['token', 'customerToken'];
 
     // লগইন বাধ্যতামূলক এমন পেজগুলো (ক্লিন URL ও .html — দুই ফরম্যাটেই কাজ করে)
-    var PROTECTED_PAGES = ['/profile', '/checkout', '/payment', '/order-details'];
+    var PROTECTED_PAGES = ['/profile', '/order-details'];
 
     // এই পাবলিক রুটগুলোতে 401 এলে লগআউট ট্রিগার করা যাবে না (লগইন/রেজিস্টার ব্যর্থ হলে)
     var PUBLIC_AUTH_ENDPOINTS = [
@@ -61,18 +61,37 @@
         return path === '/login' || path === '/register' || path === '/forgot-password';
     }
 
-    // লোকাল স্টোরেজ থেকে সব সেশন/ইউজার সম্পর্কিত ডাটা মুছে ফেলা
-    function clearSession() {
-        var keys = TOKEN_KEYS.concat([
-            'customerData', 'userName',
-            'checkout_name', 'checkout_phone', 'checkout_address'
-        ]);
-        keys.forEach(function (k) {
+    // লোকাল স্টোরেজ থেকে গেস্ট চেকআউট / প্রোফাইল-ক্যাশে ডাটা মুছে ফেলা
+    var GUEST_CHECKOUT_STORAGE_KEYS = [
+        'checkout_name', 'checkout_phone', 'checkout_address', 'checkout_email',
+        'checkout_district', 'checkout_upazila', 'checkout_full_address',
+        'shippingDistrict', 'shippingFullName', 'shippingMobile', 'shippingAddress', 'shippingCourierNote'
+    ];
+
+    function clearGuestCheckoutStorage() {
+        GUEST_CHECKOUT_STORAGE_KEYS.forEach(function (k) {
             localStorage.removeItem(k);
         });
     }
 
+    // লোকাল স্টোরেজ থেকে সব সেশন/ইউজার সম্পর্কিত ডাটা মুছে ফেলা
+    function clearSession() {
+        var keys = TOKEN_KEYS.concat([
+            'customerData', 'userName'
+        ]);
+        keys.forEach(function (k) {
+            localStorage.removeItem(k);
+        });
+        clearGuestCheckoutStorage();
+    }
+
     // নেভবার/হেডার ইউআই লগইন স্টেট অনুযায়ী আপডেট করা
+    function splitDisplayName(fullName) {
+        var trimmed = String(fullName || '').trim();
+        if (!trimmed) return { full: 'My Account', first: 'My Account' };
+        return { full: trimmed, first: trimmed.split(/\s+/)[0] };
+    }
+
     function updateNavbarAuthUI() {
         var token = getToken();
         var link = document.getElementById('nav-user-link');
@@ -82,13 +101,31 @@
 
         if (token) {
             var name = localStorage.getItem('userName');
-            if (line1) line1.textContent = 'Hello,';
-            if (line2) line2.textContent = name || 'My Account';
-            if (link) link.setAttribute('onclick', "window.location.href='/profile'");
+            var parts = splitDisplayName(name);
+            if (link) {
+                link.classList.add('is-authed');
+                link.setAttribute('onclick', "window.location.href='/profile'");
+            }
+            if (line1) {
+                line1.textContent = '';
+                line1.style.display = 'none';
+            }
+            if (line2) {
+                line2.textContent = parts.full;
+                line2.dataset.firstName = parts.first;
+                line2.classList.add('nav-user-display-name');
+            }
         } else {
-            // টোকেন না থাকলে সাথে সাথে "Sign in / Account" দেখাবে
-            if (line1) line1.textContent = 'Sign in';
-            if (line2) line2.textContent = 'Account';
+            if (link) link.classList.remove('is-authed');
+            if (line1) {
+                line1.style.display = '';
+                line1.textContent = 'Sign in';
+            }
+            if (line2) {
+                line2.textContent = 'Account';
+                line2.classList.remove('nav-user-display-name');
+                delete line2.dataset.firstName;
+            }
             if (link) link.setAttribute('onclick', "window.location.href='/login'");
             if (navUserAvatar) {
                 navUserAvatar.src = '';
@@ -201,6 +238,7 @@
     window.EOBSession = {
         getToken: getToken,
         clearSession: clearSession,
+        clearGuestCheckoutStorage: clearGuestCheckoutStorage,
         forceLogout: forceLogout,
         validate: validateSession,
         updateNavbarUI: updateNavbarAuthUI,

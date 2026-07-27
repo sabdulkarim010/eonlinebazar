@@ -7,10 +7,60 @@
 
 const Cart = require('../models/cart');
 
+function isColorKey(name) {
+    const n = String(name || '').trim().toLowerCase();
+    return n === 'color' || n === 'colour';
+}
+
+function isSizeKey(name) {
+    return String(name || '').trim().toLowerCase() === 'size';
+}
+
+function attrsToPlainObject(raw) {
+    if (!raw || typeof raw !== 'object') return {};
+    if (raw instanceof Map) {
+        const out = {};
+        raw.forEach((v, k) => { out[String(k)] = String(v); });
+        return out;
+    }
+    const out = {};
+    Object.entries(raw).forEach(([k, v]) => { out[String(k)] = String(v); });
+    return out;
+}
+
+function extractColorSize(src = {}, attrs = {}) {
+    let selectedColor = String(src.selectedColor || '').trim();
+    let selectedSize = String(src.selectedSize || '').trim();
+    const plain = attrsToPlainObject(attrs);
+
+    Object.entries(plain).forEach(([k, v]) => {
+        const val = String(v || '').trim();
+        if (!val) return;
+        if (isColorKey(k) && !selectedColor) selectedColor = val;
+        if (isSizeKey(k) && !selectedSize) selectedSize = val;
+    });
+
+    if (!selectedColor && !selectedSize) {
+        const label = String(src.variantLabel || '').trim();
+        if (label) {
+            label.split(/\||,/).map(s => s.trim()).filter(Boolean).forEach(pair => {
+                const idx = pair.indexOf(':');
+                if (idx === -1) return;
+                const key = pair.slice(0, idx).trim();
+                const val = pair.slice(idx + 1).trim();
+                if (isColorKey(key) && !selectedColor) selectedColor = val;
+                if (isSizeKey(key) && !selectedSize) selectedSize = val;
+            });
+        }
+    }
+
+    return { selectedColor, selectedSize };
+}
+
 function normalizeVariant(src = {}) {
     if (src.selectedVariant && typeof src.selectedVariant === 'object') {
         const sv = src.selectedVariant;
-        const attrs = sv.attributes && typeof sv.attributes === 'object' ? sv.attributes : {};
+        const attrs = sv.attributes && typeof sv.attributes === 'object' ? attrsToPlainObject(sv.attributes) : {};
         const attrPairs = Object.entries(attrs).map(([k, v]) => `${k}: ${v}`).join(', ');
         const sku = String(sv.sku || src.variantSku || src.sku || '').trim();
         let variantId = String(sv.variantId || src.variantId || '').trim();
@@ -18,12 +68,14 @@ function normalizeVariant(src = {}) {
             variantId = sku || getCombinationKeyFromAttrs(attrs);
         }
         const variantLabel = String(src.variantLabel || '').trim() || attrPairs;
+        const colorSize = extractColorSize(src, attrs);
         return {
             variantId,
             variantLabel,
             variantAttribute: attrPairs || String(src.variantAttribute || '').trim(),
             variantValue: Object.values(attrs).join(', ') || String(src.variantValue || '').trim(),
-            variantSku: sku
+            variantSku: sku,
+            ...colorSize
         };
     }
 
@@ -36,7 +88,11 @@ function normalizeVariant(src = {}) {
     }
     const variantLabel = String(src.variantLabel || '').trim() ||
         (attribute && value ? `${attribute}: ${value}` : (value || ''));
-    return { variantId, variantLabel, variantAttribute: attribute, variantValue: value, variantSku: sku };
+    const colorSize = extractColorSize(src, {
+        ...(isColorKey(attribute) ? { [attribute]: value } : {}),
+        ...(isSizeKey(attribute) ? { [attribute]: value } : {})
+    });
+    return { variantId, variantLabel, variantAttribute: attribute, variantValue: value, variantSku: sku, ...colorSize };
 }
 
 function getCombinationKeyFromAttrs(attributes) {
@@ -56,11 +112,20 @@ function buildCartItem(item) {
     const productId = item.id || item.productId;
     if (!productId) return null;
 
+    const displayImage = String(
+        item.selectedImage
+        || item.variantImage
+        || item.image
+        || item.products
+        || (item.selectedVariant && item.selectedVariant.image)
+        || ''
+    ).trim();
+
     return {
         productId,
         name: item.name,
         price: Number(item.price) || 0,
-        image: item.image || item.products || '',
+        image: displayImage,
         icon: item.icon || '',
         quantity: Math.max(1, Number(item.quantity) || 1),
         selected: item.selected !== false,
@@ -102,6 +167,9 @@ async function mergeGuestCartIntoUserCart(userId, guestItems = []) {
             );
             if (existingItem) {
                 existingItem.quantity += localItem.quantity;
+                if (localItem.image) {
+                    existingItem.image = localItem.image;
+                }
             } else {
                 userCart.items.push(localItem);
             }
@@ -113,13 +181,16 @@ async function mergeGuestCartIntoUserCart(userId, guestItems = []) {
 }
 
 function toClientCartItem(item = {}) {
+    const displayImage = String(item.image || item.products || '').trim();
     return {
         id: item.productId || item.id,
         productId: item.productId || item.id,
         name: item.name,
         price: Number(item.price) || 0,
-        products: item.image || '',
-        image: item.image || '',
+        products: displayImage,
+        image: displayImage,
+        selectedImage: displayImage,
+        variantImage: displayImage,
         icon: item.icon || '',
         quantity: item.quantity || 1,
         selected: item.selected !== false,
@@ -127,7 +198,9 @@ function toClientCartItem(item = {}) {
         variantLabel: item.variantLabel || '',
         variantAttribute: item.variantAttribute || '',
         variantValue: item.variantValue || '',
-        variantSku: item.variantSku || ''
+        variantSku: item.variantSku || '',
+        selectedColor: item.selectedColor || '',
+        selectedSize: item.selectedSize || ''
     };
 }
 

@@ -339,31 +339,23 @@ document.addEventListener("DOMContentLoaded", () => {
    SECTION 7: NAVBAR/HEADER USER AUTHENTICATION SYNC (হেডারে ইউজার প্রোফাইল)
    ========================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
-    // ১. লোকাল স্টোরেজ থেকে কাস্টমার টোকেন ও নাম চেক করা
     const token = localStorage.getItem('customerToken');
-    const userName = localStorage.getItem('userName');
-
-    // ২. হেডারের নতুন DOM উপাদানগুলো সিলেক্ট করা
     const navUserLink = document.getElementById('nav-user-link');
-    const navUserLine1 = document.getElementById('nav-user-line1');
-    const navUserLine2 = document.getElementById('nav-user-line2');
     const navUserAvatar = document.getElementById('nav-user-avatar');
 
     // ৩. ইউজার যদি অলরেডি লগইন থাকে
     if (token) {
-        // বাটনের ক্লিক ফাংশন পরিবর্তন করে 'profile.html' এ পাঠানো হচ্ছে
         if (navUserLink) {
             navUserLink.setAttribute('onclick', "window.location.href='/profile'");
-            navUserLink.style.display = 'flex';       // ছবি ও লেখা পাশাপাশি সুন্দর দেখানোর জন্য
+            navUserLink.style.display = 'flex';
             navUserLink.style.alignItems = 'center';
             navUserLink.style.cursor = 'pointer';
         }
 
-        // 'Sign in Account' এর জায়গায় নাম সেট করা
-        if (navUserLine1) navUserLine1.textContent = 'Hello,';
-        if (navUserLine2) navUserLine2.textContent = userName ? userName : 'My Account';
+        if (window.EOBSession && typeof window.EOBSession.updateNavbarUI === 'function') {
+            window.EOBSession.updateNavbarUI();
+        }
 
-        // ৪. ডাটাবেজ থেকে ইউজারের প্রোফাইল পিকচার (Avatar) লোড করা
         fetchNavbarProfile(token, navUserAvatar);
     }
 });

@@ -61,6 +61,7 @@ let globalProducts = [];
 let currentFilteredProducts = [];
 let allCustomers = [];
 let globalOrders = [];
+let currentInvoiceOrderId = null;
 let currentFilteredOrders = [];
 
 // ২.৩: চার্ট এবং পেজিনেশন কন্ট্রোল ভেরিয়েবল
@@ -1193,6 +1194,54 @@ function buildCustomerCopyCell(displayHtml, copyValue) {
         </span>`;
 }
 
+/** Hover-to-copy field for Live Orders — zero layout impact (button is absolutely positioned). */
+function buildOrderCopyField(displayHtml, copyValue) {
+    const raw = String(copyValue ?? '').trim();
+    if (!raw || raw === '—') return displayHtml;
+
+    const safeCopy = escapeHtml(raw);
+    return `
+        <span class="group inline-flex items-center justify-center max-w-full relative min-w-0">
+            <span class="min-w-0">${displayHtml}</span>
+            <button type="button"
+                class="order-field-copy-btn opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer p-1 rounded hover:bg-gray-100"
+                data-copy="${safeCopy}"
+                onclick="copyCustomerField(this)"
+                title="Copy"
+                aria-label="Copy">
+                <i class="fa-regular fa-copy" aria-hidden="true"></i>
+            </button>
+        </span>`;
+}
+
+const LIVE_ORDERS_TABLE_COLS = 9;
+
+const ORDER_COURIER_SEND_CLASSES = 'order-courier-send send-courier-btn bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 w-full flex items-center justify-center py-2 text-xs font-semibold rounded-md shadow-sm gap-1.5 transition-colors duration-150';
+const ORDER_COURIER_SENT_CLASSES = 'order-courier-sent bg-emerald-50 text-emerald-700 border border-emerald-200 w-full flex items-center justify-center py-2 text-xs font-semibold rounded-md shadow-sm text-center';
+
+/** Address cell — inline copy control visible on row hover. */
+function buildOrderAddressCopyField(address) {
+    const raw = String(address ?? '').trim();
+    const display = raw || '—';
+    if (!raw || raw === '—') {
+        return `<span class="order-address-text">${escapeHtml(display)}</span>`;
+    }
+
+    const safeCopy = escapeHtml(raw);
+    return `
+        <span class="group inline-flex items-center justify-start gap-1 min-w-0 max-w-full relative">
+            <span class="order-address-text min-w-0">${escapeHtml(display)}</span>
+            <button type="button"
+                class="order-address-copy-btn opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer p-1 rounded hover:bg-gray-200 text-gray-500 shrink-0"
+                data-copy="${safeCopy}"
+                onclick="copyCustomerField(this)"
+                title="Copy address"
+                aria-label="Copy address">
+                <i class="fa-regular fa-copy" aria-hidden="true"></i>
+            </button>
+        </span>`;
+}
+
 window.copyCustomerField = function(btn) {
     const value = btn?.getAttribute('data-copy') || '';
     if (!value) return;
@@ -1267,7 +1316,7 @@ function renderCustomerTable(customers) {
                 <td class="col-actions customers-td customers-td--actions">
                     <div class="customer-actions-row">
                         <button type="button" class="action-btn view" onclick="viewCustomerDetails('${uid}')" title="View Profile"><i class="fa-solid fa-eye"></i></button>
-                        <button type="button" class="action-btn edit" onclick="editCustomer('${uid}')" title="Edit Customer"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button type="button" class="action-btn edit" onclick="editCustomer('${uid}')" title="Edit Profile"><i class="fa-solid fa-pen-to-square"></i></button>
                         <button type="button" class="action-btn orders" onclick="viewCustomerOrders('${uid}')" title="Order History"><i class="fa-solid fa-clock-rotate-left"></i></button>
                         ${statusActionBtn}
                     </div>
@@ -1329,6 +1378,65 @@ window.viewCustomerDetails = async function(userId) {
     }
 };
 
+function populateAdminUpazilaSelect(districtSelect, upazilaSelect, district, selectedUpazila = '') {
+    if (!upazilaSelect) return;
+
+    upazilaSelect.innerHTML = '<option value="">Select upazila / thana</option>';
+    const resolvedDistrict = String(district || districtSelect?.value || '').trim();
+
+    if (!resolvedDistrict) {
+        upazilaSelect.disabled = true;
+        upazilaSelect.value = '';
+        return;
+    }
+
+    const upazilas = typeof window.getUpazilasForDistrict === 'function'
+        ? window.getUpazilasForDistrict(resolvedDistrict)
+        : [];
+
+    upazilas.forEach((upazila) => {
+        const option = document.createElement('option');
+        option.value = upazila;
+        option.textContent = upazila;
+        upazilaSelect.appendChild(option);
+    });
+
+    upazilaSelect.disabled = upazilas.length === 0;
+    if (selectedUpazila) upazilaSelect.value = selectedUpazila;
+}
+
+function parseCompositeAddressParts(compositeAddress = '', district = '', upazila = '') {
+    const parts = String(compositeAddress || '').split(',').map((part) => part.trim()).filter(Boolean);
+    let resolvedUpazila = String(upazila || '').trim();
+    let resolvedDistrict = String(district || '').trim();
+
+    if (resolvedDistrict && parts.length && parts[parts.length - 1] === resolvedDistrict) {
+        parts.pop();
+    }
+    if (resolvedUpazila && parts.length && parts[parts.length - 1] === resolvedUpazila) {
+        parts.pop();
+    } else if (!resolvedUpazila && parts.length >= 1) {
+        resolvedUpazila = parts[parts.length - 1];
+        parts.pop();
+    }
+
+    return {
+        district: resolvedDistrict,
+        upazila: resolvedUpazila,
+        street: parts.join(', ').trim() || String(compositeAddress || '').trim()
+    };
+}
+
+function bindAdminDistrictUpazilaHandlers(districtSelect, upazilaSelect, onDistrictChange) {
+    if (!districtSelect || districtSelect.dataset.boundUpazila === '1') return;
+    districtSelect.dataset.boundUpazila = '1';
+
+    districtSelect.addEventListener('change', () => {
+        populateAdminUpazilaSelect(districtSelect, upazilaSelect, districtSelect.value, '');
+        if (typeof onDistrictChange === 'function') onDistrictChange();
+    });
+}
+
 window.closeCustomerViewModal = function() {
     const modal = document.getElementById('customerViewModal');
     if (modal) modal.style.display = 'none';
@@ -1353,8 +1461,31 @@ window.editCustomer = async function(userId) {
         document.getElementById('editCustomerEmail').value = u.email || '';
         document.getElementById('editCustomerMobile').value = u.mobile || '';
         document.getElementById('editCustomerPhone').value = u.phone || '';
-        document.getElementById('editCustomerAddress').value = u.address || '';
         document.getElementById('editCustomerVerified').value = u.isVerified ? 'true' : 'false';
+
+        const districtSelect = document.getElementById('editCustomerDistrict');
+        const upazilaSelect = document.getElementById('editCustomerUpazila');
+        const fullAddressField = document.getElementById('editCustomerFullAddress');
+
+        populateDistrictSelect(districtSelect, u.district || '');
+        bindAdminDistrictUpazilaHandlers(districtSelect, upazilaSelect);
+
+        const parsedAddress = parseCompositeAddressParts(
+            u.fullAddress || u.address || '',
+            u.district || '',
+            u.upazila || u.thana || ''
+        );
+        const districtValue = u.district || parsedAddress.district || districtSelect.value || '';
+        if (districtValue) districtSelect.value = districtValue;
+        populateAdminUpazilaSelect(
+            districtSelect,
+            upazilaSelect,
+            districtValue,
+            u.upazila || u.thana || parsedAddress.upazila || ''
+        );
+        if (fullAddressField) {
+            fullAddressField.value = u.fullAddress || parsedAddress.street || '';
+        }
 
         document.getElementById('customerEditModal').style.display = 'flex';
     } catch (e) {
@@ -1371,10 +1502,28 @@ window.saveCustomerEdits = async function() {
     const userId = document.getElementById('editCustomerId').value;
     const name = document.getElementById('editCustomerName').value.trim();
     const email = document.getElementById('editCustomerEmail').value.trim();
-    const mobile = document.getElementById('editCustomerMobile').value.trim();
+    const mobile = document.getElementById('editCustomerMobile').value.replace(/\D/g, '');
+    const district = document.getElementById('editCustomerDistrict')?.value?.trim() || '';
+    const upazila = document.getElementById('editCustomerUpazila')?.value?.trim() || '';
+    const fullAddress = document.getElementById('editCustomerFullAddress')?.value?.trim() || '';
 
     if (!name || !email || !mobile) {
         return showToast('Name, email, and mobile are required.', 'warning');
+    }
+    if (name.length < 2) {
+        return showToast('Full name must be at least 2 characters.', 'warning');
+    }
+    if (!/^01[3-9]\d{8}$/.test(mobile)) {
+        return showToast('Mobile must be a valid 11-digit Bangladeshi number.', 'warning');
+    }
+    if (!district) {
+        return showToast('Please select a district.', 'warning');
+    }
+    if (!upazila) {
+        return showToast('Please select an upazila / thana.', 'warning');
+    }
+    if (!fullAddress) {
+        return showToast('Street / village / house details are required.', 'warning');
     }
 
     const btn = document.getElementById('saveCustomerBtn');
@@ -1393,7 +1542,10 @@ window.saveCustomerEdits = async function() {
                 email,
                 mobile,
                 phone: document.getElementById('editCustomerPhone').value.trim(),
-                address: document.getElementById('editCustomerAddress').value.trim(),
+                district,
+                upazila,
+                thana: upazila,
+                fullAddress,
                 isVerified: document.getElementById('editCustomerVerified').value === 'true'
             })
         });
@@ -1518,7 +1670,7 @@ async function fetchLiveOrders() {
     if (!tableBody) return;
     
     // ডাটা লোড হওয়ার সময় ইউজার ফ্রেন্ডলি মেসেজ দেখানো
-    tableBody.innerHTML = `<tr><td colspan="8" class="loading-cell">Syncing live orders...</td></tr>`; 
+    tableBody.innerHTML = `<tr><td colspan="${LIVE_ORDERS_TABLE_COLS}" class="loading-cell">Syncing live orders...</td></tr>`; 
     
     try {
         const [response, settingsRes] = await Promise.all([
@@ -1562,7 +1714,7 @@ async function fetchLiveOrders() {
         fetchPendingWhatsAppAlerts();
     } catch (error) {
         console.error("অর্ডারের ডাটা প্রসেস করতে এরর হয়েছে:", error);
-        tableBody.innerHTML = `<tr><td colspan="8" class="table-status-error">Failed to load live orders.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="${LIVE_ORDERS_TABLE_COLS}" class="table-status-error">Failed to load live orders.</td></tr>`;
     }
 }
 
@@ -2147,19 +2299,19 @@ function buildCourierActionHtml(order) {
     if (trackingId) {
         const safeTracking = escapeToastText(trackingId);
         const trackingUrl = getCourierTrackingUrl(provider, trackingId);
-        const badgeLabel = `<span class="order-courier-sent-label">🚚 Sent</span><span class="order-courier-sent-id">${safeTracking}</span>`;
+        const badgeLabel = `<span class="order-courier-sent-text">Sent ${safeTracking}</span>`;
 
         return trackingUrl
-            ? `<a href="${trackingUrl}" target="_blank" rel="noopener noreferrer" class="order-courier-btn order-courier-sent courier-tracking-badge" title="Track ${safeTracking} on ${safeProvider}">${badgeLabel}</a>`
-            : `<span class="order-courier-btn order-courier-sent courier-tracking-badge" title="Booked with ${safeProvider}">${badgeLabel}</span>`;
+            ? `<a href="${trackingUrl}" target="_blank" rel="noopener noreferrer" class="${ORDER_COURIER_SENT_CLASSES} courier-tracking-badge" title="Track ${safeTracking} on ${safeProvider}">${badgeLabel}</a>`
+            : `<span class="${ORDER_COURIER_SENT_CLASSES} courier-tracking-badge" title="${safeTracking} · ${safeProvider}">${badgeLabel}</span>`;
     }
 
     if (COURIER_BLOCKED_STATUSES.includes(String(order.status || '').trim().toLowerCase())) {
-        return '';
+        return '<span class="order-courier-empty" aria-hidden="true">—</span>';
     }
 
-    return `<button type="button" class="order-courier-btn send-courier-btn" onclick="sendOrderToCourier('${order._id}')" title="Book this parcel with ${safeProvider}">
-                <i class="fa-solid fa-truck-fast" aria-hidden="true"></i>
+    return `<button type="button" class="${ORDER_COURIER_SEND_CLASSES}" onclick="sendOrderToCourier('${order._id}')" title="Book this parcel with ${safeProvider}">
+                <span class="send-courier-icon shrink-0" aria-hidden="true">🚚</span>
                 <span class="send-courier-label">Send to Courier</span>
             </button>`;
 }
@@ -2265,7 +2417,13 @@ function buildAdminOrderStatusCell(order) {
            </button>`
         : '';
 
-    return `<div class="order-status-cell">${badgeHtml}${undoRefundBtn}${reasonBtn}</div>`;
+    const approveReturnBtn = isReturnRequested
+        ? `<button type="button" class="order-action-pill approve-return-btn" onclick="approveOrderReturn('${orderId}')" title="Approve Return &amp; Refund Wallet">
+                <i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i><span class="approve-return-label">Approve</span>
+           </button>`
+        : '';
+
+    return `<div class="order-status-cell">${badgeHtml}${approveReturnBtn}${undoRefundBtn}${reasonBtn}</div>`;
 }
 
 window.showOrderReasonDetails = function(orderId) {
@@ -2327,7 +2485,7 @@ window.renderOrderTable = function() {
     renderOrderPaginationControls(totalPages);
 
     // ডাটা না থাকলে খালি টেবিল মেসেজ দেখানো
-    tableBody.innerHTML = paginatedOrders.length === 0 ? `<tr><td colspan="8" class="loading-cell">No matching orders found.</td></tr>` : '';
+    tableBody.innerHTML = paginatedOrders.length === 0 ? `<tr><td colspan="${LIVE_ORDERS_TABLE_COLS}" class="loading-cell">No matching orders found.</td></tr>` : '';
 
     // লুপ চালিয়ে প্রতিটি অর্ডার রো (Row) তৈরি করা
     paginatedOrders.forEach((order) => {
@@ -2340,7 +2498,7 @@ window.renderOrderTable = function() {
             const dateObj = new Date(order.createdAt);
             const dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
             const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-            dateHtml = `<span class="order-date-main">${dateStr}</span><span class="order-date-time"><i class="fa-regular fa-clock" aria-hidden="true"></i> ${timeStr}</span>`;
+            dateHtml = `<div class="flex flex-col items-center justify-center gap-0.5"><span class="order-date-main">${dateStr}</span><span class="order-date-time"><i class="fa-regular fa-clock" aria-hidden="true"></i> ${timeStr}</span></div>`;
         }
         
         // কাস্টমারের কেনা প্রোডাক্টের তালিকা তৈরি
@@ -2355,34 +2513,46 @@ window.renderOrderTable = function() {
         const statusCellHtml = buildAdminOrderStatusCell(order);
         const courierActionHtml = buildCourierActionHtml(order);
 
-        const approveReturnBtn = isReturnRequested
-            ? `<button type="button" class="order-action-pill approve-return-btn" onclick="approveOrderReturn('${orderId}')" title="Approve Return &amp; Refund Wallet">
-                    <i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i><span class="approve-return-label">Approve</span>
-               </button>`
-            : '';
+        const displayIdSafe = escapeHtml(displayId);
+        const customerName = order.customerName || '—';
+        const customerPhone = order.customerPhone || '—';
+        const orderIdCellHtml = buildOrderCopyField(`<span class="order-id-chip">#${displayIdSafe}</span>`, displayId);
+        const customerNameHtml = buildOrderCopyField(
+            `<span class="order-customer-name">${escapeHtml(customerName)}</span>`,
+            customerName
+        );
+        const customerPhoneHtml = customerPhone !== '—'
+            ? buildOrderCopyField(`<span>${escapeHtml(customerPhone)}</span>`, customerPhone)
+            : `<span>${escapeHtml(customerPhone)}</span>`;
+        const customerAddress = order.customerAddress || '—';
+        const addressCellHtml = buildOrderAddressCopyField(customerAddress);
 
         const tr = document.createElement('tr');
         tr.dataset.orderId = orderId;
         if (isReturnRequested) tr.classList.add('order-row-return-requested');
         tr.innerHTML = `
-            <td class="col-order-id"><span class="order-id-chip">#${displayId}</span></td>
-            <td class="col-datetime">${dateHtml}</td>
-            <td class="col-customer">
-                <span class="order-customer-name">${order.customerName || '—'}</span>
-                <span class="order-customer-phone"><i class="fa-solid fa-phone" aria-hidden="true"></i> ${order.customerPhone || '—'}</span>
+            <td class="col-order-id max-w-[100px] text-center align-middle px-2">${orderIdCellHtml}</td>
+            <td class="col-datetime max-w-[120px] text-center align-middle px-2">${dateHtml}</td>
+            <td class="col-customer text-center align-middle">
+                <div class="flex flex-col items-center justify-center gap-0.5">
+                    ${customerNameHtml}
+                    <span class="order-customer-phone"><i class="fa-solid fa-phone shrink-0" aria-hidden="true"></i> ${customerPhoneHtml}</span>
+                </div>
             </td>
-            <td class="col-address"><span class="order-address-text">${order.customerAddress || '—'}</span></td>
-            <td class="col-products"><ul class="order-items-list">${itemsList}</ul></td>
-            <td class="col-total"><span class="order-total-amount">${formatAdminPrice(getOrderGrandTotal(order))}</span></td>
-            <td class="col-status">${statusCellHtml}</td>
-            <td class="order-actions-cell">
-                <div class="order-actions-toolbar">
-                    ${courierActionHtml}
-                    ${approveReturnBtn}
-                    <button type="button" class="order-action-icon order-action-invoice" onclick="viewInvoice('${orderId}')" title="View Invoice" aria-label="View Invoice">
-                        <i class="fa-solid fa-file-invoice" aria-hidden="true"></i>
+            <td class="col-address text-left align-middle">${addressCellHtml}</td>
+            <td class="col-products text-left align-middle"><ul class="order-items-list">${itemsList}</ul></td>
+            <td class="col-total text-center align-middle"><span class="order-total-amount">${formatAdminPrice(getOrderGrandTotal(order))}</span></td>
+            <td class="col-status min-w-[130px] text-center align-middle px-3">${statusCellHtml}</td>
+            <td class="order-courier-cell text-center align-middle">${courierActionHtml}</td>
+            <td class="order-actions-cell text-center align-middle">
+                <div class="order-actions-toolbar flex items-center justify-center gap-1.5">
+                    <button type="button" class="order-action-icon p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors order-action-shipping" onclick="openEditOrderShippingModal('${orderId}')" title="Edit Shipping Details" aria-label="Edit Shipping Details">
+                        <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
                     </button>
-                    <button type="button" class="order-action-icon order-action-delete" onclick="deleteOrder('${orderId}')" title="Delete Order" aria-label="Delete Order">
+                    <button type="button" class="order-action-icon p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors order-action-invoice" onclick="viewInvoice('${orderId}')" title="View Invoice" aria-label="View Invoice">
+                        <i class="fa-solid fa-eye" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="order-action-icon p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors order-action-delete" onclick="deleteOrder('${orderId}')" title="Delete Order" aria-label="Delete Order">
                         <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
                     </button>
                 </div>
@@ -2612,6 +2782,8 @@ window.viewInvoice = function(orderId) {
     const modal = document.getElementById('invoiceModal');
     if (!order || !modal) return showToast("Invoice data not found!", "error");
 
+    currentInvoiceOrderId = orderId;
+
     const subTotal = Number(order.subTotal ?? order.subtotal) || 0;
     const discountAmount = Number(order.discountAmount) || 0;
     const deliveryCharge = Number(order.deliveryCharge ?? order.shippingFee) || 0;
@@ -2686,6 +2858,125 @@ window.viewInvoice = function(orderId) {
 window.closeInvoiceModal = function() {
     const modal = document.getElementById('invoiceModal');
     if (modal) modal.style.display = 'none';
+    currentInvoiceOrderId = null;
+};
+
+function buildAdminCompositeAddress({ street = '', upazila = '', district = '' } = {}) {
+    return [street, upazila, district].filter(Boolean).join(', ');
+}
+
+window.openEditOrderShippingModal = function(orderId) {
+    const resolvedOrderId = orderId || currentInvoiceOrderId;
+    const order = globalOrders.find(o => String(o._id) === String(resolvedOrderId));
+    if (!order) return showToast('Order not found.', 'error');
+
+    currentInvoiceOrderId = order._id;
+    document.getElementById('editShippingOrderId').value = order._id;
+
+    const labelEl = document.getElementById('editShippingOrderLabel');
+    if (labelEl) {
+        labelEl.textContent = `Order #${order.orderId || order._id.slice(-6).toUpperCase()}`;
+    }
+
+    document.getElementById('editShippingName').value = order.customerName || '';
+    document.getElementById('editShippingPhone').value = order.customerPhone || '';
+    document.getElementById('editShippingNote').value = order.note || '';
+
+    const districtSelect = document.getElementById('editShippingDistrict');
+    const upazilaSelect = document.getElementById('editShippingUpazila');
+    const parsed = parseCompositeAddressParts(
+        order.customerAddress || '',
+        order.shippingDistrict || '',
+        ''
+    );
+
+    populateDistrictSelect(districtSelect, order.shippingDistrict || parsed.district || '');
+    bindAdminDistrictUpazilaHandlers(districtSelect, upazilaSelect);
+
+    const districtValue = order.shippingDistrict || parsed.district || districtSelect.value || '';
+    if (districtValue) districtSelect.value = districtValue;
+    populateAdminUpazilaSelect(districtSelect, upazilaSelect, districtValue, parsed.upazila || '');
+    document.getElementById('editShippingStreet').value = parsed.street || '';
+
+    document.getElementById('orderShippingEditModal').style.display = 'flex';
+};
+
+window.closeEditOrderShippingModal = function() {
+    const modal = document.getElementById('orderShippingEditModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.saveOrderShippingEdits = async function() {
+    const orderId = document.getElementById('editShippingOrderId').value;
+    const customerName = document.getElementById('editShippingName').value.trim();
+    const customerPhone = document.getElementById('editShippingPhone').value.replace(/\D/g, '');
+    const shippingDistrict = document.getElementById('editShippingDistrict')?.value?.trim() || '';
+    const shippingUpazila = document.getElementById('editShippingUpazila')?.value?.trim() || '';
+    const shippingStreetAddress = document.getElementById('editShippingStreet').value.trim();
+    const note = document.getElementById('editShippingNote').value.trim();
+
+    if (!customerName) return showToast('Full name is required.', 'warning');
+    if (customerName.length < 2) return showToast('Full name must be at least 2 characters.', 'warning');
+    if (!/^01[3-9]\d{8}$/.test(customerPhone)) {
+        return showToast('Mobile must be a valid 11-digit Bangladeshi number.', 'warning');
+    }
+    if (!shippingDistrict) return showToast('Please select a district.', 'warning');
+    if (!shippingUpazila) return showToast('Please select an upazila / thana.', 'warning');
+    if (!shippingStreetAddress) return showToast('Delivery address is required.', 'warning');
+
+    const btn = document.getElementById('saveOrderShippingBtn');
+    const originalText = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+    }
+
+    try {
+        const res = await fetch(`/api/admin/orders/${orderId}/address`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                customerName,
+                customerPhone,
+                shippingDistrict,
+                shippingUpazila,
+                shippingStreetAddress,
+                customerAddress: buildAdminCompositeAddress({
+                    street: shippingStreetAddress,
+                    upazila: shippingUpazila,
+                    district: shippingDistrict
+                }),
+                note
+            })
+        });
+        const result = await res.json();
+
+        if (res.ok && result.success) {
+            const updated = result.data || {};
+            const idx = globalOrders.findIndex(o => String(o._id) === String(orderId));
+            if (idx > -1) {
+                globalOrders[idx] = { ...globalOrders[idx], ...updated };
+                filterAndRenderOrders();
+            }
+            showToast(result.message || 'Shipping details updated.', 'success');
+            closeEditOrderShippingModal();
+            if (currentInvoiceOrderId === orderId) {
+                viewInvoice(orderId);
+            }
+        } else {
+            showToast(result.message || 'Failed to update shipping details.', 'error');
+        }
+    } catch (error) {
+        showToast('Server error while saving shipping details.', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
 };
 
 window.printInvoice = function() {

@@ -29,7 +29,9 @@ const cartSchema = new mongoose.Schema({
             variantLabel: { type: String, default: '' },     // ডিসপ্লের জন্য, যেমন "Size: M"
             variantAttribute: { type: String, default: '' }, // যেমন "Size"
             variantValue: { type: String, default: '' },     // যেমন "M"
-            variantSku: { type: String, default: '' }
+            variantSku: { type: String, default: '' },
+            selectedColor: { type: String, default: '' },
+            selectedSize: { type: String, default: '' }
         }
     ]
 }, { timestamps: true });

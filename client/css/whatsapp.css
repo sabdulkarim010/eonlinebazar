@@ -5,14 +5,18 @@
     position: fixed;
     bottom: 30px;
     right: 30px;
-    z-index: 100000; /* সবকিছুর উপরে রাখার জন্য */
-    display: flex;
-    align-items: center;
-    gap: 15px;
+    z-index: 9990;
+    /* Only the round button receives clicks — not the full flex row / tooltip area */
+    pointer-events: none;
 }
 
 /* Tooltip Message Design */
 .whatsapp-tooltip {
+    position: absolute;
+    right: calc(100% + 15px);
+    top: 50%;
+    transform: translateY(-50%) translateX(20px);
+    white-space: nowrap;
     background-color: #ffffff;
     color: #334155;
     padding: 8px 16px;
@@ -21,19 +25,21 @@
     font-size: 14px;
     font-weight: 600;
     opacity: 0;
-    transform: translateX(20px);
-    transition: all 0.4s ease;
+    transition: opacity 0.4s ease, transform 0.4s ease;
     pointer-events: none;
     border: 1px solid #e2e8f0;
 }
 
 .whatsapp-tooltip.show {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(-50%) translateX(0);
 }
 
 /* Main Button Design */
 .whatsapp-float-btn {
+    position: relative;
+    z-index: 1;
+    pointer-events: auto;
     background-color: #25d366;
     color: #ffffff;
     width: 60px;
@@ -47,6 +53,7 @@
     text-decoration: none;
     transition: transform 0.3s ease;
     animation: pulse-animation 2s infinite;
+    cursor: pointer;
 }
 
 .whatsapp-float-btn:hover {
@@ -73,8 +80,17 @@
         font-size: 28px;
     }
     .whatsapp-tooltip {
-        display: none; /* মোবাইলে জায়গা বাঁচানোর জন্য টুলটিপ হাইড রাখা হলো */
+        display: none;
     }
+}
+
+/* Cart drawer open — keep floating widget below drawer and non-interactive */
+body.mini-cart-open .whatsapp-floating-container {
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
 }
 
 

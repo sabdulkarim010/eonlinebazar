@@ -118,9 +118,42 @@ const verifyUser = async (req, res, next) => {
     }
 };
 
+/**
+ * Optional auth: attaches req.user when a valid token is present,
+ * but allows the request through for guests (checkout / guest orders).
+ */
+const optionalVerifyUser = async (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return next();
+    }
+
+    const token = authHeader.split(' ')[1];
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'eOnlineBazarSecretKey123');
+        const userId = decoded.id || decoded._id || decoded.userId;
+        req.user = { id: userId, sid: decoded.sid || null };
+
+        if (decoded.sid) {
+            const session = await UserSession.findOneAndUpdate(
+                { sessionId: decoded.sid },
+                { $set: { lastActiveAt: new Date() } },
+                { returnDocument: 'after' }
+            );
+            if (!session) {
+                return next();
+            }
+        }
+
+        next();
+    } catch (err) {
+        next();
+    }
+};
+
 // 🌟 আপডেট: requireSignIn নামে verifyUser কেই এক্সপোর্ট করা হলো 
 // যাতে আগের কোডে কোনো সমস্যা না হয় এবং নতুন কোডও কাজ করে।
-module.exports = { verifyAdmin, verifyUser, requireSignIn: verifyUser };
+module.exports = { verifyAdmin, verifyUser, optionalVerifyUser, requireSignIn: verifyUser };
 
 
 

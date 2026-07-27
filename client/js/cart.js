@@ -72,6 +72,36 @@ fetch('/api/products')
         renderCartDrawerItems(); // ব্যাকআপ রেন্ডার
     });
 
+function mapClientCartItem(item = {}) {
+    const displayImage = String(
+        item.selectedImage
+        || item.variantImage
+        || item.image
+        || item.products
+        || ''
+    ).trim();
+    return {
+        id: item.productId || item.id,
+        name: item.name,
+        price: Number(item.price),
+        products: displayImage,
+        image: displayImage,
+        selectedImage: displayImage,
+        variantImage: displayImage,
+        icon: item.icon || '',
+        quantity: item.quantity,
+        selected: item.selected !== false,
+        variantId: item.variantId || '',
+        variantLabel: item.variantLabel || '',
+        variantAttribute: item.variantAttribute || '',
+        variantValue: item.variantValue || '',
+        variantSku: item.variantSku || '',
+        selectedColor: item.selectedColor || '',
+        selectedSize: item.selectedSize || '',
+        selectedVariant: item.selectedVariant || null
+    };
+}
+
 // 🌟 ডাটাবেজ থেকে লাইভ কার্ট আইটেম নিয়ে আসার ফাংশন
 function fetchLiveDBCart() {
     if (!customerToken) return Promise.resolve();
@@ -82,20 +112,7 @@ function fetchLiveDBCart() {
     .then(res => res.json())
     .then(dbCartItems => {
         const items = Array.isArray(dbCartItems) ? dbCartItems : [];
-        cart = items.map(item => ({
-            id: item.productId,
-            name: item.name,
-            price: Number(item.price),
-            products: item.image || '',
-            icon: item.icon || '',
-            quantity: item.quantity,
-            selected: item.selected !== false,
-            variantId: item.variantId || '',
-            variantLabel: item.variantLabel || '',
-            variantAttribute: item.variantAttribute || '',
-            variantValue: item.variantValue || '',
-            variantSku: item.variantSku || ''
-        }));
+        cart = items.map(mapClientCartItem);
         updateCartCount();
         renderCartDrawerItems();
         return cart;
@@ -108,20 +125,7 @@ function fetchLiveDBCart() {
 
 function syncCartFromServerItems(dbCartItems) {
     const items = Array.isArray(dbCartItems) ? dbCartItems : [];
-    cart = items.map(item => ({
-        id: item.productId,
-        name: item.name,
-        price: Number(item.price),
-        products: item.image || '',
-        icon: item.icon || '',
-        quantity: item.quantity,
-        selected: item.selected !== false,
-        variantId: item.variantId || '',
-        variantLabel: item.variantLabel || '',
-        variantAttribute: item.variantAttribute || '',
-        variantValue: item.variantValue || '',
-        variantSku: item.variantSku || ''
-    }));
+    cart = items.map(mapClientCartItem);
     updateCartCount();
     renderCartDrawerItems();
     return cart;
@@ -195,6 +199,10 @@ function renderCartDrawerItems() {
     if (summarySection) summarySection.style.display = 'block';
 
     // ২. কার্ট আইটেম রেন্ডারিং লুপ
+    const CDU = window.CartDisplayUtils || {};
+    const escapeHtml = CDU.escapeHtml || ((s) => String(s == null ? '' : s));
+    const isCartPage = pageContainer && pageContainer.id === 'cartItemsContainer';
+
     currentCart.forEach((item, index) => {
         let realProduct = globalProductCatalog.find(p => String(p._id) === String(item.id) || String(p.productId) === String(item.id) || String(p.id) === String(item.id));
 
@@ -207,8 +215,9 @@ function renderCartDrawerItems() {
         const quantity = item.quantity || 1;
         const itemTotal = item.price * quantity; 
         const vid = encVariant(item.variantId);
-        const variantTag = item.variantLabel
-            ? `<span class="cart-item-variant" style="display:block; font-size:11px; color:#64748b;">${item.variantLabel}</span>` : '';
+        const productUrl = CDU.getProductDetailUrl ? CDU.getProductDetailUrl(item, realProduct) : '#';
+        const variantBadges = CDU.buildVariantBadgesHtml ? CDU.buildVariantBadgesHtml(item, realProduct) : '';
+        const safeName = escapeHtml(item.name);
 
         const SA = window.StockAlert;
         const stock = SA ? SA.getItemStock(item, realProduct) : null;
@@ -221,25 +230,21 @@ function renderCartDrawerItems() {
         const row = document.createElement('div');
         
         if (drawerContainer) {
-            row.className = 'cart-item-row'; 
+            row.className = 'cart-item-row';
             row.innerHTML = `
-                <div style="display:flex; align-items:center; gap:6px;">
-                    <span class="cart-item-serial">#${index + 1}</span>
+                <div class="cart-item-row__main">
                     <input type="checkbox" class="cart-item-checkbox" data-id="${item.id}" ${isChecked} onchange="toggleItemSelection('${item.id}', '${vid}')">
+                    <a href="${productUrl}" class="cart-product-link cart-product-link--media">
+                        <div class="cart-item-media">${mediaHTML}</div>
+                    </a>
+                    <div class="cart-item-info">
+                        <a href="${productUrl}" class="cart-product-link cart-item-name" title="${safeName}">${safeName}</a>
+                        ${variantBadges}
+                        ${stockBadge}
+                        <div class="cart-item-price-qty">৳${Number(item.price).toLocaleString()} × ${quantity}</div>
+                    </div>
                 </div>
-                <div class="cart-item-media" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0; background:#f9f9f9; border-radius:4px;">${mediaHTML}</div>
-                <div class="cart-item-info">
-                    <div class="cart-item-name" title="${item.name}">${item.name}</div>
-                    ${variantTag}
-                    ${stockBadge}
-                    <div class="cart-item-price">৳${item.price}</div>
-                </div>
-                <div class="cart-item-qty-box">
-                    <button class="qty-btn" onclick="updateQty('${item.id}', -1, '${vid}')">-</button>
-                    <span class="qty-val">${quantity}</span>
-                    <button class="${plusBtnClass}" ${plusDisabledAttr} onclick="updateQty('${item.id}', 1, '${vid}')">+</button>
-                </div>
-                <button class="cart-delete-btn" onclick="deleteCartItem('${item.id}', '${vid}')">
+                <button type="button" class="cart-delete-btn" onclick="deleteCartItem('${item.id}', '${vid}')" aria-label="Remove item">
                     <i class="fa fa-trash"></i>
                 </button>
             `;
@@ -249,28 +254,33 @@ function renderCartDrawerItems() {
             const inWishlist = wishlistIds.some((id) => String(id) === String(item.id));
             const heartIconClass = inWishlist ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
             const heartBtnClass = inWishlist ? 'cart-wishlist-heart-btn is-saved' : 'cart-wishlist-heart-btn';
+            const qtyBlock = isCartPage
+                ? `<div class="cart-quantity-controller">
+                        <button type="button" class="qty-control-btn" aria-label="Decrease quantity" onclick="updateQty('${item.id}', -1, '${vid}')"><i class="fa-solid fa-minus"></i></button>
+                        <div class="qty-display-number">${quantity}</div>
+                        <button type="button" class="${plusControlClass}" aria-label="Increase quantity" ${plusDisabledAttr} onclick="updateQty('${item.id}', 1, '${vid}')"><i class="fa-solid fa-plus"></i></button>
+                    </div>`
+                : `<span class="cart-item-qty-label">Qty: ${quantity}</span>`;
             row.className = `cart-item-card${profileItemClass}${item.selected === false ? ' is-unchecked' : ''}`;
             row.innerHTML = `
                 <div class="cart-item-left-group">
                     <input type="checkbox" class="cart-item-checkbox" data-id="${item.id}" ${isChecked} onchange="toggleItemSelection('${item.id}', '${vid}')">
-                    <div class="cart-item-media-box">${mediaHTML}</div>
+                    <a href="${productUrl}" class="cart-product-link cart-product-link--media">
+                        <div class="cart-item-media-box">${mediaHTML}</div>
+                    </a>
                     <div class="cart-item-info-box">
                         <div class="cart-item-title-row">
-                            <span class="product-title-text">${item.name}</span>
+                            <a href="${productUrl}" class="cart-product-link product-title-text" title="${safeName}">${safeName}</a>
                             ${isProfilePreview ? `<button type="button" class="${heartBtnClass}" data-product-id="${item.id}" aria-label="${inWishlist ? 'Saved to wishlist' : 'Add to wishlist'}" title="${inWishlist ? 'Saved to wishlist' : 'Add to wishlist'}"><i class="${heartIconClass}"></i></button>` : ''}
                         </div>
-                        ${item.variantLabel ? `<span class="product-variant-text">${item.variantLabel}</span>` : ''}
+                        ${variantBadges}
                         ${stockBadge}
                         <span class="product-unit-price">৳${Number(item.price).toLocaleString()}</span>
                     </div>
                 </div>
                 
                 <div class="cart-item-right-group">
-                    <div class="cart-quantity-controller">
-                        <button type="button" class="qty-control-btn" aria-label="Decrease quantity" onclick="updateQty('${item.id}', -1, '${vid}')"><i class="fa-solid fa-minus"></i></button>
-                        <div class="qty-display-number">${quantity}</div>
-                        <button type="button" class="${plusControlClass}" aria-label="Increase quantity" ${plusDisabledAttr} onclick="updateQty('${item.id}', 1, '${vid}')"><i class="fa-solid fa-plus"></i></button>
-                    </div>
+                    ${qtyBlock}
                     <div class="cart-item-total-price">৳${itemTotal.toLocaleString()}</div>
                     <button type="button" class="cart-item-trash-btn" onclick="deleteCartItem('${item.id}', '${vid}')" title="Remove Product">
                         <i class="fa-solid fa-trash-can"></i>
@@ -363,8 +373,8 @@ function renderCartFreeShippingProgress(subtotal) {
     wrapEl.classList.toggle('is-unlocked', progress.unlocked);
     barEl.style.width = `${progress.progressPercent}%`;
     textEl.textContent = progress.unlocked
-        ? '🎉 Free Shipping Unlocked!'
-        : `Add ৳${progress.remaining.toLocaleString('en-US')} more to unlock FREE shipping (৳${progress.threshold.toLocaleString('en-US')} minimum).`;
+        ? (SE.formatFreeShippingUnlockedMessage?.() || '🎉 Free Shipping Unlocked!')
+        : (SE.formatFreeShippingRemainingMessage?.(progress.remaining) || `Add ৳${progress.remaining.toLocaleString('en-US')} more for FREE shipping`);
 }
 
 function wireCheckoutButton(btn) {

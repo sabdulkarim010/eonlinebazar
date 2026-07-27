@@ -206,6 +206,16 @@
         return value === 0 ? '৳0' : `৳${value}`;
     }
 
+    /** Concise single-line hint for cart / checkout progress bars. */
+    function formatFreeShippingRemainingMessage(remaining) {
+        const amount = roundMoney(remaining);
+        return `Add ৳${amount.toLocaleString('en-US')} more for FREE shipping`;
+    }
+
+    function formatFreeShippingUnlockedMessage() {
+        return '🎉 Free Shipping Unlocked!';
+    }
+
     global.ShippingEstimator = {
         DEFAULT_SETTINGS,
         ESTIMATE_RULES,
@@ -219,6 +229,8 @@
         resolveDeliveryZone,
         toShippingLocationLabel,
         formatCurrency,
+        formatFreeShippingRemainingMessage,
+        formatFreeShippingUnlockedMessage,
         roundMoney
     };
 })(window);

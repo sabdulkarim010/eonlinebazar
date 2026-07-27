@@ -5,6 +5,15 @@
  * Description: Advanced Real-Time Validation Engine + Full-Stack API Integration + UI Enhancements
  */
 
+function resolvePostLoginRedirect() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirect = String(urlParams.get('redirect') || '').trim();
+    if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
+        return redirect.replace(/\.html$/, '');
+    }
+    return '/profile';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initRealTimeValidation();
     initPasswordToggle();
@@ -359,9 +368,8 @@ async function handleLoginSubmit(e) {
             if (forgotPassLink) forgotPassLink.style.display = 'none';
 
             showCustomToast("Login Successful! Redirecting...", "success");
-            
-            // ১.৫ সেকেন্ড পর প্রোফাইল পেজে রিডাইরেক্ট
-            setTimeout(() => { window.location.href = 'profile.html'; }, 1500);
+
+            setTimeout(() => { window.location.href = resolvePostLoginRedirect(); }, 1500);
         } else {
             showCustomToast(data.message || "Invalid credentials or email not verified.", "error");
             loginBtn.innerText = "Sign In";

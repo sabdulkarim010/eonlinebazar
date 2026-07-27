@@ -58,36 +58,74 @@
     function normalizeMediaItem(raw) {
         if (!raw) return {};
         const product = raw.product || null;
+        const selectedVariant = raw.selectedVariant && typeof raw.selectedVariant === 'object'
+            ? raw.selectedVariant
+            : null;
         return {
             name: raw.name || (product && product.name) || '',
             image: raw.image || raw.imageUrl || raw.photo || raw.products || raw.productImage ||
                 (product && (product.image || product.imageUrl || product.photo)) || '',
             imageUrl: raw.imageUrl || (product && product.imageUrl) || '',
+            selectedImage: raw.selectedImage || raw.variantImage || '',
+            variantImage: raw.variantImage || raw.selectedImage || '',
+            products: raw.products || '',
             emoji: raw.emoji || raw.icon || (product && (product.emoji || product.icon)) || '',
             icon: raw.icon || (product && product.icon) || '',
             images: raw.images || (product && product.images) || null,
+            selectedVariant,
             product
         };
+    }
+
+    function pickCartLineImage(item) {
+        const normalized = normalizeMediaItem(item);
+        const candidates = [
+            normalized.selectedImage,
+            normalized.variantImage,
+            normalized.image,
+            normalized.products,
+            normalized.imageUrl,
+            normalized.selectedVariant && normalized.selectedVariant.image
+        ];
+
+        for (const candidate of candidates) {
+            const raw = String(candidate || '').trim();
+            if (!raw || looksLikeEmojiOrIcon(raw)) continue;
+            const resolved = resolveProductImagePath(raw);
+            if (resolved && isValidProductImagePath(resolved)) return resolved;
+            if (isValidProductImagePath(raw)) return raw;
+        }
+
+        return '';
     }
 
     function mergeMediaSources(cartItem, catalogProduct) {
         const item = cartItem || {};
         const catalog = catalogProduct || {};
+        const cartLineImage = pickCartLineImage(item);
+        const catalogFallback = pickImageFromItem(catalog);
+
         return normalizeMediaItem({
             name: item.name || catalog.name,
-            image: catalog.image || catalog.imageUrl || item.image || item.products || catalog.photo || '',
-            imageUrl: catalog.imageUrl || item.imageUrl || '',
+            image: cartLineImage || catalogFallback,
+            imageUrl: item.imageUrl || catalog.imageUrl || '',
+            selectedImage: cartLineImage,
+            variantImage: cartLineImage,
+            products: cartLineImage || item.products || catalog.products || '',
             emoji: item.emoji || item.icon || catalog.emoji || catalog.icon || '',
             icon: item.icon || catalog.icon || '',
             photo: catalog.photo || item.photo || '',
-            products: item.products || catalog.products || '',
             images: catalog.images || item.images || null,
+            selectedVariant: item.selectedVariant || null,
             product: catalog
         });
     }
 
     function pickImageFromItem(item) {
         const normalized = normalizeMediaItem(item);
+        const cartLineImage = pickCartLineImage(item);
+        if (cartLineImage) return cartLineImage;
+
         const candidates = [
             normalized.image,
             normalized.imageUrl,
@@ -257,6 +295,7 @@
         normalizeMediaItem,
         mergeMediaSources,
         pickImageFromItem,
+        pickCartLineImage,
         pickAllValidImages,
         pickEmojiFromItem,
         resolveMediaState,

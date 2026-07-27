@@ -127,6 +127,11 @@
             <div class="shipping-info-section-wrapper" id="shippingFormSection">
                 <h3><i class="fa-solid fa-truck-fast"></i> Shipping Information</h3>
 
+                <div class="guest-checkout-banner" id="guestCheckoutBanner" hidden>
+                    <span class="guest-checkout-banner__text">Have an account? Sign in for a faster checkout.</span>
+                    <a href="/login?redirect=/checkout" class="guest-checkout-banner__cta">Sign In</a>
+                </div>
+
                 <div class="saved-addresses-section" id="savedAddressesSection" hidden>
                     <div class="saved-addresses-heading">
                         <h4><i class="fa-solid fa-map-location-dot"></i> Select a Delivery Address</h4>
@@ -173,6 +178,15 @@
                         <span class="error-msg-field" id="mobile-error"></span>
                     </div>
 
+                    <div class="form-group-field" id="guestEmailFieldGroup">
+                        <label for="shippingEmail">Email Address <span class="optional-tag">(Optional)</span></label>
+                            <div class="input-box-wrapper">
+                                <input type="email" id="shippingEmail" placeholder="For order confirmation (optional)" maxlength="120" autocomplete="email">
+                            </div>
+                        <small class="district-match-hint">We'll send your order confirmation here if provided.</small>
+                        <span class="error-msg-field" id="email-error"></span>
+                    </div>
+
                     <div class="form-group-field">
                         <label for="shippingAddress">Full Delivery Address <span class="required-star">*</span></label>
                             <div class="input-box-wrapper">
@@ -211,25 +225,24 @@
     <template id="cartItemTemplate">
         <div class="checkout-item-row-card">
             <input type="checkbox" class="checkout-item-checkbox" style="display: none;">
-            
-            <div class="cart-media-frame-box">
-                </div>
-            
+
+            <a href="#" class="cart-product-link cart-product-link--media">
+                <div class="cart-media-frame-box"></div>
+            </a>
+
             <div class="cart-item-details-info">
-                <h4 class="cart-item-name-text">Product Name</h4>
-                <span class="cart-item-base-price-text">৳0</span>
+                <a href="#" class="cart-product-link cart-item-name-link cart-item-name-text">Product Name</a>
+                <div class="cart-variant-badges-wrap"></div>
+                <div class="cart-item-price-qty-row">
+                    <span class="cart-item-base-price-text">৳0</span>
+                    <span class="cart-item-qty-label">× 1</span>
+                </div>
             </div>
-            
-            <div class="quantity-controller-block">
-                <button type="button" class="qty-btn btn-minus"><i class="fa-solid fa-minus"></i></button>
-                <span class="qty-display-text qty-text">1</span>
-                <button type="button" class="qty-btn btn-plus"><i class="fa-solid fa-plus"></i></button>
-            </div>
-            
+
             <div class="cart-item-total-price-block">
                 <span class="cart-item-total">৳0</span>
             </div>
-            
+
             <div class="cart-item-action-delete">
                 <button type="button" class="checkout-row-delete-btn-main">
                     <i class="fa-solid fa-trash-can"></i>
@@ -261,6 +274,8 @@
     <script src="js/shipping-estimator.js"></script>
     <script src="js/coupon-ui.js"></script>
     <script src="js/productThumbnail.js"></script>
+    <script src="js/variantUtils.js"></script>
+    <script src="js/cartDisplayUtils.js"></script>
     <script src="js/checkout.js"></script>
 </body>
 </html>

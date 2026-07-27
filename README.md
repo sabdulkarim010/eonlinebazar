@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-4.4.0-success)
+![Version](https://img.shields.io/badge/Version-4.4.1-success)
 ![RBAC](https://img.shields.io/badge/RBAC-Staff%20Management-6f42c1)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
@@ -28,6 +28,7 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v4.4.1](#-whats-new--v441-admin-live-orders-table--checkout-polish)
 - [What's New — v4.4.0](#-whats-new--v440-dynamic-payment-methods--gateway-architecture)
 - [What's New — v4.3.3](#-whats-new--v433-coupon-management--marketing-controls)
 - [What's New — v4.3.2](#-whats-new--v432-enterprise-staff--role-management-redesign)
@@ -105,6 +106,25 @@ Eight things set it apart:
 10. **Staff Manual Order Creation (POS Engine)** — admin modal for phone/chat orders with searchable product picker, **multi-variant stock validation**, automated inventory deduction, and instant **Finance & Analytics** ledger integration.
 11. **Customer Retention & Promotions Layer** — **store wallet checkout deduction**, automated refund credits, **VIP / Frequent Buyer segmentation** with admin filter tabs, and a **Flash Sale engine** with homepage countdown and dynamic discounted pricing.
 12. **Enterprise Dynamic Payment Methods Architecture** — database-driven **Manual** (bKash, Nagad, Rocket, Bank Transfer) and **Automated** (SSLCommerz, Aamarpay) gateway catalog with **AES-256-GCM encrypted credentials**, configurable **flat/percentage processing fees**, admin logo upload, checkout display ordering, and **IPN callback readiness** for aggregator webhooks.
+
+---
+
+## 🆕 What's New — v4.4.1 (Admin Live Orders Table & Checkout Polish)
+
+This patch refines the **Super Admin Live Orders** data table with dedicated courier and action columns, balanced alignment and column widths, and premium courier/action styling — while streamlining the **cart & checkout free-shipping progress bar** for slim single-line mobile fit and relaxing **Name / Delivery Address** form validation (minimum one word) without weakening **11-digit mobile** enforcement.
+
+| Feature | Description |
+|---------|-------------|
+| **📋 Dedicated Courier & Actions Columns** | Live Orders table now exposes distinct **Courier Status** and **Actions** columns — courier booking badges/buttons isolated from edit/view/delete icon controls for faster triage. |
+| **↔️ Text Alignment Optimization** | **`text-left`** on multi-line columns (**Address**, **Products**); all other data columns (**Order ID**, **Date & Time**, **Customer**, **Total**, **Status**, **Courier Status**, **Actions**) remain strictly **center-aligned**. |
+| **📐 Responsive Column Balancing** | Expanded **Status** column (`min-width: 130px`) for full dropdown visibility; tightened **Order ID** (`max-width: 100px`) and **Date & Time** (`max-width: 120px`); **Courier Status** badges/buttons set to **100% full-width** within their cell — no horizontal overflow. |
+| **🚚 Courier Action Styling** | **Send to Courier** button redesigned with a light soft-green background (`#d1fae5`), crisp emerald text, and a mini truck icon 🚚 for a modern, eye-pleasing theme. |
+| **🎯 Action Icons Polish** | Edit, view, and delete action icons wrapped in soft gray rounded overlays (`bg-slate-100` / `#f1f5f9` pill chips) with hover elevation. |
+| **📊 Free Shipping Progress Bar Slimming** | Shortened dynamic message — *"Add ৳{remainingAmount} more for FREE shipping"* — with reduced font weight (`font-weight: 400`) for a slimmer cart/checkout summary line. |
+| **📱 Mobile Single-Line Guarantee** | Progress text uses `white-space: nowrap` and responsive font scaling (`11px` mobile → `14px` desktop) — verified single-line fit at **360px, 390px, 460px, 568px**, and **668px+** breakpoints on `/cart` and `/checkout`. |
+| **✅ Relaxed Checkout & Profile Validation** | **Name** and **Delivery Address** fields now require a minimum of **one word** (non-empty trimmed input); **11-digit Bangladeshi mobile** validation (`01[3-9]…`) remains strict on checkout and profile saves. |
+
+> 📌 See [Premium Live Orders Data-Table UI](#premium-live-orders-data-table-ui) under [Courier Logistics & Multi-Provider Dispatch Engine](#-courier-logistics--multi-provider-dispatch-engine), [Dynamic Free Shipping Threshold & Dynamic Announcements](#-dynamic-free-shipping-threshold--dynamic-announcements), [Checkout Experience & Cart Enhancements](#-checkout-experience--cart-enhancements), and [Smart Checkout Address Integration](#-smart-checkout-address-integration) for implementation details and key files.
 
 ---
 
@@ -278,7 +298,7 @@ This release adds an **isolated, future-ready courier dispatch engine** (Steadfa
 | **🔀 Smart Hybrid Mode** | **Live API booking** when `courierApiKey` + `courierSecretKey` are configured; **mock tracking IDs** (`SF-PENDING-XXXXX`, `PT-PENDING-XXXXX`, `RX-PENDING-XXXXX`) when keys are absent — order still saves tracking data and moves to **`Shipped`** for safe end-to-end testing. |
 | **📦 Tracking & Status Automation** | Persists `courierTrackingId`, `courierConsignmentId`, and `courierStatus` on the order; sets status to **`Shipped`**; fires customer SMS status notification when enabled; logs a security audit event. |
 | **🛍️ Isolated Customer Displays** | Dynamically embeds **Courier Provider + Tracking ID** badges on **Order Details** and **Track Your Order** — progress timelines remain strictly driven by internal MongoDB order states. |
-| **📌 Premium Live Orders Table** | Sticky `<thead>` (`position: sticky`) inside a bounded scroll container; compact `12px 16px` cell padding; green accent **Total** column; `#f8fafc` row hover transitions. |
+| **📌 Premium Live Orders Table** | Sticky `<thead>` inside a bounded scroll container; compact `12px 16px` cell padding; green accent **Total** column; `#f8fafc` row hover transitions. **v4.4.1** adds dedicated **Courier Status** + **Actions** columns, left-aligned Address/Products, and soft-green **Send to Courier** styling. |
 | **🎯 Re-architected Actions Column** | Horizontal toolbar — primary **`🚚 Send to Courier`** / green **`Sent`** tracking badge, sleek **Invoice** icon button, and danger-styled **Delete** icon — without breaking status updates, return approval, or refund undo. |
 
 > 📌 See the dedicated [Courier Logistics & Multi-Provider Dispatch Engine](#-courier-logistics--multi-provider-dispatch-engine) section below for schema fields, hybrid-mode workflow, API routes, and key files.
@@ -578,8 +598,8 @@ Store-wide free-shipping rules and customer-facing announcements are now driven 
 #### Cart & Checkout Integration
 | Surface | Behavior |
 |---------|----------|
-| **`/cart`** | Live progress bar — *"Add ৳X more to unlock FREE shipping"* or **`🎉 Free Shipping Unlocked!`** |
-| **`/checkout`** | Delivery charge hidden when waived; success badge **`🎉 Free Shipping Unlocked!`**; progress track turns green at threshold |
+| **`/cart`** | Live progress bar — *"Add ৳{remaining} more for FREE shipping"* (slim `font-weight: 400` styling) or **`🎉 Free Shipping Unlocked!`**; `white-space: nowrap` ensures single-line fit on all smartphone widths *(v4.4.1)* |
+| **`/checkout`** | Delivery charge hidden when waived; success badge **`🎉 Free Shipping Unlocked!`**; progress track turns green at threshold; same shortened message and mobile-responsive typography as cart *(v4.4.1)* |
 | **Order placement** | Backend re-computes delivery from live `Settings` + master threshold — client-supplied `shippingFee` never trusted |
 
 Threshold resolution order: **`Setting.freeShippingThreshold`** → legacy **`Settings.freeShippingMinAmount`** → legacy **`announcementDiscount`** numeric fallback → platform default.
@@ -622,7 +642,7 @@ Data arrives via **`GET /api/customer/profile`** (`profile.announcement`) and th
 | `utils/announcementSettings.js` | Display text builder, highlight chips, public payload |
 | `client/js/checkout.js` | Badge rendering, progress bar, `calculateDeliveryCharge()` |
 | `client/js/cart.js` | Cart summary free-shipping progress hint |
-| `client/js/shipping-estimator.js` | Shared client-side progress + quote helper |
+| `client/js/shipping-estimator.js` | Shared client-side progress + quote helper; `formatFreeShippingRemainingMessage()` *(v4.4.1)* |
 | `client/js/profile.js` | `applyAnnouncementUI()` — text + highlight chips |
 
 ---
@@ -711,6 +731,11 @@ A profile-aware checkout address system that prioritizes the customer's **primar
 - The **"Save this address to my profile"** checkbox (`#saveAddressToProfile`) is enabled only when no saved card is selected.
 - On order placement, `syncCheckoutAddressToProfile()` (via `utils/savedAddress.js`) persists the entered address to the user's address book when requested, with duplicate detection and default-address promotion.
 
+#### Relaxed Form Validation *(v4.4.1)*
+- **Full Name** and **Delivery Address** fields require a minimum of **one word** (non-empty trimmed input) — reducing friction for short names and concise street/house details while still blocking spam-pattern abuse via `detectSpamPattern()`.
+- **Mobile Number** validation remains **strict 11-digit Bangladeshi format** (`/^01[3-9]\d{8}$/`) on checkout proceed and profile address saves — digits-only input enforced live.
+- Live validation engine (`initLiveValidationEngine()` in `client/js/checkout.js`) updates field UI state in real time; profile settings form mirrors the same name/address leniency on save.
+
 ### Architectural Workflow
 
 ```mermaid
@@ -755,7 +780,7 @@ End-to-end order lifecycle management for customers and admins — from responsi
 - The customer profile **My Orders** table uses `orders-table--responsive` CSS (`client/css/profile.css`) to transform rows into **stacked mobile cards** with `data-label` attributes for accessible field labels.
 - **v3.4.0:** Order ID and date render **inline** (`#EOB… • Date`) to save vertical space; the **entire row is clickable** and navigates to Order Details — list-level Invoice / Cancel / View Details buttons removed for a cleaner interface (actions live on `/order-details` only).
 - Desktop layouts retain a **compact, information-dense table** with product preview thumbnails, status badges, and an intentionally empty actions column.
-- Admin **Live Orders** (`client/js/admin.js`) renders a **premium sticky-header data table** with a horizontal action toolbar (courier booking, invoice, delete), **Create Manual Order** POS modal (v4.0.0), compact column spacing, and contextual status badges. Background **WhatsApp order alerts** fire server-side on every new order — no admin session required.
+- Admin **Live Orders** (`client/js/admin.js`) renders a **premium sticky-header data table** with dedicated **Courier Status** and **Actions** columns, left-aligned address/product cells, a horizontal icon toolbar (edit, view invoice, delete), one-click courier booking in the courier column, **Create Manual Order** POS modal (v4.0.0), compact column spacing, and contextual status badges. Background **WhatsApp order alerts** fire server-side on every new order — no admin session required.
 
 #### Customer Order Cancellation
 - Customers can cancel orders in **Pending** or **Processing** status from the profile dashboard.
@@ -975,6 +1000,11 @@ A unified checkout-first flow for shipping, promotions, and cart persistence —
 - Preserves items added by guest users in **temporary `localStorage` cart state** and seamlessly merges them into the user's permanent **MongoDB cart** upon logging in.
 - **Variant-aware deduplication** — matching `productId` + `variantId` lines increment quantity; new lines are appended; merged cart is returned in the login response or via **`POST /api/cart/merge`**.
 - `/cart` page load performs the same merge when an authenticated user still has local guest items, then clears `localStorage` and fetches the live DB cart.
+
+#### Free Shipping Progress Bar — Mobile Optimization *(v4.4.1)*
+- Shared **`formatFreeShippingRemainingMessage()`** in `client/js/shipping-estimator.js` renders the shortened copy: *"Add ৳{remainingAmount} more for FREE shipping"*.
+- Cart and checkout CSS (`.free-shipping-progress-text`) use **`font-weight: 400`** (slim styling), **`white-space: nowrap`**, and responsive font sizes (`11px` on narrow phones, `14px` from `640px+`) so the hint never wraps on **360px, 390px, 460px, 568px**, or **668px+** viewports.
+- Unlocked state retains **`🎉 Free Shipping Unlocked!`** with a slightly bolder green accent (`font-weight: 500`).
 
 #### Dynamic Payment Step (`/payment`) *(v4.4.0)*
 - The payment step loads **active methods from the database** via **`GET /api/payments/methods`** — no hardcoded bKash/COD/gateway cards.
@@ -2231,7 +2261,7 @@ MongoDB (Admin Master Settings)  →  .env fallbacks  →  dev console fallback
 
 ## 🚚 Courier Logistics & Multi-Provider Dispatch Engine
 
-An **isolated, future-ready multi-provider dispatch engine** (Steadfast, Pathao, RedX) wired directly into the admin **Live Orders** workflow and customer order views — plus a premium data-table redesign that keeps long order queues scannable without breaking existing status, return, invoice, or delete actions.
+An **isolated, future-ready multi-provider dispatch engine** (Steadfast, Pathao, RedX) wired directly into the admin **Live Orders** workflow and customer order views — plus a premium data-table redesign *(v4.4.1)* with dedicated **Courier Status** and **Actions** columns, optimized column alignment, and soft-green courier booking controls that keep long order queues scannable without breaking existing status, return, invoice, or delete actions.
 
 #### One-Click Dispatch (Admin Panel)
 - **Seamless `Send to Courier` action** in the **Live Orders** panel with automated provider selection (**Steadfast**, **Pathao**, **RedX**) driven by `Settings.defaultCourierProvider`.
@@ -2305,25 +2335,45 @@ When an admin clicks **`🚚 Send to Courier`** on an unbooked order:
 
 ### Premium Live Orders Data-Table UI
 
-The **Live Orders** view (`#view-orders` in `client/admin.html`) received a scoped CSS + markup overhaul in `client/css/admin.css` and `client/js/admin.js`:
+The **Live Orders** view (`#view-orders` in `client/admin.html`) received a scoped CSS + markup overhaul in `client/css/admin.css` and `client/js/admin.js` — with a **v4.4.1 column redesign** that separates courier booking from row actions and optimizes alignment for long-form address/product cells.
+
+#### Table Column Architecture *(v4.4.1)*
+
+| Column | Alignment | Width / Notes |
+|--------|-----------|---------------|
+| **Order ID** | Center | `max-width: 100px`; compact blue chip |
+| **Date & Time** | Center | `max-width: 120px`; stacked date + clock icon |
+| **Customer** | Center | Stacked name + phone |
+| **Address** | **Left** (`text-left`) | Multi-line delivery text; hover-to-copy |
+| **Products** | **Left** (`text-left`) | Compact `<ul>` item list |
+| **Total** | Center | Bold green accent payable |
+| **Status** | Center | `min-width: 130px` — expanded for full status `<select>` text |
+| **Courier Status** | Center | Dedicated column — 100% full-width send button or sent badge |
+| **Actions** | Center | Edit · View · Delete icon chips only |
 
 #### Sticky Table Header (`<thead>` Lockdown)
 - Table body scrolls inside **`.orders-table-scroll`** (`max-height: ~68vh`) while column headers stay pinned.
 - `<th>` cells use **`position: sticky; top: 0; z-index: 10`** with a `#f8fafc` background, crisp `border-b`, and subtle shadow — headers remain visible during deep scrolling through large order queues.
 
-#### Re-architected Actions Column
-- Wider **`.order-actions-toolbar`** — `display: flex; align-items: center; gap: 8px; justify-content: flex-end`.
-- **Courier booking** — rounded primary pill **`🚚 Send to Courier`**; booked orders show a green **`🚚 Sent · [tracking]`** badge linking to the provider tracking page (live IDs) or a static badge (mock pending IDs).
-- **Invoice** — sleek blue icon button with hover tooltip (`title="View Invoice"`).
-- **Delete** — danger-styled trash icon (`border-red-200`, `text-red-600`, `hover:bg-red-50` treatment).
-- **Approve Return** pill retained for `Return Requested` rows; **status `<select>`** unchanged in the Status column.
+#### Dedicated Courier Status Column *(v4.4.1)*
+- **Courier Status** (`col-courier-head` / `order-courier-cell`) is isolated from the **Actions** column — admins can scan booking state independently of edit/view/delete controls.
+- **Send to Courier** — soft-green pill button (`#d1fae5` background, `#065f46` text, `#6ee7b7` border) with mini truck icon 🚚 (`send-courier-icon`) and crisp label text; fills **100% cell width** (`width: 100%; max-width: 100%`) without horizontal overflow.
+- **Sent badge** — green **`Sent · [tracking]`** pill linking to the provider tracking page (live IDs) or a static badge (mock pending IDs).
+- Blocked statuses (cancelled/returned) show a centered em dash placeholder.
+
+#### Re-architected Actions Column *(v4.4.1)*
+- **Actions** (`col-actions-head` / `order-actions-cell`) holds icon-only controls in **`.order-actions-toolbar`** — `display: flex; align-items: center; justify-content: center; gap: 0.5rem`.
+- **Edit Shipping** — soft gray rounded overlay (`order-action-icon`, `#f1f5f9` background, `rounded-full`) with pen icon.
+- **View Invoice** — same pill chip styling with eye icon (`title="View Invoice"`).
+- **Delete** — danger hover state (`order-action-delete:hover` → `#fee2e2` / `#dc2626`).
+- **Status `<select>`** and **Approve Return** pill remain in the **Status** column — not mixed into Actions.
 
 #### Compact Cell Spacing & Modern Aesthetics
 - Uniform cell padding **`12px 16px`** for optimal density.
 - Tighter **Order ID** (blue chip), **Customer** (stacked name + phone), and **Total** columns — reduced horizontal whitespace.
 - **Total Payable** rendered as bold green accent (`#059669`, tabular nums).
-- Row hover: **`#f8fafc`** background with smooth `0.18s` transition.
-- Address and product columns use line-clamp / compact list styling for readability without bloating row height.
+- Row hover: **`#f8fafc`** background with smooth `0.15s` transition.
+- Address and product columns use **`text-left`** alignment and line-clamp / compact list styling for readability without bloating row height.
 
 ### Courier Booking Workflow
 
@@ -2388,8 +2438,8 @@ MongoDB (Master Settings → Courier Booking)  →  .env fallbacks  →  Mock Mo
 | `controllers/masterSettingsController.js` | Read/save courier credentials alongside SMS & rewards |
 | `routes/adminRoutes.js` | Registers `POST …/send-courier` and `GET /courier/status` |
 | `client/admin.html` | Master Settings → **Courier Booking** card + Live Orders table shell |
-| `client/js/admin.js` | `buildCourierActionHtml()`, `sendOrderToCourier()`, mock-aware confirm/toast, premium row renderer |
-| `client/css/admin.css` | Scoped `#view-orders` sticky header, action toolbar, compact table styles |
+| `client/js/admin.js` | `buildCourierActionHtml()`, `sendOrderToCourier()`, mock-aware confirm/toast, premium row renderer with dedicated courier/actions columns *(v4.4.1)* |
+| `client/css/admin.css` | Scoped `#view-orders` sticky header, courier column full-width controls, action icon pill chips, column alignment & width balance *(v4.4.1)* |
 | `client/js/courierBadge.js` | Shared customer-facing courier provider + tracking ID badge renderer |
 | `client/css/courier-badge.css` | Isolated badge styles for Order Details & Track Your Order |
 | `client/order-details.html` + `client/js/order-details.js` | Customer order detail view — badge below progress timeline |
@@ -2978,7 +3028,7 @@ Admins pick and switch their preferred method from the settings panel; self-serv
 
 #### Product & Order Systems
 - **🛍️ Product Catalog** — Up to 10 images, categories, brand, **simple or matrix variations**, highlights, **flexible stock**, **per-variant selling + buying price**, list-table **minimum sell/buy price** display for matrix products, **persistent pagination across edit/save**, **opaque sticky table headers** (incl. Actions), live profit preview, and detailed descriptions *(v4.2.0)*.
-- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **clickable order rows** (v3.4.0) with inline ID/date meta, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals (actions on detail view only), dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, **1-click PDF invoice download** from Order Details, **automated order confirmation emails** on every successful checkout, **background WhatsApp admin order alerts** (v4.0.0), **staff manual POS / phone order entry** with variant stock validation (v4.0.0), and **admin one-click multi-provider courier dispatch** (Steadfast / Pathao / RedX) with Smart Hybrid Mode and customer tracking badges (v3.7.0).
+- **📦 Order Management & Tracking** — Place orders, responsive mobile card + compact desktop table views, **clickable order rows** (v3.4.0) with inline ID/date meta, **visual step-based order status timeline** on Order Details, customer **Cancel** / **Return Request** workflows with reason modals (actions on detail view only), dedicated cancelled/return status badges, public order tracking, `cancelledBy` audit field, per-item **buying-price snapshots** at checkout, **1-click PDF invoice download** from Order Details, **automated order confirmation emails** on every successful checkout, **background WhatsApp admin order alerts** (v4.0.0), **staff manual POS / phone order entry** with variant stock validation (v4.0.0), and **admin one-click multi-provider courier dispatch** (Steadfast / Pathao / RedX) with Smart Hybrid Mode, dedicated **Courier Status** + **Actions** Live Orders columns, and customer tracking badges (v3.7.0 · refined v4.4.1).
 - **🔄 Admin Return & Refund Pipeline** — Approve returns with automatic wallet **`CREDIT`**, full **`walletApplied + grandTotal`** refund math, transaction history logging, and **Safe Undo Refund** within a configurable hour window (spent-funds safety check).
 - **💳 Checkout Wallet Deduction** — Live wallet balance on checkout/payment, **Apply Wallet Balance** checkbox, dynamic payable recalculation, **Paid via Wallet** auto-selection, and atomic **`DEBIT`** ledger entries on order placement.
 - **💳 Dynamic Payment Methods & Gateway Integration** — Database-backed **Manual** (bKash, Nagad, Rocket, Bank Transfer) and **Automated** (SSLCommerz, Aamarpay) catalog with **AES-256-GCM encrypted credentials**, flat/percentage processing fees, admin logo upload, checkout `sortOrder`, and **IPN callback readiness** — no hardcoded payment cards on `/payment`. *(See [Dynamic Payment Methods & Gateway Integration](#-dynamic-payment-methods--gateway-integration).)*
@@ -3803,6 +3853,25 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 ---
 
 ## 📜 Changelog
+
+### `v4.4.1` — Admin Live Orders Table Redesign & Checkout Polish
+
+**📋 Admin Live Orders Table Redesign**
+- Added dedicated **Courier Status** and **Actions** columns to the Live Orders table — courier booking state separated from edit/view/delete icon controls.
+- Set **`text-left`** alignment on multi-line columns (**Address**, **Products**); all other data columns (**Order ID**, **Date & Time**, **Customer**, **Total**, **Status**, **Courier Status**, **Actions**) remain strictly **center-aligned**.
+- Rebalanced column widths — expanded **Status** (`min-width: 130px`) for complete dropdown visibility; tightened **Order ID** (`max-width: 100px`) and **Date & Time** (`max-width: 120px`); **Courier Status** badges/buttons fill **100% cell width** without horizontal overflow.
+- Redesigned **Send to Courier** button — light soft-green background (`#d1fae5`), crisp emerald text, mini truck icon 🚚.
+- Added soft gray rounded background overlays for **edit**, **view**, and **delete** action icons (`.order-action-icon` pill chips).
+
+**🛒 Checkout & Cart Summary Optimizations**
+- Shortened free-shipping progress message to *"Add ৳{remainingAmount} more for FREE shipping"* with reduced font weight (`font-weight: 400`) for slim styling.
+- Guaranteed **single-line fit** across smartphone breakpoints (**360px, 390px, 460px, 568px, 668px+**) via `white-space: nowrap` and responsive font scaling on `/cart` and `/checkout`.
+
+**✅ Checkout & Profile Form Flexibility**
+- Relaxed validation for **Name** and **Delivery Address** fields — minimum **one word** (non-empty trimmed input).
+- Preserved strict **11-digit Bangladeshi mobile** validation (`/^01[3-9]\d{8}$/`) on checkout proceed and profile saves.
+
+**Key files:** `client/admin.html`, `client/js/admin.js`, `client/css/admin.css`, `client/js/checkout.js`, `client/js/shipping-estimator.js`, `client/js/cart.js`, `client/css/cart.css`, `client/css/checkout.css`, `client/js/profile.js`
 
 ### `v4.4.0` — Dynamic Payment Methods & Gateway Architecture
 

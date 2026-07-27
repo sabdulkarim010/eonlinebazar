@@ -697,6 +697,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast('Full Name is required!', 'warning');
                 return;
             }
+            if (updatedData.name.length < 2) {
+                showToast('Full Name must be at least 2 characters.', 'warning');
+                return;
+            }
 
             try {
                 const submitBtn = profileForm.querySelector('button[type="submit"]');

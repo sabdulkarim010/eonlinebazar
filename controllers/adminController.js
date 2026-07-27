@@ -294,21 +294,70 @@ const getCustomerById = async (req, res) => {
 // ==============================================================
 const updateCustomer = async (req, res) => {
     try {
-        const { name, firstName, lastName, email, mobile, phone, address, isVerified } = req.body;
+        const {
+            name,
+            firstName,
+            lastName,
+            email,
+            mobile,
+            phone,
+            address,
+            district,
+            upazila,
+            thana,
+            fullAddress,
+            isVerified
+        } = req.body;
         const updateFields = {};
 
         if (firstName !== undefined) updateFields.firstName = String(firstName).trim();
         if (lastName !== undefined) updateFields.lastName = String(lastName).trim();
         if (name !== undefined && firstName === undefined && lastName === undefined) {
             const trimmed = String(name).trim();
+            if (!trimmed) {
+                return res.status(400).json({ success: false, message: 'Full name is required.' });
+            }
             const parts = trimmed.split(/\s+/).filter(Boolean);
-            updateFields.firstName = parts[0] || '';
-            updateFields.lastName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || '';
+            updateFields.firstName = parts[0] || trimmed;
+            updateFields.lastName = parts.length > 1 ? parts.slice(1).join(' ') : trimmed;
         }
         if (email !== undefined) updateFields.email = String(email).trim().toLowerCase();
-        if (mobile !== undefined) updateFields.mobile = String(mobile).trim();
+        if (mobile !== undefined) {
+            const normalizedMobile = String(mobile).replace(/\D/g, '');
+            if (normalizedMobile && !/^01[3-9]\d{8}$/.test(normalizedMobile)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Mobile must be a valid 11-digit Bangladeshi number.'
+                });
+            }
+            updateFields.mobile = normalizedMobile || String(mobile).trim();
+        }
         if (phone !== undefined) updateFields.phone = String(phone).trim();
-        if (address !== undefined) updateFields.address = String(address).trim();
+        if (district !== undefined) updateFields.district = String(district).trim();
+        if (upazila !== undefined) updateFields.upazila = String(upazila).trim();
+        if (thana !== undefined) {
+            updateFields.thana = String(thana).trim();
+        } else if (upazila !== undefined) {
+            updateFields.thana = String(upazila).trim();
+        }
+        if (fullAddress !== undefined) updateFields.fullAddress = String(fullAddress).trim();
+
+        const existingUser = await User.findById(req.params.id).select('district upazila thana fullAddress address').lean();
+        if (!existingUser) {
+            return res.status(404).json({ success: false, message: 'Customer not found.' });
+        }
+
+        const resolvedDistrict = updateFields.district ?? existingUser.district;
+        const resolvedUpazila = updateFields.upazila ?? updateFields.thana ?? existingUser.upazila ?? existingUser.thana;
+        const resolvedFullAddress = updateFields.fullAddress ?? existingUser.fullAddress;
+
+        if (district !== undefined || upazila !== undefined || thana !== undefined || fullAddress !== undefined) {
+            const parts = [resolvedFullAddress, resolvedUpazila, resolvedDistrict].filter(Boolean);
+            updateFields.address = parts.join(', ');
+        } else if (address !== undefined) {
+            updateFields.address = String(address).trim();
+        }
+
         if (isVerified !== undefined) updateFields.isVerified = !!isVerified;
 
         const updated = await User.findByIdAndUpdate(

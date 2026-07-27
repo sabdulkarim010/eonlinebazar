@@ -42,10 +42,21 @@ exports.getCart = async (req, res) => {
 };
 
 // ৩. ডাটাবেজ কার্টে নতুন প্রোডাক্ট অ্যাড করা (variant-aware)
+function resolveCartItemImage(body = {}) {
+    return String(
+        body.selectedImage
+        || body.variantImage
+        || body.image
+        || body.products
+        || ''
+    ).trim();
+}
+
 exports.addToCart = async (req, res) => {
     try {
         // ফ্রন্টএন্ড থেকে পাঠানো সম্পূর্ণ ডাটা রিসিভ করা হচ্ছে
-        const { productId, quantity, name, price, image, icon } = req.body;
+        const { productId, quantity, name, price, icon } = req.body;
+        const displayImage = resolveCartItemImage(req.body);
         const userId = req.user.id;
         const variant = normalizeVariant(req.body);
 
@@ -62,13 +73,16 @@ exports.addToCart = async (req, res) => {
 
         if (itemIndex > -1) {
             userCart.items[itemIndex].quantity += quantity || 1;
+            if (displayImage) {
+                userCart.items[itemIndex].image = displayImage;
+            }
         } else {
             // এখন প্রোডাক্টের নাম, দাম, ছবি ও ভ্যারিয়েন্ট সব ডাটাবেজে সেভ হবে
             userCart.items.push({ 
                 productId, 
                 name, 
                 price, 
-                image, 
+                image: displayImage, 
                 icon, 
                 quantity: quantity || 1,
                 selected: true, // ডিফল্টভাবে সিলেক্টেড থাকবে

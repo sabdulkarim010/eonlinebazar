@@ -124,9 +124,11 @@ function buildLockedPricingPayload({
 // ১. নতুন অর্ডার তৈরি করা এবং স্টক কমানো
 const createOrder = async (req, res) => {
     try {
-        const customerName = req.body.customerName || req.body.name;
-        const customerPhone = req.body.customerPhone || req.body.phone;
-        const customerAddress = req.body.customerAddress || req.body.shippingAddress || req.body.address;
+        const customerName = String(req.body.customerName || req.body.name || '').trim();
+        const customerPhone = String(req.body.customerPhone || req.body.phone || '').trim();
+        const customerAddress = String(
+            req.body.customerAddress || req.body.shippingAddress || req.body.address || ''
+        ).trim();
         const items = req.body.items || req.body.orderItems || req.body.cart || [];
         const note = req.body.note || req.body.notes || '';
         const couponCode = String(req.body.couponCode || req.body.coupon || '').trim().toUpperCase();
@@ -962,6 +964,92 @@ const downloadOrderInvoice = async (req, res) => {
     }
 };
 
+/**
+ * Admin: update shipping / customer contact fields on an existing order.
+ * Does not recalculate totals — only corrects delivery identity data.
+ */
+const updateOrderShippingAddress = async (req, res) => {
+    try {
+        const {
+            customerName,
+            customerPhone,
+            customerAddress,
+            shippingDistrict,
+            shippingUpazila,
+            upazila,
+            shippingStreetAddress,
+            streetAddress,
+            note
+        } = req.body;
+
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found.' });
+        }
+
+        const trimmedName = String(customerName || '').trim();
+        const trimmedPhone = String(customerPhone || '').replace(/\D/g, '');
+        const district = resolveDistrictLabel(String(shippingDistrict || '').trim());
+        const resolvedUpazila = String(shippingUpazila || upazila || '').trim();
+        const street = String(shippingStreetAddress || streetAddress || '').trim();
+        const directAddress = String(customerAddress || '').trim();
+        const compositeAddress = directAddress
+            || [street, resolvedUpazila, district].filter(Boolean).join(', ');
+
+        if (!trimmedName) {
+            return res.status(400).json({ success: false, message: 'Customer name is required.' });
+        }
+        if (!/^01[3-9]\d{8}$/.test(trimmedPhone)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Phone must be a valid 11-digit Bangladeshi mobile number.'
+            });
+        }
+        if (!district || !isValidDistrict(district)) {
+            return res.status(400).json({ success: false, message: 'Please select a valid district.' });
+        }
+        if (!resolvedUpazila) {
+            return res.status(400).json({ success: false, message: 'Upazila / thana is required.' });
+        }
+        if (!compositeAddress) {
+            return res.status(400).json({ success: false, message: 'Delivery address is required.' });
+        }
+
+        const deliverySettings = await getDeliverySettings();
+        const deliveryLocationType = resolveDeliveryZone(deliverySettings, district);
+        const shippingLocationType = toShippingLocationLabel(deliveryLocationType);
+
+        order.customerName = trimmedName;
+        order.customerPhone = trimmedPhone;
+        order.customerAddress = compositeAddress;
+        order.shippingDistrict = district;
+        order.shippingLocationType = shippingLocationType;
+        order.deliveryLocationType = deliveryLocationType;
+        if (note !== undefined) {
+            order.note = String(note || '').trim();
+        }
+
+        await order.save();
+
+        await logSecurityEvent({
+            action: 'Order Shipping Updated',
+            actor: req.admin?.username || 'admin',
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `${order.orderId || order._id} shipping details edited by admin`
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Shipping details updated successfully.',
+            data: order
+        });
+    } catch (error) {
+        console.error('Update Order Shipping Error:', error);
+        return res.status(500).json({ success: false, message: 'Failed to update shipping details.' });
+    }
+};
+
 // ৫. অর্ডারের স্ট্যাটাস পরিবর্তন করা (অ্যাডমিন প্যানেল থেকে - Pending/Delivered)
 const updateOrderStatus = async (req, res) => {
     try {
@@ -1451,7 +1539,8 @@ module.exports = {
     getMyOrders, 
     getOrderById, 
     downloadOrderInvoice,
-    updateOrderStatus, 
+    updateOrderStatus,
+    updateOrderShippingAddress,
     deleteOrder, 
     trackOrder,
     getDashboardStats,

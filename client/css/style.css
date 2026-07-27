@@ -488,6 +488,45 @@ a.logo-area {
     font-weight: bold;
 }
 
+/* Signed-in navbar name: full name on desktop, first name on mobile */
+.nav-user-account.is-authed .nav-line-1 {
+    display: none !important;
+}
+
+.nav-user-account.is-authed .nav-user-text-wrapper {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+}
+
+.nav-user-account.is-authed .nav-user-display-name {
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+}
+
+@media screen and (min-width: 768px) {
+    .nav-user-account.is-authed .nav-user-display-name {
+        max-width: 160px;
+    }
+}
+
+@media screen and (max-width: 767px) {
+    .nav-user-account.is-authed .nav-user-display-name {
+        font-size: 0;
+    }
+
+    .nav-user-account.is-authed .nav-user-display-name::after {
+        content: attr(data-first-name);
+        font-size: 13px;
+        font-weight: bold;
+        color: var(--white, #fff);
+    }
+}
+
 /* কার্ট বক্স ডিজাইন */
 .nav-cart-box {
     display: flex;

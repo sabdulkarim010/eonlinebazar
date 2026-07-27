@@ -563,9 +563,15 @@ exports.updateUserProfile = async (req, res) => {
         if (lastName !== undefined) updateFields.lastName = String(lastName).trim();
         if (name !== undefined && firstName === undefined && lastName === undefined) {
             const trimmed = String(name).trim();
+            if (!trimmed) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Full name is required.'
+                });
+            }
             const parts = trimmed.split(/\s+/).filter(Boolean);
-            updateFields.firstName = parts[0] || '';
-            updateFields.lastName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || '';
+            updateFields.firstName = parts[0] || trimmed;
+            updateFields.lastName = parts.length > 1 ? parts.slice(1).join(' ') : trimmed;
         }
         if (district !== undefined) updateFields.district = String(district).trim();
         if (upazila !== undefined) updateFields.upazila = String(upazila).trim();

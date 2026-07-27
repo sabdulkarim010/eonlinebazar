@@ -377,6 +377,7 @@ window.handleFinalOrderSubmission = async function handleFinalOrderSubmission() 
             orderId: sessionData.orderId || `EOB${Math.floor(100000 + Math.random() * 900000)}`,
             customerName: sessionData.customerName,
             customerPhone: sessionData.customerPhone,
+            customerEmail: sessionData.customerEmail || '',
             customerAddress: sessionData.customerAddress,
             shippingDistrict: sessionData.shippingDistrict || '',
             shippingUpazila: sessionData.shippingUpazila || '',
@@ -405,13 +406,12 @@ window.handleFinalOrderSubmission = async function handleFinalOrderSubmission() 
         };
 
         const authToken = localStorage.getItem('token') || localStorage.getItem('customerToken');
+        const orderHeaders = { 'Content-Type': 'application/json' };
+        if (authToken) orderHeaders.Authorization = `Bearer ${authToken}`;
 
         const response = await fetch('/api/orders', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${authToken}`
-            },
+            headers: orderHeaders,
             body: JSON.stringify(orderData)
         });
 
@@ -463,12 +463,12 @@ window.handleFinalOrderSubmission = async function handleFinalOrderSubmission() 
         // Automated gateways: attempt hosted redirect when the adapter is live.
         if (!isWallet && method?.type === 'automated') {
             try {
+                const initHeaders = { 'Content-Type': 'application/json' };
+                if (authToken) initHeaders.Authorization = `Bearer ${authToken}`;
+
                 const initRes = await fetch('/api/payments/initiate', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${authToken}`
-                    },
+                    headers: initHeaders,
                     body: JSON.stringify({
                         orderId: verifiedOrderId,
                         paymentMethodId: method.id

@@ -12,13 +12,22 @@
     }
 
     function mapServerCartItem(item = {}) {
+        const displayImage = String(
+            item.selectedImage
+            || item.variantImage
+            || item.image
+            || item.products
+            || ''
+        ).trim();
         return {
             id: item.productId || item.id,
             productId: item.productId || item.id,
             name: item.name,
             price: Number(item.price) || 0,
-            products: item.image || item.products || '',
-            image: item.image || item.products || '',
+            products: displayImage,
+            image: displayImage,
+            selectedImage: displayImage,
+            variantImage: displayImage,
             icon: item.icon || '',
             quantity: item.quantity || 1,
             selected: item.selected !== false,
@@ -26,7 +35,10 @@
             variantLabel: item.variantLabel || '',
             variantAttribute: item.variantAttribute || '',
             variantValue: item.variantValue || '',
-            variantSku: item.variantSku || ''
+            variantSku: item.variantSku || '',
+            selectedColor: item.selectedColor || '',
+            selectedSize: item.selectedSize || '',
+            selectedVariant: item.selectedVariant || null
         };
     }
 
