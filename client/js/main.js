@@ -323,16 +323,23 @@ document.addEventListener('DOMContentLoaded', () => {
    SECTION 6: DYNAMIC FOOTER LOADER (ফুটার স্ক্রিপ্ট লোড করা)
    ========================================================================== */
 document.addEventListener("DOMContentLoaded", () => {
-    const script = document.createElement('script');
-    script.src = 'js/footer.js'; 
-    
-    script.onload = () => {
-        if (typeof window.initGlobalFooterEngine === "function") {
-            window.initGlobalFooterEngine();
-        }
+    const rendererScript = document.createElement('script');
+    rendererScript.src = 'js/footerRenderer.js';
+
+    rendererScript.onload = () => {
+        const script = document.createElement('script');
+        script.src = 'js/footer.js';
+
+        script.onload = () => {
+            if (typeof window.initGlobalFooterEngine === 'function') {
+                window.initGlobalFooterEngine();
+            }
+        };
+
+        document.body.appendChild(script);
     };
 
-    document.body.appendChild(script);
+    document.body.appendChild(rendererScript);
 });
 
 /* ==========================================================================

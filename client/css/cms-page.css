@@ -1,0 +1,67 @@
+/* CMS dynamic pages — Privacy Policy, Terms, etc. */
+
+.cms-page-main {
+    padding: 40px 0 60px;
+    min-height: 50vh;
+}
+
+.cms-page-card {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 35px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.cms-page-loading {
+    text-align: center;
+    color: #64748b;
+    padding: 40px 0;
+}
+
+.cms-page-subtitle {
+    color: #64748b;
+    font-size: 15px;
+    margin: -8px 0 20px;
+    line-height: 1.5;
+}
+
+.cms-page-body h1,
+.cms-page-body h2,
+.cms-page-body h3 {
+    color: #111;
+    margin: 1.2em 0 0.6em;
+    font-weight: 600;
+}
+
+.cms-page-body h1 { font-size: 26px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+.cms-page-body h2 { font-size: 20px; }
+.cms-page-body h3 { font-size: 17px; }
+
+.cms-page-body p,
+.cms-page-body li {
+    color: #333;
+    font-size: 15px;
+    line-height: 1.65;
+}
+
+.cms-page-body ul {
+    padding-left: 1.25rem;
+    margin: 0.75rem 0 1rem;
+}
+
+.cms-page-body a {
+    color: #2563eb;
+    text-decoration: underline;
+}
+
+.cms-page-body code {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+@media (max-width: 768px) {
+    .cms-page-card { padding: 24px 18px; }
+}

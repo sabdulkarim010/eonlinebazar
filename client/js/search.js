@@ -328,14 +328,19 @@ document.addEventListener('DOMContentLoaded', () => {
    SECTION 8: SHARED UI (ফুটার + নেভবার ইউজার সিঙ্ক — হোমপেজের সাথে সামঞ্জস্যপূর্ণ)
    ========================================================================== */
 function loadFooter() {
-    const script = document.createElement('script');
-    script.src = 'js/footer.js';
-    script.onload = () => {
-        if (typeof window.initGlobalFooterEngine === 'function') {
-            window.initGlobalFooterEngine();
-        }
+    const rendererScript = document.createElement('script');
+    rendererScript.src = 'js/footerRenderer.js';
+    rendererScript.onload = () => {
+        const script = document.createElement('script');
+        script.src = 'js/footer.js';
+        script.onload = () => {
+            if (typeof window.initGlobalFooterEngine === 'function') {
+                window.initGlobalFooterEngine();
+            }
+        };
+        document.body.appendChild(script);
     };
-    document.body.appendChild(script);
+    document.body.appendChild(rendererScript);
 }
 
 function syncNavbarUser() {

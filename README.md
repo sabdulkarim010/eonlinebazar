@@ -15,7 +15,7 @@
 ![SweetAlert2](https://img.shields.io/badge/UX-SweetAlert2-7952B3?logo=sweetalert&logoColor=white)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-![Version](https://img.shields.io/badge/Version-4.4.1-success)
+![Version](https://img.shields.io/badge/Version-4.5.0-success)
 ![RBAC](https://img.shields.io/badge/RBAC-Staff%20Management-6f42c1)
 ![Security Suite](https://img.shields.io/badge/Admin%20Security-Fortified-critical)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
@@ -28,6 +28,7 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [What's New — v4.5.0](#-whats-new--v450-information-pages-footer--customer-inquiries)
 - [What's New — v4.4.1](#-whats-new--v441-admin-live-orders-table--checkout-polish)
 - [What's New — v4.4.0](#-whats-new--v440-dynamic-payment-methods--gateway-architecture)
 - [What's New — v4.3.3](#-whats-new--v433-coupon-management--marketing-controls)
@@ -62,6 +63,7 @@
 - [Admin Panel — Order Security & Refund Controls](#-admin-panel--order-security--refund-controls)
 - [Store Wallet, Dynamic Checkout Deduction & Refund Engine](#-store-wallet-dynamic-checkout-deduction--refund-engine)
 - [Dynamic Payment Methods & Gateway Integration](#-dynamic-payment-methods--gateway-integration)
+- [Dynamic Footer, CMS Pages & Customer Inquiries](#-dynamic-footer-cms-pages--customer-inquiries)
 - [VIP Customer Segmentation & Retention Logic](#-vip-customer-segmentation--retention-logic)
 - [Flash Sale & Bulk Coupon Engine](#-flash-sale--bulk-coupon-engine)
 - [Catalog & Marketing Features](#-catalog--marketing-features)
@@ -107,6 +109,22 @@ Eight things set it apart:
 10. **Staff Manual Order Creation (POS Engine)** — admin modal for phone/chat orders with searchable product picker, **multi-variant stock validation**, automated inventory deduction, and instant **Finance & Analytics** ledger integration.
 11. **Customer Retention & Promotions Layer** — **store wallet checkout deduction**, automated refund credits, **VIP / Frequent Buyer segmentation** with admin filter tabs, and a **Flash Sale engine** with homepage countdown and dynamic discounted pricing.
 12. **Enterprise Dynamic Payment Methods Architecture** — database-driven **Manual** (bKash, Nagad, Rocket, Bank Transfer) and **Automated** (SSLCommerz, Aamarpay) gateway catalog with **AES-256-GCM encrypted credentials**, configurable **flat/percentage processing fees**, admin logo upload, checkout display ordering, and **IPN callback readiness** for aggregator webhooks.
+
+---
+
+## 🆕 What's New — v4.5.0 (Information Pages, Footer & Customer Inquiries)
+
+This release delivers a **premium information-page experience**, a **database-backed contact inbox** for the admin panel, and a **compact, admin-managed footer** with CMS-driven legal/company pages — all configurable from **System Settings** without code changes.
+
+| Feature | Description |
+|---------|-------------|
+| **📄 Information Pages Redesign** | Re-architected **`/contact`** into a high-converting **2-column grid** (`max-w-6xl`) — floating-label form (Name, Email, Phone, Subject, Message), glowing **Send Message** CTA, store info cards, and embedded **Google Maps** iframe. Applied consistent **hero headers**, premium typography, and **`max-w-5xl`** card constraints across **About Us**, **Privacy Policy**, **Terms**, and **Careers**. |
+| **✉️ Admin Customer Messages Inbox** | New **`ContactMessage`** MongoDB schema persists every storefront submission; **`POST /api/contact`** (rate-limited) saves inquiries server-side. Admin **Messages / Inquiries** dashboard at **`/admin/messages`** lists Name, Email, Subject, Message preview, Date, Read/Unread status — with **Mark as Read** and **Delete** actions. |
+| **🦶 Dynamic Footer & Page Manager** | Singleton **`FooterSettings`** model powers columns, social links, copyright text, and payment badges via **`client/js/footerRenderer.js`** (shared storefront + admin live preview). **Page Content Manager** edits Markdown CMS pages; **publish toggle OFF** (`isActive: false`) hides footer links and blocks public page access (404 unavailable). **Desktop:** app-style **`bg-slate-900`** theme with **`border-t border-slate-800`** micro-border; uniform **4-column grid** (`md:grid-cols-4`) for **Company**, **Support**, **Quick Links**, and **Follow Us**; payment gateway badges (bKash, Nagad, Visa, Mastercard, COD) relocated to the **bottom copyright bar** (left copyright · right badges). **Mobile:** ultra-compact **≤ 3-line** strip (see below). |
+| **📱 Ultra-Compact Mobile Footer** | On viewports **&lt; 768px**, bulky vertical columns and accordions are **eliminated** — replaced by a **≤ 3-line** zero-margin strip strictly under 3 compact lines: **Line 1** bulletless inline quick links (`About Us`, `Contact Us`, `Track Order`, `Privacy Policy`) with **`flex-wrap justify-center gap-x-2.5`** to eliminate text clipping; **Line 2** centered active social icons with smooth tap/hover states; **Line 3** minimalist **10px** copyright with **zero trailing bottom padding/margin** (`mb-0`, `pb-1` cleanup) plus **right-side safe-area buffer** for the fixed WhatsApp icon. **Payment badges hidden on mobile** (`hidden md:flex` / `.footer-copyright-payments { display: none }`). Full **4-column dynamic footer** preserved on desktop via responsive CSS isolation (`footer-mobile-compact` / `footer-desktop`). |
+| **🧹 Page Manager Polish** | Removed redundant **Live Preview** from Page Content Manager to reclaim vertical space; clarified publish toggle copy — unpublished pages are excluded from **`GET /api/store/footer-settings`** link filtering via **`utils/pagePublishService.js`**. |
+
+> 📌 See [Dynamic Footer, CMS Pages & Customer Inquiries](#-dynamic-footer-cms-pages--customer-inquiries) for schemas, admin workflows, API tables, and key files.
 
 ---
 
@@ -1622,6 +1640,161 @@ flowchart TD
 | `client/js/payment.js` | Method fetch, fee recalculation, order submission |
 | `client/js/paymentBrandLogos.js` | Default brand logo fallbacks for known providers |
 | `client/css/payment.css` | Checkout payment step styling |
+
+---
+
+## 🦶 Dynamic Footer, CMS Pages & Customer Inquiries
+
+A **storefront content layer** that combines an admin-managed global footer, a Markdown **Page Content Manager**, premium information pages, and a **Customer Messages Inbox** — all backed by MongoDB singletons and served through clean Express routes.
+
+### Information Pages Redesign & Branding
+
+| Page | Route | Layout |
+|------|-------|--------|
+| **Contact Us** | `/contact` | **2-column premium grid** — left: floating-label contact form with **`POST /api/contact`** submission; right: dynamic store info cards (address, phone, email, hours) + Google Maps embed from `contactMeta` |
+| **About Us** | `/about` | Hero banner + card body loaded from CMS (`PageContent` slug `about`) |
+| **Privacy Policy** | `/privacy-policy` | Shared `cms-page.html` + `info-page.css` hero/card template |
+| **Terms & Conditions** | `/terms` | Shared `cms-page.html` + `info-page.css` hero/card template |
+| **Careers** | `/careers` | Shared `cms-page.html` + `info-page.css` hero/card template |
+
+**Design system:** `client/css/info-page.css` — gradient hero headers, `max-width: 64rem` containers, elevated white cards, improved line-height (`1.75`), and responsive typography. Contact page uses dedicated `client/css/contact.css` with glass-style form panel and info-card icons.
+
+**Unpublished pages:** When **Published on storefront** is **OFF** in Page Content Manager (`isPublished: false` / `isActive: false`):
+- Internal footer links to that slug are **filtered out** of the public footer payload.
+- Direct visits to `/about`, `/contact`, `/privacy-policy`, `/terms`, or `/careers` receive **404 / Page Unavailable** from **`GET /api/store/pages/:slug`**.
+
+### Dynamic Footer Engine
+
+| Component | Purpose |
+|-----------|---------|
+| **`models/FooterSettings.js`** | Singleton document — `columns[]`, `socialLinks[]`, `copyrightText`, `paymentGateways[]` |
+| **`client/js/footerRenderer.js`** | Shared HTML builder — used by storefront `footer.js` and admin **Footer Settings** live preview |
+| **`controllers/footerSettingsController.js`** | Admin CRUD + icon upload (`POST /api/admin/footer-settings/upload-icon`) |
+| **`utils/pagePublishService.js`** | Maps footer link URLs → page slugs; filters columns against published CMS pages |
+
+### Desktop Footer Architecture (v4.5.0)
+
+Complete storefront footer redesign for an enterprise e-commerce layout — dual markup from `footerRenderer.js` with desktop-specific structure in `.footer-desktop`.
+
+| Area | Implementation |
+|------|----------------|
+| **Modernized theme** | App-style deep slate-grey background (`bg-slate-900` / `#0f172a`) with subtle micro-border separator from main content (`border-t border-slate-800` / `rgba(30, 41, 59, 0.8)`) |
+| **Balanced 4-column grid** | Uniform desktop layout — **`grid grid-cols-1 md:grid-cols-4 gap-8 items-start max-w-7xl mx-auto px-4`** — aligns **Company**, **Support**, **Quick Links**, and **Follow Us** across four equal columns (`.footer-main` + `display: contents` column wrap) |
+| **Column headings** | Unified `<h4>` typography across all four columns — `text-sm font-bold tracking-wider text-white uppercase mb-4` (`14px`, weight 700, letter-spacing 0.05em) |
+| **Column 4 — Follow Us** | **Social media only** — left-aligned **Follow Us** heading + active social icons (Facebook, Instagram, TikTok, …) in `.footer-col--social`; matching column height and whitespace with columns 1–3 (no payment section in upper grid) |
+| **Bottom copyright bar** | Restructured **`.footer-copyright-bar`** — darker inset strip (`#0c1222`), `border-t border-slate-800/80`, `mt-8`, `pt-4`; inner row **`flex flex-col md:flex-row items-center justify-between gap-4`** |
+| **Copyright (bottom-left)** | Full admin `copyrightText` on desktop — e.g. `© 2026 EonlineBazar. All rights reserved. Designed by Abdul Karim Sheikh` (`.footer-copyright-text`) |
+| **Payment badges (bottom-right)** | Relocated gateway logos (bKash, Nagad, Visa, Mastercard, COD) to **`.footer-copyright-payments`** — ultra-sleek **`flex items-center gap-2`** badge row; no visible "Accepted Payment Methods" heading (uses `aria-label` for accessibility); **`hidden md:flex`** on mobile |
+
+**Admin UI:** **System Settings → Footer Settings** — column/link manager, social preset picker + custom icon upload, payment badge manager, copyright field, interactive toggle switches (no visible native checkboxes).
+
+### Ultra-Compact 3-Line Mobile Footer Architecture
+
+On mobile viewports (**&lt; 768px**, Tailwind **`md:`** breakpoint equivalent), the storefront footer abandons bulky vertical column blocks and accordions to **eliminate scroll fatigue**. `footerRenderer.js` emits **dual markup** — a mobile-only strip (`.footer-mobile-compact`) and a desktop-only grid (`.footer-desktop`) — toggled purely via CSS media queries in `client/css/footer.css` (no layout shift on admin-managed content).
+
+```
+Mobile (< 768px)                         Desktop (≥ 768px)
+────────────────                         ─────────────────
+Line 1: About  Contact  Track  Privacy    ┌────────┬────────┬────────┬──────────┐
+Line 2: [Social icons — tap states]         │Company │Support │ Quick  │ Follow Us│
+Line 3: © 2026 EonlineBazar. Designed…      │        │        │ Links  │ + Social │
+  (mb-0 · pb-1 · no payment badges)         └────────┴────────┴────────┴──────────┘
+                                           ┌──────────────────────────────────────┐
+                                           │ © Copyright …     [bKash][Visa][…]  │
+                                           └──────────────────────────────────────┘
+                                             .footer-copyright-bar (justify-between)
+```
+
+| Line | Mobile element | CSS class / behavior |
+|------|----------------|---------------------|
+| **Line 1** | Essential quick links as a **bulletless flex-wrap centered row** — `About Us`, `Contact Us`, `Track Order`, `Privacy Policy` (`10.5px`, slate-300). Uses **`flex-wrap justify-center gap-x-2.5`** (`column-gap: 10px`) to eliminate text clipping and overflow across all mobile viewport widths. Links resolved from active footer column data with URL fallbacks via `resolveMobileEssentialLinks()`. | `.footer-mobile-quicklinks` |
+| **Line 2** | **Centered social media icons only** — active handles (Facebook, Instagram, TikTok, …) in a flex row with smooth **tap/hover states** (`scale(0.9)` → `scale(0.95)`, emerald highlight on active). **Payment gateway badges hidden on mobile** (`hidden md:flex` — `.footer-copyright-payments` and mobile-strip payment classes use `display: none !important`). | `.footer-mobile-social-row` / `.footer-mobile-social-icons` |
+| **Line 3** | **Minimalist copyright** — super-compact **`10px`** attribution (`© 2026 EonlineBazar. Designed by Abdul Karim Sheikh`); admin `copyrightText` auto-shortened by stripping *"All rights reserved"* on mobile. **Zero trailing whitespace:** `mb-0`, `pb-1` cleanup on copyright line, footer container, and `#global-site-footer`. **Floating action safety:** right-side buffer padding on `.footer-mobile-compact` (`max(54px, calc(8px + env(safe-area-inset-right)))`) so the fixed WhatsApp action icon never obscures link text. | `.footer-mobile-copyright` |
+
+**Responsive isolation:** Mobile strip uses **`display: flex`** below **`768px`** and **`display: none`** at **`md+`**. Desktop grid uses **`display: none`** below **`768px`** and **`display: block`** at **`md+`** with **`grid-template-columns: repeat(4, minmax(0, 1fr))`** — upper grid holds link columns + **Follow Us** only; payment badges render **desktop-only** in **`.footer-copyright-payments`** via `@media (min-width: 768px) { display: flex }`.
+
+**Key implementation files:** `client/js/footerRenderer.js` (`buildMobileCompactFooterHtml`, `buildDesktopFooterHtml`, `resolveMobileEssentialLinks`), `client/css/footer.css`, `client/js/footer.js`.
+
+### Page Content Manager (CMS)
+
+| Field | Description |
+|-------|-------------|
+| `slug` | `about` · `contact` · `privacy-policy` · `terms` · `careers` |
+| `title` / `subtitle` | Hero banner copy on information pages |
+| `bodyMarkdown` | Markdown source — rendered to `bodyHtml` on save via `utils/markdownToHtml.js` |
+| `isPublished` | Controls footer visibility **and** public page access |
+| `contactMeta` | *(contact slug only)* — `address`, `phone`, `email`, `hours`, `mapEmbedUrl` |
+
+**Admin UI:** **System Settings → Page Content Manager** — tabbed page selector, Markdown textarea, publish toggle with explicit OFF behavior documentation, contact-specific store-detail fields. Live preview removed in v4.5.0 for a cleaner editing surface.
+
+### Admin Customer Messages Inbox
+
+```
+Storefront                    Backend                         Admin Panel
+──────────                    ───────                         ───────────
+/contact form  ──POST──►  ContactMessage (MongoDB)  ◄──GET──  /admin/messages
+                          rate-limited /api/contact          Messages / Inquiries table
+```
+
+| Capability | Details |
+|------------|---------|
+| **Persistence** | `models/ContactMessage.js` — `name`, `email`, `phone`, `subject`, `message`, `isRead`, timestamps |
+| **Public submit** | `POST /api/contact` — validated payload, 10 requests / 15 min IP rate limit |
+| **Admin inbox** | Sidebar **Messages / Inquiries** or navigate to **`/admin/messages`** |
+| **Actions** | **Mark as Read** (`PATCH /api/admin/messages/:id/read`) · **Delete** (`DELETE /api/admin/messages/:id`) |
+| **RBAC** | Routes gated by `manage_settings` |
+
+### API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| **`POST`** | **`/api/contact`** | **Submit contact form → `ContactMessage` collection** | **Public** (rate-limited) |
+| **`GET`** | **`/api/store/footer-settings`** | **Public footer payload (active columns, social, payment badges — unpublished page links filtered)** | **Public** |
+| **`GET`** | **`/api/store/pages/:slug`** | **Published CMS page content (+ `contactMeta` for contact slug)** | **Public** |
+| **`GET`** | **`/api/admin/footer-settings`** | **Full footer config for admin editor** | **Admin + `manage_settings`** |
+| **`PUT` / `POST`** | **`/api/admin/footer-settings`** | **Save footer columns, social links, copyright, payment badges** | **Admin + `manage_settings`** |
+| **`POST`** | **`/api/admin/footer-settings/upload-icon`** | **Upload social/payment icon (multipart `icon`)** | **Admin + `manage_settings`** |
+| **`GET`** | **`/api/admin/pages`** | **List all CMS pages (admin)** | **Admin + `manage_settings`** |
+| **`PUT` / `POST`** | **`/api/admin/pages/:slug`** | **Save page Markdown, publish state, contact meta** | **Admin + `manage_settings`** |
+| **`GET`** | **`/api/admin/messages`** | **List customer inquiries + unread count** | **Admin + `manage_settings`** |
+| **`PATCH`** | **`/api/admin/messages/:id/read`** | **Mark inquiry as read** | **Admin + `manage_settings`** |
+| **`DELETE`** | **`/api/admin/messages/:id`** | **Delete inquiry** | **Admin + `manage_settings`** |
+
+### Clean URL Routes
+
+| URL | Serves |
+|-----|--------|
+| `/about` | `about.html` |
+| `/contact` | `contact.html` |
+| `/privacy-policy` | `cms-page.html` |
+| `/terms` | `cms-page.html` |
+| `/careers` | `cms-page.html` |
+| `/admin/messages` | `admin.html` (auto-opens Messages / Inquiries section) |
+| `/footer` | Legacy `footer.html` fragment (storefront uses API-driven `footer.js`) |
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `models/FooterSettings.js` | Footer singleton schema + defaults |
+| `models/PageContent.js` | CMS page schema + careers/contact meta seeds |
+| `models/ContactMessage.js` | Contact form submission persistence |
+| `controllers/footerSettingsController.js` | Footer admin/public handlers |
+| `controllers/pageContentController.js` | CMS CRUD |
+| `controllers/contactController.js` | Public submit + admin inbox |
+| `routes/contactRoutes.js` | `POST /api/contact` with rate limiter |
+| `utils/pagePublishService.js` | Footer link ↔ published page slug filtering |
+| `utils/markdownToHtml.js` | Server-side Markdown rendering |
+| `utils/footerIconPaths.js` | Uploaded footer icon storage paths |
+| `client/js/footerRenderer.js` | Shared footer HTML builder |
+| `client/js/footer.js` | Storefront footer fetch + inject |
+| `client/js/page-content-loader.js` | CMS page hero/card renderer |
+| `client/js/contact.js` | Contact form API submit + store info panel |
+| `client/css/info-page.css` | Premium information page design system |
+| `client/css/contact.css` | Contact page 2-column layout |
+| `client/css/footer.css` | **`bg-slate-900`** desktop 4-column grid (`max-w-7xl`) + **Follow Us-only column 4** + **copyright bar payment badges** (desktop-only, `justify-between`) + **ultra-compact 3-line zero-margin mobile footer** with flex-wrap quick links, hidden mobile payments, tap-state social icons, and WhatsApp float clearance |
+| `client/admin.html` | Footer Settings, Page Content Manager, Messages Inbox sections |
+| `client/js/admin.js` | Footer manager, page CMS, messages inbox wiring |
 
 ---
 
@@ -3201,7 +3374,8 @@ The admin SPA (`client/admin.html` + `client/js/admin.js`) uses **in-panel sideb
 - **📊 Dashboard Overview** — **Sales & Business Analytics** (revenue daily/monthly/all-time, order counters, Chart.js sales trend + top-5 product charts) plus **Inventory Alerts** widget with inline stock updates; **Customer Insights** metrics (total/verified/pending/blocked users) and a **6-month registration growth chart** (Chart.js). *(Requires `view_analytics` for staff.)*
 - **👥 Customer Management** — View, edit, block, suspend, reactivate; order-count badges; per-customer order history modal. *(Requires `manage_customers`.)*
 - **🗂️ Admin Settings** — responsive **tabbed SaaS shell** (Profile & Security · Store & Shipping Preferences · Store Branding) with uniform card padding, isolated per-section saves, and compact horizontal **2FA status badges** *(v4.3.0)*.
-- **⚙️ System Settings** — modular configuration hub for shipping, notifications, loyalty economics, courier/WhatsApp integrations, flash sales, and VIP thresholds; independent card saves with toast feedback *(v4.3.0)*.
+- **⚙️ System Settings** — modular configuration hub for shipping, notifications, loyalty economics, courier/WhatsApp integrations, flash sales, VIP thresholds, **Footer Settings**, and **Page Content Manager**; independent card saves with toast feedback *(v4.3.0 · footer/CMS v4.5.0)*.
+- **✉️ Messages / Inquiries** — Admin inbox at **`/admin/messages`** for contact form submissions — filter by read/unread, mark as read, delete *(v4.5.0 · requires `manage_settings`)*.
 - **📦 Live Orders** — Premium sticky-header table with compact spacing, horizontal action toolbar (**Send to Courier**, Invoice, Delete), **Create Manual Order** POS modal (v4.0.0), distinct customer/admin cancellation badges, return approval, safe refund undo, reason visibility, invoice view/print, search, filter, and pagination. *(Requires `manage_orders`.)*
 - **📱 WhatsApp Alert Badge** — Header badge surfaces pending wa.me fallback alerts when the background gateway cannot auto-deliver (v4.0.0).
 - **🛍️ Product CRUD & Variant Matrix** — Add/edit with images, per-variant buying/selling price, live profit preview, **Simple Product / Variant Matrix** modes with **Attribute Library auto-fill**, dynamic SKU generation, bordered matrix grid with sticky modal headers, **session-based pagination retention** across edit/save workflows *(v4.3.1)*, **fully opaque sticky table headers** (`sticky top-0 z-20`), bulk delete, CSV export, and print-ready tables. *(Requires `manage_inventory`.)*
@@ -3216,7 +3390,10 @@ The admin SPA (`client/admin.html` + `client/js/admin.js`) uses **in-panel sideb
 - Persistent **`🌙 Dark / ☀️ Light`** theme toggle with `localStorage` preference and flash-free first paint.
 
 ### 🌐 Platform
-- **Clean URLs** — Automatic `.html` stripping and 301 redirects for SEO-friendly routes.
+- **Clean URLs** — Automatic `.html` stripping and 301 redirects for SEO-friendly routes (`/about`, `/contact`, `/privacy-policy`, `/terms`, `/careers`, `/admin/messages`).
+- **📄 Information Pages & CMS** — Premium Contact, About, Privacy, Terms, and Careers pages with Markdown **Page Content Manager**, publish toggles, and dynamic footer link filtering *(v4.5.0)*.
+- **🦶 Dynamic Footer Engine** — Admin-managed columns, social links, copyright, and payment badges via **`FooterSettings`** + shared **`footerRenderer.js`**; **desktop** uniform **`md:grid-cols-4`** grid (**Company · Support · Quick Links · Follow Us**) on **`bg-slate-900`** with payment badges in **bottom copyright bar** (`flex-row justify-between`); **mobile** ultra-compact ≤ 3-line zero-margin strip (flex-wrap quick links · social tap states · 10px copyright, **`hidden md:flex`** payments) with WhatsApp float clearance at **`md+` (768px)** *(v4.5.0)*.
+- **✉️ Contact Inbox** — Storefront form submissions persisted to **`ContactMessage`**; admin **Messages / Inquiries** dashboard at `/admin/messages` *(v4.5.0)*.
 - **Server-side page guards** for the finance dashboard and 2FA handoff page.
 - **Global Toast Notifications** — Lightweight, non-blocking `#global-toast-stack` popups for cart, wishlist, and stock feedback across the customer storefront (auto-dismiss, mobile-responsive, max 4 visible).
 
@@ -3264,6 +3441,9 @@ eonlinebazar-fullstack/
 │   ├── admin.js                       # Admin account — RBAC fields, 2FA, bcrypt hashing & platform settings
 │   ├── Settings.js                    # Singleton delivery + SMS + courier settings (key: global)
 │   ├── Setting.js                     # Singleton master store settings (key: master — rewards, threshold, announcement)
+│   ├── FooterSettings.js              # Singleton footer columns, social links, payment badges, copyright
+│   ├── PageContent.js                 # CMS pages (about, contact, privacy-policy, terms, careers)
+│   ├── ContactMessage.js              # Contact form submissions (admin inbox)
 │   ├── adminSession.js                # Active admin device / login sessions
 │   ├── loginAttempt.js                # Login history & failed/blocked attempt audit
 │   ├── blacklistedIp.js               # Auto + manual IP bans (TTL-expiring)
@@ -3287,7 +3467,10 @@ eonlinebazar-fullstack/
 │   ├── settingsController.js          # Delivery charge & free-shipping settings (admin API)
 │   ├── masterSettingsController.js    # Unified master settings — announcement, threshold, rewards, SMS & courier credentials
 │   ├── courierController.js           # Admin courier booking API — Steadfast dispatch, atomic lock, status update
-│   ├── storeController.js             # Public storefront branding, delivery settings, shipping quotes & announcements
+│   ├── storeController.js             # Public storefront branding, delivery settings, shipping quotes, footer & CMS pages
+│   ├── footerSettingsController.js    # Footer admin CRUD + social/payment icon upload
+│   ├── pageContentController.js       # CMS page admin + public read (Markdown → HTML)
+│   ├── contactController.js           # Contact form submit + admin messages inbox
 │   ├── adminSecurityController.js     # 2-step login, admin sessions, IP blacklist, login history
 │   ├── twoFactorController.js         # Self-service 2FA manager (Email / TOTP / SMS)
 │   ├── productController.js           # Product CRUD + reviews
@@ -3305,9 +3488,9 @@ eonlinebazar-fullstack/
 │   ├── authRoutes.js                  # /api/auth
 │   ├── userRoutes.js                  # /api/customer (+ wishlist GET/POST/DELETE)
 │   ├── wishlistRoutes.js              # /api/wishlist (toggle endpoint)
-│   ├── adminRoutes.js                 # /api/admin (+ 2FA, sessions, blacklist, RBAC staff routes)
+│   ├── adminRoutes.js                 # /api/admin (+ 2FA, sessions, blacklist, RBAC staff, footer, pages, messages)
 │   ├── staffRoutes.js                 # /api/admin/staff (Super Admin staff management)
-│   ├── storeRoutes.js                 # /api/store (public branding, delivery settings, districts)
+│   ├── storeRoutes.js                 # /api/store (public branding, delivery settings, footer, CMS pages, districts)
 │   ├── productRoutes.js               # /api/products
 │   ├── categoryRoutes.js              # /api/categories (handler logic inline)
 │   ├── brandRoutes.js                 # /api/brands
@@ -3315,6 +3498,7 @@ eonlinebazar-fullstack/
 │   ├── couponRoutes.js                # /api/coupons
 │   ├── orderRoutes.js                 # /api/orders
 │   ├── paymentRoutes.js               # /api/payments (public methods, initiate, IPN)
+│   ├── contactRoutes.js               # POST /api/contact (rate-limited public submit)
 │   ├── cartRoutes.js                  # /api/cart
 │   ├── reviewRoutes.js                # /api/reviews
 │   └── financeRoutes.js              # /api/finance
@@ -3348,6 +3532,9 @@ eonlinebazar-fullstack/
 │   ├── paymentGatewayService.js       # Gateway session orchestration for automated checkout
 │   ├── paymentGatewayAdapters.js      # Provider-specific initiate/IPN adapter layer
 │   ├── paymentLogoPaths.js            # Local payment logo path helpers and cleanup
+│   ├── pagePublishService.js          # Footer link ↔ CMS slug publish filtering
+│   ├── markdownToHtml.js              # Server-side Markdown → HTML for CMS pages
+│   ├── footerIconPaths.js             # Footer social/payment icon upload paths
 │   ├── bangladeshDistricts.js         # District list, normalization & inside/outside matching
 │   └── securityLogger.js             # Fire-and-forget security event writer
 │
@@ -3361,15 +3548,19 @@ eonlinebazar-fullstack/
 │   ├── payment.html                   # Payment page — dynamic method catalog (no hardcoded gateways)
 │   ├── profile.html                   # Customer dashboard (cart, wishlist, wallet, addresses, security, sessions)
 │   ├── order-track.html / order-details.html  # Order tracking + detail view with PDF invoice download
-│   ├── about.html / contact.html / footer.html
+│   ├── about.html / contact.html / cms-page.html / footer.html
 │   ├── admin-login.html               # Unified admin authentication (Super Admin + Staff)
 │   ├── access-denied.html             # RBAC 403 page for unauthorized browser navigations
 │   ├── verify-otp.html                # 2-Step Verification (Email / TOTP / SMS)
 │   ├── admin.html                     # Super Admin panel (SPA — includes Staff Management)
 │   ├── finance-login.html             # Finance password gate
 │   ├── finance-analytics.html         # Finance & analytics dashboard (P/L KPIs, theme toggle, Chart.js)
-│   ├── css/                           # Page-scoped stylesheets (admin.css, cart.css, payment.css, mini-cart-drawer.css…)
-│   ├── js/                            # Page scripts (admin.js, admin-staff.js, checkout.js, payment.js, profile.js…)
+│   ├── css/                           # Page-scoped stylesheets (admin.css, footer.css, info-page.css, contact.css…)
+│   ├── js/                            # Page scripts (admin.js, footer.js, footerRenderer.js, contact.js…)
+│   │   ├── footer.js                  # Storefront footer fetch + inject into #global-site-footer
+│   │   ├── footerRenderer.js          # Shared footer HTML builder (storefront + admin preview)
+│   │   ├── page-content-loader.js     # CMS page loader (404 when unpublished)
+│   │   ├── contact.js                 # Contact form API submit + dynamic store info panel
 │   │   ├── admin-staff.js             # RBAC sidebar gating + Enterprise Staff Management console (toggles, presets)
 │   │   ├── shipping-estimator.js      # Client shipping quote + delivery estimate helpers
 │   │   ├── coupon-ui.js               # Shared promo apply/remove + live total sync
@@ -3388,7 +3579,8 @@ eonlinebazar-fullstack/
 │
 ├── public/                            # Static public assets served at /
 │   ├── images/payments/               # Default payment brand SVG/PNG assets
-│   └── uploads/payments/              # Admin-uploaded payment method logos (Multer)
+│   ├── uploads/payments/              # Admin-uploaded payment method logos (Multer)
+│   └── uploads/footer/                # Admin-uploaded footer social/payment icons (Multer)
 │
 ├── server.js                          # App entry: middleware, routes, clean URLs, page guards
 ├── seed.js                            # Database seeding
@@ -3804,6 +3996,14 @@ Base URL: `http://localhost:3000`
 | `GET`  | `/api/admin/platform-settings` | Platform & profile settings (currency, timezone, branding…) | Admin + `manage_settings` |
 | `PUT`  | `/api/admin/platform-settings` | Save platform settings (current-password gated) | Admin + `manage_settings` |
 | `POST` | `/api/admin/upload-branding` | Upload store logo or favicon (`assetType`) | Admin + `manage_settings` |
+| **`GET`** | **`/api/admin/footer-settings`** | **Footer columns, social links, payment badges, copyright** | **Admin + `manage_settings`** |
+| **`PUT` / `POST`** | **`/api/admin/footer-settings`** | **Save footer configuration** | **Admin + `manage_settings`** |
+| **`POST`** | **`/api/admin/footer-settings/upload-icon`** | **Upload social/payment footer icon (multipart `icon`)** | **Admin + `manage_settings`** |
+| **`GET`** | **`/api/admin/pages`** | **List all CMS pages (admin catalog)** | **Admin + `manage_settings`** |
+| **`PUT` / `POST`** | **`/api/admin/pages/:slug`** | **Save page Markdown, publish state, contact meta** | **Admin + `manage_settings`** |
+| **`GET`** | **`/api/admin/messages`** | **List customer inquiries + unread count** | **Admin + `manage_settings`** |
+| **`PATCH`** | **`/api/admin/messages/:id/read`** | **Mark inquiry as read** | **Admin + `manage_settings`** |
+| **`DELETE`** | **`/api/admin/messages/:id`** | **Delete inquiry** | **Admin + `manage_settings`** |
 | `GET`  | `/api/admin/profile` | Admin profile image URL | Admin |
 | `POST` | `/api/admin/update-profile-pic` | Upload admin avatar | Admin |
 
@@ -3817,6 +4017,9 @@ Base URL: `http://localhost:3000`
 | **`GET`** | **`/api/store/announcement`** | **Live announcement text, highlight chips & reward snapshot** | **Public** |
 | **`GET`** | **`/api/store/flash-sale`** | **Active flash sale config, countdown end time & featured product IDs** | **Public** |
 | **`GET`** | **`/api/store/payment-methods`** | **Active payment methods for checkout (sorted by `sortOrder`)** | **Public** |
+| **`GET`** | **`/api/store/footer-settings`** | **Dynamic footer columns, social links, payment badges (unpublished page links filtered)** | **Public** |
+| **`GET`** | **`/api/store/pages/:slug`** | **Published CMS page (`about`, `contact`, `privacy-policy`, `terms`, `careers`) — 404 if unpublished** | **Public** |
+| **`POST`** | **`/api/contact`** | **Submit contact form inquiry (persisted to `ContactMessage`)** | **Public** (rate-limited) |
 | `GET`  | `/api/store/districts` | Valid Bangladesh district list | Public |
 
 ### 📊 Finance & Analytics
@@ -3933,6 +4136,39 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 ---
 
 ## 📜 Changelog
+
+### `v4.5.0` — Information Pages Redesign, Admin Inbox & Footer Layout
+
+**📄 Information Pages Redesign & Branding**
+- Re-architected **`/contact`** into a high-converting **2-column grid** — modern floating-label form (Name, Email, Phone, Subject, Message), glowing **Send Message** CTA, dynamic store info cards, and embedded **Google Maps** iframe from CMS `contactMeta`.
+- Applied consistent premium typography, gradient hero headers, and **`max-w-5xl` / `max-w-6xl`** container constraints across **About Us**, **Privacy Policy**, **Terms & Conditions**, and **Careers** via shared `info-page.css` + `cms-page.html` template.
+- New clean URL routes: **`/privacy-policy`**, **`/terms`**, **`/careers`**; CMS content served through **`GET /api/store/pages/:slug`**.
+
+**✉️ Admin Customer Messages Inbox**
+- Introduced **`ContactMessage`** MongoDB schema for persistent contact form storage.
+- Public **`POST /api/contact`** endpoint (IP rate-limited) saves every storefront submission server-side.
+- Built **Messages / Inquiries** admin dashboard at **`/admin/messages`** — table with Name, Email, Subject, Message preview, Date, Read/Unread status; **Mark as Read** and **Delete** actions.
+
+**🦶 Complete Storefront Footer Redesign & Mobile Responsiveness Overhaul**
+
+*Desktop footer architecture:*
+- Applied app-style deep slate-grey theme — **`bg-slate-900`** (`#0f172a`) with subtle micro-border separator (**`border-t border-slate-800`**) from main content.
+- Re-aligned **Company**, **Support**, **Quick Links**, and **Follow Us** across a uniform **4-column desktop grid** (`md:grid-cols-4`, `max-w-7xl`, `gap-8`, unified `<h4>` heading typography).
+- **Column 4 (Follow Us)** — social media icons only; left-aligned to match columns 1–3 for balanced column heights.
+- **Bottom copyright bar restructuring** — relocated payment gateway badges (bKash, Nagad, Visa, Mastercard, COD) to **bottom-right** in **`.footer-copyright-payments`**; copyright text on **bottom-left** via **`flex-row justify-between`** enterprise layout (no visible payment heading — `aria-label` only).
+
+*Ultra-compact mobile footer overhaul:*
+- **`FooterSettings`** singleton + **`footerRenderer.js`** shared renderer powers dynamic footer on storefront and admin live preview — **dual mobile/desktop HTML output**.
+- **Streamlined 3-line mobile layout** — eliminated bulky vertical blocks and accordions; footer height strictly under **3 compact lines** on **`&lt; 768px`**.
+- **Line 1:** bulletless inline quick links with **`flex-wrap justify-center gap-x-2.5`** to eliminate text clipping/overflow.
+- **Line 2:** centered active social icons with smooth tap/hover states; **payment logos hidden** (`hidden md:flex` / `.footer-copyright-payments { display: none }`).
+- **Line 3:** minimal **10px** copyright; **zero trailing bottom padding/margin** (`mb-0`, `pb-1`) to remove black whitespace beneath footer.
+- **Floating action safety:** right-side safe-area buffer on `.footer-mobile-compact` so the fixed WhatsApp icon never obscures link text.
+- Responsive isolation via **`footer-mobile-compact`** / **`footer-desktop`** CSS — full **4-column grid** + **copyright bar payment row** strictly on desktop (`≥ 768px`).
+- **Page Content Manager** — removed redundant live preview; clarified publish toggle — **`isPublished: false`** hides footer links and blocks public page access (404 unavailable).
+- **`pagePublishService.js`** filters footer column links against published CMS page slugs.
+
+**Key files:** `models/ContactMessage.js`, `models/FooterSettings.js`, `models/PageContent.js`, `controllers/contactController.js`, `controllers/footerSettingsController.js`, `controllers/pageContentController.js`, `routes/contactRoutes.js`, `utils/pagePublishService.js`, `utils/markdownToHtml.js`, `client/contact.html`, `client/css/contact.css`, `client/css/info-page.css`, `client/js/contact.js`, `client/js/footer.js`, `client/js/footerRenderer.js`, `client/js/page-content-loader.js`, `client/admin.html`, `client/js/admin.js`, `client/css/footer.css`
 
 ### `v4.4.1` — Admin Live Orders Table Redesign & Checkout Polish
 

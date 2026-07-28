@@ -1,44 +1,172 @@
 /* * File Name: css/footer.css
  =========================================================================
-   💎 eOnlineBazar Global Compact Footer Stylesheet (Clean Component)
+   eOnlineBazar Global Footer — Dynamic, Admin-Managed
+   Mobile: ultra-minimal 3-line compact strip (< 768px)
+   Desktop: multi-column grid (≥ 768px)
    ========================================================================= */
 
-/* ১. ফুটারের মূল ব্যাকগ্রাউন্ড ও বডি */
 footer.compact-footer {
     display: block;
     width: 100%;
-    background-color: #111827; /* সেই চমৎকার কুচকুচে ডার্ক কালার */
-    color: #9ca3af;
+    background-color: #0f172a;
+    color: #94a3b8;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    padding: 5px 0;
     margin-top: 10px;
-    border-top: 1px solid #1f2937;
+    border-top: 1px solid rgba(30, 41, 59, 0.8);
 }
 
-/* ২. ভেতরের কন্টেইনার */
+footer.compact-footer .footer-loading {
+    text-align: center;
+    padding: 24px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+/* ——— Mobile-only 3-line compact footer ——— */
 footer.compact-footer .footer-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    padding: 0 20px;
-    gap: 20px;
+    margin: 0;
+    padding: 0;
 }
 
-/* ৩. প্রতিটা কলাম গ্রিড */
+footer.compact-footer .footer-mobile-compact {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    max-width: 1200px;
+    margin: 0;
+    padding: 4px 8px;
+    gap: 0;
+}
+
+footer.compact-footer .footer-mobile-quicklinks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    column-gap: 10px;
+    row-gap: 4px;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 4px 8px;
+    text-align: center;
+    overflow: hidden;
+    overflow-x: hidden;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.45);
+}
+
+footer.compact-footer .footer-mobile-quicklinks a {
+    flex: 0 1 auto;
+    max-width: 100%;
+    font-size: 10.5px;
+    font-weight: 500;
+    color: #cbd5e1;
+    text-decoration: none;
+    padding: 2px 4px;
+    border-radius: 9999px;
+    line-height: 1.3;
+    white-space: normal;
+    overflow-wrap: normal;
+    transition: color 0.2s ease, background-color 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+footer.compact-footer .footer-mobile-quicklinks a:hover,
+footer.compact-footer .footer-mobile-quicklinks a:active {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+footer.compact-footer .footer-mobile-social-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.35);
+}
+
+footer.compact-footer .footer-mobile-social-icons {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+}
+
+footer.compact-footer .footer-mobile-social-icons .social-icon {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+    color: #94a3b8;
+    background: rgba(148, 163, 184, 0.1);
+    transform: scale(0.9);
+    transition: color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+footer.compact-footer .footer-mobile-social-icons .social-icon:hover,
+footer.compact-footer .footer-mobile-social-icons .social-icon:active {
+    color: #34d399;
+    background: rgba(52, 211, 153, 0.14);
+    transform: scale(0.95);
+}
+
+footer.compact-footer .footer-mobile-social-icons .social-icon img {
+    width: 15px;
+    height: 15px;
+}
+
+footer.compact-footer .footer-mobile-copyright {
+    margin: 0;
+    padding: 0 0 4px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 300;
+    color: #94a3b8;
+    line-height: 1.25;
+}
+
+/* Payment badges: desktop-only in copyright bar (hidden on mobile) */
+footer.compact-footer .footer-mobile-payment-badges,
+footer.compact-footer .footer-mobile-compact .footer-payment-badges,
+footer.compact-footer .footer-mobile-compact .footer-copyright-payments {
+    display: none !important;
+}
+
+/* ——— Desktop multi-column layout (hidden on mobile) ——— */
+footer.compact-footer .footer-desktop {
+    display: none;
+}
+
+footer.compact-footer .footer-main {
+    max-width: 80rem;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+    padding: 28px 16px 20px;
+    gap: 32px;
+}
+
+footer.compact-footer .footer-columns-wrap {
+    display: contents;
+}
+
 footer.compact-footer .footer-col {
-    flex: 1;
-    min-width: 140px;
+    min-width: 0;
 }
 
 footer.compact-footer .footer-col h4 {
-    color: #ffffff; /* শিরোনাম খাঁটি সাদা */
+    color: #ffffff;
     font-size: 14px;
-    margin: 0 0 10px 0;
+    margin: 0 0 16px 0;
     text-transform: uppercase;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    line-height: 1.25;
 }
 
 footer.compact-footer .footer-col ul {
@@ -48,134 +176,206 @@ footer.compact-footer .footer-col ul {
 }
 
 footer.compact-footer .footer-col ul li {
+    margin-bottom: 8px;
+}
+
+footer.compact-footer .footer-col ul li a,
+footer.compact-footer .footer-col ul li span {
     font-size: 13px;
     color: #9ca3af;
-    margin-bottom: 6px;
-    cursor: pointer;
+    text-decoration: none;
     transition: color 0.2s;
+    cursor: pointer;
 }
 
-footer.compact-footer .footer-col ul li:hover {
-    color: #f59e0b; /* হোভার গোল্ডেন হলুদ */
+footer.compact-footer .footer-col ul li a:hover {
+    color: #f59e0b;
 }
 
-/* ৪. ব্র্যান্ড ও সোশ্যাল এরিয়া */
-footer.compact-footer .footer-brand-social {
-    flex: 2;
+/* Column 4 — Follow Us only (left-aligned like other columns) */
+footer.compact-footer .footer-col--social {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+footer.compact-footer .footer-col--social .footer-social-icons {
+    display: flex;
     flex-wrap: wrap;
-    gap: 15px;
-    min-width: 250px;
-}
-
-footer.compact-footer .footer-logo-text {
-    font-size: 20px;
-    font-weight: bold;
-    color: #ffffff;
-    margin-bottom: 4px;
-    display: inline-flex;
     align-items: center;
-}
-
-footer.compact-footer .footer-logo-text img,
-footer.compact-footer .footer-logo-text .store-brand-logo {
-    max-height: 36px;
-    width: auto;
-    object-fit: contain;
-}
-
-footer.compact-footer .copyright-text {
-    font-size: 11px;
-    color: #6b7280;
+    gap: 16px;
     margin: 0;
+    padding: 0;
+    justify-content: flex-start;
 }
 
-/* 🎯 ৫. সোশ্যাল মিডিয়া লোগো আইকন */
 footer.compact-footer .footer-social-icons {
     display: flex;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: flex-start;
 }
 
 footer.compact-footer .social-icon {
-    font-size: 16px;
-    color: #ffffff;
+    font-size: 18px;
+    color: #cbd5e1;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    background: #1f2937; /* আইকনের ব্যাকগ্রাউন্ড ডার্ক */
+    background: transparent;
     text-decoration: none;
-    transition: all 0.2s ease-in-out;
+    transition: color 0.2s ease, transform 0.2s ease;
 }
 
-/* হোভার করলে ব্র্যান্ড কালার ও হালকা ওপরে উঠবে */
-footer.compact-footer .fb-icon:hover { background-color: #1877f2; transform: translateY(-2px); }
-footer.compact-footer .tw-icon:hover { background-color: #000000; transform: translateY(-2px); }
-footer.compact-footer .tt-icon:hover { background-color: #ff0050; transform: translateY(-2px); }
+footer.compact-footer .social-icon:hover {
+    color: #ffffff;
+    transform: translateY(-2px);
+}
 
+footer.compact-footer .social-icon img {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+}
 
-/* =========================================================================
-   📱 📱 মোবাইল ভিউ ফিক্স (সর্বোচ্চ ৭৬৮px স্ক্রিনের জন্য আল্ট্রা-স্লিম ডিজাইন)
-   ========================================================================= */
-@media (max-width: 768px) {
-    /* ১. ফুটারের হাইট ফিক্সড এবং স্লিম করা */
+footer.compact-footer .footer-payment-badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+}
+
+footer.compact-footer .footer-copyright-bar {
+    background: #0c1222;
+    border-top: 1px solid rgba(30, 41, 59, 0.8);
+    margin-top: 2rem;
+    padding: 16px;
+}
+
+footer.compact-footer .footer-copyright-bar-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    max-width: 80rem;
+    margin: 0 auto;
+    padding: 0 16px;
+}
+
+footer.compact-footer .footer-copyright-text {
+    margin: 0;
+    font-size: 12px;
+    color: #94a3b8;
+    line-height: 1.5;
+    text-align: center;
+}
+
+footer.compact-footer .footer-copyright-payments {
+    display: none;
+}
+
+footer.compact-footer .footer-copyright-bar strong {
+    color: #e2e8f0;
+    font-weight: 600;
+}
+
+footer.compact-footer .footer-payment-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #1f2937;
+    border: 1px solid #374151;
+    font-size: 10px;
+    font-weight: 600;
+    color: #e5e7eb;
+    letter-spacing: 0.02em;
+}
+
+footer.compact-footer .footer-payment-badge img {
+    max-height: 22px;
+    max-width: 64px;
+    object-fit: contain;
+}
+
+footer.compact-footer .footer-payment-badge--bkash { color: #e2136e; }
+footer.compact-footer .footer-payment-badge--nagad { color: #f6921e; }
+footer.compact-footer .footer-payment-badge--rocket { color: #8b3dff; }
+footer.compact-footer .footer-payment-badge--visa { color: #1a1f71; background: #f8fafc; }
+footer.compact-footer .footer-payment-badge--mastercard { color: #eb001b; background: #f8fafc; }
+footer.compact-footer .footer-payment-badge--cod { color: #22c55e; }
+
+/* Desktop ≥ 768px — show grid, hide mobile strip */
+@media (max-width: 767px) {
     footer.compact-footer {
-        padding: 8px 0; /* উপর-নিচের অতিরিক্ত ফাঁকা জায়গা গায়েব */
-        margin-top: 15px;
-        min-height: 48px; /* আপনি যেভাবে ৫০px এর মধ্যে চাচ্ছিলেন */
+        margin-top: 0;
+        margin-bottom: 0;
+        background-color: #0f172a;
+        border-top: 1px solid rgba(30, 41, 59, 0.8);
+    }
+
+    #global-site-footer {
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    footer.compact-footer .footer-container {
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Right buffer so floating WhatsApp does not cover links / copyright */
+    footer.compact-footer .footer-mobile-compact {
+        padding: 4px max(54px, calc(8px + env(safe-area-inset-right, 0px))) 4px 8px;
+    }
+
+    footer.compact-footer .footer-mobile-quicklinks {
+        padding: 4px 8px;
+    }
+
+    footer.compact-footer .footer-mobile-copyright {
+        padding-right: 2px;
+    }
+}
+
+@media (min-width: 768px) {
+    footer.compact-footer .footer-mobile-compact {
+        display: none;
+    }
+
+    footer.compact-footer .footer-desktop {
+        display: block;
+    }
+
+    footer.compact-footer .footer-main {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    footer.compact-footer .footer-copyright-bar-inner {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    footer.compact-footer .footer-copyright-text {
+        text-align: left;
+    }
+
+    footer.compact-footer .footer-copyright-payments {
         display: flex;
         align-items: center;
+        flex-shrink: 0;
     }
 
-    /* ২. মেইন কন্টেইনারকে এক লাইনে সাজানো */
-    footer.compact-footer .footer-container {
-        flex-direction: row; /* নিচে নিচে না নেমে পাশাপাশি থাকবে */
-        justify-content: space-between;
-        align-items: center;
-        padding: 0 15px;
-        width: 100%;
-        gap: 0;
-    }
-
-    /* ৩. 💡 বড় লিংক বা মেনু কলামগুলো মোবাইলে সম্পূর্ণ হাইড করা */
-    footer.compact-footer .footer-col {
-        display: none !important; 
-    }
-
-    /* ৪. ব্র্যান্ড ও সোশ্যাল সেকশনকে পাশাপাশি ফ্ল্যাট করা */
-    footer.compact-footer .footer-brand-social {
-        flex: 1;
-        flex-direction: row; /* এক লাইনে নিয়ে আসা */
-        justify-content: space-between;
-        align-items: center;
-        min-width: 100%;
-        gap: 0;
-    }
-
-    /* লোগোর টেক্সট মোবাইলে হাইড করে শুধু কপিরাইট এক লাইনে রাখা */
-    footer.compact-footer .footer-logo-text {
-        display: none; 
-    }
-
-    footer.compact-footer .copyright-text {
-        font-size: 11px;
-        text-align: left;
-        color: #9ca3af; /* টেক্সট কালার মোবাইলে একটু স্পষ্ট করা হলো */
-    }
-
-    /* ৫. সোশ্যাল আইকনগুলোর সাইজ মোবাইলের জন্য সামান্য ছোট ও স্লিম করা */
-    footer.compact-footer .footer-social-icons {
+    footer.compact-footer .footer-copyright-payments .footer-payment-badges {
+        justify-content: flex-end;
         gap: 8px;
     }
-
-    footer.compact-footer .social-icon {
-        width: 28px;  /* ৩২px থেকে কমিয়ে ২৮px করা হলো যাতে ৫০px বাউন্ডারিতে সুন্দর ফিট হয় */
-        height: 28px;
-        font-size: 13px;
-    }
 }
-

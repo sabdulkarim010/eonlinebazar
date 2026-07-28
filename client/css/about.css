@@ -37,6 +37,26 @@
     margin-bottom: 15px;
 }
 
+.about-card.cms-page-body h2,
+.about-card.cms-page-body h3 {
+    font-size: 20px;
+    color: #111;
+    margin: 1.2em 0 0.6em;
+    font-weight: 600;
+}
+
+.about-card.cms-page-body ul {
+    padding-left: 1.25rem;
+    margin: 0.5rem 0 1rem;
+}
+
+.about-card.cms-page-body li {
+    font-size: 15px;
+    color: #333;
+    line-height: 1.6;
+    margin-bottom: 6px;
+}
+
 /* ডাইনামিক রেসপনসিভ ফিচার গ্রিড লেআউট (৩টি বক্সের জন্য) */
 .features-grid {
     display: grid;

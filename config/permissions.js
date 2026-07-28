@@ -115,6 +115,7 @@ const SECTION_PERMISSIONS = Object.freeze({
     'view-sessions': null, // every admin may review their own devices
     'view-audit': 'manage_security',
     'view-master-settings': 'manage_settings',
+    'view-messages': 'manage_settings',
     'view-settings': null, // own profile / 2FA — platform fields are guarded server-side
     'view-staff': 'manage_staff'
 });

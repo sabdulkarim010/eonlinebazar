@@ -460,6 +460,7 @@ const ADMIN_PAGE_META = {
     'view-sessions':        { title: 'Active Devices & Sessions', subtitle: 'Review and remotely revoke logged-in admin devices.' },
     'view-audit':           { title: 'Security & Audit',         subtitle: 'Login history, intrusion attempts, and IP blacklist firewall.' },
     'view-master-settings': { title: 'System Settings',          subtitle: 'Configure shipping, notifications, loyalty rewards, and store integrations.' },
+    'view-messages':        { title: 'Messages / Inquiries',     subtitle: 'Customer contact form submissions from the storefront.' },
     'view-staff':           { title: 'Staff Management',         subtitle: 'Create staff accounts, assign permissions, and control access instantly.' },
     'view-settings':        { title: 'Admin Settings',          subtitle: 'Manage your profile, store preferences, shipping rules, and branding.' }
 };
@@ -6938,6 +6939,929 @@ function setupPaymentMethodsManager() {
     document.getElementById('paymentMethodForm')?.addEventListener('submit', savePaymentMethodForm);
 }
 
+/* ==========================================================================
+   FOOTER SETTINGS MANAGER (dynamic → /api/admin/footer-settings)
+   ========================================================================== */
+
+const FOOTER_SOCIAL_PRESETS = [
+    { platform: 'Facebook', iconName: 'facebook' },
+    { platform: 'Instagram', iconName: 'instagram' },
+    { platform: 'TikTok', iconName: 'tiktok' },
+    { platform: 'X (Twitter)', iconName: 'x-twitter' },
+    { platform: 'YouTube', iconName: 'youtube' },
+    { platform: 'LinkedIn', iconName: 'linkedin' },
+    { platform: 'WhatsApp', iconName: 'whatsapp' },
+    { platform: 'Telegram', iconName: 'telegram' }
+];
+
+const FOOTER_PAYMENT_PRESETS = [
+    { name: 'bKash', iconName: 'bkash' },
+    { name: 'Nagad', iconName: 'nagad' },
+    { name: 'Rocket', iconName: 'rocket' },
+    { name: 'Visa', iconName: 'visa' },
+    { name: 'Mastercard', iconName: 'mastercard' },
+    { name: 'COD', iconName: 'cod' }
+];
+
+let footerSettingsState = {
+    copyrightText: '',
+    columns: [],
+    socialLinks: [],
+    paymentGateways: []
+};
+
+function footerTempId(prefix = 'tmp') {
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Interactive toggle switch — hidden input, smooth CSS knob (no visible native checkbox). */
+function footerToggleHtml({ checked = true, inputClass = '', dataAttrs = {}, variant = 'green', label = 'Active' } = {}) {
+    const dataStr = Object.entries(dataAttrs)
+        .map(([key, val]) => `data-${key}="${escapeHtml(String(val))}"`)
+        .join(' ');
+    return `
+        <label class="relative inline-flex items-center cursor-pointer footer-toggle-switch footer-toggle-switch--${variant}" title="${escapeHtml(label)}">
+            <input type="checkbox" class="footer-toggle-input sr-only ${inputClass}" ${dataStr} ${checked ? 'checked' : ''} aria-label="${escapeHtml(label)}">
+            <span class="footer-toggle-track" aria-hidden="true"><span class="footer-toggle-knob"></span></span>
+        </label>`;
+}
+
+function renderFooterColumnsEditor() {
+    const container = document.getElementById('footerColumnsEditor');
+    if (!container) return;
+
+    if (!footerSettingsState.columns.length) {
+        container.innerHTML = `
+            <div class="footer-settings-empty">
+                <p>No footer columns yet. Add COMPANY, SUPPORT, or QUICK LINKS sections.</p>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = footerSettingsState.columns.map((col, colIndex) => `
+        <article class="footer-column-card" data-col-index="${colIndex}">
+            <div class="footer-column-head">
+                <input type="text" class="footer-col-title-input" data-col-index="${colIndex}" value="${escapeHtml(col.columnTitle || '')}" placeholder="Column title (e.g. COMPANY)">
+                ${footerToggleHtml({
+                    checked: col.isActive !== false,
+                    inputClass: 'footer-col-active',
+                    dataAttrs: { 'col-index': colIndex },
+                    variant: 'blue',
+                    label: 'Column active'
+                })}
+                <button type="button" class="footer-settings-remove-btn" data-action="remove-column" data-col-index="${colIndex}" title="Delete column">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </div>
+            <div class="footer-links-list">
+                ${(col.links || []).map((link, linkIndex) => `
+                    <div class="footer-link-row" data-col-index="${colIndex}" data-link-index="${linkIndex}">
+                        <input type="text" class="footer-link-label" data-col-index="${colIndex}" data-link-index="${linkIndex}" value="${escapeHtml(link.label || '')}" placeholder="Label">
+                        <input type="text" class="footer-link-url" data-col-index="${colIndex}" data-link-index="${linkIndex}" value="${escapeHtml(link.url || '')}" placeholder="/about or https://...">
+                        <button type="button" class="footer-ext-pill ${link.isExternal ? 'is-active' : ''}" data-action="toggle-external" data-col-index="${colIndex}" data-link-index="${linkIndex}" title="External link">Ext</button>
+                        ${footerToggleHtml({
+                            checked: link.isActive !== false,
+                            inputClass: 'footer-link-active',
+                            dataAttrs: { 'col-index': colIndex, 'link-index': linkIndex },
+                            variant: 'blue',
+                            label: 'Link active'
+                        })}
+                        <button type="button" class="footer-settings-remove-btn" data-action="remove-link" data-col-index="${colIndex}" data-link-index="${linkIndex}">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                `).join('')}
+            </div>
+            <button type="button" class="footer-settings-inline-add" data-action="add-link" data-col-index="${colIndex}">
+                <i class="fa-solid fa-plus"></i> Add Link
+            </button>
+        </article>
+    `).join('');
+}
+
+function renderFooterSocialEditor() {
+    const container = document.getElementById('footerSocialEditor');
+    if (!container) return;
+
+    if (!footerSettingsState.socialLinks.length) {
+        container.innerHTML = `
+            <div class="footer-settings-empty">
+                <p>No social links yet. Add Facebook, Instagram, TikTok, and more.</p>
+            </div>`;
+        return;
+    }
+
+    const presetOptions = FOOTER_SOCIAL_PRESETS.map((preset) =>
+        `<option value="${escapeHtml(preset.iconName)}">${escapeHtml(preset.platform)}</option>`
+    ).join('');
+
+    container.innerHTML = footerSettingsState.socialLinks.map((item, index) => `
+        <article class="footer-social-card" data-social-index="${index}">
+            <div class="footer-social-grid">
+                <input type="text" class="footer-social-platform" data-social-index="${index}" value="${escapeHtml(item.platform || '')}" placeholder="Platform name">
+                <select class="footer-social-icon-preset" data-social-index="${index}">
+                    <option value="">Custom / uploaded</option>
+                    ${presetOptions}
+                </select>
+                <input type="text" class="footer-social-icon-name" data-social-index="${index}" value="${escapeHtml(item.iconName || '')}" placeholder="Icon name (e.g. facebook)">
+                <input type="url" class="footer-social-url" data-social-index="${index}" value="${escapeHtml(item.linkUrl || '')}" placeholder="https://facebook.com/...">
+                <div class="footer-icon-upload-wrap">
+                    <input type="file" class="footer-social-icon-file" data-social-index="${index}" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
+                    <button type="button" class="footer-settings-inline-add" data-action="upload-social-icon" data-social-index="${index}">
+                        <i class="fa-solid fa-upload"></i> Upload Icon
+                    </button>
+                    ${item.iconUrl ? `<img src="${escapeHtml(item.iconUrl)}" alt="" class="footer-icon-preview" data-social-preview="${index}">` : `<img src="" alt="" class="footer-icon-preview footer-icon-preview--empty" data-social-preview="${index}" hidden>`}
+                </div>
+                ${footerToggleHtml({
+                    checked: item.isActive !== false,
+                    inputClass: 'footer-social-active',
+                    dataAttrs: { 'social-index': index },
+                    variant: 'green',
+                    label: 'Social link active'
+                })}
+                <button type="button" class="footer-settings-remove-btn" data-action="remove-social" data-social-index="${index}">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </div>
+        </article>
+    `).join('');
+
+    container.querySelectorAll('.footer-social-icon-preset').forEach((select) => {
+        const index = Number(select.dataset.socialIndex);
+        const current = footerSettingsState.socialLinks[index];
+        if (current?.iconName) select.value = current.iconName;
+        select.addEventListener('change', () => {
+            const preset = FOOTER_SOCIAL_PRESETS.find((p) => p.iconName === select.value);
+            if (!preset) return;
+            footerSettingsState.socialLinks[index].iconName = preset.iconName;
+            footerSettingsState.socialLinks[index].platform = preset.platform;
+            renderFooterSocialEditor();
+            updateFooterSettingsPreview();
+        });
+    });
+}
+
+function renderFooterPaymentEditor() {
+    const container = document.getElementById('footerPaymentEditor');
+    if (!container) return;
+
+    if (!footerSettingsState.paymentGateways.length) {
+        container.innerHTML = `
+            <div class="footer-settings-empty">
+                <p>No payment badges yet. Add bKash, Nagad, Visa, Mastercard, or COD.</p>
+            </div>`;
+        return;
+    }
+
+    const presetOptions = FOOTER_PAYMENT_PRESETS.map((preset) =>
+        `<option value="${escapeHtml(preset.iconName)}">${escapeHtml(preset.name)}</option>`
+    ).join('');
+
+    container.innerHTML = footerSettingsState.paymentGateways.map((item, index) => `
+        <article class="footer-payment-card" data-payment-index="${index}">
+            <div class="footer-payment-grid">
+                <input type="text" class="footer-payment-name" data-payment-index="${index}" value="${escapeHtml(item.name || '')}" placeholder="Badge name">
+                <select class="footer-payment-preset" data-payment-index="${index}">
+                    <option value="">Custom</option>
+                    ${presetOptions}
+                </select>
+                <input type="text" class="footer-payment-icon-name" data-payment-index="${index}" value="${escapeHtml(item.iconName || '')}" placeholder="Icon key">
+                <div class="footer-icon-upload-wrap">
+                    <input type="file" class="footer-payment-icon-file" data-payment-index="${index}" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
+                    <button type="button" class="footer-settings-inline-add" data-action="upload-payment-icon" data-payment-index="${index}">
+                        <i class="fa-solid fa-upload"></i> Upload Logo
+                    </button>
+                    ${item.iconUrl ? `<img src="${escapeHtml(item.iconUrl)}" alt="" class="footer-icon-preview" data-payment-preview="${index}">` : `<img src="" alt="" class="footer-icon-preview footer-icon-preview--empty" data-payment-preview="${index}" hidden>`}
+                </div>
+                ${footerToggleHtml({
+                    checked: item.isActive !== false,
+                    inputClass: 'footer-payment-active',
+                    dataAttrs: { 'payment-index': index },
+                    variant: 'green',
+                    label: 'Payment badge active'
+                })}
+                <button type="button" class="footer-settings-remove-btn" data-action="remove-payment" data-payment-index="${index}">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </div>
+        </article>
+    `).join('');
+
+    container.querySelectorAll('.footer-payment-preset').forEach((select) => {
+        const index = Number(select.dataset.paymentIndex);
+        const current = footerSettingsState.paymentGateways[index];
+        if (current?.iconName) select.value = current.iconName;
+        select.addEventListener('change', () => {
+            const preset = FOOTER_PAYMENT_PRESETS.find((p) => p.iconName === select.value);
+            if (!preset) return;
+            footerSettingsState.paymentGateways[index].iconName = preset.iconName;
+            footerSettingsState.paymentGateways[index].name = preset.name;
+            renderFooterPaymentEditor();
+            updateFooterSettingsPreview();
+        });
+    });
+}
+
+function updateFooterSettingsPreview() {
+    const previewInner = document.getElementById('footerLivePreviewInner');
+    if (!previewInner || !window.FooterRenderer?.buildFooterHtml) return;
+
+    syncFooterStateFromDom();
+    previewInner.innerHTML = window.FooterRenderer.buildFooterHtml(footerSettingsState);
+}
+
+function applyFooterSettingsToUI(data) {
+    if (!data) return;
+    footerSettingsState = {
+        copyrightText: data.copyrightText || '',
+        columns: Array.isArray(data.columns) ? JSON.parse(JSON.stringify(data.columns)) : [],
+        socialLinks: Array.isArray(data.socialLinks) ? JSON.parse(JSON.stringify(data.socialLinks)) : [],
+        paymentGateways: Array.isArray(data.paymentGateways) ? JSON.parse(JSON.stringify(data.paymentGateways)) : []
+    };
+
+    const copyrightEl = document.getElementById('footerCopyrightText');
+    if (copyrightEl) copyrightEl.value = footerSettingsState.copyrightText;
+
+    renderFooterColumnsEditor();
+    renderFooterSocialEditor();
+    renderFooterPaymentEditor();
+    updateFooterSettingsPreview();
+}
+
+function syncFooterStateFromDom() {
+    const copyrightEl = document.getElementById('footerCopyrightText');
+    if (copyrightEl) footerSettingsState.copyrightText = copyrightEl.value.trim();
+
+    document.querySelectorAll('.footer-col-title-input').forEach((input) => {
+        const index = Number(input.dataset.colIndex);
+        if (footerSettingsState.columns[index]) {
+            footerSettingsState.columns[index].columnTitle = input.value.trim();
+        }
+    });
+    document.querySelectorAll('.footer-col-active').forEach((input) => {
+        const index = Number(input.dataset.colIndex);
+        if (footerSettingsState.columns[index]) {
+            footerSettingsState.columns[index].isActive = input.checked;
+        }
+    });
+    document.querySelectorAll('.footer-link-label').forEach((input) => {
+        const colIndex = Number(input.dataset.colIndex);
+        const linkIndex = Number(input.dataset.linkIndex);
+        if (footerSettingsState.columns[colIndex]?.links?.[linkIndex]) {
+            footerSettingsState.columns[colIndex].links[linkIndex].label = input.value.trim();
+        }
+    });
+    document.querySelectorAll('.footer-link-url').forEach((input) => {
+        const colIndex = Number(input.dataset.colIndex);
+        const linkIndex = Number(input.dataset.linkIndex);
+        if (footerSettingsState.columns[colIndex]?.links?.[linkIndex]) {
+            footerSettingsState.columns[colIndex].links[linkIndex].url = input.value.trim();
+        }
+    });
+    document.querySelectorAll('.footer-link-active').forEach((input) => {
+        const colIndex = Number(input.dataset.colIndex);
+        const linkIndex = Number(input.dataset.linkIndex);
+        if (footerSettingsState.columns[colIndex]?.links?.[linkIndex]) {
+            footerSettingsState.columns[colIndex].links[linkIndex].isActive = input.checked;
+        }
+    });
+
+    document.querySelectorAll('.footer-social-platform').forEach((input) => {
+        const index = Number(input.dataset.socialIndex);
+        if (footerSettingsState.socialLinks[index]) footerSettingsState.socialLinks[index].platform = input.value.trim();
+    });
+    document.querySelectorAll('.footer-social-icon-name').forEach((input) => {
+        const index = Number(input.dataset.socialIndex);
+        if (footerSettingsState.socialLinks[index]) footerSettingsState.socialLinks[index].iconName = input.value.trim();
+    });
+    document.querySelectorAll('.footer-social-url').forEach((input) => {
+        const index = Number(input.dataset.socialIndex);
+        if (footerSettingsState.socialLinks[index]) footerSettingsState.socialLinks[index].linkUrl = input.value.trim();
+    });
+    document.querySelectorAll('.footer-social-active').forEach((input) => {
+        const index = Number(input.dataset.socialIndex);
+        if (footerSettingsState.socialLinks[index]) footerSettingsState.socialLinks[index].isActive = input.checked;
+    });
+
+    document.querySelectorAll('.footer-payment-name').forEach((input) => {
+        const index = Number(input.dataset.paymentIndex);
+        if (footerSettingsState.paymentGateways[index]) footerSettingsState.paymentGateways[index].name = input.value.trim();
+    });
+    document.querySelectorAll('.footer-payment-icon-name').forEach((input) => {
+        const index = Number(input.dataset.paymentIndex);
+        if (footerSettingsState.paymentGateways[index]) footerSettingsState.paymentGateways[index].iconName = input.value.trim();
+    });
+    document.querySelectorAll('.footer-payment-active').forEach((input) => {
+        const index = Number(input.dataset.paymentIndex);
+        if (footerSettingsState.paymentGateways[index]) footerSettingsState.paymentGateways[index].isActive = input.checked;
+    });
+}
+
+function collectFooterSettingsPayload() {
+    syncFooterStateFromDom();
+    return {
+        copyrightText: footerSettingsState.copyrightText,
+        columns: footerSettingsState.columns.map((col, index) => ({
+            columnTitle: col.columnTitle,
+            isActive: col.isActive !== false,
+            sortOrder: index,
+            links: (col.links || []).map((link) => ({
+                label: link.label,
+                url: link.url || '#',
+                isExternal: link.isExternal === true,
+                isActive: link.isActive !== false
+            }))
+        })),
+        socialLinks: footerSettingsState.socialLinks.map((item, index) => ({
+            platform: item.platform,
+            iconName: item.iconName || '',
+            iconUrl: item.iconUrl || '',
+            linkUrl: item.linkUrl || '#',
+            isActive: item.isActive !== false,
+            sortOrder: index
+        })),
+        paymentGateways: footerSettingsState.paymentGateways.map((item, index) => ({
+            name: item.name,
+            iconName: item.iconName || '',
+            iconUrl: item.iconUrl || '',
+            isActive: item.isActive !== false,
+            sortOrder: index
+        }))
+    };
+}
+
+async function uploadFooterIcon(file, meta = {}) {
+    const formData = new FormData();
+    formData.append('icon', file);
+    if (meta.platform) formData.append('platform', meta.platform);
+    if (meta.name) formData.append('name', meta.name);
+    if (meta.iconName) formData.append('iconName', meta.iconName);
+
+    const res = await fetch('/api/admin/footer-settings/upload-icon', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+    });
+    const result = await res.json();
+    if (!result.success) throw new Error(result.message || 'Icon upload failed.');
+    return result.data?.iconUrl || '';
+}
+
+window.fetchFooterSettings = async function fetchFooterSettings() {
+    const manager = document.getElementById('footerSettingsManager');
+    if (!manager) return;
+
+    try {
+        const res = await fetch('/api/admin/footer-settings', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Failed to load footer settings.');
+        applyFooterSettingsToUI(data.data);
+    } catch (err) {
+        console.error('Footer settings load error:', err);
+        showToast(`Footer settings: ${err.message}`, 'error');
+    }
+};
+
+async function saveFooterSettings() {
+    const btn = document.getElementById('footerSettingsSaveBtn');
+    const restore = setButtonLoading(btn, 'Saving...');
+
+    try {
+        const payload = collectFooterSettingsPayload();
+        const res = await fetch('/api/admin/footer-settings', {
+            method: 'PUT',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'Failed to save footer settings.');
+        showToast(result.message || 'Footer settings saved.', 'success');
+        applyFooterSettingsToUI(result.data);
+    } catch (err) {
+        console.error('Save footer settings error:', err);
+        showToast(`Error: ${err.message}`, 'error');
+    } finally {
+        restore();
+    }
+}
+
+function setupFooterSettingsManager() {
+    document.getElementById('footerAddColumnBtn')?.addEventListener('click', () => {
+        footerSettingsState.columns.push({
+            id: footerTempId('col'),
+            columnTitle: 'NEW COLUMN',
+            isActive: true,
+            sortOrder: footerSettingsState.columns.length,
+            links: [{ label: 'New Link', url: '#', isExternal: false, isActive: true }]
+        });
+        renderFooterColumnsEditor();
+        updateFooterSettingsPreview();
+    });
+
+    document.getElementById('footerAddSocialBtn')?.addEventListener('click', () => {
+        footerSettingsState.socialLinks.push({
+            id: footerTempId('social'),
+            platform: 'Facebook',
+            iconName: 'facebook',
+            iconUrl: '',
+            linkUrl: 'https://facebook.com/',
+            isActive: true,
+            sortOrder: footerSettingsState.socialLinks.length
+        });
+        renderFooterSocialEditor();
+        updateFooterSettingsPreview();
+    });
+
+    document.getElementById('footerAddPaymentBtn')?.addEventListener('click', () => {
+        footerSettingsState.paymentGateways.push({
+            id: footerTempId('pay'),
+            name: 'bKash',
+            iconName: 'bkash',
+            iconUrl: '',
+            isActive: true,
+            sortOrder: footerSettingsState.paymentGateways.length
+        });
+        renderFooterPaymentEditor();
+        updateFooterSettingsPreview();
+    });
+
+    document.getElementById('footerSettingsSaveBtn')?.addEventListener('click', saveFooterSettings);
+    document.getElementById('footerCopyrightText')?.addEventListener('input', updateFooterSettingsPreview);
+
+    document.getElementById('footerColumnsEditor')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const colIndex = Number(btn.dataset.colIndex);
+
+        if (btn.dataset.action === 'add-link') {
+            footerSettingsState.columns[colIndex].links.push({
+                label: 'New Link', url: '#', isExternal: false, isActive: true
+            });
+            renderFooterColumnsEditor();
+            updateFooterSettingsPreview();
+        } else if (btn.dataset.action === 'toggle-external') {
+            const linkIndex = Number(btn.dataset.linkIndex);
+            const link = footerSettingsState.columns[colIndex]?.links?.[linkIndex];
+            if (link) {
+                link.isExternal = !link.isExternal;
+                btn.classList.toggle('is-active', link.isExternal);
+                updateFooterSettingsPreview();
+            }
+        } else if (btn.dataset.action === 'remove-column') {
+            footerSettingsState.columns.splice(colIndex, 1);
+            renderFooterColumnsEditor();
+            updateFooterSettingsPreview();
+        } else if (btn.dataset.action === 'remove-link') {
+            const linkIndex = Number(btn.dataset.linkIndex);
+            footerSettingsState.columns[colIndex].links.splice(linkIndex, 1);
+            renderFooterColumnsEditor();
+            updateFooterSettingsPreview();
+        }
+    });
+
+    document.getElementById('footerColumnsEditor')?.addEventListener('input', updateFooterSettingsPreview);
+    document.getElementById('footerColumnsEditor')?.addEventListener('change', updateFooterSettingsPreview);
+
+    document.getElementById('footerSocialEditor')?.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const index = Number(btn.dataset.socialIndex);
+
+        if (btn.dataset.action === 'remove-social') {
+            footerSettingsState.socialLinks.splice(index, 1);
+            renderFooterSocialEditor();
+            updateFooterSettingsPreview();
+            return;
+        }
+
+        if (btn.dataset.action === 'upload-social-icon') {
+            const fileInput = document.querySelector(`.footer-social-icon-file[data-social-index="${index}"]`);
+            fileInput?.click();
+        }
+    });
+
+    document.getElementById('footerSocialEditor')?.addEventListener('change', async (e) => {
+        if (e.target.classList.contains('footer-social-icon-file')) {
+            const index = Number(e.target.dataset.socialIndex);
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            const previewImg = document.querySelector(`img[data-social-preview="${index}"]`);
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                if (typeof ev.target?.result === 'string') {
+                    footerSettingsState.socialLinks[index].iconUrl = ev.target.result;
+                    if (previewImg) {
+                        previewImg.src = ev.target.result;
+                        previewImg.hidden = false;
+                    }
+                    updateFooterSettingsPreview();
+                }
+            };
+            reader.readAsDataURL(file);
+
+            try {
+                const item = footerSettingsState.socialLinks[index];
+                const iconUrl = await uploadFooterIcon(file, {
+                    platform: item?.platform,
+                    iconName: item?.iconName
+                });
+                footerSettingsState.socialLinks[index].iconUrl = iconUrl;
+                if (previewImg) previewImg.src = iconUrl;
+                updateFooterSettingsPreview();
+                showToast('Social icon uploaded.', 'success');
+            } catch (err) {
+                showToast(`Upload failed: ${err.message}`, 'error');
+            } finally {
+                e.target.value = '';
+            }
+            return;
+        }
+        updateFooterSettingsPreview();
+    });
+
+    document.getElementById('footerPaymentEditor')?.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const index = Number(btn.dataset.paymentIndex);
+
+        if (btn.dataset.action === 'remove-payment') {
+            footerSettingsState.paymentGateways.splice(index, 1);
+            renderFooterPaymentEditor();
+            updateFooterSettingsPreview();
+            return;
+        }
+
+        if (btn.dataset.action === 'upload-payment-icon') {
+            const fileInput = document.querySelector(`.footer-payment-icon-file[data-payment-index="${index}"]`);
+            fileInput?.click();
+        }
+    });
+
+    document.getElementById('footerPaymentEditor')?.addEventListener('change', async (e) => {
+        if (e.target.classList.contains('footer-payment-icon-file')) {
+            const index = Number(e.target.dataset.paymentIndex);
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            const previewImg = document.querySelector(`img[data-payment-preview="${index}"]`);
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                if (typeof ev.target?.result === 'string') {
+                    footerSettingsState.paymentGateways[index].iconUrl = ev.target.result;
+                    if (previewImg) {
+                        previewImg.src = ev.target.result;
+                        previewImg.hidden = false;
+                    }
+                    updateFooterSettingsPreview();
+                }
+            };
+            reader.readAsDataURL(file);
+
+            try {
+                const item = footerSettingsState.paymentGateways[index];
+                const iconUrl = await uploadFooterIcon(file, {
+                    name: item?.name,
+                    iconName: item?.iconName
+                });
+                footerSettingsState.paymentGateways[index].iconUrl = iconUrl;
+                if (previewImg) previewImg.src = iconUrl;
+                updateFooterSettingsPreview();
+                showToast('Payment badge uploaded.', 'success');
+            } catch (err) {
+                showToast(`Upload failed: ${err.message}`, 'error');
+            } finally {
+                e.target.value = '';
+            }
+            return;
+        }
+        updateFooterSettingsPreview();
+    });
+
+    document.getElementById('footerSocialEditor')?.addEventListener('input', updateFooterSettingsPreview);
+
+    document.getElementById('footerPaymentEditor')?.addEventListener('input', updateFooterSettingsPreview);
+
+    document.getElementById('footerSettingsManager')?.addEventListener('change', (e) => {
+        if (e.target.classList.contains('footer-toggle-input')) {
+            updateFooterSettingsPreview();
+        }
+    });
+}
+
+/* ==========================================================================
+   PAGE CONTENT MANAGER (CMS → /api/admin/pages)
+   ========================================================================== */
+
+const PAGE_CONTENT_LABELS = {
+    about: 'About Us',
+    contact: 'Contact Info',
+    'privacy-policy': 'Privacy Policy',
+    terms: 'Terms & Conditions',
+    careers: 'Careers'
+};
+
+let pageContentCatalog = [];
+let activePageSlug = 'about';
+
+function renderPageContentTabs() {
+    const tabs = document.getElementById('pageContentTabs');
+    if (!tabs) return;
+
+    tabs.innerHTML = pageContentCatalog.map((page) => `
+        <button type="button" class="page-content-tab ${page.slug === activePageSlug ? 'is-active' : ''}" data-slug="${escapeHtml(page.slug)}" role="tab">
+            ${escapeHtml(PAGE_CONTENT_LABELS[page.slug] || page.title)}
+        </button>
+    `).join('');
+
+    tabs.querySelectorAll('.page-content-tab').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            syncPageContentFromDom();
+            activePageSlug = btn.dataset.slug;
+            renderPageContentTabs();
+            renderPageContentEditor();
+        });
+    });
+}
+
+function getActivePageState() {
+    return pageContentCatalog.find((p) => p.slug === activePageSlug) || null;
+}
+
+function renderPageContentEditor() {
+    const editor = document.getElementById('pageContentEditor');
+    if (!editor) return;
+
+    const page = getActivePageState();
+    if (!page) {
+        editor.innerHTML = '<p class="page-content-loading">No page selected.</p>';
+        return;
+    }
+
+    const meta = page.contactMeta || {};
+    const contactMetaFields = page.slug === 'contact' ? `
+            <div class="page-content-contact-meta">
+                <h5><i class="fa-solid fa-store"></i> Contact Page — Store Details</h5>
+                <div class="page-content-form">
+                    <div class="form-group form-group-full">
+                        <label for="contactMetaAddress">Store Address</label>
+                        <input type="text" id="contactMetaAddress" value="${escapeHtml(meta.address || '')}">
+                    </div>
+                    <div class="form-group">
+                        <label for="contactMetaPhone">Phone</label>
+                        <input type="text" id="contactMetaPhone" value="${escapeHtml(meta.phone || '')}">
+                    </div>
+                    <div class="form-group">
+                        <label for="contactMetaEmail">Support Email</label>
+                        <input type="email" id="contactMetaEmail" value="${escapeHtml(meta.email || '')}">
+                    </div>
+                    <div class="form-group form-group-full">
+                        <label for="contactMetaHours">Operating Hours</label>
+                        <textarea id="contactMetaHours" rows="3">${escapeHtml(meta.hours || '')}</textarea>
+                    </div>
+                    <div class="form-group form-group-full">
+                        <label for="contactMetaMap">Google Maps Embed URL</label>
+                        <input type="url" id="contactMetaMap" value="${escapeHtml(meta.mapEmbedUrl || '')}" placeholder="https://www.google.com/maps/embed?pb=...">
+                    </div>
+                </div>
+            </div>` : '';
+
+    editor.innerHTML = `
+        <div class="page-content-form">
+            <div class="form-group">
+                <label for="pageContentTitle">Page Title</label>
+                <input type="text" id="pageContentTitle" maxlength="120" value="${escapeHtml(page.title || '')}">
+            </div>
+            <div class="form-group">
+                <label for="pageContentSubtitle">Subtitle (optional)</label>
+                <input type="text" id="pageContentSubtitle" maxlength="240" value="${escapeHtml(page.subtitle || '')}">
+            </div>
+            <div class="form-group form-group-full">
+                <label for="pageContentMarkdown">Content (Markdown supported)</label>
+                <textarea id="pageContentMarkdown" rows="14" placeholder="# Heading">${escapeHtml(page.bodyMarkdown || '')}</textarea>
+                <small class="field-hint">Supports headings (#), **bold**, *italic*, lists (- item), and [links](url).</small>
+            </div>
+            ${contactMetaFields}
+            <div class="page-content-publish-row">
+                ${footerToggleHtml({
+                    checked: page.isPublished !== false,
+                    inputClass: 'page-content-published',
+                    variant: 'green',
+                    label: 'Published on storefront'
+                })}
+                <div class="page-content-publish-copy">
+                    <span class="page-content-publish-label">Published on storefront</span>
+                    <small class="field-hint">When <strong>OFF</strong> (<code>isActive: false</code>): footer links to this page are hidden and direct visits show a 404 unavailable page.</small>
+                </div>
+                <span class="page-content-route-hint">Route: <code>/${escapeHtml(page.slug)}</code></span>
+            </div>
+        </div>`;
+}
+
+function syncPageContentFromDom() {
+    const page = getActivePageState();
+    if (!page) return;
+
+    page.title = document.getElementById('pageContentTitle')?.value?.trim() || page.title;
+    page.subtitle = document.getElementById('pageContentSubtitle')?.value?.trim() || '';
+    page.bodyMarkdown = document.getElementById('pageContentMarkdown')?.value || '';
+    page.isPublished = document.querySelector('.page-content-published')?.checked !== false;
+    page.isActive = page.isPublished;
+
+    if (page.slug === 'contact') {
+        page.contactMeta = {
+            address: document.getElementById('contactMetaAddress')?.value?.trim() || '',
+            phone: document.getElementById('contactMetaPhone')?.value?.trim() || '',
+            email: document.getElementById('contactMetaEmail')?.value?.trim() || '',
+            hours: document.getElementById('contactMetaHours')?.value?.trim() || '',
+            mapEmbedUrl: document.getElementById('contactMetaMap')?.value?.trim() || ''
+        };
+    }
+}
+
+window.fetchPageContentCatalog = async function fetchPageContentCatalog() {
+    const manager = document.getElementById('pageContentManager');
+    if (!manager) return;
+
+    try {
+        const res = await fetch('/api/admin/pages', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Failed to load pages.');
+
+        pageContentCatalog = Array.isArray(data.data) ? data.data : [];
+        if (!pageContentCatalog.find((p) => p.slug === activePageSlug) && pageContentCatalog.length) {
+            activePageSlug = pageContentCatalog[0].slug;
+        }
+
+        renderPageContentTabs();
+        renderPageContentEditor();
+    } catch (err) {
+        console.error('Page content load error:', err);
+        const editor = document.getElementById('pageContentEditor');
+        if (editor) editor.innerHTML = `<p class="page-content-loading">${escapeHtml(err.message)}</p>`;
+    }
+};
+
+async function savePageContent() {
+    syncPageContentFromDom();
+    const page = getActivePageState();
+    if (!page) return;
+
+    const btn = document.getElementById('pageContentSaveBtn');
+    const restore = setButtonLoading(btn, 'Saving...');
+
+    try {
+        const res = await fetch(`/api/admin/pages/${encodeURIComponent(page.slug)}`, {
+            method: 'PUT',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                title: page.title,
+                subtitle: page.subtitle,
+                bodyMarkdown: page.bodyMarkdown,
+                isPublished: page.isPublished !== false,
+                isActive: page.isPublished !== false,
+                contactMeta: page.slug === 'contact' ? page.contactMeta : undefined
+            })
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'Failed to save page.');
+
+        const idx = pageContentCatalog.findIndex((p) => p.slug === page.slug);
+        if (idx >= 0) pageContentCatalog[idx] = result.data;
+
+        showToast(result.message || 'Page content saved.', 'success');
+        renderPageContentEditor();
+    } catch (err) {
+        console.error('Save page content error:', err);
+        showToast(`Error: ${err.message}`, 'error');
+    } finally {
+        restore();
+    }
+}
+
+function setupPageContentManager() {
+    document.getElementById('pageContentSaveBtn')?.addEventListener('click', savePageContent);
+}
+
+/* ==========================================================================
+   CUSTOMER MESSAGES INBOX (/api/admin/messages)
+   ========================================================================== */
+
+let adminMessagesCache = [];
+
+function formatMessageDate(value) {
+    if (!value) return '—';
+    try {
+        return new Date(value).toLocaleString(undefined, {
+            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+    } catch (_) {
+        return String(value);
+    }
+}
+
+function renderMessagesInbox(messages = adminMessagesCache) {
+    const tbody = document.getElementById('messagesInboxBody');
+    const badge = document.getElementById('messagesUnreadBadge');
+    if (!tbody) return;
+
+    adminMessagesCache = Array.isArray(messages) ? messages.slice() : [];
+    const unread = adminMessagesCache.filter((m) => !m.isRead).length;
+    if (badge) badge.textContent = `${unread} unread`;
+
+    if (!adminMessagesCache.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No messages yet.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = adminMessagesCache.map((msg) => {
+        const id = escapeHtml(msg.id || msg._id);
+        const preview = escapeHtml((msg.message || '').slice(0, 120)) + ((msg.message || '').length > 120 ? '…' : '');
+        return `
+            <tr class="messages-row ${msg.isRead ? 'is-read' : 'is-unread'}" data-id="${id}">
+                <td><span class="msg-status-pill ${msg.isRead ? 'msg-status-pill--read' : 'msg-status-pill--unread'}">${msg.isRead ? 'Read' : 'Unread'}</span></td>
+                <td>${escapeHtml(msg.name)}</td>
+                <td><a href="mailto:${escapeHtml(msg.email)}">${escapeHtml(msg.email)}</a></td>
+                <td>${escapeHtml(msg.subject || '—')}</td>
+                <td class="msg-preview-cell" title="${escapeHtml(msg.message || '')}">${preview}</td>
+                <td>${escapeHtml(formatMessageDate(msg.createdAt))}</td>
+                <td class="msg-actions-cell">
+                    ${msg.isRead ? '' : `<button type="button" class="btn-icon msg-mark-read" data-id="${id}" title="Mark as read"><i class="fa-solid fa-check"></i></button>`}
+                    <button type="button" class="btn-icon msg-delete" data-id="${id}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                </td>
+            </tr>`;
+    }).join('');
+}
+
+window.fetchAdminMessages = async function fetchAdminMessages() {
+    const section = document.getElementById('view-messages');
+    if (!section) return;
+
+    const tbody = document.getElementById('messagesInboxBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="text-center"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</td></tr>';
+
+    try {
+        const res = await fetch('/api/admin/messages', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Failed to load messages.');
+        renderMessagesInbox(data.data || []);
+    } catch (err) {
+        console.error('Messages inbox error:', err);
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center">${escapeHtml(err.message)}</td></tr>`;
+    }
+};
+
+async function markMessageRead(id) {
+    const res = await fetch(`/api/admin/messages/${id}/read`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    const result = await res.json();
+    if (!result.success) throw new Error(result.message || 'Failed to mark as read.');
+    await fetchAdminMessages();
+}
+
+async function deleteMessage(id) {
+    const res = await fetch(`/api/admin/messages/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    const result = await res.json();
+    if (!result.success) throw new Error(result.message || 'Failed to delete message.');
+    showToast('Message deleted.', 'success');
+    await fetchAdminMessages();
+}
+
+function setupMessagesInbox() {
+    document.getElementById('messagesRefreshBtn')?.addEventListener('click', fetchAdminMessages);
+
+    document.getElementById('messagesInboxBody')?.addEventListener('click', (e) => {
+        const readBtn = e.target.closest('.msg-mark-read');
+        const deleteBtn = e.target.closest('.msg-delete');
+        if (readBtn) {
+            markMessageRead(readBtn.dataset.id).catch((err) => showToast(err.message, 'error'));
+        }
+        if (deleteBtn) {
+            const id = deleteBtn.dataset.id;
+            showCustomConfirm('Delete message?', 'This inquiry will be permanently removed.', () => {
+                deleteMessage(id).catch((err) => showToast(err.message, 'error'));
+            }, 'danger');
+        }
+    });
+}
+
 function applyWhatsAppSettingsToUI(settings) {
     if (!settings) return;
 
@@ -7260,6 +8184,8 @@ async function fetchMasterSettings() {
 
     // Payment catalog lives on its own endpoints — keep it in sync with System Settings.
     await fetchPaymentMethodsCatalog();
+    await fetchFooterSettings();
+    await fetchPageContentCatalog();
 }
 
 async function saveMasterSettings(payload) {
@@ -7351,6 +8277,9 @@ function setupSystemSettingsSectionForms() {
     });
 
     setupPaymentMethodsManager();
+    setupFooterSettingsManager();
+    setupPageContentManager();
+    setupMessagesInbox();
 
     bindSystemSettingsSectionForm('form-system-flash-sale', {
         successMessage: 'Flash sale settings updated successfully!',
@@ -7906,6 +8835,11 @@ document.addEventListener('DOMContentLoaded', () => {
     setupGlobalSearch();
     setupSyncButton();
 
+    if (window.location.pathname.replace(/\/+$/, '') === '/admin/messages') {
+        const messagesNav = document.querySelector('[data-target="view-messages"]');
+        if (messagesNav) navigateAdminSection('view-messages', messagesNav);
+    }
+
     const profileUploadInput = document.getElementById('adminProfileUpload');
     if (profileUploadInput) {
         profileUploadInput.addEventListener('change', uploadAdminProfilePic);
@@ -7967,6 +8901,7 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-sessions': fetchAdminSessions,
         'view-audit': initAuditView,
         'view-master-settings': fetchMasterSettings,
+        'view-messages': fetchAdminMessages,
         // Staff Management lives in js/admin-staff.js (Super Admin only)
         'view-staff': () => window.loadStaffSection && window.loadStaffSection(),
         'view-settings': fetchAdminSettings

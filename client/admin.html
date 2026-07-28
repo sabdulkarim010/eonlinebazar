@@ -17,6 +17,8 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <link rel="stylesheet" href="/css/admin.css">
+    <link rel="stylesheet" href="/css/footer.css">
+    <link rel="stylesheet" href="/css/cms-page.css">
     <script src="https://cdn.tailwindcss.com"></script>
 
     <script>
@@ -60,6 +62,7 @@
                     <li class="active" data-target="view-overview"><i class="fa-solid fa-chart-pie"></i> Overview</li>
                     <li data-target="view-customers"><i class="fa-solid fa-users"></i> All Customers</li>
                     <li data-target="view-orders"><i class="fa-solid fa-cart-shopping"></i> Live Orders</li>
+                    <li data-target="view-messages"><i class="fa-solid fa-envelope-open-text"></i> Messages / Inquiries</li>
                     <li data-target="view-add-product"><i class="fa-solid fa-circle-plus"></i> Add New Product</li>
                     <li data-target="view-manage-products"><i class="fa-solid fa-boxes-stacked"></i> Manage Products</li>
 
@@ -1701,6 +1704,138 @@
             </div>
         </form>
 
+        <section id="footerSettingsManager" class="system-settings-form" aria-labelledby="footerSettingsHeading">
+            <div class="system-settings-card system-settings-card--slate">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--slate" aria-hidden="true">
+                        <i class="fa-solid fa-shoe-prints"></i>
+                    </div>
+                    <div class="system-settings-card-heading flex-1 min-w-0">
+                        <h4 id="footerSettingsHeading">Footer Settings</h4>
+                        <p class="settings-card-sub">Manage footer columns, social links, copyright text, and payment badges — changes sync instantly to the storefront footer.</p>
+                    </div>
+                </div>
+
+                <div class="footer-settings-body">
+                    <div class="form-group form-group-full">
+                        <label for="footerCopyrightText">Copyright Text</label>
+                        <input type="text" id="footerCopyrightText" maxlength="300" placeholder="© 2026 EonlineBazar. All rights reserved. Designed by Abdul Karim Sheikh">
+                    </div>
+
+                    <div class="footer-settings-section">
+                        <div class="footer-settings-section-head">
+                            <h5><i class="fa-solid fa-table-columns"></i> Footer Columns &amp; Links</h5>
+                            <button type="button" id="footerAddColumnBtn" class="footer-settings-add-btn">
+                                <i class="fa-solid fa-plus"></i> Add Column
+                            </button>
+                        </div>
+                        <div id="footerColumnsEditor" class="footer-columns-editor"></div>
+                    </div>
+
+                    <div class="footer-settings-section">
+                        <div class="footer-settings-section-head">
+                            <h5><i class="fa-solid fa-share-nodes"></i> Social Media Links</h5>
+                            <button type="button" id="footerAddSocialBtn" class="footer-settings-add-btn">
+                                <i class="fa-solid fa-plus"></i> Add Social Link
+                            </button>
+                        </div>
+                        <div id="footerSocialEditor" class="footer-social-editor"></div>
+                    </div>
+
+                    <div class="footer-settings-section">
+                        <div class="footer-settings-section-head">
+                            <h5><i class="fa-solid fa-wallet"></i> Payment Method Badges</h5>
+                            <button type="button" id="footerAddPaymentBtn" class="footer-settings-add-btn">
+                                <i class="fa-solid fa-plus"></i> Add Badge
+                            </button>
+                        </div>
+                        <div id="footerPaymentEditor" class="footer-payment-editor"></div>
+                    </div>
+
+                    <div class="master-settings-preview footer-settings-preview" id="footerSettingsPreview">
+                        <strong>Live preview:</strong>
+                        <p class="footer-preview-hint">Uses the same footer renderer as the storefront — updates instantly as you edit.</p>
+                        <div id="footerSettingsPreviewContent" class="footer-live-preview-wrap">
+                            <footer class="compact-footer" aria-label="Footer preview">
+                                <div class="footer-container" id="footerLivePreviewInner"></div>
+                            </footer>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="button" id="footerSettingsSaveBtn" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Footer Settings
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="pageContentManager" class="system-settings-form" aria-labelledby="pageContentHeading">
+            <div class="system-settings-card system-settings-card--cyan">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--cyan" aria-hidden="true">
+                        <i class="fa-solid fa-file-lines"></i>
+                    </div>
+                    <div class="system-settings-card-heading flex-1 min-w-0">
+                        <h4 id="pageContentHeading">Page Content Manager</h4>
+                        <p class="settings-card-sub">Edit About Us, Contact store info, Privacy Policy, Terms, and Careers — toggle publish to control footer links and public access.</p>
+                    </div>
+                </div>
+
+                <div class="page-content-body">
+                    <div class="page-content-tabs" id="pageContentTabs" role="tablist"></div>
+
+                    <div class="page-content-editor" id="pageContentEditor">
+                        <p class="page-content-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading pages...</p>
+                    </div>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="button" id="pageContentSaveBtn" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Page Content
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </div>
+</section>
+
+
+<!-- ============================================================
+     ✉️ CUSTOMER MESSAGES / INQUIRIES INBOX
+     ============================================================ -->
+<section id="view-messages" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <h3>Messages / Inquiries</h3>
+        <p class="section-subtitle">Customer contact form submissions — mark as read or delete after responding.</p>
+    </div>
+
+    <div class="messages-inbox-toolbar">
+        <span id="messagesUnreadBadge" class="messages-unread-badge">0 unread</span>
+        <button type="button" id="messagesRefreshBtn" class="btn-secondary">
+            <i class="fa-solid fa-rotate"></i> Refresh
+        </button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="admin-table messages-inbox-table" id="messagesInboxTable">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Subject</th>
+                    <th>Message</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="messagesInboxBody">
+                <tr><td colspan="7" class="text-center">Loading messages...</td></tr>
+            </tbody>
+        </table>
     </div>
 </section>
 
@@ -2879,6 +3014,8 @@
     <script src="/js/bd-upazilas.js"></script>
     <script src="/js/variantUtils.js"></script>
     <script src="/js/paymentBrandLogos.js"></script>
+    <script src="/js/footerRenderer.js"></script>
+    <script src="/js/markdownToHtml.js"></script>
     <script type="module" src="/js/admin.js"></script>
     <script type="module" src="/js/admin-staff.js"></script>
 

@@ -8,6 +8,8 @@ router.get('/announcement', storeController.getPublicAnnouncement);
 router.get('/shipping-quote', storeController.getPublicShippingQuote);
 router.get('/flash-sale', storeController.getPublicFlashSale);
 router.get('/payment-methods', storeController.getPublicPaymentMethods);
+router.get('/footer-settings', storeController.getPublicFooterSettings);
+router.get('/pages/:slug', storeController.getPublicPageContent);
 router.get('/districts', storeController.getPublicDistricts);
 
 module.exports = router;

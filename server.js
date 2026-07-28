@@ -33,6 +33,7 @@ const { getFinanceAnalytics, verifyFinanceToken } = require('./controllers/finan
 const couponRoutes = require('./routes/couponRoutes');
 const storeRoutes = require('./routes/storeRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const contactRoutes = require('./routes/contactRoutes');
 const { seedDefaultPaymentMethods } = require('./utils/paymentMethodService');
 const storeSettingsMiddleware = require('./middlewares/storeSettingsMiddleware');
 const { applyBrandingToHtml } = require('./utils/brandingHtml');
@@ -127,6 +128,7 @@ app.use('/api/finance', financeRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/store', storeRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/contact', contactRoutes);
 
 // Finance analytics — explicit path expected by the dashboard UI
 // URL: GET /admin/api/analytics?period=&startDate=&endDate=
@@ -202,6 +204,18 @@ app.get('/contact', (req, res) => {
     sendClientHtml(res, 'contact.html');
 });
 
+app.get('/privacy-policy', (req, res) => {
+    sendClientHtml(res, 'cms-page.html');
+});
+
+app.get('/terms', (req, res) => {
+    sendClientHtml(res, 'cms-page.html');
+});
+
+app.get('/careers', (req, res) => {
+    sendClientHtml(res, 'cms-page.html');
+});
+
 app.get('/footer', (req, res) => {
     sendClientHtml(res, 'footer.html');
 });
@@ -213,6 +227,10 @@ app.get('/admin', (req, res) => {
 
 // Dashboard alias (same panel as /admin)
 app.get('/admin/dashboard', (req, res) => {
+    sendClientHtml(res, 'admin.html');
+});
+
+app.get('/admin/messages', (req, res) => {
     sendClientHtml(res, 'admin.html');
 });
 

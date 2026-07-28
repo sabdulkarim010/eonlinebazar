@@ -15,9 +15,14 @@ const {
     PAYMENTS_DIR,
     buildUniquePaymentLogoFilename
 } = require('../utils/paymentLogoPaths');
+const {
+    FOOTER_ICONS_DIR,
+    buildUniqueFooterIconFilename
+} = require('../utils/footerIconPaths');
 
-// Guarantee payment logo upload directory exists before any save attempt.
+// Guarantee upload directories exist before any save attempt.
 fs.mkdirSync(PAYMENTS_DIR, { recursive: true });
+fs.mkdirSync(FOOTER_ICONS_DIR, { recursive: true });
 
 const PAYMENT_LOGO_MIMES = new Set([
     'image/png',
@@ -117,8 +122,39 @@ function paymentMethodLogoUploadSafe(req, res, next) {
     });
 }
 
+const footerIconStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        fs.mkdirSync(FOOTER_ICONS_DIR, { recursive: true });
+        cb(null, FOOTER_ICONS_DIR);
+    },
+    filename: (req, file, cb) => {
+        const key = req.body?.platform || req.body?.name || req.body?.iconName || 'footer-icon';
+        cb(null, buildUniqueFooterIconFilename(key, file.originalname));
+    }
+});
+
+const footerIconUpload = multer({
+    storage: footerIconStorage,
+    fileFilter: paymentMethodLogoFileFilter,
+    limits: {
+        fileSize: 2 * 1024 * 1024
+    }
+}).single('icon');
+
+function footerIconUploadSafe(req, res, next) {
+    footerIconUpload(req, res, (err) => {
+        if (!err) return next();
+
+        const message = err.code === 'LIMIT_FILE_SIZE'
+            ? 'Icon must be 2 MB or smaller.'
+            : (err.message || 'Icon upload failed.');
+        return res.status(400).json({ success: false, message });
+    });
+}
+
 module.exports = upload;
 module.exports.brandingUpload = brandingUpload;
 module.exports.paymentMethodLogoUpload = paymentMethodLogoUploadSafe;
+module.exports.footerIconUpload = footerIconUploadSafe;
 module.exports.BRANDING_DIR = BRANDING_DIR;
 module.exports.PAYMENTS_DIR = PAYMENTS_DIR;

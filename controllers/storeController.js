@@ -15,6 +15,9 @@ const { loadRewardSettings } = require('../utils/rewardSettings');
 const { toPublicAnnouncementPayload } = require('../utils/announcementSettings');
 const Setting = require('../models/Setting');
 const { loadFlashSaleSettings, toPublicFlashSalePayload } = require('../utils/flashSaleService');
+const FooterSettings = require('../models/FooterSettings');
+const PageContent = require('../models/PageContent');
+const { getPublishedPageSlugs, filterFooterColumnsByPublishedPages } = require('../utils/pagePublishService');
 
 const getPublicStoreBranding = async (req, res) => {
     try {
@@ -135,6 +138,32 @@ module.exports = {
         } catch (error) {
             console.error('Get Public Payment Methods Error:', error);
             res.status(500).json({ success: false, message: 'Failed to load payment methods.' });
+        }
+    },
+    getPublicFooterSettings: async (req, res) => {
+        try {
+            const [doc, publishedSlugs] = await Promise.all([
+                FooterSettings.getOrCreate(),
+                getPublishedPageSlugs()
+            ]);
+            const payload = doc.toPublicObject();
+            payload.columns = filterFooterColumnsByPublishedPages(payload.columns, publishedSlugs);
+            res.status(200).json({ success: true, data: payload });
+        } catch (error) {
+            console.error('Get Public Footer Settings Error:', error);
+            res.status(500).json({ success: false, message: 'Failed to load footer settings.' });
+        }
+    },
+    getPublicPageContent: async (req, res) => {
+        try {
+            const page = await PageContent.getPublishedBySlug(req.params.slug);
+            if (!page) {
+                return res.status(404).json({ success: false, message: 'Page not found.' });
+            }
+            res.status(200).json({ success: true, data: page.toPublicObject() });
+        } catch (error) {
+            console.error('Get Public Page Content Error:', error);
+            res.status(500).json({ success: false, message: 'Failed to load page content.' });
         }
     }
 };

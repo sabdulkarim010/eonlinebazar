@@ -24,8 +24,11 @@ const masterSettingsController = require('../controllers/masterSettingsControlle
 const courierController = require('../controllers/courierController');
 const whatsappAlertsController = require('../controllers/whatsappAlertsController');
 const paymentMethodController = require('../controllers/paymentMethodController');
+const footerSettingsController = require('../controllers/footerSettingsController');
+const pageContentController = require('../controllers/pageContentController');
+const contactController = require('../controllers/contactController');
 const upload = require('../middlewares/uploadMiddleware');
-const { brandingUpload, paymentMethodLogoUpload } = upload;
+const { brandingUpload, paymentMethodLogoUpload, footerIconUpload } = upload;
 const staffController = require('../controllers/staffController');
 const staffRoutes = require('./staffRoutes');
 const { verifyAdmin } = require('../middlewares/authMiddleware');
@@ -165,6 +168,38 @@ router.put(
 );
 router.patch('/payment-methods/:id/toggle', verifyAdmin, checkPermission('manage_settings'), paymentMethodController.togglePaymentMethod);
 router.delete('/payment-methods/:id', verifyAdmin, checkPermission('manage_settings'), paymentMethodController.deletePaymentMethod);
+
+/********************************************************************
+ # ৫ঘ. 🦶 DYNAMIC FOOTER SETTINGS
+ # URL: /api/admin/footer-settings
+ ********************************************************************/
+router.get('/footer-settings', verifyAdmin, checkPermission('manage_settings'), footerSettingsController.getAdminFooterSettings);
+router.put('/footer-settings', verifyAdmin, checkPermission('manage_settings'), footerSettingsController.updateFooterSettings);
+router.post('/footer-settings', verifyAdmin, checkPermission('manage_settings'), footerSettingsController.updateFooterSettings);
+router.post(
+    '/footer-settings/upload-icon',
+    verifyAdmin,
+    checkPermission('manage_settings'),
+    footerIconUpload,
+    footerSettingsController.uploadFooterIcon
+);
+
+/********************************************************************
+ # ৫ঙ. 📄 PAGE CONTENT MANAGER (CMS)
+ # URL: /api/admin/pages
+ ********************************************************************/
+router.get('/pages', verifyAdmin, checkPermission('manage_settings'), pageContentController.listAdminPages);
+router.get('/pages/:slug', verifyAdmin, checkPermission('manage_settings'), pageContentController.getAdminPage);
+router.put('/pages/:slug', verifyAdmin, checkPermission('manage_settings'), pageContentController.updatePageContent);
+router.post('/pages/:slug', verifyAdmin, checkPermission('manage_settings'), pageContentController.updatePageContent);
+
+/********************************************************************
+ # ৫চ. ✉️ CUSTOMER MESSAGES INBOX
+ # URL: /api/admin/messages
+ ********************************************************************/
+router.get('/messages', verifyAdmin, checkPermission('manage_settings'), contactController.listContactMessages);
+router.patch('/messages/:id/read', verifyAdmin, checkPermission('manage_settings'), contactController.markContactMessageRead);
+router.delete('/messages/:id', verifyAdmin, checkPermission('manage_settings'), contactController.deleteContactMessage);
 
 // URL: GET|POST /api/admin/announcement-settings (legacy announcement-only save)
 router.get('/announcement-settings', verifyAdmin, masterSettingsController.getAnnouncementSettings);
