@@ -178,4 +178,7 @@ productSchema.index(
     }
 );
 
+productSchema.index({ category: 1 });
+productSchema.index({ slug: 1 }, { sparse: true });
+
 module.exports = mongoose.models.Product || mongoose.model('Product', productSchema);

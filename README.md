@@ -56,6 +56,7 @@
 - [Checkout Experience & Cart Enhancements](#-checkout-experience--cart-enhancements)
 - [Profile Security & Order Invoice Enhancements](#-profile-security--order-invoice-enhancements)
 - [Performance & Engagement Enhancements](#-performance--engagement-enhancements)
+- [Database Indexing Optimization](#️-database-indexing-optimization)
 - [Stock Out & Low Stock Automated Alert Engine](#️-stock-out--low-stock-automated-alert-engine)
 - [Multi-Attribute Combination Matrix & Dynamic Stock Engine](#-multi-attribute-combination-matrix--dynamic-stock-engine)
 - [Admin Panel — Order Security & Refund Controls](#-admin-panel--order-security--refund-controls)
@@ -703,6 +704,7 @@ This release delivers a professional-grade **checkout ↔ profile address pipeli
 | **🛒 Checkout Experience & Cart Enhancements** | Checkout-only **district selection** and **promo codes** for a cleaner `/cart`; real-time **inside/outside Dhaka** shipping + **business-day delivery estimates**; shared **`CouponUI`** module for flat/percentage discounts with live subtotal/grand-total updates; automatic **guest → auth cart merge** on login/OAuth. |
 | **🔒 Profile Security & Order Invoice Enhancements** | **`bcrypt`** password change with current-password gate; **6-digit OTP** verification for email/phone updates; single **Primary / Default** address flag with checkout auto-select & pre-fill; **1-click PDF invoice** download from **My Orders** and **Order Details** (`Invoice-ORDER_ID.pdf`). |
 | **⚡ Performance & Engagement Enhancements** | Interactive **order status timeline** on Order Details (`Placed → Processing → Shipped → Out for Delivery → Delivered`); **real-time low-stock FOMO badges** on Cart & Wishlist; lightweight **global toast notifications** for cart, wishlist, and stock feedback — no full-page reloads. |
+| **🗄️ Database Indexing Optimization** | Mongoose **schema-level indexes** on `User`, `Order`, and `Product` collections — faster auth lookups, admin order filtering/sorting, and weighted full-text product search; indexes auto-built on startup via `schema.index()`. *(See [Database Indexing Optimization](#️-database-indexing-optimization).)* |
 | **📊 Admin Analytics & Inventory Management** | Interactive **Sales & Business Analytics Dashboard** with live revenue/order KPIs and Chart.js trend charts; **Automated Low-Stock & Inventory Alert System** with color-coded badges and inline **Update Stock** quick actions on the admin Overview tab. *(See [Stock Out & Low Stock Automated Alert Engine](#️-stock-out--low-stock-automated-alert-engine).)* |
 
 > 📌 See the dedicated sections below for workflow diagrams, schema fields, and API specifications.
@@ -817,6 +819,19 @@ End-to-end order lifecycle management for customers and admins — from responsi
 | `courierConsignmentId` | `String` | Internal consignment ID from the courier API |
 | `courierStatus` | `String` | Booking lifecycle (`unbooked`, `booking`, `in_review`, `failed`, …) |
 | `courierBookedAt` | `Date` | Timestamp when the parcel was successfully booked |
+
+#### Schema Indexes
+
+| Index | Purpose |
+|-------|---------|
+| `{ orderId: 1 }` | Track-order & IPN lookup |
+| `{ user: 1 }` | Customer order history |
+| `{ status: 1 }` | Admin Live Orders filtering |
+| `{ createdAt: -1 }` | Recent-first sorting |
+| `{ 'payment.transactionId': 1 }` | Payment callback reconciliation |
+| `{ 'payment.methodId': 1, createdAt: -1 }` | Accounting reports by payment method |
+
+> 📌 See [Database Indexing Optimization](#️-database-indexing-optimization) for User and Product indexes.
 
 ### Related API Endpoints
 
@@ -1182,6 +1197,61 @@ Storefront UX upgrades that improve order transparency, inventory urgency, and r
 
 ---
 
+## 🗄️ Database Indexing Optimization
+
+Mongoose **schema-level indexes** on the core `User`, `Order`, and `Product` collections to accelerate authentication lookups, admin order management, status filtering, and catalog search — without requiring manual DBA intervention on every deploy.
+
+Indexes are declared directly on each schema via `schema.index(...)` and are **automatically built when the application connects to MongoDB** (Mongoose default `autoIndex` behavior on model initialization).
+
+### Feature Overview
+
+#### User Indexing (`models/user.js`)
+- **`{ email: 1 }`** — instant authentication and profile lookups (`User.findOne({ email })`, duplicate-email guards on profile updates).
+- **`{ mobile: 1 }`** — fast phone-number lookup for registration and profile queries (primary phone field; complements the existing unique index on `email`).
+
+#### Order Indexing (`models/order.js`)
+- **`{ orderId: 1 }`** — high-speed order tracking, IPN/callback resolution, and guest track-order lookups.
+- **`{ user: 1 }`** — efficient per-customer order history (`Order.find({ user })` on profile and admin customer views).
+- **`{ status: 1 }`** — fast admin Live Orders filtering by lifecycle state (`Pending`, `Processing`, `Shipped`, `Delivered`, etc.).
+- **`{ createdAt: -1 }`** — recent-first sorting for admin dashboards and customer **My Orders** lists.
+- Existing payment indexes retained: `{ 'payment.transactionId': 1 }` and `{ 'payment.methodId': 1, createdAt: -1 }` for IPN reconciliation and accounting reports.
+
+#### Product Indexing (`models/product.js`)
+- **`{ slug: 1 }`** *(sparse)* — fast slug-based product resolution when slug documents are present.
+- **`{ category: 1 }`** — efficient category filtering on storefront browse and admin catalog views.
+- **`ProductTextIndex`** — weighted composite **text index** on `name`, `description`, `detailedDescription`, `tags`, `brandName`, `category`, and `highlights` for lightning-fast full-text search queries (name and description weighted highest for relevance).
+
+### Index Reference
+
+| Model | Index | Purpose |
+|-------|-------|---------|
+| `User` | `{ email: 1 }` | Login, registration, profile email updates |
+| `User` | `{ mobile: 1 }` | Phone-number authentication & lookup |
+| `Order` | `{ orderId: 1 }` | Track order, IPN routing |
+| `Order` | `{ user: 1 }` | Customer order history |
+| `Order` | `{ status: 1 }` | Admin status filtering |
+| `Order` | `{ createdAt: -1 }` | Recent-first sort |
+| `Product` | `{ category: 1 }` | Category browse & admin filters |
+| `Product` | `{ slug: 1 }` *(sparse)* | Slug URL lookup |
+| `Product` | `{ name: 'text', description: 'text', … }` | Weighted full-text search (`ProductTextIndex`) |
+
+### Implementation Notes
+
+- Indexes are defined **inside each Mongoose schema file** — no separate migration script required for development.
+- On first connection after a schema change, Mongoose synchronizes index definitions with MongoDB Atlas.
+- In production, consider setting `autoIndex: false` and running a one-time `Model.createIndexes()` during deploy if index builds should be decoupled from app startup traffic.
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `models/user.js` | `email` + `mobile` lookup indexes |
+| `models/order.js` | `orderId`, `user`, `status`, `createdAt` indexes (+ payment indexes) |
+| `models/product.js` | `ProductTextIndex`, `category`, and sparse `slug` indexes |
+| `config/db.js` | MongoDB Atlas connection — triggers index sync on startup |
+
+---
+
 ## 🛍️ Multi-Attribute Combination Matrix & Dynamic Stock Engine
 
 Enterprise-grade variant inventory for the catalog admin and product detail storefront — supports **Simple Products** (single stock count) and **Combination Variant Products** (multi-attribute SKU matrices) without forcing flat, single-attribute variation rows. **v4.2.0** delivers a master **Attribute Library**, automated matrix generation with dynamic SKUs, per-variant multi-pricing, a responsive bordered matrix grid, **persistent Manage Products pagination**, and **fully opaque sticky table headers**.
@@ -1267,6 +1337,16 @@ Enterprise-grade variant inventory for the catalog admin and product detail stor
 | `variants[]` | `Array` | Combination rows — each with `attributes`, `sku`, `price`, `buyingPrice`, `stock`, `image` |
 
 Legacy flat `attribute` / `value` sub-fields are retained on variant rows for backward compatibility with older catalog documents.
+
+#### Schema Indexes
+
+| Index | Type | Purpose |
+|-------|------|---------|
+| `{ category: 1 }` | Single-field | Category browse & admin catalog filtering |
+| `{ slug: 1 }` | Sparse single-field | Slug-based product lookup |
+| `ProductTextIndex` | Weighted text (`name`, `description`, …) | Full-text storefront & admin search |
+
+> 📌 See [Database Indexing Optimization](#️-database-indexing-optimization) for the complete cross-model indexing strategy.
 
 ### Admin Workflow (Add / Edit Product)
 
@@ -3178,7 +3258,7 @@ eonlinebazar-fullstack/
 │   └── permissions.js                 # RBAC permission catalog, sidebar map & sanitizers
 │
 ├── models/                            # Mongoose schemas (data layer)
-│   ├── user.js                        # Customer + layered address (district/upazila/thana), wishlist[], wallet
+│   ├── user.js                        # Customer + layered address, wishlist[], wallet; indexes: email, mobile
 │   ├── wishlist.js                    # Wishlist item subdocument schema (productId, name, price, image…)
 │   ├── userSession.js                 # Active customer device / login sessions
 │   ├── admin.js                       # Admin account — RBAC fields, 2FA, bcrypt hashing & platform settings
@@ -3188,13 +3268,13 @@ eonlinebazar-fullstack/
 │   ├── loginAttempt.js                # Login history & failed/blocked attempt audit
 │   ├── blacklistedIp.js               # Auto + manual IP bans (TTL-expiring)
 │   ├── securityLog.js                 # Admin/customer security & auth event log
-│   ├── product.js                     # Products (images, buyingPrice, hasVariants, stockQuantity, combination variants[])
+│   ├── product.js                     # Products (variants[], stock); text + category + slug indexes
 │   ├── category.js                    # Product categories (optional customCashbackPercentage)
 │   ├── brand.js                       # Product brands (slug + product references)
 │   ├── attribute.js                   # Master product attribute library (Color, Size, values[]) — auto-fill source
 │   ├── coupon.js                      # Coupons & discounts (status ACTIVE/EXPIRED, precise expiryDate, usage limits)
 │   ├── PaymentMethod.js               # Dynamic payment catalog — manual wallets + automated gateways, encrypted apiConfig
-│   ├── order.js                       # Orders with lifecycle + courier tracking fields (cancelReason, courierTrackingId…)
+│   ├── order.js                       # Orders (lifecycle + courier fields); indexes: orderId, user, status, createdAt
 │   ├── cart.js                        # Shopping cart
 │   └── review.js                      # Product reviews & ratings
 │
@@ -4240,6 +4320,12 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 - **Visual Order Status Timeline Tracker** — interactive step-based timeline on Order Details (**Placed ➔ Processing ➔ Shipped ➔ Out for Delivery ➔ Delivered**); dynamically highlights progress from live DB status; responsive mobile layout; dedicated **Order Cancelled** banner and status badges for cancelled/returned orders.
 - **Real-time Inventory & Low Stock Alerts (FOMO Engine)** — automated stock alerting across admin dashboard and storefront; **`🔥 Only X left in stock - order soon!`** urgency badges on Cart and Product pages (≤ 3 units); admin **Inventory Alerts** widget and Manage Products color-coded badges (≤ 5 units); quantity expansion blocked and **`Out of Stock`** indicators when inventory hits zero (variant-aware). *(See [Stock Out & Low Stock Automated Alert Engine](#️-stock-out--low-stock-automated-alert-engine).)*
 - **Global Non-Blocking Toast Notification System** — lightweight `#global-toast-stack` engine with auto-dismissing popups for cart additions, wishlist updates, and stock errors — no full-page reloads.
+
+**🗄️ Database Indexing Optimization**
+- **Mongoose schema-level indexes** on `User`, `Order`, and `Product` — auto-built on MongoDB connection via `schema.index()`.
+- **User:** `email` and `mobile` (phone number) indexes for instant authentication and profile lookups.
+- **Order:** `orderId`, `user`, `status`, and `createdAt` (`-1`) indexes for high-speed admin order management, status filtering, and recent-first sorting.
+- **Product:** `slug` (sparse), `category`, and weighted **`ProductTextIndex`** on `name`, `description`, and related catalog fields for lightning-fast product search. *(See [Database Indexing Optimization](#️-database-indexing-optimization).)*
 
 ### Admin UX — Wide Edit Product Modal
 **🖥️ Desktop-first product editing**

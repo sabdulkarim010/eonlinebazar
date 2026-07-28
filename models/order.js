@@ -152,6 +152,12 @@ const orderSchema = new mongoose.Schema({
 orderSchema.index({ 'payment.transactionId': 1 });
 orderSchema.index({ 'payment.methodId': 1, createdAt: -1 });
 
+// Order lookup, user history, status filters, and recent-first sorting.
+orderSchema.index({ orderId: 1 });
+orderSchema.index({ user: 1 });
+orderSchema.index({ status: 1 });
+orderSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model('Order', orderSchema);
 
 
