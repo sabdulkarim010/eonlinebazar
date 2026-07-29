@@ -34,6 +34,7 @@ const couponRoutes = require('./routes/couponRoutes');
 const storeRoutes = require('./routes/storeRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const contactRoutes = require('./routes/contactRoutes');
+const inquiryRoutes = require('./routes/inquiryRoutes');
 const { seedDefaultPaymentMethods } = require('./utils/paymentMethodService');
 const storeSettingsMiddleware = require('./middlewares/storeSettingsMiddleware');
 const { applyBrandingToHtml } = require('./utils/brandingHtml');
@@ -129,6 +130,7 @@ app.use('/api/coupons', couponRoutes);
 app.use('/api/store', storeRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/inquiries', inquiryRoutes);
 
 // Finance analytics — explicit path expected by the dashboard UI
 // URL: GET /admin/api/analytics?period=&startDate=&endDate=

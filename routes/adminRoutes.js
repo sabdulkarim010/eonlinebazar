@@ -199,6 +199,7 @@ router.post('/pages/:slug', verifyAdmin, checkPermission('manage_settings'), pag
  ********************************************************************/
 router.get('/messages', verifyAdmin, checkPermission('manage_settings'), contactController.listContactMessages);
 router.patch('/messages/:id/read', verifyAdmin, checkPermission('manage_settings'), contactController.markContactMessageRead);
+router.patch('/messages/:id/unread', verifyAdmin, checkPermission('manage_settings'), contactController.markContactMessageUnread);
 router.delete('/messages/:id', verifyAdmin, checkPermission('manage_settings'), contactController.deleteContactMessage);
 
 // URL: GET|POST /api/admin/announcement-settings (legacy announcement-only save)

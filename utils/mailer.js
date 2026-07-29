@@ -23,6 +23,7 @@ const nodemailer = require('nodemailer');
 const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
 const SMTP_USER = process.env.SMTP_USER || process.env.EMAIL_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || process.env.EMAIL_PASS || '';
+const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
 
 // The admin-configured port is tried first; 587/465 are always kept as
 // automatic fallbacks so a blocked handshake transparently self-heals.
@@ -382,11 +383,132 @@ function notifyOrderConfirmationEmail({ to, order }) {
     });
 }
 
+function formatEmailDate(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Dhaka'
+    });
+}
+
+function formatMultilineHtml(value) {
+    return escapeHtml(value).replace(/\r?\n/g, '<br>');
+}
+
+function buildInquiryReplyHtml({
+    storeName = 'EonlineBazar',
+    customerName = 'Customer',
+    subject = '',
+    inquiryDate,
+    originalMessage = '',
+    replyMessage = ''
+}) {
+    const brand = escapeHtml(storeName);
+    const safeSubject = escapeHtml(subject || 'Your inquiry');
+    const safeName = escapeHtml(customerName || 'Customer');
+    const formattedDate = escapeHtml(formatEmailDate(inquiryDate));
+
+    return `
+        <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#ffffff;">
+            <div style="background:#0f172a;padding:24px;text-align:center;">
+                <h2 style="color:#f8fafc;margin:0;font-size:24px;">${brand}</h2>
+                <p style="color:#94a3b8;margin:8px 0 0;font-size:14px;">Customer Support Response</p>
+            </div>
+            <div style="padding:28px;">
+                <p style="color:#111827;font-size:16px;margin:0 0 12px;">Dear <b>${safeName}</b>,</p>
+                <p style="color:#374151;line-height:1.6;margin:0 0 20px;">Thank you for contacting ${brand}. Our team has reviewed your inquiry and provided a response below.</p>
+
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin:0 0 20px;">
+                    <p style="margin:0 0 10px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:0.04em;">Your Original Inquiry</p>
+                    <p style="margin:0 0 6px;color:#0f172a;font-size:15px;"><b>Subject:</b> ${safeSubject}</p>
+                    <p style="margin:0 0 12px;color:#64748b;font-size:13px;"><b>Date:</b> ${formattedDate}</p>
+                    <div style="color:#374151;font-size:14px;line-height:1.7;border-left:3px solid #cbd5e1;padding-left:12px;">
+                        ${formatMultilineHtml(originalMessage)}
+                    </div>
+                </div>
+
+                <div style="background:#ecfdf5;border:1px solid #bbf7d0;border-radius:10px;padding:18px;margin:0 0 20px;">
+                    <p style="margin:0 0 10px;color:#047857;font-size:12px;text-transform:uppercase;letter-spacing:0.04em;">Our Response</p>
+                    <div style="color:#14532d;font-size:14px;line-height:1.7;">
+                        ${formatMultilineHtml(replyMessage)}
+                    </div>
+                </div>
+
+                <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0;">If you have any follow-up questions, simply reply to this email and our support team will assist you.</p>
+            </div>
+            <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:18px 28px;text-align:center;">
+                <p style="margin:0;color:#64748b;font-size:12px;">&copy; ${new Date().getFullYear()} ${brand}. All rights reserved.</p>
+                <p style="margin:6px 0 0;color:#94a3b8;font-size:11px;">This is an automated response from our customer support team.</p>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Send a branded HTML reply email for a customer inquiry.
+ * Returns { delivered } and never throws.
+ */
+async function sendInquiryReplyEmail({
+    to,
+    customerName,
+    subject,
+    inquiryDate,
+    originalMessage,
+    replyMessage,
+    storeName = 'EonlineBazar'
+}) {
+    const recipientEmail = String(to || '').trim();
+
+    if (!recipientEmail) {
+        return { delivered: false, reason: 'Missing recipient email' };
+    }
+
+    if (!SMTP_USER || !SMTP_PASS) {
+        console.error('EMAIL ERROR: SMTP not configured (set SMTP_USER / SMTP_PASS in .env).');
+        return { delivered: false, reason: 'Email transport not configured' };
+    }
+
+    const safeSubject = String(subject || 'Your inquiry').trim() || 'Your inquiry';
+    const mailOptions = {
+        from: `"${storeName} Support" <${SMTP_FROM || SMTP_USER}>`,
+        to: recipientEmail,
+        subject: `Re: ${safeSubject} — ${storeName}`,
+        html: buildInquiryReplyHtml({
+            storeName,
+            customerName,
+            subject: safeSubject,
+            inquiryDate,
+            originalMessage,
+            replyMessage
+        })
+    };
+
+    try {
+        const portUsed = await withTimeout(
+            sendWithFailover(mailOptions),
+            OVERALL_SEND_DEADLINE_MS,
+            'Inquiry reply email'
+        );
+        console.log(`SUCCESS: Inquiry reply email sent to ${recipientEmail}`);
+        return { delivered: true, port: portUsed };
+    } catch (err) {
+        console.error('EMAIL ERROR (inquiry reply):', err.message || err);
+        return { delivered: false, reason: err.message };
+    }
+}
+
 module.exports = {
     sendAdminOtpEmail,
     sendOrderConfirmationEmail,
     notifyOrderConfirmationEmail,
+    sendInquiryReplyEmail,
     buildOrderConfirmationHtml,
+    buildInquiryReplyHtml,
     getTransportForPort,
     buildTransportForPort,
     // Backward-compat alias for older imports expecting createSmtpTransport().

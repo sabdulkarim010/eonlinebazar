@@ -119,7 +119,7 @@ This release delivers a **premium information-page experience**, a **database-ba
 | Feature | Description |
 |---------|-------------|
 | **📄 Information Pages Redesign** | Re-architected **`/contact`** into a high-converting **2-column grid** (`max-w-6xl`) — floating-label form (Name, Email, Phone, Subject, Message), glowing **Send Message** CTA, store info cards, and embedded **Google Maps** iframe. Applied consistent **hero headers**, premium typography, and **`max-w-5xl`** card constraints across **About Us**, **Privacy Policy**, **Terms**, and **Careers**. |
-| **✉️ Admin Customer Messages Inbox** | New **`ContactMessage`** MongoDB schema persists every storefront submission; **`POST /api/contact`** (rate-limited) saves inquiries server-side. Admin **Messages / Inquiries** dashboard at **`/admin/messages`** lists Name, Email, Subject, Message preview, Date, Read/Unread status — with **Mark as Read** and **Delete** actions. |
+| **✉️ Admin Customer Messages Inbox** | **`ContactMessage`** MongoDB schema with full inquiry lifecycle (`status`: unread/read/replied, `replyMessage`, `repliedAt`). **`POST /api/contact`** (rate-limited) persists storefront submissions. **Direct Email Reply** via **`POST /api/inquiries/:id/reply`** — Nodemailer SMTP dispatches branded HTML replies; admin **Outlook-style 2-column split inbox** at **`/admin/messages`** (35% list · 65% reading pane) with search, All/Unread/Replied tabs, 1-click copy, and inline reply with loading spinners + toasts. |
 | **🦶 Dynamic Footer & Page Manager** | Singleton **`FooterSettings`** model powers columns, social links, copyright text, and payment badges via **`client/js/footerRenderer.js`** (shared storefront + admin live preview). **Page Content Manager** edits Markdown CMS pages; **publish toggle OFF** (`isActive: false`) hides footer links and blocks public page access (404 unavailable). **Desktop:** app-style **`bg-slate-900`** theme with **`border-t border-slate-800`** micro-border; uniform **4-column grid** (`md:grid-cols-4`) for **Company**, **Support**, **Quick Links**, and **Follow Us**; payment gateway badges (bKash, Nagad, Visa, Mastercard, COD) relocated to the **bottom copyright bar** (left copyright · right badges). **Mobile:** ultra-compact **≤ 3-line** strip (see below). |
 | **📱 Ultra-Compact Mobile Footer** | On viewports **&lt; 768px**, bulky vertical columns and accordions are **eliminated** — replaced by a **≤ 3-line** zero-margin strip strictly under 3 compact lines: **Line 1** bulletless inline quick links (`About Us`, `Contact Us`, `Track Order`, `Privacy Policy`) with **`flex-wrap justify-center gap-x-2.5`** to eliminate text clipping; **Line 2** centered active social icons with smooth tap/hover states; **Line 3** minimalist **10px** copyright with **zero trailing bottom padding/margin** (`mb-0`, `pb-1` cleanup) plus **right-side safe-area buffer** for the fixed WhatsApp icon. **Payment badges hidden on mobile** (`hidden md:flex` / `.footer-copyright-payments { display: none }`). Full **4-column dynamic footer** preserved on desktop via responsive CSS isolation (`footer-mobile-compact` / `footer-desktop`). |
 | **🧹 Page Manager Polish** | Removed redundant **Live Preview** from Page Content Manager to reclaim vertical space; clarified publish toggle copy — unpublished pages are excluded from **`GET /api/store/footer-settings`** link filtering via **`utils/pagePublishService.js`**. |
@@ -1727,22 +1727,37 @@ Line 3: © 2026 EonlineBazar. Designed…      │        │        │ Links  
 
 **Admin UI:** **System Settings → Page Content Manager** — tabbed page selector, Markdown textarea, publish toggle with explicit OFF behavior documentation, contact-specific store-detail fields. Live preview removed in v4.5.0 for a cleaner editing surface.
 
-### Admin Customer Messages Inbox
+### Admin Customer Messages Inbox — Direct Email Reply & Outlook Split Inbox
 
 ```
-Storefront                    Backend                         Admin Panel
-──────────                    ───────                         ───────────
-/contact form  ──POST──►  ContactMessage (MongoDB)  ◄──GET──  /admin/messages
-                          rate-limited /api/contact          Messages / Inquiries table
+Storefront                    Backend                              Admin Panel
+──────────                    ───────                              ───────────
+/contact form  ──POST──►  ContactMessage (MongoDB)       ◄──GET──  /admin/messages
+                          rate-limited /api/contact              Outlook 2-column split inbox
+                          Nodemailer SMTP reply dispatch  ◄──POST── /api/inquiries/:id/reply
 ```
+
+#### 1. Backend Email & Inquiry Infrastructure
+
+| Component | Details |
+|-----------|---------|
+| **SMTP Integration** | Production **Nodemailer** transport in **`utils/mailer.js`** — credentials from **`SMTP_HOST`**, **`SMTP_PORT`**, **`SMTP_USER`**, **`SMTP_PASS`**, **`SMTP_FROM`** (with `EMAIL_USER` / `EMAIL_PASS` fallback). Supports **465 → 587 port failover**, pooled connections, bounded timeouts, and branded responsive HTML templates. |
+| **Extended Inquiry Schema** | **`models/ContactMessage.js`** — `name`, `email`, `phone`, `subject`, `message`, **`status`** enum (`'unread'` · `'read'` · `'replied'`), **`replyMessage`**, **`repliedAt`**, legacy `isRead` sync, and **`toAdminObject()`** serializer for the admin UI. |
+| **Public Submit** | **`POST /api/contact`** — validated payload (name, email, phone, subject, message); **10 requests / 15 min** IP rate limit via `routes/contactRoutes.js`. |
+| **Reply API** | **`POST /api/inquiries/:id/reply`** (`routes/inquiryRoutes.js`) — admin-only (`verifyAdmin` + `manage_settings`); validates inquiry existence and reply length (≥ 5 chars); calls **`sendInquiryReplyEmail()`** to dispatch a branded HTML reply to the customer; on success sets **`status: 'replied'`**, persists **`replyMessage`** + **`repliedAt`**, and logs a security event. Returns **502** if SMTP delivery fails. |
+| **Inbox CRUD** | **`GET /api/admin/messages`** · **`PATCH /api/admin/messages/:id/read`** · **`PATCH /api/admin/messages/:id/unread`** · **`DELETE /api/admin/messages/:id`** — all gated by **`manage_settings`**. Replied inquiries cannot be marked unread; read/unread toggles sync the `status` field. |
+
+#### 2. Microsoft Outlook Style 2-Column Split Inbox UI
 
 | Capability | Details |
 |------------|---------|
-| **Persistence** | `models/ContactMessage.js` — `name`, `email`, `phone`, `subject`, `message`, `isRead`, timestamps |
-| **Public submit** | `POST /api/contact` — validated payload, 10 requests / 15 min IP rate limit |
-| **Admin inbox** | Sidebar **Messages / Inquiries** or navigate to **`/admin/messages`** |
-| **Actions** | **Mark as Read** (`PATCH /api/admin/messages/:id/read`) · **Delete** (`DELETE /api/admin/messages/:id`) |
-| **RBAC** | Routes gated by `manage_settings` |
+| **2-Column Split Architecture** | Full-height, zero-whitespace layout — **`grid grid-cols-12`** container (`h-[calc(100vh-140px)]`, rounded border, overflow hidden). **Left (~35% / 4 cols):** scrollable inquiry list. **Right (~65% / 8 cols):** active reading & reply pane. Implemented in **`client/admin.html`** + **`client/css/admin.css`** (`.outlook-inbox-shell`, `.support-inbox-split`). |
+| **Dynamic Filters & Search** | Real-time search across **Name**, **Email**, and **Subject** (`#messagesSearchInput`). Status tabs — **All**, **Unread**, **Replied** — with live count badges (`#supportTabCountAll`, `#supportTabCountUnread`, `#supportTabCountReplied`). |
+| **Master List Item Styling** | Compact list cards (`#messagesInboxList`) — colored **initial avatar**, customer name, relative timestamp, **bold subject line**, 1-line muted message snippet. **Active selected state:** left border accent (`border-l-4 border-blue-600 bg-blue-50/60 dark:bg-slate-800`). Unread names render bold. |
+| **Comprehensive Reading & Reply Pane** | **`#inquiryDetailPane`** — top bar with subject, uppercase **READ / UNREAD / REPLIED** badge, **Mark Read/Unread** and **Delete** actions; sender card with email/phone and **1-click copy** icons; full message body in styled reading card (`bg-slate-50` / slate border); prior admin reply block when `status === 'replied'`; fixed bottom **Reply via Email** textarea with character counter, **Send Email Reply** button, loading spinner, and SweetAlert2 success/error toasts. Selecting an unread message auto-marks it read. |
+
+| Admin access | Sidebar **Messages / Inquiries** or navigate to **`/admin/messages`** |
+| RBAC | Routes gated by **`manage_settings`** |
 
 ### API Endpoints
 
@@ -1758,6 +1773,8 @@ Storefront                    Backend                         Admin Panel
 | **`PUT` / `POST`** | **`/api/admin/pages/:slug`** | **Save page Markdown, publish state, contact meta** | **Admin + `manage_settings`** |
 | **`GET`** | **`/api/admin/messages`** | **List customer inquiries + unread count** | **Admin + `manage_settings`** |
 | **`PATCH`** | **`/api/admin/messages/:id/read`** | **Mark inquiry as read** | **Admin + `manage_settings`** |
+| **`PATCH`** | **`/api/admin/messages/:id/unread`** | **Mark inquiry as unread** | **Admin + `manage_settings`** |
+| **`POST`** | **`/api/inquiries/:id/reply`** | **Send branded HTML email reply; set status to `replied`** | **Admin + `manage_settings`** |
 | **`DELETE`** | **`/api/admin/messages/:id`** | **Delete inquiry** | **Admin + `manage_settings`** |
 
 ### Clean URL Routes
@@ -1778,11 +1795,13 @@ Storefront                    Backend                         Admin Panel
 |------|------|
 | `models/FooterSettings.js` | Footer singleton schema + defaults |
 | `models/PageContent.js` | CMS page schema + careers/contact meta seeds |
-| `models/ContactMessage.js` | Contact form submission persistence |
+| `models/ContactMessage.js` | Contact form persistence — extended inquiry schema with reply fields |
 | `controllers/footerSettingsController.js` | Footer admin/public handlers |
 | `controllers/pageContentController.js` | CMS CRUD |
-| `controllers/contactController.js` | Public submit + admin inbox |
+| `controllers/contactController.js` | Public submit, admin inbox CRUD, **`replyContactMessage`** email dispatch |
 | `routes/contactRoutes.js` | `POST /api/contact` with rate limiter |
+| `routes/inquiryRoutes.js` | **`POST /api/inquiries/:id/reply`** — direct email reply endpoint |
+| `utils/mailer.js` | Nodemailer SMTP transport + **`sendInquiryReplyEmail()`** branded HTML builder |
 | `utils/pagePublishService.js` | Footer link ↔ published page slug filtering |
 | `utils/markdownToHtml.js` | Server-side Markdown rendering |
 | `utils/footerIconPaths.js` | Uploaded footer icon storage paths |
@@ -1793,8 +1812,9 @@ Storefront                    Backend                         Admin Panel
 | `client/css/info-page.css` | Premium information page design system |
 | `client/css/contact.css` | Contact page 2-column layout |
 | `client/css/footer.css` | **`bg-slate-900`** desktop 4-column grid (`max-w-7xl`) + **Follow Us-only column 4** + **copyright bar payment badges** (desktop-only, `justify-between`) + **ultra-compact 3-line zero-margin mobile footer** with flex-wrap quick links, hidden mobile payments, tap-state social icons, and WhatsApp float clearance |
-| `client/admin.html` | Footer Settings, Page Content Manager, Messages Inbox sections |
-| `client/js/admin.js` | Footer manager, page CMS, messages inbox wiring |
+| `client/admin.html` | Footer Settings, Page Content Manager, **Outlook split Messages / Inquiries** inbox |
+| `client/js/admin.js` | Footer manager, page CMS, **split-pane inbox** (`selectInquiry`, `populateInquiryDetailPane`, `sendInquiryReply`) |
+| `client/css/admin.css` | **Outlook split inbox** styles — list pane, reading pane, sender card, reply editor |
 
 ---
 
@@ -3375,7 +3395,7 @@ The admin SPA (`client/admin.html` + `client/js/admin.js`) uses **in-panel sideb
 - **👥 Customer Management** — View, edit, block, suspend, reactivate; order-count badges; per-customer order history modal. *(Requires `manage_customers`.)*
 - **🗂️ Admin Settings** — responsive **tabbed SaaS shell** (Profile & Security · Store & Shipping Preferences · Store Branding) with uniform card padding, isolated per-section saves, and compact horizontal **2FA status badges** *(v4.3.0)*.
 - **⚙️ System Settings** — modular configuration hub for shipping, notifications, loyalty economics, courier/WhatsApp integrations, flash sales, VIP thresholds, **Footer Settings**, and **Page Content Manager**; independent card saves with toast feedback *(v4.3.0 · footer/CMS v4.5.0)*.
-- **✉️ Messages / Inquiries** — Admin inbox at **`/admin/messages`** for contact form submissions — filter by read/unread, mark as read, delete *(v4.5.0 · requires `manage_settings`)*.
+- **✉️ Messages / Inquiries** — **Outlook-style 2-column split inbox** at **`/admin/messages`** — left list (search, All/Unread/Replied tabs, avatar cards) + right reading pane (full message, email/phone copy, status badges, inline **Send Email Reply** via SMTP) *(v4.5.0 · requires `manage_settings`)*.
 - **📦 Live Orders** — Premium sticky-header table with compact spacing, horizontal action toolbar (**Send to Courier**, Invoice, Delete), **Create Manual Order** POS modal (v4.0.0), distinct customer/admin cancellation badges, return approval, safe refund undo, reason visibility, invoice view/print, search, filter, and pagination. *(Requires `manage_orders`.)*
 - **📱 WhatsApp Alert Badge** — Header badge surfaces pending wa.me fallback alerts when the background gateway cannot auto-deliver (v4.0.0).
 - **🛍️ Product CRUD & Variant Matrix** — Add/edit with images, per-variant buying/selling price, live profit preview, **Simple Product / Variant Matrix** modes with **Attribute Library auto-fill**, dynamic SKU generation, bordered matrix grid with sticky modal headers, **session-based pagination retention** across edit/save workflows *(v4.3.1)*, **fully opaque sticky table headers** (`sticky top-0 z-20`), bulk delete, CSV export, and print-ready tables. *(Requires `manage_inventory`.)*
@@ -3393,7 +3413,7 @@ The admin SPA (`client/admin.html` + `client/js/admin.js`) uses **in-panel sideb
 - **Clean URLs** — Automatic `.html` stripping and 301 redirects for SEO-friendly routes (`/about`, `/contact`, `/privacy-policy`, `/terms`, `/careers`, `/admin/messages`).
 - **📄 Information Pages & CMS** — Premium Contact, About, Privacy, Terms, and Careers pages with Markdown **Page Content Manager**, publish toggles, and dynamic footer link filtering *(v4.5.0)*.
 - **🦶 Dynamic Footer Engine** — Admin-managed columns, social links, copyright, and payment badges via **`FooterSettings`** + shared **`footerRenderer.js`**; **desktop** uniform **`md:grid-cols-4`** grid (**Company · Support · Quick Links · Follow Us**) on **`bg-slate-900`** with payment badges in **bottom copyright bar** (`flex-row justify-between`); **mobile** ultra-compact ≤ 3-line zero-margin strip (flex-wrap quick links · social tap states · 10px copyright, **`hidden md:flex`** payments) with WhatsApp float clearance at **`md+` (768px)** *(v4.5.0)*.
-- **✉️ Contact Inbox** — Storefront form submissions persisted to **`ContactMessage`**; admin **Messages / Inquiries** dashboard at `/admin/messages` *(v4.5.0)*.
+- **✉️ Contact Inbox & Direct Email Reply** — Storefront form submissions persisted to **`ContactMessage`**; admin **Outlook 2-column split inbox** at `/admin/messages` with SMTP-powered **`POST /api/inquiries/:id/reply`** *(v4.5.0)*.
 - **Server-side page guards** for the finance dashboard and 2FA handoff page.
 - **Global Toast Notifications** — Lightweight, non-blocking `#global-toast-stack` popups for cart, wishlist, and stock feedback across the customer storefront (auto-dismiss, mobile-responsive, max 4 visible).
 
@@ -3443,7 +3463,7 @@ eonlinebazar-fullstack/
 │   ├── Setting.js                     # Singleton master store settings (key: master — rewards, threshold, announcement)
 │   ├── FooterSettings.js              # Singleton footer columns, social links, payment badges, copyright
 │   ├── PageContent.js                 # CMS pages (about, contact, privacy-policy, terms, careers)
-│   ├── ContactMessage.js              # Contact form submissions (admin inbox)
+│   ├── ContactMessage.js              # Contact inquiries — status lifecycle + reply fields
 │   ├── adminSession.js                # Active admin device / login sessions
 │   ├── loginAttempt.js                # Login history & failed/blocked attempt audit
 │   ├── blacklistedIp.js               # Auto + manual IP bans (TTL-expiring)
@@ -3470,7 +3490,7 @@ eonlinebazar-fullstack/
 │   ├── storeController.js             # Public storefront branding, delivery settings, shipping quotes, footer & CMS pages
 │   ├── footerSettingsController.js    # Footer admin CRUD + social/payment icon upload
 │   ├── pageContentController.js       # CMS page admin + public read (Markdown → HTML)
-│   ├── contactController.js           # Contact form submit + admin messages inbox
+│   ├── contactController.js           # Contact submit, inbox CRUD, SMTP inquiry reply
 │   ├── adminSecurityController.js     # 2-step login, admin sessions, IP blacklist, login history
 │   ├── twoFactorController.js         # Self-service 2FA manager (Email / TOTP / SMS)
 │   ├── productController.js           # Product CRUD + reviews
@@ -3499,6 +3519,7 @@ eonlinebazar-fullstack/
 │   ├── orderRoutes.js                 # /api/orders
 │   ├── paymentRoutes.js               # /api/payments (public methods, initiate, IPN)
 │   ├── contactRoutes.js               # POST /api/contact (rate-limited public submit)
+│   ├── inquiryRoutes.js               # POST /api/inquiries/:id/reply (admin email reply)
 │   ├── cartRoutes.js                  # /api/cart
 │   ├── reviewRoutes.js                # /api/reviews
 │   └── financeRoutes.js              # /api/finance
@@ -3673,7 +3694,7 @@ SMS_API_METHOD=post
 TOTP_ISSUER=EonlineBazar Admin
 
 # ===============================================================
-# 📧 EMAIL / SMTP (Email OTP + password reset)
+# 📧 EMAIL / SMTP (Email OTP, order confirmations & inquiry replies)
 # Use a Gmail App Password (not your normal password).
 # SMTP_* takes priority; EMAIL_* is a backward-compatible fallback.
 # Port 465 → implicit TLS · Port 587 → STARTTLS
@@ -3682,6 +3703,7 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
 SMTP_USER=your_email@gmail.com
 SMTP_PASS=your_gmail_app_password
+SMTP_FROM="EonlineBazar Support<your_email@gmail.com>"
 EMAIL_USER=your_email@gmail.com
 EMAIL_PASS=your_gmail_app_password
 
@@ -3723,7 +3745,7 @@ CLOUDINARY_API_SECRET=your_api_secret
 | `ENCRYPTION_KEY` | ⛔ | Alias for `PAYMENT_ENCRYPTION_KEY` |
 | `COURIER_API_TIMEOUT_MS` | ⛔ | Courier HTTP timeout in ms (default `20000`) |
 | `TOTP_ISSUER` | ⛔ | Label shown in Google Authenticator |
-| `SMTP_HOST/PORT/USER/PASS` | ✅* | Email OTP & password-reset delivery |
+| `SMTP_HOST/PORT/USER/PASS/FROM` | ✅* | Email OTP, order confirmations & **admin inquiry reply** delivery |
 | `EMAIL_USER/EMAIL_PASS` | ⛔ | Legacy SMTP fallback |
 | `CLOUDINARY_*` | ✅ | Image, avatar & branding uploads |
 
@@ -4003,6 +4025,8 @@ Base URL: `http://localhost:3000`
 | **`PUT` / `POST`** | **`/api/admin/pages/:slug`** | **Save page Markdown, publish state, contact meta** | **Admin + `manage_settings`** |
 | **`GET`** | **`/api/admin/messages`** | **List customer inquiries + unread count** | **Admin + `manage_settings`** |
 | **`PATCH`** | **`/api/admin/messages/:id/read`** | **Mark inquiry as read** | **Admin + `manage_settings`** |
+| **`PATCH`** | **`/api/admin/messages/:id/unread`** | **Mark inquiry as unread** | **Admin + `manage_settings`** |
+| **`POST`** | **`/api/inquiries/:id/reply`** | **Send branded HTML email reply; set status to `replied`** | **Admin + `manage_settings`** |
 | **`DELETE`** | **`/api/admin/messages/:id`** | **Delete inquiry** | **Admin + `manage_settings`** |
 | `GET`  | `/api/admin/profile` | Admin profile image URL | Admin |
 | `POST` | `/api/admin/update-profile-pic` | Upload admin avatar | Admin |
@@ -4144,10 +4168,11 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 - Applied consistent premium typography, gradient hero headers, and **`max-w-5xl` / `max-w-6xl`** container constraints across **About Us**, **Privacy Policy**, **Terms & Conditions**, and **Careers** via shared `info-page.css` + `cms-page.html` template.
 - New clean URL routes: **`/privacy-policy`**, **`/terms`**, **`/careers`**; CMS content served through **`GET /api/store/pages/:slug`**.
 
-**✉️ Admin Customer Messages Inbox**
-- Introduced **`ContactMessage`** MongoDB schema for persistent contact form storage.
-- Public **`POST /api/contact`** endpoint (IP rate-limited) saves every storefront submission server-side.
-- Built **Messages / Inquiries** admin dashboard at **`/admin/messages`** — table with Name, Email, Subject, Message preview, Date, Read/Unread status; **Mark as Read** and **Delete** actions.
+**✉️ Admin Customer Messages Inbox — Direct Email Reply & Outlook Split Inbox**
+- Extended **`ContactMessage`** schema — `phone`, tri-state **`status`** (`unread` / `read` / `replied`), **`replyMessage`**, **`repliedAt`**.
+- **SMTP reply pipeline** — **`utils/mailer.js`** + **`SMTP_*`** env vars; **`POST /api/inquiries/:id/reply`** validates inquiry, sends branded responsive HTML email, updates DB on delivery.
+- Admin inbox APIs — **`GET /api/admin/messages`**, **`PATCH …/read`**, **`PATCH …/unread`**, **`DELETE …/:id`**.
+- **Outlook 2-column split UI** at **`/admin/messages`** — 35% scrollable list (search, All/Unread/Replied tabs, avatar cards, active highlight) + 65% reading pane (metadata with 1-click copy, uppercase status badges, fixed reply textarea with spinner + toasts).
 
 **🦶 Complete Storefront Footer Redesign & Mobile Responsiveness Overhaul**
 
@@ -4168,7 +4193,7 @@ Viewable in the admin panel under **Security & Audit** (Login History + IP Black
 - **Page Content Manager** — removed redundant live preview; clarified publish toggle — **`isPublished: false`** hides footer links and blocks public page access (404 unavailable).
 - **`pagePublishService.js`** filters footer column links against published CMS page slugs.
 
-**Key files:** `models/ContactMessage.js`, `models/FooterSettings.js`, `models/PageContent.js`, `controllers/contactController.js`, `controllers/footerSettingsController.js`, `controllers/pageContentController.js`, `routes/contactRoutes.js`, `utils/pagePublishService.js`, `utils/markdownToHtml.js`, `client/contact.html`, `client/css/contact.css`, `client/css/info-page.css`, `client/js/contact.js`, `client/js/footer.js`, `client/js/footerRenderer.js`, `client/js/page-content-loader.js`, `client/admin.html`, `client/js/admin.js`, `client/css/footer.css`
+**Key files:** `models/ContactMessage.js`, `models/FooterSettings.js`, `models/PageContent.js`, `controllers/contactController.js`, `controllers/footerSettingsController.js`, `controllers/pageContentController.js`, `routes/contactRoutes.js`, `routes/inquiryRoutes.js`, `utils/mailer.js`, `utils/pagePublishService.js`, `utils/markdownToHtml.js`, `client/contact.html`, `client/css/contact.css`, `client/css/info-page.css`, `client/css/admin.css`, `client/js/contact.js`, `client/js/footer.js`, `client/js/footerRenderer.js`, `client/js/page-content-loader.js`, `client/admin.html`, `client/js/admin.js`, `client/css/footer.css`
 
 ### `v4.4.1` — Admin Live Orders Table Redesign & Checkout Polish
 
