@@ -195,8 +195,7 @@ userSchema.virtual('name').get(function () {
 userSchema.set('toJSON', { virtuals: true });
 userSchema.set('toObject', { virtuals: true });
 
-// Auth & lookup — email already has a unique index; mobile is the primary phone field.
-userSchema.index({ email: 1 });
+// Auth & lookup — email unique index comes from field `unique: true`; mobile for phone lookups.
 userSchema.index({ mobile: 1 });
 
 module.exports = mongoose.model('User', userSchema);
