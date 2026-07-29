@@ -4,21 +4,88 @@
  * Location: controllers/paymentIpnController.js
  * Author: Abdul Karim Sheikh
  * Description: Automated gateway surface — hosted-checkout initiation and
- * the IPN (Instant Payment Notification) receiver. The transport calls are
- * intentionally stubbed in the adapters; routing, credential decryption,
- * signature verification and the order audit trail are fully live.
+ * the IPN (Instant Payment Notification) receiver with live provider
+ * verification for SSLCommerz, Aamarpay, and ShurjoPay.
  ********************************************************************/
 
 const Order = require('../models/order');
+const User = require('../models/user');
 const PaymentMethod = require('../models/PaymentMethod');
 const { IPN_EVENT_LIMIT } = require('../models/PaymentMethod');
-const { getGatewayAdapter } = require('../utils/paymentGatewayAdapters');
+const { getGatewayAdapter, envGatewayConfigured } = require('../utils/paymentGatewayAdapters');
 const {
     getPublicPaymentPayload,
     buildWebhookUrl,
     isCheckoutReady
 } = require('../utils/paymentMethodService');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
+
+function frontendBase() {
+    return String(process.env.FRONTEND_URL || process.env.PUBLIC_BASE_URL || process.env.APP_BASE_URL || '')
+        .trim()
+        .replace(/\/+$/, '');
+}
+
+function buildOrderProductSummary(order) {
+    const items = Array.isArray(order.items) ? order.items : [];
+    if (!items.length) return 'Order Items';
+
+    const names = items.slice(0, 3).map((item) => item.name).filter(Boolean);
+    const summary = names.join(', ');
+    if (items.length > 3) return `${summary} +${items.length - 3} more`;
+    return summary || 'Order Items';
+}
+
+function countOrderItems(order) {
+    const items = Array.isArray(order.items) ? order.items : [];
+    return items.reduce((total, item) => total + (Number(item.quantity) || 1), 0) || 1;
+}
+
+async function resolveCustomerEmail(order) {
+    if (order.user) {
+        const user = await User.findById(order.user).select('email').lean();
+        if (user?.email) return user.email;
+    }
+    return '';
+}
+
+function buildOrderDataFromDocument(order, customerEmail = '') {
+    return {
+        orderId: order.orderId,
+        amount: Number(order.grandTotal) || 0,
+        customerName: order.customerName || '',
+        customerEmail,
+        customerPhone: order.customerPhone || '',
+        shippingAddress: order.customerAddress || '',
+        customerAddress: order.customerAddress || '',
+        city: order.shippingDistrict || 'Dhaka',
+        shippingDistrict: order.shippingDistrict || '',
+        productSummary: buildOrderProductSummary(order),
+        itemCount: countOrderItems(order)
+    };
+}
+
+function wantsHtmlRedirect(req) {
+    const accept = String(req.headers.accept || '').toLowerCase();
+    return accept.includes('text/html') || Boolean(req.query?.status);
+}
+
+function sendBrowserRedirect(res, orderId, outcome) {
+    const base = frontendBase() || '';
+    const target = `${base}/order-details?id=${encodeURIComponent(orderId)}&payment=${encodeURIComponent(outcome)}`;
+    const safeTarget = target.replace(/"/g, '&quot;');
+
+    res.status(200).type('html').send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="0;url=${safeTarget}">
+<title>Redirecting…</title>
+<script>window.location.replace(${JSON.stringify(target)});</script>
+</head>
+<body><p>Redirecting to your order…</p></body>
+</html>`);
+}
 
 /** Storefront method list — same payload the checkout page renders from. */
 const getPublicPaymentMethods = async (req, res) => {
@@ -34,8 +101,8 @@ const getPublicPaymentMethods = async (req, res) => {
 /**
  * Starts a hosted-checkout session for an automated method.
  *
- * Credentials are decrypted here and never leave the server: only the redirect
- * URL the adapter produces is returned to the browser.
+ * Reads gateway credentials from .env (preferred) or the encrypted admin config,
+ * builds the provider redirect URL, and persists the session key on the order.
  */
 const initiateGatewayPayment = async (req, res) => {
     try {
@@ -64,48 +131,38 @@ const initiateGatewayPayment = async (req, res) => {
         }
 
         const credentials = method.getDecryptedApiConfig();
-        if (!credentials.storePassword && !credentials.apiKey) {
+        const envReady = envGatewayConfigured(method.provider);
+        if (!envReady && !credentials.storePassword && !credentials.apiKey) {
             return res.status(503).json({
                 success: false,
-                message: 'Gateway credentials are missing or could not be decrypted. Re-save them in the Admin Panel.'
+                message: 'Gateway credentials are missing. Add API keys to .env or re-save them in the Admin Panel.'
             });
         }
 
         const adapter = getGatewayAdapter(method.provider);
-        const ipnUrl = credentials.webhookUrl || buildWebhookUrl(method.code, req);
-        const origin = `${req.protocol}://${req.headers.host}`;
+        const customerEmail = await resolveCustomerEmail(order);
+        const orderData = buildOrderDataFromDocument(order, customerEmail);
 
-        const session = adapter.buildRedirect({
-            order: {
-                orderId: order.orderId,
-                amount: Number(order.grandTotal) || 0,
-                transactionRef: order.payment?.transactionId || order.orderId,
-                customerName: order.customerName,
-                customerPhone: order.customerPhone
-            },
-            credentials,
-            callbacks: {
-                ipn: ipnUrl,
-                success: `${origin}/order-details?id=${encodeURIComponent(order.orderId)}&payment=success`,
-                fail: `${origin}/order-details?id=${encodeURIComponent(order.orderId)}&payment=failed`,
-                cancel: `${origin}/order-details?id=${encodeURIComponent(order.orderId)}&payment=cancelled`
-            }
-        });
+        const session = await adapter.buildRedirect(orderData);
 
         order.payment.status = 'pending';
         order.payment.transactionId = order.payment.transactionId || order.orderId;
+
+        if (session.sessionKey) {
+            order.payment.gatewayReference = session.sessionKey;
+        }
+
         await order.save();
 
-        if (!session.ready) {
-            return res.status(501).json({
+        if (!session.success && !session.ready) {
+            return res.status(502).json({
                 success: false,
-                message: session.message
-                    || `The ${adapter.label} adapter is not wired to a live endpoint yet.`,
+                message: session.error || session.message
+                    || `The ${adapter.label} adapter could not create a payment session.`,
                 data: {
                     provider: adapter.id,
                     isSandbox: credentials.isSandbox,
-                    endpoints: adapter.endpoints(credentials.isSandbox),
-                    ipnUrl
+                    endpoints: adapter.endpoints(credentials.isSandbox)
                 }
             });
         }
@@ -113,9 +170,11 @@ const initiateGatewayPayment = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: 'Payment session created.',
+            redirectUrl: session.redirectUrl,
             data: {
                 provider: adapter.id,
                 redirectUrl: session.redirectUrl,
+                sessionKey: session.sessionKey || '',
                 isSandbox: credentials.isSandbox
             }
         });
@@ -128,39 +187,107 @@ const initiateGatewayPayment = async (req, res) => {
 /**
  * IPN receiver: POST|GET /api/payments/ipn/:code
  *
- * Gateways retry until they get a 2xx, so this always answers 200 once the
- * callback has been recorded — even for an unverifiable signature, which is
- * stored for manual review instead of silently trusted. Only a verified
- * callback may move an order to `paid`.
+ * Verifies each callback with the provider API when possible, updates the
+ * order payment snapshot, and redirects the customer's browser after
+ * success/fail/cancel return URLs.
  */
 const handleGatewayIpn = async (req, res) => {
     const code = String(req.params.code || '').trim().toLowerCase();
     const payload = { ...(req.query || {}), ...(req.body || {}) };
+    const browserOutcome = String(req.query?.status || '').trim().toLowerCase();
 
     try {
-        const method = await PaymentMethod.findOne({ code });
-        if (!method || method.type !== 'automated') {
-            // Unknown callback target: log it and answer 404 so a misconfigured
-            // gateway dashboard is visible rather than silently swallowed.
+        const method = await PaymentMethod.findOne({ code })
+            || await PaymentMethod.findOne({ provider: code, type: 'automated', isActive: true });
+        const adapter = getGatewayAdapter(method?.provider || code);
+
+        if (!method) {
             await logSecurityEvent({
                 action: 'Payment IPN Rejected',
                 actor: 'gateway',
                 actorType: 'system',
                 ipAddress: getClientIp(req),
-                details: `Unknown automated payment method code "${code}".`
+                details: `Unknown payment method code "${code}".`
             });
             return res.status(404).json({ success: false, message: 'Unknown payment method callback.' });
         }
 
-        const adapter = getGatewayAdapter(method.provider);
-        const verification = adapter.verifyIpn({
+        if (method.type !== 'automated') {
+            const transactionId = String(
+                payload.orderId || payload.tran_id || payload.transactionId || ''
+            ).trim();
+            let order = null;
+
+            if (transactionId) {
+                order = await Order.findOne({
+                    $or: [
+                        { orderId: transactionId },
+                        { 'payment.transactionId': transactionId }
+                    ]
+                });
+            }
+
+            if (order) {
+                if (!order.payment) order.payment = {};
+                order.payment.ipnHistory = [
+                    ...(order.payment.ipnHistory || []),
+                    {
+                        receivedAt: new Date(),
+                        provider: method.code,
+                        status: String(payload.status || 'pending').toLowerCase(),
+                        verified: false,
+                        transactionId,
+                        amount: Number(payload.amount) || 0,
+                        message: 'Manual payment notification received.',
+                        raw: payload
+                    }
+                ].slice(-IPN_EVENT_LIMIT);
+
+                const manualStatus = String(payload.status || '').trim().toLowerCase();
+                if (manualStatus === 'paid') {
+                    order.payment.status = 'paid';
+                    if (!order.payment.paidAt) order.payment.paidAt = new Date();
+                } else if (manualStatus && order.payment.status === 'unpaid') {
+                    order.payment.status = 'pending';
+                }
+
+                order.markModified('payment');
+                await order.save();
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: 'Manual payment notification received.',
+                data: {
+                    provider: method.code,
+                    orderMatched: Boolean(order)
+                }
+            });
+        }
+
+        const verification = await adapter.verifyIpn({
             body: payload,
             headers: req.headers,
             credentials: method.getDecryptedApiConfig()
         });
 
-        const transactionId = String(verification.transactionId || '').trim();
-        const order = transactionId
+        let transactionId = String(
+            verification.transactionId
+            || payload.tran_id
+            || payload.mer_txnid
+            || payload.customer_order_id
+            || ''
+        ).trim();
+
+        if (!verification.verified && browserOutcome === 'fail') {
+            verification.status = 'failed';
+        } else if (!verification.verified && browserOutcome === 'cancel') {
+            verification.status = 'cancelled';
+        } else if (!verification.verified && browserOutcome === 'success') {
+            verification.message = verification.message || 'Browser return received but provider verification did not confirm payment.';
+        }
+
+        let order = transactionId
             ? await Order.findOne({
                 $or: [
                     { 'payment.transactionId': transactionId },
@@ -168,6 +295,16 @@ const handleGatewayIpn = async (req, res) => {
                 ]
             })
             : null;
+
+        if (!order && payload.tran_id) {
+            transactionId = String(payload.tran_id).trim();
+            order = await Order.findOne({
+                $or: [
+                    { 'payment.transactionId': transactionId },
+                    { orderId: transactionId }
+                ]
+            });
+        }
 
         if (order) {
             if (!order.payment) order.payment = {};
@@ -189,12 +326,13 @@ const handleGatewayIpn = async (req, res) => {
             order.payment.transactionId = transactionId || order.payment.transactionId;
             order.payment.gatewayReference = verification.gatewayReference || order.payment.gatewayReference;
 
-            // An unverified callback is recorded but never settles an order.
             if (verification.verified) {
                 order.payment.status = verification.status;
                 if (verification.status === 'paid' && !order.payment.paidAt) {
                     order.payment.paidAt = new Date();
                 }
+            } else if (['failed', 'cancelled'].includes(verification.status) && order.payment.status !== 'paid') {
+                order.payment.status = verification.status;
             } else if (order.payment.status === 'unpaid') {
                 order.payment.status = 'pending';
             }
@@ -217,6 +355,20 @@ const handleGatewayIpn = async (req, res) => {
             ].join(' · ')
         });
 
+        if (wantsHtmlRedirect(req) && ['success', 'fail', 'cancel', 'failed', 'cancelled'].includes(browserOutcome)) {
+            const resolvedOrderId = order?.orderId
+                || payload.tran_id
+                || payload.mer_txnid
+                || payload.customer_order_id
+                || '';
+            if (resolvedOrderId) {
+                const outcome = browserOutcome === 'success' && verification.status === 'paid'
+                    ? 'success'
+                    : (browserOutcome === 'cancel' || browserOutcome === 'cancelled' ? 'cancelled' : 'failed');
+                return sendBrowserRedirect(res, resolvedOrderId, outcome);
+            }
+        }
+
         return res.status(200).json({
             success: true,
             message: 'IPN received.',
@@ -229,7 +381,6 @@ const handleGatewayIpn = async (req, res) => {
         });
     } catch (error) {
         console.error('Handle Gateway IPN Error:', error);
-        // Still a 200: a 500 makes gateways retry the same broken payload for hours.
         return res.status(200).json({ success: false, message: 'IPN accepted but could not be processed.' });
     }
 };

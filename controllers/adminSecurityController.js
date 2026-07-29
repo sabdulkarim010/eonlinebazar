@@ -27,7 +27,7 @@ const { recordLoginAttempt, findActiveBan } = require('../middlewares/adminSecur
 const { logSecurityEvent } = require('../utils/securityLogger');
 const { ROLES, ACCOUNT_STATUS } = require('../config/permissions');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'eOnlineBazarSecretKey123';
+const JWT_SECRET = process.env.JWT_SECRET;
 const OTP_TTL_MINUTES = 5;
 const TOTP_WINDOW = 1; // ±30s clock-drift tolerance for Google Authenticator
 

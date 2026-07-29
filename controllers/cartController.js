@@ -164,6 +164,24 @@ exports.toggleSelection = async (req, res) => {
 
 
 // সঠিক লজিক (আপনার আগের ৭ নম্বর ফাংশনটির পরিবর্তে এটি ব্যবহার করুন)
+exports.clearCart = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const userCart = await Cart.findOne({ userId });
+
+        if (!userCart) {
+            return res.status(200).json([]);
+        }
+
+        userCart.items = [];
+        await userCart.save();
+        res.status(200).json(userCart.items);
+    } catch (err) {
+        console.error('Error clearing cart:', err);
+        res.status(500).json({ message: 'Failed to clear cart', error: err.message });
+    }
+};
+
 exports.clearOrderedItems = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -194,5 +212,6 @@ module.exports = {
     updateQuantity: exports.updateQuantity,
     deleteCartItem: exports.deleteCartItem,
     toggleSelection: exports.toggleSelection,
-    clearOrderedItems: exports.clearOrderedItems // এটি আপনার নতুন ফাংশন
+    clearOrderedItems: exports.clearOrderedItems,
+    clearCart: exports.clearCart
 };

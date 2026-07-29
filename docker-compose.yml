@@ -1,0 +1,38 @@
+services:
+  app:
+    build: .
+    depends_on:
+      - mongo
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    restart: on-failure
+    networks:
+      - eonlinebazar_net
+
+  mongo:
+    image: mongo:7
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - eonlinebazar_net
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: always
+    networks:
+      - eonlinebazar_net
+
+volumes:
+  mongo_data:
+  redis_data:
+
+networks:
+  eonlinebazar_net:

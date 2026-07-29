@@ -29,7 +29,7 @@ const verifyAdmin = async (req, res, next) => {
     const token = authHeader.split(" ")[1];
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'eOnlineBazarSecretKey123');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         // 🌟 রোল চেক: কাস্টমার টোকেনও একই সিক্রেটে সাইন হয়, তাই শুধু সিগনেচার
         // ভ্যালিড হওয়াই যথেষ্ট নয়। অ্যাডমিন টোকেনে role: 'admin' থাকে।
@@ -91,7 +91,7 @@ const verifyUser = async (req, res, next) => {
     }
     const token = authHeader.split(" ")[1];
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'eOnlineBazarSecretKey123'); 
+        const decoded = jwt.verify(token, process.env.JWT_SECRET); 
 
         const userId = decoded.id || decoded._id || decoded.userId;
         req.user = { id: userId, sid: decoded.sid || null };
@@ -130,7 +130,7 @@ const optionalVerifyUser = async (req, res, next) => {
 
     const token = authHeader.split(' ')[1];
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'eOnlineBazarSecretKey123');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const userId = decoded.id || decoded._id || decoded.userId;
         req.user = { id: userId, sid: decoded.sid || null };
 

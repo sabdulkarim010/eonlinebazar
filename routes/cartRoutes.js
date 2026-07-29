@@ -40,6 +40,9 @@ router.delete('/remove/:productId', verifyUser, cartController.deleteCartItem);
 // ৭. অর্ডার প্লেস করার পর সিলেক্টেড আইটেমগুলো ক্লিয়ার করার রাউট (নতুন)
 router.delete('/clear-ordered', verifyUser, cartController.clearOrderedItems);
 
+// ৮. সম্পূর্ণ কার্ট খালি করার রাউট
+router.delete('/clear', verifyUser, cartController.clearCart);
+
 module.exports = router;
 
 

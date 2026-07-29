@@ -8,7 +8,9 @@
  * API routing, and custom clean URLs for the frontend client.
  ********************************************************************/
 
-require('dotenv').config(); 
+require('dotenv').config();
+require('./utils/validateEnv')();
+const { applySecurityMiddleware } = require('./middleware/securityMiddleware');
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -80,7 +82,8 @@ connectDB().then(async () => {
 // ৩. প্রয়োজনীয় মিডলওয়্যারসমূহ
 // প্রক্সি/হোস্টিং (Render, Vercel, Nginx ইত্যাদি)-এর পেছনে আসল ক্লায়েন্ট IP পেতে
 app.set('trust proxy', true);
-app.use(express.json()); 
+app.use(express.json());
+applySecurityMiddleware(app);
 
 // request-ip: প্রতিটি রিকোয়েস্টে আসল ক্লায়েন্ট IP req.clientIp-তে সেট করে
 // (অ্যাক্টিভ ডিভাইস ও লোকেশন ট্র্যাকিং-এ ব্যবহৃত হয়)
@@ -315,7 +318,7 @@ function getFinanceTokenFromRequest(req) {
 function isValidFinanceToken(token) {
     if (!token) return false;
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'eOnlineBazarSecretKey123');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         return (
             decoded.scope === 'finance-dashboard' ||
             decoded.role === 'admin' ||

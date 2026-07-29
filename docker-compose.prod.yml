@@ -1,0 +1,7 @@
+services:
+  app:
+    image: your-registry/eonlinebazar:latest
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - redis

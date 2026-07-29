@@ -19,7 +19,7 @@ const Admin = require('../models/admin');
 // ফাইন্যান্স ড্যাশবোর্ড সেশন টোকেনের মেয়াদ ও স্কোপ
 const FINANCE_TOKEN_TTL = process.env.FINANCE_TOKEN_TTL || '8h';
 const FINANCE_TOKEN_SCOPE = 'finance-dashboard';
-const JWT_SECRET = process.env.JWT_SECRET || 'eOnlineBazarSecretKey123';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 /* =========================================================================
    কনফিগারেশন (Config)

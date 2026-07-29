@@ -11,6 +11,7 @@
 const PaymentMethod = require('../models/PaymentMethod');
 const Settings = require('../models/Settings');
 const { normalizePaymentGateways } = require('./paymentGatewayService');
+const { envGatewayConfigured } = require('./paymentGatewayAdapters');
 
 const IPN_ROUTE_PREFIX = '/api/payments/ipn';
 const CACHE_TTL_MS = 15 * 1000;
@@ -90,6 +91,8 @@ function buildWebhookUrl(code, req = null) {
 function isCheckoutReady(method) {
     if (!method || method.isActive !== true) return false;
     if (method.type !== 'automated') return true;
+
+    if (envGatewayConfigured(method.provider)) return true;
 
     const config = method.apiConfig || {};
     return Boolean(config.storeId && (config.storePassword || config.apiKey));

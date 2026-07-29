@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const { getStoreSettings } = require('../utils/storeSettingsService');
 const { getPublicWhatsAppSettings } = require('../utils/whatsappService');
 const { getPublicPaymentPayload } = require('../utils/paymentMethodService');
@@ -50,7 +51,17 @@ const getPublicStoreBranding = async (req, res) => {
     }
 };
 
+const getHealth = (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        timestamp: new Date(),
+        environment: process.env.NODE_ENV,
+        database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    });
+};
+
 module.exports = {
+    getHealth,
     getPublicStoreBranding,
     getPublicDeliverySettings: async (req, res) => {
         try {

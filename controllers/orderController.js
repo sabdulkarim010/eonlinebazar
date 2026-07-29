@@ -1062,6 +1062,14 @@ const updateOrderStatus = async (req, res) => {
         const statusLower = status.toLowerCase();
         const updatePayload = { status, isDelivered };
 
+        const paymentStatus = String(req.body.paymentStatus || '').trim().toLowerCase();
+        if (paymentStatus) {
+            updatePayload['payment.status'] = paymentStatus;
+            if (paymentStatus === 'paid') {
+                updatePayload['payment.paidAt'] = new Date();
+            }
+        }
+
         if (isDelivered) {
             updatePayload.deliveredAt = new Date();
         }

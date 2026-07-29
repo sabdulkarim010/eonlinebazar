@@ -4,7 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --runInBand --forceExit"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testTimeout": 30000,
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.js"
+    ]
   },
   "keywords": [],
   "author": "Abdul Karim Sheikh",
@@ -13,10 +20,14 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-mongo-sanitize": "^2.2.0",
     "express-rate-limit": "^8.6.0",
     "geoip-lite": "^2.0.3",
+    "helmet": "^8.3.0",
+    "hpp": "^0.2.3",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.6.2",
     "multer": "^2.1.1",
@@ -28,5 +39,11 @@
     "speakeasy": "^2.0.0",
     "streamifier": "^0.1.1",
     "ua-parser-js": "^2.0.10"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.4.2",
+    "mongodb-memory-server": "^11.2.0",
+    "supertest": "^7.2.2"
   }
 }

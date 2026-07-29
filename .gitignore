@@ -3,6 +3,7 @@ node_modules
 
 # Environment variables (সবচেয়ে গুরুত্বপূর্ণ)
 .env
+!.env.example
 
 # Logs and system files
 *.log

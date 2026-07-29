@@ -36,7 +36,7 @@ async function optionalVerifyUser(req, res, next) {
     }
     const token = authHeader.split(' ')[1];
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'eOnlineBazarSecretKey123');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const userId = decoded.id || decoded._id || decoded.userId;
         if (!userId) {
             req.user = null;

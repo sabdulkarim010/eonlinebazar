@@ -23,6 +23,8 @@ router.post('/register', userController.registerUser);
 router.post('/login', userController.loginUser);
 router.post('/forgot-password', userController.forgotPassword);
 router.post('/reset-password', userController.resetPassword);
+router.get('/verify/:token', userController.verifyEmail);
+router.post('/resend-verification', userController.resendVerification);
 
 // ================== প্রোটেক্টেড রাউট (অবশ্যই লগিন থাকতে হবে) ==================
 router.get('/profile', verifyUser, userController.getUserProfile);

@@ -67,7 +67,14 @@ const userSchema = new mongoose.Schema({
         enum: ['active', 'suspended', 'blocked'],
         default: 'active'
     },
-    verificationToken: String, // ইমেইল ভেরিফাই করার ইউনিক কোড বা লিঙ্ক টোকেন
+    verificationToken: {
+        type: String,
+        default: null
+    },
+    verificationTokenExpiry: {
+        type: Date,
+        default: null
+    },
     
     // 🌟 নতুন যোগ করা হলো: প্রোফাইল পিকচার এবং অ্যাড্রেস ফিল্ড (রিফ্রেশ প্রবলেম ফিক্স)
     avatar: {

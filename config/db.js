@@ -12,7 +12,7 @@ const mongoose = require('mongoose');
 const connectDB = async () => {
     try {
         // আপনার .env ফাইলে থাকা MONGO_URI দিয়ে একই ক্লাস্টারে কানেক্ট হবে
-        const conn = await mongoose.connect(process.env.MONGO_URI);
+        const conn = await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI);
         console.log(`MongoDB Connected Successfully to Atlas! 🚀: ${conn.connection.host}`);
     } catch (err) {
         console.error(`Database Connection Error: ${err.message}`);
