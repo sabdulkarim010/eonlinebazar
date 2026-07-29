@@ -34,14 +34,19 @@ const footerSettingsController = require('../controllers/footerSettingsControlle
 const pageContentController = require('../controllers/pageContentController');
 const contactController = require('../controllers/contactController');
 const upload = require('../middlewares/uploadMiddleware');
-const { brandingUpload, paymentMethodLogoUpload, footerIconUpload } = upload;
+const { brandingUpload, paymentMethodLogoUpload, footerIconUpload, importFileUpload } = upload;
 const staffController = require('../controllers/staffController');
 const staffRoutes = require('./staffRoutes');
 const { verifyAdmin } = require('../middlewares/authMiddleware');
-const { checkPermission } = require('../middlewares/rbac');
+const { checkPermission, requireSuperAdmin } = require('../middlewares/rbac');
 const { checkBlacklist, adminLoginLimiter } = require('../middlewares/adminSecurity');
 const { geoFence } = require('../middlewares/geoFencing');
 const { checkAndAlertLowStock } = require('../utils/stockAlertService');
+const {
+    downloadImportTemplate,
+    bulkImportProductsHandler
+} = require('../controllers/bulkImportController');
+const cacheController = require('../controllers/cacheController');
 
 // 🛡️ Super Admin staff management — own gate chain, see routes/staffRoutes.js
 // URL: /api/admin/staff
@@ -115,6 +120,32 @@ router.get('/stock/check-now', verifyAdmin, async (req, res) => {
         res.status(500).json({ success: false, message: err.message });
     }
 });
+
+/********************************************************************
+ # Bulk product import (CSV / Excel)
+ # URL: /api/admin/products/import-template | /api/admin/products/bulk-import
+ # Permission: manage_inventory (product catalog write access)
+ ********************************************************************/
+router.get(
+    '/products/import-template',
+    verifyAdmin,
+    downloadImportTemplate
+);
+router.post(
+    '/products/bulk-import',
+    verifyAdmin,
+    checkPermission('manage_inventory'),
+    importFileUpload,
+    bulkImportProductsHandler
+);
+
+/********************************************************************
+ # Redis cache management (admin)
+ # URL: /api/admin/cache/*
+ ********************************************************************/
+router.get('/cache/stats', verifyAdmin, cacheController.getCacheStats);
+router.delete('/cache/flush', verifyAdmin, requireSuperAdmin, cacheController.flushCache);
+router.delete('/cache/key/:pattern', verifyAdmin, cacheController.deleteCacheByPattern);
 
 // ২. অ্যাডমিন লগইন করার রাস্তা (POST)
 // পাইপলাইন: ব্ল্যাকলিস্ট গেট → জিও-ফেন্স (রিজিয়ন লক) → রেট-লিমিট → কন্ট্রোলার

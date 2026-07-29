@@ -4,9 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <title>Search | EonlineBazar</title>
-    <meta name="description" content="Search results on EonlineBazar - find the products you love.">
-    <meta name="robots" content="noindex, follow">
+    <title>পণ্য খুঁজুন | EOnlineBazar</title>
+    <meta name="description" id="meta-description" content="EOnlineBazar-এ পণ্য খুঁজুন — সেরা মান, দ্রুত ডেলিভারি।">
+    <meta name="robots" content="index, follow">
+    <meta id="og-title" property="og:title" content="পণ্য খুঁজুন | EOnlineBazar">
+    <meta id="og-description" property="og:description" content="EOnlineBazar-এ পণ্য খুঁজুন — সেরা মান, দ্রুত ডেলিভারি।">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="EOnlineBazar">
+    <meta property="og:locale" content="bn_BD">
+    <meta id="og-image" property="og:image" content="/images/og-default.jpg">
+    <meta name="twitter:card" content="summary_large_image">
 
     <link rel="icon" href="images/favicon.png" type="image/png">
 
@@ -99,6 +106,165 @@
         .page-btn:hover:not(:disabled) { border-color: #e47911; color: #e47911; }
         .page-btn.active { background: #232f3e; color: #fff; border-color: #232f3e; }
         .page-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+        /* ==========================================================
+           Advanced filter sidebar layout
+           ========================================================== */
+        .search-layout {
+            display: flex;
+            gap: 24px;
+            align-items: flex-start;
+        }
+
+        .search-filters {
+            flex: 0 0 260px;
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-radius: 10px;
+            padding: 18px 16px;
+            position: sticky;
+            top: 16px;
+        }
+
+        .search-results-main { flex: 1; min-width: 0; }
+
+        .filter-section { margin-bottom: 20px; }
+        .filter-section:last-child { margin-bottom: 0; }
+        .filter-section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #232f3e;
+            margin: 0 0 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .price-inputs { display: flex; gap: 8px; align-items: center; }
+        .price-inputs input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+        }
+        .price-inputs input:focus { border-color: #e47911; }
+        .price-range-display {
+            font-size: 12px;
+            color: #777;
+            margin-top: 8px;
+        }
+
+        .brand-list { list-style: none; margin: 0; padding: 0; }
+        .brand-list li { margin-bottom: 6px; }
+        .brand-list label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #444;
+            cursor: pointer;
+        }
+        .brand-list input[type="checkbox"] { accent-color: #e47911; }
+        .brand-expand-btn {
+            background: none;
+            border: none;
+            color: #e47911;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 4px 0;
+            margin-top: 4px;
+        }
+
+        .rating-options { display: flex; flex-direction: column; gap: 6px; }
+        .rating-options label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #444;
+            cursor: pointer;
+        }
+        .rating-options input[type="radio"] { accent-color: #e47911; }
+
+        .stock-filter label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #444;
+            cursor: pointer;
+        }
+
+        .filter-clear-btn {
+            width: 100%;
+            margin-top: 14px;
+            padding: 10px;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            cursor: pointer;
+            transition: background .15s;
+        }
+        .filter-clear-btn:hover { background: #eee; }
+
+        .active-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .filter-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #fff3e6;
+            border: 1px solid #f0c78a;
+            color: #c45500;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .filter-tag-remove {
+            background: none;
+            border: none;
+            color: #c45500;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .mobile-filter-toggle {
+            display: none;
+            width: 100%;
+            padding: 12px 16px;
+            background: #232f3e;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 767px) {
+            .search-layout { flex-direction: column; }
+            .search-filters {
+                display: none;
+                flex: none;
+                width: 100%;
+                position: static;
+            }
+            .search-filters.is-open { display: block; }
+            .mobile-filter-toggle { display: block; }
+        }
     </style>
 </head>
 <body>
@@ -142,26 +308,74 @@
 </header>
 
 <main class="container search-results-wrap">
-    <div class="search-toolbar">
-        <div>
-            <h1 class="search-heading" id="searchHeading">Search Results</h1>
-            <span class="search-count" id="searchCount"></span>
-        </div>
-        <div class="search-sort-box" id="sortBox" style="display:none;">
-            <label for="sortSelect">Sort by</label>
-            <select id="sortSelect" class="search-sort-select">
-                <option value="relevance">Relevance</option>
-                <option value="price_asc">Price: Low to High</option>
-                <option value="price_desc">Price: High to Low</option>
-                <option value="rating">Top Rated</option>
-                <option value="newest">Newest Arrivals</option>
-            </select>
+    <button type="button" class="mobile-filter-toggle" id="mobileFilterToggle" aria-expanded="false">
+        ফিল্টার দেখুন 🔽
+    </button>
+
+    <div class="search-layout">
+        <aside class="search-filters" id="searchFilters">
+            <div class="filter-section">
+                <h3 class="filter-section-title">দাম</h3>
+                <div class="price-inputs">
+                    <input type="number" id="minPriceInput" min="0" placeholder="০" aria-label="সর্বনিম্ন দাম">
+                    <span>—</span>
+                    <input type="number" id="maxPriceInput" min="0" placeholder="সর্বোচ্চ" aria-label="সর্বোচ্চ দাম">
+                </div>
+                <div class="price-range-display" id="priceRangeDisplay">৳০ — ৳৫০০০</div>
+            </div>
+
+            <div class="filter-section">
+                <h3 class="filter-section-title">ব্র্যান্ড</h3>
+                <ul class="brand-list" id="brandFilterList"></ul>
+                <button type="button" class="brand-expand-btn" id="brandExpandBtn" style="display:none;">আরো দেখুন</button>
+            </div>
+
+            <div class="filter-section">
+                <h3 class="filter-section-title">রেটিং</h3>
+                <div class="rating-options" id="ratingFilter">
+                    <label><input type="radio" name="ratingFilter" value=""> সব</label>
+                    <label><input type="radio" name="ratingFilter" value="5"> ⭐⭐⭐⭐⭐ (5)</label>
+                    <label><input type="radio" name="ratingFilter" value="4"> ⭐⭐⭐⭐+ (4+)</label>
+                    <label><input type="radio" name="ratingFilter" value="3"> ⭐⭐⭐+ (3+)</label>
+                </div>
+            </div>
+
+            <div class="filter-section stock-filter">
+                <label>
+                    <input type="checkbox" id="inStockCheckbox">
+                    শুধু স্টকে আছে এমন পণ্য
+                </label>
+            </div>
+
+            <button type="button" class="filter-clear-btn" id="clearFiltersBtn">ফিল্টার পরিষ্কার করুন</button>
+        </aside>
+
+        <div class="search-results-main">
+            <div class="search-toolbar">
+                <div>
+                    <h1 class="search-heading" id="searchHeading">Search Results</h1>
+                    <span class="search-count" id="searchCount"></span>
+                </div>
+                <div class="search-sort-box" id="sortBox">
+                    <label for="sortSelect">সাজান</label>
+                    <select id="sortSelect" class="search-sort-select">
+                        <option value="newest">নতুন আগে</option>
+                        <option value="oldest">পুরনো আগে</option>
+                        <option value="price_asc">দাম: কম থেকে বেশি</option>
+                        <option value="price_desc">দাম: বেশি থেকে কম</option>
+                        <option value="rating_desc">সেরা রেটিং</option>
+                        <option value="popular">সবচেয়ে জনপ্রিয়</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="active-filters" id="activeFilters"></div>
+
+            <div id="productGrid" class="product-layout-grid"></div>
+
+            <div id="paginationContainer" class="search-pagination"></div>
         </div>
     </div>
-
-    <div id="productGrid" class="product-layout-grid"></div>
-
-    <div id="paginationContainer" class="search-pagination"></div>
 </main>
 
 <!-- WhatsApp Button -->

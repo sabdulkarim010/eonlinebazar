@@ -112,6 +112,22 @@ const productSchema = new mongoose.Schema({
         type: [String],
         default: []
     },
+    /** Product weight in grams (shipping / courier integrations). */
+    weight: {
+        type: Number,
+        default: null
+    },
+    /** Catalog visibility — stock alerts ignore inactive products. */
+    status: {
+        type: String,
+        enum: ['active', 'inactive'],
+        default: 'active'
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Admin',
+        default: null
+    },
     icon: { 
         type: String, 
         default: '📦' 
@@ -186,5 +202,16 @@ productSchema.index(
 
 productSchema.index({ category: 1 });
 productSchema.index({ slug: 1 }, { sparse: true });
+
+// Search performance compound indexes
+// Note: Product has no status/averageRating/salesCount fields;
+// rating maps to averageRating, numOfReviews maps to popular sort.
+productSchema.index({ price: 1 });
+productSchema.index({ rating: -1 });
+productSchema.index({ numOfReviews: -1 });
+productSchema.index({ brand: 1 });
+productSchema.index({ stockQuantity: 1 });
+productSchema.index({ price: 1, rating: -1 });
+productSchema.index({ brand: 1, price: 1 });
 
 module.exports = mongoose.models.Product || mongoose.model('Product', productSchema);

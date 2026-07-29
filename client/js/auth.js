@@ -18,9 +18,26 @@ document.addEventListener('DOMContentLoaded', () => {
     initRealTimeValidation();
     initPasswordToggle();
     initRegisterLocationDropdowns();
+    initGoogleAuth();
     
     // ইমেইল ভেরিফাই করে আসার পর URL চেক করে মেসেজ দেখানো
     const urlParams = new URLSearchParams(window.location.search);
+
+    // Google OAuth redirect — store JWT and redirect home
+    if (urlParams.get('google') === 'true' && urlParams.get('token')) {
+        const token = urlParams.get('token');
+        localStorage.setItem('token', token);
+        localStorage.setItem('customerToken', token);
+        window.history.replaceState({}, '', '/');
+        window.location.href = '/';
+        return;
+    }
+
+    if (urlParams.get('error') === 'google_failed') {
+        showCustomToast('Google sign-in failed. Please try again or use email/password.', 'error');
+        window.history.replaceState({}, '', '/login');
+    }
+
     if (urlParams.get('verified') === 'true') {
         showCustomToast("Email verified successfully! You can now sign in.", "success");
     }
@@ -41,6 +58,25 @@ document.addEventListener('DOMContentLoaded', () => {
         registerForm.addEventListener('submit', handleRegisterSubmit);
     }
 });
+
+
+/* =========================================================================
+   Google OAuth — show button only when configured on the server
+   ========================================================================= */
+async function initGoogleAuth() {
+    const section = document.getElementById('google-auth-section');
+    if (!section) return;
+
+    try {
+        const response = await fetch('/api/auth/google/status');
+        const data = await response.json();
+        if (data.configured) {
+            section.style.display = 'block';
+        }
+    } catch (error) {
+        console.warn('Could not load Google auth status:', error);
+    }
+}
 
 
 /* =========================================================================

@@ -21,6 +21,7 @@ const {
     normalizeBrandingPublicUrl
 } = require('../utils/brandingPaths');
 const { clearStoreSettingsCache } = require('../utils/storeSettingsService');
+const { invalidate, CACHE_KEYS } = require('../utils/cacheService');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const Coupon = require('../models/coupon');
 const { getApplicationNow } = require('../utils/applicationTime');
@@ -661,6 +662,11 @@ const updateAdminSettings = async (req, res) => {
 
         await admin.save();
 
+        if (storeName !== undefined) {
+            clearStoreSettingsCache();
+            await invalidate(CACHE_KEYS.STORE_SETTINGS);
+        }
+
         // ইউজারনেম বা পাসওয়ার্ড বদলালে পুরোনো টোকেন আর বৈধ নয় → সব ডিভাইস সাইন-আউট
         const requireRelogin = usernameChanged || passwordChanged;
         if (requireRelogin) {
@@ -748,6 +754,7 @@ const uploadStoreBranding = async (req, res) => {
 
         await admin.save();
         clearStoreSettingsCache();
+        await invalidate(CACHE_KEYS.STORE_SETTINGS);
 
         await logSecurityEvent({
             action: 'Store Branding Updated',

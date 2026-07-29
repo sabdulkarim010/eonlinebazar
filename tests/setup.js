@@ -1,3 +1,18 @@
+jest.mock('../utils/redisClient', () => {
+  const mockClient = {
+    isReady: false,
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue('OK'),
+    del: jest.fn().mockResolvedValue(1),
+    scan: jest.fn().mockResolvedValue(['0', []]),
+    info: jest.fn().mockResolvedValue(''),
+    flushdb: jest.fn().mockResolvedValue('OK'),
+    on: jest.fn(),
+    quit: jest.fn().mockResolvedValue('OK'),
+  };
+  return mockClient;
+});
+
 /********************************************************************
  * Jest global setup — in-memory MongoDB, mocks, and shared helpers.
  ********************************************************************/

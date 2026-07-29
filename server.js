@@ -16,6 +16,8 @@ const path = require('path');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const requestIp = require('request-ip');
+const session = require('express-session');
+const passport = require('./config/passport');
 const connectDB = require('./config/db');
 
 // ১. রুট ফাইলসমূহ ইমপোর্ট করা
@@ -41,6 +43,8 @@ const { seedDefaultPaymentMethods } = require('./utils/paymentMethodService');
 const storeSettingsMiddleware = require('./middlewares/storeSettingsMiddleware');
 const { applyBrandingToHtml } = require('./utils/brandingHtml');
 const { DEFAULT_SETTINGS } = require('./utils/storeSettingsService');
+const seoRoutes = require('./routes/seoRoutes');
+const { serveProductDetailsWithSeo, serveSearchWithSeo } = require('./utils/seoPageService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -85,6 +89,10 @@ connectDB().then(async () => {
     } catch (err) {
         console.error('Stock alert cron bootstrap error:', err.message);
     }
+
+    const redisClient = require('./utils/redisClient');
+    redisClient.on('connect', () => console.log('Redis Connected ✅'));
+    redisClient.on('error', (err) => console.warn('Redis unavailable:', err.message));
 });
 
 // ৩. প্রয়োজনীয় মিডলওয়্যারসমূহ
@@ -96,6 +104,19 @@ applySecurityMiddleware(app);
 // request-ip: প্রতিটি রিকোয়েস্টে আসল ক্লায়েন্ট IP req.clientIp-তে সেট করে
 // (অ্যাক্টিভ ডিভাইস ও লোকেশন ট্র্যাকিং-এ ব্যবহৃত হয়)
 app.use(requestIp.mw());
+
+// Google OAuth — express-session + passport (before API routes)
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'fallback-secret',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 24 * 60 * 60 * 1000
+    }
+}));
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Global store branding/settings from MongoDB — available as res.locals.settings on every request
 app.use(storeSettingsMiddleware);
@@ -187,14 +208,10 @@ app.get('/order-details', (req, res) => {
     sendClientHtml(res, 'order-details.html');
 });
 
-app.get('/product-details', (req, res) => {
-    sendClientHtml(res, 'product-details.html');
-});
+app.get('/product-details', serveProductDetailsWithSeo);
 
 // 🌟 সার্চ রেজাল্ট পেজের ক্লিন রুট (?q=keyword দিয়ে অ্যাক্সেস)
-app.get('/search', (req, res) => {
-    sendClientHtml(res, 'search.html');
-});
+app.get('/search', serveSearchWithSeo);
 
 app.get('/cart', (req, res) => {
     sendClientHtml(res, 'cart.html');
@@ -361,6 +378,9 @@ app.get('/admin/payment-reconciliation', servePaymentReconciliationPage);
 app.get('/admin/*splat', (req, res) => {
     res.redirect('/admin/dashboard');
 });
+
+// Public SEO endpoints — before static files and 404 handler
+app.use(seoRoutes);
 
 // Static assets — public/ (optional shared assets) then client/ storefront root
 if (fs.existsSync(PUBLIC_DIR)) {

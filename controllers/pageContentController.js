@@ -6,6 +6,7 @@
 const PageContent = require('../models/PageContent');
 const { PAGE_SLUGS } = require('../models/PageContent');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
+const { invalidate, CACHE_KEYS } = require('../utils/cacheService');
 
 function readString(value, max) {
     return String(value ?? '').trim().slice(0, max);
@@ -86,6 +87,9 @@ const updatePageContent = async (req, res) => {
 
         page.updatedByAdmin = req.admin?.email || req.admin?.username || 'admin';
         await page.save();
+
+        await invalidate(CACHE_KEYS.PAGE_CONTENT(slug));
+        await invalidate(CACHE_KEYS.FOOTER_SETTINGS);
 
         await logSecurityEvent({
             actor: page.updatedByAdmin,

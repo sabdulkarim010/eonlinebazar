@@ -8,6 +8,7 @@
  ********************************************************************/
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const multer = require('multer');
 const { BRANDING_DIR } = require('../utils/brandingPaths');
@@ -152,9 +153,61 @@ function footerIconUploadSafe(req, res, next) {
     });
 }
 
+const IMPORT_DIR = path.join(os.tmpdir(), 'eonlinebazar-imports');
+fs.mkdirSync(IMPORT_DIR, { recursive: true });
+
+const importFileStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        fs.mkdirSync(IMPORT_DIR, { recursive: true });
+        cb(null, IMPORT_DIR);
+    },
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase() || '.csv';
+        cb(null, `import-${Date.now()}-${Math.random().toString(16).slice(2)}${ext}`);
+    }
+});
+
+const importFileFilter = (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const mime = String(file.mimetype || '').toLowerCase();
+    const allowedExt = ['.csv', '.xlsx', '.xls'];
+    const allowedMime =
+        mime.includes('csv') ||
+        mime.includes('excel') ||
+        mime.includes('spreadsheetml') ||
+        mime === 'application/vnd.ms-excel';
+
+    if (allowedExt.includes(ext) || allowedMime) {
+        cb(null, true);
+        return;
+    }
+
+    cb(new Error('Invalid file type. Allowed: .csv, .xlsx, .xls'), false);
+};
+
+const importFileUpload = multer({
+    storage: importFileStorage,
+    fileFilter: importFileFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024
+    }
+}).single('importFile');
+
+function importFileUploadSafe(req, res, next) {
+    importFileUpload(req, res, (err) => {
+        if (!err) return next();
+
+        const message = err.code === 'LIMIT_FILE_SIZE'
+            ? 'Import file must be 5 MB or smaller.'
+            : (err.message || 'Import file upload failed.');
+        return res.status(400).json({ success: false, message });
+    });
+}
+
 module.exports = upload;
 module.exports.brandingUpload = brandingUpload;
 module.exports.paymentMethodLogoUpload = paymentMethodLogoUploadSafe;
 module.exports.footerIconUpload = footerIconUploadSafe;
+module.exports.importFileUpload = importFileUploadSafe;
 module.exports.BRANDING_DIR = BRANDING_DIR;
 module.exports.PAYMENTS_DIR = PAYMENTS_DIR;

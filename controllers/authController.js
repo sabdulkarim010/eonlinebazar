@@ -10,7 +10,105 @@
  ********************************************************************/
 
 const mongoose = require('mongoose');
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+const requestIp = require('request-ip');
+const geoip = require('geoip-lite');
 const UserSession = require('../models/userSession');
+const { logSecurityEvent } = require('../utils/securityLogger');
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+function parseUserAgent(uaString = '') {
+    const ua = uaString.toLowerCase();
+
+    let browser = 'Unknown Browser';
+    if (ua.includes('edg/')) browser = 'Microsoft Edge';
+    else if (ua.includes('opr/') || ua.includes('opera')) browser = 'Opera';
+    else if (ua.includes('chrome') && !ua.includes('edg/')) browser = 'Chrome';
+    else if (ua.includes('firefox')) browser = 'Firefox';
+    else if (ua.includes('safari') && !ua.includes('chrome')) browser = 'Safari';
+
+    let device = 'Desktop';
+    if (ua.includes('android')) device = 'Android Phone';
+    else if (ua.includes('iphone')) device = 'iPhone';
+    else if (ua.includes('ipad')) device = 'iPad';
+    else if (ua.includes('windows')) device = 'Windows PC';
+    else if (ua.includes('mac os')) device = 'Mac';
+    else if (ua.includes('linux')) device = 'Linux PC';
+
+    return { device, browser };
+}
+
+function getClientIp(req) {
+    const detected = requestIp.getClientIp(req);
+    if (detected) return detected;
+    const fwd = req.headers['x-forwarded-for'];
+    if (fwd) return fwd.split(',')[0].trim();
+    return (req.socket && req.socket.remoteAddress) || req.ip || '';
+}
+
+function getLocationFromIp(rawIp = '') {
+    try {
+        const ip = String(rawIp).replace('::ffff:', '').trim();
+        if (!ip) return 'Unknown Location';
+
+        if (
+            ip === '127.0.0.1' || ip === '::1' ||
+            ip.startsWith('10.') || ip.startsWith('192.168.') ||
+            /^172\.(1[6-9]|2\d|3[01])\./.test(ip)
+        ) {
+            return 'Local Network';
+        }
+
+        const geo = geoip.lookup(ip);
+        if (!geo) return 'Unknown Location';
+
+        let countryName = geo.country || '';
+        try {
+            const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+            countryName = regionNames.of(geo.country) || geo.country;
+        } catch (_) { /* ignore */ }
+
+        const parts = [geo.city, countryName].filter(Boolean);
+        return parts.length ? parts.join(', ') : 'Unknown Location';
+    } catch (err) {
+        return 'Unknown Location';
+    }
+}
+
+async function createCustomerLoginSession(req, user) {
+    const { device, browser } = parseUserAgent(req.headers['user-agent']);
+    const sessionId = crypto.randomUUID();
+    const clientIp = getClientIp(req);
+
+    await UserSession.create({
+        sessionId,
+        userId: user._id,
+        userAgent: req.headers['user-agent'] || '',
+        device,
+        browser,
+        ipAddress: clientIp,
+        location: getLocationFromIp(clientIp)
+    });
+
+    const token = jwt.sign(
+        { id: user._id, sid: sessionId },
+        JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+
+    await logSecurityEvent({
+        action: 'Customer Login Success',
+        actor: user.email,
+        actorType: 'customer',
+        ipAddress: clientIp,
+        details: `${device} · ${browser} (Google OAuth)`
+    });
+
+    return token;
+}
+
 
 /* =======================================================
    ১. বর্তমান ইউজারের সব অ্যাক্টিভ সেশন দেখা
@@ -106,5 +204,37 @@ exports.logoutOtherSessions = async (req, res) => {
     } catch (error) {
         console.error("Logout Other Sessions Error:", error);
         res.status(500).json({ success: false, message: "Failed to log out other devices." });
+    }
+};
+
+exports.getGoogleAuthStatus = (req, res) => {
+    res.status(200).json({
+        configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+    });
+};
+
+exports.handleGoogleCallback = async (req, res, next) => {
+    try {
+        const user = req.user;
+
+        if (!user) {
+            return res.redirect('/login?error=google_failed');
+        }
+
+        if (user.accountStatus === 'blocked') {
+            return res.redirect('/login?error=google_failed');
+        }
+        if (user.accountStatus === 'suspended') {
+            return res.redirect('/login?error=google_failed');
+        }
+
+        user.lastLogin = new Date();
+        await user.save();
+
+        const token = await createCustomerLoginSession(req, user);
+        return res.redirect(`/login?token=${encodeURIComponent(token)}&google=true`);
+    } catch (error) {
+        console.error('Google OAuth callback error:', error);
+        return res.redirect('/login?error=google_failed');
     }
 };

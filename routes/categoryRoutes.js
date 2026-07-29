@@ -13,6 +13,7 @@ const router = express.Router();
 const Category = require('../models/category');
 const { verifyAdmin } = require('../middlewares/authMiddleware');
 const { checkPermission } = require('../middlewares/rbac');
+const { getOrSet, invalidate, CACHE_KEYS } = require('../utils/cacheService');
 
 // ক্যাটালগ (ক্যাটাগরি/ব্র্যান্ড/অ্যাট্রিবিউট) পরিবর্তনের পারমিশন গেট
 const canManageCatalog = checkPermission('manage_catalog');
@@ -35,7 +36,9 @@ function parseCustomCashbackPercentage(raw, { required = false } = {}) {
 // ১. সব ক্যাটাগরি ডাটাবেজ থেকে নিয়ে আসা
 router.get('/', async (req, res) => {
     try {
-        const categories = await Category.find().sort({ createdAt: -1 });
+        const categories = await getOrSet(CACHE_KEYS.CATEGORIES, async () => {
+            return Category.find().sort({ createdAt: -1 }).lean();
+        }, 600);
         res.status(200).json({ success: true, data: categories });
     } catch (error) {
         res.status(500).json({ success: false, message: "ক্যাটাগরি লোড করতে সমস্যা হচ্ছে।" });
@@ -62,6 +65,7 @@ router.post('/', verifyAdmin, canManageCatalog, async (req, res) => {
             customCashbackPercentage: parsedCashback === undefined ? null : parsedCashback
         });
         await newCategory.save();
+        await invalidate(CACHE_KEYS.CATEGORIES);
 
         res.status(201).json({ success: true, message: "ক্যাটাগরি সফলভাবে যুক্ত হয়েছে!", data: newCategory });
     } catch (error) {
@@ -74,6 +78,8 @@ router.delete('/:id', verifyAdmin, canManageCatalog, async (req, res) => {
     try {
         const deletedCategory = await Category.findByIdAndDelete(req.params.id);
         if (!deletedCategory) return res.status(404).json({ success: false, message: "ক্যাটাগরি পাওয়া যায়নি!" });
+
+        await invalidate(CACHE_KEYS.CATEGORIES);
         
         res.status(200).json({ success: true, message: "ক্যাটাগরি সফলভাবে ডিলিট করা হয়েছে!" });
     } catch (error) {
@@ -113,6 +119,8 @@ router.put('/:id', verifyAdmin, canManageCatalog, async (req, res) => {
                 { $set: { category: String(newName).trim() } }
             );
         }
+
+        await invalidate(CACHE_KEYS.CATEGORIES);
 
         res.status(200).json({ success: true, message: "Category and linked products updated!", data: category });
     } catch (error) {

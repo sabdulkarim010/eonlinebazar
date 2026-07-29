@@ -62,6 +62,7 @@ const { notifyOrderConfirmationEmail } = require('../utils/mailer');
 const { findVariantIndex, getVariantAttributes, getVariantLineId } = require('../utils/variantHelpers');
 const { deductWalletForOrder, creditWalletForUser, reverseWalletCredit } = require('../utils/walletService');
 const { loadFlashSaleSettings, resolveProductFlashPrice } = require('../utils/flashSaleService');
+const { invalidate, CACHE_KEYS } = require('../utils/cacheService');
 const {
     resolvePaymentMethodForCheckout,
     computeProcessingFee,
@@ -582,6 +583,8 @@ const createOrder = async (req, res) => {
         dispatchAdminWhatsAppAlertSafely(newOrder);
         notifyOrderConfirmationEmail({ to: recipientEmail, order: newOrder.toObject() });
 
+        await invalidate(CACHE_KEYS.POPULAR_PRODUCTS);
+
         res.status(201).json({
             success: true,
             message: "Order placed successfully! ধন্যবাদ আব্দুল করিম ভাই।",
@@ -870,6 +873,8 @@ const createManualOrder = async (req, res) => {
             ipAddress: getClientIp(req),
             details: `${orderId} · ${customerName} · ৳${grandTotal} · ${normalizedItems.length} item(s) · ${paymentMethod}`
         });
+
+        await invalidate(CACHE_KEYS.POPULAR_PRODUCTS);
 
         res.status(201).json({
             success: true,

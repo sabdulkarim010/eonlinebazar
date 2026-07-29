@@ -10,6 +10,7 @@ const FooterSettings = require('../models/FooterSettings');
 const { DEFAULT_COPYRIGHT } = require('../models/FooterSettings');
 const { footerIconPublicPath } = require('../utils/footerIconPaths');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
+const { invalidate, CACHE_KEYS } = require('../utils/cacheService');
 
 const MAX_COLUMNS = 8;
 const MAX_LINKS_PER_COLUMN = 20;
@@ -161,6 +162,7 @@ const updateFooterSettings = async (req, res) => {
         }
 
         await doc.save();
+        await invalidate(CACHE_KEYS.FOOTER_SETTINGS);
 
         await logSecurityEvent({
             actor: req.admin?.username || req.admin?.email || 'admin',

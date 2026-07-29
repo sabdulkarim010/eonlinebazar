@@ -11,11 +11,14 @@
 
 const Brand = require('../models/brand');
 const Product = require('../models/product');
+const { getOrSet, invalidate, CACHE_KEYS } = require('../utils/cacheService');
 
 // ১. সব ব্র্যান্ড ফেচ করা (পাবলিক) — নতুন থেকে পুরাতন ক্রমে
 const getBrands = async (req, res) => {
     try {
-        const brands = await Brand.find().sort({ createdAt: -1 });
+        const brands = await getOrSet(CACHE_KEYS.BRANDS, async () => {
+            return Brand.find().sort({ createdAt: -1 }).lean();
+        }, 600);
         res.status(200).json({ success: true, data: brands });
     } catch (error) {
         console.error('Brand Fetch Error:', error);
@@ -42,6 +45,7 @@ const createBrand = async (req, res) => {
 
         const newBrand = new Brand({ name, description, status });
         await newBrand.save();
+        await invalidate(CACHE_KEYS.BRANDS);
 
         res.status(201).json({ success: true, message: 'ব্র্যান্ড সফলভাবে যুক্ত হয়েছে!', data: newBrand });
     } catch (error) {
@@ -85,6 +89,8 @@ const updateBrand = async (req, res) => {
             await Product.updateMany({ brand: brand._id }, { $set: { brandName: brand.name } });
         }
 
+        await invalidate(CACHE_KEYS.BRANDS);
+
         res.status(200).json({ success: true, message: 'ব্র্যান্ড আপডেট হয়েছে!', data: brand });
     } catch (error) {
         console.error('Brand Update Error:', error);
@@ -102,6 +108,8 @@ const deleteBrand = async (req, res) => {
 
         // এই ব্র্যান্ড ব্যবহারকারী প্রোডাক্টগুলো orphan না রেখে রেফারেন্স মুছে ফেলা
         await Product.updateMany({ brand: deleted._id }, { $set: { brand: null, brandName: '' } });
+
+        await invalidate(CACHE_KEYS.BRANDS);
 
         res.status(200).json({ success: true, message: 'ব্র্যান্ড সফলভাবে ডিলিট করা হয়েছে!' });
     } catch (error) {

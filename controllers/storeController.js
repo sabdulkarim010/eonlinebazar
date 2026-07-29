@@ -19,18 +19,18 @@ const { loadFlashSaleSettings, toPublicFlashSalePayload } = require('../utils/fl
 const FooterSettings = require('../models/FooterSettings');
 const PageContent = require('../models/PageContent');
 const { getPublishedPageSlugs, filterFooterColumnsByPublishedPages } = require('../utils/pagePublishService');
+const { getOrSet, CACHE_KEYS } = require('../utils/cacheService');
 
 const getPublicStoreBranding = async (req, res) => {
     try {
-        const [settings, whatsappSettings, paymentSettings] = await Promise.all([
-            getStoreSettings({ forceRefresh: true }),
-            getPublicWhatsAppSettings({ forceRefresh: true }),
-            getPublicPaymentPayload({ forceRefresh: true })
-        ]);
+        const data = await getOrSet(CACHE_KEYS.STORE_SETTINGS, async () => {
+            const [settings, whatsappSettings, paymentSettings] = await Promise.all([
+                getStoreSettings({ forceRefresh: true }),
+                getPublicWhatsAppSettings({ forceRefresh: true }),
+                getPublicPaymentPayload({ forceRefresh: true })
+            ]);
 
-        res.status(200).json({
-            success: true,
-            data: {
+            return {
                 storeName: settings.storeName,
                 logoUrl: settings.logoPath,
                 faviconUrl: settings.faviconPath,
@@ -43,8 +43,10 @@ const getPublicStoreBranding = async (req, res) => {
                 enabledPaymentMethods: paymentSettings.enabledPaymentMethods,
                 activePaymentGateways: paymentSettings.activePaymentGateways,
                 activePaymentMethods: paymentSettings.activePaymentMethods
-            }
-        });
+            };
+        }, 300);
+
+        res.status(200).json({ success: true, data });
     } catch (error) {
         console.error('Get Public Store Branding Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load store branding.' });
@@ -132,11 +134,12 @@ module.exports = {
     },
     getPublicFlashSale: async (req, res) => {
         try {
-            const flashSettings = await loadFlashSaleSettings();
-            res.status(200).json({
-                success: true,
-                data: toPublicFlashSalePayload(flashSettings)
-            });
+            const data = await getOrSet(CACHE_KEYS.FLASH_SALE, async () => {
+                const flashSettings = await loadFlashSaleSettings();
+                return toPublicFlashSalePayload(flashSettings);
+            }, 60);
+
+            res.status(200).json({ success: true, data });
         } catch (error) {
             console.error('Get Public Flash Sale Error:', error);
             res.status(500).json({ success: false, message: 'Failed to load flash sale settings.' });
@@ -153,13 +156,17 @@ module.exports = {
     },
     getPublicFooterSettings: async (req, res) => {
         try {
-            const [doc, publishedSlugs] = await Promise.all([
-                FooterSettings.getOrCreate(),
-                getPublishedPageSlugs()
-            ]);
-            const payload = doc.toPublicObject();
-            payload.columns = filterFooterColumnsByPublishedPages(payload.columns, publishedSlugs);
-            res.status(200).json({ success: true, data: payload });
+            const data = await getOrSet(CACHE_KEYS.FOOTER_SETTINGS, async () => {
+                const [doc, publishedSlugs] = await Promise.all([
+                    FooterSettings.getOrCreate(),
+                    getPublishedPageSlugs()
+                ]);
+                const payload = doc.toPublicObject();
+                payload.columns = filterFooterColumnsByPublishedPages(payload.columns, publishedSlugs);
+                return payload;
+            }, 3600);
+
+            res.status(200).json({ success: true, data });
         } catch (error) {
             console.error('Get Public Footer Settings Error:', error);
             res.status(500).json({ success: false, message: 'Failed to load footer settings.' });
@@ -167,11 +174,17 @@ module.exports = {
     },
     getPublicPageContent: async (req, res) => {
         try {
-            const page = await PageContent.getPublishedBySlug(req.params.slug);
-            if (!page) {
+            const slug = req.params.slug;
+            const data = await getOrSet(CACHE_KEYS.PAGE_CONTENT(slug), async () => {
+                const page = await PageContent.getPublishedBySlug(slug);
+                if (!page) return null;
+                return page.toPublicObject();
+            }, 300);
+
+            if (!data) {
                 return res.status(404).json({ success: false, message: 'Page not found.' });
             }
-            res.status(200).json({ success: true, data: page.toPublicObject() });
+            res.status(200).json({ success: true, data });
         } catch (error) {
             console.error('Get Public Page Content Error:', error);
             res.status(500).json({ success: false, message: 'Failed to load page content.' });

@@ -5658,6 +5658,204 @@ document.getElementById('btn-export-csv')?.addEventListener('click', () => {
     showToast(`${toExport.length} selected product(s) exported to CSV!`, "success");
 });
 
+/* ==========================================================================
+   SECTION 10B: BULK PRODUCT IMPORT (CSV / EXCEL)
+   ========================================================================== */
+
+let bulkImportSelectedFile = null;
+
+function resetBulkImportModal() {
+    bulkImportSelectedFile = null;
+    const fileInput = document.getElementById('bulkImportFileInput');
+    const selectedLabel = document.getElementById('bulkImportSelectedFile');
+    const submitBtn = document.getElementById('btn-bulk-import-submit');
+    const loading = document.getElementById('bulkImportLoading');
+    const results = document.getElementById('bulkImportResults');
+    const uploadStep = document.getElementById('bulkImportUploadStep');
+    const invalidDetails = document.getElementById('bulkImportInvalidDetails');
+    const invalidBody = document.getElementById('bulkImportInvalidBody');
+
+    if (fileInput) fileInput.value = '';
+    if (selectedLabel) {
+        selectedLabel.hidden = true;
+        selectedLabel.textContent = '';
+    }
+    if (submitBtn) submitBtn.disabled = true;
+    if (loading) loading.hidden = true;
+    if (results) results.hidden = true;
+    if (uploadStep) uploadStep.hidden = false;
+    if (invalidDetails) invalidDetails.hidden = true;
+    if (invalidBody) invalidBody.innerHTML = '';
+}
+
+window.openBulkImportModal = function() {
+    resetBulkImportModal();
+    const modal = document.getElementById('bulkImportModal');
+    if (modal) modal.style.display = 'flex';
+};
+
+window.closeBulkImportModal = function() {
+    const modal = document.getElementById('bulkImportModal');
+    if (modal) modal.style.display = 'none';
+    resetBulkImportModal();
+};
+
+function setBulkImportFile(file) {
+    if (!file) return;
+
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const allowed = ['csv', 'xlsx', 'xls'];
+    if (!allowed.includes(ext)) {
+        showToast('শুধুমাত্র .csv, .xlsx, বা .xls ফাইল গ্রহণযোগ্য।', 'warning');
+        return;
+    }
+
+    bulkImportSelectedFile = file;
+    const selectedLabel = document.getElementById('bulkImportSelectedFile');
+    const submitBtn = document.getElementById('btn-bulk-import-submit');
+    const results = document.getElementById('bulkImportResults');
+
+    if (selectedLabel) {
+        selectedLabel.hidden = false;
+        selectedLabel.textContent = `নির্বাচিত ফাইল: ${file.name}`;
+    }
+    if (submitBtn) submitBtn.disabled = false;
+    if (results) results.hidden = true;
+}
+
+document.getElementById('btn-bulk-import')?.addEventListener('click', () => {
+    openBulkImportModal();
+});
+
+document.getElementById('btn-download-import-template')?.addEventListener('click', async () => {
+    try {
+        const res = await fetch('/api/admin/products/import-template', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || 'Template download failed');
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'product-import-template.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showToast('টেমপ্লেট ডাউনলোড হয়েছে!', 'success');
+    } catch (err) {
+        showToast(err.message || 'টেমপ্লেট ডাউনলোড ব্যর্থ হয়েছে।', 'error');
+    }
+});
+
+const bulkImportDropZone = document.getElementById('bulkImportDropZone');
+const bulkImportFileInput = document.getElementById('bulkImportFileInput');
+
+bulkImportDropZone?.addEventListener('click', () => bulkImportFileInput?.click());
+
+bulkImportDropZone?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    bulkImportDropZone.classList.add('is-dragover');
+});
+
+bulkImportDropZone?.addEventListener('dragleave', () => {
+    bulkImportDropZone.classList.remove('is-dragover');
+});
+
+bulkImportDropZone?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    bulkImportDropZone.classList.remove('is-dragover');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) setBulkImportFile(file);
+});
+
+bulkImportFileInput?.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (file) setBulkImportFile(file);
+});
+
+document.getElementById('btn-bulk-import-submit')?.addEventListener('click', async () => {
+    if (!bulkImportSelectedFile) {
+        return showToast('অনুগ্রহ করে একটি ফাইল নির্বাচন করুন।', 'warning');
+    }
+
+    const submitBtn = document.getElementById('btn-bulk-import-submit');
+    const loading = document.getElementById('bulkImportLoading');
+    const results = document.getElementById('bulkImportResults');
+
+    if (submitBtn) submitBtn.disabled = true;
+    if (loading) loading.hidden = false;
+
+    try {
+        const formData = new FormData();
+        formData.append('importFile', bulkImportSelectedFile);
+
+        const res = await fetch('/api/admin/products/bulk-import', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || 'Bulk import failed');
+        }
+
+        const summary = data.summary || {};
+        const insertedEl = document.querySelector('#bulkImportSummaryInserted span');
+        const skippedEl = document.querySelector('#bulkImportSummarySkipped span');
+        const warningsEl = document.querySelector('#bulkImportSummaryWarnings span');
+        const invalidDetails = document.getElementById('bulkImportInvalidDetails');
+        const invalidBody = document.getElementById('bulkImportInvalidBody');
+
+        if (insertedEl) insertedEl.textContent = `${summary.inserted ?? 0} টি পণ্য যোগ হয়েছে`;
+        if (skippedEl) skippedEl.textContent = `${summary.skipped ?? 0} টি সারি এড়িয়ে গেছে (errors)`;
+        if (warningsEl) warningsEl.textContent = `${summary.warnings ?? 0} টি সতর্কতা`;
+
+        if (invalidBody) {
+            invalidBody.innerHTML = '';
+            (data.invalid || []).forEach(item => {
+                const name =
+                    item.data?.name ||
+                    item.data?.Name ||
+                    item.data?.productname ||
+                    '—';
+                const errors = Array.isArray(item.errors) ? item.errors.join('; ') : 'Unknown error';
+                invalidBody.innerHTML += `
+                    <tr>
+                        <td>${item.row ?? '—'}</td>
+                        <td>${escapeHtml(String(name))}</td>
+                        <td>${escapeHtml(errors)}</td>
+                    </tr>`;
+            });
+        }
+
+        if (invalidDetails) {
+            invalidDetails.hidden = !(data.invalid && data.invalid.length);
+        }
+
+        if (results) results.hidden = false;
+
+        if ((summary.inserted ?? 0) > 0 && typeof fetchLiveProducts === 'function') {
+            fetchLiveProducts();
+        }
+
+        showToast('বাল্ক ইমপোর্ট সম্পন্ন হয়েছে!', 'success');
+    } catch (err) {
+        showToast(err.message || 'আপলোড ব্যর্থ হয়েছে।', 'error');
+    } finally {
+        if (loading) loading.hidden = true;
+        if (submitBtn) submitBtn.disabled = !bulkImportSelectedFile;
+    }
+});
+
+document.getElementById('btn-bulk-import-retry')?.addEventListener('click', () => {
+    resetBulkImportModal();
+});
+
 document.getElementById('btn-print-table')?.addEventListener('click', () => {
     const dateEl = document.getElementById('printReportDate');
     if (dateEl) {

@@ -64,6 +64,7 @@ async function fetchProductDetails(id) {
         initializeDefaultVariantSelections(product);
         renderHighlights(product); 
         renderDescriptions(product);
+        updateSeoTags(product);
         
         // 🟢 আপডেট: এখন আলাদা এপিআই থেকে রিভিউ কল হবে
         fetchProductReviews(id); 
@@ -92,6 +93,131 @@ function renderBreadcrumb(product) {
 
     if (breadcrumbCategory) breadcrumbCategory.innerText = product.category || 'General';
     if (breadcrumbTitle) breadcrumbTitle.innerText = product.name || 'Product';
+}
+
+const DEFAULT_OG_IMAGE = '/images/og-default.jpg';
+
+function resolveProductImageUrl(product) {
+    const images = [];
+    if (Array.isArray(product.images)) {
+        product.images.forEach((img) => {
+            if (img) images.push(normalizeAssetUrl(img));
+        });
+    }
+    if (product.image) {
+        const abs = normalizeAssetUrl(product.image);
+        if (abs && !images.includes(abs)) images.unshift(abs);
+    }
+    if (images.length === 0) return new URL(DEFAULT_OG_IMAGE, window.location.origin).href;
+    const first = images[0];
+    return first.startsWith('http') ? first : new URL(first, window.location.origin).href;
+}
+
+function normalizeAssetUrl(raw) {
+    if (!raw) return '';
+    const str = String(raw).trim();
+    if (str.startsWith('http')) return str;
+    return str.startsWith('/') ? str : `/products/${str}`;
+}
+
+function slugifyCategoryName(name) {
+    return String(name || '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\u0980-\u09FF]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
+function stripHtmlForSeo(text) {
+    return String(text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function truncateSeo(text, maxLen = 160) {
+    const clean = stripHtmlForSeo(text);
+    if (clean.length <= maxLen) return clean;
+    return `${clean.slice(0, maxLen - 1).trim()}…`;
+}
+
+function setMetaContent(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.setAttribute('content', value || '');
+}
+
+function updateSeoTags(product) {
+    if (!product) return;
+
+    const productId = product.productId || product._id;
+    const canonicalUrl = `${window.location.origin}/product-details?id=${encodeURIComponent(String(productId))}`;
+    const title = product.name || 'Product';
+    const description = truncateSeo(
+        product.description || product.detailedDescription || `${title} — EOnlineBazar-এ কিনুন`
+    );
+    const imageUrl = resolveProductImageUrl(product);
+    const stockQty = Number(product.stockQuantity ?? product.stock) || 0;
+    const ratingValue = product.averageRating ?? product.rating;
+    const reviewCount = product.reviewCount ?? product.numOfReviews;
+
+    document.title = `${title} | EOnlineBazar`;
+    setMetaContent('meta-description', description);
+    setMetaContent('og-title', title);
+    setMetaContent('og-description', description);
+    setMetaContent('og-image', imageUrl);
+    setMetaContent('og-url', canonicalUrl);
+    setMetaContent('twitter-title', title);
+    setMetaContent('twitter-description', description);
+    setMetaContent('twitter-image', imageUrl);
+
+    const canonicalLink = document.getElementById('canonical-link');
+    if (canonicalLink) canonicalLink.setAttribute('href', canonicalUrl);
+
+    const images = [];
+    if (Array.isArray(product.images)) {
+        product.images.forEach((img) => {
+            const abs = normalizeAssetUrl(img);
+            if (abs) {
+                images.push(abs.startsWith('http') ? abs : new URL(abs, window.location.origin).href);
+            }
+        });
+    }
+    if (product.image) {
+        const abs = normalizeAssetUrl(product.image);
+        const full = abs.startsWith('http') ? abs : new URL(abs, window.location.origin).href;
+        if (!images.includes(full)) images.unshift(full);
+    }
+    if (images.length === 0) images.push(imageUrl);
+
+    const jsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: title,
+        description: stripHtmlForSeo(product.description || product.detailedDescription || ''),
+        image: images,
+        sku: String(product.productId || product._id || ''),
+        brand: {
+            '@type': 'Brand',
+            name: product.brandName || 'EOnlineBazar'
+        },
+        offers: {
+            '@type': 'Offer',
+            price: product.price,
+            priceCurrency: 'BDT',
+            availability: stockQty > 0
+                ? 'https://schema.org/InStock'
+                : 'https://schema.org/OutOfStock',
+            url: canonicalUrl
+        }
+    };
+
+    if (ratingValue != null && Number(reviewCount) > 0) {
+        jsonLd.aggregateRating = {
+            '@type': 'AggregateRating',
+            ratingValue: Number(ratingValue),
+            reviewCount: Number(reviewCount)
+        };
+    }
+
+    const jsonLdEl = document.getElementById('product-jsonld');
+    if (jsonLdEl) jsonLdEl.textContent = JSON.stringify(jsonLd);
 }
 
 function renderProductInfo(product) {

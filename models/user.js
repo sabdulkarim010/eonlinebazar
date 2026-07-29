@@ -43,7 +43,8 @@ const userSchema = new mongoose.Schema({
     },
     mobile: {
         type: String,
-        required: true,
+        required: false,
+        default: null,
         trim: true
     },
     email: {
@@ -55,7 +56,20 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: true
+        required: false,
+        default: null
+    },
+    googleId: {
+        type: String,
+        default: null
+    },
+    avatarUrl: {
+        type: String,
+        default: null
+    },
+    lastLogin: {
+        type: Date,
+        default: null
     },
     isVerified: {
         type: Boolean,
@@ -204,5 +218,6 @@ userSchema.set('toObject', { virtuals: true });
 
 // Auth & lookup — email unique index comes from field `unique: true`; mobile for phone lookups.
 userSchema.index({ mobile: 1 });
+userSchema.index({ googleId: 1 }, { sparse: true });
 
 module.exports = mongoose.model('User', userSchema);

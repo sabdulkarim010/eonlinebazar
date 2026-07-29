@@ -468,5 +468,59 @@
     font-size: 16px;
 }
 
+/* =========================================================================
+   Google OAuth sign-in
+   ========================================================================= */
+.google-auth-section {
+    margin-top: 4px;
+}
 
+.auth-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 20px 0 16px;
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.auth-divider span {
+    padding: 0 12px;
+}
+
+.btn-google-login {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 16px;
+    background: #ffffff;
+    color: #3c4043;
+    border: 1px solid #dadce0;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    box-sizing: border-box;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-google-login:hover {
+    background: #f8f9fa;
+    box-shadow: 0 1px 3px rgba(60, 64, 67, 0.15);
+}
+
+.btn-google-login img {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
 

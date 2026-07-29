@@ -832,6 +832,9 @@
         </div>
         
         <div class="header-action-buttons">
+            <button type="button" id="btn-bulk-import" class="action-btn-secondary">
+                <i class="fa-solid fa-file-import"></i> Bulk Import
+            </button>
             <button type="button" id="btn-export-csv" class="action-btn-secondary">
                 <i class="fa-solid fa-file-csv"></i> Export CSV
             </button>
@@ -956,6 +959,79 @@
     </div>
 
 </section>
+
+<!-- Bulk product import modal -->
+<div id="bulkImportModal" class="custom-modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="bulkImportModalTitle" onclick="if(event.target===this) closeBulkImportModal()">
+    <div class="custom-modal-box bulk-import-modal-box">
+        <div class="modal-header">
+            <div>
+                <h3 id="bulkImportModalTitle">Bulk Product Import</h3>
+                <p class="edit-modal-subtitle">CSV বা Excel ফাইল দিয়ে একসাথে অনেক পণ্য যোগ করুন</p>
+            </div>
+            <button type="button" class="close-icon-btn" onclick="closeBulkImportModal()" aria-label="Close bulk import modal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="modal-body bulk-import-body">
+            <div class="bulk-import-step">
+                <h4><span class="bulk-step-num">১</span> প্রথমে টেমপ্লেট ডাউনলোড করুন</h4>
+                <p class="bulk-step-desc">সঠিক কলাম ফরম্যাট দেখতে টেমপ্লেট ডাউনলোড করুন এবং সেখানে আপনার পণ্যের তথ্য পূরণ করুন।</p>
+                <button type="button" id="btn-download-import-template" class="action-btn-secondary">
+                    <i class="fa-solid fa-download"></i> টেমপ্লেট ডাউনলোড
+                </button>
+            </div>
+
+            <div class="bulk-import-step">
+                <h4><span class="bulk-step-num">২</span> ফাইল নির্বাচন করুন</h4>
+                <div id="bulkImportDropZone" class="bulk-import-dropzone" tabindex="0">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <p>এখানে CSV / Excel ফাইল টেনে আনুন</p>
+                    <span>অথবা ক্লিক করে ফাইল বেছে নিন (.csv, .xlsx, .xls)</span>
+                    <input type="file" id="bulkImportFileInput" accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+                </div>
+                <p id="bulkImportSelectedFile" class="bulk-import-filename" hidden></p>
+            </div>
+
+            <div class="bulk-import-step" id="bulkImportUploadStep">
+                <h4><span class="bulk-step-num">৩</span> আপলোড ও ইমপোর্ট</h4>
+                <button type="button" id="btn-bulk-import-submit" class="btn-primary" disabled>
+                    <i class="fa-solid fa-upload"></i> আপলোড করুন
+                </button>
+                <div id="bulkImportLoading" class="bulk-import-loading" hidden>
+                    <i class="fa-solid fa-spinner fa-spin"></i> আপলোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...
+                </div>
+            </div>
+
+            <div id="bulkImportResults" class="bulk-import-results" hidden>
+                <h4><span class="bulk-step-num">৪</span> ফলাফল</h4>
+                <div class="bulk-import-summary-card">
+                    <p id="bulkImportSummaryInserted"><i class="fa-solid fa-circle-check text-success"></i> <span></span></p>
+                    <p id="bulkImportSummarySkipped"><i class="fa-solid fa-triangle-exclamation text-warning"></i> <span></span></p>
+                    <p id="bulkImportSummaryWarnings"><i class="fa-solid fa-circle-info text-info"></i> <span></span></p>
+                </div>
+
+                <details id="bulkImportInvalidDetails" class="bulk-import-invalid-details" hidden>
+                    <summary>এড়িয়ে যাওয়া সারির তালিকা দেখুন</summary>
+                    <div class="table-responsive-container">
+                        <table class="ultra-admin-table bulk-import-error-table">
+                            <thead>
+                                <tr>
+                                    <th>সারি</th>
+                                    <th>পণ্যের নাম</th>
+                                    <th>সমস্যা</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulkImportInvalidBody"></tbody>
+                        </table>
+                    </div>
+                </details>
+
+                <button type="button" id="btn-bulk-import-retry" class="action-btn-secondary">
+                    <i class="fa-solid fa-rotate-right"></i> আবার চেষ্টা করুন
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div id="editProductModal" class="custom-modal-overlay">
     <div class="custom-modal-box edit-product-modal-box">

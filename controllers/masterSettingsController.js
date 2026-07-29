@@ -27,6 +27,7 @@ const {
     resolveFlashSaleEndDate,
     toPublicFlashSalePayload
 } = require('../utils/flashSaleService');
+const { invalidate, CACHE_KEYS } = require('../utils/cacheService');
 
 const VALID_SMS_GATEWAY_PROVIDERS = ['Greenweb BD', 'BulkSMS BD', 'AlphaSMS', 'Generic API', ''];
 
@@ -421,6 +422,9 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
 
     await settings.save();
     await mirrorThresholdToDeliverySettings(settings.freeShippingThreshold);
+
+    await invalidate(CACHE_KEYS.STORE_SETTINGS);
+    await invalidate(CACHE_KEYS.FLASH_SALE);
 
     await logSecurityEvent({
         action: `${scope} Settings Updated`,

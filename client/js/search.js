@@ -2,9 +2,8 @@
  * ==========================================================================
  * File Name: js/search.js
  * Project: eOnlineBazar
- * Author: Abdul Karim Sheikh
- * Description: Advanced Search Results page logic — debounced keyword search,
- * deep-search API integration, sorting, pagination and a friendly empty state.
+ * Description: Advanced Search Results — keyword search, filters (price,
+ * brand, rating, stock), sorting, pagination, URL sync, and mobile sidebar.
  * ==========================================================================
  */
 
@@ -13,68 +12,408 @@
    ========================================================================== */
 const SEARCH_STATE = {
     query: '',
-    sort: 'relevance',
+    category: '',
+    categoryName: '',
+    sort: 'newest',
     page: 1,
-    totalPages: 0
+    totalPages: 0,
+    minPrice: '',
+    maxPrice: '',
+    brands: [],
+    rating: '',
+    inStock: false,
+    priceRange: { min: 0, max: 0 },
+    availableBrands: []
 };
+
 const RESULTS_PER_PAGE = 20;
+const FILTER_DEBOUNCE_MS = 400;
+const MAX_VISIBLE_BRANDS = 8;
+
+let filterDebounceTimer = null;
+let brandsExpanded = false;
 
 /* ==========================================================================
    SECTION 2: HELPERS
    ========================================================================== */
 function getQueryParam(name) {
-    const params = new URLSearchParams(window.location.search);
-    return params.get(name) || '';
+    return new URLSearchParams(window.location.search).get(name) || '';
 }
 
-// URL-এ q/page/sort সিঙ্ক রাখা (ফুল রিলোড ছাড়াই, শেয়ারযোগ্য লিংকের জন্য)
-function syncUrl() {
+function toBnNumber(n) {
+    return Number(n || 0).toLocaleString('bn-BD');
+}
+
+function escapeHtml(str) {
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function buildApiQueryString() {
     const params = new URLSearchParams();
     if (SEARCH_STATE.query) params.set('q', SEARCH_STATE.query);
-    if (SEARCH_STATE.sort && SEARCH_STATE.sort !== 'relevance') params.set('sort', SEARCH_STATE.sort);
+    if (SEARCH_STATE.category) params.set('category', SEARCH_STATE.category);
+    if (SEARCH_STATE.minPrice !== '') params.set('minPrice', SEARCH_STATE.minPrice);
+    if (SEARCH_STATE.maxPrice !== '') params.set('maxPrice', SEARCH_STATE.maxPrice);
+    if (SEARCH_STATE.brands.length) {
+        params.set('brand', SEARCH_STATE.brands.join(','));
+    }
+    if (SEARCH_STATE.rating) params.set('rating', SEARCH_STATE.rating);
+    if (SEARCH_STATE.inStock) params.set('inStock', 'true');
+    if (SEARCH_STATE.sort && SEARCH_STATE.sort !== 'newest') params.set('sort', SEARCH_STATE.sort);
     if (SEARCH_STATE.page > 1) params.set('page', String(SEARCH_STATE.page));
-    const newUrl = `/search${params.toString() ? '?' + params.toString() : ''}`;
-    window.history.replaceState({}, '', newUrl);
+    params.set('limit', String(RESULTS_PER_PAGE));
+    return params.toString();
+}
+
+function syncUrl(usePush = true) {
+    const qs = buildApiQueryString();
+    const newUrl = `/search${qs ? '?' + qs : ''}`;
+    if (usePush) {
+        window.history.pushState({}, '', newUrl);
+    } else {
+        window.history.replaceState({}, '', newUrl);
+    }
+}
+
+function readStateFromUrl() {
+    SEARCH_STATE.query = getQueryParam('q').trim();
+    SEARCH_STATE.category = getQueryParam('category').trim();
+    SEARCH_STATE.sort = getQueryParam('sort') || 'newest';
+    SEARCH_STATE.page = Math.max(1, parseInt(getQueryParam('page'), 10) || 1);
+    SEARCH_STATE.minPrice = getQueryParam('minPrice');
+    SEARCH_STATE.maxPrice = getQueryParam('maxPrice');
+    SEARCH_STATE.rating = getQueryParam('rating');
+    SEARCH_STATE.inStock = getQueryParam('inStock') === 'true';
+
+    const brandParam = getQueryParam('brand');
+    SEARCH_STATE.brands = brandParam
+        ? brandParam.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+}
+
+function syncFilterInputsFromState() {
+    const minEl = document.getElementById('minPriceInput');
+    const maxEl = document.getElementById('maxPriceInput');
+    const stockEl = document.getElementById('inStockCheckbox');
+    const sortEl = document.getElementById('sortSelect');
+
+    if (minEl) minEl.value = SEARCH_STATE.minPrice;
+    if (maxEl) maxEl.value = SEARCH_STATE.maxPrice;
+    if (stockEl) stockEl.checked = SEARCH_STATE.inStock;
+    if (sortEl) sortEl.value = SEARCH_STATE.sort;
+
+    const ratingRadio = document.querySelector(
+        `#ratingFilter input[value="${SEARCH_STATE.rating}"]`
+    );
+    if (ratingRadio) ratingRadio.checked = true;
+
+    updatePriceRangeDisplay();
+}
+
+function updatePriceRangeDisplay() {
+    const el = document.getElementById('priceRangeDisplay');
+    if (!el) return;
+
+    const min = SEARCH_STATE.minPrice !== '' ? SEARCH_STATE.minPrice : SEARCH_STATE.priceRange.min;
+    const max = SEARCH_STATE.maxPrice !== '' ? SEARCH_STATE.maxPrice : SEARCH_STATE.priceRange.max;
+    el.textContent = `৳${toBnNumber(min)} — ৳${toBnNumber(max)}`;
+}
+
+function scheduleFilterSearch() {
+    clearTimeout(filterDebounceTimer);
+    filterDebounceTimer = setTimeout(() => {
+        SEARCH_STATE.page = 1;
+        runSearch();
+    }, FILTER_DEBOUNCE_MS);
+}
+
+function hasActiveFilters() {
+    return SEARCH_STATE.category !== ''
+        || SEARCH_STATE.minPrice !== ''
+        || SEARCH_STATE.maxPrice !== ''
+        || SEARCH_STATE.brands.length > 0
+        || SEARCH_STATE.rating !== ''
+        || SEARCH_STATE.inStock;
+}
+
+function slugifyCategoryName(name) {
+    return String(name || '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\u0980-\u09FF]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
+function updateSearchSeoTitle() {
+    const q = SEARCH_STATE.query;
+    const categoryName = SEARCH_STATE.categoryName || '';
+    let title;
+    let description;
+
+    if (q) {
+        title = `"${q}" — সার্চ ফলাফল | EOnlineBazar`;
+        description = `"${q}" এর জন্য EOnlineBazar-এ সেরা পণ্য খুঁজুন।`;
+    } else if (categoryName) {
+        title = `${categoryName} পণ্য | EOnlineBazar`;
+        description = `${categoryName} ক্যাটাগরির সেরা পণ্য EOnlineBazar-এ।`;
+    } else {
+        title = 'পণ্য খুঁজুন | EOnlineBazar';
+        description = 'EOnlineBazar-এ পণ্য খুঁজুন — সেরা মান, দ্রুত ডেলিভারি।';
+    }
+
+    document.title = title;
+
+    const metaDesc = document.getElementById('meta-description');
+    if (metaDesc) metaDesc.setAttribute('content', description);
+
+    const ogTitle = document.getElementById('og-title');
+    if (ogTitle) ogTitle.setAttribute('content', title);
+
+    const ogDesc = document.getElementById('og-description');
+    if (ogDesc) ogDesc.setAttribute('content', description);
+}
+
+function resolveCategoryFromFilters(filtersData) {
+    if (!SEARCH_STATE.category) {
+        SEARCH_STATE.categoryName = '';
+        updateSearchSeoTitle();
+        return;
+    }
+
+    const available = filtersData.availableCategories || [];
+    const slug = SEARCH_STATE.category.toLowerCase();
+    const match = available.find((cat) => {
+        const name = typeof cat === 'string' ? cat : cat.name;
+        return slugifyCategoryName(name) === slug
+            || String(name).toLowerCase() === slug;
+    });
+
+    if (match) {
+        SEARCH_STATE.categoryName = typeof match === 'string' ? match : match.name;
+    } else {
+        SEARCH_STATE.categoryName = SEARCH_STATE.category.replace(/-/g, ' ');
+    }
+    updateSearchSeoTitle();
 }
 
 /* ==========================================================================
-   SECTION 3: CORE FETCH & RENDER
+   SECTION 3: FILTER UI
+   ========================================================================== */
+function renderBrandFilters() {
+    const list = document.getElementById('brandFilterList');
+    const expandBtn = document.getElementById('brandExpandBtn');
+    if (!list) return;
+
+    const brands = SEARCH_STATE.availableBrands;
+    const visible = brandsExpanded ? brands : brands.slice(0, MAX_VISIBLE_BRANDS);
+
+    list.innerHTML = '';
+    visible.forEach(brand => {
+        const id = brand.slug || brand._id;
+        const li = document.createElement('li');
+        const label = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = id;
+        cb.checked = SEARCH_STATE.brands.includes(id) || SEARCH_STATE.brands.includes(String(brand._id));
+        cb.addEventListener('change', () => {
+            if (cb.checked) {
+                if (!SEARCH_STATE.brands.includes(id)) SEARCH_STATE.brands.push(id);
+            } else {
+                SEARCH_STATE.brands = SEARCH_STATE.brands.filter(b => b !== id && b !== String(brand._id));
+            }
+            scheduleFilterSearch();
+        });
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(`${brand.name} (${brand.productCount || 0})`));
+        li.appendChild(label);
+        list.appendChild(li);
+    });
+
+    if (expandBtn) {
+        const hasMore = brands.length > MAX_VISIBLE_BRANDS;
+        expandBtn.style.display = hasMore ? 'block' : 'none';
+        expandBtn.textContent = brandsExpanded ? 'কম দেখুন' : 'আরো দেখুন';
+    }
+}
+
+function renderActiveFilterTags() {
+    const container = document.getElementById('activeFilters');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const tags = [];
+
+    if (SEARCH_STATE.minPrice !== '' || SEARCH_STATE.maxPrice !== '') {
+        const min = SEARCH_STATE.minPrice || '০';
+        const max = SEARCH_STATE.maxPrice || '∞';
+        tags.push({ key: 'price', label: `দাম: ৳${min}-৳${max}` });
+    }
+
+    SEARCH_STATE.brands.forEach(brandId => {
+        const brand = SEARCH_STATE.availableBrands.find(
+            b => b.slug === brandId || String(b._id) === brandId
+        );
+        tags.push({
+            key: `brand:${brandId}`,
+            label: `ব্র্যান্ড: ${brand ? brand.name : brandId}`
+        });
+    });
+
+    if (SEARCH_STATE.rating) {
+        tags.push({ key: 'rating', label: `রেটিং: ${SEARCH_STATE.rating}+` });
+    }
+
+    if (SEARCH_STATE.inStock) {
+        tags.push({ key: 'inStock', label: 'শুধু স্টকে আছে' });
+    }
+
+    tags.forEach(tag => {
+        const el = document.createElement('span');
+        el.className = 'filter-tag';
+        el.innerHTML = `${escapeHtml(tag.label)} <button type="button" class="filter-tag-remove" aria-label="Remove filter">&times;</button>`;
+        el.querySelector('.filter-tag-remove').addEventListener('click', () => removeFilterTag(tag.key));
+        container.appendChild(el);
+    });
+}
+
+function removeFilterTag(key) {
+    if (key === 'price') {
+        SEARCH_STATE.minPrice = '';
+        SEARCH_STATE.maxPrice = '';
+        const minEl = document.getElementById('minPriceInput');
+        const maxEl = document.getElementById('maxPriceInput');
+        if (minEl) minEl.value = '';
+        if (maxEl) maxEl.value = '';
+    } else if (key.startsWith('brand:')) {
+        const brandId = key.slice(6);
+        SEARCH_STATE.brands = SEARCH_STATE.brands.filter(b => b !== brandId);
+        renderBrandFilters();
+    } else if (key === 'rating') {
+        SEARCH_STATE.rating = '';
+        const allRadio = document.querySelector('#ratingFilter input[value=""]');
+        if (allRadio) allRadio.checked = true;
+    } else if (key === 'inStock') {
+        SEARCH_STATE.inStock = false;
+        const stockEl = document.getElementById('inStockCheckbox');
+        if (stockEl) stockEl.checked = false;
+    }
+    SEARCH_STATE.page = 1;
+    runSearch();
+}
+
+function clearAllFilters() {
+    SEARCH_STATE.minPrice = '';
+    SEARCH_STATE.maxPrice = '';
+    SEARCH_STATE.brands = [];
+    SEARCH_STATE.rating = '';
+    SEARCH_STATE.inStock = false;
+    SEARCH_STATE.page = 1;
+    syncFilterInputsFromState();
+    renderBrandFilters();
+    runSearch();
+}
+window.clearAllFilters = clearAllFilters;
+
+function initFilterControls() {
+    const minEl = document.getElementById('minPriceInput');
+    const maxEl = document.getElementById('maxPriceInput');
+    const stockEl = document.getElementById('inStockCheckbox');
+    const clearBtn = document.getElementById('clearFiltersBtn');
+    const expandBtn = document.getElementById('brandExpandBtn');
+    const mobileToggle = document.getElementById('mobileFilterToggle');
+    const filtersPanel = document.getElementById('searchFilters');
+
+    [minEl, maxEl].forEach(el => {
+        if (!el) return;
+        el.addEventListener('input', () => {
+            SEARCH_STATE.minPrice = el === minEl ? el.value : SEARCH_STATE.minPrice;
+            SEARCH_STATE.maxPrice = el === maxEl ? el.value : SEARCH_STATE.maxPrice;
+            updatePriceRangeDisplay();
+            scheduleFilterSearch();
+        });
+    });
+
+    if (stockEl) {
+        stockEl.addEventListener('change', () => {
+            SEARCH_STATE.inStock = stockEl.checked;
+            scheduleFilterSearch();
+        });
+    }
+
+    document.querySelectorAll('#ratingFilter input[name="ratingFilter"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            if (radio.checked) {
+                SEARCH_STATE.rating = radio.value;
+                scheduleFilterSearch();
+            }
+        });
+    });
+
+    if (clearBtn) clearBtn.addEventListener('click', clearAllFilters);
+
+    if (expandBtn) {
+        expandBtn.addEventListener('click', () => {
+            brandsExpanded = !brandsExpanded;
+            renderBrandFilters();
+        });
+    }
+
+    if (mobileToggle && filtersPanel) {
+        mobileToggle.addEventListener('click', () => {
+            const isOpen = filtersPanel.classList.toggle('is-open');
+            mobileToggle.setAttribute('aria-expanded', String(isOpen));
+            mobileToggle.textContent = isOpen ? 'ফিল্টার লুকান 🔼' : 'ফিল্টার দেখুন 🔽';
+        });
+    }
+}
+
+/* ==========================================================================
+   SECTION 4: CORE FETCH & RENDER
    ========================================================================== */
 async function runSearch() {
     const grid = document.getElementById('productGrid');
     const pagination = document.getElementById('paginationContainer');
-    const sortBox = document.getElementById('sortBox');
     const heading = document.getElementById('searchHeading');
     const countEl = document.getElementById('searchCount');
     if (!grid) return;
 
     const q = SEARCH_STATE.query;
-    document.title = q ? `${q} | Search — EonlineBazar` : 'Search | EonlineBazar';
+    updateSearchSeoTitle();
 
-    // খালি কিওয়ার্ড হলে সহজ প্রম্পট দেখানো
-    if (!q) {
-        heading.innerHTML = 'Search EonlineBazar';
+    if (!q && !hasActiveFilters()) {
+        heading.innerHTML = 'EonlineBazar এ সার্চ করুন';
         countEl.textContent = '';
-        sortBox.style.display = 'none';
         pagination.innerHTML = '';
         grid.innerHTML = `
             <div class="search-state">
                 <div class="state-icon"><i class="fa fa-magnifying-glass"></i></div>
-                <h3>What are you looking for?</h3>
-                <p>Type a keyword like "shoes", "sharee" or "kids dress" to begin.</p>
-                <a href="/" class="search-back-btn">Continue Shopping</a>
+                <h3>আপনি কী খুঁজছেন?</h3>
+                <p>"shoes", "sharee" বা "kids dress" এর মতো কিওয়ার্ড লিখুন, অথবা ফিল্টার ব্যবহার করুন।</p>
+                <a href="/" class="search-back-btn">কেনাকাটা চালিয়ে যান</a>
             </div>`;
+        syncUrl(false);
         return;
     }
 
-    heading.innerHTML = `Results for "<span class="search-term">${escapeHtml(q)}</span>"`;
+    if (q) {
+        heading.innerHTML = `"<span class="search-term">${escapeHtml(q)}</span>" এর জন্য ফলাফল`;
+    } else if (SEARCH_STATE.categoryName) {
+        heading.innerHTML = `<span class="search-term">${escapeHtml(SEARCH_STATE.categoryName)}</span> পণ্য`;
+    } else {
+        heading.innerHTML = 'সকল পণ্য';
+    }
 
-    // লোডিং স্টেট
     grid.innerHTML = `
         <div class="search-state">
             <div class="state-icon"><i class="fa fa-spinner fa-spin"></i></div>
-            <h3>Searching...</h3>
-            <p>Finding the best matches for you.</p>
+            <h3>সার্চ করা হচ্ছে...</h3>
+            <p>আপনার জন্য সেরা ম্যাচ খুঁজছি।</p>
         </div>`;
     pagination.innerHTML = '';
     countEl.textContent = '';
@@ -82,50 +421,62 @@ async function runSearch() {
     syncUrl();
 
     try {
-        const url = `/api/products/search?q=${encodeURIComponent(q)}&page=${SEARCH_STATE.page}&limit=${RESULTS_PER_PAGE}&sort=${encodeURIComponent(SEARCH_STATE.sort)}`;
+        const url = `/api/products/search?${buildApiQueryString()}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error('Network response was not ok');
         const payload = await res.json();
 
-        const products = Array.isArray(payload) ? payload : (payload.data || []);
-        const total = payload.total != null ? payload.total : products.length;
-        SEARCH_STATE.totalPages = payload.totalPages != null
-            ? payload.totalPages
+        const data = payload.data || payload;
+        const products = data.products || (Array.isArray(payload.data) ? payload.data : []);
+        const paginationData = data.pagination || {};
+        const filtersData = data.filters || {};
+
+        const total = paginationData.total != null ? paginationData.total : (payload.total || products.length);
+        SEARCH_STATE.totalPages = paginationData.totalPages != null
+            ? paginationData.totalPages
             : Math.ceil(total / RESULTS_PER_PAGE);
 
-        // 🙁 কোনো ম্যাচ না পাওয়া গেলে বন্ধুত্বপূর্ণ empty state
+        if (filtersData.priceRange) {
+            SEARCH_STATE.priceRange = filtersData.priceRange;
+            updatePriceRangeDisplay();
+        }
+        if (filtersData.availableBrands) {
+            SEARCH_STATE.availableBrands = filtersData.availableBrands;
+            renderBrandFilters();
+        }
+        resolveCategoryFromFilters(filtersData);
+
+        renderActiveFilterTags();
+
         if (!products.length) {
-            sortBox.style.display = 'none';
-            countEl.textContent = '';
+            countEl.textContent = '০টি পণ্য পাওয়া গেছে';
             grid.innerHTML = `
                 <div class="search-state">
                     <div class="state-icon"><i class="fa fa-box-open"></i></div>
-                    <h3>No products found</h3>
-                    <p>We couldn't find anything for "<strong>${escapeHtml(q)}</strong>". Try a different keyword.</p>
-                    <a href="/" class="search-back-btn">Return to Shopping</a>
+                    <h3>কোনো পণ্য পাওয়া যায়নি</h3>
+                    <p>${q ? `"<strong>${escapeHtml(q)}</strong>" এর জন্য` : 'এই ফিল্টারে'} কোনো ফলাফল নেই। ফিল্টার পরিবর্তন করে দেখুন।</p>
+                    <button type="button" class="search-back-btn" onclick="clearAllFilters()">ফিল্টার পরিষ্কার করুন</button>
                 </div>`;
             return;
         }
 
-        sortBox.style.display = 'flex';
-        countEl.textContent = `${total} product${total > 1 ? 's' : ''} found`;
+        countEl.textContent = `${toBnNumber(total)}টি পণ্য পাওয়া গেছে`;
         renderProducts(products);
         renderPagination();
     } catch (err) {
         console.error('Search error:', err);
-        sortBox.style.display = 'none';
         grid.innerHTML = `
             <div class="search-state">
                 <div class="state-icon"><i class="fa fa-triangle-exclamation"></i></div>
-                <h3>Something went wrong</h3>
-                <p>We couldn't complete your search. Please try again.</p>
-                <a href="/" class="search-back-btn">Return to Shopping</a>
+                <h3>কিছু একটা ভুল হয়েছে</h3>
+                <p>সার্চ সম্পন্ন করা যায়নি। আবার চেষ্টা করুন।</p>
+                <a href="/" class="search-back-btn">কেনাকাটায় ফিরুন</a>
             </div>`;
     }
 }
 
 /* ==========================================================================
-   SECTION 4: PRODUCT CARD RENDERING (হোমপেজের সাথে ভিজ্যুয়ালি সামঞ্জস্যপূর্ণ)
+   SECTION 5: PRODUCT CARD RENDERING
    ========================================================================== */
 function renderProducts(list) {
     const grid = document.getElementById('productGrid');
@@ -203,7 +554,7 @@ function renderProducts(list) {
 }
 
 /* ==========================================================================
-   SECTION 5: PAGINATION
+   SECTION 6: PAGINATION
    ========================================================================== */
 function renderPagination() {
     const container = document.getElementById('paginationContainer');
@@ -222,7 +573,6 @@ function renderPagination() {
 
     container.appendChild(makeBtn('<i class="fa fa-angle-left"></i>', page - 1, { disabled: page <= 1 }));
 
-    // চারপাশে সংক্ষিপ্ত উইন্ডো দেখানো (খুব বেশি বাটন এড়াতে)
     const windowSize = 2;
     const start = Math.max(1, page - windowSize);
     const end = Math.min(totalPages, page + windowSize);
@@ -259,7 +609,7 @@ function goToPage(p) {
 }
 
 /* ==========================================================================
-   SECTION 6: HEADER SEARCH BAR (300ms ডিবাউন্স, ফুল রিলোড ছাড়াই লাইভ সার্চ)
+   SECTION 7: HEADER SEARCH BAR
    ========================================================================== */
 function initHeaderSearch() {
     const input = document.getElementById('searchInput');
@@ -278,7 +628,6 @@ function initHeaderSearch() {
     input.addEventListener('input', () => {
         clearTimeout(debounceTimer);
         const term = input.value.trim();
-        // খালি করলে সাথে সাথে প্রম্পট দেখাই; নইলে ৩০০ms ডিবাউন্স
         if (term.length === 0) { applyTerm(''); return; }
         if (term.length < 2) return;
         debounceTimer = setTimeout(() => applyTerm(term), 300);
@@ -301,12 +650,13 @@ function initHeaderSearch() {
 }
 
 /* ==========================================================================
-   SECTION 7: INIT
+   SECTION 8: INIT
    ========================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
-    SEARCH_STATE.query = getQueryParam('q').trim();
-    SEARCH_STATE.sort = getQueryParam('sort') || 'relevance';
-    SEARCH_STATE.page = Math.max(1, parseInt(getQueryParam('page'), 10) || 1);
+    readStateFromUrl();
+    syncFilterInputsFromState();
+    initFilterControls();
+    initHeaderSearch();
 
     const sortSelect = document.getElementById('sortSelect');
     if (sortSelect) {
@@ -318,14 +668,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    initHeaderSearch();
+    window.addEventListener('popstate', () => {
+        readStateFromUrl();
+        syncFilterInputsFromState();
+        renderBrandFilters();
+        runSearch();
+    });
+
     runSearch();
+    updateSearchSeoTitle();
     syncNavbarUser();
     loadFooter();
 });
 
 /* ==========================================================================
-   SECTION 8: SHARED UI (ফুটার + নেভবার ইউজার সিঙ্ক — হোমপেজের সাথে সামঞ্জস্যপূর্ণ)
+   SECTION 9: SHARED UI
    ========================================================================== */
 function loadFooter() {
     const rendererScript = document.createElement('script');
@@ -369,19 +726,5 @@ function syncNavbarUser() {
                 navUserAvatar.style.display = 'block';
             }
         })
-        .catch(() => { /* নীরবে উপেক্ষা */ });
+        .catch(() => { /* silent */ });
 }
-
-/* সহজ HTML এস্কেপ (XSS নিরাপত্তার জন্য কিওয়ার্ড/নাম রেন্ডারে) */
-function escapeHtml(str) {
-    return String(str == null ? '' : str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-
-
-
-
