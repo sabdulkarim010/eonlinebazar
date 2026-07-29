@@ -80,6 +80,12 @@ const productSchema = new mongoose.Schema({
         default: 0
     },
 
+    /** Alert when stockQuantity falls at or below this level (per product). */
+    lowStockThreshold: {
+        type: Number,
+        default: 10
+    },
+
     /** Total available stock — equals stockQuantity for simple products, or sum of variant stocks. */
     stock: { 
         type: Number, 

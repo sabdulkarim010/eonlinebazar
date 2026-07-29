@@ -107,6 +107,15 @@
                     </span>
                     <i class="fa-solid fa-arrow-up-right-from-square finance-cta-arrow"></i>
                 </a>
+
+                <a href="/admin/payment-reconciliation" class="finance-nav-cta finance-nav-cta--reconciliation" data-permission="manage_orders" title="Payment Reconciliation">
+                    <span class="finance-cta-icon"><i class="fa-solid fa-credit-card"></i></span>
+                    <span class="finance-cta-text">
+                        <strong>Payment Reconciliation</strong>
+                        <small>Gateway, Manual &amp; COD</small>
+                    </span>
+                    <i class="fa-solid fa-arrow-up-right-from-square finance-cta-arrow"></i>
+                </a>
             </nav>
 
             <div class="admin-profile">
@@ -991,6 +1000,10 @@
                     <input type="number" id="editProdStock" placeholder="e.g. 199">
                 </div>
                 <div class="form-group edit-modal-field">
+                    <label for="editProdLowStockThreshold">Low Stock Threshold</label>
+                    <input type="number" id="editProdLowStockThreshold" placeholder="e.g. 10" min="0" value="10">
+                </div>
+                <div class="form-group edit-modal-field">
                     <label for="editProdProfitPreview">Profit / Unit</label>
                     <input type="text" id="editProdProfitPreview" class="edit-profit-preview" placeholder="৳ 0" readonly>
                 </div>
@@ -1418,11 +1431,11 @@
                         <label for="defaultCourierProvider">Default Courier Provider</label>
                         <select id="defaultCourierProvider">
                             <option value="">— Select provider —</option>
-                            <option value="Steadfast">Steadfast</option>
-                            <option value="Pathao">Pathao</option>
-                            <option value="RedX">RedX</option>
+                            <option value="steadfast">Steadfast</option>
+                            <option value="pathao">Pathao</option>
+                            <option value="redx">RedX</option>
                         </select>
-                        <small class="field-hint">Automated booking is live for <strong>Steadfast</strong>. Pathao and RedX can be stored as your default, but must still be booked manually.</small>
+                        <small class="field-hint">Automated booking is live for <strong>Steadfast</strong>, <strong>Pathao</strong>, and <strong>RedX</strong> when credentials are configured.</small>
                     </div>
 
                     <div class="form-group">
@@ -2920,6 +2933,37 @@
             <span>Grand Total</span>
             <b id="invTotalAmount"></b>
         </div>
+
+        <div id="invPaymentProofSection" class="invoice-payment-proof-section no-print" style="display:none;">
+            <h4><i class="fa-solid fa-receipt"></i> Payment Proof</h4>
+            <div class="invoice-payment-proof-meta">
+                <p><b>Status:</b> <span id="invPaymentProofStatus" class="payment-proof-status-pill">—</span></p>
+                <p><b>TRX ID:</b> <span id="invPaymentProofTrxId">—</span></p>
+                <p><b>Submitted:</b> <span id="invPaymentProofSubmittedAt">—</span></p>
+            </div>
+            <div id="invPaymentProofScreenshotWrap" class="invoice-payment-proof-screenshot-wrap" style="display:none;">
+                <p><b>Screenshot:</b></p>
+                <a id="invPaymentProofScreenshotLink" href="#" target="_blank" rel="noopener noreferrer">
+                    <img id="invPaymentProofScreenshot" alt="Payment screenshot" class="invoice-payment-proof-thumb">
+                </a>
+            </div>
+            <p id="invPaymentProofAdminNote" class="invoice-payment-proof-note" style="display:none;"></p>
+            <div id="invPaymentProofReviewActions" class="invoice-payment-proof-actions" style="display:none;">
+                <div class="form-group">
+                    <label for="invPaymentProofRejectNote">Admin note (shown when rejecting)</label>
+                    <textarea id="invPaymentProofRejectNote" rows="2" placeholder="Optional reason for rejection"></textarea>
+                </div>
+                <div class="invoice-payment-proof-btn-row">
+                    <button type="button" class="btn-payment-proof-approve" id="invApprovePaymentProofBtn" onclick="reviewInvoicePaymentProof('approve')">
+                        <i class="fa-solid fa-circle-check"></i> Approve Payment
+                    </button>
+                    <button type="button" class="btn-payment-proof-reject" id="invRejectPaymentProofBtn" onclick="reviewInvoicePaymentProof('reject')">
+                        <i class="fa-solid fa-circle-xmark"></i> Reject
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div class="invoice-modal-actions no-print">
             <button type="button" class="btn-secondary" id="editOrderShippingBtn" onclick="openEditOrderShippingModal()">
                 <i class="fa-solid fa-truck-fast"></i> Edit Shipping Details

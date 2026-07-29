@@ -83,6 +83,24 @@ const orderPaymentSchema = new mongoose.Schema({
     ipnHistory: { type: [ipnEventSchema], default: [] }
 }, { _id: false });
 
+/*
+ * Manual payment proof — customer-submitted TRX ID and optional screenshot
+ * for bKash/Nagad/bank transfers; admin reviews and approves or rejects.
+ */
+const paymentProofSchema = new mongoose.Schema({
+    trxId: { type: String, default: null },
+    screenshotUrl: { type: String, default: null },
+    submittedAt: { type: Date, default: null },
+    reviewedAt: { type: Date, default: null },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },
+    status: {
+        type: String,
+        enum: ['none', 'submitted', 'approved', 'rejected'],
+        default: 'none'
+    },
+    adminNote: { type: String, default: null }
+}, { _id: false });
+
 const orderSchema = new mongoose.Schema({
     orderId: String,
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }, 
@@ -114,6 +132,7 @@ const orderSchema = new mongoose.Schema({
     // গেটওয়ে প্রসেসিং ফি অর্ডার লেভেলে — grandTotal-এ যোগ হয়ে থাকে
     processingFee: { type: Number, default: 0, min: 0 },
     payment: { type: orderPaymentSchema, default: () => ({}) },
+    paymentProof: { type: paymentProofSchema, default: () => ({}) },
     status: { type: String, default: 'Pending' },
     isDelivered: { type: Boolean, default: false },
     deliveredAt: { type: Date, default: null },
@@ -157,6 +176,7 @@ orderSchema.index({ orderId: 1 });
 orderSchema.index({ user: 1 });
 orderSchema.index({ status: 1 });
 orderSchema.index({ createdAt: -1 });
+orderSchema.index({ 'paymentProof.status': 1, 'paymentProof.submittedAt': -1 });
 
 module.exports = mongoose.model('Order', orderSchema);
 

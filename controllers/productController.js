@@ -177,7 +177,7 @@ const createProduct = async (req, res) => {
         console.log("Request Body:", req.body); 
         console.log("Files received:", req.files ? req.files.length : 0);
 
-        const { id, name, price, buyingPrice, stock, stockQuantity, category, brand, variants, hasVariants, icon, description, detailedDescription, highlights, tags } = req.body;
+        const { id, name, price, buyingPrice, stock, stockQuantity, lowStockThreshold, category, brand, variants, hasVariants, icon, description, detailedDescription, highlights, tags } = req.body;
         
         const parsedHighlights = parseStringArray(highlights);
         const parsedTags = parseStringArray(tags);
@@ -193,6 +193,7 @@ const createProduct = async (req, res) => {
             buyingPrice: Number(buyingPrice) || 0,
             hasVariants: explicitHasVariants !== undefined ? explicitHasVariants : parsedVariants.length > 0,
             stockQuantity: Number(stockQuantity ?? stock) || 0,
+            lowStockThreshold: Number(lowStockThreshold) || 10,
             stock: Number(stock) || 0,
             category: category || 'General',
             brand: brandRef,
@@ -241,12 +242,15 @@ const createProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
     try {
         const productIdParam = req.params.id;
-        const { name, price, buyingPrice, stock, stockQuantity, category, brand, variants, hasVariants, icon, description, detailedDescription, highlights, tags } = req.body;
+        const { name, price, buyingPrice, stock, stockQuantity, lowStockThreshold, category, brand, variants, hasVariants, icon, description, detailedDescription, highlights, tags } = req.body;
 
         let updateFields = {};
         if (name) updateFields.name = name;
         if (category) updateFields.category = category;
         if (icon) updateFields.icon = icon.trim();
+        if (lowStockThreshold !== undefined && lowStockThreshold !== '') {
+            updateFields.lowStockThreshold = Number(lowStockThreshold) || 10;
+        }
 
         if (brand !== undefined) {
             const { brand: brandRef, brandName } = await resolveBrand(brand);

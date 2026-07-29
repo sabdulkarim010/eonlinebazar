@@ -77,7 +77,19 @@ document.addEventListener('DOMContentLoaded', () => {
         commentInput: document.getElementById('review-comment'),
         photoInput: document.getElementById('review-photo'),
         submitBtn: document.getElementById('submit-review-btn'),
-        uploadContainer: document.querySelector('.file-upload-container')
+        uploadContainer: document.querySelector('.file-upload-container'),
+
+        paymentInfoCard: document.getElementById('payment-info-card'),
+        paymentMethodName: document.getElementById('payment-method-name'),
+        paymentStatusLabel: document.getElementById('payment-status-label'),
+        paymentProofSection: document.getElementById('payment-proof-section'),
+        paymentProofBadge: document.getElementById('payment-proof-badge'),
+        paymentProofForm: document.getElementById('payment-proof-form'),
+        paymentProofTrxInput: document.getElementById('payment-proof-trx-id'),
+        paymentProofScreenshotInput: document.getElementById('payment-proof-screenshot'),
+        paymentProofSubmitBtn: document.getElementById('payment-proof-submit-btn'),
+        paymentProofRejectionNote: document.getElementById('payment-proof-rejection-note'),
+        paymentProofSuccessMsg: document.getElementById('payment-proof-success-msg')
     };
 
     const ORDER_ACTION_REASONS = [
@@ -517,6 +529,153 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (elements.orderContent) elements.orderContent.classList.remove('hidden');
+
+        renderPaymentInfo(order);
+    }
+
+    function renderPaymentInfo(order) {
+        const paymentType = String(order.payment?.type || '').toLowerCase();
+        const paymentStatus = String(order.payment?.status || 'unpaid').toLowerCase();
+        const proofStatus = String(order.paymentProof?.status || 'none').toLowerCase();
+        const methodName = order.payment?.name || order.paymentMethod || 'N/A';
+
+        if (elements.paymentMethodName) {
+            elements.paymentMethodName.textContent = methodName;
+        }
+        if (elements.paymentStatusLabel) {
+            const statusLabels = {
+                unpaid: 'Unpaid',
+                pending: 'Pending',
+                paid: 'Paid',
+                failed: 'Failed',
+                cancelled: 'Cancelled',
+                refunded: 'Refunded'
+            };
+            elements.paymentStatusLabel.textContent = statusLabels[paymentStatus] || paymentStatus;
+        }
+
+        if (!elements.paymentProofSection) return;
+
+        const isManual = paymentType === 'manual';
+        elements.paymentProofSection.classList.toggle('hidden', !isManual);
+
+        if (!isManual) return;
+
+        const badgeEl = elements.paymentProofBadge;
+        const formEl = elements.paymentProofForm;
+        const rejectionEl = elements.paymentProofRejectionNote;
+        const successEl = elements.paymentProofSuccessMsg;
+
+        if (badgeEl) {
+            badgeEl.className = 'payment-proof-badge';
+            badgeEl.classList.add('hidden');
+        }
+        if (formEl) formEl.classList.add('hidden');
+        if (rejectionEl) rejectionEl.classList.add('hidden');
+        if (successEl) successEl.classList.add('hidden');
+
+        if (proofStatus === 'submitted') {
+            if (badgeEl) {
+                badgeEl.textContent = 'Payment proof submitted. Awaiting admin review.';
+                badgeEl.classList.add('submitted');
+                badgeEl.classList.remove('hidden');
+            }
+        } else if (proofStatus === 'approved') {
+            if (badgeEl) {
+                badgeEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Payment Verified ✓';
+                badgeEl.classList.add('approved');
+                badgeEl.classList.remove('hidden');
+            }
+        } else if (proofStatus === 'rejected') {
+            if (badgeEl) {
+                badgeEl.textContent = 'Proof Rejected';
+                badgeEl.classList.add('rejected');
+                badgeEl.classList.remove('hidden');
+            }
+            const adminNote = String(order.paymentProof?.adminNote || '').trim();
+            if (adminNote && rejectionEl) {
+                rejectionEl.innerHTML = `<strong>Admin note:</strong> ${adminNote}`;
+                rejectionEl.classList.remove('hidden');
+            }
+            if (formEl) formEl.classList.remove('hidden');
+            if (elements.paymentProofTrxInput && order.paymentProof?.trxId) {
+                elements.paymentProofTrxInput.value = order.paymentProof.trxId;
+            }
+        } else if (proofStatus === 'none') {
+            if (formEl) formEl.classList.remove('hidden');
+        }
+    }
+
+    async function submitPaymentProof(event) {
+        event.preventDefault();
+
+        const trxId = elements.paymentProofTrxInput?.value?.trim() || '';
+        if (!trxId) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'TRX ID required',
+                text: 'Please enter your transaction ID before submitting.',
+                confirmButtonColor: '#2563eb'
+            });
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('trxId', trxId);
+        const screenshotFile = elements.paymentProofScreenshotInput?.files?.[0];
+        if (screenshotFile) {
+            formData.append('screenshot', screenshotFile);
+        }
+
+        const originalBtnHtml = elements.paymentProofSubmitBtn ? elements.paymentProofSubmitBtn.innerHTML : '';
+        if (elements.paymentProofSubmitBtn) {
+            elements.paymentProofSubmitBtn.disabled = true;
+            elements.paymentProofSubmitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+        }
+
+        try {
+            const response = await fetch(`/api/orders/${encodeURIComponent(currentOrderMongoId)}/payment-proof`, {
+                method: 'PATCH',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                if (elements.paymentProofSuccessMsg) {
+                    elements.paymentProofSuccessMsg.textContent = data.message || 'Payment proof submitted successfully';
+                    elements.paymentProofSuccessMsg.classList.remove('hidden');
+                }
+                if (elements.paymentProofForm) elements.paymentProofForm.classList.add('hidden');
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Submitted',
+                    text: data.message || 'Payment proof submitted successfully',
+                    confirmButtonColor: '#2563eb'
+                }).then(() => fetchOrderDetails());
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Submission failed',
+                    text: data.message || 'Could not submit payment proof.',
+                    confirmButtonColor: '#d33'
+                });
+            }
+        } catch (error) {
+            console.error('Payment proof submit error:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Server error while submitting payment proof.',
+                confirmButtonColor: '#d33'
+            });
+        } finally {
+            if (elements.paymentProofSubmitBtn) {
+                elements.paymentProofSubmitBtn.disabled = false;
+                elements.paymentProofSubmitBtn.innerHTML = originalBtnHtml;
+            }
+        }
     }
 
 // =========================================================
@@ -703,6 +862,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setupModalEvents();
     setupOrderActionEvents();
     populateOrderActionReasons();
+
+    if (elements.paymentProofForm) {
+        elements.paymentProofForm.addEventListener('submit', submitPaymentProof);
+    }
 
     if (elements.invoiceBtn) {
         elements.invoiceBtn.addEventListener('click', () => {

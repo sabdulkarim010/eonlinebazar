@@ -1696,6 +1696,8 @@ async function fetchLiveOrders() {
         } catch (settingsErr) {
             console.warn('Could not load refund undo window from master settings:', settingsErr);
         }
+
+        await refreshAdminCourierStatus();
         
         // ব্যাকএন্ড ডাটা ফরম্যাট যাচাই ও রিভার্স (সর্বশেষ অর্ডার আগে দেখানোর জন্য) করা
         if (data && data.success && Array.isArray(data.data)) {
@@ -2257,9 +2259,24 @@ function getOrderReasonDetails(order) {
    ============================================================ */
 
 const COURIER_TRACKING_BASE_URLS = {
+    steadfast: 'https://steadfast.com.bd/t/',
+    pathao: 'https://merchant.pathao.com/tracking?consignment_id=',
+    redx: 'https://redx.com.bd/track-global-parcel/?trackingId=',
     Steadfast: 'https://steadfast.com.bd/t/',
     Pathao: 'https://merchant.pathao.com/tracking?consignment_id=',
     RedX: 'https://redx.com.bd/track-global-parcel/?trackingId='
+};
+
+function normalizeAdminCourierSlug(value) {
+    const raw = String(value || '').trim();
+    const aliases = { Steadfast: 'steadfast', Pathao: 'pathao', RedX: 'redx', redX: 'redx' };
+    return aliases[raw] || raw.toLowerCase();
+}
+
+const COURIER_PROVIDER_LABELS = {
+    steadfast: 'Steadfast',
+    pathao: 'Pathao',
+    redx: 'RedX'
 };
 
 // Mirrors the server-side guard — these orders can never be handed to a courier.
@@ -2267,25 +2284,54 @@ const COURIER_BLOCKED_STATUSES = ['cancelled', 'canceled', 'returned', 'refunded
 
 // Filled from the Master Settings payload that fetchLiveOrders() already loads,
 // so the button can name the store's configured provider.
-let adminCourierConfig = { provider: 'Steadfast', isConfigured: false, mockMode: true };
+let adminCourierConfig = { provider: 'steadfast', isConfigured: false, mockMode: true, supportsBooking: false };
 
 function cacheAdminCourierSettings(settings) {
     if (!settings) return;
-    const isConfigured = Boolean(
+    const provider = normalizeAdminCourierSlug(settings.defaultCourierProvider || 'steadfast');
+    const hasSteadfastKeys = Boolean(
         String(settings.courierApiKey || '').trim() && String(settings.courierSecretKey || '').trim()
     );
     adminCourierConfig = {
-        provider: settings.defaultCourierProvider || 'Steadfast',
-        isConfigured,
-        mockMode: !isConfigured
+        ...adminCourierConfig,
+        provider,
+        // Steadfast keys from Master Settings; Pathao/RedX readiness comes from /courier/status.
+        isConfigured: provider === 'steadfast' ? hasSteadfastKeys : adminCourierConfig.isConfigured,
+        mockMode: provider === 'steadfast' ? !hasSteadfastKeys : adminCourierConfig.mockMode
     };
 }
 
+async function refreshAdminCourierStatus() {
+    try {
+        const response = await fetch('/api/admin/courier/status', {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const result = await response.json();
+        if (!result.success || !result.data) return;
+
+        adminCourierConfig = {
+            provider: normalizeAdminCourierSlug(result.data.provider || adminCourierConfig.provider),
+            isConfigured: Boolean(result.data.isConfigured),
+            mockMode: Boolean(result.data.mockMode),
+            supportsBooking: Boolean(result.data.supportsBooking)
+        };
+    } catch (err) {
+        console.warn('Could not refresh courier status:', err);
+    }
+}
+
 function getCourierTrackingUrl(provider, trackingId) {
-    const base = COURIER_TRACKING_BASE_URLS[provider];
+    const slug = normalizeAdminCourierSlug(provider);
+    const base = COURIER_TRACKING_BASE_URLS[slug] || COURIER_TRACKING_BASE_URLS[provider];
     const code = String(trackingId || '').trim();
     if (!base || !code) return '';
     return `${base}${encodeURIComponent(code)}`;
+}
+
+function buildAdminPaymentProofPendingBadge(order) {
+    if (String(order?.paymentProof?.status || '').toLowerCase() !== 'submitted') return '';
+    return `<span class="order-payment-proof-pending-badge" title="Payment proof awaiting review"><i class="fa-solid fa-receipt"></i> Proof Pending</span>`;
 }
 
 /**
@@ -2294,8 +2340,8 @@ function getCourierTrackingUrl(provider, trackingId) {
  */
 function buildCourierActionHtml(order) {
     const trackingId = String(order.courierTrackingId || '').trim();
-    const provider = order.courierProvider || adminCourierConfig.provider || 'Steadfast';
-    const safeProvider = escapeToastText(provider);
+    const provider = normalizeAdminCourierSlug(order.courierProvider || adminCourierConfig.provider || 'steadfast');
+    const safeProvider = escapeToastText(COURIER_PROVIDER_LABELS[provider] || provider);
 
     if (trackingId) {
         const safeTracking = escapeToastText(trackingId);
@@ -2324,14 +2370,15 @@ function buildCourierActionHtml(order) {
  */
 window.sendOrderToCourier = function(orderId) {
     const order = globalOrders.find(o => String(o._id) === String(orderId));
-    const provider = order?.courierProvider || adminCourierConfig.provider || 'Steadfast';
+    const provider = normalizeAdminCourierSlug(order?.courierProvider || adminCourierConfig.provider || 'steadfast');
+    const providerLabel = COURIER_PROVIDER_LABELS[provider] || provider;
     const displayId = order?.orderId || String(orderId).slice(-6).toUpperCase();
     const isMockMode = adminCourierConfig.mockMode;
 
-    const confirmTitle = isMockMode ? `Send to ${provider} (Mock Mode)` : `Send to ${provider}`;
+    const confirmTitle = isMockMode ? `Send to ${providerLabel} (Mock Mode)` : `Send to ${providerLabel}`;
     const confirmBody = isMockMode
         ? `No courier API credentials are configured. Order #${displayId} will receive a mock tracking ID (e.g. SF-PENDING-XXXXX), be marked as Shipped, and saved to the database.`
-        : `Book order #${displayId} as a ${provider} parcel? This creates a real consignment and marks the order as Shipped.`;
+        : `Book order #${displayId} as a ${providerLabel} parcel? This creates a real consignment and marks the order as Shipped.`;
 
     showCustomConfirm(
         confirmTitle,
@@ -2346,7 +2393,8 @@ window.sendOrderToCourier = function(orderId) {
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
-                    }
+                    },
+                    body: JSON.stringify({ courier: provider })
                 });
 
                 const result = await response.json();
@@ -2517,7 +2565,10 @@ window.renderOrderTable = function() {
         const displayIdSafe = escapeHtml(displayId);
         const customerName = order.customerName || '—';
         const customerPhone = order.customerPhone || '—';
-        const orderIdCellHtml = buildOrderCopyField(`<span class="order-id-chip">#${displayIdSafe}</span>`, displayId);
+        const orderIdCellHtml = buildOrderCopyField(
+            `<span class="order-id-chip">#${displayIdSafe}</span>${buildAdminPaymentProofPendingBadge(order)}`,
+            displayId
+        );
         const customerNameHtml = buildOrderCopyField(
             `<span class="order-customer-name">${escapeHtml(customerName)}</span>`,
             customerName
@@ -2811,9 +2862,10 @@ window.viewInvoice = function(orderId) {
     const invTrackingId = String(order.courierTrackingId || '').trim();
     if (courierRow && courierInfoEl) {
         if (invTrackingId) {
-            const invProvider = order.courierProvider || adminCourierConfig.provider || 'Steadfast';
+            const invProvider = normalizeAdminCourierSlug(order.courierProvider || adminCourierConfig.provider || 'steadfast');
+            const invProviderLabel = COURIER_PROVIDER_LABELS[invProvider] || invProvider;
             const consignment = order.courierConsignmentId ? ` · Consignment: ${order.courierConsignmentId}` : '';
-            courierInfoEl.innerText = `${invProvider} — ${invTrackingId}${consignment}`;
+            courierInfoEl.innerText = `${invProviderLabel} — ${invTrackingId}${consignment}`;
             courierRow.style.display = '';
         } else {
             courierRow.style.display = 'none';
@@ -2850,11 +2902,136 @@ window.viewInvoice = function(orderId) {
         });
     }
     itemsContainer.innerHTML = itemsHTML;
+
+    renderInvoicePaymentProofSection(order);
+
     modal.style.display = 'flex'; // মডাল প্রদর্শন
+};
+
+function renderInvoicePaymentProofSection(order) {
+    const section = document.getElementById('invPaymentProofSection');
+    if (!section) return;
+
+    const isManual = String(order.payment?.type || '').toLowerCase() === 'manual';
+    const proof = order.paymentProof || {};
+    const proofStatus = String(proof.status || 'none').toLowerCase();
+
+    if (!isManual) {
+        section.style.display = 'none';
+        return;
+    }
+
+    section.style.display = '';
+
+    const statusEl = document.getElementById('invPaymentProofStatus');
+    const trxEl = document.getElementById('invPaymentProofTrxId');
+    const submittedEl = document.getElementById('invPaymentProofSubmittedAt');
+    const screenshotWrap = document.getElementById('invPaymentProofScreenshotWrap');
+    const screenshotLink = document.getElementById('invPaymentProofScreenshotLink');
+    const screenshotImg = document.getElementById('invPaymentProofScreenshot');
+    const adminNoteEl = document.getElementById('invPaymentProofAdminNote');
+    const reviewActions = document.getElementById('invPaymentProofReviewActions');
+    const rejectNoteInput = document.getElementById('invPaymentProofRejectNote');
+
+    const statusLabels = {
+        none: 'Not submitted',
+        submitted: 'Awaiting review',
+        approved: 'Approved',
+        rejected: 'Rejected'
+    };
+
+    if (statusEl) {
+        statusEl.textContent = statusLabels[proofStatus] || proofStatus;
+        statusEl.className = `payment-proof-status-pill ${proofStatus}`;
+    }
+    if (trxEl) trxEl.textContent = proof.trxId || '—';
+    if (submittedEl) {
+        submittedEl.textContent = proof.submittedAt
+            ? new Date(proof.submittedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+            : '—';
+    }
+
+    const screenshotUrl = String(proof.screenshotUrl || '').trim();
+    if (screenshotWrap && screenshotLink && screenshotImg) {
+        if (screenshotUrl) {
+            screenshotLink.href = screenshotUrl;
+            screenshotImg.src = screenshotUrl;
+            screenshotWrap.style.display = '';
+        } else {
+            screenshotWrap.style.display = 'none';
+            screenshotLink.href = '#';
+            screenshotImg.removeAttribute('src');
+        }
+    }
+
+    if (adminNoteEl) {
+        const note = String(proof.adminNote || '').trim();
+        if (note && proofStatus === 'rejected') {
+            adminNoteEl.textContent = `Admin note: ${note}`;
+            adminNoteEl.style.display = '';
+        } else {
+            adminNoteEl.textContent = '';
+            adminNoteEl.style.display = 'none';
+        }
+    }
+
+    if (reviewActions) {
+        reviewActions.style.display = proofStatus === 'submitted' ? '' : 'none';
+    }
+    if (rejectNoteInput) rejectNoteInput.value = '';
+}
+
+window.reviewInvoicePaymentProof = async function(action) {
+    const orderId = currentInvoiceOrderId;
+    if (!orderId) return showToast('No order selected.', 'warning');
+
+    const normalizedAction = String(action || '').trim().toLowerCase();
+    if (!['approve', 'reject'].includes(normalizedAction)) return;
+
+    const rejectNoteInput = document.getElementById('invPaymentProofRejectNote');
+    const adminNote = rejectNoteInput ? rejectNoteInput.value.trim() : '';
+
+    const approveBtn = document.getElementById('invApprovePaymentProofBtn');
+    const rejectBtn = document.getElementById('invRejectPaymentProofBtn');
+    const restore = normalizedAction === 'approve'
+        ? setButtonLoading(approveBtn, 'Approving...')
+        : setButtonLoading(rejectBtn, 'Rejecting...');
+
+    try {
+        const response = await fetch(`/api/admin/orders/${orderId}/review-payment-proof`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ action: normalizedAction, adminNote })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            showToast(result.message || 'Payment proof updated.', 'success');
+            const updated = result.data || {};
+            const idx = globalOrders.findIndex(o => String(o._id) === String(orderId));
+            if (idx > -1) {
+                globalOrders[idx] = { ...globalOrders[idx], ...updated };
+                filterAndRenderOrders();
+            }
+            viewInvoice(orderId);
+        } else {
+            showToast(result.message || 'Failed to review payment proof.', 'error');
+        }
+    } catch (err) {
+        console.error('Review payment proof error:', err);
+        showToast('Server error while reviewing payment proof.', 'error');
+    } finally {
+        restore();
+    }
 };
 
 /**
  * ৭.৭: ইনভয়েস মডাল বন্ধ করার ফাংশন
+ */
  */
 window.closeInvoiceModal = function() {
     const modal = document.getElementById('invoiceModal');
@@ -5553,6 +5730,11 @@ window.editProduct = function(id) {
 
     // 🌟 বিদ্যমান ভ্যারিয়েশনগুলো এডিট মোডালে রেন্ডার করা
     loadProductVariantUI('edit', product);
+
+    const lowStockEl = document.getElementById('editProdLowStockThreshold');
+    if (lowStockEl) {
+        lowStockEl.value = product.lowStockThreshold ?? 10;
+    }
     
     if (document.getElementById('editProdEmoji')) document.getElementById('editProdEmoji').value = product.icon || '📦';
     if (document.getElementById('editProdDesc')) document.getElementById('editProdDesc').value = product.description || '';
@@ -5678,6 +5860,7 @@ window.updateProductDetails = async function() {
     const price = document.getElementById('editProdPrice').value.trim();
     const buyingPrice = document.getElementById('editProdBuyingPrice') ? document.getElementById('editProdBuyingPrice').value.trim() : '';
     const stockField = document.getElementById('editProdStock');
+    const lowStockThresholdField = document.getElementById('editProdLowStockThreshold');
     const variantPayload = collectProductVariantPayload('edit');
     const stock = String(variantPayload.stock ?? stockField?.value ?? '').trim();
     const category = document.getElementById('editProdCategory').value.trim();
@@ -5708,6 +5891,7 @@ window.updateProductDetails = async function() {
     formData.append('buyingPrice', buyingPrice || 0);
     formData.append('stock', stock);
     formData.append('stockQuantity', variantPayload.stockQuantity);
+    formData.append('lowStockThreshold', lowStockThresholdField ? (lowStockThresholdField.value || 10) : 10);
     formData.append('hasVariants', variantPayload.hasVariants ? 'true' : 'false');
     formData.append('category', category);
     formData.append('brand', brand || '');
@@ -6398,6 +6582,7 @@ function applyMasterSettingsToUI(settings) {
     applyAnnouncementSettingsToUI(settings);
     applySmsSettingsToUI(settings);
     applyCourierSettingsToUI(settings);
+    refreshAdminCourierStatus();
     applyWhatsAppSettingsToUI(settings);
     updateMasterSettingsPreview();
 }
@@ -8356,7 +8541,7 @@ function applyCourierSettingsToUI(settings) {
 
     const providerEl = document.getElementById('defaultCourierProvider');
     if (providerEl && settings.defaultCourierProvider !== undefined) {
-        providerEl.value = settings.defaultCourierProvider || '';
+        providerEl.value = normalizeAdminCourierSlug(settings.defaultCourierProvider || '');
     }
 
     const apiKeyEl = document.getElementById('courierApiKey');
@@ -8376,7 +8561,7 @@ function updateCourierSettingsPreview() {
     const previewEl = document.getElementById('courierSettingsPreviewText');
     if (!previewEl) return;
 
-    const provider = document.getElementById('defaultCourierProvider')?.value || '';
+    const provider = normalizeAdminCourierSlug(document.getElementById('defaultCourierProvider')?.value || '');
     const hasApiKey = Boolean(document.getElementById('courierApiKey')?.value?.trim());
     const hasSecretKey = Boolean(document.getElementById('courierSecretKey')?.value?.trim());
 
@@ -8385,17 +8570,27 @@ function updateCourierSettingsPreview() {
         return;
     }
 
-    if (!hasApiKey || !hasSecretKey) {
+    const providerLabel = COURIER_PROVIDER_LABELS[provider] || provider;
+
+    if (provider === 'steadfast' && (!hasApiKey || !hasSecretKey)) {
         const missing = !hasApiKey && !hasSecretKey
             ? 'API key and secret key'
             : (!hasApiKey ? 'API key' : 'secret key');
-        previewEl.textContent = `${provider} selected — add the ${missing} to enable one-click booking.`;
+        previewEl.textContent = `${providerLabel} selected — add the ${missing} to enable one-click booking.`;
         return;
     }
 
-    previewEl.textContent = provider === 'Steadfast'
-        ? 'Steadfast ready — "Send to Steadfast" is live on every unbooked order in Live Orders.'
-        : `${provider} credentials saved — automated booking currently supports Steadfast only.`;
+    if (provider === 'pathao') {
+        previewEl.textContent = `${providerLabel} selected — configure PATHAO_* keys and PATHAO_STORE_ID in .env for live booking.`;
+        return;
+    }
+
+    if (provider === 'redx') {
+        previewEl.textContent = `${providerLabel} selected — configure REDX_API_TOKEN in .env for live booking.`;
+        return;
+    }
+
+    previewEl.textContent = `${providerLabel} ready — "Send to Courier" is live on every unbooked order in Live Orders.`;
 }
 
 function applySmsSettingsToUI(settings) {

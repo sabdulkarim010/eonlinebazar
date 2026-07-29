@@ -15,8 +15,14 @@ const {
     approveOrderReturn,
     undoOrderRefund,
     createManualOrder,
-    updateOrderShippingAddress
+    updateOrderShippingAddress,
+    getPendingPaymentProofOrders,
+    reviewPaymentProof
 } = require('../controllers/orderController');
+const {
+    getPaymentReconciliation,
+    markGatewayOrderPaid
+} = require('../controllers/paymentReconciliationController');
 const adminSecurityController = require('../controllers/adminSecurityController');
 const twoFactorController = require('../controllers/twoFactorController');
 const settingsController = require('../controllers/settingsController');
@@ -35,6 +41,7 @@ const { verifyAdmin } = require('../middlewares/authMiddleware');
 const { checkPermission } = require('../middlewares/rbac');
 const { checkBlacklist, adminLoginLimiter } = require('../middlewares/adminSecurity');
 const { geoFence } = require('../middlewares/geoFencing');
+const { checkAndAlertLowStock } = require('../utils/stockAlertService');
 
 // 🛡️ Super Admin staff management — own gate chain, see routes/staffRoutes.js
 // URL: /api/admin/staff
@@ -74,6 +81,18 @@ router.post('/orders/:id/undo-refund', verifyAdmin, checkPermission('manage_orde
 // URL: POST /api/admin/orders/manual — staff POS / phone order entry
 router.post('/orders/manual', verifyAdmin, checkPermission('manage_orders'), createManualOrder);
 
+// URL: GET /api/admin/orders/pending-payment-proof — manual payment proofs awaiting review
+router.get('/orders/pending-payment-proof', verifyAdmin, checkPermission('manage_orders'), getPendingPaymentProofOrders);
+
+// URL: PATCH /api/admin/orders/:orderId/review-payment-proof
+router.patch('/orders/:orderId/review-payment-proof', verifyAdmin, checkPermission('manage_orders'), reviewPaymentProof);
+
+// URL: GET /api/admin/payments/reconciliation — gateway/manual/COD payment overview
+router.get('/payments/reconciliation', verifyAdmin, checkPermission('manage_orders'), getPaymentReconciliation);
+
+// URL: PATCH /api/admin/payments/:orderId/mark-paid — manual gateway paid override
+router.patch('/payments/:orderId/mark-paid', verifyAdmin, checkPermission('manage_orders'), markGatewayOrderPaid);
+
 // URL: PUT /api/admin/orders/:id/address — admin edits shipping / contact details
 router.put('/orders/:id/address', verifyAdmin, checkPermission('manage_orders'), updateOrderShippingAddress);
 
@@ -85,6 +104,17 @@ router.delete('/whatsapp-alerts/:id', verifyAdmin, checkPermission('manage_order
 // URL: POST /api/admin/orders/:id/send-courier
 router.post('/orders/:id/send-courier', verifyAdmin, checkPermission('manage_orders'), courierController.sendOrderToCourier);
 router.get('/courier/status', verifyAdmin, courierController.getCourierConfigStatus);
+
+// Manual stock alert trigger (admin testing)
+router.get('/stock/check-now', verifyAdmin, async (req, res) => {
+    try {
+        const payload = await checkAndAlertLowStock();
+        res.json({ success: true, ...payload });
+    } catch (err) {
+        console.error('[StockAlert] Manual check failed:', err.message);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
 
 // ২. অ্যাডমিন লগইন করার রাস্তা (POST)
 // পাইপলাইন: ব্ল্যাকলিস্ট গেট → জিও-ফেন্স (রিজিয়ন লক) → রেট-লিমিট → কন্ট্রোলার

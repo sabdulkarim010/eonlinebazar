@@ -64,6 +64,34 @@
                 <p><strong>Delivery Zone:</strong> <span id="shipping-location-type">Loading...</span></p>
             </div>
 
+            <div class="payment-info-card" id="payment-info-card">
+                <h3><i class="fa-solid fa-credit-card"></i> Payment Information</h3>
+                <p><strong>Method:</strong> <span id="payment-method-name">Loading...</span></p>
+                <p><strong>Payment Status:</strong> <span id="payment-status-label">Loading...</span></p>
+            </div>
+
+            <div class="payment-proof-card hidden" id="payment-proof-section" aria-live="polite">
+                <div class="payment-proof-header">
+                    <h3><i class="fa-solid fa-receipt"></i> Payment Proof</h3>
+                    <span id="payment-proof-badge" class="payment-proof-badge hidden"></span>
+                </div>
+                <p id="payment-proof-rejection-note" class="payment-proof-rejection hidden"></p>
+                <form id="payment-proof-form" class="payment-proof-form hidden" novalidate>
+                    <div class="form-group">
+                        <label for="payment-proof-trx-id">Transaction ID / TRX ID</label>
+                        <input type="text" id="payment-proof-trx-id" name="trxId" required placeholder="e.g. 8N7A2X9K4P" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="payment-proof-screenshot">Payment Screenshot (optional)</label>
+                        <input type="file" id="payment-proof-screenshot" name="screenshot" accept="image/*">
+                    </div>
+                    <button type="submit" id="payment-proof-submit-btn" class="btn-submit-payment-proof">
+                        <i class="fa-solid fa-paper-plane"></i> Submit Payment Proof
+                    </button>
+                </form>
+                <p id="payment-proof-success-msg" class="payment-proof-success hidden"></p>
+            </div>
+
             <div class="items-card">
                 <h3><i class="fa-solid fa-box-open"></i> Order Items</h3>
                 <div class="items-table-wrapper">

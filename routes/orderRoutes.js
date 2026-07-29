@@ -22,12 +22,14 @@ const {
     getDashboardStats,
     cancelUserOrder,
     returnUserOrder,
-    downloadOrderInvoice
+    downloadOrderInvoice,
+    submitPaymentProof
 } = require('../controllers/orderController');
 
 // অ্যাডমিন ও ইউজার ভেরিফিকেশন 
 const { verifyAdmin, verifyUser, optionalVerifyUser } = require('../middlewares/authMiddleware');
 const { checkPermission } = require('../middlewares/rbac');
+const upload = require('../middlewares/uploadMiddleware');
 
 /********************************************************************
  # ORDER ROUTES (অর্ডারের এপিআই রাস্তাসমূহ)
@@ -75,6 +77,9 @@ router.post('/:id/cancel', verifyUser, cancelUserOrder);
 
 // URL: POST /api/orders/:id/return
 router.post('/:id/return', verifyUser, returnUserOrder);
+
+// URL: PATCH /api/orders/:orderId/payment-proof — manual payment TRX proof
+router.patch('/:orderId/payment-proof', verifyUser, upload.single('screenshot'), submitPaymentProof);
 
 // URL: GET /api/orders/:id/invoice
 router.get('/:id/invoice', verifyUser, downloadOrderInvoice);

@@ -58,7 +58,7 @@ const settingsSchema = new mongoose.Schema({
     // read at booking time, so providers/keys can be rotated without a deploy.
     defaultCourierProvider: {
         type: String,
-        enum: ['Steadfast', 'Pathao', 'RedX', ''],
+        enum: ['Steadfast', 'Pathao', 'RedX', 'steadfast', 'pathao', 'redx', ''],
         default: '',
         trim: true
     },

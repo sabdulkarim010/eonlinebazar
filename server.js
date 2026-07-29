@@ -77,6 +77,14 @@ connectDB().then(async () => {
     } catch (err) {
         console.error('Payment method bootstrap error:', err.message);
     }
+
+    // Start background stock alert cron job
+    try {
+        const { startStockAlertCron } = require('./utils/stockAlertService');
+        startStockAlertCron();
+    } catch (err) {
+        console.error('Stock alert cron bootstrap error:', err.message);
+    }
 });
 
 // ৩. প্রয়োজনীয় মিডলওয়্যারসমূহ
@@ -343,6 +351,17 @@ app.get('/finance-analytics', serveFinanceDashboard);
 // 🌟 অ্যাডমিন-নেমস্পেসড সিকিউর অ্যালিয়াস রুট: GET /admin/finance
 app.get('/admin/finance', serveFinanceDashboard);
 
+// Payment reconciliation admin page
+function servePaymentReconciliationPage(req, res) {
+    sendClientHtml(res, 'payment-reconciliation.html');
+}
+app.get('/admin/payment-reconciliation', servePaymentReconciliationPage);
+
+// Unknown admin pages → dashboard (avoids blank page on bad admin URLs)
+app.get('/admin/*splat', (req, res) => {
+    res.redirect('/admin/dashboard');
+});
+
 // Static assets — public/ (optional shared assets) then client/ storefront root
 if (fs.existsSync(PUBLIC_DIR)) {
     app.use(express.static(PUBLIC_DIR, { index: false }));
@@ -353,13 +372,28 @@ app.use(express.static(CLIENT_DIR, { index: false }));
  # 404 NOT FOUND HANDLER (🌟 নতুন: ভুল ইউআরএল হ্যান্ডেল করার জন্য)
  ********************************************************************/
 app.use((req, res) => {
-    // যদি এপিআই রুট ভুল হয় তবে জেসন রেসপন্স দেবে
-    if (req.originalUrl.startsWith('/api/')) {
-        return res.status(404).json({ success: false, message: "API endpoint not found!" });
+    // Don't intercept API routes — return JSON 404 for those
+    if (req.path.startsWith('/api/') || req.path.startsWith('/admin/api/')) {
+        return res.status(404).json({
+            success: false,
+            message: `Route not found: ${req.method} ${req.path}`
+        });
     }
-    // নরমাল পেজ ভুল হলে হোমপেজে বা আপনার কাস্টম ৪০৪ পেজে রিডাইরেক্ট করবে
-    res.status(404);
-    sendClientHtml(res, 'index.html'); 
+    // For all other unknown routes, serve the 404 HTML page
+    res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+});
+
+app.use((err, req, res, next) => {
+    console.error('Unhandled error:', err);
+    if (req.path.startsWith('/api/') || req.path.startsWith('/admin/api/')) {
+        return res.status(500).json({
+            success: false,
+            message: process.env.NODE_ENV === 'production'
+                ? 'Internal server error'
+                : err.message
+        });
+    }
+    res.status(500).sendFile(path.join(__dirname, 'public', '404.html'));
 });
 
 // ৫. সার্ভার স্টার্ট করা

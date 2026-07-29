@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Reconciliation | EonlineBazar Admin</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/payment-reconciliation.css">
+
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('prTheme');
+                if (!saved) {
+                    saved = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+                        ? 'light' : 'dark';
+                }
+                document.documentElement.setAttribute('data-theme', saved);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+</head>
+<body>
+
+    <div class="pr-loading-overlay" id="loadingOverlay" aria-live="polite" aria-busy="true">
+        <div class="pr-spinner"></div>
+        <p>Loading payment reconciliation…</p>
+    </div>
+
+    <div class="pr-app">
+        <header class="pr-header">
+            <div class="pr-header-left">
+                <div class="pr-brand"><i class="fa-solid fa-credit-card"></i> EonlineBazar</div>
+                <div>
+                    <h1>Payment Reconciliation</h1>
+                    <p>Gateway paid/unpaid, manual proofs &amp; COD overview</p>
+                </div>
+            </div>
+            <div class="pr-header-right">
+                <button class="pr-btn pr-btn-outline" id="exportCsvBtn" type="button">
+                    <i class="fa-solid fa-file-csv"></i> Export CSV
+                </button>
+                <button class="pr-btn pr-btn-ghost" id="refreshBtn" type="button">
+                    <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                </button>
+                <a class="pr-btn pr-btn-outline" href="/admin">
+                    <i class="fa-solid fa-gauge-high"></i> Admin Panel
+                </a>
+            </div>
+        </header>
+
+        <div class="pr-error-banner" id="errorBanner" hidden>
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span id="errorBannerText">Something went wrong.</span>
+        </div>
+
+        <!-- Summary KPI cards -->
+        <section class="pr-kpi-grid" aria-label="Payment summary">
+            <article class="pr-kpi-card">
+                <span class="pr-kpi-label">Total Orders</span>
+                <strong class="pr-kpi-value" id="kpiTotalOrders">0</strong>
+                <small>This period</small>
+            </article>
+            <article class="pr-kpi-card pr-kpi-card--revenue">
+                <span class="pr-kpi-label">Total Revenue</span>
+                <strong class="pr-kpi-value" id="kpiTotalRevenue">৳0</strong>
+                <small>Paid orders only</small>
+            </article>
+            <article class="pr-kpi-card pr-kpi-card--success">
+                <span class="pr-kpi-label">Gateway Paid ✓</span>
+                <strong class="pr-kpi-value" id="kpiGatewayPaid">0</strong>
+            </article>
+            <article class="pr-kpi-card pr-kpi-card--danger">
+                <span class="pr-kpi-label">Gateway Unpaid ✗</span>
+                <strong class="pr-kpi-value" id="kpiGatewayUnpaid">0</strong>
+            </article>
+            <article class="pr-kpi-card pr-kpi-card--warning">
+                <span class="pr-kpi-label">Proof Pending Review</span>
+                <strong class="pr-kpi-value" id="kpiPendingProof">0</strong>
+            </article>
+            <article class="pr-kpi-card">
+                <span class="pr-kpi-label">COD Orders</span>
+                <strong class="pr-kpi-value" id="kpiCodCount">0</strong>
+            </article>
+        </section>
+
+        <!-- Filters -->
+        <section class="pr-filter-bar" aria-label="Filters">
+            <div class="pr-filter-group">
+                <label for="filterType">Payment Type</label>
+                <select id="filterType">
+                    <option value="all">All</option>
+                    <option value="gateway">Gateway Only</option>
+                    <option value="manual">Manual Only</option>
+                    <option value="cod">COD</option>
+                </select>
+            </div>
+            <div class="pr-filter-group">
+                <label for="filterStatus">Status</label>
+                <select id="filterStatus">
+                    <option value="">All</option>
+                    <option value="paid">Paid</option>
+                    <option value="unpaid">Unpaid</option>
+                    <option value="pending">Pending</option>
+                </select>
+            </div>
+            <div class="pr-filter-group">
+                <label for="filterGateway">Gateway</label>
+                <select id="filterGateway">
+                    <option value="">All</option>
+                    <option value="sslcommerz">SSLCommerz</option>
+                    <option value="aamarpay">Aamarpay</option>
+                    <option value="shurjopay">ShurjoPay</option>
+                </select>
+            </div>
+            <div class="pr-filter-group">
+                <label for="filterStartDate">Start Date</label>
+                <input type="date" id="filterStartDate">
+            </div>
+            <div class="pr-filter-group">
+                <label for="filterEndDate">End Date</label>
+                <input type="date" id="filterEndDate">
+            </div>
+            <button class="pr-btn pr-btn-primary" id="applyFilterBtn" type="button">
+                <i class="fa-solid fa-filter"></i> Apply Filter
+            </button>
+        </section>
+
+        <!-- Orders table -->
+        <section class="pr-table-wrap">
+            <div class="pr-table-scroll">
+                <table class="pr-table" id="ordersTable">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Total</th>
+                            <th>Payment Method</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>IPN</th>
+                            <th>Proof</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTableBody">
+                        <tr><td colspan="10" class="pr-empty-row">Apply filters or refresh to load orders.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Pagination -->
+        <nav class="pr-pagination" id="paginationNav" aria-label="Pagination">
+            <button class="pr-btn pr-btn-ghost" id="prevPageBtn" type="button" disabled>
+                <i class="fa-solid fa-chevron-left"></i> Previous
+            </button>
+            <span id="paginationInfo">Page 1 of 1</span>
+            <button class="pr-btn pr-btn-ghost" id="nextPageBtn" type="button" disabled>
+                Next <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Review Proof Modal -->
+    <div class="pr-modal-overlay" id="proofModal" hidden role="dialog" aria-modal="true" aria-labelledby="proofModalTitle">
+        <div class="pr-modal">
+            <div class="pr-modal-header">
+                <h2 id="proofModalTitle"><i class="fa-solid fa-receipt"></i> Review Payment Proof</h2>
+                <button type="button" class="pr-modal-close" id="closeProofModalBtn" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="pr-modal-body">
+                <p><strong>Order:</strong> <span id="proofModalOrderId">—</span></p>
+                <p><strong>TRX ID:</strong> <span id="proofModalTrxId">—</span></p>
+                <p><strong>Submitted:</strong> <span id="proofModalSubmittedAt">—</span></p>
+                <div id="proofModalScreenshotWrap" class="pr-proof-screenshot" hidden>
+                    <p><strong>Screenshot:</strong></p>
+                    <a id="proofModalScreenshotLink" href="#" target="_blank" rel="noopener noreferrer">
+                        <img id="proofModalScreenshot" alt="Payment screenshot">
+                    </a>
+                </div>
+                <div class="pr-form-group">
+                    <label for="proofModalAdminNote">Admin note (optional, shown when rejecting)</label>
+                    <textarea id="proofModalAdminNote" rows="3" placeholder="Reason for rejection or internal note"></textarea>
+                </div>
+            </div>
+            <div class="pr-modal-footer">
+                <button type="button" class="pr-btn pr-btn-success" id="approveProofBtn">
+                    <i class="fa-solid fa-circle-check"></i> Approve
+                </button>
+                <button type="button" class="pr-btn pr-btn-danger" id="rejectProofBtn">
+                    <i class="fa-solid fa-circle-xmark"></i> Reject
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mark Paid Modal -->
+    <div class="pr-modal-overlay" id="markPaidModal" hidden role="dialog" aria-modal="true" aria-labelledby="markPaidModalTitle">
+        <div class="pr-modal pr-modal--sm">
+            <div class="pr-modal-header">
+                <h2 id="markPaidModalTitle"><i class="fa-solid fa-check-double"></i> Mark as Paid</h2>
+                <button type="button" class="pr-modal-close" id="closeMarkPaidModalBtn" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="pr-modal-body">
+                <p>Manually mark gateway order <strong id="markPaidOrderLabel">—</strong> as paid?</p>
+                <div class="pr-form-group">
+                    <label for="markPaidAdminNote">Admin note (optional)</label>
+                    <textarea id="markPaidAdminNote" rows="2" placeholder="Reason for manual override"></textarea>
+                </div>
+            </div>
+            <div class="pr-modal-footer">
+                <button type="button" class="pr-btn pr-btn-ghost" id="cancelMarkPaidBtn">Cancel</button>
+                <button type="button" class="pr-btn pr-btn-primary" id="confirmMarkPaidBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="pr-toast" id="toast" hidden></div>
+
+    <script src="js/payment-reconciliation.js"></script>
+</body>
+</html>

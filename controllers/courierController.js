@@ -15,6 +15,7 @@ const {
     bookParcelForOrder,
     buildTrackingUrl,
     loadCourierConfig,
+    normalizeCourierSlug,
     COURIER_ERROR_CODES
 } = require('../utils/courierService');
 const { notifyOrderStatusUpdated } = require('../utils/smsService');
@@ -147,7 +148,10 @@ const sendOrderToCourier = async (req, res) => {
             });
         }
 
-        const result = await bookParcelForOrder(claimedOrder);
+        const requestedCourier = normalizeCourierSlug(req.body?.courier || '');
+        const result = await bookParcelForOrder(claimedOrder, {
+            courier: requestedCourier || undefined
+        });
 
         if (!result.success) {
             await releaseBookingClaim(id, 'failed');
@@ -160,9 +164,9 @@ const sendOrderToCourier = async (req, res) => {
 
         const previousStatus = claimedOrder.status;
 
-        claimedOrder.courierProvider = result.provider || '';
-        claimedOrder.courierTrackingId = result.trackingId || '';
-        claimedOrder.courierConsignmentId = result.consignmentId || '';
+        claimedOrder.courierProvider = normalizeCourierSlug(result.provider || '');
+        claimedOrder.courierTrackingId = String(result.trackingId || result.trackingCode || '').trim();
+        claimedOrder.courierConsignmentId = String(result.consignmentId || result.trackingId || '').trim();
         claimedOrder.courierStatus = result.courierStatus || 'in_review';
         claimedOrder.courierBookedAt = new Date();
 
@@ -226,7 +230,7 @@ const getCourierConfigStatus = async (req, res) => {
                 providerLabel: config.providerLabel,
                 isConfigured: config.isConfigured,
                 mockMode: !config.isConfigured,
-                supportsBooking: config.isConfigured && config.provider === 'Steadfast'
+                supportsBooking: config.isConfigured && ['steadfast', 'pathao', 'redx'].includes(config.provider)
             }
         });
     } catch (error) {

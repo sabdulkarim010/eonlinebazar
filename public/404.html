@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <base href="/">
+
+    <title>404 — পেইজটি খুঁজে পাওয়া যাচ্ছে না | EonlineBazar</title>
+    <meta name="description" content="আপনি যে পেইজটি খুঁজছেন সেটি সরানো হয়েছে বা কখনো ছিল না।">
+    <meta name="robots" content="noindex, nofollow">
+
+    <link rel="icon" id="dynamic-favicon" href="/images/favicon.png" type="image/png">
+
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/home.css">
+    <link rel="stylesheet" href="/css/footer.css">
+    <link rel="stylesheet" href="/css/whatsapp.css">
+    <link rel="stylesheet" href="/css/toast.css">
+    <link rel="stylesheet" href="/css/mini-cart-drawer.css">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800&family=Poppins:wght@700;800&display=swap" rel="stylesheet">
+
+    <style>
+        .error-page-main {
+            min-height: calc(100vh - 220px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 48px 16px 72px;
+            background: linear-gradient(180deg, #f8fafc 0%, #ffffff 45%);
+        }
+
+        .error-page-card {
+            width: 100%;
+            max-width: 640px;
+            text-align: center;
+            padding: 40px 28px;
+            border-radius: 20px;
+            background: #ffffff;
+            border: 1px solid #e8edf2;
+            box-shadow: 0 18px 48px rgba(35, 47, 62, 0.08);
+        }
+
+        .error-page-illustration {
+            font-size: 72px;
+            line-height: 1;
+            margin-bottom: 18px;
+            animation: error-float 3s ease-in-out infinite;
+        }
+
+        @keyframes error-float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .error-page-code {
+            font-family: 'Poppins', 'Inter', sans-serif;
+            font-size: clamp(72px, 18vw, 120px);
+            font-weight: 800;
+            line-height: 1;
+            margin: 0 0 12px;
+            background: linear-gradient(135deg, #232f3e 0%, #e47911 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .error-page-title {
+            font-size: clamp(22px, 4vw, 30px);
+            font-weight: 700;
+            color: #232f3e;
+            margin: 0 0 12px;
+        }
+
+        .error-page-subtext {
+            font-size: 16px;
+            line-height: 1.7;
+            color: #64748b;
+            margin: 0 auto 32px;
+            max-width: 480px;
+        }
+
+        .error-page-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            justify-content: center;
+        }
+
+        .error-page-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-width: 190px;
+            padding: 14px 22px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+
+        .error-page-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .error-page-btn-primary {
+            background: #e47911;
+            color: #ffffff;
+            box-shadow: 0 10px 24px rgba(228, 121, 17, 0.28);
+        }
+
+        .error-page-btn-primary:hover {
+            background: #cf6a08;
+        }
+
+        .error-page-btn-secondary {
+            background: #232f3e;
+            color: #ffffff;
+            box-shadow: 0 10px 24px rgba(35, 47, 62, 0.18);
+        }
+
+        .error-page-btn-secondary:hover {
+            background: #1a2430;
+        }
+
+        @media (max-width: 600px) {
+            .error-page-card {
+                padding: 32px 20px;
+            }
+
+            .error-page-actions {
+                flex-direction: column;
+            }
+
+            .error-page-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header class="amazon-header">
+    <div class="container main-nav">
+        <div class="header-row header-row-top">
+            <a href="/" class="logo-box" id="home-brand-logo" data-store-logo-slot data-logo-variant="navbar" aria-label="EonlineBazar Home"></a>
+
+            <div class="nav-right">
+                <div class="nav-user-account" id="nav-user-link" onclick="window.location.href='/login'">
+                    <img id="nav-user-avatar" src="" alt="User" class="nav-user-avatar-img">
+                    <div class="nav-user-text-wrapper">
+                        <span class="nav-line-1" id="nav-user-line1">Sign in</span>
+                        <span class="nav-line-2" id="nav-user-line2">Account</span>
+                    </div>
+                </div>
+
+                <div class="nav-cart-box" data-mini-cart-trigger role="button" tabindex="0" aria-label="Open shopping bag">
+                    <div class="nav-cart-icon-wrapper">
+                        <i class="fa fa-shopping-cart"></i>
+                        <span id="cartCountBadge" class="cart-count">0</span>
+                    </div>
+                    <span class="cart-text">Bag</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="header-row header-row-search">
+            <div class="search-box-container">
+                <select id="categorySelect" class="search-category" onchange="triggerSearch()">
+                    <option value="all">All Categories</option>
+                </select>
+                <input type="text" id="searchInput" class="search-input" placeholder="Search products here...">
+                <button class="search-submit-btn" onclick="triggerSearch()" title="Search">
+                    <i class="fa fa-search"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</header>
+
+<nav id="subNavbar" class="sub-navbar">
+    <div class="container sub-flex">
+        <ul class="nav-links">
+            <li><a onclick="window.location.href='/'" style="cursor:pointer;">Home</a></li>
+            <div id="categoryButtonContainer" class="category-tabs-row menu-categories"></div>
+        </ul>
+    </div>
+</nav>
+
+<main class="error-page-main">
+    <section class="error-page-card" aria-labelledby="error-page-title">
+        <div class="error-page-illustration" aria-hidden="true">🔍</div>
+        <p class="error-page-code" aria-hidden="true">404</p>
+        <h1 class="error-page-title" id="error-page-title">পেইজটি খুঁজে পাওয়া যাচ্ছে না</h1>
+        <p class="error-page-subtext">আপনি যে পেইজটি খুঁজছেন সেটি সরানো হয়েছে বা কখনো ছিল না।</p>
+        <div class="error-page-actions">
+            <a href="/" class="error-page-btn error-page-btn-primary">🏠 হোমপেইজে যান</a>
+            <a href="/search" class="error-page-btn error-page-btn-secondary">🛍️ পণ্য দেখুন</a>
+        </div>
+    </section>
+</main>
+
+<div class="whatsapp-floating-container">
+    <div class="whatsapp-tooltip" id="waTooltip">Need help? Chat with us!</div>
+    <a href="#" id="waFloatBtn" data-whatsapp-chat target="_blank" rel="noopener noreferrer" class="whatsapp-float-btn">
+        <i class="fa-brands fa-whatsapp"></i>
+    </a>
+</div>
+
+<div id="global-site-footer"></div>
+
+<script src="/js/store-branding.js"></script>
+<script src="/js/session-guard.js"></script>
+<script src="/js/toast.js"></script>
+<script src="/js/wishlist.js"></script>
+<script src="/js/main.js"></script>
+<script src="/js/variantUtils.js"></script>
+<script src="/js/cartDisplayUtils.js"></script>
+<script src="/js/cart.js"></script>
+<script src="/js/mini-cart-drawer.js"></script>
+<script src="/js/whatsapp.js"></script>
+
+</body>
+</html>

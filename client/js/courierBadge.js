@@ -7,16 +7,28 @@
     'use strict';
 
     const TRACKING_BASE_URLS = {
+        steadfast: 'https://steadfast.com.bd/t/',
+        pathao: 'https://merchant.pathao.com/tracking?consignment_id=',
+        redx: 'https://redx.com.bd/track-global-parcel/?trackingId=',
         Steadfast: 'https://steadfast.com.bd/t/',
         Pathao: 'https://merchant.pathao.com/tracking?consignment_id=',
         RedX: 'https://redx.com.bd/track-global-parcel/?trackingId='
     };
 
     const PROVIDER_LABELS = {
+        steadfast: 'Steadfast',
+        pathao: 'Pathao',
+        redx: 'RedX',
         Steadfast: 'Steadfast',
         Pathao: 'Pathao',
         RedX: 'RedX'
     };
+
+    function normalizeProviderSlug(value) {
+        const raw = String(value || '').trim();
+        const aliases = { Steadfast: 'steadfast', Pathao: 'pathao', RedX: 'redx', redX: 'redx' };
+        return aliases[raw] || raw.toLowerCase();
+    }
 
     function escapeHtml(value) {
         return String(value || '')
@@ -27,7 +39,8 @@
     }
 
     function getTrackingUrl(provider, trackingId) {
-        const base = TRACKING_BASE_URLS[provider];
+        const slug = normalizeProviderSlug(provider);
+        const base = TRACKING_BASE_URLS[slug] || TRACKING_BASE_URLS[provider];
         const code = String(trackingId || '').trim();
         if (!base || !code || /-PENDING-/i.test(code)) return '';
         return `${base}${encodeURIComponent(code)}`;
@@ -46,7 +59,7 @@
         const trackingId = String(order?.courierTrackingId || order?.tracking_code || '').trim();
         if (!trackingId) return '';
 
-        const provider = String(order?.courierProvider || order?.courier_provider || 'Steadfast').trim();
+        const provider = normalizeProviderSlug(order?.courierProvider || order?.courier_provider || 'steadfast');
         const providerLabel = PROVIDER_LABELS[provider] || provider || 'Courier';
         const trackingUrl = getTrackingUrl(provider, trackingId);
         const isMock = isMockTrackingId(trackingId);

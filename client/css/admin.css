@@ -1338,6 +1338,102 @@ a {
 }
 .order-action-shipping { color: #0ea5e9; }
 
+.invoice-payment-proof-section {
+    margin-top: 20px;
+    padding: 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+.invoice-payment-proof-section h4 {
+    margin-bottom: 12px;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.invoice-payment-proof-meta p {
+    margin-bottom: 6px;
+    font-size: 14px;
+}
+.payment-proof-status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.payment-proof-status-pill.submitted { background: #fef3c7; color: #92400e; }
+.payment-proof-status-pill.approved { background: #d1fae5; color: #065f46; }
+.payment-proof-status-pill.rejected { background: #fee2e2; color: #991b1b; }
+.payment-proof-status-pill.none { background: #e2e8f0; color: #475569; }
+.invoice-payment-proof-screenshot-wrap { margin-top: 10px; }
+.invoice-payment-proof-thumb {
+    max-width: 220px;
+    max-height: 220px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    margin-top: 6px;
+    cursor: zoom-in;
+}
+.invoice-payment-proof-note {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    color: #991b1b;
+    font-size: 13px;
+}
+.invoice-payment-proof-actions { margin-top: 14px; }
+.invoice-payment-proof-actions textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    resize: vertical;
+}
+.invoice-payment-proof-btn-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+}
+.btn-payment-proof-approve,
+.btn-payment-proof-reject {
+    flex: 1 1 160px;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.btn-payment-proof-approve { background: #16a34a; color: #fff; }
+.btn-payment-proof-approve:hover { background: #15803d; }
+.btn-payment-proof-reject { background: #dc2626; color: #fff; }
+.btn-payment-proof-reject:hover { background: #b91c1c; }
+.order-payment-proof-pending-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    background: #fef3c7;
+    color: #92400e;
+    white-space: nowrap;
+}
+
 
 /* --------------------------------------------------------------------------
    09. UTILITIES, ANIMATIONS & TOASTS (অ্যানিমেশন এবং এলার্ট)

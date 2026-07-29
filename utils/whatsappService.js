@@ -630,6 +630,42 @@ function notifyAdminOrderPlaced(order) {
     });
 }
 
+/**
+ * Send a custom admin alert message via configured WhatsApp gateway.
+ * Reuses the same gateway chain as order alerts (if configured).
+ */
+async function sendAdminCustomAlert(body) {
+    try {
+        const config = await loadWhatsAppSettingsFromDb();
+        const adminPhone = sanitizeWhatsAppInput(config.privateAdminAlertWhatsApp);
+
+        if (!adminPhone) {
+            return { delivered: false, reason: 'Private admin WhatsApp number not configured' };
+        }
+
+        const gatewayConfig = await loadWhatsAppAlertGatewayConfig(config);
+        const result = await sendAdminAlertViaGateway({
+            to: adminPhone,
+            body: String(body || '').trim(),
+            gatewayConfig
+        });
+
+        if (!result.delivered) {
+            logWhatsAppToConsole({
+                to: adminPhone,
+                body,
+                context: 'ADMIN CUSTOM ALERT (not delivered)',
+                extra: result.reason || ''
+            });
+        }
+
+        return result;
+    } catch (err) {
+        console.error('[WhatsApp] Custom admin alert error:', err.message);
+        return { delivered: false, reason: err.message };
+    }
+}
+
 function isGatewayConfigured(config) {
     return Boolean(
         resolvePrimaryDriver(config)
@@ -652,6 +688,7 @@ module.exports = {
     formatOrderItemsList,
     loadWhatsAppAlertGatewayConfig,
     sendAdminOrderAlert,
+    sendAdminCustomAlert,
     notifyAdminOrderPlaced,
     dispatchWhatsAppNotification,
     getPendingWhatsAppAlerts,

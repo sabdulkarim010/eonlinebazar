@@ -15,7 +15,7 @@ const {
     normalizeAnnouncementSettings,
     toPublicAnnouncementPayload
 } = require('../utils/announcementSettings');
-const { VALID_COURIER_PROVIDERS } = require('../utils/courierService');
+const { VALID_COURIER_PROVIDERS, normalizeCourierSlug } = require('../utils/courierService');
 const {
     sanitizeWhatsAppInput,
     clearWhatsAppSettingsCache,
@@ -295,8 +295,9 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
     // 🚚 Courier credentials live on the same global document as the SMS keys,
     // so the booking engine can read them without a second query.
     if (body.defaultCourierProvider !== undefined) {
-        const courierProvider = String(body.defaultCourierProvider || '').trim();
-        if (!VALID_COURIER_PROVIDERS.includes(courierProvider)) {
+        const rawProvider = String(body.defaultCourierProvider || '').trim();
+        const courierProvider = normalizeCourierSlug(rawProvider);
+        if (rawProvider && !VALID_COURIER_PROVIDERS.includes(rawProvider) && !VALID_COURIER_PROVIDERS.includes(courierProvider)) {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid courier provider selected.'

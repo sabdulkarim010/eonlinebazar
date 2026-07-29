@@ -502,11 +502,49 @@ async function sendInquiryReplyEmail({
     }
 }
 
+/**
+ * Send a low-stock / out-of-stock alert email to the admin.
+ * Never throws — returns { delivered }.
+ */
+async function sendStockAlertEmail({ to, subject, html }) {
+    const recipient = String(to || '').trim();
+
+    if (!recipient) {
+        return { delivered: false, reason: 'Missing recipient email' };
+    }
+
+    if (!SMTP_USER || !SMTP_PASS) {
+        console.error('EMAIL ERROR: SMTP not configured for stock alert.');
+        return { delivered: false, reason: 'Email transport not configured' };
+    }
+
+    const mailOptions = {
+        from: `"EonlineBazar Inventory" <${SMTP_FROM || SMTP_USER}>`,
+        to: recipient,
+        subject: String(subject || 'Stock Alert'),
+        html
+    };
+
+    try {
+        const portUsed = await withTimeout(
+            sendWithFailover(mailOptions),
+            OVERALL_SEND_DEADLINE_MS,
+            'Stock alert email'
+        );
+        console.log(`SUCCESS: Stock alert email sent to ${recipient}`);
+        return { delivered: true, port: portUsed };
+    } catch (err) {
+        console.error('EMAIL ERROR (stock alert):', err.message || err);
+        return { delivered: false, reason: err.message };
+    }
+}
+
 module.exports = {
     sendAdminOtpEmail,
     sendOrderConfirmationEmail,
     notifyOrderConfirmationEmail,
     sendInquiryReplyEmail,
+    sendStockAlertEmail,
     buildOrderConfirmationHtml,
     buildInquiryReplyHtml,
     getTransportForPort,
