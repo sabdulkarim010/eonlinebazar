@@ -14,6 +14,10 @@ let allProducts = [];
 let flashSaleState = null;
 let flashSaleCountdownTimer = null;
 
+function t(key, vars) {
+    return window.i18n ? window.i18n.t(key, vars) : key;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initFlashSaleEngine();
     fetchAndRenderProducts();
@@ -44,7 +48,7 @@ function fetchAndRenderProducts() {
         })
         .catch(error => {
             console.error('Error fetching products:', error);
-            productGrid.innerHTML = `<p style="color: red; text-align: center; width: 100%;">Failed to load products.</p>`;
+            productGrid.innerHTML = `<p style="color: red; text-align: center; width: 100%;">${t('common.error')}</p>`;
         });
 }
 
@@ -58,7 +62,7 @@ function displayProducts(productsToDisplay) {
     productGrid.innerHTML = '';
 
     if (!Array.isArray(productsToDisplay) || productsToDisplay.length === 0) {
-        productGrid.innerHTML = `<p style="text-align: center; width: 100%;">No products found.</p>`;
+        productGrid.innerHTML = `<p style="text-align: center; width: 100%;">${t('search.no_results')}</p>`;
         return;
     }
 
@@ -112,7 +116,7 @@ function displayProducts(productsToDisplay) {
         // 🛒 Add to Cart বাটন
         const addToCartBtn = document.createElement('button');
         addToCartBtn.className = 'add-to-cart-btn';
-        addToCartBtn.innerText = 'Add to Bag';
+        addToCartBtn.innerText = t('product.add_to_cart');
 
         addToCartBtn.addEventListener('click', (e) => {
             e.preventDefault();   // 👈 ডিফল্ট অ্যাকশন বন্ধ
@@ -173,7 +177,7 @@ function renderFlashSaleBanner(state) {
     banner.style.display = 'block';
     const titleEl = document.getElementById('flashSaleTitle');
     const subtitleEl = document.getElementById('flashSaleSubtitle');
-    if (titleEl) titleEl.textContent = state.flashSaleTitle || '⚡ Flash Sale';
+    if (titleEl) titleEl.textContent = state.flashSaleTitle || `⚡ ${t('home.flash_sale')}`;
     if (subtitleEl) {
         subtitleEl.textContent = `Up to ${state.flashSaleDiscountPercent || 0}% off on selected products — hurry before time runs out!`;
     }
@@ -219,22 +223,23 @@ function startFlashSaleCountdown(endsAt) {
 }
 
 function buildProductPriceMarkup(product) {
+    const fmt = window.i18n?.formatCurrency || ((n) => `৳${Number(n).toLocaleString()}`);
     const currentPrice = Number(product.price) || 0;
     const originalPrice = Number(product.originalPrice) || 0;
     const onFlashSale = product.flashSaleActive === true && originalPrice > currentPrice;
 
     if (onFlashSale) {
         return `
-            <span class="price-original">৳${originalPrice.toLocaleString('en-US')}</span>
+            <span class="price-original">${fmt(originalPrice)}</span>
             <span class="currency">৳</span>
-            <span class="price-amount">${currentPrice.toLocaleString('en-US')}</span>
+            <span class="price-amount">${currentPrice.toLocaleString(window.i18n?.getCurrentLang?.() === 'bn' ? 'bn-BD' : 'en-US')}</span>
             <span class="flash-sale-tag">-${product.flashSaleDiscountPercent || 0}%</span>
         `;
     }
 
     return `
         <span class="currency">৳</span>
-        <span class="price-amount">${currentPrice.toLocaleString('en-US')}</span>
+        <span class="price-amount">${currentPrice.toLocaleString(window.i18n?.getCurrentLang?.() === 'bn' ? 'bn-BD' : 'en-US')}</span>
     `;
 }
 
@@ -389,6 +394,9 @@ async function fetchNavbarProfile(token, avatarElement) {
     }
 }
 
-
-
+document.addEventListener('languageChanged', () => {
+    if (allProducts.length) displayProducts(allProducts);
+    if (flashSaleState?.isActive) renderFlashSaleBanner(flashSaleState);
+    if (window.i18n) window.i18n.applyTranslations();
+});
 

@@ -38,7 +38,10 @@ async function verifyAdminTokenOnLoad() {
         if (!res.ok || !data.success) {
             localStorage.removeItem('adminToken');
             window.location.replace('/admin-login');
+            return;
         }
+
+        initAdminSocket();
     } catch (err) {
         console.error("Security Verification Critical Error:", err);
         // সার্ভার ডাউন বা কানেকশন এরর হলে নিরাপত্তা স্বার্থে কনসোলে এরর দেখানো
@@ -261,6 +264,306 @@ window.showToast = function(message, type = 'success', durationMs = 4000) {
     window.setTimeout(dismiss, Math.max(Number(durationMs) || 0, 1000));
 };
 
+/* ==========================================================================
+   REAL-TIME SOCKET NOTIFICATIONS (Socket.IO admin namespace)
+   ========================================================================== */
+
+let adminSocket = null;
+let adminSocketInitialized = false;
+const adminRealtimeToasts = [];
+const adminNotifHistory = [];
+let adminNotifUnread = 0;
+let sidebarOrdersCount = 0;
+let sidebarMessagesCount = 0;
+
+function ensureAdminRealtimeToastStack() {
+    if (!document.getElementById('adminRealtimeToastStack')) {
+        const stack = document.createElement('div');
+        stack.id = 'adminRealtimeToastStack';
+        stack.className = 'admin-realtime-toast-stack';
+        stack.setAttribute('aria-live', 'polite');
+        document.body.appendChild(stack);
+    }
+}
+
+function ensureAdminSocketStatusIndicator() {
+    if (!document.getElementById('adminSocketStatus')) {
+        const el = document.createElement('div');
+        el.id = 'adminSocketStatus';
+        el.className = 'admin-socket-status is-hidden';
+        el.setAttribute('role', 'status');
+        document.body.appendChild(el);
+    }
+    return document.getElementById('adminSocketStatus');
+}
+
+function setAdminSocketStatus(text, state, autoHideMs = 0) {
+    const el = ensureAdminSocketStatusIndicator();
+    if (!el) return;
+    el.textContent = text;
+    el.classList.remove('is-hidden', 'is-connected', 'is-disconnected');
+    if (state === 'connected') el.classList.add('is-connected');
+    if (state === 'disconnected') el.classList.add('is-disconnected');
+    if (autoHideMs > 0) {
+        window.setTimeout(() => el.classList.add('is-hidden'), autoHideMs);
+    }
+}
+
+function playAdminNotificationBeep() {
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 880;
+        gain.gain.value = 0.04;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.12);
+        osc.onended = () => ctx.close();
+    } catch (err) {
+        console.warn('Notification beep failed:', err);
+    }
+}
+
+/**
+ * Real-time toast — top-right, max 3 visible, auto-dismiss after 5s.
+ */
+function showAdminToast(message, type = 'info') {
+    ensureAdminRealtimeToastStack();
+    const stack = document.getElementById('adminRealtimeToastStack');
+    if (!stack) return;
+
+    const allowed = ['success', 'warning', 'info', 'error'];
+    const toastType = allowed.includes(type) ? type : 'info';
+
+    while (adminRealtimeToasts.length >= 3) {
+        const oldest = adminRealtimeToasts.shift();
+        if (oldest?.el) oldest.el.remove();
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `admin-realtime-toast ${toastType}`;
+    toast.textContent = message;
+    stack.appendChild(toast);
+
+    const entry = { el: toast };
+    adminRealtimeToasts.push(entry);
+
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => toast.classList.add('is-visible'));
+    });
+
+    const dismiss = () => {
+        toast.classList.remove('is-visible');
+        toast.classList.add('is-leaving');
+        window.setTimeout(() => {
+            toast.remove();
+            const idx = adminRealtimeToasts.indexOf(entry);
+            if (idx >= 0) adminRealtimeToasts.splice(idx, 1);
+        }, 320);
+    };
+
+    window.setTimeout(dismiss, 5000);
+}
+
+function formatTimeAgo(dateInput) {
+    const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+    const diffMs = Date.now() - date.getTime();
+    if (!Number.isFinite(diffMs) || diffMs < 0) return 'just now';
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+}
+
+function updateSidebarOrdersBadge(delta = 0) {
+    sidebarOrdersCount = Math.max(0, sidebarOrdersCount + delta);
+    const badge = document.getElementById('sidebarOrdersBadge');
+    if (!badge) return;
+    if (sidebarOrdersCount <= 0) {
+        badge.hidden = true;
+        badge.textContent = '0';
+    } else {
+        badge.hidden = false;
+        badge.textContent = String(sidebarOrdersCount);
+    }
+
+    const totalOrderBadge = document.getElementById('total-orders-badge');
+    if (totalOrderBadge && delta > 0) {
+        const current = parseInt(String(totalOrderBadge.textContent).replace(/\D/g, ''), 10) || 0;
+        totalOrderBadge.innerText = `Total: ${current + delta}`;
+    }
+}
+
+function updateSidebarMessagesBadge(delta = 0) {
+    sidebarMessagesCount = Math.max(0, sidebarMessagesCount + delta);
+    const badge = document.getElementById('sidebarMessagesBadge');
+    if (!badge) return;
+    if (sidebarMessagesCount <= 0) {
+        badge.hidden = true;
+        badge.textContent = '0';
+    } else {
+        badge.hidden = false;
+        badge.textContent = String(sidebarMessagesCount);
+    }
+}
+
+function updateAdminNotifBellBadge() {
+    const countEl = document.getElementById('adminNotifBellCount');
+    if (!countEl) return;
+    if (adminNotifUnread <= 0) {
+        countEl.hidden = true;
+        countEl.textContent = '0';
+    } else {
+        countEl.hidden = false;
+        countEl.textContent = String(adminNotifUnread);
+    }
+}
+
+function renderAdminNotifDropdown() {
+    const listEl = document.getElementById('adminNotifDropdownList');
+    if (!listEl) return;
+
+    if (!adminNotifHistory.length) {
+        listEl.innerHTML = '<p class="admin-notif-empty">No notifications yet</p>';
+        return;
+    }
+
+    listEl.innerHTML = adminNotifHistory.slice(0, 10).map((item) => `
+        <div class="admin-notif-item">
+            <span class="admin-notif-item-icon">${item.icon}</span>
+            <div class="admin-notif-item-body">
+                <p class="admin-notif-item-msg">${escapeToastText(item.message)}</p>
+                <span class="admin-notif-item-time">${escapeToastText(item.timeAgo)}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function pushAdminNotification({ icon, message, createdAt }) {
+    adminNotifHistory.unshift({
+        icon,
+        message,
+        createdAt: createdAt || new Date(),
+        timeAgo: formatTimeAgo(createdAt || new Date())
+    });
+    if (adminNotifHistory.length > 10) adminNotifHistory.length = 10;
+    adminNotifUnread += 1;
+    updateAdminNotifBellBadge();
+    renderAdminNotifDropdown();
+}
+
+function setupAdminNotifBell() {
+    const btn = document.getElementById('adminNotifBellBtn');
+    const dropdown = document.getElementById('adminNotifDropdown');
+    const markAllBtn = document.getElementById('adminNotifMarkAllRead');
+
+    if (btn && dropdown) {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdown.hidden = !dropdown.hidden;
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!dropdown.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+                dropdown.hidden = true;
+            }
+        });
+    }
+
+    if (markAllBtn) {
+        markAllBtn.addEventListener('click', () => {
+            adminNotifUnread = 0;
+            updateAdminNotifBellBadge();
+        });
+    }
+
+    renderAdminNotifDropdown();
+}
+
+function isAdminSectionActive(sectionId) {
+    const section = document.getElementById(sectionId);
+    return !!(section && (section.classList.contains('active') || section.style.display === 'block'));
+}
+
+function initAdminSocket() {
+    if (adminSocketInitialized || typeof io === 'undefined') return;
+    const authToken = localStorage.getItem('adminToken');
+    if (!authToken) return;
+
+    adminSocketInitialized = true;
+    setupAdminNotifBell();
+
+    adminSocket = io('/admin', {
+        auth: { token: authToken }
+    });
+
+    adminSocket.on('connect', () => {
+        setAdminSocketStatus('🟢 সংযুক্ত', 'connected', 3000);
+    });
+
+    adminSocket.on('disconnect', () => {
+        setAdminSocketStatus('🔴 সংযোগ বিচ্ছিন্ন', 'disconnected');
+    });
+
+    adminSocket.on('connect_error', (err) => {
+        console.warn('[Socket] Connection error:', err.message);
+        setAdminSocketStatus('🔴 সংযোগ বিচ্ছিন্ন', 'disconnected');
+    });
+
+    adminSocket.on('new_order', (data) => {
+        playAdminNotificationBeep();
+        const total = Number(data.total || 0).toLocaleString();
+        const msg = `🛒 নতুন অর্ডার! #${data.orderId} — ${data.customerName} — ৳${total}`;
+        showAdminToast(msg, 'success');
+        pushAdminNotification({ icon: '🛒', message: msg, createdAt: data.createdAt });
+        updateSidebarOrdersBadge(1);
+
+        if (isAdminSectionActive('view-orders') && typeof fetchLiveOrders === 'function') {
+            fetchLiveOrders();
+        }
+    });
+
+    adminSocket.on('new_message', (data) => {
+        const msg = `✉️ নতুন বার্তা! ${data.senderName}: ${data.subject}`;
+        showAdminToast(msg, 'info');
+        pushAdminNotification({ icon: '✉️', message: msg, createdAt: data.createdAt });
+        updateSidebarMessagesBadge(1);
+    });
+
+    adminSocket.on('payment_proof_submitted', (data) => {
+        const msg = `💳 পেমেন্ট প্রমাণ জমা! অর্ডার #${data.orderId}`;
+        showAdminToast(msg, 'info');
+        pushAdminNotification({ icon: '💳', message: msg, createdAt: data.submittedAt });
+    });
+
+    adminSocket.on('low_stock_alert', (data) => {
+        const msg = `⚠️ কম স্টক: ${data.productName} — ${data.stockQuantity}টি বাকি`;
+        showAdminToast(msg, 'warning');
+        pushAdminNotification({ icon: '⚠️', message: msg, createdAt: new Date() });
+    });
+
+    adminSocket.on('order_status_changed', (data) => {
+        const msg = `📦 অর্ডার #${data.orderId}: ${data.oldStatus} → ${data.newStatus}`;
+        showAdminToast(msg, 'info');
+        pushAdminNotification({ icon: '📦', message: msg, createdAt: data.updatedAt });
+
+        if (isAdminSectionActive('view-orders') && typeof fetchLiveOrders === 'function') {
+            fetchLiveOrders();
+        }
+    });
+}
+
+window.showAdminToast = showAdminToast;
+window.initAdminSocket = initAdminSocket;
+
 /**
  * কনফার্মেশন ডায়ালগ (SweetAlert2)
  */
@@ -461,6 +764,8 @@ const ADMIN_PAGE_META = {
     'view-audit':           { title: 'Security & Audit',         subtitle: 'Login history, intrusion attempts, and IP blacklist firewall.' },
     'view-master-settings': { title: 'System Settings',          subtitle: 'Configure shipping, notifications, loyalty rewards, and store integrations.' },
     'view-messages':        { title: 'Messages / Inquiries',     subtitle: 'Customer contact form submissions from the storefront.' },
+    'view-newsletter-subscribers': { title: 'Newsletter Subscribers', subtitle: 'Manage newsletter subscriber list and status.' },
+    'view-newsletter-campaigns':   { title: 'Email Campaigns',        subtitle: 'Create, test, and send newsletter email campaigns.' },
     'view-staff':           { title: 'Staff Management',         subtitle: 'Create staff accounts, assign permissions, and control access instantly.' },
     'view-settings':        { title: 'Admin Settings',          subtitle: 'Manage your profile, store preferences, shipping rules, and branding.' }
 };
@@ -9716,6 +10021,8 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-audit': initAuditView,
         'view-master-settings': fetchMasterSettings,
         'view-messages': fetchAdminMessages,
+        'view-newsletter-subscribers': () => window.loadNewsletterSubscribersSection && window.loadNewsletterSubscribersSection(),
+        'view-newsletter-campaigns': () => window.loadNewsletterCampaignsSection && window.loadNewsletterCampaignsSection(),
         // Staff Management lives in js/admin-staff.js (Super Admin only)
         'view-staff': () => window.loadStaffSection && window.loadStaffSection(),
         'view-settings': fetchAdminSettings

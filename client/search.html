@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -275,11 +275,15 @@
             <a href="/" class="logo-box" data-store-logo-slot data-logo-variant="navbar" aria-label="EonlineBazar Home"></a>
 
             <div class="nav-right">
+                <button type="button" class="lang-toggle" onclick="i18n.setLanguage(i18n.getCurrentLang() === 'bn' ? 'en' : 'bn')" title="Switch Language">
+                    <span id="lang-label">EN</span>
+                </button>
+
                 <div class="nav-user-account" id="nav-user-link" onclick="window.location.href='/login'">
                     <img id="nav-user-avatar" src="" alt="User" class="nav-user-avatar-img">
                     <div class="nav-user-text-wrapper">
-                        <span class="nav-line-1" id="nav-user-line1">Sign in</span>
-                        <span class="nav-line-2" id="nav-user-line2">Account</span>
+                        <span class="nav-line-1" id="nav-user-line1" data-i18n="nav.login">লগইন</span>
+                        <span class="nav-line-2" id="nav-user-line2" data-i18n="nav.profile">প্রোফাইল</span>
                     </div>
                 </div>
 
@@ -288,7 +292,7 @@
                         <i class="fa fa-shopping-cart"></i>
                         <span id="cartCountBadge" class="cart-count">0</span>
                     </div>
-                    <span class="cart-text">Bag</span>
+                    <span class="cart-text" data-i18n="nav.cart">কার্ট</span>
                 </div>
             </div>
         </div>
@@ -298,7 +302,7 @@
                 <select id="categorySelect" class="search-category">
                     <option value="all">All Categories</option>
                 </select>
-                <input type="text" id="searchInput" class="search-input" placeholder="Search products here...">
+                <input type="text" id="searchInput" class="search-input" data-i18n-placeholder="search.placeholder" placeholder="পণ্য খুঁজুন...">
                 <button class="search-submit-btn" id="headerSearchBtn" title="Search">
                     <i class="fa fa-search"></i>
                 </button>
@@ -308,8 +312,8 @@
 </header>
 
 <main class="container search-results-wrap">
-    <button type="button" class="mobile-filter-toggle" id="mobileFilterToggle" aria-expanded="false">
-        ফিল্টার দেখুন 🔽
+    <button type="button" class="mobile-filter-toggle" id="mobileFilterToggle" aria-expanded="false" data-i18n="search.filter">
+        ফিল্টার
     </button>
 
     <div class="search-layout">
@@ -327,7 +331,7 @@
             <div class="filter-section">
                 <h3 class="filter-section-title">ব্র্যান্ড</h3>
                 <ul class="brand-list" id="brandFilterList"></ul>
-                <button type="button" class="brand-expand-btn" id="brandExpandBtn" style="display:none;">আরো দেখুন</button>
+                <button type="button" class="brand-expand-btn" id="brandExpandBtn" style="display:none;" data-i18n="common.see_more">আরো দেখুন</button>
             </div>
 
             <div class="filter-section">
@@ -343,11 +347,11 @@
             <div class="filter-section stock-filter">
                 <label>
                     <input type="checkbox" id="inStockCheckbox">
-                    শুধু স্টকে আছে এমন পণ্য
+                    <span data-i18n="product.in_stock">স্টকে আছে</span>
                 </label>
             </div>
 
-            <button type="button" class="filter-clear-btn" id="clearFiltersBtn">ফিল্টার পরিষ্কার করুন</button>
+            <button type="button" class="filter-clear-btn" id="clearFiltersBtn" data-i18n="search.clear_filters">ফিল্টার পরিষ্কার করুন</button>
         </aside>
 
         <div class="search-results-main">
@@ -357,7 +361,7 @@
                     <span class="search-count" id="searchCount"></span>
                 </div>
                 <div class="search-sort-box" id="sortBox">
-                    <label for="sortSelect">সাজান</label>
+                    <label for="sortSelect" data-i18n="search.sort">সাজান</label>
                     <select id="sortSelect" class="search-sort-select">
                         <option value="newest">নতুন আগে</option>
                         <option value="oldest">পুরনো আগে</option>
@@ -389,6 +393,7 @@
 <!-- footer calling -->
 <div id="global-site-footer"></div>
 
+<script src="/js/i18n.js"></script>
 <script src="js/session-guard.js"></script>
 <script src="js/toast.js"></script>
 <script src="js/wishlist.js"></script>

@@ -539,14 +539,145 @@ async function sendStockAlertEmail({ to, subject, html }) {
     }
 }
 
+function buildNewsletterWelcomeHtml({ name, unsubscribeUrl, storeUrl }) {
+    const safeName = escapeHtml(name || 'গ্রাহক');
+    const safeUnsub = escapeHtml(unsubscribeUrl);
+    const safeStore = escapeHtml(storeUrl || '/');
+
+    return `
+        <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#ffffff;">
+            <div style="background:#0f172a;padding:28px;text-align:center;">
+                <h2 style="color:#f8fafc;margin:0;font-size:26px;">EOnlineBazar</h2>
+                <p style="color:#94a3b8;margin:10px 0 0;font-size:14px;">নিউজলেটারে স্বাগতম! 🎉</p>
+            </div>
+            <div style="padding:32px;">
+                <p style="color:#111827;font-size:16px;margin:0 0 16px;">প্রিয় <b>${safeName}</b>,</p>
+                <p style="color:#374151;line-height:1.7;margin:0 0 16px;">
+                    EOnlineBazar-এ সাবস্ক্রাইব করার জন্য ধন্যবাদ! এখন থেকে আপনি আমাদের নতুন পণ্য, এক্সক্লুসিভ অফার ও বিশেষ ডিল সম্পর্কে সবার আগে জানতে পারবেন।
+                </p>
+                <p style="color:#374151;line-height:1.7;margin:0 0 24px;">
+                    সেরা কেনাকাটার অভিজ্ঞতার জন্য আমাদের সাথেই থাকুন।
+                </p>
+                <div style="text-align:center;margin:28px 0;">
+                    <a href="${safeStore.replace(/&amp;/g, '&')}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:14px;">আমাদের স্টোর দেখুন</a>
+                </div>
+                <p style="color:#64748b;font-size:12px;line-height:1.6;margin:24px 0 0;text-align:center;">
+                    আর ইমেইল পেতে চান না? <a href="${safeUnsub.replace(/&amp;/g, '&')}" style="color:#64748b;">আনসাবস্ক্রাইব করুন</a>
+                </p>
+            </div>
+            <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:18px 28px;text-align:center;">
+                <p style="margin:0;color:#64748b;font-size:12px;">&copy; ${new Date().getFullYear()} EOnlineBazar. All rights reserved.</p>
+            </div>
+        </div>
+    `;
+}
+
+function buildNewsletterCampaignHtml({ htmlContent, unsubscribeUrl }) {
+    const safeUnsub = escapeHtml(unsubscribeUrl);
+
+    return `
+        <div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;background:#ffffff;">
+            <div style="background:#0f172a;padding:20px;text-align:center;">
+                <h2 style="color:#f8fafc;margin:0;font-size:22px;">EOnlineBazar</h2>
+            </div>
+            <div style="padding:24px;">
+                ${htmlContent}
+            </div>
+            <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:18px 24px;text-align:center;">
+                <p style="margin:0;color:#64748b;font-size:12px;line-height:1.6;">
+                    আর ইমেইল পেতে চান না? <a href="${safeUnsub.replace(/&amp;/g, '&')}" style="color:#64748b;">আনসাবস্ক্রাইব করুন</a>
+                </p>
+                <p style="margin:8px 0 0;color:#94a3b8;font-size:11px;">&copy; ${new Date().getFullYear()} EOnlineBazar</p>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Send newsletter welcome email after subscription.
+ * Never throws — returns { delivered }.
+ */
+async function sendNewsletterWelcomeEmail({ to, name, unsubscribeUrl, storeUrl }) {
+    const recipientEmail = String(to || '').trim();
+
+    if (!recipientEmail) {
+        return { delivered: false, reason: 'Missing recipient email' };
+    }
+
+    if (!SMTP_USER || !SMTP_PASS) {
+        console.error('EMAIL ERROR: SMTP not configured for newsletter welcome.');
+        return { delivered: false, reason: 'Email transport not configured' };
+    }
+
+    const mailOptions = {
+        from: `"EOnlineBazar Newsletter" <${SMTP_FROM || SMTP_USER}>`,
+        to: recipientEmail,
+        subject: 'EOnlineBazar-এ স্বাগতম! 🎉',
+        html: buildNewsletterWelcomeHtml({ name, unsubscribeUrl, storeUrl })
+    };
+
+    try {
+        const portUsed = await withTimeout(
+            sendWithFailover(mailOptions),
+            OVERALL_SEND_DEADLINE_MS,
+            'Newsletter welcome email'
+        );
+        console.log(`SUCCESS: Newsletter welcome email sent to ${recipientEmail}`);
+        return { delivered: true, port: portUsed };
+    } catch (err) {
+        console.error('EMAIL ERROR (newsletter welcome):', err.message || err);
+        return { delivered: false, reason: err.message };
+    }
+}
+
+/**
+ * Send a newsletter campaign email to one recipient.
+ * Never throws — returns { delivered }.
+ */
+async function sendNewsletterCampaignEmail({ to, subject, htmlContent, unsubscribeUrl }) {
+    const recipientEmail = String(to || '').trim();
+
+    if (!recipientEmail) {
+        return { delivered: false, reason: 'Missing recipient email' };
+    }
+
+    if (!SMTP_USER || !SMTP_PASS) {
+        console.error('EMAIL ERROR: SMTP not configured for newsletter campaign.');
+        return { delivered: false, reason: 'Email transport not configured' };
+    }
+
+    const mailOptions = {
+        from: `"EOnlineBazar Newsletter" <${SMTP_FROM || SMTP_USER}>`,
+        to: recipientEmail,
+        subject: String(subject || 'EOnlineBazar Newsletter'),
+        html: buildNewsletterCampaignHtml({ htmlContent, unsubscribeUrl })
+    };
+
+    try {
+        const portUsed = await withTimeout(
+            sendWithFailover(mailOptions),
+            OVERALL_SEND_DEADLINE_MS,
+            'Newsletter campaign email'
+        );
+        return { delivered: true, port: portUsed };
+    } catch (err) {
+        console.error(`EMAIL ERROR (campaign to ${recipientEmail}):`, err.message || err);
+        return { delivered: false, reason: err.message };
+    }
+}
+
 module.exports = {
     sendAdminOtpEmail,
     sendOrderConfirmationEmail,
     notifyOrderConfirmationEmail,
     sendInquiryReplyEmail,
     sendStockAlertEmail,
+    sendNewsletterWelcomeEmail,
+    sendNewsletterCampaignEmail,
     buildOrderConfirmationHtml,
     buildInquiryReplyHtml,
+    buildNewsletterWelcomeHtml,
+    buildNewsletterCampaignHtml,
     getTransportForPort,
     buildTransportForPort,
     // Backward-compat alias for older imports expecting createSmtpTransport().

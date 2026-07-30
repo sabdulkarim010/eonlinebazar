@@ -378,4 +378,110 @@ footer.compact-footer .footer-payment-badge--cod { color: #22c55e; }
         justify-content: flex-end;
         gap: 8px;
     }
+
+    footer.compact-footer .footer-mobile-newsletter {
+        display: none;
+    }
+}
+
+/* ——— Newsletter signup ——— */
+footer.compact-footer .newsletter-section h3 {
+    color: #f1f5f9;
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 6px;
+}
+
+footer.compact-footer .newsletter-section p {
+    color: #94a3b8;
+    font-size: 12px;
+    margin: 0 0 12px;
+    line-height: 1.5;
+}
+
+footer.compact-footer .newsletter-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+footer.compact-footer .newsletter-form input[type="email"] {
+    flex: 1 1 160px;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    background: #1e293b;
+    color: #f1f5f9;
+    font-size: 13px;
+}
+
+footer.compact-footer .newsletter-form input[type="email"]::placeholder {
+    color: #64748b;
+}
+
+footer.compact-footer .newsletter-form input[type="email"]:focus {
+    outline: none;
+    border-color: #38bdf8;
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
+}
+
+footer.compact-footer .newsletter-form button {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #007bff, #00d2ff);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.2s ease;
+}
+
+footer.compact-footer .newsletter-form button:hover {
+    opacity: 0.9;
+}
+
+footer.compact-footer .newsletter-msg {
+    margin: 8px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+footer.compact-footer .footer-mobile-newsletter {
+    width: 100%;
+    padding: 8px 8px 4px;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.45);
+}
+
+footer.compact-footer .newsletter-section--mobile h3 {
+    font-size: 12px;
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+footer.compact-footer .newsletter-section--mobile .newsletter-form {
+    justify-content: center;
+}
+
+footer.compact-footer .newsletter-section--mobile .newsletter-form input[type="email"] {
+    flex: 1 1 140px;
+    font-size: 12px;
+    padding: 8px 10px;
+}
+
+footer.compact-footer .newsletter-section--mobile .newsletter-form button {
+    font-size: 12px;
+    padding: 8px 12px;
+}
+
+footer.compact-footer .footer-col--newsletter {
+    min-width: 220px;
+}
+
+@media (min-width: 768px) {
+    footer.compact-footer .footer-mobile-newsletter {
+        display: none !important;
+    }
 }

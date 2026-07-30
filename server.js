@@ -39,6 +39,7 @@ const storeRoutes = require('./routes/storeRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const inquiryRoutes = require('./routes/inquiryRoutes');
+const newsletterRoutes = require('./routes/newsletterRoutes');
 const { seedDefaultPaymentMethods } = require('./utils/paymentMethodService');
 const storeSettingsMiddleware = require('./middlewares/storeSettingsMiddleware');
 const { applyBrandingToHtml } = require('./utils/brandingHtml');
@@ -54,7 +55,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 function sendClientHtml(res, filename) {
     const absPath = path.join(CLIENT_DIR, filename);
     const settings = res.locals.settings || DEFAULT_SETTINGS;
-    const html = applyBrandingToHtml(fs.readFileSync(absPath, 'utf8'), settings);
+    const html = applyBrandingToHtml(fs.readFileSync(absPath, 'utf8'), settings, { filename });
     res.type('html').send(html);
 }
 
@@ -163,6 +164,7 @@ app.use('/api/store', storeRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/inquiries', inquiryRoutes);
+app.use('/api/newsletter', newsletterRoutes);
 
 // Finance analytics — explicit path expected by the dashboard UI
 // URL: GET /admin/api/analytics?period=&startDate=&endDate=
@@ -382,6 +384,17 @@ app.get('/admin/*splat', (req, res) => {
 // Public SEO endpoints — before static files and 404 handler
 app.use(seoRoutes);
 
+// PWA manifest and service worker (correct MIME + SW scope headers)
+app.get('/manifest.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/manifest+json');
+    res.sendFile(path.join(PUBLIC_DIR, 'manifest.json'));
+});
+app.get('/service-worker.js', (req, res) => {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Service-Worker-Allowed', '/');
+    res.sendFile(path.join(PUBLIC_DIR, 'service-worker.js'));
+});
+
 // Static assets — public/ (optional shared assets) then client/ storefront root
 if (fs.existsSync(PUBLIC_DIR)) {
     app.use(express.static(PUBLIC_DIR, { index: false }));
@@ -416,8 +429,13 @@ app.use((err, req, res, next) => {
     res.status(500).sendFile(path.join(__dirname, 'public', '404.html'));
 });
 
-// ৫. সার্ভার স্টার্ট করা
-app.listen(PORT, () => {
+// ৫. সার্ভার স্টার্ট করা (Socket.IO requires the raw HTTP server)
+const http = require('http');
+const httpServer = http.createServer(app);
+const { initSocketServer } = require('./utils/socketService');
+initSocketServer(httpServer);
+
+httpServer.listen(PORT, () => {
     console.log(`Server is running at http://localhost:${PORT}`);
 });
 

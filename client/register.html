@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +12,10 @@
 <body>
 
 <div class="auth-wrapper">
+    <button type="button" class="lang-toggle lang-toggle--auth" onclick="i18n.setLanguage(i18n.getCurrentLang() === 'bn' ? 'en' : 'bn')" title="Switch Language">
+        <span id="lang-label">EN</span>
+    </button>
+
     <div class="auth-container auth-container--register">
         
         <button class="auth-close-circle" onclick="window.location.href='/index'" title="Go Back">
@@ -24,7 +28,7 @@
                 <div class="brand-icon-circle">
                     <i class="fa-solid fa-user-plus"></i>
                 </div>
-                <h2 class="auth-title">Create Account</h2>
+                <h2 class="auth-title" data-i18n="auth.register">নিবন্ধন করুন</h2>
             </div>
             
             <form id="registerForm" novalidate>
@@ -47,7 +51,7 @@
                         <select id="regDistrict" aria-label="District">
                             <option value="" selected>Select District (Optional)</option>
                         </select>
-                        <label for="regDistrict">District</label>
+                        <label for="regDistrict" data-i18n="checkout.district">জেলা</label>
                     </div>
                     <div class="floating-group floating-select">
                         <select id="regUpazila" aria-label="Upazila or Thana" disabled>
@@ -65,32 +69,32 @@
 
                 <div class="floating-group">
                     <input type="email" id="regEmail" required placeholder=" ">
-                    <label for="regEmail">Email Address</label>
+                    <label for="regEmail" data-i18n="auth.email">ইমেইল</label>
                     <div id="reg-email-error" class="error-text"></div>
                 </div>
 
                 <div class="floating-group password-group">
                     <input type="password" id="regPassword" required placeholder=" ">
-                    <label for="regPassword">Password</label>
+                    <label for="regPassword" data-i18n="auth.password">পাসওয়ার্ড</label>
                     <button type="button" class="toggle-password" id="toggleRegPass" title="Show/Hide Password">
                         <i class="fa-regular fa-eye" id="regEyeIcon"></i>
                     </button>
                     <div id="reg-password-error" class="error-text"></div>
                 </div>
 
-                <button type="submit" class="btn-primary">Register Now</button>
+                <button type="submit" class="btn-primary" data-i18n="auth.register">নিবন্ধন করুন</button>
             </form>
 
             <div id="google-auth-section" class="google-auth-section" style="display: none;">
                 <p class="auth-divider"><span>অথবা</span></p>
                 <a href="/api/auth/google" class="btn-google-login" id="googleLoginBtn">
                     <img src="/images/google-icon.svg" alt="Google">
-                    Google দিয়ে লগইন করুন
+                    <span data-i18n="auth.google_login">Google দিয়ে লগইন</span>
                 </a>
             </div>
 
             <p class="auth-switch-text">
-                Already have an account? <a href="/login">Login here</a>
+                <span data-i18n="auth.have_account">অ্যাকাউন্ট আছে?</span> <a href="/login" data-i18n="auth.login">লগইন</a>
             </p>
         </div>
 
@@ -100,6 +104,7 @@
 </div>
 
 <div id="global-site-footer"></div>
+<script src="/js/i18n.js"></script>
 <script src="js/session-guard.js"></script>
 <script src="js/main.js"></script>
 <script src="js/bd-districts.js"></script>

@@ -239,10 +239,10 @@ function renderProductInfo(product) {
     if (stockStatus) {
         const totalStock = Number(product.stockQuantity ?? product.stock) || 0;
         if (totalStock > 0) {
-            stockStatus.innerText = "In Stock";
+            stockStatus.innerText = window.i18n ? window.i18n.t('product.in_stock') : 'In Stock';
             stockStatus.style.color = "var(--success-green)";
         } else {
-            stockStatus.innerText = "Out of Stock";
+            stockStatus.innerText = window.i18n ? window.i18n.t('product.out_of_stock') : 'Out of Stock';
             stockStatus.style.color = "var(--accent-red)";
         }
     }
@@ -952,7 +952,7 @@ function refreshCombinationMatrixUI() {
             if (!oosTag) {
                 oosTag = document.createElement('span');
                 oosTag.className = 'variant-oos-tag';
-                oosTag.textContent = 'Out of Stock';
+                oosTag.textContent = window.i18n ? window.i18n.t('product.out_of_stock') : 'Out of Stock';
                 badge.appendChild(oosTag);
             }
         } else if (oosTag) {
@@ -1128,7 +1128,7 @@ function renderLegacyFlatVariants(product, variants, wrap) {
                         aria-disabled="${disabled}">
                         <span class="variant-badge-value">${escapeHtml(v.value || v.attribute)}</span>
                         ${showPrice ? `<span class="variant-badge-price">৳${price.toLocaleString()}</span>` : ''}
-                        ${disabled ? `<span class="variant-oos-tag">Out of Stock</span>` : ''}
+                        ${disabled ? `<span class="variant-oos-tag">${window.i18n ? window.i18n.t('product.out_of_stock') : 'Out of Stock'}</span>` : ''}
                     </div>`;
         });
         html += `</div></div>`;
@@ -1301,10 +1301,13 @@ function updateStockStatus(stock) {
     const stockStatus = document.getElementById('stockStatus');
     if (!stockStatus) return;
     if (stock > 0) {
-        stockStatus.innerText = `In Stock${stock <= 5 ? ` (${stock} left)` : ''}`;
+        const inStockLabel = window.i18n ? window.i18n.t('product.in_stock') : 'In Stock';
+        stockStatus.innerText = stock <= 5
+            ? `${inStockLabel}${window.i18n ? '' : ` (${stock} left)`}`
+            : inStockLabel;
         stockStatus.style.color = "var(--success-green)";
     } else {
-        stockStatus.innerText = "Out of Stock";
+        stockStatus.innerText = window.i18n ? window.i18n.t('product.out_of_stock') : 'Out of Stock';
         stockStatus.style.color = "var(--accent-red)";
     }
 }
@@ -2089,3 +2092,11 @@ async function fetchProductReviews(productId) {
 // NOTE: Review submission has moved to the User Dashboard (My Orders).
 // This page is now read-only for reviews - customers can only submit a
 // review from their dashboard once the related order status is "Delivered".
+
+document.addEventListener('languageChanged', () => {
+    if (window.i18n) window.i18n.applyTranslations();
+    if (currentProductData) {
+        updateStockStatus(getAvailableStock());
+        renderVariants(currentProductData);
+    }
+});

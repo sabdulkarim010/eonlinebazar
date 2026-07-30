@@ -1,3 +1,7 @@
+/********************************************************************
+ * Jest global setup — in-memory MongoDB, mocks, and shared helpers.
+ ********************************************************************/
+
 jest.mock('../utils/redisClient', () => {
   const mockClient = {
     isReady: false,
@@ -10,12 +14,15 @@ jest.mock('../utils/redisClient', () => {
     on: jest.fn(),
     quit: jest.fn().mockResolvedValue('OK'),
   };
+  mockClient.isRedisAvailable = jest.fn().mockReturnValue(false);
   return mockClient;
 });
 
-/********************************************************************
- * Jest global setup — in-memory MongoDB, mocks, and shared helpers.
- ********************************************************************/
+jest.mock('../utils/socketService', () => ({
+  initSocketServer: jest.fn(),
+  emitToAdmins: jest.fn().mockReturnValue(false),
+  getSocketServer: jest.fn().mockReturnValue(null),
+}));
 
 jest.mock('nodemailer', () => ({
     createTransport: jest.fn(() => ({

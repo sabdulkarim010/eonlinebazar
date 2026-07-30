@@ -7,6 +7,7 @@ const ContactMessage = require('../models/ContactMessage');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { sendInquiryReplyEmail } = require('../utils/mailer');
 const { getStoreSettings } = require('../utils/storeSettingsService');
+const { emitToAdmins } = require('../utils/socketService');
 
 function readString(value, max) {
     return String(value ?? '').trim().slice(0, max);
@@ -35,6 +36,13 @@ const submitContactMessage = async (req, res) => {
         }
 
         const doc = await ContactMessage.create({ name, email, phone, subject, message });
+
+        emitToAdmins('new_message', {
+            messageId: doc._id,
+            senderName: doc.name,
+            subject: doc.subject,
+            createdAt: doc.createdAt
+        });
 
         await logSecurityEvent({
             actor: email,

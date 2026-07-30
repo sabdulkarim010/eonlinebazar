@@ -33,6 +33,7 @@ const paymentMethodController = require('../controllers/paymentMethodController'
 const footerSettingsController = require('../controllers/footerSettingsController');
 const pageContentController = require('../controllers/pageContentController');
 const contactController = require('../controllers/contactController');
+const newsletterAdminController = require('../controllers/newsletterAdminController');
 const upload = require('../middlewares/uploadMiddleware');
 const { brandingUpload, paymentMethodLogoUpload, footerIconUpload, importFileUpload } = upload;
 const staffController = require('../controllers/staffController');
@@ -262,6 +263,17 @@ router.get('/messages', verifyAdmin, checkPermission('manage_settings'), contact
 router.patch('/messages/:id/read', verifyAdmin, checkPermission('manage_settings'), contactController.markContactMessageRead);
 router.patch('/messages/:id/unread', verifyAdmin, checkPermission('manage_settings'), contactController.markContactMessageUnread);
 router.delete('/messages/:id', verifyAdmin, checkPermission('manage_settings'), contactController.deleteContactMessage);
+
+/********************************************************************
+ # ৫ছ. 📧 NEWSLETTER & EMAIL CAMPAIGNS
+ # URL: /api/admin/newsletter/*
+ ********************************************************************/
+router.get('/newsletter/subscribers', verifyAdmin, newsletterAdminController.listSubscribers);
+router.delete('/newsletter/subscribers/:id', verifyAdmin, newsletterAdminController.deleteSubscriber);
+router.post('/newsletter/campaigns', verifyAdmin, newsletterAdminController.createCampaign);
+router.get('/newsletter/campaigns', verifyAdmin, newsletterAdminController.listCampaigns);
+router.post('/newsletter/campaigns/:id/send', verifyAdmin, newsletterAdminController.sendCampaign);
+router.post('/newsletter/campaigns/:id/test', verifyAdmin, newsletterAdminController.testCampaign);
 
 // URL: GET|POST /api/admin/announcement-settings (legacy announcement-only save)
 router.get('/announcement-settings', verifyAdmin, masterSettingsController.getAnnouncementSettings);

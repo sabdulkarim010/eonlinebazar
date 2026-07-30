@@ -61,8 +61,8 @@
                 <ul>
                     <li class="active" data-target="view-overview"><i class="fa-solid fa-chart-pie"></i> Overview</li>
                     <li data-target="view-customers"><i class="fa-solid fa-users"></i> All Customers</li>
-                    <li data-target="view-orders"><i class="fa-solid fa-cart-shopping"></i> Live Orders</li>
-                    <li data-target="view-messages"><i class="fa-solid fa-envelope-open-text"></i> Messages / Inquiries</li>
+                    <li data-target="view-orders"><i class="fa-solid fa-cart-shopping"></i> Live Orders <span id="sidebarOrdersBadge" class="sidebar-nav-badge" hidden>0</span></li>
+                    <li data-target="view-messages"><i class="fa-solid fa-envelope-open-text"></i> Messages / Inquiries <span id="sidebarMessagesBadge" class="sidebar-nav-badge" hidden>0</span></li>
                     <li data-target="view-add-product"><i class="fa-solid fa-circle-plus"></i> Add New Product</li>
                     <li data-target="view-manage-products"><i class="fa-solid fa-boxes-stacked"></i> Manage Products</li>
 
@@ -79,6 +79,17 @@
                             <li data-target="manage-brands"><i class="fa-solid fa-copyright"></i> Manage Brands</li>
                             <li data-target="manage-attributes"><i class="fa-solid fa-sliders"></i> Attributes</li>
                             <li data-target="manage-coupons"><i class="fa-solid fa-ticket"></i> Manage Coupons</li>
+                        </ul>
+                    </li>
+
+                    <li class="menu-group">
+                        <div class="catalog-toggle">
+                            <span class="catalog-toggle-label"><i class="fa-solid fa-envelope-circle-check"></i> Newsletter</span>
+                            <i class="fa-solid fa-chevron-down catalog-chevron"></i>
+                        </div>
+                        <ul class="submenu">
+                            <li data-target="view-newsletter-subscribers"><i class="fa-solid fa-users"></i> সাবস্ক্রাইবার তালিকা</li>
+                            <li data-target="view-newsletter-campaigns"><i class="fa-solid fa-paper-plane"></i> ইমেইল ক্যাম্পেইন</li>
                         </ul>
                     </li>
 
@@ -165,6 +176,21 @@
                         <input type="date" id="hiddenDatePicker" class="hidden-date-input" aria-label="Pick a date">
                     </div>
                     <button type="button" id="refreshDataBtn" class="sync-btn"><i class="fa-solid fa-rotate"></i> Sync Data</button>
+                    <div class="admin-notif-bell-wrap" id="adminNotifBellWrap">
+                        <button type="button" id="adminNotifBellBtn" class="admin-notif-bell-btn" title="Notifications" aria-label="Notifications">
+                            <span class="admin-notif-bell-icon" aria-hidden="true">🔔</span>
+                            <span class="admin-notif-bell-count" id="adminNotifBellCount" hidden>0</span>
+                        </button>
+                        <div class="admin-notif-dropdown" id="adminNotifDropdown" hidden>
+                            <div class="admin-notif-dropdown-head">
+                                <strong>Notifications</strong>
+                                <button type="button" id="adminNotifMarkAllRead" class="admin-notif-mark-read">সব পড়েছি</button>
+                            </div>
+                            <div class="admin-notif-dropdown-list" id="adminNotifDropdownList">
+                                <p class="admin-notif-empty">No notifications yet</p>
+                            </div>
+                        </div>
+                    </div>
                     <div class="whatsapp-alert-badge-wrap" id="whatsappAlertBadgeWrap" style="display: none;">
                         <button type="button" id="whatsappAlertBadgeBtn" class="whatsapp-alert-badge-btn" title="Pending WhatsApp order alerts">
                             <i class="fa-brands fa-whatsapp"></i>
@@ -618,6 +644,141 @@
             </thead>
             <tbody id="couponTableBody"></tbody>
         </table>
+    </div>
+</section>
+
+<section id="view-newsletter-subscribers" class="admin-section catalog-page" style="display: none;">
+    <div class="catalog-page-header">
+        <div>
+            <h3><i class="fa-solid fa-users"></i> সাবস্ক্রাইবার তালিকা</h3>
+            <p class="catalog-page-sub">নিউজলেটার সাবস্ক্রাইবারদের তালিকা ও স্ট্যাটাস পরিচালনা করুন।</p>
+        </div>
+    </div>
+
+    <div class="newsletter-stats-bar" id="newsletterStatsBar">
+        <span class="newsletter-stat-pill"><strong id="nlStatTotal">0</strong> মোট</span>
+        <span class="newsletter-stat-pill newsletter-stat-pill--active"><strong id="nlStatActive">0</strong> সক্রিয়</span>
+        <span class="newsletter-stat-pill newsletter-stat-pill--inactive"><strong id="nlStatInactive">0</strong> আনসাবস্ক্রাইব</span>
+    </div>
+
+    <div class="catalog-toolbar newsletter-toolbar">
+        <div class="catalog-field catalog-field-grow">
+            <label for="nlSubscriberSearch">Search</label>
+            <input type="search" id="nlSubscriberSearch" placeholder="Email or name...">
+        </div>
+        <div class="catalog-field">
+            <label for="nlSubscriberStatus">Status</label>
+            <select id="nlSubscriberStatus">
+                <option value="">All</option>
+                <option value="true">Active</option>
+                <option value="false">Unsubscribed</option>
+            </select>
+        </div>
+        <div class="catalog-field">
+            <label for="nlSubscriberTag">Tag</label>
+            <input type="text" id="nlSubscriberTag" placeholder="Filter by tag">
+        </div>
+        <button type="button" class="btn-secondary" id="nlSubscriberRefreshBtn"><i class="fa-solid fa-rotate"></i> Refresh</button>
+    </div>
+
+    <div class="catalog-table-wrap coupon-table-wrap coupon-table-scroll">
+        <table class="catalog-table">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Name</th>
+                    <th>Source</th>
+                    <th>Subscribed Date</th>
+                    <th>Status</th>
+                    <th class="col-actions">Action</th>
+                </tr>
+            </thead>
+            <tbody id="nlSubscriberTableBody"></tbody>
+        </table>
+    </div>
+
+    <div class="newsletter-pagination" id="nlSubscriberPagination"></div>
+</section>
+
+<section id="view-newsletter-campaigns" class="admin-section catalog-page" style="display: none;">
+    <div class="catalog-page-header">
+        <div>
+            <h3><i class="fa-solid fa-paper-plane"></i> ইমেইল ক্যাম্পেইন</h3>
+            <p class="catalog-page-sub">নিউজলেটার ক্যাম্পেইন তৈরি, টেস্ট ও পাঠান।</p>
+        </div>
+    </div>
+
+    <form id="nlCampaignForm" class="coupon-form-card" novalidate>
+        <input type="hidden" id="nlCampaignEditId" value="">
+        <div class="coupon-form-grid">
+            <div class="catalog-field">
+                <label for="nlCampaignTitle">Title</label>
+                <input type="text" id="nlCampaignTitle" placeholder="Internal campaign title" required>
+            </div>
+            <div class="catalog-field">
+                <label for="nlCampaignSubject">Subject</label>
+                <input type="text" id="nlCampaignSubject" placeholder="Email subject line" required>
+            </div>
+            <div class="catalog-field catalog-field-full">
+                <label for="nlCampaignHtml">HTML Content</label>
+                <textarea id="nlCampaignHtml" rows="10" placeholder="<h1>Hello!</h1><p>Your offer here...</p>" required></textarea>
+                <small class="optional-hint">HTML ফরম্যাটে লিখুন</small>
+            </div>
+            <div class="catalog-field">
+                <label for="nlCampaignTags">Target Tags</label>
+                <input type="text" id="nlCampaignTags" placeholder="vip, sale (comma separated)">
+                <small class="optional-hint">খালি রাখলে সব সক্রিয় সাবস্ক্রাইবার</small>
+            </div>
+            <div class="catalog-field">
+                <label for="nlCampaignSchedule">Schedule (optional)</label>
+                <input type="datetime-local" id="nlCampaignSchedule">
+            </div>
+            <div class="catalog-field">
+                <label for="nlCampaignTestEmail">Test Email</label>
+                <input type="email" id="nlCampaignTestEmail" placeholder="preview@example.com">
+            </div>
+        </div>
+        <div class="coupon-form-actions">
+            <button type="button" class="btn-submit catalog-add-btn" id="nlCampaignSaveBtn">
+                <i class="fa-solid fa-floppy-disk"></i> ড্রাফট সেভ করুন
+            </button>
+            <button type="button" class="btn-secondary" id="nlCampaignTestBtn">
+                <i class="fa-solid fa-vial"></i> টেস্ট পাঠান
+            </button>
+            <button type="button" class="btn-submit" id="nlCampaignSendBtn" style="background:#16a34a;">
+                <i class="fa-solid fa-paper-plane"></i> এখনই পাঠান
+            </button>
+        </div>
+    </form>
+
+    <div class="catalog-table-wrap coupon-table-wrap coupon-table-scroll" style="margin-top:24px;">
+        <table class="catalog-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Subject</th>
+                    <th>Status</th>
+                    <th>Recipients</th>
+                    <th>Sent</th>
+                    <th>Created Date</th>
+                    <th class="col-actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="nlCampaignTableBody"></tbody>
+        </table>
+    </div>
+
+    <div id="nlCampaignViewModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="nlCampaignViewTitle">
+        <div class="modal-content" style="max-width:720px;">
+            <div class="modal-header">
+                <h3 id="nlCampaignViewTitle">Campaign Preview</h3>
+                <button type="button" class="modal-close" onclick="closeNlCampaignViewModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="nlCampaignViewMeta" class="newsletter-view-meta"></div>
+                <div id="nlCampaignViewHtml" class="newsletter-html-preview"></div>
+            </div>
+        </div>
     </div>
 </section>
 
@@ -3226,6 +3387,7 @@
         </div>
     </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script src="/js/bd-districts.js"></script>
     <script src="/js/bd-upazilas.js"></script>
     <script src="/js/variantUtils.js"></script>
@@ -3234,6 +3396,7 @@
     <script src="/js/markdownToHtml.js"></script>
     <script type="module" src="/js/admin.js"></script>
     <script type="module" src="/js/admin-staff.js"></script>
+    <script src="/js/admin-newsletter.js"></script>
 
 </body>
 </html>

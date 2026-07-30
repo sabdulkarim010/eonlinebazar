@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -32,6 +32,9 @@
                 </a>
             </div>
             <div class="checkout-step-header__center">
+                <button type="button" class="lang-toggle lang-toggle--standalone" style="position:static;margin-right:12px;" onclick="i18n.setLanguage(i18n.getCurrentLang() === 'bn' ? 'en' : 'bn')" title="Switch Language">
+                    <span id="lang-label">EN</span>
+                </button>
                 <span class="checkout-step-header__secure-badge">
                     <i class="fa-solid fa-lock" aria-hidden="true"></i>
                     <span class="checkout-step-header__secure-desktop">SECURE CHECKOUT</span>
@@ -47,7 +50,7 @@
         
         <div class="cart-title-area">
             <h2>
-                <i class="fa-solid fa-cart-shopping"></i> Shopping Cart
+                <i class="fa-solid fa-cart-shopping"></i> <span data-i18n="cart.title">আপনার কার্ট</span>
             </h2>
         </div>
 
@@ -56,7 +59,7 @@
 
         <div class="cart-totals-bottom-section cart-summary-compact" id="cartSummarySection">
             <p class="subtotal-row">Selected Items: <strong id="cartSelectedItemsCount">0 Items</strong></p>
-            <p class="subtotal-row cart-summary-subtotal">Subtotal: <strong id="cartSubtotalAmount">৳0</strong></p>
+            <p class="subtotal-row cart-summary-subtotal"><span data-i18n="cart.total">মোট</span>: <strong id="cartSubtotalAmount">৳0</strong></p>
 
             <div class="free-shipping-progress" id="cartFreeShippingProgress" style="display:none;">
                 <p class="free-shipping-progress-text" id="cartFreeShippingProgressText"></p>
@@ -66,7 +69,7 @@
             </div>
 
             <button type="button" id="proceedToCheckoutBtn" class="checkout-redirect-btn">
-                Proceed to Checkout <i class="fa-solid fa-arrow-right"></i>
+                <span data-i18n="cart.checkout">চেকআউট করুন</span> <i class="fa-solid fa-arrow-right"></i>
             </button>
         </div>
 
@@ -74,6 +77,7 @@
 
         <!-- footer calling -->
         <div id="global-site-footer"></div>
+    <script src="/js/i18n.js"></script>
     <script src="js/session-guard.js"></script>
     <script src="js/toast.js"></script>
     <script src="js/main.js"></script>

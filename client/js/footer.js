@@ -35,6 +35,7 @@ async function initGlobalFooterEngine() {
 
         setTimeout(() => {
             footerContainer.style.opacity = '1';
+            if (window.i18n?.applyTranslations) window.i18n.applyTranslations();
         }, 50);
     } catch (error) {
         console.error('eOnlineBazar Footer Engine Error:', error);
@@ -55,3 +56,38 @@ async function initGlobalFooterEngine() {
 }
 
 window.initGlobalFooterEngine = initGlobalFooterEngine;
+
+async function subscribeNewsletter(inputId = 'newsletter-email') {
+    const emailInput = document.getElementById(inputId);
+    if (!emailInput) return;
+
+    const email = emailInput.value.trim();
+    if (!email) return;
+
+    const msgId = inputId === 'newsletter-email-mobile' ? 'newsletter-msg-mobile' : 'newsletter-msg';
+    const msg = document.getElementById(msgId);
+
+    try {
+        const res = await fetch('/api/newsletter/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, source: 'footer_form' })
+        });
+        const data = await res.json();
+        if (msg) {
+            msg.textContent = data.message;
+            msg.style.color = data.success ? '#4ade80' : '#f87171';
+            msg.style.display = 'block';
+        }
+        if (data.success) emailInput.value = '';
+    } catch (err) {
+        console.error(err);
+        if (msg) {
+            msg.textContent = 'কিছু একটা ভুল হয়েছে';
+            msg.style.color = '#f87171';
+            msg.style.display = 'block';
+        }
+    }
+}
+
+window.subscribeNewsletter = subscribeNewsletter;

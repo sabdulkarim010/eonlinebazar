@@ -41,7 +41,12 @@ function getQueryParam(name) {
 }
 
 function toBnNumber(n) {
-    return Number(n || 0).toLocaleString('bn-BD');
+    const lang = window.i18n?.getCurrentLang?.() || 'bn';
+    return Number(n || 0).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US');
+}
+
+function t(key, vars) {
+    return window.i18n ? window.i18n.t(key, vars) : key;
 }
 
 function escapeHtml(str) {
@@ -238,7 +243,7 @@ function renderBrandFilters() {
     if (expandBtn) {
         const hasMore = brands.length > MAX_VISIBLE_BRANDS;
         expandBtn.style.display = hasMore ? 'block' : 'none';
-        expandBtn.textContent = brandsExpanded ? 'কম দেখুন' : 'আরো দেখুন';
+        expandBtn.textContent = brandsExpanded ? 'কম দেখুন' : t('common.see_more');
     }
 }
 
@@ -368,7 +373,7 @@ function initFilterControls() {
         mobileToggle.addEventListener('click', () => {
             const isOpen = filtersPanel.classList.toggle('is-open');
             mobileToggle.setAttribute('aria-expanded', String(isOpen));
-            mobileToggle.textContent = isOpen ? 'ফিল্টার লুকান 🔼' : 'ফিল্টার দেখুন 🔽';
+            mobileToggle.textContent = isOpen ? `${t('search.filter')} ▲` : `${t('search.filter')} ▼`;
         });
     }
 }
@@ -412,7 +417,7 @@ async function runSearch() {
     grid.innerHTML = `
         <div class="search-state">
             <div class="state-icon"><i class="fa fa-spinner fa-spin"></i></div>
-            <h3>সার্চ করা হচ্ছে...</h3>
+            <h3>${t('common.loading')}</h3>
             <p>আপনার জন্য সেরা ম্যাচ খুঁজছি।</p>
         </div>`;
     pagination.innerHTML = '';
@@ -449,18 +454,18 @@ async function runSearch() {
         renderActiveFilterTags();
 
         if (!products.length) {
-            countEl.textContent = '০টি পণ্য পাওয়া গেছে';
+            countEl.textContent = t('search.results', { count: toBnNumber(0) });
             grid.innerHTML = `
                 <div class="search-state">
                     <div class="state-icon"><i class="fa fa-box-open"></i></div>
-                    <h3>কোনো পণ্য পাওয়া যায়নি</h3>
+                    <h3>${t('search.no_results')}</h3>
                     <p>${q ? `"<strong>${escapeHtml(q)}</strong>" এর জন্য` : 'এই ফিল্টারে'} কোনো ফলাফল নেই। ফিল্টার পরিবর্তন করে দেখুন।</p>
-                    <button type="button" class="search-back-btn" onclick="clearAllFilters()">ফিল্টার পরিষ্কার করুন</button>
+                    <button type="button" class="search-back-btn" onclick="clearAllFilters()">${t('search.clear_filters')}</button>
                 </div>`;
             return;
         }
 
-        countEl.textContent = `${toBnNumber(total)}টি পণ্য পাওয়া গেছে`;
+        countEl.textContent = t('search.results', { count: toBnNumber(total) });
         renderProducts(products);
         renderPagination();
     } catch (err) {
@@ -468,7 +473,7 @@ async function runSearch() {
         grid.innerHTML = `
             <div class="search-state">
                 <div class="state-icon"><i class="fa fa-triangle-exclamation"></i></div>
-                <h3>কিছু একটা ভুল হয়েছে</h3>
+                <h3>${t('common.error')}</h3>
                 <p>সার্চ সম্পন্ন করা যায়নি। আবার চেষ্টা করুন।</p>
                 <a href="/" class="search-back-btn">কেনাকাটায় ফিরুন</a>
             </div>`;
@@ -527,7 +532,7 @@ function renderProducts(list) {
 
         const addToCartBtn = document.createElement('button');
         addToCartBtn.className = 'add-to-cart-btn';
-        addToCartBtn.innerText = 'Add to Bag';
+        addToCartBtn.innerText = t('product.add_to_cart');
         addToCartBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -679,6 +684,11 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSearchSeoTitle();
     syncNavbarUser();
     loadFooter();
+});
+
+document.addEventListener('languageChanged', () => {
+    if (window.i18n) window.i18n.applyTranslations();
+    runSearch();
 });
 
 /* ==========================================================================

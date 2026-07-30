@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,9 +28,13 @@
 </head>
 <body>
 
+    <button type="button" class="lang-toggle lang-toggle--standalone" onclick="i18n.setLanguage(i18n.getCurrentLang() === 'bn' ? 'en' : 'bn')" title="Switch Language">
+        <span id="lang-label">EN</span>
+    </button>
+
     <main class="product-details-container">
         <nav class="breadcrumb-nav">
-            <a href="/">Home</a>
+            <a href="/" data-i18n="nav.home">হোম</a>
             <i class="fa-solid fa-angle-right"></i>
             <a href="#" id="breadcrumbCategory">Category</a>
             <i class="fa-solid fa-angle-right"></i>
@@ -44,7 +48,7 @@
 
             <div id="productLoading" class="loading-spinner">
                 <i class="fa-solid fa-circle-notch fa-spin"></i> 
-                <span>Loading premium product details...</span>
+                <span data-i18n="common.loading">লোড হচ্ছে...</span>
             </div>
 
             <div id="productContent" class="product-content-wrapper hidden">
@@ -70,7 +74,7 @@
                 
                 <div class="info-top-meta">
                     <span class="info-category-label" id="infoCategory">Category Name</span>
-                    <span class="stock-status-badge" id="stockStatus">In Stock</span>
+                    <span class="stock-status-badge" id="stockStatus" data-i18n="product.in_stock">স্টকে আছে</span>
                 </div>
 
                 <h1 id="productTitle" class="product-title">Product Title Loading...</h1>
@@ -121,7 +125,7 @@
 
                 <div class="product-actions-wrapper">
                     <div class="quantity-control-block">
-                        <span class="qty-label">Quantity:</span>
+                        <span class="qty-label" data-i18n="cart.quantity">পরিমাণ</span>:
                         <div class="quantity-selector">
                             <button type="button" id="decreaseQtyBtn"><i class="fa-solid fa-minus"></i></button>
                             <input type="number" id="productQtyInput" value="1" min="1" readonly>
@@ -131,10 +135,10 @@
                     
                     <div class="action-buttons-group">
                         <button type="button" id="addToCartBtn" class="btn-add-to-cart">
-                            <i class="fa-solid fa-cart-shopping"></i> Add to Cart
+                            <i class="fa-solid fa-cart-shopping"></i> <span data-i18n="product.add_to_cart">কার্টে যোগ করুন</span>
                         </button>
                         <button type="button" id="buyNowBtn" class="btn-buy-now">
-                            <i class="fa-solid fa-bolt"></i> Buy Now
+                            <i class="fa-solid fa-bolt"></i> <span data-i18n="product.buy_now">এখনই কিনুন</span>
                         </button>
                     </div>
                 </div>
@@ -170,8 +174,8 @@
         <div id="productExtraSection" class="product-extra-section hidden">
             
             <div class="modern-tabs-header">
-                <button class="tab-trigger active" data-tab="desc-tab">Description</button>
-                <button class="tab-trigger" data-tab="review-tab">Reviews (<span id="tabReviewCount">0</span>)</button>
+                <button class="tab-trigger active" data-tab="desc-tab" data-i18n="product.description">বিবরণ</button>
+                <button class="tab-trigger" data-tab="review-tab"><span data-i18n="product.reviews">রিভিউ</span> (<span id="tabReviewCount">0</span>)</button>
             </div>
 
             <div id="desc-tab" class="tab-content-pane active">
@@ -209,11 +213,12 @@
             </div>
             <div class="sticky-action-btns">
                 <button type="button" id="stickyAddToCartBtn" class="btn-add-to-cart-mini"><i class="fa-solid fa-cart-shopping"></i></button>
-                <button type="button" id="stickyBuyNowBtn" class="btn-buy-now-mini">Buy Now</button>
+                <button type="button" id="stickyBuyNowBtn" class="btn-buy-now-mini" data-i18n="product.buy_now">এখনই কিনুন</button>
             </div>
         </div>
     </div>
 
+    <script src="/js/i18n.js"></script>
     <script src="js/session-guard.js"></script>
     <script src="js/toast.js"></script>
     <script src="js/productThumbnail.js"></script>

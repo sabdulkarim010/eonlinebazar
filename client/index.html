@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -45,12 +45,16 @@
             <a href="/" class="logo-box" id="home-brand-logo" data-store-logo-slot data-logo-variant="navbar" aria-label="EonlineBazar Home"></a>
 
             <div class="nav-right">
+                <button type="button" class="lang-toggle" onclick="i18n.setLanguage(i18n.getCurrentLang() === 'bn' ? 'en' : 'bn')" title="Switch Language">
+                    <span id="lang-label">EN</span>
+                </button>
+
                 <div class="nav-user-account" id="nav-user-link" onclick="window.location.href='/login'">
                     <img id="nav-user-avatar" src="" alt="User" class="nav-user-avatar-img">
 
                     <div class="nav-user-text-wrapper">
-                        <span class="nav-line-1" id="nav-user-line1">Sign in</span>
-                        <span class="nav-line-2" id="nav-user-line2">Account</span>
+                        <span class="nav-line-1" id="nav-user-line1" data-i18n="nav.login">লগইন</span>
+                        <span class="nav-line-2" id="nav-user-line2" data-i18n="nav.profile">প্রোফাইল</span>
                     </div>
                 </div>
 
@@ -59,7 +63,7 @@
                         <i class="fa fa-shopping-cart"></i>
                         <span id="cartCountBadge" class="cart-count">0</span>
                     </div>
-                    <span class="cart-text">Bag</span>
+                    <span class="cart-text" data-i18n="nav.cart">কার্ট</span>
                 </div>
             </div>
         </div>
@@ -69,7 +73,7 @@
                 <select id="categorySelect" class="search-category" onchange="triggerSearch()">
                     <option value="all">All Categories</option>
                 </select>
-                <input type="text" id="searchInput" class="search-input" placeholder="Search products here...">
+                <input type="text" id="searchInput" class="search-input" data-i18n-placeholder="search.placeholder" placeholder="পণ্য খুঁজুন...">
                 <button class="search-submit-btn" onclick="triggerSearch()" title="Search">
                     <i class="fa fa-search"></i>
                 </button>
@@ -81,7 +85,7 @@
                 <nav id="subNavbar" class="sub-navbar">
                     <div class="container sub-flex">
                         <ul class="nav-links">
-                             <li><a onclick="window.location.href='/'" class="active" style="cursor:pointer;">Home</a></li>
+                             <li><a onclick="window.location.href='/'" class="active" style="cursor:pointer;" data-i18n="nav.home">হোম</a></li>
                 <div id="categoryButtonContainer" class="category-tabs-row menu-categories"></div>
             </ul>
         </div>
@@ -97,8 +101,8 @@
             <button class="next" onclick="changeSlide(1)" title="Next">&#10095;</button>
         </div>
         <div class="hero-content">
-            <h1>Welcome to EonlineBazar</h1>
-            <p>আমাদের সাইটের নতুন সব ফিচার এবং পণ্যের সম্ভার নিয়ে কাজ চলছে। আপনাদের জন্য আরও উন্নত কেনাকাটার অভিজ্ঞতা নিয়ে খুব শীঘ্রই আমরা আসছি। আমাদের সাথেই থাকুন!</p>
+            <h1 data-i18n="home.hero.title">সেরা মানের পণ্য</h1>
+            <p data-i18n="home.hero.subtitle">দ্রুত ডেলিভারি, সহজ রিটার্ন</p>
         </div>
     </section>
 
@@ -108,11 +112,11 @@
             <div class="flash-sale-banner__content">
                 <div class="flash-sale-banner__copy">
                     <span class="flash-sale-banner__eyebrow">Limited Time Offer</span>
-                    <h2 id="flashSaleTitle">⚡ Flash Sale</h2>
+                    <h2 id="flashSaleTitle" data-i18n="home.flash_sale">ফ্ল্যাশ সেল</h2>
                     <p id="flashSaleSubtitle">Grab exclusive discounts before the timer hits zero.</p>
                 </div>
                 <div class="flash-sale-banner__timer-wrap">
-                    <span class="flash-sale-banner__timer-label">Ends in</span>
+                    <span class="flash-sale-banner__timer-label" data-i18n="home.ends_in">শেষ হবে</span>
                     <div class="flash-sale-countdown" id="flashSaleCountdown">
                         <div class="flash-sale-countdown__unit"><strong id="flashHours">00</strong><small>Hours</small></div>
                         <span class="flash-sale-countdown__sep">:</span>
@@ -124,7 +128,7 @@
             </div>
         </section>
 
-        <h2 class="section-title">Trending Products</h2>
+        <h2 class="section-title" data-i18n="home.featured">ফিচার্ড পণ্য</h2>
         <div id="productGrid" class="product-layout-grid">
         </div>
     </main>
@@ -141,6 +145,7 @@
         <!-- footer calling -->
         <div id="global-site-footer"></div>
 
+    <script src="/js/i18n.js"></script>
     <script src="js/session-guard.js"></script>
     <script src="js/toast.js"></script>
     <script src="js/wishlist.js"></script>

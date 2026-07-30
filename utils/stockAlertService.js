@@ -13,6 +13,7 @@ const Settings = require('../models/Settings');
 const { sendStockAlertEmail } = require('./mailer');
 const { sendSms } = require('./smsService');
 const { sendAdminCustomAlert, isGatewayConfigured, loadWhatsAppAlertGatewayConfig } = require('./whatsappService');
+const { emitToAdmins } = require('./socketService');
 
 const DEFAULT_THRESHOLD = Number(process.env.LOW_STOCK_DEFAULT_THRESHOLD) || 10;
 const DEFAULT_CRON = '0 * * * *';
@@ -230,6 +231,14 @@ async function checkAndAlertLowStock() {
             context: 'STOCK ALERT'
         });
         alertsSent.sms = smsResult.delivered === true;
+
+        outOfStock.forEach((product) => {
+            emitToAdmins('low_stock_alert', {
+                productName: product.name,
+                stockQuantity: product.stockQuantity,
+                threshold: product.lowStockThreshold
+            });
+        });
     }
 
     if (await isWhatsAppConfigured()) {

@@ -63,6 +63,7 @@ const { findVariantIndex, getVariantAttributes, getVariantLineId } = require('..
 const { deductWalletForOrder, creditWalletForUser, reverseWalletCredit } = require('../utils/walletService');
 const { loadFlashSaleSettings, resolveProductFlashPrice } = require('../utils/flashSaleService');
 const { invalidate, CACHE_KEYS } = require('../utils/cacheService');
+const { emitToAdmins } = require('../utils/socketService');
 const {
     resolvePaymentMethodForCheckout,
     computeProcessingFee,
@@ -583,6 +584,14 @@ const createOrder = async (req, res) => {
         dispatchAdminWhatsAppAlertSafely(newOrder);
         notifyOrderConfirmationEmail({ to: recipientEmail, order: newOrder.toObject() });
 
+        emitToAdmins('new_order', {
+            orderId: newOrder.orderId,
+            customerName: newOrder.customerName,
+            total: newOrder.grandTotal,
+            paymentMethod: newOrder.paymentMethod,
+            createdAt: newOrder.createdAt
+        });
+
         await invalidate(CACHE_KEYS.POPULAR_PRODUCTS);
 
         res.status(201).json({
@@ -862,6 +871,14 @@ const createManualOrder = async (req, res) => {
 
         await newOrder.save();
         await deductOrderStock(normalizedItems);
+
+        emitToAdmins('new_order', {
+            orderId: newOrder.orderId,
+            customerName: newOrder.customerName,
+            total: newOrder.grandTotal,
+            paymentMethod: newOrder.paymentMethod,
+            createdAt: newOrder.createdAt
+        });
 
         console.log(`[Order] ✓ Manual order #${newOrder.orderId} saved — scheduling background WhatsApp alert`);
         dispatchAdminWhatsAppAlertSafely(newOrder);
@@ -1621,6 +1638,13 @@ const submitPaymentProof = async (req, res) => {
 
         order.markModified('paymentProof');
         await order.save();
+
+        emitToAdmins('payment_proof_submitted', {
+            orderId: order.orderId,
+            customerName: order.customerName,
+            trxId,
+            submittedAt: new Date()
+        });
 
         return res.status(200).json({
             success: true,

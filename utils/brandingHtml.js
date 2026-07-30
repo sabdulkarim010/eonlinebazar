@@ -5,6 +5,36 @@ const PoppinsFontLink = '    <link rel="preconnect" href="https://fonts.googleap
     '    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n' +
     '    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;800&display=swap" rel="stylesheet">';
 
+const PWA_THEME_COLOR = '#131921';
+
+const STOREFRONT_PAGES = new Set([
+    'index.html',
+    'search.html',
+    'cart.html',
+    'product-details.html',
+    'profile.html',
+    'login.html',
+    'register.html',
+    'checkout.html',
+    'payment.html',
+    'order-track.html',
+    'order-details.html',
+    'about.html',
+    'contact.html',
+    'forgot-password.html',
+    'verify-otp.html',
+    'cms-page.html',
+    'access-denied.html'
+]);
+
+const PWA_HEAD_TAGS = `    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="${PWA_THEME_COLOR}">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="EOnlineBazar">
+    <link rel="apple-touch-icon" href="/images/icons/icon-192x192.png">`;
+
 function escapeHtmlAttr(value) {
     return String(value)
         .replace(/&/g, '&amp;')
@@ -75,7 +105,20 @@ function injectPoppinsFont(html) {
     return html.replace('</head>', `${PoppinsFontLink}\n</head>`);
 }
 
-function applyBrandingToHtml(html, settings = {}) {
+function injectPwaTags(html, filename) {
+    if (!filename || !STOREFRONT_PAGES.has(filename)) return html;
+    if (html.includes('rel="manifest"')) return html;
+
+    let output = html.replace('</head>', `${PWA_HEAD_TAGS}\n</head>`);
+
+    if (!output.includes('/js/pwa.js')) {
+        output = output.replace('</body>', '    <script src="/js/pwa.js"></script>\n</body>');
+    }
+
+    return output;
+}
+
+function applyBrandingToHtml(html, settings = {}, options = {}) {
     const faviconPath = settings.faviconPath || settings.faviconUrl || DEFAULT_FAVICON;
     const cacheVersion = Date.now();
     const inlineSettings = buildInlineSettings(settings, cacheVersion);
@@ -96,6 +139,8 @@ function applyBrandingToHtml(html, settings = {}) {
     } else {
         output = output.replace('</head>', `    ${faviconTag}\n</head>`);
     }
+
+    output = injectPwaTags(output, options.filename);
 
     return output;
 }

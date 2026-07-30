@@ -47,7 +47,7 @@ function readClientHtml(filename) {
 }
 
 function sendBrandedHtml(res, filename, settings) {
-    const html = applyBrandingToHtml(readClientHtml(filename), settings || DEFAULT_SETTINGS);
+    const html = applyBrandingToHtml(readClientHtml(filename), settings || DEFAULT_SETTINGS, { filename });
     res.type('html').send(html);
 }
 
@@ -137,7 +137,7 @@ async function serveProductDetailsWithSeo(req, res) {
         ].join('\n    ');
 
         const html = injectSeoIntoHtml(
-            applyBrandingToHtml(readClientHtml('product-details.html'), settings),
+            applyBrandingToHtml(readClientHtml('product-details.html'), settings, { filename: 'product-details.html' }),
             seoHtml
         );
         return res.type('html').send(html);
@@ -187,7 +187,7 @@ async function serveSearchWithSeo(req, res) {
         ].join('\n    ');
 
         const html = injectSeoIntoHtml(
-            applyBrandingToHtml(readClientHtml('search.html'), settings),
+            applyBrandingToHtml(readClientHtml('search.html'), settings, { filename: 'search.html' }),
             seoHtml
         );
         return res.type('html').send(html);

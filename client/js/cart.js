@@ -6,6 +6,10 @@
  * ==========================================================================
  */
 
+function t(key, vars) {
+    return window.i18n ? window.i18n.t(key, vars) : key;
+}
+
 /* ==========================================================================
    SECTION 1: GLOBAL VARIABLES & API SYNC (শুরু এবং ডাটাবেজ সিঙ্ক)
    ========================================================================== */
@@ -184,9 +188,9 @@ function renderCartDrawerItems() {
         container.innerHTML = `
             <div class="empty-cart-container" style="text-align:center; padding:60px 20px; color:#777; width:100%;">
                 <i class="fa fa-shopping-bag" style="font-size:48px; color:#bbb; margin-bottom:15px; display:block;"></i>
-                <span style="font-size:18px; font-weight:600; color:#334155; display:block; margin-bottom:8px;">Your shopping bag is empty!</span>
+                <span style="font-size:18px; font-weight:600; color:#334155; display:block; margin-bottom:8px;">${t('cart.empty')}</span>
                 <span style="font-size:14px; color:#64748b; margin-bottom:24px; display:block;">Please add some products to your cart.</span>
-                <a href="/" style="background:#f97316; color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:600; display:inline-block; transition:0.3s;">Browse Products</a>
+                <a href="/" style="background:#f97316; color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:600; display:inline-block; transition:0.3s;">${t('nav.home')}</a>
             </div>
         `;
         if (cartFooter) cartFooter.style.display = 'none';
@@ -373,8 +377,8 @@ function renderCartFreeShippingProgress(subtotal) {
     wrapEl.classList.toggle('is-unlocked', progress.unlocked);
     barEl.style.width = `${progress.progressPercent}%`;
     textEl.textContent = progress.unlocked
-        ? (SE.formatFreeShippingUnlockedMessage?.() || '🎉 Free Shipping Unlocked!')
-        : (SE.formatFreeShippingRemainingMessage?.(progress.remaining) || `Add ৳${progress.remaining.toLocaleString('en-US')} more for FREE shipping`);
+        ? (SE.formatFreeShippingUnlockedMessage?.() || t('cart.free_shipping'))
+        : (SE.formatFreeShippingRemainingMessage?.(progress.remaining) || t('cart.free_shipping_remaining', { amount: progress.remaining }));
 }
 
 function wireCheckoutButton(btn) {
@@ -425,7 +429,7 @@ function updateCartTotal() {
     if (miniCartSelectedCount) {
         miniCartSelectedCount.textContent = `${uniqueSelectedCount} item${uniqueSelectedCount === 1 ? '' : 's'} selected`;
     }
-    if (subtotalEl) subtotalEl.innerText = `৳${subtotal.toLocaleString()}`;
+    if (subtotalEl) subtotalEl.innerText = window.i18n?.formatCurrency?.(subtotal) || `৳${subtotal.toLocaleString()}`;
 
     if (profileTotalEl) profileTotalEl.innerText = `৳${subtotal.toLocaleString()}`;
     if (profileCountEl) profileCountEl.innerText = uniqueSelectedCount;
@@ -793,6 +797,12 @@ window.getSelectedCartSubtotal = function getSelectedCartSubtotal() {
 document.addEventListener('DOMContentLoaded', () => {
     updateCartCount();
     renderCartDrawerItems();
+});
+
+document.addEventListener('languageChanged', () => {
+    if (window.i18n) window.i18n.applyTranslations();
+    renderCartDrawerItems();
+    updateCartTotal();
 });
 
 

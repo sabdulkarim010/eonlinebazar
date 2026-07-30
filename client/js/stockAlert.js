@@ -33,11 +33,13 @@
     function buildStockAlertHtml(stock) {
         if (stock === null || stock === undefined || Number.isNaN(Number(stock))) return '';
         const n = Number(stock);
+        const outLabel = window.i18n ? window.i18n.t('product.out_of_stock') : 'Out of Stock';
+        const lowLabel = window.i18n ? window.i18n.t('product.low_stock') : `Only ${n} left in stock - order soon!`;
         if (n <= 0) {
-            return '<span class="stock-alert-badge stock-out">Out of Stock</span>';
+            return `<span class="stock-alert-badge stock-out">${outLabel}</span>`;
         }
         if (n <= 3) {
-            return `<span class="stock-alert-badge stock-low">🔥 Only ${n} left in stock - order soon!</span>`;
+            return `<span class="stock-alert-badge stock-low">🔥 ${lowLabel}${window.i18n ? '' : ` (${n})`}</span>`;
         }
         return '';
     }

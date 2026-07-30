@@ -206,14 +206,19 @@
         return value === 0 ? '৳0' : `৳${value}`;
     }
 
-    /** Concise single-line hint for cart / checkout progress bars. */
     function formatFreeShippingRemainingMessage(remaining) {
         const amount = roundMoney(remaining);
+        if (window.i18n) {
+            const formatted = window.i18n.getCurrentLang() === 'bn'
+                ? amount.toLocaleString('bn-BD')
+                : amount.toLocaleString('en-US');
+            return window.i18n.t('cart.free_shipping_remaining', { amount: formatted });
+        }
         return `Add ৳${amount.toLocaleString('en-US')} more for FREE shipping`;
     }
 
     function formatFreeShippingUnlockedMessage() {
-        return '🎉 Free Shipping Unlocked!';
+        return window.i18n ? window.i18n.t('cart.free_shipping') : '🎉 Free Shipping Unlocked!';
     }
 
     global.ShippingEstimator = {

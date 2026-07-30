@@ -119,10 +119,10 @@
             if (link) link.classList.remove('is-authed');
             if (line1) {
                 line1.style.display = '';
-                line1.textContent = 'Sign in';
+                line1.textContent = window.i18n ? window.i18n.t('nav.login') : 'Sign in';
             }
             if (line2) {
-                line2.textContent = 'Account';
+                line2.textContent = window.i18n ? window.i18n.t('nav.profile') : 'Account';
                 line2.classList.remove('nav-user-display-name');
                 delete line2.dataset.firstName;
             }
@@ -252,6 +252,11 @@
         if (isProtectedPage()) {
             validateSession();
         }
+    });
+
+    document.addEventListener('languageChanged', function () {
+        updateNavbarAuthUI();
+        if (window.i18n) window.i18n.applyTranslations();
     });
 })();
 

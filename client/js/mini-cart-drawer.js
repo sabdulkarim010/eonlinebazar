@@ -20,11 +20,11 @@
             <span id="miniCartSelectedCount">0 items selected</span>
         </div>
         <div class="mini-cart-drawer__subtotal">
-            <span class="mini-cart-drawer__subtotal-label">Subtotal</span>
+            <span class="mini-cart-drawer__subtotal-label" data-i18n="cart.total">মোট</span>
             <span class="mini-cart-drawer__subtotal-value">৳<span id="cartDrawerTotal">0</span></span>
         </div>
         <button type="button" id="miniCartCheckoutBtn" class="mini-cart-drawer__checkout-btn" disabled>
-            Proceed to Checkout <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            <span data-i18n="cart.checkout">চেকআউট করুন</span> <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
         </button>
         <a href="/cart" class="mini-cart-drawer__view-cart-link">View My Cart</a>
     </div>
@@ -46,6 +46,7 @@
         backdropEl = document.getElementById('miniCartBackdrop');
         drawerEl = document.getElementById('miniCartDrawer');
         closeBtnEl = document.getElementById('miniCartCloseBtn');
+        if (global.i18n) global.i18n.applyTranslations();
     }
 
     function openMiniCart() {
@@ -134,4 +135,11 @@
     } else {
         init();
     }
+
+    document.addEventListener('languageChanged', () => {
+        if (global.i18n) global.i18n.applyTranslations();
+        if (typeof global.renderCartDrawerItems === 'function') {
+            global.renderCartDrawerItems();
+        }
+    });
 })(window);
