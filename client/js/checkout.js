@@ -108,9 +108,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         checkoutCouponsAvailable = checkoutCouponController?.couponsAvailable === true;
     }
 
-    populateCheckoutDistrictOptions();
-    initDistrictSelector();
-    initUpazilaSelector();
+    ensureCheckoutLocationSelectors();
     syncCheckoutSelectPlaceholders();
     initSavedAddressManualEditWatchers();
     await initializeCheckoutPage();
@@ -132,24 +130,89 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 });
 
-function populateCheckoutDistrictOptions(selectedValue = '') {
-    const selectEl = document.getElementById('shippingDistrict');
-    if (!selectEl || !Array.isArray(window.BANGLADESH_DISTRICTS)) return;
+let checkoutLocationPair = null;
 
-    selectEl.innerHTML = '<option value="">Select your district</option>';
-    window.BANGLADESH_DISTRICTS.forEach((district) => {
-        const option = document.createElement('option');
-        option.value = district;
-        option.textContent = district;
-        selectEl.appendChild(option);
+function getCheckoutDistrictEl() {
+    return document.getElementById('shippingDistrict');
+}
+
+function getCheckoutUpazilaEl() {
+    return document.getElementById('shippingUpazila');
+}
+
+function ensureCheckoutLocationSelectors() {
+    if (checkoutLocationPair) return checkoutLocationPair;
+
+    checkoutLocationPair = window.initDistrictUpazilaPair({
+        districtSelectId: 'shippingDistrict',
+        upazilaSelectId: 'shippingUpazila',
+        districtPlaceholder: 'Select your district',
+        upazilaPlaceholder: 'Select upazila / thana',
+        onDistrictChange: handleCheckoutDistrictChange,
+        onUpazilaChange: handleCheckoutUpazilaChange
     });
 
-    if (selectedValue) selectEl.value = selectedValue;
+    return checkoutLocationPair;
+}
+
+function handleCheckoutDistrictChange() {
+    const selectEl = getCheckoutDistrictEl();
+    if (!selectEl) return;
+
+    if (isApplyingSavedAddress) {
+        updateDeliveryZoneHint();
+        recalculateCheckoutDelivery();
+        return;
+    }
+
+    selectedShippingDistrict = selectEl.value.trim();
+    validationState.district = Boolean(selectedShippingDistrict);
+    if (!isGuestCheckoutUser()) {
+        localStorage.setItem('shippingDistrict', selectedShippingDistrict);
+        localStorage.setItem('checkout_district', selectedShippingDistrict);
+    }
+
+    selectedShippingUpazila = '';
+    validationState.upazila = false;
+    populateCheckoutUpazilaOptions(selectedShippingDistrict);
+
     updateCheckoutSelectPlaceholder(selectEl);
+    recalculateCheckoutDelivery();
+}
+
+function handleCheckoutUpazilaChange() {
+    const selectEl = getCheckoutUpazilaEl();
+    if (!selectEl) return;
+
+    if (isApplyingSavedAddress) {
+        recalculateCheckoutDelivery();
+        return;
+    }
+
+    selectedShippingUpazila = selectEl.value.trim();
+    validationState.upazila = Boolean(selectedShippingUpazila);
+    updateCheckoutSelectPlaceholder(selectEl);
+    if (!isGuestCheckoutUser()) {
+        localStorage.setItem('checkout_upazila', selectedShippingUpazila);
+    }
+}
+
+function populateCheckoutDistrictOptions(selectedValue = '') {
+    const pair = ensureCheckoutLocationSelectors();
+    if (!pair) return;
+
+    pair.districtSelect.setValue(selectedValue || '');
+    selectedShippingDistrict = selectedValue || '';
+    updateCheckoutSelectPlaceholder(getCheckoutDistrictEl());
 }
 
 function updateCheckoutSelectPlaceholder(selectEl) {
     if (!selectEl) return;
+    const instance = window.getSearchableSelectInstance(selectEl);
+    if (instance && instance.root) {
+        instance.root.classList.toggle('searchable-select--placeholder', !selectEl.value);
+        return;
+    }
     selectEl.classList.toggle('checkout-select--placeholder', !selectEl.value);
 }
 
@@ -612,40 +675,21 @@ function buildCompleteDeliveryAddress({ streetText = '', upazila = '', district 
 }
 
 function populateCheckoutUpazilaOptions(district, selectedUpazila = '') {
-    const selectEl = document.getElementById('shippingUpazila');
-    if (!selectEl) return;
-
-    selectEl.innerHTML = '<option value="">Select upazila / thana</option>';
+    const pair = ensureCheckoutLocationSelectors();
+    const selectEl = getCheckoutUpazilaEl();
+    if (!pair || !selectEl) return;
 
     if (!district) {
-        selectEl.disabled = true;
+        pair.populateUpazila('', '');
         selectedShippingUpazila = '';
         validationState.upazila = false;
         updateCheckoutSelectPlaceholder(selectEl);
         return;
     }
 
-    const upazilas = typeof window.getUpazilasForDistrict === 'function'
-        ? window.getUpazilasForDistrict(district)
-        : [];
-
-    upazilas.forEach((upazila) => {
-        const option = document.createElement('option');
-        option.value = upazila;
-        option.textContent = upazila;
-        selectEl.appendChild(option);
-    });
-
-    selectEl.disabled = upazilas.length === 0;
-    if (selectedUpazila) {
-        selectEl.value = selectedUpazila;
-        selectedShippingUpazila = selectEl.value.trim();
-        validationState.upazila = Boolean(selectedShippingUpazila);
-    } else {
-        selectedShippingUpazila = '';
-        validationState.upazila = false;
-    }
-
+    pair.populateUpazila(district, selectedUpazila || '');
+    selectedShippingUpazila = selectedUpazila || selectEl.value.trim();
+    validationState.upazila = Boolean(selectedShippingUpazila);
     updateCheckoutSelectPlaceholder(selectEl);
 }
 
@@ -717,11 +761,9 @@ function clearGuestCheckoutFormFields() {
 
     populateCheckoutDistrictOptions('');
 
-    const upazilaEl = document.getElementById('shippingUpazila');
+    const upazilaEl = getCheckoutUpazilaEl();
     if (upazilaEl) {
-        upazilaEl.innerHTML = '<option value="">Select upazila / thana</option>';
-        upazilaEl.value = '';
-        upazilaEl.disabled = true;
+        populateCheckoutUpazilaOptions('', '');
         updateCheckoutSelectPlaceholder(upazilaEl);
     }
 
@@ -887,49 +929,11 @@ async function initializeCheckoutPage() {
 }
 
 function initDistrictSelector() {
-    const selectEl = document.getElementById('shippingDistrict');
-    if (!selectEl) return;
-
-    selectEl.addEventListener('change', () => {
-        if (isApplyingSavedAddress) {
-            updateDeliveryZoneHint();
-            recalculateCheckoutDelivery();
-            return;
-        }
-
-        selectedShippingDistrict = selectEl.value.trim();
-        validationState.district = Boolean(selectedShippingDistrict);
-        if (!isGuestCheckoutUser()) {
-            localStorage.setItem('shippingDistrict', selectedShippingDistrict);
-            localStorage.setItem('checkout_district', selectedShippingDistrict);
-        }
-
-        selectedShippingUpazila = '';
-        validationState.upazila = false;
-        populateCheckoutUpazilaOptions(selectedShippingDistrict);
-
-        updateCheckoutSelectPlaceholder(selectEl);
-        recalculateCheckoutDelivery();
-    });
+    ensureCheckoutLocationSelectors();
 }
 
 function initUpazilaSelector() {
-    const selectEl = document.getElementById('shippingUpazila');
-    if (!selectEl) return;
-
-    selectEl.addEventListener('change', () => {
-        if (isApplyingSavedAddress) {
-            recalculateCheckoutDelivery();
-            return;
-        }
-
-        selectedShippingUpazila = selectEl.value.trim();
-        validationState.upazila = Boolean(selectedShippingUpazila);
-        updateCheckoutSelectPlaceholder(selectEl);
-        if (!isGuestCheckoutUser()) {
-            localStorage.setItem('checkout_upazila', selectedShippingUpazila);
-        }
-    });
+    ensureCheckoutLocationSelectors();
 }
 
 function getCheckoutSubtotal() {

@@ -147,7 +147,7 @@ async function deleteNewsletterSubscriber(id) {
     };
 
     if (typeof window.showCustomConfirm === 'function') {
-        window.showCustomConfirm('Delete Subscriber', 'Permanently delete this subscriber?', performDelete, 'danger');
+        window.showCustomConfirm('Confirm', 'Delete this subscriber?', performDelete, 'danger');
         return;
     }
     if (window.confirm('Delete this subscriber?')) await performDelete();
@@ -207,7 +207,7 @@ async function saveNewsletterCampaignDraft() {
             nlNotify(data.message || 'Failed to save draft', 'error');
             return null;
         }
-        nlNotify('Campaign saved as draft');
+        nlNotify('Draft saved');
         document.getElementById('nlCampaignEditId').value = data.data._id;
         await fetchNewsletterCampaigns();
         return data.data;
@@ -291,7 +291,7 @@ async function testNewsletterCampaignById(id) {
             body: JSON.stringify({ testEmail })
         });
         const data = await res.json();
-        nlNotify(data.message || (data.success ? 'Test sent' : 'Test failed'), data.success ? 'success' : 'error');
+        nlNotify(data.message || (data.success ? 'Test email sent' : 'Test failed'), data.success ? 'success' : 'error');
     } catch (err) {
         console.error(err);
         nlNotify('Test send failed', 'error');
@@ -312,13 +312,14 @@ async function sendNewsletterCampaign(id) {
     if (!id) return;
 
     const performSend = async () => {
+        nlNotify('Sending campaign...', 'success');
         try {
             const res = await fetch(`/api/admin/newsletter/campaigns/${id}/send`, {
                 method: 'POST',
                 headers: nlAuthHeaders()
             });
             const data = await res.json();
-            nlNotify(data.message || (data.success ? 'Campaign sent' : 'Send failed'), data.success ? 'success' : 'error');
+            nlNotify(data.message || (data.success ? 'Campaign sent successfully' : 'Send failed'), data.success ? 'success' : 'error');
             if (data.success) fetchNewsletterCampaigns();
         } catch (err) {
             console.error(err);
@@ -327,10 +328,10 @@ async function sendNewsletterCampaign(id) {
     };
 
     if (typeof window.showCustomConfirm === 'function') {
-        window.showCustomConfirm('Send Campaign', 'Send this campaign to all matching subscribers?', performSend, 'warning');
+        window.showCustomConfirm('Confirm', 'Send campaign now?', performSend, 'warning');
         return;
     }
-    if (window.confirm('Send this campaign now?')) await performSend();
+    if (window.confirm('Send campaign now?')) await performSend();
 }
 
 async function sendNewsletterCampaignFromForm() {

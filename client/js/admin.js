@@ -764,7 +764,7 @@ const ADMIN_PAGE_META = {
     'view-audit':           { title: 'Security & Audit',         subtitle: 'Login history, intrusion attempts, and IP blacklist firewall.' },
     'view-master-settings': { title: 'System Settings',          subtitle: 'Configure shipping, notifications, loyalty rewards, and store integrations.' },
     'view-messages':        { title: 'Messages / Inquiries',     subtitle: 'Customer contact form submissions from the storefront.' },
-    'view-newsletter-subscribers': { title: 'Newsletter Subscribers', subtitle: 'Manage newsletter subscriber list and status.' },
+    'view-newsletter-subscribers': { title: 'Newsletter Subscribers', subtitle: 'Manage newsletter subscribers and filter by tags.' },
     'view-newsletter-campaigns':   { title: 'Email Campaigns',        subtitle: 'Create, test, and send newsletter email campaigns.' },
     'view-staff':           { title: 'Staff Management',         subtitle: 'Create staff accounts, assign permissions, and control access instantly.' },
     'view-settings':        { title: 'Admin Settings',          subtitle: 'Manage your profile, store preferences, shipping rules, and branding.' }
@@ -906,7 +906,7 @@ function switchDashboardView(sectionId, sectionTitle) {
     // সব সেকশন হাইড করা
     const allSections = document.querySelectorAll('.admin-section, .spa-section');
     allSections.forEach(sec => {
-        sec.style.style.display = 'none';
+        sec.style.display = 'none';
         sec.classList.remove('active');
     });
 
@@ -3336,7 +3336,6 @@ window.reviewInvoicePaymentProof = async function(action) {
 
 /**
  * ৭.৭: ইনভয়েস মডাল বন্ধ করার ফাংশন
- */
  */
 window.closeInvoiceModal = function() {
     const modal = document.getElementById('invoiceModal');
@@ -9851,10 +9850,7 @@ window.uploadAdminProfilePic = async function(event) {
     // লোকাল প্রিভিউ দেখানো
     const reader = new FileReader();
     reader.onload = function(e) {
-        const profileImg = document.getElementById('adminProfileImg');
-        const headerImg = document.getElementById('headerProfileImg');
-        if (profileImg) profileImg.src = e.target.result;
-        if (headerImg) headerImg.src = e.target.result;
+        updateAdminProfileUI({ image: e.target.result });
     };
     reader.readAsDataURL(file);
 
@@ -9872,8 +9868,8 @@ window.uploadAdminProfilePic = async function(event) {
         
         if (result.success) {
             showToast("Profile picture updated successfully!", "success");
-            // লোকাল স্টোরেজে সেভ করে রাখা যাতে রিলোড দিলেও থাকে
-            localStorage.setItem('adminProfilePic', result.imageUrl); 
+            localStorage.setItem('adminProfilePic', result.imageUrl);
+            updateAdminProfileUI({ image: result.imageUrl });
         } else {
             showToast("Failed to upload picture.", "error");
         }
@@ -9927,10 +9923,7 @@ function initDashboard() {
     // ২. লোকাল স্টোরেজ থেকে প্রোফাইল পিকচার সেট করা (যদি আগে থেকে থাকে)
     const savedPic = localStorage.getItem('adminProfilePic');
     if (savedPic) {
-        const profileImg = document.getElementById('adminProfileImg');
-        const headerImg = document.getElementById('headerProfileImg');
-        if (profileImg) profileImg.src = savedPic;
-        if (headerImg) headerImg.src = savedPic;
+        updateAdminProfileUI({ image: savedPic });
     }
 
     // ৩. কোর মডিউলগুলোর ডাটা সার্ভার থেকে সিঙ্ক করা
@@ -10186,6 +10179,30 @@ if (logoutBtn) {
  * ১. ডাটাবেজ থেকে অ্যাডমিন প্রোফাইল ছবি লোড করার ফাংশন
  * পেজ যখনই রিফ্রেশ বা নতুন করে লোড হবে, এই ফাংশনটি ডাটাবেজ থেকে লেটেস্ট ছবি এনে দেখাবে।
  */
+function updateAdminProfileUI(adminData = {}) {
+    const avatarImg = document.getElementById('adminProfilePic');
+    const nameEl = document.querySelector('.admin-profile .info h4');
+    const roleEl = document.querySelector('.admin-profile .info p');
+    const displayName = adminData.name || adminData.username || 'Admin';
+    const avatarUrl = adminData.image || adminData.avatar || adminData.avatarUrl || adminData.profileImage;
+
+    if (nameEl) nameEl.textContent = displayName;
+    if (roleEl) roleEl.textContent = adminData.role || 'Super Admin';
+
+    if (!avatarImg) return;
+
+    if (avatarUrl) {
+        const bust = avatarUrl.includes('?') ? `${avatarUrl}&t=${Date.now()}` : `${avatarUrl}?t=${Date.now()}`;
+        avatarImg.src = bust;
+        avatarImg.style.display = 'block';
+        avatarImg.onerror = () => {
+            avatarImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=d97706&color=fff`;
+        };
+    } else {
+        avatarImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=d97706&color=fff`;
+    }
+}
+
 async function fetchAdminProfile() {
     try {
         const token = localStorage.getItem('adminToken');
@@ -10199,12 +10216,8 @@ async function fetchAdminProfile() {
         
         const data = await response.json();
         
-        // ডাটাবেজে ছবি পাওয়া গেলে তা ড্যাশবোর্ডের img ট্যাগে সেট করবে
-        if (data.success && data.image) {
-            const profilePic = document.getElementById('adminProfilePic');
-            if (profilePic) {
-                profilePic.src = data.image;
-            }
+        if (data.success) {
+            updateAdminProfileUI(data);
         }
     } catch (error) {
         console.error("🔴 The profile image could not be fetched from the database :", error);
@@ -10246,10 +10259,7 @@ if (profileUploadInput) {
             const data = await response.json();
             
             if (data.success) {
-                // আপলোড সফল হলে সাথে সাথে ড্যাশবোর্ডের ছবি পরিবর্তন হবে
-                if (adminProfilePic) {
-                    adminProfilePic.src = data.imageUrl;
-                }
+                updateAdminProfileUI({ image: data.imageUrl });
                 showToast("Profile picture updated successfully!", "success");
             } else {
                 showToast(data.message || "Failed to upload image", "error");

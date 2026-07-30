@@ -16,9 +16,9 @@ function showInstallBanner() {
   banner.id = 'pwa-install-banner';
   banner.innerHTML = `
     <div class="pwa-banner-content">
-      <span>📱 EOnlineBazar অ্যাপ ইন্সটল করুন — দ্রুত অ্যাক্সেস পান!</span>
-      <button id="pwa-install-btn" type="button">ইন্সটল করুন</button>
-      <button id="pwa-dismiss-btn" type="button">পরে</button>
+      <span>📱 Install the EOnlineBazar app — get quick access!</span>
+      <button id="pwa-install-btn" type="button">Install</button>
+      <button id="pwa-dismiss-btn" type="button">Later</button>
     </div>
   `;
   document.body.appendChild(banner);

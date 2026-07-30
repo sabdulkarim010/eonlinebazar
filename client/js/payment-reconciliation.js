@@ -53,45 +53,42 @@
         const toast = $('toast');
         if (!toast) return;
         toast.textContent = message;
-        toast.className = 'pr-toast' + (type ? ` pr-toast--${type}` : '');
+        toast.className = 'toast' + (type ? ` toast--${type}` : '');
         toast.hidden = false;
         clearTimeout(showToast._timer);
         showToast._timer = setTimeout(() => { toast.hidden = true; }, 3500);
     }
 
     function setLoading(isLoading) {
-        const overlay = $('loadingOverlay');
-        if (overlay) {
-            overlay.hidden = !isLoading;
-            overlay.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+        const topLoading = $('top-loading');
+        if (topLoading) {
+            topLoading.classList.toggle('show', isLoading);
+        }
+        const tableLoading = $('table-loading');
+        if (tableLoading) {
+            tableLoading.style.display = isLoading ? 'block' : 'none';
         }
     }
 
     function showError(message) {
-        const banner = $('errorBanner');
-        const text = $('errorBannerText');
-        if (banner && text) {
-            text.textContent = message;
-            banner.hidden = false;
-        }
+        showToast(message, 'error');
     }
 
     function hideError() {
-        const banner = $('errorBanner');
-        if (banner) banner.hidden = true;
+        /* no error banner in current layout */
     }
 
     function getFilterParams() {
         const params = new URLSearchParams();
-        const type = $('filterType')?.value || 'all';
-        const status = $('filterStatus')?.value || '';
-        const gateway = $('filterGateway')?.value || '';
-        const startDate = $('filterStartDate')?.value || '';
-        const endDate = $('filterEndDate')?.value || '';
+        const type = $('filter-type')?.value || 'all';
+        const status = $('filter-status')?.value || 'all';
+        const gateway = $('filter-gateway')?.value || 'all';
+        const startDate = $('filter-start')?.value || '';
+        const endDate = $('filter-end')?.value || '';
 
         if (type && type !== 'all') params.set('type', type);
-        if (status) params.set('paymentStatus', status);
-        if (gateway) params.set('gateway', gateway);
+        if (status && status !== 'all') params.set('paymentStatus', status);
+        if (gateway && gateway !== 'all') params.set('gateway', gateway);
         if (startDate) params.set('startDate', startDate);
         if (endDate) params.set('endDate', endDate);
         params.set('page', String(currentPage));
@@ -101,64 +98,84 @@
     }
 
     function typeBadge(type) {
-        const labels = { gateway: 'Gateway', manual: 'Manual', cod: 'COD' };
-        const cls = `pr-badge pr-badge--${type}`;
-        return `<span class="${cls}">${labels[type] || type}</span>`;
+        const t = String(type || '').toLowerCase();
+        if (t === 'gateway' || t === 'automated') {
+            return '<span class="badge b-gateway">🏦 Gateway</span>';
+        }
+        if (t === 'manual') return '<span class="badge b-manual">📱 Manual</span>';
+        if (t === 'cod') return '<span class="badge b-cod">🚚 COD</span>';
+        return `<span class="badge b-none">${escapeHtml(type || '—')}</span>`;
     }
 
     function statusBadge(status) {
         const s = String(status || 'unpaid').toLowerCase();
-        if (s === 'paid') return '<span class="pr-badge pr-badge--paid">Paid ✓</span>';
-        if (s === 'pending') return '<span class="pr-badge pr-badge--pending">Pending ⏳</span>';
-        return '<span class="pr-badge pr-badge--unpaid">Unpaid ✗</span>';
+        if (s === 'paid') return '<span class="badge b-paid">✅ Paid</span>';
+        if (s === 'pending') return '<span class="badge b-pending">⏳ Pending</span>';
+        return '<span class="badge b-unpaid">❌ Unpaid</span>';
+    }
+
+    function ipnBadge(received) {
+        if (received) return '<span class="badge b-yes">✓</span>';
+        return '<span class="badge b-no">—</span>';
     }
 
     function proofBadge(status) {
-        if (status == null) return '—';
+        if (status == null) return '<span class="badge b-none">—</span>';
         const s = String(status || 'none').toLowerCase();
-        const labels = {
-            none: 'None',
-            submitted: 'Submitted',
-            approved: 'Approved',
-            rejected: 'Rejected'
-        };
-        return `<span class="pr-badge pr-badge--proof-${s}">${labels[s] || s}</span>`;
+        if (s === 'submitted') return '<span class="badge b-sub">⏳ Review</span>';
+        if (s === 'approved') return '<span class="badge b-app">✅ Done</span>';
+        if (s === 'rejected') return '<span class="badge b-rej">❌ Rejected</span>';
+        return '<span class="badge b-none">—</span>';
+    }
+
+    function jsStr(value) {
+        return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     }
 
     function renderActions(order) {
-        const parts = [];
+        const id = jsStr(order._id);
+        const parts = [
+            `<button class="btn btn-sm" style="background:#6366f1;color:white" onclick="viewOrder('${id}')">View</button>`
+        ];
         if (order.paymentType === 'gateway' && order.paymentStatus !== 'paid') {
             parts.push(
-                `<button type="button" class="pr-action-btn pr-action-btn--primary" data-action="mark-paid" data-id="${order._id}">Mark as Paid</button>`
+                `<button class="btn btn-sm btn-amber" onclick="openMarkPaid('${id}')">Mark Paid</button>`
             );
         }
         if (order.paymentType === 'manual' && order.proofStatus === 'submitted') {
             parts.push(
-                `<button type="button" class="pr-action-btn pr-action-btn--warning" data-action="review-proof" data-id="${order._id}">Review Proof</button>`
+                `<button class="btn btn-sm btn-green" onclick="openProofModal('${id}','approve')">Approve</button>`,
+                `<button class="btn btn-sm btn-red" onclick="openProofModal('${id}','reject')">Reject</button>`
             );
         }
-        return parts.length ? parts.join('') : '—';
+        return `<div class="action-wrap">${parts.join('')}</div>`;
     }
 
     function renderTable(orders) {
-        const tbody = $('ordersTableBody');
+        const tbody = $('recon-tbody');
         if (!tbody) return;
 
         if (!orders.length) {
-            tbody.innerHTML = '<tr><td colspan="10" class="pr-empty-row">No orders match the current filters.</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="10">
+                <div class="empty-box">
+                    <div class="e-icon">📋</div>
+                    <h3>No orders found</h3>
+                    <p>No orders match the current filters.</p>
+                </div>
+            </td></tr>`;
             return;
         }
 
         tbody.innerHTML = orders.map((order) => {
             const orderLink = `/order-details?id=${encodeURIComponent(order._id)}`;
             const ipnCell = order.paymentType === 'gateway'
-                ? (order.ipnReceived ? 'Yes' : 'No')
+                ? ipnBadge(order.ipnReceived)
                 : '—';
 
             return `<tr data-order-id="${order._id}">
-                <td><a class="pr-order-link" href="${orderLink}" target="_blank" rel="noopener">${order.orderId || order._id}</a></td>
-                <td class="pr-customer-cell">${escapeHtml(order.customerName || '—')}<small>${escapeHtml(order.customerPhone || '')}</small></td>
-                <td>${formatMoney(order.grandTotal)}</td>
+                <td><a class="order-link" href="${orderLink}" target="_blank" rel="noopener">${escapeHtml(order.orderId || order._id)}</a></td>
+                <td><span class="cust-name">${escapeHtml(order.customerName || '—')}</span><br><span class="cust-phone">${escapeHtml(order.customerPhone || '')}</span></td>
+                <td class="amount-val">${formatMoney(order.grandTotal)}</td>
                 <td>${escapeHtml(order.paymentMethod || '—')}</td>
                 <td>${typeBadge(order.paymentType)}</td>
                 <td>${statusBadge(order.paymentStatus)}</td>
@@ -168,6 +185,11 @@
                 <td>${renderActions(order)}</td>
             </tr>`;
         }).join('');
+    }
+
+    function updateTableCount(count) {
+        const el = $('table-count');
+        if (el) el.textContent = `${count} order${count !== 1 ? 's' : ''}`;
     }
 
     function escapeHtml(str) {
@@ -180,20 +202,20 @@
 
     function updateSummary(summary) {
         if (!summary) return;
-        $('kpiTotalOrders').textContent = summary.totalOrders ?? 0;
-        $('kpiTotalRevenue').textContent = formatMoney(summary.totalRevenue);
-        $('kpiGatewayPaid').textContent = summary.gatewayPaidCount ?? 0;
-        $('kpiGatewayUnpaid').textContent = summary.gatewayUnpaidCount ?? 0;
-        $('kpiPendingProof').textContent = summary.pendingProofCount ?? 0;
-        $('kpiCodCount').textContent = summary.codCount ?? 0;
+        $('stat-total').textContent = summary.totalOrders ?? 0;
+        $('stat-revenue').textContent = formatMoney(summary.totalRevenue);
+        $('stat-gateway-paid').textContent = summary.gatewayPaidCount ?? 0;
+        $('stat-gateway-unpaid').textContent = summary.gatewayUnpaidCount ?? 0;
+        $('stat-pending-proof').textContent = summary.pendingProofCount ?? 0;
+        $('stat-cod').textContent = summary.codCount ?? 0;
     }
 
     function updatePagination(pagination) {
         currentPage = pagination?.page || 1;
         totalPages = pagination?.totalPages || 1;
-        $('paginationInfo').textContent = `Page ${currentPage} of ${totalPages || 1}`;
-        $('prevPageBtn').disabled = currentPage <= 1;
-        $('nextPageBtn').disabled = currentPage >= totalPages;
+        $('page-info').textContent = `Page ${currentPage} of ${totalPages || 1}`;
+        $('btn-prev').disabled = currentPage <= 1;
+        $('btn-next').disabled = currentPage >= totalPages;
     }
 
     async function loadData() {
@@ -226,10 +248,10 @@
             currentOrders = result.orders || [];
             updateSummary(result.summary);
             renderTable(currentOrders);
+            updateTableCount(currentOrders.length);
             updatePagination(result.pagination);
         } catch (err) {
             showError(err.message || 'Failed to load data.');
-            showToast(err.message || 'Failed to load data.', 'error');
         } finally {
             setLoading(false);
         }
@@ -262,7 +284,7 @@
         return allOrders;
     }
 
-    function exportCsv(orders) {
+    function exportCsvData(orders) {
         const headers = ['Order ID', 'Customer', 'Total', 'Payment Method', 'Status', 'Date'];
         const rows = orders.map((o) => [
             o.orderId || o._id,
@@ -286,59 +308,68 @@
         URL.revokeObjectURL(url);
     }
 
-    function openProofModal(orderId) {
+    function openModal(id) {
+        const el = $(id);
+        if (el) el.classList.add('open');
+    }
+
+    function closeModal(id) {
+        const el = $(id);
+        if (el) el.classList.remove('open');
+    }
+
+    function openProofModal(orderId, action) {
         const order = currentOrders.find((o) => String(o._id) === String(orderId));
-        if (!order || !order.paymentProof) return;
+        if (!order) return;
 
         activeProofOrderId = orderId;
-        $('proofModalOrderId').textContent = order.orderId || orderId;
-        $('proofModalTrxId').textContent = order.paymentProof.trxId || '—';
-        $('proofModalSubmittedAt').textContent = formatDate(order.paymentProof.submittedAt);
-        $('proofModalAdminNote').value = '';
+        $('modal-order-id').textContent = order.orderId || orderId;
+        $('modal-customer').textContent = order.customerName
+            ? `${order.customerName}${order.customerPhone ? ' · ' + order.customerPhone : ''}`
+            : '—';
+        $('modal-trx-id').textContent = order.paymentProof?.trxId || '—';
+        $('modal-admin-note').value = '';
 
-        const wrap = $('proofModalScreenshotWrap');
-        const link = $('proofModalScreenshotLink');
-        const img = $('proofModalScreenshot');
-        const url = order.paymentProof.screenshotUrl;
+        const img = $('modal-proof-img');
+        const noImg = $('modal-no-img');
+        const url = order.paymentProof?.screenshotUrl;
 
-        if (url && wrap && link && img) {
-            wrap.hidden = false;
-            link.href = url;
+        if (url && img) {
             img.src = url;
-        } else if (wrap) {
-            wrap.hidden = true;
+            img.style.display = 'block';
+            img.onclick = () => window.open(url, '_blank');
+            if (noImg) noImg.style.display = 'none';
+        } else {
+            if (img) {
+                img.style.display = 'none';
+                img.src = '';
+            }
+            if (noImg) noImg.style.display = 'block';
         }
 
-        $('proofModal').hidden = false;
+        openModal('proof-modal');
+
+        if (action === 'approve' && order.paymentProof) {
+            /* modal opened for review; user confirms via footer buttons */
+        }
     }
 
-    function closeProofModal() {
-        activeProofOrderId = null;
-        $('proofModal').hidden = true;
-    }
-
-    function openMarkPaidModal(orderId) {
+    function openMarkPaid(orderId) {
         const order = currentOrders.find((o) => String(o._id) === String(orderId));
         activeMarkPaidOrderId = orderId;
-        $('markPaidOrderLabel').textContent = order?.orderId || orderId;
-        $('markPaidAdminNote').value = '';
-        $('markPaidModal').hidden = false;
+        $('markpaid-order-id').textContent = order?.orderId || orderId;
+        $('markpaid-note').value = '';
+        openModal('markpaid-modal');
     }
 
-    function closeMarkPaidModal() {
-        activeMarkPaidOrderId = null;
-        $('markPaidModal').hidden = true;
+    function viewOrder(id) {
+        window.open(`/order-details?id=${encodeURIComponent(id)}`, '_blank', 'noopener');
     }
 
     async function reviewProof(action) {
         if (!activeProofOrderId) return;
 
-        const adminNote = $('proofModalAdminNote')?.value?.trim() || '';
-        const approveBtn = $('approveProofBtn');
-        const rejectBtn = $('rejectProofBtn');
-
-        approveBtn.disabled = true;
-        rejectBtn.disabled = true;
+        const adminNote = $('modal-admin-note')?.value?.trim() || '';
 
         try {
             const response = await fetch(`/api/admin/orders/${activeProofOrderId}/review-payment-proof`, {
@@ -353,22 +384,18 @@
             }
 
             showToast(result.message || 'Proof reviewed.', 'success');
-            closeProofModal();
+            closeModal('proof-modal');
+            activeProofOrderId = null;
             await loadData();
         } catch (err) {
             showToast(err.message || 'Review failed.', 'error');
-        } finally {
-            approveBtn.disabled = false;
-            rejectBtn.disabled = false;
         }
     }
 
     async function confirmMarkPaid() {
         if (!activeMarkPaidOrderId) return;
 
-        const adminNote = $('markPaidAdminNote')?.value?.trim() || '';
-        const btn = $('confirmMarkPaidBtn');
-        btn.disabled = true;
+        const adminNote = $('markpaid-note')?.value?.trim() || '';
 
         try {
             const response = await fetch(`/api/admin/payments/${activeMarkPaidOrderId}/mark-paid`, {
@@ -383,85 +410,79 @@
             }
 
             showToast(result.message || 'Order marked as paid.', 'success');
-            closeMarkPaidModal();
+            closeModal('markpaid-modal');
+            activeMarkPaidOrderId = null;
             await loadData();
         } catch (err) {
             showToast(err.message || 'Failed to mark as paid.', 'error');
-        } finally {
-            btn.disabled = false;
         }
     }
 
-    function bindEvents() {
-        $('applyFilterBtn')?.addEventListener('click', () => {
-            currentPage = 1;
+    function changePage(delta) {
+        const newPage = currentPage + delta;
+        if (newPage >= 1 && newPage <= totalPages) {
+            currentPage = newPage;
             loadData();
-        });
+        }
+    }
 
-        $('refreshBtn')?.addEventListener('click', () => loadData());
+    function applyFilters() {
+        currentPage = 1;
+        loadData();
+    }
 
-        $('prevPageBtn')?.addEventListener('click', () => {
-            if (currentPage > 1) {
-                currentPage -= 1;
-                loadData();
-            }
-        });
-
-        $('nextPageBtn')?.addEventListener('click', () => {
-            if (currentPage < totalPages) {
-                currentPage += 1;
-                loadData();
-            }
-        });
-
-        $('exportCsvBtn')?.addEventListener('click', async () => {
-            try {
-                setLoading(true);
-                const orders = await fetchAllForExport();
-                exportCsv(orders);
-                showToast(`Exported ${orders.length} orders.`, 'success');
-            } catch (err) {
-                showToast(err.message || 'Export failed.', 'error');
-            } finally {
-                setLoading(false);
-            }
-        });
-
-        $('ordersTableBody')?.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-action]');
-            if (!btn) return;
-            const action = btn.getAttribute('data-action');
-            const id = btn.getAttribute('data-id');
-            if (action === 'review-proof') openProofModal(id);
-            if (action === 'mark-paid') openMarkPaidModal(id);
-        });
-
-        $('closeProofModalBtn')?.addEventListener('click', closeProofModal);
-        $('approveProofBtn')?.addEventListener('click', () => reviewProof('approve'));
-        $('rejectProofBtn')?.addEventListener('click', () => reviewProof('reject'));
-        $('proofModal')?.addEventListener('click', (e) => {
-            if (e.target === $('proofModal')) closeProofModal();
-        });
-
-        $('closeMarkPaidModalBtn')?.addEventListener('click', closeMarkPaidModal);
-        $('cancelMarkPaidBtn')?.addEventListener('click', closeMarkPaidModal);
-        $('confirmMarkPaidBtn')?.addEventListener('click', confirmMarkPaid);
-        $('markPaidModal')?.addEventListener('click', (e) => {
-            if (e.target === $('markPaidModal')) closeMarkPaidModal();
-        });
+    async function exportCSV() {
+        try {
+            setLoading(true);
+            const orders = await fetchAllForExport();
+            exportCsvData(orders);
+            showToast(`Exported ${orders.length} orders.`, 'success');
+        } catch (err) {
+            showToast(err.message || 'Export failed.', 'error');
+        } finally {
+            setLoading(false);
+        }
     }
 
     function initDefaultDates() {
         const end = new Date();
         const start = new Date();
         start.setDate(start.getDate() - 30);
-        $('filterEndDate').value = end.toISOString().slice(0, 10);
-        $('filterStartDate').value = start.toISOString().slice(0, 10);
+        $('filter-end').value = end.toISOString().slice(0, 10);
+        $('filter-start').value = start.toISOString().slice(0, 10);
     }
+
+    function bindModalBackdropClose() {
+        $('proof-modal')?.addEventListener('click', (e) => {
+            if (e.target === $('proof-modal')) {
+                closeModal('proof-modal');
+                activeProofOrderId = null;
+            }
+        });
+        $('markpaid-modal')?.addEventListener('click', (e) => {
+            if (e.target === $('markpaid-modal')) {
+                closeModal('markpaid-modal');
+                activeMarkPaidOrderId = null;
+            }
+        });
+    }
+
+    /* expose globals for inline onclick handlers */
+    window.loadReconciliation = loadData;
+    window.exportCSV = exportCSV;
+    window.applyFilters = applyFilters;
+    window.changePage = changePage;
+    window.openModal = openModal;
+    window.closeModal = closeModal;
+    window.viewOrder = viewOrder;
+    window.openMarkPaid = openMarkPaid;
+    window.openProofModal = openProofModal;
+    window.submitProofReview = reviewProof;
+    window.submitMarkPaid = confirmMarkPaid;
 
     document.addEventListener('DOMContentLoaded', () => {
         initDefaultDates();
-        bindEvents();
+        bindModalBackdropClose();
         loadData();
     });
 })();

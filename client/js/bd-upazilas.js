@@ -70,5 +70,13 @@ window.DISTRICT_UPAZILAS = {
 
 window.getUpazilasForDistrict = function getUpazilasForDistrict(district) {
     if (!district || !window.DISTRICT_UPAZILAS) return [];
-    return window.DISTRICT_UPAZILAS[district] || [];
+    if (window.DISTRICT_UPAZILAS[district]) return window.DISTRICT_UPAZILAS[district];
+    if (typeof window.normalizeDistrictName === 'function') {
+        const normalized = window.normalizeDistrictName(district);
+        const key = Object.keys(window.DISTRICT_UPAZILAS).find(
+            (k) => window.normalizeDistrictName(k) === normalized
+        );
+        if (key) return window.DISTRICT_UPAZILAS[key];
+    }
+    return [];
 };

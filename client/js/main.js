@@ -127,7 +127,7 @@ function displayProducts(productsToDisplay) {
             } else if (typeof addToBag === 'function') {
                 addToBag(productId, product.name, product.price, imageSource);
             } else {
-                alert("কার্ট ফাংশনটি খুঁজে পাওয়া যাচ্ছে না। পেজ রিলোড দিন।");
+                alert("Cart function not found. Please reload the page.");
             }
         });
 

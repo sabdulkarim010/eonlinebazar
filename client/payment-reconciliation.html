@@ -1,234 +1,581 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment Reconciliation | EonlineBazar Admin</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Reconciliation | EonlineBazar</title>
+  <style>
+    /* PASTE THE COMPLETE CSS HERE — all styles inline */
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+    }
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="css/payment-reconciliation.css">
+    /* ── TOP HEADER BAR ── */
+    .page-header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+      color: white;
+      padding: 24px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .page-header-left h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+    }
+    .page-header-left p {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.6);
+      margin-top: 4px;
+    }
+    .page-header-right {
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      padding: 9px 18px;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+    .btn-white {
+      background: rgba(255,255,255,0.15);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+    .btn-white:hover { background: rgba(255,255,255,0.25); }
+    .btn-green { background: #10b981; color: white; }
+    .btn-green:hover { background: #059669; }
+    .btn-indigo { background: #6366f1; color: white; }
+    .btn-indigo:hover { background: #4f46e5; }
+    .btn-amber { background: #f59e0b; color: white; }
+    .btn-red { background: #ef4444; color: white; }
+    .btn-sm { padding: 5px 11px; font-size: 0.78rem; }
 
-    <script>
-        (function () {
-            try {
-                var saved = localStorage.getItem('prTheme');
-                if (!saved) {
-                    saved = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
-                        ? 'light' : 'dark';
-                }
-                document.documentElement.setAttribute('data-theme', saved);
-            } catch (e) {
-                document.documentElement.setAttribute('data-theme', 'dark');
-            }
-        })();
-    </script>
+    /* ── KPI CARDS GRID ── */
+    .kpi-section {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 16px;
+      padding: 24px 32px 0;
+    }
+    @media(max-width:1100px){ .kpi-section{ grid-template-columns: repeat(3,1fr); } }
+    @media(max-width:600px){ .kpi-section{ grid-template-columns: repeat(2,1fr); padding:16px; } }
+
+    .kpi-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      border-top: 4px solid #e5e7eb;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .kpi-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    }
+    .kpi-card.c-total  { border-top-color: #6366f1; }
+    .kpi-card.c-rev    { border-top-color: #10b981; }
+    .kpi-card.c-paid   { border-top-color: #059669; }
+    .kpi-card.c-unpaid { border-top-color: #ef4444; }
+    .kpi-card.c-pend   { border-top-color: #f59e0b; }
+    .kpi-card.c-cod    { border-top-color: #8b5cf6; }
+
+    .kpi-icon {
+      font-size: 1.5rem;
+      margin-bottom: 10px;
+      display: block;
+    }
+    .kpi-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .kpi-num {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #111827;
+      line-height: 1;
+    }
+    .kpi-hint {
+      font-size: 0.72rem;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+
+    /* ── FILTER CARD ── */
+    .filter-card {
+      margin: 20px 32px 0;
+      background: white;
+      border-radius: 12px;
+      padding: 20px 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    @media(max-width:600px){ .filter-card{ margin:16px; } }
+
+    .filter-card-title {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: #374151;
+      margin-bottom: 16px;
+    }
+    .filter-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px,1fr));
+      gap: 12px;
+      align-items: end;
+    }
+    .fg label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 5px;
+    }
+    .fg select, .fg input[type=date] {
+      width: 100%;
+      padding: 9px 10px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: #374151;
+      background: #f9fafb;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .fg select:focus, .fg input[type=date]:focus {
+      border-color: #6366f1;
+      background: white;
+    }
+
+    /* ── TABLE CARD ── */
+    .table-card {
+      margin: 20px 32px 32px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      overflow: hidden;
+    }
+    @media(max-width:600px){ .table-card{ margin:16px; } }
+
+    .table-card-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid #f3f4f6;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .table-card-title { font-size: 1rem; font-weight: 700; color: #111827; }
+    .count-pill {
+      background: #f3f4f6;
+      color: #6b7280;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+
+    .recon-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .recon-table thead { background: #f8fafc; }
+    .recon-table thead th {
+      padding: 11px 14px;
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #e5e7eb;
+      white-space: nowrap;
+    }
+    .recon-table tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.12s; }
+    .recon-table tbody tr:hover { background: #fafafa; }
+    .recon-table tbody td { padding: 13px 14px; color: #374151; vertical-align: middle; }
+
+    .order-link { font-weight: 700; color: #4f46e5; text-decoration: none; font-size: 0.8rem; }
+    .order-link:hover { text-decoration: underline; }
+    .cust-name { font-weight: 600; color: #111827; font-size: 0.85rem; }
+    .cust-phone { font-size: 0.75rem; color: #9ca3af; }
+    .amount-val { font-weight: 700; color: #111827; }
+
+    /* badges */
+    .badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 3px 9px; border-radius: 20px;
+      font-size: 0.73rem; font-weight: 700; white-space: nowrap;
+    }
+    .b-gateway { background:#ede9fe; color:#7c3aed; }
+    .b-manual  { background:#fef3c7; color:#d97706; }
+    .b-cod     { background:#e0f2fe; color:#0369a1; }
+    .b-paid    { background:#d1fae5; color:#065f46; }
+    .b-unpaid  { background:#fee2e2; color:#991b1b; }
+    .b-pending { background:#fef3c7; color:#92400e; }
+    .b-yes     { background:#d1fae5; color:#065f46; }
+    .b-no      { background:#f3f4f6; color:#9ca3af; }
+    .b-sub     { background:#fef3c7; color:#92400e; }
+    .b-app     { background:#d1fae5; color:#065f46; }
+    .b-rej     { background:#fee2e2; color:#991b1b; }
+    .b-none    { background:#f3f4f6; color:#9ca3af; }
+
+    .action-wrap { display:flex; gap:5px; flex-wrap:wrap; }
+
+    /* empty state */
+    .empty-box { text-align:center; padding:52px 20px; }
+    .empty-box .e-icon { font-size:2.5rem; margin-bottom:10px; }
+    .empty-box h3 { font-size:1rem; color:#374151; margin-bottom:5px; }
+    .empty-box p  { font-size:0.85rem; color:#9ca3af; }
+
+    /* spinner */
+    .spinner-wrap { text-align:center; padding:40px; color:#6b7280; }
+    .spin {
+      width:30px; height:30px;
+      border:3px solid #e5e7eb;
+      border-top-color:#6366f1;
+      border-radius:50%;
+      animation:spin 0.8s linear infinite;
+      margin:0 auto 10px;
+    }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    /* pagination */
+    .pagination {
+      padding:14px 24px;
+      border-top:1px solid #f3f4f6;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+    .pg-info { font-size:0.85rem; color:#6b7280; }
+    .pg-btns { display:flex; gap:8px; }
+    .pg-btn {
+      padding:7px 14px;
+      border:1.5px solid #e5e7eb;
+      border-radius:8px;
+      background:white;
+      font-size:0.85rem;
+      font-weight:500;
+      cursor:pointer;
+      color:#374151;
+      transition:all 0.15s;
+    }
+    .pg-btn:hover:not(:disabled) { border-color:#6366f1; color:#6366f1; }
+    .pg-btn:disabled { opacity:0.4; cursor:not-allowed; }
+
+    /* modal */
+    .modal-bg {
+      position:fixed; inset:0;
+      background:rgba(0,0,0,0.55);
+      backdrop-filter:blur(3px);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:1000;
+    }
+    .modal-bg.open { display:flex; }
+    .modal-box {
+      background:white;
+      border-radius:14px;
+      padding:26px;
+      width:90%;
+      max-width:460px;
+      box-shadow:0 20px 60px rgba(0,0,0,0.2);
+      animation:mIn 0.2s ease;
+    }
+    @keyframes mIn {
+      from{opacity:0;transform:scale(0.94) translateY(-8px)}
+      to{opacity:1;transform:scale(1) translateY(0)}
+    }
+    .modal-title {
+      font-size:1.05rem; font-weight:700;
+      color:#111827; margin-bottom:18px;
+      display:flex; align-items:center; gap:8px;
+    }
+    .modal-field { margin-bottom:14px; }
+    .modal-lbl { font-size:0.75rem; font-weight:700; color:#6b7280; margin-bottom:5px; }
+    .modal-val { font-size:0.9rem; color:#111827; font-weight:600; }
+    .proof-img { width:100%; border-radius:8px; margin:8px 0; border:1px solid #e5e7eb; cursor:zoom-in; }
+    .modal-ta {
+      width:100%; padding:9px;
+      border:1.5px solid #e5e7eb; border-radius:8px;
+      font-size:0.85rem; resize:vertical; min-height:72px; outline:none;
+    }
+    .modal-ta:focus { border-color:#6366f1; }
+    .modal-footer {
+      display:flex; gap:8px; justify-content:flex-end;
+      margin-top:18px; padding-top:18px;
+      border-top:1px solid #f3f4f6;
+    }
+
+    /* loading bar at top */
+    .top-loading {
+      background:#fef3c7; color:#92400e;
+      padding:10px 32px; font-size:0.85rem;
+      font-weight:600; display:none;
+    }
+    .top-loading.show { display:block; }
+
+    /* table scroll on mobile */
+    .table-scroll { overflow-x:auto; }
+  </style>
 </head>
 <body>
 
-    <div class="pr-loading-overlay" id="loadingOverlay" aria-live="polite" aria-busy="true">
-        <div class="pr-spinner"></div>
-        <p>Loading payment reconciliation…</p>
+<!-- TOP LOADING BAR -->
+<div class="top-loading" id="top-loading">
+  ⏳ Loading payment reconciliation data...
+</div>
+
+<!-- PAGE HEADER -->
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>💳 Payment Reconciliation</h1>
+    <p>Gateway paid/unpaid, manual proofs & COD overview</p>
+  </div>
+  <div class="page-header-right">
+    <button class="btn btn-white" onclick="loadReconciliation()">
+      🔄 Refresh
+    </button>
+    <button class="btn btn-green" onclick="exportCSV()">
+      📥 Export CSV
+    </button>
+    <a href="/admin" class="btn btn-white">← Admin Panel</a>
+  </div>
+</div>
+
+<!-- KPI CARDS -->
+<div class="kpi-section">
+  <div class="kpi-card c-total">
+    <span class="kpi-icon">📦</span>
+    <div class="kpi-label">Total Orders</div>
+    <div class="kpi-num" id="stat-total">0</div>
+    <div class="kpi-hint">This period</div>
+  </div>
+  <div class="kpi-card c-rev">
+    <span class="kpi-icon">💰</span>
+    <div class="kpi-label">Total Revenue</div>
+    <div class="kpi-num" id="stat-revenue">৳0</div>
+    <div class="kpi-hint">Paid orders only</div>
+  </div>
+  <div class="kpi-card c-paid">
+    <span class="kpi-icon">✅</span>
+    <div class="kpi-label">Gateway Paid</div>
+    <div class="kpi-num" id="stat-gateway-paid">0</div>
+    <div class="kpi-hint">Verified</div>
+  </div>
+  <div class="kpi-card c-unpaid">
+    <span class="kpi-icon">❌</span>
+    <div class="kpi-label">Gateway Unpaid</div>
+    <div class="kpi-num" id="stat-gateway-unpaid">0</div>
+    <div class="kpi-hint">Needs attention</div>
+  </div>
+  <div class="kpi-card c-pend">
+    <span class="kpi-icon">⏳</span>
+    <div class="kpi-label">Proof Pending</div>
+    <div class="kpi-num" id="stat-pending-proof">0</div>
+    <div class="kpi-hint">Awaiting review</div>
+  </div>
+  <div class="kpi-card c-cod">
+    <span class="kpi-icon">🚚</span>
+    <div class="kpi-label">COD Orders</div>
+    <div class="kpi-num" id="stat-cod">0</div>
+    <div class="kpi-hint">Cash on delivery</div>
+  </div>
+</div>
+
+<!-- FILTER CARD -->
+<div class="filter-card">
+  <div class="filter-card-title">🔍 Filter Orders</div>
+  <div class="filter-row">
+    <div class="fg">
+      <label>Payment Type</label>
+      <select id="filter-type">
+        <option value="all">All Types</option>
+        <option value="gateway">Gateway</option>
+        <option value="manual">Manual</option>
+        <option value="cod">COD</option>
+      </select>
     </div>
-
-    <div class="pr-app">
-        <header class="pr-header">
-            <div class="pr-header-left">
-                <div class="pr-brand"><i class="fa-solid fa-credit-card"></i> EonlineBazar</div>
-                <div>
-                    <h1>Payment Reconciliation</h1>
-                    <p>Gateway paid/unpaid, manual proofs &amp; COD overview</p>
-                </div>
-            </div>
-            <div class="pr-header-right">
-                <button class="pr-btn pr-btn-outline" id="exportCsvBtn" type="button">
-                    <i class="fa-solid fa-file-csv"></i> Export CSV
-                </button>
-                <button class="pr-btn pr-btn-ghost" id="refreshBtn" type="button">
-                    <i class="fa-solid fa-arrows-rotate"></i> Refresh
-                </button>
-                <a class="pr-btn pr-btn-outline" href="/admin">
-                    <i class="fa-solid fa-gauge-high"></i> Admin Panel
-                </a>
-            </div>
-        </header>
-
-        <div class="pr-error-banner" id="errorBanner" hidden>
-            <i class="fa-solid fa-triangle-exclamation"></i>
-            <span id="errorBannerText">Something went wrong.</span>
-        </div>
-
-        <!-- Summary KPI cards -->
-        <section class="pr-kpi-grid" aria-label="Payment summary">
-            <article class="pr-kpi-card">
-                <span class="pr-kpi-label">Total Orders</span>
-                <strong class="pr-kpi-value" id="kpiTotalOrders">0</strong>
-                <small>This period</small>
-            </article>
-            <article class="pr-kpi-card pr-kpi-card--revenue">
-                <span class="pr-kpi-label">Total Revenue</span>
-                <strong class="pr-kpi-value" id="kpiTotalRevenue">৳0</strong>
-                <small>Paid orders only</small>
-            </article>
-            <article class="pr-kpi-card pr-kpi-card--success">
-                <span class="pr-kpi-label">Gateway Paid ✓</span>
-                <strong class="pr-kpi-value" id="kpiGatewayPaid">0</strong>
-            </article>
-            <article class="pr-kpi-card pr-kpi-card--danger">
-                <span class="pr-kpi-label">Gateway Unpaid ✗</span>
-                <strong class="pr-kpi-value" id="kpiGatewayUnpaid">0</strong>
-            </article>
-            <article class="pr-kpi-card pr-kpi-card--warning">
-                <span class="pr-kpi-label">Proof Pending Review</span>
-                <strong class="pr-kpi-value" id="kpiPendingProof">0</strong>
-            </article>
-            <article class="pr-kpi-card">
-                <span class="pr-kpi-label">COD Orders</span>
-                <strong class="pr-kpi-value" id="kpiCodCount">0</strong>
-            </article>
-        </section>
-
-        <!-- Filters -->
-        <section class="pr-filter-bar" aria-label="Filters">
-            <div class="pr-filter-group">
-                <label for="filterType">Payment Type</label>
-                <select id="filterType">
-                    <option value="all">All</option>
-                    <option value="gateway">Gateway Only</option>
-                    <option value="manual">Manual Only</option>
-                    <option value="cod">COD</option>
-                </select>
-            </div>
-            <div class="pr-filter-group">
-                <label for="filterStatus">Status</label>
-                <select id="filterStatus">
-                    <option value="">All</option>
-                    <option value="paid">Paid</option>
-                    <option value="unpaid">Unpaid</option>
-                    <option value="pending">Pending</option>
-                </select>
-            </div>
-            <div class="pr-filter-group">
-                <label for="filterGateway">Gateway</label>
-                <select id="filterGateway">
-                    <option value="">All</option>
-                    <option value="sslcommerz">SSLCommerz</option>
-                    <option value="aamarpay">Aamarpay</option>
-                    <option value="shurjopay">ShurjoPay</option>
-                </select>
-            </div>
-            <div class="pr-filter-group">
-                <label for="filterStartDate">Start Date</label>
-                <input type="date" id="filterStartDate">
-            </div>
-            <div class="pr-filter-group">
-                <label for="filterEndDate">End Date</label>
-                <input type="date" id="filterEndDate">
-            </div>
-            <button class="pr-btn pr-btn-primary" id="applyFilterBtn" type="button">
-                <i class="fa-solid fa-filter"></i> Apply Filter
-            </button>
-        </section>
-
-        <!-- Orders table -->
-        <section class="pr-table-wrap">
-            <div class="pr-table-scroll">
-                <table class="pr-table" id="ordersTable">
-                    <thead>
-                        <tr>
-                            <th>Order ID</th>
-                            <th>Customer</th>
-                            <th>Total</th>
-                            <th>Payment Method</th>
-                            <th>Type</th>
-                            <th>Status</th>
-                            <th>IPN</th>
-                            <th>Proof</th>
-                            <th>Date</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ordersTableBody">
-                        <tr><td colspan="10" class="pr-empty-row">Apply filters or refresh to load orders.</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Pagination -->
-        <nav class="pr-pagination" id="paginationNav" aria-label="Pagination">
-            <button class="pr-btn pr-btn-ghost" id="prevPageBtn" type="button" disabled>
-                <i class="fa-solid fa-chevron-left"></i> Previous
-            </button>
-            <span id="paginationInfo">Page 1 of 1</span>
-            <button class="pr-btn pr-btn-ghost" id="nextPageBtn" type="button" disabled>
-                Next <i class="fa-solid fa-chevron-right"></i>
-            </button>
-        </nav>
+    <div class="fg">
+      <label>Status</label>
+      <select id="filter-status">
+        <option value="all">All Status</option>
+        <option value="paid">Paid</option>
+        <option value="unpaid">Unpaid</option>
+      </select>
     </div>
-
-    <!-- Review Proof Modal -->
-    <div class="pr-modal-overlay" id="proofModal" hidden role="dialog" aria-modal="true" aria-labelledby="proofModalTitle">
-        <div class="pr-modal">
-            <div class="pr-modal-header">
-                <h2 id="proofModalTitle"><i class="fa-solid fa-receipt"></i> Review Payment Proof</h2>
-                <button type="button" class="pr-modal-close" id="closeProofModalBtn" aria-label="Close">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-            <div class="pr-modal-body">
-                <p><strong>Order:</strong> <span id="proofModalOrderId">—</span></p>
-                <p><strong>TRX ID:</strong> <span id="proofModalTrxId">—</span></p>
-                <p><strong>Submitted:</strong> <span id="proofModalSubmittedAt">—</span></p>
-                <div id="proofModalScreenshotWrap" class="pr-proof-screenshot" hidden>
-                    <p><strong>Screenshot:</strong></p>
-                    <a id="proofModalScreenshotLink" href="#" target="_blank" rel="noopener noreferrer">
-                        <img id="proofModalScreenshot" alt="Payment screenshot">
-                    </a>
-                </div>
-                <div class="pr-form-group">
-                    <label for="proofModalAdminNote">Admin note (optional, shown when rejecting)</label>
-                    <textarea id="proofModalAdminNote" rows="3" placeholder="Reason for rejection or internal note"></textarea>
-                </div>
-            </div>
-            <div class="pr-modal-footer">
-                <button type="button" class="pr-btn pr-btn-success" id="approveProofBtn">
-                    <i class="fa-solid fa-circle-check"></i> Approve
-                </button>
-                <button type="button" class="pr-btn pr-btn-danger" id="rejectProofBtn">
-                    <i class="fa-solid fa-circle-xmark"></i> Reject
-                </button>
-            </div>
-        </div>
+    <div class="fg">
+      <label>Gateway</label>
+      <select id="filter-gateway">
+        <option value="all">All Gateways</option>
+        <option value="sslcommerz">SSLCommerz</option>
+        <option value="aamarpay">AamarPay</option>
+        <option value="shurjopay">ShurjoPay</option>
+      </select>
     </div>
-
-    <!-- Mark Paid Modal -->
-    <div class="pr-modal-overlay" id="markPaidModal" hidden role="dialog" aria-modal="true" aria-labelledby="markPaidModalTitle">
-        <div class="pr-modal pr-modal--sm">
-            <div class="pr-modal-header">
-                <h2 id="markPaidModalTitle"><i class="fa-solid fa-check-double"></i> Mark as Paid</h2>
-                <button type="button" class="pr-modal-close" id="closeMarkPaidModalBtn" aria-label="Close">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-            <div class="pr-modal-body">
-                <p>Manually mark gateway order <strong id="markPaidOrderLabel">—</strong> as paid?</p>
-                <div class="pr-form-group">
-                    <label for="markPaidAdminNote">Admin note (optional)</label>
-                    <textarea id="markPaidAdminNote" rows="2" placeholder="Reason for manual override"></textarea>
-                </div>
-            </div>
-            <div class="pr-modal-footer">
-                <button type="button" class="pr-btn pr-btn-ghost" id="cancelMarkPaidBtn">Cancel</button>
-                <button type="button" class="pr-btn pr-btn-primary" id="confirmMarkPaidBtn">Confirm</button>
-            </div>
-        </div>
+    <div class="fg">
+      <label>Start Date</label>
+      <input type="date" id="filter-start">
     </div>
+    <div class="fg">
+      <label>End Date</label>
+      <input type="date" id="filter-end">
+    </div>
+    <div class="fg">
+      <label>&nbsp;</label>
+      <button class="btn btn-indigo" style="width:100%" onclick="applyFilters()">
+        Apply Filter
+      </button>
+    </div>
+  </div>
+</div>
 
-    <div class="pr-toast" id="toast" hidden></div>
+<!-- TABLE CARD -->
+<div class="table-card">
+  <div class="table-card-header">
+    <div class="table-card-title">Orders</div>
+    <span class="count-pill" id="table-count">0 orders</span>
+  </div>
 
-    <script src="js/payment-reconciliation.js"></script>
+  <div class="spinner-wrap" id="table-loading" style="display:none">
+    <div class="spin"></div>
+    <p>Loading orders...</p>
+  </div>
+
+  <div class="table-scroll">
+    <table class="recon-table">
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Customer</th>
+          <th>Total</th>
+          <th>Payment Method</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>IPN</th>
+          <th>Proof</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="recon-tbody">
+        <tr>
+          <td colspan="10">
+            <div class="empty-box">
+              <div class="e-icon">📋</div>
+              <h3>No orders yet</h3>
+              <p>Apply filters or click Refresh to load orders.</p>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination">
+    <span class="pg-info" id="page-info">Page 1 of 1</span>
+    <div class="pg-btns">
+      <button class="pg-btn" id="btn-prev" onclick="changePage(-1)" disabled>
+        ← Previous
+      </button>
+      <button class="pg-btn" id="btn-next" onclick="changePage(1)" disabled>
+        Next →
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- PROOF REVIEW MODAL -->
+<div class="modal-bg" id="proof-modal">
+  <div class="modal-box">
+    <div class="modal-title">🧾 Review Payment Proof</div>
+    <div class="modal-field">
+      <div class="modal-lbl">Order ID</div>
+      <div class="modal-val" id="modal-order-id">—</div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-lbl">Customer</div>
+      <div class="modal-val" id="modal-customer">—</div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-lbl">TRX ID</div>
+      <div class="modal-val" id="modal-trx-id">—</div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-lbl">Screenshot</div>
+      <img id="modal-proof-img" class="proof-img" 
+           style="display:none" alt="Payment proof">
+      <div id="modal-no-img" style="color:#9ca3af;font-size:0.85rem">
+        No screenshot uploaded
+      </div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-lbl">Admin Note (optional)</div>
+      <textarea class="modal-ta" id="modal-admin-note" 
+                placeholder="Add a note..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" 
+              style="background:#f3f4f6;color:#374151"
+              onclick="closeModal('proof-modal')">
+        Cancel
+      </button>
+      <button class="btn btn-red btn-sm" 
+              onclick="submitProofReview('reject')">
+        ❌ Reject
+      </button>
+      <button class="btn btn-green btn-sm" 
+              onclick="submitProofReview('approve')">
+        ✅ Approve
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MARK PAID MODAL -->
+<div class="modal-bg" id="markpaid-modal">
+  <div class="modal-box">
+    <div class="modal-title">💳 Mark Order as Paid</div>
+    <div class="modal-field">
+      <div class="modal-lbl">Order ID</div>
+      <div class="modal-val" id="markpaid-order-id">—</div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-lbl">Admin Note (optional)</div>
+      <textarea class="modal-ta" id="markpaid-note" 
+                placeholder="Reason for manual override..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn"
+              style="background:#f3f4f6;color:#374151"
+              onclick="closeModal('markpaid-modal')">
+        Cancel
+      </button>
+      <button class="btn btn-amber" onclick="submitMarkPaid()">
+        ✅ Mark as Paid
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/payment-reconciliation.js"></script>
+
 </body>
 </html>

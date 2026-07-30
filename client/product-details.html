@@ -34,7 +34,7 @@
 
     <main class="product-details-container">
         <nav class="breadcrumb-nav">
-            <a href="/" data-i18n="nav.home">হোম</a>
+            <a href="/" data-i18n="nav.home">Home</a>
             <i class="fa-solid fa-angle-right"></i>
             <a href="#" id="breadcrumbCategory">Category</a>
             <i class="fa-solid fa-angle-right"></i>
@@ -48,7 +48,7 @@
 
             <div id="productLoading" class="loading-spinner">
                 <i class="fa-solid fa-circle-notch fa-spin"></i> 
-                <span data-i18n="common.loading">লোড হচ্ছে...</span>
+                <span data-i18n="common.loading">Loading...</span>
             </div>
 
             <div id="productContent" class="product-content-wrapper hidden">
@@ -74,7 +74,7 @@
                 
                 <div class="info-top-meta">
                     <span class="info-category-label" id="infoCategory">Category Name</span>
-                    <span class="stock-status-badge" id="stockStatus" data-i18n="product.in_stock">স্টকে আছে</span>
+                    <span class="stock-status-badge" id="stockStatus" data-i18n="product.in_stock">In Stock</span>
                 </div>
 
                 <h1 id="productTitle" class="product-title">Product Title Loading...</h1>
@@ -125,7 +125,7 @@
 
                 <div class="product-actions-wrapper">
                     <div class="quantity-control-block">
-                        <span class="qty-label" data-i18n="cart.quantity">পরিমাণ</span>:
+                        <span class="qty-label" data-i18n="cart.quantity">Quantity</span>:
                         <div class="quantity-selector">
                             <button type="button" id="decreaseQtyBtn"><i class="fa-solid fa-minus"></i></button>
                             <input type="number" id="productQtyInput" value="1" min="1" readonly>
@@ -135,10 +135,10 @@
                     
                     <div class="action-buttons-group">
                         <button type="button" id="addToCartBtn" class="btn-add-to-cart">
-                            <i class="fa-solid fa-cart-shopping"></i> <span data-i18n="product.add_to_cart">কার্টে যোগ করুন</span>
+                            <i class="fa-solid fa-cart-shopping"></i> <span data-i18n="product.add_to_cart">Add to Cart</span>
                         </button>
                         <button type="button" id="buyNowBtn" class="btn-buy-now">
-                            <i class="fa-solid fa-bolt"></i> <span data-i18n="product.buy_now">এখনই কিনুন</span>
+                            <i class="fa-solid fa-bolt"></i> <span data-i18n="product.buy_now">Buy Now</span>
                         </button>
                     </div>
                 </div>
@@ -174,8 +174,8 @@
         <div id="productExtraSection" class="product-extra-section hidden">
             
             <div class="modern-tabs-header">
-                <button class="tab-trigger active" data-tab="desc-tab" data-i18n="product.description">বিবরণ</button>
-                <button class="tab-trigger" data-tab="review-tab"><span data-i18n="product.reviews">রিভিউ</span> (<span id="tabReviewCount">0</span>)</button>
+                <button class="tab-trigger active" data-tab="desc-tab" data-i18n="product.description">Description</button>
+                <button class="tab-trigger" data-tab="review-tab"><span data-i18n="product.reviews">Reviews</span> (<span id="tabReviewCount">0</span>)</button>
             </div>
 
             <div id="desc-tab" class="tab-content-pane active">
@@ -213,7 +213,7 @@
             </div>
             <div class="sticky-action-btns">
                 <button type="button" id="stickyAddToCartBtn" class="btn-add-to-cart-mini"><i class="fa-solid fa-cart-shopping"></i></button>
-                <button type="button" id="stickyBuyNowBtn" class="btn-buy-now-mini" data-i18n="product.buy_now">এখনই কিনুন</button>
+                <button type="button" id="stickyBuyNowBtn" class="btn-buy-now-mini" data-i18n="product.buy_now">Buy Now</button>
             </div>
         </div>
     </div>

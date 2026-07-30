@@ -88,8 +88,8 @@
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
                         </div>
                         <ul class="submenu">
-                            <li data-target="view-newsletter-subscribers"><i class="fa-solid fa-users"></i> সাবস্ক্রাইবার তালিকা</li>
-                            <li data-target="view-newsletter-campaigns"><i class="fa-solid fa-paper-plane"></i> ইমেইল ক্যাম্পেইন</li>
+                            <li data-target="view-newsletter-subscribers"><i class="fa-solid fa-users"></i> Subscribers</li>
+                            <li data-target="view-newsletter-campaigns"><i class="fa-solid fa-paper-plane"></i> Email Campaigns</li>
                         </ul>
                     </li>
 
@@ -650,21 +650,21 @@
 <section id="view-newsletter-subscribers" class="admin-section catalog-page" style="display: none;">
     <div class="catalog-page-header">
         <div>
-            <h3><i class="fa-solid fa-users"></i> সাবস্ক্রাইবার তালিকা</h3>
-            <p class="catalog-page-sub">নিউজলেটার সাবস্ক্রাইবারদের তালিকা ও স্ট্যাটাস পরিচালনা করুন।</p>
+            <h3><i class="fa-solid fa-users"></i> Newsletter Subscribers</h3>
+            <p class="catalog-page-sub">Manage newsletter subscribers and filter by tags.</p>
         </div>
     </div>
 
     <div class="newsletter-stats-bar" id="newsletterStatsBar">
-        <span class="newsletter-stat-pill"><strong id="nlStatTotal">0</strong> মোট</span>
-        <span class="newsletter-stat-pill newsletter-stat-pill--active"><strong id="nlStatActive">0</strong> সক্রিয়</span>
-        <span class="newsletter-stat-pill newsletter-stat-pill--inactive"><strong id="nlStatInactive">0</strong> আনসাবস্ক্রাইব</span>
+        <span class="newsletter-stat-pill"><strong id="nlStatTotal">0</strong> Total</span>
+        <span class="newsletter-stat-pill newsletter-stat-pill--active"><strong id="nlStatActive">0</strong> Active</span>
+        <span class="newsletter-stat-pill newsletter-stat-pill--inactive"><strong id="nlStatInactive">0</strong> Unsubscribed</span>
     </div>
 
     <div class="catalog-toolbar newsletter-toolbar">
         <div class="catalog-field catalog-field-grow">
             <label for="nlSubscriberSearch">Search</label>
-            <input type="search" id="nlSubscriberSearch" placeholder="Email or name...">
+            <input type="search" id="nlSubscriberSearch" placeholder="Search subscribers...">
         </div>
         <div class="catalog-field">
             <label for="nlSubscriberStatus">Status</label>
@@ -703,8 +703,8 @@
 <section id="view-newsletter-campaigns" class="admin-section catalog-page" style="display: none;">
     <div class="catalog-page-header">
         <div>
-            <h3><i class="fa-solid fa-paper-plane"></i> ইমেইল ক্যাম্পেইন</h3>
-            <p class="catalog-page-sub">নিউজলেটার ক্যাম্পেইন তৈরি, টেস্ট ও পাঠান।</p>
+            <h3><i class="fa-solid fa-paper-plane"></i> Email Campaigns</h3>
+            <p class="catalog-page-sub">Create, test, and send newsletter email campaigns.</p>
         </div>
     </div>
 
@@ -712,41 +712,41 @@
         <input type="hidden" id="nlCampaignEditId" value="">
         <div class="coupon-form-grid">
             <div class="catalog-field">
-                <label for="nlCampaignTitle">Title</label>
+                <label for="nlCampaignTitle">Campaign Title</label>
                 <input type="text" id="nlCampaignTitle" placeholder="Internal campaign title" required>
             </div>
             <div class="catalog-field">
-                <label for="nlCampaignSubject">Subject</label>
+                <label for="nlCampaignSubject">Email Subject</label>
                 <input type="text" id="nlCampaignSubject" placeholder="Email subject line" required>
             </div>
             <div class="catalog-field catalog-field-full">
-                <label for="nlCampaignHtml">HTML Content</label>
+                <label for="nlCampaignHtml">Email Content (HTML)</label>
                 <textarea id="nlCampaignHtml" rows="10" placeholder="<h1>Hello!</h1><p>Your offer here...</p>" required></textarea>
-                <small class="optional-hint">HTML ফরম্যাটে লিখুন</small>
+                <small class="optional-hint">Write in HTML format</small>
             </div>
             <div class="catalog-field">
                 <label for="nlCampaignTags">Target Tags</label>
                 <input type="text" id="nlCampaignTags" placeholder="vip, sale (comma separated)">
-                <small class="optional-hint">খালি রাখলে সব সক্রিয় সাবস্ক্রাইবার</small>
+                <small class="optional-hint">Leave empty to send to all subscribers</small>
             </div>
             <div class="catalog-field">
-                <label for="nlCampaignSchedule">Schedule (optional)</label>
+                <label for="nlCampaignSchedule">Schedule Date (optional)</label>
                 <input type="datetime-local" id="nlCampaignSchedule">
             </div>
             <div class="catalog-field">
-                <label for="nlCampaignTestEmail">Test Email</label>
+                <label for="nlCampaignTestEmail">Test Email Address</label>
                 <input type="email" id="nlCampaignTestEmail" placeholder="preview@example.com">
             </div>
         </div>
         <div class="coupon-form-actions">
             <button type="button" class="btn-submit catalog-add-btn" id="nlCampaignSaveBtn">
-                <i class="fa-solid fa-floppy-disk"></i> ড্রাফট সেভ করুন
+                <i class="fa-solid fa-floppy-disk"></i> Save Draft
             </button>
             <button type="button" class="btn-secondary" id="nlCampaignTestBtn">
-                <i class="fa-solid fa-vial"></i> টেস্ট পাঠান
+                <i class="fa-solid fa-vial"></i> Send Test
             </button>
             <button type="button" class="btn-submit" id="nlCampaignSendBtn" style="background:#16a34a;">
-                <i class="fa-solid fa-paper-plane"></i> এখনই পাঠান
+                <i class="fa-solid fa-paper-plane"></i> Send Now
             </button>
         </div>
     </form>

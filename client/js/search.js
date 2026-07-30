@@ -41,7 +41,7 @@ function getQueryParam(name) {
 }
 
 function toBnNumber(n) {
-    const lang = window.i18n?.getCurrentLang?.() || 'bn';
+    const lang = window.i18n?.getCurrentLang?.() || 'en';
     return Number(n || 0).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US');
 }
 
@@ -161,14 +161,14 @@ function updateSearchSeoTitle() {
     let description;
 
     if (q) {
-        title = `"${q}" — সার্চ ফলাফল | EOnlineBazar`;
-        description = `"${q}" এর জন্য EOnlineBazar-এ সেরা পণ্য খুঁজুন।`;
+        title = `"${q}" — Search Results | EOnlineBazar`;
+        description = `Find the best products for "${q}" on EOnlineBazar.`;
     } else if (categoryName) {
-        title = `${categoryName} পণ্য | EOnlineBazar`;
-        description = `${categoryName} ক্যাটাগরির সেরা পণ্য EOnlineBazar-এ।`;
+        title = `${categoryName} Products | EOnlineBazar`;
+        description = `Best ${categoryName} products on EOnlineBazar.`;
     } else {
-        title = 'পণ্য খুঁজুন | EOnlineBazar';
-        description = 'EOnlineBazar-এ পণ্য খুঁজুন — সেরা মান, দ্রুত ডেলিভারি।';
+        title = 'Search Products | EOnlineBazar';
+        description = 'Search products on EOnlineBazar — best quality, fast delivery.';
     }
 
     document.title = title;
@@ -243,7 +243,7 @@ function renderBrandFilters() {
     if (expandBtn) {
         const hasMore = brands.length > MAX_VISIBLE_BRANDS;
         expandBtn.style.display = hasMore ? 'block' : 'none';
-        expandBtn.textContent = brandsExpanded ? 'কম দেখুন' : t('common.see_more');
+        expandBtn.textContent = brandsExpanded ? 'Show Less' : t('common.see_more');
     }
 }
 
@@ -255,9 +255,9 @@ function renderActiveFilterTags() {
     const tags = [];
 
     if (SEARCH_STATE.minPrice !== '' || SEARCH_STATE.maxPrice !== '') {
-        const min = SEARCH_STATE.minPrice || '০';
+        const min = SEARCH_STATE.minPrice || '0';
         const max = SEARCH_STATE.maxPrice || '∞';
-        tags.push({ key: 'price', label: `দাম: ৳${min}-৳${max}` });
+        tags.push({ key: 'price', label: `Price: ৳${min}-৳${max}` });
     }
 
     SEARCH_STATE.brands.forEach(brandId => {
@@ -266,16 +266,16 @@ function renderActiveFilterTags() {
         );
         tags.push({
             key: `brand:${brandId}`,
-            label: `ব্র্যান্ড: ${brand ? brand.name : brandId}`
+            label: `Brand: ${brand ? brand.name : brandId}`
         });
     });
 
     if (SEARCH_STATE.rating) {
-        tags.push({ key: 'rating', label: `রেটিং: ${SEARCH_STATE.rating}+` });
+        tags.push({ key: 'rating', label: `Rating: ${SEARCH_STATE.rating}+` });
     }
 
     if (SEARCH_STATE.inStock) {
-        tags.push({ key: 'inStock', label: 'শুধু স্টকে আছে' });
+        tags.push({ key: 'inStock', label: 'In Stock Only' });
     }
 
     tags.forEach(tag => {
@@ -392,33 +392,33 @@ async function runSearch() {
     updateSearchSeoTitle();
 
     if (!q && !hasActiveFilters()) {
-        heading.innerHTML = 'EonlineBazar এ সার্চ করুন';
+        heading.innerHTML = 'Search on EonlineBazar';
         countEl.textContent = '';
         pagination.innerHTML = '';
         grid.innerHTML = `
             <div class="search-state">
                 <div class="state-icon"><i class="fa fa-magnifying-glass"></i></div>
-                <h3>আপনি কী খুঁজছেন?</h3>
-                <p>"shoes", "sharee" বা "kids dress" এর মতো কিওয়ার্ড লিখুন, অথবা ফিল্টার ব্যবহার করুন।</p>
-                <a href="/" class="search-back-btn">কেনাকাটা চালিয়ে যান</a>
+                <h3>What are you looking for?</h3>
+                <p>Try keywords like "shoes", "sharee", or "kids dress", or use the filters.</p>
+                <a href="/" class="search-back-btn">Continue Shopping</a>
             </div>`;
         syncUrl(false);
         return;
     }
 
     if (q) {
-        heading.innerHTML = `"<span class="search-term">${escapeHtml(q)}</span>" এর জন্য ফলাফল`;
+        heading.innerHTML = `Results for "<span class="search-term">${escapeHtml(q)}</span>"`;
     } else if (SEARCH_STATE.categoryName) {
-        heading.innerHTML = `<span class="search-term">${escapeHtml(SEARCH_STATE.categoryName)}</span> পণ্য`;
+        heading.innerHTML = `<span class="search-term">${escapeHtml(SEARCH_STATE.categoryName)}</span> Products`;
     } else {
-        heading.innerHTML = 'সকল পণ্য';
+        heading.innerHTML = 'All Products';
     }
 
     grid.innerHTML = `
         <div class="search-state">
             <div class="state-icon"><i class="fa fa-spinner fa-spin"></i></div>
             <h3>${t('common.loading')}</h3>
-            <p>আপনার জন্য সেরা ম্যাচ খুঁজছি।</p>
+            <p>Finding the best matches for you.</p>
         </div>`;
     pagination.innerHTML = '';
     countEl.textContent = '';
@@ -459,7 +459,7 @@ async function runSearch() {
                 <div class="search-state">
                     <div class="state-icon"><i class="fa fa-box-open"></i></div>
                     <h3>${t('search.no_results')}</h3>
-                    <p>${q ? `"<strong>${escapeHtml(q)}</strong>" এর জন্য` : 'এই ফিল্টারে'} কোনো ফলাফল নেই। ফিল্টার পরিবর্তন করে দেখুন।</p>
+                    <p>${q ? `No results for "<strong>${escapeHtml(q)}</strong>"` : 'No results for these filters'}. Try changing your filters.</p>
                     <button type="button" class="search-back-btn" onclick="clearAllFilters()">${t('search.clear_filters')}</button>
                 </div>`;
             return;
@@ -474,8 +474,8 @@ async function runSearch() {
             <div class="search-state">
                 <div class="state-icon"><i class="fa fa-triangle-exclamation"></i></div>
                 <h3>${t('common.error')}</h3>
-                <p>সার্চ সম্পন্ন করা যায়নি। আবার চেষ্টা করুন।</p>
-                <a href="/" class="search-back-btn">কেনাকাটায় ফিরুন</a>
+                <p>Search could not be completed. Please try again.</p>
+                <a href="/" class="search-back-btn">Back to Shopping</a>
             </div>`;
     }
 }
@@ -539,7 +539,7 @@ function renderProducts(list) {
             if (typeof window.addToBag === 'function') {
                 window.addToBag(productId, product.name, product.price, imageSource);
             } else {
-                alert('কার্ট ফাংশনটি খুঁজে পাওয়া যাচ্ছে না। পেজ রিলোড দিন।');
+                alert('Cart function not found. Please reload the page.');
             }
         });
 

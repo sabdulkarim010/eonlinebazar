@@ -281,13 +281,68 @@
 }
 
 .floating-select select:focus ~ label,
-.floating-select select.has-value ~ label {
+.floating-select select.has-value ~ label,
+.floating-select .searchable-select.is-open ~ label,
+.floating-select .searchable-select:not(.searchable-select--placeholder) ~ label {
     opacity: 1;
     top: 4px;
     left: 12px;
     font-size: 11px;
     color: #ff9900;
     font-weight: 600;
+}
+
+.floating-select .searchable-select-input {
+    cursor: pointer;
+    padding-right: 36px;
+    color: #64748b;
+}
+
+.floating-select .searchable-select:not(.searchable-select--placeholder) .searchable-select-input {
+    color: #334155;
+}
+
+.floating-select .searchable-select.is-disabled .searchable-select-input {
+    background-color: #f1f5f9;
+    cursor: not-allowed;
+    opacity: 0.75;
+}
+
+.floating-group .district-search-input {
+    width: 100%;
+    padding: 18px 14px 6px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    font-size: 15px;
+    color: #334155;
+    box-sizing: border-box;
+}
+
+.floating-group .district-search-input:focus {
+    border-color: #ff9900;
+    box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.1);
+    outline: none;
+}
+
+.floating-group .district-search-input.has-value,
+.floating-group .district-search-input:not(:placeholder-shown) {
+    padding-top: 18px;
+    padding-bottom: 6px;
+}
+
+.floating-group .district-search-input:focus ~ label,
+.floating-group .district-search-input.has-value ~ label,
+.floating-group .district-search-input:not(:placeholder-shown) ~ label {
+    top: 4px;
+    left: 12px;
+    font-size: 11px;
+    color: #ff9900;
+    font-weight: 600;
+}
+
+.floating-group .district-dropdown-list {
+    border-radius: 8px;
 }
 
 .floating-group input[type="date"]:focus ~ label,

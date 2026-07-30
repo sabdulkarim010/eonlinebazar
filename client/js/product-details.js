@@ -150,7 +150,7 @@ function updateSeoTags(product) {
     const canonicalUrl = `${window.location.origin}/product-details?id=${encodeURIComponent(String(productId))}`;
     const title = product.name || 'Product';
     const description = truncateSeo(
-        product.description || product.detailedDescription || `${title} — EOnlineBazar-এ কিনুন`
+        product.description || product.detailedDescription || `Buy ${title} on EOnlineBazar`
     );
     const imageUrl = resolveProductImageUrl(product);
     const stockQty = Number(product.stockQuantity ?? product.stock) || 0;

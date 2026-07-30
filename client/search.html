@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <title>পণ্য খুঁজুন | EOnlineBazar</title>
-    <meta name="description" id="meta-description" content="EOnlineBazar-এ পণ্য খুঁজুন — সেরা মান, দ্রুত ডেলিভারি।">
+    <title>Search Products | EOnlineBazar</title>
+    <meta name="description" id="meta-description" content="Search products on EOnlineBazar — best quality, fast delivery.">
     <meta name="robots" content="index, follow">
-    <meta id="og-title" property="og:title" content="পণ্য খুঁজুন | EOnlineBazar">
-    <meta id="og-description" property="og:description" content="EOnlineBazar-এ পণ্য খুঁজুন — সেরা মান, দ্রুত ডেলিভারি।">
+    <meta id="og-title" property="og:title" content="Search Products | EOnlineBazar">
+    <meta id="og-description" property="og:description" content="Search products on EOnlineBazar — best quality, fast delivery.">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="EOnlineBazar">
     <meta property="og:locale" content="bn_BD">
@@ -282,8 +282,8 @@
                 <div class="nav-user-account" id="nav-user-link" onclick="window.location.href='/login'">
                     <img id="nav-user-avatar" src="" alt="User" class="nav-user-avatar-img">
                     <div class="nav-user-text-wrapper">
-                        <span class="nav-line-1" id="nav-user-line1" data-i18n="nav.login">লগইন</span>
-                        <span class="nav-line-2" id="nav-user-line2" data-i18n="nav.profile">প্রোফাইল</span>
+                        <span class="nav-line-1" id="nav-user-line1" data-i18n="nav.login">Login</span>
+                        <span class="nav-line-2" id="nav-user-line2" data-i18n="nav.profile">Profile</span>
                     </div>
                 </div>
 
@@ -292,7 +292,7 @@
                         <i class="fa fa-shopping-cart"></i>
                         <span id="cartCountBadge" class="cart-count">0</span>
                     </div>
-                    <span class="cart-text" data-i18n="nav.cart">কার্ট</span>
+                    <span class="cart-text" data-i18n="nav.cart">Cart</span>
                 </div>
             </div>
         </div>
@@ -302,7 +302,7 @@
                 <select id="categorySelect" class="search-category">
                     <option value="all">All Categories</option>
                 </select>
-                <input type="text" id="searchInput" class="search-input" data-i18n-placeholder="search.placeholder" placeholder="পণ্য খুঁজুন...">
+                <input type="text" id="searchInput" class="search-input" data-i18n-placeholder="search.placeholder" placeholder="Search products...">
                 <button class="search-submit-btn" id="headerSearchBtn" title="Search">
                     <i class="fa fa-search"></i>
                 </button>
@@ -313,31 +313,31 @@
 
 <main class="container search-results-wrap">
     <button type="button" class="mobile-filter-toggle" id="mobileFilterToggle" aria-expanded="false" data-i18n="search.filter">
-        ফিল্টার
+        Filter
     </button>
 
     <div class="search-layout">
         <aside class="search-filters" id="searchFilters">
             <div class="filter-section">
-                <h3 class="filter-section-title">দাম</h3>
+                <h3 class="filter-section-title">Price</h3>
                 <div class="price-inputs">
-                    <input type="number" id="minPriceInput" min="0" placeholder="০" aria-label="সর্বনিম্ন দাম">
+                    <input type="number" id="minPriceInput" min="0" placeholder="0" aria-label="Minimum price">
                     <span>—</span>
-                    <input type="number" id="maxPriceInput" min="0" placeholder="সর্বোচ্চ" aria-label="সর্বোচ্চ দাম">
+                    <input type="number" id="maxPriceInput" min="0" placeholder="Max" aria-label="Maximum price">
                 </div>
-                <div class="price-range-display" id="priceRangeDisplay">৳০ — ৳৫০০০</div>
+                <div class="price-range-display" id="priceRangeDisplay">৳0 — ৳5000</div>
             </div>
 
             <div class="filter-section">
-                <h3 class="filter-section-title">ব্র্যান্ড</h3>
+                <h3 class="filter-section-title">Brand</h3>
                 <ul class="brand-list" id="brandFilterList"></ul>
-                <button type="button" class="brand-expand-btn" id="brandExpandBtn" style="display:none;" data-i18n="common.see_more">আরো দেখুন</button>
+                <button type="button" class="brand-expand-btn" id="brandExpandBtn" style="display:none;" data-i18n="common.see_more">See More</button>
             </div>
 
             <div class="filter-section">
-                <h3 class="filter-section-title">রেটিং</h3>
+                <h3 class="filter-section-title">Rating</h3>
                 <div class="rating-options" id="ratingFilter">
-                    <label><input type="radio" name="ratingFilter" value=""> সব</label>
+                    <label><input type="radio" name="ratingFilter" value=""> All</label>
                     <label><input type="radio" name="ratingFilter" value="5"> ⭐⭐⭐⭐⭐ (5)</label>
                     <label><input type="radio" name="ratingFilter" value="4"> ⭐⭐⭐⭐+ (4+)</label>
                     <label><input type="radio" name="ratingFilter" value="3"> ⭐⭐⭐+ (3+)</label>
@@ -347,11 +347,11 @@
             <div class="filter-section stock-filter">
                 <label>
                     <input type="checkbox" id="inStockCheckbox">
-                    <span data-i18n="product.in_stock">স্টকে আছে</span>
+                    <span data-i18n="product.in_stock">In Stock</span>
                 </label>
             </div>
 
-            <button type="button" class="filter-clear-btn" id="clearFiltersBtn" data-i18n="search.clear_filters">ফিল্টার পরিষ্কার করুন</button>
+            <button type="button" class="filter-clear-btn" id="clearFiltersBtn" data-i18n="search.clear_filters">Clear Filters</button>
         </aside>
 
         <div class="search-results-main">
@@ -361,14 +361,14 @@
                     <span class="search-count" id="searchCount"></span>
                 </div>
                 <div class="search-sort-box" id="sortBox">
-                    <label for="sortSelect" data-i18n="search.sort">সাজান</label>
+                    <label for="sortSelect" data-i18n="search.sort">Sort</label>
                     <select id="sortSelect" class="search-sort-select">
-                        <option value="newest">নতুন আগে</option>
-                        <option value="oldest">পুরনো আগে</option>
-                        <option value="price_asc">দাম: কম থেকে বেশি</option>
-                        <option value="price_desc">দাম: বেশি থেকে কম</option>
-                        <option value="rating_desc">সেরা রেটিং</option>
-                        <option value="popular">সবচেয়ে জনপ্রিয়</option>
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="price_asc">Price: Low to High</option>
+                        <option value="price_desc">Price: High to Low</option>
+                        <option value="rating_desc">Best Rating</option>
+                        <option value="popular">Most Popular</option>
                     </select>
                 </div>
             </div>

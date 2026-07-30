@@ -363,12 +363,20 @@
 
                         <div class="form-grid profile-form-grid">
                             <div class="input-group">
-                                <label for="profile-district">District <span class="badge-primary">Auto-fill ready</span></label>
-                                <div class="input-wrapper select-wrapper">
+                                <label for="district-search-input">District <span class="badge-primary">Auto-fill ready</span></label>
+                                <div class="input-wrapper district-search-wrapper">
                                     <i class="fa-solid fa-map input-icon"></i>
-                                    <select id="profile-district" required>
-                                        <option value="">Select district</option>
-                                    </select>
+                                    <div class="district-search-wrapper">
+                                        <input
+                                            type="text"
+                                            id="district-search-input"
+                                            class="district-search-input"
+                                            placeholder="Search district..."
+                                            autocomplete="off"
+                                        >
+                                        <div id="district-dropdown-list" class="district-dropdown-list"></div>
+                                        <input type="hidden" id="district" name="district">
+                                    </div>
                                 </div>
                             </div>
 
@@ -478,10 +486,10 @@
 
                     <div id="contact-feedback" class="security-inline-feedback hidden" role="alert" aria-live="polite"></div>
 
-                    <div class="contact-update-grid">
+                    <div class="security-contact-section contact-update-grid">
                         <div class="contact-update-block">
                             <label for="security-new-email">New Email Address</label>
-                            <div class="contact-update-row">
+                            <div class="contact-update-row email-change-row">
                                 <div class="input-wrapper">
                                     <i class="fa-regular fa-envelope input-icon"></i>
                                     <input type="email" id="security-new-email" placeholder="you@example.com" autocomplete="email">
@@ -490,12 +498,12 @@
                                     <i class="fa-solid fa-paper-plane"></i> Send OTP
                                 </button>
                             </div>
-                            <small class="profile-field-hint">Current: <span id="security-current-email">—</span></small>
+                            <small class="profile-field-hint current-contact-info">Current: <span id="security-current-email">—</span></small>
                         </div>
 
                         <div class="contact-update-block">
                             <label for="security-new-phone">New Phone Number</label>
-                            <div class="contact-update-row">
+                            <div class="contact-update-row phone-change-row">
                                 <div class="input-wrapper">
                                     <i class="fa-solid fa-phone input-icon"></i>
                                     <input type="tel" id="security-new-phone" placeholder="01XXXXXXXXX" autocomplete="tel">
@@ -504,7 +512,7 @@
                                     <i class="fa-solid fa-comment-sms"></i> Send OTP
                                 </button>
                             </div>
-                            <small class="profile-field-hint">Current: <span id="security-current-phone">—</span></small>
+                            <small class="profile-field-hint current-contact-info">Current: <span id="security-current-phone">—</span></small>
                         </div>
                     </div>
                 </div>
@@ -515,7 +523,7 @@
                             <h3>Active Devices &amp; Sessions</h3>
                             <p class="security-subtext">These are the devices currently logged into your account. Log out any device you don't recognize.</p>
                         </div>
-                        <button type="button" id="logout-others-btn" class="logout-others-btn" title="Log out everywhere except this device">
+                        <button type="button" id="logout-all-btn" class="logout-others-btn" title="Log out everywhere except this device">
                             <i class="fa-solid fa-power-off"></i>
                             <span>Log Out All Other Devices</span>
                         </button>
@@ -770,6 +778,10 @@
 
                 <div class="otp-timer" id="contactOtpTimer" aria-live="polite"></div>
 
+                <button type="button" class="btn btn-light btn-compact otp-resend-btn hidden" id="contact-otp-resend-btn" disabled>
+                    <i class="fa-solid fa-rotate-right"></i> Resend OTP
+                </button>
+
                 <div id="contact-otp-feedback" class="security-inline-feedback hidden" role="alert"></div>
 
                 <div class="form-actions contact-otp-actions">
@@ -794,6 +806,8 @@
 <script src="js/cartDisplayUtils.js"></script>
 <script src="js/cart.js"></script>
 <script src="js/invoiceDownload.js"></script>
+<script src="js/bd-districts.js"></script>
+<script src="js/bd-upazilas.js"></script>
 <script src="js/profile.js"></script>
 </body>
 </html>

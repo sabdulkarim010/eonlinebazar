@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,7 +28,7 @@
                 <div class="brand-icon-circle">
                     <i class="fa-solid fa-user-shield"></i>
                 </div>
-                <h2 class="auth-title" data-i18n="auth.login">লগইন</h2>
+                <h2 class="auth-title" data-i18n="auth.login">Login</h2>
             </div>
             
             <form id="loginForm" novalidate>
@@ -41,7 +41,7 @@
                 
                 <div class="floating-group password-group password-no-icons">
                     <input type="password" id="loginPass" required placeholder=" ">
-                    <label for="loginPass" data-i18n="auth.password">পাসওয়ার্ড</label>
+                    <label for="loginPass" data-i18n="auth.password">Password</label>
                     <button type="button" class="toggle-password" id="toggleLoginPass" title="Show/Hide Password">
                         <i class="fa-regular fa-eye" id="loginEyeIcon"></i>
                     </button>
@@ -52,22 +52,22 @@
                     <label class="remember-me" style="display: flex; align-items: center; gap: 5px; cursor: pointer; color: #64748b;">
                         <input type="checkbox" id="rememberMe"> Remember me
                     </label>
-                    <a href="#" id="forgotPasswordLink" class="forgot-password-link hidden-forgot-link" style="display: none; color: #e74c3c; font-weight: 600; text-decoration: none;" data-i18n="auth.forgot_password">পাসওয়ার্ড ভুলে গেছেন?</a>
+                    <a href="#" id="forgotPasswordLink" class="forgot-password-link hidden-forgot-link" style="display: none; color: #e74c3c; font-weight: 600; text-decoration: none;" data-i18n="auth.forgot_password">Forgot Password?</a>
                 </div>
 
-                <button type="submit" class="btn-primary" data-i18n="auth.login">লগইন</button>
+                <button type="submit" class="btn-primary" data-i18n="auth.login">Login</button>
             </form>
 
             <div id="google-auth-section" class="google-auth-section" style="display: none;">
-                <p class="auth-divider"><span>অথবা</span></p>
+                <p class="auth-divider"><span>Or</span></p>
                 <a href="/api/auth/google" class="btn-google-login" id="googleLoginBtn">
                     <img src="/images/google-icon.svg" alt="Google">
-                    <span data-i18n="auth.google_login">Google দিয়ে লগইন</span>
+                    <span data-i18n="auth.google_login">Login with Google</span>
                 </a>
             </div>
 
             <p class="auth-switch-text">
-                <span data-i18n="auth.no_account">অ্যাকাউন্ট নেই?</span> <a href="/register" data-i18n="auth.register">নিবন্ধন করুন</a>
+                <span data-i18n="auth.no_account">Don't have an account?</span> <a href="/register" data-i18n="auth.register">Register</a>
             </p>
         </div>
 

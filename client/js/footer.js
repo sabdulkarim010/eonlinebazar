@@ -83,7 +83,7 @@ async function subscribeNewsletter(inputId = 'newsletter-email') {
     } catch (err) {
         console.error(err);
         if (msg) {
-            msg.textContent = 'কিছু একটা ভুল হয়েছে';
+            msg.textContent = 'Something went wrong';
             msg.style.color = '#f87171';
             msg.style.display = 'block';
         }

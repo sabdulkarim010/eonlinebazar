@@ -203,7 +203,7 @@ const translations = {
   }
 };
 
-let currentLang = localStorage.getItem('eonlinebazar_lang') || 'bn';
+let currentLang = localStorage.getItem('eonlinebazar_lang') || 'en';
 
 function t(key, vars = {}) {
   const text = translations[currentLang]?.[key] || translations['bn'][key] || key;
@@ -212,7 +212,7 @@ function t(key, vars = {}) {
 
 function updateLangLabel() {
   document.querySelectorAll('#lang-label').forEach((el) => {
-    el.textContent = currentLang === 'bn' ? 'EN' : 'বাং';
+    el.textContent = currentLang === 'bn' ? 'EN' : 'BN';
   });
 }
 
@@ -260,7 +260,7 @@ window.i18n = { t, setLanguage, getCurrentLang, applyTranslations, formatCurrenc
 
 document.addEventListener('languageChanged', (e) => {
   document.querySelectorAll('#lang-label').forEach((el) => {
-    el.textContent = e.detail.lang === 'bn' ? 'EN' : 'বাং';
+    el.textContent = e.detail.lang === 'bn' ? 'EN' : 'BN';
   });
 });
 

@@ -312,7 +312,9 @@ File Name: css/checkout.css
 }
 
 .form-group-field select,
-.input-box-wrapper select {
+.input-box-wrapper select,
+.form-group-field .searchable-select-input,
+.input-box-wrapper .searchable-select-input {
     width: 100%;
     padding: 12px 14px;
     border: 1.5px solid #e2e8f0;
@@ -325,7 +327,9 @@ File Name: css/checkout.css
 }
 
 .form-group-field select:focus,
-.input-box-wrapper select:focus {
+.input-box-wrapper select:focus,
+.form-group-field .searchable-select-input:focus,
+.input-box-wrapper .searchable-select-input:focus {
     border-color: var(--primary-color, #f97316);
     box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
 }

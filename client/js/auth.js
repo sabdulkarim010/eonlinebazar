@@ -243,23 +243,26 @@ function initRealTimeValidation() {
         });
     }
 
-    const regDistrict = document.getElementById('regDistrict');
+    const regDistrict = document.getElementById('reg-district');
     const regUpazila = document.getElementById('regUpazila');
 
+    function syncRegFloatingLabel(fieldId, searchInputId) {
+        const hidden = document.getElementById(fieldId);
+        const textInput = document.getElementById(searchInputId)
+            || hidden?.closest('.searchable-select')?.querySelector('.searchable-select-input');
+        if (textInput) {
+            textInput.classList.toggle('has-value', Boolean(hidden?.value));
+        }
+    }
+
     if (regDistrict) {
-        const syncDistrictLabel = () => {
-            regDistrict.classList.toggle('has-value', regDistrict.value !== '');
-        };
-        regDistrict.addEventListener('change', syncDistrictLabel);
-        syncDistrictLabel();
+        regDistrict.addEventListener('change', () => syncRegFloatingLabel('reg-district', 'reg-district-search-input'));
+        syncRegFloatingLabel('reg-district', 'reg-district-search-input');
     }
 
     if (regUpazila) {
-        const syncUpazilaLabel = () => {
-            regUpazila.classList.toggle('has-value', regUpazila.value !== '');
-        };
-        regUpazila.addEventListener('change', syncUpazilaLabel);
-        syncUpazilaLabel();
+        regUpazila.addEventListener('change', () => syncRegFloatingLabel('regUpazila', null));
+        syncRegFloatingLabel('regUpazila', null);
     }
 }
 
@@ -267,51 +270,64 @@ function initRealTimeValidation() {
    ৩.৫. রেজিস্ট্রেশন District → Upazila ক্যাসকেডিং
    ========================================================================= */
 function initRegisterLocationDropdowns() {
-    const regDistrict = document.getElementById('regDistrict');
+    const regDistrict = document.getElementById('reg-district');
     const regUpazila = document.getElementById('regUpazila');
     if (!regDistrict || !regUpazila) return;
 
-    function populateRegDistrictOptions() {
-        if (!Array.isArray(window.BANGLADESH_DISTRICTS)) return;
+    let regUpazilaSelect = null;
 
-        regDistrict.innerHTML = '<option value="">Select District (Optional)</option>';
-        window.BANGLADESH_DISTRICTS.forEach((district) => {
-            const option = document.createElement('option');
-            option.value = district;
-            option.textContent = district;
-            regDistrict.appendChild(option);
+    function syncRegFloatingLabel(fieldId, searchInputId) {
+        const hidden = document.getElementById(fieldId);
+        const textInput = searchInputId
+            ? document.getElementById(searchInputId)
+            : hidden?.closest('.searchable-select')?.querySelector('.searchable-select-input');
+        if (textInput) {
+            textInput.classList.toggle('has-value', Boolean(hidden?.value));
+        }
+    }
+
+    function initRegUpazilaSelect() {
+        if (regUpazilaSelect) return;
+        regUpazilaSelect = window.initSearchableSelectFromNative(regUpazila, {
+            placeholder: 'Select Upazila',
+            options: [],
+            value: '',
+            disabled: true,
+            onChange: () => syncRegFloatingLabel('regUpazila', null)
         });
     }
 
-    function populateRegUpazilaOptions(district) {
-        regUpazila.innerHTML = '<option value="">Select Upazila / Thana</option>';
-        regUpazila.classList.remove('has-value');
-
+    function populateRegUpazilaOptions(district, selectedUpazila = '') {
+        initRegUpazilaSelect();
         const upazilas = typeof window.getUpazilasForDistrict === 'function'
             ? window.getUpazilasForDistrict(district)
             : [];
 
         if (!district || upazilas.length === 0) {
-            regUpazila.disabled = true;
+            regUpazilaSelect?.setOptions([], '');
+            regUpazilaSelect?.setDisabled(true);
             return;
         }
 
-        upazilas.forEach((upazila) => {
-            const option = document.createElement('option');
-            option.value = upazila;
-            option.textContent = upazila;
-            regUpazila.appendChild(option);
-        });
-
-        regUpazila.disabled = false;
+        regUpazilaSelect?.setOptions(upazilas, selectedUpazila || '');
+        regUpazilaSelect?.setDisabled(false);
     }
 
-    populateRegDistrictOptions();
-    populateRegUpazilaOptions('');
+    if (typeof window.initDistrictSearch === 'function') {
+        window.initDistrictSearch('reg-district-search-input', 'reg-district', 'reg-district-dropdown');
+    }
+
+    initRegUpazilaSelect();
 
     regDistrict.addEventListener('change', () => {
-        populateRegUpazilaOptions(regDistrict.value);
+        populateRegUpazilaOptions(regDistrict.value, '');
+        syncRegFloatingLabel('reg-district', 'reg-district-search-input');
+        regUpazila.dispatchEvent(new Event('change', { bubbles: true }));
     });
+
+    regUpazila.addEventListener('change', () => syncRegFloatingLabel('regUpazila', null));
+    syncRegFloatingLabel('reg-district', 'reg-district-search-input');
+    syncRegFloatingLabel('regUpazila', null);
 }
 
 /* =========================================================================
@@ -440,7 +456,7 @@ async function handleRegisterSubmit(e) {
 
     const firstName = document.getElementById('regFirstName').value.trim();
     const lastName = document.getElementById('regLastName').value.trim();
-    const regDistrictEl = document.getElementById('regDistrict');
+    const regDistrictEl = document.getElementById('reg-district');
     const regUpazilaEl = document.getElementById('regUpazila');
     const district = regDistrictEl && regDistrictEl.value ? regDistrictEl.value.trim() : '';
     const upazilaOrThana = regUpazilaEl && regUpazilaEl.value ? regUpazilaEl.value.trim() : '';

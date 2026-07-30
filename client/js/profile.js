@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const profilePhone = document.getElementById('profile-phone');
     const profileGender = document.getElementById('profile-gender');
     const profileDob = document.getElementById('profile-dob');
-    const profileDistrict = document.getElementById('profile-district');
+    const profileDistrict = document.getElementById('district');
     const profileUpazila = document.getElementById('profile-upazila');
     const profileFullAddress = document.getElementById('profile-full-address');
     const profileAddress = document.getElementById('profile-address');
@@ -64,11 +64,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const contactOtpSubtext = document.getElementById('contact-otp-subtext');
     const contactOtpFeedback = document.getElementById('contact-otp-feedback');
     const contactOtpTimer = document.getElementById('contactOtpTimer');
+    const contactOtpResendBtn = document.getElementById('contact-otp-resend-btn');
     const requestEmailOtpBtn = document.getElementById('request-email-otp-btn');
     const requestPhoneOtpBtn = document.getElementById('request-phone-otp-btn');
 
-    let pendingContactUpdate = { type: null, maskedDestination: '', expiresAt: null };
+    let pendingContactUpdate = { type: null, maskedDestination: '', expiresAt: null, resendAvailableAt: null };
     let contactOtpTimerInterval = null;
+    let contactOtpResendInterval = null;
     
     const ordersListTbody = document.getElementById('orders-list-tbody');
     const mainBalanceAmount = document.getElementById('main-balance-amount');
@@ -309,42 +311,57 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================
     // 5.5 Profile address cascading (District -> Upazila)
     // =================================================================
-    function populateProfileDistrictOptions(selectedDistrict = '') {
-        if (!profileDistrict || !Array.isArray(window.BANGLADESH_DISTRICTS)) return;
+    let profileUpazilaSelect = null;
 
-        profileDistrict.innerHTML = '<option value="">Select district</option>';
-        window.BANGLADESH_DISTRICTS.forEach((district) => {
-            const option = document.createElement('option');
-            option.value = district;
-            option.textContent = district;
-            profileDistrict.appendChild(option);
+    function initProfileUpazilaSelect() {
+        const upazilaEl = document.getElementById('profile-upazila');
+        if (!upazilaEl || profileUpazilaSelect) return;
+        profileUpazilaSelect = window.initSearchableSelectFromNative(upazilaEl, {
+            placeholder: 'Select upazila / thana',
+            options: [],
+            value: '',
+            disabled: true
         });
+    }
 
-        if (selectedDistrict) profileDistrict.value = selectedDistrict;
+    function setProfileDistrictValue(district = '') {
+        const searchInput = document.getElementById('district-search-input');
+        const hidden = document.getElementById('district');
+        if (searchInput) {
+            searchInput.value = district || '';
+            searchInput.classList.toggle('has-value', Boolean(district));
+        }
+        if (hidden) hidden.value = district || '';
     }
 
     function populateProfileUpazilaOptions(district, selectedUpazila = '') {
-        if (!profileUpazila) return;
-
-        profileUpazila.innerHTML = '<option value="">Select upazila / thana</option>';
+        if (!profileUpazilaSelect) initProfileUpazilaSelect();
         const upazilas = typeof window.getUpazilasForDistrict === 'function'
             ? window.getUpazilasForDistrict(district)
             : [];
 
         if (!district || upazilas.length === 0) {
-            profileUpazila.disabled = true;
+            profileUpazilaSelect?.setOptions([], '');
+            profileUpazilaSelect?.setDisabled(true);
             return;
         }
 
-        upazilas.forEach((upazila) => {
-            const option = document.createElement('option');
-            option.value = upazila;
-            option.textContent = upazila;
-            profileUpazila.appendChild(option);
-        });
+        profileUpazilaSelect?.setOptions(upazilas, selectedUpazila || '');
+        profileUpazilaSelect?.setDisabled(false);
+    }
 
-        profileUpazila.disabled = false;
-        if (selectedUpazila) profileUpazila.value = selectedUpazila;
+    if (typeof window.initDistrictSearch === 'function') {
+        window.initDistrictSearch('district-search-input', 'district', 'district-dropdown-list');
+    }
+    initProfileUpazilaSelect();
+
+    const districtHiddenInput = document.getElementById('district');
+    if (districtHiddenInput) {
+        districtHiddenInput.addEventListener('change', () => {
+            populateProfileUpazilaOptions(districtHiddenInput.value, '');
+            const upazilaEl = document.getElementById('profile-upazila');
+            if (upazilaEl) upazilaEl.dispatchEvent(new Event('change', { bubbles: true }));
+        });
     }
 
     function buildCompositeAddress({ fullAddress = '', upazila = '', district = '' } = {}) {
@@ -392,7 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const upazila = user.upazila || user.thana || '';
         const fullAddress = user.fullAddress || '';
 
-        populateProfileDistrictOptions(district);
+        setProfileDistrictValue(district);
         populateProfileUpazilaOptions(district, upazila);
 
         if (profileFullAddress) profileFullAddress.value = fullAddress;
@@ -401,11 +418,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    populateProfileDistrictOptions();
+    const profileDistrictInput = () => document.getElementById('district');
+    const profileUpazilaInput = () => document.getElementById('profile-upazila');
 
-    if (profileDistrict) {
-        profileDistrict.addEventListener('change', () => {
-            populateProfileUpazilaOptions(profileDistrict.value);
+    const boundProfileDistrict = profileDistrictInput();
+    if (boundProfileDistrict) {
+        boundProfileDistrict.addEventListener('change', () => {
+            populateProfileUpazilaOptions(boundProfileDistrict.value);
         });
     }
 
@@ -658,8 +677,8 @@ document.addEventListener('DOMContentLoaded', () => {
         profileForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const district = profileDistrict?.value?.trim() || '';
-            const upazila = profileUpazila?.value?.trim() || '';
+            const district = document.getElementById('district')?.value?.trim() || '';
+            const upazila = document.getElementById('profile-upazila')?.value?.trim() || '';
             const fullAddress = profileFullAddress?.value?.trim() || '';
             const gender = profileGender?.value || '';
             const dateOfBirth = profileDob?.value || '';
@@ -1307,11 +1326,34 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Contact update OTP flow ---
+    function clearContactOtpResendTimer() {
+        if (contactOtpResendInterval) {
+            clearInterval(contactOtpResendInterval);
+            contactOtpResendInterval = null;
+        }
+    }
+
+    function updateContactOtpResendButton() {
+        if (!contactOtpResendBtn) return;
+        const ready = pendingContactUpdate.resendAvailableAt
+            && Date.now() >= pendingContactUpdate.resendAvailableAt;
+        contactOtpResendBtn.classList.toggle('hidden', !pendingContactUpdate.type);
+        contactOtpResendBtn.disabled = !ready;
+    }
+
+    function startContactOtpResendCountdown() {
+        clearContactOtpResendTimer();
+        pendingContactUpdate.resendAvailableAt = Date.now() + 60 * 1000;
+        updateContactOtpResendButton();
+        contactOtpResendInterval = setInterval(updateContactOtpResendButton, 1000);
+    }
+
     function clearContactOtpTimer() {
         if (contactOtpTimerInterval) {
             clearInterval(contactOtpTimerInterval);
             contactOtpTimerInterval = null;
         }
+        clearContactOtpResendTimer();
     }
 
     function resetContactOtpCells() {
@@ -1393,7 +1435,8 @@ document.addEventListener('DOMContentLoaded', () => {
         showInlineFeedback(contactOtpFeedback, '');
         resetContactOtpCells();
         clearContactOtpTimer();
-        pendingContactUpdate = { type: null, maskedDestination: '', expiresAt: null };
+        pendingContactUpdate = { type: null, maskedDestination: '', expiresAt: null, resendAvailableAt: null };
+        if (contactOtpResendBtn) contactOtpResendBtn.classList.add('hidden');
     }
 
     function openContactOtpModal(type, maskedDestination) {
@@ -1410,6 +1453,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resetContactOtpCells();
         showInlineFeedback(contactOtpFeedback, '');
         startContactOtpTimer(pendingContactUpdate.expiresAt);
+        startContactOtpResendCountdown();
         contactOtpModal.classList.remove('hidden');
 
         const firstCell = document.querySelector('#contactOtpInputs .otp-cell');
@@ -1468,6 +1512,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (requestPhoneOtpBtn) {
         requestPhoneOtpBtn.addEventListener('click', () => requestContactOtp('mobile'));
+    }
+
+    if (contactOtpResendBtn) {
+        contactOtpResendBtn.addEventListener('click', () => {
+            if (!pendingContactUpdate.type || contactOtpResendBtn.disabled) return;
+            requestContactOtp(pendingContactUpdate.type);
+        });
     }
 
     if (contactOtpForm) {
@@ -2114,43 +2165,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const addressModalTitle = document.getElementById('address-modal-title');
     const addressDistrict = document.getElementById('address-district');
     const addressUpazila = document.getElementById('address-upazila');
+    let addressLocationPair = null;
 
     function populateAddressDistrictOptions(selectedDistrict = '') {
-        if (!addressDistrict || !Array.isArray(window.BANGLADESH_DISTRICTS)) return;
-
-        addressDistrict.innerHTML = '<option value="">Select district</option>';
-        window.BANGLADESH_DISTRICTS.forEach((district) => {
-            const option = document.createElement('option');
-            option.value = district;
-            option.textContent = district;
-            addressDistrict.appendChild(option);
-        });
-
-        if (selectedDistrict) addressDistrict.value = selectedDistrict;
+        if (!addressLocationPair) {
+            addressLocationPair = window.initDistrictUpazilaPair({
+                districtSelectId: 'address-district',
+                upazilaSelectId: 'address-upazila',
+                districtPlaceholder: 'Select district',
+                upazilaPlaceholder: 'Select upazila / thana',
+                initialDistrict: selectedDistrict || ''
+            });
+        }
+        if (addressLocationPair) {
+            addressLocationPair.districtSelect.setValue(selectedDistrict || '');
+            addressLocationPair.populateUpazila(selectedDistrict || '', '');
+        }
     }
 
     function populateAddressUpazilaOptions(district, selectedUpazila = '') {
-        if (!addressUpazila) return;
-
-        addressUpazila.innerHTML = '<option value="">Select upazila / thana</option>';
-        const upazilas = typeof window.getUpazilasForDistrict === 'function'
-            ? window.getUpazilasForDistrict(district)
-            : [];
-
-        if (!district || upazilas.length === 0) {
-            addressUpazila.disabled = true;
-            return;
+        if (!addressLocationPair) {
+            populateAddressDistrictOptions(district);
         }
-
-        upazilas.forEach((upazila) => {
-            const option = document.createElement('option');
-            option.value = upazila;
-            option.textContent = upazila;
-            addressUpazila.appendChild(option);
-        });
-
-        addressUpazila.disabled = false;
-        if (selectedUpazila) addressUpazila.value = selectedUpazila;
+        if (addressLocationPair) {
+            addressLocationPair.populateUpazila(district, selectedUpazila);
+        }
     }
 
     function formatSavedAddressDisplay(addr = {}) {
@@ -2163,9 +2202,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     populateAddressDistrictOptions();
 
-    if (addressDistrict) {
-        addressDistrict.addEventListener('change', () => {
-            populateAddressUpazilaOptions(addressDistrict.value);
+    const boundAddressDistrict = document.getElementById('address-district');
+    if (boundAddressDistrict) {
+        boundAddressDistrict.addEventListener('change', () => {
+            populateAddressUpazilaOptions(boundAddressDistrict.value);
         });
     }
 
@@ -2194,7 +2234,7 @@ document.addEventListener('DOMContentLoaded', () => {
             addressForm.reset();
             idField.value = '';
             populateAddressDistrictOptions();
-            populateAddressUpazilaOptions('');
+            populateAddressUpazilaOptions('', '');
         }
         addressModal.classList.remove('hidden');
     }
@@ -2343,8 +2383,8 @@ document.addEventListener('DOMContentLoaded', () => {
         addressForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const addressId = document.getElementById('address-id').value;
-            const district = addressDistrict?.value?.trim() || '';
-            const upazilaOrThana = addressUpazila?.value?.trim() || '';
+            const district = document.getElementById('address-district')?.value?.trim() || '';
+            const upazilaOrThana = document.getElementById('address-upazila')?.value?.trim() || '';
             const payload = {
                 label: document.getElementById('address-label').value.trim(),
                 phone: document.getElementById('address-phone').value.trim(),
@@ -2460,12 +2500,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function updateLogoutAllVisibility(sessions) {
+        const btn = document.getElementById('logout-all-btn');
+        if (!btn) return;
+
+        const otherSessions = (sessions || []).filter(s =>
+            s.isCurrentSession === false || s.isCurrent === false
+        );
+
+        if (otherSessions.length === 0) {
+            btn.style.display = 'none';
+        } else {
+            btn.style.display = 'block';
+        }
+    }
+
     function renderSessions(sessions) {
         const list = document.getElementById('sessions-list');
         if (!list) return;
 
         if (!sessions || sessions.length === 0) {
             list.innerHTML = `<p class="text-center sessions-loading">No active sessions found. Please log in again to track devices.</p>`;
+            updateLogoutAllVisibility(sessions || []);
             return;
         }
 
@@ -2497,6 +2553,8 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             list.appendChild(item);
         });
+
+        updateLogoutAllVisibility(sessions);
     }
 
     // সেশন রিমোট লগআউট (ইভেন্ট ডেলিগেশন)
@@ -2541,7 +2599,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // অন্য সব ডিভাইস লগআউট (Log Out All Other Devices)
-    const logoutOthersBtn = document.getElementById('logout-others-btn');
+    const logoutOthersBtn = document.getElementById('logout-all-btn');
     if (logoutOthersBtn) {
         logoutOthersBtn.addEventListener('click', async () => {
             const originalHtml = logoutOthersBtn.innerHTML;

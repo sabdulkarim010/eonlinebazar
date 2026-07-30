@@ -1023,3 +1023,192 @@ a.logo-area {
     }
 }
 
+/* ==========================================================================
+   Searchable Select (district / upazila dropdowns)
+   ========================================================================== */
+.searchable-select {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    min-width: 0;
+}
+
+.searchable-select-input {
+    width: 100%;
+    min-height: 44px;
+    padding: 12px 14px;
+    border: 1.5px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    background: var(--bg-main, #fff);
+    color: var(--text-main, #111827);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.searchable-select-input:focus {
+    border-color: var(--primary-color, #2563eb);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.searchable-select--placeholder .searchable-select-input {
+    color: var(--text-muted, #64748b);
+}
+
+.searchable-select.is-disabled .searchable-select-input {
+    background: var(--bg-muted, #f1f5f9);
+    color: var(--text-muted, #94a3b8);
+    cursor: not-allowed;
+}
+
+.searchable-select-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 1200;
+    max-height: 200px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 4px 0;
+    list-style: none;
+    background: var(--bg-main, #fff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.searchable-select-option {
+    min-height: 44px;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: var(--text-main, #111827);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.searchable-select-option:hover,
+.searchable-select-option.is-highlighted {
+    background: rgba(37, 99, 235, 0.08);
+}
+
+.searchable-select-option.is-selected {
+    font-weight: 600;
+    color: var(--primary-color, #2563eb);
+}
+
+.searchable-select-option--empty {
+    color: var(--text-muted, #64748b);
+    cursor: default;
+}
+
+.searchable-select-option--empty:hover {
+    background: transparent;
+}
+
+.input-wrapper.select-wrapper .searchable-select-input,
+.input-box-wrapper .searchable-select-input {
+    width: 100%;
+}
+
+.input-wrapper.select-wrapper .searchable-select {
+    flex: 1;
+}
+
+.floating-select .searchable-select-input {
+    width: 100%;
+    padding: 16px 12px 8px;
+    border: none;
+    border-bottom: 2px solid #e2e8f0;
+    border-radius: 0;
+    background: transparent;
+    font-size: 15px;
+}
+
+.floating-select .searchable-select-input:focus {
+    box-shadow: none;
+    border-bottom-color: var(--primary-color, #2563eb);
+}
+
+.floating-select .searchable-select {
+    width: 100%;
+}
+
+.floating-select .searchable-select-dropdown {
+    border-radius: 8px;
+}
+
+.floating-select .searchable-select-input.has-value,
+.floating-select .searchable-select:not(.searchable-select--placeholder) .searchable-select-input {
+    padding-top: 20px;
+}
+
+/* Simple searchable district dropdown (profile + register) */
+.district-search-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.district-search-input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.district-dropdown-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 9999;
+    display: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.district-option {
+    padding: 12px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+}
+
+.district-option:hover {
+    background: #f5f5f5;
+}
+
+.district-option-empty {
+    padding: 12px 16px;
+    color: #999;
+    font-size: 14px;
+}
+
+.input-wrapper.district-search-wrapper .district-search-input {
+    flex: 1;
+    min-width: 0;
+    padding-left: 40px;
+    border: none;
+    background: transparent;
+    min-height: 44px;
+}
+
+.input-wrapper.district-search-wrapper .district-search-wrapper {
+    flex: 1;
+    min-width: 0;
+}
+
+.input-wrapper.district-search-wrapper .district-dropdown-list {
+    top: calc(100% + 4px);
+}
+

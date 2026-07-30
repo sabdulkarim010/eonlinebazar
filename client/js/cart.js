@@ -481,7 +481,7 @@ window.updateQty = function(productId, change, variantIdEnc) {
                     } else if (typeof window.showToast === 'function') {
                         window.showToast('⚠️ Requested quantity exceeds available stock', 'error');
                     } else {
-                        alert(`দুঃখিত! এই অপশনটির জন্য স্টকে সর্বোচ্চ ${availableStock} টি এভেইলেবল আছে।`);
+                        alert(`Sorry! Only ${availableStock} items are available in stock for this option.`);
                     }
                     return;
                 }

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,7 +28,7 @@
                 <div class="brand-icon-circle">
                     <i class="fa-solid fa-user-plus"></i>
                 </div>
-                <h2 class="auth-title" data-i18n="auth.register">নিবন্ধন করুন</h2>
+                <h2 class="auth-title" data-i18n="auth.register">Register</h2>
             </div>
             
             <form id="registerForm" novalidate>
@@ -47,11 +47,18 @@
                 </div>
 
                 <div class="auth-name-row">
-                    <div class="floating-group floating-select">
-                        <select id="regDistrict" aria-label="District">
-                            <option value="" selected>Select District (Optional)</option>
-                        </select>
-                        <label for="regDistrict" data-i18n="checkout.district">জেলা</label>
+                    <div class="floating-group district-search-wrapper">
+                        <input
+                            type="text"
+                            id="reg-district-search-input"
+                            class="district-search-input"
+                            placeholder=" "
+                            autocomplete="off"
+                            aria-label="District"
+                        >
+                        <div id="reg-district-dropdown" class="district-dropdown-list"></div>
+                        <input type="hidden" id="reg-district" name="district">
+                        <label for="reg-district-search-input" data-i18n="checkout.district">District</label>
                     </div>
                     <div class="floating-group floating-select">
                         <select id="regUpazila" aria-label="Upazila or Thana" disabled>
@@ -69,32 +76,32 @@
 
                 <div class="floating-group">
                     <input type="email" id="regEmail" required placeholder=" ">
-                    <label for="regEmail" data-i18n="auth.email">ইমেইল</label>
+                    <label for="regEmail" data-i18n="auth.email">Email</label>
                     <div id="reg-email-error" class="error-text"></div>
                 </div>
 
                 <div class="floating-group password-group">
                     <input type="password" id="regPassword" required placeholder=" ">
-                    <label for="regPassword" data-i18n="auth.password">পাসওয়ার্ড</label>
+                    <label for="regPassword" data-i18n="auth.password">Password</label>
                     <button type="button" class="toggle-password" id="toggleRegPass" title="Show/Hide Password">
                         <i class="fa-regular fa-eye" id="regEyeIcon"></i>
                     </button>
                     <div id="reg-password-error" class="error-text"></div>
                 </div>
 
-                <button type="submit" class="btn-primary" data-i18n="auth.register">নিবন্ধন করুন</button>
+                <button type="submit" class="btn-primary" data-i18n="auth.register">Register</button>
             </form>
 
             <div id="google-auth-section" class="google-auth-section" style="display: none;">
-                <p class="auth-divider"><span>অথবা</span></p>
+                <p class="auth-divider"><span>Or</span></p>
                 <a href="/api/auth/google" class="btn-google-login" id="googleLoginBtn">
                     <img src="/images/google-icon.svg" alt="Google">
-                    <span data-i18n="auth.google_login">Google দিয়ে লগইন</span>
+                    <span data-i18n="auth.google_login">Login with Google</span>
                 </a>
             </div>
 
             <p class="auth-switch-text">
-                <span data-i18n="auth.have_account">অ্যাকাউন্ট আছে?</span> <a href="/login" data-i18n="auth.login">লগইন</a>
+                <span data-i18n="auth.have_account">Already have an account?</span> <a href="/login" data-i18n="auth.login">Login</a>
             </p>
         </div>
 

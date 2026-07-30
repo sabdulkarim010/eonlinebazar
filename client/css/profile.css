@@ -1810,6 +1810,36 @@ a.top-back-btn {
     justify-content: flex-end;
 }
 
+.otp-resend-btn {
+    display: block;
+    width: 100%;
+    margin: 0 0 0.85rem;
+}
+
+.otp-resend-btn.hidden {
+    display: none;
+}
+
+.contact-update-block .profile-field-hint {
+    display: block;
+    margin-top: 0.35rem;
+    word-break: break-word;
+}
+
+/* Security Tab — Email/Phone Change */
+.security-contact-section {
+    display: block !important;
+    visibility: visible !important;
+    overflow: visible;
+}
+
+.email-change-row,
+.phone-change-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
 .toggle-password {
     cursor: pointer;
     color: var(--text-muted);
@@ -3470,6 +3500,79 @@ body {
 
     .sessions-card-head { flex-direction: column; gap: 0.65rem; }
     .logout-others-btn { width: 100%; justify-content: center; }
+
+    .security-contact-section {
+        display: block !important;
+        visibility: visible !important;
+        overflow: visible;
+        width: 100%;
+    }
+
+    .contact-update-row.email-change-row,
+    .contact-update-row.phone-change-row,
+    .email-change-row,
+    .phone-change-row {
+        flex-direction: column !important;
+        gap: 8px;
+        align-items: stretch;
+    }
+
+    .email-change-row input,
+    .phone-change-row input,
+    .email-change-row button,
+    .phone-change-row button,
+    .email-change-row .input-wrapper,
+    .phone-change-row .input-wrapper {
+        width: 100% !important;
+        min-height: 48px !important;
+        box-sizing: border-box !important;
+    }
+
+    .email-change-row .btn-compact,
+    .phone-change-row .btn-compact {
+        white-space: normal;
+        flex-shrink: 1;
+    }
+
+    .current-contact-info,
+    .contact-update-block .profile-field-hint {
+        font-size: 12px;
+        color: #666;
+        margin-top: 4px;
+        display: block !important;
+        line-height: 1.4;
+    }
+
+    .otp-section,
+    .otp-inputs,
+    .otp-input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .otp-input,
+    .otp-cell,
+    .otp-digit {
+        width: 100% !important;
+        min-height: 48px !important;
+        text-align: center;
+        font-size: 1.2rem;
+        letter-spacing: 8px;
+    }
+
+    .otp-inputs {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .otp-inputs .otp-cell {
+        width: 44px !important;
+        min-height: 52px !important;
+        letter-spacing: 0;
+        font-size: 1.4rem;
+    }
 }
 
 

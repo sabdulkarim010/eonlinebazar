@@ -209,14 +209,14 @@
             <div class="footer-mobile-compact">
                 <div class="footer-mobile-newsletter">
                     <div class="newsletter-section newsletter-section--mobile">
-                        <h3 data-i18n="footer.newsletter_title">নিউজলেটার সাবস্ক্রাইব করুন</h3>
+                        <h3 data-i18n="footer.newsletter_title">Subscribe to Newsletter</h3>
                         <div class="newsletter-form">
                             <input type="email" id="newsletter-email-mobile"
-                                   placeholder="আপনার ইমেইল দিন"
+                                   placeholder="Enter your email"
                                    data-i18n-placeholder="footer.newsletter_placeholder"
                                    aria-label="Newsletter email">
                             <button type="button" onclick="subscribeNewsletter('newsletter-email-mobile')"
-                                    data-i18n="footer.newsletter_btn">সাবস্ক্রাইব</button>
+                                    data-i18n="footer.newsletter_btn">Subscribe</button>
                         </div>
                         <p id="newsletter-msg-mobile" class="newsletter-msg" style="display:none" role="status"></p>
                     </div>
@@ -234,15 +234,15 @@
         return `
             <div class="footer-col footer-col--newsletter">
                 <div class="newsletter-section">
-                    <h3 data-i18n="footer.newsletter_title">নিউজলেটার সাবস্ক্রাইব করুন</h3>
-                    <p data-i18n="footer.newsletter_desc">নতুন পণ্য ও অফার সবার আগে জানুন</p>
+                    <h3 data-i18n="footer.newsletter_title">Subscribe to Newsletter</h3>
+                    <p data-i18n="footer.newsletter_desc">Be the first to know about new products and offers</p>
                     <div class="newsletter-form">
                         <input type="email" id="newsletter-email"
-                               placeholder="আপনার ইমেইল দিন"
+                               placeholder="Enter your email"
                                data-i18n-placeholder="footer.newsletter_placeholder"
                                aria-label="Newsletter email">
                         <button type="button" onclick="subscribeNewsletter()"
-                                data-i18n="footer.newsletter_btn">সাবস্ক্রাইব</button>
+                                data-i18n="footer.newsletter_btn">Subscribe</button>
                     </div>
                     <p id="newsletter-msg" class="newsletter-msg" style="display:none" role="status"></p>
                 </div>
