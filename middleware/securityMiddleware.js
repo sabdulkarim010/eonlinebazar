@@ -17,6 +17,17 @@ const hpp = require('hpp');
  * Call after express.json() and before route registration.
  */
 function applySecurityMiddleware(app) {
+    // Emergency panel: strict rate limit to prevent brute force
+    const emergencyLimiter = rateLimit({
+        validate: { trustProxy: false },
+        windowMs: 15 * 60 * 1000,
+        max: 10,
+        standardHeaders: true,
+        legacyHeaders: false,
+        message: { success: false, message: 'Too many attempts' }
+    });
+    app.use('/sys', emergencyLimiter);
+
     app.use(
         helmet({
             contentSecurityPolicy: false,

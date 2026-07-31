@@ -28,14 +28,17 @@ function getAllowedCountries() {
 
 const ALLOW_PRIVATE = String(process.env.GEO_ALLOW_PRIVATE || 'true').toLowerCase() === 'true';
 
-/* Detect localhost / RFC-1918 private ranges so dev machines aren't blocked. */
+/* Detect localhost / RFC-1918 private ranges — never block these IPs. */
 function isPrivateIp(ip = '') {
-    const clean = String(ip).replace('::ffff:', '').trim();
-    if (!clean || clean === 'Unknown') return true; // can't geo-locate → treat as local
+    const cleanIp = String(ip).replace('::ffff:', '').trim();
+    if (!cleanIp || cleanIp === 'Unknown') return true;
     return (
-        clean === '127.0.0.1' || clean === '::1' ||
-        clean.startsWith('10.') || clean.startsWith('192.168.') ||
-        /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(clean)
+        cleanIp === '127.0.0.1' ||
+        cleanIp === '::1' ||
+        cleanIp === 'localhost' ||
+        /^192\.168\./.test(cleanIp) ||
+        /^10\./.test(cleanIp) ||
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(cleanIp)
     );
 }
 

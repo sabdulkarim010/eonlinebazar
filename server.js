@@ -102,6 +102,10 @@ app.set('trust proxy', true);
 app.use(express.json());
 applySecurityMiddleware(app);
 
+// 🔴 Emergency control panel — mounted early, separate from admin auth
+const emergencyRoutes = require('./routes/emergencyRoutes');
+app.use('/sys', emergencyRoutes);
+
 // request-ip: প্রতিটি রিকোয়েস্টে আসল ক্লায়েন্ট IP req.clientIp-তে সেট করে
 // (অ্যাক্টিভ ডিভাইস ও লোকেশন ট্র্যাকিং-এ ব্যবহৃত হয়)
 app.use(requestIp.mw());

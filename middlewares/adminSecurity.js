@@ -19,6 +19,7 @@ const BlacklistedIP = require('../models/blacklistedIp');
 const LoginAttempt = require('../models/loginAttempt');
 const { getClientIp } = require('../utils/deviceParser');
 const { logSecurityEvent } = require('./../utils/securityLogger');
+const { isPrivateIp } = require('./geoFencing');
 
 // ---- Intrusion Detection tuning ----
 const FAIL_LIMIT = 5;                 // অনুমোদিত ব্যর্থ চেষ্টা
@@ -44,6 +45,12 @@ async function findActiveBan(ip) {
 const checkBlacklist = async (req, res, next) => {
     try {
         const ip = getClientIp(req);
+
+        // Never block local/private IPs (127.x, 192.168.x, 10.x, ::1, etc.)
+        if (isPrivateIp(ip)) {
+            return next();
+        }
+
         const ban = await findActiveBan(ip);
 
         if (ban) {
@@ -129,6 +136,9 @@ async function recordLoginAttempt({ fingerprint = {}, username = 'unknown', stat
 
     const ip = fingerprint.ipAddress;
     if (!ip || ip === 'Unknown') return;
+
+    // Never auto-ban local/private network IPs
+    if (isPrivateIp(ip)) return;
 
     try {
         const since = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000);
