@@ -42,13 +42,31 @@ async function initGlobalFooterEngine() {
         if (innerContainer && buildHtml) {
             innerContainer.innerHTML = buildHtml({
                 copyrightText: '© 2026 EonlineBazar. All rights reserved. Designed by Abdul Karim Sheikh',
-                columns: [{
-                    columnTitle: 'COMPANY',
-                    links: [
-                        { label: 'About Us', url: '/about', isActive: true },
-                        { label: 'Contact Us', url: '/contact', isActive: true }
-                    ]
-                }]
+                columns: [
+                    {
+                        columnTitle: 'Company',
+                        links: [
+                            { label: 'About Us', url: '/about', isActive: true },
+                            { label: 'Contact Us', url: '/contact', isActive: true },
+                            { label: 'Careers', url: '/careers', isActive: true },
+                            { label: 'Privacy Policy', url: '/privacy-policy', isActive: true }
+                        ]
+                    },
+                    {
+                        columnTitle: 'Support',
+                        links: [
+                            { label: 'Your Account', url: '/login', isActive: true },
+                            { label: 'Help Center', url: '#', isActive: true },
+                            { label: 'Track Order', url: '/order-track', isActive: true },
+                            { label: 'Return Policy', url: '#', isActive: true }
+                        ]
+                    }
+                ],
+                socialLinks: [
+                    { platform: 'Facebook', iconName: 'facebook', linkUrl: 'https://facebook.com/', isActive: true },
+                    { platform: 'Instagram', iconName: 'instagram', linkUrl: 'https://instagram.com/', isActive: true },
+                    { platform: 'TikTok', iconName: 'tiktok', linkUrl: 'https://tiktok.com/', isActive: true }
+                ]
             });
         }
         footerContainer.style.opacity = '1';

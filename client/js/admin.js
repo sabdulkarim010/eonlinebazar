@@ -80,6 +80,10 @@ let savedProductPageBeforeAction = null;
 const itemsPerPage = 10;      // প্রতি পেজে ডিফল্ট প্রোডাক্ট সংখ্যা
 let currentOrderPage = 1;     // অর্ডারের বর্তমান পেজ নম্বর
 let ordersPerPage = 10;       // প্রতি পেজে ডিফল্ট অর্ডারের সংখ্যা
+let currentOrderStatusFilter = 'all';
+let currentOrderDateFilter = '';
+let orderSearchDebounceTimer = null;
+const expandedOrderIds = new Set();
 let isStockAscending = true;
 let adminPlatformTimezone = 'Asia/Dhaka';
 let adminCurrencySymbol = '৳';
@@ -736,13 +740,14 @@ function upsertProductInState(updatedProduct) {
     filterAndRenderProducts(false);
 }
 
-/** Instant order list sync after delete */
+/** Instant order list sync after delete — preserve current page & filters */
 function removeOrderFromState(orderId) {
     const id = String(orderId);
     globalOrders = globalOrders.filter(o => String(o._id) !== id);
+    expandedOrderIds.delete(id);
     const totalOrderBadge = document.getElementById('total-orders-badge');
     if (totalOrderBadge) totalOrderBadge.innerText = `Total: ${globalOrders.length}`;
-    filterAndRenderOrders();
+    applyOrderFilters(false);
 }
 
 
@@ -1520,7 +1525,148 @@ function buildOrderCopyField(displayHtml, copyValue) {
         </span>`;
 }
 
-const LIVE_ORDERS_TABLE_COLS = 9;
+const LIVE_ORDERS_TABLE_COLS = 10;
+
+function getOrderSearchInputEl() {
+    return document.getElementById('order-search') || document.getElementById('orderSearchInput');
+}
+
+function normalizeOrderStatusKey(status) {
+    return String(status || 'pending').trim().toLowerCase();
+}
+
+function getStatusSelectClass(status) {
+    const key = normalizeOrderStatusKey(status);
+    if (key.includes('process')) return 'processing';
+    if (key.includes('ship')) return 'shipped';
+    if (key.includes('deliver')) return 'delivered';
+    if (key.includes('cancel')) return 'cancelled';
+    if (key.includes('return')) return 'returned';
+    return 'pending';
+}
+
+function orderMatchesStatusTab(order, tabStatus) {
+    if (tabStatus === 'all') return true;
+    const orderKey = normalizeOrderStatusKey(order.status);
+    const tabKey = normalizeOrderStatusKey(tabStatus);
+    if (tabKey === 'cancelled') return orderKey === 'cancelled' || orderKey === 'canceled';
+    return orderKey === tabKey;
+}
+
+function orderMatchesDateFilter(order, dateValue) {
+    if (!dateValue) return true;
+    if (!order.createdAt) return false;
+    const orderDate = new Date(order.createdAt);
+    const y = orderDate.getFullYear();
+    const m = String(orderDate.getMonth() + 1).padStart(2, '0');
+    const d = String(orderDate.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}` === dateValue;
+}
+
+function buildOrderProductsSummary(items) {
+    if (!Array.isArray(items) || items.length === 0) {
+        return '<span class="order-products-empty">—</span>';
+    }
+    const first = items[0];
+    const firstName = escapeHtml(first.name || 'Product');
+    const extra = items.length - 1;
+    if (extra <= 0) {
+        return `<span class="order-products-primary">${firstName}</span>`;
+    }
+    return `<span class="order-products-primary">${firstName}</span> <span class="order-products-more">(+${extra} more)</span>`;
+}
+
+function buildOrderExpandedPanel(order) {
+    const address = escapeHtml(order.customerAddress || '—');
+    const items = Array.isArray(order.items) ? order.items : [];
+    const productsHtml = items.length
+        ? `<ul class="order-expanded-products">${items.map((item) =>
+            `<li><strong>${escapeHtml(item.name || 'Product')}</strong> × ${Number(item.quantity) || 1}${item.variantLabel ? ` <span class="order-expanded-variant">(${escapeHtml(item.variantLabel)})</span>` : ''}</li>`
+        ).join('')}</ul>`
+        : '<p class="order-expanded-muted">No line items recorded.</p>';
+
+    const subTotal = Number(order.subTotal ?? order.subtotal) || 0;
+    const discountAmount = Number(order.discountAmount) || 0;
+    const deliveryCharge = Number(order.deliveryCharge ?? order.shippingFee) || 0;
+    const processingFee = Number(order.processingFee ?? order.payment?.processingFee) || 0;
+    const grandTotal = getOrderGrandTotal(order);
+    const paymentMethod = escapeHtml(order.paymentMethod || order.payment?.name || 'COD');
+    const paymentStatus = escapeHtml(order.payment?.status || (order.paymentMethod === 'COD' ? 'cod' : 'unpaid'));
+    const proofStatus = order.paymentProof?.status && order.paymentProof.status !== 'none'
+        ? escapeHtml(order.paymentProof.status)
+        : null;
+
+    const timelineHostId = `order-timeline-${order._id}`;
+
+    return `
+        <div class="order-expanded-panel">
+            <div class="order-expanded-grid">
+                <div class="order-expanded-section">
+                    <h4>Full Address</h4>
+                    <p class="order-expanded-address">${address}</p>
+                </div>
+                <div class="order-expanded-section">
+                    <h4>All Products</h4>
+                    ${productsHtml}
+                </div>
+                <div class="order-expanded-section">
+                    <h4>Payment Details</h4>
+                    <dl class="order-expanded-payment">
+                        <div><dt>Method</dt><dd>${paymentMethod}</dd></div>
+                        <div><dt>Status</dt><dd>${paymentStatus}</dd></div>
+                        <div><dt>Subtotal</dt><dd>${formatAdminPrice(subTotal)}</dd></div>
+                        ${discountAmount > 0 ? `<div><dt>Discount</dt><dd>-${formatAdminPrice(discountAmount)}</dd></div>` : ''}
+                        <div><dt>Shipping</dt><dd>${formatAdminPrice(deliveryCharge)}</dd></div>
+                        ${processingFee > 0 ? `<div><dt>Processing Fee</dt><dd>${formatAdminPrice(processingFee)}</dd></div>` : ''}
+                        <div><dt>Grand Total</dt><dd><strong>${formatAdminPrice(grandTotal)}</strong></dd></div>
+                        ${proofStatus ? `<div><dt>Proof</dt><dd>${proofStatus}</dd></div>` : ''}
+                    </dl>
+                </div>
+                <div class="order-expanded-section order-expanded-section--timeline">
+                    <h4>Status Timeline</h4>
+                    <div id="${timelineHostId}" class="order-expanded-timeline-host"></div>
+                </div>
+            </div>
+        </div>`;
+}
+
+function hydrateOrderExpandedTimeline(orderId, status) {
+    const host = document.getElementById(`order-timeline-${orderId}`);
+    if (!host || !window.OrderStatusTimeline?.renderOrderStatusTimeline) return;
+    window.OrderStatusTimeline.renderOrderStatusTimeline(host, status);
+}
+
+function updateOrderTabCounts() {
+    const counts = {
+        all: globalOrders.length,
+        pending: 0,
+        processing: 0,
+        shipped: 0,
+        delivered: 0,
+        cancelled: 0
+    };
+
+    globalOrders.forEach((order) => {
+        const key = normalizeOrderStatusKey(order.status);
+        if (key === 'pending' || key === 'placed') counts.pending += 1;
+        else if (key.includes('process')) counts.processing += 1;
+        else if (key.includes('ship') && !key.includes('deliver')) counts.shipped += 1;
+        else if (key.includes('deliver')) counts.delivered += 1;
+        else if (key === 'cancelled' || key === 'canceled') counts.cancelled += 1;
+    });
+
+    const setCount = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(val);
+    };
+
+    setCount('count-all', counts.all);
+    setCount('count-pending', counts.pending);
+    setCount('count-processing', counts.processing);
+    setCount('count-shipped', counts.shipped);
+    setCount('count-delivered', counts.delivered);
+    setCount('count-cancelled', counts.cancelled);
+}
 
 const ORDER_COURIER_SEND_CLASSES = 'order-courier-send send-courier-btn bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 w-full flex items-center justify-center py-2 text-xs font-semibold rounded-md shadow-sm gap-1.5 transition-colors duration-150';
 const ORDER_COURIER_SENT_CLASSES = 'order-courier-sent bg-emerald-50 text-emerald-700 border border-emerald-200 w-full flex items-center justify-center py-2 text-xs font-semibold rounded-md shadow-sm text-center';
@@ -2020,10 +2166,33 @@ async function fetchLiveOrders() {
         // টেবিল রেন্ডার করার মূল ফাংশন কল
         filterAndRenderOrders();
         fetchPendingWhatsAppAlerts();
+        maybeOpenOrderFromDeepLink();
     } catch (error) {
         console.error("অর্ডারের ডাটা প্রসেস করতে এরর হয়েছে:", error);
         tableBody.innerHTML = `<tr><td colspan="${LIVE_ORDERS_TABLE_COLS}" class="table-status-error">Failed to load live orders.</td></tr>`;
     }
+}
+
+/** Open invoice modal when arriving via /admin/order-details/:orderId */
+function maybeOpenOrderFromDeepLink() {
+    const match = window.location.pathname.match(/^\/admin\/order-details\/([^/]+)$/);
+    if (!match) return;
+
+    const orderId = decodeURIComponent(match[1]);
+    try {
+        window.history.replaceState({}, document.title, '/admin/dashboard');
+    } catch (_) { /* ignore */ }
+
+    const navItem = document.querySelector('[data-target="view-orders"]');
+    if (navItem && typeof navItem.click === 'function') {
+        navItem.click();
+    }
+
+    setTimeout(() => {
+        if (typeof window.viewInvoice === 'function') {
+            window.viewInvoice(orderId);
+        }
+    }, 150);
 }
 
 /* ==========================================================================
@@ -2494,30 +2663,48 @@ function setupWhatsAppAlertBadge() {
 
 /**
  * ৭.২: অর্ডার ফিল্টারিং এবং রিয়েল-টাইম সার্চিং লজিক
- * অর্ডার আইডি, কাস্টমারের নাম বা ফোন নাম্বার টাইপ করলেই টেবিল ইনস্ট্যান্ট আপডেট হবে
  */
-window.filterAndRenderOrders = function() {
-    const searchInput = document.getElementById('orderSearchInput');
-    const filterSelect = document.getElementById('orderStatusFilter');
+function applyOrderFilters(resetPage = false) {
+    const searchInput = getOrderSearchInputEl();
+    const search = (searchInput ? searchInput.value : '').toLowerCase().trim();
 
-    const search = (searchInput ? searchInput.value : '').toLowerCase();
-    const statusFilter = (filterSelect ? filterSelect.value : 'all').toLowerCase();
-
-    // সার্চ কি-ওয়ার্ড এবং ড্রপডাউন স্ট্যাটাস ফিল্টারের সাথে ম্যাচিং করানো
-    currentFilteredOrders = globalOrders.filter(order => {
+    currentFilteredOrders = globalOrders.filter((order) => {
         const orderIdStr = (order.orderId || order._id || '').toLowerCase();
         const nameStr = (order.customerName || '').toLowerCase();
         const phoneStr = (order.customerPhone || '').toLowerCase();
-        
-        const matchSearch = orderIdStr.includes(search) || nameStr.includes(search) || phoneStr.includes(search);
-        const matchStatus = (statusFilter === 'all' || (order.status || 'pending').toLowerCase() === statusFilter);
-        
-        return matchSearch && matchStatus;
+
+        const matchSearch = !search || orderIdStr.includes(search) || nameStr.includes(search) || phoneStr.includes(search);
+        const matchStatus = orderMatchesStatusTab(order, currentOrderStatusFilter);
+        const matchDate = orderMatchesDateFilter(order, currentOrderDateFilter);
+
+        return matchSearch && matchStatus && matchDate;
     });
 
-    // ফিল্টার অ্যাপ্লাই করার পর পেজ নাম্বার ১ এ রিসেট করা
-    currentOrderPage = 1;
+    if (resetPage) currentOrderPage = 1;
+    updateOrderTabCounts();
     renderOrderTable();
+}
+
+window.filterAndRenderOrders = function(resetPage = false) {
+    applyOrderFilters(resetPage);
+};
+
+window.debounceSearch = function() {
+    clearTimeout(orderSearchDebounceTimer);
+    orderSearchDebounceTimer = setTimeout(() => applyOrderFilters(true), 300);
+};
+
+window.filterByDate = function(value) {
+    currentOrderDateFilter = value || '';
+    applyOrderFilters(true);
+};
+
+window.setOrderStatusTab = function(status) {
+    currentOrderStatusFilter = status;
+    document.querySelectorAll('#view-orders .order-tab').forEach((tab) => {
+        tab.classList.toggle('active', tab.dataset.status === status);
+    });
+    applyOrderFilters(false);
 };
 
 /**
@@ -2748,8 +2935,9 @@ function buildAdminOrderStatusCell(order) {
     } else if (isRefunded) {
         badgeHtml = `<span class="status-badge status-returned"><i class="fa-solid fa-money-bill-wave"></i> Refunded</span>`;
     } else {
+        const selectClass = getStatusSelectClass(order.status);
         badgeHtml = `
-            <select onchange="changeOrderStatus('${orderId}', this.value)" class="filter-box">
+            <select onchange="changeOrderStatus('${orderId}', this.value)" class="status-select ${selectClass}">
                 <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>⏳ Pending</option>
                 <option value="Processing" ${order.status === 'Processing' ? 'selected' : ''}>⚙️ Processing</option>
                 <option value="Shipped" ${order.status === 'Shipped' ? 'selected' : ''}>🚚 Shipped</option>
@@ -2820,45 +3008,53 @@ window.closeOrderReasonModal = function() {
  */
 window.renderOrderTable = function() {
     if (!tableBody) return;
-    
+
     const totalItems = currentFilteredOrders.length;
     const totalPages = Math.ceil(totalItems / ordersPerPage) || 1;
-    
+
     if (currentOrderPage > totalPages) currentOrderPage = totalPages;
     const startIdx = (currentOrderPage - 1) * ordersPerPage;
     const paginatedOrders = currentFilteredOrders.slice(startIdx, startIdx + ordersPerPage);
 
-    // পেজিনেশনের ফুটার বাটন ও ইনফো টেক্সট আপডেট
-    if (document.getElementById('order-start-idx')) {
-        document.getElementById('order-start-idx').innerText = totalItems === 0 ? 0 : startIdx + 1;
-        document.getElementById('order-end-idx').innerText = startIdx + paginatedOrders.length;
-        document.getElementById('order-total-entries').innerText = totalItems; 
-    }
-
-    // ডাইনামিক পেজ নম্বর বাটন জেনারেট করা
     renderOrderPaginationControls(totalPages);
 
-    // ডাটা না থাকলে খালি টেবিল মেসেজ দেখানো
-    tableBody.innerHTML = paginatedOrders.length === 0 ? `<tr><td colspan="${LIVE_ORDERS_TABLE_COLS}" class="loading-cell">No matching orders found.</td></tr>` : '';
+    const startDisplay = totalItems === 0 ? 0 : startIdx + 1;
+    const endDisplay = startIdx + paginatedOrders.length;
+    const paginationInfo = document.getElementById('order-pagination-info');
+    if (paginationInfo) {
+        paginationInfo.textContent = totalItems === 0
+            ? 'Showing 0 orders'
+            : `Showing ${startDisplay}-${endDisplay} of ${totalItems} orders`;
+    }
 
-    // লুপ চালিয়ে প্রতিটি অর্ডার রো (Row) তৈরি করা
+    if (paginatedOrders.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="${LIVE_ORDERS_TABLE_COLS}">
+                    <div class="empty-orders">
+                        <div class="empty-orders-icon" aria-hidden="true">📭</div>
+                        <h3>No orders found</h3>
+                        <p>Try changing the filter or search query</p>
+                    </div>
+                </td>
+            </tr>`;
+        updateOrdersBulkToolbar();
+        return;
+    }
+
+    tableBody.innerHTML = '';
+
     paginatedOrders.forEach((order) => {
         const orderId = order._id;
         const displayId = order.orderId || orderId.slice(-6).toUpperCase();
-        
-        // তারিখ ও সময় ফরম্যাটিং
-        let dateHtml = `<span>N/A</span>`;
+        const isExpanded = expandedOrderIds.has(String(orderId));
+
+        let dateHtml = `<span class="order-date-main">N/A</span>`;
         if (order.createdAt) {
             const dateObj = new Date(order.createdAt);
             const dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
             const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-            dateHtml = `<div class="flex flex-col items-center justify-center gap-0.5"><span class="order-date-main">${dateStr}</span><span class="order-date-time"><i class="fa-regular fa-clock" aria-hidden="true"></i> ${timeStr}</span></div>`;
-        }
-        
-        // কাস্টমারের কেনা প্রোডাক্টের তালিকা তৈরি
-        let itemsList = '';
-        if (order.items) {
-            order.items.forEach(item => itemsList += `<li><i class="fa-solid fa-cube" aria-hidden="true"></i> ${item.name} <b>(x${item.quantity})</b></li>`);
+            dateHtml = `<span class="order-date-main">${dateStr}</span><span class="order-date-time">${timeStr}</span>`;
         }
 
         const statusLower = (order.status || 'pending').toLowerCase();
@@ -2870,53 +3066,171 @@ window.renderOrderTable = function() {
         const displayIdSafe = escapeHtml(displayId);
         const customerName = order.customerName || '—';
         const customerPhone = order.customerPhone || '—';
-        const orderIdCellHtml = buildOrderCopyField(
-            `<span class="order-id-chip">#${displayIdSafe}</span>${buildAdminPaymentProofPendingBadge(order)}`,
-            displayId
-        );
-        const customerNameHtml = buildOrderCopyField(
-            `<span class="order-customer-name">${escapeHtml(customerName)}</span>`,
-            customerName
-        );
-        const customerPhoneHtml = customerPhone !== '—'
-            ? buildOrderCopyField(`<span>${escapeHtml(customerPhone)}</span>`, customerPhone)
-            : `<span>${escapeHtml(customerPhone)}</span>`;
+        const orderIdCellHtml = `
+            <button type="button" class="order-id-link" onclick="event.stopPropagation(); viewInvoice('${orderId}')" title="View invoice">
+                #${displayIdSafe}
+            </button>${buildAdminPaymentProofPendingBadge(order)}`;
+        const customerNameHtml = `<span class="order-customer-name">${escapeHtml(customerName)}</span>`;
+        const customerPhoneHtml = `<span class="order-customer-phone-sub">${escapeHtml(customerPhone)}</span>`;
         const customerAddress = order.customerAddress || '—';
-        const addressCellHtml = buildOrderAddressCopyField(customerAddress);
+        const addressCellHtml = `<span class="order-address-text" title="${escapeHtml(customerAddress)}">${escapeHtml(customerAddress)}</span>`;
+        const productsCellHtml = buildOrderProductsSummary(order.items);
 
         const tr = document.createElement('tr');
+        tr.className = `order-row-main${isReturnRequested ? ' order-row-return-requested' : ''}${isExpanded ? ' is-expanded' : ''}`;
         tr.dataset.orderId = orderId;
-        if (isReturnRequested) tr.classList.add('order-row-return-requested');
+        tr.addEventListener('click', (event) => toggleOrderRowExpand(event, orderId));
         tr.innerHTML = `
-            <td class="col-order-id max-w-[100px] text-center align-middle px-2">${orderIdCellHtml}</td>
-            <td class="col-datetime max-w-[120px] text-center align-middle px-2">${dateHtml}</td>
-            <td class="col-customer text-center align-middle">
-                <div class="flex flex-col items-center justify-center gap-0.5">
-                    ${customerNameHtml}
-                    <span class="order-customer-phone"><i class="fa-solid fa-phone shrink-0" aria-hidden="true"></i> ${customerPhoneHtml}</span>
-                </div>
+            <td class="col-checkbox" onclick="event.stopPropagation()">
+                <input type="checkbox" class="order-row-select" value="${orderId}" onchange="updateOrdersBulkToolbar()" aria-label="Select order #${displayIdSafe}">
             </td>
-            <td class="col-address text-left align-middle">${addressCellHtml}</td>
-            <td class="col-products text-left align-middle"><ul class="order-items-list">${itemsList}</ul></td>
-            <td class="col-total text-center align-middle"><span class="order-total-amount">${formatAdminPrice(getOrderGrandTotal(order))}</span></td>
-            <td class="col-status min-w-[130px] text-center align-middle px-3">${statusCellHtml}</td>
-            <td class="order-courier-cell text-center align-middle">${courierActionHtml}</td>
-            <td class="order-actions-cell text-center align-middle">
-                <div class="order-actions-toolbar flex items-center justify-center gap-1.5">
-                    <button type="button" class="order-action-icon p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors order-action-shipping" onclick="openEditOrderShippingModal('${orderId}')" title="Edit Shipping Details" aria-label="Edit Shipping Details">
-                        <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
-                    </button>
-                    <button type="button" class="order-action-icon p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors order-action-invoice" onclick="viewInvoice('${orderId}')" title="View Invoice" aria-label="View Invoice">
-                        <i class="fa-solid fa-eye" aria-hidden="true"></i>
-                    </button>
-                    <button type="button" class="order-action-icon p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors order-action-delete" onclick="deleteOrder('${orderId}')" title="Delete Order" aria-label="Delete Order">
-                        <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
-                    </button>
+            <td class="col-order-id">${orderIdCellHtml}</td>
+            <td class="col-datetime">${dateHtml}</td>
+            <td class="col-customer">
+                ${customerNameHtml}
+                ${customerPhoneHtml}
+            </td>
+            <td class="col-address">${addressCellHtml}</td>
+            <td class="col-products">${productsCellHtml}</td>
+            <td class="col-total"><span class="order-total-amount">${formatAdminPrice(getOrderGrandTotal(order))}</span></td>
+            <td class="col-status">${statusCellHtml}</td>
+            <td class="order-courier-cell">${courierActionHtml}</td>
+            <td class="order-actions-cell">
+                <div class="order-actions-toolbar">
+                    <button type="button" class="action-icon edit" onclick="event.stopPropagation(); openEditOrderShippingModal('${orderId}')" title="Edit Shipping Details" aria-label="Edit">✏️</button>
+                    <button type="button" class="action-icon view" onclick="event.stopPropagation(); viewInvoice('${orderId}')" title="View Invoice" aria-label="View">👁️</button>
+                    <button type="button" class="action-icon delete" onclick="event.stopPropagation(); deleteOrder('${orderId}')" title="Delete Order" aria-label="Delete">🗑️</button>
                 </div>
             </td>
         `;
         tableBody.appendChild(tr);
+
+        const expandTr = document.createElement('tr');
+        expandTr.className = 'order-row-expanded';
+        expandTr.dataset.expandFor = orderId;
+        expandTr.style.display = isExpanded ? 'table-row' : 'none';
+        expandTr.innerHTML = `
+            <td colspan="${LIVE_ORDERS_TABLE_COLS}">
+                ${buildOrderExpandedPanel(order)}
+            </td>`;
+        tableBody.appendChild(expandTr);
+
+        if (isExpanded) {
+            requestAnimationFrame(() => hydrateOrderExpandedTimeline(orderId, order.status));
+        }
     });
+
+    const selectAll = document.getElementById('orders-select-all');
+    if (selectAll) selectAll.checked = false;
+    updateOrdersBulkToolbar();
+};
+
+window.toggleOrderRowExpand = function(event, orderId) {
+    if (event.target.closest('button, a, input, select, textarea, label')) return;
+
+    const id = String(orderId);
+    const expandRow = document.querySelector(`tr.order-row-expanded[data-expand-for="${id}"]`);
+    const mainRow = document.querySelector(`tr.order-row-main[data-order-id="${id}"]`);
+    if (!expandRow || !mainRow) return;
+
+    const willExpand = expandRow.style.display === 'none';
+    if (willExpand) {
+        expandedOrderIds.add(id);
+        expandRow.style.display = 'table-row';
+        mainRow.classList.add('is-expanded');
+        const order = globalOrders.find((o) => String(o._id) === id);
+        if (order) hydrateOrderExpandedTimeline(id, order.status);
+    } else {
+        expandedOrderIds.delete(id);
+        expandRow.style.display = 'none';
+        mainRow.classList.remove('is-expanded');
+    }
+};
+
+window.toggleSelectAllOrders = function(checkbox) {
+    document.querySelectorAll('#view-orders .order-row-select').forEach((el) => {
+        el.checked = checkbox.checked;
+    });
+    updateOrdersBulkToolbar();
+};
+
+window.updateOrdersBulkToolbar = function() {
+    const selected = document.querySelectorAll('#view-orders .order-row-select:checked').length;
+    const toolbar = document.getElementById('orders-bulk-toolbar');
+    const countEl = document.getElementById('orders-selected-count');
+    if (toolbar) toolbar.style.display = selected > 0 ? 'flex' : 'none';
+    if (countEl) countEl.textContent = `${selected} order${selected !== 1 ? 's' : ''} selected`;
+};
+
+window.bulkDeleteOrders = function() {
+    const selected = [...document.querySelectorAll('#view-orders .order-row-select:checked')]
+        .map((el) => el.value);
+    if (!selected.length) return;
+
+    showCustomConfirm(
+        'Delete Selected Orders',
+        `Delete ${selected.length} order(s)? This cannot be undone.`,
+        async () => {
+            try {
+                const response = await fetch('/api/admin/orders/bulk-delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ orderIds: selected })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    selected.forEach((id) => {
+                        globalOrders = globalOrders.filter((o) => String(o._id) !== String(id));
+                        expandedOrderIds.delete(String(id));
+                    });
+                    const totalOrderBadge = document.getElementById('total-orders-badge');
+                    if (totalOrderBadge) totalOrderBadge.innerText = `Total: ${globalOrders.length}`;
+                    showAdminSuccess('Orders Deleted', `${result.deleted ?? selected.length} order(s) removed.`);
+                    applyOrderFilters(false);
+                } else {
+                    showToast(result.message || 'Bulk delete failed.', 'error');
+                }
+            } catch (err) {
+                showToast('Server error during bulk delete.', 'error');
+            }
+        },
+        'danger'
+    );
+};
+
+window.bulkApplyOrderStatus = async function() {
+    const selected = [...document.querySelectorAll('#view-orders .order-row-select:checked')]
+        .map((el) => el.value);
+    if (!selected.length) return;
+
+    const newStatus = document.getElementById('bulk-order-status')?.value;
+    if (!newStatus) return;
+
+    let successCount = 0;
+    for (const orderId of selected) {
+        try {
+            const response = await fetch(`/api/orders/${orderId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+            const result = await response.json();
+            if (result.success) successCount += 1;
+        } catch (_) { /* continue */ }
+    }
+
+    if (successCount > 0) {
+        showToast(`Updated ${successCount} order(s) to ${newStatus}.`, 'success');
+        fetchLiveOrders();
+    } else {
+        showToast('Could not update selected orders.', 'error');
+    }
 };
 
 /**
@@ -3488,9 +3802,61 @@ window.changeOrderPageSize = function() {
     }
 };
 
-/**
- * ৭.৯: পরবর্তী পেজে যাওয়ার নেভিগেশন বাটন
- */
+function getOrderPageNumbers(current, total) {
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+    const pages = [];
+    if (current <= 4) {
+        pages.push(1, 2, 3, 4, 5, '...', total);
+    } else if (current >= total - 3) {
+        pages.push(1, '...', total - 4, total - 3, total - 2, total - 1, total);
+    } else {
+        pages.push(1, '...', current - 1, current, current + 1, '...', total);
+    }
+    return pages;
+}
+
+function renderOrderPaginationControls(totalPages) {
+    const paginationContainer = document.getElementById('dynamic-order-pages');
+    if (!paginationContainer) return;
+
+    let html = '';
+    html += `<button type="button" class="pg-btn" ${currentOrderPage === 1 ? 'disabled' : ''} onclick="goToPreviousOrderPage()">← Prev</button>`;
+
+    const pages = getOrderPageNumbers(currentOrderPage, totalPages);
+    pages.forEach((p) => {
+        if (p === '...') {
+            html += '<span class="pg-dots">...</span>';
+        } else {
+            html += `<button type="button" class="pg-btn ${p === currentOrderPage ? 'active' : ''}" onclick="goToOrderPage(${p})">${p}</button>`;
+        }
+    });
+
+    html += `<button type="button" class="pg-btn" ${currentOrderPage === totalPages || totalPages === 0 ? 'disabled' : ''} onclick="goToNextOrderPage()">Next →</button>`;
+
+    paginationContainer.innerHTML = html;
+
+    const jumpInput = document.getElementById('order-jump-page');
+    if (jumpInput) {
+        jumpInput.max = totalPages || 1;
+        jumpInput.placeholder = String(currentOrderPage);
+    }
+}
+
+window.jumpToOrderPage = function() {
+    const val = parseInt(document.getElementById('order-jump-page')?.value, 10);
+    const totalPages = Math.ceil(currentFilteredOrders.length / ordersPerPage) || 1;
+    if (val >= 1 && val <= totalPages) goToOrderPage(val);
+};
+
+// Legacy aliases — kept for any external references
+window.goToPreviousOrderPage = function() {
+    if (currentOrderPage > 1) {
+        currentOrderPage--;
+        renderOrderTable();
+    }
+};
+
 window.goToNextOrderPage = function() {
     const totalItems = currentFilteredOrders.length;
     const totalPages = Math.ceil(totalItems / ordersPerPage) || 1;
@@ -3500,60 +3866,18 @@ window.goToNextOrderPage = function() {
     }
 };
 
-/**
- * ৭.১০: পূর্ববর্তী পেজে যাওয়ার নেভিগেশন বাটন
- */
-window.goToPreviousOrderPage = function() {
-    if (currentOrderPage > 1) {
-        currentOrderPage--;
-        renderOrderTable();
-    }
-};
-
-/**
- * ৭.১১: নির্দিষ্ট পেজ নম্বরে ডাইরেক্ট যাওয়ার নেভিগেশন
- */
 window.goToOrderPage = function(pageNumber) {
     currentOrderPage = pageNumber;
     renderOrderTable();
 };
 
-/**
- * ৭.১২: টেবিলের নিচে ডাইনামিক পেজ নম্বর বাটন স্ট্রাকচার তৈরি করা
- * @param {number} totalPages - মোট পেজের সংখ্যা
- */
-function renderOrderPaginationControls(totalPages) {
-    const paginationContainer = document.getElementById('dynamic-order-pages');
-    if (!paginationContainer) return;
-
-    paginationContainer.innerHTML = ''; // পুরোনো বাটন বা ডুপ্লিকেট ক্লিয়ার করা
-    
-    for (let i = 1; i <= totalPages; i++) {
-        const btn = document.createElement('button');
-        btn.classList.add('page-num-btn');
-        if (i === currentOrderPage) {
-            btn.classList.add('active-page');
-        }
-        btn.innerText = i;
-        btn.onclick = () => goToOrderPage(i);
-        paginationContainer.appendChild(btn);
-    }
-
-    // প্রথম বা শেষ পেজে থাকলে Next/Prev বাটনগুলোকে ডিজেবল (Disable) করা
-    const prevBtn = document.getElementById('btn-prev-order');
-    const nextBtn = document.getElementById('btn-next-order');
-    
-    if (prevBtn) prevBtn.disabled = currentOrderPage === 1;
-    if (nextBtn) nextBtn.disabled = currentOrderPage === totalPages;
-}
-
-// সার্চ এবং স্ট্যাটাস চেঞ্জের জন্য ইভেন্ট লিসেনার ইনিশিয়ালাইজেশন
+// সার্চ ইভেন্ট লিসেনার (fallback if inline handler missing)
 document.addEventListener('DOMContentLoaded', () => {
-    const searchInput = document.getElementById('orderSearchInput');
-    const filterSelect = document.getElementById('orderStatusFilter');
-    
-    if (searchInput) searchInput.addEventListener('input', window.filterAndRenderOrders);
-    if (filterSelect) filterSelect.addEventListener('change', window.filterAndRenderOrders);
+    const searchInput = getOrderSearchInputEl();
+    if (searchInput && !searchInput.dataset.boundSearch) {
+        searchInput.dataset.boundSearch = '1';
+        searchInput.addEventListener('input', () => debounceSearch());
+    }
 });
 
 
@@ -10069,10 +10393,10 @@ function setupGlobalSearch() {
 
             // যদি Live Orders পেজে থাকেন
             if (activeSection.id === 'view-orders') {
-                const orderSearch = document.getElementById('orderSearchInput');
+                const orderSearch = getOrderSearchInputEl();
                 if (orderSearch) {
                     orderSearch.value = query;
-                    if (typeof filterAndRenderOrders === 'function') filterAndRenderOrders();
+                    if (typeof debounceSearch === 'function') debounceSearch();
                 }
             } 
             // যদি Manage Products পেজে থাকেন

@@ -380,6 +380,11 @@ function servePaymentReconciliationPage(req, res) {
 }
 app.get('/admin/payment-reconciliation', servePaymentReconciliationPage);
 
+// Admin order detail deep-link (opens invoice modal in admin panel)
+app.get('/admin/order-details/:orderId', (req, res) => {
+    sendClientHtml(res, 'admin.html');
+});
+
 // Unknown admin pages → dashboard (avoids blank page on bad admin URLs)
 app.get('/admin/*splat', (req, res) => {
     res.redirect('/admin/dashboard');

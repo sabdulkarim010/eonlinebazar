@@ -17,7 +17,8 @@ const {
     createManualOrder,
     updateOrderShippingAddress,
     getPendingPaymentProofOrders,
-    reviewPaymentProof
+    reviewPaymentProof,
+    bulkDeleteOrders
 } = require('../controllers/orderController');
 const {
     getPaymentReconciliation,
@@ -92,6 +93,9 @@ router.get('/orders/pending-payment-proof', verifyAdmin, checkPermission('manage
 
 // URL: PATCH /api/admin/orders/:orderId/review-payment-proof
 router.patch('/orders/:orderId/review-payment-proof', verifyAdmin, checkPermission('manage_orders'), reviewPaymentProof);
+
+// URL: POST /api/admin/orders/bulk-delete — delete up to 50 orders at once
+router.post('/orders/bulk-delete', verifyAdmin, checkPermission('manage_orders'), bulkDeleteOrders);
 
 // URL: GET /api/admin/payments/reconciliation — gateway/manual/COD payment overview
 router.get('/payments/reconciliation', verifyAdmin, checkPermission('manage_orders'), getPaymentReconciliation);

@@ -10,7 +10,9 @@
     const TOKEN_KEY = 'adminToken';
 
     let currentPage = 1;
+    let currentLimit = 10;
     let totalPages = 1;
+    let totalOrders = 0;
     let currentOrders = [];
     let activeProofOrderId = null;
     let activeMarkPaidOrderId = null;
@@ -49,14 +51,17 @@
         });
     }
 
-    function showToast(message, type) {
-        const toast = $('toast');
+    function showAlert(message, type) {
+        const toast = $('toast-alert');
         if (!toast) return;
         toast.textContent = message;
-        toast.className = 'toast' + (type ? ` toast--${type}` : '');
-        toast.hidden = false;
-        clearTimeout(showToast._timer);
-        showToast._timer = setTimeout(() => { toast.hidden = true; }, 3500);
+        toast.className = 'toast-alert show' + (type === 'ok' ? ' ok' : type === 'err' ? ' err' : '');
+        clearTimeout(showAlert._timer);
+        showAlert._timer = setTimeout(() => { toast.classList.remove('show'); }, 3500);
+    }
+
+    function showToast(message, type) {
+        showAlert(message, type === 'success' ? 'ok' : type === 'error' ? 'err' : '');
     }
 
     function setLoading(isLoading) {
@@ -92,7 +97,7 @@
         if (startDate) params.set('startDate', startDate);
         if (endDate) params.set('endDate', endDate);
         params.set('page', String(currentPage));
-        params.set('limit', '20');
+        params.set('limit', String(currentLimit));
 
         return params;
     }
@@ -156,23 +161,25 @@
         if (!tbody) return;
 
         if (!orders.length) {
-            tbody.innerHTML = `<tr><td colspan="10">
+            tbody.innerHTML = `<tr><td colspan="11">
                 <div class="empty-box">
                     <div class="e-icon">📋</div>
                     <h3>No orders found</h3>
                     <p>No orders match the current filters.</p>
                 </div>
             </td></tr>`;
+            clearSelection();
             return;
         }
 
         tbody.innerHTML = orders.map((order) => {
-            const orderLink = `/order-details?id=${encodeURIComponent(order._id)}`;
+            const orderLink = `/admin/order-details/${encodeURIComponent(order._id)}`;
             const ipnCell = order.paymentType === 'gateway'
                 ? ipnBadge(order.ipnReceived)
                 : '—';
 
             return `<tr data-order-id="${order._id}">
+                <td><input type="checkbox" class="row-select" value="${order._id}" onchange="updateBulkToolbar()"></td>
                 <td><a class="order-link" href="${orderLink}" target="_blank" rel="noopener">${escapeHtml(order.orderId || order._id)}</a></td>
                 <td><span class="cust-name">${escapeHtml(order.customerName || '—')}</span><br><span class="cust-phone">${escapeHtml(order.customerPhone || '')}</span></td>
                 <td class="amount-val">${formatMoney(order.grandTotal)}</td>
@@ -185,11 +192,131 @@
                 <td>${renderActions(order)}</td>
             </tr>`;
         }).join('');
+
+        const selectAll = $('select-all');
+        if (selectAll) selectAll.checked = false;
+        updateBulkToolbar();
     }
 
     function updateTableCount(count) {
+        totalOrders = count;
         const el = $('table-count');
         if (el) el.textContent = `${count} order${count !== 1 ? 's' : ''}`;
+    }
+
+    function getPageNumbers(current, total) {
+        if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+        const pages = [];
+        if (current <= 4) {
+            pages.push(1, 2, 3, 4, 5, '...', total);
+        } else if (current >= total - 3) {
+            pages.push(1, '...', total - 4, total - 3, total - 2, total - 1, total);
+        } else {
+            pages.push(1, '...', current - 1, current, current + 1, '...', total);
+        }
+        return pages;
+    }
+
+    function renderPagination() {
+        const start = totalOrders === 0 ? 0 : (currentPage - 1) * currentLimit + 1;
+        const end = Math.min(currentPage * currentLimit, totalOrders);
+
+        $('page-info').textContent = totalOrders === 0
+            ? 'Showing 0 orders'
+            : `Showing ${start}-${end} of ${totalOrders} orders`;
+
+        $('table-count').textContent = `${totalOrders} order${totalOrders !== 1 ? 's' : ''}`;
+
+        const container = $('page-buttons');
+        let html = '';
+
+        html += `<button class="pg-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="goToPage(${currentPage - 1})">← Prev</button>`;
+
+        const pages = getPageNumbers(currentPage, totalPages);
+        pages.forEach((p) => {
+            if (p === '...') {
+                html += '<span class="pg-dots">...</span>';
+            } else {
+                html += `<button class="pg-btn ${p === currentPage ? 'active' : ''}" onclick="goToPage(${p})">${p}</button>`;
+            }
+        });
+
+        html += `<button class="pg-btn" ${currentPage === totalPages || totalPages === 0 ? 'disabled' : ''} onclick="goToPage(${currentPage + 1})">Next →</button>`;
+
+        container.innerHTML = html;
+
+        const jumpInput = $('jump-page');
+        if (jumpInput) {
+            jumpInput.max = totalPages || 1;
+            jumpInput.value = '';
+        }
+
+        const limitSelect = $('limit-select');
+        if (limitSelect) limitSelect.value = String(currentLimit);
+    }
+
+    function goToPage(page) {
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        loadData();
+    }
+
+    function changeLimit(val) {
+        currentLimit = parseInt(val, 10) || 10;
+        currentPage = 1;
+        loadData();
+    }
+
+    function jumpToPage() {
+        const val = parseInt($('jump-page')?.value, 10);
+        if (val >= 1 && val <= totalPages) goToPage(val);
+    }
+
+    function toggleSelectAll(cb) {
+        document.querySelectorAll('.row-select')
+            .forEach((el) => { el.checked = cb.checked; });
+        updateBulkToolbar();
+    }
+
+    function updateBulkToolbar() {
+        const selected = document.querySelectorAll('.row-select:checked').length;
+        const toolbar = $('bulk-toolbar');
+        const count = $('selected-count');
+        if (toolbar) toolbar.style.display = selected > 0 ? 'flex' : 'none';
+        if (count) count.textContent = `${selected} order${selected > 1 ? 's' : ''} selected`;
+    }
+
+    async function bulkDelete() {
+        const selected = [...document.querySelectorAll('.row-select:checked')]
+            .map((el) => el.value);
+        if (!selected.length) return;
+
+        if (!confirm(`Delete ${selected.length} order(s)? This cannot be undone.`)) return;
+
+        try {
+            const res = await fetch('/api/admin/orders/bulk-delete', {
+                method: 'POST',
+                headers: authHeaders(),
+                body: JSON.stringify({ orderIds: selected })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showAlert(`${data.deleted ?? selected.length} orders deleted`, 'ok');
+                clearSelection();
+                loadData();
+            } else {
+                showAlert(data.message || 'Delete failed', 'err');
+            }
+        } catch (err) {
+            showAlert('Network error', 'err');
+        }
+    }
+
+    function clearSelection() {
+        document.querySelectorAll('.row-select, #select-all')
+            .forEach((el) => { el.checked = false; });
+        updateBulkToolbar();
     }
 
     function escapeHtml(str) {
@@ -211,11 +338,13 @@
     }
 
     function updatePagination(pagination) {
-        currentPage = pagination?.page || 1;
+        currentPage = pagination?.page || currentPage;
         totalPages = pagination?.totalPages || 1;
-        $('page-info').textContent = `Page ${currentPage} of ${totalPages || 1}`;
-        $('btn-prev').disabled = currentPage <= 1;
-        $('btn-next').disabled = currentPage >= totalPages;
+        totalOrders = pagination?.total ?? totalOrders;
+        if (currentPage > totalPages && totalPages > 0) {
+            currentPage = totalPages;
+        }
+        renderPagination();
     }
 
     async function loadData() {
@@ -247,9 +376,15 @@
 
             currentOrders = result.orders || [];
             updateSummary(result.summary);
-            renderTable(currentOrders);
-            updateTableCount(currentOrders.length);
+            updateTableCount(result.pagination?.total ?? currentOrders.length);
             updatePagination(result.pagination);
+
+            if (!currentOrders.length && currentPage > 1 && totalPages > 0) {
+                currentPage = totalPages;
+                return loadData();
+            }
+
+            renderTable(currentOrders);
         } catch (err) {
             showError(err.message || 'Failed to load data.');
         } finally {
@@ -363,7 +498,7 @@
     }
 
     function viewOrder(id) {
-        window.open(`/order-details?id=${encodeURIComponent(id)}`, '_blank', 'noopener');
+        window.open('/admin/order-details/' + encodeURIComponent(id), '_blank', 'noopener');
     }
 
     async function reviewProof(action) {
@@ -419,11 +554,7 @@
     }
 
     function changePage(delta) {
-        const newPage = currentPage + delta;
-        if (newPage >= 1 && newPage <= totalPages) {
-            currentPage = newPage;
-            loadData();
-        }
+        goToPage(currentPage + delta);
     }
 
     function applyFilters() {
@@ -472,6 +603,15 @@
     window.exportCSV = exportCSV;
     window.applyFilters = applyFilters;
     window.changePage = changePage;
+    window.goToPage = goToPage;
+    window.changeLimit = changeLimit;
+    window.jumpToPage = jumpToPage;
+    window.renderPagination = renderPagination;
+    window.toggleSelectAll = toggleSelectAll;
+    window.updateBulkToolbar = updateBulkToolbar;
+    window.bulkDelete = bulkDelete;
+    window.clearSelection = clearSelection;
+    window.showAlert = showAlert;
     window.openModal = openModal;
     window.closeModal = closeModal;
     window.viewOrder = viewOrder;

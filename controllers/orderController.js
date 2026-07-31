@@ -1162,6 +1162,52 @@ const deleteOrder = async (req, res) => {
     }
 };
 
+/**
+ * Bulk delete orders (admin reconciliation / live orders).
+ * POST /api/admin/orders/bulk-delete
+ */
+const bulkDeleteOrders = async (req, res) => {
+    try {
+        const { orderIds } = req.body || {};
+
+        if (!Array.isArray(orderIds) || orderIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'orderIds array is required.'
+            });
+        }
+
+        if (orderIds.length > 50) {
+            return res.status(400).json({
+                success: false,
+                message: 'Maximum 50 orders can be deleted at once.'
+            });
+        }
+
+        const validIds = orderIds.filter((id) => mongoose.Types.ObjectId.isValid(String(id)));
+        if (validIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'No valid order IDs provided.'
+            });
+        }
+
+        const result = await Order.deleteMany({ _id: { $in: validIds } });
+
+        return res.json({
+            success: true,
+            deleted: result.deletedCount,
+            message: `${result.deletedCount} order(s) deleted.`
+        });
+    } catch (err) {
+        console.error('Bulk delete orders error:', err);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to delete orders.'
+        });
+    }
+};
+
 // ৭. অর্ডার ট্র্যাক করা (পাবলিক সার্চ)
 const trackOrder = async (req, res) => {
     try {
@@ -1751,7 +1797,8 @@ module.exports = {
     downloadOrderInvoice,
     updateOrderStatus,
     updateOrderShippingAddress,
-    deleteOrder, 
+    deleteOrder,
+    bulkDeleteOrders,
     trackOrder,
     getDashboardStats,
     cancelUserOrder,

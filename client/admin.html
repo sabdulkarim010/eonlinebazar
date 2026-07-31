@@ -391,87 +391,106 @@
             </section>
 
 <section id="view-orders" class="admin-section admin-section--orders" style="display: none;">
-    <div class="orders-unified-toolbar">
-        <div class="orders-toolbar-left">
-            <h2 class="orders-toolbar-title">Live Orders</h2>
-            <div class="live-indicator-box orders-live-badge">
-                <span class="live-indicator-text"><span class="pulse"></span> Live Syncing</span>
-            </div>
-        </div>
-        <div class="orders-toolbar-right">
-            <div class="search-box orders-toolbar-search">
-                <i class="fa-solid fa-search"></i>
-                <input type="text" id="orderSearchInput" placeholder="Search by Order ID or Phone...">
-            </div>
-            <button type="button" class="btn-submit manual-order-open-btn" id="openManualOrderModalBtn" data-permission="manage_orders">
-                <i class="fa-solid fa-plus"></i> Create Manual Order
+    <div class="orders-panel-card">
+        <div class="order-tabs" role="tablist" aria-label="Order status filters">
+            <button type="button" class="order-tab active" data-status="all" onclick="setOrderStatusTab('all')">
+                All Orders <span class="tab-count" id="count-all">0</span>
             </button>
-            <div class="filter-box orders-toolbar-filter">
-                <select id="orderStatusFilter">
-                    <option value="all">All Orders</option>
-                    <option value="pending">Pending</option>
-                    <option value="processing">Processing</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="return requested">Return Requested</option>
-                    <option value="returned">Returned</option>
-                    <option value="cancelled">Cancelled</option>
-                </select>
-            </div>
-        </div>
-    </div>
-
-    <div class="table-responsive-wrapper orders-table-scroll">
-        <table class="dynamic-data-table orders-live-table">
-            <thead class="orders-table-head">
-                <tr>
-                    <th class="col-order-id max-w-[100px] text-center align-middle px-2 py-3 font-semibold uppercase text-xs text-gray-500">Order ID</th>
-                    <th class="col-datetime max-w-[120px] text-center align-middle px-2 py-3 font-semibold uppercase text-xs text-gray-500">Date &amp; Time <i class="fa-regular fa-clock" aria-hidden="true"></i></th>
-                    <th class="col-customer text-center align-middle px-4 py-3 font-semibold uppercase text-xs text-gray-500">Customer</th>
-                    <th class="col-address text-left align-middle px-4 py-3 font-semibold uppercase text-xs text-gray-500">Address</th>
-                    <th class="col-products text-left align-middle px-4 py-3 font-semibold uppercase text-xs text-gray-500">Products</th>
-                    <th class="col-total text-center align-middle px-4 py-3 font-semibold uppercase text-xs text-gray-500">Total</th>
-                    <th class="col-status min-w-[130px] text-center align-middle px-3 py-3 font-semibold uppercase text-xs text-gray-500">Status</th>
-                    <th class="col-courier-head w-44 min-w-[170px] text-center align-middle px-0 py-3 font-semibold uppercase text-xs text-gray-500">Courier Status</th>
-                    <th class="col-actions-head text-center align-middle px-4 py-3 font-semibold uppercase text-xs text-gray-500">Actions</th>
-                </tr>
-            </thead>
-            <tbody id="adminOrderTableBody">
-                <tr>
-                    <td colspan="9" class="loading-container">
-                        <div class="spinner"></div>
-                        <p>Connecting to Live Database...</p>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-    <div class="pagination-footer-wrapper">
-        <div class="page-size-controller">
-            <label for="orderItemsPerPage">Show</label>
-            <select id="orderItemsPerPage" onchange="changeOrderPageSize()">
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
-            <span>entries</span>
-        </div>
-
-        <div class="pagination-info-text">
-            Showing <span id="order-start-idx">0</span> to <span id="order-end-idx">0</span> of <span id="order-total-entries">0</span> entries
-        </div>
-
-        <div class="pagination-navigation-buttons">
-            <button type="button" class="page-nav-btn" id="btn-prev-order" onclick="goToPreviousOrderPage()">
-                <i class="fa-solid fa-angle-left"></i> Previous
+            <button type="button" class="order-tab" data-status="Pending" onclick="setOrderStatusTab('Pending')">
+                🕐 Pending <span class="tab-count pending" id="count-pending">0</span>
             </button>
-            <div id="dynamic-order-pages" class="page-numbers-container">
+            <button type="button" class="order-tab" data-status="Processing" onclick="setOrderStatusTab('Processing')">
+                ⚙️ Processing <span class="tab-count processing" id="count-processing">0</span>
+            </button>
+            <button type="button" class="order-tab" data-status="Shipped" onclick="setOrderStatusTab('Shipped')">
+                🚚 Shipped <span class="tab-count shipped" id="count-shipped">0</span>
+            </button>
+            <button type="button" class="order-tab" data-status="Delivered" onclick="setOrderStatusTab('Delivered')">
+                ✅ Delivered <span class="tab-count delivered" id="count-delivered">0</span>
+            </button>
+            <button type="button" class="order-tab" data-status="Cancelled" onclick="setOrderStatusTab('Cancelled')">
+                ❌ Cancelled <span class="tab-count cancelled" id="count-cancelled">0</span>
+            </button>
+        </div>
+
+        <div class="orders-toolbar">
+            <div class="toolbar-left">
+                <div class="search-box">
+                    <span class="search-icon" aria-hidden="true">🔍</span>
+                    <input type="text" id="order-search" placeholder="Search by Order ID or Phone..." oninput="debounceSearch()">
                 </div>
-            <button type="button" class="page-nav-btn" id="btn-next-order" onclick="goToNextOrderPage()">
-                Next <i class="fa-solid fa-angle-right"></i>
-            </button>
+                <input type="date" id="order-date-filter" onchange="filterByDate(this.value)" class="date-picker" aria-label="Filter by order date">
+            </div>
+            <div class="toolbar-right">
+                <div class="live-badge" id="live-indicator">
+                    <span class="live-dot"></span> Live Syncing
+                </div>
+                <button type="button" class="btn-create-order" id="openManualOrderModalBtn" data-permission="manage_orders" onclick="openManualOrderModal()">
+                    + Create Manual Order
+                </button>
+            </div>
+        </div>
+
+        <div class="orders-bulk-toolbar" id="orders-bulk-toolbar" style="display:none">
+            <span id="orders-selected-count">0 orders selected</span>
+            <label class="bulk-status-label" for="bulk-order-status">Change Status to:</label>
+            <select id="bulk-order-status" class="bulk-status-select">
+                <option value="Pending">Pending</option>
+                <option value="Processing">Processing</option>
+                <option value="Shipped">Shipped</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Cancelled">Cancelled</option>
+            </select>
+            <button type="button" class="bulk-apply-btn" onclick="bulkApplyOrderStatus()">Apply</button>
+            <button type="button" class="bulk-delete-btn" onclick="bulkDeleteOrders()">🗑️ Delete Selected</button>
+        </div>
+
+        <div class="table-responsive-wrapper orders-table-scroll">
+            <table class="dynamic-data-table orders-live-table">
+                <thead class="orders-table-head">
+                    <tr>
+                        <th class="col-checkbox">
+                            <input type="checkbox" id="orders-select-all" onchange="toggleSelectAllOrders(this)" aria-label="Select all orders on this page">
+                        </th>
+                        <th class="col-order-id">Order ID</th>
+                        <th class="col-datetime">Date &amp; Time</th>
+                        <th class="col-customer">Customer</th>
+                        <th class="col-address">Address</th>
+                        <th class="col-products">Products</th>
+                        <th class="col-total">Total</th>
+                        <th class="col-status">Status</th>
+                        <th class="col-courier-head">Courier Status</th>
+                        <th class="col-actions-head">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="adminOrderTableBody">
+                    <tr>
+                        <td colspan="10" class="loading-container">
+                            <div class="spinner"></div>
+                            <p>Connecting to Live Database...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="orders-pagination-bar">
+            <div class="pg-left">
+                <span>Show</span>
+                <select id="orderItemsPerPage" onchange="changeOrderPageSize()">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                </select>
+                <span>entries</span>
+                <span class="pg-info" id="order-pagination-info">Showing 0 orders</span>
+            </div>
+            <div class="pg-center" id="dynamic-order-pages"></div>
+            <div class="pg-right">
+                <span>Go to:</span>
+                <input type="number" id="order-jump-page" min="1" class="order-jump-input" aria-label="Jump to page">
+                <button type="button" class="pg-btn" onclick="jumpToOrderPage()">Go</button>
+            </div>
         </div>
     </div>
 </section>
@@ -2006,7 +2025,7 @@
                         <strong>Live preview:</strong>
                         <p class="footer-preview-hint">Uses the same footer renderer as the storefront — updates instantly as you edit.</p>
                         <div id="footerSettingsPreviewContent" class="footer-live-preview-wrap">
-                            <footer class="compact-footer" aria-label="Footer preview">
+                            <footer class="site-footer" aria-label="Footer preview">
                                 <div class="footer-container" id="footerLivePreviewInner"></div>
                             </footer>
                         </div>
@@ -3394,6 +3413,7 @@
     <script src="/js/paymentBrandLogos.js"></script>
     <script src="/js/footerRenderer.js"></script>
     <script src="/js/markdownToHtml.js"></script>
+    <script src="/js/orderStatusTimeline.js"></script>
     <script type="module" src="/js/admin.js"></script>
     <script type="module" src="/js/admin-staff.js"></script>
     <script src="/js/admin-newsletter.js"></script>

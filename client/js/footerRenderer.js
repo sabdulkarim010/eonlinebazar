@@ -22,19 +22,20 @@
         nagad: 'Nagad',
         rocket: 'Rocket',
         visa: 'VISA',
-        mastercard: 'Mastercard',
+        mastercard: 'MC',
         cod: 'COD'
     };
 
-    const DEFAULT_COPYRIGHT = '© 2026 EonlineBazar. All rights reserved. Designed by Abdul Karim Sheikh';
-    const MOBILE_COMPACT_COPYRIGHT = '© 2026 EonlineBazar. Designed by Abdul Karim Sheikh';
-
-    const MOBILE_ESSENTIAL_LINKS = [
-        { label: 'About Us', url: '/about', match: ['/about', 'about us'] },
-        { label: 'Contact Us', url: '/contact', match: ['/contact', 'contact us'] },
-        { label: 'Track Order', url: '/order-track', match: ['/order-track', 'track order', 'track your order'] },
-        { label: 'Privacy Policy', url: '/privacy-policy', match: ['/privacy-policy', 'privacy policy'] }
+    const DEFAULT_PAYMENT_BADGES = [
+        { name: 'bKash', iconName: 'bkash' },
+        { name: 'Nagad', iconName: 'nagad' },
+        { name: 'VISA', iconName: 'visa' },
+        { name: 'MC', iconName: 'mastercard' },
+        { name: 'COD', iconName: 'cod' }
     ];
+
+    const DEFAULT_COPYRIGHT = '© 2026 EonlineBazar. All rights reserved. Designed by Abdul Karim Sheikh';
+    const FOOTER_TAGLINE = "Bangladesh's trusted online shopping destination";
 
     function escapeFooterHtml(value) {
         return String(value ?? '')
@@ -50,6 +51,17 @@
         return FOOTER_SOCIAL_ICON_MAP[key] || 'fa-solid fa-link';
     }
 
+    function getStoreBranding() {
+        if (typeof global === 'undefined' || !global.__STORE_SETTINGS__) {
+            return { storeName: 'EonlineBazar', logoUrl: '' };
+        }
+        const settings = global.__STORE_SETTINGS__;
+        return {
+            storeName: settings.storeName || 'EonlineBazar',
+            logoUrl: settings.logoUrl || settings.logoPath || settings.storeLogo || ''
+        };
+    }
+
     function renderSocialIcon(link) {
         const title = escapeFooterHtml(link.platform || 'Social');
         const href = escapeFooterHtml(link.linkUrl || '#');
@@ -57,13 +69,13 @@
         const rel = target === '_blank' ? ' rel="noopener noreferrer"' : '';
 
         if (link.iconUrl) {
-            return `<a href="${href}" target="${target}"${rel} title="${title}" class="social-icon">
+            return `<a href="${href}" target="${target}"${rel} title="${title}" class="social-btn">
                 <img src="${escapeFooterHtml(link.iconUrl)}" alt="${title}" loading="lazy">
             </a>`;
         }
 
         const iconClass = resolveSocialIconClass(link.iconName);
-        return `<a href="${href}" target="${target}"${rel} title="${title}" class="social-icon">
+        return `<a href="${href}" target="${target}"${rel} title="${title}" class="social-btn">
             <i class="${iconClass}"></i>
         </a>`;
     }
@@ -79,71 +91,37 @@
         return `<li><a href="${url}">${label}</a></li>`;
     }
 
+    function resolvePaymentLabel(gateway) {
+        const slug = String(gateway.iconName || gateway.name || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '');
+
+        return FOOTER_PAYMENT_LABELS[slug] || gateway.name || 'Payment';
+    }
+
     function renderPaymentBadge(gateway) {
         const slug = String(gateway.iconName || gateway.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        const name = escapeFooterHtml(gateway.name || FOOTER_PAYMENT_LABELS[slug] || 'Payment');
+        const name = resolvePaymentLabel(gateway);
 
         if (gateway.iconUrl) {
-            return `<span class="footer-payment-badge footer-payment-badge--${slug}">
-                <img src="${escapeFooterHtml(gateway.iconUrl)}" alt="${name}" loading="lazy">
-            </span>`;
+            return `<img class="payment-badge payment-badge--${slug}" src="${escapeFooterHtml(gateway.iconUrl)}" alt="${escapeFooterHtml(name)}" loading="lazy">`;
         }
 
-        return `<span class="footer-payment-badge footer-payment-badge--${slug}">${name}</span>`;
+        return `<span class="payment-badge-text">${escapeFooterHtml(name)}</span>`;
     }
 
-    function flattenColumnLinks(columns) {
-        return (columns || []).flatMap((col) => col.links || []);
-    }
-
-    function linkMatchesEssential(link, essential) {
-        const label = String(link.label || '').trim().toLowerCase();
-        const url = String(link.url || '').trim().toLowerCase();
-        return essential.match.some((token) => {
-            const t = token.toLowerCase();
-            return label === t || url === t || url.endsWith(t);
-        });
-    }
-
-    function resolveMobileEssentialLinks(columns) {
-        const flat = flattenColumnLinks(columns);
-
-        return MOBILE_ESSENTIAL_LINKS.map((essential) => {
-            const found = flat.find((link) => linkMatchesEssential(link, essential));
-            if (found) {
-                return {
-                    label: found.label,
-                    url: found.url || essential.url,
-                    isExternal: found.isExternal === true
-                };
-            }
-            return {
-                label: essential.label,
-                url: essential.url,
-                isExternal: false
-            };
-        });
-    }
-
-    function buildMobileQuickLinksHtml(essentialLinks) {
-        return essentialLinks.map((link) => {
-            const label = escapeFooterHtml(link.label);
-            const url = escapeFooterHtml(link.url || '#');
-            if (link.isExternal) {
-                return `<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`;
-            }
-            return `<a href="${url}">${label}</a>`;
-        }).join('');
-    }
-
-    function compactCopyrightForMobile(copyrightText) {
+    function formatCopyrightHtml(copyrightText) {
         const text = String(copyrightText || DEFAULT_COPYRIGHT).trim();
-        if (!text) return MOBILE_COMPACT_COPYRIGHT;
-        const shortened = text
-            .replace(/\s*All rights reserved\.?\s*/gi, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-        return shortened || MOBILE_COMPACT_COPYRIGHT;
+        const designedByMatch = text.match(/^(.+?)\s+(Designed by\s+)(.+)$/i);
+
+        if (designedByMatch) {
+            const before = designedByMatch[1].replace(/\.\s*$/, '').trim();
+            const prefix = designedByMatch[2].trim();
+            const designer = designedByMatch[3].trim();
+            return `${escapeFooterHtml(before)}. | ${escapeFooterHtml(prefix)}<a href="#">${escapeFooterHtml(designer)}</a>`;
+        }
+
+        return escapeFooterHtml(text);
     }
 
     /** Normalize admin draft or API payload into storefront shape (active items only). */
@@ -192,108 +170,74 @@
         };
     }
 
-    function buildMobileCompactFooterHtml(normalized) {
-        const { columns, socialLinks, copyrightText } = normalized;
-        const essentialLinks = resolveMobileEssentialLinks(columns);
-        const quickLinksHtml = buildMobileQuickLinksHtml(essentialLinks);
-
-        const socialIconsHtml = socialLinks.length
-            ? `<div class="footer-mobile-social-row">
-                <div class="footer-social-icons footer-mobile-social-icons">
-                    ${socialLinks.map(renderSocialIcon).join('')}
-                </div>
-            </div>`
+    function buildBrandColumnHtml(socialLinks) {
+        const { storeName, logoUrl } = getStoreBranding();
+        const logoSrc = logoUrl || '/images/favicon.png';
+        const socialHtml = socialLinks.length
+            ? `<div class="social-row">${socialLinks.map(renderSocialIcon).join('')}</div>`
             : '';
 
         return `
-            <div class="footer-mobile-compact">
-                <div class="footer-mobile-newsletter">
-                    <div class="newsletter-section newsletter-section--mobile">
-                        <h3 data-i18n="footer.newsletter_title">Subscribe to Newsletter</h3>
-                        <div class="newsletter-form">
-                            <input type="email" id="newsletter-email-mobile"
-                                   placeholder="Enter your email"
-                                   data-i18n-placeholder="footer.newsletter_placeholder"
-                                   aria-label="Newsletter email">
-                            <button type="button" onclick="subscribeNewsletter('newsletter-email-mobile')"
-                                    data-i18n="footer.newsletter_btn">Subscribe</button>
-                        </div>
-                        <p id="newsletter-msg-mobile" class="newsletter-msg" style="display:none" role="status"></p>
-                    </div>
-                </div>
-                <nav class="footer-mobile-quicklinks" aria-label="Essential links">
-                    ${quickLinksHtml}
-                </nav>
-                ${socialIconsHtml}
-                <p class="footer-mobile-copyright">${escapeFooterHtml(compactCopyrightForMobile(copyrightText))}</p>
+            <div class="footer-brand">
+                <a href="/" class="footer-logo">
+                    <img src="${escapeFooterHtml(logoSrc)}" alt="${escapeFooterHtml(storeName)} logo" loading="lazy">
+                    <span>${escapeFooterHtml(storeName)}</span>
+                </a>
+                <p class="footer-tagline">${escapeFooterHtml(FOOTER_TAGLINE)}</p>
+                ${socialHtml}
+            </div>
+        `;
+    }
+
+    function buildLinkColumnHtml(column) {
+        if (!column) {
+            return '<div class="footer-col"></div>';
+        }
+
+        return `
+            <div class="footer-col">
+                <h4>${escapeFooterHtml(column.columnTitle)}</h4>
+                <ul>${(column.links || []).map(renderFooterLink).join('')}</ul>
             </div>
         `;
     }
 
     function buildNewsletterSectionHtml() {
         return `
-            <div class="footer-col footer-col--newsletter">
-                <div class="newsletter-section">
-                    <h3 data-i18n="footer.newsletter_title">Subscribe to Newsletter</h3>
-                    <p data-i18n="footer.newsletter_desc">Be the first to know about new products and offers</p>
-                    <div class="newsletter-form">
-                        <input type="email" id="newsletter-email"
-                               placeholder="Enter your email"
-                               data-i18n-placeholder="footer.newsletter_placeholder"
-                               aria-label="Newsletter email">
-                        <button type="button" onclick="subscribeNewsletter()"
-                                data-i18n="footer.newsletter_btn">Subscribe</button>
-                    </div>
-                    <p id="newsletter-msg" class="newsletter-msg" style="display:none" role="status"></p>
+            <div class="footer-col footer-newsletter">
+                <h4 data-i18n="footer.newsletter_title">Stay Updated</h4>
+                <p data-i18n="footer.newsletter_desc">Get latest offers and new arrivals</p>
+                <div class="newsletter-form">
+                    <input type="email" id="newsletter-email" class="newsletter-input"
+                           placeholder="Enter your email"
+                           data-i18n-placeholder="footer.newsletter_placeholder"
+                           aria-label="Newsletter email">
+                    <button type="button" class="newsletter-btn" onclick="subscribeNewsletter()"
+                            data-i18n="footer.newsletter_btn">Subscribe</button>
                 </div>
+                <p id="newsletter-msg" class="newsletter-msg" style="display:none" role="status"></p>
             </div>
         `;
     }
 
-    function buildDesktopFooterHtml(normalized) {
+    function buildFooterContentHtml(normalized) {
         const { columns, socialLinks, paymentGateways, copyrightText } = normalized;
-
-        const columnsHtml = columns.map((col) => `
-            <div class="footer-col">
-                <h4>${escapeFooterHtml(col.columnTitle)}</h4>
-                <ul>${(col.links || []).map(renderFooterLink).join('')}</ul>
-            </div>
-        `).join('');
-
-        const paymentBadgesHtml = paymentGateways.length
-            ? `<div class="footer-copyright-payments" aria-label="Accepted payment methods">
-                <div class="footer-payment-badges">
-                    ${paymentGateways.map(renderPaymentBadge).join('')}
-                </div>
-            </div>`
-            : '';
-
-        const socialHtml = socialLinks.length
-            ? `<div class="footer-col footer-col--social">
-                <h4>Follow Us</h4>
-                <div class="footer-social-icons">
-                    ${socialLinks.map(renderSocialIcon).join('')}
-                </div>
-            </div>`
-            : '';
-
-        const newsletterHtml = buildNewsletterSectionHtml();
-
-        const columnsWrapHtml = columnsHtml
-            ? `<div class="footer-columns-wrap">${columnsHtml}${newsletterHtml}</div>`
-            : `<div class="footer-columns-wrap">${newsletterHtml}</div>`;
+        const companyCol = columns[0] || null;
+        const supportCol = columns[1] || null;
+        const badges = paymentGateways.length ? paymentGateways : DEFAULT_PAYMENT_BADGES;
 
         return `
-            <div class="footer-desktop">
-                <div class="footer-main">
-                    ${columnsWrapHtml}
-                    ${socialHtml}
-                </div>
-                <div class="footer-copyright-bar">
-                    <div class="footer-copyright-bar-inner">
-                        <p class="footer-copyright-text">${escapeFooterHtml(copyrightText)}</p>
-                        ${paymentBadgesHtml}
-                    </div>
+            <div class="footer-main">
+                ${buildBrandColumnHtml(socialLinks)}
+                ${buildLinkColumnHtml(companyCol)}
+                ${buildLinkColumnHtml(supportCol)}
+                ${buildNewsletterSectionHtml()}
+            </div>
+            <hr class="footer-divider">
+            <div class="footer-bottom">
+                <p class="footer-copyright">${formatCopyrightHtml(copyrightText)}</p>
+                <div class="payment-badges" aria-label="Accepted payment methods">
+                    ${badges.map(renderPaymentBadge).join('')}
                 </div>
             </div>
         `;
@@ -301,12 +245,12 @@
 
     function buildFooterHtml(settings = {}) {
         const normalized = normalizePublicSettings(settings);
-        return buildMobileCompactFooterHtml(normalized) + buildDesktopFooterHtml(normalized);
+        return buildFooterContentHtml(normalized);
     }
 
     function buildFooterShell(innerHtml) {
         return `
-            <footer class="compact-footer" aria-label="Site footer">
+            <footer class="site-footer" aria-label="Site footer">
                 <div class="footer-container">${innerHtml}</div>
             </footer>
         `;
@@ -314,7 +258,6 @@
 
     global.FooterRenderer = {
         DEFAULT_COPYRIGHT,
-        MOBILE_COMPACT_COPYRIGHT,
         FOOTER_SOCIAL_ICON_MAP,
         FOOTER_PAYMENT_LABELS,
         normalizePublicSettings,
