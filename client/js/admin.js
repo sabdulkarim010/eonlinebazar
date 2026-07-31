@@ -571,6 +571,157 @@ window.showAdminToast = showAdminToast;
 window.initAdminSocket = initAdminSocket;
 
 /**
+ * Enterprise-grade confirmation modal — frosted backdrop, optional typed phrase,
+ * async confirm handler with loading spinner. Returns a Promise<boolean>.
+ */
+function showEnterpriseActionModal(options = {}) {
+    const {
+        title = 'Confirm action',
+        message = '',
+        variant = 'danger',
+        confirmText = 'Confirm',
+        cancelText = 'Cancel',
+        requireTypedPhrase = null,
+        onConfirm = null
+    } = options;
+
+    const overlay = document.getElementById('enterpriseConfirmModal');
+    if (!overlay) {
+        return Promise.resolve(false);
+    }
+
+    const iconWrap = document.getElementById('enterpriseModalIconWrap');
+    const iconEl = document.getElementById('enterpriseModalIcon');
+    const titleEl = document.getElementById('enterpriseModalTitle');
+    const messageEl = document.getElementById('enterpriseModalMessage');
+    const typedWrap = document.getElementById('enterpriseModalTypedWrap');
+    const phraseEl = document.getElementById('enterpriseModalPhrase');
+    const typedInput = document.getElementById('enterpriseModalTypedInput');
+    const typedError = document.getElementById('enterpriseModalTypedError');
+    const cancelBtn = document.getElementById('enterpriseModalCancelBtn');
+    const confirmBtn = document.getElementById('enterpriseModalConfirmBtn');
+    const confirmLabel = document.getElementById('enterpriseModalConfirmLabel');
+    const spinner = document.getElementById('enterpriseModalSpinner');
+    const closeBtn = document.getElementById('enterpriseModalCloseBtn');
+
+    const isDanger = variant === 'danger';
+    const needsTyped = typeof requireTypedPhrase === 'string' && requireTypedPhrase.trim().length > 0;
+
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    cancelBtn.textContent = cancelText;
+    confirmLabel.textContent = confirmText;
+
+    iconWrap.className = `enterprise-modal-icon-wrap ${isDanger ? 'is-danger' : 'is-warning'}`;
+    iconEl.className = isDanger
+        ? 'fa-solid fa-skull-crossbones enterprise-modal-icon'
+        : 'fa-solid fa-triangle-exclamation enterprise-modal-icon';
+
+    confirmBtn.classList.toggle('is-warning', !isDanger);
+
+    if (needsTyped) {
+        typedWrap.hidden = false;
+        phraseEl.textContent = requireTypedPhrase;
+        typedInput.value = '';
+        typedInput.classList.remove('is-invalid');
+        typedError.hidden = true;
+        typedError.textContent = '';
+    } else {
+        typedWrap.hidden = true;
+    }
+
+    let resolvePromise;
+    const resultPromise = new Promise((resolve) => { resolvePromise = resolve; });
+
+    let isBusy = false;
+
+    const setBusy = (busy) => {
+        isBusy = busy;
+        confirmBtn.disabled = busy;
+        cancelBtn.disabled = busy;
+        closeBtn.disabled = busy;
+        typedInput.disabled = busy;
+        spinner.hidden = !busy;
+        confirmLabel.hidden = busy;
+    };
+
+    const closeModal = (confirmed = false) => {
+        overlay.hidden = true;
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('enterprise-modal-open');
+        document.removeEventListener('keydown', onKeyDown);
+        overlay.removeEventListener('click', onOverlayClick);
+        setBusy(false);
+        resolvePromise(confirmed);
+    };
+
+    const onKeyDown = (event) => {
+        if (event.key === 'Escape' && !isBusy) closeModal(false);
+    };
+
+    const onOverlayClick = (event) => {
+        if (event.target === overlay && !isBusy) closeModal(false);
+    };
+
+    const handleConfirm = async () => {
+        if (isBusy) return;
+
+        if (needsTyped && typedInput.value.trim() !== requireTypedPhrase) {
+            typedInput.classList.add('is-invalid');
+            typedError.hidden = false;
+            typedError.textContent = `Please type "${requireTypedPhrase}" exactly to continue.`;
+            typedInput.focus();
+            return;
+        }
+
+        if (typeof onConfirm !== 'function') {
+            closeModal(true);
+            return;
+        }
+
+        setBusy(true);
+        try {
+            await onConfirm();
+            closeModal(true);
+        } catch (err) {
+            setBusy(false);
+            showToast(err?.message || 'Action failed. Please try again.', 'error');
+        }
+    };
+
+    cancelBtn.onclick = () => { if (!isBusy) closeModal(false); };
+    closeBtn.onclick = () => { if (!isBusy) closeModal(false); };
+    confirmBtn.onclick = handleConfirm;
+
+    typedInput.oninput = () => {
+        typedInput.classList.remove('is-invalid');
+        typedError.hidden = true;
+    };
+
+    typedInput.onkeydown = (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            handleConfirm();
+        }
+    };
+
+    overlay.hidden = false;
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('enterprise-modal-open');
+    document.addEventListener('keydown', onKeyDown);
+    overlay.addEventListener('click', onOverlayClick);
+
+    requestAnimationFrame(() => {
+        if (needsTyped) typedInput.focus();
+        else confirmBtn.focus();
+    });
+
+    return resultPromise;
+}
+
+window.showEnterpriseActionModal = showEnterpriseActionModal;
+
+/**
  * কনফার্মেশন ডায়ালগ (SweetAlert2)
  */
 window.showCustomConfirm = function(title, message, onConfirm, type = 'warning') {
@@ -7604,6 +7755,14 @@ function applyBrandingPreviewFromSettings(settings) {
    ============================================================ */
 
 async function loadSandboxStatus() {
+    if (typeof window.applySuperAdminOnlyVisibility === 'function') {
+        window.applySuperAdminOnlyVisibility();
+    }
+
+    if (typeof window.isAdminSuperAdmin === 'function' && !window.isAdminSuperAdmin()) {
+        return;
+    }
+
     try {
         const res = await fetch('/api/admin/sandbox/status', {
             headers: { 'Authorization': 'Bearer ' + token }
@@ -7641,6 +7800,8 @@ async function loadSandboxStatus() {
     }
 }
 
+window.loadSandboxStatus = loadSandboxStatus;
+
 window.toggleSandboxMode = async function(enabled) {
     try {
         const res = await fetch('/api/admin/sandbox/toggle', {
@@ -7669,31 +7830,26 @@ window.toggleSandboxMode = async function(enabled) {
 };
 
 window.resetTestData = async function() {
-    if (!confirm(
-        'Delete ALL test/sandbox orders?\n\n' +
-        'Real orders will NOT be affected.\n' +
-        'This action cannot be undone.'
-    )) return;
-
-    try {
-        const res = await fetch('/api/admin/sandbox/reset-test-data', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + token }
-        });
-        const data = await res.json();
-        if (data.success) {
-            showToast(
-                `✅ Cleared ${data.deleted.orders} test orders`,
-                'success'
-            );
+    await showEnterpriseActionModal({
+        title: 'Clear Test Orders?',
+        message: 'Delete ALL sandbox/test orders.\n\nReal orders will NOT be affected.\nThis action cannot be undone.',
+        variant: 'warning',
+        confirmText: 'Clear Test Orders',
+        cancelText: 'Cancel',
+        onConfirm: async () => {
+            const res = await fetch('/api/admin/sandbox/reset-test-data', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await res.json();
+            if (!data.success) {
+                throw new Error(data.message || 'Reset failed');
+            }
+            showToast(`✅ Cleared ${data.deleted.orders} test orders`, 'success');
             loadSandboxStatus();
             if (typeof fetchLiveOrders === 'function') fetchLiveOrders();
-        } else {
-            showToast(data.message || 'Reset failed', 'error');
         }
-    } catch (err) {
-        showToast('Network error', 'error');
-    }
+    });
 };
 
 window.resetRealData = async function() {
@@ -7704,45 +7860,39 @@ window.resetRealData = async function() {
         return;
     }
 
-    if (!confirm(
-        '⚠️ WARNING: This will DELETE all REAL orders!\n\n' +
-        'This cannot be undone.\n' +
-        'Are you absolutely sure?'
-    )) return;
-
-    const typed = prompt('Type "DELETE REAL ORDERS" to confirm:');
-    if (typed !== 'DELETE REAL ORDERS') {
-        showToast('Cancelled — text did not match', 'warning');
-        return;
-    }
-
-    try {
-        const res = await fetch('/api/admin/sandbox/reset-real-data', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
-            },
-            body: JSON.stringify({ confirmationKey: key })
-        });
-        const data = await res.json();
-        if (data.success) {
-            showToast(
-                `Deleted ${data.deleted.orders} real orders`,
-                'success'
-            );
+    await showEnterpriseActionModal({
+        title: '⚠️ Danger: Reset Real Data',
+        message: 'This will permanently DELETE all REAL orders.\n\nCustomer accounts are kept, but every live order record will be wiped.\nThis cannot be undone.',
+        variant: 'danger',
+        confirmText: 'Delete Real Orders',
+        cancelText: 'Keep Orders',
+        requireTypedPhrase: 'DELETE REAL ORDERS',
+        onConfirm: async () => {
+            const res = await fetch('/api/admin/sandbox/reset-real-data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({ confirmationKey: key })
+            });
+            const data = await res.json();
+            if (!data.success) {
+                throw new Error(data.message || 'Invalid key or reset failed');
+            }
+            showToast(`Deleted ${data.deleted.orders} real orders`, 'success');
             if (keyInput) keyInput.value = '';
             loadSandboxStatus();
             if (typeof fetchLiveOrders === 'function') fetchLiveOrders();
-        } else {
-            showToast(data.message || 'Invalid key or reset failed', 'error');
         }
-    } catch (err) {
-        showToast('Network error', 'error');
-    }
+    });
 };
 
 async function fetchAdminSettings() {
+    if (typeof window.applySuperAdminOnlyVisibility === 'function') {
+        window.applySuperAdminOnlyVisibility();
+    }
+
     try {
         const [platformRes, deliveryRes] = await Promise.all([
             fetch('/api/admin/platform-settings', {
@@ -10463,6 +10613,10 @@ function setupAdminSettingsTabs() {
             panel.classList.toggle('is-active', isActive);
             panel.hidden = !isActive;
         });
+
+        if (target === 'profile' && typeof loadSandboxStatus === 'function') {
+            loadSandboxStatus();
+        }
     };
 
     tabs.forEach((tab) => {

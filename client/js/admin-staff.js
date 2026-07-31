@@ -73,6 +73,23 @@ function isSuperAdmin() {
     return !!currentAdmin && currentAdmin.role === 'superadmin';
 }
 
+/**
+ * Show or hide every [data-superadmin-only] element (sidebar items, sandbox card, …).
+ * Callable from admin.js after settings navigation so the card is not left hidden.
+ */
+function applySuperAdminOnlyVisibility() {
+    const show = isSuperAdmin();
+
+    document.querySelectorAll('[data-superadmin-only="true"]').forEach((el) => {
+        el.classList.toggle('superadmin-visible', show);
+        if (show) {
+            el.removeAttribute('hidden');
+        } else {
+            el.setAttribute('hidden', '');
+        }
+    });
+}
+
 function hasPermission(permission) {
     if (isSuperAdmin()) return true;
     if (!permission) return true;
@@ -148,14 +165,7 @@ function applyRoleToSidebar() {
     const nav = document.querySelector('.sidebar-menu');
     if (!nav) return;
 
-    nav.querySelectorAll('li[data-superadmin-only="true"]').forEach(item => {
-        item.style.display = isSuperAdmin() ? '' : 'none';
-    });
-
-    document.querySelectorAll('[data-superadmin-only="true"]').forEach(el => {
-        if (el.tagName === 'LI' && el.closest('.sidebar-menu')) return;
-        el.style.display = isSuperAdmin() ? '' : 'none';
-    });
+    applySuperAdminOnlyVisibility();
 
     nav.querySelectorAll('li[data-target]').forEach(item => {
         if (item.dataset.superadminOnly === 'true') return;
@@ -553,6 +563,8 @@ async function loadStaffSection() {
     await fetchStaffAccounts();
 }
 window.loadStaffSection = loadStaffSection;
+window.applySuperAdminOnlyVisibility = applySuperAdminOnlyVisibility;
+window.isAdminSuperAdmin = isSuperAdmin;
 
 /* ==========================================================================
    CREATE STAFF
@@ -821,6 +833,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupCreateStaffForm();
     setupEditStaffForm();
     setupStaffRefreshButton();
+
+    if (isSuperAdmin()) {
+        if (typeof window.loadSandboxStatus === 'function') {
+            window.loadSandboxStatus();
+        }
+    }
 
     if (isSuperAdmin() && document.getElementById('staffPermissionGrid')) {
         const grid = document.getElementById('staffPermissionGrid');

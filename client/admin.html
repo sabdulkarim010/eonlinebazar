@@ -81,7 +81,7 @@
                     <li data-target="view-manage-products"><i class="fa-solid fa-boxes-stacked"></i> Manage Products</li>
 
                     <!-- 🛡️ Super Admin only — revealed by admin-staff.js after /api/admin/me -->
-                    <li data-target="view-staff" data-superadmin-only="true" style="display:none;"><i class="fa-solid fa-user-shield"></i> Staff Management</li>
+                    <li data-target="view-staff" data-superadmin-only="true"><i class="fa-solid fa-user-shield"></i> Staff Management</li>
 
                     <li class="menu-group">
                         <div class="catalog-toggle">
@@ -2716,7 +2716,7 @@
                                 </div>
                             </div>
 
-                            <div class="settings-card sandbox-card" data-superadmin-only="true" style="display:none;">
+                            <div id="sandboxSettingsCard" class="settings-card sandbox-card" data-superadmin-only="true" hidden aria-label="Sandbox Mode Settings">
                                 <div class="sandbox-header">
                                     <div>
                                         <h3>🧪 Sandbox Mode</h3>
@@ -3229,6 +3229,33 @@
             </div>
         </div>
     </div>
+
+<div id="enterpriseConfirmModal" class="enterprise-modal-overlay" hidden aria-hidden="true">
+    <div class="enterprise-modal-card" role="dialog" aria-modal="true" aria-labelledby="enterpriseModalTitle">
+        <button type="button" class="enterprise-modal-close" id="enterpriseModalCloseBtn" aria-label="Close dialog">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+        <div class="enterprise-modal-icon-wrap" id="enterpriseModalIconWrap">
+            <i class="fa-solid fa-triangle-exclamation enterprise-modal-icon" id="enterpriseModalIcon" aria-hidden="true"></i>
+        </div>
+        <h3 class="enterprise-modal-title" id="enterpriseModalTitle">Confirm action</h3>
+        <p class="enterprise-modal-message" id="enterpriseModalMessage"></p>
+        <div class="enterprise-modal-typed-wrap" id="enterpriseModalTypedWrap" hidden>
+            <label class="enterprise-modal-typed-label" for="enterpriseModalTypedInput">
+                Type <strong id="enterpriseModalPhrase">DELETE REAL ORDERS</strong> to confirm:
+            </label>
+            <input type="text" id="enterpriseModalTypedInput" class="enterprise-modal-typed-input" autocomplete="off" spellcheck="false" placeholder="Type exactly as shown above">
+            <p class="enterprise-modal-typed-error" id="enterpriseModalTypedError" hidden></p>
+        </div>
+        <div class="enterprise-modal-actions">
+            <button type="button" class="enterprise-modal-btn enterprise-modal-btn--cancel" id="enterpriseModalCancelBtn">Cancel</button>
+            <button type="button" class="enterprise-modal-btn enterprise-modal-btn--confirm" id="enterpriseModalConfirmBtn">
+                <span class="enterprise-modal-btn-label" id="enterpriseModalConfirmLabel">Confirm</span>
+                <span class="enterprise-modal-btn-spinner" id="enterpriseModalSpinner" hidden aria-hidden="true"></span>
+            </button>
+        </div>
+    </div>
+</div>
 
 <div id="paymentMethodModal" class="custom-modal-overlay pm-modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="paymentMethodModalTitle" onclick="if(event.target===this) closePaymentMethodModal()">
     <div class="custom-modal-box pm-modal-box">
