@@ -52,9 +52,28 @@ window.addEventListener('appinstalled', () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('/service-worker.js');
+      const reg = await navigator.serviceWorker.register(
+        '/service-worker.js',
+        { updateViaCache: 'none' }
+      );
       console.log('[SW] Registered:', reg.scope);
-      setInterval(() => reg.update(), 60 * 60 * 1000);
+
+      reg.update();
+      setInterval(() => reg.update(), 30 * 60 * 1000);
+
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            console.log('[SW] New version available, reloading...');
+            newWorker.postMessage({ type: 'SKIP_WAITING' });
+          }
+        });
+      });
+
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      });
     } catch (err) {
       console.warn('[SW] Registration failed:', err);
     }

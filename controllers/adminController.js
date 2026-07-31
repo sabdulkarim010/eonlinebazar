@@ -462,11 +462,18 @@ const getCustomerOrders = async (req, res) => {
 // ==============================================================
 const getSecurityLogs = async (req, res) => {
     try {
-        const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
-        const logs = await SecurityLog.find({})
-            .sort({ createdAt: -1 })
-            .limit(limit)
-            .lean();
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 25, 1), 100);
+        const skip = (page - 1) * limit;
+
+        const [logs, total] = await Promise.all([
+            SecurityLog.find({})
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            SecurityLog.countDocuments({})
+        ]);
 
         const data = logs.map(log => ({
             _id: log._id,
@@ -478,7 +485,16 @@ const getSecurityLogs = async (req, res) => {
             timestamp: log.createdAt
         }));
 
-        res.status(200).json({ success: true, data });
+        res.status(200).json({
+            success: true,
+            data,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit) || 1
+            }
+        });
     } catch (error) {
         console.error('Get Security Logs Error:', error);
         res.status(500).json({ success: false, message: 'Failed to fetch security logs.' });

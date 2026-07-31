@@ -81,6 +81,7 @@ const itemsPerPage = 10;      // প্রতি পেজে ডিফল্ট
 let currentOrderPage = 1;     // অর্ডারের বর্তমান পেজ নম্বর
 let ordersPerPage = 10;       // প্রতি পেজে ডিফল্ট অর্ডারের সংখ্যা
 let currentOrderStatusFilter = 'all';
+let currentOrderSandboxFilter = 'all';
 let currentOrderDateFilter = '';
 let orderSearchDebounceTimer = null;
 const expandedOrderIds = new Set();
@@ -486,6 +487,7 @@ function setupAdminNotifBell() {
         markAllBtn.addEventListener('click', () => {
             adminNotifUnread = 0;
             updateAdminNotifBellBadge();
+            if (dropdown) dropdown.hidden = true;
         });
     }
 
@@ -510,22 +512,22 @@ function initAdminSocket() {
     });
 
     adminSocket.on('connect', () => {
-        setAdminSocketStatus('🟢 সংযুক্ত', 'connected', 3000);
+        setAdminSocketStatus('🟢 Connected', 'connected', 3000);
     });
 
     adminSocket.on('disconnect', () => {
-        setAdminSocketStatus('🔴 সংযোগ বিচ্ছিন্ন', 'disconnected');
+        setAdminSocketStatus('🔴 Disconnected', 'disconnected');
     });
 
     adminSocket.on('connect_error', (err) => {
         console.warn('[Socket] Connection error:', err.message);
-        setAdminSocketStatus('🔴 সংযোগ বিচ্ছিন্ন', 'disconnected');
+        setAdminSocketStatus('🔴 Disconnected', 'disconnected');
     });
 
     adminSocket.on('new_order', (data) => {
         playAdminNotificationBeep();
         const total = Number(data.total || 0).toLocaleString();
-        const msg = `🛒 নতুন অর্ডার! #${data.orderId} — ${data.customerName} — ৳${total}`;
+        const msg = `🛒 New order! #${data.orderId} — ${data.customerName} — ৳${total}`;
         showAdminToast(msg, 'success');
         pushAdminNotification({ icon: '🛒', message: msg, createdAt: data.createdAt });
         updateSidebarOrdersBadge(1);
@@ -536,26 +538,26 @@ function initAdminSocket() {
     });
 
     adminSocket.on('new_message', (data) => {
-        const msg = `✉️ নতুন বার্তা! ${data.senderName}: ${data.subject}`;
+        const msg = `✉️ New message! ${data.senderName}: ${data.subject}`;
         showAdminToast(msg, 'info');
         pushAdminNotification({ icon: '✉️', message: msg, createdAt: data.createdAt });
         updateSidebarMessagesBadge(1);
     });
 
     adminSocket.on('payment_proof_submitted', (data) => {
-        const msg = `💳 পেমেন্ট প্রমাণ জমা! অর্ডার #${data.orderId}`;
+        const msg = `💳 Payment proof submitted! Order #${data.orderId}`;
         showAdminToast(msg, 'info');
         pushAdminNotification({ icon: '💳', message: msg, createdAt: data.submittedAt });
     });
 
     adminSocket.on('low_stock_alert', (data) => {
-        const msg = `⚠️ কম স্টক: ${data.productName} — ${data.stockQuantity}টি বাকি`;
+        const msg = `⚠️ Low stock: ${data.productName} — ${data.stockQuantity} left`;
         showAdminToast(msg, 'warning');
         pushAdminNotification({ icon: '⚠️', message: msg, createdAt: new Date() });
     });
 
     adminSocket.on('order_status_changed', (data) => {
-        const msg = `📦 অর্ডার #${data.orderId}: ${data.oldStatus} → ${data.newStatus}`;
+        const msg = `📦 Order #${data.orderId}: ${data.oldStatus} → ${data.newStatus}`;
         showAdminToast(msg, 'info');
         pushAdminNotification({ icon: '📦', message: msg, createdAt: data.updatedAt });
 
@@ -645,20 +647,21 @@ function getProductFilterState() {
         category: document.getElementById('filterCategory')?.value || 'All',
         stockStatus: document.getElementById('filterStockStatus')?.value || 'All',
         priceRange: document.getElementById('filterPriceRange')?.value || 'All',
-        pageSize: document.getElementById('itemsPerPage')?.value || '10',
+        pageSize: document.getElementById('product-pg-limit')?.value || '10',
         sortKey: currentSort?.key || 'productId',
         sortAsc: currentSort?.asc !== false
     };
 }
 
 function saveProductPaginationState() {
-    savedProductPageBeforeAction = currentPage;
+    savedProductPageBeforeAction = productPg?.currentPage ?? currentPage;
     persistProductListSessionState(true);
 }
 
 function restoreProductPaginationState() {
     if (savedProductPageBeforeAction != null && savedProductPageBeforeAction > 0) {
         currentPage = savedProductPageBeforeAction;
+        if (productPg) productPg.currentPage = currentPage;
         savedProductPageBeforeAction = null;
         return;
     }
@@ -670,10 +673,16 @@ function readProductListSessionState() {
         const raw = sessionStorage.getItem(PRODUCT_PAGINATION_STORAGE_KEY);
         if (!raw) return;
         const stored = JSON.parse(raw);
-        if (stored.page) currentPage = Number(stored.page) || 1;
+        if (stored.page) {
+            currentPage = Number(stored.page) || 1;
+            if (productPg) productPg.currentPage = currentPage;
+        }
 
-        const pageSizeEl = document.getElementById('itemsPerPage');
-        if (pageSizeEl && stored.pageSize) pageSizeEl.value = stored.pageSize;
+        const pageSizeEl = document.getElementById('product-pg-limit');
+        if (pageSizeEl && stored.pageSize) {
+            pageSizeEl.value = stored.pageSize;
+            if (productPg) productPg.currentLimit = parseInt(stored.pageSize, 10) || 10;
+        }
 
         const searchEl = document.getElementById('searchProduct');
         if (searchEl && stored.search != null) searchEl.value = stored.search;
@@ -721,7 +730,8 @@ function removeProductFromState(productId) {
     globalProducts = globalProducts.filter(p => String(p._id) !== id);
     selectedProductIds.delete(productId);
     if (typeof updateBulkActionPanel === 'function') updateBulkActionPanel();
-    filterAndRenderProducts(false);
+    if (productPg) productPg.stayOnPage();
+    else filterAndRenderProducts(false);
 }
 
 function upsertProductInState(updatedProduct) {
@@ -854,6 +864,127 @@ function getCustomerSegmentBadge(user) {
 
 let customerSegmentFilter = 'all';
 let customerSegmentThresholds = null;
+let selectedCustomerIds = new Set();
+
+/** Unified pagination instances */
+let customerPg = null;
+let productPg = null;
+let securityPg = null;
+let auditPg = null;
+let messagePg = null;
+let orderPg = null;
+let customerSearchQuery = '';
+let selectedMessageIds = new Set();
+
+function initAdminPaginationInstances() {
+    if (typeof AdminPagination === 'undefined') return;
+
+    if (!customerPg && document.getElementById('customer-pg-btns')) {
+        customerPg = new AdminPagination({
+            containerId: 'customer-pg-btns',
+            infoId: 'customer-pg-info',
+            countId: 'customer-total-count',
+            limitSelectId: 'customer-pg-limit',
+            defaultLimit: 10,
+            onPageChange: (page, limit) => fetchCustomers(page, limit)
+        });
+        window.customerPg = customerPg;
+    }
+
+    if (!productPg && document.getElementById('product-pg-btns')) {
+        productPg = new AdminPagination({
+            containerId: 'product-pg-btns',
+            infoId: 'product-pg-info',
+            countId: 'product-total-count',
+            limitSelectId: 'product-pg-limit',
+            defaultLimit: 10,
+            onPageChange: (page, limit) => {
+                currentPage = page;
+                renderProductTable();
+            }
+        });
+        window.productPg = productPg;
+    }
+
+    if (!securityPg && document.getElementById('security-pg-btns')) {
+        securityPg = new AdminPagination({
+            containerId: 'security-pg-btns',
+            infoId: 'security-pg-info',
+            countId: 'security-total-count',
+            limitSelectId: 'security-pg-limit',
+            defaultLimit: 25,
+            onPageChange: (page, limit) => fetchSecurityLogs(page, limit)
+        });
+        window.securityPg = securityPg;
+    }
+
+    if (!auditPg && document.getElementById('audit-pg-btns')) {
+        auditPg = new AdminPagination({
+            containerId: 'audit-pg-btns',
+            infoId: 'audit-pg-info',
+            countId: 'audit-total-count',
+            limitSelectId: 'audit-pg-limit',
+            defaultLimit: 25,
+            onPageChange: (page, limit) => fetchAuditLogs(page, limit)
+        });
+        window.auditPg = auditPg;
+    }
+
+    if (!messagePg && document.getElementById('message-pg-btns')) {
+        messagePg = new AdminPagination({
+            containerId: 'message-pg-btns',
+            infoId: 'message-pg-info',
+            countId: 'message-total-count',
+            limitSelectId: 'message-pg-limit',
+            defaultLimit: 10,
+            onPageChange: (page, limit) => renderMessagesPage(page, limit)
+        });
+        window.messagePg = messagePg;
+    }
+
+    if (!orderPg && document.getElementById('order-pg-btns')) {
+        orderPg = new AdminPagination({
+            containerId: 'order-pg-btns',
+            infoId: 'order-pg-info',
+            countId: 'order-total-count',
+            limitSelectId: 'order-pg-limit',
+            defaultLimit: ordersPerPage || 10,
+            onPageChange: () => renderOrderTable()
+        });
+        window.orderPg = orderPg;
+    }
+}
+
+window.fetchCustomers = function fetchCustomers(page, limit) {
+    initAdminPaginationInstances();
+    const pg = customerPg;
+    const effectivePage = page ?? pg?.currentPage ?? 1;
+    const effectiveLimit = limit ?? pg?.currentLimit ?? 10;
+
+    if (pg) {
+        pg.currentPage = effectivePage;
+        pg.currentLimit = effectiveLimit;
+    }
+
+    const filtered = filterCustomersBySegment(allCustomers, customerSegmentFilter)
+        .filter((user) => {
+            const q = customerSearchQuery.trim().toLowerCase();
+            if (!q) return true;
+            const haystack = [
+                user.name,
+                user.email,
+                user.mobile,
+                user.phone,
+                user._id
+            ].map((v) => String(v || '').toLowerCase()).join(' ');
+            return haystack.includes(q);
+        });
+    const start = (effectivePage - 1) * effectiveLimit;
+    const slice = filtered.slice(start, start + effectiveLimit);
+
+    renderCustomerTable(slice, filtered.length);
+    if (pg) pg.setTotal(filtered.length);
+};
 
 function filterCustomersBySegment(customers, segment = customerSegmentFilter) {
     const list = Array.isArray(customers) ? customers : [];
@@ -868,9 +999,26 @@ function setupCustomerSegmentTabs() {
         tab.addEventListener('click', () => {
             customerSegmentFilter = tab.getAttribute('data-segment') || 'all';
             tabs.forEach((btn) => btn.classList.toggle('active', btn === tab));
-            renderCustomerTable(filterCustomersBySegment(allCustomers, customerSegmentFilter));
+            selectedCustomerIds.clear();
+            updateCustomersBulkToolbar();
+            if (customerPg) customerPg.resetPage();
+            fetchCustomers(1, customerPg?.currentLimit);
         });
     });
+
+    const searchInput = document.getElementById('customerSearchInput');
+    if (searchInput && !searchInput.dataset.bound) {
+        searchInput.dataset.bound = '1';
+        let debounceTimer;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                customerSearchQuery = searchInput.value;
+                if (customerPg) customerPg.resetPage();
+                fetchCustomers(1, customerPg?.currentLimit);
+            }, 300);
+        });
+    }
 }
 
 
@@ -1032,7 +1180,11 @@ async function fetchDashboardData() {
 
         // ডাটা পাওয়ার পর ড্যাশবোর্ডের কার্ড, চার্ট ও টেবিল আপডেট করা
         updateMetricsCards(allCustomers);
-        renderCustomerTable(filterCustomersBySegment(allCustomers, customerSegmentFilter));
+        const customersVisible = document.getElementById('view-customers')?.style.display !== 'none';
+        if (customersVisible) {
+            if (customerPg) customerPg.stayOnPage();
+            else fetchCustomers(1, 10);
+        }
         renderGrowthChart(allCustomers);
         await fetchDashboardAnalytics();
 
@@ -1722,12 +1874,13 @@ window.copyCustomerField = function(btn) {
     }
 };
 
-function renderCustomerTable(customers) {
+function renderCustomerTable(customers, totalFiltered) {
     const tbody = document.getElementById('customerTableBody');
     if (!tbody) return;
 
     if (customers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" class="loading-container">No records found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="loading-container">No records found.</td></tr>`;
+        updateCustomersBulkToolbar();
         return;
     }
 
@@ -1737,6 +1890,7 @@ function renderCustomerTable(customers) {
         const accountStatus = user.accountStatus || 'active';
         const uid = user._id;
         const totalSpent = Number(user.totalSpent) || 0;
+        const isChecked = selectedCustomerIds.has(String(uid)) ? 'checked' : '';
 
         let statusActionBtn = '';
         if (accountStatus === 'blocked') {
@@ -1757,6 +1911,9 @@ function renderCustomerTable(customers) {
 
         tableHTML += `
             <tr class="customers-row">
+                <td class="customers-td customers-td--check no-print">
+                    <input type="checkbox" class="customer-row-checkbox" value="${uid}" ${isChecked} onchange="toggleCustomerSelection(this)">
+                </td>
                 <td class="customers-td customers-td--id">${buildCustomerCopyCell(`<b>#${escapeHtml(displayId)}</b>`, userIdCopy)}</td>
                 <td class="customers-td customers-td--name"><span class="customers-name">${escapeHtml(user.name || 'N/A')}${user.isVip ? ' <span class="customers-vip-crown" aria-hidden="true">👑</span>' : ''}</span></td>
                 <td class="customers-td customers-td--email">${emailDisplay !== 'N/A' ? buildCustomerCopyCell(escapeHtml(emailDisplay), emailDisplay) : 'N/A'}</td>
@@ -1777,6 +1934,39 @@ function renderCustomerTable(customers) {
         `;
     });
     tbody.innerHTML = tableHTML;
+
+    const selectAll = document.getElementById('customers-select-all');
+    if (selectAll) {
+        const pageBoxes = tbody.querySelectorAll('.customer-row-checkbox');
+        selectAll.checked = pageBoxes.length > 0 && Array.from(pageBoxes).every(cb => cb.checked);
+    }
+    updateCustomersBulkToolbar();
+}
+
+window.toggleSelectAllCustomers = function(source) {
+    document.querySelectorAll('.customer-row-checkbox').forEach(cb => {
+        cb.checked = source.checked;
+        if (source.checked) selectedCustomerIds.add(cb.value);
+        else selectedCustomerIds.delete(cb.value);
+    });
+    updateCustomersBulkToolbar();
+};
+
+window.toggleCustomerSelection = function(checkbox) {
+    if (checkbox.checked) selectedCustomerIds.add(checkbox.value);
+    else selectedCustomerIds.delete(checkbox.value);
+    updateCustomersBulkToolbar();
+    const allChecked = Array.from(document.querySelectorAll('.customer-row-checkbox')).every(cb => cb.checked);
+    const selectAll = document.getElementById('customers-select-all');
+    if (selectAll) selectAll.checked = allChecked;
+};
+
+function updateCustomersBulkToolbar() {
+    const toolbar = document.getElementById('customers-bulk-toolbar');
+    const countEl = document.getElementById('customers-selected-count');
+    const count = selectedCustomerIds.size;
+    if (toolbar) toolbar.style.display = count > 0 ? 'flex' : 'none';
+    if (countEl) countEl.textContent = `${count} selected`;
 }
 
 /**
@@ -1785,7 +1975,7 @@ function renderCustomerTable(customers) {
  */
 function showCustomerError(msg) {
     const tbody = document.getElementById('customerTableBody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-status-error">${msg}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="table-status-error">${msg}</td></tr>`;
 }
 
 /**
@@ -2676,11 +2866,16 @@ function applyOrderFilters(resetPage = false) {
         const matchSearch = !search || orderIdStr.includes(search) || nameStr.includes(search) || phoneStr.includes(search);
         const matchStatus = orderMatchesStatusTab(order, currentOrderStatusFilter);
         const matchDate = orderMatchesDateFilter(order, currentOrderDateFilter);
+        const matchSandbox = orderMatchesSandboxFilter(order, currentOrderSandboxFilter);
 
-        return matchSearch && matchStatus && matchDate;
+        return matchSearch && matchStatus && matchDate && matchSandbox;
     });
 
-    if (resetPage) currentOrderPage = 1;
+    initAdminPaginationInstances();
+    if (resetPage) {
+        currentOrderPage = 1;
+        if (orderPg) orderPg.resetPage();
+    }
     updateOrderTabCounts();
     renderOrderTable();
 }
@@ -2705,6 +2900,22 @@ window.setOrderStatusTab = function(status) {
         tab.classList.toggle('active', tab.dataset.status === status);
     });
     applyOrderFilters(false);
+};
+
+function orderMatchesSandboxFilter(order, filter) {
+    if (!filter || filter === 'all') return true;
+    const isTest = order.isSandbox === true;
+    if (filter === 'test') return isTest;
+    if (filter === 'live') return !isTest;
+    return true;
+}
+
+window.setOrderSandboxFilter = function(filter) {
+    currentOrderSandboxFilter = filter || 'all';
+    document.querySelectorAll('#view-orders .sandbox-filter-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.sandboxFilter === currentOrderSandboxFilter);
+    });
+    applyOrderFilters(true);
 };
 
 /**
@@ -2896,7 +3107,22 @@ window.sendOrderToCourier = function(orderId) {
                         ? (result.message || 'Mock parcel booked! Order marked as Shipped.')
                         : (result.message || 'Parcel booked successfully!');
                     showToast(toastMsg, 'success');
-                    fetchLiveOrders();
+                    const idx = globalOrders.findIndex(o => String(o._id) === String(orderId));
+                    const updated = result.data?.order || result.order;
+                    if (idx !== -1 && updated) {
+                        globalOrders[idx] = { ...globalOrders[idx], ...updated };
+                    } else if (idx !== -1) {
+                        globalOrders[idx] = {
+                            ...globalOrders[idx],
+                            status: 'Shipped',
+                            courierTrackingId: result.trackingId || result.data?.trackingId || globalOrders[idx].courierTrackingId,
+                            courierProvider: provider
+                        };
+                    } else {
+                        fetchLiveOrders();
+                        return;
+                    }
+                    applyOrderFilters(false);
                     return;
                 }
 
@@ -3009,22 +3235,28 @@ window.closeOrderReasonModal = function() {
 window.renderOrderTable = function() {
     if (!tableBody) return;
 
+    initAdminPaginationInstances();
+    const limit = orderPg?.currentLimit ?? ordersPerPage;
+    const page = orderPg?.currentPage ?? currentOrderPage;
+    currentOrderPage = page;
+    ordersPerPage = limit;
+
     const totalItems = currentFilteredOrders.length;
-    const totalPages = Math.ceil(totalItems / ordersPerPage) || 1;
+    const totalPages = Math.ceil(totalItems / limit) || 1;
 
-    if (currentOrderPage > totalPages) currentOrderPage = totalPages;
-    const startIdx = (currentOrderPage - 1) * ordersPerPage;
-    const paginatedOrders = currentFilteredOrders.slice(startIdx, startIdx + ordersPerPage);
+    if (page > totalPages) {
+        currentOrderPage = totalPages;
+        if (orderPg) orderPg.currentPage = totalPages;
+    }
 
-    renderOrderPaginationControls(totalPages);
+    const effectivePage = orderPg?.currentPage ?? currentOrderPage;
+    const startIdx = (effectivePage - 1) * limit;
+    const paginatedOrders = currentFilteredOrders.slice(startIdx, startIdx + limit);
 
-    const startDisplay = totalItems === 0 ? 0 : startIdx + 1;
-    const endDisplay = startIdx + paginatedOrders.length;
-    const paginationInfo = document.getElementById('order-pagination-info');
-    if (paginationInfo) {
-        paginationInfo.textContent = totalItems === 0
-            ? 'Showing 0 orders'
-            : `Showing ${startDisplay}-${endDisplay} of ${totalItems} orders`;
+    if (orderPg) {
+        orderPg.currentPage = effectivePage;
+        orderPg.currentLimit = limit;
+        orderPg.setTotal(totalItems);
     }
 
     if (paginatedOrders.length === 0) {
@@ -3069,7 +3301,7 @@ window.renderOrderTable = function() {
         const orderIdCellHtml = `
             <button type="button" class="order-id-link" onclick="event.stopPropagation(); viewInvoice('${orderId}')" title="View invoice">
                 #${displayIdSafe}
-            </button>${buildAdminPaymentProofPendingBadge(order)}`;
+            </button>${order.isSandbox ? '<span class="sandbox-badge">TEST</span>' : ''}${buildAdminPaymentProofPendingBadge(order)}`;
         const customerNameHtml = `<span class="order-customer-name">${escapeHtml(customerName)}</span>`;
         const customerPhoneHtml = `<span class="order-customer-phone-sub">${escapeHtml(customerPhone)}</span>`;
         const customerAddress = order.customerAddress || '—';
@@ -3227,7 +3459,11 @@ window.bulkApplyOrderStatus = async function() {
 
     if (successCount > 0) {
         showToast(`Updated ${successCount} order(s) to ${newStatus}.`, 'success');
-        fetchLiveOrders();
+        selected.forEach((orderId) => {
+            const idx = globalOrders.findIndex((o) => String(o._id) === String(orderId));
+            if (idx !== -1) globalOrders[idx] = { ...globalOrders[idx], status: newStatus };
+        });
+        applyOrderFilters(false);
     } else {
         showToast('Could not update selected orders.', 'error');
     }
@@ -3250,8 +3486,16 @@ window.changeOrderStatus = async function(orderId, newStatus) {
         });
         const result = await response.json();
         if (result.success) {
+            const idx = globalOrders.findIndex(o => String(o._id) === String(orderId));
+            if (idx !== -1) {
+                globalOrders[idx] = {
+                    ...globalOrders[idx],
+                    status: newStatus,
+                    ...(result.data?.order || result.order || {})
+                };
+            }
             showToast(`Order status changed to ${newStatus}!`, 'success');
-            fetchLiveOrders(); // ডাটা রিলোড করে টেবিল সিঙ্ক করা
+            applyOrderFilters(false);
         } else showToast("Error updating status!", 'error');
     } catch (error) {
         showToast("Server connection error!", 'error');
@@ -3794,10 +4038,12 @@ window.printInvoice = function() {
  * ৭.৮: প্রতি পেজে কতটি অর্ডার দেখাবে তা পরিবর্তন করার ফাংশন
  */
 window.changeOrderPageSize = function() {
-    const select = document.getElementById('orderItemsPerPage');
-    if (select) {
-        ordersPerPage = parseInt(select.value);
-        currentOrderPage = 1; // পেজ সাইজ পাল্টালে আবার ১ম পেজে নিয়ে আসা
+    const select = document.getElementById('order-pg-limit') || document.getElementById('orderItemsPerPage');
+    if (orderPg && select) {
+        orderPg.changeLimit(select.value);
+    } else if (select) {
+        ordersPerPage = parseInt(select.value, 10);
+        currentOrderPage = 1;
         renderOrderTable();
     }
 };
@@ -3844,31 +4090,37 @@ function renderOrderPaginationControls(totalPages) {
 }
 
 window.jumpToOrderPage = function() {
-    const val = parseInt(document.getElementById('order-jump-page')?.value, 10);
-    const totalPages = Math.ceil(currentFilteredOrders.length / ordersPerPage) || 1;
-    if (val >= 1 && val <= totalPages) goToOrderPage(val);
+    const val = parseInt(document.getElementById('order-pg-jump')?.value || document.getElementById('order-jump-page')?.value, 10);
+    if (orderPg) orderPg.goTo(val);
+    else if (val >= 1) goToOrderPage(val);
 };
 
-// Legacy aliases — kept for any external references
 window.goToPreviousOrderPage = function() {
-    if (currentOrderPage > 1) {
+    if (orderPg) orderPg.goTo(orderPg.currentPage - 1);
+    else if (currentOrderPage > 1) {
         currentOrderPage--;
         renderOrderTable();
     }
 };
 
 window.goToNextOrderPage = function() {
-    const totalItems = currentFilteredOrders.length;
-    const totalPages = Math.ceil(totalItems / ordersPerPage) || 1;
-    if (currentOrderPage < totalPages) {
-        currentOrderPage++;
-        renderOrderTable();
+    if (orderPg) orderPg.goTo(orderPg.currentPage + 1);
+    else {
+        const totalItems = currentFilteredOrders.length;
+        const totalPages = Math.ceil(totalItems / ordersPerPage) || 1;
+        if (currentOrderPage < totalPages) {
+            currentOrderPage++;
+            renderOrderTable();
+        }
     }
 };
 
 window.goToOrderPage = function(pageNumber) {
-    currentOrderPage = pageNumber;
-    renderOrderTable();
+    if (orderPg) orderPg.goTo(pageNumber);
+    else {
+        currentOrderPage = pageNumber;
+        renderOrderTable();
+    }
 };
 
 // সার্চ ইভেন্ট লিসেনার (fallback if inline handler missing)
@@ -4006,7 +4258,9 @@ window.uploadProduct = async function() {
     formData.append('icon', emoji);
     formData.append('description', desc);
     formData.append('detailedDescription', detailedDesc); 
-    formData.append('highlights', JSON.stringify(highlightsArray)); 
+    formData.append('highlights', JSON.stringify(highlightsArray));
+    const lowStockField = document.getElementById('prodLowStockThreshold');
+    formData.append('lowStockThreshold', lowStockField ? (lowStockField.value || 10) : 10);
     
     // একাধিক ছবি থাকলে সবগুলোকে ব্যাকএন্ড রাউটের 'productImages' কী-তে অ্যাপেন্ড করা
     if (files.length > 0) {
@@ -5980,18 +6234,17 @@ window.filterAndRenderProducts = function(resetPage = true) {
     const stockStatus = document.getElementById('filterStockStatus') ? document.getElementById('filterStockStatus').value : 'All';
     const priceRange = document.getElementById('filterPriceRange') ? document.getElementById('filterPriceRange').value : 'All';
 
-    // ১. ফিল্টারিং প্রসেস
     currentFilteredProducts = globalProducts.filter(p => {
         const matchSearch = (p.name || '').toLowerCase().includes(search) || (p.productId || p.id || '').toLowerCase().includes(search) || (p.category || '').toLowerCase().includes(search);
         const matchCat = (cat === 'All' || p.category === cat);
+        const stockNum = Number(p.stock ?? p.stockQuantity ?? 0);
+        const threshold = Number(p.lowStockThreshold) > 0 ? Number(p.lowStockThreshold) : 10;
         
-        // স্টক স্ট্যাটাস ফিল্টার লজিক
         let matchStock = true;
-        if (stockStatus === 'InStock') matchStock = p.stock >= 5;
-        else if (stockStatus === 'LowStock') matchStock = p.stock > 0 && p.stock < 5;
-        else if (stockStatus === 'OutOfStock') matchStock = p.stock == 0;
+        if (stockStatus === 'InStock') matchStock = stockNum >= threshold;
+        else if (stockStatus === 'LowStock') matchStock = stockNum > 0 && stockNum < threshold;
+        else if (stockStatus === 'OutOfStock') matchStock = stockNum <= 0;
 
-        // প্রাইস ফিল্টার লজিক
         let matchPrice = true;
         if (priceRange === '0-500') matchPrice = p.price <= 500;
         else if (priceRange === '500-2000') matchPrice = p.price > 500 && p.price <= 2000;
@@ -6000,7 +6253,6 @@ window.filterAndRenderProducts = function(resetPage = true) {
         return matchSearch && matchCat && matchStock && matchPrice;
     });
 
-    // ২. সোর্টিং প্রসেস
     currentFilteredProducts.sort((a, b) => {
         let valA = a[currentSort.key] || '';
         let valB = b[currentSort.key] || '';
@@ -6016,7 +6268,12 @@ window.filterAndRenderProducts = function(resetPage = true) {
         return 0;
     });
 
-    currentPage = resetPage ? 1 : currentPage;
+    if (resetPage) {
+        currentPage = 1;
+        if (productPg) productPg.resetPage();
+    } else {
+        currentPage = productPg?.currentPage ?? currentPage;
+    }
     renderProductTable();
     persistProductListSessionState();
 };
@@ -6042,30 +6299,26 @@ window.handleSort = function(key) {
 
 window.changePageSize = function() {
     currentPage = 1;
+    if (productPg) productPg.resetPage();
     renderProductTable();
 };
 
-/**
- * ১০.৪: প্রোডাক্ট ডাটা টেবিল জেনারেটর এবং কন্ডিশনাল স্টক ব্যাজ বাইন্ডিং
- */
 window.renderProductTable = function() {
     const tbody = getProdTableBody();
     if (!tbody) return;
-    
-    const limit = parseInt(document.getElementById('itemsPerPage') ? document.getElementById('itemsPerPage').value : 10);
+
+    initAdminPaginationInstances();
+    const limit = productPg?.currentLimit ?? parseInt(document.getElementById('product-pg-limit')?.value || '10', 10);
+    currentPage = productPg?.currentPage ?? currentPage;
     const totalItems = currentFilteredProducts.length;
     const totalPages = Math.ceil(totalItems / limit) || 1;
     
-    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage > totalPages) {
+        currentPage = totalPages;
+        if (productPg) productPg.currentPage = currentPage;
+    }
     const startIdx = (currentPage - 1) * limit;
     const paginated = currentFilteredProducts.slice(startIdx, startIdx + limit);
-
-    // এন্ট্রি কাউন্টার টেক্সট আপডেট
-    if (document.getElementById('page-start-idx')) {
-        document.getElementById('page-start-idx').innerText = totalItems === 0 ? 0 : startIdx + 1;
-        document.getElementById('page-end-idx').innerText = startIdx + paginated.length;
-        document.getElementById('page-total-entries').innerText = totalItems;
-    }
 
     tbody.innerHTML = paginated.length === 0 ? `<tr><td colspan="9" class="loading-cell">No matching products found.</td></tr>` : '';
 
@@ -6081,11 +6334,12 @@ window.renderProductTable = function() {
 
         // স্টক লেভেলের উপর ভিত্তি করে ডাইনামিক স্টাইলিশ ব্যাজ তৈরি
         let stockHtml = '';
-        let currentStock = Number(prod.stock);
+        let currentStock = Number(prod.stock ?? prod.stockQuantity ?? 0);
+        const lowThreshold = Number(prod.lowStockThreshold) > 0 ? Number(prod.lowStockThreshold) : 10;
 
         if (currentStock <= 0) { 
             stockHtml = `<span class="stock-status stock-out"><i class="fa-solid fa-ban"></i> Out of Stock</span>`;
-        } else if (currentStock <= 5) {
+        } else if (currentStock < lowThreshold) {
             stockHtml = `<span class="stock-status stock-low"><i class="fa-solid fa-triangle-exclamation"></i> Low: ${currentStock}</span>`;
         } else {
             stockHtml = `<span class="stock-status stock-normal"><i class="fa-solid fa-check-circle"></i> In Stock: ${currentStock}</span>`;
@@ -6117,43 +6371,26 @@ window.renderProductTable = function() {
         `;
     });
 
-    // প্রোডাক্ট পেজিনেশন নম্বর বাটন রেন্ডার করা
-    renderPaginationButtons(totalPages);
+    if (productPg) {
+        productPg.currentPage = currentPage;
+        productPg.currentLimit = limit;
+        productPg.setTotal(totalItems);
+    }
     persistProductListSessionState();
     
-    // সিলেক্ট অল চেকবক্স হ্যান্ডলার সিঙ্ক
     const selectAllCheckbox = document.getElementById('selectAllProducts');
     if (selectAllCheckbox) {
         selectAllCheckbox.checked = paginated.length > 0 && Array.from(document.querySelectorAll('.row-checkbox')).every(cb => cb.checked);
     }
 };
 
-/**
- * ১০.৫: ডাইনামিক পেজিনেশন বাটন ট্র্যাকার ও জেনারেটর
- * @param {number} totalPages - মোট প্রোডাক্ট পেজ সংখ্যা
- */
-function renderPaginationButtons(totalPages) {
-    const container = document.getElementById('dynamic-page-numbers');
-    if (!container) return;
-    
-    let html = '';
-    for (let i = 1; i <= totalPages; i++) {
-        // ডাইনামিক ইলিপসিস (...) স্ট্রাকচার তৈরি যদি পেজ অনেক বেশি থাকে
-        if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
-            html += `<button type="button" class="page-num-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
-        } else if (i === currentPage - 2 || i === currentPage + 2) {
-            html += `<span style="padding: 5px;">...</span>`;
-        }
-    }
-    container.innerHTML = html;
-
-    document.getElementById('btn-prev-page').disabled = currentPage === 1;
-    document.getElementById('btn-next-page').disabled = currentPage === totalPages || totalPages === 0;
-}
-
-window.goToPage = function(page) { currentPage = page; renderProductTable(); };
-window.goToNextPage = function() { currentPage++; renderProductTable(); };
-window.goToPreviousPage = function() { if (currentPage > 1) { currentPage--; renderProductTable(); } };
+window.goToPage = function(page) {
+    currentPage = page;
+    if (productPg) productPg.currentPage = page;
+    renderProductTable();
+};
+window.goToNextPage = function() { if (productPg) productPg.goTo(productPg.currentPage + 1); else { currentPage++; renderProductTable(); } };
+window.goToPreviousPage = function() { if (productPg) productPg.goTo(productPg.currentPage - 1); else if (currentPage > 1) { currentPage--; renderProductTable(); } };
 
 
 /* ==========================================================================
@@ -6186,8 +6423,11 @@ window.toggleSingleSelection = function(checkbox) {
 };
 
 function updateBulkActionPanel() {
+    const panel = document.getElementById('bulk-actions-panel');
     const countSpan = document.getElementById('selected-count');
-    if (countSpan) countSpan.innerText = `${selectedProductIds.size} selected`;
+    const count = selectedProductIds.size;
+    if (panel) panel.classList.toggle('is-visible', count > 0);
+    if (countSpan) countSpan.innerText = `${count} selected`;
 }
 
 /**
@@ -6218,7 +6458,8 @@ window.handleBulkDelete = function() {
             const totalBadge = document.getElementById('total-products-badge');
             if (totalBadge) totalBadge.innerText = `Total: ${globalProducts.length}`;
             updateFilterCategoryDropdown();
-            filterAndRenderProducts(false);
+            if (productPg) productPg.stayOnPage();
+            else filterAndRenderProducts(false);
             document.getElementById('selectAllProducts').checked = false;
             showAdminSuccess('Products Deleted', `${ids.length} product(s) removed successfully.`);
         } catch (e) {
@@ -6780,23 +7021,39 @@ document.addEventListener('DOMContentLoaded', () => {
 /**
  * ১২.১: সার্ভার থেকে অ্যাডমিন ও সিস্টেমের সিকিউরিটি লগস নিয়ে আসা
  */
-async function fetchSecurityLogs() {
+async function fetchSecurityLogs(page, limit) {
+    initAdminPaginationInstances();
+    const pg = securityPg;
+    const effectivePage = page ?? pg?.currentPage ?? 1;
+    const effectiveLimit = limit ?? pg?.currentLimit ?? 25;
+
     const logsBody = document.getElementById('securityLogsBody');
     if (!logsBody) return;
 
     logsBody.innerHTML = `<tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Fetching security logs...</p></td></tr>`;
 
     try {
-        const response = await fetch('/api/admin/logs?limit=100', {
+        const params = new URLSearchParams({
+            page: String(effectivePage),
+            limit: String(effectiveLimit)
+        });
+        const response = await fetch(`/api/admin/logs?${params}`, {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
         const data = await response.json();
         const logs = data.success ? data.data : [];
+        const total = data.pagination?.total ?? logs.length;
+
+        if (pg) {
+            pg.currentPage = effectivePage;
+            pg.currentLimit = effectiveLimit;
+            pg.setTotal(total);
+        }
 
         const countEl = document.getElementById('securityLogCount');
-        if (countEl) countEl.textContent = logs.length;
+        if (countEl) countEl.textContent = total;
 
         if (logs.length === 0) {
             logsBody.innerHTML = `<tr><td colspan="6" class="loading-cell">No security logs recorded yet.</td></tr>`;
@@ -6876,6 +7133,55 @@ function deviceIcon(deviceType = '') {
 }
 
 /* ---------- 12B.1 Active Devices & Sessions ---------- */
+function isCurrentSession(session) {
+    return !!(session.isCurrentSession || session.isCurrent || session.current);
+}
+
+function updateSessionsUI(sessions) {
+    const otherSessions = sessions.filter(s => !isCurrentSession(s));
+
+    const logoutAllBtn = document.getElementById('admin-logout-all-btn');
+    if (logoutAllBtn) {
+        logoutAllBtn.style.display = otherSessions.length > 0 ? 'inline-flex' : 'none';
+    }
+
+    renderSessionCards(sessions);
+}
+
+function renderSessionCards(sessions) {
+    const container = document.getElementById('adminSessionsGrid');
+    if (!container) return;
+
+    if (sessions.length === 0) {
+        container.innerHTML = `<div class="empty-state">No active sessions found.</div>`;
+        return;
+    }
+
+    container.innerHTML = sessions.map(session => {
+        const isCurrent = isCurrentSession(session);
+        const sessionId = session._id || session.sessionId;
+        return `
+            <div class="session-card ${isCurrent ? 'current-device' : ''}">
+                <div class="session-icon"><i class="fa-solid ${deviceIcon(session.deviceType)}"></i></div>
+                <div class="session-info">
+                    <div class="session-device">
+                        ${escapeHtml(session.os || session.deviceType || 'Unknown Device')} · ${escapeHtml(session.browser || 'Browser')}
+                        ${isCurrent ? '<span class="current-badge">THIS DEVICE</span>' : ''}
+                    </div>
+                    <div class="session-details">
+                        <i class="fa-solid fa-location-dot"></i> ${escapeHtml(session.location || session.country || 'Unknown')} &nbsp;
+                        <i class="fa-solid fa-network-wired"></i> ${escapeHtml(session.ip || '—')} &nbsp;
+                        <i class="fa-solid fa-clock"></i> ${isCurrent ? 'Active Just Now' : `Active ${timeAgo(session.lastActive || session.createdAt)}`}
+                    </div>
+                </div>
+                <div class="session-actions">
+                    ${!isCurrent ? `<button type="button" class="btn-revoke-session" onclick="revokeSession('${sessionId}')">Revoke Access</button>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
 async function fetchAdminSessions() {
     const grid = document.getElementById('adminSessionsGrid');
     if (!grid) return;
@@ -6889,40 +7195,24 @@ async function fetchAdminSessions() {
         const countEl = document.getElementById('activeSessionCount');
         if (countEl) countEl.textContent = sessions.length;
 
-        const current = sessions.find(s => s.isCurrent);
+        const current = sessions.find(s => isCurrentSession(s));
         const thisEl = document.getElementById('thisDeviceLabel');
         if (thisEl) thisEl.textContent = current ? `${current.os} · ${current.location}` : 'Unknown';
 
-        if (sessions.length === 0) {
-            grid.innerHTML = `<div class="empty-state">No active sessions found.</div>`;
-            return;
-        }
-
-        grid.innerHTML = sessions.map(s => `
-            <div class="session-card ${s.isCurrent ? 'current' : ''}">
-                <div class="session-icon"><i class="fa-solid ${deviceIcon(s.deviceType)}"></i></div>
-                <div class="session-body">
-                    <div class="session-title">
-                        ${escapeHtml(s.os)} · ${escapeHtml(s.browser)}
-                        ${s.isCurrent ? '<span class="this-device-badge">This Device</span>' : ''}
-                    </div>
-                    <div class="session-meta"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(s.location)}</div>
-                    <div class="session-meta"><i class="fa-solid fa-network-wired"></i> ${escapeHtml(s.ip)}</div>
-                    <div class="session-meta"><i class="fa-solid fa-clock"></i> Active ${timeAgo(s.lastActive)}</div>
-                </div>
-                <button class="session-logout-btn ${s.isCurrent ? 'current' : ''}"
-                    onclick="logoutAdminSession('${s.sessionId}', ${s.isCurrent})">
-                    <i class="fa-solid fa-right-from-bracket"></i>
-                    ${s.isCurrent ? 'Log Out This Device' : 'Log Out'}
-                </button>
-            </div>
-        `).join('');
+        updateSessionsUI(sessions);
     } catch (err) {
         console.error('Sessions fetch error:', err);
         grid.innerHTML = `<div class="empty-state error">Failed to load sessions.</div>`;
+        const logoutAllBtn = document.getElementById('admin-logout-all-btn');
+        if (logoutAllBtn) logoutAllBtn.style.display = 'none';
     }
 }
 window.fetchAdminSessions = fetchAdminSessions;
+
+function revokeSession(sessionId) {
+    logoutAdminSession(sessionId, false);
+}
+window.revokeSession = revokeSession;
 
 async function logoutAdminSession(sessionId, isCurrent) {
     const confirmMsg = isCurrent
@@ -6977,6 +7267,7 @@ let _auditActiveTab = 'tab-login-history';
 
 function initAuditView() {
     setupAuditTabs();
+    initAdminPaginationInstances();
     refreshAuditActiveTab();
 }
 window.initAuditView = initAuditView;
@@ -7000,20 +7291,36 @@ function setupAuditTabs() {
 
 function refreshAuditActiveTab() {
     if (_auditActiveTab === 'tab-blacklist') fetchBlacklist();
-    else fetchLoginHistory();
+    else fetchAuditLogs();
 }
 window.refreshAuditActiveTab = refreshAuditActiveTab;
 
-async function fetchLoginHistory() {
+async function fetchAuditLogs(page, limit) {
+    initAdminPaginationInstances();
+    const pg = auditPg;
+    const effectivePage = page ?? pg?.currentPage ?? 1;
+    const effectiveLimit = limit ?? pg?.currentLimit ?? 25;
+
     const body = document.getElementById('loginHistoryBody');
     if (!body) return;
     body.innerHTML = `<tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading login history...</p></td></tr>`;
 
     try {
-        const res = await fetch('/api/admin/login-history?limit=150', { headers: SEC_AUTH_HEADERS() });
+        const params = new URLSearchParams({
+            page: String(effectivePage),
+            limit: String(effectiveLimit)
+        });
+        const res = await fetch(`/api/admin/login-history?${params}`, { headers: SEC_AUTH_HEADERS() });
         const data = await res.json();
         const rows = data.success ? data.data : [];
         const summary = data.summary || {};
+        const total = data.pagination?.total ?? data.total ?? rows.length;
+
+        if (pg) {
+            pg.currentPage = effectivePage;
+            pg.currentLimit = effectiveLimit;
+            pg.setTotal(total);
+        }
 
         const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? '—'; };
         set('auditSuccessCount', summary.success);
@@ -7052,7 +7359,8 @@ async function fetchLoginHistory() {
         body.innerHTML = `<tr><td colspan="6" class="table-status-error">Server connection failed.</td></tr>`;
     }
 }
-window.fetchLoginHistory = fetchLoginHistory;
+window.fetchAuditLogs = fetchAuditLogs;
+window.fetchLoginHistory = fetchAuditLogs;
 
 async function fetchBlacklist() {
     const body = document.getElementById('blacklistBody');
@@ -7291,6 +7599,149 @@ function applyBrandingPreviewFromSettings(settings) {
     }
 }
 
+/* ============================================================
+   🧪 SANDBOX MODE (Super Admin)
+   ============================================================ */
+
+async function loadSandboxStatus() {
+    try {
+        const res = await fetch('/api/admin/sandbox/status', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (res.status === 403) return;
+        const data = await res.json();
+        if (!data.success) return;
+
+        const toggle = document.getElementById('sandbox-toggle');
+        const statusText = document.getElementById('sandbox-status-text');
+        const card = document.querySelector('.sandbox-card');
+
+        if (toggle) toggle.checked = data.sandboxMode;
+        if (statusText) {
+            statusText.textContent = data.sandboxMode
+                ? '🧪 ON — Sandbox Mode Active'
+                : 'OFF — Live Mode';
+            statusText.className = data.sandboxMode
+                ? 'sandbox-status-on'
+                : 'sandbox-status-off';
+        }
+        if (card) {
+            card.classList.toggle('active-mode', data.sandboxMode);
+        }
+
+        const sandboxCount = document.getElementById('sandbox-order-count');
+        const realCount = document.getElementById('real-order-count');
+        if (sandboxCount) sandboxCount.textContent = data.sandboxOrderCount || 0;
+        if (realCount) realCount.textContent = data.realOrderCount || 0;
+
+        const banner = document.getElementById('sandbox-banner');
+        if (banner) banner.style.display = data.sandboxMode ? 'block' : 'none';
+    } catch (err) {
+        console.warn('Could not load sandbox status:', err);
+    }
+}
+
+window.toggleSandboxMode = async function(enabled) {
+    try {
+        const res = await fetch('/api/admin/sandbox/toggle', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ enabled })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(
+                enabled
+                    ? '🧪 Sandbox Mode ON — Orders are now test orders'
+                    : '✅ Live Mode — Real orders active',
+                enabled ? 'warning' : 'success'
+            );
+            loadSandboxStatus();
+        } else {
+            showToast(data.message || 'Failed to toggle sandbox mode', 'error');
+        }
+    } catch (err) {
+        showToast('Failed to toggle sandbox mode', 'error');
+    }
+};
+
+window.resetTestData = async function() {
+    if (!confirm(
+        'Delete ALL test/sandbox orders?\n\n' +
+        'Real orders will NOT be affected.\n' +
+        'This action cannot be undone.'
+    )) return;
+
+    try {
+        const res = await fetch('/api/admin/sandbox/reset-test-data', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(
+                `✅ Cleared ${data.deleted.orders} test orders`,
+                'success'
+            );
+            loadSandboxStatus();
+            if (typeof fetchLiveOrders === 'function') fetchLiveOrders();
+        } else {
+            showToast(data.message || 'Reset failed', 'error');
+        }
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
+};
+
+window.resetRealData = async function() {
+    const keyInput = document.getElementById('real-reset-key');
+    const key = keyInput?.value?.trim();
+    if (!key) {
+        showToast('Please enter the confirmation key', 'error');
+        return;
+    }
+
+    if (!confirm(
+        '⚠️ WARNING: This will DELETE all REAL orders!\n\n' +
+        'This cannot be undone.\n' +
+        'Are you absolutely sure?'
+    )) return;
+
+    const typed = prompt('Type "DELETE REAL ORDERS" to confirm:');
+    if (typed !== 'DELETE REAL ORDERS') {
+        showToast('Cancelled — text did not match', 'warning');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/admin/sandbox/reset-real-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ confirmationKey: key })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(
+                `Deleted ${data.deleted.orders} real orders`,
+                'success'
+            );
+            if (keyInput) keyInput.value = '';
+            loadSandboxStatus();
+            if (typeof fetchLiveOrders === 'function') fetchLiveOrders();
+        } else {
+            showToast(data.message || 'Invalid key or reset failed', 'error');
+        }
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
+};
+
 async function fetchAdminSettings() {
     try {
         const [platformRes, deliveryRes] = await Promise.all([
@@ -7312,6 +7763,7 @@ async function fetchAdminSettings() {
     }
     // Load 2FA status/config for the settings panel
     if (typeof window.refreshTwoFactorSettings === 'function') window.refreshTwoFactorSettings();
+    if (typeof loadSandboxStatus === 'function') loadSandboxStatus();
 }
 
 async function saveAdminProfile(payload) {
@@ -9019,7 +9471,68 @@ function clearInquirySelection() {
     showInquiryDetailEmpty();
 }
 
-function renderMessagesInbox(messages = adminMessagesCache) {
+function renderMessagesPage(page, limit) {
+    initAdminPaginationInstances();
+    const pg = messagePg;
+    const effectivePage = page ?? pg?.currentPage ?? 1;
+    const effectiveLimit = limit ?? pg?.currentLimit ?? 10;
+
+    if (pg) {
+        pg.currentPage = effectivePage;
+        pg.currentLimit = effectiveLimit;
+    }
+
+    renderMessagesInbox(adminMessagesCache, effectivePage, effectiveLimit);
+}
+
+function updateMessagesBulkToolbar() {
+    const toolbar = document.getElementById('messages-bulk-toolbar');
+    const countEl = document.getElementById('messages-selected-count');
+    const count = selectedMessageIds.size;
+    if (toolbar) toolbar.classList.toggle('is-visible', count > 0);
+    if (countEl) countEl.textContent = `${count} selected`;
+}
+
+window.toggleMessageSelection = function(id, checked) {
+    const sid = String(id);
+    if (checked) selectedMessageIds.add(sid);
+    else selectedMessageIds.delete(sid);
+    updateMessagesBulkToolbar();
+};
+
+window.bulkDeleteMessages = function() {
+    const ids = Array.from(selectedMessageIds);
+    if (!ids.length) return;
+
+    showCustomConfirm('Delete Selected Messages', `Delete ${ids.length} message(s)? This cannot be undone.`, async () => {
+        try {
+            const results = await Promise.all(ids.map(id =>
+                fetch(`/api/admin/messages/${id}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${token}` }
+                }).then(r => r.json())
+            ));
+            const deleted = results.filter(r => r.success).length;
+            if (deleted > 0) {
+                ids.forEach(id => {
+                    adminMessagesCache = adminMessagesCache.filter(m => String(m.id || m._id) !== String(id));
+                    selectedMessageIds.delete(String(id));
+                    if (inquiryDetailActiveId === String(id)) clearInquirySelection();
+                });
+                updateMessagesBulkToolbar();
+                if (messagePg) messagePg.stayOnPage();
+                else renderMessagesInbox(adminMessagesCache);
+                showToast(`${deleted} message(s) deleted.`, 'success');
+            } else {
+                showToast('Could not delete selected messages.', 'error');
+            }
+        } catch (err) {
+            showToast('Server error during bulk delete.', 'error');
+        }
+    }, 'danger');
+};
+
+function renderMessagesInbox(messages = adminMessagesCache, page, limit) {
     const listEl = document.getElementById('messagesInboxList');
     if (!listEl) return;
 
@@ -9027,16 +9540,24 @@ function renderMessagesInbox(messages = adminMessagesCache) {
     updateMessagesStats();
 
     const filtered = getFilteredMessages();
+    initAdminPaginationInstances();
+
+    const effectivePage = page ?? messagePg?.currentPage ?? 1;
+    const effectiveLimit = limit ?? messagePg?.currentLimit ?? 10;
 
     if (!adminMessagesCache.length) {
         listEl.innerHTML = '<div class="support-inbox-list-empty">No messages yet.</div>';
         inquiryDetailActiveId = null;
         showInquiryDetailEmpty();
+        if (messagePg) messagePg.setTotal(0);
+        updateMessagesBulkToolbar();
         return;
     }
 
     if (!filtered.length) {
         listEl.innerHTML = '<div class="support-inbox-list-empty">No inquiries match your filters.</div>';
+        if (messagePg) messagePg.setTotal(0);
+        updateMessagesBulkToolbar();
         return;
     }
 
@@ -9045,11 +9566,21 @@ function renderMessagesInbox(messages = adminMessagesCache) {
         showInquiryDetailEmpty();
     }
 
-    listEl.innerHTML = filtered.map((msg) => {
+    const start = (effectivePage - 1) * effectiveLimit;
+    const paginated = filtered.slice(start, start + effectiveLimit);
+
+    if (messagePg) {
+        messagePg.currentPage = effectivePage;
+        messagePg.currentLimit = effectiveLimit;
+        messagePg.setTotal(filtered.length);
+    }
+
+    listEl.innerHTML = paginated.map((msg) => {
         const id = escapeHtml(msg.id || msg._id);
         const sid = String(msg.id || msg._id);
         const status = resolveMessageStatus(msg);
         const isActive = inquiryDetailActiveId === sid;
+        const isChecked = selectedMessageIds.has(sid);
         const initial = escapeHtml(getCustomerInitial(msg.name));
         const avatarColor = getAvatarColor(msg.name);
         const snippet = escapeHtml(getMessageSnippet(msg.message));
@@ -9057,22 +9588,30 @@ function renderMessagesInbox(messages = adminMessagesCache) {
         const time = escapeHtml(formatMessageListTime(msg.createdAt));
 
         return `
-            <button type="button"
-                class="support-inbox-list-item ${isActive ? 'is-active border-l-4 border-blue-600 bg-blue-50/60 dark:bg-slate-800' : ''} ${status === 'unread' ? 'is-unread' : ''}"
-                data-id="${id}"
-                role="option"
-                aria-selected="${isActive ? 'true' : 'false'}">
-                <span class="support-inbox-list-avatar" style="background:${avatarColor}">${initial}</span>
-                <span class="support-inbox-list-body">
-                    <span class="support-inbox-list-top">
-                        <strong class="support-inbox-list-name">${escapeHtml(msg.name || 'Unknown')}</strong>
-                        <time class="support-inbox-list-time">${time}</time>
+            <div class="support-inbox-list-row ${isActive ? 'is-active-row' : ''}">
+                <input type="checkbox" class="message-row-checkbox" value="${id}"
+                    ${isChecked ? 'checked' : ''}
+                    onclick="event.stopPropagation(); toggleMessageSelection('${sid}', this.checked)"
+                    aria-label="Select message">
+                <button type="button"
+                    class="support-inbox-list-item ${isActive ? 'is-active border-l-4 border-blue-600 bg-blue-50/60 dark:bg-slate-800' : ''} ${status === 'unread' ? 'is-unread' : ''}"
+                    data-id="${id}"
+                    role="option"
+                    aria-selected="${isActive ? 'true' : 'false'}">
+                    <span class="support-inbox-list-avatar" style="background:${avatarColor}">${initial}</span>
+                    <span class="support-inbox-list-body">
+                        <span class="support-inbox-list-top">
+                            <strong class="support-inbox-list-name">${escapeHtml(msg.name || 'Unknown')}</strong>
+                            <time class="support-inbox-list-time">${time}</time>
+                        </span>
+                        <span class="support-inbox-list-subject">${subject}</span>
+                        <span class="support-inbox-list-snippet">${snippet}</span>
                     </span>
-                    <span class="support-inbox-list-subject">${subject}</span>
-                    <span class="support-inbox-list-snippet">${snippet}</span>
-                </span>
-            </button>`;
+                </button>
+            </div>`;
     }).join('');
+
+    updateMessagesBulkToolbar();
 
     if (inquiryDetailActiveId) {
         const activeMsg = findCachedMessage(inquiryDetailActiveId);
@@ -9096,7 +9635,7 @@ window.fetchAdminMessages = async function fetchAdminMessages() {
         if (!data.success) throw new Error(data.message || 'Failed to load messages.');
 
         inquiryDetailActiveId = prevActive;
-        renderMessagesInbox(data.data || []);
+        renderMessagesInbox(data.data || [], messagePg?.currentPage || 1, messagePg?.currentLimit || 10);
 
         if (prevActive && !findCachedMessage(prevActive)) {
             inquiryDetailActiveId = null;
@@ -9178,7 +9717,10 @@ async function deleteMessage(id) {
     if (inquiryDetailActiveId === String(id)) {
         clearInquirySelection();
     }
-    await fetchAdminMessages();
+    selectedMessageIds.delete(String(id));
+    adminMessagesCache = adminMessagesCache.filter(m => String(m.id || m._id) !== String(id));
+    if (messagePg) messagePg.stayOnPage();
+    else await fetchAdminMessages();
 }
 
 async function sendInquiryReply() {
@@ -9235,7 +9777,8 @@ function setMessagesFilterTab(tab) {
         btn.classList.toggle('is-active', isActive);
         btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
-    renderMessagesInbox(adminMessagesCache);
+    if (messagePg) messagePg.resetPage();
+    renderMessagesPage(1, messagePg?.currentLimit);
 }
 
 function setupMessagesInbox() {
@@ -9247,7 +9790,8 @@ function setupMessagesInbox() {
 
     document.getElementById('messagesSearchInput')?.addEventListener('input', (e) => {
         messagesSearchQuery = e.target.value || '';
-        renderMessagesInbox(adminMessagesCache);
+        if (messagePg) messagePg.resetPage();
+        renderMessagesPage(1, messagePg?.currentLimit);
     });
 
     document.getElementById('messagesInboxList')?.addEventListener('click', (e) => {
@@ -9391,6 +9935,8 @@ function updateCourierSettingsPreview() {
     const hasApiKey = Boolean(document.getElementById('courierApiKey')?.value?.trim());
     const hasSecretKey = Boolean(document.getElementById('courierSecretKey')?.value?.trim());
 
+    toggleCourierCredentialPanels(provider);
+
     if (!provider) {
         previewEl.textContent = 'No provider selected — pick one to label the booking button in Live Orders.';
         return;
@@ -9417,6 +9963,20 @@ function updateCourierSettingsPreview() {
     }
 
     previewEl.textContent = `${providerLabel} ready — "Send to Courier" is live on every unbooked order in Live Orders.`;
+}
+
+function toggleCourierCredentialPanels(provider = '') {
+    const slug = normalizeAdminCourierSlug(provider || document.getElementById('defaultCourierProvider')?.value || '');
+    const steadfastFields = document.getElementById('courierSteadfastFields');
+    const steadfastSecret = document.getElementById('courierSteadfastSecretField');
+    const pathaoPanel = document.getElementById('courierPathaoEnvPanel');
+    const redxPanel = document.getElementById('courierRedxEnvPanel');
+    const showSteadfast = !slug || slug === 'steadfast';
+
+    if (steadfastFields) steadfastFields.style.display = showSteadfast ? '' : 'none';
+    if (steadfastSecret) steadfastSecret.style.display = showSteadfast ? '' : 'none';
+    if (pathaoPanel) pathaoPanel.style.display = slug === 'pathao' ? '' : 'none';
+    if (redxPanel) redxPanel.style.display = slug === 'redx' ? '' : 'none';
 }
 
 function applySmsSettingsToUI(settings) {
@@ -10243,6 +10803,7 @@ function initDashboard() {
     setupManualOrderEngine();
     setupWhatsAppAlertBadge();
     fetchAdminSettings();
+    if (typeof loadSandboxStatus === 'function') loadSandboxStatus();
 
     // ২. লোকাল স্টোরেজ থেকে প্রোফাইল পিকচার সেট করা (যদি আগে থেকে থাকে)
     const savedPic = localStorage.getItem('adminProfilePic');
@@ -10252,11 +10813,13 @@ function initDashboard() {
 
     // ৩. কোর মডিউলগুলোর ডাটা সার্ভার থেকে সিঙ্ক করা
     fetchDashboardData();   // ওভারভিউ এবং কাস্টমার ডাটা
+    initAdminPaginationInstances();
     fetchLiveOrders();      // লাইভ অর্ডারস
     fetchLiveProducts();    // ম্যানেজ প্রোডাক্টস ডাটা
     fetchSecurityLogs();    // সিকিউরিটি লগস
     setupAnalyticsChartToggles();
     setupCustomerSegmentTabs();
+    if (typeof updateBulkActionPanel === 'function') updateBulkActionPanel();
 }
 
 /* ==========================================================================
@@ -10276,8 +10839,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (messagesNav) navigateAdminSection('view-messages', messagesNav);
     }
 
-    const profileUploadInput = document.getElementById('adminProfileUpload');
-    if (profileUploadInput) {
+    const profileUploadInput = document.getElementById('profileUploadInput');
+    if (profileUploadInput && !profileUploadInput.dataset.bound) {
+        profileUploadInput.dataset.bound = '1';
         profileUploadInput.addEventListener('change', uploadAdminProfilePic);
     }
 
@@ -10327,7 +10891,10 @@ function navigateAdminSection(targetId, clickedItem) {
     const refreshMap = {
         'view-orders': fetchLiveOrders,
         'view-manage-products': fetchLiveProducts,
-        'view-customers': fetchDashboardData,
+        'view-customers': () => {
+            initAdminPaginationInstances();
+            fetchDashboardData();
+        },
         'view-overview': fetchDashboardData,
         'manage-category': fetchCategories,
         'manage-brands': fetchBrands,
@@ -10405,6 +10972,16 @@ function setupGlobalSearch() {
                 if (productSearch) {
                     productSearch.value = query;
                     if (typeof filterAndRenderProducts === 'function') filterAndRenderProducts();
+                }
+            }
+            // যদি All Customers পেজে থাকেন
+            else if (activeSection.id === 'view-customers') {
+                const customerSearch = document.getElementById('customerSearchInput');
+                if (customerSearch) {
+                    customerSearch.value = query;
+                    customerSearchQuery = query;
+                    if (customerPg) customerPg.resetPage();
+                    if (typeof fetchCustomers === 'function') fetchCustomers(1, customerPg?.currentLimit);
                 }
             }
         });
@@ -10557,42 +11134,10 @@ document.addEventListener('DOMContentLoaded', fetchAdminProfile);
  * ইনপুট ফিল্ডে নতুন ছবি সিলেক্ট করলেই তা সরাসরি ক্লাউডিনারি ও ডাটাবেজে সেভ হবে।
  */
 const profileUploadInput = document.getElementById('profileUploadInput');
-const adminProfilePic = document.getElementById('adminProfilePic');
 
-if (profileUploadInput) {
-    profileUploadInput.addEventListener('change', async function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        // ছবির ডাটা পাঠানোর জন্য FormData তৈরি
-        const formData = new FormData();
-        formData.append('profilePic', file);
-
-        try {
-            const token = localStorage.getItem('adminToken');
-            
-            // সার্ভারের আপলোড এপিআই এন্ডপয়েন্টে রিকোয়েস্ট পাঠানো
-            const response = await fetch('/api/admin/update-profile-pic', {
-                method: 'POST',
-                headers: { 
-                    'Authorization': `Bearer ${token}` 
-                },
-                body: formData // বডিতে ছবি পাঠানো হচ্ছে
-            });
-
-            const data = await response.json();
-            
-            if (data.success) {
-                updateAdminProfileUI({ image: data.imageUrl });
-                showToast("Profile picture updated successfully!", "success");
-            } else {
-                showToast(data.message || "Failed to upload image", "error");
-            }
-        } catch (err) {
-            console.error("🔴 Failed to upload image :", err);
-            showToast("Error connecting to server", "error");
-        }
-    });
+if (profileUploadInput && profileUploadInput.dataset.legacyBound !== '1') {
+    profileUploadInput.dataset.legacyBound = '1';
+    /* Handler attached in DOMContentLoaded via uploadAdminProfilePic — skip duplicate bind */
 }
 
 

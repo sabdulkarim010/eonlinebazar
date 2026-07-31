@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eonlinebazar-v1';
+const CACHE_NAME = 'eonlinebazar-v__BUILD_TIMESTAMP__';
 const STATIC_ASSETS = [
   '/',
   '/search',
@@ -69,3 +69,9 @@ self.addEventListener('sync', (event) => {
 async function syncOfflineCart() {
   console.log('[SW] Cart sync triggered');
 }
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});

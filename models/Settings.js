@@ -116,6 +116,10 @@ const settingsSchema = new mongoose.Schema({
         MasterCard: { type: Boolean, default: true },
         COD: { type: Boolean, default: true }
     },
+    sandboxMode: {
+        type: Boolean,
+        default: false
+    },
     paymentGateways: {
         bKash: {
             enabled: { type: Boolean, default: true },

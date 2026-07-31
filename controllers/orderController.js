@@ -33,6 +33,7 @@ const {
     isValidDistrict
 } = require('../utils/deliveryChargeService');
 const { getDeliveryEstimate } = require('../utils/deliveryEstimateService');
+const { isSandboxMode } = require('../utils/sandboxService');
 const { syncCheckoutAddressToProfile } = require('../utils/savedAddress');
 const { generateOrderInvoicePdf, resolveInvoiceNumber } = require('../utils/invoicePdf');
 const {
@@ -438,6 +439,8 @@ const createOrder = async (req, res) => {
             deliveryLocationType
         });
 
+        const inSandbox = await isSandboxMode();
+
         const newOrder = new Order({
             orderId,
             user: userId,
@@ -464,7 +467,8 @@ const createOrder = async (req, res) => {
             items: normalizedItems,
             note,
             status: 'Pending',
-            isDelivered: false
+            isDelivered: false,
+            isSandbox: inSandbox
         });
 
         try {
@@ -840,6 +844,7 @@ const createManualOrder = async (req, res) => {
         if (!posPaymentMethod) posPaymentSnapshot.name = paymentMethod;
         const orderId = req.body.orderId || `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
         const staffNote = note ? `[Manual POS] ${note}` : '[Manual POS] Staff phone / counter entry';
+        const inSandbox = await isSandboxMode();
 
         const newOrder = new Order({
             orderId,
@@ -866,7 +871,8 @@ const createManualOrder = async (req, res) => {
             status,
             isDelivered: false,
             orderSource: 'manual',
-            createdByAdmin: req.admin?.username || req.admin?.displayName || 'admin'
+            createdByAdmin: req.admin?.username || req.admin?.displayName || 'admin',
+            isSandbox: inSandbox
         });
 
         await newOrder.save();

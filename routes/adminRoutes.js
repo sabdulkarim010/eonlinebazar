@@ -49,6 +49,7 @@ const {
     bulkImportProductsHandler
 } = require('../controllers/bulkImportController');
 const cacheController = require('../controllers/cacheController');
+const sandboxController = require('../controllers/sandboxController');
 
 // 🛡️ Super Admin staff management — own gate chain, see routes/staffRoutes.js
 // URL: /api/admin/staff
@@ -309,5 +310,11 @@ router.post('/update-profile-pic', verifyAdmin, upload.single('profilePic'), adm
 // ৮. অ্যাডমিন প্রোফাইল (GET ছবি / PUT প্রোফাইল ডিটেইলস)
 router.get('/profile', verifyAdmin, adminController.getAdminProfile);
 router.put('/profile', verifyAdmin, adminController.updateAdminProfile);
+
+// 🧪 Sandbox mode — super-admin only (Stripe-style test/live data separation)
+router.get('/sandbox/status', verifyAdmin, requireSuperAdmin, sandboxController.getSandboxStatus);
+router.post('/sandbox/toggle', verifyAdmin, requireSuperAdmin, sandboxController.toggleSandboxMode);
+router.post('/sandbox/reset-test-data', verifyAdmin, requireSuperAdmin, sandboxController.resetTestData);
+router.post('/sandbox/reset-real-data', verifyAdmin, requireSuperAdmin, sandboxController.resetRealData);
 
 module.exports = router;

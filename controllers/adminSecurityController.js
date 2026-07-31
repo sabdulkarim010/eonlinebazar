@@ -773,11 +773,21 @@ exports.removeBlacklist = async (req, res) => {
    ================================================================== */
 exports.getLoginHistory = async (req, res) => {
     try {
-        const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
-        const attempts = await LoginAttempt.find({})
-            .sort({ createdAt: -1 })
-            .limit(limit)
-            .lean();
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 25, 1), 100);
+        const skip = (page - 1) * limit;
+
+        const [attempts, total, successCount, failedCount, blockedCount] = await Promise.all([
+            LoginAttempt.find({})
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            LoginAttempt.countDocuments({}),
+            LoginAttempt.countDocuments({ status: 'success' }),
+            LoginAttempt.countDocuments({ status: { $in: ['failed', 'otp_failed'] } }),
+            LoginAttempt.countDocuments({ status: 'blocked' })
+        ]);
 
         const data = attempts.map(a => ({
             id: a._id,
@@ -793,13 +803,24 @@ exports.getLoginHistory = async (req, res) => {
         }));
 
         const summary = {
-            total: data.length,
-            success: data.filter(d => d.status === 'success').length,
-            failed: data.filter(d => d.status === 'failed' || d.status === 'otp_failed').length,
-            blocked: data.filter(d => d.status === 'blocked').length
+            total,
+            success: successCount,
+            failed: failedCount,
+            blocked: blockedCount
         };
 
-        res.status(200).json({ success: true, summary, data });
+        res.status(200).json({
+            success: true,
+            summary,
+            data,
+            total,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit) || 1
+            }
+        });
     } catch (error) {
         console.error('Get Login History Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load login history.' });

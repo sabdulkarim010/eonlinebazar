@@ -37,6 +37,7 @@ const {
 const { toPublicAnnouncementPayload } = require('../utils/announcementSettings');
 const { getDeliverySettings } = require('../utils/deliveryChargeService');
 const { sendAdminOtpSms } = require('../utils/smsSender');
+const { isSandboxMode } = require('../utils/sandboxService');
 
 const PROFILE_OTP_TTL_MS = 5 * 60 * 1000;
 const MIN_PASSWORD_LENGTH = 6;
@@ -319,6 +320,9 @@ exports.registerUser = async (req, res) => {
             userPayload.upazila = resolvedUpazila;
             userPayload.thana = resolvedUpazila;
         }
+
+        const inSandbox = await isSandboxMode();
+        if (inSandbox) userPayload.isSandbox = true;
 
         const newUser = new User(userPayload);
 

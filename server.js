@@ -399,16 +399,37 @@ app.get('/manifest.json', (req, res) => {
     res.sendFile(path.join(PUBLIC_DIR, 'manifest.json'));
 });
 app.get('/service-worker.js', (req, res) => {
+    const swPath = path.join(PUBLIC_DIR, 'service-worker.js');
+    let swContent = fs.readFileSync(swPath, 'utf8');
+    swContent = swContent.replace(
+        '__BUILD_TIMESTAMP__',
+        process.env.BUILD_TIMESTAMP || Date.now().toString()
+    );
     res.setHeader('Content-Type', 'application/javascript');
     res.setHeader('Service-Worker-Allowed', '/');
-    res.sendFile(path.join(PUBLIC_DIR, 'service-worker.js'));
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.send(swContent);
 });
+
+const staticAssetOptions = {
+    index: false,
+    etag: true,
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+        } else if (filePath.match(/\.(js|css)$/)) {
+            res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
+        } else if (filePath.match(/\.(png|jpg|jpeg|gif|svg|ico|webp)$/)) {
+            res.setHeader('Cache-Control', 'public, max-age=604800');
+        }
+    }
+};
 
 // Static assets — public/ (optional shared assets) then client/ storefront root
 if (fs.existsSync(PUBLIC_DIR)) {
-    app.use(express.static(PUBLIC_DIR, { index: false }));
+    app.use(express.static(PUBLIC_DIR, staticAssetOptions));
 }
-app.use(express.static(CLIENT_DIR, { index: false }));
+app.use(express.static(CLIENT_DIR, staticAssetOptions));
 
 /********************************************************************
  # 404 NOT FOUND HANDLER (🌟 নতুন: ভুল ইউআরএল হ্যান্ডেল করার জন্য)

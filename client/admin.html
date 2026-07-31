@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Super Admin Panel | EonlineBazar</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,16 +22,27 @@
     <link rel="stylesheet" href="/css/admin.css">
     <link rel="stylesheet" href="/css/footer.css">
     <link rel="stylesheet" href="/css/cms-page.css">
+    <script src="/js/admin-pagination.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 
     <script>
     if (!localStorage.getItem('adminToken')) {
         window.location.replace("/admin-login");
     }
+    // Admin panel should never rely on stale service worker cache
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+            registrations.forEach(reg => reg.update());
+        });
+    }
     </script>
 </head>
 
 <body>
+
+<div id="sandbox-banner" style="display:none">
+  🧪 SANDBOX MODE ACTIVE — All orders are test orders
+</div>
 
 <div class="admin-container">
 
@@ -184,7 +198,7 @@
                         <div class="admin-notif-dropdown" id="adminNotifDropdown" hidden>
                             <div class="admin-notif-dropdown-head">
                                 <strong>Notifications</strong>
-                                <button type="button" id="adminNotifMarkAllRead" class="admin-notif-mark-read">সব পড়েছি</button>
+                                <button type="button" id="adminNotifMarkAllRead" class="admin-notif-mark-read">Mark all read</button>
                             </div>
                             <div class="admin-notif-dropdown-list" id="adminNotifDropdownList">
                                 <p class="admin-notif-empty">No notifications yet</p>
@@ -361,6 +375,12 @@
                 <div class="table-container customers-table-container">
                     <div class="table-header customers-table-header">
                         <h3 id="table-title">All Registered Customers</h3>
+                        <div class="customers-toolbar">
+                            <div class="search-box customers-search-box">
+                                <span class="search-icon" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                <input type="search" id="customerSearchInput" placeholder="Search by name, email, phone, or ID..." autocomplete="off" aria-label="Search customers">
+                            </div>
+                        </div>
                         <div class="customer-segment-tabs" id="customerSegmentTabs">
                             <button type="button" class="segment-tab active" data-segment="all">All Customers</button>
                             <button type="button" class="segment-tab" data-segment="vip">👑 VIP / Top Buyers</button>
@@ -371,6 +391,9 @@
                         <table class="data-table customers-table">
                             <thead class="customers-table-head">
                                 <tr>
+                                    <th class="customers-th customers-th--check no-print">
+                                        <input type="checkbox" id="customers-select-all" onchange="toggleSelectAllCustomers(this)" aria-label="Select all customers on this page">
+                                    </th>
                                     <th class="customers-th">User ID</th>
                                     <th class="customers-th">Full Name</th>
                                     <th class="customers-th">Email Address</th>
@@ -383,9 +406,36 @@
                                 </tr>
                             </thead>
                             <tbody id="customerTableBody" class="customers-table-body">
-                                <tr><td colspan="9" class="loading-container"><div class="spinner"></div><p>Loading customers...</p></td></tr>
+                                <tr><td colspan="10" class="loading-container"><div class="spinner"></div><p>Loading customers...</p></td></tr>
                             </tbody>
                         </table>
+                    </div>
+                    <div class="customers-bulk-toolbar" id="customers-bulk-toolbar" style="display:none">
+                        <span id="customers-selected-count">0 selected</span>
+                    </div>
+                    <div class="apg-wrapper no-print">
+                        <div class="apg-left">
+                            Show
+                            <select class="apg-limit-select" id="customer-pg-limit"
+                                    onchange="customerPg.changeLimit(this.value)">
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                            </select>
+                            entries &nbsp;|&nbsp;
+                            <span class="apg-info" id="customer-pg-info"></span>
+                        </div>
+                        <div class="apg-center" id="customer-pg-btns"></div>
+                        <div class="apg-right">
+                            Go to:
+                            <input type="number" class="apg-jump-input" id="customer-pg-jump" min="1"
+                                   onkeydown="if(event.key==='Enter') customerPg.goTo(+this.value)">
+                            <button type="button" class="apg-btn"
+                                    onclick="customerPg.goTo(+document.getElementById('customer-pg-jump').value)">
+                                Go
+                            </button>
+                            <span class="apg-info">Total: <strong id="customer-total-count">0</strong></span>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -415,6 +465,11 @@
 
         <div class="orders-toolbar">
             <div class="toolbar-left">
+                <div class="order-sandbox-filter" role="group" aria-label="Order data filter">
+                    <button type="button" class="sandbox-filter-btn active" data-sandbox-filter="all" onclick="setOrderSandboxFilter('all')">All Orders</button>
+                    <button type="button" class="sandbox-filter-btn" data-sandbox-filter="live" onclick="setOrderSandboxFilter('live')">Live Only</button>
+                    <button type="button" class="sandbox-filter-btn" data-sandbox-filter="test" onclick="setOrderSandboxFilter('test')">Test Only</button>
+                </div>
                 <div class="search-box">
                     <span class="search-icon" aria-hidden="true">🔍</span>
                     <input type="text" id="order-search" placeholder="Search by Order ID or Phone..." oninput="debounceSearch()">
@@ -474,22 +529,28 @@
             </table>
         </div>
 
-        <div class="orders-pagination-bar">
-            <div class="pg-left">
-                <span>Show</span>
-                <select id="orderItemsPerPage" onchange="changeOrderPageSize()">
+        <div class="apg-wrapper orders-pagination-bar">
+            <div class="apg-left">
+                Show
+                <select class="apg-limit-select" id="order-pg-limit"
+                        onchange="orderPg.changeLimit(this.value)">
                     <option value="10">10</option>
                     <option value="25">25</option>
                     <option value="50">50</option>
                 </select>
-                <span>entries</span>
-                <span class="pg-info" id="order-pagination-info">Showing 0 orders</span>
+                entries &nbsp;|&nbsp;
+                <span class="apg-info" id="order-pg-info"></span>
             </div>
-            <div class="pg-center" id="dynamic-order-pages"></div>
-            <div class="pg-right">
-                <span>Go to:</span>
-                <input type="number" id="order-jump-page" min="1" class="order-jump-input" aria-label="Jump to page">
-                <button type="button" class="pg-btn" onclick="jumpToOrderPage()">Go</button>
+            <div class="apg-center" id="order-pg-btns"></div>
+            <div class="apg-right">
+                Go to:
+                <input type="number" class="apg-jump-input" id="order-pg-jump" min="1"
+                       onkeydown="if(event.key==='Enter') orderPg.goTo(+this.value)">
+                <button type="button" class="apg-btn"
+                        onclick="orderPg.goTo(+document.getElementById('order-pg-jump').value)">
+                    Go
+                </button>
+                <span class="apg-info">Total: <strong id="order-total-count">0</strong></span>
             </div>
         </div>
     </div>
@@ -716,7 +777,30 @@
         </table>
     </div>
 
-    <div class="newsletter-pagination" id="nlSubscriberPagination"></div>
+    <div class="apg-wrapper">
+        <div class="apg-left">
+            Show
+            <select class="apg-limit-select" id="subscriber-pg-limit"
+                    onchange="subscriberPg.changeLimit(this.value)">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+            </select>
+            entries &nbsp;|&nbsp;
+            <span class="apg-info" id="subscriber-pg-info"></span>
+        </div>
+        <div class="apg-center" id="subscriber-pg-btns"></div>
+        <div class="apg-right">
+            Go to:
+            <input type="number" class="apg-jump-input" id="subscriber-pg-jump" min="1"
+                   onkeydown="if(event.key==='Enter') subscriberPg.goTo(+this.value)">
+            <button type="button" class="apg-btn"
+                    onclick="subscriberPg.goTo(+document.getElementById('subscriber-pg-jump').value)">
+                Go
+            </button>
+            <span class="apg-info">Total: <strong id="subscriber-total-count">0</strong></span>
+        </div>
+    </div>
 </section>
 
 <section id="view-newsletter-campaigns" class="admin-section catalog-page" style="display: none;">
@@ -785,6 +869,31 @@
             </thead>
             <tbody id="nlCampaignTableBody"></tbody>
         </table>
+    </div>
+
+    <div class="apg-wrapper">
+        <div class="apg-left">
+            Show
+            <select class="apg-limit-select" id="campaign-pg-limit"
+                    onchange="campaignPg.changeLimit(this.value)">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+            </select>
+            entries &nbsp;|&nbsp;
+            <span class="apg-info" id="campaign-pg-info"></span>
+        </div>
+        <div class="apg-center" id="campaign-pg-btns"></div>
+        <div class="apg-right">
+            Go to:
+            <input type="number" class="apg-jump-input" id="campaign-pg-jump" min="1"
+                   onkeydown="if(event.key==='Enter') campaignPg.goTo(+this.value)">
+            <button type="button" class="apg-btn"
+                    onclick="campaignPg.goTo(+document.getElementById('campaign-pg-jump').value)">
+                Go
+            </button>
+            <span class="apg-info">Total: <strong id="campaign-total-count">0</strong></span>
+        </div>
     </div>
 
     <div id="nlCampaignViewModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="nlCampaignViewTitle">
@@ -889,6 +998,11 @@
                         <label>Stock Qty</label>
                         <input type="number" id="prodStock" placeholder="50" required>
                     </div>
+                    <div class="form-group">
+                        <label>Low Stock Threshold</label>
+                        <input type="number" id="prodLowStockThreshold" placeholder="10" min="0" value="10">
+                        <small class="field-hint">Alert when stock falls below this level.</small>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -898,12 +1012,12 @@
 
                 <div class="form-group">
                     <label>Detailed Description</label>
-                    <textarea id="prodDetailedDesc" rows="4" placeholder="প্রোডাক্টের বিস্তারিত বিবরণ এখানে লিখুন..."></textarea>
+                    <textarea id="prodDetailedDesc" rows="4" placeholder="Enter a detailed product description here..."></textarea>
                 </div>
 
                 <div class="form-group" style="margin-bottom: 0;">
                     <label>Highlights (Comma separated)</label>
-                    <textarea id="prodHighlights" rows="2" placeholder="যেমন: তাজা, শক্তিশালী, ১০০% খাঁটি, প্রিমিয়াম কোয়ালিটি"></textarea>
+                    <textarea id="prodHighlights" rows="2" placeholder="e.g. Fresh, Premium Quality, 100% Authentic"></textarea>
                 </div>
 
                 <!-- Variant matrix: Simple Product vs Combination Variant Product -->
@@ -1108,34 +1222,30 @@
     </div>
     </div><!-- /products-print-area -->
 
-    <div class="pagination-footer-wrapper no-print">
-        
-        <div class="page-size-controller">
-            <label for="itemsPerPage">Show</label>
-            <select id="itemsPerPage" onchange="changePageSize()">
+    <div class="apg-wrapper no-print">
+        <div class="apg-left">
+            Show
+            <select class="apg-limit-select" id="product-pg-limit"
+                    onchange="productPg.changeLimit(this.value)">
                 <option value="10">10</option>
                 <option value="25">25</option>
                 <option value="50">50</option>
                 <option value="100">100</option>
             </select>
-            <span>entries</span>
+            entries &nbsp;|&nbsp;
+            <span class="apg-info" id="product-pg-info"></span>
         </div>
-
-        <div class="pagination-info-text">
-            Showing <span id="page-start-idx">0</span> to <span id="page-end-idx">0</span> of <span id="page-total-entries">0</span> entries
-        </div>
-
-        <div class="pagination-navigation-buttons">
-            <button type="button" class="page-nav-btn" id="btn-prev-page" onclick="goToPreviousPage()">
-                <i class="fa-solid fa-angle-left"></i> Previous
+        <div class="apg-center" id="product-pg-btns"></div>
+        <div class="apg-right">
+            Go to:
+            <input type="number" class="apg-jump-input" id="product-pg-jump" min="1"
+                   onkeydown="if(event.key==='Enter') productPg.goTo(+this.value)">
+            <button type="button" class="apg-btn"
+                    onclick="productPg.goTo(+document.getElementById('product-pg-jump').value)">
+                Go
             </button>
-            <div id="dynamic-page-numbers" class="page-numbers-container">
-                </div>
-            <button type="button" class="page-nav-btn" id="btn-next-page" onclick="goToNextPage()">
-                Next <i class="fa-solid fa-angle-right"></i>
-            </button>
+            <span class="apg-info">Total: <strong id="product-total-count">0</strong></span>
         </div>
-
     </div>
 
 </section>
@@ -1146,43 +1256,43 @@
         <div class="modal-header">
             <div>
                 <h3 id="bulkImportModalTitle">Bulk Product Import</h3>
-                <p class="edit-modal-subtitle">CSV বা Excel ফাইল দিয়ে একসাথে অনেক পণ্য যোগ করুন</p>
+                <p class="edit-modal-subtitle">Add many products at once using a CSV or Excel file</p>
             </div>
             <button type="button" class="close-icon-btn" onclick="closeBulkImportModal()" aria-label="Close bulk import modal"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
         <div class="modal-body bulk-import-body">
             <div class="bulk-import-step">
-                <h4><span class="bulk-step-num">১</span> প্রথমে টেমপ্লেট ডাউনলোড করুন</h4>
-                <p class="bulk-step-desc">সঠিক কলাম ফরম্যাট দেখতে টেমপ্লেট ডাউনলোড করুন এবং সেখানে আপনার পণ্যের তথ্য পূরণ করুন।</p>
+                <h4><span class="bulk-step-num">1</span> Download the template first</h4>
+                <p class="bulk-step-desc">Download the template to see the correct column format, then fill in your product data.</p>
                 <button type="button" id="btn-download-import-template" class="action-btn-secondary">
-                    <i class="fa-solid fa-download"></i> টেমপ্লেট ডাউনলোড
+                    <i class="fa-solid fa-download"></i> Download Template
                 </button>
             </div>
 
             <div class="bulk-import-step">
-                <h4><span class="bulk-step-num">২</span> ফাইল নির্বাচন করুন</h4>
+                <h4><span class="bulk-step-num">2</span> Select your file</h4>
                 <div id="bulkImportDropZone" class="bulk-import-dropzone" tabindex="0">
                     <i class="fa-solid fa-cloud-arrow-up"></i>
-                    <p>এখানে CSV / Excel ফাইল টেনে আনুন</p>
-                    <span>অথবা ক্লিক করে ফাইল বেছে নিন (.csv, .xlsx, .xls)</span>
+                    <p>Drag &amp; drop your CSV / Excel file here</p>
+                    <span>or click to browse (.csv, .xlsx, .xls)</span>
                     <input type="file" id="bulkImportFileInput" accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
                 </div>
                 <p id="bulkImportSelectedFile" class="bulk-import-filename" hidden></p>
             </div>
 
             <div class="bulk-import-step" id="bulkImportUploadStep">
-                <h4><span class="bulk-step-num">৩</span> আপলোড ও ইমপোর্ট</h4>
+                <h4><span class="bulk-step-num">3</span> Upload &amp; import</h4>
                 <button type="button" id="btn-bulk-import-submit" class="btn-primary" disabled>
-                    <i class="fa-solid fa-upload"></i> আপলোড করুন
+                    <i class="fa-solid fa-upload"></i> Upload
                 </button>
                 <div id="bulkImportLoading" class="bulk-import-loading" hidden>
-                    <i class="fa-solid fa-spinner fa-spin"></i> আপলোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...
+                    <i class="fa-solid fa-spinner fa-spin"></i> Uploading, please wait...
                 </div>
             </div>
 
             <div id="bulkImportResults" class="bulk-import-results" hidden>
-                <h4><span class="bulk-step-num">৪</span> ফলাফল</h4>
+                <h4><span class="bulk-step-num">4</span> Results</h4>
                 <div class="bulk-import-summary-card">
                     <p id="bulkImportSummaryInserted"><i class="fa-solid fa-circle-check text-success"></i> <span></span></p>
                     <p id="bulkImportSummarySkipped"><i class="fa-solid fa-triangle-exclamation text-warning"></i> <span></span></p>
@@ -1190,14 +1300,14 @@
                 </div>
 
                 <details id="bulkImportInvalidDetails" class="bulk-import-invalid-details" hidden>
-                    <summary>এড়িয়ে যাওয়া সারির তালিকা দেখুন</summary>
+                    <summary>View skipped rows</summary>
                     <div class="table-responsive-container">
                         <table class="ultra-admin-table bulk-import-error-table">
                             <thead>
                                 <tr>
-                                    <th>সারি</th>
-                                    <th>পণ্যের নাম</th>
-                                    <th>সমস্যা</th>
+                                    <th>Row</th>
+                                    <th>Product Name</th>
+                                    <th>Issue</th>
                                 </tr>
                             </thead>
                             <tbody id="bulkImportInvalidBody"></tbody>
@@ -1206,7 +1316,7 @@
                 </details>
 
                 <button type="button" id="btn-bulk-import-retry" class="action-btn-secondary">
-                    <i class="fa-solid fa-rotate-right"></i> আবার চেষ্টা করুন
+                    <i class="fa-solid fa-rotate-right"></i> Try Again
                 </button>
             </div>
         </div>
@@ -1289,7 +1399,7 @@
 
                 <div class="form-group edit-modal-field edit-modal-field--full">
                     <label for="editHighlights">Highlights (Comma separated)</label>
-                    <textarea id="editHighlights" name="highlights" rows="2" placeholder="যেমন: তাজা, শক্তিশালী, স্বাস্থ্যকর"></textarea>
+                    <textarea id="editHighlights" name="highlights" rows="2" placeholder="e.g. Fresh, Premium Quality, Healthy"></textarea>
                 </div>
             </div>
 
@@ -1424,6 +1534,30 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="apg-wrapper no-print">
+                    <div class="apg-left">
+                        Show
+                        <select class="apg-limit-select" id="security-pg-limit"
+                                onchange="securityPg.changeLimit(this.value)">
+                            <option value="10">10</option>
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                        </select>
+                        entries &nbsp;|&nbsp;
+                        <span class="apg-info" id="security-pg-info"></span>
+                    </div>
+                    <div class="apg-center" id="security-pg-btns"></div>
+                    <div class="apg-right">
+                        Go to:
+                        <input type="number" class="apg-jump-input" id="security-pg-jump" min="1"
+                               onkeydown="if(event.key==='Enter') securityPg.goTo(+this.value)">
+                        <button type="button" class="apg-btn"
+                                onclick="securityPg.goTo(+document.getElementById('security-pg-jump').value)">
+                            Go
+                        </button>
+                        <span class="apg-info">Total: <strong id="security-total-count">0</strong></span>
+                    </div>
+                </div>
             </section>
 
 
@@ -1434,7 +1568,7 @@
                         <p class="section-subtitle">Every device currently signed into this admin account. Revoke access instantly.</p>
                     </div>
                     <div class="sessions-header-actions no-print">
-                        <button type="button" class="btn-danger-soft" onclick="logoutOtherAdminSessions()">
+                        <button type="button" id="admin-logout-all-btn" class="btn-danger-soft" onclick="logoutOtherAdminSessions()">
                             <i class="fa-solid fa-power-off"></i> Log Out All Other Devices
                         </button>
                         <button type="button" class="btn-secondary" onclick="fetchAdminSessions()">
@@ -1515,6 +1649,23 @@
                                 <tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading login history...</p></td></tr>
                             </tbody>
                         </table>
+                    </div>
+                    <div class="apg-wrapper no-print">
+                        <div class="apg-left">
+                            Show
+                            <select class="apg-limit-select" id="audit-pg-limit"
+                                    onchange="auditPg.changeLimit(this.value)">
+                                <option value="25" selected>25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                            entries &nbsp;|&nbsp;
+                            <span class="apg-info" id="audit-pg-info"></span>
+                        </div>
+                        <div class="apg-center" id="audit-pg-btns"></div>
+                        <div class="apg-right">
+                            <span id="audit-total-count" class="count-badge">0</span> total events
+                        </div>
                     </div>
                 </div>
 
@@ -1694,16 +1845,41 @@
                         <small class="field-hint">Automated booking is live for <strong>Steadfast</strong>, <strong>Pathao</strong>, and <strong>RedX</strong> when credentials are configured.</small>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group" id="courierSteadfastFields">
                         <label for="courierApiKey">Courier API Key</label>
                         <input type="text" id="courierApiKey" placeholder="Paste your Steadfast Api-Key" autocomplete="off">
                         <small class="field-hint">Sent as the <code>Api-Key</code> header. Find it in your Steadfast merchant portal under API settings.</small>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group" id="courierSteadfastSecretField">
                         <label for="courierSecretKey">Courier Secret Key</label>
                         <input type="password" id="courierSecretKey" placeholder="Paste your Steadfast Secret-Key" autocomplete="new-password">
                         <small class="field-hint">Sent as the <code>Secret-Key</code> header. Masked here for safety — retype it to change it.</small>
+                    </div>
+
+                    <div class="form-group form-group-full" id="courierPathaoEnvPanel" style="display:none;">
+                        <label>Pathao API credentials (.env)</label>
+                        <div class="master-settings-preview" style="margin:0;">
+                            <p style="margin:0 0 8px;font-size:0.85rem;color:#64748b;">Pathao booking reads from server environment variables. Set these in your <code>.env</code> file:</p>
+                            <ul style="margin:0;padding-left:1.25rem;font-size:0.82rem;color:#475569;line-height:1.6;">
+                                <li><code>PATHAO_CLIENT_ID</code>, <code>PATHAO_CLIENT_SECRET</code></li>
+                                <li><code>PATHAO_USERNAME</code>, <code>PATHAO_PASSWORD</code></li>
+                                <li><code>PATHAO_STORE_ID</code></li>
+                                <li><code>PATHAO_IS_LIVE=true</code> for production API</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="form-group form-group-full" id="courierRedxEnvPanel" style="display:none;">
+                        <label>RedX API credentials (.env)</label>
+                        <div class="master-settings-preview" style="margin:0;">
+                            <p style="margin:0 0 8px;font-size:0.85rem;color:#64748b;">RedX booking reads from server environment variables. Set these in your <code>.env</code> file:</p>
+                            <ul style="margin:0;padding-left:1.25rem;font-size:0.82rem;color:#475569;line-height:1.6;">
+                                <li><code>REDX_API_TOKEN</code></li>
+                                <li><code>REDX_PICKUP_STORE_ID</code> (optional)</li>
+                                <li><code>REDX_IS_LIVE=true</code> for production API</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
 
@@ -2112,8 +2288,38 @@
                     </button>
                 </div>
             </div>
+            <div class="messages-bulk-toolbar" id="messages-bulk-toolbar">
+                <span id="messages-selected-count">0 selected</span>
+                <button type="button" class="danger-btn-sm" onclick="bulkDeleteMessages()">
+                    <i class="fa-solid fa-trash-can"></i> Delete Selected
+                </button>
+            </div>
             <div id="messagesInboxList" class="support-inbox-list" role="listbox" aria-label="Inquiries">
                 <div class="support-inbox-list-loading text-center"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+            <div class="apg-wrapper support-inbox-pg">
+                <div class="apg-left">
+                    Show
+                    <select class="apg-limit-select" id="message-pg-limit"
+                            onchange="messagePg.changeLimit(this.value)">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select>
+                    entries &nbsp;|&nbsp;
+                    <span class="apg-info" id="message-pg-info"></span>
+                </div>
+                <div class="apg-center" id="message-pg-btns"></div>
+                <div class="apg-right">
+                    Go to:
+                    <input type="number" class="apg-jump-input" id="message-pg-jump" min="1"
+                           onkeydown="if(event.key==='Enter') messagePg.goTo(+this.value)">
+                    <button type="button" class="apg-btn"
+                            onclick="messagePg.goTo(+document.getElementById('message-pg-jump').value)">
+                        Go
+                    </button>
+                    <span class="apg-info">Total: <strong id="message-total-count">0</strong></span>
+                </div>
             </div>
         </aside>
 
@@ -2505,6 +2711,50 @@
                                                 <input type="text" inputmode="numeric" maxlength="6" id="twofaVerifyCode" class="saas-input" placeholder="123456">
                                                 <button type="button" class="btn-submit btn-compact" id="twofaVerifyTotpBtn"><i class="fa-solid fa-check"></i> Verify &amp; Activate</button>
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-card sandbox-card" data-superadmin-only="true" style="display:none;">
+                                <div class="sandbox-header">
+                                    <div>
+                                        <h3>🧪 Sandbox Mode</h3>
+                                        <p>Test your store without affecting real data. All orders placed in sandbox are marked as test orders.</p>
+                                    </div>
+                                    <div class="sandbox-toggle-wrap">
+                                        <label class="toggle-switch" id="sandbox-toggle-label">
+                                            <input type="checkbox" id="sandbox-toggle" onchange="toggleSandboxMode(this.checked)">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                        <span id="sandbox-status-text" class="sandbox-status-off">OFF — Live Mode</span>
+                                    </div>
+                                </div>
+
+                                <div class="sandbox-stats" id="sandbox-stats">
+                                    <div class="sandbox-stat">
+                                        <span class="sandbox-stat-label">🧪 Test Orders</span>
+                                        <span class="sandbox-stat-val" id="sandbox-order-count">—</span>
+                                    </div>
+                                    <div class="sandbox-stat">
+                                        <span class="sandbox-stat-label">📦 Real Orders</span>
+                                        <span class="sandbox-stat-val" id="real-order-count">—</span>
+                                    </div>
+                                </div>
+
+                                <div class="sandbox-actions">
+                                    <div class="sandbox-action-card test">
+                                        <h4>🗑️ Reset Test Data</h4>
+                                        <p>Delete all sandbox/test orders. No password needed. Real orders are NOT affected.</p>
+                                        <button type="button" class="btn-reset-test" onclick="resetTestData()">Clear Test Orders</button>
+                                    </div>
+
+                                    <div class="sandbox-action-card real">
+                                        <h4>⚠️ Reset Real Data</h4>
+                                        <p>Delete real orders. Requires confirmation key. Use only when starting fresh before launch.</p>
+                                        <div class="reset-real-row">
+                                            <input type="password" id="real-reset-key" placeholder="Enter confirmation key...">
+                                            <button type="button" class="btn-reset-real" onclick="resetRealData()">Reset Real Orders</button>
                                         </div>
                                     </div>
                                 </div>

@@ -163,6 +163,11 @@ const orderSchema = new mongoose.Schema({
         default: 'online'
     },
     createdByAdmin: { type: String, default: '', trim: true },
+    isSandbox: {
+        type: Boolean,
+        default: false,
+        index: true
+    },
     createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 

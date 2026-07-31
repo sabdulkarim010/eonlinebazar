@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Payment Reconciliation | EonlineBazar</title>
+  <link rel="stylesheet" href="/css/admin.css">
+  <script src="/js/admin-pagination.js"></script>
   <style>
     /* PASTE THE COMPLETE CSS HERE — all styles inline */
     
@@ -537,22 +539,27 @@
     </table>
   </div>
 
-  <div class="pagination-bar">
-    <div class="pg-left">
+  <div class="apg-wrapper">
+    <div class="apg-left">
       <span>Show</span>
-      <select onchange="changeLimit(this.value)" id="limit-select">
+      <select class="apg-limit-select" onchange="reconPg.changeLimit(this.value)" id="recon-pg-limit">
         <option value="10">10</option>
         <option value="25">25</option>
         <option value="50">50</option>
       </select>
       <span>entries</span>
-      <span class="pg-info" id="page-info">Showing 0 orders</span>
+      <span class="apg-info" id="recon-pg-info"></span>
     </div>
-    <div class="pg-center" id="page-buttons"></div>
-    <div class="pg-right">
+    <div class="apg-center" id="recon-pg-btns"></div>
+    <div class="apg-right">
       <span>Go to:</span>
-      <input type="number" id="jump-page" min="1" style="width:60px">
-      <button class="pg-btn" onclick="jumpToPage()">Go</button>
+      <input type="number" class="apg-jump-input" id="recon-pg-jump" min="1"
+             onkeydown="if(event.key==='Enter') reconPg.goTo(+this.value)">
+      <button type="button" class="apg-btn"
+              onclick="reconPg.goTo(+document.getElementById('recon-pg-jump').value)">
+        Go
+      </button>
+      <span class="apg-info">Total: <strong id="recon-total-count">0</strong></span>
     </div>
   </div>
 </div>

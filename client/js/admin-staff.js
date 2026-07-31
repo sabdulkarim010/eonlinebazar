@@ -152,6 +152,11 @@ function applyRoleToSidebar() {
         item.style.display = isSuperAdmin() ? '' : 'none';
     });
 
+    document.querySelectorAll('[data-superadmin-only="true"]').forEach(el => {
+        if (el.tagName === 'LI' && el.closest('.sidebar-menu')) return;
+        el.style.display = isSuperAdmin() ? '' : 'none';
+    });
+
     nav.querySelectorAll('li[data-target]').forEach(item => {
         if (item.dataset.superadminOnly === 'true') return;
 

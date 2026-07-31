@@ -1,6 +1,7 @@
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const User = require('../models/user');
+const { isSandboxMode } = require('../utils/sandboxService');
 
 function splitDisplayName(displayName) {
     const parts = String(displayName || 'User').trim().split(/\s+/).filter(Boolean);
@@ -59,6 +60,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                     }
 
                     const { firstName, lastName } = splitDisplayName(displayName);
+                    const inSandbox = await isSandboxMode();
 
                     user = await User.create({
                         firstName,
@@ -70,7 +72,8 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                         isVerified: true,
                         accountStatus: 'active',
                         mobile: null,
-                        password: null
+                        password: null,
+                        isSandbox: inSandbox
                     });
 
                     return done(null, user);

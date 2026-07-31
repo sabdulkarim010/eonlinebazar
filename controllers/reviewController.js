@@ -139,7 +139,8 @@ exports.addOrUpdateReview = async (req, res) => {
                 orderId,
                 rating: Number(rating),
                 comment,
-                photo: photoUrl
+                photo: photoUrl,
+                isSandbox: !!order.isSandbox
             });
             await newReview.save();
 

@@ -188,6 +188,11 @@ const userSchema = new mongoose.Schema({
         trim: true
     },
     
+    isSandbox: {
+        type: Boolean,
+        default: false
+    },
+
     createdAt: {
         type: Date,
         default: Date.now

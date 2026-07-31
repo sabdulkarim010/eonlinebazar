@@ -36,6 +36,10 @@ const reviewSchema = new mongoose.Schema({
     photo: {
         type: String, // ছবি আপলোড হলে তার URL বা পাথ এখানে সেভ হবে
         default: ''
+    },
+    isSandbox: {
+        type: Boolean,
+        default: false
     }
 }, { timestamps: true });
 

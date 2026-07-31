@@ -16,6 +16,24 @@
     let currentOrders = [];
     let activeProofOrderId = null;
     let activeMarkPaidOrderId = null;
+    let reconPg = null;
+
+    function initReconPagination() {
+        if (typeof AdminPagination === 'undefined' || reconPg) return;
+        reconPg = new AdminPagination({
+            containerId: 'recon-pg-btns',
+            infoId: 'recon-pg-info',
+            countId: 'recon-total-count',
+            limitSelectId: 'recon-pg-limit',
+            defaultLimit: 10,
+            onPageChange: (page, limit) => {
+                currentPage = page;
+                currentLimit = limit;
+                loadData();
+            }
+        });
+        window.reconPg = reconPg;
+    }
 
     const $ = (id) => document.getElementById(id);
 
@@ -204,73 +222,42 @@
         if (el) el.textContent = `${count} order${count !== 1 ? 's' : ''}`;
     }
 
-    function getPageNumbers(current, total) {
-        if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-
-        const pages = [];
-        if (current <= 4) {
-            pages.push(1, 2, 3, 4, 5, '...', total);
-        } else if (current >= total - 3) {
-            pages.push(1, '...', total - 4, total - 3, total - 2, total - 1, total);
-        } else {
-            pages.push(1, '...', current - 1, current, current + 1, '...', total);
+    function updatePagination(pagination) {
+        initReconPagination();
+        currentPage = pagination?.page || currentPage;
+        totalPages = pagination?.totalPages || 1;
+        totalOrders = pagination?.total ?? totalOrders;
+        if (currentPage > totalPages && totalPages > 0) {
+            currentPage = totalPages;
         }
-        return pages;
-    }
-
-    function renderPagination() {
-        const start = totalOrders === 0 ? 0 : (currentPage - 1) * currentLimit + 1;
-        const end = Math.min(currentPage * currentLimit, totalOrders);
-
-        $('page-info').textContent = totalOrders === 0
-            ? 'Showing 0 orders'
-            : `Showing ${start}-${end} of ${totalOrders} orders`;
-
-        $('table-count').textContent = `${totalOrders} order${totalOrders !== 1 ? 's' : ''}`;
-
-        const container = $('page-buttons');
-        let html = '';
-
-        html += `<button class="pg-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="goToPage(${currentPage - 1})">← Prev</button>`;
-
-        const pages = getPageNumbers(currentPage, totalPages);
-        pages.forEach((p) => {
-            if (p === '...') {
-                html += '<span class="pg-dots">...</span>';
-            } else {
-                html += `<button class="pg-btn ${p === currentPage ? 'active' : ''}" onclick="goToPage(${p})">${p}</button>`;
-            }
-        });
-
-        html += `<button class="pg-btn" ${currentPage === totalPages || totalPages === 0 ? 'disabled' : ''} onclick="goToPage(${currentPage + 1})">Next →</button>`;
-
-        container.innerHTML = html;
-
-        const jumpInput = $('jump-page');
-        if (jumpInput) {
-            jumpInput.max = totalPages || 1;
-            jumpInput.value = '';
+        if (reconPg) {
+            reconPg.currentPage = currentPage;
+            reconPg.currentLimit = currentLimit;
+            reconPg.setTotal(totalOrders);
         }
-
-        const limitSelect = $('limit-select');
-        if (limitSelect) limitSelect.value = String(currentLimit);
     }
 
     function goToPage(page) {
-        if (page < 1 || page > totalPages) return;
-        currentPage = page;
-        loadData();
+        if (reconPg) reconPg.goTo(page);
+        else if (page >= 1 && page <= totalPages) {
+            currentPage = page;
+            loadData();
+        }
     }
 
     function changeLimit(val) {
-        currentLimit = parseInt(val, 10) || 10;
-        currentPage = 1;
-        loadData();
+        if (reconPg) reconPg.changeLimit(val);
+        else {
+            currentLimit = parseInt(val, 10) || 10;
+            currentPage = 1;
+            loadData();
+        }
     }
 
     function jumpToPage() {
-        const val = parseInt($('jump-page')?.value, 10);
-        if (val >= 1 && val <= totalPages) goToPage(val);
+        const val = parseInt($('recon-pg-jump')?.value, 10);
+        if (reconPg) reconPg.goTo(val);
+        else if (val >= 1 && val <= totalPages) goToPage(val);
     }
 
     function toggleSelectAll(cb) {
@@ -304,7 +291,8 @@
             if (data.success) {
                 showAlert(`${data.deleted ?? selected.length} orders deleted`, 'ok');
                 clearSelection();
-                loadData();
+                if (reconPg) reconPg.stayOnPage();
+                else loadData();
             } else {
                 showAlert(data.message || 'Delete failed', 'err');
             }
@@ -337,17 +325,8 @@
         $('stat-cod').textContent = summary.codCount ?? 0;
     }
 
-    function updatePagination(pagination) {
-        currentPage = pagination?.page || currentPage;
-        totalPages = pagination?.totalPages || 1;
-        totalOrders = pagination?.total ?? totalOrders;
-        if (currentPage > totalPages && totalPages > 0) {
-            currentPage = totalPages;
-        }
-        renderPagination();
-    }
-
     async function loadData() {
+        initReconPagination();
         const token = getToken();
         if (!token) {
             window.location.href = '/admin-login?redirect=' + encodeURIComponent(window.location.pathname);
@@ -559,6 +538,7 @@
 
     function applyFilters() {
         currentPage = 1;
+        if (reconPg) reconPg.resetPage();
         loadData();
     }
 
@@ -606,7 +586,6 @@
     window.goToPage = goToPage;
     window.changeLimit = changeLimit;
     window.jumpToPage = jumpToPage;
-    window.renderPagination = renderPagination;
     window.toggleSelectAll = toggleSelectAll;
     window.updateBulkToolbar = updateBulkToolbar;
     window.bulkDelete = bulkDelete;
@@ -621,6 +600,7 @@
     window.submitMarkPaid = confirmMarkPaid;
 
     document.addEventListener('DOMContentLoaded', () => {
+        initReconPagination();
         initDefaultDates();
         bindModalBackdropClose();
         loadData();

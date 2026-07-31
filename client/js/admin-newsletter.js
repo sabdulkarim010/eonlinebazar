@@ -33,16 +33,52 @@ function nlFormatDate(dateVal) {
     });
 }
 
-let nlSubscriberPage = 1;
 let nlCampaignsCache = [];
+let subscriberPg = null;
+let campaignPg = null;
 
-async function fetchNewsletterSubscribers(page = nlSubscriberPage) {
-    nlSubscriberPage = page;
+function initNewsletterPagination() {
+    if (typeof AdminPagination === 'undefined') return;
+
+    if (!subscriberPg && document.getElementById('subscriber-pg-btns')) {
+        subscriberPg = new AdminPagination({
+            containerId: 'subscriber-pg-btns',
+            infoId: 'subscriber-pg-info',
+            countId: 'subscriber-total-count',
+            limitSelectId: 'subscriber-pg-limit',
+            defaultLimit: 10,
+            onPageChange: (page, limit) => fetchNewsletterSubscribers(page, limit)
+        });
+        window.subscriberPg = subscriberPg;
+    }
+
+    if (!campaignPg && document.getElementById('campaign-pg-btns')) {
+        campaignPg = new AdminPagination({
+            containerId: 'campaign-pg-btns',
+            infoId: 'campaign-pg-info',
+            countId: 'campaign-total-count',
+            limitSelectId: 'campaign-pg-limit',
+            defaultLimit: 10,
+            onPageChange: (page, limit) => renderCampaignsPage(page, limit)
+        });
+        window.campaignPg = campaignPg;
+    }
+}
+
+async function fetchNewsletterSubscribers(page, limit) {
+    initNewsletterPagination();
+    const pg = subscriberPg;
+    const effectivePage = page ?? pg?.currentPage ?? 1;
+    const effectiveLimit = limit ?? pg?.currentLimit ?? 10;
+
     const search = document.getElementById('nlSubscriberSearch')?.value.trim() || '';
     const isActive = document.getElementById('nlSubscriberStatus')?.value || '';
     const tag = document.getElementById('nlSubscriberTag')?.value.trim() || '';
 
-    const params = new URLSearchParams({ page: String(page), limit: '20' });
+    const params = new URLSearchParams({
+        page: String(effectivePage),
+        limit: String(effectiveLimit)
+    });
     if (search) params.set('search', search);
     if (isActive) params.set('isActive', isActive);
     if (tag) params.set('tag', tag);
@@ -66,62 +102,48 @@ async function fetchNewsletterSubscribers(page = nlSubscriberPage) {
             if (inactiveEl) inactiveEl.textContent = data.stats.totalInactive ?? 0;
         }
 
-        renderNewsletterSubscribers(data.data || [], data.pagination || {});
+        if (pg) {
+            pg.currentPage = effectivePage;
+            pg.currentLimit = effectiveLimit;
+            pg.setTotal(data.pagination?.total ?? (data.data || []).length);
+        }
+
+        renderNewsletterSubscribers(data.data || []);
     } catch (err) {
         console.error(err);
         nlNotify('Failed to load subscribers', 'error');
     }
 }
 
-function renderNewsletterSubscribers(subscribers, pagination) {
+function renderNewsletterSubscribers(subscribers) {
     const tbody = document.getElementById('nlSubscriberTableBody');
     if (!tbody) return;
 
     if (!subscribers.length) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#64748b;padding:24px;">No subscribers found</td></tr>';
-    } else {
-        tbody.innerHTML = subscribers.map((sub) => {
-            const status = sub.isActive
-                ? '<span class="coupon-status-pill coupon-status-pill--active">Active</span>'
-                : '<span class="coupon-status-pill coupon-status-pill--expired">Unsubscribed</span>';
-            return `
-                <tr>
-                    <td>${nlEscapeHtml(sub.email)}</td>
-                    <td>${nlEscapeHtml(sub.name || '—')}</td>
-                    <td>${nlEscapeHtml(sub.source || '—')}</td>
-                    <td>${nlFormatDate(sub.subscribedAt)}</td>
-                    <td>${status}</td>
-                    <td class="col-actions">
-                        <button type="button" class="btn-icon btn-icon--danger" title="Delete"
-                            onclick="deleteNewsletterSubscriber('${sub._id}')">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-    }
-
-    renderNewsletterPagination(pagination);
-}
-
-function renderNewsletterPagination(pagination) {
-    const container = document.getElementById('nlSubscriberPagination');
-    if (!container) return;
-
-    const page = pagination.page || 1;
-    const pages = pagination.pages || 1;
-
-    if (pages <= 1) {
-        container.innerHTML = '';
         return;
     }
 
-    container.innerHTML = `
-        <button type="button" class="btn-secondary" ${page <= 1 ? 'disabled' : ''} onclick="fetchNewsletterSubscribers(${page - 1})">Prev</button>
-        <span>Page ${page} of ${pages}</span>
-        <button type="button" class="btn-secondary" ${page >= pages ? 'disabled' : ''} onclick="fetchNewsletterSubscribers(${page + 1})">Next</button>
-    `;
+    tbody.innerHTML = subscribers.map((sub) => {
+        const status = sub.isActive
+            ? '<span class="coupon-status-pill coupon-status-pill--active">Active</span>'
+            : '<span class="coupon-status-pill coupon-status-pill--expired">Unsubscribed</span>';
+        return `
+            <tr>
+                <td>${nlEscapeHtml(sub.email)}</td>
+                <td>${nlEscapeHtml(sub.name || '—')}</td>
+                <td>${nlEscapeHtml(sub.source || '—')}</td>
+                <td>${nlFormatDate(sub.subscribedAt)}</td>
+                <td>${status}</td>
+                <td class="col-actions">
+                    <button type="button" class="btn-icon btn-icon--danger" title="Delete"
+                        onclick="deleteNewsletterSubscriber('${sub._id}')">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
 }
 
 async function deleteNewsletterSubscriber(id) {
@@ -136,7 +158,8 @@ async function deleteNewsletterSubscriber(id) {
             const data = await res.json();
             if (data.success) {
                 nlNotify('Subscriber deleted');
-                fetchNewsletterSubscribers(nlSubscriberPage);
+                if (subscriberPg) subscriberPg.stayOnPage();
+                else fetchNewsletterSubscribers(1, 10);
             } else {
                 nlNotify(data.message || 'Delete failed', 'error');
             }
@@ -229,11 +252,31 @@ async function fetchNewsletterCampaigns() {
             return;
         }
         nlCampaignsCache = data.data || [];
-        renderNewsletterCampaigns(nlCampaignsCache);
+        initNewsletterPagination();
+        if (campaignPg) campaignPg.stayOnPage();
+        else renderCampaignsPage(1, 10);
     } catch (err) {
         console.error(err);
         nlNotify('Failed to load campaigns', 'error');
     }
+}
+
+function renderCampaignsPage(page, limit) {
+    initNewsletterPagination();
+    const pg = campaignPg;
+    const effectivePage = page ?? pg?.currentPage ?? 1;
+    const effectiveLimit = limit ?? pg?.currentLimit ?? 10;
+
+    const start = (effectivePage - 1) * effectiveLimit;
+    const slice = nlCampaignsCache.slice(start, start + effectiveLimit);
+
+    if (pg) {
+        pg.currentPage = effectivePage;
+        pg.currentLimit = effectiveLimit;
+        pg.setTotal(nlCampaignsCache.length);
+    }
+
+    renderNewsletterCampaigns(slice);
 }
 
 function renderCampaignStatusBadge(status) {
@@ -377,21 +420,38 @@ function closeNlCampaignViewModal() {
 }
 
 function loadNewsletterSubscribersSection() {
-    fetchNewsletterSubscribers(1);
+    initNewsletterPagination();
+    if (subscriberPg) subscriberPg.resetPage();
+    fetchNewsletterSubscribers(1, subscriberPg?.currentLimit || 10);
 }
 
 function loadNewsletterCampaignsSection() {
+    initNewsletterPagination();
     fetchNewsletterCampaigns();
 }
 
 function initNewsletterAdmin() {
-    document.getElementById('nlSubscriberRefreshBtn')?.addEventListener('click', () => fetchNewsletterSubscribers(1));
-    document.getElementById('nlSubscriberSearch')?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') fetchNewsletterSubscribers(1);
+    initNewsletterPagination();
+
+    document.getElementById('nlSubscriberRefreshBtn')?.addEventListener('click', () => {
+        if (subscriberPg) subscriberPg.resetPage();
+        fetchNewsletterSubscribers(1, subscriberPg?.currentLimit || 10);
     });
-    document.getElementById('nlSubscriberStatus')?.addEventListener('change', () => fetchNewsletterSubscribers(1));
+    document.getElementById('nlSubscriberSearch')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            if (subscriberPg) subscriberPg.resetPage();
+            fetchNewsletterSubscribers(1, subscriberPg?.currentLimit || 10);
+        }
+    });
+    document.getElementById('nlSubscriberStatus')?.addEventListener('change', () => {
+        if (subscriberPg) subscriberPg.resetPage();
+        fetchNewsletterSubscribers(1, subscriberPg?.currentLimit || 10);
+    });
     document.getElementById('nlSubscriberTag')?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') fetchNewsletterSubscribers(1);
+        if (e.key === 'Enter') {
+            if (subscriberPg) subscriberPg.resetPage();
+            fetchNewsletterSubscribers(1, subscriberPg?.currentLimit || 10);
+        }
     });
 
     document.getElementById('nlCampaignSaveBtn')?.addEventListener('click', saveNewsletterCampaignDraft);
