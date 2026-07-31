@@ -33,11 +33,17 @@ body {
     color: var(--text-color);
     overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
-    /* Bulletproof sticky footer: body is a full-height vertical flex column
-       so the footer can be pushed to the bottom even with zero content. */
+    /* Sticky footer: full-viewport flex column; footer pinned via margin-top: auto */
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    min-height: 100dvh;
+}
+
+/* Main content grows so short pages still push the footer to the viewport bottom */
+body > main,
+body > .auth-wrapper {
+    flex: 1 0 auto;
 }
 
 /* The footer wrapper is the last in-flow child of <body>. `margin-top: auto`
@@ -145,14 +151,28 @@ header {
 /* Global image logo normalization (header, footer, layout slots) */
 header img[data-store-logo],
 header .store-brand-logo,
-footer img[data-store-logo],
-footer .store-brand-logo,
 .logo-box img,
 .footer-logo-text img,
-[data-store-logo-slot] img {
+[data-store-logo-slot]:not(.footer-logo) img {
     max-height: 36px;
     width: auto;
     object-fit: contain;
+}
+
+/* Footer logo on dark background */
+footer .footer-logo[data-store-logo-slot] {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+footer .footer-logo-shell .footer-logo img[data-store-logo],
+footer .footer-logo-shell .footer-logo .store-brand-logo {
+    max-height: 28px;
+    max-width: 140px;
+    background: transparent !important;
+    filter: none !important;
+    opacity: 1 !important;
 }
 
 /* Dynamic store logo slots (Admin → Store Branding, injected server-side) */

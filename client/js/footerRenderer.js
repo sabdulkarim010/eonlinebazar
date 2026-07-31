@@ -30,8 +30,14 @@
         { name: 'bKash', iconName: 'bkash' },
         { name: 'Nagad', iconName: 'nagad' },
         { name: 'VISA', iconName: 'visa' },
-        { name: 'MC', iconName: 'mastercard' },
         { name: 'COD', iconName: 'cod' }
+    ];
+
+    const ESSENTIAL_QUICK_LINKS = [
+        { label: 'About Us', url: '/about', mobileLabel: 'About Us' },
+        { label: 'Contact Us', url: '/contact', mobileLabel: 'Contact Us' },
+        { label: 'Privacy Policy', url: '/privacy-policy', mobileLabel: 'Privacy' },
+        { label: 'Track Order', url: '/order-track', mobileLabel: 'Track Order' }
     ];
 
     const DEFAULT_COPYRIGHT = '© 2026 EonlineBazar. All rights reserved. Designed by Abdul Karim Sheikh';
@@ -124,6 +130,22 @@
         return escapeFooterHtml(text);
     }
 
+    function formatCopyrightMobileHtml(copyrightText) {
+        const text = String(copyrightText || DEFAULT_COPYRIGHT).trim();
+        const designedByMatch = text.match(/^(.+?)\s+(Designed by\s+)(.+)$/i);
+
+        if (designedByMatch) {
+            const yearMatch = designedByMatch[1].match(/©\s*\d{4}\s+([^.\s]+(?:\s+[^.\s]+)*)/i);
+            const brand = yearMatch ? yearMatch[1] : 'EonlineBazar';
+            const yearMatchFull = designedByMatch[1].match(/©\s*(\d{4})/);
+            const year = yearMatchFull ? yearMatchFull[1] : '2026';
+            const designer = designedByMatch[3].trim();
+            return `© ${escapeFooterHtml(year)} ${escapeFooterHtml(brand)} | Designed by <a href="#">${escapeFooterHtml(designer)}</a>`;
+        }
+
+        return escapeFooterHtml(text);
+    }
+
     /** Normalize admin draft or API payload into storefront shape (active items only). */
     function normalizePublicSettings(settings = {}) {
         const sortByOrder = (a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0);
@@ -170,76 +192,167 @@
         };
     }
 
-    function buildBrandColumnHtml(socialLinks) {
-        const { storeName, logoUrl } = getStoreBranding();
-        const logoSrc = logoUrl || '/images/favicon.png';
-        const socialHtml = socialLinks.length
-            ? `<div class="social-row">${socialLinks.map(renderSocialIcon).join('')}</div>`
-            : '';
+    function collectQuickLinks(columns) {
+        const allLinks = columns.flatMap((col) => col.links || []);
 
+        return ESSENTIAL_QUICK_LINKS.map(({ label, url, mobileLabel }) => {
+            const found = allLinks.find(
+                (link) => String(link.label || '').trim().toLowerCase() === label.toLowerCase()
+            );
+
+            if (found) {
+                return {
+                    label: found.label,
+                    mobileLabel: mobileLabel || found.label,
+                    url: found.url || url,
+                    isExternal: found.isExternal === true
+                };
+            }
+
+            return { label, mobileLabel: mobileLabel || label, url, isExternal: false };
+        });
+    }
+
+    function buildQuickLinksHtml(links, { mobile = false } = {}) {
+        return links.map((link, index) => {
+            const sep = index > 0 ? '<span class="footer-link-sep" aria-hidden="true">·</span>' : '';
+            const attrs = link.isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
+            const text = mobile ? (link.mobileLabel || link.label) : link.label;
+            return `${sep}<a href="${escapeFooterHtml(link.url)}"${attrs}>${escapeFooterHtml(text)}</a>`;
+        }).join('');
+    }
+
+    function buildBrandLogoHtml(extraClass = '') {
+        const { storeName } = getStoreBranding();
+        const classes = ['footer-logo', extraClass].filter(Boolean).join(' ');
+        return `<a href="/" class="${classes}" data-store-logo-slot data-logo-variant="footer" aria-label="${escapeFooterHtml(storeName)} Home"></a>`;
+    }
+
+    function buildNewsletterSectionHtml(inputId = 'newsletter-email', msgId = 'newsletter-msg') {
         return `
-            <div class="footer-brand">
-                <a href="/" class="footer-logo">
-                    <img src="${escapeFooterHtml(logoSrc)}" alt="${escapeFooterHtml(storeName)} logo" loading="lazy">
-                    <span>${escapeFooterHtml(storeName)}</span>
-                </a>
-                <p class="footer-tagline">${escapeFooterHtml(FOOTER_TAGLINE)}</p>
-                ${socialHtml}
+            <div class="footer-newsletter-wrap">
+                <h4 class="footer-col-title" data-i18n="footer.newsletter_title">Stay Updated</h4>
+                <div class="newsletter-form">
+                    <input type="email" id="${inputId}" class="newsletter-input"
+                           placeholder="Your email"
+                           data-i18n-placeholder="footer.newsletter_placeholder"
+                           aria-label="Newsletter email">
+                    <button type="button" class="newsletter-btn" onclick="subscribeNewsletter('${inputId}')"
+                            data-i18n="footer.newsletter_btn">Subscribe</button>
+                </div>
+                <p id="${msgId}" class="newsletter-msg" style="display:none" role="status"></p>
             </div>
         `;
     }
 
-    function buildLinkColumnHtml(column) {
-        if (!column) {
-            return '<div class="footer-col"></div>';
-        }
+    function buildSocialRowHtml(socialLinks) {
+        if (!socialLinks.length) return '';
+        return `<div class="social-row" aria-label="Social media">${socialLinks.map(renderSocialIcon).join('')}</div>`;
+    }
+
+    function buildLinkColumnHtml(title, links) {
+        if (!links.length) return '';
 
         return `
             <div class="footer-col">
-                <h4>${escapeFooterHtml(column.columnTitle)}</h4>
-                <ul>${(column.links || []).map(renderFooterLink).join('')}</ul>
+                <h4 class="footer-col-title">${escapeFooterHtml(title)}</h4>
+                <ul>${links.map(renderFooterLink).join('')}</ul>
             </div>
         `;
     }
 
-    function buildNewsletterSectionHtml() {
+    function buildDesktopBrandColumnHtml() {
         return `
-            <div class="footer-col footer-newsletter">
-                <h4 data-i18n="footer.newsletter_title">Stay Updated</h4>
-                <p data-i18n="footer.newsletter_desc">Get latest offers and new arrivals</p>
-                <div class="newsletter-form">
-                    <input type="email" id="newsletter-email" class="newsletter-input"
-                           placeholder="Enter your email"
-                           data-i18n-placeholder="footer.newsletter_placeholder"
-                           aria-label="Newsletter email">
-                    <button type="button" class="newsletter-btn" onclick="subscribeNewsletter()"
-                            data-i18n="footer.newsletter_btn">Subscribe</button>
+            <div class="footer-col footer-col--brand">
+                <div class="footer-logo-shell">
+                    ${buildBrandLogoHtml('footer-logo--desktop')}
                 </div>
-                <p id="newsletter-msg" class="newsletter-msg" style="display:none" role="status"></p>
+                <p class="footer-tagline">${escapeFooterHtml(FOOTER_TAGLINE)}</p>
+            </div>
+        `;
+    }
+
+    function buildSocialColumnHtml(socialLinks) {
+        if (!socialLinks.length) return '';
+
+        return `
+            <div class="footer-col footer-col--social">
+                <h4 class="footer-col-title">Socials</h4>
+                ${buildSocialRowHtml(socialLinks)}
+            </div>
+        `;
+    }
+
+    function buildPaymentBadgesHtml(badges) {
+        return `<div class="payment-badges" aria-label="Accepted payment methods">${badges.map(renderPaymentBadge).join('')}</div>`;
+    }
+
+    function buildMobileFooterHtml(normalized) {
+        const { columns, socialLinks, paymentGateways, copyrightText } = normalized;
+        const quickLinks = collectQuickLinks(columns);
+        const badges = paymentGateways.length ? paymentGateways : DEFAULT_PAYMENT_BADGES;
+        const socialHtml = buildSocialRowHtml(socialLinks);
+
+        return `
+            <div class="footer-mobile">
+                <nav class="footer-mobile-row footer-mobile-row--links" aria-label="Quick links">
+                    ${buildQuickLinksHtml(quickLinks, { mobile: true })}
+                </nav>
+                <div class="footer-mobile-row footer-mobile-row--engage">
+                    <div class="footer-newsletter-wrap footer-newsletter-wrap--mobile">
+                        <div class="newsletter-form">
+                            <input type="email" id="newsletter-email-mobile" class="newsletter-input"
+                                   placeholder="Your email"
+                                   data-i18n-placeholder="footer.newsletter_placeholder"
+                                   aria-label="Newsletter email">
+                            <button type="button" class="newsletter-btn" onclick="subscribeNewsletter('newsletter-email-mobile')"
+                                    data-i18n="footer.newsletter_btn">Subscribe</button>
+                        </div>
+                        <p id="newsletter-msg-mobile" class="newsletter-msg" style="display:none" role="status"></p>
+                    </div>
+                    ${socialHtml}
+                </div>
+                <div class="footer-mobile-row footer-mobile-row--bottom">
+                    <p class="footer-copyright footer-copyright--mobile">${formatCopyrightMobileHtml(copyrightText)}</p>
+                    ${buildPaymentBadgesHtml(badges)}
+                </div>
+            </div>
+        `;
+    }
+
+    function buildDesktopFooterHtml(normalized) {
+        const { columns, socialLinks, paymentGateways, copyrightText } = normalized;
+        const quickLinks = collectQuickLinks(columns);
+        const badges = paymentGateways.length ? paymentGateways : DEFAULT_PAYMENT_BADGES;
+
+        const companyCol = columns.find((col) => /company/i.test(col.columnTitle)) || columns[0] || null;
+        const supportCol = columns.find((col) => /support/i.test(col.columnTitle)) || columns[1] || null;
+
+        const companyLinks = companyCol ? companyCol.links : [];
+        const supportLinks = supportCol ? supportCol.links : [];
+
+        return `
+            <div class="footer-desktop">
+                <div class="footer-desktop-grid">
+                    ${buildDesktopBrandColumnHtml()}
+                    ${buildLinkColumnHtml('Company', companyLinks)}
+                    ${buildLinkColumnHtml('Support', supportLinks)}
+                    ${buildLinkColumnHtml('Quick Links', quickLinks)}
+                    ${buildNewsletterSectionHtml('newsletter-email', 'newsletter-msg')}
+                    ${buildSocialColumnHtml(socialLinks)}
+                </div>
+                <div class="footer-bottom footer-bottom--desktop">
+                    <p class="footer-copyright">${formatCopyrightHtml(copyrightText)}</p>
+                    ${buildPaymentBadgesHtml(badges)}
+                </div>
             </div>
         `;
     }
 
     function buildFooterContentHtml(normalized) {
-        const { columns, socialLinks, paymentGateways, copyrightText } = normalized;
-        const companyCol = columns[0] || null;
-        const supportCol = columns[1] || null;
-        const badges = paymentGateways.length ? paymentGateways : DEFAULT_PAYMENT_BADGES;
-
         return `
-            <div class="footer-main">
-                ${buildBrandColumnHtml(socialLinks)}
-                ${buildLinkColumnHtml(companyCol)}
-                ${buildLinkColumnHtml(supportCol)}
-                ${buildNewsletterSectionHtml()}
-            </div>
-            <hr class="footer-divider">
-            <div class="footer-bottom">
-                <p class="footer-copyright">${formatCopyrightHtml(copyrightText)}</p>
-                <div class="payment-badges" aria-label="Accepted payment methods">
-                    ${badges.map(renderPaymentBadge).join('')}
-                </div>
-            </div>
+            ${buildMobileFooterHtml(normalized)}
+            ${buildDesktopFooterHtml(normalized)}
         `;
     }
 
@@ -260,6 +373,7 @@
         DEFAULT_COPYRIGHT,
         FOOTER_SOCIAL_ICON_MAP,
         FOOTER_PAYMENT_LABELS,
+        ESSENTIAL_QUICK_LINKS,
         normalizePublicSettings,
         buildFooterHtml,
         buildFooterShell,

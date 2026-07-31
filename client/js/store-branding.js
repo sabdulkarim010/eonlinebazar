@@ -44,7 +44,8 @@
         '.header-right-brand',
         '.payment-header-right-brand',
         '.checkout-step-header__brand',
-        '.footer-logo-text'
+        '.footer-logo-text',
+        '.footer-logo'
     ];
 
     function escapeHtml(value) {
@@ -108,7 +109,7 @@
         }
         if (slot.classList.contains('nav-logo')) return 'nav';
         if (slot.classList.contains('logo-area')) return 'track';
-        if (slot.classList.contains('footer-logo-text')) return 'footer';
+        if (slot.classList.contains('footer-logo-text') || slot.classList.contains('footer-logo')) return 'footer';
 
         return 'default';
     }

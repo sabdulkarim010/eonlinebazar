@@ -36,6 +36,7 @@ async function initGlobalFooterEngine() {
         setTimeout(() => {
             footerContainer.style.opacity = '1';
             if (window.i18n?.applyTranslations) window.i18n.applyTranslations();
+            if (typeof window.refreshStoreBranding === 'function') window.refreshStoreBranding();
         }, 50);
     } catch (error) {
         console.error('eOnlineBazar Footer Engine Error:', error);
@@ -70,6 +71,7 @@ async function initGlobalFooterEngine() {
             });
         }
         footerContainer.style.opacity = '1';
+        if (typeof window.refreshStoreBranding === 'function') window.refreshStoreBranding();
     }
 }
 
