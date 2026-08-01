@@ -193,6 +193,9 @@ router.post('/blacklist', verifyAdmin, checkPermission('manage_security'), admin
 router.delete('/blacklist/:id', verifyAdmin, checkPermission('manage_security'), adminSecurityController.removeBlacklist);
 router.get('/login-history', verifyAdmin, checkPermission('manage_security'), adminSecurityController.getLoginHistory);
 
+// ✨ AI product content assist (Anthropic proxy)
+router.post('/ai/product-assist', verifyAdmin, adminController.aiProductAssist);
+
 // ৩. টোকেন ভেরিফিকেশন (GET)
 router.get('/verify-token', verifyAdmin, adminController.verifyAdminToken);
 

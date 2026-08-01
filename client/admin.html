@@ -948,172 +948,323 @@
     </div>
 </section>
 
-<section id="view-add-product" class="admin-section" style="display: none;">
-    <div class="add-product-wrapper">
-        <div class="add-product-head">
-            <h3><i class="fa-solid fa-circle-plus"></i> Add New Product</h3>
-            <p>Fill in the product information and upload media to launch a new item in your store.</p>
+<section id="view-add-product" class="admin-section admin-section--add-product" style="display: none;">
+    <div class="add-product-page">
+        <!-- Page Header -->
+        <div class="add-product-page-header">
+            <div class="add-product-page-header-main">
+                <h2>➕ Add New Product</h2>
+                <p>Fill in the product information and upload media to launch.</p>
+            </div>
+            <nav class="add-product-breadcrumb" aria-label="Breadcrumb">
+                <span>Admin</span>
+                <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                <span class="breadcrumb-current">Products</span>
+            </nav>
         </div>
 
-        <form id="addProductForm" class="add-product-grid">
+        <form id="addProductForm">
+            <div class="add-product-grid">
 
-            <!-- LEFT COLUMN: Core product details -->
-            <div class="apc-card apc-main">
-                <h4 class="apc-card-title"><i class="fa-solid fa-circle-info"></i> Product Information</h4>
+                <!-- LEFT COLUMN -->
+                <div class="product-left-column">
 
-                <div class="form-group">
-                    <label>Product Name</label>
-                    <input type="text" id="prodName" placeholder="e.g., Luxury Wrist Watch" required>
-                </div>
+                    <!-- Card 1: Basic Info -->
+                    <div class="product-card">
+                        <div class="product-card-title">📋 Product Information</div>
 
-                <div class="form-row-custom">
-                    <div class="form-group">
-                        <label>Product ID (SKU)</label>
-                        <input type="text" id="prodId" placeholder="e.g., PROD-001" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Category</label>
-                        <select id="prodCategory">
-                            <option value="" disabled selected>Loading Categories...</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Brand <span class="field-hint">optional</span></label>
-                        <select id="prodBrand">
-                            <option value="">No Brand</option>
-                        </select>
-                    </div>
-                </div>
+                        <div class="pf-group">
+                            <label class="pf-label" for="prodName">Product Name *</label>
+                            <input type="text" id="prodName" class="pf-input" placeholder="e.g., Premium Cotton T-Shirt" required>
+                            <div class="char-counter" id="prodNameCounter">0 / 100</div>
+                        </div>
 
-                <div class="form-row-custom">
-                    <div class="form-group">
-                        <label>Selling Price (৳)</label>
-                        <input type="number" id="prodPrice" placeholder="1250" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Buying Price (৳) <span class="field-hint">cost</span></label>
-                        <input type="number" id="prodBuyingPrice" placeholder="900" min="0">
-                    </div>
-                    <div class="form-group">
-                        <label>Stock Qty</label>
-                        <input type="number" id="prodStock" placeholder="50" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Low Stock Threshold</label>
-                        <input type="number" id="prodLowStockThreshold" placeholder="10" min="0" value="10">
-                        <small class="field-hint">Alert when stock falls below this level.</small>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Short Description</label>
-                    <input type="text" id="prodDesc" placeholder="Brief description of the product">
-                </div>
-
-                <div class="form-group">
-                    <label>Detailed Description</label>
-                    <textarea id="prodDetailedDesc" rows="4" placeholder="Enter a detailed product description here..."></textarea>
-                </div>
-
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label>Highlights (Comma separated)</label>
-                    <textarea id="prodHighlights" rows="2" placeholder="e.g. Fresh, Premium Quality, 100% Authentic"></textarea>
-                </div>
-
-                <!-- Variant matrix: Simple Product vs Combination Variant Product -->
-                <div class="variant-matrix-block" style="margin-top: 22px;">
-                    <div class="variations-head">
-                        <div>
-                            <h4 class="variations-title"><i class="fa-solid fa-layer-group"></i> Product Type &amp; Inventory</h4>
-                            <p class="variations-sub">Choose a simple product with one stock count, or define attribute combinations (Size × Color) with per-SKU price and stock.</p>
+                        <div class="pf-grid-3">
+                            <div class="pf-group">
+                                <label class="pf-label" for="prodId">SKU / Product ID *</label>
+                                <input type="text" id="prodId" class="pf-input" placeholder="e.g., PROD-001" required>
+                            </div>
+                            <div class="pf-group">
+                                <label class="pf-label" for="prodCategory">Category *</label>
+                                <select id="prodCategory" class="pf-input" required>
+                                    <option value="" disabled selected>Loading Categories...</option>
+                                </select>
+                            </div>
+                            <div class="pf-group">
+                                <label class="pf-label" for="prodBrand">Brand (Optional)</label>
+                                <select id="prodBrand" class="pf-input">
+                                    <option value="">No Brand</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="product-type-toggle" role="radiogroup" aria-label="Product type">
-                        <label class="product-type-option">
-                            <input type="radio" name="addProductType" value="simple" checked onchange="setProductVariantMode('add', 'simple')">
-                            <span><i class="fa-solid fa-box"></i> Simple Product</span>
-                        </label>
-                        <label class="product-type-option">
-                            <input type="radio" name="addProductType" value="variant" onchange="setProductVariantMode('add', 'variant')">
-                            <span><i class="fa-solid fa-table-cells"></i> Variant Matrix</span>
-                        </label>
+                    <!-- Card 2: Pricing -->
+                    <div class="product-card">
+                        <div class="product-card-title">💰 Pricing &amp; Inventory</div>
+
+                        <div class="pf-grid-3">
+                            <div class="pf-group">
+                                <label class="pf-label" for="prodPrice">Selling Price (৳) *</label>
+                                <input type="number" id="prodPrice" class="pf-input" placeholder="0" required oninput="updatePricePreview()">
+                            </div>
+                            <div class="pf-group">
+                                <label class="pf-label" for="prodBuyingPrice">Buying/Cost Price (৳)</label>
+                                <input type="number" id="prodBuyingPrice" class="pf-input" placeholder="0" min="0" oninput="updatePricePreview()">
+                            </div>
+                            <div class="pf-group">
+                                <label class="pf-label" for="prodStock">Stock Quantity *</label>
+                                <input type="number" id="prodStock" class="pf-input" placeholder="0" required>
+                            </div>
+                        </div>
+
+                        <div class="pf-group">
+                            <label class="pf-label" for="prodLowStockThreshold">Low Stock Alert Threshold</label>
+                            <input type="number" id="prodLowStockThreshold" class="pf-input" placeholder="10" min="0" value="10">
+                            <div class="pf-field-hint">Alert when stock falls below this level</div>
+                        </div>
+
+                        <div class="price-preview-card" id="pricePreviewCard" style="display:none">
+                            <div class="price-preview-row">
+                                <span class="price-preview-label">Selling Price</span>
+                                <span class="price-preview-value" id="ppSell">৳0</span>
+                            </div>
+                            <div class="price-preview-row">
+                                <span class="price-preview-label">Cost Price</span>
+                                <span class="price-preview-value" id="ppCost">৳0</span>
+                            </div>
+                            <div class="price-preview-row price-preview-row--total">
+                                <span class="price-preview-label">Profit per unit</span>
+                                <span id="ppProfit" class="price-preview-profit">৳0</span>
+                            </div>
+                            <div class="price-preview-row">
+                                <span class="price-preview-label">Margin</span>
+                                <span id="ppMargin" class="price-preview-profit">0%</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <p class="simple-stock-hint" id="addSimpleStockHint">Stock Qty above applies directly to this product.</p>
+                    <!-- Card 3: Description -->
+                    <div class="product-card">
+                        <div class="product-card-title">📝 Product Description</div>
 
-                    <div id="addVariantMatrixPanel" class="variant-matrix-panel" style="display:none;">
-                        <div class="matrix-section-head">
-                            <h5>Attribute Types</h5>
-                            <button type="button" class="variation-add-btn" onclick="addAttributeTypeRow('add')">
-                                <i class="fa-solid fa-plus"></i> Add Attribute
-                            </button>
-                        </div>
-                        <div id="addAttributeTypesList" class="attribute-types-list"></div>
-                        <p class="matrix-hint">Pick a saved attribute name to auto-fill values, then edit or append before regenerating the matrix. Regenerate auto-fills SKU codes and main product image URLs per row.</p>
-
-                        <div class="matrix-toolbar">
-                            <button type="button" class="btn-secondary-sm" onclick="generateVariantMatrix('add')">
-                                <i class="fa-solid fa-wand-magic-sparkles"></i> Regenerate Matrix
-                            </button>
-                            <span class="matrix-total-stock">Total stock: <strong id="addMatrixTotalStock">0</strong></span>
+                        <div class="pf-group">
+                            <label class="pf-label" for="prodDesc">Short Description</label>
+                            <textarea id="prodDesc" class="pf-input pf-textarea" rows="2" placeholder="Brief description shown in product listings..." oninput="updateSeoPreview()"></textarea>
+                            <div class="char-counter" id="shortDescCounter">0 / 160</div>
                         </div>
 
-                        <div class="variant-matrix-wrap" id="addVariantMatrixWrap" style="display:none;">
-                            <table class="variant-matrix-table" aria-label="Variant combination matrix">
-                                <colgroup>
-                                    <col class="col-combination">
-                                    <col class="col-sku">
-                                    <col class="col-sell">
-                                    <col class="col-buy">
-                                    <col class="col-stock">
-                                    <col class="col-image">
-                                </colgroup>
-                                <thead>
-                                    <tr>
-                                        <th scope="col">Combination</th>
-                                        <th scope="col">SKU</th>
-                                        <th scope="col">Sell Price</th>
-                                        <th scope="col">Buy Price</th>
-                                        <th scope="col">Stock</th>
-                                        <th scope="col">Image URL</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="addVariantMatrixBody"></tbody>
-                            </table>
+                        <div class="pf-group">
+                            <label class="pf-label" for="prodDetailedDesc">Detailed Description</label>
+                            <textarea id="prodDetailedDesc" class="pf-input pf-textarea" rows="5" placeholder="Full product description with features, materials, care instructions..."></textarea>
                         </div>
-                        <p class="variations-empty" id="addVariantMatrixEmpty">Add attribute types and values, then generate the combination matrix.</p>
+
+                        <div class="pf-group">
+                            <label class="pf-label">Key Highlights (comma separated)</label>
+                            <div class="tags-container" id="highlightsTags" onclick="document.getElementById('highlightsInput').focus()">
+                                <input type="text" id="highlightsInput" class="tags-input" placeholder="Type and press Enter..." onkeydown="addHighlightTag(event)">
+                            </div>
+                            <input type="hidden" id="prodHighlights" name="prodHighlights">
+                            <div class="pf-field-hint">e.g., 100% Cotton, Machine Washable, Premium Quality</div>
+                        </div>
                     </div>
+
+                    <!-- Card 4: Product Type -->
+                    <div class="product-card">
+                        <div class="product-card-title">📦 Product Type &amp; Variants</div>
+
+                        <div class="variant-matrix-block">
+                            <div class="variations-head">
+                                <div>
+                                    <p class="variations-sub">Choose a simple product with one stock count, or define attribute combinations (Size × Color) with per-SKU price and stock.</p>
+                                </div>
+                            </div>
+
+                            <div class="product-type-toggle" role="radiogroup" aria-label="Product type">
+                                <label class="product-type-option">
+                                    <input type="radio" name="addProductType" value="simple" checked onchange="setProductVariantMode('add', 'simple')">
+                                    <span><i class="fa-solid fa-box"></i> Simple Product</span>
+                                </label>
+                                <label class="product-type-option">
+                                    <input type="radio" name="addProductType" value="variant" onchange="setProductVariantMode('add', 'variant')">
+                                    <span><i class="fa-solid fa-table-cells"></i> Variant Matrix</span>
+                                </label>
+                            </div>
+
+                            <p class="simple-stock-hint" id="addSimpleStockHint">Stock Qty above applies directly to this product.</p>
+
+                            <div id="addVariantMatrixPanel" class="variant-matrix-panel" style="display:none;">
+                                <div class="matrix-section-head">
+                                    <h5>Attribute Types</h5>
+                                    <button type="button" class="variation-add-btn" onclick="addAttributeTypeRow('add')">
+                                        <i class="fa-solid fa-plus"></i> Add Attribute
+                                    </button>
+                                </div>
+                                <div id="addAttributeTypesList" class="attribute-types-list"></div>
+                                <p class="matrix-hint">Pick a saved attribute name to auto-fill values, then edit or append before regenerating the matrix. Regenerate auto-fills SKU codes and main product image URLs per row.</p>
+
+                                <div class="matrix-toolbar">
+                                    <button type="button" class="btn-secondary-sm" onclick="generateVariantMatrix('add')">
+                                        <i class="fa-solid fa-wand-magic-sparkles"></i> Regenerate Matrix
+                                    </button>
+                                    <span class="matrix-total-stock">Total stock: <strong id="addMatrixTotalStock">0</strong></span>
+                                </div>
+
+                                <div class="variant-matrix-wrap" id="addVariantMatrixWrap" style="display:none;">
+                                    <table class="variant-matrix-table" aria-label="Variant combination matrix">
+                                        <colgroup>
+                                            <col class="col-combination">
+                                            <col class="col-sku">
+                                            <col class="col-sell">
+                                            <col class="col-buy">
+                                            <col class="col-stock">
+                                            <col class="col-image">
+                                        </colgroup>
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Combination</th>
+                                                <th scope="col">SKU</th>
+                                                <th scope="col">Sell Price</th>
+                                                <th scope="col">Buy Price</th>
+                                                <th scope="col">Stock</th>
+                                                <th scope="col">Image URL</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="addVariantMatrixBody"></tbody>
+                                    </table>
+                                </div>
+                                <p class="variations-empty" id="addVariantMatrixEmpty">Add attribute types and values, then generate the combination matrix.</p>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
+                <!-- END LEFT COLUMN -->
+
+                <!-- RIGHT COLUMN -->
+                <div class="product-right-column">
+
+                    <!-- Media Card -->
+                    <div class="product-card">
+                        <div class="product-card-title">🖼️ Product Images</div>
+
+                        <div class="pf-group">
+                            <label class="pf-label" for="prodEmoji">Emoji Icon <span class="pf-label-optional">fallback</span></label>
+                            <input type="text" id="prodEmoji" class="pf-input pf-emoji-input" placeholder="⌚">
+                        </div>
+
+                        <div class="image-upload-zone" id="imageDropZone"
+                             onclick="document.getElementById('prodImageFile').click()"
+                             ondragover="handleImageDragOver(event)"
+                             ondragleave="handleImageDragLeave(event)"
+                             ondrop="handleImageDrop(event)">
+                            <div class="image-upload-icon">📸</div>
+                            <div class="image-upload-text">Click or drag images here</div>
+                            <div class="image-upload-hint">PNG, JPG, WEBP • Max 5MB each</div>
+                        </div>
+
+                        <input type="file" id="prodImageFile" name="productImages" multiple accept="image/*"
+                               style="display:none" onchange="handleImageSelect(this)">
+
+                        <div class="image-preview-grid" id="imagePreviewGrid"></div>
+                        <div id="imgPreviewBox" class="visually-hidden" aria-hidden="true"></div>
+                        <div id="addGalleryPreview" class="visually-hidden" aria-hidden="true"></div>
+                    </div>
+
+                    <!-- Quick Actions Card -->
+                    <div class="product-card">
+                        <div class="product-card-title">⚡ Actions</div>
+
+                        <button type="button" class="btn-ai-assist" onclick="openAIAssist()">
+                            ✨ AI Auto-Fill
+                        </button>
+
+                        <button type="button" class="btn-save-draft" onclick="saveProductDraft()">
+                            💾 Save as Draft
+                        </button>
+
+                        <button type="button" class="btn-save-launch" onclick="uploadProduct()">
+                            🚀 Save &amp; Launch Product
+                        </button>
+                    </div>
+
+                    <!-- Profit Summary Card -->
+                    <div class="product-card" id="profitSummaryCard">
+                        <div class="product-card-title">📊 Profit Analysis</div>
+                        <div id="profitSummaryContent">
+                            <div class="profit-summary-empty">Enter sell &amp; cost price to see analysis</div>
+                        </div>
+                    </div>
+
+                    <!-- SEO Preview Card -->
+                    <div class="product-card">
+                        <div class="product-card-title">🔍 Search Preview</div>
+                        <div class="seo-preview-label">How it appears in Google</div>
+                        <div class="seo-preview">
+                            <div class="seo-title" id="seoTitle">Product Name | EOnlineBazar</div>
+                            <div class="seo-url">eonlinebazar.com/product-details</div>
+                            <div class="seo-desc" id="seoDesc">Product description will appear here...</div>
+                        </div>
+                    </div>
+
+                </div>
+                <!-- END RIGHT COLUMN -->
+
             </div>
-
-            <!-- RIGHT COLUMN: Media & launch -->
-            <div class="apc-card apc-side">
-                <h4 class="apc-card-title"><i class="fa-solid fa-images"></i> Media &amp; Launch</h4>
-
-                <div class="form-group">
-                    <label>Emoji Icon <span class="field-hint">fallback</span></label>
-                    <input type="text" id="prodEmoji" placeholder="⌚" class="emoji-input">
-                </div>
-
-                <div class="form-group">
-                    <label>Product Images</label>
-                    <div class="file-drop-area">
-                        <input type="file" id="prodImageFile" name="productImages" accept="image/*" multiple onchange="previewImage(event)">
-                        <div class="image-preview" id="imgPreviewBox">
-                            <i class="fa-solid fa-cloud-arrow-up"></i>
-                            <p>Click or Drag to upload multiple images</p>
-                        </div>
-                    </div>
-                    <div id="addGalleryPreview" style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;"></div>
-                </div>
-
-                <button type="button" onclick="uploadProduct()" class="btn-submit apc-submit">
-                    <i class="fa-solid fa-check"></i> Save &amp; Launch Product
-                </button>
-            </div>
-
         </form>
+
+        <div class="modal-bg" id="ai-assist-modal">
+            <div class="modal-box" style="max-width:520px">
+                <div class="modal-title">✨ AI Product Assistant</div>
+
+                <div style="margin-bottom:14px">
+                    <label class="pf-label">Product Name</label>
+                    <input type="text" id="ai-product-name" class="pf-input"
+                           placeholder="Enter product name..."
+                           value="">
+                </div>
+
+                <div style="margin-bottom:14px">
+                    <label class="pf-label">Additional Context (optional)</label>
+                    <input type="text" id="ai-additional-context" class="pf-input"
+                           placeholder="e.g., for kids, winter collection, organic...">
+                </div>
+
+                <div id="ai-loading" style="display:none;text-align:center;padding:20px">
+                    <div class="spin" style="margin:0 auto 10px"></div>
+                    <p style="color:#6b7280;font-size:0.875rem">AI is generating content...</p>
+                </div>
+
+                <div id="ai-result" style="display:none">
+                    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;
+                                padding:14px;margin-bottom:14px">
+                        <div style="font-size:0.8rem;font-weight:700;color:#065f46;margin-bottom:8px">
+                            ✅ AI Generated Content Ready
+                        </div>
+                        <div style="font-size:0.82rem;color:#374151" id="ai-preview-text"></div>
+                    </div>
+                </div>
+
+                <div id="ai-error" style="display:none;background:#fee2e2;border:1px solid #fecaca;
+                     border-radius:8px;padding:12px;font-size:0.85rem;color:#991b1b;margin-bottom:14px">
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn" style="background:#f3f4f6;color:#374151"
+                            onclick="closeModal('ai-assist-modal')">
+                        Cancel
+                    </button>
+                    <button class="btn btn-indigo" id="ai-generate-btn"
+                            onclick="generateAIContent()">
+                        ✨ Generate
+                    </button>
+                    <button class="btn btn-green" id="ai-apply-btn"
+                            style="display:none" onclick="applyAIContent()">
+                        Apply to Form
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
 

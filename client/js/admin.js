@@ -4425,10 +4425,37 @@ let selectedFilesAdd = new DataTransfer();
 window.previewImage = function(event) {
     const files = event.target.files;
     if (files && files.length > 0) {
-        // নতুন সিলেক্ট করা ফাইলগুলো গ্লোবাল লিস্টে যোগ করা
         Array.from(files).forEach(file => selectedFilesAdd.items.add(file));
     }
-    event.target.files = selectedFilesAdd.files; // অরিজিনাল ইনপুট ফাইল আপডেট
+    event.target.files = selectedFilesAdd.files;
+    renderAddPreviews();
+};
+
+window.handleImageSelect = function(input) {
+    if (!input?.files?.length) return;
+    Array.from(input.files).forEach(file => selectedFilesAdd.items.add(file));
+    input.files = selectedFilesAdd.files;
+    renderAddPreviews();
+};
+
+window.handleImageDragOver = function(event) {
+    event.preventDefault();
+    document.getElementById('imageDropZone')?.classList.add('dragover');
+};
+
+window.handleImageDragLeave = function(event) {
+    event.preventDefault();
+    document.getElementById('imageDropZone')?.classList.remove('dragover');
+};
+
+window.handleImageDrop = function(event) {
+    event.preventDefault();
+    document.getElementById('imageDropZone')?.classList.remove('dragover');
+    const files = Array.from(event.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    if (!files.length) return;
+    files.forEach(file => selectedFilesAdd.items.add(file));
+    const fileInput = document.getElementById('prodImageFile');
+    if (fileInput) fileInput.files = selectedFilesAdd.files;
     renderAddPreviews();
 };
 
@@ -4436,28 +4463,346 @@ window.previewImage = function(event) {
  * ৮.৩: সিলেক্টেড ছবিগুলোর প্রিভিউ ডমে (DOM) রেন্ডার করা
  */
 function renderAddPreviews() {
+    const grid = document.getElementById('imagePreviewGrid');
     const previewBox = document.getElementById('imgPreviewBox');
-    if (!previewBox) return;
-    previewBox.innerHTML = '';
+    const target = grid || previewBox;
+    if (!target) return;
 
-    // কোনো ফাইল সিলেক্ট না থাকলে ডিফল্ট প্লেসহোল্ডার দেখানো
+    target.innerHTML = '';
+
     if (selectedFilesAdd.files.length === 0) {
-        previewBox.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i><p>Upload Images</p>`;
+        if (previewBox && !grid) {
+            previewBox.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i><p>Upload Images</p>`;
+        }
         return;
     }
 
-    // প্রতিটা ফাইলের জন্য FileReader দিয়ে প্রিভিউ থাম্বনেইল এবং ডিলিট বাটন তৈরি
     Array.from(selectedFilesAdd.files).forEach((file, index) => {
         const reader = new FileReader();
         reader.onload = e => {
-            previewBox.innerHTML += `
-            <div style="position:relative; display:inline-block; margin:5px;">
-                <img src="${e.target.result}" style="height:80px; border-radius:5px; object-fit: cover;">
-                <button type="button" onclick="removeAddImage(${index})" style="position:absolute; top:-5px; right:-5px; background:#ef4444; color:white; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; font-size:14px; font-weight:bold; line-height:1;">&times;</button>
-            </div>`;
+            if (grid) {
+                const item = document.createElement('div');
+                item.className = 'image-preview-item';
+                item.innerHTML = `
+                    <img src="${e.target.result}" alt="Preview">
+                    <button type="button" class="image-preview-remove" onclick="removeAddImage(${index})" aria-label="Remove image">✕</button>`;
+                grid.appendChild(item);
+            } else if (previewBox) {
+                previewBox.innerHTML += `
+                <div style="position:relative; display:inline-block; margin:5px;">
+                    <img src="${e.target.result}" style="height:80px; border-radius:5px; object-fit: cover;">
+                    <button type="button" onclick="removeAddImage(${index})" style="position:absolute; top:-5px; right:-5px; background:#ef4444; color:white; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; font-size:14px; font-weight:bold; line-height:1;">&times;</button>
+                </div>`;
+            }
         };
         reader.readAsDataURL(file);
     });
+}
+
+window.updatePricePreview = function() {
+    const sell = parseFloat(document.getElementById('prodPrice')?.value) || 0;
+    const cost = parseFloat(document.getElementById('prodBuyingPrice')?.value) || 0;
+    const card = document.getElementById('pricePreviewCard');
+    const summary = document.getElementById('profitSummaryContent');
+
+    if (sell > 0 || cost > 0) {
+        const profit = sell - cost;
+        const margin = sell > 0 ? ((profit / sell) * 100).toFixed(1) : 0;
+        const profitClass = profit >= 0 ? 'price-preview-profit' : 'price-preview-loss';
+        const marginClass = margin >= 20 ? 'price-preview-profit' :
+            margin >= 0 ? 'price-preview-value' : 'price-preview-loss';
+
+        if (card) {
+            card.style.display = 'block';
+            const ppSell = document.getElementById('ppSell');
+            const ppCost = document.getElementById('ppCost');
+            const ppProfit = document.getElementById('ppProfit');
+            const ppMargin = document.getElementById('ppMargin');
+            if (ppSell) ppSell.textContent = '৳' + sell.toLocaleString();
+            if (ppCost) ppCost.textContent = '৳' + cost.toLocaleString();
+            if (ppProfit) {
+                ppProfit.textContent = (profit >= 0 ? '+' : '') + '৳' + profit.toLocaleString();
+                ppProfit.className = profitClass;
+            }
+            if (ppMargin) {
+                ppMargin.textContent = margin + '%';
+                ppMargin.className = marginClass;
+            }
+        }
+
+        if (summary) {
+            summary.innerHTML = `
+                <div class="profit-summary-row">
+                    <span class="profit-summary-label">Selling Price</span>
+                    <span class="profit-summary-value">৳${sell.toLocaleString()}</span>
+                </div>
+                <div class="profit-summary-row">
+                    <span class="profit-summary-label">Cost Price</span>
+                    <span class="profit-summary-value">৳${cost.toLocaleString()}</span>
+                </div>
+                <div class="profit-summary-row">
+                    <span class="profit-summary-label">Profit per unit</span>
+                    <span class="profit-summary-value ${profit >= 0 ? 'is-profit' : 'is-loss'}">${profit >= 0 ? '+' : ''}৳${profit.toLocaleString()}</span>
+                </div>
+                <div class="profit-summary-row">
+                    <span class="profit-summary-label">Margin</span>
+                    <span class="profit-summary-value ${Number(margin) >= 20 ? 'is-profit' : Number(margin) < 0 ? 'is-loss' : ''}">${margin}%</span>
+                </div>`;
+        }
+    } else {
+        if (card) card.style.display = 'none';
+        if (summary) {
+            summary.innerHTML = '<div class="profit-summary-empty">Enter sell &amp; cost price to see analysis</div>';
+        }
+    }
+};
+
+window.updateSeoPreview = function() {
+    const name = document.getElementById('prodName')?.value || 'Product Name';
+    const desc = document.getElementById('prodDesc')?.value || 'Product description will appear here...';
+    const titleEl = document.getElementById('seoTitle');
+    const descEl = document.getElementById('seoDesc');
+    if (titleEl) titleEl.textContent = (name || 'Product Name') + ' | EOnlineBazar';
+    if (descEl) descEl.textContent = desc.substring(0, 160);
+};
+
+let addProductCharCountersReady = false;
+window.setupCharCounters = function() {
+    if (addProductCharCountersReady) return;
+    const nameInput = document.getElementById('prodName');
+    const shortDescInput = document.getElementById('prodDesc');
+
+    if (nameInput) {
+        nameInput.addEventListener('input', () => {
+            const count = nameInput.value.length;
+            const counter = document.getElementById('prodNameCounter');
+            if (counter) {
+                counter.textContent = count + ' / 100';
+                counter.className = 'char-counter' +
+                    (count > 80 ? ' warning' : '') +
+                    (count > 100 ? ' error' : '');
+            }
+            updateSeoPreview();
+        });
+    }
+
+    if (shortDescInput) {
+        shortDescInput.addEventListener('input', () => {
+            const count = shortDescInput.value.length;
+            const counter = document.getElementById('shortDescCounter');
+            if (counter) {
+                counter.textContent = count + ' / 160';
+                counter.className = 'char-counter' +
+                    (count > 130 ? ' warning' : '') +
+                    (count > 160 ? ' error' : '');
+            }
+            updateSeoPreview();
+        });
+    }
+
+    addProductCharCountersReady = true;
+};
+
+let productHighlights = [];
+window.addHighlightTag = function(event) {
+    if (event.key === 'Enter' || event.key === ',') {
+        event.preventDefault();
+        const input = document.getElementById('highlightsInput');
+        const value = input?.value.trim().replace(/,$/, '');
+        if (value && !productHighlights.includes(value)) {
+            productHighlights.push(value);
+            renderHighlightTags();
+            if (input) input.value = '';
+            const hidden = document.getElementById('prodHighlights');
+            if (hidden) hidden.value = productHighlights.join(',');
+        }
+    }
+};
+
+window.removeHighlightTag = function(tag) {
+    productHighlights = productHighlights.filter(h => h !== tag);
+    renderHighlightTags();
+    const hidden = document.getElementById('prodHighlights');
+    if (hidden) hidden.value = productHighlights.join(',');
+};
+
+function renderHighlightTags() {
+    const container = document.getElementById('highlightsTags');
+    const input = document.getElementById('highlightsInput');
+    if (!container || !input) return;
+
+    container.innerHTML = '';
+    productHighlights.forEach(tag => {
+        const el = document.createElement('span');
+        el.className = 'tag-item';
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'tag-remove';
+        removeBtn.textContent = '✕';
+        removeBtn.setAttribute('aria-label', 'Remove ' + tag);
+        removeBtn.onclick = () => removeHighlightTag(tag);
+        el.appendChild(document.createTextNode(tag + ' '));
+        el.appendChild(removeBtn);
+        container.appendChild(el);
+    });
+    container.appendChild(input);
+}
+
+function resetAddProductHighlights() {
+    productHighlights = [];
+    renderHighlightTags();
+    const hidden = document.getElementById('prodHighlights');
+    if (hidden) hidden.value = '';
+}
+
+function resetAddProductFormExtras() {
+    resetAddProductHighlights();
+    const nameCounter = document.getElementById('prodNameCounter');
+    const descCounter = document.getElementById('shortDescCounter');
+    if (nameCounter) {
+        nameCounter.textContent = '0 / 100';
+        nameCounter.className = 'char-counter';
+    }
+    if (descCounter) {
+        descCounter.textContent = '0 / 160';
+        descCounter.className = 'char-counter';
+    }
+    updatePricePreview();
+    updateSeoPreview();
+}
+
+window.saveProductDraft = function() {
+    showToast('Draft save is coming soon. Use Save & Launch to publish now.', 'info');
+};
+
+let aiGeneratedData = null;
+
+window.closeModal = function(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.remove('open');
+};
+
+window.openAIAssist = function() {
+    const productName = document.getElementById('prodName')?.value || '';
+    const nameInput = document.getElementById('ai-product-name');
+    if (nameInput && productName) nameInput.value = productName;
+
+    document.getElementById('ai-loading').style.display = 'none';
+    document.getElementById('ai-result').style.display = 'none';
+    document.getElementById('ai-error').style.display = 'none';
+    document.getElementById('ai-apply-btn').style.display = 'none';
+    document.getElementById('ai-generate-btn').style.display = 'inline-flex';
+    document.getElementById('ai-generate-btn').textContent = '✨ Generate';
+    aiGeneratedData = null;
+
+    document.getElementById('ai-assist-modal').classList.add('open');
+};
+
+window.generateAIContent = async function() {
+    const productName = document.getElementById('ai-product-name')?.value?.trim();
+    const context = document.getElementById('ai-additional-context')?.value?.trim();
+
+    if (!productName) {
+        document.getElementById('ai-error').style.display = 'block';
+        document.getElementById('ai-error').textContent = 'Please enter a product name';
+        return;
+    }
+
+    document.getElementById('ai-loading').style.display = 'block';
+    document.getElementById('ai-result').style.display = 'none';
+    document.getElementById('ai-error').style.display = 'none';
+    document.getElementById('ai-generate-btn').disabled = true;
+
+    try {
+        const res = await fetch('/api/admin/ai/product-assist', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({
+                productName,
+                additionalContext: context
+            })
+        });
+
+        const data = await res.json();
+
+        if (data.success && data.data) {
+            aiGeneratedData = data.data;
+
+            const preview = document.getElementById('ai-preview-text');
+            if (preview) {
+                preview.innerHTML =
+                    '<b>Short Desc:</b> ' + (data.data.shortDescription || '—') + '<br><br>' +
+                    '<b>Highlights:</b> ' + (data.data.highlights || []).join(', ') + '<br><br>' +
+                    '<b>Category:</b> ' + (data.data.suggestedCategory || '—') + '<br>' +
+                    '<b>Price Range:</b> ৳' + (data.data.suggestedPriceRange?.min || 0) +
+                    ' – ৳' + (data.data.suggestedPriceRange?.max || 0);
+            }
+
+            document.getElementById('ai-result').style.display = 'block';
+            document.getElementById('ai-apply-btn').style.display = 'inline-flex';
+            document.getElementById('ai-generate-btn').textContent = '🔄 Regenerate';
+        } else {
+            throw new Error(data.message || 'AI failed');
+        }
+    } catch (err) {
+        document.getElementById('ai-error').style.display = 'block';
+        document.getElementById('ai-error').textContent =
+            'AI assist failed: ' + err.message +
+            '. Make sure ANTHROPIC_API_KEY is set in .env';
+    } finally {
+        document.getElementById('ai-loading').style.display = 'none';
+        document.getElementById('ai-generate-btn').disabled = false;
+    }
+};
+
+window.applyAIContent = function() {
+    if (!aiGeneratedData) return;
+
+    const d = aiGeneratedData;
+
+    const shortDesc = document.getElementById('prodDesc');
+    if (shortDesc && d.shortDescription) shortDesc.value = d.shortDescription;
+
+    const detailedDesc = document.getElementById('prodDetailedDesc');
+    if (detailedDesc && d.detailedDescription) detailedDesc.value = d.detailedDescription;
+
+    if (d.highlights && d.highlights.length) {
+        productHighlights = d.highlights;
+        renderHighlightTags();
+        const hidden = document.getElementById('prodHighlights');
+        if (hidden) hidden.value = productHighlights.join(',');
+    }
+
+    if (d.suggestedCategory) {
+        const categorySelect = document.getElementById('prodCategory');
+        if (categorySelect) {
+            const match = Array.from(categorySelect.options).find(
+                opt => opt.textContent.trim().toLowerCase() === d.suggestedCategory.trim().toLowerCase()
+                    || opt.value.trim().toLowerCase() === d.suggestedCategory.trim().toLowerCase()
+            );
+            if (match) categorySelect.value = match.value;
+        }
+    }
+
+    const priceInput = document.getElementById('prodPrice');
+    if (priceInput && !priceInput.value && d.suggestedPriceRange?.min) {
+        priceInput.value = d.suggestedPriceRange.min;
+    }
+
+    updateSeoPreview();
+    updatePricePreview();
+
+    showToast('✨ AI content applied to form!', 'success');
+    closeModal('ai-assist-modal');
+};
+
+function initAddProductFormUI() {
+    setupCharCounters();
+    updateSeoPreview();
+    updatePricePreview();
 }
 
 /**
@@ -4556,6 +4901,7 @@ window.uploadProduct = async function() {
 
             // ভ্যারিয়েশন সারি ও ব্র্যান্ড সিলেকশন রিসেট করা
             resetProductVariantUI('add');
+            resetAddProductFormExtras();
             if (document.getElementById('prodBrand')) document.getElementById('prodBrand').value = '';
             
             // ডাটা ট্রান্সফার রিসেট ও প্রিভিউ ক্লিয়ার
@@ -11310,6 +11656,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchBrands();
     fetchAttributes();
     setupCouponForm();
+    initAddProductFormUI();
 });
 
 
@@ -11375,6 +11722,10 @@ function navigateAdminSection(targetId, clickedItem) {
     if (typeof refreshMap[targetId] === 'function') {
         if (targetId === 'view-manage-products') readProductListSessionState();
         refreshMap[targetId]();
+    }
+
+    if (targetId === 'view-add-product') {
+        initAddProductFormUI();
     }
 }
 window.navigateAdminSection = navigateAdminSection;

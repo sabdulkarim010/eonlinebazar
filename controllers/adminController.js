@@ -962,6 +962,81 @@ const getDashboardAnalytics = async (req, res) => {
     }
 };
 
+const aiProductAssist = async (req, res) => {
+    try {
+        const { productName, additionalContext } = req.body;
+
+        if (!productName || productName.trim().length < 2) {
+            return res.status(400).json({
+                success: false,
+                message: 'Product name is required'
+            });
+        }
+
+        if (!process.env.ANTHROPIC_API_KEY) {
+            return res.status(503).json({
+                success: false,
+                message: 'AI service not configured'
+            });
+        }
+
+        const prompt = `You are a product content writer for EOnlineBazar, 
+a Bangladesh e-commerce store. Generate product content for:
+
+Product Name: "${productName}"
+${additionalContext ? 'Additional context: ' + additionalContext : ''}
+
+Respond with ONLY a valid JSON object (no markdown, no backticks):
+{
+  "shortDescription": "One sentence description under 160 chars",
+  "detailedDescription": "2-3 paragraph detailed description",
+  "highlights": ["highlight 1", "highlight 2", "highlight 3", "highlight 4"],
+  "suggestedCategory": "one of: Kids Fashion, Health & Beauty, Fashion & Apparel, Grocery, Electronics, Home & Living",
+  "suggestedPriceRange": { "min": 0, "max": 0 },
+  "keywords": ["keyword1", "keyword2", "keyword3"]
+}`;
+
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': process.env.ANTHROPIC_API_KEY,
+                'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+                model: 'claude-haiku-4-5-20251001',
+                max_tokens: 1000,
+                messages: [{ role: 'user', content: prompt }]
+            })
+        });
+
+        if (!response.ok) {
+            return res.status(502).json({
+                success: false,
+                message: 'AI service unavailable'
+            });
+        }
+
+        const data = await response.json();
+        const text = data.content?.[0]?.text || '{}';
+
+        let parsed;
+        try {
+            parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+        } catch {
+            return res.status(500).json({
+                success: false,
+                message: 'Could not parse AI response'
+            });
+        }
+
+        res.json({ success: true, data: parsed });
+    } catch (err) {
+        console.error('AI Product Assist Error:', err);
+        res.status(500).json({ success: false, message: 'AI assist failed' });
+    }
+};
+
 // দ্রষ্টব্য: loginAdmin এখন controllers/adminSecurityController.js-এ স্থানান্তরিত
 // (2-step OTP flow)। তাই এখান থেকে এক্সপোর্ট সরিয়ে ফেলা হলো — উপরের পুরোনো
 // হ্যান্ডলারটি আর কোনো রুটে ব্যবহৃত হয় না।
@@ -980,7 +1055,8 @@ module.exports = {
     updateAdminSettings,
     uploadStoreBranding,
     syncAdminData,
-    getDashboardAnalytics
+    getDashboardAnalytics,
+    aiProductAssist
 };
 
 
