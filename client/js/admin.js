@@ -11289,6 +11289,7 @@ function initDashboard() {
 // DOM সম্পূর্ণ লোড হওয়ার পর সিস্টেম বুট করা
 document.addEventListener('DOMContentLoaded', () => {
     ensureCleanAdminUrl();
+    initAdminPaginationInstances();
     initDashboard();
     setupSidebarNavigation();
     setupGlobalSearch();

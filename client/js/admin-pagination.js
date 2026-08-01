@@ -9,12 +9,68 @@ class AdminPagination {
     this.infoId = options.infoId;           // ID of "Showing X-Y of Z" span
     this.countId = options.countId;         // ID of total count badge
     this.limitSelectId = options.limitSelectId; // ID of entries-per-page select
+    this.jumpInputId = options.jumpInputId
+      || (options.containerId ? options.containerId.replace('-pg-btns', '-pg-jump') : null);
     this.onPageChange = options.onPageChange;   // callback(page, limit)
 
     this.currentPage = 1;
     this.currentLimit = options.defaultLimit || 10;
     this.totalItems = 0;
     this.totalPages = 1;
+
+    this._bindStaticControls();
+  }
+
+  /** Event delegation on stable wrappers — survives innerHTML re-renders of page buttons */
+  _bindStaticControls() {
+    const container = document.getElementById(this.containerId);
+    if (container && !container.dataset.pgBound) {
+      container.dataset.pgBound = '1';
+      container.addEventListener('click', (e) => {
+        const btn = e.target.closest('button.apg-btn[data-page]');
+        if (!btn || btn.disabled) return;
+        e.preventDefault();
+        const page = parseInt(btn.dataset.page, 10);
+        if (!Number.isNaN(page)) this.goTo(page);
+      });
+    }
+
+    const limitSelect = document.getElementById(this.limitSelectId);
+    if (limitSelect && !limitSelect.dataset.pgBound) {
+      limitSelect.dataset.pgBound = '1';
+      limitSelect.removeAttribute('onchange');
+      limitSelect.addEventListener('change', () => this.changeLimit(limitSelect.value));
+    }
+
+    if (!this.jumpInputId) return;
+    const jumpInput = document.getElementById(this.jumpInputId);
+    if (!jumpInput || jumpInput.dataset.pgBound) return;
+    jumpInput.dataset.pgBound = '1';
+    jumpInput.removeAttribute('onkeydown');
+
+    jumpInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this._jumpToInput();
+      }
+    });
+
+    const goBtn = jumpInput.parentElement?.querySelector('button.apg-jump-btn, button[type="button"]');
+    if (goBtn && !goBtn.dataset.pgBound) {
+      goBtn.dataset.pgBound = '1';
+      goBtn.removeAttribute('onclick');
+      goBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this._jumpToInput();
+      });
+    }
+  }
+
+  _jumpToInput() {
+    const jumpInput = document.getElementById(this.jumpInputId);
+    if (!jumpInput) return;
+    const val = parseInt(jumpInput.value, 10);
+    if (!Number.isNaN(val)) this.goTo(val);
   }
 
   setTotal(total) {
@@ -53,7 +109,8 @@ class AdminPagination {
 
     html += `<button type="button" class="apg-btn"
       ${this.currentPage <= 1 ? 'disabled' : ''}
-      onclick="window._pg_${this.containerId}.goTo(${this.currentPage - 1})">
+      data-page="${this.currentPage - 1}"
+      aria-label="Previous page">
       ← Prev
     </button>`;
 
@@ -62,22 +119,30 @@ class AdminPagination {
         html += `<span class="apg-dots">⋯</span>`;
       } else {
         html += `<button type="button" class="apg-btn ${p === this.currentPage ? 'apg-active' : ''}"
-          onclick="window._pg_${this.containerId}.goTo(${p})">${p}</button>`;
+          data-page="${p}"
+          ${p === this.currentPage ? 'aria-current="page"' : ''}
+          aria-label="Page ${p}">${p}</button>`;
       }
     });
 
     html += `<button type="button" class="apg-btn"
       ${this.currentPage >= this.totalPages ? 'disabled' : ''}
-      onclick="window._pg_${this.containerId}.goTo(${this.currentPage + 1})">
+      data-page="${this.currentPage + 1}"
+      aria-label="Next page">
       Next →
     </button>`;
 
     container.innerHTML = html;
-    window[`_pg_${this.containerId}`] = this;
 
     const limitSelect = document.getElementById(this.limitSelectId);
     if (limitSelect && String(limitSelect.value) !== String(this.currentLimit)) {
       limitSelect.value = String(this.currentLimit);
+    }
+
+    const jumpInput = document.getElementById(this.jumpInputId);
+    if (jumpInput) {
+      jumpInput.max = String(this.totalPages);
+      jumpInput.min = '1';
     }
   }
 
