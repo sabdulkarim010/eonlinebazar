@@ -58,14 +58,19 @@
 
     function normalizeBrandingUrl(url) {
         if (!url || typeof url !== 'string') return '';
-        if (url.startsWith('http://') || url.startsWith('https://')) return url;
-        return url.replace(new RegExp(`^${LEGACY_PREFIX}`), PUBLIC_PREFIX);
+        const trimmed = url.trim();
+        if (window.EOBUrlUtils?.isUnsafeAssetPath(trimmed)) return '';
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+        return trimmed.replace(new RegExp(`^${LEGACY_PREFIX}`), PUBLIC_PREFIX);
     }
 
     function cacheBust(url) {
         if (!url) return url;
         const version = window.__STORE_SETTINGS__?.v || Date.now();
         const base = url.split('?')[0];
+        if (window.EOBUrlUtils?.buildUrl) {
+            return window.EOBUrlUtils.buildUrl(base, { v: version });
+        }
         return `${base}?v=${version}`;
     }
 
@@ -172,6 +177,12 @@
             img.style.objectFit = 'contain';
             img.style.display = variant === 'checkout-header' ? 'block' : 'inline-block';
             img.style.verticalAlign = 'middle';
+            img.onerror = function () {
+                this.onerror = null;
+                slot.innerHTML = renderTextFallback(storeName, variant);
+                slot.classList.remove('has-store-logo');
+                slot.classList.add('has-store-brand-text');
+            };
             slot.appendChild(img);
             slot.classList.add('has-store-logo');
             return;

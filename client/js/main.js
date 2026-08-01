@@ -125,10 +125,6 @@ function fetchAndRenderProducts(options = {}) {
             productFetchFailed = false;
             allProducts = Array.isArray(data) ? data : (data.data || data.products || []);
 
-            if (allProducts.length === 0) {
-                console.warn('No products found in the API response.');
-            }
-
             displayProducts(allProducts);
             generateCategoryButtons();
         })
@@ -165,7 +161,9 @@ function displayProducts(productsToDisplay) {
 
         // 🔗 লিংক তৈরি (প্রোডাক্ট ডিটেইলস পেজে যাওয়ার জন্য)
         const productLink = document.createElement('a');
-        productLink.href = `/product-details.html?id=${productId}`; // ফাইলের আগে '/' দেওয়া হয়েছে যাতে পাথ ঠিক থাকে
+        productLink.href = window.EOBUrlUtils
+            ? window.EOBUrlUtils.buildUrl('/product-details.html', { id: productId })
+            : `/product-details.html?id=${encodeURIComponent(productId)}`;
         productLink.style.textDecoration = 'none';
         productLink.style.color = 'inherit';
         productLink.style.display = 'block';
@@ -344,10 +342,25 @@ function buildProductPriceMarkup(product) {
    ========================================================================== */
 function generateCategoryButtons() {
     const btnContainer = document.getElementById('categoryButtonContainer');
+    const categorySelect = document.getElementById('categorySelect');
     if (!btnContainer) return;
 
-    const categories = ['all', ...new Set(allProducts.map(p => p.category))];
+    const categories = ['all', ...new Set(allProducts.map(p => p.category).filter(Boolean))];
     btnContainer.innerHTML = '';
+
+    if (categorySelect) {
+        const previous = categorySelect.value || 'all';
+        categorySelect.innerHTML = '<option value="all">All Categories</option>';
+        categories.filter((c) => c !== 'all').forEach((category) => {
+            const option = document.createElement('option');
+            option.value = category;
+            option.textContent = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+            categorySelect.appendChild(option);
+        });
+        if ([...categorySelect.options].some((opt) => opt.value === previous)) {
+            categorySelect.value = previous;
+        }
+    }
 
     categories.forEach(category => {
         const button = document.createElement('button');
@@ -383,8 +396,20 @@ function generateCategoryButtons() {
 // একটি কিওয়ার্ড নিয়ে ক্লিন সার্চ পেজে রিডাইরেক্ট করার হেল্পার
 function goToSearchPage(term) {
     const q = String(term || '').trim();
-    if (q.length < 1) return;
-    window.location.href = `/search?q=${encodeURIComponent(q)}`;
+    const categoryEl = document.getElementById('categorySelect');
+    const category = categoryEl && categoryEl.value && categoryEl.value !== 'all'
+        ? String(categoryEl.value).trim()
+        : '';
+
+    if (q.length < 1 && !category) return;
+
+    const params = {};
+    if (q.length >= 1) params.q = q;
+    if (category) params.category = category;
+
+    window.location.href = window.EOBUrlUtils
+        ? window.EOBUrlUtils.buildUrl('/search', params)
+        : `/search?${new URLSearchParams(params).toString()}`;
 }
 
 // Enter/বাটন ক্লিকে সাথে সাথে সার্চ পেজে যাওয়া

@@ -73,13 +73,15 @@ function buildInlineSettings(settings, cacheVersion) {
 }
 
 function injectBrandingScripts(html) {
+    const urlUtilsScript = '<script src="/js/urlUtils.js"></script>';
     const script = '<script src="/js/store-branding.js"></script>';
 
     if (html.includes('store-branding.js')) {
         return html.replace(/\s*<script[^>]*src="\/js\/store-logo-svg\.js"[^>]*><\/script>\s*/gi, '');
     }
 
-    return html.replace('</head>', `    ${script}\n</head>`);
+    const scripts = `${urlUtilsScript}\n    ${script}`;
+    return html.replace('</head>', `    ${scripts}\n</head>`);
 }
 
 function injectInlineSettingsScript(html, inlineSettings) {

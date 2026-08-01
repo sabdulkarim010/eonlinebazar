@@ -76,7 +76,7 @@
 
         if (link.iconUrl) {
             return `<a href="${href}" target="${target}"${rel} title="${title}" class="social-btn">
-                <img src="${escapeFooterHtml(link.iconUrl)}" alt="${title}" loading="lazy">
+                <img src="${escapeFooterHtml(link.iconUrl)}" alt="${title}" loading="lazy" onerror="this.style.display='none'">
             </a>`;
         }
 

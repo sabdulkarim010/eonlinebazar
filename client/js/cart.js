@@ -600,8 +600,15 @@ function triggerFlyAnimation(clickedButton, assetData) {
 
     if (!finalAssetHTML) {
         if (assetData && (assetData.endsWith('.jpg') || assetData.endsWith('.png') || assetData.endsWith('.jpeg') || assetData.endsWith('.webp'))) {
-            let imagePath = assetData.startsWith('/') ? assetData : '/products/' + assetData;
-            finalAssetHTML = `<img src="${imagePath}" alt="flying-prod">`;
+            const PT = window.ProductThumbnail;
+            let imagePath = PT && typeof PT.resolveProductImagePath === 'function'
+                ? PT.resolveProductImagePath(assetData)
+                : (assetData.startsWith('/') ? assetData : '/products/' + assetData);
+            if (imagePath) {
+                finalAssetHTML = `<img src="${imagePath}" alt="flying-prod">`;
+            } else {
+                finalAssetHTML = `<div class="emoji-fly" style="font-size:40px;">🛍️</div>`;
+            }
         } else {
             finalAssetHTML = `<div class="emoji-fly" style="font-size:40px;">🛍️</div>`;
         }

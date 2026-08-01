@@ -502,7 +502,9 @@ function renderProducts(list) {
         const productId = product._id || product.id || product.productId;
 
         const productLink = document.createElement('a');
-        productLink.href = `/product-details.html?id=${productId}`;
+        productLink.href = window.EOBUrlUtils
+            ? window.EOBUrlUtils.buildUrl('/product-details.html', { id: productId })
+            : `/product-details.html?id=${encodeURIComponent(productId)}`;
         productLink.style.textDecoration = 'none';
         productLink.style.color = 'inherit';
         productLink.style.display = 'block';

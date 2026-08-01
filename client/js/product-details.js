@@ -119,7 +119,12 @@ function resolveProductImageUrl(product) {
 
 function normalizeAssetUrl(raw) {
     if (!raw) return '';
+    const PT = window.ProductThumbnail;
+    if (PT && typeof PT.resolveProductImagePath === 'function') {
+        return PT.resolveProductImagePath(raw);
+    }
     const str = String(raw).trim();
+    if (window.EOBUrlUtils?.isUnsafeAssetPath(str)) return '';
     if (str.startsWith('http')) return str;
     return str.startsWith('/') ? str : `/products/${str}`;
 }
@@ -375,6 +380,12 @@ function renderDetailsMediaFallback(product, mainBox) {
 function attachMainImageFallback(mainImg, product, mainBox) {
     if (!mainImg) return;
 
+    const PT = window.ProductThumbnail;
+    if (PT && typeof PT.attachImageFallback === 'function') {
+        PT.attachImageFallback(mainImg);
+        return;
+    }
+
     mainImg.onerror = function () {
         this.onerror = null;
         this.style.display = 'none';
@@ -556,9 +567,14 @@ function updateStickyBarImage(imageUrl) {
     if (!stickyImg || !imageUrl) return;
     stickyImg.style.display = '';
     stickyImg.src = imageUrl;
-    stickyImg.onerror = function () {
-        this.style.display = 'none';
-    };
+    const PT = window.ProductThumbnail;
+    if (PT && typeof PT.attachImageFallback === 'function') {
+        PT.attachImageFallback(stickyImg);
+    } else {
+        stickyImg.onerror = function () {
+            this.style.display = 'none';
+        };
+    }
 }
 
 function updateCarouselNavButtons() {
@@ -1491,6 +1507,11 @@ function renderProductImages(product) {
             imgBtn.setAttribute('role', 'button');
             imgBtn.setAttribute('tabindex', '0');
             imgBtn.setAttribute('aria-label', `View product image ${index + 1}`);
+
+            const PT = window.ProductThumbnail;
+            if (PT && typeof PT.attachImageFallback === 'function') {
+                PT.attachImageFallback(imgBtn);
+            }
 
             const colorEntry = indexToColor[index];
             if (colorEntry) {

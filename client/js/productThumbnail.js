@@ -8,7 +8,19 @@
     'use strict';
 
     const GENERIC_EMOJI_ICONS = new Set(['📦', '']);
-    const IMG_ONERROR = "this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';";
+    const PLACEHOLDER_IMAGE = '/images/placeholder-product.svg';
+    const IMG_ONERROR = "if(!this.dataset.fallback){this.dataset.fallback='1';this.src='" + PLACEHOLDER_IMAGE + "';}else{this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';}";
+
+    function isUnsafeAssetPath(value) {
+        if (global.EOBUrlUtils && typeof global.EOBUrlUtils.isUnsafeAssetPath === 'function') {
+            return global.EOBUrlUtils.isUnsafeAssetPath(value);
+        }
+        if (value == null) return true;
+        const v = String(value).trim();
+        if (!v) return true;
+        if (v.startsWith('&') || v.startsWith('?')) return true;
+        return /^\/[&?]/.test(v);
+    }
 
     function escapeHtml(str) {
         return String(str == null ? '' : str)
@@ -42,7 +54,7 @@
     }
 
     function resolveProductImagePath(imageFile) {
-        if (!imageFile) return '';
+        if (!imageFile || isUnsafeAssetPath(imageFile)) return '';
         const raw = String(imageFile).trim();
         if (!raw || looksLikeEmojiOrIcon(raw)) return '';
 
@@ -272,9 +284,26 @@
         return `<div class="${classes.noPhoto}" aria-hidden="true"><span>NO PHOTO</span></div>`;
     }
 
+    function attachImageFallback(img, placeholder) {
+        if (!img || img.dataset.eobFallbackBound) return;
+        img.dataset.eobFallbackBound = '1';
+        const fallbackSrc = placeholder || PLACEHOLDER_IMAGE;
+        img.addEventListener('error', function handleImageError() {
+            if (this.dataset.fallbackApplied === '1') {
+                this.style.display = 'none';
+                if (this.nextElementSibling) this.nextElementSibling.style.display = 'flex';
+                return;
+            }
+            this.dataset.fallbackApplied = '1';
+            this.src = fallbackSrc;
+        });
+    }
+
     function mountInto(container, item, options) {
         if (!container) return;
         container.innerHTML = buildThumbnailHtml(item, options);
+        const img = container.querySelector('img');
+        if (img) attachImageFallback(img);
     }
 
     function buildForCartItem(cartItem, catalogProduct, options) {
@@ -284,11 +313,16 @@
     function mountCartItemInto(container, cartItem, catalogProduct, options) {
         if (!container) return;
         container.innerHTML = buildForCartItem(cartItem, catalogProduct, options);
+        const img = container.querySelector('img');
+        if (img) attachImageFallback(img);
     }
 
     const api = {
         IMG_ONERROR,
+        PLACEHOLDER_IMAGE,
         escapeHtml,
+        isUnsafeAssetPath,
+        attachImageFallback,
         isValidProductImagePath,
         looksLikeEmojiOrIcon,
         resolveProductImagePath,
