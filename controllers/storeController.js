@@ -18,6 +18,7 @@ const Setting = require('../models/Setting');
 const { loadFlashSaleSettings, toPublicFlashSalePayload } = require('../utils/flashSaleService');
 const FooterSettings = require('../models/FooterSettings');
 const PageContent = require('../models/PageContent');
+const Settings = require('../models/Settings');
 const { getPublishedPageSlugs, filterFooterColumnsByPublishedPages } = require('../utils/pagePublishService');
 const { getOrSet, CACHE_KEYS } = require('../utils/cacheService');
 
@@ -188,6 +189,17 @@ module.exports = {
         } catch (error) {
             console.error('Get Public Page Content Error:', error);
             res.status(500).json({ success: false, message: 'Failed to load page content.' });
+        }
+    },
+    getPublicCacheSettings: async (req, res) => {
+        try {
+            const settings = await Settings.getOrCreate();
+            res.status(200).json({
+                serviceWorkerEnabled: settings.serviceWorkerEnabled !== false
+            });
+        } catch (error) {
+            console.error('Get Public Cache Settings Error:', error);
+            res.status(200).json({ serviceWorkerEnabled: true });
         }
     }
 };

@@ -26,29 +26,119 @@ document.addEventListener('DOMContentLoaded', () => {
 /* ==========================================================================
    SECTION 2: FETCH PRODUCTS FROM API (ডাটাবেজ থেকে ডাটা আনা)
    ========================================================================== */
-function fetchAndRenderProducts() {
+let productFetchInFlight = false;
+let productFetchFailed = false;
+let productsFetchAttempted = false;
+
+function showEmptyProductsState(message) {
+    const productGrid = document.getElementById('productGrid');
+    if (!productGrid) return;
+    productGrid.innerHTML = `<p style="text-align:center;padding:20px;color:#9ca3af">${message || 'Products loading...'}</p>`;
+}
+
+function renderProductFetchError(message, statusCode) {
     const productGrid = document.getElementById('productGrid');
     if (!productGrid) return;
 
+    const isRateLimited = statusCode === 429;
+    if (isRateLimited) {
+        showEmptyProductsState(
+            window.i18n ? window.i18n.t('home.rate_limited_title') : 'Too many requests — please wait a moment.'
+        );
+        return;
+    }
+    const title = isRateLimited
+        ? (window.i18n ? window.i18n.t('home.rate_limited_title') : 'Too many requests')
+        : (window.i18n ? window.i18n.t('home.load_error_title') : 'Could not load products');
+    const hint = message || t('common.error');
+
+    productGrid.innerHTML = `
+        <div class="product-fetch-error" role="alert">
+            <div class="product-fetch-error__icon" aria-hidden="true">
+                <i class="fa-solid ${isRateLimited ? 'fa-gauge-high' : 'fa-triangle-exclamation'}"></i>
+            </div>
+            <h3 class="product-fetch-error__title">${title}</h3>
+            <p class="product-fetch-error__message">${hint}</p>
+            <button type="button" class="product-fetch-error__retry" id="productFetchRetryBtn">
+                <i class="fa-solid fa-rotate-right"></i> ${window.i18n ? window.i18n.t('common.try_again') : 'Try Again'}
+            </button>
+        </div>
+    `;
+
+    document.getElementById('productFetchRetryBtn')?.addEventListener('click', () => {
+        productFetchFailed = false;
+        productsFetchAttempted = false;
+        fetchAndRenderProducts({ manual: true });
+    });
+}
+
+function fetchAndRenderProducts(options = {}) {
+    const productGrid = document.getElementById('productGrid');
+    if (!productGrid) return;
+
+    // One-time fetch on page load — no automatic retries on error
+    if (productsFetchAttempted && !options.manual && !options.allowRetry) return;
+
+    // After a failure, only retry when the user explicitly clicks Try Again
+    // (or an intentional refresh such as flash-sale expiry).
+    if (productFetchFailed && !options.manual && !options.allowRetry) return;
+    if (productFetchInFlight && !options.manual && !options.allowRetry) return;
+
+    if (!options.manual && !options.allowRetry) {
+        productsFetchAttempted = true;
+    }
+
+    productFetchInFlight = true;
+
+    if (options.manual || !allProducts.length) {
+        productGrid.innerHTML = `
+            <div class="product-fetch-loading" aria-live="polite">
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                <span>${window.i18n ? window.i18n.t('common.loading') : 'Loading products…'}</span>
+            </div>
+        `;
+    }
+
     fetch('/api/products')
-        .then(response => {
-            if (!response.ok) throw new Error('Network response was not ok');
-            return response.json();
+        .then(async (response) => {
+            let payload = null;
+            try {
+                payload = await response.json();
+            } catch (_) {
+                payload = null;
+            }
+
+            if (!response.ok) {
+                const err = new Error(
+                    payload?.message
+                    || (response.status === 429
+                        ? 'You have made too many requests. Please wait a moment and try again.'
+                        : 'Unable to load products right now.')
+                );
+                err.status = response.status;
+                throw err;
+            }
+
+            return payload;
         })
         .then(data => {
-            // 🚀 আপডেট: ব্যাকএন্ড যদি { data: [...] } বা { products: [...] } হিসেবে ডাটা পাঠায়, সেটাও হ্যান্ডেল করবে
-            allProducts = Array.isArray(data) ? data : (data.data || data.products || []); 
-            
+            productFetchFailed = false;
+            allProducts = Array.isArray(data) ? data : (data.data || data.products || []);
+
             if (allProducts.length === 0) {
-                console.warn("No products found in the API response.");
+                console.warn('No products found in the API response.');
             }
 
             displayProducts(allProducts);
             generateCategoryButtons();
         })
         .catch(error => {
+            productFetchFailed = true;
             console.error('Error fetching products:', error);
-            productGrid.innerHTML = `<p style="color: red; text-align: center; width: 100%;">${t('common.error')}</p>`;
+            renderProductFetchError(error.message, error.status);
+        })
+        .finally(() => {
+            productFetchInFlight = false;
         });
 }
 
@@ -146,6 +236,10 @@ function displayProducts(productsToDisplay) {
             window.WishlistEngine.refreshHearts(productGrid);
         });
     }
+
+    if (window.analytics && productsToDisplay.length) {
+        window.analytics.trackViewItemList(productsToDisplay, 'Featured Products');
+    }
 }
 
 
@@ -203,7 +297,7 @@ function startFlashSaleCountdown(endsAt) {
             if (banner) banner.style.display = 'none';
             if (flashSaleCountdownTimer) clearInterval(flashSaleCountdownTimer);
             flashSaleState = { ...(flashSaleState || {}), isActive: false };
-            fetchAndRenderProducts();
+            fetchAndRenderProducts({ allowRetry: true });
             return;
         }
 

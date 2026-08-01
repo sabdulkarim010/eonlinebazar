@@ -419,6 +419,10 @@ async function handleLoginSubmit(e) {
             
             if (forgotPassLink) forgotPassLink.style.display = 'none';
 
+            if (window.analytics) {
+                window.analytics.trackLogin('email');
+            }
+
             showCustomToast("Login Successful! Redirecting...", "success");
 
             setTimeout(() => { window.location.href = resolvePostLoginRedirect(); }, 1500);
@@ -487,6 +491,10 @@ async function handleRegisterSubmit(e) {
         const data = await response.json();
         
         if (data.success) {
+            if (window.analytics) {
+                window.analytics.trackSignUp('email');
+            }
+
             document.getElementById('register-section').style.display = 'none';
             const successMsg = document.getElementById('success-message');
             successMsg.style.display = 'block';

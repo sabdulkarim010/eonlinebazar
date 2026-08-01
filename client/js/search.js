@@ -462,12 +462,20 @@ async function runSearch() {
                     <p>${q ? `No results for "<strong>${escapeHtml(q)}</strong>"` : 'No results for these filters'}. Try changing your filters.</p>
                     <button type="button" class="search-back-btn" onclick="clearAllFilters()">${t('search.clear_filters')}</button>
                 </div>`;
+            if (window.analytics) {
+                window.analytics.trackSearch(q, 0);
+            }
             return;
         }
 
         countEl.textContent = t('search.results', { count: toBnNumber(total) });
         renderProducts(products);
         renderPagination();
+
+        if (window.analytics) {
+            window.analytics.trackSearch(q, total);
+            window.analytics.trackViewItemList(products, 'Search Results');
+        }
     } catch (err) {
         console.error('Search error:', err);
         grid.innerHTML = `

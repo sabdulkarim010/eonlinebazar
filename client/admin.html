@@ -1613,6 +1613,49 @@
                     </button>
                 </div>
 
+                <div class="system-settings-card system-settings-card--red rate-limit-settings-card">
+                    <div class="system-settings-card__header">
+                        <div>
+                            <h4><i class="fa-solid fa-gauge-high"></i> Rate Limiting &amp; Anti-DDoS Settings</h4>
+                            <p class="section-subtitle">Control global API throttling to protect the storefront from abuse.</p>
+                        </div>
+                    </div>
+                    <form id="form-rate-limit-settings" class="system-settings-form" novalidate>
+                        <div class="master-settings-grid">
+                            <div class="form-group">
+                                <label class="toggle-switch-label" for="rateLimitEnabled">
+                                    <span>Enable Rate Limiter</span>
+                                    <span class="toggle-switch">
+                                        <input type="checkbox" id="rateLimitEnabled" checked>
+                                        <span class="toggle-slider"></span>
+                                    </span>
+                                </label>
+                                <small class="field-hint">When disabled, general API rate limiting is turned off (auth/login limits still apply).</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="rateLimitMaxRequests">Max Requests per 15 minutes</label>
+                                <input type="number" id="rateLimitMaxRequests" min="1" step="1" value="1000" required>
+                                <small class="field-hint">Default window is 15 minutes (900,000 ms).</small>
+                            </div>
+                            <div class="form-group form-group-full">
+                                <label class="checkbox-inline">
+                                    <input type="checkbox" id="rateLimitBypassAdmin" checked>
+                                    Bypass rate limiting for Admins &amp; Localhost
+                                </label>
+                            </div>
+                        </div>
+                        <div class="master-settings-preview" id="rateLimitSettingsPreview">
+                            <strong>Current policy:</strong>
+                            <span id="rateLimitSettingsPreviewText">Loading…</span>
+                        </div>
+                        <div class="master-settings-actions">
+                            <button type="submit" class="btn-submit system-settings-save-btn">
+                                <i class="fa-solid fa-floppy-disk"></i> Save Rate Limit Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
                 <div class="audit-tabs">
                     <button type="button" class="audit-tab active" data-audit-tab="tab-login-history">
                         <i class="fa-solid fa-clock-rotate-left"></i> Login History &amp; Failed Attempts
@@ -2606,6 +2649,54 @@
                     <!-- Tab 1: Profile & Security -->
                     <div class="admin-settings-panel is-active" role="tabpanel" id="adminPanelProfile" aria-labelledby="adminTabProfile" data-panel="profile">
                         <div class="admin-settings-stack">
+
+                            <div class="settings-card" style="border-left: 4px solid #f97316">
+                                <h3>📊 Google Analytics</h3>
+                                <p style="color:#6b7280;font-size:0.875rem;margin:8px 0 16px">
+                                    View your store traffic, conversions, and user behavior.
+                                </p>
+                                <div style="display:flex;gap:10px;flex-wrap:wrap">
+                                    <a href="https://analytics.google.com" target="_blank" rel="noopener noreferrer"
+                                       class="btn btn-primary">
+                                        📈 Open GA4 Dashboard
+                                    </a>
+                                    <div id="ga-status-badge" style="
+                                        padding: 8px 14px;
+                                        border-radius: 8px;
+                                        font-size: 0.8rem;
+                                        font-weight: 600;
+                                        background: #f3f4f6;
+                                        color: #6b7280;
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 6px;
+                                    ">
+                                        Checking GA status...
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3>⚡ Performance Cache</h3>
+                                <p style="font-size:0.85rem;color:#6b7280;margin:8px 0">
+                                    Service Worker caches your storefront for faster loading.
+                                    Disable temporarily if customers report seeing old content.
+                                </p>
+                                <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="sw-enabled-toggle" checked
+                                               onchange="toggleServiceWorkerSetting(this.checked)">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                    <span id="sw-setting-text" style="font-size:0.85rem;font-weight:600">
+                                        Cache Enabled
+                                    </span>
+                                </div>
+                                <p style="font-size:0.78rem;color:#9ca3af;margin-top:8px">
+                                    Note: Changes take effect for new visitors.
+                                    Existing visitors may need to clear browser cache.
+                                </p>
+                            </div>
 
                             <div class="saas-settings-card">
                                 <div class="saas-settings-card-header">

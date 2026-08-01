@@ -20,6 +20,57 @@ if (!token) {
 }
 
 /**
+ * Shared admin API auth/rate-limit handler.
+ * Returns 'rate_limited' | 'auth_failed' | 'forbidden' | 'ok' — never redirects on HTTP 429.
+ */
+function handleAdminApiAuthResponse(res, data = {}) {
+    if (res.status === 429) {
+        const msg = data.message || 'Too many requests — please wait and try again.';
+        if (typeof showToast === 'function') showToast(msg, 'warning');
+        return 'rate_limited';
+    }
+    // Only redirect on genuine 401 — not 403 (permission/geo/rate-limit side effects)
+    if (res.status === 401) {
+        localStorage.removeItem('adminToken');
+        window.location.replace('/admin-login');
+        return 'auth_failed';
+    }
+    if (res.status === 403) {
+        const msg = data.message || 'Access denied.';
+        if (typeof showToast === 'function') showToast(msg, 'warning');
+        return 'forbidden';
+    }
+    return 'ok';
+}
+
+/** Track consecutive poll/API errors and pause auto-refresh after repeated failures. */
+const adminPollErrorCounts = {};
+const MAX_ADMIN_POLL_ERRORS = 3;
+
+function trackAdminPollError(pollKey, res) {
+    if (!adminPollErrorCounts[pollKey]) adminPollErrorCounts[pollKey] = 0;
+
+    if (res && res.status === 429) {
+        adminPollErrorCounts[pollKey]++;
+        if (adminPollErrorCounts[pollKey] >= MAX_ADMIN_POLL_ERRORS) {
+            console.warn(`[Admin] Too many 429s on ${pollKey}, pausing auto-refresh`);
+            return true;
+        }
+        return false;
+    }
+    if (res && !res.ok) {
+        adminPollErrorCounts[pollKey]++;
+        return adminPollErrorCounts[pollKey] >= MAX_ADMIN_POLL_ERRORS;
+    }
+    adminPollErrorCounts[pollKey] = 0;
+    return false;
+}
+
+function resetAdminPollErrors(pollKey) {
+    adminPollErrorCounts[pollKey] = 0;
+}
+
+/**
  * ১.৩: ব্যাকএন্ডের সাথে অ্যাডমিন টোকেন লাইভ ভেরিফিকেশন করা
  * ড্যাশবোর্ড লোড হওয়ার সময় ব্যাকএন্ড API-এর মাধ্যমে চেক করে টোকেনটি আসল ও সচল কিনা
  */
@@ -33,11 +84,14 @@ async function verifyAdminTokenOnLoad() {
             }
         });
         const data = await res.json();
-        
-        // টোকেন অবৈধ বা এক্সপায়ার হলে সেশন ক্লিয়ার করে রিডাইরেক্ট
+
+        const authResult = handleAdminApiAuthResponse(res, data);
+        if (authResult === 'rate_limited' || authResult === 'auth_failed') {
+            return;
+        }
+
         if (!res.ok || !data.success) {
-            localStorage.removeItem('adminToken');
-            window.location.replace('/admin-login');
+            console.warn('Admin token verification failed:', data.message || res.status);
             return;
         }
 
@@ -1313,10 +1367,25 @@ async function fetchDashboardData() {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
+        if (response.status === 429) {
+            if (trackAdminPollError('dashboard', response)) return;
+            showCustomerError('Too many requests. Please wait a moment and try again.');
+            return;
+        }
+        if (response.status === 401) {
+            handleAdminApiAuthResponse(response, {});
+            return;
+        }
+        if (response.status === 403) {
+            handleAdminApiAuthResponse(response, {});
+            return;
+        }
+
         if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
         
         const data = await response.json();
+        resetAdminPollErrors('dashboard');
         
         // ব্যাকএন্ড রেসপন্সের বিভিন্ন ফরম্যাট হ্যান্ডেল করা
         if (data && data.success) {
@@ -1355,9 +1424,24 @@ async function fetchDashboardAnalytics() {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
+        if (response.status === 429) {
+            if (trackAdminPollError('dashboardAnalytics', response)) return;
+            console.warn('Dashboard analytics rate-limited — skipping auto-retry.');
+            return;
+        }
+        if (response.status === 401) {
+            handleAdminApiAuthResponse(response, {});
+            return;
+        }
+        if (response.status === 403) {
+            handleAdminApiAuthResponse(response, {});
+            return;
+        }
+
         if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
 
         const data = await response.json();
+        resetAdminPollErrors('dashboardAnalytics');
         if (!data.success || !data.analytics) return;
 
         dashboardAnalytics = data.analytics;
@@ -2476,8 +2560,19 @@ async function fetchLiveOrders() {
                 headers: { 'Authorization': `Bearer ${token}` }
             })
         ]);
+
+        if (response.status === 429) {
+            if (trackAdminPollError('liveOrders', response)) return;
+            tableBody.innerHTML = `<tr><td colspan="${LIVE_ORDERS_TABLE_COLS}" class="table-status-error">Too many requests — please wait and try again.</td></tr>`;
+            return;
+        }
+        if (response.status === 401) {
+            handleAdminApiAuthResponse(response, {});
+            return;
+        }
         
         const data = await response.json();
+        resetAdminPollErrors('liveOrders');
 
         try {
             const settingsData = await settingsRes.json();
@@ -2971,12 +3066,39 @@ async function fetchPendingWhatsAppAlerts() {
         const res = await fetch('/api/admin/whatsapp-alerts/pending', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+
+        if (res.status === 429) {
+            if (trackAdminPollError('whatsappAlerts', res)) {
+                if (whatsappAlertPollTimer) {
+                    clearInterval(whatsappAlertPollTimer);
+                    whatsappAlertPollTimer = null;
+                }
+            }
+            return;
+        }
+        if (res.status === 401) {
+            handleAdminApiAuthResponse(res, {});
+            return;
+        }
+
+        if (!res.ok) {
+            trackAdminPollError('whatsappAlerts', res);
+            return;
+        }
+
         const data = await res.json();
+        resetAdminPollErrors('whatsappAlerts');
         if (data.success) {
             renderWhatsAppAlertDropdown(Array.isArray(data.data) ? data.data : []);
         }
     } catch (err) {
-        console.warn('Could not load pending WhatsApp alerts:', err);
+        adminPollErrorCounts.whatsappAlerts = (adminPollErrorCounts.whatsappAlerts || 0) + 1;
+        console.warn('[Admin] Fetch error (whatsapp alerts):', err.message);
+        if (adminPollErrorCounts.whatsappAlerts >= MAX_ADMIN_POLL_ERRORS && whatsappAlertPollTimer) {
+            console.warn('[Admin] Too many errors on whatsappAlerts, pausing auto-refresh');
+            clearInterval(whatsappAlertPollTimer);
+            whatsappAlertPollTimer = null;
+        }
     }
 }
 
@@ -6093,21 +6215,23 @@ async function saveCoupon() {
             throw new Error('Unexpected server response. Please try again.');
         }
 
-        if (result.success) {
-            const successMsg = editId
-                ? (result.message || 'Coupon updated successfully!')
-                : 'Coupon created successfully!';
-            showToast(`Success: ${successMsg}`, 'success');
-            window.resetCouponForm();
-            await fetchCoupons();
-        } else {
-            const errMsg = result.message || 'Failed to save coupon';
-            showToast('Error: ' + errMsg, 'error');
-            if (res.status === 401 && result.redirect) {
-                localStorage.removeItem('adminToken');
-                window.location.replace(result.redirect);
+            if (result.success) {
+                const successMsg = editId
+                    ? (result.message || 'Coupon updated successfully!')
+                    : 'Coupon created successfully!';
+                showToast(`Success: ${successMsg}`, 'success');
+                window.resetCouponForm();
+                await fetchCoupons();
+            } else if (res.status === 429) {
+                showToast('Too many requests — please wait and try again.', 'warning');
+            } else {
+                const errMsg = result.message || 'Failed to save coupon';
+                showToast('Error: ' + errMsg, 'error');
+                if (res.status === 401 && result.redirect) {
+                    localStorage.removeItem('adminToken');
+                    window.location.replace(result.redirect);
+                }
             }
-        }
     } catch (error) {
         const errMsg = error.message || 'Server error while saving coupon!';
         showToast('Error: ' + errMsg, 'error');
@@ -7419,9 +7543,128 @@ let _auditActiveTab = 'tab-login-history';
 function initAuditView() {
     setupAuditTabs();
     initAdminPaginationInstances();
+    fetchRateLimitSettings();
+    bindRateLimitSettingsForm();
     refreshAuditActiveTab();
 }
 window.initAuditView = initAuditView;
+
+function updateRateLimitSettingsPreview(data = {}) {
+    const previewEl = document.getElementById('rateLimitSettingsPreviewText');
+    if (!previewEl) return;
+
+    const enabled = data.rateLimitEnabled !== false;
+    const max = Number(data.rateLimitMaxRequests) || 1000;
+    const windowMinutes = Math.round((Number(data.rateLimitWindowMs) || 900000) / 60000);
+    const bypass = data.bypassAdminAndLocalhost !== false;
+
+    if (!enabled) {
+        previewEl.textContent = 'Rate limiter is OFF — general API throttling disabled.';
+        return;
+    }
+
+    previewEl.textContent =
+        `${max} requests per ${windowMinutes} minute(s)` +
+        (bypass ? ' · Admins & localhost bypass enabled' : ' · No bypass rules active');
+}
+
+function applyRateLimitSettingsToUI(data = {}) {
+    const enabledEl = document.getElementById('rateLimitEnabled');
+    const maxEl = document.getElementById('rateLimitMaxRequests');
+    const bypassEl = document.getElementById('rateLimitBypassAdmin');
+
+    if (enabledEl) enabledEl.checked = data.rateLimitEnabled !== false;
+    if (maxEl && data.rateLimitMaxRequests != null) maxEl.value = data.rateLimitMaxRequests;
+    if (bypassEl) bypassEl.checked = data.bypassAdminAndLocalhost !== false;
+
+    updateRateLimitSettingsPreview(data);
+}
+
+async function fetchRateLimitSettings() {
+    try {
+        const res = await fetch('/api/admin/rate-limit-settings', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (res.status === 429) {
+            showToast('Rate limited — could not load rate limit settings. Try again shortly.', 'warning');
+            return;
+        }
+
+        const data = await res.json();
+        if (data.success && data.data) {
+            applyRateLimitSettingsToUI(data.data);
+        } else if (handleAdminApiAuthResponse(res, data) === 'auth_failed') {
+            return;
+        }
+    } catch (err) {
+        console.error('Failed to load rate limit settings:', err);
+    }
+}
+window.fetchRateLimitSettings = fetchRateLimitSettings;
+
+function bindRateLimitSettingsForm() {
+    const form = document.getElementById('form-rate-limit-settings');
+    if (!form || form._rateLimitBound) return;
+    form._rateLimitBound = true;
+
+    ['rateLimitEnabled', 'rateLimitMaxRequests', 'rateLimitBypassAdmin'].forEach((id) => {
+        document.getElementById(id)?.addEventListener('change', () => {
+            updateRateLimitSettingsPreview({
+                rateLimitEnabled: document.getElementById('rateLimitEnabled')?.checked,
+                rateLimitMaxRequests: Number(document.getElementById('rateLimitMaxRequests')?.value || 1000),
+                rateLimitWindowMs: 900000,
+                bypassAdminAndLocalhost: document.getElementById('rateLimitBypassAdmin')?.checked
+            });
+        });
+    });
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const submitBtn = form.querySelector('.system-settings-save-btn');
+        const restore = setButtonLoading(submitBtn, 'Saving...');
+
+        const payload = {
+            rateLimitEnabled: document.getElementById('rateLimitEnabled')?.checked !== false,
+            rateLimitMaxRequests: Number(document.getElementById('rateLimitMaxRequests')?.value || 1000),
+            rateLimitWindowMs: 900000,
+            bypassAdminAndLocalhost: document.getElementById('rateLimitBypassAdmin')?.checked !== false
+        };
+
+        try {
+            const res = await fetch('/api/admin/rate-limit-settings', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await res.json();
+
+            if (res.status === 429) {
+                showToast('Rate limited — please wait and try again.', 'warning');
+                return;
+            }
+
+            if (result.success) {
+                showToast(result.message || 'Rate limiting settings saved.', 'success');
+                if (result.data) applyRateLimitSettingsToUI(result.data);
+            } else if (handleAdminApiAuthResponse(res, result) === 'auth_failed') {
+                return;
+            } else {
+                showToast(`Error: ${result.message || 'Failed to save rate limit settings.'}`, 'error');
+            }
+        } catch (err) {
+            console.error('Rate limit settings save error:', err);
+            showToast('Error: Could not save rate limit settings.', 'error');
+        } finally {
+            restore();
+        }
+    });
+}
 
 function setupAuditTabs() {
     const tabs = document.querySelectorAll('.audit-tab');
@@ -7888,6 +8131,67 @@ window.resetRealData = async function() {
     });
 };
 
+async function toggleServiceWorkerSetting(enabled) {
+    const text = document.getElementById('sw-setting-text');
+    if (text) {
+        text.textContent = enabled ? 'Cache Enabled' : 'Cache Disabled';
+    }
+
+    try {
+        await fetch('/api/admin/settings/cache', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ serviceWorkerEnabled: enabled })
+        });
+        showToast(
+            enabled ? '✅ Cache enabled' : '⚠️ Cache disabled',
+            enabled ? 'success' : 'warning'
+        );
+    } catch (err) {
+        showToast('Could not save cache setting', 'error');
+    }
+}
+window.toggleServiceWorkerSetting = toggleServiceWorkerSetting;
+
+async function loadCacheSettings() {
+    try {
+        const res = await fetch('/api/store/cache-settings');
+        const data = await res.json();
+        const enabled = data.serviceWorkerEnabled !== false;
+        const toggle = document.getElementById('sw-enabled-toggle');
+        const text = document.getElementById('sw-setting-text');
+        if (toggle) toggle.checked = enabled;
+        if (text) text.textContent = enabled ? 'Cache Enabled' : 'Cache Disabled';
+    } catch (e) {
+        // ignore — defaults to enabled
+    }
+}
+
+async function checkGAStatus() {
+    try {
+        const res = await fetch('/api/admin/analytics/status', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        const badge = document.getElementById('ga-status-badge');
+        if (!badge) return;
+        if (data.enabled && data.measurementId) {
+            badge.style.background = '#d1fae5';
+            badge.style.color = '#065f46';
+            badge.innerHTML = '✅ Active — ' + data.measurementId;
+        } else {
+            badge.style.background = '#fee2e2';
+            badge.style.color = '#991b1b';
+            badge.innerHTML = '❌ Not configured — add GOOGLE_ANALYTICS_ID to .env';
+        }
+    } catch (e) {
+        // ignore
+    }
+}
+
 async function fetchAdminSettings() {
     if (typeof window.applySuperAdminOnlyVisibility === 'function') {
         window.applySuperAdminOnlyVisibility();
@@ -7911,6 +8215,8 @@ async function fetchAdminSettings() {
     } catch (err) {
         console.error('Failed to load admin settings:', err);
     }
+    checkGAStatus();
+    loadCacheSettings();
     // Load 2FA status/config for the settings panel
     if (typeof window.refreshTwoFactorSettings === 'function') window.refreshTwoFactorSettings();
     if (typeof loadSandboxStatus === 'function') loadSandboxStatus();

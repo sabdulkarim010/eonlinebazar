@@ -30,7 +30,20 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
+  // Skip localhost entirely
+  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+    return; // Don't intercept - let browser handle normally
+  }
+
+  // NEVER intercept admin panel requests
+  if (url.pathname.startsWith('/admin')) return;
+  if (url.pathname.startsWith('/api/admin')) return;
+  if (url.pathname.startsWith('/sys/')) return;
+
+  // Skip non-GET
   if (event.request.method !== 'GET') return;
+
+  // Skip cross-origin
   if (url.origin !== self.location.origin) return;
 
   if (url.pathname.startsWith('/api/')) {

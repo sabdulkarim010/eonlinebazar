@@ -55,7 +55,11 @@ async function fetchProductDetails(id) {
         if (!response.ok) throw new Error("Product not found");
         
         const product = await response.json();
-        currentProductData = product; 
+        currentProductData = product;
+
+        if (window.analytics && product) {
+            window.analytics.trackViewItem(product);
+        }
 
         renderBreadcrumb(product);
         renderProductInfo(product);
@@ -1824,6 +1828,10 @@ function setupEventListeners() {
             window.showCartAddedToast();
         } else {
             showToast(`Product${label} added to cart successfully! 🛒`, 'success');
+        }
+
+        if (window.analytics && currentProductData) {
+            window.analytics.trackAddToCart(currentProductData, quantity);
         }
     };
     

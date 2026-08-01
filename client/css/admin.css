@@ -6335,6 +6335,7 @@ td.col-actions button:last-child {
 .system-settings-card--amber  { border-top: 3px solid #f59e0b; }
 .system-settings-card--green  { border-top: 3px solid #22c55e; }
 .system-settings-card--orange { border-top: 3px solid #fb923c; }
+.system-settings-card--red    { border-top: 3px solid #ef4444; }
 .system-settings-card--indigo { border-top: 3px solid #6366f1; }
 .system-settings-card--purple { border-top: 3px solid #a855f7; }
 
@@ -7780,6 +7781,10 @@ td.col-actions button:last-child {
 
 /* Page Content Manager */
 .system-settings-card--cyan { border-top: 3px solid #06b6d4; }
+
+.rate-limit-settings-card {
+    margin-bottom: 1.25rem;
+}
 
 .system-settings-card-icon--cyan {
     background: linear-gradient(135deg, #0891b2, #06b6d4);

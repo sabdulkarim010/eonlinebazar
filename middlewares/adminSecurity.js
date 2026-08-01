@@ -20,6 +20,7 @@ const LoginAttempt = require('../models/loginAttempt');
 const { getClientIp } = require('../utils/deviceParser');
 const { logSecurityEvent } = require('./../utils/securityLogger');
 const { isPrivateIp } = require('./geoFencing');
+const { isLocalOrDev, skipRateLimit } = require('../middleware/rateLimiter');
 
 // ---- Intrusion Detection tuning ----
 const FAIL_LIMIT = 5;                 // অনুমোদিত ব্যর্থ চেষ্টা
@@ -90,9 +91,10 @@ const checkBlacklist = async (req, res, next) => {
    ================================================================== */
 const adminLoginLimiter = rateLimit({
     windowMs: WINDOW_MINUTES * 60 * 1000,
-    max: 20,                       // প্রতি IP প্রতি উইন্ডোতে সর্বোচ্চ ২০ অনুরোধ
+    max: 20,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => isLocalOrDev(req) || skipRateLimit(req),
     keyGenerator: (req) => getClientIp(req),
     handler: (req, res) => {
         const ip = getClientIp(req);

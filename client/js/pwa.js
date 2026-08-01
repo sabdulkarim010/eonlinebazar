@@ -1,81 +1,93 @@
-/**
- * PWA: service worker registration + install prompt banner
- */
-let deferredPrompt;
-
-function isInstallBannerDismissed() {
-  const dismissed = localStorage.getItem('pwa-dismissed');
-  if (!dismissed) return false;
-  return Date.now() - Number(dismissed) < 7 * 24 * 60 * 60 * 1000;
+async function checkSWEnabled() {
+  try {
+    const res = await fetch('/api/store/cache-settings');
+    const data = await res.json();
+    return data.serviceWorkerEnabled !== false; // default true
+  } catch {
+    return true; // default to enabled
+  }
 }
-
-function showInstallBanner() {
-  if (isInstallBannerDismissed() || document.getElementById('pwa-install-banner')) return;
-
-  const banner = document.createElement('div');
-  banner.id = 'pwa-install-banner';
-  banner.innerHTML = `
-    <div class="pwa-banner-content">
-      <span>📱 Install the EOnlineBazar app — get quick access!</span>
-      <button id="pwa-install-btn" type="button">Install</button>
-      <button id="pwa-dismiss-btn" type="button">Later</button>
-    </div>
-  `;
-  document.body.appendChild(banner);
-
-  document.getElementById('pwa-install-btn').addEventListener('click', async () => {
-    if (!deferredPrompt) return;
-    banner.remove();
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    deferredPrompt = null;
-  });
-
-  document.getElementById('pwa-dismiss-btn').addEventListener('click', () => {
-    banner.remove();
-    localStorage.setItem('pwa-dismissed', String(Date.now()));
-  });
-}
-
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  showInstallBanner();
-});
-
-window.addEventListener('appinstalled', () => {
-  console.log('[PWA] App installed');
-  deferredPrompt = null;
-  document.getElementById('pwa-install-banner')?.remove();
-});
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
+
+    // NEVER register SW on localhost or development
+    const isLocalhost = (
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname === '[::1]' ||
+      window.location.hostname.startsWith('192.168.')
+    );
+
+    if (isLocalhost) {
+      // On localhost: unregister any existing SW and stop
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const reg of registrations) {
+        await reg.unregister();
+        console.log('[SW] Unregistered SW on localhost — caching disabled for dev');
+      }
+      return; // EXIT — do not register SW on localhost
+    }
+
+    const swEnabled = await checkSWEnabled();
+    if (!swEnabled) {
+      console.log('[SW] Disabled by admin settings');
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) await reg.unregister();
+      return;
+    }
+
+    // Production only: register SW
     try {
       const reg = await navigator.serviceWorker.register(
         '/service-worker.js',
         { updateViaCache: 'none' }
       );
+
       console.log('[SW] Registered:', reg.scope);
 
-      reg.update();
-      setInterval(() => reg.update(), 30 * 60 * 1000);
+      // Check for updates every hour
+      setInterval(() => reg.update(), 60 * 60 * 1000);
+
+      // Handle updates safely — NO automatic reload
+      let updateReady = false;
 
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
+        if (!newWorker) return;
+
         newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            console.log('[SW] New version available, reloading...');
+          if (
+            newWorker.state === 'installed' &&
+            navigator.serviceWorker.controller &&
+            !updateReady
+          ) {
+            updateReady = true;
+            // Tell SW to skip waiting
             newWorker.postMessage({ type: 'SKIP_WAITING' });
           }
         });
       });
 
+      // Only reload ONCE when SW takes control
+      // Use sessionStorage to prevent reload loop
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
+        const lastReload = sessionStorage.getItem('sw_last_reload');
+        const now = Date.now();
+
+        // Only reload if more than 30 seconds since last reload
+        if (!lastReload || (now - parseInt(lastReload, 10)) > 30000) {
+          sessionStorage.setItem('sw_last_reload', now.toString());
+          window.location.reload();
+        }
+        // Otherwise: ignore the controllerchange (prevent loop)
       });
+
     } catch (err) {
       console.warn('[SW] Registration failed:', err);
     }
   });
 }
+
+
+

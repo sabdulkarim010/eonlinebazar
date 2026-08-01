@@ -47,6 +47,7 @@ let validationState = {
 let checkoutCouponsAvailable = false;
 let checkoutCouponController = null;
 let checkoutWalletBalance = 0;
+let checkoutBeginTracked = false;
 let applyWalletAtCheckout = false;
 
 function getAppliedCoupon() {
@@ -1256,7 +1257,12 @@ function renderCheckoutCart() {
         container.appendChild(clone);
     });
 
-    updateCheckoutTotals(calculatedTotal);
+    const totals = updateCheckoutTotals(calculatedTotal);
+
+    if (!checkoutBeginTracked && checkedItems.length > 0 && window.analytics) {
+        checkoutBeginTracked = true;
+        window.analytics.trackBeginCheckout(checkedItems, totals.grandTotal);
+    }
 
     refreshCheckoutCouponAvailability().then((available) => {
         if (!available) updateCheckoutTotals(calculatedTotal);

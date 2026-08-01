@@ -61,6 +61,9 @@ function resolveCountry(rawIp = '') {
    ================================================================== */
 const geoFence = async (req, res, next) => {
     try {
+        // Never geo-block in development or from private/local networks
+        if (process.env.NODE_ENV !== 'production') return next();
+
         const allowed = getAllowedCountries();
 
         // No allow-list configured ⇒ feature disabled, let everyone through.

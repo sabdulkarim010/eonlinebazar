@@ -421,6 +421,17 @@ window.handleFinalOrderSubmission = async function handleFinalOrderSubmission() 
         }
 
         const verifiedOrderId = result.data?.orderId || orderData.orderId;
+
+        if (window.analytics) {
+            window.analytics.trackPurchase({
+                orderId: verifiedOrderId,
+                grandTotal: result.data?.grandTotal ?? orderData.grandTotal,
+                deliveryCharge: result.data?.deliveryCharge ?? orderData.deliveryCharge,
+                couponCode: orderData.couponCode,
+                items: orderData.items
+            });
+        }
+
         const lockedPricing = result.lockedPricing || {
             subTotal: result.data?.subTotal,
             deliveryCharge: result.data?.deliveryCharge,

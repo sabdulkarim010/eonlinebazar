@@ -42,12 +42,46 @@ if (cameFromLogout) {
         try { window.history.replaceState({}, document.title, '/admin/login'); } catch (_) { /* ignore */ }
     })();
 } else if (localStorage.getItem('adminToken')) {
-    /* Already logged in → skip login / OTP and go straight to dashboard */
-    try {
-        sessionStorage.removeItem('adminOtpToken');
-        sessionStorage.removeItem('adminOtpMeta');
-    } catch (_) { /* ignore */ }
-    window.location.replace('/admin');
+    /* Already logged in — verify before redirect to avoid admin ↔ login bounce loops */
+    (async function verifyBeforeDashboardRedirect() {
+        const existingToken = localStorage.getItem('adminToken');
+        if (!existingToken) return;
+
+        try {
+            const response = await fetch('/api/admin/verify-token', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${existingToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.status === 429) {
+                showToast('Too many requests — please wait a moment, then try again.', 'error');
+                return;
+            }
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    try {
+                        sessionStorage.removeItem('adminOtpToken');
+                        sessionStorage.removeItem('adminOtpMeta');
+                    } catch (_) { /* ignore */ }
+                    window.location.replace('/admin');
+                } else {
+                    localStorage.removeItem('adminToken');
+                }
+                return;
+            }
+
+            if (response.status === 401 || response.status === 403) {
+                localStorage.removeItem('adminToken');
+            }
+        } catch (_) {
+            /* Network error — stay on login; user can retry manually */
+        }
+    })();
 }
 
 /* ==================================================

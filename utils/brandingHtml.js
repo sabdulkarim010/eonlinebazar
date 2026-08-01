@@ -1,5 +1,6 @@
 const DEFAULT_FAVICON = '/images/favicon.png';
 const { getStoreLogoUrl, injectStoreLogoSlots } = require('./storeLogoMarkup');
+const { getAnalyticsScript } = require('./analyticsHelper');
 
 const PoppinsFontLink = '    <link rel="preconnect" href="https://fonts.googleapis.com">\n' +
     '    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n' +
@@ -24,7 +25,8 @@ const STOREFRONT_PAGES = new Set([
     'forgot-password.html',
     'verify-otp.html',
     'cms-page.html',
-    'access-denied.html'
+    'access-denied.html',
+    '404.html'
 ]);
 
 const PWA_HEAD_TAGS = `    <link rel="manifest" href="/manifest.json">
@@ -118,6 +120,17 @@ function injectPwaTags(html, filename) {
     return output;
 }
 
+function injectAnalytics(html, filename) {
+    if (!filename || !STOREFRONT_PAGES.has(filename)) return html;
+    if (html.includes('/js/analytics.js')) return html;
+
+    const analyticsScript = getAnalyticsScript();
+    const analyticsJsTag = '    <script src="/js/analytics.js"></script>';
+    const injection = [analyticsScript.trim(), analyticsJsTag].filter(Boolean).join('\n');
+
+    return html.replace('</head>', `${injection}\n</head>`);
+}
+
 function applyBrandingToHtml(html, settings = {}, options = {}) {
     const faviconPath = settings.faviconPath || settings.faviconUrl || DEFAULT_FAVICON;
     const cacheVersion = Date.now();
@@ -141,6 +154,7 @@ function applyBrandingToHtml(html, settings = {}, options = {}) {
     }
 
     output = injectPwaTags(output, options.filename);
+    output = injectAnalytics(output, options.filename);
 
     return output;
 }

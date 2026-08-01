@@ -15,6 +15,8 @@ const translations = {
     'home.hero.subtitle': 'দ্রুত ডেলিভারি, সহজ রিটার্ন',
     'home.shop_now': 'এখনই কিনুন',
     'home.flash_sale': 'ফ্ল্যাশ সেল',
+    'home.load_error_title': 'পণ্য লোড করা যায়নি',
+    'home.rate_limited_title': 'অনেক বেশি অনুরোধ',
     'home.ends_in': 'শেষ হবে',
     'home.featured': 'ফিচার্ড পণ্য',
     'home.new_arrivals': 'নতুন পণ্য',
@@ -85,6 +87,7 @@ const translations = {
     // Common
     'common.loading': 'লোড হচ্ছে...',
     'common.error': 'কিছু একটা ভুল হয়েছে',
+    'common.try_again': 'আবার চেষ্টা করুন',
     'common.save': 'সংরক্ষণ করুন',
     'common.cancel': 'বাতিল',
     'common.confirm': 'নিশ্চিত করুন',
@@ -116,6 +119,8 @@ const translations = {
     'home.hero.subtitle': 'Fast delivery, easy returns',
     'home.shop_now': 'Shop Now',
     'home.flash_sale': 'Flash Sale',
+    'home.load_error_title': 'Could not load products',
+    'home.rate_limited_title': 'Too many requests',
     'home.ends_in': 'Ends in',
     'home.featured': 'Featured Products',
     'home.new_arrivals': 'New Arrivals',
@@ -186,6 +191,7 @@ const translations = {
     // Common
     'common.loading': 'Loading...',
     'common.error': 'Something went wrong',
+    'common.try_again': 'Try Again',
     'common.save': 'Save',
     'common.cancel': 'Cancel',
     'common.confirm': 'Confirm',

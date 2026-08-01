@@ -12,5 +12,6 @@ router.get('/payment-methods', storeController.getPublicPaymentMethods);
 router.get('/footer-settings', storeController.getPublicFooterSettings);
 router.get('/pages/:slug', storeController.getPublicPageContent);
 router.get('/districts', storeController.getPublicDistricts);
+router.get('/cache-settings', storeController.getPublicCacheSettings);
 
 module.exports = router;

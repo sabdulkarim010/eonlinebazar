@@ -116,9 +116,32 @@ const settingsSchema = new mongoose.Schema({
         MasterCard: { type: Boolean, default: true },
         COD: { type: Boolean, default: true }
     },
+    // 🛡️ Dynamic rate limiting — controlled from Admin → Security & Audit
+    rateLimitEnabled: {
+        type: Boolean,
+        default: true
+    },
+    rateLimitWindowMs: {
+        type: Number,
+        default: 900000,
+        min: 60000
+    },
+    rateLimitMaxRequests: {
+        type: Number,
+        default: 1000,
+        min: 1
+    },
+    bypassAdminAndLocalhost: {
+        type: Boolean,
+        default: true
+    },
     sandboxMode: {
         type: Boolean,
         default: false
+    },
+    serviceWorkerEnabled: {
+        type: Boolean,
+        default: true
     },
     paymentGateways: {
         bKash: {

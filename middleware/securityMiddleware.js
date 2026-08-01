@@ -11,12 +11,21 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
 const hpp = require('hpp');
+const { dynamicApiRateLimiter, isLocalOrDev, shouldForceBypass } = require('./rateLimiter');
 
 /**
  * Configure and apply all security-related Express middleware.
  * Call after express.json() and before route registration.
  */
 function applySecurityMiddleware(app) {
+    // Tag bypassed requests before any limiter runs (localhost / development)
+    app.use((req, res, next) => {
+        if (shouldForceBypass(req)) {
+            req._rateLimitBypass = true;
+        }
+        next();
+    });
+
     // Emergency panel: strict rate limit to prevent brute force
     const emergencyLimiter = rateLimit({
         validate: { trustProxy: false },
@@ -24,6 +33,7 @@ function applySecurityMiddleware(app) {
         max: 10,
         standardHeaders: true,
         legacyHeaders: false,
+        skip: isLocalOrDev,
         message: { success: false, message: 'Too many attempts' }
     });
     app.use('/sys', emergencyLimiter);
@@ -52,6 +62,8 @@ function applySecurityMiddleware(app) {
         max: 10,
         standardHeaders: true,
         legacyHeaders: false,
+        skip: isLocalOrDev,
+        message: { success: false, message: 'Too many requests, please try again later.' }
     });
 
     const authRoutes = [
@@ -75,6 +87,8 @@ function applySecurityMiddleware(app) {
             max: 5,
             standardHeaders: true,
             legacyHeaders: false,
+            skip: isLocalOrDev,
+            message: { success: false, message: 'Too many requests, please try again later.' }
         })
     );
 
@@ -86,23 +100,15 @@ function applySecurityMiddleware(app) {
             max: 3,
             standardHeaders: true,
             legacyHeaders: false,
+            skip: isLocalOrDev,
+            message: { success: false, message: 'Too many requests, please try again later.' }
         })
     );
 
-    app.use(
-        '/api/',
-        rateLimit({
-            validate: { trustProxy: false },
-            windowMs: 15 * 60 * 1000,
-            max: 200,
-            standardHeaders: true,
-            legacyHeaders: false,
-            message: {
-                success: false,
-                message: 'Too many requests, please try again later.',
-            },
-        })
-    );
+    app.use('/api/', (req, res, next) => {
+        if (req._rateLimitBypass || shouldForceBypass(req)) return next();
+        return dynamicApiRateLimiter(req, res, next);
+    });
 
     app.use((req, res, next) => {
         if (req.body) req.body = mongoSanitize.sanitize(req.body);

@@ -487,8 +487,6 @@ async function refreshStaffData() {
     staffRefreshInFlight = true;
     setStaffRefreshLoading(true);
 
-    let keepLoadingUntilReload = false;
-
     try {
         if (!currentAdmin) {
             await loadCurrentAdmin();
@@ -506,27 +504,17 @@ async function refreshStaffData() {
         });
 
         if (!ok) {
-            keepLoadingUntilReload = true;
-            if (typeof window.showToast === 'function') {
-                window.showToast('Staff API unavailable — reloading page…', 'warning', 2500);
-            } else {
-                notify('Staff API unavailable — reloading page…', 'warning');
-            }
-            window.setTimeout(() => window.location.reload(), 900);
+            notify('Staff API unavailable — please try again in a moment.', 'warning');
             return;
         }
 
         showStaffRefreshSuccessToast();
     } catch (error) {
         console.error('Staff refresh failed:', error);
-        keepLoadingUntilReload = true;
         notify(error.message || 'Could not refresh staff data.', 'error');
-        window.setTimeout(() => window.location.reload(), 900);
     } finally {
         staffRefreshInFlight = false;
-        if (!keepLoadingUntilReload) {
-            setStaffRefreshLoading(false);
-        }
+        setStaffRefreshLoading(false);
     }
 }
 window.refreshStaffData = refreshStaffData;
@@ -823,6 +811,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (error.status === 401 || error.status === 403) {
             localStorage.removeItem('adminToken');
             window.location.replace(redirect || '/admin-login');
+            return;
+        }
+        if (error.status === 429) {
+            notify('Too many requests — please wait a moment and try again.', 'warning');
             return;
         }
         console.error('RBAC bootstrap failed:', error);

@@ -368,6 +368,77 @@
     flex-shrink: 0;
 }
 
+.product-fetch-loading,
+.product-fetch-error {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 220px;
+    padding: 32px 24px;
+    text-align: center;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #fafafa 0%, #f3f4f6 100%);
+    border: 1px solid #e5e7eb;
+}
+
+.product-fetch-loading {
+    color: #6b7280;
+    font-size: 15px;
+}
+
+.product-fetch-loading i {
+    font-size: 28px;
+    color: #f97316;
+}
+
+.product-fetch-error__icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fef2f2;
+    color: #dc2626;
+    font-size: 24px;
+}
+
+.product-fetch-error__title {
+    margin: 0;
+    font-size: 1.15rem;
+    color: #111827;
+}
+
+.product-fetch-error__message {
+    margin: 0;
+    max-width: 420px;
+    color: #6b7280;
+    line-height: 1.5;
+}
+
+.product-fetch-error__retry {
+    margin-top: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 999px;
+    background: #111827;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.product-fetch-error__retry:hover {
+    background: #1f2937;
+    transform: translateY(-1px);
+}
+
 /* ==========================================================================
    ৫. রেস্পন্সিভ মিডিয়া কোয়েরি (মোবাইল ও ট্যাবলেট স্ক্রিন নিয়ন্ত্রণ)
    ========================================================================== */

@@ -100,15 +100,15 @@ connectDB().then(async () => {
 // প্রক্সি/হোস্টিং (Render, Vercel, Nginx ইত্যাদি)-এর পেছনে আসল ক্লায়েন্ট IP পেতে
 app.set('trust proxy', true);
 app.use(express.json());
+// request-ip must run before rate limiting so localhost/admin bypass can read client IP
+app.use(requestIp.mw());
 applySecurityMiddleware(app);
 
 // 🔴 Emergency control panel — mounted early, separate from admin auth
 const emergencyRoutes = require('./routes/emergencyRoutes');
 app.use('/sys', emergencyRoutes);
 
-// request-ip: প্রতিটি রিকোয়েস্টে আসল ক্লায়েন্ট IP req.clientIp-তে সেট করে
-// (অ্যাক্টিভ ডিভাইস ও লোকেশন ট্র্যাকিং-এ ব্যবহৃত হয়)
-app.use(requestIp.mw());
+// request-ip already mounted above (before rate limiting)
 
 // Google OAuth — express-session + passport (before API routes)
 app.use(session({
@@ -143,6 +143,20 @@ app.use((req, res, next) => {
     }
     next();
 });
+
+// Development: prevent browser caching of HTML pages (avoids stale SW-triggered reloads)
+if (process.env.NODE_ENV !== 'production') {
+    app.use((req, res, next) => {
+        if (req.path.endsWith('.html') ||
+            req.path === '/' ||
+            !req.path.includes('.')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        }
+        next();
+    });
+}
 
 // ব্রাউজারকে বলবেন ফাইলগুলো ক্যাশ না করতে
 app.use((req, res, next) => {
@@ -442,8 +456,14 @@ app.use((req, res) => {
             message: `Route not found: ${req.method} ${req.path}`
         });
     }
-    // For all other unknown routes, serve the 404 HTML page
-    res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+    // For all other unknown routes, serve the branded 404 HTML page (with GA4)
+    const settings = res.locals.settings || DEFAULT_SETTINGS;
+    const notFoundHtml = applyBrandingToHtml(
+        fs.readFileSync(path.join(PUBLIC_DIR, '404.html'), 'utf8'),
+        settings,
+        { filename: '404.html' }
+    );
+    res.status(404).type('html').send(notFoundHtml);
 });
 
 app.use((err, req, res, next) => {

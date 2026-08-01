@@ -73,6 +73,16 @@ router.get('/analytics', verifyAdmin, checkPermission('view_analytics'), getFina
 // Backward-compatible alias
 router.get('/analytics/filter', verifyAdmin, checkPermission('view_analytics'), getFinanceAnalytics);
 
+// Google Analytics 4 configuration status (Admin Settings dashboard link)
+router.get('/analytics/status', verifyAdmin, (req, res) => {
+    res.json({
+        success: true,
+        enabled: process.env.GOOGLE_ANALYTICS_ENABLED === 'true',
+        measurementId: process.env.GOOGLE_ANALYTICS_ID || null,
+        configured: !!process.env.GOOGLE_ANALYTICS_ID
+    });
+});
+
 // ১ক. নির্দিষ্ট কাস্টমার, আপডেট, স্ট্যাটাস ও অর্ডার হিস্ট্রি
 router.get('/customers/:id/orders', verifyAdmin, checkPermission('manage_customers'), adminController.getCustomerOrders);
 router.get('/customers/:id', verifyAdmin, checkPermission('manage_customers'), adminController.getCustomerById);
@@ -197,6 +207,10 @@ router.get('/logs', verifyAdmin, checkPermission('manage_security'), adminContro
 router.get('/settings', verifyAdmin, settingsController.getSettings);
 router.put('/settings', verifyAdmin, checkPermission('manage_settings'), settingsController.updateSettings);
 router.post('/settings', verifyAdmin, checkPermission('manage_settings'), settingsController.updateSettings);
+router.get('/rate-limit-settings', verifyAdmin, checkPermission('manage_settings'), settingsController.getRateLimitSettings);
+router.put('/rate-limit-settings', verifyAdmin, checkPermission('manage_settings'), settingsController.updateRateLimitSettings);
+router.post('/rate-limit-settings', verifyAdmin, checkPermission('manage_settings'), settingsController.updateRateLimitSettings);
+router.post('/settings/cache', verifyAdmin, checkPermission('manage_settings'), settingsController.updateCacheSettings);
 
 // ৫খ. মাস্টার সেটিংস — অ্যানাউন্সমেন্ট, ফ্রি শিপিং, ক্যাশব্যাক, পয়েন্ট, রিফান্ড (Singleton)
 // একটি সেভ অ্যাকশনেই সব সেটিংস আপডেট হয়।

@@ -524,6 +524,9 @@ window.updateQty = function(productId, change, variantIdEnc) {
 window.deleteCartItem = function(productId, variantIdEnc, options) {
     const silent = options && options.silent === true;
     const variantId = decVariant(variantIdEnc);
+    const guestCart = JSON.parse(localStorage.getItem('cart')) || [];
+    const removedItem = (customerToken ? cart : guestCart).find(item => sameCartLine(item, productId, variantId));
+
     if (customerToken) {
         // 🌟 লগইন থাকলে ডাটাবেজ থেকে নির্দিষ্ট ভ্যারিয়েন্ট লাইন রিমুভ করা হবে
         fetch(`/api/cart/remove/${productId}?variantId=${encodeURIComponent(variantId)}`, {
@@ -543,6 +546,10 @@ window.deleteCartItem = function(productId, variantIdEnc, options) {
         localStorage.setItem('cart', JSON.stringify(currentCart));
         updateCartCount();
         renderCartDrawerItems();
+    }
+
+    if (removedItem && window.analytics) {
+        window.analytics.trackRemoveFromCart(removedItem, removedItem.quantity);
     }
 
     if (!silent) {
@@ -633,6 +640,22 @@ function triggerFlyAnimation(clickedButton, assetData) {
 /* ==========================================================================
    SECTION 7: ADD TO BAG CORE (আপডেটেড উইথ ডাটাবেজ পুশ লজিক)
    ========================================================================== */
+function fireAddToCartAnalytics(productId, productName, productPrice, quantity) {
+    if (!window.analytics) return;
+    const realProduct = globalProductCatalog.find(p =>
+        String(p._id) === String(productId) ||
+        String(p.productId) === String(productId) ||
+        String(p.id) === String(productId)
+    );
+    const product = realProduct || {
+        productId,
+        _id: productId,
+        name: productName,
+        price: Number(productPrice) || 0
+    };
+    window.analytics.trackAddToCart(product, quantity || 1);
+}
+
 window.addToBag = function(productId, productName, productPrice, productImage) {
     let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
     const existingItem = currentCart.find(item => String(item.id) === String(productId));
@@ -716,6 +739,7 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
                         showCardNotification(clickedButton, 'Added to bag!', 'success');
                     }
                 }
+                fireAddToCartAnalytics(productId, productName, productPrice, 1);
                 return;
             }
 
@@ -739,6 +763,7 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
                     showCardNotification(clickedButton, 'Added to bag!', 'success');
                 }
             }
+            fireAddToCartAnalytics(productId, productName, productPrice, 1);
             updateCartCount();
             renderCartDrawerItems();
         })
@@ -764,6 +789,7 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
         }
 
         localStorage.setItem('cart', JSON.stringify(currentCart));
+        fireAddToCartAnalytics(productId, productName, productPrice, 1);
         setTimeout(() => {
             updateCartCount();
             if (!existingItem) {
