@@ -1907,15 +1907,28 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = '';
         items.forEach(item => {
             const PT = window.ProductThumbnail;
-            const meta = PT ? PT.getDisplayMeta(item) : { image: item.image || '', emoji: item.icon || '' };
+            const catalog = window.globalProductCatalog || [];
+            const realProduct = (window.CartDisplayUtils && window.CartDisplayUtils.findCatalogProduct)
+                ? window.CartDisplayUtils.findCatalogProduct(item, catalog)
+                : catalog.find((p) =>
+                    String(p._id) === String(item.productId) ||
+                    String(p.productId) === String(item.productId) ||
+                    String(p.id) === String(item.productId)
+                );
+            const meta = PT
+                ? PT.getDisplayMeta(PT.mergeMediaSources(item, realProduct || {}))
+                : { image: item.image || '', emoji: item.icon || '' };
             const media = PT
-                ? PT.buildThumbnailHtml(item, { variant: 'compact', alt: item.name, escapeHtml })
-                : '';
+                ? PT.buildForCartItem(item, realProduct, { variant: 'compact', alt: item.name, escapeHtml })
+                : (global.getProductImageHtml
+                    ? global.getProductImageHtml(item, 'md')
+                    : '<div class="no-photo-badge"><span>NO PHOTO</span></div>');
 
             const SA = window.StockAlert;
-            const catalog = window.globalProductCatalog || [];
-            const realProduct = SA ? SA.findCatalogProduct(catalog, item.productId) : null;
-            const stock = SA ? SA.getItemStock({ productId: item.productId }, realProduct) : null;
+            const stockProduct = SA && typeof SA.findCatalogProduct === 'function'
+                ? SA.findCatalogProduct(catalog, item.productId)
+                : realProduct;
+            const stock = SA ? SA.getItemStock({ productId: item.productId }, stockProduct) : null;
             const stockBadge = SA ? SA.buildStockAlertHtml(stock) : '';
             const outOfStock = SA ? SA.isOutOfStock(stock) : false;
 

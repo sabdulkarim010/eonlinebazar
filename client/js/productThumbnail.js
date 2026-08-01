@@ -11,6 +11,12 @@
     const PLACEHOLDER_IMAGE = '/images/placeholder-product.svg';
     const IMG_ONERROR = "if(!this.dataset.fallback){this.dataset.fallback='1';this.src='" + PLACEHOLDER_IMAGE + "';}else{this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';}";
 
+    function isPlaceholderImage(value) {
+        if (!value) return false;
+        const v = String(value).trim().toLowerCase();
+        return v.includes('placeholder-product') || v.endsWith('/images/placeholder-product.svg');
+    }
+
     function isUnsafeAssetPath(value) {
         if (global.EOBUrlUtils && typeof global.EOBUrlUtils.isUnsafeAssetPath === 'function') {
             return global.EOBUrlUtils.isUnsafeAssetPath(value);
@@ -60,11 +66,52 @@
 
         const lower = raw.toLowerCase();
         const hasExt = ['.jpg', '.png', '.jpeg', '.webp', '.gif', '.svg', '.heic'].some((ext) => lower.includes(ext));
-        if (!hasExt && !raw.startsWith('http') && !raw.startsWith('/uploads/')) return '';
+        const isRemote = lower.startsWith('http://') || lower.startsWith('https://');
+        const isRooted = raw.startsWith('/');
+        const isUploads = lower.startsWith('/uploads/') || lower.startsWith('uploads/');
+        const isCloudinary = lower.includes('cloudinary.com') || lower.includes('res.cloudinary.com');
 
-        if (raw.startsWith('http') || raw.startsWith('/')) return raw;
+        if (!hasExt && !isRemote && !isUploads && !isCloudinary) return '';
+
+        if (isRemote || isCloudinary) return raw;
+        if (isRooted) return raw;
         if (raw.startsWith('products/') || raw.startsWith('uploads/')) return '/' + raw;
         return '/products/' + raw;
+    }
+
+    /** Normalize for DOM src — resolves relative paths and keeps absolute URLs intact. */
+    function toDisplayImageUrl(imageFile) {
+        const resolved = resolveProductImagePath(imageFile);
+        if (!resolved) return '';
+        if (resolved.startsWith('http://') || resolved.startsWith('https://') || resolved.startsWith('data:')) {
+            return resolved;
+        }
+        if (typeof global.location !== 'undefined' && global.location.origin) {
+            try {
+                return new URL(resolved, global.location.origin).href;
+            } catch (_) {
+                return resolved;
+            }
+        }
+        return resolved;
+    }
+
+    function collectVariantImages(item) {
+        const normalized = normalizeMediaItem(item);
+        const variants = [
+            ...(Array.isArray(normalized.selectedVariant) ? [] : []),
+            ...(normalized.selectedVariant ? [normalized.selectedVariant] : []),
+            ...(normalized.product && Array.isArray(normalized.product.variants) ? normalized.product.variants : []),
+            ...(Array.isArray(item && item.variants) ? item.variants : [])
+        ];
+        const urls = [];
+        variants.forEach((variant) => {
+            const img = variant && variant.image;
+            if (!img) return;
+            const resolved = resolveProductImagePath(img);
+            if (resolved && isValidProductImagePath(resolved)) urls.push(resolved);
+        });
+        return urls;
     }
 
     function normalizeMediaItem(raw) {
@@ -81,8 +128,8 @@
             selectedImage: raw.selectedImage || raw.variantImage || '',
             variantImage: raw.variantImage || raw.selectedImage || '',
             products: raw.products || '',
-            emoji: raw.emoji || raw.icon || (product && (product.emoji || product.icon)) || '',
-            icon: raw.icon || (product && product.icon) || '',
+            emoji: raw.emojiIcon || raw.emoji || raw.icon || (product && (product.emojiIcon || product.emoji || product.icon)) || '',
+            icon: raw.emojiIcon || raw.icon || (product && (product.emojiIcon || product.icon)) || '',
             images: raw.images || (product && product.images) || null,
             selectedVariant,
             product
@@ -97,15 +144,17 @@
             normalized.image,
             normalized.products,
             normalized.imageUrl,
+            normalized.photo,
+            ...(Array.isArray(normalized.images) ? normalized.images : []),
             normalized.selectedVariant && normalized.selectedVariant.image
         ];
 
         for (const candidate of candidates) {
             const raw = String(candidate || '').trim();
-            if (!raw || looksLikeEmojiOrIcon(raw)) continue;
+            if (!raw || looksLikeEmojiOrIcon(raw) || isPlaceholderImage(raw)) continue;
             const resolved = resolveProductImagePath(raw);
-            if (resolved && isValidProductImagePath(resolved)) return resolved;
-            if (isValidProductImagePath(raw)) return raw;
+            if (resolved && isValidProductImagePath(resolved) && !isPlaceholderImage(resolved)) return resolved;
+            if (isValidProductImagePath(raw) && !isPlaceholderImage(raw)) return raw;
         }
 
         return '';
@@ -124,10 +173,10 @@
             selectedImage: cartLineImage,
             variantImage: cartLineImage,
             products: cartLineImage || item.products || catalog.products || '',
-            emoji: item.emoji || item.icon || catalog.emoji || catalog.icon || '',
-            icon: item.icon || catalog.icon || '',
+            emoji: item.emojiIcon || item.emoji || item.icon || catalog.emojiIcon || catalog.emoji || catalog.icon || '',
+            icon: item.emojiIcon || item.icon || catalog.emojiIcon || catalog.icon || '',
             photo: catalog.photo || item.photo || '',
-            images: catalog.images || item.images || null,
+            images: item.images || catalog.images || null,
             selectedVariant: item.selectedVariant || null,
             product: catalog
         });
@@ -149,10 +198,10 @@
 
         for (const candidate of candidates) {
             const raw = String(candidate || '').trim();
-            if (!raw || looksLikeEmojiOrIcon(raw)) continue;
+            if (!raw || looksLikeEmojiOrIcon(raw) || isPlaceholderImage(raw)) continue;
             const resolved = resolveProductImagePath(raw);
-            if (resolved && isValidProductImagePath(resolved)) return resolved;
-            if (isValidProductImagePath(raw)) return raw;
+            if (resolved && isValidProductImagePath(resolved) && !isPlaceholderImage(resolved)) return resolved;
+            if (isValidProductImagePath(raw) && !isPlaceholderImage(raw)) return raw;
         }
 
         return '';
@@ -169,16 +218,17 @@
             normalized.imageUrl,
             normalized.product && normalized.product.image,
             normalized.product && normalized.product.imageUrl,
-            ...(normalized.product && Array.isArray(normalized.product.images) ? normalized.product.images : [])
+            ...(normalized.product && Array.isArray(normalized.product.images) ? normalized.product.images : []),
+            ...collectVariantImages(item)
         ];
 
         for (const candidate of candidates) {
             const raw = String(candidate || '').trim();
-            if (!raw || looksLikeEmojiOrIcon(raw)) continue;
+            if (!raw || looksLikeEmojiOrIcon(raw) || isPlaceholderImage(raw)) continue;
             const resolved = resolveProductImagePath(raw);
-            const finalUrl = (resolved && isValidProductImagePath(resolved))
+            const finalUrl = (resolved && isValidProductImagePath(resolved) && !isPlaceholderImage(resolved))
                 ? resolved
-                : (isValidProductImagePath(raw) ? raw : '');
+                : (isValidProductImagePath(raw) && !isPlaceholderImage(raw) ? raw : '');
             if (finalUrl && !seen.has(finalUrl)) {
                 seen.add(finalUrl);
                 results.push(finalUrl);
@@ -200,6 +250,7 @@
         const candidates = [
             normalized.emoji,
             normalized.icon,
+            normalized.product && normalized.product.emojiIcon,
             normalized.product && normalized.product.emoji,
             normalized.product && normalized.product.icon,
             looksLikeEmojiOrIcon(normalized.image) ? normalized.image : '',
@@ -270,11 +321,12 @@
         const sizeAttrs = variant === 'compact' ? ' width="50" height="50"' : '';
 
         if (state.type === 'image') {
+            const displaySrc = toDisplayImageUrl(state.image) || state.image;
             const fallback = state.emoji
                 ? `<div class="${classes.emoji}" style="display:none" aria-hidden="true">${esc(state.emoji)}</div>`
                 : `<div class="${classes.noPhoto}" style="display:none" aria-hidden="true"><span>NO PHOTO</span></div>`;
 
-            return `<img src="${esc(state.image)}" class="${classes.img}" alt="${esc(alt)}"${loading}${sizeAttrs} onerror="${IMG_ONERROR}">${fallback}`;
+            return `<img src="${esc(displaySrc)}" class="${classes.img}" alt="${esc(alt)}"${loading}${sizeAttrs} onerror="${IMG_ONERROR}">${fallback}`;
         }
 
         if (state.type === 'emoji') {
@@ -284,14 +336,31 @@
         return `<div class="${classes.noPhoto}" aria-hidden="true"><span>NO PHOTO</span></div>`;
     }
 
+    function ensureFallbackSibling(img, altText) {
+        if (!img || !img.parentElement) return null;
+        let sibling = img.nextElementSibling;
+        if (sibling && (sibling.classList.contains('no-photo-badge') || sibling.classList.contains('prod-emoji-box'))) {
+            return sibling;
+        }
+        sibling = document.createElement('div');
+        sibling.className = 'no-photo-badge no-photo-badge--detail';
+        sibling.setAttribute('aria-hidden', 'true');
+        sibling.innerHTML = '<span>NO PHOTO</span>';
+        sibling.style.display = 'none';
+        img.parentElement.appendChild(sibling);
+        return sibling;
+    }
+
     function attachImageFallback(img, placeholder) {
         if (!img || img.dataset.eobFallbackBound) return;
         img.dataset.eobFallbackBound = '1';
         const fallbackSrc = placeholder || PLACEHOLDER_IMAGE;
+        ensureFallbackSibling(img);
         img.addEventListener('error', function handleImageError() {
             if (this.dataset.fallbackApplied === '1') {
                 this.style.display = 'none';
-                if (this.nextElementSibling) this.nextElementSibling.style.display = 'flex';
+                const sibling = this.nextElementSibling;
+                if (sibling) sibling.style.display = 'flex';
                 return;
             }
             this.dataset.fallbackApplied = '1';
@@ -317,15 +386,34 @@
         if (img) attachImageFallback(img);
     }
 
+    /** Global HTML helper — wraps buildThumbnailHtml (image → emoji → NO PHOTO). */
+    function getProductImageHtml(item, size) {
+        const sizeMap = { sm: 'compact', md: 'compact', lg: 'card' };
+        const variant = sizeMap[size] || 'compact';
+        return buildThumbnailHtml(item, { variant, alt: (item && item.name) || 'Product' });
+    }
+
+    function getProductEmojiOrPlaceholder(emoji, px) {
+        const esc = escapeHtml;
+        const pxVal = px || '50px';
+        if (emoji && isSpecificEmoji(emoji)) {
+            return `<div class="prod-emoji-box" style="width:${esc(pxVal)};height:${esc(pxVal)};font-size:calc(${esc(pxVal)} * 0.55)">${esc(emoji)}</div>`;
+        }
+        return `<div class="no-photo-badge" style="width:${esc(pxVal)};height:${esc(pxVal)}"><span>NO PHOTO</span></div>`;
+    }
+
     const api = {
         IMG_ONERROR,
         PLACEHOLDER_IMAGE,
+        isPlaceholderImage,
         escapeHtml,
         isUnsafeAssetPath,
         attachImageFallback,
         isValidProductImagePath,
         looksLikeEmojiOrIcon,
         resolveProductImagePath,
+        toDisplayImageUrl,
+        collectVariantImages,
         normalizeMediaItem,
         mergeMediaSources,
         pickImageFromItem,
@@ -337,9 +425,13 @@
         buildThumbnailHtml,
         buildForCartItem,
         mountInto,
-        mountCartItemInto
+        mountCartItemInto,
+        getProductImageHtml,
+        getProductEmojiOrPlaceholder
     };
 
     global.ProductThumbnail = api;
     global.ProductMedia = api;
+    global.getProductImageHtml = getProductImageHtml;
+    global.getProductEmojiOrPlaceholder = getProductEmojiOrPlaceholder;
 })(typeof window !== 'undefined' ? window : globalThis);

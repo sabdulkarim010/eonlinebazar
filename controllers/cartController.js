@@ -1,6 +1,7 @@
 /* File Name: Controllers/cartController.js */
 
 const Cart = require('../models/cart');
+const Product = require('../models/product');
 const {
     normalizeVariant,
     isSameLine,
@@ -30,12 +31,45 @@ exports.mergeCart = async (req, res) => {
     }
 };
 
+function enrichCartItemMedia(item, product) {
+    const plain = item && typeof item.toObject === 'function' ? item.toObject() : { ...item };
+    const catalog = product && typeof product.toObject === 'function' ? product.toObject() : (product || {});
+    const catalogImage = (Array.isArray(catalog.images) && catalog.images[0]) || catalog.image || '';
+    const catalogIcon = catalog.icon || '';
+
+    if (!plain.image || String(plain.image).includes('placeholder-product')) {
+        plain.image = catalogImage || plain.image || '';
+    }
+    if (!plain.icon || plain.icon === '📦') {
+        plain.icon = catalogIcon || plain.icon || '';
+    }
+    if (!plain.name && catalog.name) {
+        plain.name = catalog.name;
+    }
+    if ((!plain.price || plain.price === 0) && catalog.price != null) {
+        plain.price = Number(catalog.price) || plain.price;
+    }
+
+    return plain;
+}
+
 // ২. ডাটাবেজ থেকে ইউজারের লাইভ কার্ট গেট করা
 exports.getCart = async (req, res) => {
     try {
         const cart = await Cart.findOne({ userId: req.user.id });
         if (!cart) return res.status(200).json([]);
-        res.status(200).json(cart.items);
+
+        const productIds = [...new Set(cart.items.map((item) => String(item.productId)).filter(Boolean))];
+        const products = productIds.length
+            ? await Product.find({ _id: { $in: productIds } }).select('name price images image icon productId')
+            : [];
+        const productById = new Map(products.map((p) => [String(p._id), p]));
+
+        const enrichedItems = cart.items.map((item) =>
+            enrichCartItemMedia(item, productById.get(String(item.productId)))
+        );
+
+        res.status(200).json(enrichedItems);
     } catch (error) {
         res.status(500).json({ message: "Error fetching cart", error: error.message });
     }

@@ -45,6 +45,33 @@ function escapeHtmlAttr(value) {
         .replace(/>/g, '&gt;');
 }
 
+function getCacheVersion() {
+    return global.SERVER_START_TIME || Date.now().toString();
+}
+
+function addCacheBuster(html) {
+    const v = getCacheVersion();
+
+    html = html.replace(
+        /href="(\/[^"]*\.css)"/g,
+        (match, url) => {
+            if (url.includes('?')) return match;
+            return `href="${url}?v=${v}"`;
+        }
+    );
+
+    html = html.replace(
+        /src="(\/[^"]*\.js)"/g,
+        (match, url) => {
+            if (url.startsWith('http') || url.includes('service-worker')) return match;
+            if (url.includes('?')) return match;
+            return `src="${url}?v=${v}"`;
+        }
+    );
+
+    return html;
+}
+
 function buildInlineSettings(settings, cacheVersion) {
     const faviconPath = settings.faviconPath || settings.faviconUrl || DEFAULT_FAVICON;
     const logoPath = getStoreLogoUrl(settings);
@@ -135,7 +162,7 @@ function injectAnalytics(html, filename) {
 
 function applyBrandingToHtml(html, settings = {}, options = {}) {
     const faviconPath = settings.faviconPath || settings.faviconUrl || DEFAULT_FAVICON;
-    const cacheVersion = Date.now();
+    const cacheVersion = getCacheVersion();
     const inlineSettings = buildInlineSettings(settings, cacheVersion);
 
     let output = html.replace(/<link rel="(?:shortcut )?icon"[^>]*>\s*/gi, '');
@@ -157,11 +184,13 @@ function applyBrandingToHtml(html, settings = {}, options = {}) {
 
     output = injectPwaTags(output, options.filename);
     output = injectAnalytics(output, options.filename);
+    output = addCacheBuster(output);
 
     return output;
 }
 
 module.exports = {
     applyBrandingToHtml,
+    addCacheBuster,
     DEFAULT_FAVICON
 };

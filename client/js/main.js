@@ -174,7 +174,9 @@ function displayProducts(productsToDisplay) {
 
         const PT = window.ProductThumbnail;
         const meta = PT ? PT.getDisplayMeta(product) : { image: product.image || product.photo || '', emoji: product.icon || '' };
-        const imageSource = meta.image;
+        const imageSource = PT && typeof PT.toDisplayImageUrl === 'function'
+            ? (PT.toDisplayImageUrl(meta.image) || meta.image)
+            : meta.image;
         const iconData = meta.emoji;
 
         if (PT) {

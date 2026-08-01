@@ -59,7 +59,8 @@ const getHealth = (req, res) => {
         status: 'ok',
         timestamp: new Date(),
         environment: process.env.NODE_ENV,
-        database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+        database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+        buildTime: global.SERVER_START_TIME
     });
 };
 

@@ -3,6 +3,11 @@
  */
 (function initCartMergeClient(global) {
     function getGuestCartFromStorage() {
+        const CDU = global.CartDisplayUtils;
+        const catalog = global.globalProductCatalog || [];
+        if (CDU && typeof CDU.getNormalizedGuestCart === 'function') {
+            return CDU.getNormalizedGuestCart(catalog);
+        }
         try {
             const raw = JSON.parse(localStorage.getItem('cart') || '[]');
             return Array.isArray(raw) ? raw : [];
@@ -12,6 +17,14 @@
     }
 
     function mapServerCartItem(item = {}) {
+        const CDU = global.CartDisplayUtils;
+        const catalog = global.globalProductCatalog || [];
+        if (CDU && typeof CDU.normalizeCartItem === 'function') {
+            const product = CDU.findCatalogProduct
+                ? CDU.findCatalogProduct(item, catalog)
+                : null;
+            return CDU.normalizeCartItem(item, product);
+        }
         const displayImage = String(
             item.selectedImage
             || item.variantImage

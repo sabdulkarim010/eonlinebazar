@@ -129,6 +129,26 @@ function normalizeAssetUrl(raw) {
     return str.startsWith('/') ? str : `/products/${str}`;
 }
 
+/** Resolve a raw DB path to a browser-ready absolute image URL. */
+function resolveDisplayImageUrl(raw) {
+    if (!raw) return '';
+    const PT = window.ProductThumbnail;
+    if (PT && typeof PT.toDisplayImageUrl === 'function') {
+        const display = PT.toDisplayImageUrl(raw);
+        if (display) return display;
+    }
+    const normalized = normalizeAssetUrl(raw);
+    if (!normalized) return '';
+    if (normalized.startsWith('http://') || normalized.startsWith('https://') || normalized.startsWith('data:')) {
+        return normalized;
+    }
+    try {
+        return new URL(normalized, window.location.origin).href;
+    } catch (_) {
+        return normalized;
+    }
+}
+
 function slugifyCategoryName(name) {
     return String(name || '')
         .toLowerCase()
@@ -307,7 +327,9 @@ function getProductImages(product) {
     const PT = window.ProductThumbnail;
     if (PT && typeof PT.pickAllValidImages === 'function') {
         const valid = PT.pickAllValidImages(product);
-        if (valid.length > 0) return valid;
+        if (valid.length > 0) {
+            return valid.map((url) => resolveDisplayImageUrl(url) || url);
+        }
     }
     return [];
 }
@@ -416,19 +438,20 @@ function getColorImageMap(product) {
         const key = colorValue.toLowerCase();
         if (map[key]) return;
 
-        const variantImage = String(cv.image || '').trim();
-        const primaryImage = String(product.image || '').trim();
+        const variantImage = normalizeAssetUrl(cv.image || '');
+        const primaryImage = normalizeAssetUrl(product.image || '');
         const galleryImage = images[Math.min(colorIndex, Math.max(images.length - 1, 0))] || '';
         // When every variant shares the primary image, fall back to gallery position per color
         const resolvedUrl = (variantImage && variantImage !== primaryImage)
             ? variantImage
             : (galleryImage || variantImage);
-        const galleryIndex = resolveGalleryIndexForUrl(images, resolvedUrl, colorIndex);
+        const displayUrl = resolveDisplayImageUrl(resolvedUrl) || resolvedUrl;
+        const galleryIndex = resolveGalleryIndexForUrl(images, displayUrl, colorIndex);
         map[key] = {
             index: galleryIndex,
             variant: cv,
             colorValue,
-            url: resolvedUrl
+            url: displayUrl
         };
         colorIndex += 1;
     });
@@ -454,17 +477,17 @@ function resolveColorImageUrl(product, colorValue, variants) {
     });
 
     const withImage = matching.find((v) => {
-        const img = String(v.image || '').trim();
-        const primary = String(product.image || '').trim();
+        const img = normalizeAssetUrl(v.image || '');
+        const primary = normalizeAssetUrl(product.image || '');
         return img && img !== primary;
     });
-    if (withImage) return String(withImage.image).trim();
+    if (withImage) return resolveDisplayImageUrl(withImage.image) || normalizeAssetUrl(withImage.image);
 
     const mapEntry = getColorImageMap(product)[key];
     if (mapEntry?.url) return mapEntry.url;
 
     if (mapEntry && Array.isArray(product.images) && product.images[mapEntry.index]) {
-        return product.images[mapEntry.index];
+        return resolveDisplayImageUrl(product.images[mapEntry.index]) || normalizeAssetUrl(product.images[mapEntry.index]);
     }
     return '';
 }
@@ -496,6 +519,22 @@ function syncThumbnailActiveState(imageUrl, colorIndex) {
     });
 }
 
+/** Best partial or full match for price/stock when matrix attributes are incomplete */
+function resolvePartialCombinationVariant() {
+    if (matchedCombinationVariant) return matchedCombinationVariant;
+    if (!matrixVariantsCache.length || !Object.keys(selectedCombinationAttrs).length) return null;
+
+    const matching = VU().findMatchingVariants
+        ? VU().findMatchingVariants(matrixVariantsCache, selectedCombinationAttrs)
+        : matrixVariantsCache.filter((v) => {
+            const attrs = getVariantAttrs(v);
+            return Object.entries(selectedCombinationAttrs).every(([k, val]) => attrs[k] === val);
+        });
+
+    if (!matching.length) return null;
+    return matching.find((v) => (Number(v.stock) || 0) > 0) || matching[0];
+}
+
 /** Resolve the best image + gallery index for the current variant selection */
 function resolveImageForCurrentSelection() {
     if (!currentProductData) return null;
@@ -521,7 +560,8 @@ function resolveImageForCurrentSelection() {
     if (colorFromLegacy) {
         const mapEntry = colorMap[String(colorFromLegacy.value || '').trim().toLowerCase()];
         const url = mapEntry?.url
-            || String(colorFromLegacy.image || '').trim()
+            || resolveDisplayImageUrl(colorFromLegacy.image)
+            || normalizeAssetUrl(colorFromLegacy.image || '')
             || resolveColorImageUrl(currentProductData, colorFromLegacy.value, currentProductData.variants);
         if (url) {
             return {
@@ -532,7 +572,8 @@ function resolveImageForCurrentSelection() {
     }
 
     if (matchedCombinationVariant) {
-        const variantImage = String(matchedCombinationVariant.image || '').trim();
+        const variantImage = resolveDisplayImageUrl(matchedCombinationVariant.image)
+            || normalizeAssetUrl(matchedCombinationVariant.image || '');
         if (variantImage) {
             return {
                 url: variantImage,
@@ -565,8 +606,9 @@ function getSelectedVariantImageUrl() {
 function updateStickyBarImage(imageUrl) {
     const stickyImg = document.getElementById('stickyBarImg');
     if (!stickyImg || !imageUrl) return;
+    const displayUrl = resolveDisplayImageUrl(imageUrl) || imageUrl;
     stickyImg.style.display = '';
-    stickyImg.src = imageUrl;
+    stickyImg.src = displayUrl;
     const PT = window.ProductThumbnail;
     if (PT && typeof PT.attachImageFallback === 'function') {
         PT.attachImageFallback(stickyImg);
@@ -672,7 +714,9 @@ function initProductImageCarousel(product, imagesArray) {
         slide.dataset.slideIndex = String(index);
 
         const img = document.createElement('img');
-        img.src = imgUrl;
+        const displayUrl = resolveDisplayImageUrl(imgUrl) || imgUrl;
+        img.src = displayUrl;
+        img.dataset.imageUrl = displayUrl;
         img.alt = `${product.name || 'Product'} — image ${index + 1}`;
         if (index === 0) {
             img.id = 'mainProductImg';
@@ -750,8 +794,10 @@ function setMainProductImage(imageUrl, colorIndex) {
     const mainBox = document.querySelector('.main-image-box');
 
     if (mainImg && imageUrl) {
+        const displayUrl = resolveDisplayImageUrl(imageUrl) || imageUrl;
         mainImg.style.display = '';
-        mainImg.src = imageUrl;
+        mainImg.src = displayUrl;
+        mainImg.dataset.imageUrl = displayUrl;
         if (currentProductData) attachMainImageFallback(mainImg, currentProductData, mainBox);
     }
     updateStickyBarImage(imageUrl);
@@ -1072,6 +1118,7 @@ function readColorImageFromBadge(badge, colorValue) {
     const url = badge.getAttribute('data-image-url')
         || badge.getAttribute('data-image')
         || resolveColorImageUrl(currentProductData, colorValue, matrixVariantsCache);
+    const normalizedUrl = resolveDisplayImageUrl(url) || url;
     let index;
     if (badge.hasAttribute('data-image-index')) {
         index = parseInt(badge.getAttribute('data-image-index'), 10);
@@ -1083,7 +1130,7 @@ function readColorImageFromBadge(badge, colorValue) {
         index = getColorImageMap(currentProductData)[String(colorValue).trim().toLowerCase()]?.index;
     }
 
-    return { url, index };
+    return { url: normalizedUrl, index };
 }
 
 function selectCombinationAttribute(attrName, value, sourceBadge) {
@@ -1098,6 +1145,8 @@ function selectCombinationAttribute(attrName, value, sourceBadge) {
     resolveMatchedCombination();
     refreshCombinationMatrixUI();
     syncCombinationDisplay();
+    syncPriceFromSelection();
+    syncStockFromSelection();
 }
 
 function applyDefaultCombinationSelection(product, variants) {
@@ -1225,7 +1274,7 @@ function syncMainImageFromColor(colorVariant) {
     if (!currentProductData || !colorVariant) return;
 
     const colorKey = String(colorVariant.value || '').trim().toLowerCase();
-    const variantImage = String(colorVariant.image || '').trim();
+    const variantImage = resolveDisplayImageUrl(colorVariant.image) || normalizeAssetUrl(colorVariant.image || '');
     const entry = getColorImageMap(currentProductData)[colorKey];
     const url = variantImage || entry?.url || '';
     if (!url) return;
@@ -1234,6 +1283,7 @@ function syncMainImageFromColor(colorVariant) {
 }
 
 function syncPriceFromSelection() {
+    const partialCombo = resolvePartialCombinationVariant();
     if (matchedCombinationVariant) {
         const price = getVariantPrice(matchedCombinationVariant);
         const priceEl = document.getElementById('productPrice');
@@ -1243,8 +1293,18 @@ function syncPriceFromSelection() {
         return;
     }
 
+    if (partialCombo && wrapUsesMatrixMode()) {
+        const price = getVariantPrice(partialCombo);
+        const priceEl = document.getElementById('productPrice');
+        const stickyPrice = document.getElementById('stickyBarPrice');
+        if (priceEl) priceEl.innerText = `৳ ${price.toLocaleString()}`;
+        if (stickyPrice) stickyPrice.innerText = `৳ ${price.toLocaleString()}`;
+        return;
+    }
+
     const sizeVariant = getSelectedVariantByType('size');
-    const priceSource = sizeVariant || Object.values(selectedVariantsByAttr)[0];
+    const colorVariant = getSelectedVariantByType('color');
+    const priceSource = sizeVariant || colorVariant || Object.values(selectedVariantsByAttr)[0];
     const price = priceSource ? getVariantPrice(priceSource) : Number(currentProductData?.price) || 0;
 
     const priceEl = document.getElementById('productPrice');
@@ -1253,8 +1313,20 @@ function syncPriceFromSelection() {
     if (stickyPrice) stickyPrice.innerText = `৳ ${price.toLocaleString()}`;
 }
 
+function wrapUsesMatrixMode() {
+    const wrap = document.getElementById('variantSelectorWrap');
+    return wrap && wrap.dataset.matrixMode === '1';
+}
+
+function matrixSelectionComplete() {
+    if (!wrapUsesMatrixMode()) return true;
+    const groups = VU().extractAttributeGroups ? VU().extractAttributeGroups(matrixVariantsCache) : [];
+    return groups.every((g) => selectedCombinationAttrs[g.name]);
+}
+
 function syncStockFromSelection() {
-    if (matchedCombinationVariant) {
+    const partialCombo = resolvePartialCombinationVariant();
+    if (matchedCombinationVariant && matrixSelectionComplete()) {
         const stock = Number(matchedCombinationVariant.stock) || 0;
         updateStockStatus(stock);
         clampQuantityToStock(stock);
@@ -1262,8 +1334,25 @@ function syncStockFromSelection() {
         return;
     }
 
+    if (wrapUsesMatrixMode() && !matrixSelectionComplete()) {
+        if (partialCombo) {
+            updateStockStatus(Number(partialCombo.stock) || 0);
+        }
+        setAddToCartEnabled(false);
+        return;
+    }
+
+    if (partialCombo && wrapUsesMatrixMode()) {
+        const stock = Number(partialCombo.stock) || 0;
+        updateStockStatus(stock);
+        clampQuantityToStock(stock);
+        setAddToCartEnabled(stock > 0);
+        return;
+    }
+
     const sizeVariant = getSelectedVariantByType('size');
-    const stockSource = sizeVariant || Object.values(selectedVariantsByAttr)[0];
+    const colorVariant = getSelectedVariantByType('color');
+    const stockSource = sizeVariant || colorVariant || Object.values(selectedVariantsByAttr)[0];
     const stock = stockSource
         ? Number(stockSource.stock) || 0
         : Number(currentProductData?.stock) || 0;
@@ -1293,13 +1382,8 @@ function selectVariantOption(variant, options = {}) {
         }
     }
 
-    if (isSizeAttribute(attr)) {
-        syncPriceFromSelection();
-        syncStockFromSelection();
-    } else if (!getSelectedVariantByType('size')) {
-        syncPriceFromSelection();
-        syncStockFromSelection();
-    }
+    syncPriceFromSelection();
+    syncStockFromSelection();
 
     if (!options.skipHint) {
         const hint = document.getElementById('variantHint');
@@ -1497,13 +1581,14 @@ function renderProductImages(product) {
         gallery.innerHTML = '';
 
         imagesArray.forEach((imgUrl, index) => {
+            const displayUrl = resolveDisplayImageUrl(imgUrl) || imgUrl;
             const imgBtn = document.createElement('img');
-            imgBtn.src = imgUrl;
+            imgBtn.src = displayUrl;
             imgBtn.classList.add('thumb-img');
             imgBtn.dataset.imageIndex = String(index);
             imgBtn.dataset.index = String(index);
-            imgBtn.dataset.imageUrl = imgUrl;
-            imgBtn.dataset.fullUrl = imgUrl;
+            imgBtn.dataset.imageUrl = displayUrl;
+            imgBtn.dataset.fullUrl = displayUrl;
             imgBtn.setAttribute('role', 'button');
             imgBtn.setAttribute('tabindex', '0');
             imgBtn.setAttribute('aria-label', `View product image ${index + 1}`);
@@ -1662,7 +1747,10 @@ function setupEventListeners() {
             id: prodId,
             name: currentProductData.name,
             price: getEffectivePrice(),
-            icon: mediaMeta.emoji || '',
+            icon: mediaMeta.emoji || currentProductData.icon || '',
+            emoji: mediaMeta.emoji || currentProductData.icon || '',
+            emojiIcon: mediaMeta.emoji || currentProductData.icon || '',
+            images: currentProductData.images || [],
             products: mediaMeta.image || '',
             quantity: quantity,
             selected: true,
@@ -1730,6 +1818,23 @@ function setupEventListeners() {
             base.products = variantImageUrl;
         }
 
+        const CDU = window.CartDisplayUtils;
+        const PT = window.ProductThumbnail;
+        if (CDU && typeof CDU.normalizeCartItem === 'function') {
+            return CDU.normalizeCartItem(base, currentProductData);
+        }
+        if (PT) {
+            const merged = PT.mergeMediaSources(base, currentProductData);
+            const picked = PT.pickCartLineImage(merged) || PT.pickImageFromItem(merged) || '';
+            const display = PT.toDisplayImageUrl ? (PT.toDisplayImageUrl(picked) || picked) : picked;
+            if (display) {
+                base.image = display;
+                base.selectedImage = display;
+                base.variantImage = display;
+                base.products = display;
+            }
+        }
+
         return base;
     };
 
@@ -1777,7 +1882,10 @@ function setupEventListeners() {
         }
 
         const quantity = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
-        let cart = JSON.parse(localStorage.getItem('cart')) || []; 
+        const CDU = window.CartDisplayUtils;
+        let cart = CDU?.getNormalizedGuestCart
+            ? CDU.getNormalizedGuestCart(window.globalProductCatalog || [])
+            : (JSON.parse(localStorage.getItem('cart') || '[]'));
 
         const newItem = buildCartItem(quantity);
         // একই প্রোডাক্ট + একই ভ্যারিয়েন্ট হলেই লাইন মার্জ হবে
@@ -1806,7 +1914,11 @@ function setupEventListeners() {
             cart.unshift(newItem);
         }
 
-        localStorage.setItem('cart', JSON.stringify(cart));
+        if (CDU?.persistGuestCart) {
+            CDU.persistGuestCart(cart);
+        } else {
+            localStorage.setItem('cart', JSON.stringify(cart));
+        }
         if (typeof window.updateCartCount === 'function') window.updateCartCount();
 
         const authToken = localStorage.getItem('token') || localStorage.getItem('customerToken');

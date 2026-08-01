@@ -5174,11 +5174,31 @@ function generateVariantSku(mode, attributes) {
 }
 
 function resolveProductImagePath(img) {
+    const PT = window.ProductThumbnail;
+    if (PT && typeof PT.resolveProductImagePath === 'function') {
+        return PT.resolveProductImagePath(img);
+    }
     const src = String(img || '').trim();
     if (!src) return '';
     if (src.startsWith('http') || src.startsWith('data:') || src.startsWith('/')) return src;
     return `/products/${src}`;
 }
+
+function adminProductImageSrc(img) {
+    const resolved = resolveProductImagePath(img);
+    if (!resolved) return '';
+    if (resolved.startsWith('http') || resolved.startsWith('data:')) return resolved;
+    if (typeof window !== 'undefined' && window.location?.origin) {
+        try {
+            return new URL(resolved, window.location.origin).href;
+        } catch (_) {
+            return resolved;
+        }
+    }
+    return resolved;
+}
+
+const ADMIN_IMG_FALLBACK_ONERROR = "if(!this.dataset.fallback){this.dataset.fallback='1';this.src='/images/placeholder-product.svg';}else{this.style.display='none';}";
 
 /** Primary product image from preview box or saved product record (edit mode). */
 function getPrimaryProductImageUrl(mode) {
@@ -6950,8 +6970,10 @@ window.renderProductTable = function() {
         else if (prod.image) imgSrc = prod.image;
         else if (prod.imageUrl) imgSrc = prod.imageUrl;
         
-        if (imgSrc && !imgSrc.startsWith('/') && !imgSrc.startsWith('http')) imgSrc = `/products/${imgSrc}`;
-        let imgHtml = imgSrc ? `<img src="${imgSrc}" onerror="this.outerHTML='<span>${prod.icon||'📦'}</span>';" class="product-img-sm">` : `<span style="font-size:24px;">${prod.icon||'📦'}</span>`;
+        if (imgSrc) imgSrc = adminProductImageSrc(imgSrc);
+        let imgHtml = imgSrc
+            ? `<img src="${imgSrc}" onerror="${ADMIN_IMG_FALLBACK_ONERROR}" class="product-img-sm" alt="">`
+            : `<span style="font-size:24px;">${prod.icon||'📦'}</span>`;
 
         // স্টক লেভেলের উপর ভিত্তি করে ডাইনামিক স্টাইলিশ ব্যাজ তৈরি
         let stockHtml = '';
@@ -7435,12 +7457,12 @@ window.editProduct = function(id) {
     if (previewBox) {
         if (product.images && product.images.length > 0) {
             previewBox.innerHTML = product.images.map(img => {
-                const imgSrc = img.startsWith('http') ? img : `/products/${img}`;
-                return `<div class="edit-img-thumb"><img src="${imgSrc}" alt="Product image"></div>`;
+                const imgSrc = adminProductImageSrc(img);
+                return `<div class="edit-img-thumb"><img src="${imgSrc}" alt="Product image" onerror="${ADMIN_IMG_FALLBACK_ONERROR}"></div>`;
             }).join('');
         } else if (product.image) {
-            const imgSrc = product.image.startsWith('http') ? product.image : `/products/${product.image}`;
-            previewBox.innerHTML = `<div class="edit-img-thumb"><img src="${imgSrc}" alt="Product image"></div>`;
+            const imgSrc = adminProductImageSrc(product.image);
+            previewBox.innerHTML = `<div class="edit-img-thumb"><img src="${imgSrc}" alt="Product image" onerror="${ADMIN_IMG_FALLBACK_ONERROR}"></div>`;
         } else {
             previewBox.innerHTML = `<span class="edit-img-placeholder">${product.icon || '📦'}</span>`;
         }
@@ -8502,6 +8524,31 @@ async function toggleServiceWorkerSetting(enabled) {
 }
 window.toggleServiceWorkerSetting = toggleServiceWorkerSetting;
 
+async function loadCacheVersionDisplay() {
+    const versionEl = document.getElementById('cache-version-display');
+    try {
+        const res = await fetch('/api/store/health');
+        const data = await res.json();
+        if (versionEl) {
+            versionEl.textContent = 'v' + (data.buildTime || Date.now());
+        }
+        return data;
+    } catch (err) {
+        if (versionEl) versionEl.textContent = 'unknown';
+        return null;
+    }
+}
+
+async function restartCacheBuster() {
+    const data = await loadCacheVersionDisplay();
+    if (data) {
+        showToast('✅ Cache version is current. Deploy to force a full refresh.', 'info');
+    } else {
+        showToast('Could not check cache version', 'error');
+    }
+}
+window.restartCacheBuster = restartCacheBuster;
+
 async function loadCacheSettings() {
     try {
         const res = await fetch('/api/store/cache-settings');
@@ -8563,6 +8610,7 @@ async function fetchAdminSettings() {
     }
     checkGAStatus();
     loadCacheSettings();
+    loadCacheVersionDisplay();
     // Load 2FA status/config for the settings panel
     if (typeof window.refreshTwoFactorSettings === 'function') window.refreshTwoFactorSettings();
     if (typeof loadSandboxStatus === 'function') loadSandboxStatus();

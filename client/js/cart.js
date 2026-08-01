@@ -13,8 +13,40 @@ function t(key, vars) {
 /* ==========================================================================
    SECTION 1: GLOBAL VARIABLES & API SYNC (শুরু এবং ডাটাবেজ সিঙ্ক)
    ========================================================================== */
-let cart = JSON.parse(localStorage.getItem('cart')) || [];
+let cart = [];
 let globalProductCatalog = [];
+const CDU = () => window.CartDisplayUtils || {};
+
+function readGuestCart() {
+    if (CDU().getNormalizedGuestCart) {
+        return CDU().getNormalizedGuestCart(globalProductCatalog);
+    }
+    try {
+        return JSON.parse(localStorage.getItem('cart') || '[]');
+    } catch (_) {
+        localStorage.removeItem('cart');
+        return [];
+    }
+}
+
+function saveGuestCart(items) {
+    if (CDU().persistGuestCart) {
+        return CDU().persistGuestCart(items);
+    }
+    localStorage.setItem('cart', JSON.stringify(items));
+    return items;
+}
+
+function findCatalogProduct(productId) {
+    if (CDU().findCatalogProduct) {
+        return CDU().findCatalogProduct({ id: productId }, globalProductCatalog);
+    }
+    return globalProductCatalog.find(p =>
+        String(p._id) === String(productId) ||
+        String(p.productId) === String(productId) ||
+        String(p.id) === String(productId)
+    ) || null;
+}
 
 // 🌟 টোকেন চেক (কাস্টমার লগইন আছে কি না জানার জন্য)
 const customerToken = localStorage.getItem('token') || localStorage.getItem('customerToken');
@@ -43,7 +75,7 @@ fetch('/api/products')
         
         // 🌟 হাইব্রিড মার্জ লজিক: ইউজার লগইন থাকলে লোকাল স্টোরেজের কার্ট ডাটাবেজে পাঠিয়ে মার্জ হবে
         if (customerToken) {
-            const localCart = JSON.parse(localStorage.getItem('cart')) || [];
+            const localCart = readGuestCart();
             if (localCart.length > 0) {
                 // ব্যাকএন্ডে মার্জ রিকোয়েস্ট পাঠানো হচ্ছে
                 fetch('/api/cart/merge', {
@@ -77,6 +109,10 @@ fetch('/api/products')
     });
 
 function mapClientCartItem(item = {}) {
+    const catalogProduct = findCatalogProduct(item.productId || item.id);
+    if (CDU().normalizeCartItem) {
+        return CDU().normalizeCartItem(item, catalogProduct);
+    }
     const displayImage = String(
         item.selectedImage
         || item.variantImage
@@ -103,6 +139,23 @@ function mapClientCartItem(item = {}) {
         selectedColor: item.selectedColor || '',
         selectedSize: item.selectedSize || '',
         selectedVariant: item.selectedVariant || null
+    };
+}
+
+function buildCartLineItem(fields) {
+    const catalogProduct = findCatalogProduct(fields.id || fields.productId);
+    if (CDU().normalizeCartItem) {
+        return CDU().normalizeCartItem(fields, catalogProduct);
+    }
+    const image = fields.image || fields.products || '';
+    return {
+        ...fields,
+        image,
+        products: image,
+        selectedImage: image,
+        variantImage: image,
+        images: fields.images || catalogProduct?.images || [],
+        emojiIcon: fields.emojiIcon || fields.icon || fields.emoji || catalogProduct?.icon || ''
     };
 }
 
@@ -145,7 +198,7 @@ function updateCartCount() {
                            document.querySelector('.Bag span');
     const drawerCount = document.getElementById('cartDrawerCount');
     
-    let count = customerToken ? cart.length : (JSON.parse(localStorage.getItem('cart')) || []).length;
+    let count = customerToken ? cart.length : readGuestCart().length;
 
     if (cartCountBadge) cartCountBadge.innerText = count;
     if (drawerCount) drawerCount.innerText = count;
@@ -171,7 +224,7 @@ function renderCartDrawerItems() {
 
 
     // লগইন থাকলে লাইভ কার্ট অ্যারে, না থাকলে লোকাল স্টোরেজ
-    let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
+    let currentCart = customerToken ? cart : readGuestCart();
     container.innerHTML = '';
 
     const isProfilePreview = pageContainer && pageContainer.id === 'cart-items-preview-list';
@@ -213,7 +266,9 @@ function renderCartDrawerItems() {
         const PT = window.ProductThumbnail;
         const mediaHTML = PT
             ? PT.buildForCartItem(item, realProduct, { variant: 'compact', alt: item.name || 'Product' })
-            : '<div class="no-photo-badge"><span>NO PHOTO</span></div>';
+            : (typeof window.getProductImageHtml === 'function'
+                ? window.getProductImageHtml(item, drawerContainer ? 'sm' : 'md')
+                : '<div class="no-photo-badge"><span>NO PHOTO</span></div>');
 
         const isChecked = item.selected !== false ? 'checked' : '';
         const quantity = item.quantity || 1;
@@ -337,13 +392,13 @@ window.toggleItemSelection = function(productId, variantIdEnc) {
             }).then(() => renderCartDrawerItems());
         }
     } else {
-        let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
+        let currentCart = readGuestCart();
         const item = currentCart.find(i => sameCartLine(i, productId, variantId));
         if (item) {
             const checkbox = document.querySelector(`.cart-item-checkbox[data-id="${productId}"]`);
             item.selected = checkbox ? checkbox.checked : !item.selected;
         }
-        localStorage.setItem('cart', JSON.stringify(currentCart));
+        saveGuestCart(currentCart);
         renderCartDrawerItems();
     }
 };
@@ -415,7 +470,7 @@ function updateCartTotal() {
     const profileCountEl = document.getElementById('profileCartItemsCount');
     const profileBtn = document.getElementById('profileCheckoutBtn');
 
-    let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
+    let currentCart = customerToken ? cart : readGuestCart();
     let checkedItems = currentCart.filter(item => item.selected !== false);
     let uniqueSelectedCount = checkedItems.length;
     let subtotal = 0;
@@ -456,7 +511,7 @@ function updateCartTotal() {
    ========================================================================== */
 window.updateQty = function(productId, change, variantIdEnc) {
     const variantId = decVariant(variantIdEnc);
-    let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
+    let currentCart = customerToken ? cart : readGuestCart();
     const item = currentCart.find(i => sameCartLine(i, productId, variantId));
 
     if (item) {
@@ -514,7 +569,7 @@ window.updateQty = function(productId, change, variantIdEnc) {
         } else {
             // গেস্ট ইউজারের জন্য লোকাল স্টোরেজ আপডেট
             item.quantity = targetQty;
-            localStorage.setItem('cart', JSON.stringify(currentCart));
+            saveGuestCart(currentCart);
             updateCartCount();
             renderCartDrawerItems();
         }
@@ -524,7 +579,7 @@ window.updateQty = function(productId, change, variantIdEnc) {
 window.deleteCartItem = function(productId, variantIdEnc, options) {
     const silent = options && options.silent === true;
     const variantId = decVariant(variantIdEnc);
-    const guestCart = JSON.parse(localStorage.getItem('cart')) || [];
+    const guestCart = readGuestCart();
     const removedItem = (customerToken ? cart : guestCart).find(item => sameCartLine(item, productId, variantId));
 
     if (customerToken) {
@@ -541,9 +596,9 @@ window.deleteCartItem = function(productId, variantIdEnc, options) {
         .catch(err => console.error("Error deleting from DB cart:", err));
     } else {
         // গেস্ট ইউজারের লোকাল স্টোরেজ হ্যান্ডলিং
-        let currentCart = JSON.parse(localStorage.getItem('cart')) || [];
+        let currentCart = readGuestCart();
         currentCart = currentCart.filter(item => !sameCartLine(item, productId, variantId));
-        localStorage.setItem('cart', JSON.stringify(currentCart));
+        saveGuestCart(currentCart);
         updateCartCount();
         renderCartDrawerItems();
     }
@@ -664,7 +719,7 @@ function fireAddToCartAnalytics(productId, productName, productPrice, quantity) 
 }
 
 window.addToBag = function(productId, productName, productPrice, productImage) {
-    let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
+    let currentCart = customerToken ? cart : readGuestCart();
     const existingItem = currentCart.find(item => String(item.id) === String(productId));
     const clickedButton = window.event ? window.event.target.closest('button') : null;
 
@@ -711,8 +766,36 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
     const mediaMeta = PT
         ? PT.getDisplayMeta(realProduct || { image: productImage, products: productImage })
         : { image: productImage || '', emoji: '' };
-    const productIcon = mediaMeta.emoji || '';
-    const resolvedImage = mediaMeta.image || productImage || '';
+    const productIcon = mediaMeta.emoji || realProduct?.icon || realProduct?.emojiIcon || '';
+    const resolvedImage = CDU().resolveCartLineImageUrl
+        ? CDU().resolveCartLineImageUrl(
+            {
+                image: mediaMeta.image || productImage,
+                products: productImage,
+                icon: productIcon,
+                emojiIcon: productIcon,
+                images: realProduct?.images || []
+            },
+            realProduct
+        )
+        : (mediaMeta.image || productImage || '');
+
+    const newLineBase = {
+        id: productId,
+        name: productName,
+        price: Number(productPrice),
+        image: resolvedImage,
+        products: resolvedImage,
+        selectedImage: resolvedImage,
+        variantImage: resolvedImage,
+        images: realProduct?.images || [],
+        icon: productIcon,
+        emoji: productIcon,
+        emojiIcon: productIcon,
+        quantity: 1,
+        selected: true
+    };
+    const normalizedNewLine = buildCartLineItem(newLineBase);
 
     if (customerToken) {
         // 🌟 লগইন থাকলে সরাসরি ব্যাকএন্ড API এর মাধ্যমে সম্পূর্ণ ডাটা ডাটাবেজে অ্যাড হবে
@@ -728,8 +811,11 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
                 quantity: 1,
                 name: productName,
                 price: Number(productPrice),
-                image: resolvedImage || '',
-                icon: productIcon
+                image: normalizedNewLine.image || resolvedImage || '',
+                selectedImage: normalizedNewLine.selectedImage || '',
+                variantImage: normalizedNewLine.variantImage || '',
+                icon: productIcon,
+                images: normalizedNewLine.images || realProduct?.images || []
             })
         })
         .then(res => res.json())
@@ -739,7 +825,7 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
                 if (existingItem) {
                     notifyToast('🛒 Cart quantity updated!', 'success');
                 } else {
-                    triggerFlyAnimation(clickedButton, productImage);
+                    triggerFlyAnimation(clickedButton, normalizedNewLine.image || productImage);
                     if (typeof window.showCartAddedToast === 'function') {
                         window.showCartAddedToast();
                     } else {
@@ -754,16 +840,8 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
                 existingItem.quantity += 1;
                 notifyToast('🛒 Cart quantity updated!', 'success');
             } else {
-                triggerFlyAnimation(clickedButton, productImage);
-                cart.unshift({
-                    id: productId,
-                    name: productName,
-                    price: Number(productPrice),
-                    products: resolvedImage || '',
-                    icon: productIcon,
-                    quantity: 1,
-                    selected: true
-                });
+                triggerFlyAnimation(clickedButton, normalizedNewLine.image || productImage);
+                cart.unshift(normalizedNewLine);
                 if (typeof window.showCartAddedToast === 'function') {
                     window.showCartAddedToast();
                 } else {
@@ -782,20 +860,12 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
             existingItem.quantity = (existingItem.quantity || 1) + 1;
             notifyToast('🛒 Cart quantity updated!', 'success');
         } else {
-            triggerFlyAnimation(clickedButton, productImage);
+            triggerFlyAnimation(clickedButton, normalizedNewLine.image || productImage);
 
-            currentCart.unshift({
-                id: productId,
-                name: productName,
-                price: Number(productPrice),
-                products: productImage || '', 
-                icon: productIcon,
-                quantity: 1,
-                selected: true 
-            });
+            currentCart.unshift(normalizedNewLine);
         }
 
-        localStorage.setItem('cart', JSON.stringify(currentCart));
+        saveGuestCart(currentCart);
         fireAddToCartAnalytics(productId, productName, productPrice, 1);
         setTimeout(() => {
             updateCartCount();
@@ -812,12 +882,14 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
 };
 
 // গ্লোবাল ফাংশন এক্সপোজার
+window.readGuestCart = readGuestCart;
+window.saveGuestCart = saveGuestCart;
 window.updateCartCount = updateCartCount;
 window.renderCartDrawerItems = renderCartDrawerItems;
 window.fetchLiveDBCart = fetchLiveDBCart;
 window.syncCartFromServerItems = syncCartFromServerItems;
 window.getSelectedCartSubtotal = function getSelectedCartSubtotal() {
-    const currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
+    const currentCart = customerToken ? cart : readGuestCart();
     return currentCart
         .filter(item => item.selected !== false)
         .reduce((sum, item) => sum + item.price * (item.quantity || 1), 0);

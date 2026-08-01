@@ -11,6 +11,63 @@
    ========================================================================= */
 let globalProductCatalog = [];
 let cart = []; // 🌟 ডাটাবেজ কার্ট স্টোর করার জন্য গ্লোবাল ভেরিয়েবল
+const checkoutCDU = () => window.CartDisplayUtils || {};
+
+function readGuestCartForCheckout() {
+    if (checkoutCDU().getNormalizedGuestCart) {
+        return checkoutCDU().getNormalizedGuestCart(globalProductCatalog);
+    }
+    try {
+        return JSON.parse(localStorage.getItem('cart') || '[]');
+    } catch (_) {
+        localStorage.removeItem('cart');
+        return [];
+    }
+}
+
+function saveGuestCartForCheckout(items) {
+    if (checkoutCDU().persistGuestCart) {
+        return checkoutCDU().persistGuestCart(items);
+    }
+    localStorage.setItem('cart', JSON.stringify(items));
+    return items;
+}
+
+function mapCheckoutCartItem(item = {}) {
+    const catalogProduct = checkoutCDU().findCatalogProduct
+        ? checkoutCDU().findCatalogProduct(item, globalProductCatalog)
+        : globalProductCatalog.find((p) =>
+            String(p._id) === String(item.productId || item.id) ||
+            String(p.productId) === String(item.productId || item.id) ||
+            String(p.id) === String(item.productId || item.id)
+        );
+    if (checkoutCDU().normalizeCartItem) {
+        return checkoutCDU().normalizeCartItem(item, catalogProduct);
+    }
+    const displayImage = String(
+        item.selectedImage || item.variantImage || item.image || item.products || ''
+    ).trim();
+    return {
+        id: item.productId || item.id,
+        name: item.name,
+        price: Number(item.price),
+        products: displayImage,
+        image: displayImage,
+        selectedImage: displayImage,
+        variantImage: displayImage,
+        icon: item.icon || '',
+        quantity: item.quantity,
+        selected: item.selected !== false,
+        variantId: item.variantId || '',
+        variantLabel: item.variantLabel || '',
+        variantAttribute: item.variantAttribute || '',
+        variantValue: item.variantValue || '',
+        variantSku: item.variantSku || '',
+        selectedColor: item.selectedColor || '',
+        selectedSize: item.selectedSize || '',
+        selectedVariant: item.selectedVariant || null
+    };
+}
 let deliverySettings = {
     shopHomeCity: 'Dhaka',
     deliveryInsideCity: 60,
@@ -122,7 +179,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     fetch('/api/products')
         .then(res => res.json())
         .then(data => {
-            globalProductCatalog = data;
+            globalProductCatalog = Array.isArray(data) ? data : (data.data || data.products || []);
+            window.globalProductCatalog = globalProductCatalog;
             fetchCartData();
         })
         .catch(err => {
@@ -1090,13 +1148,20 @@ function getCheckoutItems() {
     const isBuyNow = localStorage.getItem('isBuyNowMode') === 'true';
     
     if (isBuyNow) {
-        // Buy Now মোড হলে কার্টের কোনো আইটেম দেখাবে না, শুধু Buy Now আইটেম দেখাবে
-        return JSON.parse(localStorage.getItem('buy_now_item')) || [];
-    } else {
-        // সাধারণ কার্ট থেকে আসলে শুধুমাত্র সিলেক্টেড আইটেম দেখাবে
-        let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
-        return currentCart.filter(item => item.selected !== false);
+        let buyNowItems = [];
+        try {
+            buyNowItems = JSON.parse(localStorage.getItem('buy_now_item') || '[]');
+            if (!Array.isArray(buyNowItems)) buyNowItems = [];
+        } catch (_) {
+            buyNowItems = [];
+        }
+        return checkoutCDU().normalizeCartArray
+            ? checkoutCDU().normalizeCartArray(buyNowItems, globalProductCatalog)
+            : buyNowItems;
     }
+
+    const currentCart = customerToken ? cart : readGuestCartForCheckout();
+    return currentCart.filter(item => item.selected !== false);
 }
 
 /* =========================================================================
@@ -1111,35 +1176,8 @@ function fetchCartData() {
         })
         .then(res => res.json())
         .then(dbCartItems => {
-            cart = dbCartItems.map(item => {
-                const displayImage = String(
-                    item.selectedImage
-                    || item.variantImage
-                    || item.image
-                    || item.products
-                    || ''
-                ).trim();
-                return {
-                    id: item.productId,
-                    name: item.name,
-                    price: Number(item.price),
-                    products: displayImage,
-                    image: displayImage,
-                    selectedImage: displayImage,
-                    variantImage: displayImage,
-                    icon: item.icon || '',
-                    quantity: item.quantity,
-                    selected: item.selected !== false,
-                    variantId: item.variantId || '',
-                    variantLabel: item.variantLabel || '',
-                    variantAttribute: item.variantAttribute || '',
-                    variantValue: item.variantValue || '',
-                    variantSku: item.variantSku || '',
-                    selectedColor: item.selectedColor || '',
-                    selectedSize: item.selectedSize || '',
-                    selectedVariant: item.selectedVariant || null
-                };
-            });
+            const items = Array.isArray(dbCartItems) ? dbCartItems : [];
+            cart = items.map(mapCheckoutCartItem);
             renderCheckoutCart();
         })
         .catch(err => {
@@ -1306,7 +1344,7 @@ function changeItemQuantity(productId, amount, variantId = '') {
     }
 
     // 🌟 সাধারণ কার্টের লজিক (আগের মতো)
-    let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
+    let currentCart = customerToken ? cart : readGuestCartForCheckout();
     const item = currentCart.find(sameLineCk);
     
     if (item) {
@@ -1331,7 +1369,7 @@ function changeItemQuantity(productId, amount, variantId = '') {
             }).catch(err => console.error("Error updating quantity in checkout:", err));
         } else {
             item.quantity = targetQty;
-            localStorage.setItem('cart', JSON.stringify(currentCart));
+            saveGuestCartForCheckout(currentCart);
             renderCheckoutCart();
         }
     }
@@ -1356,7 +1394,7 @@ function temporarilyRemoveFromCheckout(productId, variantId = '') {
     }
 
     // 🌟 সাধারণ কার্টের লজিক (আগের মতো)
-    let currentCart = customerToken ? cart : (JSON.parse(localStorage.getItem('cart')) || []);
+    let currentCart = customerToken ? cart : readGuestCartForCheckout();
     const item = currentCart.find(sameLineCk);
     
     if (item) {
@@ -1374,7 +1412,7 @@ function temporarilyRemoveFromCheckout(productId, variantId = '') {
             }).catch(err => console.error("Error toggling selection in checkout:", err));
         } else {
             item.selected = false;
-            localStorage.setItem('cart', JSON.stringify(currentCart));
+            saveGuestCartForCheckout(currentCart);
             renderCheckoutCart();
         }
     }

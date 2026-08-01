@@ -10,6 +10,8 @@
 
 require('dotenv').config();
 require('./utils/validateEnv')();
+
+global.SERVER_START_TIME = Date.now().toString();
 const { applySecurityMiddleware } = require('./middleware/securityMiddleware');
 const express = require('express');
 const path = require('path');
@@ -414,25 +416,32 @@ app.get('/manifest.json', (req, res) => {
 });
 app.get('/service-worker.js', (req, res) => {
     const swPath = path.join(PUBLIC_DIR, 'service-worker.js');
-    let swContent = fs.readFileSync(swPath, 'utf8');
-    swContent = swContent.replace(
-        '__BUILD_TIMESTAMP__',
-        process.env.BUILD_TIMESTAMP || Date.now().toString()
-    );
-    res.setHeader('Content-Type', 'application/javascript');
-    res.setHeader('Service-Worker-Allowed', '/');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.send(swContent);
+
+    try {
+        let swContent = fs.readFileSync(swPath, 'utf8');
+        swContent = swContent.replace(
+            '__BUILD_TIMESTAMP__',
+            global.SERVER_START_TIME || Date.now().toString()
+        );
+        res.setHeader('Content-Type', 'application/javascript');
+        res.setHeader('Service-Worker-Allowed', '/');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.send(swContent);
+    } catch (err) {
+        res.status(404).send('// Service worker not found');
+    }
 });
 
 const staticAssetOptions = {
     index: false,
     etag: true,
+    lastModified: true,
     setHeaders: (res, filePath) => {
         if (filePath.endsWith('.html')) {
-            res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
         } else if (filePath.match(/\.(js|css)$/)) {
-            res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
+            res.setHeader('Cache-Control', 'public, max-age=3600');
         } else if (filePath.match(/\.(png|jpg|jpeg|gif|svg|ico|webp)$/)) {
             res.setHeader('Cache-Control', 'public, max-age=604800');
         }

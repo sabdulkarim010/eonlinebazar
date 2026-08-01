@@ -2844,9 +2844,25 @@
                                     </span>
                                 </div>
                                 <p style="font-size:0.78rem;color:#9ca3af;margin-top:8px">
-                                    Note: Changes take effect for new visitors.
-                                    Existing visitors may need to clear browser cache.
+                                    Note: Cache automatically refreshes on every server deployment.
                                 </p>
+                            </div>
+
+                            <div class="settings-card" style="border-left:4px solid #6366f1">
+                                <h3>🔄 Cache Management</h3>
+                                <p style="font-size:0.85rem;color:#6b7280;margin:8px 0 16px">
+                                    If customers report seeing outdated content,
+                                    the server restart automatically busts all caches.
+                                    Current cache version: <code id="cache-version-display">loading...</code>
+                                </p>
+                                <div style="display:flex;gap:10px">
+                                    <button type="button" class="btn btn-primary" onclick="restartCacheBuster()">
+                                        🔄 Force Cache Refresh
+                                    </button>
+                                </div>
+                                <div style="font-size:0.78rem;color:#9ca3af;margin-top:8px">
+                                    Note: Cache automatically refreshes on every server deployment.
+                                </div>
                             </div>
 
                             <div class="saas-settings-card">
