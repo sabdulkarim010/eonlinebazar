@@ -9,6 +9,7 @@ const {
     mergeGuestCartIntoUserCart
 } = require('../utils/cartMergeService');
 const { isValidImagePath } = require('../utils/orderItemImages');
+const { normalizeImageUrl, normalizeImageUrlList } = require('../utils/imageUrlUtils');
 
 const PRODUCT_MEDIA_SELECT = 'name price images image icon productId stockQuantity stock thumbnail';
 
@@ -96,6 +97,11 @@ function mapCartItemResponse(item, product) {
         : (product || {});
 
     const resolvedImage = resolveCartItemDisplayImage(plain, catalog);
+    const normalizedImage = resolvedImage ? normalizeImageUrl(resolvedImage) : null;
+    const normalizedVariantImage = (plain.variantImage && isUsableCartImage(plain.variantImage))
+        ? normalizeImageUrl(plain.variantImage)
+        : (normalizedImage || null);
+    const normalizedImages = normalizeImageUrlList(catalog.images || []);
 
     const emojiIcon = plain.emojiIcon || catalog.icon || plain.icon || null;
 
@@ -105,13 +111,11 @@ function mapCartItemResponse(item, product) {
         name: plain.name || catalog.name || 'Product',
         price: plain.price,
         quantity: plain.quantity,
-        image: resolvedImage,
-        images: catalog.images || [],
+        image: normalizedImage,
+        images: normalizedImages,
         emojiIcon,
         icon: emojiIcon || plain.icon || catalog.icon || '📦',
-        variantImage: (plain.variantImage && isUsableCartImage(plain.variantImage))
-            ? plain.variantImage
-            : (resolvedImage || null),
+        variantImage: normalizedVariantImage,
         variant: plain.variant || null,
         variantId: plain.variantId || null,
         variantLabel: plain.variantLabel || '',

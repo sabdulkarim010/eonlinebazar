@@ -67,6 +67,33 @@
         return v.length <= 8 && !/[\\/.]/.test(v);
     }
 
+    function normalizeSecureImageUrl(url) {
+        if (!url) return '';
+        let normalized = String(url).trim();
+        if (!normalized) return '';
+
+        if (normalized.startsWith('http://')) {
+            normalized = normalized.replace(/^http:\/\//i, 'https://');
+        }
+
+        if (/^https:\/\//i.test(normalized) || normalized.startsWith('data:')) {
+            return normalized;
+        }
+
+        const lower = normalized.toLowerCase();
+        if (normalized.startsWith('/uploads') || lower.startsWith('uploads/')) {
+            const path = normalized.startsWith('/')
+                ? normalized
+                : `/${normalized.replace(/^\/+/, '')}`;
+            if (typeof global.location !== 'undefined' && global.location.origin) {
+                return global.location.origin + path;
+            }
+            return path;
+        }
+
+        return normalized;
+    }
+
     function resolveProductImagePath(imageFile) {
         if (!imageFile || isUnsafeAssetPath(imageFile)) return '';
         const raw = String(imageFile).trim();
@@ -81,7 +108,7 @@
 
         if (!hasExt && !isRemote && !isUploads && !isCloudinary) return '';
 
-        if (isRemote || isCloudinary) return raw;
+        if (isRemote || isCloudinary) return normalizeSecureImageUrl(raw);
         if (isRooted) return raw;
         if (raw.startsWith('products/') || raw.startsWith('uploads/')) return '/' + raw;
         return '/products/' + raw;
@@ -91,17 +118,20 @@
     function toDisplayImageUrl(imageFile) {
         const resolved = resolveProductImagePath(imageFile);
         if (!resolved) return '';
-        if (resolved.startsWith('http://') || resolved.startsWith('https://') || resolved.startsWith('data:')) {
-            return resolved;
+
+        const secured = normalizeSecureImageUrl(resolved);
+        if (secured.startsWith('https://') || secured.startsWith('data:')) {
+            return secured;
         }
+
         if (typeof global.location !== 'undefined' && global.location.origin) {
             try {
-                return new URL(resolved, global.location.origin).href;
+                return new URL(secured, global.location.origin).href;
             } catch (_) {
-                return resolved;
+                return secured;
             }
         }
-        return resolved;
+        return secured;
     }
 
     function collectVariantImages(item) {
@@ -420,6 +450,7 @@
         isValidProductImagePath,
         looksLikeEmojiOrIcon,
         resolveProductImagePath,
+        normalizeSecureImageUrl,
         toDisplayImageUrl,
         collectVariantImages,
         normalizeMediaItem,

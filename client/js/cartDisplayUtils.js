@@ -200,12 +200,47 @@
             v.endsWith('/images/placeholder-product.svg');
     }
 
+    function normalizeSecureImageUrl(url) {
+        const PT = global.ProductThumbnail;
+        if (PT && typeof PT.normalizeSecureImageUrl === 'function') {
+            return PT.normalizeSecureImageUrl(url);
+        }
+        if (!url) return '';
+        let normalized = String(url).trim();
+        if (!normalized) return '';
+        if (normalized.startsWith('http://')) {
+            normalized = normalized.replace(/^http:\/\//i, 'https://');
+        }
+        if (/^https:\/\//i.test(normalized) || normalized.startsWith('data:')) {
+            return normalized;
+        }
+        const lower = normalized.toLowerCase();
+        if (normalized.startsWith('/uploads') || lower.startsWith('uploads/')) {
+            const path = normalized.startsWith('/')
+                ? normalized
+                : `/${normalized.replace(/^\/+/, '')}`;
+            if (typeof global.location !== 'undefined' && global.location.origin) {
+                return global.location.origin + path;
+            }
+            return path;
+        }
+        if (typeof global.location !== 'undefined' && global.location.origin) {
+            try {
+                return new URL(normalized, global.location.origin).href;
+            } catch (_) {
+                return normalized;
+            }
+        }
+        return normalized;
+    }
+
     /** Unified image URL for guest localStorage rows and authenticated API cart items. */
     function resolveCartItemImageUrl(item, catalogProduct) {
         const catalog = catalogProduct || findCatalogProduct(item, global.globalProductCatalog || []);
         const resolved = resolveCartLineImageUrl(item, catalog);
-        if (resolved && !isStoredPlaceholder(resolved) && !isInvalidImageValue(resolved)) {
-            return resolved;
+        const secured = normalizeSecureImageUrl(resolved);
+        if (secured && !isStoredPlaceholder(secured) && !isInvalidImageValue(secured)) {
+            return secured;
         }
         return CART_IMAGE_PLACEHOLDER;
     }
@@ -216,9 +251,10 @@
             const merged = PT.mergeMediaSources(item, catalogProduct);
             const picked = PT.pickCartLineImage(merged) || PT.pickImageFromItem(merged) || '';
             if (picked) {
-                return PT.toDisplayImageUrl
+                const display = PT.toDisplayImageUrl
                     ? (PT.toDisplayImageUrl(picked) || picked)
                     : (PT.resolveProductImagePath(picked) || picked);
+                return normalizeSecureImageUrl(display);
             }
         }
 
@@ -243,13 +279,14 @@
             if (PT && PT.resolveProductImagePath) {
                 const resolved = PT.resolveProductImagePath(raw);
                 if (resolved && !isStoredPlaceholder(resolved)) {
-                    return PT.toDisplayImageUrl
+                    const display = PT.toDisplayImageUrl
                         ? (PT.toDisplayImageUrl(resolved) || resolved)
                         : resolved;
+                    return normalizeSecureImageUrl(display);
                 }
             }
             if (raw.startsWith('http') || raw.startsWith('/') || raw.startsWith('data:')) {
-                return raw;
+                return normalizeSecureImageUrl(raw);
             }
         }
 
@@ -387,12 +424,12 @@
             const resolved = PT.toDisplayImageUrl
                 ? (PT.toDisplayImageUrl(raw) || PT.resolveProductImagePath(raw))
                 : PT.resolveProductImagePath(raw);
-            if (resolved) return resolved;
+            if (resolved) return normalizeSecureImageUrl(resolved);
         }
         if (raw.startsWith('http') || raw.startsWith('/') || raw.startsWith('data:')) {
-            return raw;
+            return normalizeSecureImageUrl(raw);
         }
-        return '/products/' + raw.replace(/^\/+/, '');
+        return normalizeSecureImageUrl('/products/' + raw.replace(/^\/+/, ''));
     }
 
     function buildItemImageHtml(item, size, catalogProduct) {
