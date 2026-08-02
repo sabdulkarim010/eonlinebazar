@@ -111,7 +111,27 @@ function showToast(message, type = 'success') {
 }
 
 /* ==================================================
-   2. LOGIN PROCESS (password → dashboard; OTP bypassed)
+   2. PASSWORD VISIBILITY TOGGLE
+================================================== */
+(function initAdminPasswordToggle() {
+    const toggleBtn = document.getElementById('toggleAdminPass');
+    const passwordInput = document.getElementById('adminPass');
+    const eyeIcon = document.getElementById('adminEyeIcon');
+
+    if (!toggleBtn || !passwordInput || !eyeIcon) return;
+
+    toggleBtn.addEventListener('click', () => {
+        const show = passwordInput.type === 'password';
+        passwordInput.type = show ? 'text' : 'password';
+        eyeIcon.className = show ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+        toggleBtn.setAttribute('title', show ? 'Hide password' : 'Show password');
+        toggleBtn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        passwordInput.focus();
+    });
+})();
+
+/* ==================================================
+   3. LOGIN PROCESS (password → dashboard; OTP bypassed)
 ================================================== */
 const loginForm = document.getElementById('loginForm');
 
@@ -187,7 +207,7 @@ if (loginForm) {
 }
 
 /* ==================================================
-   3. CLEAR FORM ON BACK BUTTON
+   4. CLEAR FORM ON BACK BUTTON
 ================================================== */
 window.addEventListener('pageshow', function (event) {
     if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {

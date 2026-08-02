@@ -70,11 +70,26 @@ const translations = {
     'auth.login': 'লগইন',
     'auth.register': 'নিবন্ধন করুন',
     'auth.email': 'ইমেইল',
-    'auth.password': 'পাসওয়ার্ড',
-    'auth.forgot_password': 'পাসওয়ার্ড ভুলে গেছেন?',
+    'auth.password': 'পাসওয়ার্ড',
+    'auth.login_input': 'ইমেল ঠিকানা অথবা মোবাইল নম্বর',
+    'auth.remember_me': 'আমাকে মনে রাখুন',
+    'auth.password_min': 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে',
+    'auth.login_input_invalid': 'সঠিক ইমেল ঠিকানা অথবা মোবাইল নম্বর দিন।',
+    'auth.forgot_password': 'পাসওয়ার্ড ভুলে গেছেন?',
     'auth.google_login': 'Google দিয়ে লগইন',
     'auth.no_account': 'অ্যাকাউন্ট নেই?',
     'auth.have_account': 'অ্যাকাউন্ট আছে?',
+    'auth.or': 'অথবা',
+    'auth.show_password': 'পাসওয়ার্ড দেখুন',
+    'auth.hide_password': 'পাসওয়ার্ড লুকান',
+    'auth.authenticating': 'প্রমাণীকরণ হচ্ছে...',
+    'auth.fill_fields': 'সব ঘর সঠিকভাবে পূরণ করুন।',
+    'auth.login_success': 'লগইন সফল! পুনঃনির্দেশ করা হচ্ছে...',
+    'auth.session_expired': 'এই ডিভাইসে সেশন শেষ হয়েছে। আবার লগইন করুন।',
+    'auth.google_failed': 'Google সাইন-ইন ব্যর্থ। আবার চেষ্টা করুন বা ইমেল/পাসওয়ার্ড ব্যবহার করুন।',
+    'auth.email_verified': 'ইমেল যাচাই সফল! এখন সাইন ইন করতে পারেন।',
+    'auth.server_error': 'সার্ভার ত্রুটি! আবার চেষ্টা করুন।',
+    'auth.invalid_credentials': 'ভুল তথ্য বা ইমেল যাচাই হয়নি।',
 
     // Search
     'search.placeholder': 'পণ্য খুঁজুন...',
@@ -175,10 +190,25 @@ const translations = {
     'auth.register': 'Register',
     'auth.email': 'Email',
     'auth.password': 'Password',
+    'auth.login_input': 'Email Address or Mobile Number',
+    'auth.remember_me': 'Remember me',
+    'auth.password_min': 'Password must be at least 6 characters.',
+    'auth.login_input_invalid': 'Please enter a valid email address or mobile number.',
     'auth.forgot_password': 'Forgot Password?',
     'auth.google_login': 'Login with Google',
     'auth.no_account': "Don't have an account?",
     'auth.have_account': 'Already have an account?',
+    'auth.or': 'Or',
+    'auth.show_password': 'Show password',
+    'auth.hide_password': 'Hide password',
+    'auth.authenticating': 'Authenticating...',
+    'auth.fill_fields': 'Please fill all fields correctly.',
+    'auth.login_success': 'Login Successful! Redirecting...',
+    'auth.session_expired': 'Your session ended on this device. Please sign in again.',
+    'auth.google_failed': 'Google sign-in failed. Please try again or use email/password.',
+    'auth.email_verified': 'Email verified successfully! You can now sign in.',
+    'auth.server_error': 'Server error! Please try again.',
+    'auth.invalid_credentials': 'Invalid credentials or email not verified.',
 
     // Search
     'search.placeholder': 'Search products...',
@@ -245,6 +275,10 @@ function applyTranslations() {
 
   document.querySelectorAll('[data-i18n-aria]').forEach((el) => {
     el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria')));
+  });
+
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+    el.setAttribute('title', t(el.getAttribute('data-i18n-title')));
   });
 }
 

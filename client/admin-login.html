@@ -19,10 +19,13 @@
         
         <form id="loginForm">
             <div class="input-group">
-                <input type="text" id="adminUsername" placeholder="Username" required>
+                <input type="text" id="adminUsername" placeholder="Username" required autocomplete="username">
             </div>
-            <div class="input-group">
-                <input type="password" id="adminPass" placeholder="Password" required>
+            <div class="input-group password-group">
+                <input type="password" id="adminPass" placeholder="Password" required autocomplete="current-password">
+                <button type="button" class="toggle-password" id="toggleAdminPass" title="Show password" aria-label="Show password">
+                    <i class="fa-regular fa-eye" id="adminEyeIcon"></i>
+                </button>
             </div>
             <button type="submit">Login</button>
         </form>

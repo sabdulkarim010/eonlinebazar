@@ -14,9 +14,88 @@ function resolvePostLoginRedirect() {
     return '/profile';
 }
 
+function authT(key) {
+    return window.i18n?.t(key) || key;
+}
+
+const EYE_OPEN_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_CLOSED_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
+function getLoginIdentifierInput() {
+    return document.getElementById('loginIdentifier') || document.getElementById('loginInput');
+}
+
+function showLoginError(message) {
+    const errEl = document.getElementById('loginError');
+    const errText = document.getElementById('loginErrorText');
+    if (errEl && errText) {
+        errText.textContent = message;
+        errEl.classList.add('show');
+    }
+}
+
+function hideLoginError() {
+    const errEl = document.getElementById('loginError');
+    if (errEl) errEl.classList.remove('show');
+}
+
+function setLoginLoading(loading) {
+    const spinner = document.getElementById('loginLoading');
+    const btn = document.getElementById('loginBtn');
+    if (spinner) spinner.style.display = loading ? 'inline-block' : 'none';
+    if (btn) btn.disabled = loading;
+}
+
+function resetLoginSubmitButton(btn) {
+    const loginBtn = btn || document.getElementById('loginBtn') || document.querySelector('#loginForm .btn-primary');
+    if (!loginBtn) return;
+    loginBtn.disabled = false;
+    setLoginLoading(false);
+}
+
+function showRegisterError(message) {
+    const errEl = document.getElementById('registerError');
+    const errText = document.getElementById('registerErrorText');
+    if (errEl && errText) {
+        errText.textContent = message;
+        errEl.classList.add('show');
+    }
+}
+
+function hideRegisterError() {
+    const errEl = document.getElementById('registerError');
+    if (errEl) errEl.classList.remove('show');
+}
+
+function setRegisterLoading(loading) {
+    const spinner = document.getElementById('registerLoading');
+    const btn = document.getElementById('registerBtn');
+    if (spinner) spinner.style.display = loading ? 'inline-block' : 'none';
+    if (btn) btn.disabled = loading;
+}
+
+function resetRegisterSubmitButton() {
+    const regBtn = document.getElementById('registerBtn') || document.querySelector('#registerForm .btn-primary');
+    if (!regBtn) return;
+    regBtn.disabled = false;
+    setRegisterLoading(false);
+}
+
+function togglePasswordVisibility(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input || !btn) return;
+
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    btn.innerHTML = show ? EYE_CLOSED_SVG : EYE_OPEN_SVG;
+    input.focus();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initRealTimeValidation();
     initPasswordToggle();
+    initLoginPasswordEyeVisibility();
+    initPasswordFloatingLabels();
     initRegisterLocationDropdowns();
     initGoogleAuth();
     
@@ -34,18 +113,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (urlParams.get('error') === 'google_failed') {
-        showCustomToast('Google sign-in failed. Please try again or use email/password.', 'error');
+        const googleMsg = authT('auth.google_failed');
+        if (document.getElementById('loginError')) {
+            showLoginError(googleMsg);
+        } else {
+            showCustomToast(googleMsg, 'error');
+        }
         window.history.replaceState({}, '', '/login');
     }
 
     if (urlParams.get('verified') === 'true') {
-        showCustomToast("Email verified successfully! You can now sign in.", "success");
+        showCustomToast(authT('auth.email_verified'), 'success');
     }
 
     // 🔐 সেশন এক্সপায়ার/রিমোট লগআউটের কারণে এই পেজে পাঠানো হলে ইউজারকে জানানো
     if (sessionStorage.getItem('eob_session_expired')) {
         sessionStorage.removeItem('eob_session_expired');
-        showCustomToast("Your session ended on this device. Please sign in again.", "error");
+        showCustomToast(authT('auth.session_expired'), 'error');
     }
 
     const loginForm = document.getElementById('loginForm');
@@ -64,7 +148,8 @@ document.addEventListener('DOMContentLoaded', () => {
    Google OAuth — show button only when configured on the server
    ========================================================================= */
 async function initGoogleAuth() {
-    const section = document.getElementById('google-auth-section');
+    const section = document.getElementById('googleLoginSection')
+        || document.getElementById('google-auth-section');
     if (!section) return;
 
     try {
@@ -88,19 +173,15 @@ function validateField(inputElement, errorElement, isValid, errorMessage, inputI
     if (inputElement.value.trim() === "") {
         inputElement.classList.remove('is-valid', 'is-invalid', 'is-invalid-text-only');
         errorElement.innerText = "";
-        errorElement.style.display = "none";
+        errorElement.classList.remove('is-visible');
         return;
     }
     
     if (isValid) {
         inputElement.classList.remove('is-invalid', 'is-invalid-text-only');
-        if (inputIcons) {
-            inputElement.classList.add('is-valid');
-        } else {
-            inputElement.classList.remove('is-valid');
-        }
+        inputElement.classList.add('is-valid');
         errorElement.innerText = "";
-        errorElement.style.display = "none";
+        errorElement.classList.remove('is-visible');
     } else {
         inputElement.classList.remove('is-valid');
         if (inputIcons) {
@@ -111,20 +192,7 @@ function validateField(inputElement, errorElement, isValid, errorMessage, inputI
             inputElement.classList.add('is-invalid-text-only');
         }
         errorElement.innerText = errorMessage;
-        
-        // CSS এর সাহায্য ছাড়াই জাভাস্ক্রিপ্ট দিয়ে ১০০% নিচে নামানোর নিখুঁত লজিক
-        errorElement.style.display = "block";
-        errorElement.style.width = "100%";
-        errorElement.style.clear = "both";
-        errorElement.style.marginTop = "5px";
-        
-        // যদি পাসওয়ার্ডের আইকন (Eye Icon) কন্টেইনারের কারণে এটি ফ্লেক্স বক্সের ভেতরে থাকে, 
-        // তবে সেটিকে নিচে পুশ করার জন্য এবং ইনপুট বক্সের সাইজ ঠিক রাখার জন্য নিচের লজিকটি কাজ করবে
-        const parent = inputElement.parentElement;
-        if (parent && (parent.classList.contains('input-group') || window.getComputedStyle(parent).display === 'flex')) {
-            parent.style.flexWrap = 'wrap'; // ফ্লেক্স র‍্যাপ চালু করবে যাতে এরর নিচে চলে যায়
-            errorElement.style.order = "99"; // এরর মেসেজকে সবার নিচে পাঠাবে
-        }
+        errorElement.classList.add('is-visible');
     }
 }
 
@@ -146,6 +214,51 @@ function isSpamText(text) {
     return false;
 }
 
+function syncPasswordFloatingLabel(input) {
+    if (!input) return;
+    input.classList.toggle('has-value', input.value.length > 0);
+}
+
+function initPasswordFloatingLabels() {
+    document.querySelectorAll('.floating-group.password-group:not(.password-group--flat) input[type="password"]').forEach((input) => {
+        input.removeAttribute('placeholder');
+        const sync = () => syncPasswordFloatingLabel(input);
+        input.addEventListener('input', sync);
+        input.addEventListener('change', sync);
+        input.addEventListener('blur', sync);
+        sync();
+    });
+}
+
+function initPasswordEyeVisibility(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    const syncEyeVisibility = () => {
+        const eyeBtn = input.parentElement?.querySelector('.auth-eye-btn')
+            || document.getElementById(inputId === 'loginPassword' ? 'passwordToggleBtn' : 'toggleRegPass');
+        if (!eyeBtn) return;
+
+        const hasValue = input.value.trim().length > 0;
+        if (eyeBtn.classList.contains('auth-eye-btn')) {
+            eyeBtn.classList.toggle('visible', hasValue);
+        } else {
+            eyeBtn.style.display = hasValue ? 'inline-flex' : 'none';
+        }
+        eyeBtn.setAttribute('aria-hidden', hasValue ? 'false' : 'true');
+        eyeBtn.tabIndex = hasValue ? 0 : -1;
+    };
+
+    input.addEventListener('input', syncEyeVisibility);
+    input.addEventListener('change', syncEyeVisibility);
+    syncEyeVisibility();
+}
+
+function initLoginPasswordEyeVisibility() {
+    initPasswordEyeVisibility('loginPassword');
+    initPasswordEyeVisibility('regPassword');
+}
+
 /* =========================================================================
    ৩. রিয়াল-টাইম ইনপুট ট্র্যাকার 
    ========================================================================= */
@@ -158,34 +271,46 @@ function isValidLoginInput(value) {
 }
 
 function initRealTimeValidation() {
-    const loginInput = document.getElementById('loginInput');
-    const loginPass = document.getElementById('loginPass');
+    const loginInput = getLoginIdentifierInput();
+    const loginPassword = document.getElementById('loginPassword');
+
+    function validateLoginInputField() {
+        if (!loginInput) return;
+        const value = loginInput.value.trim();
+        const isValid = value === '' || isValidLoginInput(value);
+        validateField(
+            loginInput,
+            document.getElementById('login-input-error'),
+            isValid,
+            authT('auth.login_input_invalid')
+        );
+    }
+
+    function validateLoginPasswordField() {
+        if (!loginPassword) return;
+        const len = loginPassword.value.length;
+        const isValid = len === 0 || len >= 6;
+        validateField(
+            loginPassword,
+            document.getElementById('login-pass-error'),
+            isValid,
+            authT('auth.password_min'),
+            false
+        );
+    }
 
     if (loginInput) {
-        loginInput.addEventListener('input', () => {
-            const value = loginInput.value.trim();
-            const isValid = value === '' || isValidLoginInput(value);
-            validateField(
-                loginInput,
-                document.getElementById('login-input-error'),
-                isValid,
-                "Please enter a valid email address or mobile number."
-            );
-        });
+        loginInput.addEventListener('input', validateLoginInputField);
     }
 
-    if (loginPass) {
-        loginPass.addEventListener('input', () => {
-            const isValid = loginPass.value.length >= 6;
-            validateField(
-                loginPass,
-                document.getElementById('login-pass-error'),
-                isValid,
-                "Password must be at least 6 characters.",
-                false
-            );
-        });
+    if (loginPassword) {
+        loginPassword.addEventListener('input', validateLoginPasswordField);
     }
+
+    document.addEventListener('languageChanged', () => {
+        validateLoginInputField();
+        validateLoginPasswordField();
+    });
 
     const regFirstName = document.getElementById('regFirstName');
     const regLastName = document.getElementById('regLastName');
@@ -334,29 +459,42 @@ function initRegisterLocationDropdowns() {
    ৪. পাসওয়ার্ড শো/হাইড লজিক (Eye Icon)
    ========================================================================= */
 function initPasswordToggle() {
-    const toggleLoginPass = document.getElementById('toggleLoginPass');
-    const loginPassInput = document.getElementById('loginPass');
-    const loginEyeIcon = document.getElementById('loginEyeIcon');
+    function bindSvgToggle(toggleBtn, inputId) {
+        if (!toggleBtn) return;
+        toggleBtn.addEventListener('click', () => togglePasswordVisibility(inputId, toggleBtn));
+    }
 
-    if (toggleLoginPass && loginPassInput && loginEyeIcon) {
-        toggleLoginPass.addEventListener('click', () => {
-            const type = loginPassInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            loginPassInput.setAttribute('type', type);
-            loginEyeIcon.className = type === 'password' ? 'fa-regular fa-eye' : 'fa-regular fa-eye-slash';
+    function bindFaToggle(toggleBtn, input, eyeIcon) {
+        if (!toggleBtn || !input || !eyeIcon) return;
+
+        toggleBtn.addEventListener('click', () => {
+            const show = input.getAttribute('type') === 'password';
+            input.setAttribute('type', show ? 'text' : 'password');
+            eyeIcon.className = show ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+            const titleKey = show ? 'auth.hide_password' : 'auth.show_password';
+            toggleBtn.setAttribute('title', authT(titleKey));
+            toggleBtn.setAttribute('aria-label', authT(titleKey));
+            if (toggleBtn.hasAttribute('data-i18n-title')) {
+                toggleBtn.setAttribute('data-i18n-title', titleKey);
+            }
+            input.focus();
         });
     }
 
-    const toggleRegPass = document.getElementById('toggleRegPass');
-    const regPassInput = document.getElementById('regPassword');
-    const regEyeIcon = document.getElementById('regEyeIcon');
+    bindSvgToggle(document.getElementById('loginPasswordEye'), 'loginPassword');
+    bindSvgToggle(document.getElementById('regPasswordEye'), 'regPassword');
 
-    if (toggleRegPass && regPassInput && regEyeIcon) {
-        toggleRegPass.addEventListener('click', () => {
-            const type = regPassInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            regPassInput.setAttribute('type', type);
-            regEyeIcon.className = type === 'password' ? 'fa-regular fa-eye' : 'fa-regular fa-eye-slash';
-        });
-    }
+    bindFaToggle(
+        document.getElementById('passwordToggleBtn'),
+        document.getElementById('loginPassword'),
+        document.getElementById('loginEyeIcon')
+    );
+
+    bindFaToggle(
+        document.getElementById('toggleRegPass'),
+        document.getElementById('regPassword'),
+        document.getElementById('regEyeIcon')
+    );
 }
 
 
@@ -366,10 +504,11 @@ function initPasswordToggle() {
 async function handleLoginSubmit(e) {
     e.preventDefault();
 
-    const rawLoginInput = document.getElementById('loginInput').value.trim();
-    const password = document.getElementById('loginPass').value;
-    const forgotPassLink = document.getElementById('forgotPasswordLink'); 
-    
+    const loginIdentifierEl = getLoginIdentifierInput();
+    const rawLoginInput = loginIdentifierEl ? loginIdentifierEl.value.trim() : '';
+    const password = document.getElementById('loginPassword').value;
+    const forgotPassLink = document.getElementById('forgotPasswordLink');
+
     const rememberMeCheckbox = document.getElementById('rememberMe');
     const rememberMe = rememberMeCheckbox ? rememberMeCheckbox.checked : false;
     const guestCartItems = window.CartMerge
@@ -377,16 +516,17 @@ async function handleLoginSubmit(e) {
         : (JSON.parse(localStorage.getItem('cart') || '[]') || []);
 
     if (!rawLoginInput || password.length < 6 || !isValidLoginInput(rawLoginInput)) {
-        showCustomToast("Please fill all fields correctly.", "error");
+        showLoginError(authT('auth.fill_fields'));
         return;
     }
+
+    hideLoginError();
 
     const digitsOnly = rawLoginInput.replace(/\D/g, '');
     const loginInput = /^01[3-9]\d{8}$/.test(digitsOnly) ? digitsOnly : rawLoginInput;
 
-    const loginBtn = document.querySelector('#loginForm .btn-primary');
-    loginBtn.innerText = "Authenticating...";
-    loginBtn.disabled = true;
+    const loginBtn = document.getElementById('loginBtn') || document.querySelector('#loginForm .btn-primary');
+    setLoginLoading(true);
 
     try {
         const response = await fetch('/api/customer/login', {
@@ -394,15 +534,14 @@ async function handleLoginSubmit(e) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ loginInput, password, rememberMe, guestCartItems })
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
-            // 🌟 সুনির্দিষ্ট আপডেট: দুটি নামেই টোকেন সেভ করা হলো যাতে কোনো পেজের লগইন স্টেট না ভাঙে
             localStorage.setItem('token', data.token);
-            localStorage.setItem('customerToken', data.token); 
+            localStorage.setItem('customerToken', data.token);
             localStorage.setItem('customerData', JSON.stringify(data.user));
-            
+
             if (data.user && data.user.name) {
                 localStorage.setItem('userName', data.user.name);
             }
@@ -416,37 +555,35 @@ async function handleLoginSubmit(e) {
             } else if (Array.isArray(guestCartItems) && guestCartItems.length > 0) {
                 localStorage.removeItem('cart');
             }
-            
-            if (forgotPassLink) forgotPassLink.style.display = 'none';
+
+            if (forgotPassLink) forgotPassLink.href = '/forgot-password';
 
             if (window.analytics) {
                 window.analytics.trackLogin('email');
             }
 
-            showCustomToast("Login Successful! Redirecting...", "success");
-
-            setTimeout(() => { window.location.href = resolvePostLoginRedirect(); }, 1500);
+            hideLoginError();
+            window.location.href = resolvePostLoginRedirect();
         } else {
-            showCustomToast(data.message || "Invalid credentials or email not verified.", "error");
-            loginBtn.innerText = "Sign In";
-            loginBtn.disabled = false;
+            showLoginError(data.message || authT('auth.invalid_credentials'));
+            resetLoginSubmitButton(loginBtn);
 
             if (forgotPassLink) {
-                forgotPassLink.style.display = 'block';
                 const forgotEmail = data.userEmail || (
                     /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(rawLoginInput)
                         ? rawLoginInput
                         : ''
                 );
                 forgotPassLink.href = forgotEmail
-                    ? `forgot-password.html?email=${encodeURIComponent(forgotEmail)}`
-                    : 'forgot-password.html';
+                    ? `/forgot-password?email=${encodeURIComponent(forgotEmail)}`
+                    : '/forgot-password';
             }
         }
     } catch (error) {
-        showCustomToast("Server error! Please try again.", "error");
-        loginBtn.innerText = "Sign In";
-        loginBtn.disabled = false;
+        showLoginError(authT('auth.server_error'));
+        resetLoginSubmitButton(loginBtn);
+    } finally {
+        setLoginLoading(false);
     }
 }
 
@@ -469,13 +606,17 @@ async function handleRegisterSubmit(e) {
     const password = document.getElementById('regPassword').value;
 
     if (!firstName || !lastName || mobile.length !== 11 || !email || password.length < 6) {
-        showCustomToast("Please complete all required fields correctly.", "error");
+        const msg = 'Please complete all required fields correctly.';
+        if (document.getElementById('registerError')) {
+            showRegisterError(msg);
+        } else {
+            showCustomToast(msg, 'error');
+        }
         return;
     }
 
-    const regBtn = document.querySelector('#registerForm .btn-primary');
-    regBtn.innerText = "Creating Account...";
-    regBtn.disabled = true;
+    hideRegisterError();
+    setRegisterLoading(true);
 
     const payload = { firstName, lastName, mobile, email, password };
     if (district) payload.district = district;
@@ -499,24 +640,32 @@ async function handleRegisterSubmit(e) {
             const successMsg = document.getElementById('success-message');
             successMsg.style.display = 'block';
             successMsg.innerHTML = `
-                <div style="padding: 20px;">
-                    <i class="fa-solid fa-envelope-circle-check" style="font-size: 50px; color: #10b981; margin-bottom:15px;"></i>
-                    <h3 style="color: #10b981; margin-bottom: 10px; font-weight: 700;">Registration Successful! 🎉</h3>
-                    <p style="color: #64748b; line-height: 1.5; font-size: 15px;">
-                        We sent a verification link to <b>${email}</b>.<br>
-                        Please check your inbox (and spam folder) to activate your account before logging in.
-                    </p>
-                </div>
+                <i class="fa-solid fa-envelope-circle-check" style="font-size: 50px; color: #10b981; margin-bottom:15px;"></i>
+                <h3>Registration Successful! 🎉</h3>
+                <p>
+                    We sent a verification link to <b>${email}</b>.<br>
+                    Please check your inbox (and spam folder) to activate your account before logging in.
+                </p>
             `;
         } else {
-            showCustomToast(data.message || "Registration failed!", "error");
-            regBtn.innerText = "Register Now";
-            regBtn.disabled = false;
+            const failMsg = data.message || 'Registration failed!';
+            if (document.getElementById('registerError')) {
+                showRegisterError(failMsg);
+            } else {
+                showCustomToast(failMsg, 'error');
+            }
+            resetRegisterSubmitButton();
         }
     } catch (error) {
-        showCustomToast("Server error! Please try again.", "error");
-        regBtn.innerText = "Register Now";
-        regBtn.disabled = false;
+        const serverMsg = 'Server error! Please try again.';
+        if (document.getElementById('registerError')) {
+            showRegisterError(serverMsg);
+        } else {
+            showCustomToast(serverMsg, 'error');
+        }
+        resetRegisterSubmitButton();
+    } finally {
+        setRegisterLoading(false);
     }
 }
 
