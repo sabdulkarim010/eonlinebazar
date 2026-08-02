@@ -30,6 +30,66 @@ document.addEventListener('DOMContentLoaded', () => {
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
+    const IMAGE_PLACEHOLDER = '/images/placeholder-product.svg';
+    const AVATAR_PLACEHOLDER = "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" viewBox=\"0 0 24 24\" fill=\"%23cbd5e1\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 20c0-4 4-6 8-6s8 2 8 6\"/></svg>";
+    const IMG_ONERROR = "this.onerror=null;this.src='" + IMAGE_PLACEHOLDER + "';";
+
+    function isInvalidImageValue(img) {
+        if (img == null) return true;
+        const v = String(img).trim();
+        if (!v || v === 'null' || v === 'undefined') return true;
+        if (v.includes('undefined') || v.includes('via.placeholder.com')) return true;
+        if (window.EOBUrlUtils && window.EOBUrlUtils.isUnsafeAssetPath(v)) return true;
+        const PT = window.ProductThumbnail;
+        if (PT && typeof PT.isUnsafeAssetPath === 'function' && PT.isUnsafeAssetPath(v)) return true;
+        if (/^https?:\/\//i.test(v)) {
+            try {
+                const u = new URL(v);
+                if (!u.hostname || u.hostname.length < 2 || /^[&?#/]+$/.test(u.hostname)) return true;
+            } catch (_) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function safeImg(img, fallback) {
+        const fb = fallback || IMAGE_PLACEHOLDER;
+        if (isInvalidImageValue(img)) return fb;
+        const v = String(img).trim();
+        const CDU = window.CartDisplayUtils;
+        if (CDU && typeof CDU.resolveItemImageUrl === 'function') {
+            const resolved = CDU.resolveItemImageUrl(v);
+            if (resolved && !isInvalidImageValue(resolved)) return resolved;
+        }
+        const PT = window.ProductThumbnail;
+        if (PT && typeof PT.resolveProductImagePath === 'function') {
+            const resolved = PT.toDisplayImageUrl
+                ? (PT.toDisplayImageUrl(v) || PT.resolveProductImagePath(v))
+                : PT.resolveProductImagePath(v);
+            if (resolved && !isInvalidImageValue(resolved)) return resolved;
+        }
+        if (v.startsWith('http') || v.startsWith('/') || v.startsWith('data:')) return v;
+        return fb;
+    }
+
+    function bindImgFallback(imgEl, fallback) {
+        if (!imgEl || imgEl.dataset.eobFallbackBound) return;
+        imgEl.dataset.eobFallbackBound = '1';
+        const fb = fallback || IMAGE_PLACEHOLDER;
+        imgEl.addEventListener('error', function handleImgError() {
+            if (this.dataset.fallbackApplied === '1') return;
+            this.dataset.fallbackApplied = '1';
+            this.src = fb;
+        });
+    }
+
+    function setAvatarSrc(el, url) {
+        if (!el) return;
+        el.src = safeImg(url, AVATAR_PLACEHOLDER);
+        bindImgFallback(el, AVATAR_PLACEHOLDER);
+    }
+
     // 🔐 পেজ লোডেই সার্ভারে সেশন যাচাই করা হয়। কোনো ডিভাইস রিমোটলি লগআউট হলে
     // সার্ভার 401 দেবে এবং session-guard.js সাথে সাথে টোকেন মুছে লগইন পেজে পাঠাবে।
     if (window.EOBSession && typeof window.EOBSession.validate === 'function') {
@@ -42,6 +102,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const sidebarAvatar = document.getElementById('sidebar-avatar');
     const navAvatar = document.getElementById('nav-avatar');
     const avatarInput = document.getElementById('avatar-input');
+
+    if (sidebarAvatar) {
+        sidebarAvatar.src = AVATAR_PLACEHOLDER;
+        bindImgFallback(sidebarAvatar, AVATAR_PLACEHOLDER);
+    }
+    if (navAvatar) {
+        navAvatar.src = AVATAR_PLACEHOLDER;
+        bindImgFallback(navAvatar, AVATAR_PLACEHOLDER);
+    }
     
     const profileForm = document.getElementById('profile-form');
     const profileName = document.getElementById('profile-name');
@@ -446,8 +515,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // সাইডবার এবং টপ নেভবার উভয় জায়গায় অবতার আপডেট
                 if (data.avatar) {
-                    if (sidebarAvatar) sidebarAvatar.src = data.avatar;
-                    if (navAvatar) navAvatar.src = data.avatar;
+                    setAvatarSrc(sidebarAvatar, data.avatar);
+                    setAvatarSrc(navAvatar, data.avatar);
                 }
 
                 if (profileName) profileName.value = data.name || '';
@@ -533,7 +602,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function buildOrderThumbnailHtml(items) {
         const PT = window.ProductThumbnail;
         const safeItems = Array.isArray(items) ? items : [];
-        const first = safeItems[0] || {};
+        const first = { ...(safeItems[0] || {}) };
+        ['image', 'products', 'selectedImage', 'variantImage', 'photo', 'imageUrl'].forEach((key) => {
+            if (first[key] && isInvalidImageValue(first[key])) first[key] = '';
+        });
         const moreCount = Math.max(0, safeItems.length - 1);
         const badge = moreCount > 0
             ? `<span class="order-card-more-badge">+${moreCount}</span>`
@@ -807,8 +879,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (res.ok) {
                     showToast('Profile picture updated successfully!', 'success');
-                    if (sidebarAvatar) sidebarAvatar.src = data.avatarUrl; 
-                    if (navAvatar) navAvatar.src = data.avatarUrl; 
+                    setAvatarSrc(sidebarAvatar, data.avatarUrl);
+                    setAvatarSrc(navAvatar, data.avatarUrl); 
                 } else {
                     showToast(data.message || 'Avatar upload failed.', 'danger');
                 }
@@ -1124,7 +1196,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (myReview.photo && reviewPhotoPreview) {
                         reviewPhotoPreview.innerHTML = `
                             <span class="review-photo-preview-label">Previously uploaded photo:</span>
-                            <img src="${escapeHtml(myReview.photo)}" alt="Your review photo">`;
+                            <img src="${escapeHtml(safeImg(myReview.photo))}" alt="Your review photo" onerror="${IMG_ONERROR}">`;
                         reviewPhotoPreview.classList.remove('hidden');
                     }
                 }
@@ -1164,7 +1236,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (reviewPhotoPreview) {
                 const reader = new FileReader();
                 reader.onload = (ev) => {
-                    reviewPhotoPreview.innerHTML = `<img src="${ev.target.result}" alt="Selected photo">`;
+                    reviewPhotoPreview.innerHTML = `<img src="${ev.target.result}" alt="Selected photo" onerror="${IMG_ONERROR}">`;
                     reviewPhotoPreview.classList.remove('hidden');
                 };
                 reader.readAsDataURL(file);
@@ -1943,7 +2015,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${stockBadge}
                 </div>
                 <div class="wishlist-actions">
-                    <button type="button" class="wishlist-cart-btn${outOfStock ? ' is-out-of-stock' : ''}" data-id="${escapeHtml(item.productId)}" data-name="${escapeHtml(item.name || '')}" data-price="${Number(item.price || 0)}" data-image="${escapeHtml(meta.image)}" data-icon="${escapeHtml(meta.emoji)}" title="${outOfStock ? 'Out of stock' : 'Add to cart'}"${outOfStock ? ' disabled' : ''}>
+                    <button type="button" class="wishlist-cart-btn${outOfStock ? ' is-out-of-stock' : ''}" data-id="${escapeHtml(item.productId)}" data-name="${escapeHtml(item.name || '')}" data-price="${Number(item.price || 0)}" data-image="${escapeHtml(safeImg(meta.image, ''))}" data-icon="${escapeHtml(meta.emoji)}" title="${outOfStock ? 'Out of stock' : 'Add to cart'}"${outOfStock ? ' disabled' : ''}>
                         <i class="fa-solid fa-cart-plus"></i>
                     </button>
                     <button type="button" class="wishlist-remove-btn" data-id="${escapeHtml(item.productId)}" title="Remove from wishlist">

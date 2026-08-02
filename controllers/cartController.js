@@ -8,12 +8,80 @@ const {
     normalizeGuestCartItems,
     mergeGuestCartIntoUserCart
 } = require('../utils/cartMergeService');
+const { isValidImagePath } = require('../utils/orderItemImages');
 
 const PRODUCT_MEDIA_SELECT = 'name price images image icon productId stockQuantity stock thumbnail';
 
+function isPlaceholderImage(value) {
+    if (!value) return false;
+    const v = String(value).trim().toLowerCase();
+    return v.includes('placeholder-product')
+        || v.endsWith('/images/placeholder-product.svg')
+        || v.endsWith('/images/placeholder.jpg');
+}
+
+function isUnsafeAssetPath(value) {
+    if (value == null) return true;
+    const v = String(value).trim();
+    if (!v) return true;
+    if (v.startsWith('&') || v.startsWith('?')) return true;
+    return /^\/[&?]/.test(v);
+}
+
+function looksLikeEmojiOrIcon(value) {
+    if (!value) return false;
+    const v = String(value).trim();
+    if (!v || isValidImagePath(v)) return false;
+    return v.length <= 8 && !/[\\/.]/.test(v);
+}
+
+function isUsableCartImage(value) {
+    const v = String(value || '').trim();
+    if (!v || v === 'null' || v === 'undefined') return false;
+    if (v.includes('undefined') || v.includes('via.placeholder.com')) return false;
+    if (isUnsafeAssetPath(v)) return false;
+    if (isPlaceholderImage(v)) return false;
+    if (looksLikeEmojiOrIcon(v)) return false;
+    return isValidImagePath(v);
+}
+
+function pickFirstUsableImage(...candidates) {
+    for (const candidate of candidates) {
+        if (isUsableCartImage(candidate)) {
+            return String(candidate).trim();
+        }
+    }
+    return null;
+}
+
+function resolveCartItemDisplayImage(plain, catalog) {
+    return pickFirstUsableImage(
+        plain.variantImage,
+        Array.isArray(catalog.images) && catalog.images.length > 0 ? catalog.images[0] : null,
+        catalog.image,
+        catalog.thumbnail,
+        plain.image
+    );
+}
+
+function extractProductId(productId) {
+    if (productId && typeof productId === 'object' && productId._id) {
+        return String(productId._id);
+    }
+    return productId ? String(productId) : '';
+}
+
+function resolvePopulatedProduct(item, productById) {
+    const pid = item?.productId;
+    if (pid && typeof pid === 'object' && pid._id) {
+        return pid;
+    }
+    return productById.get(extractProductId(pid)) || null;
+}
+
 async function loadProductsForCartItems(items = []) {
     const productIds = [...new Set(
-        items.map((item) => String(item.productId)).filter(Boolean)
+        items.map((item) => extractProductId(item.productId)).filter(Boolean)
     )];
     if (productIds.length === 0) return new Map();
 
@@ -27,20 +95,13 @@ function mapCartItemResponse(item, product) {
         ? product.toObject()
         : (product || {});
 
-    const resolvedImage = (
-        plain.variantImage
-        || (Array.isArray(catalog.images) && catalog.images.length > 0 ? catalog.images[0] : null)
-        || catalog.image
-        || catalog.thumbnail
-        || plain.image
-        || null
-    );
+    const resolvedImage = resolveCartItemDisplayImage(plain, catalog);
 
     const emojiIcon = plain.emojiIcon || catalog.icon || plain.icon || null;
 
     return {
         _id: plain._id,
-        productId: catalog._id || plain.productId,
+        productId: catalog._id || extractProductId(plain.productId),
         name: plain.name || catalog.name || 'Product',
         price: plain.price,
         quantity: plain.quantity,
@@ -48,7 +109,9 @@ function mapCartItemResponse(item, product) {
         images: catalog.images || [],
         emojiIcon,
         icon: emojiIcon || plain.icon || catalog.icon || '📦',
-        variantImage: plain.variantImage || resolvedImage || null,
+        variantImage: (plain.variantImage && isUsableCartImage(plain.variantImage))
+            ? plain.variantImage
+            : (resolvedImage || null),
         variant: plain.variant || null,
         variantId: plain.variantId || null,
         variantLabel: plain.variantLabel || '',
@@ -60,6 +123,7 @@ function mapCartItemResponse(item, product) {
         selectedColor: plain.selectedColor || '',
         selectedSize: plain.selectedSize || '',
         attributes: plain.attributes || {},
+        stockQuantity: catalog.stockQuantity ?? catalog.stock ?? 99,
         selected: plain.selected !== false
     };
 }
@@ -68,9 +132,13 @@ async function formatCartItemsForResponse(items = []) {
     const list = Array.isArray(items) ? items : [];
     if (list.length === 0) return [];
 
-    const productById = await loadProductsForCartItems(list);
+    const needsLookup = list.some(
+        (item) => !(item.productId && typeof item.productId === 'object' && item.productId._id)
+    );
+    const productById = needsLookup ? await loadProductsForCartItems(list) : new Map();
+
     return list.map((item) =>
-        mapCartItemResponse(item, productById.get(String(item.productId)))
+        mapCartItemResponse(item, resolvePopulatedProduct(item, productById))
     );
 }
 
@@ -103,11 +171,16 @@ exports.mergeCart = async (req, res) => {
 // ২. ডাটাবেজ থেকে ইউজারের লাইভ কার্ট গেট করা
 exports.getCart = async (req, res) => {
     try {
-        const cart = await Cart.findOne({ userId: req.user.id });
-        if (!cart) return res.status(200).json([]);
+        const userId = req.user.id;
+        const cart = await Cart.findOne({ userId })
+            .populate('items.productId', PRODUCT_MEDIA_SELECT);
 
-        const enrichedItems = await formatCartItemsForResponse(cart.items);
-        res.status(200).json(enrichedItems);
+        if (!cart || !cart.items.length) {
+            return res.json({ success: true, data: [] });
+        }
+
+        const itemsWithImages = await formatCartItemsForResponse(cart.items);
+        return res.json({ success: true, data: itemsWithImages });
     } catch (error) {
         res.status(500).json({ message: "Error fetching cart", error: error.message });
     }
@@ -143,9 +216,10 @@ exports.addToCart = async (req, res) => {
         const userId = req.user.id;
         const variant = normalizeVariant(req.body);
 
-        const product = await Product.findById(productId).select(PRODUCT_MEDIA_SELECT);
+        const product = await Product.findById(productId)
+            .select('images emojiIcon icon name price image thumbnail');
         const displayImage = resolveCartItemImage(req.body, product);
-        const displayIcon = icon || product?.icon || '📦';
+        const displayIcon = icon || product?.emojiIcon || product?.icon || '📦';
         const displayName = name || product?.name || 'Product';
         const displayPrice = price != null ? Number(price) : Number(product?.price) || 0;
 
@@ -174,10 +248,10 @@ exports.addToCart = async (req, res) => {
                 productId,
                 name: displayName,
                 price: displayPrice,
-                image: displayImage,
-                variantImage: displayImage,
+                image: displayImage || (product?.images && product.images[0]) || product?.image || null,
+                variantImage: displayImage || (product?.images && product.images[0]) || product?.image || null,
                 icon: displayIcon,
-                emojiIcon: displayIcon,
+                emojiIcon: product?.emojiIcon || product?.icon || displayIcon || null,
                 quantity: quantity || 1,
                 selected: true,
                 ...variant

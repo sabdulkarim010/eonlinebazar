@@ -42,7 +42,15 @@
         const v = String(value).trim();
         if (!v) return false;
         const lower = v.toLowerCase();
-        if (lower.startsWith('http://') || lower.startsWith('https://')) return true;
+        if (lower.startsWith('http://') || lower.startsWith('https://')) {
+            try {
+                const u = new URL(v);
+                if (!u.hostname || u.hostname.length < 2 || /^[&?#/]+$/.test(u.hostname)) return false;
+            } catch (_) {
+                return false;
+            }
+            return true;
+        }
         if (lower.startsWith('/uploads/')) return true;
         if (/\.(jpg|jpeg|png|webp|gif|svg|heic)(\?.*)?$/i.test(lower)) return true;
         if ((lower.startsWith('/') || lower.startsWith('products/') || lower.startsWith('uploads/')) &&

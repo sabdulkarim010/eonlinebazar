@@ -124,6 +124,7 @@ function fetchAndRenderProducts(options = {}) {
         .then(data => {
             productFetchFailed = false;
             allProducts = Array.isArray(data) ? data : (data.data || data.products || []);
+            window.globalProductCatalog = allProducts;
 
             displayProducts(allProducts);
             generateCategoryButtons();

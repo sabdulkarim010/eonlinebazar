@@ -10,6 +10,42 @@ function t(key, vars) {
     return window.i18n ? window.i18n.t(key, vars) : key;
 }
 
+function parseCartApiResponse(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.data)) return payload.data;
+    if (payload && Array.isArray(payload.cart)) return payload.cart;
+    return [];
+}
+
+const CART_IMG_ONERROR = "if(!this.dataset.fallback){this.dataset.fallback='1';this.src='/images/placeholder-product.svg';}";
+
+function cartItemImg(item, px, catalogProduct) {
+    px = px || '56px';
+    const utils = window.CartDisplayUtils || {};
+    let catalog = catalogProduct;
+    if (!catalog && utils.findCatalogProduct && window.globalProductCatalog) {
+        catalog = utils.findCatalogProduct(item, window.globalProductCatalog);
+    }
+    if (utils.buildItemImageHtml) {
+        return utils.buildItemImageHtml(item, px, catalog);
+    }
+
+    const lineUrl = utils.resolveCartLineImageUrl
+        ? utils.resolveCartLineImageUrl(item, catalog)
+        : '';
+    const safeUrl = utils.safeImg
+        ? utils.safeImg(lineUrl)
+        : (lineUrl || '/images/placeholder-product.svg');
+    const onError = utils.IMG_ONERROR || CART_IMG_ONERROR;
+
+    return `<img src="${safeUrl}"
+      style="width:${px};height:${px};object-fit:cover;
+      border-radius:8px;flex-shrink:0;display:block"
+      onerror="${onError}">`;
+}
+
+window.cartItemImg = cartItemImg;
+
 /* ==========================================================================
    SECTION 1: GLOBAL VARIABLES & API SYNC (শুরু এবং ডাটাবেজ সিঙ্ক)
    ========================================================================== */
@@ -129,7 +165,9 @@ function mapClientCartItem(item = {}) {
         image: displayImage,
         selectedImage: displayImage,
         variantImage: displayImage,
-        icon: item.icon || '',
+        images: item.images || catalogProduct?.images || [],
+        icon: item.icon || item.emojiIcon || catalogProduct?.icon || '',
+        emojiIcon: item.emojiIcon || item.icon || catalogProduct?.icon || '',
         quantity: item.quantity,
         selected: item.selected !== false,
         variantId: item.variantId || '',
@@ -160,6 +198,10 @@ function buildCartLineItem(fields) {
     };
 }
 
+function buildItemImageHtml(item, size) {
+    return cartItemImg(item, size || '56px');
+}
+
 // 🌟 ডাটাবেজ থেকে লাইভ কার্ট আইটেম নিয়ে আসার ফাংশন
 function fetchLiveDBCart(localFallbackItems) {
     if (!customerToken) return Promise.resolve();
@@ -169,7 +211,7 @@ function fetchLiveDBCart(localFallbackItems) {
     })
     .then(res => res.json())
     .then(dbCartItems => {
-        const items = Array.isArray(dbCartItems) ? dbCartItems : [];
+        const items = parseCartApiResponse(dbCartItems);
         const localItems = localFallbackItems || readGuestCart();
         if (CDU().mergeCartItems && localItems.length > 0) {
             cart = CDU().mergeCartItems(items, localItems);
@@ -187,7 +229,7 @@ function fetchLiveDBCart(localFallbackItems) {
 }
 
 function syncCartFromServerItems(dbCartItems, localFallbackItems) {
-    const items = Array.isArray(dbCartItems) ? dbCartItems : [];
+    const items = parseCartApiResponse(dbCartItems);
     const localItems = localFallbackItems || [];
     if (CDU().mergeCartItems && localItems.length > 0) {
         cart = CDU().mergeCartItems(items, localItems);
@@ -236,6 +278,15 @@ function renderCartDrawerItems() {
 
     // লগইন থাকলে লাইভ কার্ট অ্যারে, না থাকলে লোকাল স্টোরেজ
     let currentCart = customerToken ? cart : readGuestCart();
+    const CDU = window.CartDisplayUtils || {};
+    if (CDU.normalizeCartArray) {
+        currentCart = CDU.normalizeCartArray(currentCart, globalProductCatalog);
+    } else if (CDU.normalizeCartItem) {
+        currentCart = currentCart.map((item) => {
+            const pid = item.id || item.productId;
+            return CDU.normalizeCartItem(item, findCatalogProduct(pid));
+        });
+    }
     container.innerHTML = '';
 
     const isProfilePreview = pageContainer && pageContainer.id === 'cart-items-preview-list';
@@ -267,19 +318,25 @@ function renderCartDrawerItems() {
     if (summarySection) summarySection.style.display = 'block';
 
     // ২. কার্ট আইটেম রেন্ডারিং লুপ
-    const CDU = window.CartDisplayUtils || {};
     const escapeHtml = CDU.escapeHtml || ((s) => String(s == null ? '' : s));
     const isCartPage = pageContainer && pageContainer.id === 'cartItemsContainer';
+    const isCheckoutPreview = pageContainer && pageContainer.id === 'checkoutItemsContainer';
 
     currentCart.forEach((item, index) => {
-        let realProduct = globalProductCatalog.find(p => String(p._id) === String(item.id) || String(p.productId) === String(item.id) || String(p.id) === String(item.id));
+        const itemProductId = item.id || item.productId;
+        let realProduct = globalProductCatalog.find(p =>
+            String(p._id) === String(itemProductId) ||
+            String(p.productId) === String(itemProductId) ||
+            String(p.id) === String(itemProductId)
+        );
 
-        const PT = window.ProductThumbnail;
-        const mediaHTML = PT
-            ? PT.buildForCartItem(item, realProduct, { variant: 'compact', alt: item.name || 'Product' })
-            : (typeof window.getProductImageHtml === 'function'
-                ? window.getProductImageHtml(item, drawerContainer ? 'sm' : 'md')
-                : '<div class="no-photo-badge"><span>NO PHOTO</span></div>');
+        let imageSize = '56px';
+        if (drawerContainer) {
+            imageSize = '40px';
+        } else if (isProfilePreview || isCheckoutPreview) {
+            imageSize = '52px';
+        }
+        const mediaHTML = cartItemImg(item, imageSize, realProduct);
 
         const isChecked = item.selected !== false ? 'checked' : '';
         const quantity = item.quantity || 1;
@@ -657,7 +714,7 @@ function triggerFlyAnimation(clickedButton, assetData) {
     const liveEmoji = productCard.querySelector('.prod-emoji-box, .product-emoji, .product-emoji-display, .emoji-box, .item-emoji, .product-emoji-icon');
 
     if (liveImg && liveImg.src) {
-        finalAssetHTML = `<img src="${liveImg.src}" alt="flying-prod" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">`;
+        finalAssetHTML = `<img src="${liveImg.src}" alt="flying-prod" style="width:100%; height:100%; object-fit:contain; border-radius:8px;" onerror="${CART_IMG_ONERROR}">`;
         targetVisualElement = liveImg;
     } else if (liveEmoji) {
         finalAssetHTML = `<div class="emoji-fly" style="font-size:30px;">${liveEmoji.innerText}</div>`;
@@ -671,7 +728,7 @@ function triggerFlyAnimation(clickedButton, assetData) {
                 ? PT.resolveProductImagePath(assetData)
                 : (assetData.startsWith('/') ? assetData : '/products/' + assetData);
             if (imagePath) {
-                finalAssetHTML = `<img src="${imagePath}" alt="flying-prod">`;
+                finalAssetHTML = `<img src="${imagePath}" alt="flying-prod" onerror="${CART_IMG_ONERROR}">`;
             } else {
                 finalAssetHTML = `<div class="emoji-fly" style="font-size:40px;">🛍️</div>`;
             }
@@ -897,6 +954,8 @@ window.readGuestCart = readGuestCart;
 window.saveGuestCart = saveGuestCart;
 window.updateCartCount = updateCartCount;
 window.renderCartDrawerItems = renderCartDrawerItems;
+window.buildItemImageHtml = buildItemImageHtml;
+window.cartItemImg = cartItemImg;
 window.fetchLiveDBCart = fetchLiveDBCart;
 window.syncCartFromServerItems = syncCartFromServerItems;
 window.getSelectedCartSubtotal = function getSelectedCartSubtotal() {

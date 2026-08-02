@@ -55,7 +55,9 @@ function mapCheckoutCartItem(item = {}) {
         image: displayImage,
         selectedImage: displayImage,
         variantImage: displayImage,
-        icon: item.icon || '',
+        images: item.images || catalogProduct?.images || [],
+        icon: item.icon || item.emojiIcon || catalogProduct?.icon || '',
+        emojiIcon: item.emojiIcon || item.icon || catalogProduct?.icon || '',
         quantity: item.quantity,
         selected: item.selected !== false,
         variantId: item.variantId || '',
@@ -1141,6 +1143,20 @@ function updateCheckoutTotals(subtotal) {
     };
 }
 
+function buildCheckoutItemImageHtml(item, catalogProduct) {
+    const CDU = checkoutCDU();
+    const catalog = catalogProduct || (CDU.findCatalogProduct
+        ? CDU.findCatalogProduct(item, globalProductCatalog)
+        : null);
+    if (CDU.buildItemImageHtml) {
+        return CDU.buildItemImageHtml(item, '52px', catalog);
+    }
+    if (typeof window.buildItemImageHtml === 'function') {
+        return window.buildItemImageHtml(item, '52px', catalog);
+    }
+    return '<div class="no-photo-badge"><span>NO PHOTO</span></div>';
+}
+
 /* =========================================================================
    ২. কোর লজিক: চেকআউট আইটেম ফিল্টার (Buy Now vs Cart)
    ========================================================================= */
@@ -1176,7 +1192,9 @@ function fetchCartData() {
         })
         .then(res => res.json())
         .then(dbCartItems => {
-            const items = Array.isArray(dbCartItems) ? dbCartItems : [];
+            const items = Array.isArray(dbCartItems)
+                ? dbCartItems
+                : (Array.isArray(dbCartItems?.data) ? dbCartItems.data : []);
             cart = items.map(mapCheckoutCartItem);
             renderCheckoutCart();
         })
@@ -1206,6 +1224,9 @@ function renderCheckoutCart() {
     
     // 🌟 সেন্ট্রাল ফাংশন থেকে আইটেম লোড করা হচ্ছে (Buy Now বা Cart অনুযায়ী)
     let checkedItems = getCheckoutItems();
+    if (checkoutCDU().normalizeCartArray && checkedItems.length > 0) {
+        checkedItems = checkoutCDU().normalizeCartArray(checkedItems, globalProductCatalog);
+    }
     
     if (!container) return;
     container.innerHTML = '';
@@ -1258,16 +1279,19 @@ function renderCheckoutCart() {
 
         const clone = template.content.cloneNode(true);
         const mediaFrame = clone.querySelector('.cart-media-frame-box');
-        const CDU = window.CartDisplayUtils || {};
+        const CDU = checkoutCDU();
 
-        let realProduct = globalProductCatalog.find(p => String(p._id) === String(item.id) || String(p.productId) === String(item.id) || String(p.id) === String(item.id));
+        const realProduct = CDU.findCatalogProduct
+            ? CDU.findCatalogProduct(item, globalProductCatalog)
+            : globalProductCatalog.find((p) =>
+                String(p._id) === String(item.id || item.productId) ||
+                String(p.productId) === String(item.id || item.productId) ||
+                String(p.id) === String(item.id || item.productId)
+            );
         const productUrl = CDU.getProductDetailUrl ? CDU.getProductDetailUrl(item, realProduct) : '#';
 
-        const PT = window.ProductThumbnail;
-        if (PT && mediaFrame) {
-            PT.mountCartItemInto(mediaFrame, item, realProduct, { variant: 'compact', alt: item.name || 'Product' });
-        } else if (mediaFrame) {
-            mediaFrame.innerHTML = '<div class="no-photo-badge"><span>NO PHOTO</span></div>';
+        if (mediaFrame) {
+            mediaFrame.innerHTML = buildCheckoutItemImageHtml(item, realProduct);
         }
 
         const mediaLink = clone.querySelector('.cart-product-link--media');

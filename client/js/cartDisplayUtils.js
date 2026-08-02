@@ -130,8 +130,16 @@
         return `<div class="cart-variant-badges">${badges.join('')}</div>`;
     }
 
+    function extractItemProductId(item) {
+        const pid = item?.id || item?.productId;
+        if (pid && typeof pid === 'object' && pid._id) {
+            return String(pid._id);
+        }
+        return String(pid || '').trim();
+    }
+
     function findCatalogProduct(item, catalog) {
-        const targetId = String(item?.id || item?.productId || '').trim();
+        const targetId = extractItemProductId(item);
         if (!targetId || !Array.isArray(catalog)) return null;
         return catalog.find((p) =>
             String(p._id) === targetId ||
@@ -140,13 +148,66 @@
         ) || null;
     }
 
+    const CART_IMAGE_PLACEHOLDER = '/images/placeholder-product.svg';
+    const CART_IMAGE_FALLBACK = '/images/placeholder-product.svg';
+    const IMG_ONERROR = "if(!this.dataset.fallback){this.dataset.fallback='1';this.src='" +
+        CART_IMAGE_FALLBACK + "';}else if(this.nextElementSibling){this.style.display='none';this.nextElementSibling.style.display='flex';}";
+
+    function looksLikeEmojiOrIcon(value) {
+        if (!value) return false;
+        const v = String(value).trim();
+        const PT = global.ProductThumbnail;
+        if (PT && typeof PT.isValidProductImagePath === 'function' && PT.isValidProductImagePath(v)) {
+            return false;
+        }
+        return v.length <= 8 && !/[\\/.]/.test(v);
+    }
+
+    function isInvalidImageValue(raw) {
+        if (raw == null) return true;
+        const v = String(raw).trim();
+        if (!v || v === 'null' || v === 'undefined') return true;
+        if (v.includes('undefined') || v.includes('via.placeholder.com')) return true;
+        if (looksLikeEmojiOrIcon(v)) return true;
+        if (isStoredPlaceholder(v)) return true;
+        if (global.EOBUrlUtils && global.EOBUrlUtils.isUnsafeAssetPath(v)) return true;
+        const PT = global.ProductThumbnail;
+        if (PT && typeof PT.isUnsafeAssetPath === 'function' && PT.isUnsafeAssetPath(v)) return true;
+        if (/^https?:\/\//i.test(v)) {
+            try {
+                const u = new URL(v);
+                if (!u.hostname || u.hostname.length < 2 || /^[&?#/]+$/.test(u.hostname)) return true;
+            } catch (_) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function safeImg(img, fallback) {
+        const fb = fallback || CART_IMAGE_PLACEHOLDER;
+        if (isInvalidImageValue(img)) return fb;
+        return String(img).trim();
+    }
+
     function isStoredPlaceholder(value) {
         const PT = global.ProductThumbnail;
         if (PT && typeof PT.isPlaceholderImage === 'function') {
             return PT.isPlaceholderImage(value);
         }
         const v = String(value || '').trim().toLowerCase();
-        return v.includes('placeholder-product');
+        return v.includes('placeholder-product') || v.endsWith('/images/placeholder.jpg') ||
+            v.endsWith('/images/placeholder-product.svg');
+    }
+
+    /** Unified image URL for guest localStorage rows and authenticated API cart items. */
+    function resolveCartItemImageUrl(item, catalogProduct) {
+        const catalog = catalogProduct || findCatalogProduct(item, global.globalProductCatalog || []);
+        const resolved = resolveCartLineImageUrl(item, catalog);
+        if (resolved && !isStoredPlaceholder(resolved) && !isInvalidImageValue(resolved)) {
+            return resolved;
+        }
+        return CART_IMAGE_PLACEHOLDER;
     }
 
     function resolveCartLineImageUrl(item, catalogProduct) {
@@ -164,20 +225,21 @@
         const fallbackCandidates = [
             item?.selectedImage,
             item?.variantImage,
+            ...(Array.isArray(item?.images) ? item.images : []),
+            catalogProduct && Array.isArray(catalogProduct.images) ? catalogProduct.images[0] : '',
+            catalogProduct && catalogProduct.image,
+            catalogProduct && catalogProduct.thumbnail,
             item?.image,
             item?.products,
             item?.productImage,
             item?.imageUrl,
             item?.photo,
-            item?.selectedVariant && item.selectedVariant.image,
-            ...(Array.isArray(item?.images) ? item.images : []),
-            catalogProduct && catalogProduct.image,
-            catalogProduct && Array.isArray(catalogProduct.images) ? catalogProduct.images[0] : ''
+            item?.selectedVariant && item.selectedVariant.image
         ];
 
         for (const candidate of fallbackCandidates) {
             const raw = String(candidate || '').trim();
-            if (!raw || isStoredPlaceholder(raw)) continue;
+            if (!raw || isInvalidImageValue(raw) || isStoredPlaceholder(raw)) continue;
             if (PT && PT.resolveProductImagePath) {
                 const resolved = PT.resolveProductImagePath(raw);
                 if (resolved && !isStoredPlaceholder(resolved)) {
@@ -197,7 +259,7 @@
     /** Normalize legacy/localStorage cart rows to a consistent image + metadata shape. */
     function normalizeCartItem(item, catalogProduct) {
         const catalog = catalogProduct || null;
-        const id = item?.productId || item?.id || '';
+        const id = extractItemProductId(item);
         const displayImage = resolveCartLineImageUrl(item, catalog);
         const PT = global.ProductThumbnail;
         let emoji = String(item?.emojiIcon || item?.icon || item?.emoji || '').trim();
@@ -317,17 +379,85 @@
         return normalized;
     }
 
+    function resolveItemImageUrl(rawUrl) {
+        const raw = String(rawUrl || '').trim();
+        if (!raw || isInvalidImageValue(raw)) return null;
+        const PT = global.ProductThumbnail;
+        if (PT) {
+            const resolved = PT.toDisplayImageUrl
+                ? (PT.toDisplayImageUrl(raw) || PT.resolveProductImagePath(raw))
+                : PT.resolveProductImagePath(raw);
+            if (resolved) return resolved;
+        }
+        if (raw.startsWith('http') || raw.startsWith('/') || raw.startsWith('data:')) {
+            return raw;
+        }
+        return '/products/' + raw.replace(/^\/+/, '');
+    }
+
+    function buildItemImageHtml(item, size, catalogProduct) {
+        const px = size || '56px';
+        const catalog = catalogProduct || findCatalogProduct(item, global.globalProductCatalog || []);
+        const lineUrl = resolveCartLineImageUrl(item, catalog);
+        const imgUrl = safeImg(lineUrl, '');
+
+        const PT = global.ProductThumbnail;
+        let emoji = String(item?.emojiIcon || item?.icon || item?.emoji || '').trim();
+        if (!emoji && PT && PT.pickEmojiFromItem) {
+            emoji = PT.pickEmojiFromItem(PT.mergeMediaSources(item, catalog)) || '';
+        }
+        if (!emoji && catalog) {
+            emoji = String(catalog.emojiIcon || catalog.icon || catalog.emoji || '').trim();
+        }
+
+        if (!imgUrl) {
+            if (emoji) {
+                return '<div style="width:' + px + ';height:' + px + ';background:#f3f4f6;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">' +
+                    escapeHtml(emoji) + '</div>';
+            }
+            const placeholder = safeImg('', CART_IMAGE_PLACEHOLDER);
+            return '<img src="' + escapeHtml(placeholder) + '" alt="" ' +
+                'style="width:' + px + ';height:' + px + ';object-fit:cover;border-radius:8px;flex-shrink:0;display:block" ' +
+                'onerror="' + IMG_ONERROR + '">';
+        }
+
+        let html = '<img src="' + escapeHtml(imgUrl) + '" alt="" ' +
+            'style="width:' + px + ';height:' + px + ';' +
+            'object-fit:cover;border-radius:8px;flex-shrink:0;display:block" ' +
+            'onerror="' + IMG_ONERROR + '">';
+
+        if (emoji) {
+            html += '<div style="width:' + px + ';height:' + px + ';' +
+                'background:#f3f4f6;border-radius:8px;display:none;' +
+                'align-items:center;justify-content:center;' +
+                'font-size:1.4rem;flex-shrink:0">' + escapeHtml(emoji) + '</div>';
+        }
+
+        return html;
+    }
+
     global.CartDisplayUtils = {
         escapeHtml,
         getProductDetailUrl,
         getCartItemVariantAttributes,
         buildVariantBadgesHtml,
         findCatalogProduct,
+        extractItemProductId,
         resolveCartLineImageUrl,
+        resolveCartItemImageUrl,
         normalizeCartItem,
         normalizeCartArray,
         mergeCartItems,
         getNormalizedGuestCart,
-        persistGuestCart
+        persistGuestCart,
+        buildItemImageHtml,
+        resolveItemImageUrl,
+        safeImg,
+        isInvalidImageValue,
+        CART_IMAGE_PLACEHOLDER,
+        CART_IMAGE_FALLBACK,
+        IMG_ONERROR
     };
+
+    global.buildItemImageHtml = buildItemImageHtml;
 })(typeof window !== 'undefined' ? window : globalThis);
