@@ -30,18 +30,20 @@ function cartItemImg(item, px, catalogProduct) {
         return utils.buildItemImageHtml(item, px, catalog);
     }
 
-    const lineUrl = utils.resolveCartLineImageUrl
-        ? utils.resolveCartLineImageUrl(item, catalog)
-        : '';
-    const safeUrl = utils.safeImg
-        ? utils.safeImg(lineUrl)
-        : (lineUrl || '/images/placeholder-product.svg');
-    const onError = utils.IMG_ONERROR || CART_IMG_ONERROR;
+    const validatedUrl = utils.resolveCartItemImageUrl
+        ? utils.resolveCartItemImageUrl(item, catalog)
+        : (utils.resolveCartLineImageUrl
+            ? utils.resolveCartLineImageUrl(item, catalog)
+            : '');
+    const fallbackUrl = utils.getCartImagePlaceholderUrl
+        ? utils.getCartImagePlaceholderUrl()
+        : '/images/placeholder-product.svg';
+    const src = validatedUrl || fallbackUrl;
+    const onerrorHandler = "if(this.src!=='" + fallbackUrl + "')this.src='" + fallbackUrl + "'";
 
-    return `<img src="${safeUrl}"
-      style="width:${px};height:${px};object-fit:cover;
-      border-radius:8px;flex-shrink:0;display:block"
-      onerror="${onError}">`;
+    return '<img src="' + src + '" alt="" ' +
+        'style="width:' + px + ';height:' + px + ';object-fit:cover;border-radius:8px;flex-shrink:0;display:block" ' +
+        'onerror="' + onerrorHandler + '">';
 }
 
 window.cartItemImg = cartItemImg;
@@ -150,13 +152,15 @@ function mapClientCartItem(item = {}) {
     if (CDU().normalizeCartItem) {
         return CDU().normalizeCartItem(item, catalogProduct);
     }
-    const displayImage = String(
-        item.selectedImage
-        || item.variantImage
-        || item.image
-        || item.products
-        || ''
-    ).trim();
+    const displayImage = CDU().resolveCartLineImageUrl
+        ? CDU().resolveCartLineImageUrl(item, catalogProduct)
+        : String(
+            item.selectedImage
+            || item.variantImage
+            || item.image
+            || item.products
+            || ''
+        ).trim();
     return {
         id: item.productId || item.id,
         name: item.name,
@@ -186,7 +190,9 @@ function buildCartLineItem(fields) {
     if (CDU().normalizeCartItem) {
         return CDU().normalizeCartItem(fields, catalogProduct);
     }
-    const image = fields.image || fields.products || '';
+    const image = CDU().resolveCartLineImageUrl
+        ? CDU().resolveCartLineImageUrl(fields, catalogProduct)
+        : (fields.image || fields.products || '');
     return {
         ...fields,
         image,
@@ -198,8 +204,17 @@ function buildCartLineItem(fields) {
     };
 }
 
-function buildItemImageHtml(item, size) {
-    return cartItemImg(item, size || '56px');
+function buildItemImageHtml(item, size, catalogProduct) {
+    const utils = window.CartDisplayUtils || {};
+    const px = size || '56px';
+    let catalog = catalogProduct;
+    if (!catalog && utils.findCatalogProduct && window.globalProductCatalog) {
+        catalog = utils.findCatalogProduct(item, window.globalProductCatalog);
+    }
+    if (utils.buildItemImageHtml) {
+        return utils.buildItemImageHtml(item, px, catalog);
+    }
+    return cartItemImg(item, px, catalog);
 }
 
 // 🌟 ডাটাবেজ থেকে লাইভ কার্ট আইটেম নিয়ে আসার ফাংশন
@@ -336,7 +351,9 @@ function renderCartDrawerItems() {
         } else if (isProfilePreview || isCheckoutPreview) {
             imageSize = '52px';
         }
-        const mediaHTML = cartItemImg(item, imageSize, realProduct);
+        const mediaHTML = CDU.buildItemImageHtml
+            ? CDU.buildItemImageHtml(item, imageSize, realProduct)
+            : cartItemImg(item, imageSize, realProduct);
 
         const isChecked = item.selected !== false ? 'checked' : '';
         const quantity = item.quantity || 1;
@@ -722,7 +739,16 @@ function triggerFlyAnimation(clickedButton, assetData) {
     }
 
     if (!finalAssetHTML) {
-        if (assetData && (assetData.endsWith('.jpg') || assetData.endsWith('.png') || assetData.endsWith('.jpeg') || assetData.endsWith('.webp'))) {
+        const utils = window.CartDisplayUtils || {};
+        const flyUrl = assetData && utils.resolveCartItemImageUrl
+            ? utils.resolveCartItemImageUrl({ image: assetData, products: assetData }, null)
+            : (assetData && utils.resolveCartLineImageUrl
+                ? utils.resolveCartLineImageUrl({ image: assetData, products: assetData }, null)
+                : assetData);
+
+        if (flyUrl && (flyUrl.startsWith('http') || flyUrl.startsWith('/') || flyUrl.startsWith('data:'))) {
+            finalAssetHTML = `<img src="${flyUrl}" alt="flying-prod" style="width:100%; height:100%; object-fit:contain; border-radius:8px;" onerror="${CART_IMG_ONERROR}">`;
+        } else if (assetData && (assetData.endsWith('.jpg') || assetData.endsWith('.png') || assetData.endsWith('.jpeg') || assetData.endsWith('.webp'))) {
             const PT = window.ProductThumbnail;
             let imagePath = PT && typeof PT.resolveProductImagePath === 'function'
                 ? PT.resolveProductImagePath(assetData)

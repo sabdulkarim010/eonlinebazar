@@ -67,10 +67,31 @@
         return v.length <= 8 && !/[\\/.]/.test(v);
     }
 
+    function getAbsoluteAssetUrl(path) {
+        if (!path) return '';
+        let normalized = String(path).trim();
+        if (!normalized) return '';
+
+        if (/^https:\/\//i.test(normalized)) return normalized;
+        if (normalized.startsWith('http://')) {
+            return normalized.replace(/^http:\/\//i, 'https://');
+        }
+        if (normalized.startsWith('data:')) return normalized;
+
+        const assetPath = normalized.startsWith('/')
+            ? normalized
+            : `/${normalized.replace(/^\/+/, '')}`;
+        if (typeof global.location !== 'undefined' && global.location.origin) {
+            return global.location.origin + assetPath;
+        }
+        return assetPath;
+    }
+
     function normalizeSecureImageUrl(url) {
         if (!url) return '';
         let normalized = String(url).trim();
         if (!normalized) return '';
+        if (looksLikeEmojiOrIcon(normalized) || isPlaceholderImage(normalized)) return '';
 
         if (normalized.startsWith('http://')) {
             normalized = normalized.replace(/^http:\/\//i, 'https://');
@@ -81,14 +102,8 @@
         }
 
         const lower = normalized.toLowerCase();
-        if (normalized.startsWith('/uploads') || lower.startsWith('uploads/')) {
-            const path = normalized.startsWith('/')
-                ? normalized
-                : `/${normalized.replace(/^\/+/, '')}`;
-            if (typeof global.location !== 'undefined' && global.location.origin) {
-                return global.location.origin + path;
-            }
-            return path;
+        if (normalized.startsWith('/') || lower.startsWith('uploads/')) {
+            return getAbsoluteAssetUrl(normalized);
         }
 
         return normalized;
@@ -120,18 +135,72 @@
         if (!resolved) return '';
 
         const secured = normalizeSecureImageUrl(resolved);
-        if (secured.startsWith('https://') || secured.startsWith('data:')) {
-            return secured;
+        if (secured) return secured;
+
+        if (resolved.startsWith('/') || String(resolved).toLowerCase().startsWith('uploads/')) {
+            return getAbsoluteAssetUrl(resolved);
         }
 
         if (typeof global.location !== 'undefined' && global.location.origin) {
             try {
-                return new URL(secured, global.location.origin).href;
+                return new URL(resolved, global.location.origin).href;
             } catch (_) {
-                return secured;
+                return resolved;
             }
         }
-        return secured;
+        return resolved;
+    }
+
+    function extractCartItemRawImageUrl(item, catalogProduct) {
+        const product = item?.product || catalogProduct || null;
+        const candidates = [
+            item?.image,
+            product?.image,
+            Array.isArray(product?.images) ? product.images[0] : null,
+            product?.thumbnail,
+            item?.variantImage,
+            item?.selectedImage,
+            ...(Array.isArray(item?.images) ? item.images : [])
+        ];
+
+        if (catalogProduct && catalogProduct !== product) {
+            candidates.push(
+                catalogProduct.image,
+                Array.isArray(catalogProduct.images) ? catalogProduct.images[0] : null,
+                catalogProduct.thumbnail
+            );
+        }
+
+        for (const candidate of candidates) {
+            const raw = String(candidate || '').trim();
+            if (!raw || raw === 'null' || raw === 'undefined') continue;
+            if (looksLikeEmojiOrIcon(raw) || isPlaceholderImage(raw)) continue;
+            if (isUnsafeAssetPath(raw)) continue;
+            return raw;
+        }
+
+        return '';
+    }
+
+    function resolveCartLineImageUrl(item, catalogProduct) {
+        const raw = extractCartItemRawImageUrl(item, catalogProduct);
+        if (!raw) return '';
+
+        const resolved = resolveProductImagePath(raw) || raw;
+        const display = toDisplayImageUrl(resolved) || normalizeSecureImageUrl(resolved);
+        if (!display || isPlaceholderImage(display)) return '';
+        if (!isValidProductImagePath(display)) return '';
+        return display;
+    }
+
+    function resolveCartItemImageUrl(item, catalogProduct) {
+        const lineUrl = resolveCartLineImageUrl(item, catalogProduct);
+        if (lineUrl) return lineUrl;
+        return getAbsoluteAssetUrl(PLACEHOLDER_IMAGE);
+    }
+
+    function getCartImagePlaceholderUrl() {
+        return getAbsoluteAssetUrl(PLACEHOLDER_IMAGE);
     }
 
     function collectVariantImages(item) {
@@ -452,6 +521,11 @@
         resolveProductImagePath,
         normalizeSecureImageUrl,
         toDisplayImageUrl,
+        getAbsoluteAssetUrl,
+        extractCartItemRawImageUrl,
+        resolveCartLineImageUrl,
+        resolveCartItemImageUrl,
+        getCartImagePlaceholderUrl,
         collectVariantImages,
         normalizeMediaItem,
         mergeMediaSources,

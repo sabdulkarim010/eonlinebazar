@@ -255,6 +255,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return document.getElementById(tabId);
     }
 
+    function renderProfileCartSection() {
+        const render = () => {
+            if (typeof window.renderCartDrawerItems === 'function') {
+                window.renderCartDrawerItems();
+            }
+        };
+
+        if (typeof window.fetchLiveDBCart === 'function') {
+            return window.fetchLiveDBCart().then(render).catch(render);
+        }
+
+        render();
+        return Promise.resolve();
+    }
+
     function refreshTabData(targetTab) {
         if (['my-orders', 'dashboard-overview'].includes(targetTab) && typeof fetchUserOrders === 'function') {
             fetchUserOrders();
@@ -263,13 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fetchDashboardStats();
         }
         if (targetTab === 'my-cart') {
-            fetchWishlist().then(() => {
-                if (typeof fetchLiveDBCart === 'function') {
-                    fetchLiveDBCart();
-                } else if (typeof window.renderCartDrawerItems === 'function') {
-                    window.renderCartDrawerItems();
-                }
-            });
+            fetchWishlist().then(() => renderProfileCartSection());
         }
         if (targetTab === 'addresses-settings' && typeof fetchAddresses === 'function') fetchAddresses();
         if (targetTab === 'security-settings' && typeof fetchSessions === 'function') fetchSessions();
@@ -2026,10 +2035,10 @@ document.addEventListener('DOMContentLoaded', () => {
             container.appendChild(card);
         });
 
-        if (typeof window.renderCartDrawerItems === 'function') {
-            window.renderCartDrawerItems();
-        }
+        renderProfileCartSection();
     }
+
+    window.renderProfileCartSection = renderProfileCartSection;
 
     document.addEventListener('productCatalogReady', () => {
         if (lastWishlistItems.length > 0) {

@@ -9,9 +9,61 @@ const {
     mergeGuestCartIntoUserCart
 } = require('../utils/cartMergeService');
 const { isValidImagePath } = require('../utils/orderItemImages');
-const { normalizeImageUrl, normalizeImageUrlList } = require('../utils/imageUrlUtils');
 
 const PRODUCT_MEDIA_SELECT = 'name price images image icon productId stockQuantity stock thumbnail';
+
+function getRequestBaseUrl(req) {
+    const envBase = String(process.env.BASE_URL || '').trim().replace(/\/+$/, '');
+    if (envBase) {
+        return envBase.startsWith('http://')
+            ? envBase.replace(/^http:\/\//i, 'https://')
+            : envBase;
+    }
+    if (req && req.protocol && typeof req.get === 'function') {
+        const host = req.get('host');
+        if (host) {
+            return `${req.protocol}://${host}`;
+        }
+    }
+    return '';
+}
+
+function normalizeImageUrl(url, baseUrl = '') {
+    if (url == null) return '';
+    let normalized = String(url).trim();
+    if (!normalized || normalized === 'null' || normalized === 'undefined') return '';
+    if (isPlaceholderImage(normalized)) return '';
+    if (looksLikeEmojiOrIcon(normalized)) return '';
+    if (normalized.includes('via.placeholder.com')) return '';
+
+    if (normalized.startsWith('http://')) {
+        normalized = normalized.replace(/^http:\/\//i, 'https://');
+    }
+
+    if (/^https:\/\//i.test(normalized) || normalized.startsWith('data:')) {
+        return normalized;
+    }
+
+    const lower = normalized.toLowerCase();
+    const isRelative = normalized.startsWith('/') || lower.startsWith('uploads/');
+
+    if (isRelative) {
+        const path = normalized.startsWith('/')
+            ? normalized
+            : `/${normalized.replace(/^\/+/, '')}`;
+        const base = String(baseUrl || '').trim().replace(/\/+$/, '');
+        return base ? `${base}${path}` : path;
+    }
+
+    return normalized;
+}
+
+function normalizeImageUrlList(urls, baseUrl = '') {
+    if (!Array.isArray(urls)) return [];
+    return urls
+        .map((url) => normalizeImageUrl(url, baseUrl))
+        .filter(Boolean);
+}
 
 function isPlaceholderImage(value) {
     if (!value) return false;
@@ -55,16 +107,6 @@ function pickFirstUsableImage(...candidates) {
     return null;
 }
 
-function resolveCartItemDisplayImage(plain, catalog) {
-    return pickFirstUsableImage(
-        plain.variantImage,
-        Array.isArray(catalog.images) && catalog.images.length > 0 ? catalog.images[0] : null,
-        catalog.image,
-        catalog.thumbnail,
-        plain.image
-    );
-}
-
 function extractProductId(productId) {
     if (productId && typeof productId === 'object' && productId._id) {
         return String(productId._id);
@@ -90,18 +132,25 @@ async function loadProductsForCartItems(items = []) {
     return new Map(products.map((product) => [String(product._id), product]));
 }
 
-function mapCartItemResponse(item, product) {
+function mapCartItemResponse(item, product, baseUrl = '') {
     const plain = item && typeof item.toObject === 'function' ? item.toObject() : { ...item };
     const catalog = product && typeof product.toObject === 'function'
         ? product.toObject()
         : (product || {});
 
-    const resolvedImage = resolveCartItemDisplayImage(plain, catalog);
-    const normalizedImage = resolvedImage ? normalizeImageUrl(resolvedImage) : null;
-    const normalizedVariantImage = (plain.variantImage && isUsableCartImage(plain.variantImage))
-        ? normalizeImageUrl(plain.variantImage)
-        : (normalizedImage || null);
-    const normalizedImages = normalizeImageUrlList(catalog.images || []);
+    const normalizedItemImage = normalizeImageUrl(plain.image, baseUrl);
+    const normalizedVariantImage = normalizeImageUrl(plain.variantImage, baseUrl);
+    const normalizedCatalogImages = normalizeImageUrlList(catalog.images, baseUrl);
+    const normalizedCatalogImage = normalizeImageUrl(catalog.image, baseUrl);
+    const normalizedCatalogThumbnail = normalizeImageUrl(catalog.thumbnail, baseUrl);
+
+    const resolvedImage = pickFirstUsableImage(
+        normalizedVariantImage,
+        normalizedCatalogImages[0],
+        normalizedCatalogImage,
+        normalizedCatalogThumbnail,
+        normalizedItemImage
+    ) || null;
 
     const emojiIcon = plain.emojiIcon || catalog.icon || plain.icon || null;
 
@@ -111,11 +160,12 @@ function mapCartItemResponse(item, product) {
         name: plain.name || catalog.name || 'Product',
         price: plain.price,
         quantity: plain.quantity,
-        image: normalizedImage,
-        images: normalizedImages,
+        image: resolvedImage,
+        images: normalizedCatalogImages,
+        thumbnail: normalizedCatalogThumbnail || null,
         emojiIcon,
         icon: emojiIcon || plain.icon || catalog.icon || '📦',
-        variantImage: normalizedVariantImage,
+        variantImage: normalizedVariantImage || resolvedImage || null,
         variant: plain.variant || null,
         variantId: plain.variantId || null,
         variantLabel: plain.variantLabel || '',
@@ -132,17 +182,18 @@ function mapCartItemResponse(item, product) {
     };
 }
 
-async function formatCartItemsForResponse(items = []) {
+async function formatCartItemsForResponse(items = [], req) {
     const list = Array.isArray(items) ? items : [];
     if (list.length === 0) return [];
 
+    const baseUrl = getRequestBaseUrl(req);
     const needsLookup = list.some(
         (item) => !(item.productId && typeof item.productId === 'object' && item.productId._id)
     );
     const productById = needsLookup ? await loadProductsForCartItems(list) : new Map();
 
     return list.map((item) =>
-        mapCartItemResponse(item, resolvePopulatedProduct(item, productById))
+        mapCartItemResponse(item, resolvePopulatedProduct(item, productById), baseUrl)
     );
 }
 
@@ -156,7 +207,7 @@ exports.mergeCart = async (req, res) => {
         if (guestItems.length === 0) {
             const existing = await Cart.findOne({ userId });
             const enriched = existing
-                ? await formatCartItemsForResponse(existing.items)
+                ? await formatCartItemsForResponse(existing.items, req)
                 : [];
             return res.status(200).json({
                 message: 'Cart merged successfully',
@@ -165,7 +216,7 @@ exports.mergeCart = async (req, res) => {
         }
 
         const userCart = await mergeGuestCartIntoUserCart(userId, guestItems);
-        const enriched = await formatCartItemsForResponse(userCart.items);
+        const enriched = await formatCartItemsForResponse(userCart.items, req);
         res.status(200).json({ message: 'Cart merged successfully', cart: enriched });
     } catch (error) {
         res.status(500).json({ message: 'Server error during cart merge', error: error.message });
@@ -183,7 +234,7 @@ exports.getCart = async (req, res) => {
             return res.json({ success: true, data: [] });
         }
 
-        const itemsWithImages = await formatCartItemsForResponse(cart.items);
+        const itemsWithImages = await formatCartItemsForResponse(cart.items, req);
         return res.json({ success: true, data: itemsWithImages });
     } catch (error) {
         res.status(500).json({ message: "Error fetching cart", error: error.message });
@@ -263,7 +314,7 @@ exports.addToCart = async (req, res) => {
         }
 
         await userCart.save();
-        const enriched = await formatCartItemsForResponse(userCart.items);
+        const enriched = await formatCartItemsForResponse(userCart.items, req);
         res.status(200).json(enriched);
     } catch (error) {
         res.status(500).json({ message: "Error adding to cart", error: error.message });
@@ -281,7 +332,7 @@ exports.updateQuantity = async (req, res) => {
             if (item) {
                 item.quantity = quantity;
                 await userCart.save();
-                const enriched = await formatCartItemsForResponse(userCart.items);
+                const enriched = await formatCartItemsForResponse(userCart.items, req);
                 return res.status(200).json(enriched);
             }
         }
@@ -305,7 +356,7 @@ exports.deleteCartItem = async (req, res) => {
                 userCart.items = userCart.items.filter(item => !isSameLine(item, productId, variantId));
             }
             await userCart.save();
-            const enriched = await formatCartItemsForResponse(userCart.items);
+            const enriched = await formatCartItemsForResponse(userCart.items, req);
             return res.status(200).json(enriched);
         }
         res.status(404).json({ message: "Cart not found" });
@@ -325,7 +376,7 @@ exports.toggleSelection = async (req, res) => {
             if (item) {
                 item.selected = selected;
                 await userCart.save();
-                const enriched = await formatCartItemsForResponse(userCart.items);
+                const enriched = await formatCartItemsForResponse(userCart.items, req);
                 return res.status(200).json(enriched);
             }
         }

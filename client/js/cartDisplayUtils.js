@@ -150,8 +150,35 @@
 
     const CART_IMAGE_PLACEHOLDER = '/images/placeholder-product.svg';
     const CART_IMAGE_FALLBACK = '/images/placeholder-product.svg';
-    const IMG_ONERROR = "if(!this.dataset.fallback){this.dataset.fallback='1';this.src='" +
-        CART_IMAGE_FALLBACK + "';}else if(this.nextElementSibling){this.style.display='none';this.nextElementSibling.style.display='flex';}";
+
+    function getAbsoluteAssetUrl(path) {
+        const PT = global.ProductThumbnail;
+        if (PT && typeof PT.getAbsoluteAssetUrl === 'function') {
+            return PT.getAbsoluteAssetUrl(path);
+        }
+        if (!path) return '';
+        let normalized = String(path).trim();
+        if (!normalized) return '';
+        if (/^https:\/\//i.test(normalized)) return normalized;
+        if (normalized.startsWith('http://')) {
+            return normalized.replace(/^http:\/\//i, 'https://');
+        }
+        const assetPath = normalized.startsWith('/')
+            ? normalized
+            : `/${normalized.replace(/^\/+/, '')}`;
+        if (typeof global.location !== 'undefined' && global.location.origin) {
+            return global.location.origin + assetPath;
+        }
+        return assetPath;
+    }
+
+    function getCartImagePlaceholderUrl() {
+        const PT = global.ProductThumbnail;
+        if (PT && typeof PT.getCartImagePlaceholderUrl === 'function') {
+            return PT.getCartImagePlaceholderUrl();
+        }
+        return getAbsoluteAssetUrl(CART_IMAGE_PLACEHOLDER);
+    }
 
     function looksLikeEmojiOrIcon(value) {
         if (!value) return false;
@@ -208,6 +235,7 @@
         if (!url) return '';
         let normalized = String(url).trim();
         if (!normalized) return '';
+        if (looksLikeEmojiOrIcon(normalized) || isStoredPlaceholder(normalized)) return '';
         if (normalized.startsWith('http://')) {
             normalized = normalized.replace(/^http:\/\//i, 'https://');
         }
@@ -215,79 +243,47 @@
             return normalized;
         }
         const lower = normalized.toLowerCase();
-        if (normalized.startsWith('/uploads') || lower.startsWith('uploads/')) {
-            const path = normalized.startsWith('/')
-                ? normalized
-                : `/${normalized.replace(/^\/+/, '')}`;
-            if (typeof global.location !== 'undefined' && global.location.origin) {
-                return global.location.origin + path;
-            }
-            return path;
-        }
-        if (typeof global.location !== 'undefined' && global.location.origin) {
-            try {
-                return new URL(normalized, global.location.origin).href;
-            } catch (_) {
-                return normalized;
-            }
+        if (normalized.startsWith('/') || lower.startsWith('uploads/')) {
+            return getAbsoluteAssetUrl(normalized);
         }
         return normalized;
     }
 
     /** Unified image URL for guest localStorage rows and authenticated API cart items. */
     function resolveCartItemImageUrl(item, catalogProduct) {
+        const PT = global.ProductThumbnail;
         const catalog = catalogProduct || findCatalogProduct(item, global.globalProductCatalog || []);
-        const resolved = resolveCartLineImageUrl(item, catalog);
-        const secured = normalizeSecureImageUrl(resolved);
-        if (secured && !isStoredPlaceholder(secured) && !isInvalidImageValue(secured)) {
-            return secured;
+        if (PT && typeof PT.resolveCartItemImageUrl === 'function') {
+            return PT.resolveCartItemImageUrl(item, catalog);
         }
-        return CART_IMAGE_PLACEHOLDER;
+        const resolved = resolveCartLineImageUrl(item, catalog);
+        if (resolved) return resolved;
+        return getCartImagePlaceholderUrl();
     }
 
     function resolveCartLineImageUrl(item, catalogProduct) {
         const PT = global.ProductThumbnail;
-        if (PT) {
-            const merged = PT.mergeMediaSources(item, catalogProduct);
-            const picked = PT.pickCartLineImage(merged) || PT.pickImageFromItem(merged) || '';
-            if (picked) {
-                const display = PT.toDisplayImageUrl
-                    ? (PT.toDisplayImageUrl(picked) || picked)
-                    : (PT.resolveProductImagePath(picked) || picked);
-                return normalizeSecureImageUrl(display);
-            }
+        const catalog = catalogProduct || findCatalogProduct(item, global.globalProductCatalog || []);
+        if (PT && typeof PT.resolveCartLineImageUrl === 'function') {
+            return PT.resolveCartLineImageUrl(item, catalog);
         }
 
-        const fallbackCandidates = [
-            item?.selectedImage,
-            item?.variantImage,
-            ...(Array.isArray(item?.images) ? item.images : []),
-            catalogProduct && Array.isArray(catalogProduct.images) ? catalogProduct.images[0] : '',
-            catalogProduct && catalogProduct.image,
-            catalogProduct && catalogProduct.thumbnail,
+        const product = item?.product || catalog || null;
+        const candidates = [
             item?.image,
-            item?.products,
-            item?.productImage,
-            item?.imageUrl,
-            item?.photo,
-            item?.selectedVariant && item.selectedVariant.image
+            product?.image,
+            Array.isArray(product?.images) ? product.images[0] : null,
+            product?.thumbnail,
+            item?.variantImage,
+            item?.selectedImage,
+            ...(Array.isArray(item?.images) ? item.images : [])
         ];
 
-        for (const candidate of fallbackCandidates) {
+        for (const candidate of candidates) {
             const raw = String(candidate || '').trim();
             if (!raw || isInvalidImageValue(raw) || isStoredPlaceholder(raw)) continue;
-            if (PT && PT.resolveProductImagePath) {
-                const resolved = PT.resolveProductImagePath(raw);
-                if (resolved && !isStoredPlaceholder(resolved)) {
-                    const display = PT.toDisplayImageUrl
-                        ? (PT.toDisplayImageUrl(resolved) || resolved)
-                        : resolved;
-                    return normalizeSecureImageUrl(display);
-                }
-            }
-            if (raw.startsWith('http') || raw.startsWith('/') || raw.startsWith('data:')) {
-                return normalizeSecureImageUrl(raw);
-            }
+            const secured = normalizeSecureImageUrl(raw);
+            if (secured && !isStoredPlaceholder(secured)) return secured;
         }
 
         return '';
@@ -435,42 +431,13 @@
     function buildItemImageHtml(item, size, catalogProduct) {
         const px = size || '56px';
         const catalog = catalogProduct || findCatalogProduct(item, global.globalProductCatalog || []);
-        const lineUrl = resolveCartLineImageUrl(item, catalog);
-        const imgUrl = safeImg(lineUrl, '');
+        const validatedHttpsUrl = resolveCartItemImageUrl(item, catalog);
+        const fallbackUrl = getCartImagePlaceholderUrl();
+        const onerrorHandler = "if(this.src!=='" + fallbackUrl + "')this.src='" + fallbackUrl + "'";
 
-        const PT = global.ProductThumbnail;
-        let emoji = String(item?.emojiIcon || item?.icon || item?.emoji || '').trim();
-        if (!emoji && PT && PT.pickEmojiFromItem) {
-            emoji = PT.pickEmojiFromItem(PT.mergeMediaSources(item, catalog)) || '';
-        }
-        if (!emoji && catalog) {
-            emoji = String(catalog.emojiIcon || catalog.icon || catalog.emoji || '').trim();
-        }
-
-        if (!imgUrl) {
-            if (emoji) {
-                return '<div style="width:' + px + ';height:' + px + ';background:#f3f4f6;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">' +
-                    escapeHtml(emoji) + '</div>';
-            }
-            const placeholder = safeImg('', CART_IMAGE_PLACEHOLDER);
-            return '<img src="' + escapeHtml(placeholder) + '" alt="" ' +
-                'style="width:' + px + ';height:' + px + ';object-fit:cover;border-radius:8px;flex-shrink:0;display:block" ' +
-                'onerror="' + IMG_ONERROR + '">';
-        }
-
-        let html = '<img src="' + escapeHtml(imgUrl) + '" alt="" ' +
-            'style="width:' + px + ';height:' + px + ';' +
-            'object-fit:cover;border-radius:8px;flex-shrink:0;display:block" ' +
-            'onerror="' + IMG_ONERROR + '">';
-
-        if (emoji) {
-            html += '<div style="width:' + px + ';height:' + px + ';' +
-                'background:#f3f4f6;border-radius:8px;display:none;' +
-                'align-items:center;justify-content:center;' +
-                'font-size:1.4rem;flex-shrink:0">' + escapeHtml(emoji) + '</div>';
-        }
-
-        return html;
+        return '<img src="' + escapeHtml(validatedHttpsUrl) + '" alt="" ' +
+            'style="width:' + px + ';height:' + px + ';object-fit:cover;border-radius:8px;flex-shrink:0;display:block" ' +
+            'onerror="' + onerrorHandler + '">';
     }
 
     global.CartDisplayUtils = {
@@ -491,9 +458,10 @@
         resolveItemImageUrl,
         safeImg,
         isInvalidImageValue,
+        getAbsoluteAssetUrl,
+        getCartImagePlaceholderUrl,
         CART_IMAGE_PLACEHOLDER,
-        CART_IMAGE_FALLBACK,
-        IMG_ONERROR
+        CART_IMAGE_FALLBACK
     };
 
     global.buildItemImageHtml = buildItemImageHtml;
