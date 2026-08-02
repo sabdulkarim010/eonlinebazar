@@ -19,6 +19,8 @@ const cartSchema = new mongoose.Schema({
             name: { type: String, required: true },
             price: { type: Number, required: true },
             image: { type: String, default: '' },
+            emojiIcon: { type: String, default: null },
+            variantImage: { type: String, default: null },
             icon: { type: String, default: '📦' },
             quantity: { type: Number, required: true, default: 1 },
             selected: { type: Boolean, default: true },

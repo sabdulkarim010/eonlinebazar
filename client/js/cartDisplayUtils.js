@@ -240,6 +240,46 @@
         return list.map((item) => normalizeCartItem(item, findCatalogProduct(item, catalogList)));
     }
 
+    /** Preserve guest localStorage image data when server cart items lack media. */
+    function mergeCartItems(serverItems, localItems) {
+        const serverList = Array.isArray(serverItems) ? serverItems : [];
+        const localList = Array.isArray(localItems) ? localItems : [];
+        const catalog = global.globalProductCatalog || [];
+
+        return serverList.map((serverItem) => {
+            const localMatch = localList.find((local) =>
+                String(local.productId || local.id) === String(serverItem.productId || serverItem.id) &&
+                String(local.variantId || '') === String(serverItem.variantId || '')
+            );
+
+            const merged = {
+                ...serverItem,
+                image: (
+                    serverItem.image
+                    || localMatch?.image
+                    || localMatch?.products
+                    || null
+                ),
+                emojiIcon: (
+                    serverItem.emojiIcon
+                    || serverItem.icon
+                    || localMatch?.emojiIcon
+                    || localMatch?.icon
+                    || null
+                ),
+                icon: (
+                    serverItem.icon
+                    || localMatch?.icon
+                    || serverItem.emojiIcon
+                    || null
+                ),
+                images: serverItem.images || localMatch?.images || []
+            };
+
+            return normalizeCartItem(merged, findCatalogProduct(merged, catalog));
+        });
+    }
+
     function cartItemNeedsMigration(item) {
         if (!item || typeof item !== 'object') return false;
         const rawImage = String(item.image || item.products || item.selectedImage || item.variantImage || '').trim();
@@ -286,6 +326,7 @@
         resolveCartLineImageUrl,
         normalizeCartItem,
         normalizeCartArray,
+        mergeCartItems,
         getNormalizedGuestCart,
         persistGuestCart
     };

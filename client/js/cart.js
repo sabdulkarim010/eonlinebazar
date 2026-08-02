@@ -88,13 +88,14 @@ fetch('/api/products')
                 })
                 .then(res => res.json())
                 .then(mergeData => {
-                    // মার্জ সফল হলে লোকাল স্টোরেজ ক্লিয়ার করে ডাটাবেজ থেকে ফ্রেশ কার্ট আনা হবে
-                    localStorage.removeItem('cart');
-                    fetchLiveDBCart();
+                    // মার্জ সফল হলে লোকাল ইমেজ ডাটা ধরে রেখে ডাটাবেজ থেকে ফ্রেশ কার্ট আনা হবে
+                    fetchLiveDBCart(localCart).finally(() => {
+                        localStorage.removeItem('cart');
+                    });
                 })
                 .catch(err => {
                     console.error("Error merging cart:", err);
-                    fetchLiveDBCart();
+                    fetchLiveDBCart(localCart);
                 });
             } else {
                 fetchLiveDBCart();
@@ -160,7 +161,7 @@ function buildCartLineItem(fields) {
 }
 
 // 🌟 ডাটাবেজ থেকে লাইভ কার্ট আইটেম নিয়ে আসার ফাংশন
-function fetchLiveDBCart() {
+function fetchLiveDBCart(localFallbackItems) {
     if (!customerToken) return Promise.resolve();
     return fetch('/api/cart', {
         method: 'GET',
@@ -169,7 +170,12 @@ function fetchLiveDBCart() {
     .then(res => res.json())
     .then(dbCartItems => {
         const items = Array.isArray(dbCartItems) ? dbCartItems : [];
-        cart = items.map(mapClientCartItem);
+        const localItems = localFallbackItems || readGuestCart();
+        if (CDU().mergeCartItems && localItems.length > 0) {
+            cart = CDU().mergeCartItems(items, localItems);
+        } else {
+            cart = items.map(mapClientCartItem);
+        }
         updateCartCount();
         renderCartDrawerItems();
         return cart;
@@ -180,9 +186,14 @@ function fetchLiveDBCart() {
     });
 }
 
-function syncCartFromServerItems(dbCartItems) {
+function syncCartFromServerItems(dbCartItems, localFallbackItems) {
     const items = Array.isArray(dbCartItems) ? dbCartItems : [];
-    cart = items.map(mapClientCartItem);
+    const localItems = localFallbackItems || [];
+    if (CDU().mergeCartItems && localItems.length > 0) {
+        cart = CDU().mergeCartItems(items, localItems);
+    } else {
+        cart = items.map(mapClientCartItem);
+    }
     updateCartCount();
     renderCartDrawerItems();
     return cart;

@@ -77,8 +77,16 @@
         localStorage.removeItem('cart');
     }
 
-    function applyMergedCartToClient(serverItems = []) {
-        const items = Array.isArray(serverItems) ? serverItems.map(mapServerCartItem) : [];
+    function applyMergedCartToClient(serverItems = [], guestItems = []) {
+        const CDU = global.CartDisplayUtils;
+        const localItems = Array.isArray(guestItems) && guestItems.length > 0
+            ? guestItems
+            : getGuestCartFromStorage();
+        const items = Array.isArray(serverItems)
+            ? (CDU && typeof CDU.mergeCartItems === 'function'
+                ? CDU.mergeCartItems(serverItems, localItems)
+                : serverItems.map(mapServerCartItem))
+            : [];
         clearGuestCartStorage();
 
         if (typeof global.syncCartFromServerItems === 'function') {
@@ -115,7 +123,7 @@
         }
 
         const mergedItems = data.cart || data.items || [];
-        return applyMergedCartToClient(mergedItems);
+        return applyMergedCartToClient(mergedItems, cartItems);
     }
 
     async function syncCartAfterLogin(loginResponse = {}, token) {

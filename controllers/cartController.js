@@ -9,6 +9,71 @@ const {
     mergeGuestCartIntoUserCart
 } = require('../utils/cartMergeService');
 
+const PRODUCT_MEDIA_SELECT = 'name price images image icon productId stockQuantity stock thumbnail';
+
+async function loadProductsForCartItems(items = []) {
+    const productIds = [...new Set(
+        items.map((item) => String(item.productId)).filter(Boolean)
+    )];
+    if (productIds.length === 0) return new Map();
+
+    const products = await Product.find({ _id: { $in: productIds } }).select(PRODUCT_MEDIA_SELECT);
+    return new Map(products.map((product) => [String(product._id), product]));
+}
+
+function mapCartItemResponse(item, product) {
+    const plain = item && typeof item.toObject === 'function' ? item.toObject() : { ...item };
+    const catalog = product && typeof product.toObject === 'function'
+        ? product.toObject()
+        : (product || {});
+
+    const resolvedImage = (
+        plain.variantImage
+        || (Array.isArray(catalog.images) && catalog.images.length > 0 ? catalog.images[0] : null)
+        || catalog.image
+        || catalog.thumbnail
+        || plain.image
+        || null
+    );
+
+    const emojiIcon = plain.emojiIcon || catalog.icon || plain.icon || null;
+
+    return {
+        _id: plain._id,
+        productId: catalog._id || plain.productId,
+        name: plain.name || catalog.name || 'Product',
+        price: plain.price,
+        quantity: plain.quantity,
+        image: resolvedImage,
+        images: catalog.images || [],
+        emojiIcon,
+        icon: emojiIcon || plain.icon || catalog.icon || '📦',
+        variantImage: plain.variantImage || resolvedImage || null,
+        variant: plain.variant || null,
+        variantId: plain.variantId || null,
+        variantLabel: plain.variantLabel || '',
+        variantAttribute: plain.variantAttribute || '',
+        variantValue: plain.variantValue || '',
+        variantSku: plain.variantSku || '',
+        color: plain.selectedColor || plain.color || null,
+        size: plain.selectedSize || plain.size || null,
+        selectedColor: plain.selectedColor || '',
+        selectedSize: plain.selectedSize || '',
+        attributes: plain.attributes || {},
+        selected: plain.selected !== false
+    };
+}
+
+async function formatCartItemsForResponse(items = []) {
+    const list = Array.isArray(items) ? items : [];
+    if (list.length === 0) return [];
+
+    const productById = await loadProductsForCartItems(list);
+    return list.map((item) =>
+        mapCartItemResponse(item, productById.get(String(item.productId)))
+    );
+}
+
 // ১. হাইব্রিড মার্জ লজিক (লগইন করার পর ফ্রন্টএন্ড থেকে লোকাল স্টোরেজের ডাটা আসবে)
 exports.mergeCart = async (req, res) => {
     try {
@@ -18,40 +83,22 @@ exports.mergeCart = async (req, res) => {
 
         if (guestItems.length === 0) {
             const existing = await Cart.findOne({ userId });
+            const enriched = existing
+                ? await formatCartItemsForResponse(existing.items)
+                : [];
             return res.status(200).json({
                 message: 'Cart merged successfully',
-                cart: existing ? existing.items : []
+                cart: enriched
             });
         }
 
         const userCart = await mergeGuestCartIntoUserCart(userId, guestItems);
-        res.status(200).json({ message: 'Cart merged successfully', cart: userCart.items });
+        const enriched = await formatCartItemsForResponse(userCart.items);
+        res.status(200).json({ message: 'Cart merged successfully', cart: enriched });
     } catch (error) {
         res.status(500).json({ message: 'Server error during cart merge', error: error.message });
     }
 };
-
-function enrichCartItemMedia(item, product) {
-    const plain = item && typeof item.toObject === 'function' ? item.toObject() : { ...item };
-    const catalog = product && typeof product.toObject === 'function' ? product.toObject() : (product || {});
-    const catalogImage = (Array.isArray(catalog.images) && catalog.images[0]) || catalog.image || '';
-    const catalogIcon = catalog.icon || '';
-
-    if (!plain.image || String(plain.image).includes('placeholder-product')) {
-        plain.image = catalogImage || plain.image || '';
-    }
-    if (!plain.icon || plain.icon === '📦') {
-        plain.icon = catalogIcon || plain.icon || '';
-    }
-    if (!plain.name && catalog.name) {
-        plain.name = catalog.name;
-    }
-    if ((!plain.price || plain.price === 0) && catalog.price != null) {
-        plain.price = Number(catalog.price) || plain.price;
-    }
-
-    return plain;
-}
 
 // ২. ডাটাবেজ থেকে ইউজারের লাইভ কার্ট গেট করা
 exports.getCart = async (req, res) => {
@@ -59,16 +106,7 @@ exports.getCart = async (req, res) => {
         const cart = await Cart.findOne({ userId: req.user.id });
         if (!cart) return res.status(200).json([]);
 
-        const productIds = [...new Set(cart.items.map((item) => String(item.productId)).filter(Boolean))];
-        const products = productIds.length
-            ? await Product.find({ _id: { $in: productIds } }).select('name price images image icon productId')
-            : [];
-        const productById = new Map(products.map((p) => [String(p._id), p]));
-
-        const enrichedItems = cart.items.map((item) =>
-            enrichCartItemMedia(item, productById.get(String(item.productId)))
-        );
-
+        const enrichedItems = await formatCartItemsForResponse(cart.items);
         res.status(200).json(enrichedItems);
     } catch (error) {
         res.status(500).json({ message: "Error fetching cart", error: error.message });
@@ -76,23 +114,40 @@ exports.getCart = async (req, res) => {
 };
 
 // ৩. ডাটাবেজ কার্টে নতুন প্রোডাক্ট অ্যাড করা (variant-aware)
-function resolveCartItemImage(body = {}) {
-    return String(
+function resolveCartItemImage(body = {}, product = null) {
+    const fromBody = String(
         body.selectedImage
         || body.variantImage
         || body.image
         || body.products
         || ''
     ).trim();
+
+    if (fromBody) return fromBody;
+
+    if (product) {
+        return (
+            (Array.isArray(product.images) && product.images[0])
+            || product.image
+            || product.thumbnail
+            || ''
+        );
+    }
+
+    return '';
 }
 
 exports.addToCart = async (req, res) => {
     try {
-        // ফ্রন্টএন্ড থেকে পাঠানো সম্পূর্ণ ডাটা রিসিভ করা হচ্ছে
         const { productId, quantity, name, price, icon } = req.body;
-        const displayImage = resolveCartItemImage(req.body);
         const userId = req.user.id;
         const variant = normalizeVariant(req.body);
+
+        const product = await Product.findById(productId).select(PRODUCT_MEDIA_SELECT);
+        const displayImage = resolveCartItemImage(req.body, product);
+        const displayIcon = icon || product?.icon || '📦';
+        const displayName = name || product?.name || 'Product';
+        const displayPrice = price != null ? Number(price) : Number(product?.price) || 0;
 
         let userCart = await Cart.findOne({ userId });
 
@@ -100,7 +155,6 @@ exports.addToCart = async (req, res) => {
             userCart = new Cart({ userId, items: [] });
         }
 
-        // 🌟 একই প্রোডাক্টের একই ভ্যারিয়েন্ট হলেই কেবল পরিমাণ বাড়বে
         const itemIndex = userCart.items.findIndex(item =>
             isSameLine(item, productId, variant.variantId)
         );
@@ -109,23 +163,30 @@ exports.addToCart = async (req, res) => {
             userCart.items[itemIndex].quantity += quantity || 1;
             if (displayImage) {
                 userCart.items[itemIndex].image = displayImage;
+                userCart.items[itemIndex].variantImage = displayImage;
+            }
+            if (displayIcon) {
+                userCart.items[itemIndex].icon = displayIcon;
+                userCart.items[itemIndex].emojiIcon = displayIcon;
             }
         } else {
-            // এখন প্রোডাক্টের নাম, দাম, ছবি ও ভ্যারিয়েন্ট সব ডাটাবেজে সেভ হবে
-            userCart.items.push({ 
-                productId, 
-                name, 
-                price, 
-                image: displayImage, 
-                icon, 
+            userCart.items.push({
+                productId,
+                name: displayName,
+                price: displayPrice,
+                image: displayImage,
+                variantImage: displayImage,
+                icon: displayIcon,
+                emojiIcon: displayIcon,
                 quantity: quantity || 1,
-                selected: true, // ডিফল্টভাবে সিলেক্টেড থাকবে
+                selected: true,
                 ...variant
             });
         }
 
         await userCart.save();
-        res.status(200).json(userCart.items);
+        const enriched = await formatCartItemsForResponse(userCart.items);
+        res.status(200).json(enriched);
     } catch (error) {
         res.status(500).json({ message: "Error adding to cart", error: error.message });
     }
@@ -142,7 +203,8 @@ exports.updateQuantity = async (req, res) => {
             if (item) {
                 item.quantity = quantity;
                 await userCart.save();
-                return res.status(200).json(userCart.items);
+                const enriched = await formatCartItemsForResponse(userCart.items);
+                return res.status(200).json(enriched);
             }
         }
         res.status(404).json({ message: "Item not found in cart" });
@@ -155,8 +217,6 @@ exports.updateQuantity = async (req, res) => {
 exports.deleteCartItem = async (req, res) => {
     try {
         const { productId } = req.params;
-        // ভ্যারিয়েন্ট আইডি query string থেকে আসে (থাকলে); না থাকলে ঐ productId-এর
-        // সব লাইন মুছে যায় — যা পুরাতন আচরণের সাথে সামঞ্জস্যপূর্ণ।
         const variantId = req.query.variantId;
         const userCart = await Cart.findOne({ userId: req.user.id });
 
@@ -167,7 +227,8 @@ exports.deleteCartItem = async (req, res) => {
                 userCart.items = userCart.items.filter(item => !isSameLine(item, productId, variantId));
             }
             await userCart.save();
-            return res.status(200).json(userCart.items);
+            const enriched = await formatCartItemsForResponse(userCart.items);
+            return res.status(200).json(enriched);
         }
         res.status(404).json({ message: "Cart not found" });
     } catch (error) {
@@ -186,7 +247,8 @@ exports.toggleSelection = async (req, res) => {
             if (item) {
                 item.selected = selected;
                 await userCart.save();
-                return res.status(200).json(userCart.items);
+                const enriched = await formatCartItemsForResponse(userCart.items);
+                return res.status(200).json(enriched);
             }
         }
         res.status(404).json({ message: "Item not found" });
@@ -195,9 +257,6 @@ exports.toggleSelection = async (req, res) => {
     }
 };
 
-
-
-// সঠিক লজিক (আপনার আগের ৭ নম্বর ফাংশনটির পরিবর্তে এটি ব্যবহার করুন)
 exports.clearCart = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -209,7 +268,7 @@ exports.clearCart = async (req, res) => {
 
         userCart.items = [];
         await userCart.save();
-        res.status(200).json(userCart.items);
+        res.status(200).json([]);
     } catch (err) {
         console.error('Error clearing cart:', err);
         res.status(500).json({ message: 'Failed to clear cart', error: err.message });
@@ -222,7 +281,6 @@ exports.clearOrderedItems = async (req, res) => {
         const userCart = await Cart.findOne({ userId });
 
         if (userCart) {
-            // শুধুমাত্র যেগুলো সিলেক্টেড নয় (selected: false), সেগুলোই থাকবে
             userCart.items = userCart.items.filter(item => item.selected === false);
             await userCart.save();
             res.json({ success: true, message: "Ordered items cleared from cart." });
@@ -234,10 +292,6 @@ exports.clearOrderedItems = async (req, res) => {
         res.status(500).json({ success: false, message: "Failed to clear cart" });
     }
 };
-
-
-
-// ফাইলের শেষে এই লাইনগুলো যুক্ত করুন:
 
 module.exports = {
     mergeCart: exports.mergeCart,

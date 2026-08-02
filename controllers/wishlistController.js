@@ -39,14 +39,18 @@ function buildWishlistItemFromProduct(product, fallback = {}) {
         fallback.image ||
         (Array.isArray(product.images) && product.images[0]) ||
         product.image ||
+        product.thumbnail ||
         '';
+    const emojiIcon = fallback.icon || fallback.emojiIcon || product.icon || '📦';
 
     return {
         productId: String(product._id),
         name: fallback.name || product.name || '',
         price: fallback.price != null ? Number(fallback.price) : Number(product.price) || 0,
         image,
-        icon: fallback.icon || product.icon || '📦'
+        images: product.images || [],
+        icon: emojiIcon,
+        emojiIcon
     };
 }
 

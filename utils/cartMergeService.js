@@ -120,13 +120,16 @@ function buildCartItem(item) {
         || (item.selectedVariant && item.selectedVariant.image)
         || ''
     ).trim();
+    const displayIcon = item.emojiIcon || item.icon || '';
 
     return {
         productId,
         name: item.name,
         price: Number(item.price) || 0,
         image: displayImage,
-        icon: item.icon || '',
+        variantImage: displayImage,
+        icon: displayIcon,
+        emojiIcon: displayIcon,
         quantity: Math.max(1, Number(item.quantity) || 1),
         selected: item.selected !== false,
         ...variant
@@ -169,6 +172,12 @@ async function mergeGuestCartIntoUserCart(userId, guestItems = []) {
                 existingItem.quantity += localItem.quantity;
                 if (localItem.image) {
                     existingItem.image = localItem.image;
+                    existingItem.variantImage = localItem.variantImage || localItem.image;
+                }
+                if (localItem.icon || localItem.emojiIcon) {
+                    const icon = localItem.emojiIcon || localItem.icon;
+                    existingItem.icon = icon;
+                    existingItem.emojiIcon = icon;
                 }
             } else {
                 userCart.items.push(localItem);
@@ -181,7 +190,10 @@ async function mergeGuestCartIntoUserCart(userId, guestItems = []) {
 }
 
 function toClientCartItem(item = {}) {
-    const displayImage = String(item.image || item.products || '').trim();
+    const displayImage = String(
+        item.variantImage || item.image || item.products || ''
+    ).trim();
+    const displayIcon = item.emojiIcon || item.icon || '';
     return {
         id: item.productId || item.id,
         productId: item.productId || item.id,
@@ -191,7 +203,8 @@ function toClientCartItem(item = {}) {
         image: displayImage,
         selectedImage: displayImage,
         variantImage: displayImage,
-        icon: item.icon || '',
+        icon: displayIcon,
+        emojiIcon: displayIcon,
         quantity: item.quantity || 1,
         selected: item.selected !== false,
         variantId: item.variantId || '',

@@ -11,7 +11,9 @@
 const User = require('../models/user');
 const UserSession = require('../models/userSession');
 const Cart = require('../models/cart');
+const Product = require('../models/product');
 const Setting = require('../models/Setting');
+const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken'); 
 const nodemailer = require('nodemailer'); 
@@ -1211,11 +1213,64 @@ exports.resendVerification = async (req, res) => {
    ======================================================= */
 
 // ১০.ক. ইউজারের উইশলিস্ট দেখা
+function enrichWishlistItem(item, product) {
+    const plain = item && typeof item.toObject === 'function' ? item.toObject() : { ...item };
+    const catalog = product && typeof product.toObject === 'function'
+        ? product.toObject()
+        : (product || {});
+
+    const image = (
+        plain.image
+        || (Array.isArray(catalog.images) && catalog.images[0])
+        || catalog.image
+        || catalog.thumbnail
+        || ''
+    );
+    const emojiIcon = plain.emojiIcon || plain.icon || catalog.icon || '📦';
+
+    return {
+        productId: plain.productId,
+        name: plain.name || catalog.name || '',
+        price: plain.price != null ? Number(plain.price) : Number(catalog.price) || 0,
+        image,
+        images: catalog.images || [],
+        icon: emojiIcon,
+        emojiIcon,
+        addedAt: plain.addedAt
+    };
+}
+
+async function enrichWishlistItems(wishlist = []) {
+    const items = Array.isArray(wishlist) ? wishlist : [];
+    if (items.length === 0) return [];
+
+    const productIds = [...new Set(items.map((item) => String(item.productId)).filter(Boolean))];
+    const objectIds = productIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+    const products = await Product.find({
+        $or: [
+            { _id: { $in: objectIds } },
+            { productId: { $in: productIds } }
+        ]
+    }).select('name price images image icon productId thumbnail');
+
+    const productByKey = new Map();
+    products.forEach((product) => {
+        productByKey.set(String(product._id), product);
+        if (product.productId) productByKey.set(String(product.productId), product);
+    });
+
+    return items.map((item) =>
+        enrichWishlistItem(item, productByKey.get(String(item.productId)))
+    );
+}
+
 exports.getWishlist = async (req, res) => {
     try {
         const user = await User.findById(req.user.id).select('wishlist');
         if (!user) return res.status(404).json({ success: false, message: "User not found." });
-        res.status(200).json({ success: true, wishlist: user.wishlist || [] });
+        const enriched = await enrichWishlistItems(user.wishlist || []);
+        res.status(200).json({ success: true, wishlist: enriched });
     } catch (error) {
         console.error("Get Wishlist Error:", error);
         res.status(500).json({ success: false, message: "Failed to load wishlist." });
