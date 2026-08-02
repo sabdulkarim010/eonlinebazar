@@ -38,11 +38,9 @@ if (cameFromLogout) {
             sessionStorage.clear();
         } catch (_) { /* ignore */ }
 
-        // Strip the ?loggedout=1 flag so a refresh won't re-run this.
         try { window.history.replaceState({}, document.title, '/admin/login'); } catch (_) { /* ignore */ }
     })();
 } else if (localStorage.getItem('adminToken')) {
-    /* Already logged in — verify before redirect to avoid admin ↔ login bounce loops */
     (async function verifyBeforeDashboardRedirect() {
         const existingToken = localStorage.getItem('adminToken');
         if (!existingToken) return;
@@ -57,7 +55,9 @@ if (cameFromLogout) {
             });
 
             if (response.status === 429) {
-                showToast('Too many requests — please wait a moment, then try again.', 'error');
+                if (typeof showAdminError === 'function') {
+                    showAdminError('Too many requests — please wait a moment, then try again.');
+                }
                 return;
             }
 
@@ -85,7 +85,7 @@ if (cameFromLogout) {
 }
 
 /* ==================================================
-   1. CUSTOM PROFESSIONAL TOAST SYSTEM
+   1. CUSTOM PROFESSIONAL TOAST SYSTEM (success / info)
 ================================================== */
 function showToast(message, type = 'success') {
     const container = document.getElementById('toastContainer');
@@ -94,10 +94,10 @@ function showToast(message, type = 'success') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
 
-    let iconClass = type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark';
+    const icon = type === 'success' ? '✓' : '✕';
 
     toast.innerHTML = `
-        <i class="${iconClass}"></i>
+        <span class="toast-icon">${icon}</span>
         <span class="toast-message">${message}</span>
     `;
 
@@ -105,113 +105,114 @@ function showToast(message, type = 'success') {
 
     setTimeout(() => {
         toast.style.opacity = '0';
-        toast.style.transform = 'translateX(100px)';
+        toast.style.transform = 'translateY(-12px)';
         setTimeout(() => toast.remove(), 300);
     }, 3500);
 }
 
 /* ==================================================
-   2. PASSWORD VISIBILITY TOGGLE
+   2. LOGIN PROCESS (password → dashboard; 2FA → verify-otp)
 ================================================== */
-(function initAdminPasswordToggle() {
-    const toggleBtn = document.getElementById('toggleAdminPass');
-    const passwordInput = document.getElementById('adminPass');
-    const eyeIcon = document.getElementById('adminEyeIcon');
+async function handleAdminLogin() {
+    if (typeof hideAdminError === 'function') hideAdminError();
 
-    if (!toggleBtn || !passwordInput || !eyeIcon) return;
+    const username = document.getElementById('adminUsername')?.value.trim() || '';
+    const password = document.getElementById('adminPassword')?.value.trim() || '';
 
-    toggleBtn.addEventListener('click', () => {
-        const show = passwordInput.type === 'password';
-        passwordInput.type = show ? 'text' : 'password';
-        eyeIcon.className = show ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
-        toggleBtn.setAttribute('title', show ? 'Hide password' : 'Show password');
-        toggleBtn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
-        passwordInput.focus();
-    });
-})();
+    if (!username || !password) {
+        if (typeof showAdminError === 'function') {
+            showAdminError('Please enter your username & password');
+        }
+        return;
+    }
 
-/* ==================================================
-   3. LOGIN PROCESS (password → dashboard; OTP bypassed)
-================================================== */
-const loginForm = document.getElementById('loginForm');
+    if (typeof setAdminLoading === 'function') setAdminLoading(true);
 
-if (loginForm) {
-    loginForm.addEventListener('submit', async function (event) {
-        event.preventDefault();
+    try {
+        const response = await fetch('/api/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
 
-        const username = document.getElementById('adminUsername').value.trim();
-        const password = document.getElementById('adminPass').value.trim();
+        const data = await response.json();
 
-        if (!username || !password) {
-            showToast('Please enter your username & password', 'error');
+        if (response.status === 403 || response.status === 429) {
+            if (typeof showAdminError === 'function') {
+                showAdminError(data.message || 'Access denied.');
+            }
             return;
         }
 
-        const submitBtn = loginForm.querySelector('button[type="submit"]');
-        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Verifying…'; }
-
         try {
-            const response = await fetch('/api/admin/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
+            sessionStorage.removeItem('adminOtpToken');
+            sessionStorage.removeItem('adminOtpMeta');
+        } catch (_) { /* ignore */ }
 
-            const data = await response.json();
+        if (data.success && data.token) {
+            localStorage.setItem('adminToken', data.token);
+            if (data.image) localStorage.setItem('adminProfilePic', data.image);
+            showToast('Login successful! Redirecting to the dashboard...', 'success');
+            setTimeout(() => { window.location.href = '/admin'; }, 800);
 
-            // Blacklisted IP (403), Geo-blocked region (403), or rate limit (429)
-            // => show a clear warning, no retry loop
-            if (response.status === 403 || response.status === 429) {
-                showToast(data.message || 'Access denied.', 'error');
-                return;
+        } else if (data.success && data.otpRequired) {
+            sessionStorage.setItem('adminOtpToken', data.otpToken);
+            sessionStorage.setItem('adminOtpMeta', JSON.stringify({
+                method: data.method || 'email',
+                channelLabel: data.channelLabel || 'Email',
+                maskedTarget: data.maskedTarget || '',
+                delivered: !!data.delivered,
+                expiresInMinutes: data.expiresInMinutes || 5
+            }));
+
+            const tfaSection = document.getElementById('admin2faSection');
+            if (tfaSection) tfaSection.classList.add('show');
+
+            showToast(data.message || 'Verification required. Redirecting…', 'success');
+            setTimeout(() => { window.location.href = '/admin/verify-otp'; }, 1100);
+
+        } else {
+            if (typeof showAdminError === 'function') {
+                showAdminError(data.message || 'Invalid username or password.');
             }
-
-            // Clear any stale challenge before starting a new one
-            try {
-                sessionStorage.removeItem('adminOtpToken');
-                sessionStorage.removeItem('adminOtpMeta');
-            } catch (_) { /* ignore */ }
-
-            // 2FA disabled → server returns a final token directly
-            if (data.success && data.token) {
-                localStorage.setItem('adminToken', data.token);
-                if (data.image) localStorage.setItem('adminProfilePic', data.image);
-                showToast('Login successful! Redirecting to the dashboard...', 'success');
-                setTimeout(() => { window.location.href = '/admin'; }, 800);
-
-            // 2FA required → hand off to the 2-step verification page
-            } else if (data.success && data.otpRequired) {
-                sessionStorage.setItem('adminOtpToken', data.otpToken);
-                sessionStorage.setItem('adminOtpMeta', JSON.stringify({
-                    method: data.method || 'email',
-                    channelLabel: data.channelLabel || 'Email',
-                    maskedTarget: data.maskedTarget || '',
-                    delivered: !!data.delivered,
-                    expiresInMinutes: data.expiresInMinutes || 5
-                }));
-                showToast(data.message || 'Verification required. Redirecting…', 'success');
-                setTimeout(() => { window.location.href = '/admin/verify-otp'; }, 1100);
-
-            } else {
-                showToast(data.message || 'Invalid username or password.', 'error');
-            }
-        } catch (err) {
-            console.error('Error:', err);
-            showToast('Something went wrong. Please try again.', 'error');
-        } finally {
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Login'; }
         }
+    } catch (err) {
+        console.error('Error:', err);
+        if (typeof showAdminError === 'function') {
+            showAdminError('Something went wrong. Please try again.');
+        }
+    } finally {
+        if (typeof setAdminLoading === 'function') setAdminLoading(false);
+    }
+}
+
+window.handleAdminLogin = handleAdminLogin;
+
+const loginForm = document.getElementById('adminLoginForm');
+
+if (loginForm) {
+    loginForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        handleAdminLogin();
     });
 } else {
     console.error('Error: Required login form not found!');
 }
 
 /* ==================================================
-   4. CLEAR FORM ON BACK BUTTON
+   3. CLEAR FORM ON BACK BUTTON
 ================================================== */
 window.addEventListener('pageshow', function (event) {
     if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
-        const form = document.getElementById('loginForm');
+        const form = document.getElementById('adminLoginForm');
         if (form) form.reset();
+
+        const eyeBtn = document.getElementById('adminPasswordEye');
+        if (eyeBtn) eyeBtn.classList.remove('show');
+
+        const tfaSection = document.getElementById('admin2faSection');
+        if (tfaSection) tfaSection.classList.remove('show');
+
+        if (typeof hideAdminError === 'function') hideAdminError();
     }
 });
