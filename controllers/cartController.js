@@ -10,31 +10,31 @@ const {
 } = require('../utils/cartMergeService');
 const { isValidImagePath } = require('../utils/orderItemImages');
 
-const PRODUCT_MEDIA_SELECT = 'name price images image icon productId stockQuantity stock thumbnail';
+const PRODUCT_MEDIA_SELECT = 'name price images image thumbnail icon productId stockQuantity stock';
 
-function getRequestBaseUrl(req) {
-    const envBase = String(process.env.BASE_URL || '').trim().replace(/\/+$/, '');
-    if (envBase) {
-        return envBase.startsWith('http://')
-            ? envBase.replace(/^http:\/\//i, 'https://')
-            : envBase;
-    }
-    if (req && req.protocol && typeof req.get === 'function') {
-        const host = req.get('host');
-        if (host) {
-            return `${req.protocol}://${host}`;
-        }
-    }
-    return '';
-}
-
-function normalizeImageUrl(url, baseUrl = '') {
+/** Undo legacy HTML entity encoding that broke stored Cloudinary / absolute URLs. */
+function repairHtmlEncodedUrl(url) {
     if (url == null) return '';
     let normalized = String(url).trim();
+    if (!normalized || !normalized.includes('&')) return normalized;
+    return normalized
+        .replace(/&amp;/g, '&')
+        .replace(/&#x2F;/gi, '/')
+        .replace(/&#47;/g, '/')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#x27;/g, "'")
+        .replace(/&#39;/g, "'");
+}
+
+/** Keep relative / Cloudinary URLs intact — client resolves origin (matches wishlist enrichment). */
+function normalizeImageUrl(url) {
+    if (url == null) return '';
+    let normalized = repairHtmlEncodedUrl(String(url).trim());
     if (!normalized || normalized === 'null' || normalized === 'undefined') return '';
-    if (isPlaceholderImage(normalized)) return '';
+    if (isExactPlaceholderSvg(normalized)) return '';
     if (looksLikeEmojiOrIcon(normalized)) return '';
-    if (normalized.includes('via.placeholder.com')) return '';
 
     if (normalized.startsWith('http://')) {
         normalized = normalized.replace(/^http:\/\//i, 'https://');
@@ -45,40 +45,30 @@ function normalizeImageUrl(url, baseUrl = '') {
     }
 
     const lower = normalized.toLowerCase();
-    const isRelative = normalized.startsWith('/') || lower.startsWith('uploads/');
-
-    if (isRelative) {
-        const path = normalized.startsWith('/')
+    if (normalized.startsWith('/') || lower.startsWith('uploads/') || lower.startsWith('products/')) {
+        return normalized.startsWith('/')
             ? normalized
             : `/${normalized.replace(/^\/+/, '')}`;
-        const base = String(baseUrl || '').trim().replace(/\/+$/, '');
-        return base ? `${base}${path}` : path;
     }
 
     return normalized;
 }
 
-function normalizeImageUrlList(urls, baseUrl = '') {
+function normalizeImageUrlList(urls) {
     if (!Array.isArray(urls)) return [];
     return urls
-        .map((url) => normalizeImageUrl(url, baseUrl))
+        .map((url) => normalizeImageUrl(url))
         .filter(Boolean);
 }
 
-function isPlaceholderImage(value) {
-    if (!value) return false;
-    const v = String(value).trim().toLowerCase();
-    return v.includes('placeholder-product')
-        || v.endsWith('/images/placeholder-product.svg')
-        || v.endsWith('/images/placeholder.jpg');
+function sendCartItemsResponse(res, items, status = 200) {
+    return res.status(status).json({ success: true, data: items });
 }
 
-function isUnsafeAssetPath(value) {
-    if (value == null) return true;
-    const v = String(value).trim();
-    if (!v) return true;
-    if (v.startsWith('&') || v.startsWith('?')) return true;
-    return /^\/[&?]/.test(v);
+function isExactPlaceholderSvg(value) {
+    if (!value) return false;
+    const v = String(value).trim().toLowerCase();
+    return v === '/images/placeholder-product.svg' || v.endsWith('/images/placeholder-product.svg');
 }
 
 function looksLikeEmojiOrIcon(value) {
@@ -88,20 +78,37 @@ function looksLikeEmojiOrIcon(value) {
     return v.length <= 8 && !/[\\/.]/.test(v);
 }
 
-function isUsableCartImage(value) {
+function isPureEmoji(value) {
     const v = String(value || '').trim();
+    if (!v) return false;
+    if (/[a-zA-Z0-9]/.test(v)) return false;
+    return v.length <= 8 && !/[\\/.]/.test(v);
+}
+
+function isUsableCartImage(value) {
+    if (value == null) return false;
+    const v = String(value).trim();
     if (!v || v === 'null' || v === 'undefined') return false;
-    if (v.includes('undefined') || v.includes('via.placeholder.com')) return false;
-    if (isUnsafeAssetPath(v)) return false;
-    if (isPlaceholderImage(v)) return false;
-    if (looksLikeEmojiOrIcon(v)) return false;
-    return isValidImagePath(v);
+    if (isExactPlaceholderSvg(v)) return false;
+    if (isPureEmoji(v)) return false;
+    return true;
 }
 
 function pickFirstUsableImage(...candidates) {
     for (const candidate of candidates) {
         if (isUsableCartImage(candidate)) {
             return String(candidate).trim();
+        }
+    }
+    return null;
+}
+
+function pickFirstUsableFromImageList(images) {
+    if (!Array.isArray(images)) return null;
+    for (const image of images) {
+        const normalized = normalizeImageUrl(image);
+        if (isUsableCartImage(normalized)) {
+            return normalized;
         }
     }
     return null;
@@ -132,17 +139,26 @@ async function loadProductsForCartItems(items = []) {
     return new Map(products.map((product) => [String(product._id), product]));
 }
 
-function mapCartItemResponse(item, product, baseUrl = '') {
+function extractEmbeddedProduct(plain) {
+    const pid = plain?.productId;
+    if (pid && typeof pid === 'object' && pid._id) {
+        return typeof pid.toObject === 'function' ? pid.toObject() : pid;
+    }
+    return null;
+}
+
+function mapCartItemResponse(item, product) {
     const plain = item && typeof item.toObject === 'function' ? item.toObject() : { ...item };
+    const embeddedProduct = extractEmbeddedProduct(plain);
     const catalog = product && typeof product.toObject === 'function'
         ? product.toObject()
-        : (product || {});
+        : (product || embeddedProduct || {});
 
-    const normalizedItemImage = normalizeImageUrl(plain.image, baseUrl);
-    const normalizedVariantImage = normalizeImageUrl(plain.variantImage, baseUrl);
-    const normalizedCatalogImages = normalizeImageUrlList(catalog.images, baseUrl);
-    const normalizedCatalogImage = normalizeImageUrl(catalog.image, baseUrl);
-    const normalizedCatalogThumbnail = normalizeImageUrl(catalog.thumbnail, baseUrl);
+    const normalizedItemImage = normalizeImageUrl(plain.image);
+    const normalizedVariantImage = normalizeImageUrl(plain.variantImage);
+    const normalizedCatalogImages = normalizeImageUrlList(catalog.images);
+    const normalizedCatalogImage = normalizeImageUrl(catalog.image);
+    const normalizedCatalogThumbnail = normalizeImageUrl(catalog.thumbnail);
 
     const resolvedImage = pickFirstUsableImage(
         normalizedVariantImage,
@@ -150,19 +166,24 @@ function mapCartItemResponse(item, product, baseUrl = '') {
         normalizedCatalogImage,
         normalizedCatalogThumbnail,
         normalizedItemImage
-    ) || null;
+    ) || pickFirstUsableFromImageList(catalog.images) || '';
 
+    const lineProductId = catalog._id
+        ? String(catalog._id)
+        : extractProductId(plain.productId);
     const emojiIcon = plain.emojiIcon || catalog.icon || plain.icon || null;
 
     return {
         _id: plain._id,
-        productId: catalog._id || extractProductId(plain.productId),
+        id: lineProductId,
+        productId: lineProductId,
         name: plain.name || catalog.name || 'Product',
         price: plain.price,
         quantity: plain.quantity,
         image: resolvedImage,
+        products: resolvedImage,
+        selectedImage: resolvedImage,
         images: normalizedCatalogImages,
-        thumbnail: normalizedCatalogThumbnail || null,
         emojiIcon,
         icon: emojiIcon || plain.icon || catalog.icon || '📦',
         variantImage: normalizedVariantImage || resolvedImage || null,
@@ -182,18 +203,17 @@ function mapCartItemResponse(item, product, baseUrl = '') {
     };
 }
 
-async function formatCartItemsForResponse(items = [], req) {
+async function formatCartItemsForResponse(items = []) {
     const list = Array.isArray(items) ? items : [];
     if (list.length === 0) return [];
 
-    const baseUrl = getRequestBaseUrl(req);
     const needsLookup = list.some(
         (item) => !(item.productId && typeof item.productId === 'object' && item.productId._id)
     );
     const productById = needsLookup ? await loadProductsForCartItems(list) : new Map();
 
     return list.map((item) =>
-        mapCartItemResponse(item, resolvePopulatedProduct(item, productById), baseUrl)
+        mapCartItemResponse(item, resolvePopulatedProduct(item, productById))
     );
 }
 
@@ -207,17 +227,24 @@ exports.mergeCart = async (req, res) => {
         if (guestItems.length === 0) {
             const existing = await Cart.findOne({ userId });
             const enriched = existing
-                ? await formatCartItemsForResponse(existing.items, req)
+                ? await formatCartItemsForResponse(existing.items)
                 : [];
             return res.status(200).json({
+                success: true,
                 message: 'Cart merged successfully',
+                data: enriched,
                 cart: enriched
             });
         }
 
         const userCart = await mergeGuestCartIntoUserCart(userId, guestItems);
-        const enriched = await formatCartItemsForResponse(userCart.items, req);
-        res.status(200).json({ message: 'Cart merged successfully', cart: enriched });
+        const enriched = await formatCartItemsForResponse(userCart.items);
+        res.status(200).json({
+            success: true,
+            message: 'Cart merged successfully',
+            data: enriched,
+            cart: enriched
+        });
     } catch (error) {
         res.status(500).json({ message: 'Server error during cart merge', error: error.message });
     }
@@ -234,8 +261,8 @@ exports.getCart = async (req, res) => {
             return res.json({ success: true, data: [] });
         }
 
-        const itemsWithImages = await formatCartItemsForResponse(cart.items, req);
-        return res.json({ success: true, data: itemsWithImages });
+        const itemsWithImages = await formatCartItemsForResponse(cart.items);
+        return sendCartItemsResponse(res, itemsWithImages);
     } catch (error) {
         res.status(500).json({ message: "Error fetching cart", error: error.message });
     }
@@ -314,8 +341,8 @@ exports.addToCart = async (req, res) => {
         }
 
         await userCart.save();
-        const enriched = await formatCartItemsForResponse(userCart.items, req);
-        res.status(200).json(enriched);
+        const enriched = await formatCartItemsForResponse(userCart.items);
+        return sendCartItemsResponse(res, enriched);
     } catch (error) {
         res.status(500).json({ message: "Error adding to cart", error: error.message });
     }
@@ -332,8 +359,8 @@ exports.updateQuantity = async (req, res) => {
             if (item) {
                 item.quantity = quantity;
                 await userCart.save();
-                const enriched = await formatCartItemsForResponse(userCart.items, req);
-                return res.status(200).json(enriched);
+                const enriched = await formatCartItemsForResponse(userCart.items);
+                return sendCartItemsResponse(res, enriched);
             }
         }
         res.status(404).json({ message: "Item not found in cart" });
@@ -356,8 +383,8 @@ exports.deleteCartItem = async (req, res) => {
                 userCart.items = userCart.items.filter(item => !isSameLine(item, productId, variantId));
             }
             await userCart.save();
-            const enriched = await formatCartItemsForResponse(userCart.items, req);
-            return res.status(200).json(enriched);
+            const enriched = await formatCartItemsForResponse(userCart.items);
+            return sendCartItemsResponse(res, enriched);
         }
         res.status(404).json({ message: "Cart not found" });
     } catch (error) {
@@ -376,8 +403,8 @@ exports.toggleSelection = async (req, res) => {
             if (item) {
                 item.selected = selected;
                 await userCart.save();
-                const enriched = await formatCartItemsForResponse(userCart.items, req);
-                return res.status(200).json(enriched);
+                const enriched = await formatCartItemsForResponse(userCart.items);
+                return sendCartItemsResponse(res, enriched);
             }
         }
         res.status(404).json({ message: "Item not found" });
@@ -392,12 +419,12 @@ exports.clearCart = async (req, res) => {
         const userCart = await Cart.findOne({ userId });
 
         if (!userCart) {
-            return res.status(200).json([]);
+            return sendCartItemsResponse(res, []);
         }
 
         userCart.items = [];
         await userCart.save();
-        res.status(200).json([]);
+        return sendCartItemsResponse(res, []);
     } catch (err) {
         console.error('Error clearing cart:', err);
         res.status(500).json({ message: 'Failed to clear cart', error: err.message });

@@ -122,7 +122,7 @@
             throw new Error(data.message || 'Cart merge failed');
         }
 
-        const mergedItems = data.cart || data.items || [];
+        const mergedItems = data.data || data.cart || data.items || [];
         return applyMergedCartToClient(mergedItems, cartItems);
     }
 

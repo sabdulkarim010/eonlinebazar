@@ -13,6 +13,10 @@
             .replace(/'/g, '&#39;');
     }
 
+    function escapeUrlForAttr(url) {
+        return String(url == null ? '' : url).replace(/"/g, '&quot;');
+    }
+
     function resolveProductId(item, realProduct) {
         return item?.id || realProduct?._id || realProduct?.productId || realProduct?.id || '';
     }
@@ -261,6 +265,19 @@
         return getCartImagePlaceholderUrl();
     }
 
+    function parseCartApiResponse(payload) {
+        if (Array.isArray(payload)) return payload;
+        if (payload && Array.isArray(payload.data)) return payload.data;
+        if (payload && Array.isArray(payload.cart)) return payload.cart;
+        return [];
+    }
+
+    function getPopulatedProductIdRef(item) {
+        const pid = item?.productId;
+        if (pid && typeof pid === 'object' && pid._id) return pid;
+        return null;
+    }
+
     function resolveCartLineImageUrl(item, catalogProduct) {
         const PT = global.ProductThumbnail;
         const catalog = catalogProduct || findCatalogProduct(item, global.globalProductCatalog || []);
@@ -268,22 +285,45 @@
             return PT.resolveCartLineImageUrl(item, catalog);
         }
 
-        const product = item?.product || catalog || null;
+        const populatedRef = getPopulatedProductIdRef(item);
+        const product = item?.product || populatedRef || catalog || null;
         const candidates = [
             item?.image,
-            product?.image,
-            Array.isArray(product?.images) ? product.images[0] : null,
-            product?.thumbnail,
+            populatedRef?.image,
+            ...(Array.isArray(populatedRef?.images) ? populatedRef.images : []),
+            populatedRef?.thumbnail,
+            item?.product?.image,
+            ...(Array.isArray(item?.product?.images) ? item.product.images : []),
+            item?.product?.thumbnail,
             item?.variantImage,
             item?.selectedImage,
-            ...(Array.isArray(item?.images) ? item.images : [])
+            item?.products,
+            ...(Array.isArray(item?.images) ? item.images : []),
+            product?.image,
+            ...(Array.isArray(product?.images) ? product.images : []),
+            product?.thumbnail
         ];
 
         for (const candidate of candidates) {
             const raw = String(candidate || '').trim();
             if (!raw || isInvalidImageValue(raw) || isStoredPlaceholder(raw)) continue;
+            if (PT && typeof PT.shouldSkipForeignAbsoluteUrl === 'function' && PT.shouldSkipForeignAbsoluteUrl(raw)) {
+                continue;
+            }
             const secured = normalizeSecureImageUrl(raw);
             if (secured && !isStoredPlaceholder(secured)) return secured;
+        }
+
+        if (Array.isArray(item?.images)) {
+            for (const img of item.images) {
+                const raw = String(img || '').trim();
+                if (!raw || isInvalidImageValue(raw) || isStoredPlaceholder(raw)) continue;
+                if (PT && typeof PT.shouldSkipForeignAbsoluteUrl === 'function' && PT.shouldSkipForeignAbsoluteUrl(raw)) {
+                    continue;
+                }
+                const secured = normalizeSecureImageUrl(raw);
+                if (secured && !isStoredPlaceholder(secured)) return secured;
+            }
         }
 
         return '';
@@ -293,7 +333,26 @@
     function normalizeCartItem(item, catalogProduct) {
         const catalog = catalogProduct || null;
         const id = extractItemProductId(item);
-        const displayImage = resolveCartLineImageUrl(item, catalog);
+        let resolvedImage = resolveCartLineImageUrl(item, catalog);
+        const imagesFallback = Array.isArray(item?.images) && item.images[0]
+            ? String(item.images[0]).trim()
+            : '';
+
+        if (!resolvedImage && imagesFallback) {
+            resolvedImage = resolveCartLineImageUrl({ ...item, image: imagesFallback }, catalog)
+                || normalizeSecureImageUrl(imagesFallback)
+                || imagesFallback;
+        }
+
+        if (!resolvedImage && catalog) {
+            resolvedImage = resolveCartLineImageUrl(
+                { ...item, image: catalog.image, images: catalog.images || [] },
+                catalog
+            );
+        }
+
+        const displayImage = resolvedImage || imagesFallback || '';
+
         const PT = global.ProductThumbnail;
         let emoji = String(item?.emojiIcon || item?.icon || item?.emoji || '').trim();
         if (!emoji && PT && catalog) {
@@ -347,28 +406,39 @@
                 String(local.variantId || '') === String(serverItem.variantId || '')
             );
 
+            const serverCopy = { ...serverItem };
+            if (!serverCopy.image && Array.isArray(serverCopy.images) && serverCopy.images.length > 0) {
+                serverCopy.image = serverCopy.images[0];
+            }
+
             const merged = {
-                ...serverItem,
+                ...serverCopy,
+                id: serverCopy.id || serverCopy.productId,
                 image: (
-                    serverItem.image
+                    serverCopy.image
+                    || (Array.isArray(serverCopy.images) && serverCopy.images[0])
                     || localMatch?.image
                     || localMatch?.products
                     || null
                 ),
                 emojiIcon: (
-                    serverItem.emojiIcon
-                    || serverItem.icon
+                    serverCopy.emojiIcon
+                    || serverCopy.icon
                     || localMatch?.emojiIcon
                     || localMatch?.icon
                     || null
                 ),
                 icon: (
-                    serverItem.icon
+                    serverCopy.icon
                     || localMatch?.icon
-                    || serverItem.emojiIcon
+                    || serverCopy.emojiIcon
                     || null
                 ),
-                images: serverItem.images || localMatch?.images || []
+                images: (
+                    (Array.isArray(serverCopy.images) && serverCopy.images.length > 0)
+                        ? serverCopy.images
+                        : (localMatch?.images || [])
+                )
             };
 
             return normalizeCartItem(merged, findCatalogProduct(merged, catalog));
@@ -431,17 +501,31 @@
     function buildItemImageHtml(item, size, catalogProduct) {
         const px = size || '56px';
         const catalog = catalogProduct || findCatalogProduct(item, global.globalProductCatalog || []);
+        const PT = global.ProductThumbnail;
+
+        if (PT && typeof PT.buildForCartItem === 'function') {
+            const thumbHtml = PT.buildForCartItem(item, catalog, {
+                variant: 'compact',
+                alt: item?.name || 'Product',
+                escapeHtml
+            });
+            return '<div class="cart-item-thumb-wrap" style="width:' + px + ';height:' + px +
+                ';flex-shrink:0;overflow:hidden;border-radius:8px;display:flex;align-items:center;justify-content:center">' +
+                thumbHtml + '</div>';
+        }
+
         const validatedHttpsUrl = resolveCartItemImageUrl(item, catalog);
         const fallbackUrl = getCartImagePlaceholderUrl();
         const onerrorHandler = "if(this.src!=='" + fallbackUrl + "')this.src='" + fallbackUrl + "'";
 
-        return '<img src="' + escapeHtml(validatedHttpsUrl) + '" alt="" ' +
+        return '<img src="' + escapeUrlForAttr(validatedHttpsUrl) + '" alt="" ' +
             'style="width:' + px + ';height:' + px + ';object-fit:cover;border-radius:8px;flex-shrink:0;display:block" ' +
             'onerror="' + onerrorHandler + '">';
     }
 
     global.CartDisplayUtils = {
         escapeHtml,
+        parseCartApiResponse,
         getProductDetailUrl,
         getCartItemVariantAttributes,
         buildVariantBadgesHtml,

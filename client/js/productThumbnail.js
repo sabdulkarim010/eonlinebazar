@@ -37,6 +37,11 @@
             .replace(/'/g, '&#39;');
     }
 
+    /** Escape only what can break an HTML attribute — never HTML-encode URL path slashes. */
+    function escapeUrlForAttr(url) {
+        return String(url == null ? '' : url).replace(/"/g, '&quot;');
+    }
+
     function isValidProductImagePath(value) {
         if (!value) return false;
         const v = String(value).trim();
@@ -151,31 +156,70 @@
         return resolved;
     }
 
-    function extractCartItemRawImageUrl(item, catalogProduct) {
-        const product = item?.product || catalogProduct || null;
+    function isCloudinaryUrl(url) {
+        const lower = String(url || '').trim().toLowerCase();
+        return lower.includes('cloudinary.com') || lower.includes('res.cloudinary.com');
+    }
+
+    /** Skip stale absolute URLs from another host (e.g. wrong BASE_URL on server). */
+    function shouldSkipForeignAbsoluteUrl(raw) {
+        const v = String(raw || '').trim();
+        if (!/^https?:\/\//i.test(v)) return false;
+        if (isCloudinaryUrl(v)) return false;
+        if (typeof global.location !== 'undefined' && global.location.origin) {
+            try {
+                return new URL(v).origin !== global.location.origin;
+            } catch (_) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function getPopulatedProductIdRef(item) {
+        const pid = item?.productId;
+        if (pid && typeof pid === 'object' && pid._id) return pid;
+        return null;
+    }
+
+    function collectCartItemImageCandidates(item, catalogProduct) {
+        const populatedRef = getPopulatedProductIdRef(item);
+        const product = item?.product || populatedRef || catalogProduct || null;
         const candidates = [
             item?.image,
-            product?.image,
-            Array.isArray(product?.images) ? product.images[0] : null,
-            product?.thumbnail,
+            populatedRef?.image,
+            ...(Array.isArray(populatedRef?.images) ? populatedRef.images : []),
+            populatedRef?.thumbnail,
+            item?.product?.image,
+            ...(Array.isArray(item?.product?.images) ? item.product.images : []),
+            item?.product?.thumbnail,
             item?.variantImage,
             item?.selectedImage,
-            ...(Array.isArray(item?.images) ? item.images : [])
+            item?.products,
+            ...(Array.isArray(item?.images) ? item.images : []),
+            product?.image,
+            ...(Array.isArray(product?.images) ? product.images : []),
+            product?.thumbnail
         ];
 
-        if (catalogProduct && catalogProduct !== product) {
+        if (catalogProduct && catalogProduct !== product && catalogProduct !== populatedRef) {
             candidates.push(
                 catalogProduct.image,
-                Array.isArray(catalogProduct.images) ? catalogProduct.images[0] : null,
+                ...(Array.isArray(catalogProduct.images) ? catalogProduct.images : []),
                 catalogProduct.thumbnail
             );
         }
 
-        for (const candidate of candidates) {
+        return candidates;
+    }
+
+    function extractCartItemRawImageUrl(item, catalogProduct) {
+        for (const candidate of collectCartItemImageCandidates(item, catalogProduct)) {
             const raw = String(candidate || '').trim();
             if (!raw || raw === 'null' || raw === 'undefined') continue;
             if (looksLikeEmojiOrIcon(raw) || isPlaceholderImage(raw)) continue;
             if (isUnsafeAssetPath(raw)) continue;
+            if (shouldSkipForeignAbsoluteUrl(raw)) continue;
             return raw;
         }
 
@@ -183,14 +227,33 @@
     }
 
     function resolveCartLineImageUrl(item, catalogProduct) {
-        const raw = extractCartItemRawImageUrl(item, catalogProduct);
-        if (!raw) return '';
+        function tryResolveCandidate(raw) {
+            const candidate = String(raw || '').trim();
+            if (!candidate || candidate === 'null' || candidate === 'undefined') return '';
+            if (looksLikeEmojiOrIcon(candidate) || isPlaceholderImage(candidate)) return '';
+            if (isUnsafeAssetPath(candidate)) return '';
+            if (shouldSkipForeignAbsoluteUrl(candidate)) return '';
 
-        const resolved = resolveProductImagePath(raw) || raw;
-        const display = toDisplayImageUrl(resolved) || normalizeSecureImageUrl(resolved);
-        if (!display || isPlaceholderImage(display)) return '';
-        if (!isValidProductImagePath(display)) return '';
-        return display;
+            const resolved = resolveProductImagePath(candidate) || candidate;
+            const display = toDisplayImageUrl(resolved) || normalizeSecureImageUrl(resolved);
+            if (!display || isPlaceholderImage(display)) return '';
+            if (!isValidProductImagePath(display)) return '';
+            return display;
+        }
+
+        for (const candidate of collectCartItemImageCandidates(item, catalogProduct)) {
+            const display = tryResolveCandidate(candidate);
+            if (display) return display;
+        }
+
+        if (Array.isArray(item?.images)) {
+            for (const img of item.images) {
+                const display = tryResolveCandidate(img);
+                if (display) return display;
+            }
+        }
+
+        return '';
     }
 
     function resolveCartItemImageUrl(item, catalogProduct) {
@@ -223,21 +286,27 @@
 
     function normalizeMediaItem(raw) {
         if (!raw) return {};
-        const product = raw.product || null;
+        const populatedRef = getPopulatedProductIdRef(raw);
+        const product = raw.product || populatedRef || null;
         const selectedVariant = raw.selectedVariant && typeof raw.selectedVariant === 'object'
             ? raw.selectedVariant
             : null;
         return {
             name: raw.name || (product && product.name) || '',
             image: raw.image || raw.imageUrl || raw.photo || raw.products || raw.productImage ||
-                (product && (product.image || product.imageUrl || product.photo)) || '',
+                (product && (product.image || product.imageUrl || product.photo)) ||
+                (populatedRef && (
+                    (Array.isArray(populatedRef.images) && populatedRef.images[0]) ||
+                    populatedRef.image ||
+                    populatedRef.thumbnail
+                )) || '',
             imageUrl: raw.imageUrl || (product && product.imageUrl) || '',
             selectedImage: raw.selectedImage || raw.variantImage || '',
             variantImage: raw.variantImage || raw.selectedImage || '',
             products: raw.products || '',
             emoji: raw.emojiIcon || raw.emoji || raw.icon || (product && (product.emojiIcon || product.emoji || product.icon)) || '',
             icon: raw.emojiIcon || raw.icon || (product && (product.emojiIcon || product.icon)) || '',
-            images: raw.images || (product && product.images) || null,
+            images: raw.images || (product && product.images) || (populatedRef && populatedRef.images) || null,
             selectedVariant,
             product
         };
@@ -433,7 +502,7 @@
                 ? `<div class="${classes.emoji}" style="display:none" aria-hidden="true">${esc(state.emoji)}</div>`
                 : `<div class="${classes.noPhoto}" style="display:none" aria-hidden="true"><span>NO PHOTO</span></div>`;
 
-            return `<img src="${esc(displaySrc)}" class="${classes.img}" alt="${esc(alt)}"${loading}${sizeAttrs} onerror="${IMG_ONERROR}">${fallback}`;
+            return `<img src="${escapeUrlForAttr(displaySrc)}" class="${classes.img}" alt="${esc(alt)}"${loading}${sizeAttrs} onerror="${IMG_ONERROR}">${fallback}`;
         }
 
         if (state.type === 'emoji') {
@@ -522,11 +591,13 @@
         normalizeSecureImageUrl,
         toDisplayImageUrl,
         getAbsoluteAssetUrl,
+        shouldSkipForeignAbsoluteUrl,
         extractCartItemRawImageUrl,
         resolveCartLineImageUrl,
         resolveCartItemImageUrl,
         getCartImagePlaceholderUrl,
         collectVariantImages,
+        collectCartItemImageCandidates,
         normalizeMediaItem,
         mergeMediaSources,
         pickImageFromItem,

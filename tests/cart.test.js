@@ -32,9 +32,11 @@ describe('Cart API', () => {
             });
 
         expect(res.status).toBe(200);
-        expect(Array.isArray(res.body)).toBe(true);
-        expect(res.body.length).toBeGreaterThan(0);
-        expect(String(res.body[0].productId)).toBe(String(product._id));
+        expect(res.body.success).toBe(true);
+        expect(Array.isArray(res.body.data)).toBe(true);
+        expect(res.body.data.length).toBeGreaterThan(0);
+        expect(String(res.body.data[0].productId)).toBe(String(product._id));
+        expect(res.body.data[0].id).toBe(String(product._id));
     });
 
     test('GET /api/cart (authenticated) — get cart, expect items array to contain the added product', async () => {
@@ -92,7 +94,33 @@ describe('Cart API', () => {
 
         expect(res.status).toBe(200);
         expect(res.body.data[0].image).toBe('/products/test-shirt.jpg');
+        expect(res.body.data[0].products).toBe('/products/test-shirt.jpg');
+        expect(res.body.data[0].selectedImage).toBe('/products/test-shirt.jpg');
         expect(res.body.data[0].emojiIcon).toBe('👕');
+    });
+
+    test('POST /api/cart/add — preserves Cloudinary image URLs in request body', async () => {
+        const cloudinaryUrl = 'https://res.cloudinary.com/demo/image/upload/v123/sample.jpg';
+        const product = await seedProduct();
+        const { email, password } = await createTestUser();
+        const token = await getAuthToken(email, password);
+
+        const res = await request(app)
+            .post('/api/cart/add')
+            .set('Authorization', `Bearer ${token}`)
+            .send({
+                productId: String(product._id),
+                name: product.name,
+                price: product.price,
+                quantity: 1,
+                image: cloudinaryUrl,
+                selectedImage: cloudinaryUrl
+            });
+
+        expect(res.status).toBe(200);
+        expect(res.body.data[0].image).toBe(cloudinaryUrl);
+        expect(res.body.data[0].selectedImage).toBe(cloudinaryUrl);
+        expect(res.body.data[0].image).not.toContain('&#x2F;');
     });
 
     test('GET /api/cart — prefers catalog image over stale stored cart image', async () => {
@@ -153,7 +181,7 @@ describe('Cart API', () => {
             .set('Authorization', `Bearer ${token}`);
 
         expect(clearRes.status).toBe(200);
-        expect(clearRes.body).toEqual([]);
+        expect(clearRes.body).toEqual({ success: true, data: [] });
 
         const getRes = await request(app)
             .get('/api/cart')

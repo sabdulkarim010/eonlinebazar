@@ -183,12 +183,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         .then(data => {
             globalProductCatalog = Array.isArray(data) ? data : (data.data || data.products || []);
             window.globalProductCatalog = globalProductCatalog;
+            document.dispatchEvent(new CustomEvent('productCatalogReady'));
             fetchCartData();
         })
         .catch(err => {
             console.error("Catalog load error:", err);
             fetchCartData();
         });
+
+    document.addEventListener('productCatalogReady', () => {
+        if (customerToken && cart.length > 0 && checkoutCDU().normalizeCartArray) {
+            cart = checkoutCDU().normalizeCartArray(cart, globalProductCatalog);
+            renderCheckoutCart();
+        }
+    });
 });
 
 let checkoutLocationPair = null;
@@ -1143,11 +1151,34 @@ function updateCheckoutTotals(subtotal) {
     };
 }
 
+function parseCheckoutCartResponse(payload) {
+    if (checkoutCDU().parseCartApiResponse) {
+        return checkoutCDU().parseCartApiResponse(payload);
+    }
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.data)) return payload.data;
+    if (payload && Array.isArray(payload.cart)) return payload.cart;
+    return [];
+}
+
 function buildCheckoutItemImageHtml(item, catalogProduct) {
     const CDU = checkoutCDU();
     const catalog = catalogProduct || (CDU.findCatalogProduct
         ? CDU.findCatalogProduct(item, globalProductCatalog)
         : null);
+
+    if (window.ProductThumbnail?.buildForCartItem) {
+        const thumbHtml = window.ProductThumbnail.buildForCartItem(item, catalog, {
+            variant: 'compact',
+            showEmoji: true,
+            size: '52px',
+            alt: item?.name || 'Product'
+        });
+        return '<div class="cart-item-thumb-wrap" style="width:52px;height:52px;' +
+            'flex-shrink:0;overflow:hidden;border-radius:8px;display:flex;align-items:center;justify-content:center">' +
+            thumbHtml + '</div>';
+    }
+
     if (CDU.buildItemImageHtml) {
         return CDU.buildItemImageHtml(item, '52px', catalog);
     }
@@ -1192,10 +1223,7 @@ function fetchCartData() {
         })
         .then(res => res.json())
         .then(dbCartItems => {
-            const items = Array.isArray(dbCartItems)
-                ? dbCartItems
-                : (Array.isArray(dbCartItems?.data) ? dbCartItems.data : []);
-            cart = items.map(mapCheckoutCartItem);
+            cart = parseCheckoutCartResponse(dbCartItems).map(mapCheckoutCartItem);
             renderCheckoutCart();
         })
         .catch(err => {

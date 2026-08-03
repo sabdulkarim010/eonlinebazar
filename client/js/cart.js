@@ -11,6 +11,9 @@ function t(key, vars) {
 }
 
 function parseCartApiResponse(payload) {
+    if (CDU().parseCartApiResponse) {
+        return CDU().parseCartApiResponse(payload);
+    }
     if (Array.isArray(payload)) return payload;
     if (payload && Array.isArray(payload.data)) return payload.data;
     if (payload && Array.isArray(payload.cart)) return payload.cart;
@@ -217,6 +220,83 @@ function buildItemImageHtml(item, size, catalogProduct) {
     return cartItemImg(item, px, catalog);
 }
 
+function buildCartItemMediaHtml(item, imageSize, catalogProduct) {
+    const realProduct = catalogProduct || findCatalogProduct(item.id || item.productId);
+    if (window.ProductThumbnail?.buildForCartItem) {
+        const thumbHtml = window.ProductThumbnail.buildForCartItem(item, realProduct, {
+            variant: 'compact',
+            showEmoji: true,
+            size: imageSize,
+            alt: item?.name || 'Product'
+        });
+        return '<div class="cart-item-thumb-wrap" style="width:' + imageSize + ';height:' + imageSize +
+            ';flex-shrink:0;overflow:hidden;border-radius:8px;display:flex;align-items:center;justify-content:center">' +
+            thumbHtml + '</div>';
+    }
+    const utils = window.CartDisplayUtils || {};
+    if (utils.buildItemImageHtml) {
+        return utils.buildItemImageHtml(item, imageSize, realProduct);
+    }
+    return cartItemImg(item, imageSize, realProduct);
+}
+
+function extractCartItemProductId(item) {
+    const pid = item?.id || item?.productId;
+    if (pid && typeof pid === 'object' && pid._id) return String(pid._id);
+    return String(pid || '').trim();
+}
+
+function enrichCartItemsFromCatalog(items) {
+    const list = Array.isArray(items) ? items : [];
+    const catalog = window.globalProductCatalog || globalProductCatalog || [];
+    if (!catalog.length) return list;
+
+    return list.map((item) => {
+        const populatedRef = item?.productId && typeof item.productId === 'object' && item.productId._id
+            ? item.productId
+            : null;
+        const nestedImage = populatedRef
+            ? ((Array.isArray(populatedRef.images) && populatedRef.images[0]) || populatedRef.image || populatedRef.thumbnail || '')
+            : '';
+        const hasImage = (item.image != null && String(item.image).trim() !== '')
+            || (nestedImage && String(nestedImage).trim() !== '');
+        if (hasImage && item.image) return item;
+        if (nestedImage && !item.image) {
+            return {
+                ...item,
+                image: nestedImage,
+                products: item.products || nestedImage,
+                selectedImage: item.selectedImage || nestedImage,
+                variantImage: item.variantImage || nestedImage,
+                images: (Array.isArray(item.images) && item.images.length > 0)
+                    ? item.images
+                    : (populatedRef?.images || (nestedImage ? [nestedImage] : []))
+            };
+        }
+
+        const pid = extractCartItemProductId(item);
+        const match = catalog.find((p) =>
+            String(p._id) === String(pid) ||
+            String(p.productId) === String(pid) ||
+            String(p.id) === String(pid)
+        );
+        if (!match) return item;
+
+        const catalogImage = (Array.isArray(match.images) && match.images[0]) || match.image || match.thumbnail || null;
+        if (!catalogImage) return item;
+
+        return {
+            ...item,
+            image: catalogImage,
+            products: item.products || catalogImage,
+            selectedImage: item.selectedImage || catalogImage,
+            images: (Array.isArray(item.images) && item.images.length > 0)
+                ? item.images
+                : (match.images || (match.image ? [match.image] : []))
+        };
+    });
+}
+
 // 🌟 ডাটাবেজ থেকে লাইভ কার্ট আইটেম নিয়ে আসার ফাংশন
 function fetchLiveDBCart(localFallbackItems) {
     if (!customerToken) return Promise.resolve();
@@ -232,6 +312,10 @@ function fetchLiveDBCart(localFallbackItems) {
             cart = CDU().mergeCartItems(items, localItems);
         } else {
             cart = items.map(mapClientCartItem);
+        }
+        cart = enrichCartItemsFromCatalog(cart);
+        if (CDU().normalizeCartArray && globalProductCatalog.length > 0) {
+            cart = CDU().normalizeCartArray(cart, globalProductCatalog);
         }
         updateCartCount();
         renderCartDrawerItems();
@@ -250,6 +334,10 @@ function syncCartFromServerItems(dbCartItems, localFallbackItems) {
         cart = CDU().mergeCartItems(items, localItems);
     } else {
         cart = items.map(mapClientCartItem);
+    }
+    cart = enrichCartItemsFromCatalog(cart);
+    if (CDU().normalizeCartArray && globalProductCatalog.length > 0) {
+        cart = CDU().normalizeCartArray(cart, globalProductCatalog);
     }
     updateCartCount();
     renderCartDrawerItems();
@@ -351,9 +439,7 @@ function renderCartDrawerItems() {
         } else if (isProfilePreview || isCheckoutPreview) {
             imageSize = '52px';
         }
-        const mediaHTML = CDU.buildItemImageHtml
-            ? CDU.buildItemImageHtml(item, imageSize, realProduct)
-            : cartItemImg(item, imageSize, realProduct);
+        const mediaHTML = buildCartItemMediaHtml(item, imageSize, realProduct);
 
         const isChecked = item.selected !== false ? 'checked' : '';
         const quantity = item.quantity || 1;
@@ -914,8 +1000,9 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
         })
         .then(res => res.json())
         .then(updatedData => {
-            if (Array.isArray(updatedData)) {
-                syncCartFromServerItems(updatedData);
+            const items = parseCartApiResponse(updatedData);
+            if (items.length > 0) {
+                syncCartFromServerItems(items);
                 if (existingItem) {
                     notifyToast('🛒 Cart quantity updated!', 'success');
                 } else {
@@ -995,6 +1082,19 @@ window.getSelectedCartSubtotal = function getSelectedCartSubtotal() {
 /* ==========================================================================
    SECTION 8: INITIALIZATION ON LOAD (পেজ লোড সিঙ্ক)
    ========================================================================== */
+document.addEventListener('productCatalogReady', () => {
+    if (customerToken) {
+        fetchLiveDBCart();
+    }
+}, { once: true });
+
+document.addEventListener('productCatalogReady', () => {
+    if (customerToken && cart.length > 0 && CDU().normalizeCartArray) {
+        cart = CDU().normalizeCartArray(cart, globalProductCatalog);
+        renderCartDrawerItems();
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     updateCartCount();
     renderCartDrawerItems();

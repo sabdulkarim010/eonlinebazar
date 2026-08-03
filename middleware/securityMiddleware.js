@@ -117,17 +117,26 @@ function applySecurityMiddleware(app) {
     });
     app.use((req, res, next) => {
         if (req.body && typeof req.body === 'object') {
+            const isLikelyUrlOrPath = (value) => {
+                const s = String(value).trim();
+                if (!s) return false;
+                return /^https?:\/\//i.test(s)
+                    || s.startsWith('/')
+                    || s.startsWith('data:')
+                    || /cloudinary\.com/i.test(s);
+            };
+
             const sanitizeValue = (val) => {
                 if (typeof val === 'string') {
+                    if (isLikelyUrlOrPath(val)) return val;
                     return val
                         .replace(/</g, '&lt;')
                         .replace(/>/g, '&gt;')
                         .replace(/"/g, '&quot;')
-                        .replace(/'/g, '&#x27;')
-                        .replace(/\//g, '&#x2F;');
+                        .replace(/'/g, '&#x27;');
                 }
                 if (typeof val === 'object' && val !== null) {
-                    Object.keys(val).forEach(k => { val[k] = sanitizeValue(val[k]); });
+                    Object.keys(val).forEach((k) => { val[k] = sanitizeValue(val[k]); });
                 }
                 return val;
             };

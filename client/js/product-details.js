@@ -1950,8 +1950,11 @@ function setupEventListeners() {
             })
                 .then((res) => res.json())
                 .then((updatedData) => {
-                    if (Array.isArray(updatedData) && typeof window.syncCartFromServerItems === 'function') {
-                        window.syncCartFromServerItems(updatedData);
+                    const items = (window.CartDisplayUtils && window.CartDisplayUtils.parseCartApiResponse)
+                        ? window.CartDisplayUtils.parseCartApiResponse(updatedData)
+                        : (Array.isArray(updatedData) ? updatedData : (Array.isArray(updatedData?.data) ? updatedData.data : []));
+                    if (items.length > 0 && typeof window.syncCartFromServerItems === 'function') {
+                        window.syncCartFromServerItems(items);
                     }
                 })
                 .catch((err) => console.error('Add to cart API sync failed:', err));

@@ -2096,8 +2096,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            if (typeof window.syncCartFromServerItems === 'function' && Array.isArray(data)) {
-                window.syncCartFromServerItems(data);
+            if (typeof window.syncCartFromServerItems === 'function') {
+                const items = (window.CartDisplayUtils && window.CartDisplayUtils.parseCartApiResponse)
+                    ? window.CartDisplayUtils.parseCartApiResponse(data)
+                    : (Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []));
+                if (items.length > 0) {
+                    window.syncCartFromServerItems(items);
+                }
             } else if (typeof window.fetchLiveDBCart === 'function') {
                 await window.fetchLiveDBCart();
             } else if (typeof window.renderCartDrawerItems === 'function') {
