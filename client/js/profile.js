@@ -108,6 +108,8 @@ document.addEventListener('DOMContentLoaded', () => {
             </header>`;
     }
 
+    document.querySelectorAll('.profile-tab-header__back, .btn-back-icon').forEach((el) => el.remove());
+
     window.buildProfileTabHeader = buildProfileTabHeader;
 
     // 🔐 পেজ লোডেই সার্ভারে সেশন যাচাই করা হয়। কোনো ডিভাইস রিমোটলি লগআউট হলে
@@ -347,63 +349,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetTab === 'wallet-points' && typeof fetchWalletData === 'function') fetchWalletData();
     }
 
-    const PROFILE_TAB_TITLES = {
-        'dashboard-overview': 'Dashboard',
-        'my-orders': 'My Orders',
-        'my-cart': 'My Cart',
-        'wallet-points': 'Wallet',
-        'addresses-settings': 'Addresses',
-        'profile-info': 'Profile Settings',
-        'security-settings': 'Security'
-    };
-
-    function updateActiveTabTitle(activeTabName) {
-        const titleEl = document.getElementById('activeTabTitle');
-        if (!titleEl) return;
-
-        const tabKey = activeTabName || 'dashboard-overview';
-        titleEl.textContent = PROFILE_TAB_TITLES[tabKey]
-            || PROFILE_TAB_TITLES['dashboard-overview'];
-    }
-
-    function updateBackIconButton(activeTabName) {
-        const backBtn = document.querySelector('.btn-back-icon') || document.getElementById('profile-back-link');
-        if (!backBtn) return;
-
-        const isDashboard = !activeTabName
-            || activeTabName === 'dashboard-overview'
-            || activeTabName === 'dashboard';
-
-        if (isDashboard) {
-            backBtn.setAttribute('href', '/');
-            backBtn.setAttribute('aria-label', 'Go Back');
-            backBtn.setAttribute('title', 'Back to Home');
-            backBtn.onclick = null;
-        } else {
-            backBtn.setAttribute('href', '/profile');
-            backBtn.setAttribute('aria-label', 'Go Back');
-            backBtn.setAttribute('title', 'Back to Dashboard');
-            backBtn.onclick = function (e) {
-                e.preventDefault();
-                activateProfileTab('dashboard-overview', { scroll: true });
-                window.history.pushState({}, document.title, '/profile');
-            };
-        }
-
-        updateActiveTabTitle(activeTabName);
-    }
-
-    function initMobileProfileHeaderLayout() {
-        const navLeft = document.querySelector('.sticky-navbar .nav-left');
-        const logo = document.querySelector('.sticky-navbar .nav-logo');
-
-        if (navLeft && profileMenuToggle && logo && profileMenuToggle.parentElement !== navLeft) {
-            navLeft.insertBefore(profileMenuToggle, logo);
-        }
-    }
-
-    initMobileProfileHeaderLayout();
-
     function activateProfileTab(targetTab, { scroll = false } = {}) {
         if (!targetTab || !document.getElementById(targetTab)) return;
 
@@ -433,8 +378,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         }
-
-        updateBackIconButton(targetTab);
     }
 
     function applyInitialProfileTabFromUrl() {
@@ -472,9 +415,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     applyInitialProfileTabFromUrl();
-
-    const defaultActiveTab = document.querySelector('.tab-content.active');
-    updateBackIconButton(defaultActiveTab ? defaultActiveTab.id : 'dashboard-overview');
 
     // =================================================================
     // ৬. ইউজারের প্রোфাইল ডাটা ফেচ করা (Fetch Profile & Auto-Cache)
@@ -701,31 +641,29 @@ document.addEventListener('DOMContentLoaded', () => {
         return diffMs >= 0 && diffMs <= sevenDaysMs;
     }
 
-    function buildOrderThumbnailHtml(items) {
+    function buildOrderThumbnailHtml(items, qty = 1) {
         const PT = window.ProductThumbnail;
         const safeItems = Array.isArray(items) ? items : [];
         const first = { ...(safeItems[0] || {}) };
         ['image', 'products', 'selectedImage', 'variantImage', 'photo', 'imageUrl'].forEach((key) => {
             if (first[key] && isInvalidImageValue(first[key])) first[key] = '';
         });
-        const moreCount = Math.max(0, safeItems.length - 1);
-        const badge = moreCount > 0
-            ? `<span class="order-card-more-badge">+${moreCount}</span>`
-            : '';
 
         const media = PT
             ? PT.buildThumbnailHtml(first, { variant: 'compact', loading: 'lazy', escapeHtml })
             : '';
 
-        return `<div class="order-card-thumb-wrap">${media}${badge}</div>`;
+        const qtyBadge = `<span class="thumb-qty-badge">x${qty}</span>`;
+
+        return `<div class="order-card-thumb-wrap">${media}${qtyBadge}</div>`;
     }
 
     function buildOrderPreviewHtml(items, grandTotal) {
         const safeItems = Array.isArray(items) ? items : [];
-        const thumb = buildOrderThumbnailHtml(safeItems);
         const totalBlock = `<div class="order-card-total-mobile"><span class="order-total-amount">৳${Number(grandTotal || 0).toLocaleString()}</span></div>`;
 
         if (safeItems.length === 0) {
+            const thumb = buildOrderThumbnailHtml(safeItems, 1);
             return `<div class="order-card-body">${thumb}<div class="order-card-product-info"><span class="order-card-product-name">Unknown Item</span></div>${totalBlock}</div>`;
         }
 
@@ -733,18 +671,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const name = first.name || 'Unknown Item';
         const qty = first.quantity || first.qty || 1;
         const moreCount = safeItems.length - 1;
-        const moreText = moreCount > 0
-            ? `<span class="order-card-more-text">+${moreCount} more item${moreCount > 1 ? 's' : ''}</span>`
+        const extraItemsTag = moreCount > 0
+            ? `<span class="order-extra-items">+${moreCount} more item${moreCount > 1 ? 's' : ''}</span>`
             : '';
+        const thumb = buildOrderThumbnailHtml(safeItems, qty);
 
         return `<div class="order-card-body">
             ${thumb}
             <div class="order-card-product-info">
-                <span class="order-card-product-name">${escapeHtml(name)}</span>
-                <span class="order-card-product-meta">
-                    <span class="order-card-product-qty">×${qty}</span>
-                    ${moreText}
-                </span>
+                <span class="order-card-product-name">${escapeHtml(name)}${extraItemsTag}</span>
             </div>
             ${totalBlock}
         </div>`;
@@ -2818,6 +2753,29 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${days} day${days > 1 ? 's' : ''} ago`;
     }
 
+    function initSessionsCardHeader() {
+        const head = document.querySelector('.sessions-card-head');
+        const logoutBtn = document.getElementById('logout-all-btn');
+        if (!head || !logoutBtn) return;
+
+        logoutBtn.classList.remove('revoke-session-btn', 'logout-others-btn', 'btn-sm-logout');
+        logoutBtn.classList.add('btn-logout-all-devices');
+
+        if (!head.querySelector('.sessions-card-head__left')) {
+            const icon = head.querySelector('.profile-card-icon');
+            const textBlock = head.querySelector('.profile-card-title')?.parentElement;
+            const left = document.createElement('div');
+            left.className = 'sessions-card-head__left';
+
+            if (icon) left.appendChild(icon);
+            if (textBlock) left.appendChild(textBlock);
+
+            head.insertBefore(left, logoutBtn);
+        }
+    }
+
+    initSessionsCardHeader();
+
     async function fetchSessions() {
         const list = document.getElementById('sessions-list');
         if (!list) return;
@@ -2848,7 +2806,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (otherSessions.length === 0) {
             btn.style.display = 'none';
         } else {
-            btn.style.display = 'block';
+            btn.style.display = 'inline-flex';
         }
     }
 
@@ -2868,17 +2826,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function buildSessionLogoutButton(sessionRef) {
+        const id = escapeHtml(String(sessionRef));
         return `
             <button
                 type="button"
-                class="btn-sm-logout session-logout-btn"
-                data-id="${escapeHtml(String(sessionRef))}"
+                class="btn-logout-device-desktop session-logout-btn"
+                data-id="${id}"
                 data-current="false"
-                title="Log out device"
-                aria-label="Log out device"
+                aria-label="Log out this device"
             >
-                <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+                <i class="fas fa-sign-out-alt" aria-hidden="true"></i> Log Out This Device
+            </button>
+            <button
+                type="button"
+                class="btn-logout-device-mobile session-logout-btn"
+                data-id="${id}"
+                data-current="false"
+                title="Log Out This Device"
+                aria-label="Log out this device"
+            >
+                <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
             </button>`;
+    }
+
+    function setSessionLogoutButtonsLoading(sessionId, isLoading) {
+        const buttons = document.querySelectorAll(`.session-logout-btn[data-id="${sessionId}"]`);
+        buttons.forEach((btn) => {
+            btn.disabled = isLoading;
+            btn.innerHTML = isLoading
+                ? '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>'
+                : (btn.classList.contains('btn-logout-device-desktop')
+                    ? '<i class="fas fa-sign-out-alt" aria-hidden="true"></i> Log Out This Device'
+                    : '<i class="fas fa-sign-out-alt" aria-hidden="true"></i>');
+        });
     }
 
     function renderSessions(sessions) {
@@ -2931,8 +2911,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sessionId = logoutSessionBtn.getAttribute('data-id');
         const isCurrent = logoutSessionBtn.getAttribute('data-current') === 'true';
 
-        logoutSessionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-        logoutSessionBtn.disabled = true;
+        setSessionLogoutButtonsLoading(sessionId, true);
 
         try {
             const res = await fetch(`/api/auth/sessions/${sessionId}`, {
@@ -2953,14 +2932,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else {
                 showToast(data.message || 'Failed to log out device.', 'danger');
-                logoutSessionBtn.disabled = false;
-                logoutSessionBtn.innerHTML = '<i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>';
+                setSessionLogoutButtonsLoading(sessionId, false);
             }
         } catch (error) {
             console.error('Logout Session Error:', error);
             showToast('Server error.', 'danger');
-            logoutSessionBtn.disabled = false;
-            logoutSessionBtn.innerHTML = '<i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>';
+            setSessionLogoutButtonsLoading(sessionId, false);
         }
     });
 
