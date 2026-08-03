@@ -859,12 +859,49 @@ header.profile-tab-header {
     .profile-card-panel .announcement-banner,
     .profile-card-panel .dashboard-announcement {
         flex-direction: column;
+        padding: 12px 14px;
+        margin-top: 12px;
+        margin-bottom: 12px;
+        gap: 8px;
+    }
+
+    .profile-card-panel .announcement-banner > div,
+    .profile-card-panel .dashboard-announcement > div {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .profile-card-panel .announcement-title,
+    .profile-card-panel .announcement-text {
+        margin-bottom: 8px;
+    }
+
+    .profile-card-panel .announcement-text {
+        margin-top: 0;
     }
 
     .profile-card-panel .perks-strip,
     .profile-card-panel .announcement-highlights {
-        flex-wrap: nowrap;
+        flex-direction: column;
+        width: 100%;
+        gap: 5px;
+        overflow-x: visible;
         max-width: 100%;
+        margin-top: 0;
+        padding-bottom: 0;
+    }
+
+    .profile-card-panel .announcement-highlight,
+    .profile-card-panel .perk-chip {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: #ffffff;
+        white-space: normal;
+        font-size: 12px;
+        line-height: 1.2;
+        gap: 5px;
     }
 }
 
@@ -995,6 +1032,68 @@ header.profile-tab-header {
 .announcement-highlight-label { font-weight: 700; color: var(--text-primary); }
 .announcement-highlight-value { color: var(--text-secondary); }
 .announcement-highlight i { color: var(--primary); }
+
+@media (max-width: 768px) {
+    .announcement-banner,
+    .dashboard-announcement {
+        flex-direction: column;
+        padding: 12px 14px;
+        margin-top: 12px;
+        margin-bottom: 12px;
+        gap: 8px;
+    }
+
+    .announcement-banner > div,
+    .dashboard-announcement > div {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .announcement-icon {
+        font-size: 1rem;
+    }
+
+    .announcement-title,
+    .announcement-text {
+        margin-bottom: 8px;
+    }
+
+    .announcement-text {
+        margin-top: 0;
+        line-height: 1.3;
+    }
+
+    .perks-strip,
+    .announcement-highlights {
+        flex-direction: column;
+        width: 100%;
+        gap: 5px;
+        overflow-x: visible;
+        margin-top: 0;
+        padding-bottom: 0;
+    }
+
+    .perk-chip,
+    .announcement-highlight {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: #ffffff;
+        white-space: normal;
+        font-size: 12px;
+        line-height: 1.2;
+        gap: 5px;
+    }
+
+    .announcement-highlight-label,
+    .announcement-highlight-value {
+        line-height: 1.2;
+        margin: 0;
+    }
+}
 
 /* =================================================================
    7. ORDERS TABLE
