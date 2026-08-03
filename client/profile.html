@@ -6,7 +6,6 @@
     <title>My Profile | EonlineBazar</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="css/style.css">
     <!-- cart.css must load BEFORE profile.css so profile.css owns the dashboard's global theming (body color, dark mode) -->
@@ -43,495 +42,569 @@
 </header>
 
 
-<div class="dashboard-container">
-    
-    <aside class="sidebar" id="sidebar-menu">
-        <div class="sidebar-user">
-            <div class="avatar-container">
-                <img id="sidebar-avatar" src="/images/placeholder-product.svg" alt="User Avatar" class="avatar-image" onerror="this.onerror=null;this.src='/images/placeholder-product.svg';">
-                <label for="avatar-input" class="upload-badge" title="Update Profile Picture">
+<div id="profile-drawer-overlay" class="profile-drawer-overlay" aria-hidden="true"></div>
+
+<div class="profile-wrapper profile-container dashboard-container">
+
+    <aside class="profile-sidebar sidebar" id="sidebar-menu">
+        <div class="sidebar-avatar-section sidebar-user">
+            <div class="avatar-wrap avatar-container">
+                <img id="sidebar-avatar" src="/images/placeholder-product.svg" alt="User Avatar" class="avatar-img avatar-image" onerror="this.onerror=null;this.src='/images/placeholder-product.svg';">
+                <label for="avatar-input" class="avatar-edit-btn upload-badge" title="Update Profile Picture">
                     <i class="fa-solid fa-camera"></i>
                 </label>
                 <input type="file" id="avatar-input" accept="image/*" hidden>
             </div>
-            <h3 id="sidebar-name">Loading...</h3>
-            <p id="sidebar-email">Loading...</p>
-            <span class="user-status-badge"><i class="fa-solid fa-circle-check"></i> Verified User</span>
+            <div class="sidebar-user-name" id="sidebar-name">Loading...</div>
+            <div class="sidebar-user-email" id="sidebar-email">Loading...</div>
+            <span class="sidebar-verified-badge user-status-badge"><i class="fa-solid fa-circle-check"></i> Verified User</span>
         </div>
 
-        <nav class="sidebar-menu">
-            <a href="/profile" class="menu-item active auto-refresh-link" data-tab="dashboard-overview">
-                <i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span>
+        <nav class="sidebar-nav sidebar-menu">
+            <a href="/profile" class="sidebar-nav-item menu-item active auto-refresh-link" data-tab="dashboard-overview">
+                <i class="fa-solid fa-chart-pie nav-icon"></i>
+                <span class="nav-label">Dashboard</span>
             </a>
-            <a href="/profile" class="menu-item auto-refresh-link" data-tab="my-orders">
-                <i class="fa-solid fa-box-open"></i> <span>My Orders</span>
+            <a href="/profile" class="sidebar-nav-item menu-item auto-refresh-link" data-tab="my-orders">
+                <i class="fa-solid fa-box-open nav-icon"></i>
+                <span class="nav-label">My Orders</span>
             </a>
-            <a href="/profile" class="menu-item auto-refresh-link" data-tab="my-cart">
-                <i class="fa-solid fa-cart-arrow-down"></i> <span>My Cart</span>
+            <a href="/profile" class="sidebar-nav-item menu-item auto-refresh-link" data-tab="my-cart">
+                <i class="fa-solid fa-cart-arrow-down nav-icon"></i>
+                <span class="nav-label">My Cart</span>
+                <span class="nav-badge" id="sidebar-cart-badge" style="display:none;">0</span>
             </a>
-            <a href="/profile" class="menu-item auto-refresh-link" data-tab="wallet-points">
-                <i class="fa-solid fa-wallet"></i> <span>Wallet & Points</span>
+            <a href="/profile" class="sidebar-nav-item menu-item auto-refresh-link" data-tab="wallet-points">
+                <i class="fa-solid fa-wallet nav-icon"></i>
+                <span class="nav-label">Wallet</span>
             </a>
-            <a href="/profile" class="menu-item auto-refresh-link" data-tab="addresses-settings">
-                <i class="fa-solid fa-map-location-dot"></i> <span>Addresses</span>
+            <a href="/profile" class="sidebar-nav-item menu-item auto-refresh-link" data-tab="addresses-settings">
+                <i class="fa-solid fa-map-location-dot nav-icon"></i>
+                <span class="nav-label">Addresses</span>
             </a>
-            <a href="/profile" class="menu-item auto-refresh-link" data-tab="profile-info">
-                <i class="fa-regular fa-user"></i> <span>Profile Settings</span>
+            <a href="/profile" class="sidebar-nav-item menu-item auto-refresh-link" data-tab="profile-info">
+                <i class="fa-regular fa-user nav-icon"></i>
+                <span class="nav-label">Profile</span>
             </a>
-            <a href="/profile" class="menu-item auto-refresh-link" data-tab="security-settings">
-                <i class="fa-solid fa-shield-halved"></i> <span>Security</span>
+            <a href="/profile" class="sidebar-nav-item menu-item auto-refresh-link" data-tab="security-settings">
+                <i class="fa-solid fa-shield-halved nav-icon"></i>
+                <span class="nav-label">Security</span>
             </a>
-            <button id="logout-btn" class="menu-item logout">
-                <i class="fa-solid fa-arrow-right-from-bracket"></i> <span>Logout</span>
+            <button id="logout-btn" class="sidebar-logout-btn menu-item logout">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                <span>Logout</span>
             </button>
         </nav>
     </aside>
 
-    <main class="main-content">
+    <main class="profile-content profile-content-area main-content">
 
-        <div class="profile-top-actions">
-            <a href="/" id="profile-back-link" class="top-back-btn back-to-home-btn" aria-label="Back to Home">← Back to Home</a>
+        <div class="profile-top-actions profile-header-bar">
+            <button type="button" id="profile-menu-toggle" class="profile-hamburger-btn" aria-label="Open navigation menu" aria-expanded="false" aria-controls="sidebar-menu">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </button>
+            <div class="profile-tab-header-bar">
+                <a href="/" id="profile-back-link" class="btn-back-icon" aria-label="Go Back" title="Back to Home">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </a>
+                <h2 class="active-tab-title" id="activeTabTitle">Dashboard</h2>
+            </div>
         </div>
 
+        <!-- ═══ SECTION 1: DASHBOARD ═══ -->
         <section id="dashboard-overview" class="tab-content active">
-    <div class="content-header content-header--dashboard">
-        <h2>Welcome Back, <span class="user-display-name">User</span>!</h2>
-        <p class="content-header-subtitle">Here's your account overview and recent updates.</p>
-    </div>
+            <div class="profile-card-panel">
+            <header class="profile-tab-header">
+                <div class="profile-tab-header__icon profile-card-icon" aria-hidden="true"><i class="fa-solid fa-gauge-high"></i></div>
+                <div class="profile-tab-header__text">
+                    <h2 class="profile-tab-header__title">Welcome Back, <span class="user-display-name">User</span>!</h2>
+                    <p class="profile-tab-header__subtitle">Here's your account overview and recent updates.</p>
+                </div>
+            </header>
 
-    <div class="dashboard-stats-grid">
-        <div class="stat-card total-orders">
-            <div class="stat-icon stat-icon-blue"><i class="fa-solid fa-bag-shopping"></i></div>
-            <div class="stat-info">
-                <h3 id="stat-total-orders">0</h3>
-                <p>Total Orders</p>
+            <div class="dashboard-stats-grid">
+                <div class="stat-card orders total-orders">
+                    <span class="stat-card-icon"><i class="fa-solid fa-bag-shopping"></i></span>
+                    <div class="stat-card-value" id="stat-total-orders">0</div>
+                    <div class="stat-card-label">Total Orders</div>
+                </div>
+                <div class="stat-card pending pending-orders">
+                    <span class="stat-card-icon"><i class="fa-solid fa-truck-ramp-box"></i></span>
+                    <div class="stat-card-value" id="stat-pending-orders">0</div>
+                    <div class="stat-card-label">Pending Orders</div>
+                </div>
+                <div class="stat-card wallet available-balance">
+                    <span class="stat-card-icon"><i class="fa-solid fa-money-bill-wave"></i></span>
+                    <div class="stat-card-value" id="stat-wallet-balance">৳0.00</div>
+                    <div class="stat-card-label">Available Balance</div>
+                </div>
+                <div class="stat-card points loyalty-points">
+                    <span class="stat-card-icon"><i class="fa-solid fa-star"></i></span>
+                    <div class="stat-card-value" id="stat-loyalty-points">0</div>
+                    <div class="stat-card-label">Loyalty Points</div>
+                </div>
             </div>
-        </div>
-        <div class="stat-card pending-orders">
-            <div class="stat-icon stat-icon-orange"><i class="fa-solid fa-truck-ramp-box"></i></div>
-            <div class="stat-info">
-                <h3 id="stat-pending-orders">0</h3>
-                <p>Pending Orders</p>
+
+            <div class="profile-card dashboard-orders-card card">
+                <div class="profile-card-header">
+                    <div class="profile-card-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                    <div>
+                        <h3 class="profile-card-title">Recent Order Activity</h3>
+                        <p class="profile-card-subtitle">Your latest purchases at a glance</p>
+                    </div>
+                </div>
+                <div class="profile-card-body">
+                    <div class="table-responsive orders-table-responsive mt-15">
+                        <table class="orders-table orders-table--responsive recent-orders-table">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Date</th>
+                                    <th>Products</th>
+                                    <th>Total Amount</th>
+                                    <th>Status</th>
+                                    <th class="order-actions-th">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashboard-orders-tbody">
+                                <tr>
+                                    <td colspan="6" class="text-center p-20">
+                                        <i class="fa-solid fa-spinner fa-spin"></i> Loading recent activity...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-        </div>
-        <div class="stat-card available-balance">
-            <div class="stat-icon stat-icon-green"><i class="fa-solid fa-money-bill-wave"></i></div>
-            <div class="stat-info">
-                <h3 id="stat-wallet-balance">৳0.00</h3>
-                <p>Available Balance</p>
+
+            <div id="overview-skeleton" class="skeleton-container hidden">
+                <div class="skeleton-line title"></div>
+                <div class="skeleton-line paragraph"></div>
+                <div class="skeleton-card"></div>
             </div>
-        </div>
-        <div class="stat-card loyalty-points">
-            <div class="stat-icon stat-icon-purple"><i class="fa-solid fa-star"></i></div>
-            <div class="stat-info">
-                <h3 id="stat-loyalty-points">0</h3>
-                <p>Loyalty Points</p>
+
+            <div class="announcement-banner dashboard-announcement" id="dashboard-announcement-card">
+                <span class="announcement-icon"><i class="fa-solid fa-bullhorn"></i></span>
+                <div>
+                    <div class="announcement-title">Latest Announcement</div>
+                    <p class="announcement-text" id="dashboard-announcement-text">Loading the latest offers...</p>
+                    <ul class="perks-strip announcement-highlights" id="dashboard-announcement-highlights"></ul>
+                </div>
             </div>
-        </div>
-    </div>
+            </div>
+        </section>
 
-    <div class="card dashboard-orders-card">
-        <h3><i class="fa-solid fa-clock-rotate-left primary-icon-color"></i> Recent Order Activity</h3>
-        <div class="table-responsive orders-table-responsive mt-15">
-            <table class="orders-table orders-table--responsive">
-                <thead>
-                    <tr>
-                        <th>Order ID</th>
-                        <th>Date</th>
-                        <th>Products</th>
-                        <th>Total Amount</th>
-                        <th>Status</th>
-                        <th class="order-actions-th">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="dashboard-orders-tbody">
-                    <tr>
-                        <td colspan="6" class="text-center p-20">
-                            <i class="fa-solid fa-spinner fa-spin"></i> Loading recent activity...
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div id="overview-skeleton" class="skeleton-container hidden">
-        <div class="skeleton-line title"></div>
-        <div class="skeleton-line paragraph"></div>
-        <div class="skeleton-card"></div>
-    </div>
-
-    <div class="card basic-card dashboard-announcement" id="dashboard-announcement-card">
-        <h3><i class="fa-solid fa-bullhorn primary-icon-color"></i> Latest Announcement</h3>
-        <p class="announcement-text mt-10" id="dashboard-announcement-text">Loading the latest offers...</p>
-        <ul class="announcement-highlights" id="dashboard-announcement-highlights"></ul>
-    </div>
-</section>
-
+        <!-- ═══ SECTION 2: MY ORDERS ═══ -->
         <section id="my-orders" class="tab-content">
-            <div class="content-header orders-header-wrapper" id="orders-section">
-                <div class="header-text">
-                    <h2>My Orders</h2>
-                    <p>Track your recent orders, view status, and manage invoices.</p>
+            <div class="profile-card-panel">
+            <header class="profile-tab-header" id="orders-section">
+                <div class="profile-tab-header__icon profile-card-icon" aria-hidden="true"><i class="fa-solid fa-box-open"></i></div>
+                <div class="profile-tab-header__text">
+                    <h2 class="profile-tab-header__title">My Orders</h2>
+                    <p class="profile-tab-header__subtitle">Track your recent orders, view status, and manage invoices.</p>
+                </div>
+            </header>
+
+            <div class="profile-card orders-list-card card">
+                <div class="profile-card-body orders-list">
+                    <div class="table-responsive orders-table-responsive">
+                        <table class="orders-table orders-table--responsive">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Date</th>
+                                    <th>Products</th>
+                                    <th>Total Amount</th>
+                                    <th>Status</th>
+                                    <th class="order-actions-th">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="orders-list-tbody">
+                                <tr>
+                                    <td colspan="6" class="text-center p-20">
+                                        <i class="fa-solid fa-spinner fa-spin"></i> Loading orders...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <nav id="orders-pagination" class="orders-pagination hidden" aria-label="Orders pagination"></nav>
                 </div>
             </div>
-
-            <div class="card orders-list-card">
-                <div class="table-responsive orders-table-responsive">
-                    <table class="orders-table orders-table--responsive">
-                        <thead>
-                            <tr>
-                                <th>Order ID</th>
-                                <th>Date</th>
-                                <th>Products</th>
-                                <th>Total Amount</th>
-                                <th>Status</th>
-                                <th class="order-actions-th">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="orders-list-tbody">
-                            <tr>
-                                <td colspan="6" class="text-center p-20">
-                                    <i class="fa-solid fa-spinner fa-spin"></i> Loading orders...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
             </div>
         </section>
 
+        <!-- ═══ SECTION 3: CART & WISHLIST ═══ -->
         <section id="my-cart" class="tab-content profile-cart-tab">
-            <div class="content-header cart-section-header">
-                <h2><i class="fa-solid fa-bag-shopping primary-icon-color"></i> My Cart &amp; Wishlist</h2>
-                <p>Review items in your bag and manage saved favorites.</p>
-            </div>
+            <div class="profile-card-panel">
+            <header class="profile-tab-header">
+                <div class="profile-tab-header__icon profile-card-icon" aria-hidden="true"><i class="fa-solid fa-bag-shopping"></i></div>
+                <div class="profile-tab-header__text">
+                    <h2 class="profile-tab-header__title">My Cart &amp; Wishlist</h2>
+                    <p class="profile-tab-header__subtitle">Review items in your bag and manage saved favorites.</p>
+                </div>
+            </header>
 
-            <div class="card cart-section-card cart-preview-card profile-cart-full-width">
-                <div id="cart-items-preview-list" class="cart-preview-list w-full">
-                    <p class="text-center empty-cart-text">Your cart is empty. <a href="/" class="shop-now-link">Shop Now</a></p>
+            <div class="profile-card cart-section-card cart-preview-card profile-cart-full-width card">
+                <div class="profile-card-body">
+                    <div id="cart-items-preview-list" class="cart-preview-list w-full">
+                        <p class="text-center empty-cart-text">Your cart is empty. <a href="/" class="shop-now-link">Shop Now</a></p>
+                    </div>
                 </div>
             </div>
 
-            <div class="content-header wishlist-header wishlist-section-header">
-                <h3><i class="fa-solid fa-heart primary-icon-color"></i> My Wishlist</h3>
-                <p>Saved items stay here until you remove them.</p>
-            </div>
-            <div class="card wishlist-section-card">
-                <div id="wishlist-items-list" class="wishlist-grid">
-                    <p class="text-center wishlist-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading your wishlist...</p>
+            <div class="profile-card wishlist-section-card card">
+                <div class="profile-card-header wishlist-header wishlist-section-header">
+                    <div class="profile-card-icon"><i class="fa-solid fa-heart"></i></div>
+                    <div>
+                        <h3 class="profile-card-title">My Wishlist</h3>
+                        <p class="profile-card-subtitle">Saved items stay here until you remove them.</p>
+                    </div>
                 </div>
+                <div class="profile-card-body">
+                    <div id="wishlist-items-list" class="wishlist-grid">
+                        <p class="text-center wishlist-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading your wishlist...</p>
+                    </div>
+                </div>
+            </div>
             </div>
         </section>
 
+        <!-- ═══ SECTION 4: WALLET & POINTS ═══ -->
         <section id="wallet-points" class="tab-content">
-            <div class="content-header">
-                <h2>Wallet & Loyalty Points</h2>
-                <p>Manage your funds, track cashbacks, and convert reward points into wallet balance.</p>
-            </div>
+            <div class="profile-card-panel">
+            <header class="profile-tab-header">
+                <div class="profile-tab-header__icon profile-card-icon" aria-hidden="true"><i class="fa-solid fa-wallet"></i></div>
+                <div class="profile-tab-header__text">
+                    <h2 class="profile-tab-header__title">Wallet &amp; Loyalty Points</h2>
+                    <p class="profile-tab-header__subtitle">Manage your funds, track cashbacks, and convert reward points into wallet balance.</p>
+                </div>
+            </header>
 
             <div class="wallet-grid">
-                <div class="card">
-                    <h3>Wallet Funds & Cashback</h3>
-                    <div class="balance-display-box">
-                        <span class="balance-label">Current Funds</span>
-                        <h2 id="main-balance-amount" class="main-balance-amount">৳0.00</h2>
+                <div class="profile-card card">
+                    <div class="profile-card-body">
+                        <div class="balance-card balance-display-box">
+                            <div class="balance-label">Current Funds</div>
+                            <div class="balance-amount main-balance-amount" id="main-balance-amount">৳0.00</div>
+                        </div>
+                        <h4 class="cashback-title profile-card-title" style="margin-top:20px;">Wallet Transaction History</h4>
+                        <ul class="cashback-history-list" id="cashback-list">
+                            <li class="history-item empty transaction-item">No recent cashback transactions.</li>
+                        </ul>
                     </div>
-                    <h4 class="cashback-title">Wallet Transaction History</h4>
-                    <ul class="cashback-history-list" id="cashback-list">
-                        <li class="history-item empty">No recent cashback transactions.</li>
-                    </ul>
                 </div>
 
-                <div class="card">
-                    <h3>Points Calculator & Converter</h3>
-                    <div class="points-display-box">
-                        <span class="points-label">Your Points</span>
-                        <h2 id="current-points-calc" class="main-points-amount">0 XP</h2>
-                    </div>
-                    
-                    <div class="calculator-form mt-20">
-                        <label for="points-to-convert">Enter Points to Convert</label>
-                        <div class="input-wrapper mt-8">
-                            <i class="fa-solid fa-calculator input-icon"></i>
-                            <input type="number" id="points-to-convert" placeholder="Minimum 100 points" min="100" step="100">
+                <div class="profile-card card">
+                    <div class="profile-card-body">
+                        <div class="points-card points-display-box">
+                            <div class="balance-label points-label">Your Points</div>
+                            <div class="points-amount main-points-amount" id="current-points-calc">0 <span class="points-unit">XP</span></div>
                         </div>
-                        <p class="conversion-rate-text mt-8" id="conversion-rate-text"><i class="fa-solid fa-circle-info"></i> Conversion Rate: 100 Points = ৳10 Wallet Balance</p>
-                        <button type="button" id="convert-points-btn" class="btn btn-primary w-100 flex-center mt-15">
-                            <i class="fa-solid fa-rotate"></i> Convert to Cash
-                        </button>
+                        
+                        <div class="calculator-form mt-20">
+                            <label for="points-to-convert" class="profile-field-label">Enter Points to Convert</label>
+                            <div class="converter-input-wrap input-wrapper mt-8">
+                                <input type="number" id="points-to-convert" class="converter-input" placeholder="Minimum 100 points" min="100" step="100">
+                                <button type="button" id="convert-points-btn" class="convert-btn btn btn-primary">
+                                    <i class="fa-solid fa-rotate"></i> Convert
+                                </button>
+                            </div>
+                            <p class="conversion-rate-text mt-8" id="conversion-rate-text"><i class="fa-solid fa-circle-info"></i> Conversion Rate: 100 Points = ৳10 Wallet Balance</p>
+                        </div>
                     </div>
                 </div>
+            </div>
             </div>
         </section>
 
+        <!-- ═══ SECTION 5: ADDRESSES ═══ -->
         <section id="addresses-settings" class="tab-content">
-            <div class="content-header">
-                <h2>Saved Delivery Addresses</h2>
-                <p>Add or modify your multiple shipping locations for seamless checkouts.</p>
-            </div>
-            <div class="address-grid" id="address-grid">
-                <div class="card add-address-blank-card" id="add-address-card">
-                    <i class="fa-solid fa-circle-plus"></i>
+            <div class="profile-card-panel">
+            <header class="profile-tab-header">
+                <div class="profile-tab-header__icon profile-card-icon" aria-hidden="true"><i class="fa-solid fa-map-location-dot"></i></div>
+                <div class="profile-tab-header__text">
+                    <h2 class="profile-tab-header__title">Saved Delivery Addresses</h2>
+                    <p class="profile-tab-header__subtitle">Add or modify your multiple shipping locations for seamless checkouts.</p>
+                </div>
+            </header>
+            <div class="addresses-grid address-grid" id="address-grid">
+                <div class="address-add-card add-address-blank-card card" id="add-address-card">
+                    <div class="address-add-icon"><i class="fa-solid fa-circle-plus"></i></div>
                     <span>Add New Address</span>
                 </div>
             </div>
+            </div>
         </section>
 
+        <!-- ═══ SECTION 6: PROFILE SETTINGS ═══ -->
         <section id="profile-info" class="tab-content">
-            <div class="content-header profile-settings-header">
-                <h2>Profile Settings</h2>
-                <p>Keep your account complete and up to date. Saved details auto-fill at checkout and help us personalize your experience.</p>
-            </div>
+            <div class="profile-card-panel">
+            <header class="profile-tab-header">
+                <div class="profile-tab-header__icon profile-card-icon" aria-hidden="true"><i class="fa-regular fa-user"></i></div>
+                <div class="profile-tab-header__text">
+                    <h2 class="profile-tab-header__title">Profile Settings</h2>
+                    <p class="profile-tab-header__subtitle">Keep your account complete and up to date. Saved details auto-fill at checkout.</p>
+                </div>
+            </header>
 
-            <div class="card profile-settings-card">
-                <form id="profile-form" class="profile-settings-form" novalidate>
+            <div class="profile-card profile-settings-card card">
+                <div class="profile-card-body">
+                    <form id="profile-form" class="profile-settings-form" novalidate>
 
-                    <div class="profile-form-section">
-                        <div class="profile-section-header">
-                            <div class="profile-section-icon" aria-hidden="true">
-                                <i class="fa-regular fa-id-card"></i>
+                        <div class="profile-form-section">
+                            <div class="profile-section-header">
+                                <div class="profile-section-icon profile-card-icon" aria-hidden="true">
+                                    <i class="fa-regular fa-id-card"></i>
+                                </div>
+                                <div class="profile-section-copy">
+                                    <h3>Personal Information</h3>
+                                    <p>Name, contact details, and optional demographic info for your account.</p>
+                                </div>
                             </div>
-                            <div class="profile-section-copy">
-                                <h3>Personal Information</h3>
-                                <p>Name, contact details, and optional demographic info for your account.</p>
+
+                            <div class="profile-settings-grid form-grid profile-form-grid">
+                                <div class="profile-field input-group">
+                                    <label for="profile-name" class="profile-field-label">Full Name</label>
+                                    <div class="profile-input-wrap input-wrapper">
+                                        <i class="fa-regular fa-user profile-input-icon input-icon"></i>
+                                        <input type="text" id="profile-name" class="profile-input" required placeholder="Enter your full name" autocomplete="name">
+                                    </div>
+                                </div>
+
+                                <div class="profile-field input-group">
+                                    <label for="profile-email" class="profile-field-label">Email Address <span class="field-tag readonly badge-readonly">Read Only</span></label>
+                                    <div class="profile-input-wrap input-wrapper input-wrapper--disabled">
+                                        <i class="fa-regular fa-envelope profile-input-icon input-icon"></i>
+                                        <input type="email" id="profile-email" class="profile-input readonly-field" readonly title="Email cannot be changed" autocomplete="email">
+                                    </div>
+                                </div>
+
+                                <div class="profile-field input-group">
+                                    <label for="profile-phone" class="profile-field-label">Phone Number <span class="field-tag security badge-readonly">Security</span></label>
+                                    <div class="profile-input-wrap input-wrapper input-wrapper--disabled">
+                                        <i class="fa-solid fa-phone profile-input-icon input-icon"></i>
+                                        <input type="tel" id="profile-phone" class="profile-input readonly-field" readonly title="Update phone via Security tab" autocomplete="tel">
+                                    </div>
+                                    <small class="profile-field-hint">Change your phone number under <strong>Security</strong> with OTP verification.</small>
+                                </div>
+
+                                <div class="profile-field input-group">
+                                    <label for="profile-gender" class="profile-field-label">Gender</label>
+                                    <div class="profile-input-wrap input-wrapper select-wrapper">
+                                        <i class="fa-solid fa-venus-mars profile-input-icon input-icon"></i>
+                                        <select id="profile-gender" class="profile-input" aria-label="Gender">
+                                            <option value="">Select Gender</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="profile-field input-group">
+                                    <label for="profile-dob" class="profile-field-label">Date of Birth</label>
+                                    <div class="profile-input-wrap input-wrapper">
+                                        <i class="fa-regular fa-calendar profile-input-icon input-icon"></i>
+                                        <input type="date" id="profile-dob" class="profile-input" aria-label="Date of birth">
+                                    </div>
+                                    <small class="profile-field-hint">Optional — helps us tailor offers and improve store analytics.</small>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="form-grid profile-form-grid">
-                            <div class="input-group">
-                                <label for="profile-name">Full Name</label>
-                                <div class="input-wrapper">
-                                    <i class="fa-regular fa-user input-icon"></i>
-                                    <input type="text" id="profile-name" required placeholder="Enter your full name" autocomplete="name">
+                        <div class="profile-form-divider" role="separator" aria-hidden="true"></div>
+
+                        <div class="profile-form-section">
+                            <div class="profile-section-header">
+                                <div class="profile-section-icon profile-section-icon--location profile-card-icon" aria-hidden="true">
+                                    <i class="fa-solid fa-truck-fast"></i>
+                                </div>
+                                <div class="profile-section-copy">
+                                    <h3>Shipping &amp; Location Details</h3>
+                                    <p>Your default delivery address used for orders and shipping fee calculation.</p>
                                 </div>
                             </div>
 
-                            <div class="input-group">
-                                <label for="profile-email">Email Address <span class="badge-readonly">Read Only</span></label>
-                                <div class="input-wrapper input-wrapper--disabled">
-                                    <i class="fa-regular fa-envelope input-icon"></i>
-                                    <input type="email" id="profile-email" readonly title="Email cannot be changed" autocomplete="email">
+                            <div class="profile-settings-grid form-grid profile-form-grid">
+                                <div class="profile-field input-group">
+                                    <label for="district-search-input" class="profile-field-label">District <span class="field-tag autofill badge-primary">Auto-fill ready</span></label>
+                                    <div class="profile-input-wrap input-wrapper district-search-wrapper">
+                                        <i class="fa-solid fa-map profile-input-icon input-icon"></i>
+                                        <div class="district-search-wrapper">
+                                            <input
+                                                type="text"
+                                                id="district-search-input"
+                                                class="profile-input district-search-input"
+                                                placeholder="Search district..."
+                                                autocomplete="off"
+                                            >
+                                            <div id="district-dropdown-list" class="district-dropdown-list"></div>
+                                            <input type="hidden" id="district" name="district">
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div class="input-group">
-                                <label for="profile-phone">Phone Number <span class="badge-readonly">Security</span></label>
-                                <div class="input-wrapper input-wrapper--disabled">
-                                    <i class="fa-solid fa-phone input-icon"></i>
-                                    <input type="tel" id="profile-phone" readonly title="Update phone via Security tab" autocomplete="tel">
+                                <div class="profile-field input-group">
+                                    <label for="profile-upazila" class="profile-field-label">Upazila / Thana</label>
+                                    <div class="profile-input-wrap input-wrapper select-wrapper">
+                                        <i class="fa-solid fa-location-crosshairs profile-input-icon input-icon"></i>
+                                        <select id="profile-upazila" class="profile-input" required disabled>
+                                            <option value="">Select upazila / thana</option>
+                                        </select>
+                                    </div>
                                 </div>
-                                <small class="profile-field-hint">Change your phone number under <strong>Security</strong> with OTP verification.</small>
-                            </div>
 
-                            <div class="input-group">
-                                <label for="profile-gender">Gender</label>
-                                <div class="input-wrapper select-wrapper">
-                                    <i class="fa-solid fa-venus-mars input-icon"></i>
-                                    <select id="profile-gender" aria-label="Gender">
-                                        <option value="">Select Gender</option>
-                                        <option value="Male">Male</option>
-                                        <option value="Female">Female</option>
-                                        <option value="Other">Other</option>
-                                    </select>
+                                <div class="profile-field full-width input-group full-width">
+                                    <label for="profile-full-address" class="profile-field-label">Full Address / Village / Street</label>
+                                    <div class="profile-input-wrap input-wrapper text-area-wrapper">
+                                        <i class="fa-solid fa-location-dot profile-input-icon input-icon"></i>
+                                        <textarea id="profile-full-address" class="profile-input" rows="3" placeholder="House, road, village, area, post office details"></textarea>
+                                    </div>
+                                    <small class="profile-field-hint">Saved district and upazila will auto-fill on checkout for delivery fee calculation.</small>
                                 </div>
-                            </div>
 
-                            <div class="input-group">
-                                <label for="profile-dob">Date of Birth</label>
-                                <div class="input-wrapper">
-                                    <i class="fa-regular fa-calendar input-icon"></i>
-                                    <input type="date" id="profile-dob" aria-label="Date of birth">
-                                </div>
-                                <small class="profile-field-hint">Optional — helps us tailor offers and improve store analytics.</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="profile-form-divider" role="separator" aria-hidden="true"></div>
-
-                    <div class="profile-form-section">
-                        <div class="profile-section-header">
-                            <div class="profile-section-icon profile-section-icon--location" aria-hidden="true">
-                                <i class="fa-solid fa-truck-fast"></i>
-                            </div>
-                            <div class="profile-section-copy">
-                                <h3>Shipping &amp; Location Details</h3>
-                                <p>Your default delivery address used for orders and shipping fee calculation.</p>
-                            </div>
-                        </div>
-
-                        <div class="form-grid profile-form-grid">
-                            <div class="input-group">
-                                <label for="district-search-input">District <span class="badge-primary">Auto-fill ready</span></label>
-                                <div class="input-wrapper district-search-wrapper">
-                                    <i class="fa-solid fa-map input-icon"></i>
-                                    <div class="district-search-wrapper">
-                                        <input
-                                            type="text"
-                                            id="district-search-input"
-                                            class="district-search-input"
-                                            placeholder="Search district..."
-                                            autocomplete="off"
-                                        >
-                                        <div id="district-dropdown-list" class="district-dropdown-list"></div>
-                                        <input type="hidden" id="district" name="district">
+                                <div class="profile-field full-width input-group full-width legacy-address-group" style="display:none;">
+                                    <label for="profile-address" class="profile-field-label">Legacy Address Snapshot</label>
+                                    <div class="profile-input-wrap input-wrapper text-area-wrapper">
+                                        <i class="fa-solid fa-location-dot profile-input-icon input-icon"></i>
+                                        <textarea id="profile-address" class="profile-input" rows="2" readonly></textarea>
                                     </div>
                                 </div>
                             </div>
-
-                            <div class="input-group">
-                                <label for="profile-upazila">Upazila / Thana</label>
-                                <div class="input-wrapper select-wrapper">
-                                    <i class="fa-solid fa-location-crosshairs input-icon"></i>
-                                    <select id="profile-upazila" required disabled>
-                                        <option value="">Select upazila / thana</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="input-group full-width">
-                                <label for="profile-full-address">Full Address / Village / Street</label>
-                                <div class="input-wrapper text-area-wrapper">
-                                    <i class="fa-solid fa-location-dot input-icon"></i>
-                                    <textarea id="profile-full-address" rows="3" placeholder="House, road, village, area, post office details"></textarea>
-                                </div>
-                                <small class="profile-field-hint">Saved district and upazila will auto-fill on checkout for delivery fee calculation.</small>
-                            </div>
-
-                            <div class="input-group full-width legacy-address-group" style="display:none;">
-                                <label for="profile-address">Legacy Address Snapshot</label>
-                                <div class="input-wrapper text-area-wrapper">
-                                    <i class="fa-solid fa-location-dot input-icon"></i>
-                                    <textarea id="profile-address" rows="2" readonly></textarea>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-actions profile-form-actions">
-                        <button type="submit" class="btn btn-primary btn-profile-save" id="save-profile-btn">
-                            <i class="fa-regular fa-floppy-disk"></i>
-                            <span>Update Profile</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </section>
-
-        <section id="security-settings" class="tab-content">
-            <div class="content-header">
-                <h2>Security Settings & Activity</h2>
-                <p>Change your password, verify email or phone updates, and monitor active login sessions.</p>
-            </div>
-
-            <div class="security-stack">
-                <div class="card security-card security-card--compact">
-                    <div class="security-card-head">
-                        <div class="profile-section-icon" aria-hidden="true"><i class="fa-solid fa-lock"></i></div>
-                        <div>
-                            <h3 class="security-card-title">Change Password</h3>
-                            <p class="security-subtext">Use a strong password you do not reuse elsewhere.</p>
-                        </div>
-                    </div>
-
-                    <div id="password-feedback" class="security-inline-feedback hidden" role="alert" aria-live="polite"></div>
-
-                    <form id="password-form" class="security-compact-form" novalidate>
-                        <div class="security-form-grid">
-                            <div class="input-group">
-                                <label for="current-password">Current Password</label>
-                                <div class="input-wrapper">
-                                    <i class="fa-solid fa-lock input-icon"></i>
-                                    <input type="password" id="current-password" required placeholder="••••••••" autocomplete="current-password">
-                                    <i class="fa-regular fa-eye-slash toggle-password" data-target="current-password" title="Show/hide password"></i>
-                                </div>
-                            </div>
-
-                            <div class="input-group">
-                                <label for="new-password">New Password</label>
-                                <div class="input-wrapper">
-                                    <i class="fa-solid fa-key input-icon"></i>
-                                    <input type="password" id="new-password" required placeholder="Min. 6 characters" autocomplete="new-password">
-                                    <i class="fa-regular fa-eye-slash toggle-password" data-target="new-password" title="Show/hide password"></i>
-                                </div>
-                            </div>
-
-                            <div class="input-group">
-                                <label for="confirm-password">Confirm New Password</label>
-                                <div class="input-wrapper">
-                                    <i class="fa-solid fa-check-double input-icon"></i>
-                                    <input type="password" id="confirm-password" required placeholder="Re-enter new password" autocomplete="new-password">
-                                    <i class="fa-regular fa-eye-slash toggle-password" data-target="confirm-password" title="Show/hide password"></i>
-                                </div>
-                            </div>
                         </div>
 
-                        <div class="form-actions security-form-actions">
-                            <button type="submit" class="btn btn-primary btn-compact" id="change-pass-btn">
-                                <i class="fa-solid fa-shield-check"></i> Update Password
+                        <div class="form-actions profile-form-actions">
+                            <button type="submit" class="save-profile-btn btn btn-primary btn-profile-save" id="save-profile-btn">
+                                <i class="fa-regular fa-floppy-disk"></i>
+                                <span>Update Profile</span>
                             </button>
                         </div>
                     </form>
                 </div>
+            </div>
+            </div>
+        </section>
 
-                <div class="card security-card security-card--compact">
-                    <div class="security-card-head">
-                        <div class="profile-section-icon profile-section-icon--location" aria-hidden="true"><i class="fa-solid fa-user-shield"></i></div>
+        <!-- ═══ SECTION 7: SECURITY ═══ -->
+        <section id="security-settings" class="tab-content">
+            <div class="profile-card-panel">
+            <header class="profile-tab-header">
+                <div class="profile-tab-header__icon profile-card-icon" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></div>
+                <div class="profile-tab-header__text">
+                    <h2 class="profile-tab-header__title">Security Settings &amp; Activity</h2>
+                    <p class="profile-tab-header__subtitle">Change your password, verify email or phone updates, and monitor active login sessions.</p>
+                </div>
+            </header>
+
+            <div class="security-stack">
+                <div class="profile-card security-card security-card--compact card">
+                    <div class="profile-card-header security-card-head">
+                        <div class="profile-card-icon" aria-hidden="true"><i class="fa-solid fa-lock"></i></div>
                         <div>
-                            <h3 class="security-card-title">Email &amp; Phone Verification</h3>
-                            <p class="security-subtext">Sensitive contact changes require a one-time 6-digit code (valid 5 minutes).</p>
+                            <h3 class="profile-card-title security-card-title">Change Password</h3>
+                            <p class="profile-card-subtitle security-subtext">Use a strong password you do not reuse elsewhere.</p>
                         </div>
                     </div>
+                    <div class="profile-card-body">
+                        <div id="password-feedback" class="security-inline-feedback hidden" role="alert" aria-live="polite"></div>
 
-                    <div id="contact-feedback" class="security-inline-feedback hidden" role="alert" aria-live="polite"></div>
-
-                    <div class="security-contact-section contact-update-grid">
-                        <div class="contact-update-block">
-                            <label for="security-new-email">New Email Address</label>
-                            <div class="contact-update-row email-change-row">
-                                <div class="input-wrapper">
-                                    <i class="fa-regular fa-envelope input-icon"></i>
-                                    <input type="email" id="security-new-email" placeholder="you@example.com" autocomplete="email">
+                        <form id="password-form" class="security-compact-form" novalidate>
+                            <div class="password-grid security-form-grid">
+                                <div class="profile-field input-group">
+                                    <label for="current-password" class="profile-field-label">Current Password</label>
+                                    <div class="profile-input-wrap input-wrapper">
+                                        <i class="fa-solid fa-lock profile-input-icon input-icon"></i>
+                                        <input type="password" id="current-password" class="profile-input" required placeholder="••••••••" autocomplete="current-password">
+                                        <i class="fa-regular fa-eye-slash toggle-password" data-target="current-password" title="Show/hide password"></i>
+                                    </div>
                                 </div>
-                                <button type="button" class="btn btn-light btn-compact" id="request-email-otp-btn">
-                                    <i class="fa-solid fa-paper-plane"></i> Send OTP
+
+                                <div class="profile-field input-group">
+                                    <label for="new-password" class="profile-field-label">New Password</label>
+                                    <div class="profile-input-wrap input-wrapper">
+                                        <i class="fa-solid fa-key profile-input-icon input-icon"></i>
+                                        <input type="password" id="new-password" class="profile-input" required placeholder="Min. 6 characters" autocomplete="new-password">
+                                        <i class="fa-regular fa-eye-slash toggle-password" data-target="new-password" title="Show/hide password"></i>
+                                    </div>
+                                </div>
+
+                                <div class="profile-field input-group">
+                                    <label for="confirm-password" class="profile-field-label">Confirm New Password</label>
+                                    <div class="profile-input-wrap input-wrapper">
+                                        <i class="fa-solid fa-check-double profile-input-icon input-icon"></i>
+                                        <input type="password" id="confirm-password" class="profile-input" required placeholder="Re-enter new password" autocomplete="new-password">
+                                        <i class="fa-regular fa-eye-slash toggle-password" data-target="confirm-password" title="Show/hide password"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-actions security-form-actions">
+                                <button type="submit" class="save-profile-btn btn btn-primary btn-compact" id="change-pass-btn">
+                                    <i class="fa-solid fa-shield-check"></i> Update Password
                                 </button>
                             </div>
-                            <small class="profile-field-hint current-contact-info">Current: <span id="security-current-email">—</span></small>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="profile-card security-card security-card--compact card">
+                    <div class="profile-card-header security-card-head">
+                        <div class="profile-card-icon profile-section-icon--location" aria-hidden="true"><i class="fa-solid fa-user-shield"></i></div>
+                        <div>
+                            <h3 class="profile-card-title security-card-title">Email &amp; Phone Verification</h3>
+                            <p class="profile-card-subtitle security-subtext">Sensitive contact changes require a one-time 6-digit code (valid 5 minutes).</p>
                         </div>
+                    </div>
+                    <div class="profile-card-body">
+                        <div id="contact-feedback" class="security-inline-feedback hidden" role="alert" aria-live="polite"></div>
 
-                        <div class="contact-update-block">
-                            <label for="security-new-phone">New Phone Number</label>
-                            <div class="contact-update-row phone-change-row">
-                                <div class="input-wrapper">
-                                    <i class="fa-solid fa-phone input-icon"></i>
-                                    <input type="tel" id="security-new-phone" placeholder="01XXXXXXXXX" autocomplete="tel">
+                        <div class="security-contact-section contact-update-grid">
+                            <div class="contact-update-block profile-field">
+                                <label for="security-new-email" class="profile-field-label">New Email Address</label>
+                                <div class="verify-field-wrap contact-update-row email-change-row">
+                                    <input type="email" id="security-new-email" class="verify-input" placeholder="you@example.com" autocomplete="email">
+                                    <button type="button" class="send-otp-btn btn btn-light btn-compact" id="request-email-otp-btn">
+                                        <i class="fa-solid fa-paper-plane"></i> Send OTP
+                                    </button>
                                 </div>
-                                <button type="button" class="btn btn-light btn-compact" id="request-phone-otp-btn">
-                                    <i class="fa-solid fa-comment-sms"></i> Send OTP
-                                </button>
+                                <small class="profile-field-hint current-contact-info">Current: <span id="security-current-email">—</span></small>
                             </div>
-                            <small class="profile-field-hint current-contact-info">Current: <span id="security-current-phone">—</span></small>
+
+                            <div class="contact-update-block profile-field">
+                                <label for="security-new-phone" class="profile-field-label">New Phone Number</label>
+                                <div class="verify-field-wrap contact-update-row phone-change-row">
+                                    <input type="tel" id="security-new-phone" class="verify-input" placeholder="01XXXXXXXXX" autocomplete="tel">
+                                    <button type="button" class="send-otp-btn btn btn-light btn-compact" id="request-phone-otp-btn">
+                                        <i class="fa-solid fa-comment-sms"></i> Send OTP
+                                    </button>
+                                </div>
+                                <small class="profile-field-hint current-contact-info">Current: <span id="security-current-phone">—</span></small>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="card sessions-card">
-                    <div class="sessions-card-head">
+                <div class="profile-card sessions-card card">
+                    <div class="profile-card-header sessions-card-head">
+                        <div class="profile-card-icon"><i class="fa-solid fa-laptop"></i></div>
                         <div>
-                            <h3>Active Devices &amp; Sessions</h3>
-                            <p class="security-subtext">These are the devices currently logged into your account. Log out any device you don't recognize.</p>
+                            <h3 class="profile-card-title">Active Devices &amp; Sessions</h3>
+                            <p class="profile-card-subtitle security-subtext">These are the devices currently logged into your account.</p>
                         </div>
-                        <button type="button" id="logout-all-btn" class="logout-others-btn" title="Log out everywhere except this device">
+                        <button type="button" id="logout-all-btn" class="logout-others-btn revoke-session-btn" title="Log out everywhere except this device">
                             <i class="fa-solid fa-power-off"></i>
                             <span>Log Out All Other Devices</span>
                         </button>
                     </div>
-                    <div class="login-activity-list mt-15" id="sessions-list">
+                    <div class="profile-card-body login-activity-list mt-15" id="sessions-list">
                         <p class="text-center sessions-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading active sessions...</p>
                     </div>
                 </div>
+            </div>
             </div>
         </section>
 
@@ -640,7 +713,7 @@
             </div>
 
             <div class="form-actions mt-20">
-                <button type="submit" class="btn btn-primary w-100" id="submit-review-btn">
+                <button type="submit" class="btn btn-primary save-profile-btn w-100" id="submit-review-btn">
                     <i class="fa-regular fa-paper-plane"></i> Submit Review
                 </button>
             </div>
@@ -709,7 +782,7 @@
 
             <div class="form-actions mt-20">
                 <button type="button" class="btn btn-light" id="cancel-address-btn">Cancel</button>
-                <button type="submit" class="btn btn-primary" id="save-address-btn">
+                <button type="submit" class="btn btn-primary save-profile-btn" id="save-address-btn">
                     <i class="fa-regular fa-floppy-disk"></i> Save Address
                 </button>
             </div>
@@ -748,7 +821,7 @@
 
             <div class="form-actions order-action-form-actions">
                 <button type="button" class="btn btn-light" id="order-action-close-btn">Close</button>
-                <button type="submit" class="btn btn-primary" id="order-action-confirm-btn">
+                <button type="submit" class="btn btn-primary save-profile-btn" id="order-action-confirm-btn">
                     <i class="fa-solid fa-check"></i> Confirm
                 </button>
             </div>
@@ -786,7 +859,7 @@
 
                 <div class="form-actions contact-otp-actions">
                     <button type="button" class="btn btn-light" id="cancel-contact-otp-btn">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="verify-contact-otp-btn">
+                    <button type="submit" class="btn btn-primary save-profile-btn" id="verify-contact-otp-btn">
                         <i class="fa-solid fa-circle-check"></i> Verify &amp; Update
                     </button>
                 </div>
@@ -811,5 +884,3 @@
 <script src="js/profile.js"></script>
 </body>
 </html>
-
-

@@ -90,6 +90,26 @@ document.addEventListener('DOMContentLoaded', () => {
         bindImgFallback(el, AVATAR_PLACEHOLDER);
     }
 
+    /** Standardized main tab header markup for dynamic generators */
+    function buildProfileTabHeader({ iconClass = 'fa-solid fa-circle-info', title = '', subtitle = '', titleHtml = '', id = '', extraClass = '' } = {}) {
+        const idAttr = id ? ` id="${escapeHtml(id)}"` : '';
+        const classes = ['profile-tab-header', extraClass].filter(Boolean).join(' ');
+        const titleContent = titleHtml || escapeHtml(title);
+        const subtitleBlock = subtitle
+            ? `<p class="profile-tab-header__subtitle">${escapeHtml(subtitle)}</p>`
+            : '';
+        return `
+            <header class="${classes}"${idAttr}>
+                <div class="profile-tab-header__icon profile-card-icon" aria-hidden="true"><i class="${escapeHtml(iconClass)}"></i></div>
+                <div class="profile-tab-header__text">
+                    <h2 class="profile-tab-header__title">${titleContent}</h2>
+                    ${subtitleBlock}
+                </div>
+            </header>`;
+    }
+
+    window.buildProfileTabHeader = buildProfileTabHeader;
+
     // 🔐 পেজ লোডেই সার্ভারে সেশন যাচাই করা হয়। কোনো ডিভাইস রিমোটলি লগআউট হলে
     // সার্ভার 401 দেবে এবং session-guard.js সাথে সাথে টোকেন মুছে লগইন পেজে পাঠাবে।
     if (window.EOBSession && typeof window.EOBSession.validate === 'function') {
@@ -142,15 +162,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let contactOtpResendInterval = null;
     
     const ordersListTbody = document.getElementById('orders-list-tbody');
+    const ordersPaginationEl = document.getElementById('orders-pagination');
+    const ORDERS_PER_PAGE = 10;
+    let ordersCurrentPage = 1;
     const mainBalanceAmount = document.getElementById('main-balance-amount');
     const mainPointsAmount = document.getElementById('main-points-amount');
     const logoutBtn = document.getElementById('logout-btn');
 
     const themeToggleBtn = document.getElementById('theme-toggle-btn');
     
-    // এইচটিএমএল-এর 'id="mobile-menu-toggle"' এর সাথে মিল রেখে পরিবর্তন করা হলো
-    const mobileToggleBtn = document.getElementById('mobile-menu-toggle'); 
-    const sidebar = document.querySelector('.sidebar');
+    const profileMenuToggle = document.getElementById('profile-menu-toggle');
+    const drawerOverlay = document.getElementById('profile-drawer-overlay');
+    const sidebar = document.getElementById('sidebar-menu') || document.querySelector('.profile-sidebar');
     const menuItems = document.querySelectorAll('.sidebar-menu .menu-item[data-tab]');
     const tabContents = document.querySelectorAll('.tab-content');
 
@@ -213,23 +236,62 @@ document.addEventListener('DOMContentLoaded', () => {
     initTheme();
 
     // =================================================================
-    // ৪. মোবাইল ড্রয়ার টগল লজিক (Responsive Drawer)
+    // ৪. মোবাইল অফ-ক্যানভাস ড্রয়ার (Responsive Drawer)
     // =================================================================
-    if (mobileToggleBtn && sidebar) {
-        mobileToggleBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            sidebar.classList.toggle('open');
-            console.log("৩-লাইন বাটনে ক্লিক হয়েছে, সাইডবার টগল করা হলো।"); // টেস্টিং এর জন্য
-        });
-        
-        document.addEventListener('click', (e) => {
-            if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== mobileToggleBtn) {
-                sidebar.classList.remove('open');
-            }
-        });
-    } else {
-        console.error("মোবাইল টগল বাটন অথবা সাইডবার এলিমেন্ট খুঁজে পাওয়া যায়নি!");
+    function isMobileProfileLayout() {
+        return window.innerWidth <= 768;
     }
+
+    function setProfileDrawerOpen(isOpen) {
+        if (!sidebar) return;
+        sidebar.classList.toggle('open', isOpen);
+        if (drawerOverlay) {
+            drawerOverlay.classList.toggle('open', isOpen);
+            drawerOverlay.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+        }
+        if (profileMenuToggle) {
+            profileMenuToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            profileMenuToggle.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+        }
+        document.body.classList.toggle('profile-drawer-open', isOpen);
+    }
+
+    function openProfileDrawer() {
+        if (!isMobileProfileLayout()) return;
+        setProfileDrawerOpen(true);
+    }
+
+    function closeProfileDrawer() {
+        setProfileDrawerOpen(false);
+    }
+
+    function toggleProfileDrawer() {
+        if (!sidebar || !isMobileProfileLayout()) return;
+        setProfileDrawerOpen(!sidebar.classList.contains('open'));
+    }
+
+    if (profileMenuToggle && sidebar) {
+        profileMenuToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleProfileDrawer();
+        });
+    }
+
+    if (drawerOverlay) {
+        drawerOverlay.addEventListener('click', closeProfileDrawer);
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && sidebar?.classList.contains('open')) {
+            closeProfileDrawer();
+        }
+    });
+
+    window.addEventListener('resize', () => {
+        if (!isMobileProfileLayout() && sidebar?.classList.contains('open')) {
+            closeProfileDrawer();
+        }
+    });
 
     // =================================================================
     // ৫. ড্যাশবোর্ড ট্যাব সুইচিং (Tab System)
@@ -285,8 +347,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetTab === 'wallet-points' && typeof fetchWalletData === 'function') fetchWalletData();
     }
 
-    function updateTopBackButton(activeTabName) {
-        const backBtn = document.querySelector('.top-back-btn') || document.getElementById('profile-back-link');
+    const PROFILE_TAB_TITLES = {
+        'dashboard-overview': 'Dashboard',
+        'my-orders': 'My Orders',
+        'my-cart': 'My Cart',
+        'wallet-points': 'Wallet',
+        'addresses-settings': 'Addresses',
+        'profile-info': 'Profile Settings',
+        'security-settings': 'Security'
+    };
+
+    function updateActiveTabTitle(activeTabName) {
+        const titleEl = document.getElementById('activeTabTitle');
+        if (!titleEl) return;
+
+        const tabKey = activeTabName || 'dashboard-overview';
+        titleEl.textContent = PROFILE_TAB_TITLES[tabKey]
+            || PROFILE_TAB_TITLES['dashboard-overview'];
+    }
+
+    function updateBackIconButton(activeTabName) {
+        const backBtn = document.querySelector('.btn-back-icon') || document.getElementById('profile-back-link');
         if (!backBtn) return;
 
         const isDashboard = !activeTabName
@@ -294,22 +375,34 @@ document.addEventListener('DOMContentLoaded', () => {
             || activeTabName === 'dashboard';
 
         if (isDashboard) {
-            backBtn.textContent = '← Back to Home';
             backBtn.setAttribute('href', '/');
-            backBtn.setAttribute('aria-label', 'Back to Home');
+            backBtn.setAttribute('aria-label', 'Go Back');
+            backBtn.setAttribute('title', 'Back to Home');
             backBtn.onclick = null;
-            return;
+        } else {
+            backBtn.setAttribute('href', '/profile');
+            backBtn.setAttribute('aria-label', 'Go Back');
+            backBtn.setAttribute('title', 'Back to Dashboard');
+            backBtn.onclick = function (e) {
+                e.preventDefault();
+                activateProfileTab('dashboard-overview', { scroll: true });
+                window.history.pushState({}, document.title, '/profile');
+            };
         }
 
-        backBtn.textContent = '← Back to Dashboard';
-        backBtn.setAttribute('href', '/profile');
-        backBtn.setAttribute('aria-label', 'Back to Dashboard');
-        backBtn.onclick = function (e) {
-            e.preventDefault();
-            activateProfileTab('dashboard-overview', { scroll: true });
-            window.history.pushState({}, document.title, '/profile');
-        };
+        updateActiveTabTitle(activeTabName);
     }
+
+    function initMobileProfileHeaderLayout() {
+        const navLeft = document.querySelector('.sticky-navbar .nav-left');
+        const logo = document.querySelector('.sticky-navbar .nav-logo');
+
+        if (navLeft && profileMenuToggle && logo && profileMenuToggle.parentElement !== navLeft) {
+            navLeft.insertBefore(profileMenuToggle, logo);
+        }
+    }
+
+    initMobileProfileHeaderLayout();
 
     function activateProfileTab(targetTab, { scroll = false } = {}) {
         if (!targetTab || !document.getElementById(targetTab)) return;
@@ -328,7 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
             activeSection.classList.add('active');
         }
 
-        if (window.innerWidth <= 768 && sidebar) sidebar.classList.remove('open');
+        if (isMobileProfileLayout()) closeProfileDrawer();
 
         refreshTabData(targetTab);
 
@@ -341,7 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        updateTopBackButton(targetTab);
+        updateBackIconButton(targetTab);
     }
 
     function applyInitialProfileTabFromUrl() {
@@ -381,7 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
     applyInitialProfileTabFromUrl();
 
     const defaultActiveTab = document.querySelector('.tab-content.active');
-    updateTopBackButton(defaultActiveTab ? defaultActiveTab.id : 'dashboard-overview');
+    updateBackIconButton(defaultActiveTab ? defaultActiveTab.id : 'dashboard-overview');
 
     // =================================================================
     // ৬. ইউজারের প্রোфাইল ডাটা ফেচ করা (Fetch Profile & Auto-Cache)
@@ -1092,43 +1185,151 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================
     // ৯. ইউজারের লাইভ অর্ডারসমূহ লোড করা (Fetch & Render Orders)
     // =================================================================
-    async function fetchUserOrders() {
-        if (!ordersListTbody) return;
-        
+    function getOrdersScrollTarget() {
+        return document.getElementById('orders-section')
+            || document.querySelector('#my-orders .orders-list-card')
+            || document.getElementById('my-orders');
+    }
+
+    function scrollToOrdersContainer() {
+        const target = getOrdersScrollTarget();
+        if (!target) return;
+        requestAnimationFrame(() => {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }
+
+    function buildOrdersPaginationRange(current, total) {
+        if (total <= 7) {
+            return Array.from({ length: total }, (_, index) => index + 1);
+        }
+
+        const pages = [];
+        const addPage = (pageNum) => {
+            if (pageNum < 1 || pageNum > total) return;
+            if (pages.length && pageNum - pages[pages.length - 1] > 1) {
+                pages.push('...');
+            }
+            if (pages[pages.length - 1] !== pageNum) {
+                pages.push(pageNum);
+            }
+        };
+
+        addPage(1);
+        addPage(current - 1);
+        addPage(current);
+        addPage(current + 1);
+        addPage(total);
+        return pages;
+    }
+
+    function renderOrdersPagination(pagination) {
+        if (!ordersPaginationEl) return;
+
+        if (!pagination || pagination.totalPages <= 1 || pagination.total <= ORDERS_PER_PAGE) {
+            ordersPaginationEl.innerHTML = '';
+            ordersPaginationEl.classList.add('hidden');
+            return;
+        }
+
+        const page = pagination.page;
+        const totalPages = pagination.totalPages;
+        const total = pagination.total;
+        const rangeStart = ((page - 1) * ORDERS_PER_PAGE) + 1;
+        const rangeEnd = Math.min(page * ORDERS_PER_PAGE, total);
+        const pageItems = buildOrdersPaginationRange(page, totalPages);
+
+        ordersPaginationEl.classList.remove('hidden');
+        ordersPaginationEl.innerHTML = `
+            <div class="pagination-container orders-pagination-inner">
+                <button type="button" class="orders-page-btn orders-page-prev" data-page="${page - 1}" aria-label="Previous page"${page <= 1 ? ' disabled' : ''}>
+                    <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+                    <span>Previous</span>
+                </button>
+                <div class="orders-page-numbers" role="group" aria-label="Page numbers">
+                    ${pageItems.map((item) => {
+                        if (item === '...') {
+                            return '<span class="orders-page-ellipsis" aria-hidden="true">…</span>';
+                        }
+                        const isActive = item === page;
+                        return `<button type="button" class="orders-page-btn orders-page-num${isActive ? ' is-active' : ''}" data-page="${item}" aria-label="Page ${item}"${isActive ? ' aria-current="page"' : ''}>${item}</button>`;
+                    }).join('')}
+                </div>
+                <button type="button" class="orders-page-btn orders-page-next" data-page="${page + 1}" aria-label="Next page"${page >= totalPages ? ' disabled' : ''}>
+                    <span>Next</span>
+                    <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                </button>
+            </div>
+            <p class="orders-pagination-summary">Showing ${rangeStart}–${rangeEnd} of ${total} orders</p>
+        `;
+    }
+
+    function goToOrdersPage(page) {
+        const nextPage = Number(page);
+        if (!Number.isFinite(nextPage) || nextPage < 1) return;
+        fetchUserOrders(nextPage).then(() => scrollToOrdersContainer());
+    }
+
+    async function fetchUserOrders(page = ordersCurrentPage) {
+        if (!ordersListTbody) return Promise.resolve();
+
+        ordersCurrentPage = Math.max(1, page);
+
         try {
             ordersListTbody.innerHTML = `<tr class="orders-state-row"><td colspan="6" class="text-center orders-loading-cell"><i class="fa-solid fa-spinner fa-spin orders-loading-icon"></i><br><br>Loading your orders...</td></tr>`;
+            if (ordersPaginationEl) {
+                ordersPaginationEl.innerHTML = '';
+                ordersPaginationEl.classList.add('hidden');
+            }
 
-            const res = await fetch('/api/orders/my-orders', {
+            const res = await fetch(`/api/orders/my-orders?page=${ordersCurrentPage}&limit=${ORDERS_PER_PAGE}`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
-                    'Cache-Control': 'no-cache' 
+                    'Cache-Control': 'no-cache'
                 }
             });
 
             const rawData = await res.json();
 
             if (res.ok) {
-                ordersListTbody.innerHTML = ''; 
+                const orderList = rawData.data || rawData.orders || (Array.isArray(rawData) ? rawData : []);
+                const pagination = rawData.pagination || null;
 
-                let orderList = rawData.data || rawData.orders || (Array.isArray(rawData) ? rawData : []);
+                if (pagination && ordersCurrentPage > pagination.totalPages && pagination.totalPages > 0) {
+                    return fetchUserOrders(pagination.totalPages);
+                }
 
                 if (!orderList || orderList.length === 0) {
                     ordersListTbody.innerHTML = `<tr class="orders-state-row"><td colspan="6" class="text-center orders-empty-cell"><i class="fa-solid fa-box-open orders-empty-icon"></i><br>You haven't placed any orders yet.</td></tr>`;
+                    renderOrdersPagination(pagination);
                     return;
                 }
 
-                orderList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                ordersListTbody.innerHTML = orderList.map(order => buildOrderRowHtml(order)).join('');
-
+                ordersListTbody.innerHTML = orderList.map((order) => buildOrderRowHtml(order)).join('');
+                renderOrdersPagination(pagination);
             } else {
                 ordersListTbody.innerHTML = `<tr class="orders-state-row"><td colspan="6" class="text-center orders-error-cell"><i class="fa-solid fa-triangle-exclamation"></i> Failed to load orders. (${escapeHtml(rawData.message || 'Error')})</td></tr>`;
+                renderOrdersPagination(null);
             }
         } catch (error) {
             console.error('Fetch Orders Error:', error);
             ordersListTbody.innerHTML = `<tr class="orders-state-row"><td colspan="6" class="text-center orders-error-cell"><i class="fa-solid fa-server"></i> Server connection error.</td></tr>`;
+            renderOrdersPagination(null);
         }
+    }
+
+    if (ordersPaginationEl) {
+        ordersPaginationEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('.orders-page-btn');
+            if (!btn || btn.disabled || !ordersPaginationEl.contains(btn)) return;
+            e.preventDefault();
+            const targetPage = parseInt(btn.getAttribute('data-page'), 10);
+            if (!Number.isNaN(targetPage)) {
+                goToOrdersPage(targetPage);
+            }
+        });
     }
 
     // =================================================================
@@ -1382,6 +1583,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     showInlineFeedback(passwordFeedback, data.message || 'Password updated successfully!', 'success');
                     showToast(data.message || 'Password updated successfully!', 'success');
                     passwordForm.reset();
+                    ['current-password', 'new-password', 'confirm-password'].forEach((fieldId) => {
+                        const input = document.getElementById(fieldId);
+                        if (!input) return;
+                        input.type = 'password';
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                    });
                 } else {
                     showInlineFeedback(passwordFeedback, data.message || 'Failed to change password.', 'error');
                 }
@@ -1393,18 +1600,49 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    document.querySelectorAll('.toggle-password').forEach((icon) => {
-        icon.addEventListener('click', () => {
-            const targetId = icon.getAttribute('data-target');
-            const passwordInput = targetId ? document.getElementById(targetId) : null;
-            if (!passwordInput) return;
+    function syncChangePasswordToggleVisibility(input, toggleBtn) {
+        if (!input || !toggleBtn) return;
+        const hasValue = input.value.length > 0;
+        toggleBtn.classList.toggle('is-visible', hasValue);
+        toggleBtn.style.display = hasValue ? 'inline-flex' : 'none';
+    }
 
-            const show = passwordInput.type === 'password';
-            passwordInput.type = show ? 'text' : 'password';
-            icon.classList.toggle('fa-eye-slash', !show);
-            icon.classList.toggle('fa-eye', show);
+    function initChangePasswordEyeToggles() {
+        const changePasswordFieldIds = ['current-password', 'new-password', 'confirm-password'];
+
+        changePasswordFieldIds.forEach((fieldId) => {
+            const input = document.getElementById(fieldId);
+            if (!input) return;
+
+            const wrap = input.closest('.input-wrapper') || input.parentElement;
+            const toggleBtn = wrap?.querySelector('.toggle-password');
+            if (!toggleBtn) return;
+
+            toggleBtn.classList.add('password-toggle-btn');
+            toggleBtn.setAttribute('role', 'button');
+            toggleBtn.setAttribute('tabindex', '0');
+
+            const updateVisibility = () => syncChangePasswordToggleVisibility(input, toggleBtn);
+            input.addEventListener('input', updateVisibility);
+            updateVisibility();
+
+            toggleBtn.addEventListener('click', () => {
+                const show = input.type === 'password';
+                input.type = show ? 'text' : 'password';
+                toggleBtn.classList.toggle('fa-eye-slash', !show);
+                toggleBtn.classList.toggle('fa-eye', show);
+            });
+
+            toggleBtn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleBtn.click();
+                }
+            });
         });
-    });
+    }
+
+    initChangePasswordEyeToggles();
 
     // --- Contact update OTP flow ---
     function clearContactOtpResendTimer() {
@@ -2014,7 +2252,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const outOfStock = SA ? SA.isOutOfStock(stock) : false;
 
             const card = document.createElement('div');
-            card.className = 'wishlist-card';
+            card.className = 'wishlist-card profile-panel-inner-card';
             card.dataset.productId = String(item.productId || '');
             card.innerHTML = `
                 <div class="wishlist-media">${media}</div>
@@ -2380,7 +2618,7 @@ document.addEventListener('DOMContentLoaded', () => {
         addresses.forEach(addr => {
             const displayAddress = formatSavedAddressDisplay(addr);
             const card = document.createElement('div');
-            card.className = 'card address-card' + (addr.isDefault ? ' active' : '');
+            card.className = 'card address-card profile-panel-inner-card' + (addr.isDefault ? ' active' : '');
             card.innerHTML = `
                 <span class="address-tag">
                     <i class="fa-solid fa-location-dot"></i> ${escapeHtml(addr.label || 'Address')}${addr.isDefault ? ' (Default)' : ''}
@@ -2614,6 +2852,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function formatSessionStatus(session) {
+        if (session.isCurrent) return 'Active now';
+        const ago = timeAgo(session.lastActiveAt);
+        if (ago === 'Active now') return 'Last active just now';
+        return `Last active ${ago}`;
+    }
+
+    function formatSessionLocationLine(session) {
+        const location = session.location && session.location !== 'Unknown Location'
+            ? session.location
+            : 'Unknown Location';
+        const ip = session.ip || 'Unknown IP';
+        return `${location} • ${ip}`;
+    }
+
+    function buildSessionLogoutButton(sessionRef) {
+        return `
+            <button
+                type="button"
+                class="btn-sm-logout session-logout-btn"
+                data-id="${escapeHtml(String(sessionRef))}"
+                data-current="false"
+                title="Log out device"
+                aria-label="Log out device"
+            >
+                <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+            </button>`;
+    }
+
     function renderSessions(sessions) {
         const list = document.getElementById('sessions-list');
         if (!list) return;
@@ -2625,31 +2892,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         list.innerHTML = '';
-        sessions.forEach(s => {
+        sessions.forEach((s) => {
             const icon = sessionDeviceIcon(s.device);
             const sessionRef = s.id || s.sessionId;
-            const status = s.isCurrent ? 'Active now' : `Last active: ${timeAgo(s.lastActiveAt)}`;
-            const location = s.location && s.location !== 'Unknown Location' ? s.location : '';
+            const deviceLabel = `${s.device || 'Unknown Device'} • ${s.browser || 'Unknown Browser'}`;
+            const status = formatSessionStatus(s);
+            const locationLine = formatSessionLocationLine(s);
             const item = document.createElement('div');
-            item.className = 'activity-item' + (s.isCurrent ? ' current-session' : '');
+            item.className = 'activity-item session-device-card profile-panel-inner-card'
+                + (s.isCurrent ? ' current-session' : '');
+
             item.innerHTML = `
-                <div class="activity-icon"><i class="fa-solid ${icon}"></i></div>
-                <div class="activity-details">
-                    <h4 class="session-title">
-                        <span>${s.device || 'Unknown Device'} • ${s.browser || 'Unknown Browser'}</span>
-                        ${s.isCurrent ? '<span class="current-badge">This Device</span>' : ''}
-                    </h4>
-                    <p class="session-meta">
-                        ${location ? `<span><i class="fa-solid fa-location-dot"></i> ${location}</span>` : ''}
-                        <span><i class="fa-solid fa-network-wired"></i> ${s.ip || 'Unknown IP'}</span>
-                        <span class="${s.isCurrent ? 'session-active-now' : ''}"><i class="fa-regular fa-clock"></i> ${status}</span>
-                    </p>
+                <div class="activity-icon session-device-icon" aria-hidden="true">
+                    <i class="fa-solid ${icon}"></i>
                 </div>
-                ${s.isCurrent ? '' : `
-                <button class="session-logout-btn" data-id="${sessionRef}" data-current="false" title="Log out this device">
-                    <i class="fa-solid fa-right-from-bracket"></i> Log Out This Device
-                </button>`}
-            `;
+                <div class="activity-details session-device-content">
+                    <div class="session-device-row session-device-row--primary">
+                        <div class="session-device-primary-text">
+                            <h4 class="session-title session-device-name">${escapeHtml(deviceLabel)}</h4>
+                            ${s.isCurrent ? '<span class="current-badge this-device-badge">THIS DEVICE</span>' : ''}
+                        </div>
+                        ${s.isCurrent ? '' : buildSessionLogoutButton(sessionRef)}
+                    </div>
+                    <p class="session-device-row session-device-row--geo">${escapeHtml(locationLine)}</p>
+                    <p class="session-device-row session-device-row--activity${s.isCurrent ? ' session-active-now' : ''}">${escapeHtml(status)}</p>
+                </div>`;
             list.appendChild(item);
         });
 
@@ -2687,13 +2954,13 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 showToast(data.message || 'Failed to log out device.', 'danger');
                 logoutSessionBtn.disabled = false;
-                logoutSessionBtn.innerHTML = '<i class="fa-solid fa-right-from-bracket"></i> Logout';
+                logoutSessionBtn.innerHTML = '<i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>';
             }
         } catch (error) {
             console.error('Logout Session Error:', error);
             showToast('Server error.', 'danger');
             logoutSessionBtn.disabled = false;
-            logoutSessionBtn.innerHTML = '<i class="fa-solid fa-right-from-bracket"></i> Log Out';
+            logoutSessionBtn.innerHTML = '<i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>';
         }
     });
 

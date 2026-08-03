@@ -720,7 +720,14 @@ a.product-title-text {
    ========================================================================= */
 
 #my-cart.profile-cart-tab {
+    width: 100%;
+    max-width: 100%;
     overflow-x: hidden;
+}
+
+#my-cart.profile-cart-tab .profile-card-panel {
+    width: 100%;
+    max-width: 100%;
 }
 
 #my-cart .cart-section-header,

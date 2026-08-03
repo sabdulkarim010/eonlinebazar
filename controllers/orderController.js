@@ -937,9 +937,32 @@ const getOrders = async (req, res) => {
 // ৩. লগইন করা নির্দিষ্ট ইউজারের নিজস্ব অর্ডারগুলো দেখা (My Orders সেকশন)
 const getMyOrders = async (req, res) => {
     try {
-        const myOrders = await Order.find({ user: req.user.id }).sort({ updatedAt: -1 });
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
+        const skip = (page - 1) * limit;
+        const filter = { user: req.user.id };
+
+        const total = await Order.countDocuments(filter);
+        const totalPages = Math.max(1, Math.ceil(total / limit));
+        const safePage = Math.min(page, totalPages);
+
+        const myOrders = await Order.find(filter)
+            .sort({ updatedAt: -1 })
+            .skip((safePage - 1) * limit)
+            .limit(limit);
+
         const enrichedOrders = await enrichOrdersWithImages(myOrders);
-        res.json({ success: true, data: enrichedOrders });
+
+        res.json({
+            success: true,
+            data: enrichedOrders,
+            pagination: {
+                page: safePage,
+                limit,
+                total,
+                totalPages
+            }
+        });
     } catch (err) {
         console.error("Order Fetch Error:", err);
         res.status(500).json({ success: false, message: "অর্ডার হিস্ট্রি লোড করতে ব্যর্থ হয়েছে।" });
