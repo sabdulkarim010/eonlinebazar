@@ -121,6 +121,7 @@
                     </li>
 
                     <li data-target="view-master-settings"><i class="fa-solid fa-sliders"></i> System Settings</li>
+                    <li data-target="view-banners"><i class="fa-solid fa-images"></i> Hero Banners</li>
                     <li data-target="view-settings"><i class="fa-solid fa-gear"></i> Admin Settings</li>
 
                 </ul>
@@ -2462,6 +2463,173 @@
             </div>
         </section>
 
+    </div>
+</section>
+
+
+<!-- ============================================================
+     🖼️ HERO BANNER SLIDER MANAGEMENT
+     ============================================================ -->
+<section id="view-banners" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <h3>Hero Banner Slider</h3>
+        <p class="section-subtitle">Upload and manage homepage banners. Supports separate images for desktop and mobile.</p>
+    </div>
+
+    <div class="system-settings-stack">
+        <div class="system-settings-card system-settings-card--indigo settings-card" style="margin-bottom:20px">
+            <h3 style="margin-bottom:16px"><i class="fa-solid fa-sliders"></i> Slider Settings</h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+                <div class="fg form-group">
+                    <label for="bannerAutoPlay">Auto Play</label>
+                    <select id="bannerAutoPlay">
+                        <option value="true">Enabled</option>
+                        <option value="false">Disabled</option>
+                    </select>
+                </div>
+                <div class="fg form-group">
+                    <label for="bannerInterval">Interval (ms)</label>
+                    <select id="bannerInterval">
+                        <option value="3000">3 seconds</option>
+                        <option value="4000" selected>4 seconds</option>
+                        <option value="5000">5 seconds</option>
+                        <option value="7000">7 seconds</option>
+                    </select>
+                </div>
+                <div class="fg form-group">
+                    <label for="bannerEffect">Effect</label>
+                    <select id="bannerEffect">
+                        <option value="slide">Slide</option>
+                        <option value="fade">Fade</option>
+                    </select>
+                </div>
+                <div class="fg form-group">
+                    <label for="bannerHeight">Desktop Height</label>
+                    <select id="bannerHeight">
+                        <option value="320px">Small (320px)</option>
+                        <option value="420px" selected>Medium (420px)</option>
+                        <option value="520px">Large (520px)</option>
+                        <option value="600px">Extra Large (600px)</option>
+                    </select>
+                </div>
+                <div class="fg form-group">
+                    <label for="bannerMobileHeight">Mobile Height</label>
+                    <select id="bannerMobileHeight">
+                        <option value="180px">Small (180px)</option>
+                        <option value="220px" selected>Medium (220px)</option>
+                        <option value="280px">Large (280px)</option>
+                    </select>
+                </div>
+                <div class="fg form-group">
+                    <label for="bannerShowDots">Show Dots</label>
+                    <select id="bannerShowDots">
+                        <option value="true">Yes</option>
+                        <option value="false">No</option>
+                    </select>
+                </div>
+                <div class="fg form-group">
+                    <label for="bannerShowArrows">Show Arrows</label>
+                    <select id="bannerShowArrows">
+                        <option value="true">Yes</option>
+                        <option value="false">No</option>
+                    </select>
+                </div>
+            </div>
+            <button type="button" class="btn-primary" style="margin-top:16px" onclick="saveBannerSettings()">
+                <i class="fa-solid fa-floppy-disk"></i> Save Settings
+            </button>
+        </div>
+
+        <div class="system-settings-card system-settings-card--orange settings-card" style="margin-bottom:20px">
+            <h3 style="margin-bottom:16px"><i class="fa-solid fa-plus"></i> Add New Banner</h3>
+
+            <div class="banner-upload-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+                <div class="fg form-group">
+                    <label>Desktop Image * (recommended: 1920×600px)</label>
+                    <div class="banner-upload-zone" id="desktopImgZone"
+                         onclick="document.getElementById('bannerDesktopFile').click()">
+                        <div class="upload-zone-content" id="desktopImgPreview">
+                            <span style="font-size:2rem">🖼️</span>
+                            <p>Click to upload desktop image</p>
+                            <small>Max 10MB · JPG, PNG, WebP</small>
+                        </div>
+                    </div>
+                    <input type="file" id="bannerDesktopFile"
+                           accept="image/jpeg,image/png,image/webp" style="display:none"
+                           onchange="previewBannerImg(this, 'desktopImgPreview', 'desktopImgZone')">
+                </div>
+
+                <div class="fg form-group">
+                    <label>Mobile Image (optional, recommended: 768×400px)</label>
+                    <div class="banner-upload-zone" id="mobileImgZone"
+                         onclick="document.getElementById('bannerMobileFile').click()">
+                        <div class="upload-zone-content" id="mobileImgPreview">
+                            <span style="font-size:2rem">📱</span>
+                            <p>Click to upload mobile image</p>
+                            <small>If not set, desktop image is used</small>
+                        </div>
+                    </div>
+                    <input type="file" id="bannerMobileFile"
+                           accept="image/jpeg,image/png,image/webp" style="display:none"
+                           onchange="previewBannerImg(this, 'mobileImgPreview', 'mobileImgZone')">
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px">
+                <div class="fg form-group">
+                    <label for="newBannerTitle">Banner Title (optional)</label>
+                    <input type="text" id="newBannerTitle" class="pf-input"
+                           placeholder="e.g. Best Quality Products">
+                </div>
+                <div class="fg form-group">
+                    <label for="newBannerSubtitle">Subtitle (optional)</label>
+                    <input type="text" id="newBannerSubtitle" class="pf-input"
+                           placeholder="e.g. Fast delivery, easy returns">
+                </div>
+                <div class="fg form-group">
+                    <label for="newBannerLink">Button Link (optional)</label>
+                    <input type="text" id="newBannerLink" class="pf-input"
+                           placeholder="/search or https://...">
+                </div>
+                <div class="fg form-group">
+                    <label for="newBannerLinkText">Button Text</label>
+                    <input type="text" id="newBannerLinkText" class="pf-input"
+                           placeholder="Shop Now" value="Shop Now">
+                </div>
+                <div class="fg form-group">
+                    <label for="newBannerTextColor">Text Color</label>
+                    <input type="color" id="newBannerTextColor" value="#ffffff"
+                           style="height:42px;width:100%;border-radius:8px;border:1.5px solid #e2e8f0;cursor:pointer">
+                </div>
+                <div class="fg form-group">
+                    <label for="newBannerOverlay">Overlay Darkness (0-100%)</label>
+                    <input type="range" id="newBannerOverlay"
+                           min="0" max="80" value="30" step="5"
+                           style="width:100%;margin-top:14px"
+                           oninput="document.getElementById('overlayVal').textContent=this.value+'%'">
+                    <small id="overlayVal">30%</small>
+                </div>
+            </div>
+
+            <button type="button" class="btn-primary" onclick="addNewBanner()" id="addBannerBtn">
+                <i class="fa-solid fa-rocket"></i> Upload &amp; Add Banner
+            </button>
+        </div>
+
+        <div class="system-settings-card system-settings-card--slate settings-card">
+            <h3 style="margin-bottom:16px">
+                <i class="fa-solid fa-list"></i> Current Banners
+                <small style="color:#94a3b8;font-weight:400;font-size:0.8rem;margin-left:8px">
+                    Drag to reorder
+                </small>
+            </h3>
+            <div id="bannersList">
+                <div class="empty-state">
+                    <div class="empty-state-icon">🖼️</div>
+                    <p>No banners yet. Add your first banner above.</p>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
 

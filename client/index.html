@@ -91,20 +91,7 @@
         </div>
     </nav>
 
-    <section class="hero-section">
-        <div class="slider-container">
-            <div class="slide active"></div>
-            <div class="slide"></div>
-            <div class="slide"></div>
-            
-            <button class="prev" onclick="changeSlide(-1)" title="Previous">&#10094;</button>
-            <button class="next" onclick="changeSlide(1)" title="Next">&#10095;</button>
-        </div>
-        <div class="hero-content">
-            <h1 data-i18n="home.hero.title">Best Quality Products</h1>
-            <p data-i18n="home.hero.subtitle">Fast Delivery, Easy Returns</p>
-        </div>
-    </section>
+    <div id="heroBannerSlider"></div>
 
 
     <main class="container products-container">
@@ -152,27 +139,12 @@
     <script src="js/wishlist.js"></script>
     <script src="js/productThumbnail.js"></script>
     <script src="js/main.js"></script>
+    <script src="js/banner-slider.js"></script>
     <script src="js/variantUtils.js"></script>
     <script src="js/cartDisplayUtils.js"></script>
     <script src="js/cart.js"></script>
     <script src="js/mini-cart-drawer.js"></script>
     <script src="js/whatsapp.js"></script>
-    
-    <script>
-        // --- হিরো ব্যানার স্লাইড পরিবর্তনের আপনার অরিজিনাল কোড ---
-        let currentSlideIndex = 0;
-        function changeSlide(direction) {
-            const slides = document.querySelectorAll('.slide');
-            if(slides.length === 0) return;
-            
-            slides[currentSlideIndex].classList.remove('active');
-            currentSlideIndex = (currentSlideIndex + direction + slides.length) % slides.length;
-            slides[currentSlideIndex].classList.add('active');
-        }
-        
-        // অটোমেটিক ৫ সেকেন্ড পর পর স্লাইড চেঞ্জ হবে
-        setInterval(() => changeSlide(1), 5000);
-    </script>
 </body>
 </html>
 

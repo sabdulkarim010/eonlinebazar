@@ -7,94 +7,12 @@
  */
 
 /* ==========================================================================
-   ১. হিরো ব্যানার ও স্লাইডার সেকশন
+   ১. হিরো ব্যানার (dynamic — styles live in banner-slider.js)
    ========================================================================== */
-.hero-section {
+#heroBannerSlider {
     position: relative;
     width: 100%;
-    height: 180px; /* ডেক্সটপে স্লিম লুকের জন্য ১৮০px */
     overflow: hidden;
-    background-color: #111;
-}
-
-.slider-container {
-    position: relative;
-    width: 100%;
-    height: 100%;
-}
-
-.slide {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    transition: opacity 0.8s ease-in-out;
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-}
-
-/* স্লাইডগুলোর ব্যাকগ্রাউন্ড কালার */
-.slide:nth-child(1) { background-color: #1a1a1a; }
-.slide:nth-child(2) { background-color: #2c3e50; }
-.slide:nth-child(3) { background-color: #27ae60; }
-
-.slide.active {
-    opacity: 1;
-    z-index: 1;
-}
-
-/* স্লাইডারের নেভিগেশন বাটন */
-.slider-container button {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    background: rgba(0, 0, 0, 0.4);
-    color: #fff;
-    border: none;
-    padding: 8px 12px;
-    font-size: 14px;
-    cursor: pointer;
-    z-index: 10;
-    transition: background 0.3s;
-    border-radius: 4px;
-}
-
-.slider-container button:hover {
-    background: rgba(0, 0, 0, 0.7);
-}
-
-.slider-container .prev { left: 15px; }
-.slider-container .next { right: 15px; }
-
-/* স্লাইডারের ভেতরের টেক্সট কন্টেন্ট */
-.hero-content {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    color: #ffffff;
-    z-index: 5;
-    width: 90%;
-    max-width: 800px;
-    pointer-events: none;
-}
-
-.hero-content h1 {
-    font-size: 24px;
-    font-weight: 700;
-    margin-bottom: 6px;
-    text-shadow: 0 2px 8px rgba(0,0,0,0.6);
-}
-
-.hero-content p {
-    font-size: 14px;
-    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
-    opacity: 0.95;
-    margin: 0;
 }
 
 /* ==========================================================================
@@ -449,12 +367,6 @@
         grid-template-columns: repeat(4, 1fr); /* এই স্ক্রিনে ৪টি করে প্রোডাক্ট সুন্দর দেখাবে */
         gap: 15px;
     }
-    .hero-section { 
-        height: 160px; 
-    }
-    .hero-content h1 { 
-        font-size: 24px; 
-    }
 }
 
 /* ➔ ২. পোর্ট্রেট ট্যাবলেট এবং বড় স্ক্রিনের মোবাইল (সর্বোচ্চ ৭৬৮px) */
@@ -463,18 +375,6 @@
     .product-layout-grid {
         grid-template-columns: repeat(3, 1fr); 
         gap: 12px;
-    }
-    
-    /* হিরো ব্যানার সেকশন */
-    .hero-section { 
-        height: 130px; 
-        border-radius: 8px; /* মোবাইলে কর্নার একটু কম রাউন্ড ভালো লাগে */
-    }
-    .hero-content h1 { 
-        font-size: 18px; 
-    }
-    .hero-content p { 
-        font-size: 12px; 
     }
     
     /* সেকশন টাইটেল ও ক্যাটাগরি ট্যাব */
@@ -519,15 +419,6 @@
         font-size: 14px;
     }
 
-    .hero-section { 
-        height: 110px; 
-    }
-    .hero-content h1 { 
-        font-size: 15px; 
-    }
-    .hero-content p {
-        display: none; /* ছোট স্ক্রিনে জায়গা বাঁচাতে সাব-টেক্সট হাইড */
-    }
     .section-title { 
         font-size: 16px; 
     }

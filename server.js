@@ -47,6 +47,7 @@ const storeSettingsMiddleware = require('./middlewares/storeSettingsMiddleware')
 const { applyBrandingToHtml } = require('./utils/brandingHtml');
 const { DEFAULT_SETTINGS } = require('./utils/storeSettingsService');
 const seoRoutes = require('./routes/seoRoutes');
+const bannerRoutes = require('./routes/bannerRoutes');
 const { serveProductDetailsWithSeo, serveSearchWithSeo } = require('./utils/seoPageService');
 
 const app = express();
@@ -185,6 +186,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/inquiries', inquiryRoutes);
 app.use('/api/newsletter', newsletterRoutes);
+app.use('/api', bannerRoutes);
 
 // Finance analytics — explicit path expected by the dashboard UI
 // URL: GET /admin/api/analytics?period=&startDate=&endDate=

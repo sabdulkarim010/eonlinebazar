@@ -983,6 +983,7 @@ const ADMIN_PAGE_META = {
     'view-sessions':        { title: 'Active Devices & Sessions', subtitle: 'Review and remotely revoke logged-in admin devices.' },
     'view-audit':           { title: 'Security & Audit',         subtitle: 'Login history, intrusion attempts, and IP blacklist firewall.' },
     'view-master-settings': { title: 'System Settings',          subtitle: 'Configure shipping, notifications, loyalty rewards, and store integrations.' },
+    'view-banners':          { title: 'Hero Banners',             subtitle: 'Upload and manage homepage banner slides, autoplay, and display settings.' },
     'view-messages':        { title: 'Messages / Inquiries',     subtitle: 'Customer contact form submissions from the storefront.' },
     'view-newsletter-subscribers': { title: 'Newsletter Subscribers', subtitle: 'Manage newsletter subscribers and filter by tags.' },
     'view-newsletter-campaigns':   { title: 'Email Campaigns',        subtitle: 'Create, test, and send newsletter email campaigns.' },
@@ -12260,6 +12261,7 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-sessions': fetchAdminSessions,
         'view-audit': initAuditView,
         'view-master-settings': fetchMasterSettings,
+        'view-banners': loadBanners,
         'view-messages': fetchAdminMessages,
         'view-newsletter-subscribers': () => window.loadNewsletterSubscribersSection && window.loadNewsletterSubscribersSection(),
         'view-newsletter-campaigns': () => window.loadNewsletterCampaignsSection && window.loadNewsletterCampaignsSection(),
@@ -12803,4 +12805,288 @@ if (profileUploadInput && profileUploadInput.dataset.legacyBound !== '1') {
     // If the module evaluates after DOMContentLoaded already fired, load now too.
     if (document.readyState !== 'loading') loadStatus();
 })();
+
+/* ==========================================================================
+   HERO BANNER MANAGEMENT (homepage slider)
+   ========================================================================== */
+
+function getBannerAdminToken() {
+    return localStorage.getItem('adminToken') || token || '';
+}
+
+function bannerAuthHeaders(json = false) {
+    const headers = { Authorization: 'Bearer ' + getBannerAdminToken() };
+    if (json) headers['Content-Type'] = 'application/json';
+    return headers;
+}
+
+async function loadBanners() {
+    try {
+        const res = await fetch('/api/admin/banners', {
+            headers: bannerAuthHeaders()
+        });
+        const data = await res.json();
+        if (handleAdminApiAuthResponse(res, data) !== 'ok') return;
+        if (data.success) {
+            renderBannerList(data.banners);
+            loadBannerSettings(data.settings);
+        }
+    } catch (err) {
+        console.warn('Could not load banners:', err);
+    }
+}
+window.loadBanners = loadBanners;
+
+function loadBannerSettings(settings) {
+    if (!settings) return;
+    const s = settings;
+    const el = (id) => document.getElementById(id);
+    if (el('bannerAutoPlay')) el('bannerAutoPlay').value = String(s.autoPlay !== false);
+    if (el('bannerInterval')) el('bannerInterval').value = String(s.autoPlayInterval || 4000);
+    if (el('bannerEffect')) el('bannerEffect').value = s.transitionEffect || 'slide';
+    if (el('bannerHeight')) el('bannerHeight').value = s.height || '420px';
+    if (el('bannerMobileHeight')) el('bannerMobileHeight').value = s.mobileHeight || '220px';
+    if (el('bannerShowDots')) el('bannerShowDots').value = String(s.showDots !== false);
+    if (el('bannerShowArrows')) el('bannerShowArrows').value = String(s.showArrows !== false);
+}
+window.loadBannerSettings = loadBannerSettings;
+
+function renderBannerList(banners) {
+    const container = document.getElementById('bannersList');
+    if (!container) return;
+
+    if (!banners || !banners.length) {
+        container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">🖼️</div>
+        <p>No banners yet. Add your first banner above.</p>
+      </div>`;
+        return;
+    }
+
+    container.innerHTML = banners.map((b, i) => `
+    <div class="banner-list-item" draggable="true" data-id="${b._id}" data-pos="${i}">
+      <span class="banner-drag-handle" style="color:#94a3b8;cursor:grab;font-size:1.2rem" title="Drag to reorder">⠿</span>
+      <img class="banner-list-thumb" src="${b.imageUrl}" alt="${(b.title || 'Banner').replace(/"/g, '&quot;')}">
+      <div class="banner-list-info">
+        <div class="banner-list-title">
+          ${b.title || '(No title)'}
+          ${b.mobileImageUrl ? '<span style="background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:6px">📱 Mobile</span>' : ''}
+        </div>
+        <div class="banner-list-url">
+          ${b.linkUrl ? '🔗 ' + b.linkUrl : 'No link'}
+          &nbsp;·&nbsp; Overlay: ${Math.round((b.overlayOpacity || 0.3) * 100)}%
+        </div>
+      </div>
+      <div class="banner-list-actions">
+        <label class="toggle-switch" title="Active/Inactive">
+          <input type="checkbox" ${b.isActive ? 'checked' : ''}
+                 onchange="toggleBanner('${b._id}', this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+        <button type="button" class="danger-btn-sm" onclick="deleteBannerItem('${b._id}')" title="Delete banner">
+          🗑️
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+    setupBannerDragReorder(container);
+}
+window.renderBannerList = renderBannerList;
+
+function setupBannerDragReorder(container) {
+    let dragEl = null;
+
+    container.querySelectorAll('.banner-list-item').forEach((item) => {
+        item.addEventListener('dragstart', () => {
+            dragEl = item;
+            item.classList.add('dragging');
+        });
+        item.addEventListener('dragend', async () => {
+            item.classList.remove('dragging');
+            dragEl = null;
+            const order = [...container.querySelectorAll('.banner-list-item')].map((el, index) => ({
+                id: el.dataset.id,
+                position: index
+            }));
+            try {
+                await fetch('/api/admin/banners/reorder', {
+                    method: 'PATCH',
+                    headers: bannerAuthHeaders(true),
+                    body: JSON.stringify({ order })
+                });
+            } catch (err) {
+                console.warn('Banner reorder failed:', err);
+            }
+        });
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const after = getBannerDragAfterElement(container, e.clientY);
+            if (!dragEl) return;
+            if (after == null) container.appendChild(dragEl);
+            else container.insertBefore(dragEl, after);
+        });
+    });
+}
+
+function getBannerDragAfterElement(container, y) {
+    const items = [...container.querySelectorAll('.banner-list-item:not(.dragging)')];
+    return items.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+            return { offset, element: child };
+        }
+        return closest;
+    }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+}
+
+function previewBannerImg(input, previewId, zoneId) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const zone = document.getElementById(zoneId);
+    const preview = document.getElementById(previewId);
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+        preview.innerHTML = `
+      <img class="banner-preview-img" src="${e.target.result}" alt="Preview">
+    `;
+        zone.classList.add('has-image');
+    };
+    reader.readAsDataURL(file);
+}
+window.previewBannerImg = previewBannerImg;
+
+async function addNewBanner() {
+    const desktopFile = document.getElementById('bannerDesktopFile')?.files?.[0];
+    if (!desktopFile) {
+        showToast('Please select a desktop image', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('addBannerBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
+    }
+
+    const formData = new FormData();
+    formData.append('bannerImage', desktopFile);
+
+    const mobileFile = document.getElementById('bannerMobileFile')?.files?.[0];
+    if (mobileFile) formData.append('mobileBannerImage', mobileFile);
+
+    formData.append('title', document.getElementById('newBannerTitle')?.value || '');
+    formData.append('subtitle', document.getElementById('newBannerSubtitle')?.value || '');
+    formData.append('linkUrl', document.getElementById('newBannerLink')?.value || '');
+    formData.append('linkText', document.getElementById('newBannerLinkText')?.value || 'Shop Now');
+    formData.append('textColor', document.getElementById('newBannerTextColor')?.value || '#ffffff');
+    formData.append(
+        'overlayOpacity',
+        (parseInt(document.getElementById('newBannerOverlay')?.value || '30', 10) / 100).toFixed(2)
+    );
+
+    try {
+        const res = await fetch('/api/admin/banners', {
+            method: 'POST',
+            headers: bannerAuthHeaders(),
+            body: formData
+        });
+        const data = await res.json();
+        if (handleAdminApiAuthResponse(res, data) !== 'ok') return;
+
+        if (data.success) {
+            showToast('Banner added successfully!', 'success');
+            document.getElementById('bannerDesktopFile').value = '';
+            document.getElementById('bannerMobileFile').value = '';
+            document.getElementById('newBannerTitle').value = '';
+            document.getElementById('newBannerSubtitle').value = '';
+            document.getElementById('newBannerLink').value = '';
+            document.getElementById('newBannerLinkText').value = 'Shop Now';
+            document.getElementById('desktopImgPreview').innerHTML =
+                '<span style="font-size:2rem">🖼️</span><p>Click to upload desktop image</p><small>Max 10MB · JPG, PNG, WebP</small>';
+            document.getElementById('mobileImgPreview').innerHTML =
+                '<span style="font-size:2rem">📱</span><p>Click to upload mobile image</p><small>If not set, desktop image is used</small>';
+            document.getElementById('desktopImgZone').classList.remove('has-image');
+            document.getElementById('mobileImgZone').classList.remove('has-image');
+            loadBanners();
+        } else {
+            showToast(data.message || 'Upload failed', 'error');
+        }
+    } catch (err) {
+        showToast('Upload error: ' + err.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Upload &amp; Add Banner';
+        }
+    }
+}
+window.addNewBanner = addNewBanner;
+
+async function deleteBannerItem(id) {
+    if (!confirm('Delete this banner?')) return;
+    try {
+        const res = await fetch('/api/admin/banners/' + id, {
+            method: 'DELETE',
+            headers: bannerAuthHeaders()
+        });
+        const data = await res.json();
+        if (handleAdminApiAuthResponse(res, data) !== 'ok') return;
+        if (data.success) {
+            showToast('Banner deleted', 'success');
+            loadBanners();
+        }
+    } catch (err) {
+        showToast('Delete failed', 'error');
+    }
+}
+window.deleteBannerItem = deleteBannerItem;
+
+async function toggleBanner(id, isActive) {
+    try {
+        const res = await fetch('/api/admin/banners/' + id, {
+            method: 'PATCH',
+            headers: bannerAuthHeaders(true),
+            body: JSON.stringify({ isActive })
+        });
+        const data = await res.json();
+        if (handleAdminApiAuthResponse(res, data) !== 'ok') return;
+        showToast(isActive ? 'Banner activated' : 'Banner hidden', 'success');
+    } catch (err) {
+        showToast('Update failed', 'error');
+    }
+}
+window.toggleBanner = toggleBanner;
+
+async function saveBannerSettings() {
+    const settings = {
+        autoPlay: document.getElementById('bannerAutoPlay').value === 'true',
+        autoPlayInterval: parseInt(document.getElementById('bannerInterval').value, 10),
+        transitionEffect: document.getElementById('bannerEffect').value,
+        height: document.getElementById('bannerHeight').value,
+        mobileHeight: document.getElementById('bannerMobileHeight').value,
+        showDots: document.getElementById('bannerShowDots').value === 'true',
+        showArrows: document.getElementById('bannerShowArrows').value === 'true'
+    };
+
+    try {
+        const res = await fetch('/api/admin/banners/settings', {
+            method: 'PUT',
+            headers: bannerAuthHeaders(true),
+            body: JSON.stringify(settings)
+        });
+        const data = await res.json();
+        if (handleAdminApiAuthResponse(res, data) !== 'ok') return;
+        if (data.success) {
+            showToast('Banner settings saved!', 'success');
+        }
+    } catch (err) {
+        showToast('Save failed', 'error');
+    }
+}
+window.saveBannerSettings = saveBannerSettings;
 
