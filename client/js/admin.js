@@ -987,6 +987,7 @@ const ADMIN_PAGE_META = {
     'view-newsletter-subscribers': { title: 'Newsletter Subscribers', subtitle: 'Manage newsletter subscribers and filter by tags.' },
     'view-newsletter-campaigns':   { title: 'Email Campaigns',        subtitle: 'Create, test, and send newsletter email campaigns.' },
     'view-staff':           { title: 'Staff Management',         subtitle: 'Create staff accounts, assign permissions, and control access instantly.' },
+    'view-file-manager':    { title: 'File Manager',             subtitle: 'Browse, search, and edit project files securely from the admin panel.' },
     'view-settings':        { title: 'Admin Settings',          subtitle: 'Manage your profile, store preferences, shipping rules, and branding.' }
 };
 
@@ -12188,6 +12189,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (messagesNav) navigateAdminSection('view-messages', messagesNav);
     }
 
+    if (window.location.pathname.replace(/\/+$/, '') === '/admin/file-manager') {
+        const fileManagerNav = document.querySelector('[data-target="view-file-manager"]');
+        if (fileManagerNav) navigateAdminSection('view-file-manager', fileManagerNav);
+    }
+
     const profileUploadInput = document.getElementById('profileUploadInput');
     if (profileUploadInput && !profileUploadInput.dataset.bound) {
         profileUploadInput.dataset.bound = '1';
@@ -12259,6 +12265,8 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-newsletter-campaigns': () => window.loadNewsletterCampaignsSection && window.loadNewsletterCampaignsSection(),
         // Staff Management lives in js/admin-staff.js (Super Admin only)
         'view-staff': () => window.loadStaffSection && window.loadStaffSection(),
+        // File Manager lives in js/admin-file-manager.js (Super Admin only)
+        'view-file-manager': () => window.loadFileManagerSection && window.loadFileManagerSection(),
         'view-settings': fetchAdminSettings
     };
     if (typeof refreshMap[targetId] === 'function') {

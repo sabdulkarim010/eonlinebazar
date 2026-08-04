@@ -311,6 +311,11 @@ app.get('/admin/messages', (req, res) => {
     sendClientHtml(res, 'admin.html');
 });
 
+// Super Admin file manager deep-link (same SPA panel as /admin)
+app.get('/admin/file-manager', (req, res) => {
+    sendClientHtml(res, 'admin.html');
+});
+
 app.get('/admin-login', (req, res) => {
     sendClientHtml(res, 'admin-login.html');
 });
@@ -473,7 +478,26 @@ const staticAssetOptions = {
     }
 };
 
+/********************************************************************
+ # PRIVATE ROOT FILES — never expose over public HTTP
+ # ADMIN_NOTES.md lives at the project root for VS Code / Admin File
+ # Manager only. It is intentionally outside client/ and public/, and
+ # this guard blocks any direct URL probe (case-insensitive).
+ ********************************************************************/
+const PRIVATE_HTTP_BASENAMES = new Set(['admin_notes.md']);
+app.use((req, res, next) => {
+    const base = path.basename(String(req.path || '')).toLowerCase();
+    if (PRIVATE_HTTP_BASENAMES.has(base)) {
+        return res.status(404).json({
+            success: false,
+            message: 'Not found'
+        });
+    }
+    next();
+});
+
 // Static assets — public/ (optional shared assets) then client/ storefront root
+// Note: project-root files (e.g. ADMIN_NOTES.md) are NOT mounted here.
 if (fs.existsSync(PUBLIC_DIR)) {
     app.use(express.static(PUBLIC_DIR, staticAssetOptions));
 }

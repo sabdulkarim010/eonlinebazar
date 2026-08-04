@@ -82,6 +82,7 @@
 
                     <!-- 🛡️ Super Admin only — revealed by admin-staff.js after /api/admin/me -->
                     <li data-target="view-staff" data-superadmin-only="true"><i class="fa-solid fa-user-shield"></i> Staff Management</li>
+                    <li data-target="view-file-manager" data-superadmin-only="true"><i class="fa-solid fa-folder-tree"></i> File Manager</li>
 
                     <li class="menu-group">
                         <div class="catalog-toggle">
@@ -2629,6 +2630,167 @@
 
 
 <!-- ============================================================
+     🗂️ FILE MANAGER (Super Admin — project files)
+     ============================================================ -->
+<section id="view-file-manager" class="admin-section file-manager-dashboard" style="display: none;">
+    <div class="fm-shell">
+        <!-- LEFT: tree + search (≈30%) -->
+        <aside class="fm-sidebar" aria-label="Project file tree">
+            <div class="fm-sidebar-top">
+                <div class="fm-search-wrap">
+                    <i class="fa-solid fa-magnifying-glass fm-search-icon" aria-hidden="true"></i>
+                    <input type="search" id="fmSearchInput" class="fm-search-input" placeholder="Search files…" autocomplete="off" spellcheck="false">
+                    <button type="button" id="fmSearchClear" class="fm-search-clear" hidden title="Clear search" aria-label="Clear search">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="fm-stats" id="fmStats" aria-live="polite">
+                    <div class="fm-stat">
+                        <span class="fm-stat-value" id="fmStatFiles">—</span>
+                        <span class="fm-stat-label">Files</span>
+                    </div>
+                    <div class="fm-stat">
+                        <span class="fm-stat-value" id="fmStatFolders">—</span>
+                        <span class="fm-stat-label">Folders</span>
+                    </div>
+                    <div class="fm-stat">
+                        <span class="fm-stat-value" id="fmStatSize">—</span>
+                        <span class="fm-stat-label">Storage</span>
+                    </div>
+                </div>
+
+                <div class="fm-actions">
+                    <button type="button" class="fm-action-btn" id="fmNewFileBtn" title="Create a new file">
+                        <i class="fa-solid fa-file-circle-plus"></i> New File
+                    </button>
+                    <button type="button" class="fm-action-btn fm-action-btn--folder" id="fmNewFolderBtn" title="Create a new folder">
+                        <i class="fa-solid fa-folder-plus"></i> New Folder
+                    </button>
+                    <button type="button" class="fm-action-btn fm-action-btn--ghost" id="fmRefreshBtn" title="Refresh tree">
+                        <i class="fa-solid fa-rotate"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="fm-tree-scroll" id="fmTreeScroll">
+                <div id="fmTree" class="fm-tree" role="tree" aria-label="Directory tree">
+                    <div class="fm-tree-loading">
+                        <div class="spinner"></div>
+                        <p>Loading project files…</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- RIGHT: editor (≈70%) -->
+        <div class="fm-main">
+            <header class="fm-editor-header">
+                <nav class="fm-breadcrumb" id="fmBreadcrumb" aria-label="File path">
+                    <span class="fm-breadcrumb-empty">Select a file to open</span>
+                </nav>
+                <div class="fm-editor-toolbar">
+                    <span class="fm-editor-status" id="fmEditorStatus"></span>
+                    <button type="button" class="btn-secondary fm-toolbar-btn" id="fmReloadBtn" disabled title="Reload from disk">
+                        <i class="fa-solid fa-rotate-right"></i> Reload
+                    </button>
+                    <button type="button" class="btn-primary fm-toolbar-btn" id="fmSaveBtn" disabled title="Save changes to disk">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Changes
+                    </button>
+                    <button type="button" class="fm-toolbar-btn fm-toolbar-btn--danger" id="fmDeleteBtn" disabled title="Delete selected file or folder">
+                        <i class="fa-solid fa-trash-can"></i> Delete
+                    </button>
+                </div>
+            </header>
+
+            <div class="fm-editor-body" id="fmEditorBody">
+                <div class="fm-editor-empty" id="fmEditorEmpty">
+                    <div class="fm-editor-empty-icon"><i class="fa-solid fa-code"></i></div>
+                    <h3>Code Editor</h3>
+                    <p>Choose a file from the tree to view and edit its contents.</p>
+                </div>
+                <div class="fm-code-shell" id="fmCodeShell" hidden>
+                    <div class="fm-gutter" id="fmGutter" aria-hidden="true"></div>
+                    <div class="fm-code-viewport" id="fmCodeViewport">
+                        <pre class="fm-highlight" id="fmHighlight" aria-hidden="true"><code id="fmHighlightCode"></code></pre>
+                        <textarea id="fmEditor" class="fm-editor" spellcheck="false" wrap="off" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="File content editor"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create file / folder modal -->
+    <div id="fmCreateModal" class="fm-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="fmCreateModalTitle">
+        <div class="fm-modal-backdrop" data-fm-close></div>
+        <div class="fm-modal-card">
+            <div class="fm-modal-header">
+                <h4 id="fmCreateModalTitle">New File</h4>
+                <button type="button" class="fm-modal-close" data-fm-close aria-label="Close">&times;</button>
+            </div>
+            <form id="fmCreateForm" class="fm-modal-body" novalidate>
+                <input type="hidden" id="fmCreateType" value="file">
+                <div class="form-group">
+                    <label for="fmCreateParent">Parent folder</label>
+                    <input type="text" id="fmCreateParent" placeholder="(project root)" autocomplete="off" spellcheck="false">
+                    <small class="fm-hint">Leave empty for project root, or use a relative path like <code>controllers</code>.</small>
+                </div>
+                <div class="form-group">
+                    <label for="fmCreateName">Name <span class="req-star">*</span></label>
+                    <input type="text" id="fmCreateName" placeholder="e.g. notes.js" required autocomplete="off" spellcheck="false">
+                </div>
+                <div class="fm-modal-footer">
+                    <button type="button" class="btn-secondary" data-fm-close>Cancel</button>
+                    <button type="submit" class="btn-primary" id="fmCreateSubmit">
+                        <i class="fa-solid fa-plus"></i> Create
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- High-security delete confirmation modal -->
+    <div id="fmDeleteModal" class="fm-modal fm-modal--danger" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="fmDeleteModalTitle">
+        <div class="fm-modal-backdrop" data-fm-delete-close></div>
+        <div class="fm-modal-card fm-modal-card--danger">
+            <div class="fm-modal-header fm-modal-header--danger">
+                <div class="fm-danger-title-wrap">
+                    <span class="fm-danger-icon" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                    <div>
+                        <h4 id="fmDeleteModalTitle">Critical Delete Confirmation</h4>
+                        <p class="fm-danger-subtitle">This action is permanent and cannot be undone</p>
+                    </div>
+                </div>
+                <button type="button" class="fm-modal-close fm-modal-close--danger" data-fm-delete-close aria-label="Close">&times;</button>
+            </div>
+            <form id="fmDeleteForm" class="fm-modal-body" novalidate autocomplete="off">
+                <div class="fm-danger-banner" id="fmDeleteWarning">
+                    Are you sure you want to delete <strong id="fmDeleteFileName">this file</strong>? This action cannot be undone.
+                </div>
+                <div class="form-group">
+                    <label for="fmDeletePassword">Enter Super Admin Password to Confirm <span class="req-star">*</span></label>
+                    <div class="fm-password-wrap">
+                        <input type="password" id="fmDeletePassword" placeholder="Super Admin password" required autocomplete="current-password">
+                        <button type="button" class="fm-password-toggle" id="fmDeletePasswordToggle" title="Show password" aria-label="Show password">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                    <small class="fm-hint fm-hint--danger">Password is verified against your Super Admin account before anything is deleted.</small>
+                </div>
+                <p class="fm-delete-error" id="fmDeleteError" hidden></p>
+                <div class="fm-modal-footer">
+                    <button type="button" class="btn-secondary" data-fm-delete-close>Cancel</button>
+                    <button type="submit" class="fm-btn-danger" id="fmDeleteConfirmBtn">
+                        <i class="fa-solid fa-trash-can"></i> Delete Permanently
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+
+<!-- ============================================================
      🛡️ ENTERPRISE ROLE & STAFF MANAGEMENT (Super Admin — RBAC)
      ============================================================ -->
 <section id="view-staff" class="admin-section staff-dashboard" style="display: none;">
@@ -4044,6 +4206,7 @@
     <script src="/js/orderStatusTimeline.js"></script>
     <script type="module" src="/js/admin.js"></script>
     <script type="module" src="/js/admin-staff.js"></script>
+    <script src="/js/admin-file-manager.js"></script>
     <script src="/js/admin-newsletter.js"></script>
 
 </body>

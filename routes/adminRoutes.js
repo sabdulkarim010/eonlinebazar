@@ -39,6 +39,7 @@ const upload = require('../middlewares/uploadMiddleware');
 const { brandingUpload, paymentMethodLogoUpload, footerIconUpload, importFileUpload } = upload;
 const staffController = require('../controllers/staffController');
 const staffRoutes = require('./staffRoutes');
+const fileManagerRoutes = require('./fileManagerRoutes');
 const { verifyAdmin } = require('../middlewares/authMiddleware');
 const { checkPermission, requireSuperAdmin } = require('../middlewares/rbac');
 const { checkBlacklist, adminLoginLimiter } = require('../middlewares/adminSecurity');
@@ -54,6 +55,10 @@ const sandboxController = require('../controllers/sandboxController');
 // 🛡️ Super Admin staff management — own gate chain, see routes/staffRoutes.js
 // URL: /api/admin/staff
 router.use('/staff', staffRoutes);
+
+// 🛡️ Super Admin file manager — browse / read / write / create / delete (project root only)
+// URL: /api/admin/files
+router.use('/files', fileManagerRoutes);
 
 // 🛡️ RBAC discovery endpoints — readable by any signed-in admin. The panel uses
 // them to render only the sections the current account is allowed to open.
