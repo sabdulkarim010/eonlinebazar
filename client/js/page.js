@@ -1,6 +1,6 @@
 /**
- * Loads CMS page content and renders premium info-page layout.
- * Resolves slug from data-page-slug, ?slug=, /pages/:slug, or /:slug.
+ * Generic dynamic CMS page renderer for /pages/:slug, /:slug, and /page.html?slug=.
+ * Fetches published content from /api/store/pages/:slug and renders Markdown/HTML.
  */
 (function () {
     const SLUG_BY_PATH = {

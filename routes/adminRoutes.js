@@ -269,12 +269,22 @@ router.post(
 );
 
 /********************************************************************
+ # ৫ঘ.১ 💳 FOOTER PAYMENT BADGES CRUD
+ # URL: /api/admin/footer/payment-badges
+ ********************************************************************/
+router.get('/footer/payment-badges', verifyAdmin, checkPermission('manage_settings'), footerSettingsController.getPaymentBadges);
+router.post('/footer/payment-badges', verifyAdmin, checkPermission('manage_settings'), footerSettingsController.addPaymentBadge);
+router.delete('/footer/payment-badges/:index', verifyAdmin, checkPermission('manage_settings'), footerSettingsController.deletePaymentBadge);
+
+/********************************************************************
  # ৫ঙ. 📄 PAGE CONTENT MANAGER (CMS)
  # URL: /api/admin/pages
  ********************************************************************/
 router.get('/pages', verifyAdmin, checkPermission('manage_settings'), pageContentController.listAdminPages);
+router.post('/pages', verifyAdmin, checkPermission('manage_settings'), pageContentController.createPage);
 router.get('/pages/:slug', verifyAdmin, checkPermission('manage_settings'), pageContentController.getAdminPage);
 router.put('/pages/:slug', verifyAdmin, checkPermission('manage_settings'), pageContentController.updatePageContent);
+router.post('/pages/:slug/footer-link', verifyAdmin, checkPermission('manage_settings'), pageContentController.addPageToFooter);
 router.post('/pages/:slug', verifyAdmin, checkPermission('manage_settings'), pageContentController.updatePageContent);
 
 /********************************************************************

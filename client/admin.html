@@ -2351,7 +2351,7 @@
                     </div>
                     <div class="system-settings-card-heading flex-1 min-w-0">
                         <h4 id="footerSettingsHeading">Footer Settings</h4>
-                        <p class="settings-card-sub">Manage footer columns, social links, copyright text, and payment badges — changes sync instantly to the storefront footer.</p>
+                        <p class="settings-card-sub">Manage footer columns, social links, copyright, and payment badges. Pick a CMS page from the dropdown (or type its title) to auto-fill routes like <code>/privacy-policy</code>. New internal links also auto-create editable pages in Page Content Manager.</p>
                     </div>
                 </div>
 
@@ -2381,14 +2381,29 @@
                         <div id="footerSocialEditor" class="footer-social-editor"></div>
                     </div>
 
-                    <div class="footer-settings-section">
-                        <div class="footer-settings-section-head">
-                            <h5><i class="fa-solid fa-wallet"></i> Payment Method Badges</h5>
-                            <button type="button" id="footerAddPaymentBtn" class="footer-settings-add-btn">
-                                <i class="fa-solid fa-plus"></i> Add Badge
-                            </button>
+                    <div class="footer-section-card footer-settings-section" id="footerPaymentBadgesCard">
+                        <div class="footer-section-header footer-settings-section-head">
+                            <div class="footer-payment-header-copy min-w-0">
+                                <h5><i class="fa-solid fa-wallet"></i> Payment Method Badges</h5>
+                                <p>Footer bottom-bar logos (bKash, Nagad, Visa, etc.). Upload custom icons or use presets.</p>
+                            </div>
+                            <div class="footer-payment-header-actions">
+                                <button type="button" id="footerTogglePaymentFormBtn" class="btn-toggle-payment-form" title="Hide or show the entire payment badges section on the storefront">
+                                    <i class="fa-solid fa-eye-slash"></i>
+                                    <span>Hide Payment Form</span>
+                                </button>
+                                <button type="button" id="footerClearPaymentBadgesBtn" class="btn-clear-payment-form" title="Remove all payment badges">
+                                    <i class="fa-solid fa-trash"></i>
+                                    <span>Clear All</span>
+                                </button>
+                                <button type="button" id="footerAddPaymentBtn" class="footer-settings-add-btn">
+                                    <i class="fa-solid fa-plus"></i> Add Badge
+                                </button>
+                            </div>
                         </div>
-                        <div id="footerPaymentEditor" class="footer-payment-editor"></div>
+                        <div id="footerPaymentFormBody" class="footer-payment-form-body">
+                            <div id="footerPaymentEditor" class="footer-payment-editor"></div>
+                        </div>
                     </div>
 
                     <div class="master-settings-preview footer-settings-preview" id="footerSettingsPreview">
@@ -2418,19 +2433,27 @@
                     </div>
                     <div class="system-settings-card-heading flex-1 min-w-0">
                         <h4 id="pageContentHeading">Page Content Manager</h4>
-                        <p class="settings-card-sub">Edit About Us, Contact store info, Privacy Policy, Terms, and Careers — toggle publish to control footer links and public access.</p>
+                        <p class="settings-card-sub">Fully dynamic CMS — tabs come only from the database. Create pages here, or save internal Footer Column links (e.g. <code>/return-policy</code>) to auto-generate editable pages. Toggle publish to control footer links and public access.</p>
                     </div>
+                    <button type="button" id="pageContentCreateBtn" class="page-content-create-btn">
+                        <i class="fa-solid fa-plus"></i> Create New Page
+                    </button>
                 </div>
 
                 <div class="page-content-body">
-                    <div class="page-content-tabs" id="pageContentTabs" role="tablist"></div>
+                    <div class="page-content-tabs-row">
+                        <div class="page-content-tabs" id="pageContentTabs" role="tablist"></div>
+                    </div>
 
                     <div class="page-content-editor" id="pageContentEditor">
                         <p class="page-content-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading pages...</p>
                     </div>
                 </div>
 
-                <div class="system-settings-card-footer">
+                <div class="system-settings-card-footer page-content-footer-actions">
+                    <button type="button" id="pageContentAddToFooterBtn" class="btn-secondary page-content-footer-link-btn" style="display:none;">
+                        <i class="fa-solid fa-link"></i> Add to Footer
+                    </button>
                     <button type="button" id="pageContentSaveBtn" class="btn-submit system-settings-save-btn">
                         <i class="fa-solid fa-floppy-disk"></i> Save Page Content
                     </button>
@@ -3472,6 +3495,76 @@
         <div class="modal-footer">
             <button type="button" class="btn-secondary" onclick="closeCatalogQuickEdit()">Cancel</button>
             <button type="button" class="btn-primary" id="cqeSaveBtn"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        </div>
+    </div>
+</div>
+
+<div id="createPageModal" class="custom-modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="createPageModalTitle" onclick="if(event.target===this) closeCreatePageModal()">
+    <div class="custom-modal-box page-create-modal-box" style="max-width: 640px;">
+        <div class="modal-header">
+            <h3 id="createPageModalTitle"><i class="fa-solid fa-file-circle-plus"></i> Create New Page</h3>
+            <button type="button" class="close-icon-btn" id="createPageModalCloseBtn" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="page-content-form">
+                <div class="form-group">
+                    <label for="createPageTitle">Page Title</label>
+                    <input type="text" id="createPageTitle" maxlength="120" placeholder="e.g. Return Policy">
+                </div>
+                <div class="form-group">
+                    <label for="createPageSlug">Route / Slug</label>
+                    <div class="page-slug-input-wrap">
+                        <span class="page-slug-prefix">/</span>
+                        <input type="text" id="createPageSlug" maxlength="80" placeholder="return-policy">
+                    </div>
+                    <small class="field-hint">Auto-generated from title; editable. Public URL: <code id="createPageSlugPreview">/return-policy</code></small>
+                </div>
+                <div class="form-group form-group-full">
+                    <label for="createPageSubtitle">Subtitle (optional)</label>
+                    <input type="text" id="createPageSubtitle" maxlength="240" placeholder="Short supporting line">
+                </div>
+                <div class="form-group form-group-full">
+                    <label for="createPageMarkdown">Content (Markdown supported)</label>
+                    <textarea id="createPageMarkdown" rows="10" placeholder="## Return Policy&#10;&#10;Write details here..."></textarea>
+                </div>
+                <div class="form-group form-group-full page-create-footer-opt">
+                    <label class="page-create-checkbox-label">
+                        <input type="checkbox" id="createPageAddToFooter" checked>
+                        Also add link to Footer Columns
+                    </label>
+                    <select id="createPageFooterColumn" aria-label="Footer column">
+                        <option value="0">First column</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" id="createPageCancelBtn">Cancel</button>
+            <button type="button" class="btn-primary" id="createPageSubmitBtn">
+                <i class="fa-solid fa-plus"></i> Create Page
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="addPageToFooterModal" class="custom-modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="addPageToFooterTitle" onclick="if(event.target===this) closeAddPageToFooterModal()">
+    <div class="custom-modal-box" style="max-width: 440px;">
+        <div class="modal-header">
+            <h3 id="addPageToFooterTitle"><i class="fa-solid fa-link"></i> Add to Footer</h3>
+            <button type="button" class="close-icon-btn" id="addPageToFooterCloseBtn" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <p class="field-hint" id="addPageToFooterHint" style="margin-bottom: 12px;">Choose which footer column should link to this page.</p>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="addPageToFooterColumn">Footer Column</label>
+                <select id="addPageToFooterColumn"></select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" id="addPageToFooterCancelBtn">Cancel</button>
+            <button type="button" class="btn-primary" id="addPageToFooterConfirmBtn">
+                <i class="fa-solid fa-link"></i> Add Link
+            </button>
         </div>
     </div>
 </div>

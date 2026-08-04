@@ -9280,11 +9280,109 @@ let footerSettingsState = {
     copyrightText: '',
     columns: [],
     socialLinks: [],
-    paymentGateways: []
+    paymentGateways: [],
+    paymentBadgesEnabled: true
+};
+
+/** Shared with Page Content Manager — listed here so Footer CMS auto-link can use it early. */
+let pageContentCatalog = [];
+let activePageSlug = '';
+let createPageSlugManual = false;
+
+/** Common label → CMS slug aliases when page title text differs slightly. */
+const FOOTER_CMS_LABEL_ALIASES = {
+    'privacy policy': 'privacy-policy',
+    'terms': 'terms',
+    'terms conditions': 'terms',
+    'terms and conditions': 'terms',
+    'terms of service': 'terms',
+    'terms of use': 'terms',
+    'about': 'about',
+    'about us': 'about',
+    'who we are': 'about',
+    'contact': 'contact',
+    'contact us': 'contact',
+    'careers': 'careers'
 };
 
 function footerTempId(prefix = 'tmp') {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function isFooterPlaceholderUrl(url = '') {
+    const raw = String(url || '').trim();
+    return !raw || raw === '#' || raw === '/#' || raw === 'javascript:void(0)';
+}
+
+function normalizeFooterMatchKey(value = '') {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/&/g, ' and ')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+/** Resolve a CMS page from Page Content Manager by footer link label. */
+function findFooterCmsPageByLabel(label = '') {
+    const pages = Array.isArray(pageContentCatalog) ? pageContentCatalog : [];
+    const key = normalizeFooterMatchKey(label);
+    if (!key || !pages.length) return null;
+
+    const byTitle = pages.find((p) => normalizeFooterMatchKey(p.title) === key);
+    if (byTitle) return byTitle;
+
+    const slugFromLabel = typeof titleToPageSlug === 'function'
+        ? titleToPageSlug(label)
+        : normalizeFooterMatchKey(label).replace(/\s+/g, '-');
+    if (slugFromLabel) {
+        const bySlug = pages.find((p) => p.slug === slugFromLabel);
+        if (bySlug) return bySlug;
+    }
+
+    const aliasSlug = FOOTER_CMS_LABEL_ALIASES[key];
+    if (aliasSlug) {
+        const byAlias = pages.find((p) => p.slug === aliasSlug);
+        if (byAlias) return byAlias;
+    }
+
+    return pages.find((p) => {
+        const titleKey = normalizeFooterMatchKey(p.title);
+        return titleKey && (key.includes(titleKey) || titleKey.includes(key));
+    }) || null;
+}
+
+function footerCmsPageOptionsHtml(selectedUrl = '') {
+    const pages = Array.isArray(pageContentCatalog) ? pageContentCatalog : [];
+    const selectedSlug = String(selectedUrl || '').trim().replace(/^\/+/, '').split('/')[0];
+    const options = pages.map((page) => {
+        const selected = page.slug === selectedSlug ? ' selected' : '';
+        return `<option value="${escapeHtml(page.slug)}"${selected}>${escapeHtml(page.title)} (/${escapeHtml(page.slug)})</option>`;
+    }).join('');
+    return `<option value="">Link CMS page…</option>${options}`;
+}
+
+/** Auto-fill '#' / empty URLs from CMS page titles when rendering or typing. */
+function autoLinkFooterCmsRoutes(mutateState = true) {
+    const pages = Array.isArray(pageContentCatalog) ? pageContentCatalog : [];
+    if (!pages.length) return false;
+
+    let changed = false;
+    footerSettingsState.columns.forEach((col) => {
+        (col.links || []).forEach((link) => {
+            if (link.isExternal === true) return;
+            if (!isFooterPlaceholderUrl(link.url)) return;
+            const page = findFooterCmsPageByLabel(link.label);
+            if (!page?.slug) return;
+            if (mutateState) {
+                link.url = `/${page.slug}`;
+                link.isExternal = false;
+            }
+            changed = true;
+        });
+    });
+    return changed;
 }
 
 /** Interactive toggle switch — hidden input, smooth CSS knob (no visible native checkbox). */
@@ -9329,8 +9427,11 @@ function renderFooterColumnsEditor() {
             <div class="footer-links-list">
                 ${(col.links || []).map((link, linkIndex) => `
                     <div class="footer-link-row" data-col-index="${colIndex}" data-link-index="${linkIndex}">
-                        <input type="text" class="footer-link-label" data-col-index="${colIndex}" data-link-index="${linkIndex}" value="${escapeHtml(link.label || '')}" placeholder="Label">
-                        <input type="text" class="footer-link-url" data-col-index="${colIndex}" data-link-index="${linkIndex}" value="${escapeHtml(link.url || '')}" placeholder="/about or https://...">
+                        <input type="text" class="footer-link-label" data-col-index="${colIndex}" data-link-index="${linkIndex}" value="${escapeHtml(link.label || '')}" placeholder="Label (e.g. Privacy Policy)" list="footerCmsLabelSuggestions" autocomplete="off">
+                        <select class="footer-link-cms-page" data-col-index="${colIndex}" data-link-index="${linkIndex}" title="Pick a Dynamic CMS page to auto-fill the route" aria-label="CMS page">
+                            ${footerCmsPageOptionsHtml(link.url || '')}
+                        </select>
+                        <input type="text" class="footer-link-url" data-col-index="${colIndex}" data-link-index="${linkIndex}" value="${escapeHtml(link.url || '')}" placeholder="/privacy-policy or https://..." list="footerCmsRouteSuggestions">
                         <button type="button" class="footer-ext-pill ${link.isExternal ? 'is-active' : ''}" data-action="toggle-external" data-col-index="${colIndex}" data-link-index="${linkIndex}" title="External link">Ext</button>
                         ${footerToggleHtml({
                             checked: link.isActive !== false,
@@ -9350,6 +9451,15 @@ function renderFooterColumnsEditor() {
             </button>
         </article>
     `).join('');
+
+    // Datalist suggestions from Page Content Manager (label + route autocomplete).
+    const pages = Array.isArray(pageContentCatalog) ? pageContentCatalog : [];
+    const labelOpts = pages.map((p) => `<option value="${escapeHtml(p.title || '')}"></option>`).join('');
+    const routeOpts = pages.map((p) => `<option value="/${escapeHtml(p.slug)}"></option>`).join('');
+    container.insertAdjacentHTML('beforeend', `
+        <datalist id="footerCmsLabelSuggestions">${labelOpts}</datalist>
+        <datalist id="footerCmsRouteSuggestions">${routeOpts}</datalist>
+    `);
 }
 
 function renderFooterSocialEditor() {
@@ -9371,17 +9481,17 @@ function renderFooterSocialEditor() {
     container.innerHTML = footerSettingsState.socialLinks.map((item, index) => `
         <article class="footer-social-card" data-social-index="${index}">
             <div class="footer-social-grid">
-                <input type="text" class="footer-social-platform" data-social-index="${index}" value="${escapeHtml(item.platform || '')}" placeholder="Platform name">
-                <select class="footer-social-icon-preset" data-social-index="${index}">
+                <input type="text" class="footer-social-platform" data-social-index="${index}" value="${escapeHtml(item.platform || '')}" placeholder="Name" aria-label="Platform name">
+                <select class="footer-social-icon-preset" data-social-index="${index}" aria-label="Icon preset">
                     <option value="">Custom / uploaded</option>
                     ${presetOptions}
                 </select>
-                <input type="text" class="footer-social-icon-name" data-social-index="${index}" value="${escapeHtml(item.iconName || '')}" placeholder="Icon name (e.g. facebook)">
-                <input type="url" class="footer-social-url" data-social-index="${index}" value="${escapeHtml(item.linkUrl || '')}" placeholder="https://facebook.com/...">
+                <input type="text" class="footer-social-icon-name" data-social-index="${index}" value="${escapeHtml(item.iconName || '')}" placeholder="Key" aria-label="Icon key">
+                <input type="url" class="footer-social-url" data-social-index="${index}" value="${escapeHtml(item.linkUrl || '')}" placeholder="URL" aria-label="Profile URL">
                 <div class="footer-icon-upload-wrap">
                     <input type="file" class="footer-social-icon-file" data-social-index="${index}" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
                     <button type="button" class="footer-settings-inline-add" data-action="upload-social-icon" data-social-index="${index}">
-                        <i class="fa-solid fa-upload"></i> Upload Icon
+                        <i class="fa-solid fa-upload"></i> Upload
                     </button>
                     ${item.iconUrl ? `<img src="${escapeHtml(item.iconUrl)}" alt="" class="footer-icon-preview" data-social-preview="${index}">` : `<img src="" alt="" class="footer-icon-preview footer-icon-preview--empty" data-social-preview="${index}" hidden>`}
                 </div>
@@ -9433,18 +9543,20 @@ function renderFooterPaymentEditor() {
     container.innerHTML = footerSettingsState.paymentGateways.map((item, index) => `
         <article class="footer-payment-card" data-payment-index="${index}">
             <div class="footer-payment-grid">
-                <input type="text" class="footer-payment-name" data-payment-index="${index}" value="${escapeHtml(item.name || '')}" placeholder="Badge name">
-                <select class="footer-payment-preset" data-payment-index="${index}">
+                <input type="text" class="footer-payment-name" data-payment-index="${index}" value="${escapeHtml(item.name || '')}" placeholder="Name" aria-label="Badge name">
+                <select class="footer-payment-preset" data-payment-index="${index}" aria-label="Preset">
                     <option value="">Custom</option>
                     ${presetOptions}
                 </select>
-                <input type="text" class="footer-payment-icon-name" data-payment-index="${index}" value="${escapeHtml(item.iconName || '')}" placeholder="Icon key">
+                <input type="text" class="footer-payment-icon-name" data-payment-index="${index}" value="${escapeHtml(item.iconName || '')}" placeholder="Key" aria-label="Icon key">
                 <div class="footer-icon-upload-wrap">
                     <input type="file" class="footer-payment-icon-file" data-payment-index="${index}" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
                     <button type="button" class="footer-settings-inline-add" data-action="upload-payment-icon" data-payment-index="${index}">
-                        <i class="fa-solid fa-upload"></i> Upload Logo
+                        <i class="fa-solid fa-upload"></i> Upload
                     </button>
-                    ${item.iconUrl ? `<img src="${escapeHtml(item.iconUrl)}" alt="" class="footer-icon-preview" data-payment-preview="${index}">` : `<img src="" alt="" class="footer-icon-preview footer-icon-preview--empty" data-payment-preview="${index}" hidden>`}
+                    ${item.iconUrl
+                        ? `<img src="${escapeHtml(item.iconUrl)}" alt="" class="footer-icon-preview" data-payment-preview="${index}">`
+                        : `<img src="" alt="" class="footer-icon-preview footer-icon-preview--empty" data-payment-preview="${index}" hidden>`}
                 </div>
                 ${footerToggleHtml({
                     checked: item.isActive !== false,
@@ -9453,7 +9565,7 @@ function renderFooterPaymentEditor() {
                     variant: 'green',
                     label: 'Payment badge active'
                 })}
-                <button type="button" class="footer-settings-remove-btn" data-action="remove-payment" data-payment-index="${index}">
+                <button type="button" class="footer-settings-remove-btn" data-action="remove-payment" data-payment-index="${index}" title="Delete badge">
                     <i class="fa-solid fa-trash"></i>
                 </button>
             </div>
@@ -9475,6 +9587,46 @@ function renderFooterPaymentEditor() {
     });
 }
 
+function updatePaymentFormVisibilityUI() {
+    const enabled = footerSettingsState.paymentBadgesEnabled !== false;
+    const card = document.getElementById('footerPaymentBadgesCard');
+    const body = document.getElementById('footerPaymentFormBody');
+    const toggleBtn = document.getElementById('footerTogglePaymentFormBtn');
+    const label = toggleBtn?.querySelector('span');
+    const icon = toggleBtn?.querySelector('i');
+
+    card?.classList.toggle('is-payment-form-hidden', !enabled);
+    body?.classList.toggle('is-collapsed', !enabled);
+    toggleBtn?.classList.toggle('is-hidden-mode', !enabled);
+
+    if (label) label.textContent = enabled ? 'Hide Payment Form' : 'Show Payment Form';
+    if (icon) {
+        icon.className = enabled ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+    }
+}
+
+async function toggleEntirePaymentForm() {
+    footerSettingsState.paymentBadgesEnabled = !(footerSettingsState.paymentBadgesEnabled !== false);
+    updatePaymentFormVisibilityUI();
+    updateFooterSettingsPreview();
+    await saveFooterSettings();
+}
+
+async function clearAllPaymentBadges() {
+    if (!footerSettingsState.paymentGateways.length && footerSettingsState.paymentBadgesEnabled === false) {
+        showToast('Payment badges form is already empty/hidden.', 'warning');
+        return;
+    }
+    if (!confirm('Wipe the entire payment badges section from the storefront now?')) return;
+
+    footerSettingsState.paymentGateways = [];
+    footerSettingsState.paymentBadgesEnabled = false;
+    renderFooterPaymentEditor();
+    updatePaymentFormVisibilityUI();
+    updateFooterSettingsPreview();
+    await saveFooterSettings();
+}
+
 function updateFooterSettingsPreview() {
     const previewInner = document.getElementById('footerLivePreviewInner');
     if (!previewInner || !window.FooterRenderer?.buildFooterHtml) return;
@@ -9489,15 +9641,34 @@ function applyFooterSettingsToUI(data) {
         copyrightText: data.copyrightText || '',
         columns: Array.isArray(data.columns) ? JSON.parse(JSON.stringify(data.columns)) : [],
         socialLinks: Array.isArray(data.socialLinks) ? JSON.parse(JSON.stringify(data.socialLinks)) : [],
-        paymentGateways: Array.isArray(data.paymentGateways) ? JSON.parse(JSON.stringify(data.paymentGateways)) : []
+        paymentGateways: Array.isArray(data.paymentGateways) ? JSON.parse(JSON.stringify(data.paymentGateways)) : [],
+        paymentBadgesEnabled: data.paymentBadgesEnabled !== false
     };
+
+    // Migrate legacy name-only paymentBadges if gateways empty
+    if (!footerSettingsState.paymentGateways.length && Array.isArray(data.paymentBadges) && data.paymentBadges.length) {
+        footerSettingsState.paymentGateways = data.paymentBadges.map((badge, index) => {
+            const name = typeof badge === 'string' ? badge : (badge?.name || '');
+            return {
+                name,
+                iconName: String(name).toLowerCase().replace(/[^a-z0-9]+/g, ''),
+                iconUrl: typeof badge === 'object' ? (badge.iconUrl || '') : '',
+                isActive: true,
+                sortOrder: index
+            };
+        }).filter((item) => item.name);
+    }
 
     const copyrightEl = document.getElementById('footerCopyrightText');
     if (copyrightEl) copyrightEl.value = footerSettingsState.copyrightText;
 
+    // Replace leftover '#' routes with matching CMS page slugs (e.g. Privacy Policy → /privacy-policy).
+    autoLinkFooterCmsRoutes(true);
+
     renderFooterColumnsEditor();
     renderFooterSocialEditor();
     renderFooterPaymentEditor();
+    updatePaymentFormVisibilityUI();
     updateFooterSettingsPreview();
 }
 
@@ -9572,6 +9743,7 @@ function syncFooterStateFromDom() {
 
 function collectFooterSettingsPayload() {
     syncFooterStateFromDom();
+    autoLinkFooterCmsRoutes(true);
     return {
         copyrightText: footerSettingsState.copyrightText,
         columns: footerSettingsState.columns.map((col, index) => ({
@@ -9593,13 +9765,17 @@ function collectFooterSettingsPayload() {
             isActive: item.isActive !== false,
             sortOrder: index
         })),
+        paymentBadgesEnabled: footerSettingsState.paymentBadgesEnabled !== false,
         paymentGateways: footerSettingsState.paymentGateways.map((item, index) => ({
             name: item.name,
             iconName: item.iconName || '',
             iconUrl: item.iconUrl || '',
             isActive: item.isActive !== false,
             sortOrder: index
-        }))
+        })),
+        paymentBadges: footerSettingsState.paymentGateways
+            .filter((item) => item.isActive !== false && item.name)
+            .map((item) => ({ name: item.name }))
     };
 }
 
@@ -9625,6 +9801,14 @@ window.fetchFooterSettings = async function fetchFooterSettings() {
     if (!manager) return;
 
     try {
+        // Ensure CMS page catalog is available for route auto-suggest / auto-fill.
+        if ((!Array.isArray(pageContentCatalog) || !pageContentCatalog.length)
+            && typeof fetchPageContentCatalog === 'function') {
+            try {
+                await fetchPageContentCatalog();
+            } catch (_) { /* catalog optional for load */ }
+        }
+
         const res = await fetch('/api/admin/footer-settings', {
             headers: { Authorization: `Bearer ${token}` }
         });
@@ -9655,6 +9839,16 @@ async function saveFooterSettings() {
         if (!result.success) throw new Error(result.message || 'Failed to save footer settings.');
         showToast(result.message || 'Footer settings saved.', 'success');
         applyFooterSettingsToUI(result.data);
+
+        // Sync Page Content Manager when footer links auto-create CMS pages
+        const created = Array.isArray(result.createdPages) ? result.createdPages : [];
+        if (created.length && typeof fetchPageContentCatalog === 'function') {
+            const firstSlug = created[0]?.slug;
+            if (firstSlug) activePageSlug = firstSlug;
+            await fetchPageContentCatalog();
+        } else if (typeof fetchPageContentCatalog === 'function') {
+            await fetchPageContentCatalog();
+        }
     } catch (err) {
         console.error('Save footer settings error:', err);
         showToast(`Error: ${err.message}`, 'error');
@@ -9691,6 +9885,10 @@ function setupFooterSettingsManager() {
     });
 
     document.getElementById('footerAddPaymentBtn')?.addEventListener('click', () => {
+        if (footerSettingsState.paymentBadgesEnabled === false) {
+            footerSettingsState.paymentBadgesEnabled = true;
+            updatePaymentFormVisibilityUI();
+        }
         footerSettingsState.paymentGateways.push({
             id: footerTempId('pay'),
             name: 'bKash',
@@ -9702,6 +9900,9 @@ function setupFooterSettingsManager() {
         renderFooterPaymentEditor();
         updateFooterSettingsPreview();
     });
+
+    document.getElementById('footerTogglePaymentFormBtn')?.addEventListener('click', toggleEntirePaymentForm);
+    document.getElementById('footerClearPaymentBadgesBtn')?.addEventListener('click', clearAllPaymentBadges);
 
     document.getElementById('footerSettingsSaveBtn')?.addEventListener('click', saveFooterSettings);
     document.getElementById('footerCopyrightText')?.addEventListener('input', updateFooterSettingsPreview);
@@ -9737,8 +9938,69 @@ function setupFooterSettingsManager() {
         }
     });
 
-    document.getElementById('footerColumnsEditor')?.addEventListener('input', updateFooterSettingsPreview);
-    document.getElementById('footerColumnsEditor')?.addEventListener('change', updateFooterSettingsPreview);
+    document.getElementById('footerColumnsEditor')?.addEventListener('input', (e) => {
+        const target = e.target;
+        if (target?.classList?.contains('footer-link-label')) {
+            const colIndex = Number(target.dataset.colIndex);
+            const linkIndex = Number(target.dataset.linkIndex);
+            const link = footerSettingsState.columns[colIndex]?.links?.[linkIndex];
+            if (link && !link.isExternal) {
+                link.label = target.value.trim();
+                // Typing "Privacy Policy" auto-replaces empty/'#' with /privacy-policy.
+                if (isFooterPlaceholderUrl(link.url) || isFooterPlaceholderUrl(
+                    document.querySelector(
+                        `.footer-link-url[data-col-index="${colIndex}"][data-link-index="${linkIndex}"]`
+                    )?.value
+                )) {
+                    const page = findFooterCmsPageByLabel(link.label);
+                    if (page?.slug) {
+                        link.url = `/${page.slug}`;
+                        link.isExternal = false;
+                        const urlInput = document.querySelector(
+                            `.footer-link-url[data-col-index="${colIndex}"][data-link-index="${linkIndex}"]`
+                        );
+                        const cmsSelect = document.querySelector(
+                            `.footer-link-cms-page[data-col-index="${colIndex}"][data-link-index="${linkIndex}"]`
+                        );
+                        if (urlInput) urlInput.value = link.url;
+                        if (cmsSelect) cmsSelect.value = page.slug;
+                    }
+                }
+            }
+        }
+        updateFooterSettingsPreview();
+    });
+
+    document.getElementById('footerColumnsEditor')?.addEventListener('change', (e) => {
+        const target = e.target;
+        if (target?.classList?.contains('footer-link-cms-page')) {
+            const colIndex = Number(target.dataset.colIndex);
+            const linkIndex = Number(target.dataset.linkIndex);
+            const link = footerSettingsState.columns[colIndex]?.links?.[linkIndex];
+            const slug = String(target.value || '').trim();
+            if (link && slug) {
+                const page = (pageContentCatalog || []).find((p) => p.slug === slug);
+                link.url = `/${slug}`;
+                link.isExternal = false;
+                if (!link.label || link.label === 'New Link' || isFooterPlaceholderUrl(link.label)) {
+                    link.label = page?.title || slug;
+                }
+                const labelInput = document.querySelector(
+                    `.footer-link-label[data-col-index="${colIndex}"][data-link-index="${linkIndex}"]`
+                );
+                const urlInput = document.querySelector(
+                    `.footer-link-url[data-col-index="${colIndex}"][data-link-index="${linkIndex}"]`
+                );
+                if (labelInput && link.label) labelInput.value = link.label;
+                if (urlInput) urlInput.value = link.url;
+                const extBtn = document.querySelector(
+                    `[data-action="toggle-external"][data-col-index="${colIndex}"][data-link-index="${linkIndex}"]`
+                );
+                extBtn?.classList.remove('is-active');
+            }
+        }
+        updateFooterSettingsPreview();
+    });
 
     document.getElementById('footerSocialEditor')?.addEventListener('click', async (e) => {
         const btn = e.target.closest('[data-action]');
@@ -9798,6 +10060,8 @@ function setupFooterSettingsManager() {
         updateFooterSettingsPreview();
     });
 
+    document.getElementById('footerSocialEditor')?.addEventListener('input', updateFooterSettingsPreview);
+
     document.getElementById('footerPaymentEditor')?.addEventListener('click', async (e) => {
         const btn = e.target.closest('[data-action]');
         if (!btn) return;
@@ -9856,8 +10120,6 @@ function setupFooterSettingsManager() {
         updateFooterSettingsPreview();
     });
 
-    document.getElementById('footerSocialEditor')?.addEventListener('input', updateFooterSettingsPreview);
-
     document.getElementById('footerPaymentEditor')?.addEventListener('input', updateFooterSettingsPreview);
 
     document.getElementById('footerSettingsManager')?.addEventListener('change', (e) => {
@@ -9868,27 +10130,49 @@ function setupFooterSettingsManager() {
 }
 
 /* ==========================================================================
-   PAGE CONTENT MANAGER (CMS → /api/admin/pages)
+   PAGE CONTENT MANAGER (CMS → /api/admin/pages) — fully dynamic from DB
    ========================================================================== */
 
-const PAGE_CONTENT_LABELS = {
-    about: 'About Us',
-    contact: 'Contact Info',
-    'privacy-policy': 'Privacy Policy',
-    terms: 'Terms & Conditions',
-    careers: 'Careers'
-};
+function titleToPageSlug(title = '') {
+    return String(title || '')
+        .trim()
+        .toLowerCase()
+        .replace(/^\/+/, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 80);
+}
 
-let pageContentCatalog = [];
-let activePageSlug = 'about';
+function getPageContentTabLabel(page) {
+    if (!page) return 'Page';
+    return page.title || page.slug || 'Page';
+}
+
+function updatePageContentFooterActions() {
+    const addBtn = document.getElementById('pageContentAddToFooterBtn');
+    const saveBtn = document.getElementById('pageContentSaveBtn');
+    const hasPage = Boolean(getActivePageState());
+    if (addBtn) addBtn.style.display = hasPage ? '' : 'none';
+    if (saveBtn) saveBtn.style.display = hasPage ? '' : 'none';
+}
 
 function renderPageContentTabs() {
     const tabs = document.getElementById('pageContentTabs');
     if (!tabs) return;
 
+    if (!pageContentCatalog.length) {
+        tabs.innerHTML = `
+            <p class="page-content-empty-hint">
+                No pages in the database yet. Click <strong>+ Create New Page</strong>,
+                or save an internal footer link (e.g. <code>/return-policy</code>) under Footer Columns &amp; Links.
+            </p>`;
+        updatePageContentFooterActions();
+        return;
+    }
+
     tabs.innerHTML = pageContentCatalog.map((page) => `
-        <button type="button" class="page-content-tab ${page.slug === activePageSlug ? 'is-active' : ''}" data-slug="${escapeHtml(page.slug)}" role="tab">
-            ${escapeHtml(PAGE_CONTENT_LABELS[page.slug] || page.title)}
+        <button type="button" class="page-content-tab ${page.slug === activePageSlug ? 'is-active' : ''}" data-slug="${escapeHtml(page.slug)}" role="tab" title="/${escapeHtml(page.slug)}">
+            ${escapeHtml(getPageContentTabLabel(page))}
         </button>
     `).join('');
 
@@ -9900,6 +10184,7 @@ function renderPageContentTabs() {
             renderPageContentEditor();
         });
     });
+    updatePageContentFooterActions();
 }
 
 function getActivePageState() {
@@ -9912,7 +10197,16 @@ function renderPageContentEditor() {
 
     const page = getActivePageState();
     if (!page) {
-        editor.innerHTML = '<p class="page-content-loading">No page selected.</p>';
+        editor.innerHTML = `
+            <div class="page-content-empty-state">
+                <i class="fa-solid fa-file-circle-plus"></i>
+                <p>No page selected. Create a page to start editing Markdown content.</p>
+                <button type="button" class="page-content-create-btn" id="pageContentEmptyCreateBtn">
+                    <i class="fa-solid fa-plus"></i> Create New Page
+                </button>
+            </div>`;
+        document.getElementById('pageContentEmptyCreateBtn')?.addEventListener('click', openCreatePageModal);
+        updatePageContentFooterActions();
         return;
     }
 
@@ -9969,11 +10263,12 @@ function renderPageContentEditor() {
                 })}
                 <div class="page-content-publish-copy">
                     <span class="page-content-publish-label">Published on storefront</span>
-                    <small class="field-hint">When <strong>OFF</strong> (<code>isActive: false</code>): footer links to this page are hidden and direct visits show a 404 unavailable page.</small>
+                    <small class="field-hint">When <strong>OFF</strong>: footer links to this page are hidden and direct visits show a 404 unavailable page.</small>
                 </div>
-                <span class="page-content-route-hint">Route: <code>/${escapeHtml(page.slug)}</code></span>
+                <span class="page-content-route-hint">Route: <code>/${escapeHtml(page.slug)}</code> · <code>/pages/${escapeHtml(page.slug)}</code></span>
             </div>
         </div>`;
+    updatePageContentFooterActions();
 }
 
 function syncPageContentFromDom() {
@@ -9997,6 +10292,173 @@ function syncPageContentFromDom() {
     }
 }
 
+function populateFooterColumnSelects() {
+    const columns = Array.isArray(footerSettingsState?.columns) ? footerSettingsState.columns : [];
+    const options = columns.length
+        ? columns.map((col, idx) =>
+            `<option value="${idx}">${escapeHtml(col.columnTitle || `Column ${idx + 1}`)}</option>`
+        ).join('')
+        : '<option value="0">No columns — add one under Footer Settings</option>';
+
+    const createSelect = document.getElementById('createPageFooterColumn');
+    const addSelect = document.getElementById('addPageToFooterColumn');
+    if (createSelect) createSelect.innerHTML = options;
+    if (addSelect) addSelect.innerHTML = options;
+}
+
+function syncCreatePageSlugPreview() {
+    const slugInput = document.getElementById('createPageSlug');
+    const preview = document.getElementById('createPageSlugPreview');
+    if (!slugInput || !preview) return;
+    const slug = titleToPageSlug(slugInput.value) || 'page-slug';
+    preview.textContent = `/${slug}`;
+}
+
+function openCreatePageModal() {
+    createPageSlugManual = false;
+    const modal = document.getElementById('createPageModal');
+    if (!modal) return;
+
+    populateFooterColumnSelects();
+    const titleEl = document.getElementById('createPageTitle');
+    const slugEl = document.getElementById('createPageSlug');
+    const subtitleEl = document.getElementById('createPageSubtitle');
+    const mdEl = document.getElementById('createPageMarkdown');
+    const addFooterEl = document.getElementById('createPageAddToFooter');
+    if (titleEl) titleEl.value = '';
+    if (slugEl) slugEl.value = '';
+    if (subtitleEl) subtitleEl.value = '';
+    if (mdEl) mdEl.value = '';
+    if (addFooterEl) addFooterEl.checked = true;
+    syncCreatePageSlugPreview();
+    updateCreatePageFooterColumnVisibility();
+
+    modal.style.display = 'flex';
+    titleEl?.focus();
+}
+
+window.closeCreatePageModal = function closeCreatePageModal() {
+    const modal = document.getElementById('createPageModal');
+    if (modal) modal.style.display = 'none';
+};
+
+function updateCreatePageFooterColumnVisibility() {
+    const checked = document.getElementById('createPageAddToFooter')?.checked;
+    const select = document.getElementById('createPageFooterColumn');
+    if (select) select.disabled = !checked;
+}
+
+async function submitCreatePage() {
+    const title = document.getElementById('createPageTitle')?.value?.trim() || '';
+    const slugRaw = document.getElementById('createPageSlug')?.value?.trim() || '';
+    const slug = titleToPageSlug(slugRaw || title);
+    const subtitle = document.getElementById('createPageSubtitle')?.value?.trim() || '';
+    const bodyMarkdown = document.getElementById('createPageMarkdown')?.value || '';
+    const addToFooter = document.getElementById('createPageAddToFooter')?.checked === true;
+    const footerColumnIndex = Number(document.getElementById('createPageFooterColumn')?.value || 0);
+
+    if (!title) {
+        showToast('Page title is required.', 'error');
+        return;
+    }
+    if (!slug) {
+        showToast('A valid route / slug is required.', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('createPageSubmitBtn');
+    const restore = setButtonLoading(btn, 'Creating...');
+
+    try {
+        const res = await fetch('/api/admin/pages', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                title,
+                slug,
+                subtitle,
+                bodyMarkdown: bodyMarkdown || `## ${title}\n\nWrite details here...`,
+                isPublished: true,
+                addToFooter,
+                footerColumnIndex: addToFooter ? footerColumnIndex : undefined
+            })
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'Failed to create page.');
+
+        if (result.footer && typeof applyFooterSettingsToUI === 'function') {
+            applyFooterSettingsToUI(result.footer);
+        }
+
+        activePageSlug = result.data?.slug || slug;
+        closeCreatePageModal();
+        await fetchPageContentCatalog();
+        showToast(result.message || 'Page created.', 'success');
+    } catch (err) {
+        console.error('Create page error:', err);
+        showToast(`Error: ${err.message}`, 'error');
+    } finally {
+        restore();
+    }
+}
+
+function openAddPageToFooterModal() {
+    const page = getActivePageState();
+    if (!page) return;
+    populateFooterColumnSelects();
+    const hint = document.getElementById('addPageToFooterHint');
+    if (hint) {
+        hint.innerHTML = `Add <strong>${escapeHtml(page.title)}</strong> (<code>/${escapeHtml(page.slug)}</code>) to a footer column.`;
+    }
+    const modal = document.getElementById('addPageToFooterModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+window.closeAddPageToFooterModal = function closeAddPageToFooterModal() {
+    const modal = document.getElementById('addPageToFooterModal');
+    if (modal) modal.style.display = 'none';
+};
+
+async function confirmAddPageToFooter() {
+    const page = getActivePageState();
+    if (!page) return;
+
+    const columnIndex = Number(document.getElementById('addPageToFooterColumn')?.value || 0);
+    const btn = document.getElementById('addPageToFooterConfirmBtn');
+    const restore = setButtonLoading(btn, 'Adding...');
+
+    try {
+        const res = await fetch(`/api/admin/pages/${encodeURIComponent(page.slug)}/footer-link`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                columnIndex,
+                label: page.title
+            })
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'Failed to add footer link.');
+
+        if (result.footer && typeof applyFooterSettingsToUI === 'function') {
+            applyFooterSettingsToUI(result.footer);
+        }
+
+        closeAddPageToFooterModal();
+        showToast(result.message || 'Linked to footer.', 'success');
+    } catch (err) {
+        console.error('Add page to footer error:', err);
+        showToast(`Error: ${err.message}`, 'error');
+    } finally {
+        restore();
+    }
+}
+
 window.fetchPageContentCatalog = async function fetchPageContentCatalog() {
     const manager = document.getElementById('pageContentManager');
     if (!manager) return;
@@ -10008,17 +10470,26 @@ window.fetchPageContentCatalog = async function fetchPageContentCatalog() {
         const data = await res.json();
         if (!data.success) throw new Error(data.message || 'Failed to load pages.');
 
+        // Only DB pages — never inject hardcoded default tabs
         pageContentCatalog = Array.isArray(data.data) ? data.data : [];
-        if (!pageContentCatalog.find((p) => p.slug === activePageSlug) && pageContentCatalog.length) {
-            activePageSlug = pageContentCatalog[0].slug;
+        if (!pageContentCatalog.find((p) => p.slug === activePageSlug)) {
+            activePageSlug = pageContentCatalog[0]?.slug || '';
         }
 
         renderPageContentTabs();
         renderPageContentEditor();
+
+        // Keep Footer Columns CMS dropdowns / '#' auto-links in sync with catalog.
+        if (document.getElementById('footerColumnsEditor') && footerSettingsState.columns?.length) {
+            const healed = autoLinkFooterCmsRoutes(true);
+            renderFooterColumnsEditor();
+            if (healed) updateFooterSettingsPreview();
+        }
     } catch (err) {
         console.error('Page content load error:', err);
         const editor = document.getElementById('pageContentEditor');
         if (editor) editor.innerHTML = `<p class="page-content-loading">${escapeHtml(err.message)}</p>`;
+        updatePageContentFooterActions();
     }
 };
 
@@ -10053,6 +10524,7 @@ async function savePageContent() {
         if (idx >= 0) pageContentCatalog[idx] = result.data;
 
         showToast(result.message || 'Page content saved.', 'success');
+        renderPageContentTabs();
         renderPageContentEditor();
     } catch (err) {
         console.error('Save page content error:', err);
@@ -10064,6 +10536,28 @@ async function savePageContent() {
 
 function setupPageContentManager() {
     document.getElementById('pageContentSaveBtn')?.addEventListener('click', savePageContent);
+    document.getElementById('pageContentCreateBtn')?.addEventListener('click', openCreatePageModal);
+    document.getElementById('pageContentAddToFooterBtn')?.addEventListener('click', openAddPageToFooterModal);
+
+    document.getElementById('createPageModalCloseBtn')?.addEventListener('click', closeCreatePageModal);
+    document.getElementById('createPageCancelBtn')?.addEventListener('click', closeCreatePageModal);
+    document.getElementById('createPageSubmitBtn')?.addEventListener('click', submitCreatePage);
+    document.getElementById('createPageAddToFooter')?.addEventListener('change', updateCreatePageFooterColumnVisibility);
+
+    document.getElementById('createPageTitle')?.addEventListener('input', (e) => {
+        if (createPageSlugManual) return;
+        const slugEl = document.getElementById('createPageSlug');
+        if (slugEl) slugEl.value = titleToPageSlug(e.target.value);
+        syncCreatePageSlugPreview();
+    });
+    document.getElementById('createPageSlug')?.addEventListener('input', () => {
+        createPageSlugManual = true;
+        syncCreatePageSlugPreview();
+    });
+
+    document.getElementById('addPageToFooterCloseBtn')?.addEventListener('click', closeAddPageToFooterModal);
+    document.getElementById('addPageToFooterCancelBtn')?.addEventListener('click', closeAddPageToFooterModal);
+    document.getElementById('addPageToFooterConfirmBtn')?.addEventListener('click', confirmAddPageToFooter);
 }
 
 /* ==========================================================================

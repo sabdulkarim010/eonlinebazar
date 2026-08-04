@@ -11,6 +11,10 @@ const { DEFAULT_COPYRIGHT } = require('../models/FooterSettings');
 const { footerIconPublicPath } = require('../utils/footerIconPaths');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { invalidate, CACHE_KEYS } = require('../utils/cacheService');
+const {
+    ensurePagesForFooterColumns,
+    resolveFooterPlaceholderUrlsAsync
+} = require('../utils/pagePublishService');
 
 const MAX_COLUMNS = 8;
 const MAX_LINKS_PER_COLUMN = 20;
@@ -97,6 +101,12 @@ function validateFooterPayload(body = {}) {
         errors.push(`Maximum ${MAX_SOCIAL_LINKS} social links allowed.`);
     }
 
+    if (body.paymentBadges !== undefined && !Array.isArray(body.paymentBadges)) {
+        errors.push('Payment badges must be an array.');
+    } else if (Array.isArray(body.paymentBadges) && body.paymentBadges.length > MAX_PAYMENT_BADGES) {
+        errors.push(`Maximum ${MAX_PAYMENT_BADGES} payment badges allowed.`);
+    }
+
     if (body.paymentGateways !== undefined && !Array.isArray(body.paymentGateways)) {
         errors.push('Payment gateways must be an array.');
     } else if (Array.isArray(body.paymentGateways) && body.paymentGateways.length > MAX_PAYMENT_BADGES) {
@@ -109,6 +119,20 @@ function validateFooterPayload(body = {}) {
 const getAdminFooterSettings = async (req, res) => {
     try {
         const doc = await FooterSettings.getOrCreate();
+
+        // Auto-link empty/'#' routes to matching CMS pages (Privacy Policy → /privacy-policy).
+        try {
+            const { columns, changed } = await resolveFooterPlaceholderUrlsAsync(doc.columns);
+            if (changed) {
+                doc.columns = columns;
+                doc.markModified('columns');
+                await doc.save();
+                await invalidate(CACHE_KEYS.FOOTER_SETTINGS);
+            }
+        } catch (healErr) {
+            console.error('Footer CMS route auto-link failed:', healErr);
+        }
+
         res.status(200).json({ success: true, data: doc.toAdminObject() });
     } catch (error) {
         console.error('Get Footer Settings Error:', error);
@@ -141,10 +165,20 @@ const updateFooterSettings = async (req, res) => {
         }
 
         if (Array.isArray(body.columns)) {
-            doc.columns = body.columns
+            let columns = body.columns
                 .slice(0, MAX_COLUMNS)
                 .map(normalizeColumn)
                 .filter((col) => col.columnTitle);
+
+            // Replace placeholder '#' URLs with real CMS page routes when labels match.
+            try {
+                const healed = await resolveFooterPlaceholderUrlsAsync(columns);
+                columns = healed.columns;
+            } catch (healErr) {
+                console.error('Footer CMS route auto-link on save failed:', healErr);
+            }
+
+            doc.columns = columns;
         }
 
         if (Array.isArray(body.socialLinks)) {
@@ -154,28 +188,59 @@ const updateFooterSettings = async (req, res) => {
                 .filter((item) => item.platform);
         }
 
+        if (body.paymentBadgesEnabled !== undefined) {
+            doc.paymentBadgesEnabled = parseBoolean(body.paymentBadgesEnabled, true);
+        }
+
+        // Prefer full gateway badges (with icon uploads); fall back to name-only badges
         if (Array.isArray(body.paymentGateways)) {
-            doc.paymentGateways = body.paymentGateways
+            const gateways = body.paymentGateways
                 .slice(0, MAX_PAYMENT_BADGES)
                 .map(normalizePaymentBadge)
                 .filter((item) => item.name);
+            doc.syncPaymentBadgesFromGateways(gateways);
+        } else if (Array.isArray(body.paymentBadges)) {
+            const badges = body.paymentBadges
+                .slice(0, MAX_PAYMENT_BADGES)
+                .map((item) => ({ name: readString(typeof item === 'string' ? item : item?.name, 60) }))
+                .filter((item) => item.name);
+            doc.syncPaymentGatewaysFromBadges(badges);
         }
 
         await doc.save();
+
+        // Auto-provision CMS pages for new internal footer links (e.g. /return-policy).
+        let createdPages = [];
+        try {
+            createdPages = await ensurePagesForFooterColumns(doc.columns);
+            if (createdPages.length) {
+                await Promise.all(
+                    createdPages.map((page) => invalidate(CACHE_KEYS.PAGE_CONTENT(page.slug)))
+                );
+            }
+        } catch (pageErr) {
+            console.error('Auto-create CMS pages from footer links failed:', pageErr);
+        }
+
         await invalidate(CACHE_KEYS.FOOTER_SETTINGS);
+
+        const createdNote = createdPages.length
+            ? ` Created ${createdPages.length} page(s) in Page Content Manager.`
+            : '';
 
         await logSecurityEvent({
             actor: req.admin?.username || req.admin?.email || 'admin',
             actorType: 'admin',
             action: 'Footer Settings Updated',
             ipAddress: getClientIp(req),
-            details: 'Footer columns, social links, copyright, or payment badges updated.'
+            details: `Footer columns, social links, copyright, or payment badges updated.${createdNote}`
         });
 
         res.status(200).json({
             success: true,
-            message: 'Footer settings saved successfully.',
-            data: doc.toAdminObject()
+            message: `Footer settings saved successfully.${createdNote}`,
+            data: doc.toAdminObject(),
+            createdPages
         });
     } catch (error) {
         console.error('Update Footer Settings Error:', error);
@@ -202,9 +267,106 @@ const uploadFooterIcon = async (req, res) => {
     }
 };
 
+const getPaymentBadges = async (req, res) => {
+    try {
+        const doc = await FooterSettings.getOrCreate();
+        res.status(200).json({ success: true, badges: doc.getPaymentBadges() });
+    } catch (error) {
+        console.error('Get Payment Badges Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load payment badges.' });
+    }
+};
+
+const addPaymentBadge = async (req, res) => {
+    try {
+        const name = readString(req.body?.name, 60);
+        if (!name) {
+            return res.status(400).json({ success: false, message: 'Badge name is required.' });
+        }
+
+        const doc = await FooterSettings.getOrCreate();
+        const badges = doc.getPaymentBadges();
+
+        if (badges.length >= MAX_PAYMENT_BADGES) {
+            return res.status(400).json({
+                success: false,
+                message: `Maximum ${MAX_PAYMENT_BADGES} payment badges allowed.`
+            });
+        }
+
+        const exists = badges.some((b) => b.name.toLowerCase() === name.toLowerCase());
+        if (exists) {
+            return res.status(400).json({ success: false, message: 'This payment badge already exists.' });
+        }
+
+        badges.push({ name });
+        doc.syncPaymentGatewaysFromBadges(badges);
+        await doc.save();
+        await invalidate(CACHE_KEYS.FOOTER_SETTINGS);
+
+        await logSecurityEvent({
+            actor: req.admin?.username || req.admin?.email || 'admin',
+            actorType: 'admin',
+            action: 'Footer Payment Badge Added',
+            ipAddress: getClientIp(req),
+            details: `Added payment badge: ${name}`
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Badge added.',
+            badges: doc.getPaymentBadges()
+        });
+    } catch (error) {
+        console.error('Add Payment Badge Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to add payment badge.' });
+    }
+};
+
+const deletePaymentBadge = async (req, res) => {
+    try {
+        const index = Number(req.params.index);
+        if (!Number.isInteger(index) || index < 0) {
+            return res.status(400).json({ success: false, message: 'Invalid badge index.' });
+        }
+
+        const doc = await FooterSettings.getOrCreate();
+        const badges = doc.getPaymentBadges();
+
+        if (index >= badges.length) {
+            return res.status(404).json({ success: false, message: 'Payment badge not found.' });
+        }
+
+        const removed = badges.splice(index, 1)[0];
+        doc.syncPaymentGatewaysFromBadges(badges);
+        await doc.save();
+        await invalidate(CACHE_KEYS.FOOTER_SETTINGS);
+
+        await logSecurityEvent({
+            actor: req.admin?.username || req.admin?.email || 'admin',
+            actorType: 'admin',
+            action: 'Footer Payment Badge Removed',
+            ipAddress: getClientIp(req),
+            details: `Removed payment badge: ${removed?.name || index}`
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Badge removed.',
+            badges: doc.getPaymentBadges()
+        });
+    } catch (error) {
+        console.error('Delete Payment Badge Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to remove payment badge.' });
+    }
+};
+
 module.exports = {
     getAdminFooterSettings,
     getPublicFooterSettings,
     updateFooterSettings,
-    uploadFooterIcon
+    uploadFooterIcon,
+    getPaymentBadges,
+    addPaymentBadge,
+    deletePaymentBadge
 };

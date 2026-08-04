@@ -260,11 +260,36 @@ app.get('/privacy-policy', (req, res) => {
     sendClientHtml(res, 'cms-page.html');
 });
 
+app.get('/privacy', (req, res) => {
+    sendClientHtml(res, 'cms-page.html');
+});
+
 app.get('/terms', (req, res) => {
     sendClientHtml(res, 'cms-page.html');
 });
 
+app.get('/terms-conditions', (req, res) => {
+    sendClientHtml(res, 'cms-page.html');
+});
+
+app.get('/terms-and-conditions', (req, res) => {
+    sendClientHtml(res, 'cms-page.html');
+});
+
 app.get('/careers', (req, res) => {
+    sendClientHtml(res, 'cms-page.html');
+});
+
+// Dynamic CMS pages — /pages/:slug and /page.html?slug=xxx
+app.get('/pages/:slug', (req, res) => {
+    sendClientHtml(res, 'cms-page.html');
+});
+
+app.get('/page.html', (req, res) => {
+    sendClientHtml(res, 'cms-page.html');
+});
+
+app.get('/page', (req, res) => {
     sendClientHtml(res, 'cms-page.html');
 });
 
@@ -453,6 +478,32 @@ if (fs.existsSync(PUBLIC_DIR)) {
     app.use(express.static(PUBLIC_DIR, staticAssetOptions));
 }
 app.use(express.static(CLIENT_DIR, staticAssetOptions));
+
+/********************************************************************
+ # DYNAMIC CMS PAGE CATCH-ALL
+ # Serves cms-page.html for single-segment paths like /return-policy
+ # when they are not reserved app routes. Client loader fetches content
+ # by slug from /api/store/pages/:slug (404 UI if unpublished/missing).
+ ********************************************************************/
+const CMS_RESERVED_SLUGS = new Set([
+    'index', 'profile', 'login', 'register', 'forgot-password',
+    'order-track', 'order-details', 'product-details', 'search',
+    'cart', 'checkout', 'payment', 'footer', 'admin', 'admin-login',
+    'finance-login', 'finance-analytics', 'verify-otp', 'api',
+    'uploads', 'css', 'js', 'images', 'assets', 'public', 'pages',
+    'page', 'manifest', 'service-worker', 'robots', 'sitemap', 'favicon'
+]);
+
+app.get('/:slug', (req, res, next) => {
+    const slug = String(req.params.slug || '').toLowerCase();
+    if (!slug || slug.includes('.') || CMS_RESERVED_SLUGS.has(slug)) {
+        return next();
+    }
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+        return next();
+    }
+    return sendClientHtml(res, 'cms-page.html');
+});
 
 /********************************************************************
  # 404 NOT FOUND HANDLER (🌟 নতুন: ভুল ইউআরএল হ্যান্ডেল করার জন্য)

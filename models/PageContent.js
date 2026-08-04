@@ -1,13 +1,19 @@
 /********************************************************************
  * Project: EonlineBazar
  * File: PageContent.js
- * Description: CMS pages — About, Contact info, Privacy Policy, Terms, etc.
+ * Description: Fully dynamic CMS pages — created via Page Content Manager
+ *              or auto-provisioned from Footer Columns & Links.
  ********************************************************************/
 
 const mongoose = require('mongoose');
 const { markdownToHtml } = require('../utils/markdownToHtml');
 
-const PAGE_SLUGS = Object.freeze(['about', 'contact', 'privacy-policy', 'terms', 'careers']);
+/** Seeded default pages (always ensured on boot / first admin load). */
+const DEFAULT_PAGE_SLUGS = Object.freeze(['about', 'contact', 'privacy-policy', 'terms', 'careers']);
+/** @deprecated Use DEFAULT_PAGE_SLUGS — kept for backward-compatible imports. */
+const PAGE_SLUGS = DEFAULT_PAGE_SLUGS;
+
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const contactMetaSchema = new mongoose.Schema({
     address: { type: String, default: '', trim: true, maxlength: 500 },
@@ -112,6 +118,34 @@ Send your CV and a short introduction to **careers@eonlinebazar.com** with the r
     }
 ];
 
+function normalizeSlug(value) {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/^\/+/, '')
+        .replace(/\/+$/, '')
+        .replace(/^pages\//, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 80);
+}
+
+function isValidSlug(slug) {
+    return typeof slug === 'string' && SLUG_PATTERN.test(slug) && slug.length <= 80;
+}
+
+function buildFooterPageSeed(title, slug) {
+    const safeTitle = String(title || '').trim().slice(0, 120) || slug;
+    return {
+        slug,
+        title: safeTitle,
+        subtitle: `${safeTitle} details and guidelines`,
+        bodyMarkdown: `## ${safeTitle}\n\nWrite details here...`,
+        isPublished: true,
+        sortOrder: 100
+    };
+}
+
 const pageContentSchema = new mongoose.Schema({
     slug: {
         type: String,
@@ -119,7 +153,11 @@ const pageContentSchema = new mongoose.Schema({
         trim: true,
         lowercase: true,
         unique: true,
-        enum: PAGE_SLUGS
+        maxlength: 80,
+        validate: {
+            validator: isValidSlug,
+            message: 'Invalid page slug. Use lowercase letters, numbers, and hyphens only.'
+        }
     },
     title: { type: String, required: true, trim: true, maxlength: 120 },
     subtitle: { type: String, default: '', trim: true, maxlength: 240 },
@@ -149,16 +187,80 @@ pageContentSchema.statics.ensureDefaults = async function ensureDefaults() {
     }
 };
 
+/**
+ * Create a CMS page for a footer link when the slug does not already exist.
+ * @returns {Promise<object|null>} Created admin object, or null if already exists / invalid.
+ */
+pageContentSchema.statics.createIfMissing = async function createIfMissing({ title, slug } = {}) {
+    const normalized = normalizeSlug(slug);
+    if (!isValidSlug(normalized)) return null;
+
+    const existing = await this.findOne({ slug: normalized });
+    if (existing) return null;
+
+    const seed = buildFooterPageSeed(title, normalized);
+    const doc = await this.create({
+        ...seed,
+        bodyHtml: markdownToHtml(seed.bodyMarkdown)
+    });
+    return doc.toAdminObject();
+};
+
 pageContentSchema.statics.getAllForAdmin = async function getAllForAdmin() {
-    await this.ensureDefaults();
+    // Fully dynamic — only return pages that exist in DB (no hardcoded seed injection).
     return this.find().sort({ sortOrder: 1, title: 1 });
 };
 
 pageContentSchema.statics.getPublishedBySlug = async function getPublishedBySlug(slug) {
-    await this.ensureDefaults();
-    const doc = await this.findOne({ slug: String(slug || '').toLowerCase() });
+    const doc = await this.findOne({ slug: normalizeSlug(slug) });
     if (!doc || doc.isPublished === false) return null;
     return doc;
+};
+
+/**
+ * Create a new CMS page. Fails if slug already exists or is invalid.
+ * @returns {Promise<object>} Created mongoose document.
+ */
+pageContentSchema.statics.createPage = async function createPage({
+    title,
+    slug,
+    subtitle = '',
+    bodyMarkdown = '',
+    isPublished = true,
+    sortOrder = 100
+} = {}) {
+    const safeTitle = String(title || '').trim().slice(0, 120);
+    const normalized = normalizeSlug(slug || safeTitle);
+    if (!safeTitle) {
+        const err = new Error('Page title is required.');
+        err.statusCode = 400;
+        throw err;
+    }
+    if (!isValidSlug(normalized)) {
+        const err = new Error('Invalid page slug. Use lowercase letters, numbers, and hyphens only.');
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const existing = await this.findOne({ slug: normalized });
+    if (existing) {
+        const err = new Error(`A page with slug "${normalized}" already exists.`);
+        err.statusCode = 409;
+        throw err;
+    }
+
+    const markdown = String(bodyMarkdown || '').slice(0, 50000)
+        || `## ${safeTitle}\n\nWrite details here...`;
+
+    return this.create({
+        slug: normalized,
+        title: safeTitle,
+        subtitle: String(subtitle || '').trim().slice(0, 240),
+        bodyMarkdown: markdown,
+        bodyHtml: markdownToHtml(markdown),
+        isPublished: isPublished !== false,
+        sortOrder: Math.max(0, Number(sortOrder) || 100)
+    });
 };
 
 pageContentSchema.methods.toAdminObject = function toAdminObject() {
@@ -203,4 +305,8 @@ pageContentSchema.methods.toPublicObject = function toPublicObject() {
 
 module.exports = mongoose.model('PageContent', pageContentSchema);
 module.exports.PAGE_SLUGS = PAGE_SLUGS;
+module.exports.DEFAULT_PAGE_SLUGS = DEFAULT_PAGE_SLUGS;
 module.exports.DEFAULT_PAGES = DEFAULT_PAGES;
+module.exports.normalizeSlug = normalizeSlug;
+module.exports.isValidSlug = isValidSlug;
+module.exports.buildFooterPageSeed = buildFooterPageSeed;

@@ -19,7 +19,10 @@ const { loadFlashSaleSettings, toPublicFlashSalePayload } = require('../utils/fl
 const FooterSettings = require('../models/FooterSettings');
 const PageContent = require('../models/PageContent');
 const Settings = require('../models/Settings');
-const { getPublishedPageSlugs, filterFooterColumnsByPublishedPages } = require('../utils/pagePublishService');
+const {
+    filterFooterColumnsByPublishedPagesAsync,
+    resolveFooterPlaceholderUrlsAsync
+} = require('../utils/pagePublishService');
 const { getOrSet, CACHE_KEYS } = require('../utils/cacheService');
 
 const getPublicStoreBranding = async (req, res) => {
@@ -159,14 +162,23 @@ module.exports = {
     getPublicFooterSettings: async (req, res) => {
         try {
             const data = await getOrSet(CACHE_KEYS.FOOTER_SETTINGS, async () => {
-                const [doc, publishedSlugs] = await Promise.all([
-                    FooterSettings.getOrCreate(),
-                    getPublishedPageSlugs()
-                ]);
+                const doc = await FooterSettings.getOrCreate();
                 const payload = doc.toPublicObject();
-                payload.columns = filterFooterColumnsByPublishedPages(payload.columns, publishedSlugs);
+                // Heal '#' placeholder links → CMS routes before publish filtering.
+                const healed = await resolveFooterPlaceholderUrlsAsync(payload.columns, {
+                    publishedOnly: true
+                });
+                payload.columns = await filterFooterColumnsByPublishedPagesAsync(healed.columns);
                 return payload;
             }, 3600);
+
+            // Re-heal on every response so stale cache can't keep broken '#' footer routes.
+            if (data?.columns) {
+                const healed = await resolveFooterPlaceholderUrlsAsync(data.columns, {
+                    publishedOnly: true
+                });
+                data.columns = await filterFooterColumnsByPublishedPagesAsync(healed.columns);
+            }
 
             res.status(200).json({ success: true, data });
         } catch (error) {
