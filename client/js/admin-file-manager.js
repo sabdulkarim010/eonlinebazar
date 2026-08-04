@@ -24,6 +24,7 @@
     let uiBound = false;
     let deleteTargetPath = null;
     let deleteTargetType = null;
+    let editorLocked = true;
 
     const JS_KEYWORDS = new Set([
         'break', 'case', 'catch', 'class', 'const', 'continue', 'debugger', 'default',
@@ -178,6 +179,39 @@
         if (deleteBtn) deleteBtn.disabled = !activePath;
     }
 
+    function setEditorLocked(locked) {
+        editorLocked = !!locked;
+        const fileOpen = !!(activePath && activeType === 'file');
+        const editor = document.getElementById('fmEditor');
+        const shell = document.getElementById('fmCodeShell');
+        const badge = document.getElementById('fmReadOnlyBadge');
+        const toggleBtn = document.getElementById('fmEditToggleBtn');
+
+        if (editor) {
+            editor.readOnly = editorLocked;
+            editor.classList.toggle('is-readonly', editorLocked);
+        }
+        if (shell) shell.classList.toggle('is-readonly', editorLocked && fileOpen);
+
+        if (badge) {
+            badge.hidden = !(fileOpen && editorLocked);
+        }
+
+        if (toggleBtn) {
+            toggleBtn.disabled = !fileOpen;
+            toggleBtn.classList.toggle('is-editing', fileOpen && !editorLocked);
+            if (editorLocked) {
+                toggleBtn.innerHTML = '<i class="fa-solid fa-pen"></i> Edit File';
+                toggleBtn.title = 'Unlock editor to make changes';
+                toggleBtn.setAttribute('aria-pressed', 'false');
+            } else {
+                toggleBtn.innerHTML = '<i class="fa-solid fa-lock"></i> Lock Editor';
+                toggleBtn.title = 'Lock editor (read-only)';
+                toggleBtn.setAttribute('aria-pressed', 'true');
+            }
+        }
+    }
+
     function setDirty(next) {
         dirty = !!next;
         const status = document.getElementById('fmEditorStatus');
@@ -311,6 +345,7 @@
         if (codeEl) codeEl.innerHTML = '';
         const gutter = document.getElementById('fmGutter');
         if (gutter) gutter.innerHTML = '';
+        setEditorLocked(true);
     }
 
     function renderBreadcrumb(filePath) {
@@ -465,7 +500,6 @@
             showEditorShell(true);
             if (editor) {
                 editor.value = loadedContent;
-                editor.focus({ preventScroll: true });
             }
             if (reloadBtn) reloadBtn.disabled = false;
 
@@ -479,6 +513,8 @@
             renderBreadcrumb(activePath);
             refreshHighlight();
             setDirty(false);
+            // Always re-lock when opening / switching files to prevent accidental edits.
+            setEditorLocked(true);
             paintTree();
         } catch (err) {
             notify(err.message || 'Failed to open file.', 'error');
@@ -506,6 +542,7 @@
             });
             loadedContent = editor.value;
             setDirty(false);
+            setEditorLocked(true);
             notify('Changes saved successfully.', 'success');
             await loadTree({ silent: true });
         } catch (err) {
@@ -748,6 +785,8 @@
             activeType = 'folder';
             renderBreadcrumb(activePath);
             updateDeleteButton();
+            // Leaving a file context — re-lock so Edit File cannot stay armed on a folder.
+            setEditorLocked(true);
             paintTree();
             return;
         }
@@ -777,6 +816,7 @@
         const editor = document.getElementById('fmEditor');
         const saveBtn = document.getElementById('fmSaveBtn');
         const reloadBtn = document.getElementById('fmReloadBtn');
+        const editToggleBtn = document.getElementById('fmEditToggleBtn');
         const deleteBtn = document.getElementById('fmDeleteBtn');
         const refreshBtn = document.getElementById('fmRefreshBtn');
         const newFileBtn = document.getElementById('fmNewFileBtn');
@@ -800,7 +840,10 @@
             });
         }
         if (editor) {
+            editor.readOnly = true;
+            editor.classList.add('is-readonly');
             editor.addEventListener('input', () => {
+                if (editor.readOnly || editorLocked) return;
                 setDirty(editor.value !== loadedContent);
                 scheduleHighlight();
             });
@@ -809,9 +852,11 @@
                 if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
                     e.preventDefault();
                     if (!saveBtn?.disabled) saveActiveFile();
+                    return;
                 }
-                // Keep tabs inside the editor instead of leaving the field.
+                // Keep tabs inside the editor instead of leaving the field (edit mode only).
                 if (e.key === 'Tab') {
+                    if (editor.readOnly || editorLocked) return;
                     e.preventDefault();
                     const start = editor.selectionStart;
                     const end = editor.selectionEnd;
@@ -820,6 +865,17 @@
                     editor.selectionStart = editor.selectionEnd = start + 2;
                     setDirty(editor.value !== loadedContent);
                     scheduleHighlight();
+                }
+            });
+        }
+        if (editToggleBtn) {
+            editToggleBtn.addEventListener('click', () => {
+                if (!(activePath && activeType === 'file')) return;
+                const nextLocked = !editorLocked;
+                setEditorLocked(nextLocked);
+                if (!nextLocked) {
+                    const ed = document.getElementById('fmEditor');
+                    if (ed) ed.focus({ preventScroll: true });
                 }
             });
         }

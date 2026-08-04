@@ -2690,7 +2690,13 @@
                     <span class="fm-breadcrumb-empty">Select a file to open</span>
                 </nav>
                 <div class="fm-editor-toolbar">
+                    <span class="fm-readonly-badge" id="fmReadOnlyBadge" hidden>
+                        <i class="fa-solid fa-lock" aria-hidden="true"></i> Read-Only Mode
+                    </span>
                     <span class="fm-editor-status" id="fmEditorStatus"></span>
+                    <button type="button" class="btn-secondary fm-toolbar-btn fm-toolbar-btn--edit" id="fmEditToggleBtn" disabled title="Unlock editor to make changes">
+                        <i class="fa-solid fa-pen"></i> Edit File
+                    </button>
                     <button type="button" class="btn-secondary fm-toolbar-btn" id="fmReloadBtn" disabled title="Reload from disk">
                         <i class="fa-solid fa-rotate-right"></i> Reload
                     </button>
@@ -2713,7 +2719,7 @@
                     <div class="fm-gutter" id="fmGutter" aria-hidden="true"></div>
                     <div class="fm-code-viewport" id="fmCodeViewport">
                         <pre class="fm-highlight" id="fmHighlight" aria-hidden="true"><code id="fmHighlightCode"></code></pre>
-                        <textarea id="fmEditor" class="fm-editor" spellcheck="false" wrap="off" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="File content editor"></textarea>
+                        <textarea id="fmEditor" class="fm-editor is-readonly" spellcheck="false" wrap="off" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="File content editor" readonly></textarea>
                     </div>
                 </div>
             </div>
