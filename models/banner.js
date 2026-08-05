@@ -19,8 +19,8 @@ const bannerSettingsSchema = new mongoose.Schema({
   autoPlayInterval: { type: Number, default: 4000 },
   showDots: { type: Boolean, default: true },
   showArrows: { type: Boolean, default: true },
-  height: { type: String, default: '420px' },
-  mobileHeight: { type: String, default: '220px' },
+  height: { type: String, default: '300px' },
+  mobileHeight: { type: String, default: '180px' },
   transitionEffect: {
     type: String,
     enum: ['slide', 'fade'],

@@ -39,7 +39,8 @@ function calculateOrderCashback(grandTotal, settings) {
 }
 
 function resolveCategoryCashbackRate(categoryDoc, settings) {
-    const custom = categoryDoc?.customCashbackPercentage;
+    // Prefer customCashback (new schema); fall back to legacy customCashbackPercentage
+    const custom = categoryDoc?.customCashback ?? categoryDoc?.customCashbackPercentage;
     if (custom !== null && custom !== undefined && Number(custom) >= 0) {
         return Number(custom);
     }
@@ -56,7 +57,7 @@ function calculateLineItemCashback(lineTotal, cashbackRate) {
 /**
  * Sum per-line cashback using category overrides when set, otherwise global rate.
  * @param {Array<{ price: number, quantity?: number, category?: string }>} orderItems
- * @param {Map<string, { customCashbackPercentage?: number|null }>} categoryMap - keyed by category name
+ * @param {Map<string, { customCashback?: number|null, customCashbackPercentage?: number|null }>} categoryMap - keyed by category name
  */
 function calculateOrderCashbackFromItems(orderItems, categoryMap, settings) {
     if (!Array.isArray(orderItems) || orderItems.length === 0) return 0;
@@ -80,7 +81,7 @@ async function loadCategoryCashbackMap(categoryNames) {
     if (uniqueNames.length === 0) return new Map();
 
     const categories = await Category.find({ name: { $in: uniqueNames } })
-        .select('name customCashbackPercentage')
+        .select('name customCashback customCashbackPercentage')
         .lean();
 
     return new Map(categories.map((cat) => [cat.name, cat]));

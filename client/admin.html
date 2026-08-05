@@ -14,16 +14,17 @@
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5/dist/sweetalert2.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5/dist/sweetalert2.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
     
     <link rel="stylesheet" href="/css/admin.css">
     <link rel="stylesheet" href="/css/footer.css">
     <link rel="stylesheet" href="/css/cms-page.css">
     <script src="/js/admin-pagination.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
 
     <script>
     if (!localStorage.getItem('adminToken')) {
@@ -36,6 +37,8 @@
         });
     }
     </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { csp: { nonce: '' } }</script>
 </head>
 
 <body>
@@ -92,6 +95,7 @@
                         <ul class="submenu">
                             <li data-target="manage-category"><i class="fa-solid fa-tags"></i> Manage Categories</li>
                             <li data-target="manage-brands"><i class="fa-solid fa-copyright"></i> Manage Brands</li>
+                            <li data-target="manage-navbar-links"><i class="fa-solid fa-bars"></i> Navbar Menu Links</li>
                             <li data-target="manage-attributes"><i class="fa-solid fa-sliders"></i> Attributes</li>
                             <li data-target="manage-coupons"><i class="fa-solid fa-ticket"></i> Manage Coupons</li>
                         </ul>
@@ -563,36 +567,55 @@
     <div class="catalog-page-header">
         <div>
             <h3><i class="fa-solid fa-tags"></i> Manage Categories</h3>
-            <p class="catalog-page-sub">Organize products with dynamic category labels.</p>
+            <p class="catalog-page-sub">Organize products with hierarchical categories, visuals, and display settings.</p>
         </div>
     </div>
-    <div class="catalog-toolbar">
-        <div class="catalog-add-form">
-            <div class="catalog-field catalog-field-grow">
-                <label for="newCategoryName">New Category Name</label>
-                <input type="text" id="newCategoryName" placeholder="e.g., Smart Phones, Electronics">
-            </div>
-            <div class="catalog-field">
-                <label for="newCategoryCashback">Custom Cashback % (Leave blank to use Global Default)</label>
-                <input type="number" id="newCategoryCashback" min="0" max="100" step="0.01" placeholder="e.g., 5">
-            </div>
-            <button type="button" onclick="addCategory()" class="btn-submit catalog-add-btn">
-                <i class="fa-solid fa-plus"></i> Add Category
-            </button>
-        </div>
+
+    <!-- Stats bar -->
+    <div class="cat-stats-bar">
+      <div class="cat-stat">
+        <span class="cat-stat-val" id="catTotalCount">0</span>
+        <span class="cat-stat-lbl">Total</span>
+      </div>
+      <div class="cat-stat">
+        <span class="cat-stat-val" id="catActiveCount">0</span>
+        <span class="cat-stat-lbl">Active</span>
+      </div>
+      <div class="cat-stat">
+        <span class="cat-stat-val" id="catFeaturedCount">0</span>
+        <span class="cat-stat-lbl">Featured</span>
+      </div>
+      <div class="cat-stat">
+        <span class="cat-stat-val" id="catNavbarCount">0</span>
+        <span class="cat-stat-lbl">In Navbar</span>
+      </div>
+      <button type="button" class="btn btn-primary btn-sm"
+              onclick="openCategoryModal()">
+        + Add Category
+      </button>
     </div>
-    <div class="catalog-table-wrap">
-        <table class="catalog-table">
-            <thead>
-                <tr>
-                    <th class="col-name">Category Name</th>
-                    <th class="col-cashback">Cashback %</th>
-                    <th class="col-date">Date Added</th>
-                    <th class="col-actions">Actions</th>
-                </tr>
-            </thead>
-            <tbody id="categoryTableBody"></tbody>
-        </table>
+
+    <!-- Filter/Search -->
+    <div class="cat-filter-bar">
+      <input type="text" id="catSearch"
+             class="cat-search-input"
+             placeholder="🔍 Search categories..."
+             oninput="filterCategories()">
+      <select id="catFilterParent" onchange="filterCategories()">
+        <option value="all">All Types</option>
+        <option value="parent">Parent Only</option>
+        <option value="sub">Sub-categories Only</option>
+      </select>
+      <select id="catFilterStatus" onchange="filterCategories()">
+        <option value="all">All Status</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+    </div>
+
+    <!-- Category Tree/List -->
+    <div id="categoryTree" class="cat-tree">
+      <!-- Rendered by JS -->
     </div>
 </section>
 
@@ -626,6 +649,152 @@
             <tbody id="brandTableBody"></tbody>
         </table>
     </div>
+</section>
+
+<section id="manage-navbar-links" class="admin-section catalog-page navbar-links-page" style="display: none;">
+    <div class="catalog-page-header">
+        <div>
+            <h3><i class="fa-solid fa-bars"></i> Navbar Menu Links</h3>
+            <p class="catalog-page-sub">Manage top-bar promotional links (e.g. Today&#39;s Deals, Hot Offers). Product categories stay in the ☰ All drawer only.</p>
+        </div>
+    </div>
+
+    <form id="navbarLinkForm" class="navbar-link-form-card" novalidate>
+        <input type="hidden" id="navbarLinkEditId" value="">
+
+        <div class="navbar-link-form-card-head">
+            <div class="navbar-link-form-card-icon" aria-hidden="true">
+                <i class="fa-solid fa-link"></i>
+            </div>
+            <div>
+                <h4 id="navbarLinkFormHeading">Add Navbar Link</h4>
+                <p>Create an external path, site route, or a custom CMS page with rich content.</p>
+            </div>
+        </div>
+
+        <div class="navbar-link-form-grid">
+            <div class="catalog-field">
+                <label for="navbarLinkTitle">Title</label>
+                <input type="text" id="navbarLinkTitle" placeholder="e.g., Today's Deals" maxlength="80" required autocomplete="off">
+            </div>
+            <div class="catalog-field">
+                <label for="navbarLinkSlug">Slug <span class="field-optional">(optional)</span></label>
+                <input type="text" id="navbarLinkSlug" placeholder="auto from title" maxlength="80" autocomplete="off">
+            </div>
+            <div class="catalog-field navbar-link-url-field">
+                <label for="navbarLinkUrl">URL / Path</label>
+                <input type="text" id="navbarLinkUrl" placeholder="e.g., /deals or https://…" maxlength="500" required autocomplete="off">
+                <small class="field-hint" id="navbarLinkUrlHint">External or site-relative path. Auto-set when creating a custom CMS page.</small>
+            </div>
+            <div class="catalog-field">
+                <label for="navbarLinkTarget">Open In</label>
+                <select id="navbarLinkTarget">
+                    <option value="_self">Same tab</option>
+                    <option value="_blank">New tab</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="navbar-link-options-row">
+            <label class="navbar-link-switch" for="navbarLinkPublished">
+                <input type="checkbox" id="navbarLinkPublished" checked>
+                <span class="navbar-link-switch-ui" aria-hidden="true"></span>
+                <span class="navbar-link-switch-copy">
+                    <strong>Published</strong>
+                    <small>Show this link in the storefront top bar</small>
+                </span>
+            </label>
+            <label class="navbar-link-switch navbar-link-switch-accent" for="navbarLinkCustomPage">
+                <input type="checkbox" id="navbarLinkCustomPage">
+                <span class="navbar-link-switch-ui" aria-hidden="true"></span>
+                <span class="navbar-link-switch-copy">
+                    <strong>Create Custom CMS Page for this Link</strong>
+                    <small>Opens the rich text editor and auto-sets <code>/page/…</code></small>
+                </span>
+            </label>
+        </div>
+
+        <div id="navbarLinkCmsPanel" class="navbar-link-cms-panel" hidden>
+            <div class="navbar-link-cms-panel-head">
+                <div>
+                    <h4><i class="fa-solid fa-file-pen"></i> Custom Page Content</h4>
+                    <p>Rich content is saved as a storefront CMS page. Route preview: <code id="navbarLinkRoutePreview">/page/your-slug</code></p>
+                </div>
+                <a id="navbarLinkRouteOpen" class="navbar-link-route-open" href="/page/your-slug" target="_blank" rel="noopener noreferrer">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Preview route
+                </a>
+            </div>
+            <div class="navbar-link-quill-shell">
+                <div id="navbarLinkQuillToolbar" class="navbar-link-quill-toolbar">
+                    <span class="ql-formats">
+                        <select class="ql-font">
+                            <option selected></option>
+                            <option value="serif">Serif</option>
+                            <option value="monospace">Monospace</option>
+                            <option value="arial">Arial</option>
+                            <option value="georgia">Georgia</option>
+                            <option value="tahoma">Tahoma</option>
+                            <option value="verdana">Verdana</option>
+                            <option value="poppins">Poppins</option>
+                            <option value="hind-siliguri">Hind Siliguri</option>
+                        </select>
+                        <select class="ql-size">
+                            <option value="12px">12px</option>
+                            <option value="14px">14px</option>
+                            <option value="16px" selected></option>
+                            <option value="18px">18px</option>
+                            <option value="24px">24px</option>
+                            <option value="32px">32px</option>
+                            <option value="48px">48px</option>
+                        </select>
+                    </span>
+                    <span class="ql-formats">
+                        <button class="ql-bold" type="button"></button>
+                        <button class="ql-italic" type="button"></button>
+                        <button class="ql-underline" type="button"></button>
+                        <button class="ql-strike" type="button"></button>
+                    </span>
+                    <span class="ql-formats">
+                        <select class="ql-color"></select>
+                        <select class="ql-background"></select>
+                    </span>
+                    <span class="ql-formats">
+                        <button class="ql-list" value="ordered" type="button"></button>
+                        <button class="ql-list" value="bullet" type="button"></button>
+                        <select class="ql-align">
+                            <option selected></option>
+                            <option value="center"></option>
+                            <option value="right"></option>
+                            <option value="justify"></option>
+                        </select>
+                    </span>
+                    <span class="ql-formats">
+                        <button class="ql-link" type="button"></button>
+                        <button class="ql-image" type="button"></button>
+                        <button id="navbarLinkHtmlEmbedBtn" type="button" class="ql-html-embed" title="Insert HTML">HTML</button>
+                        <button class="ql-clean" type="button"></button>
+                    </span>
+                </div>
+                <div id="navbarLinkQuillEditor" class="navbar-link-quill-editor" aria-label="Custom page rich text editor"></div>
+            </div>
+            <textarea id="navbarLinkPageHtml" class="sr-only" hidden aria-hidden="true"></textarea>
+        </div>
+
+        <div class="navbar-link-form-actions">
+            <button type="submit" id="navbarLinkSubmitBtn" class="btn-submit navbar-link-save-btn">
+                <i class="fa-solid fa-plus"></i> <span id="navbarLinkSubmitLabel">Add Link</span>
+            </button>
+            <button type="button" id="navbarLinkCancelBtn" class="btn-secondary navbar-link-cancel-btn" style="display:none;" onclick="resetNavbarLinkForm()">
+                Cancel Edit
+            </button>
+        </div>
+    </form>
+
+    <div class="navbar-links-list-head">
+        <h4><i class="fa-solid fa-list-ul"></i> Active Links</h4>
+        <p>Drag order with the arrows. CMS badges open at <code>/page/:slug</code>.</p>
+    </div>
+    <div id="navbarLinkTableBody" class="navbar-links-card-list" role="list"></div>
 </section>
 
 <section id="manage-coupons" class="admin-section catalog-page" style="display: none;">
@@ -2198,6 +2367,34 @@
             </div>
         </section>
 
+        <form id="form-system-catalog" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--slate">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--slate" aria-hidden="true">
+                        <i class="fa-solid fa-table-list"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>Catalog Pagination</h4>
+                        <p class="settings-card-sub">Default page size for storefront product lists and search. Clients can still override with <code>?limit=</code> on the API.</p>
+                    </div>
+                </div>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label for="defaultProductsPerPage">Default Products Per Page</label>
+                        <input type="number" id="defaultProductsPerPage" min="1" max="100" step="1" placeholder="24">
+                        <small class="field-hint">Used when <code>page</code>/<code>limit</code> are omitted. Allowed range: 1–100 (default 24).</small>
+                    </div>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Catalog Pagination
+                    </button>
+                </div>
+            </div>
+        </form>
+
         <form id="form-system-flash-sale" class="system-settings-form" novalidate>
             <div class="system-settings-card system-settings-card--orange">
                 <div class="system-settings-card-header">
@@ -2506,18 +2703,21 @@
                 <div class="fg form-group">
                     <label for="bannerHeight">Desktop Height</label>
                     <select id="bannerHeight">
-                        <option value="320px">Small (320px)</option>
-                        <option value="420px" selected>Medium (420px)</option>
-                        <option value="520px">Large (520px)</option>
-                        <option value="600px">Extra Large (600px)</option>
+                        <option value="300px" selected>Extra Large (300px)</option>
+                        <option value="270px">Large (270px)</option>
+                        <option value="240px">Medium (240px)</option>
+                        <option value="210px">Small (210px)</option>
+                        <option value="180px">Compact (180px)</option>
                     </select>
                 </div>
                 <div class="fg form-group">
                     <label for="bannerMobileHeight">Mobile Height</label>
                     <select id="bannerMobileHeight">
-                        <option value="180px">Small (180px)</option>
-                        <option value="220px" selected>Medium (220px)</option>
-                        <option value="280px">Large (280px)</option>
+                        <option value="180px" selected>Extra Large (180px)</option>
+                        <option value="160px">Large (160px)</option>
+                        <option value="140px">Medium (140px)</option>
+                        <option value="120px">Small (120px)</option>
+                        <option value="100px">Compact (100px)</option>
                     </select>
                 </div>
                 <div class="fg form-group">
@@ -3790,28 +3990,179 @@
 </div>
 
 
-<!-- Category edit modal (name + optional custom cashback) -->
-<div id="categoryEditModal" class="custom-modal-overlay" style="display: none;">
-    <div class="custom-modal-box" style="max-width: 460px;">
-        <div class="modal-header">
-            <h3><i class="fa-solid fa-tags"></i> Edit Category</h3>
-            <button type="button" class="close-icon-btn" onclick="closeCategoryEditModal()"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div class="modal-body">
-            <div class="form-group">
-                <label for="editCategoryNameInput">Category Name</label>
-                <input type="text" id="editCategoryNameInput" placeholder="e.g., Electronics">
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="editCategoryCashbackInput">Custom Cashback % (Leave blank to use Global Default)</label>
-                <input type="number" id="editCategoryCashbackInput" min="0" max="100" step="0.01" placeholder="e.g., 5">
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn-secondary" onclick="closeCategoryEditModal()">Cancel</button>
-            <button type="button" class="btn-primary" id="editCategorySaveBtn"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-        </div>
+<!-- Category Modal -->
+<div class="modal-bg" id="categoryModal" onclick="if(event.target===this) closeCategoryModal()">
+  <div class="modal-box category-modal-box">
+    <!-- STICKY HEADER — stays visible while scrolling -->
+    <div class="category-modal-header">
+      <div class="category-modal-header-left">
+        <span id="catModalIcon" style="font-size:20px;">➕</span>
+        <h2 id="catModalTitle">Add New Category</h2>
+      </div>
+      <button type="button"
+              class="category-modal-close"
+              onclick="closeCategoryModal()"
+              title="Close"
+              onmouseover="this.style.background='#ef4444';this.style.color='#fff'"
+              onmouseout="this.style.background='transparent';this.style.color='#ef4444'">
+        ✕
+      </button>
     </div>
+
+    <!-- SCROLLABLE BODY -->
+    <div class="category-modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+        <!-- Left: Basic Info -->
+        <div style="grid-column:1/-1">
+          <div class="modal-field">
+            <div class="modal-lbl">Category Name *</div>
+            <input type="text" id="catName" class="pf-input"
+                   placeholder="e.g. Fashion & Apparel">
+          </div>
+        </div>
+
+        <div>
+          <div class="modal-field">
+            <div class="modal-lbl">Parent Category (optional)</div>
+            <select id="catParent" class="pf-input">
+              <option value="">None (Top-level)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <div class="modal-field">
+            <div class="modal-lbl">Accent Color</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="color" id="catColor" value="#f97316"
+                     style="height:42px;width:60px;border-radius:8px;
+                            border:1.5px solid #e2e8f0;cursor:pointer"
+                     oninput="document.getElementById('catColorHex').value=this.value">
+              <input type="text" id="catColorHex"
+                     class="pf-input" style="flex:1"
+                     placeholder="#f97316"
+                     oninput="document.getElementById('catColor').value=this.value">
+            </div>
+          </div>
+        </div>
+
+        <div style="grid-column:1/-1">
+          <div class="modal-field">
+            <div class="modal-lbl">Description (optional)</div>
+            <textarea id="catDescription" class="pf-input" rows="2"
+                      placeholder="Brief description of this category..."></textarea>
+          </div>
+        </div>
+
+        <!-- Category Image -->
+        <div>
+          <div class="modal-field">
+            <div class="modal-lbl">Category Image</div>
+            <div class="banner-upload-zone" id="catImgZone" style="min-height:100px"
+                 onclick="document.getElementById('catImageFile').click()">
+              <div id="catImgPreview">
+                <span style="font-size:1.5rem">🖼️</span>
+                <p style="font-size:0.78rem;color:#64748b;margin:4px 0">
+                  Click to upload
+                </p>
+              </div>
+            </div>
+            <input type="file" id="catImageFile" accept="image/*"
+                   style="display:none"
+                   onchange="previewCatImg(this)">
+          </div>
+        </div>
+
+        <!-- Settings toggles -->
+        <div>
+          <div class="modal-field">
+            <div class="modal-lbl">Cashback % (optional)</div>
+            <input type="number" id="catCashback" class="pf-input"
+                   placeholder="Leave blank for global default" min="0" max="100">
+          </div>
+
+          <div class="modal-field">
+            <div class="modal-lbl">Position (display order)</div>
+            <input type="number" id="catPosition" class="pf-input"
+                   placeholder="0" min="0">
+          </div>
+        </div>
+
+        <!-- Toggle switches -->
+        <div style="grid-column:1/-1">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+
+            <label class="toggle-row">
+              <span class="toggle-label">Active</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="catIsActive" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </label>
+
+            <label class="toggle-row">
+              <span class="toggle-label">Featured</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="catIsFeatured">
+                <span class="toggle-slider"></span>
+              </label>
+            </label>
+
+            <label class="toggle-row">
+              <span class="toggle-label">Show in Navbar</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="catShowNavbar" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </label>
+
+            <label class="toggle-row">
+              <span class="toggle-label">Show on Homepage</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="catShowHomepage">
+                <span class="toggle-slider"></span>
+              </label>
+            </label>
+
+          </div>
+        </div>
+
+        <!-- SEO (collapsible) -->
+        <div style="grid-column:1/-1">
+          <details>
+            <summary style="cursor:pointer;font-size:0.875rem;
+                            font-weight:600;color:#64748b;padding:8px 0">
+              🔍 SEO Settings (optional)
+            </summary>
+            <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
+              <div class="modal-field">
+                <div class="modal-lbl">Meta Title</div>
+                <input type="text" id="catMetaTitle" class="pf-input"
+                       placeholder="Page title for search engines">
+              </div>
+              <div class="modal-field">
+                <div class="modal-lbl">Meta Description</div>
+                <textarea id="catMetaDesc" class="pf-input" rows="2"
+                          placeholder="Description for search engines (max 160 chars)"></textarea>
+              </div>
+            </div>
+          </details>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- STICKY FOOTER with Save/Cancel buttons -->
+    <div class="modal-footer category-modal-footer">
+      <button type="button" class="btn" style="background:#f8fafc;color:#64748b;border:2px solid #e2e8f0"
+              onclick="closeCategoryModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" id="saveCatBtn"
+              onclick="saveCategory()">
+        💾 Save Category
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- Catalog quick-edit modal (replaces native prompt for Categories/Brands/Attributes) -->
@@ -4382,6 +4733,43 @@
     <script type="module" src="/js/admin-staff.js"></script>
     <script src="/js/admin-file-manager.js"></script>
     <script src="/js/admin-newsletter.js"></script>
+
+<div class="modal-bg" id="confirmDeleteModal">
+  <div class="modal-box" style="max-width:400px">
+    <div class="modal-title" style="color:#ef4444">
+      🗑️ Confirm Delete
+    </div>
+    <div id="confirmDeleteMsg" style="
+      font-size:0.9rem;
+      color:#374151;
+      margin-bottom:8px;
+      line-height:1.6
+    "></div>
+    <div style="
+      background:#fef2f2;
+      border:1px solid #fecaca;
+      border-radius:8px;
+      padding:10px 14px;
+      font-size:0.82rem;
+      color:#991b1b;
+      margin-bottom:20px;
+    ">
+      ⚠️ This action cannot be undone.
+    </div>
+    <div class="modal-footer">
+      <button class="btn"
+              style="background:#f3f4f6;color:#374151"
+              onclick="closeModal('confirmDeleteModal')">
+        Cancel
+      </button>
+      <button class="btn"
+              style="background:#ef4444;color:white"
+              id="confirmDeleteBtn">
+        Yes, Delete
+      </button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>

@@ -48,6 +48,7 @@ async function generateSitemapXml() {
     const staticPages = [
         { path: '/', changefreq: 'monthly', priority: '1.0', lastmod: now },
         { path: '/search', changefreq: 'monthly', priority: '0.5', lastmod: now },
+        { path: '/products', changefreq: 'daily', priority: '0.8', lastmod: now },
         { path: '/about', changefreq: 'monthly', priority: '0.5', lastmod: now },
         { path: '/contact', changefreq: 'monthly', priority: '0.5', lastmod: now },
         { path: '/privacy-policy', changefreq: 'monthly', priority: '0.5', lastmod: now },
@@ -92,7 +93,7 @@ async function generateSitemapXml() {
         const slug = slugifyCategory(name);
         if (!slug) return;
         entries.push(buildUrlEntry({
-            loc: `${baseUrl}/search?category=${encodeURIComponent(slug)}`,
+            loc: `${baseUrl}/category/${encodeURIComponent(slug)}`,
             lastmod: now,
             changefreq: 'weekly',
             priority: '0.6'

@@ -32,6 +32,7 @@ const cartRoutes = require ('./routes/cartRoutes');
 const wishlistRoutes = require('./routes/wishlistRoutes');
 const categoryRoutes = require('./routes/categoryRoutes'); 
 const brandRoutes = require('./routes/brandRoutes');
+const navbarLinkRoutes = require('./routes/navbarLinkRoutes');
 const attributeRoutes = require('./routes/attributeRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const financeRoutes = require('./routes/financeRoutes');
@@ -177,6 +178,7 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/brands', brandRoutes);
+app.use('/api/navbar-links', navbarLinkRoutes);
 app.use('/api/attributes', attributeRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/finance', financeRoutes);
@@ -237,6 +239,15 @@ app.get('/product-details', serveProductDetailsWithSeo);
 // 🌟 সার্চ রেজাল্ট পেজের ক্লিন রুট (?q=keyword দিয়ে অ্যাক্সেস)
 app.get('/search', serveSearchWithSeo);
 
+// Browse all products (navbar "All") — same search page, no empty-state prompt
+app.get('/products', serveSearchWithSeo);
+
+// Category product listing — /category/mobile → same search page scoped to that category
+app.get('/category/:slug', (req, res) => {
+    req.query.category = req.params.slug;
+    return serveSearchWithSeo(req, res);
+});
+
 app.get('/cart', (req, res) => {
     sendClientHtml(res, 'cart.html');
 });
@@ -282,8 +293,12 @@ app.get('/careers', (req, res) => {
     sendClientHtml(res, 'cms-page.html');
 });
 
-// Dynamic CMS pages — /pages/:slug and /page.html?slug=xxx
+// Dynamic CMS pages — /pages/:slug, /page/:slug, and /page.html?slug=xxx
 app.get('/pages/:slug', (req, res) => {
+    sendClientHtml(res, 'cms-page.html');
+});
+
+app.get('/page/:slug', (req, res) => {
     sendClientHtml(res, 'cms-page.html');
 });
 
@@ -310,6 +325,11 @@ app.get('/admin/dashboard', (req, res) => {
 });
 
 app.get('/admin/messages', (req, res) => {
+    sendClientHtml(res, 'admin.html');
+});
+
+// Catalog Management → Navbar Menu Links deep-link
+app.get('/admin/navbar-links', (req, res) => {
     sendClientHtml(res, 'admin.html');
 });
 

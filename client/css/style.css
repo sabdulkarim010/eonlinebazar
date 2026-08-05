@@ -439,6 +439,8 @@ a.logo-area {
     font-size: 14px;
     cursor: pointer;
     outline: none;
+    min-width: 140px;
+    max-width: 220px;
 }
 
 .search-input {
@@ -633,15 +635,24 @@ a.logo-area {
     display: flex;
     white-space: nowrap;
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
     scrollbar-width: none;
     background-color: var(--amazon-light);
     color: var(--white);
     padding: 8px 0;
     margin-top: 0;
     position: relative;
-    z-index: 999;
+    z-index: 9999; /* above hero banner / coming-soon so category dropdowns paint on top */
     clear: both;
+    isolation: isolate;
+}
+
+/* overflow-x:auto forces overflow-y to clip; open dropdown → allow it to escape over the banner */
+.sub-navbar:has(.has-dropdown:hover),
+.sub-navbar:has(.has-dropdown:focus-within),
+.sub-navbar:has(.nav-category-item:hover .cat-dropdown),
+.sub-navbar.is-dropdown-open {
+    overflow: visible;
 }
 
 .amazon-header + .sub-navbar {
@@ -655,6 +666,9 @@ a.logo-area {
 .sub-flex {
     display: flex;
     align-items: center;
+    overflow: visible;
+    position: relative;
+    z-index: 9999;
 }
 
 .nav-links {
@@ -664,6 +678,9 @@ a.logo-area {
     gap: 15px;
     margin: 0;
     padding: 0;
+    overflow: visible;
+    position: relative;
+    z-index: 9999;
 }
 
 .nav-links li {
@@ -677,22 +694,50 @@ a.logo-area {
     border-radius: 20px;
 }
 
+/* Slot for JS-injected All + category links (no pill chrome on the wrapper) */
+.nav-links li.nav-categories-slot {
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    overflow: visible;
+    position: relative;
+    z-index: 9999;
+}
+
+.nav-links li.nav-categories-slot:hover {
+    border-color: transparent;
+}
+
+.nav-links a {
+    color: inherit;
+    text-decoration: none;
+}
+
 .nav-links li.active,
 .nav-links li:hover {
     border-color: var(--white);
 }
 
 /* জাভাস্ক্রিপ্টের তৈরি বাটনগুলোর মেইন কন্টেইনার */
-#categoryButtonContainer {
+#categoryButtonContainer,
+#categoryButtonContainer.category-tabs-row.menu-categories {
     display: flex;
     align-items: center;
     gap: 10px;
     margin: 0;
     padding: 0;
     flex-wrap: nowrap;
+    overflow: visible; /* never clip sub-category dropdowns (overrides home.css .category-tabs-row) */
+    position: relative;
+    z-index: 9999;
 }
 
 #categoryButtonContainer .nav-category-item {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
     background: transparent;
     border: 1px solid transparent;
     outline: none;
@@ -703,12 +748,203 @@ a.logo-area {
     padding: 3px 8px;
     cursor: pointer;
     transition: all 0.2s ease-in-out;
+    text-decoration: none;
+    white-space: nowrap;
+    z-index: 1;
+}
+
+#categoryButtonContainer .nav-category-item .nav-category-link {
+    color: inherit;
+    text-decoration: none;
+    font: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+#categoryButtonContainer .nav-category-item .nav-cat-arrow {
+    font-size: 0.7em;
+    line-height: 1;
+    opacity: 0.9;
 }
 
 #categoryButtonContainer .nav-category-item:hover,
 #categoryButtonContainer .nav-category-item.active {
     border-color: var(--white);
     color: greenyellow;
+}
+
+/* Top-bar promo / operational links (NavbarLink) — not category mega-menu items */
+#categoryButtonContainer .nav-promo-link {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 20px;
+    color: var(--white);
+    font-size: 13px;
+    font-weight: bold;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+#categoryButtonContainer .nav-promo-link:hover,
+#categoryButtonContainer .nav-promo-link:focus-visible {
+    border-color: var(--white);
+    color: greenyellow;
+}
+
+/* Category mega-menu dropdown — floats above hero / banners */
+.nav-category-item,
+.nav-category-item.has-dropdown {
+    position: relative;
+}
+
+.nav-category-item.has-dropdown:hover,
+.nav-category-item.has-dropdown:focus-within {
+    z-index: 10000;
+}
+
+.nav-category-item:hover .cat-dropdown,
+.nav-category-item.has-dropdown:focus-within .cat-dropdown,
+.nav-category-item:hover .nav-dropdown,
+.nav-category-item.has-dropdown:focus-within .nav-dropdown,
+.nav-category-item:hover .submenu,
+.nav-category-item.has-dropdown:focus-within .submenu {
+    display: block;
+}
+
+.cat-dropdown,
+.nav-dropdown,
+.nav-category-item .submenu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: #ffffff;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+    padding: 10px 0;
+    min-width: 200px;
+    z-index: 9999;
+    border: 1px solid #f1f5f9;
+    white-space: normal;
+    list-style: none;
+    margin: 0;
+}
+
+.cat-dropdown-item,
+.nav-dropdown a,
+.nav-category-item .submenu a {
+    display: block;
+    padding: 9px 16px;
+    font-size: 0.875rem;
+    color: #1e293b;
+    text-decoration: none;
+    transition: background 0.12s ease, color 0.12s ease;
+    font-weight: 500;
+}
+
+.cat-dropdown-item:hover,
+.nav-dropdown a:hover,
+.nav-category-item .submenu a:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+/* Homepage Shop by Category */
+.homepage-categories {
+    padding: 32px 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.hp-cats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.hp-cats-header h2 {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.hp-cats-see-all {
+    color: #f97316;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.hp-cats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 14px;
+}
+
+@media (max-width: 480px) {
+    .hp-cats-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+}
+
+.hp-cat-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    gap: 8px;
+    transition: transform 0.2s;
+}
+
+.hp-cat-card:hover { transform: translateY(-3px); }
+
+.hp-cat-img-wrap {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 2px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+.hp-cat-card:hover .hp-cat-img-wrap {
+    border-color: #f97316;
+}
+
+.hp-cat-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.hp-cat-emoji { font-size: 1.8rem; }
+
+.hp-cat-name {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #374151;
+    text-align: center;
+    line-height: 1.3;
+    max-width: 90px;
+}
+
+.hp-cat-count {
+    font-size: 0.68rem;
+    color: #94a3b8;
+}
+
+@media (max-width: 480px) {
+    .hp-cat-img-wrap { width: 60px; height: 60px; }
+    .hp-cat-name { font-size: 0.7rem; max-width: 70px; }
 }
 
 /* ==========================================================================
@@ -1231,4 +1467,414 @@ a.logo-area {
 .input-wrapper.district-search-wrapper .district-dropdown-list {
     top: calc(100% + 4px);
 }
+
+/* ==========================================================================
+   Amazon-style left hamburger drawer (☰ All)
+   Canonical styles live in /css/sidebar.css (load after this file).
+   Rules below remain as a fallback for pages that have not linked sidebar.css.
+   ========================================================================== */
+.nav-all-btn {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: var(--white);
+    font-size: 14px;
+    font-weight: 700;
+    font-family: inherit;
+    padding: 4px 9px;
+    cursor: pointer;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.nav-all-btn:hover,
+.nav-all-btn:focus-visible {
+    border-color: var(--white);
+    outline: none;
+}
+
+#categoryButtonContainer .nav-all-btn.nav-category-item {
+    border-radius: 3px;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 4px 9px;
+    gap: 6px;
+}
+
+.nav-all-btn__icon {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    width: 14px;
+    height: 12px;
+}
+
+.nav-all-btn__icon span {
+    display: block;
+    height: 2px;
+    width: 100%;
+    background: currentColor;
+    border-radius: 1px;
+}
+
+.nav-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10040;
+    background: rgba(0, 0, 0, 0.55);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.28s ease, visibility 0.28s ease;
+    pointer-events: none;
+}
+
+.nav-drawer-backdrop.is-visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.nav-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 10050;
+    width: min(365px, 86vw);
+    max-width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    background: #fff;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.28);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(-105%);
+    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: auto;
+    overflow: hidden;
+}
+
+.nav-drawer.is-open {
+    transform: translateX(0);
+}
+
+body.nav-drawer-open {
+    overflow: hidden;
+}
+
+.nav-drawer__header {
+    position: relative;
+    flex-shrink: 0;
+    background: var(--amazon-light);
+    color: #fff;
+    padding: 12px 12px 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 56px;
+    z-index: 3;
+}
+
+.nav-drawer__greeting {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    flex: 1;
+    min-width: 0;
+}
+
+.nav-drawer__avatar-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: inherit;
+    text-decoration: none;
+    border-radius: 50%;
+    line-height: 0;
+}
+
+.nav-drawer__avatar-link:hover .nav-drawer__avatar-fallback,
+.nav-drawer__avatar-link:focus-visible .nav-drawer__avatar-fallback {
+    color: #febd69;
+}
+
+.nav-drawer__avatar-link:focus-visible {
+    outline: 2px solid #febd69;
+    outline-offset: 2px;
+}
+
+.nav-drawer__avatar-wrap {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-drawer__avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    display: none;
+}
+
+.nav-drawer__avatar.is-visible {
+    display: block;
+}
+
+.nav-drawer__avatar-fallback {
+    font-size: 28px;
+    line-height: 1;
+    color: #fff;
+}
+
+.nav-drawer__avatar.is-visible + .nav-drawer__avatar-fallback {
+    display: none;
+}
+
+.nav-drawer__greeting-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    pointer-events: none;
+    user-select: none;
+}
+
+.nav-drawer__name--full {
+    display: none;
+}
+
+.nav-drawer__name--short {
+    display: inline;
+}
+
+@media (min-width: 768px) {
+    .nav-drawer__name--full {
+        display: inline;
+    }
+
+    .nav-drawer__name--short {
+        display: none;
+    }
+}
+
+/* Close (✕) inside dark header — hidden while drawer closed */
+.nav-drawer__close,
+#navDrawerCloseBtn {
+    display: none;
+    flex-shrink: 0;
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    margin: 0;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: transparent;
+    color: #fff;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    z-index: 5;
+    text-shadow: none;
+    pointer-events: none;
+}
+
+.nav-drawer.is-open .nav-drawer__close,
+.nav-drawer.is-open #navDrawerCloseBtn {
+    display: inline-flex;
+    pointer-events: auto;
+}
+
+.nav-drawer__close:hover,
+.nav-drawer__close:focus-visible {
+    color: #febd69;
+    outline: none;
+}
+
+.nav-drawer__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+    background: #fff;
+}
+
+.nav-drawer__panels {
+    position: relative;
+    height: 100%;
+    width: 100%;
+}
+
+.nav-drawer__panel {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: #fff;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    -webkit-overflow-scrolling: touch;
+}
+
+.nav-drawer__panel--main {
+    transform: translateX(0);
+    z-index: 1;
+}
+
+.nav-drawer__panel--sub {
+    transform: translateX(100%);
+    z-index: 2;
+}
+
+.nav-drawer.is-sub-open .nav-drawer__panel--main {
+    transform: translateX(-30%);
+}
+
+.nav-drawer.is-sub-open .nav-drawer__panel--sub {
+    transform: translateX(0);
+}
+
+.nav-drawer__section-title {
+    margin: 0;
+    padding: 16px 20px 10px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #111;
+    border-bottom: 1px solid #eee;
+}
+
+.nav-drawer__list {
+    list-style: none;
+    margin: 0;
+    padding: 6px 0 18px;
+}
+
+.nav-drawer__item {
+    display: flex;
+    align-items: stretch;
+    min-height: 44px;
+}
+
+.nav-drawer__link,
+.nav-drawer__expand {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 12px 20px;
+    border: none;
+    background: transparent;
+    color: #111;
+    font-size: 14px;
+    font-family: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    gap: 10px;
+    transition: background 0.15s ease;
+}
+
+.nav-drawer__link:hover,
+.nav-drawer__expand:hover,
+.nav-drawer__link:focus-visible,
+.nav-drawer__expand:focus-visible {
+    background: #eaeded;
+    outline: none;
+}
+
+.nav-drawer__expand {
+    justify-content: space-between;
+    font-weight: 500;
+}
+
+.nav-drawer__chevron {
+    color: #555;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.nav-drawer__back {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 14px 20px;
+    border: none;
+    border-bottom: 1px solid #d5dbdb;
+    background: #fff;
+    color: #111;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.nav-drawer__back:hover,
+.nav-drawer__back:focus-visible {
+    background: #eaeded;
+    outline: none;
+}
+
+.nav-drawer__back i {
+    font-size: 12px;
+    color: #555;
+}
+
+.nav-drawer__sub-title {
+    margin: 0;
+    padding: 14px 20px 8px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #111;
+}
+
+.nav-drawer__divider {
+    height: 1px;
+    background: #d5dbdb;
+    margin: 8px 0;
+}
+
+.nav-drawer__footer-link {
+    display: block;
+    padding: 14px 20px 20px;
+    color: #111;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.nav-drawer__footer-link:hover {
+    color: var(--amazon-orange);
+    background: #eaeded;
+}
+
+.nav-drawer__empty {
+    padding: 20px;
+    color: #666;
+    font-size: 14px;
+}
+
 

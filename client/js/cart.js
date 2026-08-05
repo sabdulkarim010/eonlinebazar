@@ -103,13 +103,13 @@ function encVariant(vid) { return encodeURIComponent(vid || ''); }
 function decVariant(vid) { try { return decodeURIComponent(vid || ''); } catch (e) { return vid || ''; } }
 
 // লাইভ এপিআই থেকে ক্যাটালগ ডাটা লোড করা এবং কার্ট মার্জ/সিঙ্ক করা
-fetch('/api/products')
+fetch('/api/products?limit=500')
     .then(response => {
         if (!response.ok) throw new Error('Network response was not ok');
         return response.json();
     })
     .then(data => {
-        globalProductCatalog = Array.isArray(data) ? data : (data.data || data.products || []);
+        globalProductCatalog = Array.isArray(data) ? data : (data.products || data.data || []);
         window.globalProductCatalog = globalProductCatalog;
         document.dispatchEvent(new CustomEvent('productCatalogReady'));
         renderCartDrawerItems();

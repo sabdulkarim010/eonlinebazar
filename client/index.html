@@ -23,13 +23,15 @@
 
     <link rel="icon" id="dynamic-favicon" href="/images/favicon.png" type="image/png">
     
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/home.css">
-    <link rel="stylesheet" href="css/product-thumbnail.css">
-    <link rel="stylesheet" href="css/footer.css">
-    <link rel="stylesheet" href="css/whatsapp.css">
-    <link rel="stylesheet" href="css/toast.css">
-    <link rel="stylesheet" href="css/mini-cart-drawer.css">
+    <!-- Absolute paths: required so /category/:slug and nested routes never break assets -->
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/sidebar.css">
+    <link rel="stylesheet" href="/css/home.css">
+    <link rel="stylesheet" href="/css/product-thumbnail.css">
+    <link rel="stylesheet" href="/css/footer.css">
+    <link rel="stylesheet" href="/css/whatsapp.css">
+    <link rel="stylesheet" href="/css/toast.css">
+    <link rel="stylesheet" href="/css/mini-cart-drawer.css">
     
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -70,11 +72,11 @@
 
         <div class="header-row header-row-search">
             <div class="search-box-container">
-                <select id="categorySelect" class="search-category" onchange="triggerSearch()">
+                <select id="searchCategorySelect" class="search-category" aria-label="Search in category" data-role="search-scope">
                     <option value="all">All Categories</option>
                 </select>
                 <input type="text" id="searchInput" class="search-input" data-i18n-placeholder="search.placeholder" placeholder="Search products...">
-                <button class="search-submit-btn" onclick="triggerSearch()" title="Search">
+                <button type="button" class="search-submit-btn" id="headerSearchBtn" title="Search" aria-label="Search">
                     <i class="fa fa-search"></i>
                 </button>
             </div>
@@ -82,17 +84,25 @@
     </div>
 </header>
 
-                <nav id="subNavbar" class="sub-navbar">
-                    <div class="container sub-flex">
-                        <ul class="nav-links">
-                             <li><a onclick="window.location.href='/'" class="active" style="cursor:pointer;" data-i18n="nav.home">Home</a></li>
-                <div id="categoryButtonContainer" class="category-tabs-row menu-categories"></div>
+    <nav id="subNavbar" class="sub-navbar">
+        <div class="container sub-flex">
+            <ul class="nav-links" id="category-navbar">
+                <li>
+                    <a href="/" class="active" data-i18n="nav.home">Home</a>
+                </li>
+                <!-- ☰ All + dynamic NavbarLink promo links; categories live in the drawer only -->
+                <li class="nav-categories-slot nav-links-slot">
+                    <div id="categoryButtonContainer" class="category-tabs-row menu-categories" aria-label="Quick navigation links"></div>
+                </li>
             </ul>
         </div>
     </nav>
 
     <div id="heroBannerSlider"></div>
 
+    <section class="homepage-categories" id="homepageCats">
+      <!-- Rendered by JS -->
+    </section>
 
     <main class="container products-container">
         <section id="flashSaleBanner" class="flash-sale-banner" style="display:none;" aria-live="polite">
@@ -115,9 +125,12 @@
             </div>
         </section>
 
-        <h2 class="section-title" data-i18n="home.featured">Featured Products</h2>
-        <div id="productGrid" class="product-layout-grid">
+        <div class="catalog-header-row">
+            <h2 class="section-title" data-i18n="home.featured">Featured Products</h2>
         </div>
+        <div id="productGrid" class="product-layout-grid"></div>
+        <div id="homeLoadMoreWrap" class="catalog-load-more-wrap" hidden></div>
+        <div id="homePaginationContainer" class="catalog-pagination search-pagination"></div>
     </main>
 
     <!-- WhatsApp Button S-->
@@ -133,18 +146,21 @@
         <div id="global-site-footer"></div>
 
     <script src="/js/i18n.js"></script>
-    <script src="js/urlUtils.js"></script>
-    <script src="js/session-guard.js"></script>
-    <script src="js/toast.js"></script>
-    <script src="js/wishlist.js"></script>
-    <script src="js/productThumbnail.js"></script>
-    <script src="js/main.js"></script>
-    <script src="js/banner-slider.js"></script>
-    <script src="js/variantUtils.js"></script>
-    <script src="js/cartDisplayUtils.js"></script>
-    <script src="js/cart.js"></script>
-    <script src="js/mini-cart-drawer.js"></script>
-    <script src="js/whatsapp.js"></script>
+    <script src="/js/urlUtils.js"></script>
+    <script src="/js/session-guard.js"></script>
+    <script src="/js/toast.js"></script>
+    <script src="/js/wishlist.js"></script>
+    <script src="/js/productThumbnail.js"></script>
+    <script src="/js/products.js"></script>
+    <script src="/js/sidebarDrawer.js"></script>
+    <script src="/js/header.js"></script>
+    <script src="/js/main.js"></script>
+    <script src="/js/banner-slider.js"></script>
+    <script src="/js/variantUtils.js"></script>
+    <script src="/js/cartDisplayUtils.js"></script>
+    <script src="/js/cart.js"></script>
+    <script src="/js/mini-cart-drawer.js"></script>
+    <script src="/js/whatsapp.js"></script>
 </body>
 </html>
 

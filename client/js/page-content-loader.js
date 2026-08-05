@@ -27,13 +27,36 @@
         const path = window.location.pathname.replace(/\/+$/, '') || '/';
         if (SLUG_BY_PATH[path]) return SLUG_BY_PATH[path];
 
-        const pagesMatch = path.match(/^\/pages\/([a-z0-9]+(?:-[a-z0-9]+)*)$/i);
+        const pagesMatch = path.match(/^\/pages?\/([a-z0-9]+(?:-[a-z0-9]+)*)$/i);
         if (pagesMatch) return pagesMatch[1].toLowerCase();
 
         const bareMatch = path.match(/^\/([a-z0-9]+(?:-[a-z0-9]+)*)$/i);
         if (bareMatch) return bareMatch[1].toLowerCase();
 
         return null;
+    }
+
+    /** Undo accidental entity escaping so style attrs / tags render as live HTML. */
+    function decodeCmsHtml(value) {
+        let html = String(value ?? '');
+        if (!html) return '';
+        for (let i = 0; i < 3; i += 1) {
+            if (!/&(?:lt|gt|amp|quot|#39|#x27);/i.test(html)) break;
+            const ta = document.createElement('textarea');
+            ta.innerHTML = html;
+            const next = ta.value;
+            if (next === html) break;
+            html = next;
+        }
+        return html;
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     function renderUnavailable(message) {
@@ -43,7 +66,7 @@
             hero.innerHTML = `<h1>Page Unavailable</h1><p>This page is not published or does not exist.</p>`;
         }
         if (body) {
-            body.innerHTML = `<div class="info-page-unavailable"><h2>404 — Page Not Found</h2><p>${message || 'Please check back later or return to the homepage.'}</p><p><a href="/">← Back to Shop</a></p></div>`;
+            body.innerHTML = `<div class="info-page-unavailable"><h2>404 — Page Not Found</h2><p>${escapeHtml(message) || 'Please check back later or return to the homepage.'}</p><p><a href="/">← Back to Shop</a></p></div>`;
         }
         document.title = 'Page Unavailable - EonlineBazar';
     }
@@ -59,30 +82,32 @@
         }
 
         if (body) {
-            body.innerHTML = page.bodyHtml || '<p>No content yet.</p>';
+            const raw = page.bodyHtml || page.content || '';
+            const html = decodeCmsHtml(raw);
+            body.innerHTML = html || '<p>No content yet.</p>';
         }
 
         document.title = `${page.title || 'Page'} - EonlineBazar`;
     }
 
-    function escapeHtml(value) {
-        return String(value ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-    }
-
     async function initPageContent() {
         const slug = resolveSlug();
-        if (!slug) return;
+        if (!slug) {
+            renderUnavailable('Missing or invalid page slug.');
+            return;
+        }
 
         try {
             const res = await fetch(`/api/store/pages/${encodeURIComponent(slug)}`);
-            const result = await res.json();
+            let result = null;
+            try {
+                result = await res.json();
+            } catch (_) {
+                result = null;
+            }
 
-            if (!result.success || !result.data) {
-                renderUnavailable(result.message || 'This page is currently unavailable.');
+            if (!res.ok || !result?.success || !result.data) {
+                renderUnavailable(result?.message || 'This page is currently unavailable.');
                 return;
             }
 

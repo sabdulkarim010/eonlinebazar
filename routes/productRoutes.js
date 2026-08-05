@@ -31,12 +31,12 @@ const canManageInventory = checkPermission('manage_inventory');
  # PRODUCT ROUTES (প্রোডাক্টের এপিআই রাস্তাসমূহ)
  ********************************************************************/
 
-// ১. সব প্রোডাক্ট দেখার রুট (পাবলিক)
-// URL: GET /api/products
+// ১. প্রোডাক্ট লিস্ট (পাবলিক) — supports ?page=&limit=
+// URL: GET /api/products?page=1&limit=24
 router.get('/', getProducts);
 
 // 🌟 ১বি. অ্যাডভান্সড কিওয়ার্ড সার্চ (পাবলিক)
-// URL: GET /api/products/search?q=keyword&page=1&sort=relevance
+// URL: GET /api/products/search?q=keyword&page=1&limit=24&sort=relevance
 // ⚠️ গুরুত্বপূর্ণ: এই রুটটি অবশ্যই '/:id' রুটের আগে থাকতে হবে, নইলে
 // "search" শব্দটি প্রোডাক্ট আইডি হিসেবে ধরা পড়বে।
 router.get('/search', searchProducts);

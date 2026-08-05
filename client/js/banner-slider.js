@@ -1,3 +1,25 @@
+const BANNER_DESKTOP_HEIGHTS = ['300px', '270px', '240px', '210px', '180px'];
+const BANNER_MOBILE_HEIGHTS = ['180px', '160px', '140px', '120px', '100px'];
+const BANNER_DEFAULT_HEIGHT = '300px';
+const BANNER_DEFAULT_MOBILE_HEIGHT = '180px';
+
+function normalizeBannerHeight(value, allowed, fallback) {
+  const v = String(value || '').trim();
+  if (allowed.includes(v)) return v;
+  const n = parseInt(v, 10);
+  if (!Number.isFinite(n)) return fallback;
+  let best = allowed[0];
+  let bestDiff = Infinity;
+  for (const a of allowed) {
+    const diff = Math.abs(parseInt(a, 10) - n);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = a;
+    }
+  }
+  return best;
+}
+
 class BannerSlider {
   constructor(containerId) {
     this.container = document.getElementById(containerId);
@@ -52,20 +74,35 @@ class BannerSlider {
   }
 
   render() {
-    const h = this.settings.height || '420px';
-    const mh = this.settings.mobileHeight || '220px';
+    const h = normalizeBannerHeight(
+      this.settings.height,
+      BANNER_DESKTOP_HEIGHTS,
+      BANNER_DEFAULT_HEIGHT
+    );
+    const mh = normalizeBannerHeight(
+      this.settings.mobileHeight,
+      BANNER_MOBILE_HEIGHTS,
+      BANNER_DEFAULT_MOBILE_HEIGHT
+    );
+
+    this.container.style.setProperty('--banner-height', h);
+    this.container.style.setProperty('--banner-mobile-height', mh);
 
     this.container.innerHTML = `
       <style>
+        #heroBannerSlider {
+          --banner-height: ${h};
+          --banner-mobile-height: ${mh};
+        }
         #bannerSliderWrap {
           position: relative;
           width: 100%;
-          height: ${h};
+          height: var(--banner-height, ${BANNER_DEFAULT_HEIGHT});
           overflow: hidden;
           background: #1a1a2e;
         }
         @media(max-width:768px) {
-          #bannerSliderWrap { height: ${mh}; }
+          #bannerSliderWrap { height: var(--banner-mobile-height, ${BANNER_DEFAULT_MOBILE_HEIGHT}); }
         }
         .banner-slide {
           position: absolute;

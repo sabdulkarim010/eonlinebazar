@@ -21,6 +21,32 @@ function parseBoolean(value, fallback = true) {
     return str === 'true' || str === 'on' || str === '1' || str === 'yes';
 }
 
+/** Strip accidental HTML entity encoding so DB stores raw <p> not &lt;p&gt;. */
+function decodeHtmlEntities(value) {
+    let html = String(value ?? '');
+    if (!html) return '';
+    const map = {
+        '&amp;': '&',
+        '&lt;': '<',
+        '&gt;': '>',
+        '&quot;': '"',
+        '&#39;': "'",
+        '&#x27;': "'",
+        '&apos;': "'"
+    };
+    for (let i = 0; i < 3; i += 1) {
+        if (!/&(?:amp|lt|gt|quot|apos|#39|#x27);/i.test(html)) break;
+        const next = html.replace(/&(?:amp|lt|gt|quot|apos|#39|#x27);/gi, (m) => map[m.toLowerCase()] || map[m] || m);
+        if (next === html) break;
+        html = next;
+    }
+    return html;
+}
+
+function normalizeBodyHtml(value) {
+    return decodeHtmlEntities(String(value || '')).slice(0, 200000);
+}
+
 const listAdminPages = async (req, res) => {
     try {
         const pages = await PageContent.getAllForAdmin();
@@ -87,6 +113,10 @@ const createPage = async (req, res) => {
                 bodyMarkdown: body.bodyMarkdown !== undefined
                     ? String(body.bodyMarkdown || '').slice(0, 50000)
                     : undefined,
+                bodyHtml: body.bodyHtml !== undefined
+                    ? normalizeBodyHtml(body.bodyHtml)
+                    : undefined,
+                contentFormat: body.contentFormat === 'html' ? 'html' : 'markdown',
                 isPublished: parseBoolean(body.isPublished, true),
                 sortOrder: body.sortOrder
             });
@@ -160,7 +190,17 @@ const updatePageContent = async (req, res) => {
             page.title = title;
         }
         if (body.subtitle !== undefined) page.subtitle = readString(body.subtitle, 240);
-        if (body.bodyMarkdown !== undefined) page.bodyMarkdown = String(body.bodyMarkdown || '').slice(0, 50000);
+        if (body.contentFormat !== undefined) {
+            page.contentFormat = body.contentFormat === 'html' ? 'html' : 'markdown';
+        }
+        if (body.bodyHtml !== undefined && (page.contentFormat === 'html' || body.contentFormat === 'html')) {
+            page.contentFormat = 'html';
+            page.bodyHtml = normalizeBodyHtml(body.bodyHtml);
+            page.bodyMarkdown = '';
+        } else if (body.bodyMarkdown !== undefined) {
+            page.contentFormat = 'markdown';
+            page.bodyMarkdown = String(body.bodyMarkdown || '').slice(0, 50000);
+        }
         if (body.isPublished !== undefined) page.isPublished = parseBoolean(body.isPublished, true);
         if (body.isActive !== undefined && body.isPublished === undefined) {
             page.isPublished = parseBoolean(body.isActive, true);

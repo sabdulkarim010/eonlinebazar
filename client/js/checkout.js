@@ -178,10 +178,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const proceedBtn = document.getElementById('proceedToPaymentBtn');
     if (proceedBtn) proceedBtn.addEventListener('click', handleProceedToPayment);
 
-    fetch('/api/products')
+    fetch('/api/products?limit=500')
         .then(res => res.json())
         .then(data => {
-            globalProductCatalog = Array.isArray(data) ? data : (data.data || data.products || []);
+            globalProductCatalog = Array.isArray(data) ? data : (data.products || data.data || []);
             window.globalProductCatalog = globalProductCatalog;
             document.dispatchEvent(new CustomEvent('productCatalogReady'));
             fetchCartData();

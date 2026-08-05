@@ -106,6 +106,13 @@ const settingSchema = new mongoose.Schema({
         type: Number,
         default: 3,
         min: 0
+    },
+    // Storefront catalog / search default page size (overridable via ?limit=)
+    defaultProductsPerPage: {
+        type: Number,
+        default: 24,
+        min: 1,
+        max: 100
     }
 }, {
     timestamps: true

@@ -10,12 +10,51 @@
 const Product = require('../models/product'); 
 const Brand = require('../models/brand');
 const Category = require('../models/category');
+const Setting = require('../models/Setting');
 const { upload } = require('../middlewares/uploadMiddleware'); // এখানে শুধু upload ইমপোর্ট হবে
 const cloudinary = require('cloudinary').v2; // ক্লাউডিনারি সরাসরি এখান থেকে ইমপোর্ট করুন
 const mongoose = require('mongoose');
 const { parseVariants, applyProductStockFields, computeMinVariantPrice, applyPrimaryImageToVariants } = require('../utils/variantHelpers');
 const { loadFlashSaleSettings, applyFlashSaleToProducts } = require('../utils/flashSaleService');
 const { getOrSet, invalidateProductCaches, CACHE_KEYS } = require('../utils/cacheService');
+
+const FALLBACK_PRODUCTS_PER_PAGE = 24;
+/** Hard cap on ?limit= (default page size from settings stays ≤ 100). */
+const MAX_PRODUCTS_PER_PAGE = 500;
+
+async function resolveDefaultProductsPerPage() {
+    try {
+        const settings = await Setting.getOrCreate();
+        const n = Number(settings.defaultProductsPerPage);
+        if (Number.isFinite(n) && n >= 1) {
+            return Math.min(MAX_PRODUCTS_PER_PAGE, Math.max(1, Math.floor(n)));
+        }
+    } catch (_err) { /* fall through to hardcoded default */ }
+    return FALLBACK_PRODUCTS_PER_PAGE;
+}
+
+async function parseProductPagination(req) {
+    const defaultLimit = await resolveDefaultProductsPerPage();
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const rawLimit = parseInt(req.query.limit, 10);
+    const limit = Math.min(
+        MAX_PRODUCTS_PER_PAGE,
+        Math.max(1, Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : defaultLimit)
+    );
+    return { page, limit, skip: (page - 1) * limit };
+}
+
+function buildPaginationMeta(totalProducts, currentPage, limit) {
+    const total = Math.max(0, Number(totalProducts) || 0);
+    const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
+    return {
+        totalProducts: total,
+        currentPage,
+        totalPages,
+        limit,
+        hasMore: currentPage < totalPages
+    };
+}
 
 function parseHasVariants(raw) {
     if (raw === true || raw === 'true' || raw === 1 || raw === '1') return true;
@@ -61,17 +100,22 @@ async function resolveBrand(brandInput) {
     return { brand: brandDoc._id, brandName: brandDoc.name };
 }
 
-// ১. সব প্রোডাক্ট দেখা (পাবলিক)
+// ১. প্রোডাক্ট লিস্ট (পাবলিক) — ?page=1&limit=24
 const getProducts = async (req, res) => {
     try {
-        const [products, flashSettings] = await Promise.all([
-            getOrSet(CACHE_KEYS.POPULAR_PRODUCTS, async () => {
-                return Product.find().sort({ createdAt: -1 }).lean();
-            }, 300),
+        const { page, limit, skip } = await parseProductPagination(req);
+
+        const [totalProducts, products, flashSettings] = await Promise.all([
+            Product.countDocuments(),
+            Product.find().sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
             loadFlashSaleSettings()
         ]);
+
         const enriched = applyFlashSaleToProducts(products, flashSettings);
-        res.json(enriched);
+        res.json({
+            products: enriched,
+            pagination: buildPaginationMeta(totalProducts, page, limit)
+        });
     } catch (err) {
         console.error("Error fetching products:", err);
         res.status(500).json({ success: false, message: "Failed to fetch products" });
@@ -102,24 +146,71 @@ async function resolveBrandFilterIds(brandParam) {
 }
 
 /**
- * Resolve category slug/ID/name to the string stored on Product.category.
+ * Resolve category slug/ID/name to Product.category name strings.
+ * Expands to the matched category AND all nested descendant sub-categories
+ * (recursive), so a parent scope includes products filed under any child.
  */
-async function resolveCategoryFilterName(categoryParam) {
-    if (!categoryParam) return null;
+async function resolveCategoryFilterNames(categoryParam) {
+    if (!categoryParam) return [];
     const token = String(categoryParam).trim();
-    if (!token) return null;
+    if (!token) return [];
+
+    const activeCats = await Category.find({ isActive: { $ne: false } })
+        .select('_id name parentCategory slug')
+        .lean();
+
+    let matched = null;
 
     if (mongoose.Types.ObjectId.isValid(token)) {
-        const catDoc = await Category.findById(token).select('name');
-        if (catDoc) return catDoc.name;
+        matched = activeCats.find((c) => String(c._id) === String(token)) || null;
     }
 
-    const catByName = await Category.findOne({
-        name: new RegExp(`^${escapeRegex(token)}$`, 'i')
-    }).select('name');
-    if (catByName) return catByName.name;
+    if (!matched) {
+        const slug = token.toLowerCase();
+        const nameLower = token.toLowerCase();
+        matched = activeCats.find((cat) => {
+            const catSlug = String(cat.slug || '').toLowerCase();
+            if (catSlug && catSlug === slug) return true;
+            if (String(cat.name || '').toLowerCase() === nameLower) return true;
+            const fromName = String(cat.name || '')
+                .toLowerCase()
+                .trim()
+                .replace(/[^a-z0-9\u0980-\u09FF\s-]/g, '')
+                .replace(/\s+/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-+|-+$/g, '');
+            return fromName === slug;
+        }) || null;
+    }
 
-    return token;
+    if (!matched) {
+        // Unknown token — keep legacy exact-name match behavior
+        return [token];
+    }
+
+    // BFS: self + all nested descendants at any depth
+    const byParent = new Map();
+    activeCats.forEach((cat) => {
+        const key = cat.parentCategory == null || cat.parentCategory === ''
+            ? 'root'
+            : String(cat.parentCategory._id || cat.parentCategory);
+        if (!byParent.has(key)) byParent.set(key, []);
+        byParent.get(key).push(cat);
+    });
+
+    const names = [];
+    const queue = [matched];
+    const seen = new Set();
+    while (queue.length) {
+        const node = queue.shift();
+        const id = String(node._id);
+        if (seen.has(id)) continue;
+        seen.add(id);
+        if (node.name) names.push(node.name);
+        (byParent.get(id) || []).forEach((child) => queue.push(child));
+    }
+
+    return names.length ? names : [matched.name];
 }
 
 /**
@@ -185,9 +276,7 @@ const searchProducts = async (req, res) => {
         const inStock = String(req.query.inStock || '').toLowerCase();
         const sort = String(req.query.sort || 'newest').toLowerCase();
 
-        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
-        const skip = (page - 1) * limit;
+        const { page, limit, skip } = await parseProductPagination(req);
 
         const filter = {};
 
@@ -207,9 +296,10 @@ const searchProducts = async (req, res) => {
         if (brandIds.length === 1) filter.brand = brandIds[0];
         else if (brandIds.length > 1) filter.brand = { $in: brandIds };
 
-        const categoryName = await resolveCategoryFilterName(req.query.category);
-        if (categoryName) {
-            filter.category = new RegExp(`^${escapeRegex(categoryName)}$`, 'i');
+        const categoryNames = await resolveCategoryFilterNames(req.query.category);
+        if (categoryNames.length > 0) {
+            // Parent expands to parent + child names via $in (e.g. Mobile + Walton Mobile)
+            filter.category = { $in: categoryNames };
         }
 
         if (rating != null && !Number.isNaN(rating) && rating >= 1 && rating <= 5) {
@@ -277,15 +367,19 @@ const searchProducts = async (req, res) => {
             ? { min: priceStats[0].min || 0, max: priceStats[0].max || 0 }
             : { min: 0, max: 0 };
 
+        const pagination = buildPaginationMeta(total, page, limit);
+
         return res.json({
             success: true,
+            products: enrichedProducts,
+            pagination,
             data: {
                 products: enrichedProducts,
                 pagination: {
-                    page,
-                    limit,
-                    total,
-                    totalPages: Math.ceil(total / limit)
+                    ...pagination,
+                    // Legacy aliases for older storefront clients
+                    page: pagination.currentPage,
+                    total: pagination.totalProducts
                 },
                 filters: {
                     appliedFilters: {
@@ -335,7 +429,7 @@ const createProduct = async (req, res) => {
             stockQuantity: Number(stockQuantity ?? stock) || 0,
             lowStockThreshold: Number(lowStockThreshold) || 10,
             stock: Number(stock) || 0,
-            category: category || 'General',
+            category: req.body.category || '', // category name string (not ObjectId)
             brand: brandRef,
             brandName: brandName,
             variants: parsedVariants,
@@ -387,7 +481,7 @@ const updateProduct = async (req, res) => {
 
         let updateFields = {};
         if (name) updateFields.name = name;
-        if (category) updateFields.category = category;
+        if (category !== undefined) updateFields.category = req.body.category || ''; // category name string
         if (icon) updateFields.icon = icon.trim();
         if (lowStockThreshold !== undefined && lowStockThreshold !== '') {
             updateFields.lowStockThreshold = Number(lowStockThreshold) || 10;

@@ -57,18 +57,24 @@ async function resolveCategoryByParam(categoryParam) {
     if (!token) return null;
 
     if (mongoose.Types.ObjectId.isValid(token)) {
-        const catDoc = await Category.findById(token).select('name').lean();
+        const catDoc = await Category.findById(token).select('name slug').lean();
         if (catDoc) return catDoc;
     }
 
     const slug = token.toLowerCase();
-    const allCategories = await Category.find().select('name').lean();
-    const bySlug = allCategories.find((cat) => slugifyCategory(cat.name) === slug);
+    const bySlugField = await Category.findOne({ slug }).select('name slug').lean();
+    if (bySlugField) return bySlugField;
+
+    const allCategories = await Category.find().select('name slug').lean();
+    const bySlug = allCategories.find((cat) => {
+        if (String(cat.slug || '').toLowerCase() === slug) return true;
+        return slugifyCategory(cat.name) === slug;
+    });
     if (bySlug) return bySlug;
 
     const byName = await Category.findOne({
         name: new RegExp(`^${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
-    }).select('name').lean();
+    }).select('name slug').lean();
     if (byName) return byName;
 
     return { name: token };
@@ -115,7 +121,7 @@ async function serveProductDetailsWithSeo(req, res) {
 
         const breadcrumbs = [
             { name: 'Home', url: '/' },
-            { name: product.category || 'Products', url: `/search?category=${encodeURIComponent(slugifyCategory(product.category || ''))}` },
+            { name: product.category || 'Products', url: `/category/${encodeURIComponent(slugifyCategory(product.category || ''))}` },
             { name: product.name, url: `/product-details?id=${encodeURIComponent(String(product.productId || product._id))}` }
         ];
 
@@ -167,7 +173,7 @@ async function serveSearchWithSeo(req, res) {
 
         const breadcrumbs = [
             { name: 'Home', url: '/' },
-            { name: category.name, url: `/search?category=${encodeURIComponent(slugifyCategory(category.name))}` }
+            { name: category.name, url: `/category/${encodeURIComponent(slugifyCategory(category.name))}` }
         ];
 
         const contact = await fetchOrganizationContact();

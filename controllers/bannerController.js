@@ -2,15 +2,47 @@ const { Banner, BannerSettings } = require('../models/banner');
 const cloudinary = require('../config/cloudinary');
 const multer = require('multer');
 
+const ALLOWED_DESKTOP_HEIGHTS = ['300px', '270px', '240px', '210px', '180px'];
+const ALLOWED_MOBILE_HEIGHTS = ['180px', '160px', '140px', '120px', '100px'];
+
 const DEFAULT_SETTINGS = {
   autoPlay: true,
   autoPlayInterval: 4000,
   showDots: true,
   showArrows: true,
-  height: '420px',
-  mobileHeight: '220px',
+  height: '300px',
+  mobileHeight: '180px',
   transitionEffect: 'slide'
 };
+
+function normalizeHeight(value, allowed, fallback) {
+  const v = String(value || '').trim();
+  if (allowed.includes(v)) return v;
+  const n = parseInt(v, 10);
+  if (!Number.isFinite(n)) return fallback;
+  let best = allowed[0];
+  let bestDiff = Infinity;
+  for (const a of allowed) {
+    const diff = Math.abs(parseInt(a, 10) - n);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = a;
+    }
+  }
+  return best;
+}
+
+function normalizeBannerSettings(settings = {}) {
+  const raw = settings && typeof settings.toObject === 'function'
+    ? settings.toObject()
+    : (settings || {});
+  const base = { ...DEFAULT_SETTINGS, ...raw };
+  return {
+    ...base,
+    height: normalizeHeight(base.height, ALLOWED_DESKTOP_HEIGHTS, DEFAULT_SETTINGS.height),
+    mobileHeight: normalizeHeight(base.mobileHeight, ALLOWED_MOBILE_HEIGHTS, DEFAULT_SETTINGS.mobileHeight)
+  };
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -53,7 +85,7 @@ exports.getActiveBanners = async (req, res) => {
     res.json({
       success: true,
       banners,
-      settings: settings || DEFAULT_SETTINGS
+      settings: normalizeBannerSettings(settings)
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -67,7 +99,11 @@ exports.getAllBanners = async (req, res) => {
       Banner.find().sort({ position: 1 }),
       BannerSettings.findOne()
     ]);
-    res.json({ success: true, banners, settings: settings || DEFAULT_SETTINGS });
+    res.json({
+      success: true,
+      banners,
+      settings: normalizeBannerSettings(settings)
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -193,12 +229,26 @@ exports.reorderBanners = async (req, res) => {
 // PUT /api/admin/banners/settings — ADMIN
 exports.updateSettings = async (req, res) => {
   try {
+    const body = req.body || {};
+    const payload = {
+      autoPlay: body.autoPlay !== false && body.autoPlay !== 'false',
+      autoPlayInterval: Number.isFinite(parseInt(body.autoPlayInterval, 10))
+        ? parseInt(body.autoPlayInterval, 10)
+        : DEFAULT_SETTINGS.autoPlayInterval,
+      showDots: body.showDots !== false && body.showDots !== 'false',
+      showArrows: body.showArrows !== false && body.showArrows !== 'false',
+      height: normalizeHeight(body.height, ALLOWED_DESKTOP_HEIGHTS, DEFAULT_SETTINGS.height),
+      mobileHeight: normalizeHeight(body.mobileHeight, ALLOWED_MOBILE_HEIGHTS, DEFAULT_SETTINGS.mobileHeight),
+      transitionEffect: body.transitionEffect === 'fade' ? 'fade' : 'slide',
+      updatedAt: new Date()
+    };
+
     const settings = await BannerSettings.findOneAndUpdate(
       {},
-      { ...req.body, updatedAt: new Date() },
+      payload,
       { upsert: true, new: true }
     );
-    res.json({ success: true, settings });
+    res.json({ success: true, settings: normalizeBannerSettings(settings) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

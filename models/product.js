@@ -55,7 +55,7 @@ const productSchema = new mongoose.Schema({
         default: 0 
     },
     category: { 
-        type: String, 
+        type: String, // category name string (not ObjectId) — keeps existing products compatible
         default: 'General' 
     },
     brand: {

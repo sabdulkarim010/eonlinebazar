@@ -67,7 +67,8 @@ const FIELD_ALIASES = {
     freeShippingThreshold: ['freeShippingThreshold', 'freeShippingMinAmount', 'freeShippingLimit'],
     vipMinTotalSpent: ['vipMinTotalSpent'],
     vipMinOrderCount: ['vipMinOrderCount'],
-    frequentBuyerMinOrders: ['frequentBuyerMinOrders']
+    frequentBuyerMinOrders: ['frequentBuyerMinOrders'],
+    defaultProductsPerPage: ['defaultProductsPerPage', 'productsPerPage']
 };
 
 const NUMERIC_FIELD_RULES = {
@@ -78,7 +79,8 @@ const NUMERIC_FIELD_RULES = {
     freeShippingThreshold: { label: 'Free shipping threshold', min: 0 },
     vipMinTotalSpent: { label: 'VIP minimum total spent', min: 0 },
     vipMinOrderCount: { label: 'VIP minimum order count', min: 0 },
-    frequentBuyerMinOrders: { label: 'Frequent buyer minimum orders', min: 0 }
+    frequentBuyerMinOrders: { label: 'Frequent buyer minimum orders', min: 0 },
+    defaultProductsPerPage: { label: 'Default products per page', min: 1, max: 100 }
 };
 
 /**
@@ -158,6 +160,12 @@ const buildUnifiedPayload = async (settingsDoc) => {
         vipMinTotalSpent: settingsDoc.vipMinTotalSpent,
         vipMinOrderCount: settingsDoc.vipMinOrderCount,
         frequentBuyerMinOrders: settingsDoc.frequentBuyerMinOrders,
+        defaultProductsPerPage: Number(settingsDoc.defaultProductsPerPage) > 0
+            ? Number(settingsDoc.defaultProductsPerPage)
+            : 24,
+        productsPerPage: Number(settingsDoc.defaultProductsPerPage) > 0
+            ? Number(settingsDoc.defaultProductsPerPage)
+            : 24,
         deliveryInsideCity: deliverySettings.deliveryInsideCity,
         deliveryOutsideCity: deliverySettings.deliveryOutsideCity,
         freeShippingMinAmount: announcement.freeShippingThreshold,

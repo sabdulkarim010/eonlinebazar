@@ -15,6 +15,7 @@ const CACHE_KEYS = {
     STORE_SETTINGS: 'store:settings',
     CATEGORIES: 'catalog:categories:all',
     BRANDS: 'catalog:brands:all',
+    NAVBAR_LINKS: 'catalog:navbar-links:published',
     POPULAR_PRODUCTS: 'products:popular',
     FEATURED_PRODUCTS: 'products:featured',
     FLASH_SALE: 'store:flash-sale',

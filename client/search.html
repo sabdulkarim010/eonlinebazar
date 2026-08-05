@@ -15,14 +15,16 @@
     <meta id="og-image" property="og:image" content="/images/og-default.jpg">
     <meta name="twitter:card" content="summary_large_image">
 
-    <link rel="icon" href="images/favicon.png" type="image/png">
+    <link rel="icon" href="/images/favicon.png" type="image/png">
 
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/home.css">
-    <link rel="stylesheet" href="css/product-thumbnail.css">
-    <link rel="stylesheet" href="css/footer.css">
-    <link rel="stylesheet" href="css/whatsapp.css">
-    <link rel="stylesheet" href="css/mini-cart-drawer.css">
+    <!-- Absolute paths: required for /category/:slug and /products (relative css/ breaks) -->
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/sidebar.css">
+    <link rel="stylesheet" href="/css/home.css">
+    <link rel="stylesheet" href="/css/product-thumbnail.css">
+    <link rel="stylesheet" href="/css/footer.css">
+    <link rel="stylesheet" href="/css/whatsapp.css">
+    <link rel="stylesheet" href="/css/mini-cart-drawer.css">
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -212,12 +214,41 @@
         }
         .filter-clear-btn:hover { background: #eee; }
 
+        .search-breadcrumb {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            margin: 0 0 14px;
+            padding: 0;
+            font-size: 13px;
+            color: #565959;
+            line-height: 1.4;
+        }
+        .search-breadcrumb[hidden] { display: none !important; }
+        .search-breadcrumb a {
+            color: #2162a1;
+            text-decoration: none;
+        }
+        .search-breadcrumb a:hover { text-decoration: underline; color: #e47911; }
+        .search-breadcrumb__sep {
+            color: #888;
+            font-size: 11px;
+            user-select: none;
+        }
+        .search-breadcrumb__current {
+            color: #0f1111;
+            font-weight: 600;
+        }
+
         .active-filters {
             display: flex;
             flex-wrap: wrap;
+            align-items: center;
             gap: 8px;
             margin-bottom: 16px;
         }
+        .active-filters:empty { display: none; }
         .filter-tag {
             display: inline-flex;
             align-items: center;
@@ -230,15 +261,37 @@
             font-size: 12px;
             font-weight: 600;
         }
+        .filter-tag--category {
+            background: #eef3f7;
+            border-color: #aab7c4;
+            color: #232f3e;
+        }
         .filter-tag-remove {
             background: none;
             border: none;
-            color: #c45500;
+            color: inherit;
             font-size: 14px;
             cursor: pointer;
             padding: 0;
             line-height: 1;
+            opacity: 0.85;
         }
+        .filter-tag-remove:hover { opacity: 1; }
+        .active-filters-clear {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            color: #555;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .active-filters-clear:hover { background: #eee; color: #c45500; }
 
         .mobile-filter-toggle {
             display: none;
@@ -299,11 +352,11 @@
 
         <div class="header-row header-row-search">
             <div class="search-box-container">
-                <select id="categorySelect" class="search-category">
+                <select id="searchCategorySelect" class="search-category" aria-label="Search in category" data-role="search-scope">
                     <option value="all">All Categories</option>
                 </select>
                 <input type="text" id="searchInput" class="search-input" data-i18n-placeholder="search.placeholder" placeholder="Search products...">
-                <button class="search-submit-btn" id="headerSearchBtn" title="Search">
+                <button type="button" class="search-submit-btn" id="headerSearchBtn" title="Search" aria-label="Search">
                     <i class="fa fa-search"></i>
                 </button>
             </div>
@@ -312,6 +365,8 @@
 </header>
 
 <main class="container search-results-wrap">
+    <nav class="search-breadcrumb" id="searchBreadcrumb" aria-label="Breadcrumb" hidden></nav>
+
     <button type="button" class="mobile-filter-toggle" id="mobileFilterToggle" aria-expanded="false" data-i18n="search.filter">
         Filter
     </button>
@@ -360,16 +415,19 @@
                     <h1 class="search-heading" id="searchHeading">Search Results</h1>
                     <span class="search-count" id="searchCount"></span>
                 </div>
-                <div class="search-sort-box" id="sortBox">
-                    <label for="sortSelect" data-i18n="search.sort">Sort</label>
-                    <select id="sortSelect" class="search-sort-select">
-                        <option value="newest">Newest First</option>
-                        <option value="oldest">Oldest First</option>
-                        <option value="price_asc">Price: Low to High</option>
-                        <option value="price_desc">Price: High to Low</option>
-                        <option value="rating_desc">Best Rating</option>
-                        <option value="popular">Most Popular</option>
-                    </select>
+                <div class="catalog-toolbar-controls">
+                    <div id="pageSizeControl" class="catalog-page-size" aria-label="Items per page"></div>
+                    <div class="search-sort-box" id="sortBox">
+                        <label for="sortSelect" data-i18n="search.sort">Sort</label>
+                        <select id="sortSelect" class="search-sort-select">
+                            <option value="newest">Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="price_asc">Price: Low to High</option>
+                            <option value="price_desc">Price: High to Low</option>
+                            <option value="rating_desc">Best Rating</option>
+                            <option value="popular">Most Popular</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -377,7 +435,8 @@
 
             <div id="productGrid" class="product-layout-grid"></div>
 
-            <div id="paginationContainer" class="search-pagination"></div>
+            <div id="loadMoreWrap" class="catalog-load-more-wrap" hidden></div>
+            <div id="paginationContainer" class="search-pagination catalog-pagination"></div>
         </div>
     </div>
 </main>
@@ -394,17 +453,20 @@
 <div id="global-site-footer"></div>
 
 <script src="/js/i18n.js"></script>
-<script src="js/urlUtils.js"></script>
-<script src="js/session-guard.js"></script>
-<script src="js/toast.js"></script>
-<script src="js/wishlist.js"></script>
-<script src="js/productThumbnail.js"></script>
-<script src="js/variantUtils.js"></script>
-<script src="js/cartDisplayUtils.js"></script>
-<script src="js/cart.js"></script>
-<script src="js/mini-cart-drawer.js"></script>
-<script src="js/search.js"></script>
-<script src="js/whatsapp.js"></script>
+<script src="/js/urlUtils.js"></script>
+<script src="/js/session-guard.js"></script>
+<script src="/js/toast.js"></script>
+<script src="/js/wishlist.js"></script>
+<script src="/js/productThumbnail.js"></script>
+<script src="/js/products.js"></script>
+<script src="/js/sidebarDrawer.js"></script>
+<script src="/js/header.js"></script>
+<script src="/js/variantUtils.js"></script>
+<script src="/js/cartDisplayUtils.js"></script>
+<script src="/js/cart.js"></script>
+<script src="/js/mini-cart-drawer.js"></script>
+<script src="/js/search.js"></script>
+<script src="/js/whatsapp.js"></script>
 
 </body>
 </html>

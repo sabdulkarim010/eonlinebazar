@@ -260,7 +260,7 @@ function buildProductCanonicalUrl(product) {
 function buildCategoryCanonicalUrl(categoryName) {
     const baseUrl = getFrontendBaseUrl();
     const slug = slugifyCategory(categoryName);
-    return `${baseUrl}/search?category=${encodeURIComponent(slug)}`;
+    return `${baseUrl}/category/${encodeURIComponent(slug)}`;
 }
 
 module.exports = {

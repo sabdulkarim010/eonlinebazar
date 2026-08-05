@@ -60,7 +60,7 @@ function urlToPageSlug(url = '') {
         return URL_TO_SLUG[normalized];
     }
 
-    const pagesMatch = normalized.match(/^\/pages\/([a-z0-9]+(?:-[a-z0-9]+)*)$/i);
+    const pagesMatch = normalized.match(/^\/pages?\/([a-z0-9]+(?:-[a-z0-9]+)*)$/i);
     if (pagesMatch) {
         const slug = pagesMatch[1].toLowerCase();
         return isValidSlug(slug) ? slug : null;

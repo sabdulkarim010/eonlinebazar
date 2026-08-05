@@ -52,7 +52,7 @@ const PERMISSIONS = Object.freeze([
     {
         key: 'manage_catalog',
         label: 'Manage Catalog',
-        description: 'Categories, brands, and product attributes.',
+        description: 'Categories, brands, navbar links, and product attributes.',
         icon: 'fa-layer-group',
         group: 'Operations'
     },
@@ -109,6 +109,7 @@ const SECTION_PERMISSIONS = Object.freeze({
     'view-manage-products': 'manage_inventory',
     'manage-category': 'manage_catalog',
     'manage-brands': 'manage_catalog',
+    'manage-navbar-links': 'manage_catalog',
     'manage-attributes': 'manage_catalog',
     'manage-coupons': 'manage_coupons',
     'view-security': 'manage_security',

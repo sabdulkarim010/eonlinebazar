@@ -8,6 +8,31 @@
 const mongoose = require('mongoose');
 const { markdownToHtml } = require('../utils/markdownToHtml');
 
+/** Decode accidental entity-escaped HTML (&lt;p&gt; → <p>) for storefront render. */
+function decodeHtmlEntities(value) {
+    let html = String(value ?? '');
+    if (!html) return '';
+    const map = {
+        '&amp;': '&',
+        '&lt;': '<',
+        '&gt;': '>',
+        '&quot;': '"',
+        '&#39;': "'",
+        '&#x27;': "'",
+        '&apos;': "'"
+    };
+    for (let i = 0; i < 3; i += 1) {
+        if (!/&(?:amp|lt|gt|quot|apos|#39|#x27);/i.test(html)) break;
+        const next = html.replace(/&(?:amp|lt|gt|quot|apos|#39|#x27);/gi, (m) => {
+            const key = m.toLowerCase();
+            return map[key] || m;
+        });
+        if (next === html) break;
+        html = next;
+    }
+    return html;
+}
+
 /** Seeded default pages (always ensured on boot / first admin load). */
 const DEFAULT_PAGE_SLUGS = Object.freeze(['about', 'contact', 'privacy-policy', 'terms', 'careers']);
 /** @deprecated Use DEFAULT_PAGE_SLUGS — kept for backward-compatible imports. */
@@ -162,7 +187,13 @@ const pageContentSchema = new mongoose.Schema({
     title: { type: String, required: true, trim: true, maxlength: 120 },
     subtitle: { type: String, default: '', trim: true, maxlength: 240 },
     bodyMarkdown: { type: String, default: '', maxlength: 50000 },
-    bodyHtml: { type: String, default: '' },
+    bodyHtml: { type: String, default: '', maxlength: 200000 },
+    /** 'markdown' (default Page Content Manager) or 'html' (Quill / navbar CMS). */
+    contentFormat: {
+        type: String,
+        enum: ['markdown', 'html'],
+        default: 'markdown'
+    },
     isPublished: { type: Boolean, default: true },
     contactMeta: { type: contactMetaSchema, default: () => ({}) },
     sortOrder: { type: Number, default: 0 },
@@ -170,6 +201,8 @@ const pageContentSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 pageContentSchema.pre('save', function renderBodyHtml() {
+    // HTML pages (Quill) keep bodyHtml as authored — do not overwrite from markdown.
+    if (this.contentFormat === 'html') return;
     if (this.isModified('bodyMarkdown')) {
         this.bodyHtml = markdownToHtml(this.bodyMarkdown || '');
     }
@@ -226,6 +259,8 @@ pageContentSchema.statics.createPage = async function createPage({
     slug,
     subtitle = '',
     bodyMarkdown = '',
+    bodyHtml = '',
+    contentFormat = 'markdown',
     isPublished = true,
     sortOrder = 100
 } = {}) {
@@ -249,6 +284,22 @@ pageContentSchema.statics.createPage = async function createPage({
         throw err;
     }
 
+    const format = contentFormat === 'html' ? 'html' : 'markdown';
+    if (format === 'html') {
+        const html = String(bodyHtml || '').slice(0, 200000)
+            || `<p>Write details for <strong>${safeTitle}</strong> here…</p>`;
+        return this.create({
+            slug: normalized,
+            title: safeTitle,
+            subtitle: String(subtitle || '').trim().slice(0, 240),
+            bodyMarkdown: '',
+            bodyHtml: html,
+            contentFormat: 'html',
+            isPublished: isPublished !== false,
+            sortOrder: Math.max(0, Number(sortOrder) || 100)
+        });
+    }
+
     const markdown = String(bodyMarkdown || '').slice(0, 50000)
         || `## ${safeTitle}\n\nWrite details here...`;
 
@@ -258,9 +309,62 @@ pageContentSchema.statics.createPage = async function createPage({
         subtitle: String(subtitle || '').trim().slice(0, 240),
         bodyMarkdown: markdown,
         bodyHtml: markdownToHtml(markdown),
+        contentFormat: 'markdown',
         isPublished: isPublished !== false,
         sortOrder: Math.max(0, Number(sortOrder) || 100)
     });
+};
+
+/**
+ * Upsert an HTML CMS page (used by Navbar custom page creator).
+ * Updates title/html/publish state when the slug already exists.
+ */
+pageContentSchema.statics.upsertHtmlPage = async function upsertHtmlPage({
+    title,
+    slug,
+    subtitle = '',
+    bodyHtml = '',
+    isPublished = true
+} = {}) {
+    const safeTitle = String(title || '').trim().slice(0, 120);
+    const normalized = normalizeSlug(slug || safeTitle);
+    if (!safeTitle) {
+        const err = new Error('Page title is required.');
+        err.statusCode = 400;
+        throw err;
+    }
+    if (!isValidSlug(normalized)) {
+        const err = new Error('Invalid page slug. Use lowercase letters, numbers, and hyphens only.');
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const html = String(bodyHtml || '').slice(0, 200000)
+        || `<p>Write details for <strong>${safeTitle}</strong> here…</p>`;
+
+    let doc = await this.findOne({ slug: normalized });
+    if (!doc) {
+        doc = await this.create({
+            slug: normalized,
+            title: safeTitle,
+            subtitle: String(subtitle || '').trim().slice(0, 240),
+            bodyMarkdown: '',
+            bodyHtml: html,
+            contentFormat: 'html',
+            isPublished: isPublished !== false,
+            sortOrder: 100
+        });
+        return doc;
+    }
+
+    doc.title = safeTitle;
+    if (subtitle !== undefined) doc.subtitle = String(subtitle || '').trim().slice(0, 240);
+    doc.bodyHtml = html;
+    doc.bodyMarkdown = '';
+    doc.contentFormat = 'html';
+    doc.isPublished = isPublished !== false;
+    await doc.save();
+    return doc;
 };
 
 pageContentSchema.methods.toAdminObject = function toAdminObject() {
@@ -271,6 +375,7 @@ pageContentSchema.methods.toAdminObject = function toAdminObject() {
         subtitle: this.subtitle || '',
         bodyMarkdown: this.bodyMarkdown || '',
         bodyHtml: this.bodyHtml || '',
+        contentFormat: this.contentFormat === 'html' ? 'html' : 'markdown',
         isPublished: this.isPublished !== false,
         isActive: this.isPublished !== false,
         contactMeta: this.slug === 'contact' ? {
@@ -286,11 +391,16 @@ pageContentSchema.methods.toAdminObject = function toAdminObject() {
 };
 
 pageContentSchema.methods.toPublicObject = function toPublicObject() {
+    const html = this.contentFormat === 'html'
+        ? (this.bodyHtml || '')
+        : (this.bodyHtml || markdownToHtml(this.bodyMarkdown || ''));
     return {
         slug: this.slug,
         title: this.title,
         subtitle: this.subtitle || '',
-        bodyHtml: this.bodyHtml || markdownToHtml(this.bodyMarkdown || ''),
+        bodyHtml: decodeHtmlEntities(html),
+        content: decodeHtmlEntities(html),
+        contentFormat: this.contentFormat === 'html' ? 'html' : 'markdown',
         isPublished: this.isPublished !== false,
         contactMeta: this.slug === 'contact' ? {
             address: this.contactMeta?.address || '',

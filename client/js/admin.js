@@ -950,7 +950,7 @@ function upsertProductInState(updatedProduct) {
     }
     const totalBadge = document.getElementById('total-products-badge');
     if (totalBadge) totalBadge.innerText = `Total: ${globalProducts.length}`;
-    updateFilterCategoryDropdown();
+    loadCategoryFilter();
     restoreProductPaginationState();
     filterAndRenderProducts(false);
 }
@@ -977,6 +977,7 @@ const ADMIN_PAGE_META = {
     'view-manage-products': { title: 'Manage Products',         subtitle: 'Search, filter, export, and maintain your product catalog.' },
     'manage-category':      { title: 'Manage Categories',       subtitle: 'Organize products with dynamic category labels.' },
     'manage-brands':        { title: 'Manage Brands',           subtitle: 'Maintain brand names for catalog filtering and display.' },
+    'manage-navbar-links':  { title: 'Navbar Menu Links',       subtitle: 'Manage top-bar promo links — categories stay in the ☰ All drawer.' },
     'manage-attributes':    { title: 'Product Attributes',      subtitle: 'Define attribute names and values (Size, Color, etc.).' },
     'manage-coupons':       { title: 'Manage Coupons',          subtitle: 'Create discount codes, set usage limits, and track redemptions.' },
     'view-security':        { title: 'Security Logs',           subtitle: 'Monitor authentication events and system security activity.' },
@@ -2688,13 +2689,14 @@ async function loadManualOrderCatalog() {
     }
 
     try {
-        const res = await fetch('/api/products', {
+        const res = await fetch('/api/products?limit=500', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
         manualOrderCatalog = Array.isArray(data)
             ? data
-            : (Array.isArray(data?.data) ? data.data : []);
+            : (Array.isArray(data?.products) ? data.products
+                : (Array.isArray(data?.data) ? data.data : []));
         populateManualProductSelect(document.getElementById('manualProductSearch')?.value || '');
     } catch (err) {
         console.error('Manual order catalog load failed:', err);
@@ -4955,46 +4957,69 @@ function formatCatalogDate(dateVal) {
 let globalCategories = [];
 
 /**
- * ৯.২: ডাটাবেজ (API) থেকে সব ক্যাটাগরি ফেচ করে আনা
+ * ৯.২: Hierarchical categories API → product form dropdown (parent + indented children).
+ * Values stay as category name strings for Product.category backward compatibility.
+ */
+async function loadCategoryDropdownForProduct(selectId) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+
+    try {
+        const res = await fetch('/api/categories/admin/all', {
+            headers: {
+                'Authorization': 'Bearer ' + (localStorage.getItem('adminToken') || token || '')
+            }
+        });
+        const data = await res.json();
+
+        if (!data.success) return;
+
+        const cats = data.data || [];
+        globalCategories = cats;
+        const parents = cats.filter(c => !c.parentCategory);
+        const children = cats.filter(c => c.parentCategory);
+
+        sel.innerHTML = '<option value="">Select a Category</option>';
+
+        parents.forEach(parent => {
+            const opt = document.createElement('option');
+            opt.value = parent.name; // Keep using name for backward compatibility
+            opt.textContent = parent.name;
+            sel.appendChild(opt);
+
+            children
+                .filter(c => String(c.parentCategory?._id || c.parentCategory) === String(parent._id))
+                .forEach(child => {
+                    const childOpt = document.createElement('option');
+                    childOpt.value = child.name;
+                    childOpt.textContent = '  └ ' + child.name;
+                    sel.appendChild(childOpt);
+                });
+        });
+    } catch (err) {
+        console.warn('Category dropdown error:', err);
+    }
+}
+window.loadCategoryDropdownForProduct = loadCategoryDropdownForProduct;
+
+/**
+ * ৯.২খ: Legacy wrapper — refresh both product category selects from admin categories API
  */
 async function fetchCategories() {
-    try {
-        const response = await fetch('/api/categories');
-        const data = await response.json();
-        if (data.success) {
-            globalCategories = data.data;
-            renderCategoryDropdown(); // এটি এখন ৩টি ড্রপডাউনই একসাথে ডাইনামিকালি আপডেট করবে
-            renderCategoryTable();
-        }
-    } catch (error) {
-        console.error("🔴 Category load error:", error);
-    }
+    await Promise.all([
+        loadCategoryDropdownForProduct('prodCategory'),
+        loadCategoryDropdownForProduct('editProdCategory')
+    ]);
 }
 
 /**
- * ৯.৩: প্রোডাক্ট আপলোড ফর্ম, ফিল্টার এবং এডিট মোডালের ক্যাটাগরি ড্রপডাউনে ডাটা পপুলেট (Populate) করা
+ * ৯.৩: Populate Add Product + Edit Product category dropdowns (hierarchical)
  */
-/**
- * ৯.৩: প্রোডাক্ট আপলোড ফর্ম এবং এডিট মোডালের ক্যাটাগরি ড্রপডাউনে ডাটা পপুলেট (Populate) করা
- */
-function renderCategoryDropdown() {
-    // [ক] নতুন প্রোডাক্ট আপলোড ফর্মের ড্রপডাউন (#prodCategory)
-    const prodDropdown = document.getElementById('prodCategory');
-    if (prodDropdown) {
-        prodDropdown.innerHTML = '<option value="" disabled selected>Select a Category</option>';
-        globalCategories.forEach(cat => {
-            prodDropdown.innerHTML += `<option value="${cat.name}">${cat.name}</option>`;
-        });
-    }
-
-    // [গ] প্রোডাক্ট এডিট মোডালের ড্রপডাউন (#editProdCategory)
-    const editDropdown = document.getElementById('editProdCategory');
-    if (editDropdown) {
-        editDropdown.innerHTML = '<option value="" disabled>Select a Category</option>';
-        globalCategories.forEach(cat => {
-            editDropdown.innerHTML += `<option value="${cat.name}">${cat.name}</option>`;
-        });
-    }
+async function renderCategoryDropdown() {
+    await Promise.all([
+        loadCategoryDropdownForProduct('prodCategory'),
+        loadCategoryDropdownForProduct('editProdCategory')
+    ]);
 }
 
 /**
@@ -5676,196 +5701,518 @@ document.addEventListener('input', (e) => {
     if (attr) autoFillAttributeValuesFromGlobal(e.target);
 });
 
-function formatCategoryCashbackDisplay(cat) {
-    const val = cat?.customCashbackPercentage;
-    if (val === null || val === undefined || val === '') {
-        return '<span class="catalog-meta-muted">Global default</span>';
-    }
-    return `<span class="status-badge status-verified">${Number(val)}%</span>`;
+/* ==========================================================================
+   SECTION 9.4: MANAGE CATEGORIES (tree UI + admin CRUD)
+   NOTE: admin.js is loaded as type="module" — every handler used by HTML
+   onclick/oninput MUST be assigned to window (same pattern as brands).
+   ========================================================================== */
+
+let allCategories = [];
+let editingCategoryId = null;
+
+function getAdminAuthToken() {
+    return localStorage.getItem('adminToken') || token || '';
 }
 
-let _categoryEditId = null;
-
-window.openCategoryEditModal = function(cat) {
-    const modal = document.getElementById('categoryEditModal');
-    const nameInput = document.getElementById('editCategoryNameInput');
-    const cashbackInput = document.getElementById('editCategoryCashbackInput');
-    if (!modal || !nameInput || !cashbackInput || !cat) return;
-
-    _categoryEditId = cat._id;
-    nameInput.value = cat.name || '';
-    const cashbackVal = cat.customCashbackPercentage;
-    cashbackInput.value = (cashbackVal === null || cashbackVal === undefined || cashbackVal === '')
-        ? ''
-        : String(cashbackVal);
-
-    const saveBtn = document.getElementById('editCategorySaveBtn');
-    const newSaveBtn = saveBtn.cloneNode(true);
-    saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-    newSaveBtn.addEventListener('click', saveCategoryEdit);
-
-    modal.style.display = 'flex';
-    nameInput.focus();
-    nameInput.select();
-};
-
-window.closeCategoryEditModal = function() {
-    const modal = document.getElementById('categoryEditModal');
-    if (modal) modal.style.display = 'none';
-    _categoryEditId = null;
-};
-
-async function saveCategoryEdit() {
-    if (!_categoryEditId) return;
-
-    const nameInput = document.getElementById('editCategoryNameInput');
-    const cashbackInput = document.getElementById('editCategoryCashbackInput');
-    const newName = nameInput?.value.trim();
-    const cashbackRaw = cashbackInput?.value.trim();
-
-    if (!newName) return showToast('Please enter a category name.', 'warning');
-
-    if (cashbackRaw !== '') {
-        const parsed = Number(cashbackRaw);
-        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
-            return showToast('Custom cashback must be between 0 and 100, or left blank.', 'warning');
-        }
-    }
+async function loadCategories() {
+    const authToken = getAdminAuthToken();
 
     try {
-        const res = await fetch(`/api/categories/${_categoryEditId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                name: newName,
-                customCashbackPercentage: cashbackRaw === '' ? null : Number(cashbackRaw)
-            })
+        const res = await fetch('/api/categories/admin/all', {
+            headers: { 'Authorization': 'Bearer ' + authToken }
         });
-        const result = await res.json();
-        if (result.success) {
-            showAdminSuccess('Category Updated', result.message || 'Category updated successfully.');
-            closeCategoryEditModal();
-            await fetchCategories();
-        } else {
-            showToast(result.message || 'Failed to update category', 'error');
+
+        if (!res.ok) {
+            console.error('Categories API error:', res.status, res.statusText);
+            const text = await res.text();
+            console.error('Response:', text);
+            let data = {};
+            try { data = JSON.parse(text); } catch (_) { /* non-JSON */ }
+            if (handleAdminApiAuthResponse(res, data) !== 'ok') return;
+            showToast('Failed to load categories: ' + res.status, 'error');
+            return;
         }
-    } catch (error) {
-        showToast('Server error while updating category!', 'error');
+
+        const data = await res.json();
+        console.log('Categories loaded:', data);
+
+        if (handleAdminApiAuthResponse(res, data) !== 'ok') return;
+
+        if (data.success) {
+            allCategories = data.data || [];
+            globalCategories = allCategories;
+            renderCategoryTree(allCategories);
+            updateCategoryStats(allCategories);
+            populateParentDropdown(allCategories);
+            renderCategoryDropdown();
+        } else {
+            showToast(data.message || 'Failed to load categories', 'error');
+        }
+    } catch (err) {
+        console.error('loadCategories error:', err);
+        showToast('Network error loading categories', 'error');
+    }
+}
+window.loadCategories = loadCategories;
+
+function updateCategoryStats(cats) {
+    const el = id => document.getElementById(id);
+    if (el('catTotalCount')) el('catTotalCount').textContent = cats.length;
+    if (el('catActiveCount')) el('catActiveCount').textContent = cats.filter(c => c.isActive !== false).length;
+    if (el('catFeaturedCount')) el('catFeaturedCount').textContent = cats.filter(c => c.isFeatured).length;
+    if (el('catNavbarCount')) el('catNavbarCount').textContent = cats.filter(c => c.showInNavbar).length;
+}
+
+function populateParentDropdown(cats) {
+    const sel = document.getElementById('catParent');
+    if (!sel) return;
+    const parents = (cats || []).filter(c => !c.parentCategory);
+    sel.innerHTML = '<option value="">None (Top-level)</option>' +
+        parents.map(c => `<option value="${c._id}">${escHtml(c.name)}</option>`).join('');
+    if (editingCategoryId) {
+        // Don't allow setting itself as parent
+        const opt = sel.querySelector(`option[value="${editingCategoryId}"]`);
+        if (opt) opt.remove();
     }
 }
 
-/**
- * ৯.৪: অ্যাডমিন প্যানেলের ম্যানেজমেন্ট টেবিলে ক্যাটাগরির লিস্ট রেন্ডার করা (এডিট বাটন সহ)
- */
-function renderCategoryTable() {
-    const tbody = document.getElementById('categoryTableBody');
-    if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    if (globalCategories.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="cell-empty">No categories yet. Add one using the form above.</td></tr>';
+function renderCategoryTree(cats) {
+    const container = document.getElementById('categoryTree');
+    if (!container) return;
+
+    const parents = cats.filter(c => !c.parentCategory);
+    const children = cats.filter(c => c.parentCategory);
+
+    // When filtering to subs-only, show children as a flat list
+    if (!parents.length && children.length) {
+        container.innerHTML = children.map(sub => `
+            <div class="cat-parent-row">
+              <div class="cat-child-row" style="padding-left:16px">
+                <div class="cat-row-color"
+                     style="background:${escHtml(sub.color || '#6366f1')}"></div>
+                <div class="cat-row-img" style="width:28px;height:28px">
+                  ${sub.imageUrl
+                    ? `<img src="${escHtml(sub.imageUrl)}" style="width:28px;height:28px;object-fit:cover;border-radius:6px" alt="">`
+                    : '📂'}
+                </div>
+                <div class="cat-row-info">
+                  <div class="cat-row-name" style="font-size:0.85rem">
+                    ${escHtml(sub.name)}
+                    ${sub.isActive === false ? '<span class="cat-mini-badge cb-inactive">Inactive</span>' : ''}
+                  </div>
+                  <div class="cat-row-meta">
+                    <span>📦 ${sub.productCount || 0} products</span>
+                  </div>
+                </div>
+                <div class="cat-row-actions">
+                  <button type="button" class="action-icon edit"
+                          onclick="editCategory('${sub._id}')">✏️</button>
+                  <button type="button" class="action-icon delete"
+                          onclick="deleteCategory('${sub._id}','${escHtml(sub.name).replace(/'/g, '&#39;')}')">🗑️</button>
+                </div>
+              </div>
+            </div>
+        `).join('');
         return;
     }
 
-    tbody.innerHTML = globalCategories.map(cat => {
-        const safeName = escHtml(cat.name);
-        return `<tr>
-            <td class="cell-name">${safeName}</td>
-            <td class="cell-cashback">${formatCategoryCashbackDisplay(cat)}</td>
-            <td class="cell-date">${formatCatalogDate(cat.createdAt)}</td>
-            <td>${catalogActionsHtml(
-                `openCategoryEditById('${cat._id}')`,
-                `deleteCategory('${cat._id}')`
-            )}</td>
-        </tr>`;
+    if (!parents.length) {
+        container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">🗂️</div>
+        <h3>No categories yet</h3>
+        <p>Click "+ Add Category" to create your first category.</p>
+      </div>`;
+        return;
+    }
+
+    container.innerHTML = parents.map(parent => {
+        // Nest matching children from the filtered set
+        const displaySubs = children.filter(
+            c => String(c.parentCategory) === String(parent._id) ||
+                 String(c.parentCategory?._id) === String(parent._id)
+        );
+
+        const safeName = escHtml(parent.name);
+        const safeColor = escHtml(parent.color || '#f97316');
+        const safeImg = parent.imageUrl ? escHtml(parent.imageUrl) : '';
+
+        return `
+      <div class="cat-parent-row">
+        <div class="cat-row-header"
+             onclick="toggleCatChildren('subs-${parent._id}')">
+          <div class="cat-row-color"
+               style="background:${safeColor}"></div>
+          <div class="cat-row-img">
+            ${safeImg
+              ? `<img src="${safeImg}"
+                      style="width:36px;height:36px;object-fit:cover;border-radius:8px" alt="">`
+              : '📁'}
+          </div>
+          <div class="cat-row-info">
+            <div class="cat-row-name">
+              ${safeName}
+              ${displaySubs.length ? `<span style="color:#94a3b8;font-weight:400;font-size:0.75rem">(${displaySubs.length} sub)</span>` : ''}
+              <div class="cat-row-badges">
+                ${parent.isFeatured ? '<span class="cat-mini-badge cb-featured">★ Featured</span>' : ''}
+                ${parent.showInNavbar ? '<span class="cat-mini-badge cb-navbar">Nav</span>' : ''}
+                ${parent.showInHomepage ? '<span class="cat-mini-badge cb-homepage">Home</span>' : ''}
+                ${parent.isActive === false ? '<span class="cat-mini-badge cb-inactive">Inactive</span>' : ''}
+              </div>
+            </div>
+            <div class="cat-row-meta">
+              <span>📦 ${parent.productCount || 0} products</span>
+              ${parent.customCashback != null && parent.customCashback !== '' ? `<span>💰 ${parent.customCashback}% cashback</span>` : ''}
+            </div>
+          </div>
+          <div class="cat-row-actions" onclick="event.stopPropagation()">
+            <button type="button" class="action-icon edit"
+                    onclick="editCategory('${parent._id}')"
+                    title="Edit">✏️</button>
+            <button type="button" class="action-icon delete"
+                    onclick="deleteCategory('${parent._id}','${safeName.replace(/'/g, '&#39;')}')"
+                    title="Delete">🗑️</button>
+          </div>
+        </div>
+
+        ${displaySubs.length ? `
+          <div id="subs-${parent._id}" class="cat-children">
+            ${displaySubs.map(sub => `
+              <div class="cat-child-row">
+                <div class="cat-child-indent"></div>
+                <div class="cat-row-color"
+                     style="background:${escHtml(sub.color || '#6366f1')}"></div>
+                <div class="cat-row-img" style="width:28px;height:28px">
+                  ${sub.imageUrl
+                    ? `<img src="${escHtml(sub.imageUrl)}" style="width:28px;height:28px;object-fit:cover;border-radius:6px" alt="">`
+                    : '📂'}
+                </div>
+                <div class="cat-row-info">
+                  <div class="cat-row-name" style="font-size:0.85rem">
+                    ${escHtml(sub.name)}
+                    ${sub.isActive === false ? '<span class="cat-mini-badge cb-inactive">Inactive</span>' : ''}
+                  </div>
+                  <div class="cat-row-meta">
+                    <span>📦 ${sub.productCount || 0} products</span>
+                  </div>
+                </div>
+                <div class="cat-row-actions">
+                  <button type="button" class="action-icon edit"
+                          onclick="editCategory('${sub._id}')">✏️</button>
+                  <button type="button" class="action-icon delete"
+                          onclick="deleteCategory('${sub._id}','${escHtml(sub.name).replace(/'/g, '&#39;')}')">🗑️</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+      </div>
+    `;
     }).join('');
 }
 
-window.openCategoryEditById = function(id) {
-    const cat = globalCategories.find(c => String(c._id) === String(id));
-    if (!cat) return showToast('Category not found.', 'warning');
-    openCategoryEditModal(cat);
+window.toggleCatChildren = function(id) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.style.display = (el.style.display === 'none' ? '' : 'none');
+    }
 };
 
-/**
- * ৯.৫: নতুন ক্যাটাগরি তৈরি করে ডাটাবেজে সেভ করা
- */
-window.addCategory = async function() {
-    const nameInput = document.getElementById('newCategoryName');
-    const cashbackInput = document.getElementById('newCategoryCashback');
-    const name = nameInput.value.trim();
-    const cashbackRaw = cashbackInput?.value.trim() || '';
-    
-    if (!name) return showToast("Please enter a category name!", "warning");
+window.filterCategories = function() {
+    const search = (document.getElementById('catSearch')?.value || '').toLowerCase();
+    const typeFilter = document.getElementById('catFilterParent')?.value || 'all';
+    const statusFilter = document.getElementById('catFilterStatus')?.value || 'all';
 
-    if (cashbackRaw !== '') {
-        const parsed = Number(cashbackRaw);
-        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
-            return showToast('Custom cashback must be between 0 and 100, or left blank.', 'warning');
+    const filtered = allCategories.filter(c => {
+        const matchSearch = !search || (c.name || '').toLowerCase().includes(search);
+        const matchType = typeFilter === 'all' ? true :
+                          typeFilter === 'parent' ? !c.parentCategory :
+                          !!c.parentCategory;
+        const matchStatus = statusFilter === 'all' ? true :
+                            statusFilter === 'active' ? c.isActive !== false :
+                            c.isActive === false;
+        return matchSearch && matchType && matchStatus;
+    });
+
+    renderCategoryTree(filtered);
+};
+
+function fillCategoryModal(cat) {
+    const set = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val ?? '';
+    };
+    const check = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.checked = !!val;
+    };
+
+    set('catName', cat.name);
+    set('catDescription', cat.description);
+    set('catCashback', cat.customCashback ?? cat.customCashbackPercentage ?? '');
+    set('catPosition', cat.position || 0);
+    set('catColor', cat.color || '#f97316');
+    set('catColorHex', cat.color || '#f97316');
+    set('catMetaTitle', cat.metaTitle);
+    set('catMetaDesc', cat.metaDescription);
+
+    check('catIsActive', cat.isActive !== false);
+    check('catIsFeatured', cat.isFeatured);
+    check('catShowNavbar', cat.showInNavbar !== false);
+    check('catShowHomepage', cat.showInHomepage);
+
+    const parentId = cat.parentCategory?._id || cat.parentCategory || '';
+    set('catParent', parentId);
+
+    if (cat.imageUrl) {
+        const preview = document.getElementById('catImgPreview');
+        if (preview) {
+            preview.innerHTML =
+                `<img src="${escHtml(cat.imageUrl)}" class="banner-preview-img" alt="${escHtml(cat.name)}">`;
         }
+        const zone = document.getElementById('catImgZone');
+        if (zone) zone.classList.add('has-image');
     }
+}
+
+window.closeCategoryModal = function() {
+    closeModal('categoryModal');
+};
+
+// Aliases — same shared modal for Add and Edit
+window.closeAddCategoryModal = window.closeCategoryModal;
+window.closeEditCategoryModal = window.closeCategoryModal;
+window.openAddCategoryModal = function() { return window.openCategoryModal(); };
+
+window.openCategoryModal = async function(catId = null) {
+    editingCategoryId = catId || null;
+    const modal = document.getElementById('categoryModal');
+    if (!modal) {
+        console.error('categoryModal not found in DOM');
+        return;
+    }
+
+    // Reset all form fields
+    const fieldIds = ['catName', 'catDescription', 'catCashback',
+                      'catPosition', 'catMetaTitle', 'catMetaDesc'];
+    fieldIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+
+    const colorEl = document.getElementById('catColor');
+    const colorHexEl = document.getElementById('catColorHex');
+    if (colorEl) colorEl.value = '#f97316';
+    if (colorHexEl) colorHexEl.value = '#f97316';
+
+    const activeEl = document.getElementById('catIsActive');
+    if (activeEl) activeEl.checked = true;
+
+    ['catIsFeatured', 'catShowHomepage'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.checked = false;
+    });
+    const navEl = document.getElementById('catShowNavbar');
+    if (navEl) navEl.checked = true;
+
+    const parentEl = document.getElementById('catParent');
+    if (parentEl) parentEl.value = '';
+
+    const imgPreview = document.getElementById('catImgPreview');
+    if (imgPreview) {
+        imgPreview.innerHTML =
+            '<span style="font-size:1.5rem">🖼️</span><p style="font-size:0.78rem;color:#64748b;margin:4px 0">Click to upload</p>';
+    }
+
+    const imgZone = document.getElementById('catImgZone');
+    if (imgZone) imgZone.classList.remove('has-image');
+
+    const imgFile = document.getElementById('catImageFile');
+    if (imgFile) imgFile.value = '';
+
+    populateParentDropdown(allCategories);
+
+    const title = document.getElementById('catModalTitle');
+    const icon = document.getElementById('catModalIcon');
+    const saveBtn = document.getElementById('saveCatBtn');
+
+    if (catId) {
+        if (icon) icon.textContent = '✏️';
+        if (title) title.textContent = 'Edit Category';
+        if (saveBtn) saveBtn.textContent = '💾 Update Category';
+        modal.classList.add('open');
+        try {
+            const authToken = getAdminAuthToken();
+            const res = await fetch('/api/categories/admin/' + catId, {
+                headers: { 'Authorization': 'Bearer ' + authToken }
+            });
+            const data = await res.json();
+            if (handleAdminApiAuthResponse(res, data) !== 'ok') return;
+            if (data.success && data.data) {
+                fillCategoryModal(data.data);
+            } else {
+                const fallback = allCategories.find(c => String(c._id) === String(catId));
+                if (fallback) fillCategoryModal(fallback);
+                else showToast(data.message || 'Category not found', 'error');
+            }
+        } catch (err) {
+            console.error('editCategory load error:', err);
+            const fallback = allCategories.find(c => String(c._id) === String(catId));
+            if (fallback) fillCategoryModal(fallback);
+            else showToast('Error: ' + err.message, 'error');
+        }
+        return;
+    }
+
+    if (icon) icon.textContent = '➕';
+    if (title) title.textContent = 'Add New Category';
+    if (saveBtn) saveBtn.textContent = '💾 Save Category';
+    modal.classList.add('open');
+};
+
+window.editCategory = function(id) { window.openCategoryModal(id); };
+
+// Close category modal with Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+    const modal = document.getElementById('categoryModal');
+    if (modal && modal.classList.contains('open')) {
+        closeCategoryModal();
+    }
+});
+
+window.previewCatImg = function(input) {
+    const file = input?.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        const preview = document.getElementById('catImgPreview');
+        if (preview) {
+            preview.innerHTML = `<img src="${e.target.result}" class="banner-preview-img">`;
+        }
+        const zone = document.getElementById('catImgZone');
+        if (zone) zone.classList.add('has-image');
+    };
+    reader.readAsDataURL(file);
+};
+
+window.saveCategory = async function() {
+    const name = document.getElementById('catName')?.value?.trim();
+    if (!name) {
+        showToast('Category name is required', 'error');
+        return;
+    }
+
+    const authToken = getAdminAuthToken();
+    const btn = document.getElementById('saveCatBtn');
+    const idleLabel = editingCategoryId ? '💾 Update Category' : '💾 Save Category';
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving...'; }
+
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('description', document.getElementById('catDescription')?.value || '');
+    formData.append('parentCategory', document.getElementById('catParent')?.value || '');
+    formData.append('color', document.getElementById('catColor')?.value || '#f97316');
+    formData.append('isActive', String(document.getElementById('catIsActive')?.checked !== false));
+    formData.append('isFeatured', String(!!document.getElementById('catIsFeatured')?.checked));
+    formData.append('showInNavbar', String(!!document.getElementById('catShowNavbar')?.checked));
+    formData.append('showInHomepage', String(!!document.getElementById('catShowHomepage')?.checked));
+    formData.append('position', document.getElementById('catPosition')?.value || '0');
+    formData.append('customCashback', document.getElementById('catCashback')?.value || '');
+    formData.append('metaTitle', document.getElementById('catMetaTitle')?.value || '');
+    formData.append('metaDescription', document.getElementById('catMetaDesc')?.value || '');
+
+    const imgFile = document.getElementById('catImageFile')?.files?.[0];
+    if (imgFile) formData.append('categoryImage', imgFile);
 
     try {
-        const res = await fetch('/api/categories', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` 
-            },
-            body: JSON.stringify({
-                name,
-                customCashbackPercentage: cashbackRaw === '' ? null : Number(cashbackRaw)
-            })
+        const url = editingCategoryId
+            ? '/api/categories/admin/' + editingCategoryId
+            : '/api/categories/admin';
+        const method = editingCategoryId ? 'PATCH' : 'POST';
+
+        console.log('Saving category:', method, url);
+
+        const res = await fetch(url, {
+            method,
+            headers: { 'Authorization': 'Bearer ' + authToken },
+            body: formData
         });
-        const result = await res.json();
-        
-        if (result.success) {
-            showAdminSuccess('Category Added', result.message || 'Category added successfully!');
-            nameInput.value = '';
-            if (cashbackInput) cashbackInput.value = '';
-            await fetchCategories();
+
+        const data = await res.json();
+        console.log('Save category response:', data);
+
+        if (handleAdminApiAuthResponse(res, data) !== 'ok') return;
+
+        if (data.success) {
+            showToast(editingCategoryId ? '✅ Category updated!' : '✅ Category created!', 'success');
+            closeCategoryModal();
+            await loadCategories();
+            if (typeof fetchCategories === 'function') await fetchCategories();
         } else {
-            showToast(result.message, "error");
+            showToast(data.message || 'Save failed', 'error');
         }
-    } catch (error) {
-        showToast("Server error while adding category!", "error");
+    } catch (err) {
+        console.error('saveCategory error:', err);
+        showToast('Error: ' + err.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = idleLabel; }
     }
 };
 
-/**
- * @deprecated Use openCategoryEditById — kept for backward compatibility if referenced elsewhere.
- */
-window.editCategory = function(id) {
-    openCategoryEditById(id);
-};
+// Custom confirm dialog — replaces browser confirm()
+function showDeleteConfirm(message, onConfirm) {
+    const modal = document.getElementById('confirmDeleteModal');
+    const msgEl = document.getElementById('confirmDeleteMsg');
+    const btn = document.getElementById('confirmDeleteBtn');
 
-/**
- * ৯.৭: নির্দিষ্ট একটি ক্যাটাগরি ডাটাবেজ থেকে ডিলিট করা
- */
-window.deleteCategory = function(id) {
-    showCustomConfirm('Delete Category', 'Are you sure you want to delete this category? Products linked to it will keep their current label.', async () => {
-        try {
-            const res = await fetch(`/api/categories/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const result = await res.json();
-            if (result.success) {
-                globalCategories = globalCategories.filter(c => String(c._id) !== String(id));
-                renderCategoryTable();
-                renderCategoryDropdown();
-                showAdminSuccess('Category Deleted', result.message || 'Category removed.');
-            } else {
-                showToast(result.message, 'error');
+    if (!modal || !msgEl || !btn) {
+        // Fallback to browser confirm if modal not found
+        if (confirm(message)) onConfirm();
+        return;
+    }
+
+    msgEl.textContent = message;
+
+    // Remove old listener and add new one
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+
+    newBtn.addEventListener('click', () => {
+        closeModal('confirmDeleteModal');
+        onConfirm();
+    });
+
+    modal.classList.add('open');
+}
+
+window.deleteCategory = async function(id, name) {
+    showDeleteConfirm(
+        'Delete category "' + name + '"?\n\nSub-categories will also be deleted. Products must be reassigned first.',
+        async () => {
+            const authToken = getAdminAuthToken();
+            try {
+                const res = await fetch('/api/categories/admin/' + id, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + authToken }
+                });
+                const data = await res.json();
+
+                if (handleAdminApiAuthResponse(res, data) !== 'ok') return;
+
+                if (data.success) {
+                    showToast('✅ Category deleted', 'success');
+                    await loadCategories();
+                    if (typeof fetchCategories === 'function') await fetchCategories();
+                } else {
+                    showToast(data.message || 'Cannot delete', 'error');
+                }
+            } catch (err) {
+                console.error('deleteCategory error:', err);
+                showToast('Error: ' + err.message, 'error');
             }
-        } catch (error) {
-            showToast('Failed to delete category', 'error');
         }
-    }, 'danger');
+    );
 };
 
 /* ==========================================================================
@@ -5986,6 +6333,537 @@ window.deleteBrand = function(id) {
         }
     }, 'danger');
 };
+
+
+/* ==========================================================================
+   SECTION 9B1: NAVBAR MENU LINKS (top-bar promo links → /api/navbar-links)
+   Optional Quill CMS page creator → PageContent at /page/:slug
+   ========================================================================== */
+
+let globalNavbarLinks = [];
+let navbarLinkQuill = null;
+
+function slugifyNavbarLinkText(text) {
+    return String(text || '')
+        .toLowerCase()
+        .trim()
+        .replace(/^\/+/, '')
+        .replace(/^pages?\//, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 80);
+}
+
+function getNavbarLinkSlugPreview() {
+    const slugInput = document.getElementById('navbarLinkSlug')?.value?.trim() || '';
+    const title = document.getElementById('navbarLinkTitle')?.value?.trim() || '';
+    return slugifyNavbarLinkText(slugInput || title) || 'your-slug';
+}
+
+function updateNavbarLinkRoutePreview() {
+    const route = `/page/${getNavbarLinkSlugPreview()}`;
+    const preview = document.getElementById('navbarLinkRoutePreview');
+    if (preview) preview.textContent = route;
+    const openLink = document.getElementById('navbarLinkRouteOpen');
+    if (openLink) openLink.href = route;
+    const customOn = !!document.getElementById('navbarLinkCustomPage')?.checked;
+    const urlInput = document.getElementById('navbarLinkUrl');
+    if (customOn && urlInput) {
+        urlInput.value = route;
+    }
+}
+
+function registerNavbarLinkQuillFormats() {
+    if (typeof Quill === 'undefined' || window.__navbarQuillFormatsRegistered) return;
+    const Font = Quill.import('formats/font');
+    Font.whitelist = ['serif', 'monospace', 'arial', 'georgia', 'tahoma', 'verdana', 'poppins', 'hind-siliguri'];
+    Quill.register(Font, true);
+
+    const SizeStyle = Quill.import('attributors/style/size');
+    SizeStyle.whitelist = ['12px', '14px', '16px', '18px', '24px', '32px', '48px'];
+    Quill.register(SizeStyle, true);
+
+    const AlignStyle = Quill.import('attributors/style/align');
+    Quill.register(AlignStyle, true);
+    window.__navbarQuillFormatsRegistered = true;
+}
+
+function ensureNavbarLinkQuill() {
+    if (navbarLinkQuill) return navbarLinkQuill;
+    if (typeof Quill === 'undefined') {
+        console.warn('Quill.js not loaded — custom page editor unavailable.');
+        return null;
+    }
+
+    registerNavbarLinkQuillFormats();
+    const editorEl = document.getElementById('navbarLinkQuillEditor');
+    const toolbarEl = document.getElementById('navbarLinkQuillToolbar');
+    if (!editorEl || !toolbarEl) return null;
+
+    navbarLinkQuill = new Quill(editorEl, {
+        theme: 'snow',
+        modules: {
+            toolbar: {
+                container: toolbarEl,
+                handlers: {
+                    image() {
+                        pickNavbarLinkImage(this.quill);
+                    }
+                }
+            }
+        },
+        placeholder: 'Write promotional page content…'
+    });
+
+    document.getElementById('navbarLinkHtmlEmbedBtn')?.addEventListener('click', () => {
+        insertNavbarLinkHtmlEmbed(navbarLinkQuill);
+    });
+
+    navbarLinkQuill.on('text-change', () => {
+        const hidden = document.getElementById('navbarLinkPageHtml');
+        if (hidden) hidden.value = navbarLinkQuill.root.innerHTML;
+    });
+
+    return navbarLinkQuill;
+}
+
+function pickNavbarLinkImage(quill) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        if (file.size > 1.5 * 1024 * 1024) {
+            showToast('Image must be under 1.5 MB (or paste an image URL).', 'warning');
+            const url = window.prompt('Or paste an image URL:');
+            if (url) insertNavbarLinkImageUrl(quill, url.trim());
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => insertNavbarLinkImageUrl(quill, String(reader.result || ''));
+        reader.readAsDataURL(file);
+    };
+    input.click();
+}
+
+function insertNavbarLinkImageUrl(quill, url) {
+    if (!quill || !url) return;
+    const range = quill.getSelection(true) || { index: quill.getLength(), length: 0 };
+    quill.insertEmbed(range.index, 'image', url, 'user');
+    quill.setSelection(range.index + 1, 0, 'silent');
+}
+
+async function insertNavbarLinkHtmlEmbed(quill) {
+    if (!quill) return;
+    let html = '';
+    if (typeof Swal !== 'undefined') {
+        const result = await Swal.fire({
+            title: 'Embed HTML',
+            input: 'textarea',
+            inputLabel: 'Paste HTML (iframe, styled blocks, etc.)',
+            inputPlaceholder: '<iframe src="https://www.youtube.com/embed/…"></iframe>',
+            inputAttributes: { 'aria-label': 'HTML to embed' },
+            showCancelButton: true,
+            confirmButtonText: 'Insert',
+            width: 640
+        });
+        if (!result.isConfirmed) return;
+        html = String(result.value || '').trim();
+    } else {
+        html = String(window.prompt('Paste HTML to embed:') || '').trim();
+    }
+    if (!html) return;
+    const range = quill.getSelection(true) || { index: quill.getLength(), length: 0 };
+    quill.clipboard.dangerouslyPasteHTML(range.index, html, 'user');
+}
+
+/** Decode entity-escaped HTML (&lt;p&gt; → <p>) so Quill/DB store raw markup. */
+function decodeHtmlEntities(value) {
+    let html = String(value ?? '');
+    if (!html) return '';
+    for (let i = 0; i < 3; i += 1) {
+        if (!/&(?:lt|gt|amp|quot|#39|#x27);/i.test(html)) break;
+        const ta = document.createElement('textarea');
+        ta.innerHTML = html;
+        const next = ta.value;
+        if (next === html) break;
+        html = next;
+    }
+    return html;
+}
+
+function setNavbarLinkQuillHtml(html) {
+    const quill = ensureNavbarLinkQuill();
+    const safe = decodeHtmlEntities(String(html || '').trim()) || '<p><br></p>';
+    if (quill) {
+        quill.setContents([]);
+        quill.clipboard.dangerouslyPasteHTML(0, safe, 'silent');
+        // Prefer root HTML after paste (raw tags, not entities)
+        const hidden = document.getElementById('navbarLinkPageHtml');
+        if (hidden) {
+            const out = quill.root.innerHTML;
+            hidden.value = (!quill.getText().replace(/\n/g, '').trim()
+                && !quill.root.querySelector('img,iframe')) ? '' : out;
+        }
+        return;
+    }
+    const hidden = document.getElementById('navbarLinkPageHtml');
+    if (hidden) hidden.value = safe === '<p><br></p>' ? '' : safe;
+}
+
+function getNavbarLinkQuillHtml() {
+    if (navbarLinkQuill) {
+        const text = navbarLinkQuill.getText().replace(/\n/g, '').trim();
+        if (!text && !navbarLinkQuill.root.querySelector('img,iframe')) return '';
+        return decodeHtmlEntities(navbarLinkQuill.root.innerHTML);
+    }
+    return decodeHtmlEntities(document.getElementById('navbarLinkPageHtml')?.value || '');
+}
+
+function syncNavbarLinkCustomPageUi() {
+    const customOn = !!document.getElementById('navbarLinkCustomPage')?.checked;
+    const panel = document.getElementById('navbarLinkCmsPanel');
+    const urlInput = document.getElementById('navbarLinkUrl');
+    const urlHint = document.getElementById('navbarLinkUrlHint');
+    if (panel) panel.hidden = !customOn;
+    if (urlInput) {
+        urlInput.required = !customOn;
+        urlInput.readOnly = customOn;
+        urlInput.classList.toggle('is-readonly', customOn);
+    }
+    if (urlHint) {
+        urlHint.textContent = customOn
+            ? 'Auto-set from slug — content is saved to a CMS page at this route.'
+            : 'External or site-relative path. Auto-set when creating a custom CMS page.';
+    }
+    if (customOn) {
+        // Defer so the panel is visible before Quill measures toolbar/editor size.
+        requestAnimationFrame(() => {
+            ensureNavbarLinkQuill();
+            updateNavbarLinkRoutePreview();
+        });
+    }
+}
+
+async function fetchNavbarLinks() {
+    try {
+        const response = await fetch('/api/navbar-links/admin', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data.success) {
+            globalNavbarLinks = data.data || [];
+            renderNavbarLinkTable();
+        } else {
+            showToast(data.message || 'Failed to load navbar links', 'error');
+        }
+    } catch (error) {
+        console.error('Navbar links load error:', error);
+        showToast('Server error while loading navbar links!', 'error');
+    }
+}
+window.fetchNavbarLinks = fetchNavbarLinks;
+
+function renderNavbarLinkTable() {
+    const list = document.getElementById('navbarLinkTableBody');
+    if (!list) return;
+
+    if (!globalNavbarLinks.length) {
+        list.innerHTML = `
+            <div class="navbar-links-empty" role="status">
+                <i class="fa-regular fa-compass"></i>
+                <h5>No navbar links yet</h5>
+                <p>Add promo links like “Today's Deals” or create a custom CMS page above.</p>
+            </div>`;
+        return;
+    }
+
+    list.innerHTML = globalNavbarLinks.map((link, index) => {
+        const id = link.id || link._id;
+        const safeId = escHtml(id);
+        const title = escHtml(link.title || '');
+        const url = escHtml(link.url || '');
+        const slug = escHtml(link.slug || '');
+        const target = link.target === '_blank' ? '_blank' : '_self';
+        const published = link.isPublished === true;
+        const cms = link.hasCustomPage === true;
+        const isFirst = index === 0;
+        const isLast = index === globalNavbarLinks.length - 1;
+        const orderLabel = Number.isFinite(Number(link.sortOrder)) ? Number(link.sortOrder) : index;
+
+        return `
+        <article class="navbar-link-card ${published ? 'is-published' : 'is-draft'}${cms ? ' has-cms' : ''}" data-id="${safeId}" role="listitem">
+            <div class="navbar-link-card-order">
+                <button type="button" class="navbar-link-order-btn" title="Move up" ${isFirst ? 'disabled' : ''}
+                    onclick="moveNavbarLink('${safeId}', -1)" aria-label="Move up">
+                    <i class="fa-solid fa-chevron-up"></i>
+                </button>
+                <span class="navbar-link-order-num">${orderLabel}</span>
+                <button type="button" class="navbar-link-order-btn" title="Move down" ${isLast ? 'disabled' : ''}
+                    onclick="moveNavbarLink('${safeId}', 1)" aria-label="Move down">
+                    <i class="fa-solid fa-chevron-down"></i>
+                </button>
+            </div>
+            <div class="navbar-link-card-body">
+                <div class="navbar-link-card-title-row">
+                    <h5>${title}</h5>
+                    ${cms ? '<span class="navbar-link-cms-badge" title="Custom CMS page">CMS</span>' : ''}
+                    <span class="navbar-link-badge ${published ? 'is-published' : 'is-draft'}">
+                        ${published ? 'Published' : 'Draft'}
+                    </span>
+                </div>
+                <div class="navbar-link-card-meta">
+                    <a class="navbar-link-url" href="${url}" target="_blank" rel="noopener noreferrer" title="Open link">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> ${url}
+                    </a>
+                    ${slug ? `<span class="navbar-link-slug">slug: ${slug}</span>` : ''}
+                    <span class="navbar-link-target">${target === '_blank' ? 'New tab' : 'Same tab'}</span>
+                </div>
+            </div>
+            <div class="navbar-link-card-actions">
+                <label class="navbar-link-toggle" title="${published ? 'Unpublish' : 'Publish'}">
+                    <input type="checkbox" ${published ? 'checked' : ''}
+                        onchange="toggleNavbarLinkPublished('${safeId}', this.checked)">
+                    <span>Live</span>
+                </label>
+                <button type="button" class="catalog-action-btn edit" onclick="editNavbarLink('${safeId}')" title="Edit" aria-label="Edit">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button type="button" class="catalog-action-btn delete" onclick="deleteNavbarLink('${safeId}')" title="Delete" aria-label="Delete">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+        </article>`;
+    }).join('');
+}
+
+window.resetNavbarLinkForm = function resetNavbarLinkForm() {
+    const form = document.getElementById('navbarLinkForm');
+    if (form) form.reset();
+    const editId = document.getElementById('navbarLinkEditId');
+    if (editId) editId.value = '';
+    const published = document.getElementById('navbarLinkPublished');
+    if (published) published.checked = true;
+    const target = document.getElementById('navbarLinkTarget');
+    if (target) target.value = '_self';
+    const custom = document.getElementById('navbarLinkCustomPage');
+    if (custom) custom.checked = false;
+    const submitLabel = document.getElementById('navbarLinkSubmitLabel');
+    if (submitLabel) submitLabel.textContent = 'Add Link';
+    const submitBtn = document.getElementById('navbarLinkSubmitBtn');
+    if (submitBtn) {
+        const icon = submitBtn.querySelector('i');
+        if (icon) icon.className = 'fa-solid fa-plus';
+    }
+    const heading = document.getElementById('navbarLinkFormHeading');
+    if (heading) heading.textContent = 'Add Navbar Link';
+    const cancelBtn = document.getElementById('navbarLinkCancelBtn');
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    setNavbarLinkQuillHtml('');
+    syncNavbarLinkCustomPageUi();
+    updateNavbarLinkRoutePreview();
+};
+
+window.editNavbarLink = function editNavbarLink(id) {
+    const link = globalNavbarLinks.find((l) => String(l.id || l._id) === String(id));
+    if (!link) return;
+
+    document.getElementById('navbarLinkEditId').value = link.id || link._id || '';
+    document.getElementById('navbarLinkTitle').value = link.title || '';
+    document.getElementById('navbarLinkUrl').value = link.url || '';
+    document.getElementById('navbarLinkSlug').value = link.slug || '';
+    document.getElementById('navbarLinkTarget').value = link.target === '_blank' ? '_blank' : '_self';
+    document.getElementById('navbarLinkPublished').checked = link.isPublished !== false;
+    const custom = document.getElementById('navbarLinkCustomPage');
+    if (custom) custom.checked = link.hasCustomPage === true;
+
+    const submitLabel = document.getElementById('navbarLinkSubmitLabel');
+    if (submitLabel) submitLabel.textContent = 'Update Link';
+    const submitBtn = document.getElementById('navbarLinkSubmitBtn');
+    if (submitBtn) {
+        const icon = submitBtn.querySelector('i');
+        if (icon) icon.className = 'fa-solid fa-floppy-disk';
+    }
+    const heading = document.getElementById('navbarLinkFormHeading');
+    if (heading) heading.textContent = 'Edit Navbar Link';
+    const cancelBtn = document.getElementById('navbarLinkCancelBtn');
+    if (cancelBtn) cancelBtn.style.display = '';
+
+    syncNavbarLinkCustomPageUi();
+    if (link.hasCustomPage) {
+        // Wait for Quill after panel is shown
+        requestAnimationFrame(() => setNavbarLinkQuillHtml(link.pageHtml || ''));
+    } else {
+        setNavbarLinkQuillHtml('');
+    }
+    updateNavbarLinkRoutePreview();
+
+    document.getElementById('navbarLinkTitle')?.focus();
+    document.getElementById('manage-navbar-links')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+async function saveNavbarLinkForm(event) {
+    if (event) event.preventDefault();
+
+    const id = document.getElementById('navbarLinkEditId')?.value?.trim() || '';
+    const title = document.getElementById('navbarLinkTitle')?.value?.trim() || '';
+    const slug = document.getElementById('navbarLinkSlug')?.value?.trim() || '';
+    const target = document.getElementById('navbarLinkTarget')?.value || '_self';
+    const isPublished = !!document.getElementById('navbarLinkPublished')?.checked;
+    const hasCustomPage = !!document.getElementById('navbarLinkCustomPage')?.checked;
+    let url = document.getElementById('navbarLinkUrl')?.value?.trim() || '';
+
+    if (!title) return showToast('Please enter a title!', 'warning');
+
+    const payload = { title, target, isPublished, hasCustomPage };
+    if (slug) payload.slug = slug;
+
+    if (hasCustomPage) {
+        const resolvedSlug = slugifyNavbarLinkText(slug || title);
+        if (!resolvedSlug) return showToast('A valid slug is required for a custom page.', 'warning');
+        payload.slug = resolvedSlug;
+        payload.pageHtml = getNavbarLinkQuillHtml();
+        payload.url = `/page/${resolvedSlug}`;
+    } else {
+        if (!url) return showToast('Please enter a URL!', 'warning');
+        payload.url = url;
+        payload.pageHtml = '';
+    }
+
+    const submitBtn = document.getElementById('navbarLinkSubmitBtn');
+    const restore = typeof setButtonLoading === 'function'
+        ? setButtonLoading(submitBtn, 'Saving...')
+        : () => {};
+
+    try {
+        const res = await fetch(id ? `/api/navbar-links/admin/${id}` : '/api/navbar-links/admin', {
+            method: id ? 'PUT' : 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (!result.success) {
+            throw new Error(result.message || 'Failed to save navbar link.');
+        }
+        showAdminSuccess(id ? 'Link Updated' : 'Link Added', result.message || 'Navbar link saved.');
+        resetNavbarLinkForm();
+        await fetchNavbarLinks();
+    } catch (error) {
+        console.error('Save navbar link error:', error);
+        showToast(error.message || 'Server error while saving navbar link!', 'error');
+    } finally {
+        restore();
+    }
+}
+
+window.deleteNavbarLink = function deleteNavbarLink(id) {
+    const link = globalNavbarLinks.find((l) => String(l.id || l._id) === String(id));
+    showCustomConfirm(
+        'Delete Navbar Link',
+        link
+            ? `Remove “${link.title}” from the top navigation bar?`
+            : 'Remove this link from the top navigation bar?',
+        async () => {
+            try {
+                const res = await fetch(`/api/navbar-links/admin/${id}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const result = await res.json();
+                if (result.success) {
+                    globalNavbarLinks = globalNavbarLinks.filter(
+                        (l) => String(l.id || l._id) !== String(id)
+                    );
+                    renderNavbarLinkTable();
+                    showAdminSuccess('Link Deleted', result.message || 'Navbar link removed.');
+                } else {
+                    showToast(result.message || 'Failed to delete', 'error');
+                }
+            } catch (error) {
+                showToast('Failed to delete navbar link', 'error');
+            }
+        },
+        'danger'
+    );
+};
+
+window.toggleNavbarLinkPublished = async function toggleNavbarLinkPublished(id, isPublished) {
+    try {
+        const res = await fetch(`/api/navbar-links/admin/${id}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ isPublished: !!isPublished })
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'Toggle failed.');
+        await fetchNavbarLinks();
+        showToast(isPublished ? 'Link published.' : 'Link unpublished.', 'success');
+    } catch (error) {
+        console.error('Toggle navbar link error:', error);
+        showToast(error.message || 'Failed to update status', 'error');
+        await fetchNavbarLinks();
+    }
+};
+
+window.moveNavbarLink = async function moveNavbarLink(id, direction) {
+    const index = globalNavbarLinks.findIndex((l) => String(l.id || l._id) === String(id));
+    if (index < 0) return;
+    const swapIndex = index + direction;
+    if (swapIndex < 0 || swapIndex >= globalNavbarLinks.length) return;
+
+    const next = globalNavbarLinks.slice();
+    const tmp = next[index];
+    next[index] = next[swapIndex];
+    next[swapIndex] = tmp;
+
+    const order = next.map((link, i) => ({
+        id: link.id || link._id,
+        sortOrder: i
+    }));
+
+    try {
+        const res = await fetch('/api/navbar-links/admin/reorder', {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ order })
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'Reorder failed.');
+        globalNavbarLinks = result.data || [];
+        renderNavbarLinkTable();
+    } catch (error) {
+        console.error('Reorder navbar links error:', error);
+        showToast(error.message || 'Failed to reorder', 'error');
+        await fetchNavbarLinks();
+    }
+};
+
+function setupNavbarLinkForm() {
+    const form = document.getElementById('navbarLinkForm');
+    if (!form || form.dataset.bound === '1') return;
+    form.dataset.bound = '1';
+    form.addEventListener('submit', saveNavbarLinkForm);
+
+    document.getElementById('navbarLinkCustomPage')?.addEventListener('change', () => {
+        syncNavbarLinkCustomPageUi();
+        if (document.getElementById('navbarLinkCustomPage')?.checked && !getNavbarLinkQuillHtml()) {
+            setNavbarLinkQuillHtml('<p></p>');
+        }
+    });
+    document.getElementById('navbarLinkTitle')?.addEventListener('input', updateNavbarLinkRoutePreview);
+    document.getElementById('navbarLinkSlug')?.addEventListener('input', updateNavbarLinkRoutePreview);
+    syncNavbarLinkCustomPageUi();
+}
 
 
 /* ==========================================================================
@@ -6825,7 +7703,7 @@ window.fetchLiveProducts = async function() {
     tbody.innerHTML = `<tr><td colspan="8" class="loading-cell"><div class="custom-spinner"></div><p>Syncing secure cloud server database...</p></td></tr>`;
     
     try {
-        const res = await fetch('/api/products', {
+        const res = await fetch('/api/products?limit=500', {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -6835,7 +7713,7 @@ window.fetchLiveProducts = async function() {
         const totalBadge = document.getElementById('total-products-badge');
         if (totalBadge) totalBadge.innerText = `Total: ${globalProducts.length}`;
         
-        updateFilterCategoryDropdown();
+        loadCategoryFilter();
         readProductListSessionState();
         filterAndRenderProducts(false); 
     } catch (e) {
@@ -6844,28 +7722,48 @@ window.fetchLiveProducts = async function() {
 };
 
 /**
- * 🌟 নতুন ফাংশন: শুধুমাত্র এক্সিস্টিং প্রোডাক্টের ক্যাটাগরি দিয়ে ফিল্টার ড্রপডাউন আপডেট করা
+ * Manage Products category filter — loads hierarchical categories from admin API.
+ * Uses #filterCategory (existing DOM id). Option values remain category name strings.
  */
-function updateFilterCategoryDropdown() {
-    const filterDropdown = document.getElementById('filterCategory');
-    if (!filterDropdown) return;
+async function loadCategoryFilter() {
+    const sel = document.getElementById('filterCategory');
+    if (!sel) return;
 
-    const currentFilterValue = filterDropdown.value || 'All'; // ইউজারের বর্তমান সিলেকশন ধরে রাখার জন্য
+    const currentFilterValue = sel.value || 'All';
 
-    // প্রোডাক্ট লিস্ট থেকে ইউনিক ক্যাটাগরি বের করা (ফাঁকা বা নাল ক্যাটাগরি বাদ দিয়ে)
-    const uniqueCategories = [...new Set(globalProducts.map(p => p.category).filter(c => c && c.trim() !== ''))];
+    try {
+        const res = await fetch('/api/categories/admin/all', {
+            headers: {
+                'Authorization': 'Bearer ' + (localStorage.getItem('adminToken') || token || '')
+            }
+        });
+        const data = await res.json();
 
-    filterDropdown.innerHTML = '<option value="All">All Categories</option>';
-    uniqueCategories.forEach(cat => {
-        filterDropdown.innerHTML += `<option value="${cat}">${cat}</option>`;
-    });
+        if (!data.success) return;
 
-    // রেন্ডার শেষে আগের সিলেক্টেড ফিল্টার ফিরিয়ে আনা (যদি সেই ক্যাটাগরির প্রোডাক্ট এখনো লিস্টে থাকে)
-    if (uniqueCategories.includes(currentFilterValue)) {
-        filterDropdown.value = currentFilterValue;
-    } else {
-        filterDropdown.value = 'All';
+        const cats = data.data || [];
+        sel.innerHTML = '<option value="All">All Categories</option>';
+
+        cats.filter(c => c.isActive !== false)
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat.name;
+                opt.textContent = (cat.parentCategory ? '  └ ' : '') + cat.name;
+                sel.appendChild(opt);
+            });
+
+        const hasCurrent = Array.from(sel.options).some(o => o.value === currentFilterValue);
+        sel.value = hasCurrent ? currentFilterValue : 'All';
+    } catch (err) {
+        console.warn('Category filter error:', err);
     }
+}
+window.loadCategoryFilter = loadCategoryFilter;
+
+/** @deprecated Use loadCategoryFilter — kept as alias for existing call sites */
+function updateFilterCategoryDropdown() {
+    return loadCategoryFilter();
 }
 
 /**
@@ -7102,7 +8000,7 @@ window.handleBulkDelete = function() {
             updateBulkActionPanel();
             const totalBadge = document.getElementById('total-products-badge');
             if (totalBadge) totalBadge.innerText = `Total: ${globalProducts.length}`;
-            updateFilterCategoryDropdown();
+            loadCategoryFilter();
             if (productPg) productPg.stayOnPage();
             else filterAndRenderProducts(false);
             document.getElementById('selectAllProducts').checked = false;
@@ -7399,7 +8297,7 @@ let selectedFilesEdit = new DataTransfer(); // এডিট মোডালে�
  * ১১.১: এডিট মডাল ওপেন করা এবং ফর্মে ডাইনামিক ডাটা ইনজেক্ট করা
  * @param {string} id - প্রোডাক্টের অবজেক্ট আইডি
  */
-window.editProduct = function(id) {
+window.editProduct = async function(id) {
     saveProductPaginationState();
 
     selectedFilesEdit = new DataTransfer(); 
@@ -7427,9 +8325,9 @@ window.editProduct = function(id) {
     if (document.getElementById('editProdBuyingPrice')) document.getElementById('editProdBuyingPrice').value = (product.buyingPrice !== undefined && product.buyingPrice !== null) ? product.buyingPrice : '';
     if (typeof updateEditProfitPreview === 'function') updateEditProfitPreview();
     
-    // 🌟 ক্যাটাগরি ড্রপডাউনটি রেন্ডার করে ভ্যালু সিলেক্ট করা (ডাটাবেজ ওরিয়েন্টেড সিকিউরড লক)
+    // Hierarchical category dropdown (name values) then restore product category
     if (document.getElementById('editProdCategory')) {
-        renderCategoryDropdown(); // এডিট মোডাল ওপেন হওয়ার মুহূর্তেই অপশন লিস্ট রি-ফ্রেশ নিশ্চিত করা
+        await loadCategoryDropdownForProduct('editProdCategory');
         document.getElementById('editProdCategory').value = product.category || '';
     }
 
@@ -8707,6 +9605,7 @@ function applyMasterSettingsToUI(settings) {
     setVal('vipMinTotalSpent', settings.vipMinTotalSpent);
     setVal('vipMinOrderCount', settings.vipMinOrderCount);
     setVal('frequentBuyerMinOrders', settings.frequentBuyerMinOrders);
+    setVal('defaultProductsPerPage', settings.defaultProductsPerPage ?? settings.productsPerPage ?? 24);
 
     applyFlashSaleSettingsToUI(settings);
     applyAnnouncementSettingsToUI(settings);
@@ -9288,6 +10187,7 @@ let footerSettingsState = {
 
 /** Shared with Page Content Manager — listed here so Footer CMS auto-link can use it early. */
 let pageContentCatalog = [];
+let pageContentQuill = null;
 let activePageSlug = '';
 let createPageSlugManual = false;
 
@@ -10193,16 +11093,157 @@ function getActivePageState() {
     return pageContentCatalog.find((p) => p.slug === activePageSlug) || null;
 }
 
+function destroyPageContentQuill() {
+    pageContentQuill = null;
+}
+
+function buildPageContentQuillToolbarHtml() {
+    return `
+        <div id="pageContentQuillToolbar" class="navbar-link-quill-toolbar page-content-quill-toolbar">
+            <span class="ql-formats">
+                <select class="ql-font">
+                    <option selected></option>
+                    <option value="serif">Serif</option>
+                    <option value="monospace">Monospace</option>
+                    <option value="arial">Arial</option>
+                    <option value="georgia">Georgia</option>
+                    <option value="tahoma">Tahoma</option>
+                    <option value="verdana">Verdana</option>
+                    <option value="poppins">Poppins</option>
+                    <option value="hind-siliguri">Hind Siliguri</option>
+                </select>
+                <select class="ql-size">
+                    <option value="12px">12px</option>
+                    <option value="14px">14px</option>
+                    <option value="16px" selected></option>
+                    <option value="18px">18px</option>
+                    <option value="24px">24px</option>
+                    <option value="32px">32px</option>
+                    <option value="48px">48px</option>
+                </select>
+            </span>
+            <span class="ql-formats">
+                <button class="ql-bold" type="button"></button>
+                <button class="ql-italic" type="button"></button>
+                <button class="ql-underline" type="button"></button>
+                <button class="ql-strike" type="button"></button>
+            </span>
+            <span class="ql-formats">
+                <select class="ql-color"></select>
+                <select class="ql-background"></select>
+            </span>
+            <span class="ql-formats">
+                <button class="ql-list" value="ordered" type="button"></button>
+                <button class="ql-list" value="bullet" type="button"></button>
+                <select class="ql-align">
+                    <option selected></option>
+                    <option value="center"></option>
+                    <option value="right"></option>
+                    <option value="justify"></option>
+                </select>
+            </span>
+            <span class="ql-formats">
+                <button class="ql-link" type="button"></button>
+                <button class="ql-image" type="button"></button>
+                <button id="pageContentHtmlEmbedBtn" type="button" class="ql-html-embed" title="Insert HTML">HTML</button>
+                <button class="ql-clean" type="button"></button>
+            </span>
+        </div>`;
+}
+
+function resolvePageContentEditorHtml(page) {
+    if (!page) return '<p><br></p>';
+    let html = '';
+    if (page.contentFormat === 'html' && page.bodyHtml) {
+        html = page.bodyHtml;
+    } else if (page.bodyHtml && /<[a-z][\s\S]*>/i.test(page.bodyHtml) && !/&lt;\/?[a-z]/i.test(page.bodyHtml)) {
+        html = page.bodyHtml;
+    } else if (page.bodyMarkdown) {
+        if (typeof window.MarkdownToHtml?.markdownToHtml === 'function') {
+            html = window.MarkdownToHtml.markdownToHtml(page.bodyMarkdown);
+        } else {
+            html = page.bodyMarkdown;
+        }
+    } else if (page.bodyHtml) {
+        html = page.bodyHtml;
+    }
+    html = decodeHtmlEntities(html);
+    return html.trim() || '<p><br></p>';
+}
+
+function setPageContentQuillHtml(html) {
+    const quill = pageContentQuill || ensurePageContentQuill();
+    const safe = decodeHtmlEntities(String(html || '').trim()) || '<p><br></p>';
+    if (!quill) {
+        const hidden = document.getElementById('pageContentBodyHtml');
+        if (hidden) hidden.value = safe === '<p><br></p>' ? '' : safe;
+        return;
+    }
+    quill.setContents([]);
+    quill.clipboard.dangerouslyPasteHTML(0, safe, 'silent');
+    const hidden = document.getElementById('pageContentBodyHtml');
+    if (hidden) hidden.value = decodeHtmlEntities(quill.root.innerHTML);
+}
+
+function getPageContentQuillHtml() {
+    if (pageContentQuill) {
+        const text = pageContentQuill.getText().replace(/\n/g, '').trim();
+        if (!text && !pageContentQuill.root.querySelector('img,iframe')) return '';
+        return decodeHtmlEntities(pageContentQuill.root.innerHTML);
+    }
+    return decodeHtmlEntities(document.getElementById('pageContentBodyHtml')?.value || '');
+}
+
+function ensurePageContentQuill() {
+    if (pageContentQuill) return pageContentQuill;
+    if (typeof Quill === 'undefined') {
+        console.warn('Quill.js not loaded — page content rich editor unavailable.');
+        return null;
+    }
+    const editorEl = document.getElementById('pageContentQuillEditor');
+    const toolbarEl = document.getElementById('pageContentQuillToolbar');
+    if (!editorEl || !toolbarEl) return null;
+
+    registerNavbarLinkQuillFormats();
+    pageContentQuill = new Quill(editorEl, {
+        theme: 'snow',
+        modules: {
+            toolbar: {
+                container: toolbarEl,
+                handlers: {
+                    image() {
+                        pickNavbarLinkImage(this.quill);
+                    }
+                }
+            }
+        },
+        placeholder: 'Write page content…'
+    });
+
+    document.getElementById('pageContentHtmlEmbedBtn')?.addEventListener('click', () => {
+        insertNavbarLinkHtmlEmbed(pageContentQuill);
+    });
+
+    pageContentQuill.on('text-change', () => {
+        const hidden = document.getElementById('pageContentBodyHtml');
+        if (hidden) hidden.value = decodeHtmlEntities(pageContentQuill.root.innerHTML);
+    });
+
+    return pageContentQuill;
+}
+
 function renderPageContentEditor() {
     const editor = document.getElementById('pageContentEditor');
     if (!editor) return;
+
+    destroyPageContentQuill();
 
     const page = getActivePageState();
     if (!page) {
         editor.innerHTML = `
             <div class="page-content-empty-state">
                 <i class="fa-solid fa-file-circle-plus"></i>
-                <p>No page selected. Create a page to start editing Markdown content.</p>
+                <p>No page selected. Create a page to start editing rich content.</p>
                 <button type="button" class="page-content-create-btn" id="pageContentEmptyCreateBtn">
                     <i class="fa-solid fa-plus"></i> Create New Page
                 </button>
@@ -10251,9 +11292,13 @@ function renderPageContentEditor() {
                 <input type="text" id="pageContentSubtitle" maxlength="240" value="${escapeHtml(page.subtitle || '')}">
             </div>
             <div class="form-group form-group-full">
-                <label for="pageContentMarkdown">Content (Markdown supported)</label>
-                <textarea id="pageContentMarkdown" rows="14" placeholder="# Heading">${escapeHtml(page.bodyMarkdown || '')}</textarea>
-                <small class="field-hint">Supports headings (#), **bold**, *italic*, lists (- item), and [links](url).</small>
+                <label>Content (Rich Text)</label>
+                <div class="navbar-link-quill-shell page-content-quill-shell">
+                    ${buildPageContentQuillToolbarHtml()}
+                    <div id="pageContentQuillEditor" class="navbar-link-quill-editor page-content-quill-editor" aria-label="Page content rich text editor"></div>
+                </div>
+                <textarea id="pageContentBodyHtml" class="sr-only" hidden aria-hidden="true"></textarea>
+                <small class="field-hint">Styles (font size, color, etc.) are saved as raw HTML and rendered on the storefront.</small>
             </div>
             ${contactMetaFields}
             <div class="page-content-publish-row">
@@ -10270,6 +11315,11 @@ function renderPageContentEditor() {
                 <span class="page-content-route-hint">Route: <code>/${escapeHtml(page.slug)}</code> · <code>/pages/${escapeHtml(page.slug)}</code></span>
             </div>
         </div>`;
+
+    requestAnimationFrame(() => {
+        ensurePageContentQuill();
+        setPageContentQuillHtml(resolvePageContentEditorHtml(page));
+    });
     updatePageContentFooterActions();
 }
 
@@ -10279,7 +11329,9 @@ function syncPageContentFromDom() {
 
     page.title = document.getElementById('pageContentTitle')?.value?.trim() || page.title;
     page.subtitle = document.getElementById('pageContentSubtitle')?.value?.trim() || '';
-    page.bodyMarkdown = document.getElementById('pageContentMarkdown')?.value || '';
+    page.bodyHtml = getPageContentQuillHtml();
+    page.contentFormat = 'html';
+    page.bodyMarkdown = '';
     page.isPublished = document.querySelector('.page-content-published')?.checked !== false;
     page.isActive = page.isPublished;
 
@@ -10513,7 +11565,8 @@ async function savePageContent() {
             body: JSON.stringify({
                 title: page.title,
                 subtitle: page.subtitle,
-                bodyMarkdown: page.bodyMarkdown,
+                bodyHtml: decodeHtmlEntities(page.bodyHtml || ''),
+                contentFormat: 'html',
                 isPublished: page.isPublished !== false,
                 isActive: page.isPublished !== false,
                 contactMeta: page.slug === 'contact' ? page.contactMeta : undefined
@@ -11650,6 +12703,13 @@ function setupSystemSettingsSectionForms() {
         })
     });
 
+    bindSystemSettingsSectionForm('form-system-catalog', {
+        successMessage: 'Catalog pagination settings updated successfully!',
+        getPayload: () => ({
+            defaultProductsPerPage: document.getElementById('defaultProductsPerPage')?.value
+        })
+    });
+
     bindSystemSettingsSectionForm('form-system-rewards', {
         successMessage: 'Rewards & refund settings updated successfully!',
         getPayload: () => ({
@@ -12190,6 +13250,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (messagesNav) navigateAdminSection('view-messages', messagesNav);
     }
 
+    if (window.location.pathname.replace(/\/+$/, '') === '/admin/navbar-links') {
+        const navbarLinksNav = document.querySelector('[data-target="manage-navbar-links"]');
+        if (navbarLinksNav) navigateAdminSection('manage-navbar-links', navbarLinksNav);
+    }
+
     if (window.location.pathname.replace(/\/+$/, '') === '/admin/file-manager') {
         const fileManagerNav = document.querySelector('[data-target="view-file-manager"]');
         if (fileManagerNav) navigateAdminSection('view-file-manager', fileManagerNav);
@@ -12204,6 +13269,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchCategories();
     fetchBrands();
     fetchAttributes();
+    setupNavbarLinkForm();
     setupCouponForm();
     initAddProductFormUI();
 });
@@ -12247,14 +13313,18 @@ function navigateAdminSection(targetId, clickedItem) {
 
     const refreshMap = {
         'view-orders': fetchLiveOrders,
-        'view-manage-products': fetchLiveProducts,
+        'view-manage-products': () => {
+            loadCategoryFilter();
+            fetchLiveProducts();
+        },
         'view-customers': () => {
             initAdminPaginationInstances();
             fetchDashboardData();
         },
         'view-overview': fetchDashboardData,
-        'manage-category': fetchCategories,
+        'manage-category': loadCategories,
         'manage-brands': fetchBrands,
+        'manage-navbar-links': fetchNavbarLinks,
         'manage-attributes': fetchAttributes,
         'manage-coupons': fetchCoupons,
         'view-security': fetchSecurityLogs,
@@ -12278,6 +13348,7 @@ function navigateAdminSection(targetId, clickedItem) {
 
     if (targetId === 'view-add-product') {
         initAddProductFormUI();
+        loadCategoryDropdownForProduct('prodCategory');
     }
 }
 window.navigateAdminSection = navigateAdminSection;
@@ -12385,6 +13456,7 @@ function setupSyncButton() {
                 typeof fetchLiveOrders === 'function' ? fetchLiveOrders() : Promise.resolve(),
                 typeof fetchLiveProducts === 'function' ? fetchLiveProducts() : Promise.resolve(),
                 typeof fetchCategories === 'function' ? fetchCategories() : Promise.resolve(),
+                typeof loadCategories === 'function' ? loadCategories() : Promise.resolve(),
                 typeof fetchBrands === 'function' ? fetchBrands() : Promise.resolve(),
                 typeof fetchAttributes === 'function' ? fetchAttributes() : Promise.resolve(),
                 typeof fetchSecurityLogs === 'function' ? fetchSecurityLogs() : Promise.resolve()
@@ -12837,6 +13909,27 @@ async function loadBanners() {
 }
 window.loadBanners = loadBanners;
 
+function normalizeAdminBannerHeight(value, selectId, fallback) {
+    const select = document.getElementById(selectId);
+    const allowed = select
+        ? Array.from(select.options).map((opt) => opt.value)
+        : [fallback];
+    const v = String(value || '').trim();
+    if (allowed.includes(v)) return v;
+    const n = parseInt(v, 10);
+    if (!Number.isFinite(n)) return fallback;
+    let best = allowed[0] || fallback;
+    let bestDiff = Infinity;
+    for (const a of allowed) {
+        const diff = Math.abs(parseInt(a, 10) - n);
+        if (diff < bestDiff) {
+            bestDiff = diff;
+            best = a;
+        }
+    }
+    return best;
+}
+
 function loadBannerSettings(settings) {
     if (!settings) return;
     const s = settings;
@@ -12844,8 +13937,12 @@ function loadBannerSettings(settings) {
     if (el('bannerAutoPlay')) el('bannerAutoPlay').value = String(s.autoPlay !== false);
     if (el('bannerInterval')) el('bannerInterval').value = String(s.autoPlayInterval || 4000);
     if (el('bannerEffect')) el('bannerEffect').value = s.transitionEffect || 'slide';
-    if (el('bannerHeight')) el('bannerHeight').value = s.height || '420px';
-    if (el('bannerMobileHeight')) el('bannerMobileHeight').value = s.mobileHeight || '220px';
+    if (el('bannerHeight')) {
+        el('bannerHeight').value = normalizeAdminBannerHeight(s.height, 'bannerHeight', '300px');
+    }
+    if (el('bannerMobileHeight')) {
+        el('bannerMobileHeight').value = normalizeAdminBannerHeight(s.mobileHeight, 'bannerMobileHeight', '180px');
+    }
     if (el('bannerShowDots')) el('bannerShowDots').value = String(s.showDots !== false);
     if (el('bannerShowArrows')) el('bannerShowArrows').value = String(s.showArrows !== false);
 }
