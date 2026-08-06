@@ -5709,10 +5709,17 @@ document.addEventListener('input', (e) => {
 
 let allCategories = [];
 let editingCategoryId = null;
+let categorySortable = null;
 
 function getAdminAuthToken() {
     return localStorage.getItem('adminToken') || token || '';
 }
+
+/** Alias used by category row onclick handlers */
+function getAuthToken() {
+    return getAdminAuthToken();
+}
+window.getAuthToken = getAuthToken;
 
 async function loadCategories() {
     const authToken = getAdminAuthToken();
@@ -5759,8 +5766,9 @@ function updateCategoryStats(cats) {
     const el = id => document.getElementById(id);
     if (el('catTotalCount')) el('catTotalCount').textContent = cats.length;
     if (el('catActiveCount')) el('catActiveCount').textContent = cats.filter(c => c.isActive !== false).length;
-    if (el('catFeaturedCount')) el('catFeaturedCount').textContent = cats.filter(c => c.isFeatured).length;
-    if (el('catNavbarCount')) el('catNavbarCount').textContent = cats.filter(c => c.showInNavbar).length;
+    if (el('catFeaturedCount')) el('catFeaturedCount').textContent = cats.filter(c => c.isFeatured === true).length;
+    // Strict true — do not count undefined/default as "In Navbar"
+    if (el('catNavbarCount')) el('catNavbarCount').textContent = cats.filter(c => c.showInNavbar === true).length;
 }
 
 function populateParentDropdown(cats) {
@@ -5776,47 +5784,135 @@ function populateParentDropdown(cats) {
     }
 }
 
+function sortCatsByPosition(a, b) {
+    const pa = Number(a.position) || 0;
+    const pb = Number(b.position) || 0;
+    if (pa !== pb) return pa - pb;
+    return String(a.name || '').localeCompare(String(b.name || ''));
+}
+
+function buildCategoryRowHtml(cat) {
+    const isSub = !!cat.parentCategory;
+    const parentName = cat.parentCategory?.name || '';
+    const imgSrc = cat.imageUrl || cat.image || '';
+    const color = escHtml(cat.color || '#f97316');
+    const safeName = escHtml(cat.name || '');
+    const safeId = escHtml(String(cat._id));
+    const safeSlug = cat.slug ? escHtml(cat.slug) : '';
+    const nameAttr = safeName.replace(/'/g, '&#39;');
+    const isActive = cat.isActive !== false;
+
+    const imgHtml = imgSrc
+        ? `<img class="cat-row-thumb" src="${escHtml(imgSrc)}" alt="${safeName}"
+               style="border-color:${color}"
+               onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex'">`
+        : '';
+
+    return `
+  <div class="category-row${isSub ? ' is-sub' : ''}" data-id="${safeId}">
+    <span class="drag-handle" title="Drag to reorder">⠿</span>
+    ${imgHtml}
+    <div class="cat-color-avatar" style="
+      background:${color};
+      display:${imgSrc ? 'none' : 'flex'};">
+      ${isSub ? '↳' : '🏷️'}
+    </div>
+    <div class="cat-row-info">
+      <div class="cat-row-title">
+        ${isSub
+          ? `<span class="cat-row-parent-hint">↳ ${escHtml(parentName)}</span>`
+          : ''}
+        <span class="cat-row-name">${safeName}</span>
+        ${cat.isFeatured ? '<span class="cat-mini-badge cb-featured">★ FEATURED</span>' : ''}
+        ${cat.showInNavbar === true ? '<span class="cat-mini-badge cb-navbar">NAV</span>' : ''}
+        ${cat.showInHomepage ? '<span class="cat-mini-badge cb-homepage">HOME</span>' : ''}
+        ${!isActive ? '<span class="cat-mini-badge cb-inactive">Inactive</span>' : ''}
+      </div>
+      <div class="cat-row-meta">
+        ${cat.productCount || 0} products${safeSlug ? ` · /${safeSlug}` : ''}
+      </div>
+    </div>
+    <label class="toggle-switch" title="${isActive ? 'Active' : 'Inactive'}"
+           onclick="event.stopPropagation()">
+      <input type="checkbox" ${isActive ? 'checked' : ''}
+             onchange="toggleCategoryActive('${safeId}', this.checked)">
+      <span class="toggle-slider"></span>
+    </label>
+    <div class="cat-row-actions" onclick="event.stopPropagation()">
+      <button type="button" class="action-icon edit"
+              onclick="openEditCategory('${safeId}')" title="Edit">✏️</button>
+      <button type="button" class="action-icon delete"
+              onclick="deleteCategory('${safeId}','${nameAttr}')" title="Delete">🗑️</button>
+    </div>
+  </div>`;
+}
+
+function initCategorySortable(container) {
+    if (categorySortable) {
+        try { categorySortable.destroy(); } catch (_) { /* ignore */ }
+        categorySortable = null;
+    }
+    if (!container || typeof Sortable === 'undefined') return;
+
+    categorySortable = Sortable.create(container, {
+        handle: '.drag-handle',
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        draggable: '.category-row',
+        onEnd: async function() {
+            const items = container.querySelectorAll('.category-row[data-id]');
+            const order = Array.from(items).map((el, index) => ({
+                id: el.dataset.id,
+                position: index
+            }));
+
+            try {
+                const res = await fetch('/api/categories/admin/reorder', {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + getAdminAuthToken()
+                    },
+                    body: JSON.stringify({ order })
+                });
+                const data = await res.json();
+                if (handleAdminApiAuthResponse(res, data) !== 'ok') {
+                    loadCategories();
+                    return;
+                }
+                if (data.success) {
+                    showToast('Category order saved!', 'success');
+                    // Keep local positions in sync without full reload flicker
+                    order.forEach(item => {
+                        const cat = allCategories.find(c => String(c._id) === String(item.id));
+                        if (cat) cat.position = item.position;
+                    });
+                } else {
+                    showToast(data.message || 'Failed to save order', 'error');
+                    loadCategories();
+                }
+            } catch (err) {
+                console.error('Category reorder error:', err);
+                showToast('Network error saving order', 'error');
+                loadCategories();
+            }
+        }
+    });
+}
+
 function renderCategoryTree(cats) {
     const container = document.getElementById('categoryTree');
     if (!container) return;
 
-    const parents = cats.filter(c => !c.parentCategory);
-    const children = cats.filter(c => c.parentCategory);
-
-    // When filtering to subs-only, show children as a flat list
-    if (!parents.length && children.length) {
-        container.innerHTML = children.map(sub => `
-            <div class="cat-parent-row">
-              <div class="cat-child-row" style="padding-left:16px">
-                <div class="cat-row-color"
-                     style="background:${escHtml(sub.color || '#6366f1')}"></div>
-                <div class="cat-row-img" style="width:28px;height:28px">
-                  ${sub.imageUrl
-                    ? `<img src="${escHtml(sub.imageUrl)}" style="width:28px;height:28px;object-fit:cover;border-radius:6px" alt="">`
-                    : '📂'}
-                </div>
-                <div class="cat-row-info">
-                  <div class="cat-row-name" style="font-size:0.85rem">
-                    ${escHtml(sub.name)}
-                    ${sub.isActive === false ? '<span class="cat-mini-badge cb-inactive">Inactive</span>' : ''}
-                  </div>
-                  <div class="cat-row-meta">
-                    <span>📦 ${sub.productCount || 0} products</span>
-                  </div>
-                </div>
-                <div class="cat-row-actions">
-                  <button type="button" class="action-icon edit"
-                          onclick="editCategory('${sub._id}')">✏️</button>
-                  <button type="button" class="action-icon delete"
-                          onclick="deleteCategory('${sub._id}','${escHtml(sub.name).replace(/'/g, '&#39;')}')">🗑️</button>
-                </div>
-              </div>
-            </div>
-        `).join('');
-        return;
+    if (categorySortable) {
+        try { categorySortable.destroy(); } catch (_) { /* ignore */ }
+        categorySortable = null;
     }
 
-    if (!parents.length) {
+    const parents = cats.filter(c => !c.parentCategory).sort(sortCatsByPosition);
+    const children = cats.filter(c => c.parentCategory).sort(sortCatsByPosition);
+
+    if (!parents.length && !children.length) {
         container.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">🗂️</div>
@@ -5826,89 +5922,29 @@ function renderCategoryTree(cats) {
         return;
     }
 
-    container.innerHTML = parents.map(parent => {
-        // Nest matching children from the filtered set
-        const displaySubs = children.filter(
-            c => String(c.parentCategory) === String(parent._id) ||
-                 String(c.parentCategory?._id) === String(parent._id)
-        );
+    // Flat ordered list: each parent followed by its subs (visual hierarchy via CSS)
+    let ordered = [];
+    if (parents.length) {
+        parents.forEach(parent => {
+            ordered.push(parent);
+            children
+                .filter(c =>
+                    String(c.parentCategory) === String(parent._id) ||
+                    String(c.parentCategory?._id) === String(parent._id)
+                )
+                .forEach(sub => ordered.push(sub));
+        });
+        // Orphan subs whose parent is not in the filtered set
+        const shownIds = new Set(ordered.map(c => String(c._id)));
+        children.forEach(sub => {
+            if (!shownIds.has(String(sub._id))) ordered.push(sub);
+        });
+    } else {
+        ordered = children;
+    }
 
-        const safeName = escHtml(parent.name);
-        const safeColor = escHtml(parent.color || '#f97316');
-        const safeImg = parent.imageUrl ? escHtml(parent.imageUrl) : '';
-
-        return `
-      <div class="cat-parent-row">
-        <div class="cat-row-header"
-             onclick="toggleCatChildren('subs-${parent._id}')">
-          <div class="cat-row-color"
-               style="background:${safeColor}"></div>
-          <div class="cat-row-img">
-            ${safeImg
-              ? `<img src="${safeImg}"
-                      style="width:36px;height:36px;object-fit:cover;border-radius:8px" alt="">`
-              : '📁'}
-          </div>
-          <div class="cat-row-info">
-            <div class="cat-row-name">
-              ${safeName}
-              ${displaySubs.length ? `<span style="color:#94a3b8;font-weight:400;font-size:0.75rem">(${displaySubs.length} sub)</span>` : ''}
-              <div class="cat-row-badges">
-                ${parent.isFeatured ? '<span class="cat-mini-badge cb-featured">★ Featured</span>' : ''}
-                ${parent.showInNavbar ? '<span class="cat-mini-badge cb-navbar">Nav</span>' : ''}
-                ${parent.showInHomepage ? '<span class="cat-mini-badge cb-homepage">Home</span>' : ''}
-                ${parent.isActive === false ? '<span class="cat-mini-badge cb-inactive">Inactive</span>' : ''}
-              </div>
-            </div>
-            <div class="cat-row-meta">
-              <span>📦 ${parent.productCount || 0} products</span>
-              ${parent.customCashback != null && parent.customCashback !== '' ? `<span>💰 ${parent.customCashback}% cashback</span>` : ''}
-            </div>
-          </div>
-          <div class="cat-row-actions" onclick="event.stopPropagation()">
-            <button type="button" class="action-icon edit"
-                    onclick="editCategory('${parent._id}')"
-                    title="Edit">✏️</button>
-            <button type="button" class="action-icon delete"
-                    onclick="deleteCategory('${parent._id}','${safeName.replace(/'/g, '&#39;')}')"
-                    title="Delete">🗑️</button>
-          </div>
-        </div>
-
-        ${displaySubs.length ? `
-          <div id="subs-${parent._id}" class="cat-children">
-            ${displaySubs.map(sub => `
-              <div class="cat-child-row">
-                <div class="cat-child-indent"></div>
-                <div class="cat-row-color"
-                     style="background:${escHtml(sub.color || '#6366f1')}"></div>
-                <div class="cat-row-img" style="width:28px;height:28px">
-                  ${sub.imageUrl
-                    ? `<img src="${escHtml(sub.imageUrl)}" style="width:28px;height:28px;object-fit:cover;border-radius:6px" alt="">`
-                    : '📂'}
-                </div>
-                <div class="cat-row-info">
-                  <div class="cat-row-name" style="font-size:0.85rem">
-                    ${escHtml(sub.name)}
-                    ${sub.isActive === false ? '<span class="cat-mini-badge cb-inactive">Inactive</span>' : ''}
-                  </div>
-                  <div class="cat-row-meta">
-                    <span>📦 ${sub.productCount || 0} products</span>
-                  </div>
-                </div>
-                <div class="cat-row-actions">
-                  <button type="button" class="action-icon edit"
-                          onclick="editCategory('${sub._id}')">✏️</button>
-                  <button type="button" class="action-icon delete"
-                          onclick="deleteCategory('${sub._id}','${escHtml(sub.name).replace(/'/g, '&#39;')}')">🗑️</button>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        ` : ''}
-      </div>
-    `;
-    }).join('');
+    container.innerHTML = ordered.map(buildCategoryRowHtml).join('');
+    initCategorySortable(container);
 }
 
 window.toggleCatChildren = function(id) {
@@ -5958,7 +5994,8 @@ function fillCategoryModal(cat) {
 
     check('catIsActive', cat.isActive !== false);
     check('catIsFeatured', cat.isFeatured);
-    check('catShowNavbar', cat.showInNavbar !== false);
+    // Strict boolean — matches stats / NAV badge (do not treat undefined as true)
+    check('catShowNavbar', cat.showInNavbar === true);
     check('catShowHomepage', cat.showInHomepage);
 
     const parentId = cat.parentCategory?._id || cat.parentCategory || '';
@@ -6071,6 +6108,7 @@ window.openCategoryModal = async function(catId = null) {
 };
 
 window.editCategory = function(id) { window.openCategoryModal(id); };
+window.openEditCategory = function(id) { window.openCategoryModal(id); };
 
 // Close category modal with Escape
 document.addEventListener('keydown', function(e) {
@@ -6080,6 +6118,35 @@ document.addEventListener('keydown', function(e) {
         closeCategoryModal();
     }
 });
+
+window.toggleCategoryActive = async function(categoryId, isActive) {
+    try {
+        const res = await fetch('/api/categories/admin/' + categoryId, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + getAdminAuthToken()
+            },
+            body: JSON.stringify({ isActive })
+        });
+        const data = await res.json();
+        if (handleAdminApiAuthResponse(res, data) !== 'ok') {
+            loadCategories();
+            return;
+        }
+        if (data.success) {
+            showToast('Category ' + (isActive ? 'activated' : 'deactivated'), 'success');
+            await loadCategories();
+        } else {
+            showToast(data.message || 'Update failed', 'error');
+            await loadCategories();
+        }
+    } catch (err) {
+        console.error('toggleCategoryActive error:', err);
+        showToast('Network error', 'error');
+        await loadCategories();
+    }
+};
 
 window.previewCatImg = function(input) {
     const file = input?.files?.[0];
@@ -6186,34 +6253,73 @@ function showDeleteConfirm(message, onConfirm) {
     modal.classList.add('open');
 }
 
-window.deleteCategory = async function(id, name) {
-    showDeleteConfirm(
-        'Delete category "' + name + '"?\n\nSub-categories will also be deleted. Products must be reassigned first.',
-        async () => {
-            const authToken = getAdminAuthToken();
-            try {
-                const res = await fetch('/api/categories/admin/' + id, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': 'Bearer ' + authToken }
-                });
-                const data = await res.json();
+window.deleteCategory = async function(categoryId, categoryName) {
+    if (typeof Swal === 'undefined') {
+        // Fallback if SweetAlert2 failed to load
+        showDeleteConfirm(
+            'Delete category "' + categoryName + '"?\n\nSub-categories will also be deleted. Products must be reassigned first.',
+            () => performCategoryDelete(categoryId)
+        );
+        return;
+    }
 
-                if (handleAdminApiAuthResponse(res, data) !== 'ok') return;
+    const result = await Swal.fire({
+        title: 'Delete "' + categoryName + '"?',
+        html: `<p style="color:#64748b;font-size:14px;">
+      This will also delete all sub-categories.<br>
+      Products must be reassigned first.
+    </p>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: '🗑️ Yes, Delete',
+        cancelButtonText: 'Cancel',
+        reverseButtons: true
+    });
 
-                if (data.success) {
-                    showToast('✅ Category deleted', 'success');
-                    await loadCategories();
-                    if (typeof fetchCategories === 'function') await fetchCategories();
-                } else {
-                    showToast(data.message || 'Cannot delete', 'error');
-                }
-            } catch (err) {
-                console.error('deleteCategory error:', err);
-                showToast('Error: ' + err.message, 'error');
-            }
-        }
-    );
+    if (!result.isConfirmed) return;
+    await performCategoryDelete(categoryId);
 };
+
+async function performCategoryDelete(categoryId) {
+    try {
+        const res = await fetch('/api/categories/admin/' + categoryId, {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + getAdminAuthToken() }
+        });
+        const data = await res.json();
+
+        if (handleAdminApiAuthResponse(res, data) !== 'ok') return;
+
+        if (data.success) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Deleted!',
+                    text: data.message || 'Category deleted',
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                showToast('✅ Category deleted', 'success');
+            }
+            await loadCategories();
+            if (typeof fetchCategories === 'function') await fetchCategories();
+        } else if (typeof Swal !== 'undefined') {
+            Swal.fire('Cannot Delete', data.message || 'Cannot delete', 'error');
+        } else {
+            showToast(data.message || 'Cannot delete', 'error');
+        }
+    } catch (err) {
+        console.error('deleteCategory error:', err);
+        if (typeof Swal !== 'undefined') {
+            Swal.fire('Error', 'Network error while deleting', 'error');
+        } else {
+            showToast('Error: ' + err.message, 'error');
+        }
+    }
+}
 
 /* ==========================================================================
    SECTION 9B: BRAND MANAGEMENT ENGINE (ব্র্যান্ড ম্যানেজমেন্ট মডিউল)

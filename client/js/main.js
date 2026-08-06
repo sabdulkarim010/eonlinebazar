@@ -797,7 +797,7 @@ async function loadHomepageCategories() {
         container.style.display = '';
         container.innerHTML = `
             <div class="hp-cats-header">
-                <h2>Shop by Category</h2>
+                <h2>🛍️ Shop by Category</h2>
                 <a href="/products" class="hp-cats-see-all">See All →</a>
             </div>
             <div class="hp-cats-grid" id="category-grid">

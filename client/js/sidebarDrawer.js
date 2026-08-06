@@ -46,6 +46,36 @@
         return [];
     }
 
+    function categoryAccent(cat) {
+        return cat?.accentColor || cat?.color || '#f97316';
+    }
+
+    function categoryImage(cat) {
+        return cat?.imageUrl || cat?.image || cat?.iconUrl || '';
+    }
+
+    /** Image thumb or color/icon avatar for a department row. */
+    function renderDeptAvatar(cat) {
+        const name = escapeHtml(cat?.name || 'Category');
+        const img = categoryImage(cat);
+        const color = escapeHtml(categoryAccent(cat));
+        const icon = escapeHtml(cat?.icon || '🏷️');
+
+        if (img) {
+            return `<img class="nav-drawer__dept-avatar"
+                         src="${escapeHtml(img)}"
+                         alt="${name}"
+                         width="36" height="36"
+                         loading="lazy"
+                         onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.hidden=false)">
+                    <span class="nav-drawer__dept-avatar nav-drawer__dept-avatar--fallback"
+                          style="--cat-color:${color}" hidden aria-hidden="true">${icon}</span>`;
+        }
+
+        return `<span class="nav-drawer__dept-avatar nav-drawer__dept-avatar--fallback"
+                      style="--cat-color:${color}" aria-hidden="true">${icon}</span>`;
+    }
+
     function ensureDom() {
         const existing = document.getElementById('navDrawer');
         if (existing) {
@@ -233,6 +263,7 @@
             const href = listingHref(cat);
             const children = childList(cat);
             const hasChildren = children.length > 0;
+            const avatar = renderDeptAvatar(cat);
 
             if (hasChildren) {
                 return `
@@ -241,7 +272,8 @@
                                 class="nav-drawer__expand"
                                 data-drawer-expand="${index}"
                                 aria-label="Browse ${name} subcategories">
-                            <span>${name}</span>
+                            ${avatar}
+                            <span class="nav-drawer__dept-label">${name}</span>
                             <i class="fa fa-chevron-right nav-drawer__chevron" aria-hidden="true"></i>
                         </button>
                     </li>`;
@@ -250,7 +282,8 @@
             return `
                 <li class="nav-drawer__item">
                     <a class="nav-drawer__link" href="${href}" data-category-id="${escapeHtml(cat._id || '')}">
-                        <span>${name}</span>
+                        ${avatar}
+                        <span class="nav-drawer__dept-label">${name}</span>
                     </a>
                 </li>`;
         }).join('');

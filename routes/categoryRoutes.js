@@ -20,6 +20,7 @@ router.get('/homepage', ctrl.getHomepageCategories);
 
 // Admin (registered before /:slug so "admin" is not captured as a slug)
 router.get('/admin/all', verifyAdmin, ctrl.adminGetCategories);
+router.post('/admin/sync-counts', verifyAdmin, ctrl.adminSyncProductCounts);
 router.get('/admin/:id', verifyAdmin, ctrl.getCategoryById);
 router.post('/admin', verifyAdmin,
   ctrl.uploadCategoryImage, ctrl.adminCreateCategory);

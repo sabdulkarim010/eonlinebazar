@@ -899,16 +899,25 @@ a.logo-area {
     align-items: center;
     text-decoration: none;
     gap: 8px;
-    transition: transform 0.2s;
+    padding: 16px 8px;
+    border-radius: 12px;
+    background: #f8fafc;
+    border: 2px solid transparent;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    cursor: pointer;
 }
 
-.hp-cat-card:hover { transform: translateY(-3px); }
+.hp-cat-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--cat-color, #f97316);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
 
 .hp-cat-img-wrap {
-    width: 80px;
-    height: 80px;
+    width: 72px;
+    height: 72px;
     border-radius: 50%;
-    border: 2px solid #e2e8f0;
+    border: 3px solid var(--cat-color, #e2e8f0);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -917,7 +926,7 @@ a.logo-area {
 }
 
 .hp-cat-card:hover .hp-cat-img-wrap {
-    border-color: #f97316;
+    border-color: var(--cat-color, #f97316);
 }
 
 .hp-cat-img {
@@ -1780,7 +1789,8 @@ body.nav-drawer-open {
     display: flex;
     align-items: center;
     width: 100%;
-    padding: 12px 20px;
+    min-width: 0;
+    padding: 10px 16px;
     border: none;
     background: transparent;
     color: #111;
@@ -1789,27 +1799,60 @@ body.nav-drawer-open {
     text-align: left;
     text-decoration: none;
     cursor: pointer;
-    gap: 10px;
+    gap: 12px;
     transition: background 0.15s ease;
+}
+
+.nav-drawer__dept-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+    display: block;
+}
+
+.nav-drawer__dept-avatar--fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    line-height: 1;
+    background: color-mix(in srgb, var(--cat-color, #f97316) 13%, transparent);
+    border: 2px solid var(--cat-color, #f97316);
+}
+
+.nav-drawer__dept-avatar--fallback[hidden] {
+    display: none !important;
+}
+
+.nav-drawer__dept-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+    color: #1e293b;
 }
 
 .nav-drawer__link:hover,
 .nav-drawer__expand:hover,
 .nav-drawer__link:focus-visible,
 .nav-drawer__expand:focus-visible {
-    background: #eaeded;
+    background: #f8fafc;
     outline: none;
 }
 
 .nav-drawer__expand {
-    justify-content: space-between;
     font-weight: 500;
 }
 
 .nav-drawer__chevron {
-    color: #555;
+    color: #94a3b8;
     font-size: 12px;
     flex-shrink: 0;
+    margin-left: auto;
 }
 
 .nav-drawer__back {

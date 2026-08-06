@@ -321,8 +321,7 @@ exports.getCategoryBySlug = async (req, res) => {
       Product.countDocuments(filter)
     ]);
 
-    await Category.findByIdAndUpdate(category._id, { productCount: total });
-
+    // productCount is maintained on product create/update/delete — not on page view
     res.json({
       success: true,
       category,
@@ -360,22 +359,30 @@ exports.getCategoryById = async (req, res) => {
 // GET /api/categories/admin/all
 exports.adminGetCategories = async (req, res) => {
   try {
-    const categories = await Category.find()
+    // 1. Get all categories in one query
+    const categories = await Category.find({})
       .populate('parentCategory', 'name')
       .sort({ position: 1, name: 1 })
       .lean();
 
-    const withCounts = await Promise.all(
-      categories.map(async cat => {
-        const count = await Product.countDocuments({
-          category: cat.name,
-          status: 'active'
-        });
-        return { ...cat, productCount: count };
-      })
-    );
+    // 2. Get product counts in ONE aggregation query (not N queries)
+    const productCounts = await Product.aggregate([
+      { $group: { _id: '$category', count: { $sum: 1 } } }
+    ]);
 
-    res.json({ success: true, data: withCounts });
+    // 3. Build a lookup map: { 'Fashion & Apparel': 8, 'Electronics': 3, ... }
+    const countMap = {};
+    for (const item of productCounts) {
+      if (item._id) countMap[item._id] = item.count;
+    }
+
+    // 4. Attach counts to categories
+    const categoriesWithCounts = categories.map((cat) => ({
+      ...cat,
+      productCount: countMap[cat.name] || 0
+    }));
+
+    res.json({ success: true, data: categoriesWithCounts });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -399,6 +406,11 @@ exports.adminCreateCategory = async (req, res) => {
       });
     }
 
+    let resolvedParent = parentCategory || null;
+    if (resolvedParent === '' || resolvedParent === 'null') {
+      resolvedParent = null;
+    }
+
     let imageUrl = null;
     if (req.file) {
       imageUrl = await uploadCategoryImageFile(req.file);
@@ -407,7 +419,7 @@ exports.adminCreateCategory = async (req, res) => {
     const cat = new Category({
       name: name?.trim(),
       description,
-      parentCategory: parentCategory || null,
+      parentCategory: resolvedParent,
       color: color || '#f97316',
       isActive: parseBool(isActive, true),
       isFeatured: parseBool(isFeatured, false),
@@ -419,12 +431,37 @@ exports.adminCreateCategory = async (req, res) => {
       imageUrl
     });
 
+    // Edge case: mongoose assigns _id on construction — reject self-parent
+    if (cat.parentCategory && cat.parentCategory.toString() === cat._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: 'A category cannot be its own parent.'
+      });
+    }
+
     await cat.save();
     res.status(201).json({ success: true, category: cat });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+/**
+ * Returns true if categoryId is an ancestor of potentialAncestorId
+ * (i.e. setting potentialAncestorId as parent of categoryId would create a cycle).
+ */
+async function isDescendantOf(potentialAncestorId, categoryId) {
+  let current = potentialAncestorId;
+  const seen = new Set();
+  while (current) {
+    if (seen.has(current.toString())) return false; // already safe
+    if (current.toString() === categoryId.toString()) return true; // CYCLE!
+    seen.add(current.toString());
+    const walkCat = await Category.findById(current).select('parentCategory').lean();
+    current = walkCat?.parentCategory;
+  }
+  return false;
+}
 
 // PATCH /api/categories/admin/:id
 exports.adminUpdateCategory = async (req, res) => {
@@ -447,6 +484,25 @@ exports.adminUpdateCategory = async (req, res) => {
 
     if (updates.parentCategory === '' || updates.parentCategory === 'null') {
       updates.parentCategory = null;
+    }
+
+    const parentCategory = updates.parentCategory;
+    if (parentCategory && parentCategory !== 'null') {
+      // Prevent self-reference
+      if (parentCategory.toString() === req.params.id.toString()) {
+        return res.status(400).json({
+          success: false,
+          message: 'A category cannot be its own parent.'
+        });
+      }
+      // Prevent circular reference (A → B → A)
+      const wouldCycle = await isDescendantOf(parentCategory, req.params.id);
+      if (wouldCycle) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot set this parent — it would create a circular reference.'
+        });
+      }
     }
 
     if (updates.customCashback !== undefined || updates.customCashbackPercentage !== undefined) {
@@ -512,31 +568,62 @@ exports.adminUploadBanner = async (req, res) => {
   }
 };
 
-// DELETE /api/categories/admin/:id
+// DELETE /api/categories/admin/:id — recursive cascade (all descendants)
 exports.adminDeleteCategory = async (req, res) => {
   try {
-    const category = await Category.findById(req.params.id);
+    const categoryId = req.params.id;
+
+    const category = await Category.findById(categoryId);
     if (!category) {
-      return res.status(404).json({
-        success: false, message: 'Category not found'
-      });
+      return res.status(404).json({ success: false, message: 'Category not found' });
     }
 
-    const productCount = await Product.countDocuments({
-      category: category.name
-    });
+    async function collectAllDescendantIds(parentId) {
+      const ids = [parentId];
+      const children = await Category.find({ parentCategory: parentId }).select('_id').lean();
+      for (const child of children) {
+        const childIds = await collectAllDescendantIds(child._id);
+        ids.push(...childIds);
+      }
+      return ids;
+    }
+
+    const allIds = await collectAllDescendantIds(categoryId);
+
+    const allCategories = await Category.find({ _id: { $in: allIds } }).select('name').lean();
+    const allNames = allCategories.map((c) => c.name);
+
+    const productCount = await Product.countDocuments({ category: { $in: allNames } });
 
     if (productCount > 0) {
       return res.status(400).json({
         success: false,
-        message: `Cannot delete. ${productCount} products use this category. Reassign them first.`
+        message: `Cannot delete: ${productCount} product(s) are assigned to this category or its sub-categories. Reassign them first.`
       });
     }
 
-    await Category.deleteMany({ parentCategory: req.params.id });
-    await Category.findByIdAndDelete(req.params.id);
+    const idsToDelete = allIds.reverse(); // children before parents
+    await Category.deleteMany({ _id: { $in: idsToDelete } });
 
-    res.json({ success: true, message: 'Category deleted' });
+    const subCount = idsToDelete.length - 1;
+    res.json({
+      success: true,
+      message: `Category and ${subCount} sub-categor${subCount === 1 ? 'y' : 'ies'} deleted successfully.`
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/categories/admin/sync-counts — one-time / manual productCount sync
+exports.adminSyncProductCounts = async (req, res) => {
+  try {
+    const cats = await Category.find({}).select('name').lean();
+    for (const syncCat of cats) {
+      const count = await Product.countDocuments({ category: syncCat.name });
+      await Category.findByIdAndUpdate(syncCat._id, { productCount: count });
+    }
+    res.json({ success: true, message: 'All category counts synced.' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

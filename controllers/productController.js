@@ -22,6 +22,20 @@ const FALLBACK_PRODUCTS_PER_PAGE = 24;
 /** Hard cap on ?limit= (default page size from settings stays ≤ 100). */
 const MAX_PRODUCTS_PER_PAGE = 500;
 
+/** Recount products for a category name and store on Category.productCount. */
+async function syncCategoryProductCount(categoryName) {
+  if (!categoryName) return;
+  try {
+    const count = await Product.countDocuments({ category: categoryName });
+    await Category.findOneAndUpdate(
+      { name: categoryName },
+      { productCount: count }
+    );
+  } catch (err) {
+    console.error('syncCategoryProductCount error:', err);
+  }
+}
+
 async function resolveDefaultProductsPerPage() {
     try {
         const settings = await Setting.getOrCreate();
@@ -458,6 +472,7 @@ const createProduct = async (req, res) => {
 
         const newProduct = new Product(newProductData);
         await newProduct.save();
+        await syncCategoryProductCount(newProduct.category);
         await invalidateProductCaches();
         res.status(201).json({ success: true, message: "Product added successfully!", data: newProduct });
     } catch (err) {
@@ -551,6 +566,12 @@ const updateProduct = async (req, res) => {
 
         let query = mongoose.Types.ObjectId.isValid(productIdParam) ? { _id: productIdParam } : { productId: String(productIdParam) }; 
 
+        let oldCategoryName = null;
+        if (category !== undefined) {
+            const existingForCat = await Product.findOne(query).select('category').lean();
+            oldCategoryName = existingForCat?.category || null;
+        }
+
         if (req.files && req.files.length > 0) {
             const existingProduct = await Product.findOne(query);
             
@@ -593,6 +614,14 @@ const updateProduct = async (req, res) => {
         const updatedProduct = await Product.findOneAndUpdate(query, { $set: updateFields }, { returnDocument: 'after' });
         if (!updatedProduct) return res.status(404).json({ success: false, message: "Product not found!" });
 
+        if (category !== undefined) {
+            const newCategoryName = updatedProduct.category || '';
+            if (String(oldCategoryName || '') !== String(newCategoryName || '')) {
+                await syncCategoryProductCount(oldCategoryName);
+                await syncCategoryProductCount(newCategoryName);
+            }
+        }
+
         await invalidateProductCaches(productIdParam);
 
         res.json({ success: true, message: "Product updated successfully!", data: updatedProduct });
@@ -630,6 +659,7 @@ const deleteProduct = async (req, res) => {
         }
 
         await Product.findOneAndDelete(query);
+        await syncCategoryProductCount(productToDelete.category);
         await invalidateProductCaches(productIdParam);
         res.json({ success: true, message: "Product and its images deleted successfully!" });
     } catch (err) {
