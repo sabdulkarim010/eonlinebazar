@@ -7,15 +7,261 @@
  */
 
 /* ==========================================================================
-   ১. হিরো ব্যানার (dynamic — styles live in banner-slider.js)
+   ১. হিরো ব্যানার (dynamic heights + responsive text)
    ========================================================================== */
 #heroBannerSlider {
+    --banner-height: 300px;
+    --banner-mobile-height: 200px;
+    --banner-h: 300;
+    --banner-mh: 200;
     position: relative;
     z-index: 1; /* keep hero under sub-navbar category dropdowns (z-index 9999) */
     width: 100%;
     overflow: hidden;
     isolation: isolate;
 }
+
+#bannerSliderWrap {
+    position: relative;
+    width: 100%;
+    height: var(--banner-height, 300px);
+    overflow: hidden;
+    background: #1a1a2e;
+    container-type: size;
+    container-name: hero-banner;
+}
+
+@media (max-width: 768px) {
+    #bannerSliderWrap {
+        height: var(--banner-mobile-height, 200px);
+    }
+}
+
+.banner-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.6s ease, transform 0.6s ease;
+    transform: translateX(100%);
+}
+
+.banner-slide.active {
+    opacity: 1;
+    transform: translateX(0);
+    z-index: 2;
+}
+
+.banner-slide.prev {
+    opacity: 0;
+    transform: translateX(-100%);
+    z-index: 1;
+}
+
+.banner-slide.fade-mode {
+    transform: none !important;
+}
+
+.banner-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+}
+
+.banner-bg--solid {
+    position: absolute;
+    inset: 0;
+}
+
+.banner-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, var(--opacity, 0.3));
+    z-index: 1;
+    pointer-events: none;
+}
+
+.banner-content {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: clamp(0.25rem, 2.5cqh, 0.85rem);
+    /* Side/bottom padding keeps copy clear of arrows + dots */
+    padding:
+        clamp(0.4rem, 4cqh, 1.1rem)
+        clamp(2.75rem, 8cqw, 4.5rem)
+        clamp(1.4rem, 10cqh, 2.4rem);
+    overflow: hidden;
+    box-sizing: border-box;
+    max-width: 100%;
+}
+
+.banner-title {
+    margin: 0;
+    max-width: 100%;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    /* Scales with banner height (cqh) and viewport width — prevents clipping on short slides */
+    font-size: clamp(0.85rem, calc(var(--banner-h, 300) * 0.065 * 1px + 0.35vw), 2.35rem);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+}
+
+.banner-subtitle {
+    margin: 0;
+    max-width: min(42rem, 100%);
+    font-weight: 400;
+    line-height: 1.35;
+    opacity: 0.9;
+    font-size: clamp(0.7rem, calc(var(--banner-h, 300) * 0.032 * 1px + 0.2vw), 1.15rem);
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+}
+
+.banner-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: clamp(0.15rem, 1.5cqh, 0.5rem);
+    padding: clamp(0.35rem, 2.2cqh, 0.75rem) clamp(0.9rem, 3cqw, 1.75rem);
+    background: #f97316;
+    color: #fff;
+    border-radius: 999px;
+    font-size: clamp(0.7rem, calc(var(--banner-h, 300) * 0.028 * 1px + 0.15vw), 0.95rem);
+    font-weight: 700;
+    line-height: 1.2;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 16px rgba(249, 115, 22, 0.4);
+    max-width: 100%;
+}
+
+.banner-cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(249, 115, 22, 0.5);
+}
+
+@media (max-width: 768px) {
+    .banner-title {
+        font-size: clamp(0.8rem, calc(var(--banner-mh, 200) * 0.08 * 1px + 0.5vw), 1.55rem);
+    }
+    .banner-subtitle {
+        font-size: clamp(0.65rem, calc(var(--banner-mh, 200) * 0.045 * 1px + 0.35vw), 0.95rem);
+    }
+    .banner-cta {
+        font-size: clamp(0.65rem, calc(var(--banner-mh, 200) * 0.04 * 1px + 0.25vw), 0.85rem);
+    }
+}
+
+.banner-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    width: clamp(32px, 5cqh + 16px, 44px);
+    height: clamp(32px, 5cqh + 16px, 44px);
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    color: #fff;
+    font-size: clamp(0.85rem, 3cqh, 1.1rem);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, border-color 0.2s ease;
+    user-select: none;
+}
+
+.banner-arrow:hover {
+    background: rgba(249, 115, 22, 0.7);
+    border-color: transparent;
+}
+
+.banner-arrow-prev { left: 10px; }
+.banner-arrow-next { right: 10px; }
+
+.banner-dots {
+    position: absolute;
+    bottom: clamp(6px, 3cqh, 14px);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    z-index: 10;
+}
+
+.banner-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    transition: all 0.3s;
+    border: none;
+    padding: 0;
+}
+
+.banner-dot.active {
+    background: #f97316;
+    width: 24px;
+    border-radius: 4px;
+}
+
+.banner-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: #f97316;
+    z-index: 10;
+    width: 0%;
+    transition: width linear;
+}
+
+.banner-fallback {
+    width: 100%;
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: #1a1a2e;
+    color: #fff;
+    padding: 24px;
+}
+
+.banner-fallback h2 {
+    margin: 0 0 8px;
+    font-size: clamp(1.1rem, 4vw, 2rem);
+    font-weight: 800;
+}
+
+.banner-fallback p {
+    margin: 0;
+    opacity: 0.85;
+    font-size: clamp(0.8rem, 2.5vw, 1.05rem);
+}
+
 
 /* ==========================================================================
    ২. ডাইনামিক ক্যাটাগরি বাটন সেকশন (পেজের মাঝখানের ফিল্টার ট্যাব)

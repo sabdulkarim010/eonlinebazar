@@ -2,8 +2,12 @@ const { Banner, BannerSettings } = require('../models/banner');
 const cloudinary = require('../config/cloudinary');
 const multer = require('multer');
 
-const ALLOWED_DESKTOP_HEIGHTS = ['300px', '270px', '240px', '210px', '180px'];
-const ALLOWED_MOBILE_HEIGHTS = ['180px', '160px', '140px', '120px', '100px'];
+const DESKTOP_PRESETS = ['300px', '240px', '180px'];
+const MOBILE_PRESETS = ['200px', '150px', '100px'];
+const DESKTOP_MAX = 300;
+const DESKTOP_MIN = 80;
+const MOBILE_MAX = 200;
+const MOBILE_MIN = 60;
 
 const DEFAULT_SETTINGS = {
   autoPlay: true,
@@ -11,25 +15,41 @@ const DEFAULT_SETTINGS = {
   showDots: true,
   showArrows: true,
   height: '300px',
-  mobileHeight: '180px',
+  mobileHeight: '200px',
   transitionEffect: 'slide'
 };
 
-function normalizeHeight(value, allowed, fallback) {
+function parseOverlayOpacity(value, fallback = 0.3) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const n = parseFloat(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(1, Math.max(0, n));
+}
+
+function normalizeHexColor(value) {
+  if (value == null || value === '') return null;
+  const v = String(value).trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(v)) return v.toLowerCase();
+  if (/^#[0-9A-Fa-f]{3}$/.test(v)) {
+    const [, a, b, c] = v;
+    return `#${a}${a}${b}${b}${c}${c}`.toLowerCase();
+  }
+  return null;
+}
+
+/**
+ * Accept preset values or any custom px height within min/max.
+ * Legacy values outside the allowed range are clamped.
+ */
+function normalizeHeight(value, { presets, min, max, fallback }) {
   const v = String(value || '').trim();
-  if (allowed.includes(v)) return v;
+  if (presets.includes(v)) return v;
+
   const n = parseInt(v, 10);
   if (!Number.isFinite(n)) return fallback;
-  let best = allowed[0];
-  let bestDiff = Infinity;
-  for (const a of allowed) {
-    const diff = Math.abs(parseInt(a, 10) - n);
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      best = a;
-    }
-  }
-  return best;
+
+  const clamped = Math.min(max, Math.max(min, n));
+  return `${clamped}px`;
 }
 
 function normalizeBannerSettings(settings = {}) {
@@ -39,8 +59,18 @@ function normalizeBannerSettings(settings = {}) {
   const base = { ...DEFAULT_SETTINGS, ...raw };
   return {
     ...base,
-    height: normalizeHeight(base.height, ALLOWED_DESKTOP_HEIGHTS, DEFAULT_SETTINGS.height),
-    mobileHeight: normalizeHeight(base.mobileHeight, ALLOWED_MOBILE_HEIGHTS, DEFAULT_SETTINGS.mobileHeight)
+    height: normalizeHeight(base.height, {
+      presets: DESKTOP_PRESETS,
+      min: DESKTOP_MIN,
+      max: DESKTOP_MAX,
+      fallback: DEFAULT_SETTINGS.height
+    }),
+    mobileHeight: normalizeHeight(base.mobileHeight, {
+      presets: MOBILE_PRESETS,
+      min: MOBILE_MIN,
+      max: MOBILE_MAX,
+      fallback: DEFAULT_SETTINGS.mobileHeight
+    })
   };
 }
 
@@ -114,18 +144,23 @@ exports.createBanner = async (req, res) => {
   try {
     const {
       title, subtitle, linkUrl, linkText,
-      textColor, overlayOpacity, position
+      textColor, overlayOpacity, position, backgroundColor
     } = req.body;
 
-    if (!req.files?.bannerImage?.[0]) {
+    const bgColor = normalizeHexColor(backgroundColor);
+    const hasDesktopImage = Boolean(req.files?.bannerImage?.[0]);
+
+    if (!hasDesktopImage && !bgColor) {
       return res.status(400).json({
         success: false,
-        message: 'Banner image is required'
+        message: 'Provide a desktop image or a solid background color'
       });
     }
 
-    const imageUrl = await uploadBannerImage(req.files.bannerImage[0]);
-    const mobileImageUrl = req.files.mobileBannerImage?.[0]
+    const imageUrl = hasDesktopImage
+      ? await uploadBannerImage(req.files.bannerImage[0])
+      : null;
+    const mobileImageUrl = req.files?.mobileBannerImage?.[0]
       ? await uploadBannerImage(req.files.mobileBannerImage[0], { mobile: true })
       : null;
 
@@ -136,10 +171,11 @@ exports.createBanner = async (req, res) => {
       subtitle: subtitle || '',
       imageUrl,
       mobileImageUrl,
+      backgroundColor: bgColor,
       linkUrl: linkUrl || null,
       linkText: linkText || 'Shop Now',
       textColor: textColor || '#ffffff',
-      overlayOpacity: parseFloat(overlayOpacity) || 0.3,
+      overlayOpacity: parseOverlayOpacity(overlayOpacity, 0.3),
       position: Number.isFinite(parseInt(position, 10)) ? parseInt(position, 10) : count,
       isActive: true
     });
@@ -156,8 +192,13 @@ exports.updateBanner = async (req, res) => {
   try {
     const {
       title, subtitle, linkUrl, linkText,
-      textColor, overlayOpacity, position, isActive
+      textColor, overlayOpacity, position, isActive, backgroundColor
     } = req.body;
+
+    const existing = await Banner.findById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Banner not found' });
+    }
 
     const updates = {};
     if (title !== undefined) updates.title = title;
@@ -166,13 +207,16 @@ exports.updateBanner = async (req, res) => {
     if (linkText !== undefined) updates.linkText = linkText;
     if (textColor !== undefined) updates.textColor = textColor;
     if (overlayOpacity !== undefined && overlayOpacity !== '') {
-      updates.overlayOpacity = parseFloat(overlayOpacity);
+      updates.overlayOpacity = parseOverlayOpacity(overlayOpacity, existing.overlayOpacity);
     }
     if (position !== undefined && position !== '') {
       updates.position = parseInt(position, 10);
     }
     if (isActive !== undefined) {
       updates.isActive = isActive === 'true' || isActive === true;
+    }
+    if (backgroundColor !== undefined) {
+      updates.backgroundColor = normalizeHexColor(backgroundColor);
     }
 
     if (req.files?.bannerImage?.[0]) {
@@ -182,15 +226,30 @@ exports.updateBanner = async (req, res) => {
       updates.mobileImageUrl = await uploadBannerImage(req.files.mobileBannerImage[0], { mobile: true });
     }
 
+    // Clear image when admin opts for solid color only (explicit flag)
+    if (req.body.clearImage === 'true' || req.body.clearImage === true) {
+      updates.imageUrl = null;
+    }
+    if (req.body.clearMobileImage === 'true' || req.body.clearMobileImage === true) {
+      updates.mobileImageUrl = null;
+    }
+
+    const nextImage = updates.imageUrl !== undefined ? updates.imageUrl : existing.imageUrl;
+    const nextBg = updates.backgroundColor !== undefined
+      ? updates.backgroundColor
+      : existing.backgroundColor;
+    if (!nextImage && !nextBg) {
+      return res.status(400).json({
+        success: false,
+        message: 'Banner must have a desktop image or a solid background color'
+      });
+    }
+
     const banner = await Banner.findByIdAndUpdate(
       req.params.id,
       updates,
       { new: true }
     );
-
-    if (!banner) {
-      return res.status(404).json({ success: false, message: 'Banner not found' });
-    }
 
     res.json({ success: true, banner });
   } catch (err) {
@@ -237,8 +296,18 @@ exports.updateSettings = async (req, res) => {
         : DEFAULT_SETTINGS.autoPlayInterval,
       showDots: body.showDots !== false && body.showDots !== 'false',
       showArrows: body.showArrows !== false && body.showArrows !== 'false',
-      height: normalizeHeight(body.height, ALLOWED_DESKTOP_HEIGHTS, DEFAULT_SETTINGS.height),
-      mobileHeight: normalizeHeight(body.mobileHeight, ALLOWED_MOBILE_HEIGHTS, DEFAULT_SETTINGS.mobileHeight),
+      height: normalizeHeight(body.height, {
+        presets: DESKTOP_PRESETS,
+        min: DESKTOP_MIN,
+        max: DESKTOP_MAX,
+        fallback: DEFAULT_SETTINGS.height
+      }),
+      mobileHeight: normalizeHeight(body.mobileHeight, {
+        presets: MOBILE_PRESETS,
+        min: MOBILE_MIN,
+        max: MOBILE_MAX,
+        fallback: DEFAULT_SETTINGS.mobileHeight
+      }),
       transitionEffect: body.transitionEffect === 'fade' ? 'fade' : 'slide',
       updatedAt: new Date()
     };

@@ -3,8 +3,9 @@ const mongoose = require('mongoose');
 const bannerSchema = new mongoose.Schema({
   title: { type: String, default: '' },
   subtitle: { type: String, default: '' },
-  imageUrl: { type: String, required: true },
+  imageUrl: { type: String, default: null },
   mobileImageUrl: { type: String, default: null },
+  backgroundColor: { type: String, default: null },
   linkUrl: { type: String, default: null },
   linkText: { type: String, default: 'Shop Now' },
   textColor: { type: String, default: '#ffffff' },
@@ -20,7 +21,7 @@ const bannerSettingsSchema = new mongoose.Schema({
   showDots: { type: Boolean, default: true },
   showArrows: { type: Boolean, default: true },
   height: { type: String, default: '300px' },
-  mobileHeight: { type: String, default: '180px' },
+  mobileHeight: { type: String, default: '200px' },
   transitionEffect: {
     type: String,
     enum: ['slide', 'fade'],
