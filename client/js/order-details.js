@@ -55,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
         actionBar: document.getElementById('order-action-bar'),
         trackBtn: document.getElementById('track-order-btn'),
         invoiceBtn: document.getElementById('download-invoice-btn'),
+        supportChatBtn: document.getElementById('order-support-chat-btn'),
         cancelBtn: document.getElementById('order-cancel-btn'),
         returnBtn: document.getElementById('order-return-btn'),
         itemsContainer: document.getElementById('order-items-container'),
@@ -119,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentOrderMongoId = orderId;
     let currentDisplayOrderId = orderId;
+    let currentOrderData = null;
 
     function showError(message) {
         if (elements.loadingSpinner) {
@@ -374,6 +376,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (elements.returnBtn) {
             elements.returnBtn.addEventListener('click', () => openOrderActionModal('return'));
         }
+
+        if (elements.supportChatBtn) {
+            elements.supportChatBtn.addEventListener('click', async () => {
+                const order = currentOrderData || {
+                    _id: currentOrderMongoId,
+                    orderId: currentDisplayOrderId
+                };
+                if (window.OrderChat) {
+                    elements.supportChatBtn.disabled = true;
+                    try {
+                        await window.OrderChat.openForOrder(order);
+                    } finally {
+                        elements.supportChatBtn.disabled = false;
+                    }
+                }
+            });
+        }
     }
 
     // =========================================================
@@ -407,6 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderOrderDetails(order) {
         // বেসিক ইনফরমেশন
+        currentOrderData = order;
         const displayId = order.orderId || (order._id ? order._id.substring(order._id.length - 6).toUpperCase() : orderId);
         currentOrderMongoId = order._id || orderId;
         currentDisplayOrderId = displayId;

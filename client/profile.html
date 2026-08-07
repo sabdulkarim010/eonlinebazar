@@ -95,6 +95,10 @@
                 <i class="fa-solid fa-shield-halved nav-icon"></i>
                 <span class="nav-label">Security</span>
             </a>
+            <button type="button" id="live-support-nav-btn" class="sidebar-nav-item menu-item live-support-nav-btn" aria-label="Open live support chat">
+                <i class="fa-solid fa-headset nav-icon"></i>
+                <span class="nav-label">Live Support</span>
+            </button>
             <button id="logout-btn" class="sidebar-logout-btn menu-item logout">
                 <i class="fa-solid fa-arrow-right-from-bracket"></i>
                 <span>Logout</span>
@@ -891,6 +895,11 @@
 <script src="js/cartDisplayUtils.js"></script>
 <script src="js/cart.js"></script>
 <script src="js/invoiceDownload.js"></script>
+<script>
+  // Chat service (ecommerce-chat) — keep explicit so /profile on :5000 never hits itself
+  window.CHAT_API_URL = window.CHAT_API_URL || 'http://localhost:5001';
+</script>
+<script src="js/orderChat.js"></script>
 <script src="js/bd-districts.js"></script>
 <script src="js/bd-upazilas.js"></script>
 <script src="js/profile.js"></script>

@@ -31,6 +31,17 @@
                 <p class="order-date">Placed on: <span id="order-date">Loading...</span></p>
             </div>
 
+            <div class="order-support-panel" id="order-support-panel" aria-label="Order support">
+                <div class="order-support-panel__copy">
+                    <span class="order-support-panel__eyebrow">Order Support</span>
+                    <p class="order-support-panel__title">Need help with this order?</p>
+                    <p class="order-support-panel__text">Chat with our team about delivery, payment, or returns for this order.</p>
+                </div>
+                <button type="button" id="order-support-chat-btn" class="od-action-btn od-action-support">
+                    <i class="fa-solid fa-headset" aria-hidden="true"></i> Order Support
+                </button>
+            </div>
+
             <div class="order-action-bar hidden" id="order-action-bar" aria-label="Order actions">
                 <button type="button" id="download-invoice-btn" class="od-action-btn od-action-invoice hidden">
                     <i class="fa-solid fa-file-pdf" aria-hidden="true"></i> Download Invoice
@@ -199,6 +210,10 @@
     <script src="js/invoiceDownload.js"></script>
     <script src="js/orderStatusTimeline.js"></script>
     <script src="js/courierBadge.js"></script>
+    <script>
+      window.CHAT_API_URL = window.CHAT_API_URL || 'http://localhost:5001';
+    </script>
+    <script src="js/orderChat.js"></script>
     <script src="js/order-details.js"></script>
 </body>
 </html>

@@ -1,0 +1,38 @@
+# Run from project root:
+#   docker compose -f devops/docker-compose.yml up -d --build
+#
+# Or from devops/:
+#   docker compose up -d --build
+
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    restart: always
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: ecommerce-chat
+    ports:
+      - "27017:27017"
+
+  backend:
+    build:
+      context: ..
+      dockerfile: devops/Dockerfile
+    restart: always
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb
+    env_file:
+      - ../.env
+    environment:
+      MONGO_URI: mongodb://mongodb:27017/ecommerce_chat
+      PORT: 5000
+    volumes:
+      - ../logs:/app/logs
+
+volumes:
+  mongo_data:

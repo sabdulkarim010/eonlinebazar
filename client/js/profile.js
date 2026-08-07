@@ -405,6 +405,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    const liveSupportNavBtn = document.getElementById('live-support-nav-btn');
+    if (liveSupportNavBtn) {
+        liveSupportNavBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            if (isMobileProfileLayout()) closeProfileDrawer();
+            if (window.OrderChat && typeof window.OrderChat.openGeneral === 'function') {
+                liveSupportNavBtn.disabled = true;
+                try {
+                    await window.OrderChat.openGeneral();
+                } finally {
+                    liveSupportNavBtn.disabled = false;
+                }
+            }
+        });
+    }
+
     const headerCartBtn = document.querySelector('.cart-badge-container[data-tab="my-cart"]');
     if (headerCartBtn) {
         headerCartBtn.addEventListener('click', (e) => {

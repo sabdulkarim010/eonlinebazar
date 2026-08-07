@@ -1,0 +1,54 @@
+name: Deploy Ecommerce Chat
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ecommerce-chat/package-lock.json
+
+      - name: Install backend dependencies (CI check)
+        working-directory: ecommerce-chat
+        run: npm ci
+
+      - name: Build admin dashboard
+        working-directory: admin-dashboard
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd ~/eonlinebazar-fullstack || cd /var/www/eonlinebazar-fullstack
+            git pull origin main
+
+            cd ecommerce-chat
+            npm ci --only=production
+            mkdir -p logs
+            pm2 reload ecosystem.config.js --env production --update-env || pm2 start ecosystem.config.js --env production
+            pm2 save
+
+            cd ../admin-dashboard
+            npm ci
+            npm run build
+            sudo mkdir -p /var/www/admin-dashboard
+            sudo rsync -a --delete dist/ /var/www/admin-dashboard/dist/

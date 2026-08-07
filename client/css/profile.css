@@ -1172,6 +1172,15 @@ header.profile-tab-header {
 .orders-table th.order-actions-th,
 .orders-table td.order-card-actions-cell { display: none; }
 
+.live-support-nav-btn .nav-icon {
+    color: var(--primary);
+}
+
+.live-support-nav-btn:disabled {
+    opacity: 0.65;
+    cursor: wait;
+}
+
 .clickable-order-row { cursor: pointer; }
 
 .order-card-body {
