@@ -1,8 +1,13 @@
 import axios from 'axios';
 import useAuthStore from '../store/authStore';
 
+const PROD_CHAT_API = 'https://eonlinebazar-chat-api.onrender.com';
+const LOCAL_CHAT_API = 'http://localhost:5001';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001',
+  baseURL:
+    import.meta.env.VITE_API_URL ||
+    (import.meta.env.PROD ? PROD_CHAT_API : LOCAL_CHAT_API),
   timeout: 20000,
   headers: {
     'Content-Type': 'application/json',

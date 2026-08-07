@@ -1017,16 +1017,54 @@
   /* ---------- public API ---------- */
 
   function defaultChatApiUrl() {
-    if (global.CHAT_API_URL) return String(global.CHAT_API_URL).replace(/\/$/, '');
+    var LOCAL_CHAT_API = 'http://localhost:5001';
+    var PROD_CHAT_API = 'https://eonlinebazar-chat-api.onrender.com';
+
+    function strip(url) {
+      return String(url || '').replace(/\/$/, '');
+    }
+
+    if (global.CHAT_API_URL) return strip(global.CHAT_API_URL);
+    if (global.VITE_API_URL) return strip(global.VITE_API_URL);
+
+    var runtimeEnv = global.__ENV__ || global.__RUNTIME_CONFIG__ || null;
+    if (runtimeEnv) {
+      if (runtimeEnv.VITE_API_URL) return strip(runtimeEnv.VITE_API_URL);
+      if (runtimeEnv.CHAT_API_URL) return strip(runtimeEnv.CHAT_API_URL);
+      if (runtimeEnv.API_URL) return strip(runtimeEnv.API_URL);
+    }
+
+    try {
+      if (typeof process !== 'undefined' && process.env) {
+        if (process.env.VITE_API_URL) return strip(process.env.VITE_API_URL);
+        if (process.env.CHAT_API_URL) return strip(process.env.CHAT_API_URL);
+      }
+    } catch (e0) { /* ignore */ }
+
+    try {
+      var meta =
+        document.querySelector('meta[name="chat-api-url"]') ||
+        document.querySelector('meta[name="vite-api-url"]');
+      if (meta && meta.content) return strip(meta.content);
+    } catch (e1) { /* ignore */ }
+
     try {
       var origin = global.location && global.location.origin;
       var port = global.location && global.location.port;
+      var host = (global.location && global.location.hostname) || '';
       if (origin && (port === '5001' || /:5001$/.test(origin))) {
-        return origin.replace(/\/$/, '');
+        return strip(origin);
       }
-    } catch (e) { /* ignore */ }
-    // Storefront pages (:5000/:3000) must point at the chat service, not themselves
-    return 'http://localhost:5001';
+      if (host === 'eonlinebazar-chat-api.onrender.com') {
+        return strip(origin);
+      }
+      // Storefront production → hosted chat API
+      if (/(^|\.)eonlinebazar\.com$/i.test(host)) {
+        return PROD_CHAT_API;
+      }
+    } catch (e2) { /* ignore */ }
+
+    return LOCAL_CHAT_API;
   }
 
   async function init(options) {

@@ -3,7 +3,13 @@ import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import useChatStore from '../store/chatStore';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+const PROD_CHAT_API = 'https://eonlinebazar-chat-api.onrender.com';
+const LOCAL_CHAT_API = 'http://localhost:5001';
+
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL ||
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? PROD_CHAT_API : LOCAL_CHAT_API);
 
 let socket = null;
 let listenersBound = false;

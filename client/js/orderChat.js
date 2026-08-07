@@ -12,27 +12,71 @@
   var SCRIPT_ID = 'eob-chat-widget-script';
   var loadingPromise = null;
 
-  var DEFAULT_CHAT_API = 'http://localhost:5001';
+  var LOCAL_CHAT_API = 'http://localhost:5001';
+  var PROD_CHAT_API = 'https://eonlinebazar-chat-api.onrender.com';
 
-  function resolveChatApiUrl() {
-    if (global.CHAT_API_URL) {
-      return String(global.CHAT_API_URL).replace(/\/$/, '');
-    }
+  function stripSlash(url) {
+    return String(url || '').replace(/\/$/, '');
+  }
+
+  function isProductionHost() {
     try {
-      var meta = document.querySelector('meta[name="chat-api-url"]');
-      if (meta && meta.content) return String(meta.content).replace(/\/$/, '');
+      var host = (global.location && global.location.hostname) || '';
+      return /(^|\.)eonlinebazar\.com$/i.test(host);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /** Prefer runtime / Vite env config; never hardcode only localhost. */
+  function readConfiguredApiUrl() {
+    if (global.CHAT_API_URL) return stripSlash(global.CHAT_API_URL);
+    if (global.VITE_API_URL) return stripSlash(global.VITE_API_URL);
+
+    var runtimeEnv = global.__ENV__ || global.__RUNTIME_CONFIG__ || null;
+    if (runtimeEnv) {
+      if (runtimeEnv.VITE_API_URL) return stripSlash(runtimeEnv.VITE_API_URL);
+      if (runtimeEnv.CHAT_API_URL) return stripSlash(runtimeEnv.CHAT_API_URL);
+      if (runtimeEnv.API_URL) return stripSlash(runtimeEnv.API_URL);
+    }
+
+    try {
+      if (typeof process !== 'undefined' && process.env) {
+        if (process.env.VITE_API_URL) return stripSlash(process.env.VITE_API_URL);
+        if (process.env.CHAT_API_URL) return stripSlash(process.env.CHAT_API_URL);
+      }
     } catch (e) { /* ignore */ }
 
-    // Storefront (e.g. :5000 / :3000) must never treat itself as the chat API
+    try {
+      var meta =
+        document.querySelector('meta[name="chat-api-url"]') ||
+        document.querySelector('meta[name="vite-api-url"]');
+      if (meta && meta.content) return stripSlash(meta.content);
+    } catch (e2) { /* ignore */ }
+
+    return null;
+  }
+
+  function resolveChatApiUrl() {
+    var configured = readConfiguredApiUrl();
+    if (configured) return configured;
+
+    // Chat API host / local :5001 — use same origin
     try {
       var origin = global.location && global.location.origin;
       var port = global.location && global.location.port;
+      var host = (global.location && global.location.hostname) || '';
       if (origin && (port === '5001' || /:5001$/.test(origin))) {
-        return origin.replace(/\/$/, '');
+        return stripSlash(origin);
       }
-    } catch (e2) { /* ignore */ }
+      if (host === 'eonlinebazar-chat-api.onrender.com') {
+        return stripSlash(origin);
+      }
+    } catch (e3) { /* ignore */ }
 
-    return DEFAULT_CHAT_API;
+    if (isProductionHost()) return PROD_CHAT_API;
+
+    return LOCAL_CHAT_API;
   }
 
   function readUser() {
@@ -176,8 +220,8 @@
 
     try {
       return await launchWidget({
-        apiUrl: extraOptions.apiUrl || api || DEFAULT_CHAT_API,
-        socketUrl: extraOptions.socketUrl || api || DEFAULT_CHAT_API,
+        apiUrl: extraOptions.apiUrl || api,
+        socketUrl: extraOptions.socketUrl || api,
         guestName:
           extraOptions.guestName ||
           (user && (user.name || user.fullName)) ||
@@ -214,8 +258,8 @@
 
     try {
       return await launchWidget({
-        apiUrl: extraOptions.apiUrl || api || DEFAULT_CHAT_API,
-        socketUrl: extraOptions.socketUrl || api || DEFAULT_CHAT_API,
+        apiUrl: extraOptions.apiUrl || api,
+        socketUrl: extraOptions.socketUrl || api,
         guestName:
           extraOptions.guestName ||
           (user && (user.name || user.fullName)) ||

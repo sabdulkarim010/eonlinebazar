@@ -210,15 +210,24 @@
     (function () {
       // Override → same-origin when served by ecommerce-chat (:5001) → local default
       var API = (function () {
-        if (window.CHAT_API_URL) {
-          return String(window.CHAT_API_URL).replace(/\/$/, '');
-        }
+        var PROD = 'https://eonlinebazar-chat-api.onrender.com';
+        var LOCAL = 'http://localhost:5001';
+        var env = window.__ENV__ || window.__RUNTIME_CONFIG__ || {};
+        var fromEnv =
+          window.CHAT_API_URL ||
+          window.VITE_API_URL ||
+          env.VITE_API_URL ||
+          env.CHAT_API_URL ||
+          env.API_URL;
+        if (fromEnv) return String(fromEnv).replace(/\/$/, '');
         var origin = window.location && window.location.origin;
         var port = String((window.location && window.location.port) || '');
-        if (origin && /^https?:/.test(origin) && (port === '5001' || (!port && origin.indexOf('localhost') === -1))) {
+        var host = (window.location && window.location.hostname) || '';
+        if (origin && /^https?:/.test(origin) && (port === '5001' || host === 'eonlinebazar-chat-api.onrender.com')) {
           return origin.replace(/\/$/, '');
         }
-        return 'http://localhost:5001';
+        if (/(^|\.)eonlinebazar\.com$/i.test(host)) return PROD;
+        return LOCAL;
       })();
       var modeEl = document.getElementById('active-mode');
       var snippetEl = document.getElementById('snippet');

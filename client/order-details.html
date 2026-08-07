@@ -211,7 +211,23 @@
     <script src="js/orderStatusTimeline.js"></script>
     <script src="js/courierBadge.js"></script>
     <script>
-      window.CHAT_API_URL = window.CHAT_API_URL || 'http://localhost:5001';
+      (function () {
+        if (window.CHAT_API_URL) return;
+        var env = window.__ENV__ || window.__RUNTIME_CONFIG__ || {};
+        var fromEnv =
+          window.VITE_API_URL ||
+          env.VITE_API_URL ||
+          env.CHAT_API_URL ||
+          env.API_URL;
+        if (fromEnv) {
+          window.CHAT_API_URL = String(fromEnv).replace(/\/$/, '');
+          return;
+        }
+        var host = location.hostname || '';
+        window.CHAT_API_URL = /(^|\.)eonlinebazar\.com$/i.test(host)
+          ? 'https://eonlinebazar-chat-api.onrender.com'
+          : 'http://localhost:5001';
+      })();
     </script>
     <script src="js/orderChat.js"></script>
     <script src="js/order-details.js"></script>

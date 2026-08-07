@@ -24,7 +24,7 @@ const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
 const MONGO_URI =
   process.env.MONGO_URI || 'mongodb://localhost:27017/ecommerce_chat';
 
-/** Local demo origins + env (CLIENT_URL, ADMIN_DASHBOARD_URL, CORS_ORIGINS). */
+/** Local demo + production storefront + env (CLIENT_URL, ADMIN_DASHBOARD_URL, CORS_ORIGINS). */
 const ALLOWED_ORIGINS = [
   ...new Set(
     [
@@ -36,6 +36,8 @@ const ALLOWED_ORIGINS = [
       'http://127.0.0.1:5001',
       'http://localhost:5173',
       'http://127.0.0.1:5173',
+      'https://eonlinebazar.com',
+      'https://www.eonlinebazar.com',
       CLIENT_URL,
       process.env.ADMIN_DASHBOARD_URL,
       ...(process.env.CORS_ORIGINS || '')
