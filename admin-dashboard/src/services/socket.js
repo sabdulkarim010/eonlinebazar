@@ -72,13 +72,19 @@ function bindListeners(sock) {
 
   sock.on('connect', () => {
     const agent = useAuthStore.getState().agent;
+    const presence = useAuthStore.getState().presence || 'online';
     const agentId = agent?.id || agent?._id;
     if (agentId) {
-      sock.emit('agent_online', { agent_id: agentId });
+      if (presence === 'away') sock.emit('agent_away');
+      else if (presence === 'offline') sock.emit('agent_offline');
+      else sock.emit('agent_online', { agent_id: agentId });
+
       useChatStore.getState().setOnlineAgents({
         agent_id: agentId,
         name: agent?.name,
-        is_online: true,
+        role: agent?.role,
+        is_online: presence !== 'offline',
+        status: presence,
       });
     }
   });
@@ -111,10 +117,14 @@ function bindListeners(sock) {
     }
 
     playAlertSound();
-    showBrowserNotification(
-      'নতুন লাইভ রিকোয়েস্ট',
-      `${room?.guest_name || 'কাস্টমার'} লাইভ এজেন্ট চান`
-    );
+    const guest = room?.guest_name || 'কাস্টমার';
+    showBrowserNotification('নতুন লাইভ রিকোয়েস্ট', `${guest} লাইভ এজেন্ট চান`);
+    store.pushNotification({
+      type: 'waiting',
+      title: 'নতুন লাইভ রিকোয়েস্ট',
+      body: `${guest} অপেক্ষায় আছেন`,
+      room_id: roomId || room?._id,
+    });
     toast('🔔 নতুন লাইভ রিকোয়েস্ট!', {
       duration: 5000,
       style: {
@@ -150,6 +160,12 @@ function bindListeners(sock) {
     const roomId = roomIdOf(payload);
     if (roomId) store.updateRoomStatus(roomId, 'ACTIVE');
     if (payload?.message) store.addMessage(roomId, payload.message);
+    store.pushNotification({
+      type: 'joined',
+      title: 'এজেন্ট জয়েন করেছেন',
+      body: `${payload?.agent_name || payload?.room?.assigned_agent_id?.name || 'এজেন্ট'} চ্যাট নিয়েছেন`,
+      room_id: roomId,
+    });
   });
 
   sock.on('chat_resolved', (payload) => {
@@ -158,6 +174,12 @@ function bindListeners(sock) {
     const roomId = roomIdOf(payload);
     if (roomId) store.updateRoomStatus(roomId, 'RESOLVED');
     if (payload?.message) store.addMessage(roomId, payload.message);
+    store.pushNotification({
+      type: 'resolved',
+      title: 'চ্যাট সমাধান',
+      body: `${payload?.room?.guest_name || 'কাস্টমার'} এর চ্যাট সমাধান হয়েছে`,
+      room_id: roomId,
+    });
   });
 
   sock.on('agent_status_change', (payload) => {
@@ -176,6 +198,12 @@ function bindListeners(sock) {
         is_rated: true,
       });
     }
+    useChatStore.getState().pushNotification({
+      type: 'rating',
+      title: 'নতুন রেটিং',
+      body: `কাস্টমার ${payload?.rating || ''} স্টার দিয়েছেন`,
+      room_id: roomId,
+    });
   });
 
   sock.on('chat_transferred', (payload) => {
@@ -189,6 +217,12 @@ function bindListeners(sock) {
         ...(payload?.room || {}),
       });
     }
+    useChatStore.getState().pushNotification({
+      type: 'transfer',
+      title: 'চ্যাট ট্রান্সফার',
+      body: `${payload?.from_agent || '?'} → ${payload?.to_agent || '?'}`,
+      room_id: roomId,
+    });
   });
 
   sock.on('take_chat_failed', (payload) => {
@@ -273,9 +307,19 @@ export function getSocket() {
   return socket;
 }
 
+export function emitPresence(status) {
+  const sock = getSocket();
+  useAuthStore.getState().setPresence(status);
+  if (!sock?.connected) return;
+  if (status === 'away') sock.emit('agent_away');
+  else if (status === 'offline') sock.emit('agent_offline');
+  else sock.emit('agent_online');
+}
+
 export default {
   connectSocket,
   disconnectSocket,
   getSocket,
   playAlertSound,
+  emitPresence,
 };

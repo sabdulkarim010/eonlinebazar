@@ -510,16 +510,103 @@ function initChatSocket(io) {
         }
 
         socket.data.agent = updated;
+        socket.data.presence = 'online';
         socket.join(`agent:${updated._id}`);
 
         adminNs.emit('agent_status_change', {
           agent_id: updated._id,
           is_online: true,
+          status: 'online',
           name: updated.name,
+          role: updated.role,
+          active_chats: Array.isArray(updated.active_chats)
+            ? updated.active_chats.length
+            : 0,
         });
       } catch (err) {
         console.error('[agent_online]', err.message);
         socket.emit('error', { message: 'Failed to set agent online' });
+      }
+    });
+
+    socket.on('agent_away', async () => {
+      try {
+        const agent = socket.data.agent;
+        if (!agent) {
+          socket.emit('error', { message: 'AUTH_REQUIRED' });
+          return;
+        }
+
+        const updated = await Agent.findByIdAndUpdate(
+          agent._id,
+          {
+            is_online: true,
+            socket_id: socket.id,
+            last_seen: new Date(),
+          },
+          { new: true }
+        ).select('-password');
+
+        if (!updated) {
+          socket.emit('error', { message: 'Agent not found' });
+          return;
+        }
+
+        socket.data.agent = updated;
+        socket.data.presence = 'away';
+
+        adminNs.emit('agent_status_change', {
+          agent_id: updated._id,
+          is_online: true,
+          status: 'away',
+          name: updated.name,
+          role: updated.role,
+          active_chats: Array.isArray(updated.active_chats)
+            ? updated.active_chats.length
+            : 0,
+        });
+      } catch (err) {
+        console.error('[agent_away]', err.message);
+        socket.emit('error', { message: 'Failed to set agent away' });
+      }
+    });
+
+    socket.on('agent_offline', async () => {
+      try {
+        const agent = socket.data.agent;
+        if (!agent) {
+          socket.emit('error', { message: 'AUTH_REQUIRED' });
+          return;
+        }
+
+        const updated = await Agent.findByIdAndUpdate(
+          agent._id,
+          {
+            is_online: false,
+            socket_id: null,
+            last_seen: new Date(),
+          },
+          { new: true }
+        ).select('-password');
+
+        if (!updated) {
+          socket.emit('error', { message: 'Agent not found' });
+          return;
+        }
+
+        socket.data.presence = 'offline';
+
+        adminNs.emit('agent_status_change', {
+          agent_id: updated._id,
+          is_online: false,
+          status: 'offline',
+          name: updated.name,
+          role: updated.role,
+          active_chats: 0,
+        });
+      } catch (err) {
+        console.error('[agent_offline]', err.message);
+        socket.emit('error', { message: 'Failed to set agent offline' });
       }
     });
 

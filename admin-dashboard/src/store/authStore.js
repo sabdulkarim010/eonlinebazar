@@ -6,13 +6,13 @@ const TOKEN_KEY = 'chat_admin_token';
 
 const useAuthStore = create(
   persist(
-    (set) => ({
+    (set, get) => ({
       agent: null,
       token: null,
       isAuthenticated: false,
+      presence: 'online',
 
       login: async (usernameOrEmail, password) => {
-        // Chat API accepts email; also send username for compatibility.
         const loginId = String(usernameOrEmail || '').trim();
         const { data } = await api.post('/admin/login', {
           username: loginId,
@@ -29,6 +29,7 @@ const useAuthStore = create(
           agent: data.agent,
           token: data.token,
           isAuthenticated: true,
+          presence: 'online',
         });
 
         return data;
@@ -40,6 +41,7 @@ const useAuthStore = create(
           agent: null,
           token: null,
           isAuthenticated: false,
+          presence: 'offline',
         });
       },
 
@@ -51,6 +53,12 @@ const useAuthStore = create(
           isAuthenticated: Boolean(token),
         });
       },
+
+      setAgent: (agent) => {
+        set({ agent: { ...get().agent, ...agent } });
+      },
+
+      setPresence: (presence) => set({ presence }),
     }),
     {
       name: 'admin-auth',
@@ -58,6 +66,7 @@ const useAuthStore = create(
         agent: state.agent,
         token: state.token,
         isAuthenticated: state.isAuthenticated,
+        presence: state.presence,
       }),
       onRehydrateStorage: () => (state) => {
         if (state?.token) {

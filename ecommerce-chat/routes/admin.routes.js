@@ -512,7 +512,7 @@ router.get('/config', authMiddleware, async (req, res) => {
 });
 
 /**
- * GET /api/admin/me — current agent profile
+ * GET /api/admin/me — current agent profile + personal stats
  */
 router.get('/me', authMiddleware, async (req, res) => {
   try {
@@ -520,11 +520,159 @@ router.get('/me', authMiddleware, async (req, res) => {
     if (!agent) {
       return res.status(404).json({ success: false, message: 'Agent not found' });
     }
-    return res.json({ success: true, agent });
+
+    const ratingAgg = await ChatRoom.aggregate([
+      {
+        $match: {
+          assigned_agent_id: agent._id,
+          rating: { $ne: null },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          avg_rating: { $avg: '$rating' },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const serialized = serializeAgent(agent);
+    return res.json({
+      success: true,
+      agent: {
+        ...serialized,
+        total_chats_handled: agent.total_chats_handled || 0,
+        avg_response_time_seconds: agent.avg_response_time_seconds || 0,
+        avg_rating: ratingAgg[0]
+          ? Math.round(ratingAgg[0].avg_rating * 10) / 10
+          : null,
+        rated_count: ratingAgg[0]?.count || 0,
+      },
+    });
   } catch (err) {
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch profile',
+      error: err.message,
+    });
+  }
+});
+
+/**
+ * PATCH /api/admin/me — update own name / avatar
+ */
+router.patch('/me', authMiddleware, async (req, res) => {
+  try {
+    const { name, avatar } = req.body || {};
+    const updates = {};
+    if (name !== undefined) {
+      const trimmed = String(name).trim();
+      if (!trimmed || trimmed.length < 2) {
+        return res.status(400).json({
+          success: false,
+          message: 'Name must be at least 2 characters',
+        });
+      }
+      updates.name = trimmed;
+    }
+    if (avatar !== undefined) {
+      updates.avatar = avatar ? String(avatar).trim() : null;
+    }
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid fields to update',
+      });
+    }
+
+    const agent = await Agent.findByIdAndUpdate(req.agent.id, updates, {
+      new: true,
+      runValidators: true,
+    }).select('-password');
+
+    if (!agent) {
+      return res.status(404).json({ success: false, message: 'Agent not found' });
+    }
+
+    return res.json({ success: true, agent: serializeAgent(agent) });
+  } catch (err) {
+    console.error('[PATCH /api/admin/me]', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update profile',
+      error: err.message,
+    });
+  }
+});
+
+/**
+ * POST /api/admin/me/change-password — change own password
+ */
+router.post('/me/change-password', authMiddleware, async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body || {};
+    if (!current_password || !new_password) {
+      return res.status(400).json({
+        success: false,
+        message: 'current_password and new_password are required',
+      });
+    }
+    if (String(new_password).length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters',
+      });
+    }
+
+    const agent = await Agent.findById(req.agent.id).select('+password');
+    if (!agent) {
+      return res.status(404).json({ success: false, message: 'Agent not found' });
+    }
+
+    const valid = await agent.comparePassword(current_password);
+    if (!valid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Current password is incorrect',
+      });
+    }
+
+    agent.password = String(new_password);
+    await agent.save();
+
+    return res.json({
+      success: true,
+      message: 'Password updated successfully',
+    });
+  } catch (err) {
+    console.error('[POST /api/admin/me/change-password]', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to change password',
+      error: err.message,
+    });
+  }
+});
+
+/**
+ * GET /api/admin/agents/online — online agents for transfer (all authenticated)
+ */
+router.get('/agents/online', authMiddleware, async (req, res) => {
+  try {
+    const agents = await Agent.find({ is_online: true })
+      .select('-password')
+      .sort({ name: 1 })
+      .lean();
+    const list = agents
+      .map(serializeAgent)
+      .filter((a) => String(a.id || a._id) !== String(req.agent.id));
+    return res.json({ success: true, agents: list });
+  } catch (err) {
+    console.error('[GET /api/admin/agents/online]', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to list online agents',
       error: err.message,
     });
   }

@@ -1,6 +1,7 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import HeaderBar from '../components/HeaderBar';
 import StatsBar from '../components/StatsBar';
 import Sidebar from '../components/Sidebar';
 import ChatWindow from '../components/ChatWindow';
@@ -8,6 +9,7 @@ import CustomerContext from '../components/CustomerContext';
 import { fetchRooms, fetchRoomDetail, fetchStats } from '../services/api';
 import { connectSocket, disconnectSocket, getSocket } from '../services/socket';
 import useChatStore from '../store/chatStore';
+import useThemeStore from '../store/themeStore';
 
 export default function DashboardPage() {
   const [searchParams] = useSearchParams();
@@ -18,15 +20,24 @@ export default function DashboardPage() {
   const setMessages = useChatStore((s) => s.setMessages);
   const addOrUpdateRoom = useChatStore((s) => s.addOrUpdateRoom);
   const clearUnread = useChatStore((s) => s.clearUnread);
+  const activeRoomId = useChatStore((s) => s.activeRoomId);
+  const mobileView = useChatStore((s) => s.mobileView);
+  const setMobileView = useChatStore((s) => s.setMobileView);
+  const hydrateTheme = useThemeStore((s) => s.hydrateTheme);
+
+  const [roomsLoading, setRoomsLoading] = useState(true);
 
   const loadRooms = useCallback(
     async (tabStatus) => {
       try {
+        setRoomsLoading(true);
         const data = await fetchRooms(tabStatus);
         setRooms(data.rooms || []);
         if (data.counts) setCounts(data.counts);
       } catch (err) {
         toast.error(err.response?.data?.message || 'রুম লোড করা যায়নি');
+      } finally {
+        setRoomsLoading(false);
       }
     },
     [setRooms, setCounts]
@@ -37,7 +48,7 @@ export default function DashboardPage() {
       const data = await fetchStats();
       if (data.stats) setStats(data.stats);
     } catch {
-      // silent — stats refresh is best-effort
+      // silent
     }
   }, [setStats]);
 
@@ -69,6 +80,7 @@ export default function DashboardPage() {
   );
 
   useEffect(() => {
+    hydrateTheme();
     loadRooms('WAITING_FOR_AGENT');
     loadStats();
     connectSocket();
@@ -82,7 +94,7 @@ export default function DashboardPage() {
       clearInterval(timer);
       disconnectSocket();
     };
-  }, [loadRooms, loadStats]);
+  }, [loadRooms, loadStats, hydrateTheme]);
 
   useEffect(() => {
     const roomParam = searchParams.get('room');
@@ -91,20 +103,58 @@ export default function DashboardPage() {
     }
   }, [searchParams, openRoomFromUrl]);
 
+  const showList = mobileView === 'list' || !activeRoomId;
+  const showChat = Boolean(activeRoomId) && mobileView !== 'list';
+
   return (
-    <div className="h-screen overflow-hidden flex flex-col bg-page">
+    <div className="h-screen overflow-hidden flex flex-col bg-page dark:bg-[#0b1220]">
+      <HeaderBar />
       <StatsBar />
+
       <div className="flex-1 flex min-h-0">
-        <div className="w-[280px] shrink-0 h-full">
+        {/* Desktop sidebar */}
+        <div className="hidden md:block w-[280px] shrink-0 h-full">
+          {roomsLoading ? (
+            <div className="h-full bg-sidebar p-3 space-y-2">
+              <div className="skeleton h-10 bg-slate-700" />
+              <div className="skeleton h-16 bg-slate-700" />
+              <div className="skeleton h-14 bg-slate-700" />
+              <div className="skeleton h-14 bg-slate-700" />
+              <div className="skeleton h-14 bg-slate-700" />
+            </div>
+          ) : (
+            <Sidebar
+              onRefresh={() => loadRooms()}
+              onTabChange={(status) => loadRooms(status)}
+            />
+          )}
+        </div>
+
+        {/* Mobile: room list */}
+        <div
+          className={`md:hidden w-full h-full ${
+            showList && !showChat ? 'block' : 'hidden'
+          }`}
+        >
           <Sidebar
             onRefresh={() => loadRooms()}
             onTabChange={(status) => loadRooms(status)}
           />
         </div>
-        <div className="flex-1 min-w-0 h-full">
-          <ChatWindow />
+
+        {/* Chat window */}
+        <div
+          className={`flex-1 min-w-0 h-full ${
+            showChat || (!showList && activeRoomId)
+              ? 'block'
+              : 'hidden md:block'
+          } ${!activeRoomId ? 'hidden md:block' : ''}`}
+        >
+          <ChatWindow onBack={() => setMobileView('list')} />
         </div>
-        <div className="w-[300px] shrink-0 h-full hidden lg:block">
+
+        {/* Customer context — desktop */}
+        <div className="w-[280px] shrink-0 h-full hidden xl:block">
           <CustomerContext />
         </div>
       </div>

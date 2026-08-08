@@ -1,8 +1,10 @@
 import axios from 'axios';
 import useAuthStore from '../store/authStore';
 
+const baseURL = (import.meta.env.VITE_API_URL || 'http://localhost:5001') + '/api';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001',
+  baseURL,
   timeout: 20000,
   withCredentials: true,
   headers: {
@@ -102,6 +104,11 @@ export async function fetchAgents() {
   return data;
 }
 
+export async function fetchOnlineAgents() {
+  const { data } = await api.get('/admin/agents/online');
+  return data;
+}
+
 export async function createAgent(payload) {
   const { data } = await api.post('/admin/agents', payload);
   return data;
@@ -132,6 +139,24 @@ export async function fetchOrder(orderId) {
 export async function persistTag(roomId, tag) {
   const { data } = await api.patch(`/admin/rooms/${roomId}/tags`, {
     tag,
+  });
+  return data;
+}
+
+export async function fetchProfile() {
+  const { data } = await api.get('/admin/me');
+  return data;
+}
+
+export async function updateProfile(payload) {
+  const { data } = await api.patch('/admin/me', payload);
+  return data;
+}
+
+export async function changePassword(current_password, new_password) {
+  const { data } = await api.post('/admin/me/change-password', {
+    current_password,
+    new_password,
   });
   return data;
 }

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persistTag as persistTagApi } from '../services/api';
 
+const MAX_NOTIFICATIONS = 10;
+
 const useChatStore = create((set, get) => ({
   rooms: [],
   activeRoomId: null,
@@ -15,6 +17,10 @@ const useChatStore = create((set, get) => ({
   onlineAgents: [],
   unreadCounts: {},
   typingRooms: {},
+  notifications: [],
+  unreadNotifications: 0,
+  globalSearch: '',
+  mobileView: 'list', // list | chat | context
   counts: {
     BOT: 0,
     WAITING_FOR_AGENT: 0,
@@ -88,8 +94,13 @@ const useChatStore = create((set, get) => ({
           ? get().rooms.find((r) => String(r._id || r.id) === id) ||
             get().activeRoom
           : null,
+      mobileView: id ? 'chat' : 'list',
     });
   },
+
+  setMobileView: (mobileView) => set({ mobileView }),
+
+  setGlobalSearch: (globalSearch) => set({ globalSearch }),
 
   addMessage: (roomId, message) => {
     if (!roomId || !message) return;
@@ -100,7 +111,6 @@ const useChatStore = create((set, get) => ({
       return;
     }
 
-    // Drop matching optimistic tmp-* bubbles when the real socket message arrives
     let next = existing;
     if (msgId && !msgId.startsWith('tmp-')) {
       next = existing.filter((m) => {
@@ -216,7 +226,7 @@ const useChatStore = create((set, get) => ({
       (a) => String(a.agent_id || a.id || a._id) === agentId
     );
 
-    if (payload.is_online === false) {
+    if (payload.is_online === false || payload.status === 'offline') {
       set({
         onlineAgents: agents.filter(
           (a) => String(a.agent_id || a.id || a._id) !== agentId
@@ -229,6 +239,9 @@ const useChatStore = create((set, get) => ({
       agent_id: agentId,
       id: agentId,
       name: payload.name,
+      role: payload.role,
+      status: payload.status || 'online',
+      active_chats: payload.active_chats ?? 0,
       is_online: true,
     };
 
@@ -247,7 +260,35 @@ const useChatStore = create((set, get) => ({
     set({ typingRooms });
   },
 
-  /** Persist tag via API — do not only update local Zustand state. */
+  pushNotification: (event) => {
+    if (!event) return;
+    const item = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      at: new Date().toISOString(),
+      read: false,
+      ...event,
+    };
+    const notifications = [item, ...get().notifications].slice(
+      0,
+      MAX_NOTIFICATIONS
+    );
+    set({
+      notifications,
+      unreadNotifications: get().unreadNotifications + 1,
+    });
+  },
+
+  markNotificationsRead: () => {
+    set({
+      notifications: get().notifications.map((n) => ({ ...n, read: true })),
+      unreadNotifications: 0,
+    });
+  },
+
+  clearNotifications: () => {
+    set({ notifications: [], unreadNotifications: 0 });
+  },
+
   persistTag: async (roomId, tag) => {
     if (!roomId || !tag) return null;
     const data = await persistTagApi(roomId, tag);

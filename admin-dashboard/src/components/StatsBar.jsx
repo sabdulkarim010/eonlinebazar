@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { toBanglaDigits } from '../utils/helpers';
 import useChatStore from '../store/chatStore';
 
@@ -8,23 +6,23 @@ const cards = [
   {
     key: 'total_today',
     icon: '📊',
-    label: 'আজকের মোট চ্যাট',
+    label: 'আজকের চ্যাট',
     accent: 'text-primary',
     iconBg: 'bg-primary/10',
   },
   {
     key: 'resolved_today',
     icon: '✅',
-    label: 'সমাধান হয়েছে',
+    label: 'সমাধান',
     accent: 'text-success',
-    iconBg: 'bg-emerald-50',
+    iconBg: 'bg-emerald-50 dark:bg-emerald-950/40',
   },
   {
     key: 'waiting_for_agent',
     icon: '⏳',
-    label: 'অপেক্ষায় আছে',
+    label: 'অপেক্ষায়',
     accent: 'text-warning',
-    iconBg: 'bg-amber-50',
+    iconBg: 'bg-amber-50 dark:bg-amber-950/40',
     highlight: true,
   },
   {
@@ -32,7 +30,7 @@ const cards = [
     icon: '⭐',
     label: 'গড় রেটিং',
     accent: 'text-amber-500',
-    iconBg: 'bg-amber-50',
+    iconBg: 'bg-amber-50 dark:bg-amber-950/40',
     isFloat: true,
   },
 ];
@@ -72,35 +70,13 @@ function useAnimatedNumber(target, { duration = 700, isFloat = false } = {}) {
   return display;
 }
 
-function Trend({ delta, isFloat }) {
-  if (delta === 0 || delta == null) {
-    return (
-      <span className="text-[10px] font-medium text-slate-400 tabular-nums">
-        — 0
-      </span>
-    );
-  }
-  const up = delta > 0;
-  const abs = isFloat ? Math.abs(delta).toFixed(1) : Math.abs(delta);
-  return (
-    <span
-      className={`inline-flex items-center gap-0.5 text-[10px] font-semibold tabular-nums ${
-        up ? 'text-success' : 'text-danger'
-      }`}
-    >
-      {up ? '↑' : '↓'} {toBanglaDigits(abs)}
-    </span>
-  );
-}
-
-function StatCard({ card, value, prevValue }) {
+function StatCard({ card, value }) {
   const numeric =
     value == null || Number.isNaN(Number(value)) ? null : Number(value);
   const animated = useAnimatedNumber(numeric ?? 0, {
     isFloat: card.isFloat,
   });
-  const waitingHighlight =
-    card.highlight && Number(value) > 0;
+  const waitingHighlight = card.highlight && Number(value) > 0;
 
   const formatted = (() => {
     if (card.isFloat) {
@@ -110,36 +86,28 @@ function StatCard({ card, value, prevValue }) {
     return toBanglaDigits(animated);
   })();
 
-  const delta =
-    prevValue == null || value == null
-      ? null
-      : Number(value) - Number(prevValue);
-
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl px-4 py-3.5 flex items-center gap-3 transition-all duration-300 animate-fadeIn ${
+      className={`relative overflow-hidden rounded-card px-3 sm:px-4 py-3 flex items-center gap-3 transition-all duration-200 animate-fadeIn ${
         waitingHighlight
-          ? 'bg-amber-50 border border-amber-200 shadow-[0_0_0_1px_rgba(245,158,11,0.15)] animate-pulseGlow'
-          : 'bg-white border border-slate-100 shadow-sm'
+          ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 animate-pulseGlow'
+          : 'bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-soft'
       }`}
     >
       <div
-        className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-xl ${card.iconBg}`}
+        className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-lg ${card.iconBg}`}
       >
         <span aria-hidden>{card.icon}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <div
-            className={`text-2xl font-semibold leading-none tabular-nums ${
-              waitingHighlight ? 'text-warning' : card.accent
-            }`}
-          >
-            {formatted}
-          </div>
-          <Trend delta={delta} isFloat={card.isFloat} />
+        <div
+          className={`text-xl sm:text-2xl font-semibold leading-none tabular-nums ${
+            waitingHighlight ? 'text-warning' : card.accent
+          }`}
+        >
+          {formatted}
         </div>
-        <div className="text-xs text-slate-500 mt-1.5 leading-bn truncate">
+        <div className="text-[11px] sm:text-xs text-text-secondary mt-1 leading-bn truncate">
           {card.label}
         </div>
       </div>
@@ -149,48 +117,12 @@ function StatCard({ card, value, prevValue }) {
 
 export default function StatsBar() {
   const stats = useChatStore((s) => s.stats);
-  const prevRef = useRef(null);
-  const [prevStats, setPrevStats] = useState(null);
-
-  useEffect(() => {
-    if (!prevRef.current) {
-      prevRef.current = { ...stats };
-      return;
-    }
-    const timer = setTimeout(() => {
-      setPrevStats({ ...prevRef.current });
-      prevRef.current = { ...stats };
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [stats]);
 
   return (
-    <div className="shrink-0 bg-white/90 backdrop-blur border-b border-slate-200 px-4 py-3">
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <div>
-          <h1 className="text-sm font-semibold text-slate-900">
-            Chat Admin
-          </h1>
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            Live inbox · EonlineBazar
-          </p>
-        </div>
-        <Link
-          to="/settings"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-primary hover:text-primary transition shadow-sm"
-        >
-          <Cog6ToothIcon className="w-4 h-4" />
-          Settings
-        </Link>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="shrink-0 px-3 sm:px-4 py-3 bg-page dark:bg-[#0b1220]">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
         {cards.map((card) => (
-          <StatCard
-            key={card.key}
-            card={card}
-            value={stats[card.key]}
-            prevValue={prevStats?.[card.key]}
-          />
+          <StatCard key={card.key} card={card} value={stats[card.key]} />
         ))}
       </div>
     </div>
