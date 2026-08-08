@@ -23,6 +23,7 @@
   var state = {
     apiUrl: '',
     socketUrl: '',
+    socketPath: '/chat-socket/socket.io',
     guestName: 'Guest',
     guestEmail: null,
     userId: null,
@@ -62,8 +63,18 @@
     return document.getElementById(id);
   }
 
+  /** Build full API URL; Nginx /chat-api/* → /api/* so strip /api when needed. */
+  function apiUrlFor(path) {
+    var base = state.apiUrl.replace(/\/$/, '');
+    var resolvedPath = path;
+    if (/\/chat-api$/i.test(base) && path.indexOf('/api/') === 0) {
+      resolvedPath = path.replace(/^\/api/, '');
+    }
+    return base + resolvedPath;
+  }
+
   function api(path, options) {
-    var url = state.apiUrl.replace(/\/$/, '') + path;
+    var url = apiUrlFor(path);
     return fetch(url, options).then(function (res) {
       if (!res.ok) {
         return res.text().then(function (t) {
@@ -702,10 +713,9 @@
       throw new Error('Missing file or room');
     }
 
-    var base = state.apiUrl.replace(/\/$/, '');
     var endpoints = [
-      base + '/api/upload/image',
-      base + '/api/chat/' + encodeURIComponent(state.roomId) + '/upload'
+      apiUrlFor('/api/upload/image'),
+      apiUrlFor('/api/chat/' + encodeURIComponent(state.roomId) + '/upload')
     ];
 
     var lastError = null;
@@ -944,7 +954,9 @@
       state.socket = null;
     }
 
+    var socketPath = state.socketPath || '/socket.io';
     state.socket = global.io(state.socketUrl.replace(/\/$/, '') + '/customer', {
+      path: socketPath,
       auth: {
         guest_session_id: state.guestSessionId,
         user_id: state.userId || undefined
@@ -1086,7 +1098,7 @@
 
   function defaultChatApiUrl() {
     var LOCAL_CHAT_API = 'http://localhost:5001';
-    var PROD_CHAT_API = 'https://eonlinebazar.com';
+    var PROD_CHAT_API = 'https://eonlinebazar.com/chat-api';
 
     function strip(url) {
       return String(url || '').replace(/\/$/, '');
@@ -1124,7 +1136,7 @@
         return strip(origin);
       }
       if (/(^|\.)eonlinebazar\.com$/i.test(host)) {
-        return strip(origin) || PROD_CHAT_API;
+        return PROD_CHAT_API;
       }
     } catch (e2) { /* ignore */ }
 
@@ -1136,7 +1148,13 @@
     loadCss();
 
     state.apiUrl = options.apiUrl || options.api_url || defaultChatApiUrl();
-    state.socketUrl = options.socketUrl || options.socket_url || state.apiUrl;
+    // Socket connects to site origin; /chat-api is HTTP-only (nginx rewrite)
+    var defaultSocket = state.apiUrl.replace(/\/chat-api\/?$/i, '') || state.apiUrl;
+    state.socketUrl = options.socketUrl || options.socket_url || defaultSocket;
+    state.socketPath =
+      options.socketPath ||
+      options.socket_path ||
+      '/chat-socket/socket.io';
     state.guestName = options.guestName || options.guest_name || 'Guest';
     state.guestEmail = options.guestEmail || options.guest_email || null;
     state.userId = options.userId || options.user_id || null;
@@ -1177,6 +1195,7 @@
     await init({
       apiUrl: options.apiUrl || options.api_url,
       socketUrl: options.socketUrl || options.socket_url,
+      socketPath: options.socketPath || options.socket_path,
       guestName: options.guestName || options.guest_name || 'Guest',
       guestEmail: options.guestEmail || options.guest_email || null,
       userId: options.userId || options.user_id || null,

@@ -245,6 +245,7 @@ export function connectSocket() {
   }
 
   socket = io(`${SOCKET_URL}/admin`, {
+    path: '/chat-socket/socket.io',
     auth: { token },
     extraHeaders: {
       Authorization: `Bearer ${token}`,

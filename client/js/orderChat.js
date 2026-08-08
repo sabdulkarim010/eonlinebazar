@@ -13,7 +13,10 @@
   var loadingPromise = null;
 
   var LOCAL_CHAT_API = 'http://localhost:5001';
-  var PROD_CHAT_API = 'https://eonlinebazar.com';
+  var PROD_CHAT_API = 'https://eonlinebazar.com/chat-api';
+  var PROD_SOCKET_URL = 'https://eonlinebazar.com';
+  var PROD_ASSET_BASE = 'https://eonlinebazar.com';
+  var SOCKET_PATH = '/chat-socket/socket.io';
 
   function stripSlash(url) {
     return String(url || '').replace(/\/$/, '');
@@ -70,13 +73,23 @@
         return stripSlash(origin);
       }
       if (/(^|\.)eonlinebazar\.com$/i.test(host)) {
-        return stripSlash(origin);
+        return PROD_CHAT_API;
       }
     } catch (e3) { /* ignore */ }
 
     if (isProductionHost()) return PROD_CHAT_API;
 
     return LOCAL_CHAT_API;
+  }
+
+  function resolveSocketUrl() {
+    if (isProductionHost()) return PROD_SOCKET_URL;
+    return resolveChatApiUrl();
+  }
+
+  function resolveAssetBase() {
+    if (isProductionHost()) return PROD_ASSET_BASE;
+    return resolveChatApiUrl();
   }
 
   function readUser() {
@@ -118,10 +131,24 @@
         return;
       }
 
-      // Serve widget ONLY from ecommerce-chat server (PORT 5001) — no root public/ copy
+      // Production: https://eonlinebazar.com/js/... — local: chat server :5001
+      if (!document.querySelector('link[data-cw-css]')) {
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = resolveAssetBase() + '/css/chat-widget.css';
+        link.setAttribute('data-cw-css', '1');
+        document.head.appendChild(link);
+      }
+      if (!document.querySelector('script[data-cw-socket]')) {
+        var socketScript = document.createElement('script');
+        socketScript.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
+        socketScript.setAttribute('data-cw-socket', '1');
+        document.head.appendChild(socketScript);
+      }
+
       var script = document.createElement('script');
       script.id = SCRIPT_ID;
-      script.src = resolveChatApiUrl() + '/js/chat-widget.js';
+      script.src = resolveAssetBase() + '/js/chat-widget.js';
       script.async = true;
       script.onload = done;
       script.onerror = function () {
@@ -212,10 +239,12 @@
     try {
       return await launchWidget({
         apiUrl: extraOptions.apiUrl || api,
-        socketUrl: extraOptions.socketUrl || api,
+        socketUrl: extraOptions.socketUrl || resolveSocketUrl(),
+        socketPath: extraOptions.socketPath || SOCKET_PATH,
         guestName:
           extraOptions.guestName ||
           (user && (user.name || user.fullName)) ||
+          (typeof global.currentUser !== 'undefined' && global.currentUser && global.currentUser.name) ||
           'Guest',
         guestEmail:
           extraOptions.guestEmail ||
@@ -250,7 +279,8 @@
     try {
       return await launchWidget({
         apiUrl: extraOptions.apiUrl || api,
-        socketUrl: extraOptions.socketUrl || api,
+        socketUrl: extraOptions.socketUrl || resolveSocketUrl(),
+        socketPath: extraOptions.socketPath || SOCKET_PATH,
         guestName:
           extraOptions.guestName ||
           (user && (user.name || user.fullName)) ||

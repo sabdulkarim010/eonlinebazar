@@ -65,12 +65,22 @@ const corsOptions = {
 };
 
 const app = express();
+// Required behind Nginx so express-rate-limit sees real client IPs
+app.set('trust proxy', 1);
+
 const server = http.createServer(app);
 
 const io = new Server(server, {
+  path: '/chat-socket/socket.io', // custom path — avoid conflict with store /socket.io/
   cors: {
-    origin: ALLOWED_ORIGINS,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    origin: [
+      'https://eonlinebazar.com',
+      'https://www.eonlinebazar.com',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      ...ALLOWED_ORIGINS,
+    ],
+    methods: ['GET', 'POST'],
     credentials: true,
   },
 });

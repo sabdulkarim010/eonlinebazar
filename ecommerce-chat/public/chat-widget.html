@@ -235,15 +235,21 @@
         var orderLine = orderId
           ? "\n    orderId: '" + orderId + "',"
           : '';
+        var isProdHost = /(^|\.)eonlinebazar\.com$/i.test(location.hostname || '');
+        var assetBase = isProdHost ? 'https://eonlinebazar.com' : API;
+        var apiUrl = isProdHost ? 'https://eonlinebazar.com/chat-api' : API;
+        var socketUrl = isProdHost ? 'https://eonlinebazar.com' : API;
         snippetEl.textContent =
-          "<link rel=\"stylesheet\" href=\"" + API + "/css/chat-widget.css\">\n" +
+          "<link rel=\"stylesheet\" href=\"" + assetBase + "/css/chat-widget.css\">\n" +
           "<script src=\"https://cdn.socket.io/4.7.2/socket.io.min.js\"><\/script>\n" +
-          "<script src=\"" + API + "/js/chat-widget.js\"><\/script>\n" +
+          "<script src=\"" + assetBase + "/js/chat-widget.js\"><\/script>\n" +
           "<script>\n" +
           "  ChatWidget.init({\n" +
-          "    apiUrl: '" + API + "',\n" +
-          "    socketUrl: '" + API + "',\n" +
-          "    guestName: 'Test Customer'," +
+          "    apiUrl: '" + apiUrl + "',\n" +
+          "    socketUrl: '" + socketUrl + "',\n" +
+          "    socketPath: '/chat-socket/socket.io',\n" +
+          "    guestName: typeof window.currentUser !== 'undefined'\n" +
+          "      ? window.currentUser.name : 'Guest'," +
           orderLine + "\n" +
           "    type: '" + type + "'\n" +
           "  });\n" +
