@@ -31,12 +31,35 @@ const DEFAULT_HANDOVER_KEYWORDS = [
   'frustrated',
 ];
 
+function languageInstruction(aiLanguage = 'auto') {
+  if (aiLanguage === 'bn') {
+    return `LANGUAGE RULE (CRITICAL):
+- Always respond ONLY in Bangla.
+- Never switch to English mid-response.
+- This rule overrides everything else.`;
+  }
+  if (aiLanguage === 'en') {
+    return `LANGUAGE RULE (CRITICAL):
+- Always respond ONLY in English.
+- Never switch to Bangla mid-response.
+- This rule overrides everything else.`;
+  }
+  return `LANGUAGE RULE (CRITICAL):
+- Detect the language of the customer's last message.
+- If they write in Bangla → respond ONLY in Bangla.
+- If they write in English → respond ONLY in English.
+- If they mix both → respond in Bangla (default).
+- Never switch languages mid-response.
+- This rule overrides everything else.`;
+}
+
 /**
- * Build Bangla-first system prompt with store config + knowledge base.
+ * Build bilingual system prompt with store config + full knowledge base.
  */
 async function buildSystemPrompt(orderContext = null) {
   const [store, knowledgeEntries] = await Promise.all([
     StoreConfig.findOne().lean(),
+    // Include ALL active entries regardless of language — AI will rephrase.
     AIKnowledgeBase.find({ is_active: true }).lean(),
   ]);
 
@@ -50,50 +73,55 @@ async function buildSystemPrompt(orderContext = null) {
   const returns = store?.return_policy || 'N/A';
   const delivery = store?.delivery_time || 'N/A';
   const hours = store?.business_hours || 'N/A';
+  const aiLanguage = store?.ai_language || 'auto';
 
   const kbText =
     knowledgeEntries.length > 0
       ? knowledgeEntries
           .map(
             (k, i) =>
-              `${i + 1}. [${k.category}] প্রশ্ন: ${k.question}\n   উত্তর: ${k.answer}\n   কীওয়ার্ড: ${(k.keywords || []).join(', ')}`
+              `${i + 1}. [${k.category}] Q: ${k.question}\n   A: ${k.answer}\n   Keywords: ${(k.keywords || []).join(', ')}`
           )
           .join('\n')
-      : 'কোনো জ্ঞানভাণ্ডার এন্ট্রি নেই।';
+      : 'No knowledge base entries.';
 
   let orderSection = '';
   if (orderContext) {
     orderSection = `
-## অর্ডার কনটেক্সট
+## ORDER CONTEXT
 ${typeof orderContext === 'string' ? orderContext : JSON.stringify(orderContext, null, 2)}
 `;
   }
 
-  return `আপনি ${persona}, ${storeName} এর বন্ধুত্বপূর্ণ ও পেশাদার AI কাস্টমার সাপোর্ট অ্যাসিস্ট্যান্ট।
-ট্যাগলাইন: ${tagline}
+  return `You are ${persona}, the friendly and professional AI customer support assistant for ${storeName}.
+Tagline: ${tagline}
 
-## স্টোর তথ্য
-- স্টোর: ${storeName}
-- ফোন: ${phone}
-- ইমেইল: ${email}
-- ঠিকানা: ${address}
-- ডেলিভারি সময়: ${delivery}
-- শিপিং নীতি: ${shipping}
-- রিটার্ন নীতি: ${returns}
-- ব্যবসার সময়: ${hours}
+${languageInstruction(aiLanguage)}
 
-## জ্ঞানভাণ্ডার (Knowledge Base)
+## STORE INFO
+- Store: ${storeName}
+- Phone: ${phone}
+- Email: ${email}
+- Address: ${address}
+- Delivery time: ${delivery}
+- Shipping policy: ${shipping}
+- Return policy: ${returns}
+- Business hours: ${hours}
+
+## KNOWLEDGE BASE (reference material — all languages included)
+Use the knowledge base answers as reference, but rephrase them naturally in whatever language the customer is using.
+Do not copy answers verbatim if the customer's language differs from the stored answer language.
+
 ${kbText}
 ${orderSection}
-## আচরণ নির্দেশনা
-1. সবসময় বাংলায় উত্তর দিন। যদি কাস্টমার ইংরেজিতে লেখেন, তখন ইংরেজিতে উত্তর দিন।
-2. কাস্টমারকে সবসময় "আপনি" বলে সম্বোধন করুন।
-3. সংক্ষিপ্ত, স্পষ্ট ও সহায়ক উত্তর দিন।
-4. কখনো মিথ্যা প্রতিশ্রুতি দেবেন না (যেমন: গ্যারান্টিড রিফান্ড, নিশ্চিত ডেলিভারি তারিখ যদি জানা না থাকে)।
-5. জ্ঞানভাণ্ডার ও স্টোর তথ্যের বাইরে অনুমান করে উত্তর দেবেন না; অনিশ্চিত হলে স্বীকার করুন।
-6. যদি কাস্টমার রাগান্বিত হন, প্রতারণার অভিযোগ করেন, ম্যানেজার/মানুষ চান, জটিল রিফান্ড/অভিযোগ করেন, অথবা আপনি সমাধান দিতে না পারেন — উত্তরের শেষে অবশ্যই এই ট্যাগ যোগ করুন: [HANDOVER_REQUIRED]
-7. হ্যান্ডওভারের সময় কাস্টমারকে জানান যে একজন লাইভ এজেন্ট শীঘ্রই যোগ দেবেন।
-8. অর্ডার-সম্পর্কিত প্রশ্নে উপলব্ধ অর্ডার কনটেক্সট ব্যবহার করুন।`;
+## BEHAVIOR RULES
+1. Address the customer politely (আপনি / you).
+2. Keep answers short, clear, and helpful.
+3. Never make false promises (guaranteed refunds, exact delivery dates when unknown).
+4. Do not invent facts outside store info and knowledge base; admit uncertainty when needed.
+5. If the customer is angry, alleges fraud, asks for a manager/human, has a complex refund/complaint, or you cannot solve it — end with: [HANDOVER_REQUIRED]
+6. On handover, tell the customer a live agent will join shortly.
+7. Use order context when answering order-related questions.`;
 }
 
 /**
@@ -193,18 +221,18 @@ async function getAIResponse(messages = [], orderContext = null) {
 function getWelcomeQuickReplies(type = 'GENERAL') {
   if (type === 'ORDER_SUPPORT') {
     return [
-      { label: 'অর্ডার স্ট্যাটাস', value: 'আমার অর্ডারের বর্তমান স্ট্যাটাস জানতে চাই' },
-      { label: 'ডেলিভারি সময়', value: 'আমার অর্ডার কবে ডেলিভারি হবে?' },
-      { label: 'রিটার্ন/রিফান্ড', value: 'রিটার্ন বা রিফান্ড করতে চাই' },
-      { label: 'লাইভ এজেন্ট', value: 'আমি একজন লাইভ এজেন্টের সাথে কথা বলতে চাই' },
+      { label: '📦 Where is my order?', value: 'Where is my order right now?' },
+      { label: '🔄 Return this order', value: 'I want to return this order' },
+      { label: '❌ Cancel order', value: 'I want to cancel my order' },
+      { label: '👤 Talk to Agent', value: 'Connect me to a live agent' },
     ];
   }
 
   return [
-    { label: 'ডেলিভারি চার্জ', value: 'ডেলিভারি চার্জ কত?' },
-    { label: 'পেমেন্ট পদ্ধতি', value: 'কী কী পেমেন্ট পদ্ধতি আছে?' },
-    { label: 'রিটার্ন পলিসি', value: 'রিটার্ন পলিসি কী?' },
-    { label: 'যোগাযোগ', value: 'আপনাদের যোগাযোগের নম্বর কী?' },
+    { label: '🚚 Delivery Charges', value: 'What are the delivery charges?' },
+    { label: '📦 Track My Order', value: 'How do I track my order?' },
+    { label: '🔄 Return Policy', value: 'Can I return a product?' },
+    { label: '👤 Talk to Human', value: 'I want to talk to a live agent' },
   ];
 }
 

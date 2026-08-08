@@ -2,11 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { fetchConfig } from '../services/api';
 
 const FALLBACK = [
-  { shortcut: '/thanks', text: 'ধন্যবাদ! আর কোনো সাহায্য লাগলে জানাবেন।' },
-  { shortcut: '/wait', text: 'অনুগ্রহ করে একটু অপেক্ষা করুন, আমি আপনার তথ্য যাচাই করছি।' },
-  { shortcut: '/sorry', text: 'দুঃখিত অসুবিধার জন্য। আমরা দ্রুত সমাধান করছি।' },
-  { shortcut: '/bye', text: 'আপনার দিনটি শুভ হোক। YourShop BD-এর সাথে থাকার জন্য ধন্যবাদ!' },
-  { shortcut: '/hello', text: 'আস্সালামু আলাইকুম! কীভাবে সাহায্য করতে পারি?' },
+  { shortcut: '/thanks', text: 'Thank you for shopping with us! 😊' },
+  { shortcut: '/wait', text: "Please hold on, I'll resolve this right away." },
+  { shortcut: '/sorry', text: 'We sincerely apologize for this inconvenience.' },
+  { shortcut: '/bye', text: 'Thank you! Contact us anytime. 🙏' },
 ];
 
 export default function CannedResponses({ filter = '', onSelect, onClose }) {

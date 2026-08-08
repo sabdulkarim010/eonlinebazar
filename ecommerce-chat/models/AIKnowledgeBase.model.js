@@ -51,19 +51,19 @@ const storeConfigSchema = new mongoose.Schema(
     store_name: {
       type: String,
       required: true,
-      default: 'YourShop BD',
+      default: 'EonlineBazar',
     },
     store_tagline: {
       type: String,
-      default: 'আপনার বিশ্বস্ত অনলাইন শপ',
+      default: 'Your trusted online shop in Bangladesh',
     },
     contact_phone: {
       type: String,
-      default: '',
+      default: '01XXXXXXXXX',
     },
     contact_email: {
       type: String,
-      default: '',
+      default: 'support@eonlinebazar.com',
     },
     address: {
       type: String,
@@ -71,19 +71,22 @@ const storeConfigSchema = new mongoose.Schema(
     },
     shipping_policy: {
       type: String,
-      default: '',
+      default:
+        'ঢাকার মধ্যে: ৬০ টাকা, ১-২ দিন।\nঢাকার বাইরে: ১২০ টাকা, ৩-৫ দিন।\n১০০০ টাকার উপরে অর্ডারে ফ্রি ডেলিভারি।',
     },
     return_policy: {
       type: String,
-      default: '',
+      default:
+        'পণ্য পাওয়ার ৭ দিনের মধ্যে রিটার্ন করা যাবে।\nপণ্য অব্যবহৃত ও মূল প্যাকেজিংয়ে থাকতে হবে।\nরিটার্নের জন্য হেল্পলাইনে কল করুন বা চ্যাটে জানান।',
     },
     delivery_time: {
       type: String,
-      default: '',
+      default:
+        'অর্ডার কনফার্মের ২৪ ঘণ্টার মধ্যে পাঠানো হয়। ঢাকা: ১-২ দিন, বাইরে: ৩-৫ দিন।',
     },
     business_hours: {
       type: String,
-      default: 'শনি–বৃহস্পতি, সকাল ১০টা – রাত ৮টা',
+      default: 'Sat–Thu: 9AM–9PM, Fri: 2PM–8PM',
     },
     ai_persona_name: {
       type: String,
@@ -91,31 +94,47 @@ const storeConfigSchema = new mongoose.Schema(
     },
     ai_language: {
       type: String,
-      default: 'bn',
+      enum: ['auto', 'bn', 'en'],
+      default: 'auto',
     },
     handover_keywords: {
       type: [String],
       default: [
         'রাগ',
         'প্রতারণা',
-        'মানব',
-        'এজেন্ট',
         'ম্যানেজার',
-        'manager',
         'human',
-        'agent',
-        'fraud',
+        'manager',
         'refund now',
-        'complaint',
-        'scam',
+        'fraud',
       ],
     },
-    canned_responses: [
-      {
-        shortcut: { type: String, required: true },
-        text: { type: String, required: true },
-      },
-    ],
+    canned_responses: {
+      type: [
+        {
+          shortcut: { type: String, required: true },
+          text: { type: String, required: true },
+        },
+      ],
+      default: [
+        {
+          shortcut: '/thanks',
+          text: 'আমাদের সাথে কেনাকাটার জন্য ধন্যবাদ! 😊',
+        },
+        {
+          shortcut: '/wait',
+          text: 'একটু অপেক্ষা করুন, এখনই সমাধান করছি।',
+        },
+        {
+          shortcut: '/sorry',
+          text: 'এই অসুবিধার জন্য আন্তরিকভাবে দুঃখিত।',
+        },
+        {
+          shortcut: '/bye',
+          text: 'ধন্যবাদ! আর কোনো সমস্যায় আমাদের সাথে যোগাযোগ করুন। 🙏',
+        },
+      ],
+    },
   },
   {
     timestamps: true,

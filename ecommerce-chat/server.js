@@ -12,6 +12,7 @@ const chatRoutes = require('./routes/chat.routes');
 const adminRoutes = require('./routes/admin.routes');
 const knowledgeRoutes = require('./routes/knowledge.routes');
 const uploadRoutes = require('./routes/upload.routes');
+const orderRoutes = require('./routes/order.routes');
 const { initChatSocket } = require('./socket/chat.socket');
 const {
   chatStartLimiter,
@@ -82,8 +83,42 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Chat widget static assets (public/css, public/js)
-app.use(express.static(path.join(__dirname, 'public')));
+// CORS for widget static assets (store on :5000 loads CSS/JS from :5001)
+app.use(['/css', '/js'], (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', '*');
+  next();
+});
+
+function setStaticAssetHeaders(res, filePath) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  if (filePath.endsWith('.css')) {
+    res.setHeader('Content-Type', 'text/css; charset=utf-8');
+  }
+  if (filePath.endsWith('.js')) {
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  }
+}
+
+// Serves: /js/chat-widget.js, /css/chat-widget.css, /chat-widget.html
+// Widget assets MUST be served only from ecommerce-chat/public (not root public/)
+app.use(
+  '/css',
+  express.static(path.join(__dirname, 'public/css'), {
+    setHeaders: setStaticAssetHeaders,
+  })
+);
+app.use(
+  '/js',
+  express.static(path.join(__dirname, 'public/js'), {
+    setHeaders: setStaticAssetHeaders,
+  })
+);
+app.use(
+  express.static(path.join(__dirname, 'public'), {
+    setHeaders: setStaticAssetHeaders,
+  })
+);
 
 // ─── Health ───────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
@@ -107,6 +142,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/knowledge', knowledgeRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/orders', orderRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

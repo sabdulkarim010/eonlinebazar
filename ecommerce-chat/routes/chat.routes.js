@@ -4,7 +4,10 @@ const ChatRoom = require('../models/ChatRoom.model');
 const ChatMessage = require('../models/ChatMessage.model');
 const { StoreConfig } = require('../models/AIKnowledgeBase.model');
 const { getWelcomeQuickReplies } = require('../services/ai.service');
-const { uploadChatImage } = require('../services/upload.service');
+const {
+  uploadChatImage,
+  uploadFromBase64,
+} = require('../services/upload.service');
 
 const router = express.Router();
 
@@ -194,13 +197,18 @@ router.get('/:room_id/messages', async (req, res) => {
       });
     }
 
+    const messageFilter = {
+      room_id,
+      sender_type: { $ne: 'INTERNAL' },
+    };
+
     const [messages, total] = await Promise.all([
-      ChatMessage.find({ room_id })
+      ChatMessage.find(messageFilter)
         .sort({ createdAt: 1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-      ChatMessage.countDocuments({ room_id }),
+      ChatMessage.countDocuments(messageFilter),
     ]);
 
     return res.json({
@@ -226,14 +234,20 @@ router.get('/:room_id/messages', async (req, res) => {
 
 /**
  * POST /api/chat/:room_id/upload
- * multipart field: image (or file)
+ * Accepts BOTH multipart (multer) AND JSON base64 in the same route.
+ * Multipart: field `image` or `file` → req.file.buffer
+ * JSON: { base64|data, guest_session_id?, file_name? } — max decoded 3MB
  */
 router.post(
   '/:room_id/upload',
   (req, res, next) => {
+    const contentType = req.headers['content-type'] || '';
+    if (contentType.includes('application/json')) {
+      return next();
+    }
+
     upload.single('image')(req, res, (err) => {
       if (err) {
-        // fallback field name "file"
         if (err.code === 'LIMIT_UNEXPECTED_FILE' || !req.file) {
           return upload.single('file')(req, res, (err2) => {
             if (err2) {
@@ -265,20 +279,60 @@ router.post(
         });
       }
 
-      if (!req.file) {
-        return res.status(400).json({
+      // Guest ownership check when session provided
+      const guestSessionId =
+        req.body?.guest_session_id || req.headers['x-guest-session-id'];
+      if (
+        guestSessionId &&
+        room.guest_session_id &&
+        room.guest_session_id !== guestSessionId
+      ) {
+        return res.status(403).json({
           success: false,
-          message: 'image file is required (field: image)',
+          message: 'UNAUTHORIZED',
         });
       }
 
-      const uploaded = await uploadChatImage(
-        req.file.buffer,
-        req.file.mimetype,
-        room_id
-      );
+      let uploaded;
+      let filename;
 
-      const filename = req.file.originalname || `image.${uploaded.format || 'jpg'}`;
+      if (req.file?.buffer) {
+        uploaded = await uploadChatImage(
+          req.file.buffer,
+          req.file.mimetype,
+          room_id
+        );
+        filename =
+          req.file.originalname || `image.${uploaded.format || 'jpg'}`;
+      } else {
+        const base64 =
+          req.body?.base64 ||
+          req.body?.data ||
+          req.body?.image_base64;
+        if (!base64) {
+          return res.status(400).json({
+            success: false,
+            message:
+              'Provide multipart image file or JSON base64 payload',
+          });
+        }
+        if (
+          typeof base64 === 'string' &&
+          base64.startsWith('data:') &&
+          !base64.includes(';base64,')
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              'Data URL storage is not permitted. Use multipart upload.',
+          });
+        }
+        uploaded = await uploadFromBase64(base64, room_id);
+        filename =
+          req.body?.file_name ||
+          req.body?.filename ||
+          `image.${uploaded.format || 'jpg'}`;
+      }
 
       const systemMsg = await ChatMessage.create({
         room_id,
@@ -291,7 +345,7 @@ router.post(
             thumbnail_url: uploaded.thumbnail_url,
             type: 'IMAGE',
             filename,
-            size: uploaded.bytes || req.file.size || 0,
+            size: uploaded.bytes || req.file?.size || 0,
             public_id: uploaded.public_id,
           },
         ],
@@ -325,7 +379,7 @@ router.post(
       console.error('[POST /api/chat/:room_id/upload]', err);
       return res.status(500).json({
         success: false,
-        message: 'Upload failed',
+        message: err.message || 'Upload failed',
         error: err.message,
       });
     }

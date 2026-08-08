@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+import { Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { toBanglaDigits } from '../utils/helpers';
 import useChatStore from '../store/chatStore';
 
@@ -34,6 +36,16 @@ export default function StatsBar() {
 
   return (
     <div className="shrink-0 bg-white border-b border-slate-200 px-4 py-3">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h1 className="text-sm font-semibold text-slate-800">Chat Admin</h1>
+        <Link
+          to="/settings"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-primary hover:text-primary transition"
+        >
+          <Cog6ToothIcon className="w-4 h-4" />
+          ⚙️ Settings
+        </Link>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {cards.map((card) => {
           const value = stats[card.key];

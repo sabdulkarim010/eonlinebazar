@@ -1,3 +1,4 @@
+const jwt = require('jsonwebtoken');
 const ChatRoom = require('../models/ChatRoom.model');
 const ChatMessage = require('../models/ChatMessage.model');
 const Agent = require('../models/Agent.model');
@@ -7,6 +8,7 @@ const {
   detectHandoverNeeded,
 } = require('../services/ai.service');
 const { sendHandoverAlert } = require('../services/notification.service');
+const { sanitizeAttachments } = require('../services/upload.service');
 
 /**
  * Notify admins after handover — email failure must not break socket flow.
@@ -24,12 +26,83 @@ async function handleHandoverNotify(room, lastMessagePreview) {
   }
 }
 
+/** Simple in-memory rate limiter for socket events (per socket.id). */
+function createSocketRateLimiter(maxPerMinute) {
+  const counts = new Map();
+  return function rateLimited(socket, next) {
+    const key = socket.id;
+    const now = Date.now();
+    const windowStart = now - 60000;
+    const timestamps = (counts.get(key) || []).filter((t) => t > windowStart);
+    if (timestamps.length >= maxPerMinute) {
+      socket.emit('error', { message: 'TOO_MANY_MESSAGES' });
+      return;
+    }
+    timestamps.push(now);
+    counts.set(key, timestamps);
+    next();
+  };
+}
+
+function roomOwnedBySocket(room, socket) {
+  if (!room || !socket) return false;
+  const guestSessionId = socket.data.guest_session_id;
+  if (guestSessionId && room.guest_session_id === guestSessionId) {
+    return true;
+  }
+  const userId = socket.data.user_id;
+  if (userId && room.user_id && String(room.user_id) === String(userId)) {
+    return true;
+  }
+  return false;
+}
+
 /**
  * Initialize Socket.io namespaces: /customer and /admin
  */
 function initChatSocket(io) {
   const customerNs = io.of('/customer');
   const adminNs = io.of('/admin');
+  const messageRateLimiter = createSocketRateLimiter(30);
+  const typingTimers = new Map();
+
+  // ─── Customer auth: require guest session ────────────────────────
+  customerNs.use(async (socket, next) => {
+    const guestSessionId =
+      socket.handshake.auth?.guest_session_id ||
+      socket.handshake.headers?.['x-guest-session-id'];
+    if (!guestSessionId) {
+      return next(new Error('SESSION_REQUIRED'));
+    }
+    socket.data.guest_session_id = String(guestSessionId);
+    if (socket.handshake.auth?.user_id) {
+      socket.data.user_id = String(socket.handshake.auth.user_id);
+    }
+    next();
+  });
+
+  // ─── Admin auth: JWT required before connection handler ──────────
+  adminNs.use(async (socket, next) => {
+    try {
+      const token =
+        socket.handshake.auth?.token ||
+        (socket.handshake.headers?.authorization || '').replace(
+          /^Bearer\s+/i,
+          ''
+        );
+      if (!token) return next(new Error('AUTH_REQUIRED'));
+      if (!process.env.JWT_SECRET) {
+        return next(new Error('JWT_SECRET_MISSING'));
+      }
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const agent = await Agent.findById(decoded.id).select('-password');
+      if (!agent) return next(new Error('AGENT_NOT_FOUND'));
+      socket.data.agent = agent; // bind from token only
+      next();
+    } catch {
+      next(new Error('INVALID_TOKEN'));
+    }
+  });
 
   // ─── Customer namespace ───────────────────────────────────────────
   customerNs.on('connection', (socket) => {
@@ -45,10 +118,18 @@ function initChatSocket(io) {
           return;
         }
 
+        if (!roomOwnedBySocket(room, socket)) {
+          socket.emit('error', { message: 'UNAUTHORIZED' });
+          return;
+        }
+
         socket.join(String(room_id));
         socket.data.room_id = String(room_id);
 
-        const messages = await ChatMessage.find({ room_id })
+        const messages = await ChatMessage.find({
+          room_id,
+          sender_type: { $ne: 'INTERNAL' },
+        })
           .sort({ createdAt: -1 })
           .limit(50)
           .lean();
@@ -56,7 +137,11 @@ function initChatSocket(io) {
         messages.reverse();
 
         await ChatMessage.updateMany(
-          { room_id, is_read_by_user: false },
+          {
+            room_id,
+            is_read_by_user: false,
+            sender_type: { $ne: 'INTERNAL' },
+          },
           { $set: { is_read_by_user: true } }
         );
 
@@ -68,168 +153,247 @@ function initChatSocket(io) {
     });
 
     socket.on('send_message', async (payload) => {
-      try {
-        const {
-          room_id,
-          message,
-          sender_name,
-          sender_id,
-          attachments = [],
-        } = payload || {};
+      messageRateLimiter(socket, async () => {
+        try {
+          const {
+            room_id,
+            message,
+            sender_name,
+            sender_id,
+            attachments: rawAttachments = [],
+          } = payload || {};
 
-        if (!room_id || (!message && (!attachments || !attachments.length))) {
-          socket.emit('error', { message: 'Invalid message payload' });
-          return;
-        }
-
-        const room = await ChatRoom.findById(room_id);
-        if (!room) {
-          socket.emit('error', { message: 'Chat room not found' });
-          return;
-        }
-
-        if (room.status === 'RESOLVED') {
-          socket.emit('error', { message: 'This chat is already resolved' });
-          return;
-        }
-
-        const userMsg = await ChatMessage.create({
-          room_id,
-          sender_type: 'USER',
-          sender_id: sender_id || room.user_id || room.guest_session_id,
-          sender_name: sender_name || room.guest_name || 'Guest',
-          message: message || (attachments.length ? '[Attachment]' : ''),
-          attachments,
-          is_read_by_user: true,
-          is_read_by_agent: false,
-        });
-
-        room.last_message = userMsg.message;
-        room.last_message_at = new Date();
-        room.unread_count = (room.unread_count || 0) + 1;
-        await room.save();
-
-        customerNs.to(String(room_id)).emit('new_message', userMsg);
-        adminNs.emit('new_message', { room_id, message: userMsg, room });
-
-        // Agent-handled rooms: no bot reply
-        if (room.status === 'ACTIVE' || room.status === 'WAITING_FOR_AGENT') {
-          return;
-        }
-
-        // BOT status flow
-        if (room.status === 'BOT') {
-          let handover =
-            (attachments && attachments.length > 0) ||
-            (await detectHandoverNeeded(message || ''));
-
-          let botText = '';
-          let confidence = null;
-          let triggered_handover = false;
-
-          if (attachments && attachments.length > 0) {
-            botText =
-              'আপনার ফাইলটি পেয়েছি। একজন লাইভ এজেন্ট শীঘ্রই এটি পর্যালোচনা করে সাহায্য করবেন।';
-            handover = true;
-          } else {
-            const history = await ChatMessage.find({ room_id })
-              .sort({ createdAt: -1 })
-              .limit(10)
-              .lean();
-            history.reverse();
-
-            const orderContext = room.order_id
-              ? { order_id: room.order_id, type: room.type }
-              : null;
-
-            const ai = await getAIResponse(history, orderContext);
-            botText = ai.message;
-            confidence = ai.confidence;
-            handover = handover || ai.handover;
+          if (!message || String(message).length > 5000) {
+            if (!rawAttachments?.length) {
+              return socket.emit('error', {
+                message: 'INVALID_MESSAGE_LENGTH',
+              });
+            }
+            if (message && String(message).length > 5000) {
+              return socket.emit('error', {
+                message: 'INVALID_MESSAGE_LENGTH',
+              });
+            }
           }
 
-          triggered_handover = handover;
+          if (!room_id || (!message && (!rawAttachments || !rawAttachments.length))) {
+            socket.emit('error', { message: 'Invalid message payload' });
+            return;
+          }
 
-          const store = await StoreConfig.findOne().select('ai_persona_name').lean();
-          const botName = store?.ai_persona_name || 'Aria';
+          const room = await ChatRoom.findById(room_id);
+          if (!room) {
+            socket.emit('error', { message: 'Chat room not found' });
+            return;
+          }
 
-          const botMsg = await ChatMessage.create({
+          if (!roomOwnedBySocket(room, socket)) {
+            socket.emit('error', { message: 'UNAUTHORIZED' });
+            return;
+          }
+
+          if (room.status === 'RESOLVED') {
+            socket.emit('error', { message: 'This chat is already resolved' });
+            return;
+          }
+
+          let attachments = [];
+          try {
+            attachments = sanitizeAttachments(rawAttachments);
+          } catch (attErr) {
+            socket.emit('error', { message: attErr.message });
+            return;
+          }
+
+          const userMsg = await ChatMessage.create({
             room_id,
-            sender_type: 'BOT',
-            sender_id: 'ai-bot',
-            sender_name: botName,
-            message: botText,
-            ai_confidence: confidence,
-            triggered_handover,
-            is_read_by_user: false,
+            sender_type: 'USER',
+            sender_id:
+              sender_id || room.user_id || room.guest_session_id,
+            sender_name: sender_name || room.guest_name || 'Guest',
+            message:
+              message || (attachments.length ? '[Attachment]' : ''),
+            attachments,
+            is_read_by_user: true,
             is_read_by_agent: false,
           });
 
-          room.last_message = botMsg.message;
+          room.last_message = userMsg.message;
           room.last_message_at = new Date();
+          room.unread_count = (room.unread_count || 0) + 1;
+          await room.save();
 
-          if (handover) {
-            room.status = 'WAITING_FOR_AGENT';
-            room.is_urgent = true;
-            if (!room.tags.includes('handover')) {
-              room.tags.push('handover');
+          customerNs.to(String(room_id)).emit('new_message', userMsg);
+          adminNs.emit('new_message', { room_id, message: userMsg, room });
+
+          // Agent-handled rooms: no bot reply
+          if (
+            room.status === 'ACTIVE' ||
+            room.status === 'WAITING_FOR_AGENT'
+          ) {
+            return;
+          }
+
+          // BOT status flow
+          if (room.status === 'BOT') {
+            let handover =
+              (attachments && attachments.length > 0) ||
+              (await detectHandoverNeeded(message || ''));
+
+            let botText = '';
+            let confidence = null;
+            let triggered_handover = false;
+
+            if (attachments && attachments.length > 0) {
+              botText =
+                'আপনার ফাইলটি পেয়েছি। একজন লাইভ এজেন্ট শীঘ্রই এটি পর্যালোচনা করে সাহায্য করবেন।';
+              handover = true;
+            } else {
+              const history = await ChatMessage.find({
+                room_id,
+                sender_type: { $ne: 'INTERNAL' },
+              })
+                .sort({ createdAt: -1 })
+                .limit(10)
+                .lean();
+              history.reverse();
+
+              const orderContext = room.order_id
+                ? { order_id: room.order_id, type: room.type }
+                : null;
+
+              const ai = await getAIResponse(history, orderContext);
+              botText = ai.message;
+              confidence = ai.confidence;
+              handover = handover || ai.handover;
             }
 
-            const systemMsg = await ChatMessage.create({
+            triggered_handover = handover;
+
+            const store = await StoreConfig.findOne()
+              .select('ai_persona_name')
+              .lean();
+            const botName = store?.ai_persona_name || 'Aria';
+
+            const botMsg = await ChatMessage.create({
               room_id,
-              sender_type: 'SYSTEM',
-              sender_name: 'System',
-              message:
-                'আপনার চ্যাটটি একজন লাইভ এজেন্টের কাছে পাঠানো হয়েছে। অনুগ্রহ করে অপেক্ষা করুন।',
-              triggered_handover: true,
+              sender_type: 'BOT',
+              sender_id: 'ai-bot',
+              sender_name: botName,
+              message: botText,
+              ai_confidence: confidence,
+              triggered_handover,
               is_read_by_user: false,
               is_read_by_agent: false,
             });
 
-            await room.save();
+            room.last_message = botMsg.message;
+            room.last_message_at = new Date();
 
-            customerNs.to(String(room_id)).emit('new_message', botMsg);
-            customerNs.to(String(room_id)).emit('new_message', systemMsg);
-            customerNs.to(String(room_id)).emit('handover_started', {
-              room_id,
-              status: room.status,
-            });
+            if (handover) {
+              room.status = 'WAITING_FOR_AGENT';
+              room.is_urgent = true;
+              if (!room.tags.includes('handover')) {
+                room.tags.push('handover');
+              }
 
-            adminNs.emit('new_handover_request', {
-              room,
-              last_message: botMsg,
-              system_message: systemMsg,
-            });
-            adminNs.emit('new_message', { room_id, message: botMsg, room });
-            adminNs.emit('new_message', { room_id, message: systemMsg, room });
+              const systemMsg = await ChatMessage.create({
+                room_id,
+                sender_type: 'SYSTEM',
+                sender_name: 'System',
+                message:
+                  'আপনার চ্যাটটি একজন লাইভ এজেন্টের কাছে পাঠানো হয়েছে। অনুগ্রহ করে অপেক্ষা করুন।',
+                triggered_handover: true,
+                is_read_by_user: false,
+                is_read_by_agent: false,
+              });
 
-            // Email alert (non-blocking for socket flow)
-            handleHandoverNotify(room, botMsg.message);
-          } else {
-            await room.save();
-            customerNs.to(String(room_id)).emit('new_message', botMsg);
-            adminNs.emit('new_message', { room_id, message: botMsg, room });
+              await room.save();
+
+              customerNs.to(String(room_id)).emit('new_message', botMsg);
+              customerNs.to(String(room_id)).emit('new_message', systemMsg);
+              customerNs.to(String(room_id)).emit('handover_started', {
+                room_id,
+                status: room.status,
+              });
+
+              adminNs.emit('new_handover_request', {
+                room,
+                last_message: botMsg,
+                system_message: systemMsg,
+              });
+              adminNs.emit('new_message', {
+                room_id,
+                message: botMsg,
+                room,
+              });
+              adminNs.emit('new_message', {
+                room_id,
+                message: systemMsg,
+                room,
+              });
+
+              handleHandoverNotify(room, botMsg.message);
+            } else {
+              await room.save();
+              customerNs.to(String(room_id)).emit('new_message', botMsg);
+              adminNs.emit('new_message', {
+                room_id,
+                message: botMsg,
+                room,
+              });
+            }
           }
+        } catch (err) {
+          console.error('[send_message]', err.message);
+          socket.emit('error', { message: 'Failed to send message' });
         }
-      } catch (err) {
-        console.error('[send_message]', err.message);
-        socket.emit('error', { message: 'Failed to send message' });
-      }
+      });
     });
 
     socket.on('typing_start', ({ room_id, name }) => {
       if (!room_id) return;
+      if (
+        socket.data.room_id &&
+        String(socket.data.room_id) !== String(room_id)
+      ) {
+        return;
+      }
+
+      socket.to(String(room_id)).emit('user_typing', { room_id });
       socket.to(String(room_id)).emit('typing_start', {
         room_id,
         name: name || 'Guest',
       });
-      adminNs.emit('customer_typing', { room_id, name: name || 'Guest' });
+      adminNs.emit('customer_typing', {
+        room_id,
+        name: name || 'Guest',
+      });
+      adminNs.emit('user_typing', { room_id, name: name || 'Guest' });
+
+      clearTimeout(typingTimers.get(socket.id));
+      typingTimers.set(
+        socket.id,
+        setTimeout(() => {
+          socket.to(String(room_id)).emit('user_stopped_typing', {
+            room_id,
+          });
+          socket.to(String(room_id)).emit('typing_stop', { room_id });
+          adminNs.emit('customer_stopped_typing', { room_id });
+          adminNs.emit('user_stopped_typing', { room_id });
+          typingTimers.delete(socket.id);
+        }, 5000)
+      );
     });
 
     socket.on('typing_stop', ({ room_id }) => {
       if (!room_id) return;
+      clearTimeout(typingTimers.get(socket.id));
+      typingTimers.delete(socket.id);
+      socket.to(String(room_id)).emit('user_stopped_typing', { room_id });
       socket.to(String(room_id)).emit('typing_stop', { room_id });
       adminNs.emit('customer_stopped_typing', { room_id });
+      adminNs.emit('user_stopped_typing', { room_id });
     });
 
     socket.on('submit_rating', async ({ room_id, rating }) => {
@@ -239,22 +403,36 @@ function initChatSocket(io) {
           return;
         }
 
-        const room = await ChatRoom.findByIdAndUpdate(
-          room_id,
-          { rating: Number(rating) },
+        const owned = await ChatRoom.findById(room_id).select(
+          'guest_session_id user_id'
+        );
+        if (!owned) {
+          socket.emit('error', { message: 'Chat room not found' });
+          return;
+        }
+        if (!roomOwnedBySocket(owned, socket)) {
+          socket.emit('error', { message: 'UNAUTHORIZED' });
+          return;
+        }
+
+        const room = await ChatRoom.findOneAndUpdate(
+          { _id: room_id, is_rated: false },
+          { rating: Number(rating), is_rated: true },
           { new: true }
         );
 
         if (!room) {
-          socket.emit('error', { message: 'Chat room not found' });
-          return;
+          return socket.emit('error', { message: 'ALREADY_RATED' });
         }
 
         customerNs.to(String(room_id)).emit('rating_submitted', {
           room_id,
           rating: room.rating,
         });
-        adminNs.emit('rating_submitted', { room_id, rating: room.rating });
+        adminNs.emit('rating_submitted', {
+          room_id,
+          rating: room.rating,
+        });
       } catch (err) {
         console.error('[submit_rating]', err.message);
         socket.emit('error', { message: 'Failed to submit rating' });
@@ -262,6 +440,8 @@ function initChatSocket(io) {
     });
 
     socket.on('disconnect', () => {
+      clearTimeout(typingTimers.get(socket.id));
+      typingTimers.delete(socket.id);
       console.log(`[Customer] disconnected: ${socket.id}`);
     });
   });
@@ -270,12 +450,38 @@ function initChatSocket(io) {
   adminNs.on('connection', (socket) => {
     console.log(`[Admin] connected: ${socket.id}`);
 
-    socket.on('agent_online', async ({ agent_id }) => {
-      try {
-        if (!agent_id) return;
+    // Auto-bind online status from authenticated agent (token only)
+    const authAgent = socket.data.agent;
+    if (authAgent) {
+      Agent.findByIdAndUpdate(authAgent._id, {
+        is_online: true,
+        socket_id: socket.id,
+        last_seen: new Date(),
+      })
+        .then((agent) => {
+          if (!agent) return;
+          socket.join(`agent:${agent._id}`);
+          adminNs.emit('agent_status_change', {
+            agent_id: agent._id,
+            is_online: true,
+            name: agent.name,
+          });
+        })
+        .catch((err) =>
+          console.error('[admin auto-online]', err.message)
+        );
+    }
 
-        const agent = await Agent.findByIdAndUpdate(
-          agent_id,
+    socket.on('agent_online', async () => {
+      try {
+        const agent = socket.data.agent;
+        if (!agent) {
+          socket.emit('error', { message: 'AUTH_REQUIRED' });
+          return;
+        }
+
+        const updated = await Agent.findByIdAndUpdate(
+          agent._id,
           {
             is_online: true,
             socket_id: socket.id,
@@ -284,18 +490,18 @@ function initChatSocket(io) {
           { new: true }
         ).select('-password');
 
-        if (!agent) {
+        if (!updated) {
           socket.emit('error', { message: 'Agent not found' });
           return;
         }
 
-        socket.data.agent_id = String(agent_id);
-        socket.join(`agent:${agent_id}`);
+        socket.data.agent = updated;
+        socket.join(`agent:${updated._id}`);
 
         adminNs.emit('agent_status_change', {
-          agent_id: agent._id,
+          agent_id: updated._id,
           is_online: true,
-          name: agent.name,
+          name: updated.name,
         });
       } catch (err) {
         console.error('[agent_online]', err.message);
@@ -303,70 +509,82 @@ function initChatSocket(io) {
       }
     });
 
-    socket.on('take_chat', async ({ room_id, agent_id }) => {
+    socket.on('join_room', async ({ room_id }) => {
       try {
-        if (!room_id || !agent_id) {
-          socket.emit('error', { message: 'room_id and agent_id required' });
+        if (!room_id || !socket.data.agent) return;
+        const room = await ChatRoom.findById(room_id).select('_id');
+        if (!room) {
+          socket.emit('error', { message: 'Chat room not found' });
+          return;
+        }
+        socket.join(String(room_id));
+      } catch (err) {
+        console.error('[admin join_room]', err.message);
+      }
+    });
+
+    socket.on('take_chat', async ({ room_id }) => {
+      try {
+        const agent = socket.data.agent;
+        if (!agent || !room_id) {
+          socket.emit('error', {
+            message: 'room_id required and agent must be authenticated',
+          });
           return;
         }
 
-        const agent = await Agent.findById(agent_id);
-        if (!agent) {
+        const currentAgent = await Agent.findById(agent._id);
+        if (!currentAgent) {
           socket.emit('error', { message: 'Agent not found' });
           return;
         }
 
         if (
-          agent.active_chats.length >= agent.max_concurrent_chats &&
-          !agent.active_chats.map(String).includes(String(room_id))
+          currentAgent.active_chats.length >=
+          currentAgent.max_concurrent_chats
         ) {
-          socket.emit('error', {
-            message: 'Maximum concurrent chats reached',
-          });
-          return;
+          return socket.emit('error', { message: 'MAX_CHATS_REACHED' });
         }
 
-        const room = await ChatRoom.findById(room_id);
+        // Atomic findOneAndUpdate — only succeeds if still WAITING
+        const room = await ChatRoom.findOneAndUpdate(
+          {
+            _id: room_id,
+            status: 'WAITING_FOR_AGENT',
+            assigned_agent_id: null,
+          },
+          {
+            status: 'ACTIVE',
+            assigned_agent_id: agent._id,
+            unread_count: 0,
+            is_urgent: false,
+          },
+          { new: true }
+        );
+
         if (!room) {
-          socket.emit('error', { message: 'Chat room not found' });
-          return;
+          return socket.emit('take_chat_failed', {
+            message:
+              'এই চ্যাটটি ইতিমধ্যে অন্য একজন নিয়ে নিয়েছেন।',
+          });
         }
-
-        if (room.status === 'RESOLVED') {
-          socket.emit('error', { message: 'Chat already resolved' });
-          return;
-        }
-
-        room.status = 'ACTIVE';
-        room.assigned_agent_id = agent._id;
-        room.is_urgent = false;
-        await room.save();
 
         socket.join(String(room_id));
-
-        if (!agent.active_chats.map(String).includes(String(room_id))) {
-          agent.active_chats.push(room._id);
-        }
-        agent.total_chats_handled += 1;
-        agent.last_seen = new Date();
-        await agent.save();
 
         const systemMsg = await ChatMessage.create({
           room_id,
           sender_type: 'SYSTEM',
-          sender_id: String(agent._id),
-          sender_name: 'System',
-          message: `${agent.name} চ্যাটে যোগ দিয়েছেন। এখন আপনি লাইভ সাপোর্ট পাচ্ছেন।`,
-          is_read_by_user: false,
-          is_read_by_agent: true,
+          message: `${agent.name} এখন আপনাকে সাহায্য করবেন। 👋`,
         });
 
         room.last_message = systemMsg.message;
         room.last_message_at = new Date();
         await room.save();
 
-        customerNs.to(String(room_id)).emit('agent_joined', {
+        io.of('/customer').to(String(room_id)).emit('new_message', systemMsg);
+        io.of('/customer').to(String(room_id)).emit('agent_joined', {
           room_id,
+          agent_name: agent.name,
           agent: {
             id: agent._id,
             name: agent.name,
@@ -374,14 +592,25 @@ function initChatSocket(io) {
           },
           message: systemMsg,
         });
-        customerNs.to(String(room_id)).emit('new_message', systemMsg);
 
+        adminNs.emit('room_status_changed', {
+          room_id,
+          status: 'ACTIVE',
+          agent,
+          room,
+        });
         adminNs.emit('chat_taken', {
           room_id,
           agent_id: agent._id,
           agent_name: agent.name,
           room,
           message: systemMsg,
+        });
+
+        await Agent.findByIdAndUpdate(agent._id, {
+          $addToSet: { active_chats: room_id },
+          $inc: { total_chats_handled: 1 },
+          last_seen: new Date(),
         });
       } catch (err) {
         console.error('[take_chat]', err.message);
@@ -390,49 +619,180 @@ function initChatSocket(io) {
     });
 
     socket.on('agent_message', async (payload) => {
+      messageRateLimiter(socket, async () => {
+        try {
+          const agent = socket.data.agent;
+          const { room_id, message, attachments: rawAttachments = [] } =
+            payload || {};
+
+          if (
+            !room_id ||
+            !agent ||
+            (!message && !rawAttachments.length)
+          ) {
+            socket.emit('error', {
+              message: 'Invalid agent message payload',
+            });
+            return;
+          }
+
+          if (message && String(message).length > 5000) {
+            return socket.emit('error', {
+              message: 'INVALID_MESSAGE_LENGTH',
+            });
+          }
+
+          const room = await ChatRoom.findById(room_id);
+          if (!room) {
+            socket.emit('error', { message: 'Agent or room not found' });
+            return;
+          }
+
+          let attachments = [];
+          try {
+            attachments = sanitizeAttachments(rawAttachments);
+          } catch (attErr) {
+            socket.emit('error', { message: attErr.message });
+            return;
+          }
+
+          const agentMsg = await ChatMessage.create({
+            room_id,
+            sender_type: 'AGENT',
+            sender_id: String(agent._id),
+            sender_name: agent.name,
+            message: message || '[Attachment]',
+            attachments,
+            is_read_by_agent: true,
+            is_read_by_user: false,
+          });
+
+          room.last_message = agentMsg.message;
+          room.last_message_at = new Date();
+          room.unread_count = 0;
+          await room.save();
+
+          customerNs.to(String(room_id)).emit('new_message', agentMsg);
+          adminNs.emit('new_message', {
+            room_id,
+            message: agentMsg,
+            room,
+          });
+        } catch (err) {
+          console.error('[agent_message]', err.message);
+          socket.emit('error', { message: 'Failed to send agent message' });
+        }
+      });
+    });
+
+    socket.on('internal_note', async ({ room_id, message }) => {
       try {
-        const { room_id, agent_id, message, attachments = [] } = payload || {};
-
-        if (!room_id || !agent_id || (!message && !attachments.length)) {
-          socket.emit('error', { message: 'Invalid agent message payload' });
+        const agent = socket.data.agent;
+        if (!agent || !room_id || !message) {
+          socket.emit('error', { message: 'Invalid internal note' });
           return;
         }
-
-        const agent = await Agent.findById(agent_id);
-        const room = await ChatRoom.findById(room_id);
-
-        if (!agent || !room) {
-          socket.emit('error', { message: 'Agent or room not found' });
-          return;
+        if (String(message).length > 5000) {
+          return socket.emit('error', {
+            message: 'INVALID_MESSAGE_LENGTH',
+          });
         }
 
-        const agentMsg = await ChatMessage.create({
+        const note = await ChatMessage.create({
           room_id,
-          sender_type: 'AGENT',
+          sender_type: 'INTERNAL',
           sender_id: String(agent._id),
           sender_name: agent.name,
-          message: message || '[Attachment]',
-          attachments,
+          message,
           is_read_by_agent: true,
           is_read_by_user: false,
         });
 
-        room.last_message = agentMsg.message;
-        room.last_message_at = new Date();
-        room.unread_count = 0;
-        await room.save();
-
-        customerNs.to(String(room_id)).emit('new_message', agentMsg);
-        // Broadcast once to all admins (avoid room+global double emit duplicates)
-        adminNs.emit('new_message', { room_id, message: agentMsg, room });
+        // Emit ONLY to admin namespace, never to /customer
+        adminNs.to(String(room_id)).emit('new_message', note);
+        adminNs.emit('new_message', {
+          room_id,
+          message: note,
+        });
       } catch (err) {
-        console.error('[agent_message]', err.message);
-        socket.emit('error', { message: 'Failed to send agent message' });
+        console.error('[internal_note]', err.message);
+        socket.emit('error', { message: 'Failed to save internal note' });
       }
     });
 
-    socket.on('resolve_chat', async ({ room_id, agent_id }) => {
+    socket.on('transfer_chat', async ({ room_id, target_agent_id, to_agent_id }) => {
       try {
+        const fromAgent = socket.data.agent;
+        const targetId = target_agent_id || to_agent_id;
+        const room = await ChatRoom.findById(room_id);
+
+        if (
+          !room ||
+          room.assigned_agent_id?.toString() !== fromAgent._id.toString()
+        ) {
+          return socket.emit('error', {
+            message: 'Not authorized to transfer this chat',
+          });
+        }
+
+        const targetAgent = await Agent.findById(targetId);
+        if (!targetAgent || !targetAgent.is_online) {
+          return socket.emit('error', {
+            message: 'Target agent not available',
+          });
+        }
+
+        if (
+          targetAgent.active_chats.length >=
+          targetAgent.max_concurrent_chats
+        ) {
+          return socket.emit('error', {
+            message: 'Target agent at max capacity',
+          });
+        }
+
+        await ChatRoom.findByIdAndUpdate(room_id, {
+          assigned_agent_id: targetId,
+        });
+
+        await Agent.findByIdAndUpdate(fromAgent._id, {
+          $pull: { active_chats: room_id },
+        });
+        await Agent.findByIdAndUpdate(targetId, {
+          $addToSet: { active_chats: room_id },
+        });
+
+        const sysMsg = await ChatMessage.create({
+          room_id,
+          sender_type: 'SYSTEM',
+          message: `চ্যাটটি ${targetAgent.name}-এর কাছে ট্রান্সফার করা হয়েছে।`,
+        });
+
+        io.of('/customer').to(String(room_id)).emit('new_message', sysMsg);
+        adminNs.emit('chat_transferred', {
+          room_id,
+          from_agent: fromAgent.name,
+          to_agent: targetAgent.name,
+        });
+        adminNs.emit('new_message', {
+          room_id,
+          message: sysMsg,
+        });
+
+        const targetSocketId = targetAgent.socket_id;
+        if (targetSocketId) {
+          const targetSocket = adminNs.sockets.get(targetSocketId);
+          if (targetSocket) targetSocket.join(String(room_id));
+        }
+      } catch (err) {
+        console.error('[transfer_chat]', err.message);
+        socket.emit('error', { message: 'Failed to transfer chat' });
+      }
+    });
+
+    socket.on('resolve_chat', async ({ room_id }) => {
+      try {
+        const agent = socket.data.agent;
         if (!room_id) {
           socket.emit('error', { message: 'room_id required' });
           return;
@@ -451,7 +811,7 @@ function initChatSocket(io) {
         const systemMsg = await ChatMessage.create({
           room_id,
           sender_type: 'SYSTEM',
-          sender_id: agent_id || null,
+          sender_id: agent ? String(agent._id) : null,
           sender_name: 'System',
           message:
             'এই চ্যাটটি সমাধান করা হয়েছে। অনুগ্রহ করে আমাদের সেবা রেট করুন (১–৫)।',
@@ -463,20 +823,20 @@ function initChatSocket(io) {
         room.last_message_at = new Date();
         await room.save();
 
-        if (agent_id || room.assigned_agent_id) {
-          const aid = agent_id || room.assigned_agent_id;
+        const aid = agent?._id || room.assigned_agent_id;
+        if (aid) {
           await Agent.findByIdAndUpdate(aid, {
             $pull: { active_chats: room._id },
             last_seen: new Date(),
           });
         }
 
-        customerNs.to(String(room_id)).emit('chat_resolved', {
+        io.of('/customer').to(String(room_id)).emit('chat_resolved', {
           room_id,
           message: systemMsg,
           room,
         });
-        customerNs.to(String(room_id)).emit('new_message', systemMsg);
+        io.of('/customer').to(String(room_id)).emit('new_message', systemMsg);
 
         adminNs.emit('chat_resolved', {
           room_id,
@@ -491,27 +851,30 @@ function initChatSocket(io) {
 
     socket.on('agent_typing', ({ room_id, agent_name }) => {
       if (!room_id) return;
+      const agent = socket.data.agent;
       customerNs.to(String(room_id)).emit('agent_typing', {
         room_id,
-        name: agent_name || 'Agent',
+        name: agent_name || agent?.name || 'Agent',
       });
     });
 
     socket.on('agent_stopped_typing', ({ room_id }) => {
       if (!room_id) return;
-      customerNs.to(String(room_id)).emit('agent_stopped_typing', { room_id });
+      customerNs.to(String(room_id)).emit('agent_stopped_typing', {
+        room_id,
+      });
     });
 
     socket.on('disconnect', async () => {
       try {
-        const agentId = socket.data.agent_id;
-        if (!agentId) {
+        const agent = socket.data.agent;
+        if (!agent) {
           console.log(`[Admin] disconnected: ${socket.id}`);
           return;
         }
 
-        const agent = await Agent.findOneAndUpdate(
-          { _id: agentId, socket_id: socket.id },
+        const updated = await Agent.findOneAndUpdate(
+          { _id: agent._id, socket_id: socket.id },
           {
             is_online: false,
             socket_id: null,
@@ -520,11 +883,11 @@ function initChatSocket(io) {
           { new: true }
         ).select('-password');
 
-        if (agent) {
+        if (updated) {
           adminNs.emit('agent_status_change', {
-            agent_id: agent._id,
+            agent_id: updated._id,
             is_online: false,
-            name: agent.name,
+            name: updated.name,
           });
         }
 

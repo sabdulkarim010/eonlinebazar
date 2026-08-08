@@ -237,7 +237,9 @@
           ? "\n    orderId: '" + orderId + "',"
           : '';
         snippetEl.textContent =
-          "<script src=\"/js/chat-widget.js\"><\/script>\n" +
+          "<link rel=\"stylesheet\" href=\"" + API + "/css/chat-widget.css\">\n" +
+          "<script src=\"https://cdn.socket.io/4.7.2/socket.io.min.js\"><\/script>\n" +
+          "<script src=\"" + API + "/js/chat-widget.js\"><\/script>\n" +
           "<script>\n" +
           "  ChatWidget.init({\n" +
           "    apiUrl: '" + API + "',\n" +

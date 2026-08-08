@@ -99,6 +99,10 @@ const chatRoomSchema = new mongoose.Schema(
       max: 5,
       default: null,
     },
+    is_rated: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

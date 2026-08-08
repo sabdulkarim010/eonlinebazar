@@ -23,6 +23,22 @@ export default function MessageBubble({ message, currentAgentId }) {
     );
   }
 
+  if (type === 'INTERNAL') {
+    return (
+      <div className="flex justify-center my-3">
+        <div className="max-w-[85%] rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 mb-1">
+            Internal note · {message.sender_name || 'Agent'}
+          </p>
+          <p className="whitespace-pre-wrap break-words">{message.message}</p>
+          {time && (
+            <span className="block text-[10px] text-amber-600/80 mt-1">{time}</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const isUser = type === 'USER' || type === 'CUSTOMER' || type === 'GUEST';
   const isBot = type === 'BOT' || type === 'AI';
   const isAgent = type === 'AGENT' || type === 'HUMAN' || type === 'SUPPORT';

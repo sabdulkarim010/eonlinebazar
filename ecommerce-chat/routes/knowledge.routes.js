@@ -1,5 +1,6 @@
 const express = require('express');
 const { AIKnowledgeBase } = require('../models/AIKnowledgeBase.model');
+const { DEFAULT_KNOWLEDGE_ENTRIES } = require('../data/defaultKnowledge');
 const { authMiddleware, roleGuard } = require('../middleware/auth.middleware');
 
 const router = express.Router();
@@ -16,6 +17,67 @@ const VALID_CATEGORIES = [
 ];
 
 /**
+ * GET /api/knowledge/check-empty → { isEmpty: boolean }
+ */
+router.get('/check-empty', authMiddleware, async (req, res) => {
+  try {
+    const count = await AIKnowledgeBase.countDocuments();
+    return res.json({
+      success: true,
+      isEmpty: count === 0,
+      count,
+    });
+  } catch (err) {
+    console.error('[GET /api/knowledge/check-empty]', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to check knowledge base / জ্ঞানভাণ্ডার চেক করা যায়নি',
+      error: err.message,
+    });
+  }
+});
+
+/**
+ * POST /api/knowledge/seed-defaults — seed default FAQs only if empty
+ */
+router.post(
+  '/seed-defaults',
+  authMiddleware,
+  roleGuard(['SUPER_ADMIN', 'ADMIN']),
+  async (req, res) => {
+    try {
+      const count = await AIKnowledgeBase.countDocuments();
+      if (count > 0) {
+        return res.json({
+          success: true,
+          seeded: false,
+          message:
+            'Knowledge base already has entries / জ্ঞানভাণ্ডারে ইতিমধ্যে এন্ট্রি আছে',
+          count,
+        });
+      }
+
+      const entries = await AIKnowledgeBase.insertMany(DEFAULT_KNOWLEDGE_ENTRIES);
+      return res.status(201).json({
+        success: true,
+        seeded: true,
+        message:
+          'Default knowledge entries seeded / ডিফল্ট প্রশ্ন-উত্তর যোগ করা হয়েছে',
+        count: entries.length,
+        entries,
+      });
+    } catch (err) {
+      console.error('[POST /api/knowledge/seed-defaults]', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to seed defaults / ডিফল্ট সিড ব্যর্থ',
+        error: err.message,
+      });
+    }
+  }
+);
+
+/**
  * GET /api/knowledge
  */
 router.get('/', authMiddleware, async (req, res) => {
@@ -24,6 +86,16 @@ router.get('/', authMiddleware, async (req, res) => {
     if (req.query.category) filter.category = req.query.category;
     if (req.query.is_active !== undefined) {
       filter.is_active = req.query.is_active === 'true';
+    }
+    if (req.query.q) {
+      const q = String(req.query.q).trim();
+      if (q) {
+        filter.$or = [
+          { question: { $regex: q, $options: 'i' } },
+          { answer: { $regex: q, $options: 'i' } },
+          { keywords: { $regex: q, $options: 'i' } },
+        ];
+      }
     }
 
     const entries = await AIKnowledgeBase.find(filter)

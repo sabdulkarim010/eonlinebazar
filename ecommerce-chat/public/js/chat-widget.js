@@ -8,8 +8,17 @@
 
   var STORAGE_SESSION = 'cw_guest_session_id';
   var STORAGE_ROOM = 'cw_room_id';
-  var SOCKET_CDN = 'https://cdn.socket.io/4.7.5/socket.io.min.js';
-  var CSS_HREF = '/css/chat-widget.css';
+  var STORAGE_RATED = 'cw_rated_rooms';
+  var SOCKET_CDN = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
+  var LOCAL_CHAT_ORIGIN = 'http://localhost:5001';
+  var BUBBLE_SVG =
+    '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+      '<path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>' +
+    '</svg>';
+  var SEND_SVG =
+    '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+      '<path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>' +
+    '</svg>';
 
   var state = {
     apiUrl: '',
@@ -88,6 +97,25 @@
       .replace(/'/g, '&#39;');
   }
 
+  function resolveWidgetOrigin() {
+    try {
+      var scripts = document.getElementsByTagName('script');
+      for (var i = scripts.length - 1; i >= 0; i--) {
+        var src = scripts[i].src || '';
+        if (src.indexOf('chat-widget.js') !== -1) {
+          return src.replace(/\/js\/chat-widget\.js(?:\?.*)?$/i, '');
+        }
+      }
+    } catch (e) { /* ignore */ }
+    if (state.apiUrl) return String(state.apiUrl).replace(/\/$/, '');
+    if (global.CHAT_API_URL) return String(global.CHAT_API_URL).replace(/\/$/, '');
+    return LOCAL_CHAT_ORIGIN;
+  }
+
+  function resolveCssHref() {
+    return resolveWidgetOrigin() + '/css/chat-widget.css';
+  }
+
   function loadCss() {
     if (state.cssLoaded || document.querySelector('link[data-cw-css]')) {
       state.cssLoaded = true;
@@ -95,7 +123,7 @@
     }
     var link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = CSS_HREF;
+    link.href = resolveCssHref();
     link.setAttribute('data-cw-css', '1');
     document.head.appendChild(link);
     state.cssLoaded = true;
@@ -151,37 +179,50 @@
     }
   }
 
-  function fileToBase64(file) {
-    return new Promise(function (resolve, reject) {
-      var reader = new FileReader();
-      reader.onload = function () {
-        var result = reader.result || '';
-        var base64 = String(result).split(',')[1] || '';
-        resolve({
-          base64: base64,
-          dataUrl: result,
-          mimeType: file.type,
-          fileName: file.name,
-          size: file.size
-        });
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+  function getRatedRooms() {
+    try {
+      var raw = localStorage.getItem(STORAGE_RATED);
+      var parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function markRoomRated(roomId) {
+    if (!roomId) return;
+    try {
+      var rooms = getRatedRooms();
+      if (rooms.indexOf(roomId) === -1) {
+        rooms.push(String(roomId));
+        localStorage.setItem(STORAGE_RATED, JSON.stringify(rooms));
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  function isRoomRated(roomId) {
+    return getRatedRooms().indexOf(String(roomId)) !== -1;
+  }
+
+  function showErrorToast(text) {
+    showSystemBanner(text || 'কিছু ভুল হয়েছে। আবার চেষ্টা করুন।');
   }
 
   /* ---------- DOM build ---------- */
 
   function ensureDom() {
     if ($('cw-bubble')) return;
+    if (!document.body) return;
 
     var bubble = document.createElement('button');
     bubble.id = 'cw-bubble';
     bubble.type = 'button';
     bubble.setAttribute('aria-label', 'Open chat');
     bubble.innerHTML =
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.2L4 17.2V4h16v12z"/></svg>' +
-      '<span id="cw-bubble-badge" aria-live="polite">0</span>';
+      BUBBLE_SVG +
+      '<span id="cw-badge" aria-live="polite"></span>';
 
     var container = document.createElement('div');
     container.id = 'cw-container';
@@ -189,46 +230,78 @@
     container.setAttribute('aria-label', 'Customer support chat');
     container.innerHTML =
       '<div id="cw-header">' +
-        '<div class="cw-header-avatar" id="cw-avatar">🤖</div>' +
-        '<div class="cw-header-info">' +
-          '<div class="cw-header-name">' +
-            '<span id="cw-agent-label">Aria</span>' +
-            '<span class="cw-online-dot" title="Online"></span>' +
-          '</div>' +
-          '<div class="cw-header-sub" id="cw-header-sub">Online</div>' +
+        '<div id="cw-avatar">🤖</div>' +
+        '<div id="cw-header-info">' +
+          '<p id="cw-agent-name">Aria</p>' +
+          '<p id="cw-status">Online</p>' +
         '</div>' +
-        '<div class="cw-header-actions">' +
-          '<button type="button" class="cw-header-btn" id="cw-minimize" aria-label="Minimize">−</button>' +
-          '<button type="button" class="cw-header-btn" id="cw-close" aria-label="Close">×</button>' +
+        '<div id="cw-header-actions">' +
+          '<button type="button" id="cw-minimize-btn" aria-label="Minimize">−</button>' +
+          '<button type="button" id="cw-close-btn" aria-label="Close">×</button>' +
         '</div>' +
       '</div>' +
-      '<div id="cw-messages"></div>' +
-      '<div id="cw-footer">' +
-        '<div class="cw-attach-preview" id="cw-attach-preview">' +
-          '<img id="cw-attach-thumb" alt="Attachment preview" />' +
-          '<div class="cw-attach-preview-meta" id="cw-attach-name"></div>' +
-          '<button type="button" class="cw-attach-remove" id="cw-attach-remove" aria-label="Remove attachment">×</button>' +
+      '<div id="cw-messages">' +
+        '<div id="cw-typing" aria-hidden="true"><span></span><span></span><span></span></div>' +
+      '</div>' +
+      '<div id="cw-waiting-banner">একজন প্রতিনিধি শীঘ্রই যোগ দেবেন...</div>' +
+      '<div id="cw-csat">' +
+        '<p>আমাদের সেবা কেমন লেগেছে?</p>' +
+        '<div class="cw-stars" role="group" aria-label="Rating">' +
+          [1, 2, 3, 4, 5].map(function (n) {
+            return '<button type="button" class="cw-star" data-rating="' + n + '" aria-label="' + n + ' star">★</button>';
+          }).join('') +
         '</div>' +
-        '<div class="cw-footer-row">' +
+        '<p id="cw-csat-thanks" hidden></p>' +
+      '</div>' +
+      '<div id="cw-footer">' +
+        '<div id="cw-attach-preview">' +
+          '<img id="cw-attach-thumb" alt="Attachment preview" />' +
+          '<div id="cw-attach-name"></div>' +
+          '<button type="button" id="cw-attach-remove" aria-label="Remove attachment">×</button>' +
+        '</div>' +
+        '<div id="cw-footer-row">' +
           '<button type="button" id="cw-attachment-btn" aria-label="Attach image">📎</button>' +
           '<textarea id="cw-input" rows="1" placeholder="আপনার বার্তা লিখুন..."></textarea>' +
-          '<button type="button" id="cw-send-btn" aria-label="Send" disabled>➤</button>' +
+          '<button type="button" id="cw-send-btn" aria-label="Send" disabled>' + SEND_SVG + '</button>' +
           '<input type="file" id="cw-file-input" accept="image/*" />' +
         '</div>' +
       '</div>';
 
+    // Always append to document.body — never inside host page containers
     document.body.appendChild(bubble);
     document.body.appendChild(container);
 
     bubble.addEventListener('click', openWidget);
-    $('cw-minimize').addEventListener('click', minimizeWidget);
-    $('cw-close').addEventListener('click', closeWidget);
+    $('cw-minimize-btn').addEventListener('click', minimizeWidget);
+    $('cw-close-btn').addEventListener('click', closeWidget);
     $('cw-send-btn').addEventListener('click', sendMessage);
     $('cw-attachment-btn').addEventListener('click', function () {
       if (!state.resolved) $('cw-file-input').click();
     });
     $('cw-file-input').addEventListener('change', onFileSelected);
     $('cw-attach-remove').addEventListener('click', clearAttachment);
+
+    var stars = container.querySelectorAll('#cw-csat .cw-star');
+    stars.forEach(function (star) {
+      star.addEventListener('mouseenter', function () {
+        var csat = $('cw-csat');
+        if (!csat || csat.getAttribute('data-rated') === '1') return;
+        var r = Number(star.getAttribute('data-rating'));
+        stars.forEach(function (s) {
+          s.classList.toggle('active', Number(s.getAttribute('data-rating')) <= r);
+        });
+      });
+      star.addEventListener('mouseleave', function () {
+        var csat = $('cw-csat');
+        if (!csat || csat.getAttribute('data-rated') === '1') return;
+        stars.forEach(function (s) { s.classList.remove('active'); });
+      });
+      star.addEventListener('click', function () {
+        var csat = $('cw-csat');
+        if (!csat || csat.getAttribute('data-rated') === '1') return;
+        submitRating(Number(star.getAttribute('data-rating')), csat);
+      });
+    });
 
     var input = $('cw-input');
     input.addEventListener('input', onInputChange);
@@ -250,27 +323,23 @@
   }
 
   function updateHeader() {
-    var container = $('cw-container');
-    var label = $('cw-agent-label');
-    var sub = $('cw-header-sub');
+    var label = $('cw-agent-name');
+    var sub = $('cw-status');
     var avatar = $('cw-avatar');
+    if (!label || !sub || !avatar) return;
 
     if (state.type === 'ORDER_SUPPORT') {
-      container.classList.add('is-order-support');
       sub.textContent = 'Order #' + orderLabel() + ' সাপোর্ট';
     } else {
-      container.classList.remove('is-order-support');
       sub.textContent = state.agentName ? 'Connected with agent' : 'Online';
     }
 
     if (state.agentName) {
       label.textContent = state.agentName;
       avatar.textContent = '👤';
-      avatar.classList.add('is-agent');
     } else {
       label.textContent = 'Aria';
       avatar.textContent = '🤖';
-      avatar.classList.remove('is-agent');
     }
   }
 
@@ -282,10 +351,9 @@
     state.unread = 0;
     updateBadge();
     var el = $('cw-container');
-    el.style.display = 'flex';
-    // force reflow for animation
-    void el.offsetWidth;
-    el.classList.add('is-open');
+    if (!el) return;
+    // Do NOT touch document.body overflow / scroll position
+    el.classList.add('cw-open');
     scrollToBottom();
     setTimeout(function () {
       var input = $('cw-input');
@@ -296,10 +364,8 @@
   function minimizeWidget() {
     state.isOpen = false;
     var el = $('cw-container');
-    el.classList.remove('is-open');
-    setTimeout(function () {
-      if (!state.isOpen) el.style.display = 'none';
-    }, 250);
+    if (!el) return;
+    el.classList.remove('cw-open');
   }
 
   function closeWidget() {
@@ -307,13 +373,14 @@
   }
 
   function updateBadge() {
-    var badge = $('cw-bubble-badge');
+    var badge = $('cw-badge');
     if (!badge) return;
     if (state.unread > 0) {
       badge.textContent = state.unread > 99 ? '99+' : String(state.unread);
-      badge.classList.add('is-visible');
+      badge.classList.add('visible');
     } else {
-      badge.classList.remove('is-visible');
+      badge.textContent = '';
+      badge.classList.remove('visible');
     }
   }
 
@@ -326,18 +393,13 @@
   }
 
   function getTypingEl() {
+    var el = $('cw-typing');
     var box = $('cw-messages');
-    var el = box.querySelector('.cw-typing');
-    if (!el) {
+    if (!el && box) {
       el = document.createElement('div');
-      el.className = 'cw-typing';
-      el.innerHTML =
-        '<div class="cw-msg-label">Aria 🤖</div>' +
-        '<div class="cw-typing-bubble">' +
-          '<span class="cw-typing-dot"></span>' +
-          '<span class="cw-typing-dot"></span>' +
-          '<span class="cw-typing-dot"></span>' +
-        '</div>';
+      el.id = 'cw-typing';
+      el.setAttribute('aria-hidden', 'true');
+      el.innerHTML = '<span></span><span></span><span></span>';
       box.appendChild(el);
     }
     return el;
@@ -345,15 +407,20 @@
 
   function showTyping() {
     var el = getTypingEl();
-    el.classList.add('is-visible');
+    if (!el) return;
+    el.classList.add('visible');
     scrollToBottom();
   }
 
   function hideTyping() {
-    var box = $('cw-messages');
-    if (!box) return;
-    var el = box.querySelector('.cw-typing');
-    if (el) el.classList.remove('is-visible');
+    var el = $('cw-typing');
+    if (el) el.classList.remove('visible');
+  }
+
+  function showWaitingBanner(visible) {
+    var el = $('cw-waiting-banner');
+    if (!el) return;
+    el.classList.toggle('visible', !!visible);
   }
 
   function renderMessage(msg, options) {
@@ -395,16 +462,16 @@
     var wrap = document.createElement('div');
 
     if (type === 'SYSTEM') {
-      wrap.className = 'cw-msg cw-msg--system';
+      wrap.className = 'cw-msg cw-system';
       wrap.innerHTML =
-        '<div class="cw-msg-bubble">' + escapeHtml(content) + '</div>';
+        '<div class="cw-bubble-text">' + escapeHtml(content) + '</div>';
       box.appendChild(wrap);
       if (!options.skipScroll) scrollToBottom();
       return wrap;
     }
 
-    var roleClass = type === 'USER' ? 'user' : type === 'AGENT' ? 'agent' : 'bot';
-    wrap.className = 'cw-msg cw-msg--' + roleClass;
+    var roleClass = type === 'USER' ? 'cw-user' : type === 'AGENT' ? 'cw-agent' : 'cw-bot';
+    wrap.className = 'cw-msg ' + roleClass;
 
     var label = '';
     if (type === 'BOT') label = '<div class="cw-msg-label">Aria 🤖</div>';
@@ -417,19 +484,24 @@
     if (imageUrl) {
       imageHtml =
         '<a href="' + escapeHtml(imageUrl) + '" target="_blank" rel="noopener noreferrer">' +
-          '<img class="cw-msg-image" src="' + escapeHtml(imageUrl) + '" alt="Attachment" />' +
+          '<img class="cw-img-thumb" src="' + escapeHtml(imageUrl) + '" alt="Attachment" />' +
         '</a>';
     }
 
     wrap.innerHTML =
       label +
-      '<div class="cw-msg-bubble">' +
+      '<div class="cw-bubble-text">' +
         (content ? escapeHtml(content) : '') +
         imageHtml +
       '</div>' +
       '<div class="cw-msg-time">' + formatTime(createdAt) + '</div>';
 
-    box.appendChild(wrap);
+    var typingEl = $('cw-typing');
+    if (typingEl && typingEl.parentNode === box) {
+      box.insertBefore(wrap, typingEl);
+    } else {
+      box.appendChild(wrap);
+    }
 
     var quick = msg && (msg.quick_replies || msg.quickReplies);
     if (quick && Array.isArray(quick) && quick.length && type === 'BOT') {
@@ -440,7 +512,7 @@
         if (!text) return;
         var btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'cw-quick-reply';
+        btn.className = 'cw-qr-btn';
         btn.textContent = text;
         btn.addEventListener('click', function () {
           qr.remove();
@@ -464,67 +536,61 @@
 
   function showSystemBanner(text) {
     ensureDom();
-    var box = $('cw-messages');
-    var el = document.createElement('div');
-    el.className = 'cw-banner';
-    el.textContent = text;
-    box.appendChild(el);
-    scrollToBottom();
+    renderMessage({
+      sender_type: 'SYSTEM',
+      content: text || '',
+      created_at: Date.now()
+    });
   }
 
   function showCsat() {
     ensureDom();
-    var box = $('cw-messages');
-    if (box.querySelector('.cw-csat')) return;
+    var el = $('cw-csat');
+    if (!el) return;
 
-    var el = document.createElement('div');
-    el.className = 'cw-csat';
-    el.innerHTML =
-      '<div class="cw-csat-title">আমাদের সেবা কেমন লেগেছে?</div>' +
-      '<div class="cw-csat-stars" role="group" aria-label="Rating">' +
-        [1, 2, 3, 4, 5].map(function (n) {
-          return '<button type="button" class="cw-star" data-rating="' + n + '" aria-label="' + n + ' star">★</button>';
-        }).join('') +
-      '</div>' +
-      '<div class="cw-csat-thanks" id="cw-csat-thanks" hidden></div>';
-
-    box.appendChild(el);
-
-    var stars = el.querySelectorAll('.cw-star');
-    stars.forEach(function (star) {
-      star.addEventListener('mouseenter', function () {
-        var r = Number(star.getAttribute('data-rating'));
-        stars.forEach(function (s) {
-          s.classList.toggle('is-active', Number(s.getAttribute('data-rating')) <= r);
-        });
-      });
-      star.addEventListener('mouseleave', function () {
-        stars.forEach(function (s) { s.classList.remove('is-active'); });
-      });
-      star.addEventListener('click', function () {
-        var rating = Number(star.getAttribute('data-rating'));
-        submitRating(rating, el);
-      });
-    });
-
+    showWaitingBanner(false);
+    el.classList.add('visible');
     setInputEnabled(false);
-    scrollToBottom();
+
+    if (isRoomRated(state.roomId)) {
+      lockCsatUI(el, 0);
+      var thanks = $('cw-csat-thanks');
+      if (thanks) {
+        thanks.hidden = false;
+        thanks.textContent = 'রেটিং ইতিমধ্যে জমা হয়েছে। ধন্যবাদ!';
+      }
+    }
+  }
+
+  function lockCsatUI(csatEl, rating) {
+    if (!csatEl) return;
+    csatEl.setAttribute('data-rated', '1');
+    var stars = csatEl.querySelectorAll('.cw-star');
+    stars.forEach(function (s) {
+      if (rating > 0) {
+        s.classList.toggle('active', Number(s.getAttribute('data-rating')) <= rating);
+      }
+      s.disabled = true;
+    });
+    var thanks = csatEl.querySelector('#cw-csat-thanks') || $('cw-csat-thanks');
+    if (thanks) {
+      thanks.hidden = false;
+      thanks.textContent = 'ধন্যবাদ আপনার মতামতের জন্য! 🙏';
+    }
+    markRoomRated(state.roomId);
   }
 
   function submitRating(rating, csatEl) {
     if (!state.socket || !state.roomId) return;
+    if (isRoomRated(state.roomId)) {
+      lockCsatUI(csatEl, rating);
+      return;
+    }
     state.socket.emit('submit_rating', {
       room_id: state.roomId,
       rating: rating
     });
-    var stars = csatEl.querySelectorAll('.cw-star');
-    stars.forEach(function (s) {
-      s.classList.toggle('is-active', Number(s.getAttribute('data-rating')) <= rating);
-      s.disabled = true;
-    });
-    var thanks = csatEl.querySelector('#cw-csat-thanks');
-    thanks.hidden = false;
-    thanks.textContent = 'ধন্যবাদ আপনার মতামতের জন্য! 🙏';
+    lockCsatUI(csatEl, rating);
   }
 
   function setInputEnabled(enabled) {
@@ -612,7 +678,7 @@
       var name = $('cw-attach-name');
       thumb.src = reader.result;
       name.textContent = file.name;
-      preview.classList.add('is-visible');
+      preview.classList.add('visible');
       updateSendButton();
     };
     reader.readAsDataURL(file);
@@ -622,30 +688,75 @@
     state.pendingFile = null;
     var preview = $('cw-attach-preview');
     var thumb = $('cw-attach-thumb');
-    if (preview) preview.classList.remove('is-visible');
+    if (preview) preview.classList.remove('visible');
     if (thumb) thumb.removeAttribute('src');
     updateSendButton();
   }
 
-  async function uploadAttachment(file) {
-    var encoded = await fileToBase64(file);
-    var result = await api('/api/chat/' + encodeURIComponent(state.roomId) + '/upload', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        guest_session_id: state.guestSessionId,
-        file_name: encoded.fileName,
-        mime_type: encoded.mimeType,
-        size: encoded.size,
-        data: encoded.base64
-      })
-    });
-    return {
-      url: (result && (result.url || result.attachment_url || result.dataUrl)) || encoded.dataUrl,
-      fileName: encoded.fileName,
-      mimeType: encoded.mimeType,
-      size: encoded.size
-    };
+  /**
+   * Always multipart FormData — never send data: URLs over the socket.
+   * Prefer /api/upload/image when available; fall back to room upload route.
+   */
+  async function sendAttachment(file) {
+    if (!file || !state.roomId) {
+      throw new Error('Missing file or room');
+    }
+
+    var base = state.apiUrl.replace(/\/$/, '');
+    var endpoints = [
+      base + '/api/upload/image',
+      base + '/api/chat/' + encodeURIComponent(state.roomId) + '/upload'
+    ];
+
+    var lastError = null;
+    for (var i = 0; i < endpoints.length; i++) {
+      try {
+        var form = new FormData();
+        form.append('image', file, file.name);
+        form.append('room_id', state.roomId);
+        form.append('guest_session_id', state.guestSessionId || '');
+
+        var res = await fetch(endpoints[i], {
+          method: 'POST',
+          body: form,
+          headers: {
+            'X-Guest-Session-Id': state.guestSessionId || ''
+          },
+          credentials: 'include'
+        });
+        var bodyText = await res.text();
+        var data = null;
+        try {
+          data = bodyText ? JSON.parse(bodyText) : null;
+        } catch (e) {
+          data = null;
+        }
+        if (!res.ok) {
+          // Auth required on /api/upload/image for guests — try next endpoint
+          if (res.status === 401 || res.status === 403) {
+            lastError = new Error((data && data.message) || 'Upload unauthorized');
+            continue;
+          }
+          throw new Error((data && data.message) || ('HTTP ' + res.status));
+        }
+        if (!data || !data.url) {
+          throw new Error('Upload response missing url');
+        }
+        if (String(data.url).indexOf('data:') === 0) {
+          throw new Error('Data URL storage is not permitted');
+        }
+        return {
+          url: data.url,
+          thumbnail_url: data.thumbnail_url || data.url,
+          type: 'IMAGE',
+          filename: file.name,
+          size: file.size
+        };
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError || new Error('Upload failed');
   }
 
   function sendText(text) {
@@ -666,27 +777,44 @@
     var file = state.pendingFile;
 
     if (!text && !file) return;
+    if (text && text.length > 5000) {
+      showErrorToast('বার্তা খুব বড় (সর্বোচ্চ ৫০০০ অক্ষর)।');
+      return;
+    }
 
     $('cw-send-btn').disabled = true;
     emitTypingStop();
 
-    var attachmentInfo = null;
+    var attachments = [];
     try {
       if (file) {
-        attachmentInfo = await uploadAttachment(file);
-        clearAttachment();
+        try {
+          var uploaded = await sendAttachment(file);
+          attachments.push(uploaded);
+          clearAttachment();
+        } catch (uploadErr) {
+          console.error('[ChatWidget] upload failed:', uploadErr);
+          showErrorToast(
+            (uploadErr && uploadErr.message) ||
+              'ছবি আপলোড ব্যর্থ হয়েছে। data URL পাঠানো হয়নি।'
+          );
+          updateSendButton();
+          return; // Do NOT send data URL fallback
+        }
       }
 
       var payload = {
         room_id: state.roomId,
         guest_session_id: state.guestSessionId,
         content: text,
-        message: text,
-        sender_type: 'USER'
+        message: text || (attachments.length ? '[Attachment]' : ''),
+        sender_name: state.guestName,
+        sender_type: 'USER',
+        attachments: attachments
       };
-      if (attachmentInfo) {
-        payload.attachment = attachmentInfo;
-        payload.image_url = attachmentInfo.url;
+      if (attachments[0]) {
+        payload.attachment = attachments[0];
+        payload.image_url = attachments[0].url;
       }
 
       // Rely on socket `new_message` broadcast for UI append (avoids duplicates)
@@ -699,7 +827,7 @@
       updateSendButton();
     } catch (err) {
       console.error('[ChatWidget] send failed:', err);
-      showSystemBanner('বার্তা পাঠানো যায়নি। আবার চেষ্টা করুন।');
+      showErrorToast('বার্তা পাঠানো যায়নি। আবার চেষ্টা করুন।');
       updateSendButton();
     }
   }
@@ -717,6 +845,8 @@
     s.off('agent_joined');
     s.off('chat_resolved');
     s.off('chat_history');
+    s.off('rating_submitted');
+    s.off('error');
     s.off('connect');
     s.off('disconnect');
 
@@ -730,7 +860,29 @@
     });
 
     s.on('new_message', function (msg) {
+      if (msg && msg.sender_type === 'INTERNAL') return;
       renderMessage(msg);
+    });
+
+    s.on('error', function (err) {
+      var code = (err && err.message) || '';
+      if (code === 'ALREADY_RATED') {
+        markRoomRated(state.roomId);
+        showErrorToast('আপনি ইতিমধ্যে রেটিং দিয়েছেন।');
+        return;
+      }
+      if (code === 'UNAUTHORIZED' || code === 'SESSION_REQUIRED') {
+        showErrorToast('সেশন অনুমোদিত নয়। পেজ রিফ্রেশ করুন।');
+        return;
+      }
+      if (code === 'TOO_MANY_MESSAGES') {
+        showErrorToast('অনেক বেশি বার্তা — একটু পরে চেষ্টা করুন।');
+        return;
+      }
+    });
+
+    s.on('rating_submitted', function () {
+      markRoomRated(state.roomId);
     });
 
     s.on('agent_typing', function () {
@@ -742,6 +894,7 @@
     });
 
     s.on('waiting_for_agent', function () {
+      showWaitingBanner(true);
       showSystemBanner('একজন প্রতিনিধি শীঘ্রই যোগ দেবেন...');
     });
 
@@ -749,12 +902,14 @@
       var name = (data && (data.agent_name || data.name || data.agentName)) || 'Agent';
       state.agentName = name;
       updateHeader();
+      showWaitingBanner(false);
       showSystemBanner(name + ' চ্যাটে যোগ দিয়েছেন');
     });
 
     s.on('chat_resolved', function () {
       state.resolved = true;
       hideTyping();
+      showWaitingBanner(false);
       showSystemBanner('চ্যাট সম্পন্ন হয়েছে');
       showCsat();
     });
@@ -766,7 +921,7 @@
       state.renderedIds = Object.create(null);
       var box = $('cw-messages');
       if (box) {
-        box.querySelectorAll('.cw-msg, .cw-banner, .cw-csat').forEach(function (n) {
+        box.querySelectorAll('.cw-msg').forEach(function (n) {
           n.remove();
         });
       }
@@ -790,6 +945,10 @@
     }
 
     state.socket = global.io(state.socketUrl.replace(/\/$/, '') + '/customer', {
+      auth: {
+        guest_session_id: state.guestSessionId,
+        user_id: state.userId || undefined
+      },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: Infinity,
@@ -874,9 +1033,26 @@
     state.unread = 0;
     state.renderedIds = Object.create(null);
     updateBadge();
+    showWaitingBanner(false);
 
     var box = $('cw-messages');
-    if (box) box.innerHTML = '';
+    if (box) {
+      box.querySelectorAll('.cw-msg').forEach(function (n) { n.remove(); });
+    }
+    var csat = $('cw-csat');
+    if (csat) {
+      csat.classList.remove('visible');
+      csat.removeAttribute('data-rated');
+      csat.querySelectorAll('.cw-star').forEach(function (s) {
+        s.classList.remove('active');
+        s.disabled = false;
+      });
+      var thanks = $('cw-csat-thanks');
+      if (thanks) {
+        thanks.hidden = true;
+        thanks.textContent = '';
+      }
+    }
 
     await loadSocketIo();
     connectSocket();
@@ -958,7 +1134,7 @@
     return LOCAL_CHAT_API;
   }
 
-  async function init(options) {
+  async function _init(options) {
     options = options || {};
     loadCss();
 
@@ -978,14 +1154,24 @@
     state.guestSessionId = getOrCreateSessionId();
     state.initialized = true;
 
-    if (document.readyState === 'loading') {
-      await new Promise(function (resolve) {
-        document.addEventListener('DOMContentLoaded', resolve, { once: true });
-      });
-    }
-
     await bootstrap();
     return ChatWidget;
+  }
+
+  function init(options) {
+    options = options || {};
+    if (document.readyState === 'loading') {
+      return new Promise(function (resolve, reject) {
+        document.addEventListener(
+          'DOMContentLoaded',
+          function () {
+            _init(options).then(resolve).catch(reject);
+          },
+          { once: true }
+        );
+      });
+    }
+    return _init(options);
   }
 
   async function openOrderSupport(options) {
@@ -1026,6 +1212,7 @@
 
   var ChatWidget = {
     init: init,
+    _init: _init,
     open: openWidget,
     close: closeWidget,
     minimize: minimizeWidget,

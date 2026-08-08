@@ -30,7 +30,7 @@ const chatMessageSchema = new mongoose.Schema(
     },
     sender_type: {
       type: String,
-      enum: ['USER', 'BOT', 'AGENT', 'SYSTEM'],
+      enum: ['USER', 'BOT', 'AGENT', 'SYSTEM', 'INTERNAL'],
       required: true,
     },
     sender_id: {
@@ -45,10 +45,17 @@ const chatMessageSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      maxlength: 5000,
     },
     attachments: {
       type: [attachmentSchema],
       default: [],
+      validate: {
+        validator(v) {
+          return !v || v.length <= 5;
+        },
+        message: 'Maximum 5 attachments per message',
+      },
     },
     quick_replies: {
       type: [quickReplySchema],

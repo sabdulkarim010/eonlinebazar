@@ -194,6 +194,13 @@ app.use('/api', bannerRoutes);
 // URL: GET /admin/api/analytics?period=&startDate=&endDate=
 app.get('/admin/api/analytics', verifyFinanceToken, getFinanceAnalytics);
 
+// Chat admin dashboard (Vite SPA) — after API routes, before error handlers
+app.use('/chat-admin', express.static(path.join(__dirname, 'admin-dashboard/dist')));
+
+app.get('/chat-admin/*splat', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin-dashboard/dist/index.html'));
+});
+
 /********************************************************************
  # FRONTEND UI ROUTES (ক্লিন ইউআরএল লজিক)
  ********************************************************************/

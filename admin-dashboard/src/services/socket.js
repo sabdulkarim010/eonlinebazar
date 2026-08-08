@@ -13,6 +13,7 @@ const SOCKET_URL =
 
 let socket = null;
 let listenersBound = false;
+const typingClearTimers = {};
 
 /** Generate a 3-beep notification with Web Audio API (no audio file). */
 export function playAlertSound() {
@@ -157,13 +158,6 @@ function bindListeners(sock) {
     useChatStore.getState().setOnlineAgents(payload);
   });
 
-  sock.on('chat_rated', (payload) => {
-    toast.success(
-      `⭐ কাস্টমার রেটিং দিয়েছেন${payload?.rating ? `: ${payload.rating}` : ''}`
-    );
-    if (payload?.room) useChatStore.getState().addOrUpdateRoom(payload.room);
-  });
-
   sock.on('rating_submitted', (payload) => {
     toast.success(
       `⭐ কাস্টমার রেটিং দিয়েছেন${payload?.rating ? `: ${payload.rating}` : ''}`
@@ -173,17 +167,51 @@ function bindListeners(sock) {
       useChatStore.getState().addOrUpdateRoom({
         _id: roomId,
         rating: payload.rating,
+        is_rated: true,
       });
     }
   });
 
-  sock.on('customer_typing', ({ room_id, name }) => {
-    useChatStore.getState().setTyping(room_id, true, name);
+  sock.on('chat_transferred', (payload) => {
+    const roomId = roomIdOf(payload);
+    toast(
+      `↗️ চ্যাট ট্রান্সফার: ${payload?.from_agent || '?'} → ${payload?.to_agent || '?'}`
+    );
+    if (roomId) {
+      useChatStore.getState().addOrUpdateRoom({
+        _id: roomId,
+        ...(payload?.room || {}),
+      });
+    }
   });
 
-  sock.on('customer_stopped_typing', ({ room_id }) => {
-    useChatStore.getState().setTyping(room_id, false);
+  sock.on('take_chat_failed', (payload) => {
+    toast.error(payload?.message || 'চ্যাট নেওয়া যায়নি');
   });
+
+  const startTyping = (room_id, name) => {
+    if (!room_id) return;
+    const id = String(room_id);
+    useChatStore.getState().setTyping(id, true, name || 'Guest');
+    clearTimeout(typingClearTimers[id]);
+    typingClearTimers[id] = setTimeout(() => {
+      useChatStore.getState().setTyping(id, false);
+      delete typingClearTimers[id];
+    }, 4000);
+  };
+
+  const stopTyping = (room_id) => {
+    if (!room_id) return;
+    const id = String(room_id);
+    clearTimeout(typingClearTimers[id]);
+    delete typingClearTimers[id];
+    useChatStore.getState().setTyping(id, false);
+  };
+
+  sock.on('customer_typing', ({ room_id, name }) => startTyping(room_id, name));
+  sock.on('user_typing', ({ room_id, name }) => startTyping(room_id, name));
+  sock.on('customer_stopped_typing', ({ room_id }) => stopTyping(room_id));
+  sock.on('user_stopped_typing', ({ room_id }) => stopTyping(room_id));
 
   sock.on('disconnect', () => {
     console.warn('[socket] disconnected');

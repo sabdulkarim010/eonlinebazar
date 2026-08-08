@@ -29,6 +29,7 @@ export default function CustomerContext() {
   const rooms = useChatStore((s) => s.rooms);
   const onlineAgents = useChatStore((s) => s.onlineAgents);
   const addOrUpdateRoom = useChatStore((s) => s.addOrUpdateRoom);
+  const persistTag = useChatStore((s) => s.persistTag);
   const setActiveRoom = useChatStore((s) => s.setActiveRoom);
   const setMessages = useChatStore((s) => s.setMessages);
 
@@ -143,28 +144,29 @@ export default function CustomerContext() {
     const text = note.trim();
     if (!text) return;
     const socket = getSocket();
-    const agentId = agent?.id || agent?._id;
     if (socket?.connected) {
-      socket.emit('agent_message', {
+      // INTERNAL notes — never leak to customer widget
+      socket.emit('internal_note', {
         room_id: activeRoomId,
-        agent_id: agentId,
-        message: `📋 [Internal Note] ${text}`,
-        attachments: [],
+        message: text,
       });
     }
-    toast.success('নোট যোগ করা হয়েছে');
+    toast.success('ইন্টারনাল নোট যোগ করা হয়েছে');
     setNote('');
     setShowNote(false);
   };
 
-  const addTag = () => {
+  const addTag = async () => {
     const tag = tagInput.trim().toLowerCase();
     if (!tag) return;
-    const tags = Array.from(new Set([...(room.tags || []), tag]));
-    addOrUpdateRoom({ _id: activeRoomId, tags });
-    toast.success(`ট্যাগ যোগ: ${tag}`);
-    setTagInput('');
-    setShowTag(false);
+    try {
+      await persistTag(activeRoomId, tag);
+      toast.success(`ট্যাগ যোগ: ${tag}`);
+      setTagInput('');
+      setShowTag(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'ট্যাগ সেভ হয়নি');
+    }
   };
 
   const transferTo = (targetAgent) => {
@@ -172,8 +174,7 @@ export default function CustomerContext() {
     if (socket?.connected) {
       socket.emit('transfer_chat', {
         room_id: activeRoomId,
-        from_agent_id: agent?.id || agent?._id,
-        to_agent_id: targetAgent.agent_id || targetAgent.id,
+        target_agent_id: targetAgent.agent_id || targetAgent.id,
       });
     }
     toast.success(`${targetAgent.name}-এ ট্রান্সফার রিকোয়েস্ট পাঠানো হয়েছে`);

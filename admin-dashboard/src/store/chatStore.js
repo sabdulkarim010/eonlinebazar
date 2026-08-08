@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persistTag as persistTagApi } from '../services/api';
 
 const useChatStore = create((set, get) => ({
   rooms: [],
@@ -194,6 +195,22 @@ const useChatStore = create((set, get) => ({
     if (isTyping) typingRooms[id] = { name, at: Date.now() };
     else delete typingRooms[id];
     set({ typingRooms });
+  },
+
+  /** Persist tag via API — do not only update local Zustand state. */
+  persistTag: async (roomId, tag) => {
+    if (!roomId || !tag) return null;
+    const data = await persistTagApi(roomId, tag);
+    if (data?.room) {
+      get().addOrUpdateRoom(data.room);
+    } else {
+      const room = get().rooms.find(
+        (r) => String(r._id || r.id) === String(roomId)
+      );
+      const tags = Array.from(new Set([...(room?.tags || []), tag]));
+      get().addOrUpdateRoom({ _id: roomId, tags });
+    }
+    return data;
   },
 
   getActiveRoom: () => {

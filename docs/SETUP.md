@@ -52,7 +52,7 @@ npm run dev
 ### Chat Widget টেস্ট
 
 ব্রাউজারে খুলুন: `http://localhost:5001/chat-widget.html`  
-(অথবা মূল সাইটের `public/chat-widget.html`)
+(Widget assets are served only from the ecommerce-chat server on PORT 5001)
 
 ---
 
@@ -169,6 +169,7 @@ Nginx `location /` ইতিমধ্যে `/var/www/admin-dashboard/dist` স�
 আপনার ই-কমার্স সাইটের `</body>` ট্যাগের **আগে** এই স্নিপেট পেস্ট করুন:
 
 ```html
+<!-- Load widget ONLY from ecommerce-chat server (default PORT 5001) -->
 <link rel="stylesheet" href="https://yourchatdomain.com/css/chat-widget.css">
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="https://yourchatdomain.com/js/chat-widget.js"></script>
@@ -180,6 +181,13 @@ Nginx `location /` ইতিমধ্যে `/var/www/admin-dashboard/dist` স�
     type: 'GENERAL'
   });
 </script>
+```
+
+Local dev embed (ecommerce-chat on 5001):
+
+```html
+<link rel="stylesheet" href="http://localhost:5001/css/chat-widget.css">
+<script src="http://localhost:5001/js/chat-widget.js"></script>
 ```
 
 অর্ডার সাপোর্ট পেজে:
@@ -202,7 +210,7 @@ ChatWidget.init({
 cd ecommerce-chat
 # .env ফাইল প্রস্তুত রাখুন
 docker compose -f ../devops/docker-compose.yml up -d --build
-curl http://localhost:5000/health
+curl http://localhost:5001/health
 ```
 
 ---

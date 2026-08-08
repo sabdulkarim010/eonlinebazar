@@ -103,6 +103,19 @@ router.post('/base64', authMiddleware, async (req, res) => {
       });
     }
 
+    // Prefer multipart; reject storing raw data: URLs as attachment URLs
+    if (
+      typeof base64 === 'string' &&
+      base64.startsWith('data:') &&
+      !/^data:[^;]+;base64,/.test(base64)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Data URL storage is not permitted. Use multipart upload.',
+      });
+    }
+
     const result = await uploadFromBase64(base64, room_id);
 
     return res.json({

@@ -1,51 +1,19 @@
-/**
- * PM2 ecosystem config
- *
- * Start:  pm2 start ecosystem.config.js --env production
- * Reload: pm2 reload ecommerce-chat --update-env
- *
- * ─── Socket.io + cluster mode (sticky sessions) ───────────────────
- * Cluster mode requires sticky sessions so a client always hits the
- * same worker. Add @socket.io/sticky + @socket.io/cluster-adapter:
- *
- *   npm i @socket.io/sticky @socket.io/cluster-adapter
- *
- * Then in server.js (before listen), wrap like this:
- *
- *   const { createAdapter } = require('@socket.io/cluster-adapter');
- *   const { setupPrimary, setupWorker } = require('@socket.io/sticky');
- *   const cluster = require('cluster');
- *   const os = require('os');
- *
- *   if (cluster.isPrimary) {
- *     const httpServer = require('http').createServer();
- *     setupPrimary(httpServer);
- *     httpServer.listen(PORT);
- *     for (let i = 0; i < os.cpus().length; i++) cluster.fork();
- *   } else {
- *     // existing express + socket.io setup...
- *     io.adapter(createAdapter());
- *     setupWorker(server);
- *   }
- *
- * For a single-instance VPS you can set instances: 1 instead.
- */
 module.exports = {
   apps: [
     {
-      name: 'ecommerce-chat',
+      name: 'chat-server',
       script: 'server.js',
-      instances: 'max', // cluster mode, use all CPU cores
-      exec_mode: 'cluster',
+      cwd: '/var/www/ecommerce-chat',
+      instances: 1,
+      autorestart: true,
       watch: false,
-      max_memory_restart: '500M',
-      env_production: {
+      max_memory_restart: '300M',
+      env: {
         NODE_ENV: 'production',
-        PORT: 5000,
+        PORT: 5001
       },
-      error_file: './logs/err.log',
-      out_file: './logs/out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss',
-    },
-  ],
+      error_file: '/var/log/chat-server-error.log',
+      out_file: '/var/log/chat-server-out.log',
+    }
+  ]
 };

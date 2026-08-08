@@ -177,6 +177,7 @@ Nginx `location /` এই `dist/` সার্ভ করে (`devops/nginx.conf`
 আপনার স্টোরফ্রন্ট HTML‑এ `</body>`‑এর আগে পেস্ট করুন:
 
 ```html
+<!-- Serve widget ONLY from ecommerce-chat (PORT 5001) — do not copy into main store public/ -->
 <link rel="stylesheet" href="https://yourchatdomain.com/css/chat-widget.css">
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="https://yourchatdomain.com/js/chat-widget.js"></script>
@@ -189,6 +190,8 @@ Nginx `location /` এই `dist/` সার্ভ করে (`devops/nginx.conf`
   });
 </script>
 ```
+
+Local: `http://localhost:5001/js/chat-widget.js`
 
 অর্ডার সাপোর্টের জন্য:
 
@@ -209,7 +212,7 @@ ChatWidget.init({
 ```bash
 # প্রজেক্ট রুট থেকে
 docker compose -f devops/docker-compose.yml up -d --build
-curl http://localhost:5000/health
+curl http://localhost:5001/health
 ```
 
 ---
@@ -263,7 +266,7 @@ pm2 describe ecommerce-chat
 ### Nginx 502 Bad Gateway
 ```bash
 pm2 status                    # প্রসেস অনলাইন কিনা
-curl http://localhost:5000/health
+curl http://localhost:5001/health
 sudo nginx -t
 sudo tail -n 50 /var/log/nginx/error.log
 ```

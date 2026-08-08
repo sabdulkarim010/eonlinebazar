@@ -1,0 +1,35 @@
+name: Deploy Chat System
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ecommerce-chat/**'
+      - 'admin-dashboard/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to DigitalOcean
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USERNAME }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          script: |
+            echo "=== Deploying Chat Server ==="
+            cd /var/www/ecommerce-chat
+            git pull origin main
+            npm ci --only=production
+            pm2 reload chat-server --update-env
+
+            echo "=== Building Admin Dashboard ==="
+            cd /var/www/admin-dashboard
+            git pull origin main
+            npm ci
+            npm run build
+            cp -r dist/* /var/www/html/admin/
+
+            echo "=== Deploy Complete ==="
+            pm2 status

@@ -1,6 +1,7 @@
 import toast from 'react-hot-toast';
 import useChatStore from '../store/chatStore';
 import { fetchRoomDetail } from '../services/api';
+import { getSocket } from '../services/socket';
 import {
   avatarColor,
   getInitials,
@@ -27,6 +28,10 @@ export default function RoomListItem({ room }) {
   const handleClick = async () => {
     setActiveRoom(id);
     clearUnread(id);
+    const socket = getSocket();
+    if (socket?.connected) {
+      socket.emit('join_room', { room_id: id });
+    }
     try {
       const data = await fetchRoomDetail(id);
       if (data.room) addOrUpdateRoom(data.room);

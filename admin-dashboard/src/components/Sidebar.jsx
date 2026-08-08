@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import RoomListItem from './RoomListItem';
 import useChatStore from '../store/chatStore';
@@ -133,6 +134,15 @@ export default function Sidebar({ onRefresh }) {
             <RoomListItem key={room._id || room.id} room={room} />
           ))
         )}
+      </div>
+
+      <div className="px-3 py-3 border-t border-slate-800">
+        <Link
+          to="/settings"
+          className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition"
+        >
+          ⚙️ Settings
+        </Link>
       </div>
     </aside>
   );

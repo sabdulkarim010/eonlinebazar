@@ -898,21 +898,44 @@
 <script>
   // Chat service URL: runtime/Vite env → production Render → local ecommerce-chat
   (function () {
-    if (window.CHAT_API_URL) return;
-    var env = window.__ENV__ || window.__RUNTIME_CONFIG__ || {};
-    var fromEnv =
-      window.VITE_API_URL ||
-      env.VITE_API_URL ||
-      env.CHAT_API_URL ||
-      env.API_URL;
-    if (fromEnv) {
-      window.CHAT_API_URL = String(fromEnv).replace(/\/$/, '');
-      return;
+    if (!window.CHAT_API_URL) {
+      var env = window.__ENV__ || window.__RUNTIME_CONFIG__ || {};
+      var fromEnv =
+        window.VITE_API_URL ||
+        env.VITE_API_URL ||
+        env.CHAT_API_URL ||
+        env.API_URL;
+      if (fromEnv) {
+        window.CHAT_API_URL = String(fromEnv).replace(/\/$/, '');
+      } else {
+        var host = location.hostname || '';
+        window.CHAT_API_URL = /(^|\.)eonlinebazar\.com$/i.test(host)
+          ? 'https://eonlinebazar-chat-api.onrender.com'
+          : 'http://localhost:5001';
+      }
     }
-    var host = location.hostname || '';
-    window.CHAT_API_URL = /(^|\.)eonlinebazar\.com$/i.test(host)
-      ? 'https://eonlinebazar-chat-api.onrender.com'
-      : 'http://localhost:5001';
+
+    // Load widget assets from chat server (NOT store :5000) to avoid MIME/HTML 404
+    var chatBase = String(window.CHAT_API_URL).replace(/\/$/, '');
+    if (!document.querySelector('link[data-cw-css]')) {
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = chatBase + '/css/chat-widget.css';
+      link.setAttribute('data-cw-css', '1');
+      document.head.appendChild(link);
+    }
+    if (!document.querySelector('script[data-cw-socket]')) {
+      var socketScript = document.createElement('script');
+      socketScript.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
+      socketScript.setAttribute('data-cw-socket', '1');
+      document.head.appendChild(socketScript);
+    }
+    if (!document.getElementById('eob-chat-widget-script')) {
+      var widgetScript = document.createElement('script');
+      widgetScript.id = 'eob-chat-widget-script';
+      widgetScript.src = chatBase + '/js/chat-widget.js';
+      document.head.appendChild(widgetScript);
+    }
   })();
 </script>
 <script src="js/orderChat.js"></script>

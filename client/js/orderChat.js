@@ -118,26 +118,17 @@
         return;
       }
 
-      // Prefer same-origin storefront copy; API/socket still target chat server (:5001)
-      var sources = ['/js/chat-widget.js', resolveChatApiUrl() + '/js/chat-widget.js'];
-      var idx = 0;
-
-      function tryNext() {
-        if (idx >= sources.length) {
-          loadingPromise = null;
-          reject(new Error('Failed to load chat widget'));
-          return;
-        }
-        var script = document.createElement('script');
-        script.id = idx === 0 ? SCRIPT_ID : SCRIPT_ID + '-fallback';
-        script.src = sources[idx++];
-        script.async = true;
-        script.onload = done;
-        script.onerror = tryNext;
-        document.head.appendChild(script);
-      }
-
-      tryNext();
+      // Serve widget ONLY from ecommerce-chat server (PORT 5001) — no root public/ copy
+      var script = document.createElement('script');
+      script.id = SCRIPT_ID;
+      script.src = resolveChatApiUrl() + '/js/chat-widget.js';
+      script.async = true;
+      script.onload = done;
+      script.onerror = function () {
+        loadingPromise = null;
+        reject(new Error('Failed to load chat widget from ecommerce-chat server'));
+      };
+      document.head.appendChild(script);
     });
 
     return loadingPromise;

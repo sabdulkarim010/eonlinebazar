@@ -10,7 +10,7 @@ import CannedResponses from './CannedResponses';
 import useAuthStore from '../store/authStore';
 import useChatStore from '../store/chatStore';
 import { getSocket } from '../services/socket';
-import { sendAgentMessage } from '../services/api';
+import api, { sendAgentMessage } from '../services/api';
 import {
   dateSeparatorLabel,
   roomId as getRoomId,
@@ -52,6 +52,8 @@ export default function ChatWindow() {
   const fileRef = useRef(null);
   const textareaRef = useRef(null);
   const typingTimer = useRef(null);
+  const typingTimers = useRef({});
+  const setTyping = useChatStore((s) => s.setTyping);
 
   const grouped = useMemo(() => {
     const items = [];
@@ -81,6 +83,48 @@ export default function ChatWindow() {
     setCannedFilter('');
   }, [activeRoomId]);
 
+  // Typing indicator cleanup — clear stale indicators after 4s / on room change
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return undefined;
+
+    const onUserTyping = ({ room_id, name }) => {
+      if (!room_id) return;
+      const id = String(room_id);
+      setTyping(id, true, name || 'Guest');
+      clearTimeout(typingTimers.current[id]);
+      typingTimers.current[id] = setTimeout(() => {
+        setTyping(id, false);
+        delete typingTimers.current[id];
+      }, 4000);
+    };
+
+    const onUserStoppedTyping = ({ room_id }) => {
+      if (!room_id) return;
+      const id = String(room_id);
+      clearTimeout(typingTimers.current[id]);
+      delete typingTimers.current[id];
+      setTyping(id, false);
+    };
+
+    socket.on('user_typing', onUserTyping);
+    socket.on('customer_typing', onUserTyping);
+    socket.on('user_stopped_typing', onUserStoppedTyping);
+    socket.on('customer_stopped_typing', onUserStoppedTyping);
+
+    return () => {
+      socket.off('user_typing', onUserTyping);
+      socket.off('customer_typing', onUserTyping);
+      socket.off('user_stopped_typing', onUserStoppedTyping);
+      socket.off('customer_stopped_typing', onUserStoppedTyping);
+    };
+  }, [setTyping]);
+
+  useEffect(() => {
+    Object.values(typingTimers.current).forEach((t) => clearTimeout(t));
+    typingTimers.current = {};
+  }, [activeRoomId]);
+
   const status = room ? statusMeta(room.status) : null;
   const agentId = agent?.id || agent?._id;
   const canReply = room?.status === 'ACTIVE';
@@ -104,14 +148,9 @@ export default function ChatWindow() {
       toast.error('সকেট কানেক্টেড নয়');
       return;
     }
-    socket.emit('take_chat', { room_id: activeRoomId, agent_id: agentId });
-    updateRoomStatus(activeRoomId, 'ACTIVE');
-    addOrUpdateRoom({
-      _id: activeRoomId,
-      status: 'ACTIVE',
-      assigned_agent_id: agentId,
-    });
-    toast.success('চ্যাট নেওয়া হয়েছে');
+    // agent_id comes from JWT on the server — never trust client-supplied id
+    socket.emit('take_chat', { room_id: activeRoomId });
+    toast.success('চ্যাট নেওয়ার অনুরোধ পাঠানো হয়েছে');
   };
 
   const handleResolve = () => {
@@ -121,7 +160,7 @@ export default function ChatWindow() {
       toast.error('সকেট কানেক্টেড নয়');
       return;
     }
-    socket.emit('resolve_chat', { room_id: activeRoomId, agent_id: agentId });
+    socket.emit('resolve_chat', { room_id: activeRoomId });
     updateRoomStatus(activeRoomId, 'RESOLVED');
     addOrUpdateRoom({
       _id: activeRoomId,
@@ -146,9 +185,9 @@ export default function ChatWindow() {
 
     // Do not optimistically append — socket `new_message` is the single source of truth
     if (socket?.connected) {
+      // agent identity bound from JWT on server
       socket.emit('agent_message', {
         room_id: activeRoomId,
-        agent_id: agentId,
         message: body,
         attachments,
       });
@@ -204,7 +243,7 @@ export default function ChatWindow() {
     textareaRef.current?.focus();
   };
 
-  const handleImage = (e) => {
+  const handleImage = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
@@ -212,16 +251,34 @@ export default function ChatWindow() {
       toast.error('শুধু ইমেজ আপলোড করা যাবে');
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('ইমেজ ২MB এর কম হতে হবে');
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('ইমেজ ৫MB এর কম হতে হবে');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      sendMessage('', [{ type: 'image', url: reader.result, name: file.name }]);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const form = new FormData();
+      form.append('image', file);
+      form.append('room_id', activeRoomId);
+      const { data } = await api.post('/api/upload/image', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (!data?.url || String(data.url).startsWith('data:')) {
+        throw new Error('Invalid upload response');
+      }
+      await sendMessage('', [
+        {
+          type: 'IMAGE',
+          url: data.url,
+          thumbnail_url: data.thumbnail_url || data.url,
+          filename: file.name,
+        },
+      ]);
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || err.message || 'ইমেজ আপলোড ব্যর্থ'
+      );
+    }
   };
 
   return (

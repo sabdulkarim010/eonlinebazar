@@ -4,11 +4,22 @@ import useAuthStore from '../store/authStore';
 const PROD_CHAT_API = 'https://eonlinebazar-chat-api.onrender.com';
 const LOCAL_CHAT_API = 'http://localhost:5001';
 
+function readCookie(name) {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(
+    new RegExp(
+      `(?:^|; )${name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1')}=([^;]*)`
+    )
+  );
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 const api = axios.create({
   baseURL:
     import.meta.env.VITE_API_URL ||
     (import.meta.env.PROD ? PROD_CHAT_API : LOCAL_CHAT_API),
   timeout: 20000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -16,7 +27,9 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token =
-    localStorage.getItem('token') || useAuthStore.getState().token;
+    localStorage.getItem('token') ||
+    useAuthStore.getState().token ||
+    readCookie('admin_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -90,8 +103,52 @@ export async function deleteKnowledge(id) {
   return data;
 }
 
+export async function checkKnowledgeEmpty() {
+  const { data } = await api.get('/api/knowledge/check-empty');
+  return data;
+}
+
+export async function seedKnowledgeDefaults() {
+  const { data } = await api.post('/api/knowledge/seed-defaults');
+  return data;
+}
+
+export async function fetchAgents() {
+  const { data } = await api.get('/api/admin/agents');
+  return data;
+}
+
+export async function createAgent(payload) {
+  const { data } = await api.post('/api/admin/agents', payload);
+  return data;
+}
+
+export async function updateAgent(id, payload) {
+  const { data } = await api.put(`/api/admin/agents/${id}`, payload);
+  return data;
+}
+
+export async function deleteAgent(id) {
+  const { data } = await api.delete(`/api/admin/agents/${id}`);
+  return data;
+}
+
+export async function resetAgentPassword(id, new_password) {
+  const { data } = await api.post(`/api/admin/agents/${id}/reset-password`, {
+    new_password,
+  });
+  return data;
+}
+
 export async function fetchOrder(orderId) {
   const { data } = await api.get(`/api/orders/${orderId}`);
+  return data;
+}
+
+export async function persistTag(roomId, tag) {
+  const { data } = await api.patch(`/api/admin/rooms/${roomId}/tags`, {
+    tag,
+  });
   return data;
 }
 
