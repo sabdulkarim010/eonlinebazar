@@ -194,11 +194,37 @@ app.use('/api', bannerRoutes);
 // URL: GET /admin/api/analytics?period=&startDate=&endDate=
 app.get('/admin/api/analytics', verifyFinanceToken, getFinanceAnalytics);
 
-// Chat admin dashboard (Vite SPA) — after API routes, before error handlers
-app.use('/chat-admin', express.static(path.join(__dirname, 'admin-dashboard/dist')));
+/********************************************************************
+ # CHAT ADMIN DASHBOARD (Vite SPA)
+ # Must be registered BEFORE client static files, CMS /:slug catch-all,
+ # and the branded 404 handler — otherwise /chat-admin is treated as a
+ # CMS page slug and returns "Page Unavailable".
+ ********************************************************************/
+const CHAT_ADMIN_DIST = path.join(__dirname, 'admin-dashboard', 'dist');
+const CHAT_ADMIN_INDEX = path.join(CHAT_ADMIN_DIST, 'index.html');
 
-app.get('/chat-admin/*splat', (req, res) => {
-    res.sendFile(path.join(__dirname, 'admin-dashboard/dist/index.html'));
+app.use(
+    '/chat-admin',
+    express.static(CHAT_ADMIN_DIST, {
+        index: 'index.html',
+        fallthrough: true,
+        // Hashed Vite assets under /chat-admin/assets/*
+        setHeaders(res, filePath) {
+            if (filePath.match(/\.(js|css)$/)) {
+                res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            } else if (filePath.match(/\.(png|jpg|jpeg|gif|svg|ico|webp)$/)) {
+                res.setHeader('Cache-Control', 'public, max-age=604800');
+            }
+        }
+    })
+);
+
+// Exact path + SPA deep links (Express 5 named wildcard)
+app.get(['/chat-admin', '/chat-admin/', '/chat-admin/*splat'], (req, res) => {
+    if (!fs.existsSync(CHAT_ADMIN_INDEX)) {
+        return res.status(503).type('text').send('Chat admin dashboard build not found. Run: cd admin-dashboard && npm run build');
+    }
+    res.sendFile(CHAT_ADMIN_INDEX);
 });
 
 /********************************************************************
@@ -544,7 +570,8 @@ const CMS_RESERVED_SLUGS = new Set([
     'cart', 'checkout', 'payment', 'footer', 'admin', 'admin-login',
     'finance-login', 'finance-analytics', 'verify-otp', 'api',
     'uploads', 'css', 'js', 'images', 'assets', 'public', 'pages',
-    'page', 'manifest', 'service-worker', 'robots', 'sitemap', 'favicon'
+    'page', 'manifest', 'service-worker', 'robots', 'sitemap', 'favicon',
+    'chat-admin'
 ]);
 
 app.get('/:slug', (req, res, next) => {
@@ -568,6 +595,12 @@ app.use((req, res) => {
             success: false,
             message: `Route not found: ${req.method} ${req.path}`
         });
+    }
+    // Chat admin SPA should never fall through here; if it does, serve its index
+    if (req.path === '/chat-admin' || req.path.startsWith('/chat-admin/')) {
+        if (fs.existsSync(CHAT_ADMIN_INDEX)) {
+            return res.sendFile(CHAT_ADMIN_INDEX);
+        }
     }
     // For all other unknown routes, serve the branded 404 HTML page (with GA4)
     const settings = res.locals.settings || DEFAULT_SETTINGS;
