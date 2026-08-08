@@ -46,10 +46,10 @@ function EmptyChatState() {
           </svg>
         </div>
         <h3 className="text-base font-semibold text-text-primary dark:text-white leading-bn">
-          কোনো চ্যাট সিলেক্ট করা হয়নি
+          No chat selected
         </h3>
         <p className="text-sm text-text-secondary mt-2 leading-bn">
-          বাম দিক থেকে একটি চ্যাট সিলেক্ট করুন
+          Select a chat from the left panel
         </p>
       </div>
     </div>
@@ -80,7 +80,7 @@ function TypingIndicator({ name }) {
         <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" />
       </div>
       <span className="text-xs text-slate-400">
-        {name ? `${name} টাইপ করছেন…` : 'টাইপ করছেন…'}
+        {name ? `${name} is typing…` : 'is typing…'}
       </span>
     </div>
   );
@@ -93,7 +93,7 @@ function CsatCard({ room }) {
     return (
       <div className="mx-4 mb-3 rounded-card border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3 text-center animate-fadeIn">
         <p className="text-sm font-medium text-amber-800 dark:text-amber-200 leading-bn">
-          রেটিং পেন্ডিং
+          Rating pending
         </p>
       </div>
     );
@@ -102,7 +102,7 @@ function CsatCard({ room }) {
   return (
     <div className="mx-4 mb-3 rounded-card border border-primary/20 bg-primary/5 px-4 py-3 text-center animate-fadeIn">
       <p className="text-sm font-medium text-text-primary dark:text-white leading-bn">
-        কাস্টমার রেটিং দিয়েছেন: {stars || '—'}
+        Customer rated: {stars || '—'}
       </p>
     </div>
   );
@@ -218,18 +218,18 @@ export default function ChatWindow({ onBack }) {
   const handleTakeChat = () => {
     const socket = getSocket();
     if (!socket?.connected) {
-      toast.error('সকেট কানেক্টেড নয়');
+      toast.error('Socket not connected');
       return;
     }
     socket.emit('take_chat', { room_id: activeRoomId });
-    toast.success('চ্যাট নেওয়ার অনুরোধ পাঠানো হয়েছে');
+    toast.success('Take chat request sent');
   };
 
   const handleResolve = () => {
-    if (!window.confirm('এই চ্যাটটি সমাধান করতে চান?')) return;
+    if (!window.confirm('Resolve this chat?')) return;
     const socket = getSocket();
     if (!socket?.connected) {
-      toast.error('সকেট কানেক্টেড নয়');
+      toast.error('Socket not connected');
       return;
     }
     socket.emit('resolve_chat', { room_id: activeRoomId });
@@ -239,7 +239,7 @@ export default function ChatWindow({ onBack }) {
       status: 'RESOLVED',
       resolved_at: new Date().toISOString(),
     });
-    toast.success('চ্যাট সমাধান করা হয়েছে');
+    toast.success('Chat resolved');
   };
 
   const sendInternalNote = () => {
@@ -247,14 +247,14 @@ export default function ChatWindow({ onBack }) {
     if (!body) return;
     const socket = getSocket();
     if (!socket?.connected) {
-      toast.error('সকেট কানেক্টেড নয়');
+      toast.error('Socket not connected');
       return;
     }
     socket.emit('internal_note', {
       room_id: activeRoomId,
       message: body,
     });
-    toast.success('ইন্টারনাল নোট যোগ করা হয়েছে');
+    toast.success('Internal note added');
     setNoteText('');
     setShowNote(false);
   };
@@ -263,7 +263,7 @@ export default function ChatWindow({ onBack }) {
     const body = (content || '').trim();
     if (!body && !attachments.length) return;
     if (!canReply) {
-      toast.error('শুধুমাত্র অ্যাক্টিভ চ্যাটে রিপ্লাই করা যায়');
+      toast.error('You can only reply in active chats');
       return;
     }
 
@@ -287,7 +287,7 @@ export default function ChatWindow({ onBack }) {
       const data = await sendAgentMessage(activeRoomId, body, attachments);
       if (data?.message) addMessage(activeRoomId, data.message);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'মেসেজ পাঠানো যায়নি');
+      toast.error(err.response?.data?.message || 'Failed to send message');
     }
   };
 
@@ -344,11 +344,11 @@ export default function ChatWindow({ onBack }) {
     e.target.value = '';
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      toast.error('শুধু ইমেজ আপলোড করা যাবে');
+      toast.error('Only images can be uploaded');
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('ইমেজ ৫MB এর কম হতে হবে');
+      toast.error('Image must be under 5MB');
       return;
     }
 
@@ -372,7 +372,7 @@ export default function ChatWindow({ onBack }) {
       ]);
     } catch (err) {
       toast.error(
-        err.response?.data?.message || err.message || 'ইমেজ আপলোড ব্যর্থ'
+        err.response?.data?.message || err.message || 'Image upload failed'
       );
     }
   };
@@ -453,7 +453,7 @@ export default function ChatWindow({ onBack }) {
               className="inline-flex items-center gap-1.5 rounded-btn bg-success hover:bg-emerald-600 text-white text-xs font-semibold px-3 py-2 transition duration-200 shadow-sm"
             >
               <CheckIcon className="w-4 h-4" />
-              চ্যাট নিন
+              Take chat
             </button>
           )}
           {room.status === 'ACTIVE' && (
@@ -464,7 +464,7 @@ export default function ChatWindow({ onBack }) {
                 className="inline-flex items-center gap-1.5 rounded-btn bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold px-3 py-2 transition duration-200"
               >
                 <ArrowUpRightIcon className="w-4 h-4" />
-                ট্রান্সফার করুন
+                Transfer
               </button>
               <button
                 type="button"
@@ -472,7 +472,7 @@ export default function ChatWindow({ onBack }) {
                 className="inline-flex items-center gap-1.5 rounded-btn bg-primary hover:bg-primary-600 text-white text-xs font-semibold px-3 py-2 transition duration-200"
               >
                 <CheckIcon className="w-4 h-4" />
-                সমাধান করুন
+                Resolve
               </button>
             </>
           )}
@@ -482,7 +482,7 @@ export default function ChatWindow({ onBack }) {
             className="inline-flex items-center gap-1.5 rounded-btn border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold px-3 py-2 transition duration-200"
           >
             <ClipboardDocumentListIcon className="w-4 h-4" />
-            নোট যোগ করুন
+            Add note
           </button>
           <button
             type="button"
@@ -490,19 +490,19 @@ export default function ChatWindow({ onBack }) {
             className="inline-flex items-center gap-1.5 rounded-btn border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold px-3 py-2 transition duration-200"
           >
             <TagIcon className="w-4 h-4" />
-            ট্যাগ করুন
+            Tag
           </button>
         </div>
       </div>
 
       {room.status === 'BOT' && (
         <div className="shrink-0 bg-blue-50 dark:bg-blue-950/40 text-info text-sm px-4 py-2 border-b border-blue-100 dark:border-blue-900 leading-bn">
-          AI পরিচালনা করছে
+          AI is handling this chat
         </div>
       )}
       {room.status === 'WAITING_FOR_AGENT' && (
         <div className="shrink-0 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-200 text-sm px-4 py-2 border-b border-amber-100 dark:border-amber-900 leading-bn">
-          কাস্টমার অপেক্ষায় আছেন — চ্যাট নিন
+          Customer is waiting — take chat
         </div>
       )}
 
@@ -534,7 +534,7 @@ export default function ChatWindow({ onBack }) {
             htmlFor="internal-note-input"
             className="text-xs font-semibold text-amber-800 dark:text-amber-200"
           >
-            🔒 ইন্টারনাল নোট (কাস্টমার দেখবে না)
+            🔒 Internal note (not visible to customer)
           </label>
           <textarea
             id="internal-note-input"
@@ -542,7 +542,7 @@ export default function ChatWindow({ onBack }) {
             onChange={(e) => setNoteText(e.target.value)}
             rows={2}
             className="mt-1.5 w-full rounded-btn border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-300/50"
-            placeholder="নোট লিখুন…"
+            placeholder="Write a note…"
           />
           <div className="mt-2 flex justify-end gap-2">
             <button
@@ -550,14 +550,14 @@ export default function ChatWindow({ onBack }) {
               onClick={() => setShowNote(false)}
               className="rounded-btn px-3 py-1.5 text-xs text-slate-600 dark:text-slate-300"
             >
-              বাতিল
+              Cancel
             </button>
             <button
               type="button"
               onClick={sendInternalNote}
               className="rounded-btn bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 transition"
             >
-              সেভ নোট
+              Save note
             </button>
           </div>
         </div>
@@ -636,7 +636,7 @@ export default function ChatWindow({ onBack }) {
 
             <div className="flex-1 relative">
               <label htmlFor="agent-message-input" className="sr-only">
-                মেসেজ
+                Message
               </label>
               <textarea
                 id="agent-message-input"
@@ -645,7 +645,7 @@ export default function ChatWindow({ onBack }) {
                 value={text}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                placeholder="মেসেজ লিখুন… (/ ক্যানড রেসপন্স)"
+                placeholder="Write a message… (/ for canned responses)"
                 className="w-full resize-none bg-transparent px-1 py-2 text-sm outline-none max-h-[96px] leading-bn dark:text-slate-100"
               />
             </div>
@@ -655,7 +655,7 @@ export default function ChatWindow({ onBack }) {
               onClick={() => sendMessage(text)}
               disabled={!text.trim()}
               className="p-2.5 rounded-btn btn-gradient text-white transition shadow-sm shadow-primary/20 disabled:opacity-40"
-              title="পাঠান (Ctrl+Enter)"
+              title="Send (Ctrl+Enter)"
             >
               <PaperAirplaneIcon className="w-5 h-5" />
             </button>

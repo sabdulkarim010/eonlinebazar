@@ -6,21 +6,21 @@ const cards = [
   {
     key: 'total_today',
     icon: '📊',
-    label: 'আজকের চ্যাট',
+    label: 'Chats today',
     accent: 'text-primary',
     iconBg: 'bg-primary/10',
   },
   {
     key: 'resolved_today',
     icon: '✅',
-    label: 'সমাধান',
+    label: 'Resolved',
     accent: 'text-success',
     iconBg: 'bg-emerald-50 dark:bg-emerald-950/40',
   },
   {
     key: 'waiting_for_agent',
     icon: '⏳',
-    label: 'অপেক্ষায়',
+    label: 'Waiting',
     accent: 'text-warning',
     iconBg: 'bg-amber-50 dark:bg-amber-950/40',
     highlight: true,
@@ -28,7 +28,7 @@ const cards = [
   {
     key: 'avg_rating',
     icon: '⭐',
-    label: 'গড় রেটিং',
+    label: 'Avg rating',
     accent: 'text-amber-500',
     iconBg: 'bg-amber-50 dark:bg-amber-950/40',
     isFloat: true,

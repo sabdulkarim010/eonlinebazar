@@ -66,7 +66,7 @@ export default function HeaderBar() {
   }, []);
 
   const handleLogout = () => {
-    if (!window.confirm('লগআউট করতে চান?')) return;
+    if (!window.confirm('Are you sure you want to log out?')) return;
     try {
       const socket = getSocket();
       if (socket?.connected) {
@@ -78,7 +78,7 @@ export default function HeaderBar() {
     }
     disconnectSocket();
     logout();
-    toast.success('লগআউট সম্পন্ন');
+    toast.success('Logged out');
     navigate('/login', { replace: true });
   };
 
@@ -106,7 +106,7 @@ export default function HeaderBar() {
             type="search"
             value={globalSearch}
             onChange={(e) => setGlobalSearch(e.target.value)}
-            placeholder="সব চ্যাটে খুঁজুন…"
+            placeholder="Search all chats..."
             className="w-full rounded-btn border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 pl-9 pr-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition duration-200 dark:text-slate-100"
           />
         </div>
@@ -135,20 +135,20 @@ export default function HeaderBar() {
             <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-card border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-layered z-50 animate-fadeIn">
               <div className="px-3 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                 <span className="text-sm font-semibold text-text-primary dark:text-white">
-                  নোটিফিকেশন
+                  Notifications
                 </span>
                 <button
                   type="button"
                   onClick={clearNotifications}
                   className="text-xs text-primary hover:underline"
                 >
-                  সব পড়া হয়েছে
+                  Mark all read
                 </button>
               </div>
               <div className="max-h-72 overflow-y-auto custom-scroll">
                 {notifications.length === 0 ? (
                   <p className="text-xs text-text-secondary px-3 py-6 text-center">
-                    কোনো নোটিফিকেশন নেই
+                    No notifications
                   </p>
                 ) : (
                   notifications.map((n) => (
@@ -245,7 +245,7 @@ export default function HeaderBar() {
                 className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-danger hover:bg-red-50 dark:hover:bg-red-950/30 transition"
               >
                 <ArrowRightOnRectangleIcon className="w-4 h-4" />
-                লগআউট
+                Logout
               </button>
             </div>
           )}

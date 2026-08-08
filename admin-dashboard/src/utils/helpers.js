@@ -1,18 +1,16 @@
 import { formatDistanceToNow, isToday, isYesterday, format } from 'date-fns';
-import { bn } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 
-const BN_DIGITS = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-
+/** Kept for compatibility; returns plain digits (no Bangla conversion). */
 export function toBanglaDigits(value) {
-  return String(value).replace(/\d/g, (d) => BN_DIGITS[Number(d)]);
+  return String(value);
 }
 
 export function relativeTimeBn(date) {
   if (!date) return '';
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return '';
-  const text = formatDistanceToNow(d, { addSuffix: true, locale: bn });
-  return toBanglaDigits(text);
+  return formatDistanceToNow(d, { addSuffix: true, locale: enUS });
 }
 
 /** Short English relative time: "2m ago", "1h ago" */
@@ -31,20 +29,10 @@ export function relativeTimeShort(date) {
   return format(d, 'MMM d');
 }
 
-/** Bangla relative for staff last-seen: "৫ মিনিট আগে" */
+/** Short relative for staff last-seen / notifications */
 export function relativeTimeBnShort(date) {
   if (!date) return '—';
-  const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return '—';
-  const seconds = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
-  if (seconds < 60) return `${toBanglaDigits(seconds)} সেকেন্ড আগে`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${toBanglaDigits(minutes)} মিনিট আগে`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${toBanglaDigits(hours)} ঘণ্টা আগে`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${toBanglaDigits(days)} দিন আগে`;
-  return relativeTimeBn(date);
+  return relativeTimeShort(date) || '—';
 }
 
 export function statusBorderClass(status) {
@@ -82,9 +70,9 @@ export function formatTime(date) {
 export function dateSeparatorLabel(date) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return '';
-  if (isToday(d)) return 'আজ';
-  if (isYesterday(d)) return 'গতকাল';
-  return toBanglaDigits(format(d, 'd MMM yyyy'));
+  if (isToday(d)) return 'Today';
+  if (isYesterday(d)) return 'Yesterday';
+  return format(d, 'd MMM yyyy');
 }
 
 export function getInitials(name = '') {
@@ -122,11 +110,11 @@ export function truncate(text, max = 40) {
 export function statusMeta(status) {
   switch (status) {
     case 'WAITING_FOR_AGENT':
-      return { label: 'অপেক্ষায়', color: 'bg-orange-500 text-white', dot: 'bg-orange-500' };
+      return { label: 'Waiting', color: 'bg-orange-500 text-white', dot: 'bg-orange-500' };
     case 'ACTIVE':
-      return { label: 'লাইভ', color: 'bg-green-500 text-white', dot: 'bg-green-500' };
+      return { label: 'Live', color: 'bg-green-500 text-white', dot: 'bg-green-500' };
     case 'RESOLVED':
-      return { label: 'সমাপ্ত', color: 'bg-slate-400 text-white', dot: 'bg-slate-400' };
+      return { label: 'Resolved', color: 'bg-slate-400 text-white', dot: 'bg-slate-400' };
     case 'BOT':
       return { label: 'AI', color: 'bg-blue-500 text-white', dot: 'bg-blue-500' };
     default:

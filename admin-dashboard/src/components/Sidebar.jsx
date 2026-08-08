@@ -12,27 +12,27 @@ import { toBanglaDigits } from '../utils/helpers';
 const TABS = [
   {
     id: 'WAITING_FOR_AGENT',
-    label: 'অপেক্ষায়',
+    label: 'Waiting',
     emoji: '🔴',
-    empty: 'এই ট্যাবে কোনো চ্যাট নেই',
+    empty: 'No chats in this tab',
   },
   {
     id: 'ACTIVE',
-    label: 'লাইভ',
+    label: 'Live',
     emoji: '🟢',
-    empty: 'এই ট্যাবে কোনো চ্যাট নেই',
+    empty: 'No chats in this tab',
   },
   {
     id: 'BOT',
-    label: 'AI চ্যাট',
+    label: 'AI chats',
     emoji: '🤖',
-    empty: 'এই ট্যাবে কোনো চ্যাট নেই',
+    empty: 'No chats in this tab',
   },
   {
     id: 'RESOLVED',
-    label: 'সমাপ্ত',
+    label: 'Resolved',
     emoji: '✅',
-    empty: 'এই ট্যাবে কোনো চ্যাট নেই',
+    empty: 'No chats in this tab',
   },
 ];
 
@@ -119,7 +119,7 @@ export default function Sidebar({ onRefresh, onTabChange, compact = false }) {
             type="button"
             onClick={onRefresh}
             className="text-[10px] uppercase tracking-wide text-slate-400 hover:text-white transition duration-200"
-            title="রিফ্রেশ"
+            title="Refresh"
           >
             Refresh
           </button>
@@ -207,7 +207,7 @@ export default function Sidebar({ onRefresh, onTabChange, compact = false }) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="নাম বা মেসেজ খুঁজুন…"
+            placeholder="Search by name or message..."
             className="w-full rounded-btn bg-slate-800/80 border border-slate-700 pl-9 pr-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-primary transition duration-200"
           />
         </div>
@@ -221,8 +221,8 @@ export default function Sidebar({ onRefresh, onTabChange, compact = false }) {
             </div>
             <p className="text-xs font-medium text-slate-400 leading-bn">
               {query.trim() || globalSearch.trim()
-                ? 'কোনো মিল পাওয়া যায়নি'
-                : activeTabMeta?.empty || 'এই ট্যাবে কোনো চ্যাট নেই'}
+                ? 'No matches found'
+                : activeTabMeta?.empty || 'No chats in this tab'}
             </p>
           </div>
         ) : (

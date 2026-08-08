@@ -47,17 +47,17 @@ export default function TagModal({ roomId, open, onClose, existing = [] }) {
     const value = String(tag || '').trim().toLowerCase();
     if (!value || !roomId) return;
     if (existing.map((t) => String(t).toLowerCase()).includes(value)) {
-      toast('ট্যাগ ইতিমধ্যে আছে', { icon: '🏷️' });
+      toast('Tag already exists', { icon: '🏷️' });
       return;
     }
     setSaving(true);
     try {
       await persistTag(roomId, value);
-      toast.success(`ট্যাগ যোগ: ${value}`);
+      toast.success(`Tag added: ${value}`);
       setCustom('');
       onClose?.();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'ট্যাগ সেভ হয়নি');
+      toast.error(err.response?.data?.message || 'Failed to save tag');
     } finally {
       setSaving(false);
     }
@@ -81,7 +81,7 @@ export default function TagModal({ roomId, open, onClose, existing = [] }) {
             id="tag-title"
             className="text-base font-semibold text-text-primary dark:text-white"
           >
-            ট্যাগ করুন
+            Tag chat
           </h3>
           <button
             type="button"
@@ -112,7 +112,7 @@ export default function TagModal({ roomId, open, onClose, existing = [] }) {
               htmlFor="custom-tag-input"
               className="block text-xs font-medium text-text-secondary mb-1.5"
             >
-              কাস্টম ট্যাগ
+              Custom tag
             </label>
             <div className="flex gap-2">
               <input
@@ -125,7 +125,7 @@ export default function TagModal({ roomId, open, onClose, existing = [] }) {
                     addTag(custom);
                   }
                 }}
-                placeholder="যেমন: urgent"
+                placeholder="e.g. urgent"
                 className="flex-1 rounded-btn border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 dark:bg-slate-800 dark:text-white transition"
               />
               <button

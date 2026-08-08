@@ -8,7 +8,6 @@ import useChatStore from '../store/chatStore';
 import {
   avatarColor,
   getInitials,
-  toBanglaDigits,
 } from '../utils/helpers';
 
 export default function TransferModal({ roomId, open, onClose }) {
@@ -77,7 +76,7 @@ export default function TransferModal({ roomId, open, onClose }) {
     if (!selected || !roomId) return;
     const socket = getSocket();
     if (!socket?.connected) {
-      toast.error('সকেট কানেক্টেড নয়');
+      toast.error('Socket not connected');
       return;
     }
     setConfirming(true);
@@ -86,7 +85,7 @@ export default function TransferModal({ roomId, open, onClose }) {
       target_agent_id: selected.id || selected._id || selected.agent_id,
     });
     toast.success(
-      `চ্যাটটি ${selected.name}-এ ট্রান্সফার করা হয়েছে`
+      `Chat transferred to ${selected.name}`
     );
     setConfirming(false);
     onClose?.();
@@ -110,7 +109,7 @@ export default function TransferModal({ roomId, open, onClose }) {
             id="transfer-title"
             className="text-base font-semibold text-text-primary dark:text-white"
           >
-            ট্রান্সফার করুন
+            Transfer chat
           </h3>
           <button
             type="button"
@@ -129,7 +128,7 @@ export default function TransferModal({ roomId, open, onClose }) {
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="অনলাইন এজেন্ট খুঁজুন…"
+              placeholder="Search online agents…"
               className="w-full rounded-btn border border-slate-200 dark:border-slate-700 pl-9 pr-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 dark:bg-slate-800 dark:text-white transition"
             />
           </div>
@@ -143,7 +142,7 @@ export default function TransferModal({ roomId, open, onClose }) {
             )}
             {!loading && filtered.length === 0 && (
               <p className="text-sm text-text-secondary text-center py-8">
-                কোনো অনলাইন এজেন্ট নেই
+                No online agents
               </p>
             )}
             {!loading &&
@@ -177,7 +176,7 @@ export default function TransferModal({ roomId, open, onClose }) {
                       </p>
                       <p className="text-xs text-text-secondary">
                         {a.role || 'AGENT'} ·{' '}
-                        {toBanglaDigits(a.active_chats ?? 0)}টি চ্যাট
+                        {a.active_chats ?? 0} chats
                       </p>
                     </div>
                   </button>
@@ -192,7 +191,7 @@ export default function TransferModal({ roomId, open, onClose }) {
             onClick={onClose}
             className="rounded-btn px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition"
           >
-            বাতিল
+            Cancel
           </button>
           <button
             type="button"
@@ -200,7 +199,7 @@ export default function TransferModal({ roomId, open, onClose }) {
             onClick={confirmTransfer}
             className="rounded-btn btn-gradient px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
           >
-            নিশ্চিত করুন
+            Confirm
           </button>
         </div>
       </div>

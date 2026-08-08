@@ -1,20 +1,18 @@
 import { formatDistanceToNow, isToday, isYesterday, format } from 'date-fns';
-import { bn } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 
-const BN_DIGITS = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-
+/** Kept for compatibility; returns plain digits (no Bangla conversion). */
 export function toBnDigits(value) {
-  return String(value).replace(/\d/g, (d) => BN_DIGITS[Number(d)]);
+  return String(value);
 }
 
 export function relativeTimeBn(date) {
   if (!date) return '';
   try {
-    const text = formatDistanceToNow(new Date(date), {
+    return formatDistanceToNow(new Date(date), {
       addSuffix: true,
-      locale: bn,
+      locale: enUS,
     });
-    return toBnDigits(text);
   } catch {
     return '';
   }
@@ -23,7 +21,7 @@ export function relativeTimeBn(date) {
 export function formatMessageTime(date) {
   if (!date) return '';
   try {
-    return toBnDigits(format(new Date(date), 'h:mm a'));
+    return format(new Date(date), 'h:mm a');
   } catch {
     return '';
   }
@@ -32,9 +30,9 @@ export function formatMessageTime(date) {
 export function dateSeparatorLabel(date) {
   if (!date) return '';
   const d = new Date(date);
-  if (isToday(d)) return 'আজ';
-  if (isYesterday(d)) return 'গতকাল';
-  return toBnDigits(format(d, 'd MMMM yyyy', { locale: bn }));
+  if (isToday(d)) return 'Today';
+  if (isYesterday(d)) return 'Yesterday';
+  return format(d, 'd MMMM yyyy');
 }
 
 export function getInitials(name = 'G') {
@@ -66,11 +64,11 @@ export function avatarColor(seed = '') {
 export function statusLabel(status) {
   switch (status) {
     case 'WAITING_FOR_AGENT':
-      return 'অপেক্ষায়';
+      return 'Waiting';
     case 'ACTIVE':
-      return 'লাইভ';
+      return 'Live';
     case 'RESOLVED':
-      return 'সমাপ্ত';
+      return 'Resolved';
     case 'BOT':
       return 'AI';
     default:

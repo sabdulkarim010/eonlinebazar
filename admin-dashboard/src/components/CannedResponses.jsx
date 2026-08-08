@@ -61,7 +61,7 @@ export default function CannedResponses({ filter = '', onSelect, onClose }) {
   return (
     <div className="absolute left-3 right-3 bottom-full mb-2 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-20">
       <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
-        <span className="text-xs font-semibold text-slate-600">ক্যানড রেসপন্স</span>
+        <span className="text-xs font-semibold text-slate-600">Canned responses</span>
         <button
           type="button"
           onClick={onClose}
@@ -72,10 +72,10 @@ export default function CannedResponses({ filter = '', onSelect, onClose }) {
       </div>
       <div className="max-h-48 overflow-y-auto custom-scroll">
         {loading && (
-          <p className="text-xs text-slate-400 px-3 py-3">লোড হচ্ছে…</p>
+          <p className="text-xs text-slate-400 px-3 py-3">Loading…</p>
         )}
         {!loading && filtered.length === 0 && (
-          <p className="text-xs text-slate-400 px-3 py-3">কোনো ম্যাচ নেই</p>
+          <p className="text-xs text-slate-400 px-3 py-3">No matches</p>
         )}
         {filtered.map((item) => (
           <button

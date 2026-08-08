@@ -35,7 +35,7 @@ export default function DashboardPage() {
         setRooms(data.rooms || []);
         if (data.counts) setCounts(data.counts);
       } catch (err) {
-        toast.error(err.response?.data?.message || 'রুম লোড করা যায়নি');
+        toast.error(err.response?.data?.message || 'Failed to load rooms');
       } finally {
         setRoomsLoading(false);
       }
@@ -73,7 +73,7 @@ export default function DashboardPage() {
         }
         setMessages(id, data.messages || []);
       } catch (err) {
-        toast.error(err.response?.data?.message || 'চ্যাট লোড ব্যর্থ');
+        toast.error(err.response?.data?.message || 'Failed to load chat');
       }
     },
     [setActiveRoom, clearUnread, addOrUpdateRoom, setMessages]

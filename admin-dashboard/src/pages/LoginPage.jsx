@@ -18,8 +18,8 @@ const FEATURES = [
 ];
 
 const BUBBLES = [
-  { text: 'আমার অর্ডার কোথায়?', top: '12%', left: '10%', delay: '0s' },
-  { text: 'রিটার্ন পলিসি কী?', top: '28%', left: '55%', delay: '0.8s' },
+  { text: 'Where is my order?', top: '12%', left: '10%', delay: '0s' },
+  { text: 'What is the return policy?', top: '28%', left: '55%', delay: '0.8s' },
   { text: 'Agent connected ✓', top: '55%', left: '18%', delay: '1.4s' },
   { text: '⭐⭐⭐⭐⭐ Thanks!', top: '72%', left: '48%', delay: '2s' },
 ];
@@ -46,7 +46,7 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email.trim() || !password) {
-      toast.error('ইমেইল ও পাসওয়ার্ড দিন');
+      toast.error('Enter email and password');
       return;
     }
 
@@ -55,11 +55,11 @@ export default function LoginPage() {
       await login(email.trim(), password);
       if (rememberMe) localStorage.setItem(REMEMBER_KEY, email.trim());
       else localStorage.removeItem(REMEMBER_KEY);
-      toast.success('সফলভাবে লগইন হয়েছে');
+      toast.success('Logged in successfully');
       navigate('/dashboard', { replace: true });
     } catch (err) {
       const msg =
-        err.response?.data?.message || err.message || 'লগইন ব্যর্থ হয়েছে';
+        err.response?.data?.message || err.message || 'Login failed';
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -141,7 +141,7 @@ export default function LoginPage() {
               EonlineBazar Chat Admin
             </h1>
             <p className="text-sm text-text-secondary mt-2 text-center leading-bn">
-              স্বাগতম! আপনার অ্যাকাউন্টে প্রবেশ করুন
+              Welcome! Sign in to your account
             </p>
           </div>
 
@@ -151,7 +151,7 @@ export default function LoginPage() {
                 htmlFor="login-email"
                 className="block text-sm font-medium text-text-primary mb-1.5"
               >
-                ইমেইল
+                Email
               </label>
               <div className="relative">
                 <EnvelopeIcon className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -174,7 +174,7 @@ export default function LoginPage() {
                 htmlFor="login-password"
                 className="block text-sm font-medium text-text-primary mb-1.5"
               >
-                পাসওয়ার্ড
+                Password
               </label>
               <div className="relative">
                 <LockClosedIcon className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -223,7 +223,7 @@ export default function LoginPage() {
                 type="button"
                 className="text-sm font-medium text-primary hover:text-primary-600 transition"
                 onClick={() =>
-                  toast('পাসওয়ার্ড রিসেট শীঘ্রই আসছে', { icon: '🔐' })
+                  toast('Password reset coming soon', { icon: '🔐' })
                 }
               >
                 Forgot password?
@@ -238,10 +238,10 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  লগইন হচ্ছে…
+                  Signing in…
                 </>
               ) : (
-                'লগইন'
+                'Login'
               )}
             </button>
           </form>

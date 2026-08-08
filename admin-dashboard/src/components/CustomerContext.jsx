@@ -88,7 +88,7 @@ export default function CustomerContext({
         if (!cancelled) setOrder(data?.order || data?.data || data);
       } catch (err) {
         if (!cancelled) {
-          setOrderError(err.response?.data?.message || 'অর্ডার পাওয়া যায়নি');
+          setOrderError(err.response?.data?.message || 'Order not found');
         }
       } finally {
         if (!cancelled) setOrderLoading(false);
@@ -125,7 +125,7 @@ export default function CustomerContext({
     return (
       <aside className="h-full bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex items-center justify-center">
         <p className="text-sm text-text-secondary px-6 text-center leading-bn">
-          কাস্টমার তথ্য দেখতে একটি চ্যাট সিলেক্ট করুন
+          Select a chat to view customer details
         </p>
       </aside>
     );
@@ -140,9 +140,9 @@ export default function CustomerContext({
   const copyOrderId = async () => {
     try {
       await navigator.clipboard.writeText(String(displayOrderId));
-      toast.success('অর্ডার আইডি কপি হয়েছে');
+      toast.success('Order ID copied');
     } catch {
-      toast.error('কপি করা যায়নি');
+      toast.error('Could not copy');
     }
   };
 
@@ -160,7 +160,7 @@ export default function CustomerContext({
       }
       setMessages(id, data.messages || []);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'চ্যাট লোড ব্যর্থ');
+      toast.error(err.response?.data?.message || 'Failed to load chat');
     }
   };
 
@@ -181,7 +181,7 @@ export default function CustomerContext({
       <div className="p-4 space-y-5">
         <section>
           <h4 className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-3">
-            কাস্টমার তথ্য
+            Customer details
           </h4>
           <div className="flex items-center gap-3">
             <div
@@ -212,7 +212,7 @@ export default function CustomerContext({
             </div>
           </div>
           <p className="text-xs text-text-secondary mt-3 leading-bn">
-            সেশন: {relativeTimeBn(room.createdAt)} ({formatTime(room.createdAt)})
+            Session: {relativeTimeBn(room.createdAt)} ({formatTime(room.createdAt)})
           </p>
           {typingInfo && (
             <p className="text-xs text-primary mt-1 animate-pulse">
@@ -236,7 +236,7 @@ export default function CustomerContext({
         {room.type === 'ORDER_SUPPORT' && room.order_id && (
           <section className="rounded-card border border-slate-100 dark:border-slate-800 shadow-soft p-3">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-3">
-              অর্ডার তথ্য
+              Order details
             </h4>
             <div className="flex items-center gap-2 mb-3">
               <code className="text-xs bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded flex-1 truncate">
@@ -246,7 +246,7 @@ export default function CustomerContext({
                 type="button"
                 onClick={copyOrderId}
                 className="p-1.5 rounded-btn hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition"
-                title="কপি"
+                title="Copy"
               >
                 <ClipboardDocumentIcon className="w-4 h-4" />
               </button>
@@ -266,7 +266,7 @@ export default function CustomerContext({
                         className="flex items-start justify-between gap-2 text-slate-700 dark:text-slate-200"
                       >
                         <span className="min-w-0 truncate">
-                          {item.name || item.productName || 'অর্ডার আইটেম'}
+                          {item.name || item.productName || 'Order item'}
                           {(item.quantity || item.qty) > 1 && (
                             <span className="text-slate-400">
                               {' '}
@@ -276,7 +276,7 @@ export default function CustomerContext({
                         </span>
                         {item.price != null && (
                           <span className="shrink-0 text-slate-500">
-                            ৳{Number(item.price).toLocaleString()}
+                            BDT {Number(item.price).toLocaleString()}
                           </span>
                         )}
                       </li>
@@ -286,12 +286,12 @@ export default function CustomerContext({
                   <p className="font-medium text-text-primary dark:text-white">
                     {order.product_name ||
                       order.productName ||
-                      'অর্ডার আইটেম'}
+                      'Order item'}
                   </p>
                 )}
                 {orderTotal != null && (
                   <p className="font-semibold text-text-primary dark:text-white">
-                    Total: ৳{Number(orderTotal).toLocaleString()}
+                    Total: BDT {Number(orderTotal).toLocaleString()}
                   </p>
                 )}
                 {(order.status || paymentStatus) && (
@@ -316,7 +316,7 @@ export default function CustomerContext({
                     className="inline-flex items-center gap-1.5 mt-1 text-sm font-medium text-primary hover:underline"
                   >
                     <TruckIcon className="w-4 h-4" />
-                    ট্র্যাক করুন
+                    Track order
                   </a>
                 )}
               </div>
@@ -326,10 +326,10 @@ export default function CustomerContext({
 
         <section>
           <h4 className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-3">
-            পূর্ববর্তী চ্যাট
+            Previous chats
           </h4>
           {previousChats.length === 0 ? (
-            <p className="text-xs text-text-secondary">কোনো পূর্ববর্তী চ্যাট নেই</p>
+            <p className="text-xs text-text-secondary">No previous chats</p>
           ) : (
             <ul className="space-y-2">
               {previousChats.map((chat) => (
@@ -340,7 +340,7 @@ export default function CustomerContext({
                     className="w-full text-left rounded-card border border-slate-100 dark:border-slate-800 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition duration-200"
                   >
                     <p className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">
-                      {chat.last_message || 'সমাধানকৃত চ্যাট'}
+                      {chat.last_message || 'Resolved chat'}
                     </p>
                     <p className="text-[10px] text-slate-400 mt-0.5">
                       {relativeTimeBn(chat.resolved_at || chat.updatedAt)}
@@ -355,7 +355,7 @@ export default function CustomerContext({
 
         <section>
           <h4 className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-3">
-            কুইক অ্যাকশন
+            Quick actions
           </h4>
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -387,7 +387,7 @@ export default function CustomerContext({
             </button>
             <button
               type="button"
-              onClick={() => toast('ব্লক ফিচার শীঘ্রই আসছে', { icon: '🚫' })}
+              onClick={() => toast('Block feature coming soon', { icon: '🚫' })}
               className="rounded-btn border border-slate-200 dark:border-slate-700 px-3 py-2.5 text-xs font-medium text-danger hover:bg-red-50 dark:hover:bg-red-950/30 transition"
             >
               🚫 Block

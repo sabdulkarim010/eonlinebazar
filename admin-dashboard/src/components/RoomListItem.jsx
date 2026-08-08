@@ -59,7 +59,7 @@ export default function RoomListItem({ room }) {
       }
       setMessages(id, data.messages || []);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'চ্যাট লোড ব্যর্থ');
+      toast.error(err.response?.data?.message || 'Failed to load chat');
     }
   };
 
@@ -126,7 +126,7 @@ export default function RoomListItem({ room }) {
           </div>
 
           <p className="text-xs text-slate-400 mt-1 truncate leading-bn">
-            {truncate(room.last_message, 42) || 'কোনো মেসেজ নেই'}
+            {truncate(room.last_message, 42) || 'No messages'}
           </p>
         </div>
       </div>

@@ -57,7 +57,7 @@ export default function ProfilePage() {
           });
         }
       } catch (err) {
-        toast.error(err.response?.data?.message || 'প্রোফাইল লোড ব্যর্থ');
+        toast.error(err.response?.data?.message || 'Failed to load profile');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -76,9 +76,9 @@ export default function ProfilePage() {
         avatar: avatar.trim() || null,
       });
       if (data.agent) setAgent(data.agent);
-      toast.success('প্রোফাইল আপডেট হয়েছে');
+      toast.success('Profile updated');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'সেভ ব্যর্থ');
+      toast.error(err.response?.data?.message || 'Save failed');
     } finally {
       setSaving(false);
     }
@@ -87,18 +87,18 @@ export default function ProfilePage() {
   const savePassword = async (e) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      toast.error('নতুন পাসওয়ার্ড মিলছে না');
+      toast.error('New passwords do not match');
       return;
     }
     setChangingPw(true);
     try {
       await changePassword(currentPassword, newPassword);
-      toast.success('পাসওয়ার্ড পরিবর্তন হয়েছে');
+      toast.success('Password changed');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'পাসওয়ার্ড পরিবর্তন ব্যর্থ');
+      toast.error(err.response?.data?.message || 'Failed to change password');
     } finally {
       setChangingPw(false);
     }
@@ -117,7 +117,7 @@ export default function ProfilePage() {
           className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-primary transition mb-6"
         >
           <ArrowLeftIcon className="w-4 h-4" />
-          ড্যাশবোর্ডে ফিরে যান
+          Back to dashboard
         </Link>
 
         <h1 className="text-2xl font-bold text-text-primary dark:text-white mb-6">
@@ -194,7 +194,7 @@ export default function ProfilePage() {
                   htmlFor="profile-name"
                   className="block text-sm font-medium text-text-primary dark:text-white mb-1.5"
                 >
-                  নাম
+                  Name
                 </label>
                 <input
                   id="profile-name"
@@ -226,7 +226,7 @@ export default function ProfilePage() {
                 disabled={saving}
                 className="rounded-btn btn-gradient text-white font-semibold px-5 py-2.5 text-sm disabled:opacity-50"
               >
-                {saving ? 'সেভ হচ্ছে…' : 'প্রোফাইল সেভ'}
+                {saving ? 'Saving…' : 'Save profile'}
               </button>
             </form>
 
@@ -235,7 +235,7 @@ export default function ProfilePage() {
               className="rounded-card bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-soft p-5 space-y-4"
             >
               <h2 className="font-semibold text-text-primary dark:text-white">
-                পাসওয়ার্ড পরিবর্তন
+                Change password
               </h2>
 
               <div>
@@ -243,7 +243,7 @@ export default function ProfilePage() {
                   htmlFor="current-password"
                   className="block text-sm font-medium mb-1.5 dark:text-white"
                 >
-                  বর্তমান পাসওয়ার্ড
+                  Current password
                 </label>
                 <div className="relative">
                   <input
@@ -273,7 +273,7 @@ export default function ProfilePage() {
                   htmlFor="new-password"
                   className="block text-sm font-medium mb-1.5 dark:text-white"
                 >
-                  নতুন পাসওয়ার্ড
+                  New password
                 </label>
                 <input
                   id="new-password"
@@ -291,7 +291,7 @@ export default function ProfilePage() {
                   htmlFor="confirm-password"
                   className="block text-sm font-medium mb-1.5 dark:text-white"
                 >
-                  কনফার্ম পাসওয়ার্ড
+                  Confirm password
                 </label>
                 <input
                   id="confirm-password"
@@ -309,7 +309,7 @@ export default function ProfilePage() {
                 disabled={changingPw}
                 className="rounded-btn bg-slate-800 hover:bg-slate-900 text-white font-semibold px-5 py-2.5 text-sm disabled:opacity-50 transition"
               >
-                {changingPw ? 'আপডেট হচ্ছে…' : 'পাসওয়ার্ড আপডেট'}
+                {changingPw ? 'Updating…' : 'Update password'}
               </button>
             </form>
           </div>

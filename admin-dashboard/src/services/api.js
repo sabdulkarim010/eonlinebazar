@@ -1,7 +1,11 @@
 import axios from 'axios';
 import useAuthStore from '../store/authStore';
 
-const baseURL = (import.meta.env.VITE_API_URL || 'http://localhost:5001') + '/api';
+// VITE_API_URL is the full API root:
+// - production: https://eonlinebazar.com/chat-api  (nginx rewrites /chat-api/* → /api/*)
+// - local:      http://localhost:5001/api
+// Do NOT append /api here — that creates /chat-api/api/... double prefix in prod.
+const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 const api = axios.create({
   baseURL,

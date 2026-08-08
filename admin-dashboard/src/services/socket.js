@@ -117,15 +117,15 @@ function bindListeners(sock) {
     }
 
     playAlertSound();
-    const guest = room?.guest_name || 'কাস্টমার';
-    showBrowserNotification('নতুন লাইভ রিকোয়েস্ট', `${guest} লাইভ এজেন্ট চান`);
+    const guest = room?.guest_name || 'Customer';
+    showBrowserNotification('New live request', `${guest} wants a live agent`);
     store.pushNotification({
       type: 'waiting',
-      title: 'নতুন লাইভ রিকোয়েস্ট',
-      body: `${guest} অপেক্ষায় আছেন`,
+      title: 'New live request',
+      body: `${guest} is waiting`,
       room_id: roomId || room?._id,
     });
-    toast('🔔 নতুন লাইভ রিকোয়েস্ট!', {
+    toast('🔔 New live request!', {
       duration: 5000,
       style: {
         background: '#fff7ed',
@@ -162,8 +162,8 @@ function bindListeners(sock) {
     if (payload?.message) store.addMessage(roomId, payload.message);
     store.pushNotification({
       type: 'joined',
-      title: 'এজেন্ট জয়েন করেছেন',
-      body: `${payload?.agent_name || payload?.room?.assigned_agent_id?.name || 'এজেন্ট'} চ্যাট নিয়েছেন`,
+      title: 'Agent joined',
+      body: `${payload?.agent_name || payload?.room?.assigned_agent_id?.name || 'Agent'} took the chat`,
       room_id: roomId,
     });
   });
@@ -176,8 +176,8 @@ function bindListeners(sock) {
     if (payload?.message) store.addMessage(roomId, payload.message);
     store.pushNotification({
       type: 'resolved',
-      title: 'চ্যাট সমাধান',
-      body: `${payload?.room?.guest_name || 'কাস্টমার'} এর চ্যাট সমাধান হয়েছে`,
+      title: 'Chat resolved',
+      body: `${payload?.room?.guest_name || 'Customer'}'s chat was resolved`,
       room_id: roomId,
     });
   });
@@ -188,7 +188,7 @@ function bindListeners(sock) {
 
   sock.on('rating_submitted', (payload) => {
     toast.success(
-      `⭐ কাস্টমার রেটিং দিয়েছেন${payload?.rating ? `: ${payload.rating}` : ''}`
+      `⭐ Customer rated${payload?.rating ? `: ${payload.rating}` : ''}`
     );
     const roomId = roomIdOf(payload);
     if (roomId && payload?.rating != null) {
@@ -200,8 +200,8 @@ function bindListeners(sock) {
     }
     useChatStore.getState().pushNotification({
       type: 'rating',
-      title: 'নতুন রেটিং',
-      body: `কাস্টমার ${payload?.rating || ''} স্টার দিয়েছেন`,
+      title: 'New rating',
+      body: `Customer gave ${payload?.rating || ''} stars`,
       room_id: roomId,
     });
   });
@@ -209,7 +209,7 @@ function bindListeners(sock) {
   sock.on('chat_transferred', (payload) => {
     const roomId = roomIdOf(payload);
     toast(
-      `↗️ চ্যাট ট্রান্সফার: ${payload?.from_agent || '?'} → ${payload?.to_agent || '?'}`
+      `↗️ Chat transfer: ${payload?.from_agent || '?'} → ${payload?.to_agent || '?'}`
     );
     if (roomId) {
       useChatStore.getState().addOrUpdateRoom({
@@ -219,14 +219,14 @@ function bindListeners(sock) {
     }
     useChatStore.getState().pushNotification({
       type: 'transfer',
-      title: 'চ্যাট ট্রান্সফার',
+      title: 'Chat transfer',
       body: `${payload?.from_agent || '?'} → ${payload?.to_agent || '?'}`,
       room_id: roomId,
     });
   });
 
   sock.on('take_chat_failed', (payload) => {
-    toast.error(payload?.message || 'চ্যাট নেওয়া যায়নি');
+    toast.error(payload?.message || 'Could not take chat');
   });
 
   const startTyping = (room_id, name) => {

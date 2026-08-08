@@ -16,7 +16,6 @@ import {
   getInitials,
   highlightMatch,
   relativeTimeBnShort,
-  toBanglaDigits,
 } from '../utils/helpers';
 import {
   fetchConfig,
@@ -41,14 +40,14 @@ const TABS = [
 ];
 
 const CATEGORY_META = [
-  { value: 'SHIPPING', icon: '🚚', label: '🚚 SHIPPING — ডেলিভারি ও শিপিং', color: 'bg-sky-100 text-sky-700' },
-  { value: 'RETURN', icon: '🔄', label: '🔄 RETURN — রিটার্ন ও এক্সচেঞ্জ', color: 'bg-amber-100 text-amber-700' },
-  { value: 'PAYMENT', icon: '💳', label: '💳 PAYMENT — পেমেন্ট পদ্ধতি', color: 'bg-emerald-100 text-emerald-700' },
-  { value: 'ORDER', icon: '📦', label: '📦 ORDER — অর্ডার ট্র্যাকিং', color: 'bg-violet-100 text-violet-700' },
-  { value: 'PRODUCT', icon: '👕', label: '👕 PRODUCT — পণ্য সম্পর্কে', color: 'bg-pink-100 text-pink-700' },
-  { value: 'SIZE_GUIDE', icon: '📏', label: '📏 SIZE_GUIDE — সাইজ গাইড', color: 'bg-indigo-100 text-indigo-700' },
-  { value: 'CONTACT', icon: '📞', label: '📞 CONTACT — যোগাযোগ', color: 'bg-cyan-100 text-cyan-700' },
-  { value: 'GENERAL', icon: '❓', label: '❓ GENERAL — সাধারণ প্রশ্ন', color: 'bg-slate-100 text-slate-700' },
+  { value: 'SHIPPING', icon: '🚚', label: '🚚 SHIPPING — Delivery & shipping', color: 'bg-sky-100 text-sky-700' },
+  { value: 'RETURN', icon: '🔄', label: '🔄 RETURN — Returns & exchange', color: 'bg-amber-100 text-amber-700' },
+  { value: 'PAYMENT', icon: '💳', label: '💳 PAYMENT — Payment methods', color: 'bg-emerald-100 text-emerald-700' },
+  { value: 'ORDER', icon: '📦', label: '📦 ORDER — Order tracking', color: 'bg-violet-100 text-violet-700' },
+  { value: 'PRODUCT', icon: '👕', label: '👕 PRODUCT — About products', color: 'bg-pink-100 text-pink-700' },
+  { value: 'SIZE_GUIDE', icon: '📏', label: '📏 SIZE_GUIDE — Size guide', color: 'bg-indigo-100 text-indigo-700' },
+  { value: 'CONTACT', icon: '📞', label: '📞 CONTACT — Contact', color: 'bg-cyan-100 text-cyan-700' },
+  { value: 'GENERAL', icon: '❓', label: '❓ GENERAL — General questions', color: 'bg-slate-100 text-slate-700' },
 ];
 
 const TAG_CHIP_COLORS = [
@@ -103,25 +102,23 @@ const DEFAULT_CONFIG = {
   address: '',
   business_hours: 'Sat–Thu: 9AM–9PM, Fri: 2PM–8PM',
   shipping_policy:
-    'ঢাকার মধ্যে: ৬০ টাকা, ১-২ দিন।\nঢাকার বাইরে: ১২০ টাকা, ৩-৫ দিন।\n১০০০ টাকার উপরে অর্ডারে ফ্রি ডেলিভারি।',
+    'Inside Dhaka: 60 BDT, 1–2 days.\nOutside Dhaka: 120 BDT, 3–5 days.\nFree delivery on orders over 1000 BDT.',
   return_policy: '',
   delivery_time: '',
   handover_keywords: [
-    'রাগ',
-    'প্রতারণা',
-    'ম্যানেজার',
-    'human',
-    'manager',
-    'refund now',
+    'angry',
     'fraud',
+    'manager',
+    'human',
+    'refund now',
   ],
   canned_responses: [
-    { shortcut: '/thanks', text: 'আমাদের সাথে কেনাকাটার জন্য ধন্যবাদ! 😊' },
-    { shortcut: '/wait', text: 'একটু অপেক্ষা করুন, এখনই সমাধান করছি।' },
-    { shortcut: '/sorry', text: 'এই অসুবিধার জন্য আন্তরিকভাবে দুঃখিত।' },
+    { shortcut: '/thanks', text: 'Thank you for shopping with us! 😊' },
+    { shortcut: '/wait', text: 'Please hold on — I will resolve this right away.' },
+    { shortcut: '/sorry', text: 'We sincerely apologize for this inconvenience.' },
     {
       shortcut: '/bye',
-      text: 'ধন্যবাদ! আর কোনো সমস্যায় আমাদের সাথে যোগাযোগ করুন। 🙏',
+      text: 'Thank you! Contact us anytime if you need help. 🙏',
     },
   ],
 };
@@ -165,17 +162,13 @@ function formatLastSavedBn(date) {
 
   const hours = d.getHours();
   const mins = d.getMinutes();
-  const period = hours < 12 ? 'সকাল' : hours < 17 ? 'বিকেল' : 'রাত';
+  const period = hours < 12 ? 'morning' : hours < 17 ? 'afternoon' : 'evening';
   let h12 = hours % 12;
   if (h12 === 0) h12 = 12;
-  const time = `${toBanglaDigits(h12)}:${toBanglaDigits(
-    String(mins).padStart(2, '0')
-  )}`;
+  const time = `${h12}:${String(mins).padStart(2, '0')}`;
 
-  if (sameDay) return `সর্বশেষ সংরক্ষিত: আজ ${period} ${time}`;
-  return `সর্বশেষ সংরক্ষিত: ${toBanglaDigits(d.getDate())}/${toBanglaDigits(
-    d.getMonth() + 1
-  )} ${period} ${time}`;
+  if (sameDay) return `Last saved: today ${period} ${time}`;
+  return `Last saved: ${d.getDate()}/${d.getMonth() + 1} ${period} ${time}`;
 }
 
 function formatLastSeen(value) {
@@ -235,8 +228,8 @@ function CharCount({ value, max }) {
           max && len > max ? 'text-danger' : 'text-slate-400'
         }`}
       >
-        {toBanglaDigits(len)}
-        {max ? ` / ${toBanglaDigits(max)}` : ''} অক্ষর
+        {len}
+        {max ? ` / ${max}` : ''} chars
       </span>
     </div>
   );
@@ -432,6 +425,10 @@ export default function SettingsPage() {
     if (c.updatedAt) setLastSavedAt(new Date(c.updatedAt));
   }, []);
 
+  const isProductionApi = String(import.meta.env.VITE_API_URL || '').includes(
+    'eonlinebazar.com'
+  );
+
   const loadConfig = useCallback(async () => {
     setConfigLoading(true);
     try {
@@ -440,23 +437,30 @@ export default function SettingsPage() {
       applyConfig(data?.config || DEFAULT_CONFIG);
       return true;
     } catch (err) {
-      setServerConnected(false);
       applyConfig(DEFAULT_CONFIG);
+      const status = err.response?.status;
+      // Banner only for server errors (500+); hide entirely in production.
+      // 404 = route mismatch (different issue) — do not show connection banner.
+      if (!isProductionApi && status >= 500) {
+        setServerConnected(false);
+      } else {
+        setServerConnected(true);
+      }
       const isNetwork =
         !err.response ||
         err.code === 'ERR_NETWORK' ||
         err.message?.includes('Network');
-      if (!isNetwork) {
+      if (!isNetwork && status !== 404) {
         toast.error(
           err.response?.data?.message ||
-            'Failed to load config / কনফিগ লোড ব্যর্থ'
+            'Failed to load config'
         );
       }
       return false;
     } finally {
       setConfigLoading(false);
     }
-  }, [applyConfig]);
+  }, [applyConfig, isProductionApi]);
 
   const loadKnowledge = useCallback(async () => {
     setKbLoading(true);
@@ -470,21 +474,18 @@ export default function SettingsPage() {
       setEntries(data?.entries || []);
       setServerConnected(true);
     } catch (err) {
-      const isNetwork =
-        !err.response ||
-        err.code === 'ERR_NETWORK' ||
-        err.message?.includes('Network');
-      if (isNetwork) setServerConnected(false);
-      else {
+      const status = err.response?.status;
+      if (!isProductionApi && status >= 500) setServerConnected(false);
+      else if (status) {
         toast.error(
           err.response?.data?.message ||
-            'Failed to load knowledge base / জ্ঞানভাণ্ডার লোড ব্যর্থ'
+            'Failed to load knowledge base'
         );
       }
     } finally {
       setKbLoading(false);
     }
-  }, [kbFilter, kbSearch]);
+  }, [kbFilter, kbSearch, isProductionApi]);
 
   const ensureKbSeed = useCallback(async () => {
     if (seededRef.current) return;
@@ -495,7 +496,7 @@ export default function SettingsPage() {
         const result = await seedKnowledgeDefaults();
         if (result?.seeded) {
           toast.success(
-            'Default FAQs seeded / ডিফল্ট প্রশ্ন-উত্তর যোগ হয়েছে'
+            'Default FAQs seeded'
           );
         }
       }
@@ -512,21 +513,18 @@ export default function SettingsPage() {
       setAgents(data?.agents || []);
       setServerConnected(true);
     } catch (err) {
-      const isNetwork =
-        !err.response ||
-        err.code === 'ERR_NETWORK' ||
-        err.message?.includes('Network');
-      if (isNetwork) setServerConnected(false);
+      const status = err.response?.status;
+      if (!isProductionApi && status >= 500) setServerConnected(false);
       toast.error(
         err.response?.data?.message ||
-          'Failed to load staff / স্টাফ লোড ব্যর্থ'
+          'Failed to load staff'
       );
     } finally {
       setStaffLoading(false);
     }
-  }, [canManageStaff]);
+  }, [canManageStaff, isProductionApi]);
 
-  // Connection check on mount: GET /api/admin/config
+  // Connection check on mount: GET /admin/config
   useEffect(() => {
     (async () => {
       const ok = await loadConfig();
@@ -541,7 +539,7 @@ export default function SettingsPage() {
     loadKnowledge();
   }, [kbFilter, kbSearch, serverConnected, loadKnowledge]);
 
-  // Staff Accounts: GET /api/admin/agents when tab mounts
+  // Staff Accounts: GET /admin/agents when tab mounts
   useEffect(() => {
     if (tab === 'staff' && serverConnected === true) loadAgents();
   }, [tab, serverConnected, loadAgents]);
@@ -552,7 +550,7 @@ export default function SettingsPage() {
       await ensureKbSeed();
       await loadKnowledge();
       if (tab === 'staff') await loadAgents();
-      toast.success('Chat server সংযুক্ত হয়েছে');
+      toast.success('Connected to chat server');
     }
   };
 
@@ -579,7 +577,7 @@ export default function SettingsPage() {
   const confirmLeave = () => {
     if (!isDirty) return true;
     return window.confirm(
-      'পরিবর্তন সংরক্ষণ না করে যাবেন?\nLeave without saving changes?'
+      'Leave without saving changes?'
     );
   };
 
@@ -597,7 +595,7 @@ export default function SettingsPage() {
     e?.preventDefault?.();
     if (!canEditConfig) {
       toast.error(
-        'Only SUPER_ADMIN can save / শুধু SUPER_ADMIN সেভ করতে পারবেন'
+        'Only SUPER_ADMIN can save'
       );
       return;
     }
@@ -627,11 +625,11 @@ export default function SettingsPage() {
       });
       applyConfig(data?.config || { ...config, canned_responses: canned });
       setLastSavedAt(new Date());
-      toast.success('Settings saved! / সেটিংস সংরক্ষিত হয়েছে!');
+      toast.success('Settings saved!');
     } catch (err) {
       toast.error(
         err.response?.data?.message ||
-          'Failed to save / সংরক্ষণ ব্যর্থ'
+          'Failed to save'
       );
     } finally {
       setSavingConfig(false);
@@ -659,7 +657,7 @@ export default function SettingsPage() {
   const handleSaveKb = async (e) => {
     e.preventDefault();
     if (!kbForm.question.trim() || !kbForm.answer.trim()) {
-      toast.error('Question & answer required / প্রশ্ন ও উত্তর আবশ্যক');
+      toast.error('Question & answer required');
       return;
     }
 
@@ -675,16 +673,16 @@ export default function SettingsPage() {
     try {
       if (editingId) {
         await updateKnowledge(editingId, payload);
-        toast.success('Updated / আপডেট হয়েছে');
+        toast.success('Updated');
       } else {
         await createKnowledge(payload);
-        toast.success('Created / তৈরি হয়েছে');
+        toast.success('Created');
       }
       setModalOpen(false);
       await loadKnowledge();
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Failed to save / সংরক্ষণ ব্যর্থ'
+        err.response?.data?.message || 'Failed to save'
       );
     } finally {
       setSavingKb(false);
@@ -693,23 +691,23 @@ export default function SettingsPage() {
 
   const handleDeleteKb = async (id) => {
     if (!canDeleteKb) {
-      toast.error('Only ADMIN+ can delete / শুধু ADMIN মুছতে পারবেন');
+      toast.error('Only ADMIN+ can delete');
       return;
     }
     if (
       !window.confirm(
-        'এই এন্ট্রি মুছে ফেলবেন?\nDelete this knowledge entry?'
+        'Delete this knowledge entry?'
       )
     ) {
       return;
     }
     try {
       await deleteKnowledge(id);
-      toast.success('Deleted / মুছে ফেলা হয়েছে');
+      toast.success('Deleted');
       await loadKnowledge();
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Failed to delete / মুছা ব্যর্থ'
+        err.response?.data?.message || 'Failed to delete'
       );
     }
   };
@@ -724,7 +722,7 @@ export default function SettingsPage() {
       );
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Failed to update / আপডেট ব্যর্থ'
+        err.response?.data?.message || 'Failed to update'
       );
     }
   };
@@ -767,12 +765,12 @@ export default function SettingsPage() {
 
     if (staffModal === 'create') {
       if (!staffForm.name.trim() || !staffForm.email.trim()) {
-        toast.error('Name & email required / নাম ও ইমেইল আবশ্যক');
+        toast.error('Name & email required');
         return;
       }
       if (!staffForm.password || staffForm.password.length < 8) {
         toast.error(
-          'Password must be at least 8 characters / পাসওয়ার্ড কমপক্ষে ৮ অক্ষর'
+          'Password must be at least 8 characters'
         );
         return;
       }
@@ -781,7 +779,7 @@ export default function SettingsPage() {
     if (staffModal === 'password') {
       if (!staffForm.password || staffForm.password.length < 8) {
         toast.error(
-          'Password must be at least 8 characters / পাসওয়ার্ড কমপক্ষে ৮ অক্ষর'
+          'Password must be at least 8 characters'
         );
         return;
       }
@@ -793,7 +791,7 @@ export default function SettingsPage() {
       staffForm.password.length < 8
     ) {
       toast.error(
-        'Password must be at least 8 characters / পাসওয়ার্ড কমপক্ষে ৮ অক্ষর'
+        'Password must be at least 8 characters'
       );
       return;
     }
@@ -808,7 +806,7 @@ export default function SettingsPage() {
           role: staffForm.role,
           max_concurrent_chats: Number(staffForm.max_concurrent_chats) || 5,
         });
-        toast.success('Staff created / স্টাফ তৈরি হয়েছে');
+        toast.success('Staff created');
       } else if (staffModal === 'edit') {
         const payload = {
           name: staffForm.name.trim(),
@@ -822,24 +820,24 @@ export default function SettingsPage() {
         if (staffForm.password) {
           if (agent?.role !== 'SUPER_ADMIN') {
             toast.success(
-              'Updated (password unchanged — SUPER_ADMIN only) / আপডেট হয়েছে, পাসওয়ার্ড অপরিবর্তিত'
+              'Updated (password unchanged — SUPER_ADMIN only)'
             );
           } else {
             await resetAgentPassword(editingAgentId, staffForm.password);
-            toast.success('Staff updated / স্টাফ আপডেট হয়েছে');
+            toast.success('Staff updated');
           }
         } else {
-          toast.success('Staff updated / স্টাফ আপডেট হয়েছে');
+          toast.success('Staff updated');
         }
       } else if (staffModal === 'password') {
         await resetAgentPassword(editingAgentId, staffForm.password);
-        toast.success('Password reset / পাসওয়ার্ড রিসেট হয়েছে');
+        toast.success('Password reset');
       }
       setStaffModal(null);
       await loadAgents();
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Staff action failed / স্টাফ অ্যাকশন ব্যর্থ'
+        err.response?.data?.message || 'Staff action failed'
       );
     } finally {
       setSavingStaff(false);
@@ -850,20 +848,20 @@ export default function SettingsPage() {
     const id = agentId(a);
     if (id === String(agent?.id || agent?._id || '')) {
       toast.error(
-        'Cannot delete your own account / নিজের অ্যাকাউন্ট মুছতে পারবেন না'
+        'Cannot delete your own account'
       );
       return;
     }
-    if (!window.confirm(`নিশ্চিতভাবে ${a.name}-কে মুছে ফেলবেন?`)) {
+    if (!window.confirm(`Are you sure you want to delete ${a.name}?`)) {
       return;
     }
     try {
       await deleteAgent(id);
-      toast.success('Staff deleted / স্টাফ মুছে ফেলা হয়েছে');
+      toast.success('Staff deleted');
       await loadAgents();
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Failed to delete / মুছা ব্যর্থ'
+        err.response?.data?.message || 'Failed to delete'
       );
     }
   };
@@ -924,14 +922,14 @@ export default function SettingsPage() {
         {serverConnected === false && (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <p className="text-sm text-amber-800 leading-bn">
-              Chat server সংযুক্ত নেই। ecommerce-chat সার্ভার চালু করুন।
+              Chat server connection failed. Please refresh the page.
             </p>
             <button
               type="button"
               onClick={retryConnection}
               className="shrink-0 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-2 transition"
             >
-              আবার চেষ্টা করুন
+              Retry
             </button>
           </div>
         )}
@@ -947,10 +945,10 @@ export default function SettingsPage() {
               <form onSubmit={handleSaveConfig} className="space-y-4">
                 <ConfigCard
                   title="🤖 AI Personality"
-                  subtitle="স্টোর ও AI এজেন্টের নাম ও ভাষা"
+                  subtitle="Store and AI agent name & language"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Field label="Store Name / স্টোরের নাম">
+                    <Field label="Store Name">
                       <input
                         className={inputClass}
                         value={config.store_name}
@@ -958,7 +956,7 @@ export default function SettingsPage() {
                         required
                       />
                     </Field>
-                    <Field label="AI Agent Name / AI-এর নাম">
+                    <Field label="AI Agent Name">
                       <input
                         className={inputClass}
                         value={config.ai_persona_name}
@@ -969,14 +967,14 @@ export default function SettingsPage() {
                         required
                       />
                     </Field>
-                    <Field label="AI Language / ভাষা">
+                    <Field label="AI Language">
                       <select
                         className={inputClass}
                         value={config.ai_language || 'auto'}
                         onChange={(e) => setField('ai_language', e.target.value)}
                       >
                         <option value="auto">
-                          Auto (কাস্টমার যেভাবে লিখবে)
+                          Auto (match customer language)
                         </option>
                         <option value="bn">Always Bangla</option>
                         <option value="en">Always English</option>
@@ -987,10 +985,10 @@ export default function SettingsPage() {
 
                 <ConfigCard
                   title="📞 Contact Info"
-                  subtitle="কাস্টমার সাপোর্ট যোগাযোগের তথ্য"
+                  subtitle="Customer support contact details"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Field label="Phone / ফোন নম্বর">
+                    <Field label="Phone">
                       <input
                         className={inputClass}
                         value={config.contact_phone}
@@ -999,7 +997,7 @@ export default function SettingsPage() {
                         }
                       />
                     </Field>
-                    <Field label="Email / ইমেইল">
+                    <Field label="Email">
                       <input
                         type="email"
                         className={inputClass}
@@ -1009,7 +1007,7 @@ export default function SettingsPage() {
                         }
                       />
                     </Field>
-                    <Field label="Business Hours / অফিস সময়">
+                    <Field label="Business Hours">
                       <input
                         className={inputClass}
                         value={config.business_hours}
@@ -1021,7 +1019,7 @@ export default function SettingsPage() {
                     </Field>
                   </div>
                   <div className="mt-4">
-                    <Field label="Address / ঠিকানা">
+                    <Field label="Address">
                       <textarea
                         rows={2}
                         className={`${inputClass} leading-bn`}
@@ -1034,14 +1032,14 @@ export default function SettingsPage() {
 
                 <ConfigCard
                   title="📋 Policies"
-                  subtitle="AI এই পলিসি থেকে কাস্টমারকে উত্তর দেবে"
+                  subtitle="AI will answer customers from these policies"
                 >
                   <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 leading-bn">
-                    ⚠️ এখানে যা লিখবেন, AI সেটাই কাস্টমারকে বলবে। বাংলা বা
-                    ইংরেজি যেকোনো ভাষায় লিখতে পারেন।
+                    ⚠️ Whatever you write here is what AI will tell customers.
+                    You can write in any language.
                   </div>
                   <div className="space-y-4">
-                    <Field label="Shipping Policy / শিপিং পলিসি">
+                    <Field label="Shipping Policy">
                       <textarea
                         rows={5}
                         className={`${inputClass} leading-bn`}
@@ -1050,12 +1048,12 @@ export default function SettingsPage() {
                           setField('shipping_policy', e.target.value)
                         }
                         placeholder={
-                          'ঢাকার মধ্যে: ৬০ টাকা, ১-২ দিন।\nঢাকার বাইরে: ১২০ টাকা, ৩-৫ দিন।\n১০০০ টাকার উপরে অর্ডারে ফ্রি ডেলিভারি।'
+                          'Inside Dhaka: 60 BDT, 1–2 days.\nOutside Dhaka: 120 BDT, 3–5 days.\nFree delivery on orders over 1000 BDT.'
                         }
                       />
                       <CharCount value={config.shipping_policy} />
                     </Field>
-                    <Field label="Return Policy / রিটার্ন পলিসি">
+                    <Field label="Return Policy">
                       <textarea
                         rows={5}
                         className={`${inputClass} leading-bn`}
@@ -1066,7 +1064,7 @@ export default function SettingsPage() {
                       />
                       <CharCount value={config.return_policy} />
                     </Field>
-                    <Field label="Delivery Time / ডেলিভারি সময়">
+                    <Field label="Delivery Time">
                       <textarea
                         rows={3}
                         className={`${inputClass} leading-bn`}
@@ -1082,7 +1080,7 @@ export default function SettingsPage() {
 
                 <ConfigCard
                   title="🔴 Handover Keywords"
-                  subtitle="এই শব্দগুলো দেখলে AI নিজেই Live Agent-এ পাঠাবে"
+                  subtitle="When these words appear, AI will hand over to a live agent"
                 >
                   <TagInput
                     value={config.handover_keywords}
@@ -1094,7 +1092,7 @@ export default function SettingsPage() {
 
                 <ConfigCard
                   title="⚡ Canned Responses"
-                  subtitle="টেনে সরিয়ে অর্ডার করুন — / টাইপ করলে দেখাবে"
+                  subtitle="Drag to reorder — shown when typing /"
                 >
                   <div className="flex items-center justify-end mb-3">
                     <button
@@ -1108,7 +1106,7 @@ export default function SettingsPage() {
                       className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-600"
                     >
                       <PlusIcon className="w-3.5 h-3.5" />
-                      নতুন যোগ করুন
+                      Add new
                     </button>
                   </div>
                   <div className="space-y-2">
@@ -1178,8 +1176,7 @@ export default function SettingsPage() {
 
                 {!canEditConfig ? (
                   <p className="text-xs text-amber-600 leading-bn">
-                    Read-only — SUPER_ADMIN required to save / সেভ করতে SUPER_ADMIN
-                    লাগবে
+                    Read-only — SUPER_ADMIN required to save
                   </p>
                 ) : null}
               </form>
@@ -1196,8 +1193,8 @@ export default function SettingsPage() {
                   📚 Knowledge Base
                 </h2>
                 <p className="text-sm text-slate-600 mt-2 leading-bn">
-                  এখানে যা লিখবেন, AI সেটা থেকে কাস্টমারের প্রশ্নের উত্তর দেবে।
-                  বাংলা বা ইংরেজি যেকোনো ভাষায় লিখতে পারেন।
+                  Whatever you write here is used by AI to answer customer
+                  questions. You can write in any language.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
@@ -1207,7 +1204,7 @@ export default function SettingsPage() {
                   className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary hover:bg-primary-600 text-white text-sm font-semibold px-3 py-2 transition"
                 >
                   <PlusIcon className="w-4 h-4" />
-                  নতুন প্রশ্ন-উত্তর যোগ করুন
+                  Add new Q&A
                 </button>
                 <div className="relative flex-1">
                   <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1240,10 +1237,10 @@ export default function SettingsPage() {
                   📚
                 </div>
                 <p className="text-sm font-semibold text-slate-700 leading-bn">
-                  এখনো কোনো FAQ নেই
+                  No FAQs yet
                 </p>
                 <p className="text-xs text-slate-400 mt-1 leading-bn">
-                  প্রথম প্রশ্ন-উত্তর যোগ করে AI-কে শেখান
+                  Add your first Q&A to train the AI
                 </p>
                 <button
                   type="button"
@@ -1251,7 +1248,7 @@ export default function SettingsPage() {
                   className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-primary hover:bg-primary-600 text-white text-sm font-semibold px-4 py-2.5 transition"
                 >
                   <PlusIcon className="w-4 h-4" />
-                  নতুন প্রশ্ন-উত্তর যোগ করুন
+                  Add new Q&A
                 </button>
               </div>
             ) : (
@@ -1369,11 +1366,11 @@ export default function SettingsPage() {
                   disabled={serverConnected === false}
                   className="inline-flex items-center gap-1.5 rounded-xl bg-primary hover:bg-primary-600 disabled:opacity-50 text-white text-sm font-semibold px-3 py-2 transition"
                 >
-                  + নতুন স্টাফ যোগ করুন
+                  + Add new staff
                 </button>
               ) : (
                 <p className="text-xs text-amber-600">
-                  ADMIN access required / অ্যাডমিন অ্যাক্সেস লাগবে
+                  ADMIN access required
                 </p>
               )}
             </div>
@@ -1416,7 +1413,7 @@ export default function SettingsPage() {
                           colSpan={7}
                           className="px-4 py-10 text-center text-slate-400 leading-bn"
                         >
-                          No staff yet / কোনো স্টাফ নেই
+                          No staff yet
                         </td>
                       </tr>
                     ) : (
@@ -1490,7 +1487,7 @@ export default function SettingsPage() {
                             </td>
                             <td className="px-4 py-3 text-slate-500 text-xs leading-bn">
                               {a.is_online
-                                ? 'এখন অনলাইন'
+                                ? 'Online now'
                                 : formatLastSeen(a.last_seen)}
                             </td>
                             <td className="px-4 py-3">
@@ -1550,12 +1547,12 @@ export default function SettingsPage() {
                 <span className="text-primary font-medium">Saving...</span>
               ) : isDirty ? (
                 <span className="text-amber-600 font-medium">
-                  Unsaved changes / অসংরক্ষিত পরিবর্তন
+                  Unsaved changes
                 </span>
               ) : lastSavedLabel ? (
                 lastSavedLabel
               ) : (
-                'Ready / প্রস্তুত'
+                'Ready'
               )}
             </div>
             <button
@@ -1580,8 +1577,8 @@ export default function SettingsPage() {
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-semibold text-slate-900">
                 {editingId
-                  ? 'সম্পাদনা করুন'
-                  : 'নতুন প্রশ্ন-উত্তর যোগ করুন'}
+                  ? 'Edit'
+                  : 'Add new Q&A'}
               </h3>
               <button
                 type="button"
@@ -1592,7 +1589,7 @@ export default function SettingsPage() {
               </button>
             </div>
             <form onSubmit={handleSaveKb} className="p-5 space-y-4">
-              <Field label="Category / বিষয়">
+              <Field label="Category">
                 <select
                   className={inputClass}
                   value={kbForm.category}
@@ -1607,18 +1604,18 @@ export default function SettingsPage() {
                   ))}
                 </select>
               </Field>
-              <Field label="Question / প্রশ্ন">
+              <Field label="Question">
                 <input
                   className={inputClass}
                   value={kbForm.question}
                   onChange={(e) =>
                     setKbForm((f) => ({ ...f, question: e.target.value }))
                   }
-                  placeholder="যেমন: ডেলিভারি চার্জ কত? বা What are delivery charges?"
+                  placeholder="e.g. What are delivery charges?"
                   required
                 />
               </Field>
-              <Field label="Answer / উত্তর">
+              <Field label="Answer">
                 <textarea
                   rows={6}
                   className={inputClass}
@@ -1626,20 +1623,20 @@ export default function SettingsPage() {
                   onChange={(e) =>
                     setKbForm((f) => ({ ...f, answer: e.target.value }))
                   }
-                  placeholder="বিস্তারিত উত্তর লিখুন। বাংলা বা ইংরেজি যেকোনো ভাষায়।"
+                  placeholder="Write a detailed answer in any language."
                   required
                 />
               </Field>
               <Field
-                label="Keywords / কীওয়ার্ড"
-                hint="এই শব্দগুলো দিয়ে AI প্রশ্নটি খুঁজে পাবে"
+                label="Keywords"
+                hint="AI uses these words to find the matching question"
               >
                 <TagInput
                   value={kbForm.keywords}
                   onChange={(tags) =>
                     setKbForm((f) => ({ ...f, keywords: tags }))
                   }
-                  placeholder="প্রশ্নের সাথে সম্পর্কিত শব্দ লিখুন, Enter চাপুন"
+                  placeholder="Type related words and press Enter"
                 />
               </Field>
               <div className="flex items-center justify-between">
@@ -1660,7 +1657,7 @@ export default function SettingsPage() {
                   onClick={() => setModalOpen(false)}
                   className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
                 >
-                  বাতিল
+                  Cancel
                 </button>
                 <button
                   type="submit"
@@ -1668,7 +1665,7 @@ export default function SettingsPage() {
                   className="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-primary-600 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2"
                 >
                   {savingKb ? <Spinner className="w-4 h-4 text-white" /> : null}
-                  সংরক্ষণ করুন ✓
+                  Save ✓
                 </button>
               </div>
             </form>
@@ -1686,8 +1683,8 @@ export default function SettingsPage() {
           >
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-semibold text-slate-900">
-                {staffModal === 'create' && 'নতুন স্টাফ যোগ করুন'}
-                {staffModal === 'edit' && 'স্টাফ সম্পাদনা'}
+                {staffModal === 'create' && 'Add new staff'}
+                {staffModal === 'edit' && 'Edit staff'}
                 {staffModal === 'password' && 'Reset Password'}
               </h3>
               <button
