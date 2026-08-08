@@ -1,23 +1,8 @@
 import axios from 'axios';
 import useAuthStore from '../store/authStore';
 
-const PROD_CHAT_API = 'https://eonlinebazar.com';
-const LOCAL_CHAT_API = 'http://localhost:5001';
-
-function readCookie(name) {
-  if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(
-    new RegExp(
-      `(?:^|; )${name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1')}=([^;]*)`
-    )
-  );
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
 const api = axios.create({
-  baseURL:
-    import.meta.env.VITE_API_URL ||
-    (import.meta.env.PROD ? PROD_CHAT_API : LOCAL_CHAT_API),
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001',
   timeout: 20000,
   withCredentials: true,
   headers: {
@@ -27,9 +12,8 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token =
-    localStorage.getItem('token') ||
-    useAuthStore.getState().token ||
-    readCookie('admin_token');
+    localStorage.getItem('chat_admin_token') ||
+    useAuthStore.getState().token;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -41,8 +25,8 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       useAuthStore.getState().logout();
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      if (window.location.pathname !== '/chat-admin/login') {
+        window.location.href = '/chat-admin/login';
       }
     }
     return Promise.reject(error);

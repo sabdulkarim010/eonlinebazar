@@ -3,13 +3,10 @@ import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import useChatStore from '../store/chatStore';
 
-const PROD_CHAT_API = 'https://eonlinebazar.com';
-const LOCAL_CHAT_API = 'http://localhost:5001';
-
 const SOCKET_URL =
   import.meta.env.VITE_SOCKET_URL ||
   import.meta.env.VITE_API_URL ||
-  (import.meta.env.PROD ? PROD_CHAT_API : LOCAL_CHAT_API);
+  'http://localhost:5001';
 
 let socket = null;
 let listenersBound = false;
@@ -100,12 +97,17 @@ function bindListeners(sock) {
     }
   });
 
-  sock.on('new_handover_request', (payload) => {
+  const handleHandoverEvent = (payload) => {
     const store = useChatStore.getState();
     const room = payload?.room;
+    const roomId = roomIdOf(payload);
     if (room) {
+      const id = String(room._id || room.id);
+      store.updateRoomStatus(id, 'WAITING_FOR_AGENT');
       store.addOrUpdateRoom({ ...room, status: 'WAITING_FOR_AGENT' });
-      store.updateRoomStatus(room._id || room.id, 'WAITING_FOR_AGENT');
+    } else if (roomId) {
+      store.updateRoomStatus(roomId, 'WAITING_FOR_AGENT');
+      store.addOrUpdateRoom({ _id: roomId, status: 'WAITING_FOR_AGENT' });
     }
 
     playAlertSound();
@@ -122,7 +124,11 @@ function bindListeners(sock) {
         fontWeight: 600,
       },
     });
-  });
+  };
+
+  sock.on('new_handover_request', handleHandoverEvent);
+  sock.on('handover_started', handleHandoverEvent);
+  sock.on('waiting_for_agent', handleHandoverEvent);
 
   sock.on('room_updated', (payload) => {
     const room = payload?.room || payload;
@@ -215,6 +221,7 @@ function bindListeners(sock) {
 
   sock.on('disconnect', () => {
     console.warn('[socket] disconnected');
+    listenersBound = false;
   });
 
   sock.on('connect_error', (err) => {
@@ -224,7 +231,8 @@ function bindListeners(sock) {
 
 export function connectSocket() {
   const token =
-    localStorage.getItem('token') || useAuthStore.getState().token;
+    localStorage.getItem('chat_admin_token') ||
+    useAuthStore.getState().token;
 
   if (!token) return null;
 
@@ -253,8 +261,11 @@ export function connectSocket() {
 
 export function disconnectSocket() {
   if (socket) {
+    socket.removeAllListeners();
     socket.disconnect();
+    socket = null;
   }
+  listenersBound = false;
 }
 
 export function getSocket() {

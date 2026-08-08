@@ -3,14 +3,26 @@ name: Deploy Chat System
 on:
   push:
     branches: [main]
-    paths:
-      - 'ecommerce-chat/**'
-      - 'admin-dashboard/**'
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build Admin Dashboard
+        working-directory: admin-dashboard
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_SOCKET_URL: ${{ secrets.VITE_SOCKET_URL }}
+        run: |
+          npm ci
+          npm run build
+
       - name: Deploy to DigitalOcean
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -18,18 +30,19 @@ jobs:
           username: ${{ secrets.DO_USERNAME }}
           key: ${{ secrets.DO_SSH_KEY }}
           script: |
-            echo "=== Deploying Chat Server ==="
-            cd /var/www/ecommerce-chat
+            cd /var/www/eonlinebazar
             git pull origin main
+            cd ecommerce-chat
             npm ci --only=production
-            pm2 reload chat-server --update-env
-
-            echo "=== Building Admin Dashboard ==="
-            cd /var/www/admin-dashboard
-            git pull origin main
-            npm ci
-            npm run build
-            cp -r dist/* /var/www/html/admin/
-
-            echo "=== Deploy Complete ==="
+            pm2 reload chat-server --update-env || pm2 start ecosystem.config.js --env production
             pm2 status
+
+      - name: Copy Dashboard Files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USERNAME }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          source: "admin-dashboard/dist/*"
+          target: "/var/www/html/chat-admin/"
+          strip_components: 2

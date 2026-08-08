@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import api from '../services/api';
 
+const TOKEN_KEY = 'chat_admin_token';
+
 const useAuthStore = create(
   persist(
     (set) => ({
@@ -10,7 +12,7 @@ const useAuthStore = create(
       isAuthenticated: false,
 
       login: async (usernameOrEmail, password) => {
-        // Main API expects `username`; chat API expects `email` — send both.
+        // Chat API accepts email; also send username for compatibility.
         const loginId = String(usernameOrEmail || '').trim();
         const { data } = await api.post('/api/admin/login', {
           username: loginId,
@@ -21,7 +23,7 @@ const useAuthStore = create(
           throw new Error(data?.message || 'Login failed');
         }
 
-        localStorage.setItem('token', data.token);
+        localStorage.setItem(TOKEN_KEY, data.token);
 
         set({
           agent: data.agent,
@@ -33,7 +35,7 @@ const useAuthStore = create(
       },
 
       logout: () => {
-        localStorage.removeItem('token');
+        localStorage.removeItem(TOKEN_KEY);
         set({
           agent: null,
           token: null,
@@ -42,7 +44,7 @@ const useAuthStore = create(
       },
 
       setAuth: (agent, token) => {
-        if (token) localStorage.setItem('token', token);
+        if (token) localStorage.setItem(TOKEN_KEY, token);
         set({
           agent,
           token,
@@ -59,7 +61,7 @@ const useAuthStore = create(
       }),
       onRehydrateStorage: () => (state) => {
         if (state?.token) {
-          localStorage.setItem('token', state.token);
+          localStorage.setItem(TOKEN_KEY, state.token);
         }
       },
     }

@@ -26,7 +26,7 @@ export default function RoomListItem({ room }) {
   const isOrder = room.type === 'ORDER_SUPPORT';
 
   const handleClick = async () => {
-    setActiveRoom(id);
+    setActiveRoom(id, room);
     clearUnread(id);
     const socket = getSocket();
     if (socket?.connected) {

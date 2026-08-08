@@ -30,6 +30,7 @@ function TypingDots() {
 export default function ChatWindow() {
   const agent = useAuthStore((s) => s.agent);
   const activeRoomId = useChatStore((s) => s.activeRoomId);
+  const activeRoom = useChatStore((s) => s.activeRoom);
   const rooms = useChatStore((s) => s.rooms);
   const messagesMap = useChatStore((s) => s.messages);
   const typingRooms = useChatStore((s) => s.typingRooms);
@@ -38,8 +39,11 @@ export default function ChatWindow() {
   const updateRoomStatus = useChatStore((s) => s.updateRoomStatus);
 
   const room = useMemo(
-    () => rooms.find((r) => getRoomId(r) === activeRoomId) || null,
-    [rooms, activeRoomId]
+    () =>
+      activeRoom ||
+      rooms.find((r) => getRoomId(r) === activeRoomId) ||
+      null,
+    [activeRoom, rooms, activeRoomId]
   );
 
   const messages = messagesMap[activeRoomId] || [];
@@ -281,14 +285,28 @@ export default function ChatWindow() {
     }
   };
 
-  return (
-    !room ? (
+  if (!activeRoomId) {
+    return (
       <div className="h-full flex items-center justify-center bg-slate-50">
         <p className="text-slate-400 text-sm">
-          বাম দিক থেকে একটি চ্যাট সিলেক্ট করুন
+          বাম দিক থেকে চ্যাট সিলেক্ট করুন
         </p>
       </div>
-    ) : (
+    );
+  }
+
+  if (!room) {
+    return (
+      <div className="h-full flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-slate-400 text-sm">লোড হচ্ছে…</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
     <div className="h-full flex flex-col bg-slate-50 border-x border-slate-200">
       <div className="shrink-0 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-3">
         <div className="min-w-0">
@@ -427,6 +445,5 @@ export default function ChatWindow() {
         </div>
       )}
     </div>
-    )
   );
 }

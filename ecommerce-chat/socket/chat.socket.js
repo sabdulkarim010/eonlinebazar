@@ -316,6 +316,20 @@ function initChatSocket(io) {
                 room_id,
                 status: room.status,
               });
+              customerNs.to(String(room_id)).emit('waiting_for_agent', {
+                room_id,
+                status: room.status,
+              });
+              adminNs.emit('handover_started', {
+                room_id,
+                status: room.status,
+                room,
+              });
+              adminNs.emit('waiting_for_agent', {
+                room_id,
+                status: room.status,
+                room,
+              });
 
               adminNs.emit('new_handover_request', {
                 room,
@@ -646,6 +660,21 @@ function initChatSocket(io) {
           if (!room) {
             socket.emit('error', { message: 'Agent or room not found' });
             return;
+          }
+
+          if (room.status !== 'ACTIVE') {
+            return socket.emit('error', {
+              message: 'Room is not active',
+            });
+          }
+
+          if (
+            !room.assigned_agent_id ||
+            String(room.assigned_agent_id) !== String(agent._id)
+          ) {
+            return socket.emit('error', {
+              message: 'Not assigned to this room',
+            });
           }
 
           let attachments = [];

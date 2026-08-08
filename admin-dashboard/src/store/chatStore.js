@@ -4,6 +4,7 @@ import { persistTag as persistTagApi } from '../services/api';
 const useChatStore = create((set, get) => ({
   rooms: [],
   activeRoomId: null,
+  activeRoom: null,
   messages: {},
   stats: {
     total_today: 0,
@@ -27,30 +28,68 @@ const useChatStore = create((set, get) => ({
       const id = room._id || room.id;
       if (room.unread_count > 0) unreadCounts[id] = room.unread_count;
     });
-    set({ rooms: rooms || [], unreadCounts });
+    const nextRooms = rooms || [];
+    const activeRoomId = get().activeRoomId;
+    const activeFromList = activeRoomId
+      ? nextRooms.find((r) => String(r._id || r.id) === activeRoomId)
+      : null;
+    set({
+      rooms: nextRooms,
+      unreadCounts,
+      ...(activeFromList
+        ? { activeRoom: { ...activeFromList, _id: activeRoomId } }
+        : {}),
+    });
   },
 
   setCounts: (counts) => set({ counts: { ...get().counts, ...counts } }),
 
+  adjustCounts: (fromStatus, toStatus) => {
+    const counts = { ...get().counts };
+    if (fromStatus && Object.prototype.hasOwnProperty.call(counts, fromStatus)) {
+      counts[fromStatus] = Math.max(0, (counts[fromStatus] || 0) - 1);
+    }
+    if (toStatus && Object.prototype.hasOwnProperty.call(counts, toStatus)) {
+      counts[toStatus] = (counts[toStatus] || 0) + 1;
+    }
+    set({ counts });
+  },
+
   addOrUpdateRoom: (room) => {
     if (!room) return;
     const id = String(room._id || room.id);
-    const rooms = [...get().rooms];
-    const idx = rooms.findIndex((r) => String(r._id || r.id) === id);
-    if (idx >= 0) {
-      rooms[idx] = { ...rooms[idx], ...room };
-    } else {
-      rooms.unshift(room);
-    }
-    rooms.sort(
+    const rooms = get().rooms;
+    const exists = rooms.some((r) => String(r._id || r.id) === id);
+    const newRooms = exists
+      ? rooms.map((r) =>
+          String(r._id || r.id) === id ? { ...r, ...room } : r
+        )
+      : [room, ...rooms];
+    newRooms.sort(
       (a, b) =>
         new Date(b.last_message_at || b.updatedAt || 0) -
         new Date(a.last_message_at || a.updatedAt || 0)
     );
-    set({ rooms });
+    set({ rooms: newRooms });
+    if (get().activeRoomId === id) {
+      set({
+        activeRoom: { ...(get().activeRoom || {}), ...room, _id: id },
+      });
+    }
   },
 
-  setActiveRoom: (roomId) => set({ activeRoomId: roomId ? String(roomId) : null }),
+  setActiveRoom: (roomId, roomObj = null) => {
+    const id = roomId ? String(roomId) : null;
+    set({
+      activeRoomId: id,
+      activeRoom: roomObj
+        ? { ...roomObj, _id: id }
+        : id
+          ? get().rooms.find((r) => String(r._id || r.id) === id) ||
+            get().activeRoom
+          : null,
+    });
+  },
 
   addMessage: (roomId, message) => {
     if (!roomId || !message) return;
@@ -120,10 +159,21 @@ const useChatStore = create((set, get) => ({
   updateRoomStatus: (roomId, status) => {
     if (!roomId || !status) return;
     const id = String(roomId);
+    const existing =
+      get().rooms.find((r) => String(r._id || r.id) === id) ||
+      (get().activeRoomId === id ? get().activeRoom : null);
+    const fromStatus = existing?.status;
+    if (fromStatus !== status) {
+      get().adjustCounts(fromStatus || null, status);
+    }
     const rooms = get().rooms.map((r) =>
       String(r._id || r.id) === id ? { ...r, status } : r
     );
-    set({ rooms });
+    const patch = { rooms };
+    if (get().activeRoomId === id) {
+      patch.activeRoom = { ...(get().activeRoom || {}), _id: id, status };
+    }
+    set(patch);
   },
 
   incrementUnread: (roomId) => {
@@ -214,9 +264,13 @@ const useChatStore = create((set, get) => ({
   },
 
   getActiveRoom: () => {
-    const { rooms, activeRoomId } = get();
+    const { rooms, activeRoomId, activeRoom } = get();
     if (!activeRoomId) return null;
-    return rooms.find((r) => String(r._id || r.id) === activeRoomId) || null;
+    return (
+      activeRoom ||
+      rooms.find((r) => String(r._id || r.id) === activeRoomId) ||
+      null
+    );
   },
 }));
 

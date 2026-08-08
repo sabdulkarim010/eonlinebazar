@@ -33,9 +33,13 @@ export default function CustomerContext() {
   const setActiveRoom = useChatStore((s) => s.setActiveRoom);
   const setMessages = useChatStore((s) => s.setMessages);
 
+  const activeRoom = useChatStore((s) => s.activeRoom);
   const room = useMemo(
-    () => rooms.find((r) => getRoomId(r) === activeRoomId) || null,
-    [rooms, activeRoomId]
+    () =>
+      activeRoom ||
+      rooms.find((r) => getRoomId(r) === activeRoomId) ||
+      null,
+    [activeRoom, rooms, activeRoomId]
   );
 
   const [order, setOrder] = useState(null);
@@ -368,7 +372,7 @@ export default function CustomerContext() {
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveRoom(getRoomId(chat));
+                      setActiveRoom(getRoomId(chat), chat);
                       setMessages(getRoomId(chat), []);
                       window.open(
                         `/dashboard?room=${getRoomId(chat)}`,

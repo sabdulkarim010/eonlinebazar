@@ -6,29 +6,18 @@ import useChatStore from '../store/chatStore';
 import { toBanglaDigits } from '../utils/helpers';
 
 const TABS = [
+  { id: 'BOT', label: 'AI', emoji: '🤖' },
   { id: 'WAITING_FOR_AGENT', label: 'অপেক্ষায়', emoji: '🔴' },
   { id: 'ACTIVE', label: 'লাইভ', emoji: '🟢' },
   { id: 'RESOLVED', label: 'সমাপ্ত', emoji: '⚫' },
 ];
 
-export default function Sidebar({ onRefresh }) {
+export default function Sidebar({ onRefresh, onTabChange }) {
   const rooms = useChatStore((s) => s.rooms);
+  const counts = useChatStore((s) => s.counts);
   const onlineAgents = useChatStore((s) => s.onlineAgents);
   const [tab, setTab] = useState('WAITING_FOR_AGENT');
   const [query, setQuery] = useState('');
-
-  const counts = useMemo(() => {
-    const c = {
-      WAITING_FOR_AGENT: 0,
-      ACTIVE: 0,
-      RESOLVED: 0,
-      BOT: 0,
-    };
-    rooms.forEach((r) => {
-      if (c[r.status] != null) c[r.status] += 1;
-    });
-    return c;
-  }, [rooms]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -54,6 +43,11 @@ export default function Sidebar({ onRefresh }) {
   }, [rooms, tab, query]);
 
   const isOnline = onlineAgents.length > 0;
+
+  const handleTabClick = (status) => {
+    setTab(status);
+    if (onTabChange) onTabChange(status);
+  };
 
   return (
     <aside className="h-full bg-slate-900 text-slate-100 flex flex-col border-r border-slate-800">
@@ -83,7 +77,7 @@ export default function Sidebar({ onRefresh }) {
 
       <div className="px-2 pt-3 flex gap-1">
         {TABS.map((t) => {
-          const count = counts[t.id] || 0;
+          const count = counts?.[t.id] || 0;
           const active = tab === t.id;
           const waitingPulse = t.id === 'WAITING_FOR_AGENT' && count > 0;
 
@@ -91,7 +85,7 @@ export default function Sidebar({ onRefresh }) {
             <button
               key={t.id}
               type="button"
-              onClick={() => setTab(t.id)}
+              onClick={() => handleTabClick(t.id)}
               className={`flex-1 rounded-lg px-1.5 py-2 text-[11px] font-medium transition ${
                 active
                   ? 'bg-primary text-white'
