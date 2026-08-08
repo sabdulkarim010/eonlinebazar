@@ -210,7 +210,7 @@
     (function () {
       // Override → same-origin when served by ecommerce-chat (:5001) → local default
       var API = (function () {
-        var PROD = 'https://eonlinebazar-chat-api.onrender.com';
+        var PROD = 'https://eonlinebazar.com';
         var LOCAL = 'http://localhost:5001';
         var env = window.__ENV__ || window.__RUNTIME_CONFIG__ || {};
         var fromEnv =
@@ -223,11 +223,10 @@
         var origin = window.location && window.location.origin;
         var port = String((window.location && window.location.port) || '');
         var host = (window.location && window.location.hostname) || '';
-        if (origin && /^https?:/.test(origin) && (port === '5001' || host === 'eonlinebazar-chat-api.onrender.com')) {
+        if (origin && /^https?:/.test(origin) && (port === '5001' || /(^|\.)eonlinebazar\.com$/i.test(host))) {
           return origin.replace(/\/$/, '');
         }
-        if (/(^|\.)eonlinebazar\.com$/i.test(host)) return PROD;
-        return LOCAL;
+        return /(^|\.)eonlinebazar\.com$/i.test(host) ? PROD : LOCAL;
       })();
       var modeEl = document.getElementById('active-mode');
       var snippetEl = document.getElementById('snippet');

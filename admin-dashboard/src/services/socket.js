@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import useChatStore from '../store/chatStore';
 
-const PROD_CHAT_API = 'https://eonlinebazar-chat-api.onrender.com';
+const PROD_CHAT_API = 'https://eonlinebazar.com';
 const LOCAL_CHAT_API = 'http://localhost:5001';
 
 const SOCKET_URL =

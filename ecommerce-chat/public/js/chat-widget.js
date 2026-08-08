@@ -1086,7 +1086,7 @@
 
   function defaultChatApiUrl() {
     var LOCAL_CHAT_API = 'http://localhost:5001';
-    var PROD_CHAT_API = 'https://eonlinebazar-chat-api.onrender.com';
+    var PROD_CHAT_API = 'https://eonlinebazar.com';
 
     function strip(url) {
       return String(url || '').replace(/\/$/, '');
@@ -1123,11 +1123,8 @@
       if (origin && (port === '5001' || /:5001$/.test(origin))) {
         return strip(origin);
       }
-      if (host === 'eonlinebazar-chat-api.onrender.com') {
-        return strip(origin);
-      }
       if (/(^|\.)eonlinebazar\.com$/i.test(host)) {
-        return PROD_CHAT_API;
+        return strip(origin) || PROD_CHAT_API;
       }
     } catch (e2) { /* ignore */ }
 

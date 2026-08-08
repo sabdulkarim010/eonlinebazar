@@ -13,7 +13,7 @@
   var loadingPromise = null;
 
   var LOCAL_CHAT_API = 'http://localhost:5001';
-  var PROD_CHAT_API = 'https://eonlinebazar-chat-api.onrender.com';
+  var PROD_CHAT_API = 'https://eonlinebazar.com';
 
   function stripSlash(url) {
     return String(url || '').replace(/\/$/, '');
@@ -69,7 +69,7 @@
       if (origin && (port === '5001' || /:5001$/.test(origin))) {
         return stripSlash(origin);
       }
-      if (host === 'eonlinebazar-chat-api.onrender.com') {
+      if (/(^|\.)eonlinebazar\.com$/i.test(host)) {
         return stripSlash(origin);
       }
     } catch (e3) { /* ignore */ }

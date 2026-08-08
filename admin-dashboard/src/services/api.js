@@ -1,7 +1,7 @@
 import axios from 'axios';
 import useAuthStore from '../store/authStore';
 
-const PROD_CHAT_API = 'https://eonlinebazar-chat-api.onrender.com';
+const PROD_CHAT_API = 'https://eonlinebazar.com';
 const LOCAL_CHAT_API = 'http://localhost:5001';
 
 function readCookie(name) {
