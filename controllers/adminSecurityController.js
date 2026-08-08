@@ -242,7 +242,8 @@ async function dispatchChallenge(admin, method, fp) {
    ================================================================== */
 exports.loginAdmin = async (req, res) => {
     try {
-        const username = String(req.body.username || '').trim();
+        // Accept `username` (canonical) or `email` (admin-dashboard / chat clients).
+        const username = String(req.body.username || req.body.email || '').trim();
         const password = String(req.body.password || '');
         const fp = fingerprint(req);
 

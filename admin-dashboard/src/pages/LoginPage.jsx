@@ -7,20 +7,20 @@ import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
 export default function LoginPage() {
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
-  const [email, setEmail] = useState('admin@yourshop.com');
+  const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email.trim() || !password) {
-      toast.error('ইমেইল ও পাসওয়ার্ড দিন');
+    if (!username.trim() || !password) {
+      toast.error('ইউজারনেম/ইমেইল ও পাসওয়ার্ড দিন');
       return;
     }
 
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      await login(username.trim(), password);
       toast.success('সফলভাবে লগইন হয়েছে');
       navigate('/dashboard', { replace: true });
     } catch (err) {
@@ -45,17 +45,17 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">
-              ইমেইল
+            <label htmlFor="username" className="block text-sm font-medium text-slate-700 mb-1.5">
+              ইউজারনেম / ইমেইল
             </label>
             <input
-              id="email"
-              type="email"
+              id="username"
+              type="text"
               autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
-              placeholder="admin@yourshop.com"
+              placeholder="admin"
               required
             />
           </div>

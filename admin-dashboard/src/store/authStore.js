@@ -9,8 +9,14 @@ const useAuthStore = create(
       token: null,
       isAuthenticated: false,
 
-      login: async (email, password) => {
-        const { data } = await api.post('/api/admin/login', { email, password });
+      login: async (usernameOrEmail, password) => {
+        // Main API expects `username`; chat API expects `email` — send both.
+        const loginId = String(usernameOrEmail || '').trim();
+        const { data } = await api.post('/api/admin/login', {
+          username: loginId,
+          email: loginId,
+          password,
+        });
         if (!data?.success || !data?.token) {
           throw new Error(data?.message || 'Login failed');
         }
