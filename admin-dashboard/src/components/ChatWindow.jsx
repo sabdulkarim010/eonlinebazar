@@ -319,7 +319,7 @@ export default function ChatWindow() {
       const form = new FormData();
       form.append('image', file);
       form.append('room_id', activeRoomId);
-      const { data } = await api.post('/api/upload/image', form, {
+      const { data } = await api.post('/upload/image', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       if (!data?.url || String(data.url).startsWith('data:')) {

@@ -35,22 +35,22 @@ api.interceptors.response.use(
 
 export async function fetchRooms(status) {
   const params = status ? { status } : undefined;
-  const { data } = await api.get('/api/admin/rooms', { params });
+  const { data } = await api.get('/admin/rooms', { params });
   return data;
 }
 
 export async function fetchRoomDetail(roomId) {
-  const { data } = await api.get(`/api/admin/rooms/${roomId}`);
+  const { data } = await api.get(`/admin/rooms/${roomId}`);
   return data;
 }
 
 export async function fetchStats() {
-  const { data } = await api.get('/api/admin/stats');
+  const { data } = await api.get('/admin/stats');
   return data;
 }
 
 export async function sendAgentMessage(roomId, message, attachments = []) {
-  const { data } = await api.post(`/api/admin/rooms/${roomId}/messages`, {
+  const { data } = await api.post(`/admin/rooms/${roomId}/messages`, {
     message,
     attachments,
   });
@@ -58,79 +58,79 @@ export async function sendAgentMessage(roomId, message, attachments = []) {
 }
 
 export async function updateConfig(payload) {
-  const { data } = await api.put('/api/admin/config', payload);
+  const { data } = await api.put('/admin/config', payload);
   return data;
 }
 
 export async function fetchConfig() {
-  const { data } = await api.get('/api/admin/config');
+  const { data } = await api.get('/admin/config');
   return data;
 }
 
 export async function fetchKnowledge(params) {
-  const { data } = await api.get('/api/knowledge', { params });
+  const { data } = await api.get('/knowledge', { params });
   return data;
 }
 
 export async function createKnowledge(payload) {
-  const { data } = await api.post('/api/knowledge', payload);
+  const { data } = await api.post('/knowledge', payload);
   return data;
 }
 
 export async function updateKnowledge(id, payload) {
-  const { data } = await api.put(`/api/knowledge/${id}`, payload);
+  const { data } = await api.put(`/knowledge/${id}`, payload);
   return data;
 }
 
 export async function deleteKnowledge(id) {
-  const { data } = await api.delete(`/api/knowledge/${id}`);
+  const { data } = await api.delete(`/knowledge/${id}`);
   return data;
 }
 
 export async function checkKnowledgeEmpty() {
-  const { data } = await api.get('/api/knowledge/check-empty');
+  const { data } = await api.get('/knowledge/check-empty');
   return data;
 }
 
 export async function seedKnowledgeDefaults() {
-  const { data } = await api.post('/api/knowledge/seed-defaults');
+  const { data } = await api.post('/knowledge/seed-defaults');
   return data;
 }
 
 export async function fetchAgents() {
-  const { data } = await api.get('/api/admin/agents');
+  const { data } = await api.get('/admin/agents');
   return data;
 }
 
 export async function createAgent(payload) {
-  const { data } = await api.post('/api/admin/agents', payload);
+  const { data } = await api.post('/admin/agents', payload);
   return data;
 }
 
 export async function updateAgent(id, payload) {
-  const { data } = await api.put(`/api/admin/agents/${id}`, payload);
+  const { data } = await api.put(`/admin/agents/${id}`, payload);
   return data;
 }
 
 export async function deleteAgent(id) {
-  const { data } = await api.delete(`/api/admin/agents/${id}`);
+  const { data } = await api.delete(`/admin/agents/${id}`);
   return data;
 }
 
 export async function resetAgentPassword(id, new_password) {
-  const { data } = await api.post(`/api/admin/agents/${id}/reset-password`, {
+  const { data } = await api.post(`/admin/agents/${id}/reset-password`, {
     new_password,
   });
   return data;
 }
 
 export async function fetchOrder(orderId) {
-  const { data } = await api.get(`/api/orders/${orderId}`);
+  const { data } = await api.get(`/orders/${orderId}`);
   return data;
 }
 
 export async function persistTag(roomId, tag) {
-  const { data } = await api.patch(`/api/admin/rooms/${roomId}/tags`, {
+  const { data } = await api.patch(`/admin/rooms/${roomId}/tags`, {
     tag,
   });
   return data;

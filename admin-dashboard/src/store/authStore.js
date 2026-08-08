@@ -14,7 +14,7 @@ const useAuthStore = create(
       login: async (usernameOrEmail, password) => {
         // Chat API accepts email; also send username for compatibility.
         const loginId = String(usernameOrEmail || '').trim();
-        const { data } = await api.post('/api/admin/login', {
+        const { data } = await api.post('/admin/login', {
           username: loginId,
           email: loginId,
           password,
