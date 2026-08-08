@@ -45,16 +45,35 @@ function applySecurityMiddleware(app) {
         })
     );
 
-    const corsOrigin =
-        process.env.NODE_ENV === 'development' ? '*' : process.env.FRONTEND_URL;
+    const allowedOrigins = [
+        ...new Set(
+            [
+                'https://eonlinebazar.com',
+                'https://www.eonlinebazar.com',
+                'http://localhost:3000',
+                process.env.FRONTEND_URL,
+            ].filter(Boolean)
+        ),
+    ];
 
-    app.use(
-        cors({
-            origin: corsOrigin,
-            credentials: true,
-            methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        })
-    );
+    const corsOptions = {
+        origin(origin, callback) {
+            // Non-browser clients / same-origin requests may omit Origin
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+                return;
+            }
+            console.warn(`[CORS] blocked origin: ${origin}`);
+            callback(null, false);
+        },
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+    };
+
+    app.use(cors(corsOptions));
+    // Express 5: named wildcard required (path-to-regexp v8)
+    app.options('/{*splat}', cors(corsOptions));
 
     const authLimiter = rateLimit({
         validate: { trustProxy: false },
