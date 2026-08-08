@@ -17,23 +17,39 @@ export default {
           800: '#363190',
           900: '#242168',
         },
+        success: '#10B981',
+        warning: '#F59E0B',
+        danger: '#EF4444',
+        info: '#3B82F6',
+        sidebar: '#0F172A',
+        page: '#F1F5F9',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       keyframes: {
         pulseGlow: {
-          '0%, 100%': { boxShadow: '0 0 0 0 rgba(249, 115, 22, 0.5)' },
-          '50%': { boxShadow: '0 0 0 8px rgba(249, 115, 22, 0)' },
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(245, 158, 11, 0.55)' },
+          '50%': { boxShadow: '0 0 0 10px rgba(245, 158, 11, 0)' },
         },
         pulseDot: {
           '0%, 100%': { opacity: '1', transform: 'scale(1)' },
-          '50%': { opacity: '0.5', transform: 'scale(1.3)' },
+          '50%': { opacity: '0.45', transform: 'scale(1.35)' },
+        },
+        pulseBadge: {
+          '0%, 100%': { transform: 'scale(1)', opacity: '1' },
+          '50%': { transform: 'scale(1.12)', opacity: '0.85' },
+        },
+        fadeIn: {
+          '0%': { opacity: '0', transform: 'translateY(4px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
         },
       },
       animation: {
         pulseGlow: 'pulseGlow 1.5s ease-in-out infinite',
         pulseDot: 'pulseDot 1.2s ease-in-out infinite',
+        pulseBadge: 'pulseBadge 1.4s ease-in-out infinite',
+        fadeIn: 'fadeIn 0.35s ease-out',
       },
     },
   },

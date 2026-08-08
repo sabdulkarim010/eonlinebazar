@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   ArrowLeftIcon,
+  Bars3Icon,
   EyeIcon,
   EyeSlashIcon,
   MagnifyingGlassIcon,
@@ -10,7 +11,13 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import useAuthStore from '../store/authStore';
-import { avatarColor, getInitials, toBanglaDigits } from '../utils/helpers';
+import {
+  avatarColor,
+  getInitials,
+  highlightMatch,
+  relativeTimeBnShort,
+  toBanglaDigits,
+} from '../utils/helpers';
 import {
   fetchConfig,
   updateConfig,
@@ -34,20 +41,42 @@ const TABS = [
 ];
 
 const CATEGORY_META = [
-  { value: 'SHIPPING', label: '🚚 SHIPPING — ডেলিভারি ও শিপিং', color: 'bg-sky-100 text-sky-700' },
-  { value: 'RETURN', label: '🔄 RETURN — রিটার্ন ও এক্সচেঞ্জ', color: 'bg-amber-100 text-amber-700' },
-  { value: 'PAYMENT', label: '💳 PAYMENT — পেমেন্ট পদ্ধতি', color: 'bg-emerald-100 text-emerald-700' },
-  { value: 'ORDER', label: '📦 ORDER — অর্ডার ট্র্যাকিং', color: 'bg-violet-100 text-violet-700' },
-  { value: 'PRODUCT', label: '👕 PRODUCT — পণ্য সম্পর্কে', color: 'bg-pink-100 text-pink-700' },
-  { value: 'SIZE_GUIDE', label: '📏 SIZE_GUIDE — সাইজ গাইড', color: 'bg-indigo-100 text-indigo-700' },
-  { value: 'CONTACT', label: '📞 CONTACT — যোগাযোগ', color: 'bg-cyan-100 text-cyan-700' },
-  { value: 'GENERAL', label: '❓ GENERAL — সাধারণ প্রশ্ন', color: 'bg-slate-100 text-slate-700' },
+  { value: 'SHIPPING', icon: '🚚', label: '🚚 SHIPPING — ডেলিভারি ও শিপিং', color: 'bg-sky-100 text-sky-700' },
+  { value: 'RETURN', icon: '🔄', label: '🔄 RETURN — রিটার্ন ও এক্সচেঞ্জ', color: 'bg-amber-100 text-amber-700' },
+  { value: 'PAYMENT', icon: '💳', label: '💳 PAYMENT — পেমেন্ট পদ্ধতি', color: 'bg-emerald-100 text-emerald-700' },
+  { value: 'ORDER', icon: '📦', label: '📦 ORDER — অর্ডার ট্র্যাকিং', color: 'bg-violet-100 text-violet-700' },
+  { value: 'PRODUCT', icon: '👕', label: '👕 PRODUCT — পণ্য সম্পর্কে', color: 'bg-pink-100 text-pink-700' },
+  { value: 'SIZE_GUIDE', icon: '📏', label: '📏 SIZE_GUIDE — সাইজ গাইড', color: 'bg-indigo-100 text-indigo-700' },
+  { value: 'CONTACT', icon: '📞', label: '📞 CONTACT — যোগাযোগ', color: 'bg-cyan-100 text-cyan-700' },
+  { value: 'GENERAL', icon: '❓', label: '❓ GENERAL — সাধারণ প্রশ্ন', color: 'bg-slate-100 text-slate-700' },
+];
+
+const TAG_CHIP_COLORS = [
+  'bg-rose-100 text-rose-700 border-rose-200',
+  'bg-amber-100 text-amber-700 border-amber-200',
+  'bg-emerald-100 text-emerald-700 border-emerald-200',
+  'bg-sky-100 text-sky-700 border-sky-200',
+  'bg-violet-100 text-violet-700 border-violet-200',
+  'bg-pink-100 text-pink-700 border-pink-200',
+  'bg-cyan-100 text-cyan-700 border-cyan-200',
 ];
 
 const ROLE_OPTIONS = [
-  { value: 'SUPER_ADMIN', label: '👑 SUPER_ADMIN', badge: 'bg-amber-100 text-amber-800' },
-  { value: 'ADMIN', label: '🛡️ ADMIN', badge: 'bg-sky-100 text-sky-800' },
-  { value: 'AGENT', label: '💬 AGENT', badge: 'bg-emerald-100 text-emerald-800' },
+  {
+    value: 'SUPER_ADMIN',
+    label: '👑 SUPER_ADMIN',
+    badge: 'bg-amber-100 text-amber-800 border border-amber-300 shadow-sm shadow-amber-200/60',
+  },
+  {
+    value: 'ADMIN',
+    label: '🛡️ ADMIN',
+    badge: 'bg-blue-100 text-blue-800 border border-blue-200',
+  },
+  {
+    value: 'AGENT',
+    label: '💬 AGENT',
+    badge: 'bg-slate-100 text-slate-600 border border-slate-200',
+  },
 ];
 
 function roleBadgeClass(role) {
@@ -150,25 +179,70 @@ function formatLastSavedBn(date) {
 }
 
 function formatLastSeen(value) {
-  if (!value) return '—';
-  try {
-    return new Date(value).toLocaleString('bn-BD', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    });
-  } catch {
-    return '—';
-  }
+  return relativeTimeBnShort(value);
 }
 
-function categoryBadge(category) {
+function categoryMeta(category) {
   return (
-    CATEGORY_META.find((c) => c.value === category)?.color ||
-    'bg-slate-100 text-slate-700'
+    CATEGORY_META.find((c) => c.value === category) || {
+      icon: '❓',
+      color: 'bg-slate-100 text-slate-700',
+      value: category,
+    }
   );
 }
 
-function TagInput({ value, onChange, placeholder }) {
+function HighlightedText({ text, query, className = '' }) {
+  const parts = highlightMatch(text, query);
+  if (typeof parts === 'string') {
+    return <span className={className}>{parts}</span>;
+  }
+  return (
+    <span className={className}>
+      {parts.map((part, i) =>
+        part.toLowerCase() === String(query || '').trim().toLowerCase() ? (
+          <mark key={`${part}-${i}`} className="search-hit">
+            {part}
+          </mark>
+        ) : (
+          <span key={`${part}-${i}`}>{part}</span>
+        )
+      )}
+    </span>
+  );
+}
+
+function ConfigCard({ title, subtitle, children }) {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/60">
+        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+        {subtitle ? (
+          <p className="text-xs text-slate-500 mt-0.5 leading-bn">{subtitle}</p>
+        ) : null}
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+}
+
+function CharCount({ value, max }) {
+  const len = String(value || '').length;
+  return (
+    <div className="flex justify-end mt-1">
+      <span
+        className={`text-[11px] tabular-nums ${
+          max && len > max ? 'text-danger' : 'text-slate-400'
+        }`}
+      >
+        {toBanglaDigits(len)}
+        {max ? ` / ${toBanglaDigits(max)}` : ''} অক্ষর
+      </span>
+    </div>
+  );
+}
+
+function TagInput({ value, onChange, placeholder, colorful = false }) {
   const [draft, setDraft] = useState('');
   const tags = Array.isArray(value) ? value : [];
 
@@ -186,16 +260,20 @@ function TagInput({ value, onChange, placeholder }) {
   return (
     <div className="rounded-xl border border-slate-200 px-3 py-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition bg-white">
       <div className="flex flex-wrap gap-1.5 mb-1.5">
-        {tags.map((tag) => (
+        {tags.map((tag, idx) => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1 rounded-lg bg-primary/10 text-primary text-xs font-medium px-2 py-1"
+            className={`inline-flex items-center gap-1 rounded-full text-xs font-medium px-2.5 py-1 border ${
+              colorful
+                ? TAG_CHIP_COLORS[idx % TAG_CHIP_COLORS.length]
+                : 'bg-primary/10 text-primary border-primary/15'
+            }`}
           >
             {tag}
             <button
               type="button"
               onClick={() => onChange(tags.filter((t) => t !== tag))}
-              className="hover:text-primary-600"
+              className="opacity-70 hover:opacity-100"
               aria-label={`Remove ${tag}`}
             >
               <XMarkIcon className="w-3.5 h-3.5" />
@@ -295,6 +373,8 @@ export default function SettingsPage() {
   const [configLoading, setConfigLoading] = useState(true);
   const [savingConfig, setSavingConfig] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState(null);
+  const [serverConnected, setServerConnected] = useState(null);
+  const [dragIndex, setDragIndex] = useState(null);
 
   const [entries, setEntries] = useState([]);
   const [kbLoading, setKbLoading] = useState(true);
@@ -356,13 +436,23 @@ export default function SettingsPage() {
     setConfigLoading(true);
     try {
       const data = await fetchConfig();
+      setServerConnected(true);
       applyConfig(data?.config || DEFAULT_CONFIG);
+      return true;
     } catch (err) {
-      toast.error(
-        err.response?.data?.message ||
-          'Failed to load config / কনফিগ লোড ব্যর্থ'
-      );
+      setServerConnected(false);
       applyConfig(DEFAULT_CONFIG);
+      const isNetwork =
+        !err.response ||
+        err.code === 'ERR_NETWORK' ||
+        err.message?.includes('Network');
+      if (!isNetwork) {
+        toast.error(
+          err.response?.data?.message ||
+            'Failed to load config / কনফিগ লোড ব্যর্থ'
+        );
+      }
+      return false;
     } finally {
       setConfigLoading(false);
     }
@@ -378,11 +468,19 @@ export default function SettingsPage() {
         Object.keys(params).length ? params : undefined
       );
       setEntries(data?.entries || []);
+      setServerConnected(true);
     } catch (err) {
-      toast.error(
-        err.response?.data?.message ||
-          'Failed to load knowledge base / জ্ঞানভাণ্ডার লোড ব্যর্থ'
-      );
+      const isNetwork =
+        !err.response ||
+        err.code === 'ERR_NETWORK' ||
+        err.message?.includes('Network');
+      if (isNetwork) setServerConnected(false);
+      else {
+        toast.error(
+          err.response?.data?.message ||
+            'Failed to load knowledge base / জ্ঞানভাণ্ডার লোড ব্যর্থ'
+        );
+      }
     } finally {
       setKbLoading(false);
     }
@@ -412,7 +510,13 @@ export default function SettingsPage() {
     try {
       const data = await fetchAgents();
       setAgents(data?.agents || []);
+      setServerConnected(true);
     } catch (err) {
+      const isNetwork =
+        !err.response ||
+        err.code === 'ERR_NETWORK' ||
+        err.message?.includes('Network');
+      if (isNetwork) setServerConnected(false);
       toast.error(
         err.response?.data?.message ||
           'Failed to load staff / স্টাফ লোড ব্যর্থ'
@@ -422,20 +526,45 @@ export default function SettingsPage() {
     }
   }, [canManageStaff]);
 
-  useEffect(() => {
-    loadConfig();
-  }, [loadConfig]);
-
+  // Connection check on mount: GET /api/admin/config
   useEffect(() => {
     (async () => {
+      const ok = await loadConfig();
+      if (!ok) return;
       await ensureKbSeed();
-      await loadKnowledge();
     })();
-  }, [ensureKbSeed, loadKnowledge]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only connection check
+  }, []);
 
   useEffect(() => {
-    if (tab === 'staff') loadAgents();
-  }, [tab, loadAgents]);
+    if (serverConnected !== true) return;
+    loadKnowledge();
+  }, [kbFilter, kbSearch, serverConnected, loadKnowledge]);
+
+  // Staff Accounts: GET /api/admin/agents when tab mounts
+  useEffect(() => {
+    if (tab === 'staff' && serverConnected === true) loadAgents();
+  }, [tab, serverConnected, loadAgents]);
+
+  const retryConnection = async () => {
+    const ok = await loadConfig();
+    if (ok) {
+      await ensureKbSeed();
+      await loadKnowledge();
+      if (tab === 'staff') await loadAgents();
+      toast.success('Chat server সংযুক্ত হয়েছে');
+    }
+  };
+
+  const reorderCanned = (from, to) => {
+    if (from === to || from == null || to == null) return;
+    setConfig((prev) => {
+      const list = [...(prev.canned_responses || [])];
+      const [moved] = list.splice(from, 1);
+      list.splice(to, 0, moved);
+      return { ...prev, canned_responses: list };
+    });
+  };
 
   useEffect(() => {
     const onBeforeUnload = (e) => {
@@ -742,7 +871,7 @@ export default function SettingsPage() {
   const lastSavedLabel = formatLastSavedBn(lastSavedAt);
 
   return (
-    <div className="min-h-screen bg-slate-100 pb-24">
+    <div className="min-h-screen bg-page pb-24">
       <header className="sticky top-0 z-20 bg-white border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -757,7 +886,7 @@ export default function SettingsPage() {
               Dashboard
             </Link>
             <div className="h-5 w-px bg-slate-200" />
-            <h1 className="text-lg font-bold text-slate-900">Settings ⚙️</h1>
+            <h1 className="text-lg font-semibold text-slate-900">Settings ⚙️</h1>
           </div>
           <div className="flex items-center gap-3">
             {lastSavedLabel ? (
@@ -780,7 +909,7 @@ export default function SettingsPage() {
                 onClick={() => handleTabChange(t.id)}
                 className={`rounded-xl px-3 py-2 text-sm font-semibold transition whitespace-nowrap ${
                   tab === t.id
-                    ? 'bg-primary text-white'
+                    ? 'bg-primary text-white shadow-sm shadow-primary/20'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -791,29 +920,35 @@ export default function SettingsPage() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-6">
+      <main className="max-w-6xl mx-auto px-4 py-6 space-y-4">
+        {serverConnected === false && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <p className="text-sm text-amber-800 leading-bn">
+              Chat server সংযুক্ত নেই। ecommerce-chat সার্ভার চালু করুন।
+            </p>
+            <button
+              type="button"
+              onClick={retryConnection}
+              className="shrink-0 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-2 transition"
+            >
+              আবার চেষ্টা করুন
+            </button>
+          </div>
+        )}
+
         {/* TAB 1: Store & AI Config */}
         {tab === 'store' && (
-          <section className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100">
-              <h2 className="text-base font-semibold text-slate-900">
-                🏪 Store & AI Config
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Controls what the AI knows about your store / AI স্টোর সম্পর্কে যা জানবে
-              </p>
-            </div>
-
+          <div className="space-y-4">
             {configLoading ? (
-              <div className="px-5 py-12 flex items-center justify-center gap-2 text-sm text-slate-400">
+              <div className="bg-white rounded-2xl border border-slate-100 px-5 py-12 flex items-center justify-center gap-2 text-sm text-slate-400">
                 <Spinner /> Loading…
               </div>
             ) : (
-              <form onSubmit={handleSaveConfig} className="p-5 space-y-8">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-800 mb-3">
-                    AI Personality
-                  </h3>
+              <form onSubmit={handleSaveConfig} className="space-y-4">
+                <ConfigCard
+                  title="🤖 AI Personality"
+                  subtitle="স্টোর ও AI এজেন্টের নাম ও ভাষা"
+                >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Field label="Store Name / স্টোরের নাম">
                       <input
@@ -848,12 +983,12 @@ export default function SettingsPage() {
                       </select>
                     </Field>
                   </div>
-                </div>
+                </ConfigCard>
 
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-800 mb-3">
-                    Contact Info
-                  </h3>
+                <ConfigCard
+                  title="📞 Contact Info"
+                  subtitle="কাস্টমার সাপোর্ট যোগাযোগের তথ্য"
+                >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Field label="Phone / ফোন নম্বর">
                       <input
@@ -889,19 +1024,19 @@ export default function SettingsPage() {
                     <Field label="Address / ঠিকানা">
                       <textarea
                         rows={2}
-                        className={inputClass}
+                        className={`${inputClass} leading-bn`}
                         value={config.address}
                         onChange={(e) => setField('address', e.target.value)}
                       />
                     </Field>
                   </div>
-                </div>
+                </ConfigCard>
 
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-800 mb-2">
-                    Policies (AI will answer from these)
-                  </h3>
-                  <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                <ConfigCard
+                  title="📋 Policies"
+                  subtitle="AI এই পলিসি থেকে কাস্টমারকে উত্তর দেবে"
+                >
+                  <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 leading-bn">
                     ⚠️ এখানে যা লিখবেন, AI সেটাই কাস্টমারকে বলবে। বাংলা বা
                     ইংরেজি যেকোনো ভাষায় লিখতে পারেন।
                   </div>
@@ -909,7 +1044,7 @@ export default function SettingsPage() {
                     <Field label="Shipping Policy / শিপিং পলিসি">
                       <textarea
                         rows={5}
-                        className={inputClass}
+                        className={`${inputClass} leading-bn`}
                         value={config.shipping_policy}
                         onChange={(e) =>
                           setField('shipping_policy', e.target.value)
@@ -918,45 +1053,50 @@ export default function SettingsPage() {
                           'ঢাকার মধ্যে: ৬০ টাকা, ১-২ দিন।\nঢাকার বাইরে: ১২০ টাকা, ৩-৫ দিন।\n১০০০ টাকার উপরে অর্ডারে ফ্রি ডেলিভারি।'
                         }
                       />
+                      <CharCount value={config.shipping_policy} />
                     </Field>
                     <Field label="Return Policy / রিটার্ন পলিসি">
                       <textarea
                         rows={5}
-                        className={inputClass}
+                        className={`${inputClass} leading-bn`}
                         value={config.return_policy}
                         onChange={(e) =>
                           setField('return_policy', e.target.value)
                         }
                       />
+                      <CharCount value={config.return_policy} />
                     </Field>
                     <Field label="Delivery Time / ডেলিভারি সময়">
                       <textarea
                         rows={3}
-                        className={inputClass}
+                        className={`${inputClass} leading-bn`}
                         value={config.delivery_time}
                         onChange={(e) =>
                           setField('delivery_time', e.target.value)
                         }
                       />
+                      <CharCount value={config.delivery_time} />
                     </Field>
                   </div>
-                </div>
+                </ConfigCard>
 
-                <div>
-                  <Field label="🔴 এই শব্দগুলো দেখলে AI নিজেই Live Agent-এ পাঠাবে">
-                    <TagInput
-                      value={config.handover_keywords}
-                      onChange={(tags) => setField('handover_keywords', tags)}
-                      placeholder="Type a word and press Enter…"
-                    />
-                  </Field>
-                </div>
+                <ConfigCard
+                  title="🔴 Handover Keywords"
+                  subtitle="এই শব্দগুলো দেখলে AI নিজেই Live Agent-এ পাঠাবে"
+                >
+                  <TagInput
+                    value={config.handover_keywords}
+                    onChange={(tags) => setField('handover_keywords', tags)}
+                    placeholder="Type a word and press Enter…"
+                    colorful
+                  />
+                </ConfigCard>
 
-                <div>
-                  <div className="flex items-center justify-between mb-2 gap-2">
-                    <label className="block text-sm font-medium text-slate-700">
-                      ⚡ এজেন্টদের জন্য দ্রুত উত্তর — / টাইপ করলে দেখাবে
-                    </label>
+                <ConfigCard
+                  title="⚡ Canned Responses"
+                  subtitle="টেনে সরিয়ে অর্ডার করুন — / টাইপ করলে দেখাবে"
+                >
+                  <div className="flex items-center justify-end mb-3">
                     <button
                       type="button"
                       onClick={() =>
@@ -975,8 +1115,26 @@ export default function SettingsPage() {
                     {(config.canned_responses || []).map((row, idx) => (
                       <div
                         key={`canned-${idx}`}
-                        className="flex flex-col sm:flex-row gap-2"
+                        draggable
+                        onDragStart={() => setDragIndex(idx)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => {
+                          reorderCanned(dragIndex, idx);
+                          setDragIndex(null);
+                        }}
+                        onDragEnd={() => setDragIndex(null)}
+                        className={`flex flex-col sm:flex-row gap-2 items-stretch rounded-xl border border-slate-100 bg-slate-50/50 p-2 transition ${
+                          dragIndex === idx ? 'opacity-50 ring-2 ring-primary/30' : ''
+                        }`}
                       >
+                        <button
+                          type="button"
+                          className="shrink-0 self-center p-2 text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing"
+                          title="Drag to reorder"
+                          aria-label="Drag to reorder"
+                        >
+                          <Bars3Icon className="w-5 h-5" />
+                        </button>
                         <input
                           className={`${inputClass} sm:w-36 shrink-0 font-mono`}
                           value={row.shortcut}
@@ -991,7 +1149,7 @@ export default function SettingsPage() {
                           placeholder="/shortcut"
                         />
                         <input
-                          className={`${inputClass} flex-1`}
+                          className={`${inputClass} flex-1 leading-bn`}
                           value={row.text}
                           onChange={(e) => {
                             const next = [...config.canned_responses];
@@ -1008,7 +1166,7 @@ export default function SettingsPage() {
                               config.canned_responses.filter((_, i) => i !== idx)
                             )
                           }
-                          className="shrink-0 rounded-xl border border-slate-200 px-3 py-2 text-slate-400 hover:text-red-500 hover:border-red-200 transition"
+                          className="shrink-0 rounded-xl border border-slate-200 px-3 py-2 text-slate-400 hover:text-danger hover:border-red-200 transition"
                           aria-label="Delete canned response"
                         >
                           🗑️
@@ -1016,32 +1174,30 @@ export default function SettingsPage() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </ConfigCard>
 
                 {!canEditConfig ? (
-                  <p className="text-xs text-amber-600">
+                  <p className="text-xs text-amber-600 leading-bn">
                     Read-only — SUPER_ADMIN required to save / সেভ করতে SUPER_ADMIN
                     লাগবে
                   </p>
                 ) : null}
               </form>
             )}
-          </section>
+          </div>
         )}
 
         {/* TAB 2: Knowledge Base */}
         {tab === 'knowledge' && (
-          <section className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+          <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 space-y-3">
               <div>
                 <h2 className="text-base font-semibold text-slate-900">
                   📚 Knowledge Base
                 </h2>
-                <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                <p className="text-sm text-slate-600 mt-2 leading-bn">
                   এখানে যা লিখবেন, AI সেটা থেকে কাস্টমারের প্রশ্নের উত্তর দেবে।
-                  বাংলা বা ইংরেজি যেকোনো ভাষায় লিখতে পারেন। কাস্টমার বাংলায়
-                  জিজ্ঞেস করলে বাংলায়, ইংরেজিতে জিজ্ঞেস করলে ইংরেজিতে উত্তর
-                  দেবে।
+                  বাংলা বা ইংরেজি যেকোনো ভাষায় লিখতে পারেন।
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
@@ -1078,108 +1234,131 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[720px]">
-                <thead>
-                  <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-3 font-semibold">Category</th>
-                    <th className="px-4 py-3 font-semibold">Question</th>
-                    <th className="px-4 py-3 font-semibold">Answer</th>
-                    <th className="px-4 py-3 font-semibold">Active</th>
-                    <th className="px-4 py-3 font-semibold text-right">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {kbLoading ? (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="px-4 py-10 text-center text-slate-400"
-                      >
-                        <span className="inline-flex items-center gap-2">
-                          <Spinner /> Loading…
-                        </span>
-                      </td>
+            {!kbLoading && entries.length === 0 ? (
+              <div className="px-5 py-16 flex flex-col items-center text-center animate-fadeIn">
+                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-3xl mb-4">
+                  📚
+                </div>
+                <p className="text-sm font-semibold text-slate-700 leading-bn">
+                  এখনো কোনো FAQ নেই
+                </p>
+                <p className="text-xs text-slate-400 mt-1 leading-bn">
+                  প্রথম প্রশ্ন-উত্তর যোগ করে AI-কে শেখান
+                </p>
+                <button
+                  type="button"
+                  onClick={openCreateKb}
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-primary hover:bg-primary-600 text-white text-sm font-semibold px-4 py-2.5 transition"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  নতুন প্রশ্ন-উত্তর যোগ করুন
+                </button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[720px]">
+                  <thead>
+                    <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                      <th className="px-4 py-3 font-semibold">Category</th>
+                      <th className="px-4 py-3 font-semibold">Question</th>
+                      <th className="px-4 py-3 font-semibold">Answer</th>
+                      <th className="px-4 py-3 font-semibold">Active</th>
+                      <th className="px-4 py-3 font-semibold text-right">
+                        Actions
+                      </th>
                     </tr>
-                  ) : entries.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="px-4 py-10 text-center text-slate-400"
-                      >
-                        No entries yet / কোনো এন্ট্রি নেই
-                      </td>
-                    </tr>
-                  ) : (
-                    entries.map((entry) => (
-                      <tr
-                        key={entry._id}
-                        className="border-t border-slate-100 align-top hover:bg-slate-50/60"
-                      >
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex rounded-lg text-[11px] font-semibold px-2 py-1 ${categoryBadge(
-                              entry.category
-                            )}`}
-                          >
-                            {entry.category}
+                  </thead>
+                  <tbody>
+                    {kbLoading ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="px-4 py-10 text-center text-slate-400"
+                        >
+                          <span className="inline-flex items-center gap-2">
+                            <Spinner /> Loading…
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-slate-800 max-w-[220px]">
-                          {entry.question}
-                        </td>
-                        <td className="px-4 py-3 text-slate-600 max-w-[260px]">
-                          {truncate(entry.answer, 60)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Toggle
-                            checked={!!entry.is_active}
-                            onChange={() => handleToggleActive(entry)}
-                            label="Toggle active"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => openEditKb(entry)}
-                              className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-primary transition"
-                              title="Edit"
-                            >
-                              ✏️
-                            </button>
-                            {canDeleteKb && (
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteKb(entry._id)}
-                                className="p-2 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-500 transition"
-                                title="Delete"
-                              >
-                                🗑️
-                              </button>
-                            )}
-                          </div>
-                        </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ) : (
+                      entries.map((entry, rowIdx) => {
+                        const cat = categoryMeta(entry.category);
+                        return (
+                          <tr
+                            key={entry._id}
+                            className={`border-t border-slate-100 align-top transition ${
+                              rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'
+                            } hover:bg-primary/5`}
+                          >
+                            <td className="px-4 py-3">
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-lg text-[11px] font-semibold px-2 py-1 ${cat.color}`}
+                              >
+                                <span aria-hidden>{cat.icon}</span>
+                                {entry.category}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-slate-800 max-w-[220px] leading-bn">
+                              <HighlightedText
+                                text={entry.question}
+                                query={kbSearch}
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-slate-600 max-w-[260px] leading-bn">
+                              <HighlightedText
+                                text={truncate(entry.answer, 60)}
+                                query={kbSearch}
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <Toggle
+                                checked={!!entry.is_active}
+                                onChange={() => handleToggleActive(entry)}
+                                label="Toggle active"
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openEditKb(entry)}
+                                  className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-primary transition"
+                                  title="Edit"
+                                >
+                                  ✏️
+                                </button>
+                                {canDeleteKb && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteKb(entry._id)}
+                                    className="p-2 rounded-lg text-slate-500 hover:bg-red-50 hover:text-danger transition"
+                                    title="Delete"
+                                  >
+                                    🗑️
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         )}
 
         {/* TAB 3: Staff Accounts */}
         {tab === 'staff' && (
-          <section className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+          <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold text-slate-900">
                   👥 Staff Accounts
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5 leading-bn">
                   Manage agents who handle live chat
                 </p>
               </div>
@@ -1187,7 +1366,8 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={openCreateStaff}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-primary hover:bg-primary-600 text-white text-sm font-semibold px-3 py-2 transition"
+                  disabled={serverConnected === false}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-primary hover:bg-primary-600 disabled:opacity-50 text-white text-sm font-semibold px-3 py-2 transition"
                 >
                   + নতুন স্টাফ যোগ করুন
                 </button>
@@ -1234,28 +1414,35 @@ export default function SettingsPage() {
                       <tr>
                         <td
                           colSpan={7}
-                          className="px-4 py-10 text-center text-slate-400"
+                          className="px-4 py-10 text-center text-slate-400 leading-bn"
                         >
                           No staff yet / কোনো স্টাফ নেই
                         </td>
                       </tr>
                     ) : (
-                      agents.map((a) => {
+                      agents.map((a, rowIdx) => {
                         const id = agentId(a);
                         const isSelf =
                           id === String(agent?.id || agent?._id || '');
                         return (
                           <tr
                             key={id}
-                            className="border-t border-slate-100 hover:bg-slate-50/60"
+                            className={`border-t border-slate-100 transition ${
+                              rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'
+                            } hover:bg-primary/5`}
                           >
                             <td className="px-4 py-3">
-                              <span
-                                className={`inline-flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white ${avatarColor(
-                                  id || a.email || a.name
-                                )}`}
-                              >
-                                {getInitials(a.name)}
+                              <span className="relative inline-flex">
+                                <span
+                                  className={`inline-flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white ${avatarColor(
+                                    id || a.email || a.name
+                                  )}`}
+                                >
+                                  {getInitials(a.name)}
+                                </span>
+                                {a.is_online ? (
+                                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-success ring-2 ring-white animate-pulseDot" />
+                                ) : null}
                               </span>
                             </td>
                             <td className="px-4 py-3 font-medium text-slate-800">
@@ -1280,20 +1467,31 @@ export default function SettingsPage() {
                             </td>
                             <td className="px-4 py-3">
                               <span
-                                className="inline-flex items-center justify-center"
+                                className="inline-flex items-center gap-1.5 text-xs"
                                 title={a.is_online ? 'Online' : 'Offline'}
                               >
                                 <span
                                   className={`w-2.5 h-2.5 rounded-full ${
                                     a.is_online
-                                      ? 'bg-emerald-500'
+                                      ? 'bg-success animate-pulseDot'
                                       : 'bg-slate-300'
                                   }`}
                                 />
+                                <span
+                                  className={
+                                    a.is_online
+                                      ? 'text-success font-medium'
+                                      : 'text-slate-400'
+                                  }
+                                >
+                                  {a.is_online ? 'Online' : 'Offline'}
+                                </span>
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-slate-500 text-xs">
-                              {formatLastSeen(a.last_seen)}
+                            <td className="px-4 py-3 text-slate-500 text-xs leading-bn">
+                              {a.is_online
+                                ? 'এখন অনলাইন'
+                                : formatLastSeen(a.last_seen)}
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center justify-end gap-1 flex-wrap">
@@ -1319,7 +1517,7 @@ export default function SettingsPage() {
                                   className={`rounded-lg px-2 py-1 text-xs font-medium ${
                                     isSelf
                                       ? 'text-slate-400 hover:bg-slate-100'
-                                      : 'text-red-600 hover:bg-red-50'
+                                      : 'text-danger hover:bg-red-50'
                                   }`}
                                   title={
                                     isSelf
@@ -1345,10 +1543,12 @@ export default function SettingsPage() {
 
       {/* Sticky save for Store tab */}
       {tab === 'store' && !configLoading && (
-        <div className="fixed bottom-0 inset-x-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur px-4 py-3">
+        <div className="fixed bottom-0 inset-x-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur px-4 py-3 shadow-[0_-4px_20px_rgba(15,23,42,0.06)]">
           <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
-            <div className="text-xs text-slate-500">
-              {isDirty ? (
+            <div className="text-xs text-slate-500 leading-bn">
+              {savingConfig ? (
+                <span className="text-primary font-medium">Saving...</span>
+              ) : isDirty ? (
                 <span className="text-amber-600 font-medium">
                   Unsaved changes / অসংরক্ষিত পরিবর্তন
                 </span>
@@ -1361,11 +1561,13 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={handleSaveConfig}
-              disabled={savingConfig || !canEditConfig}
+              disabled={
+                savingConfig || !canEditConfig || serverConnected === false
+              }
               className="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-primary-600 disabled:opacity-50 text-white font-semibold text-sm px-5 py-2.5 transition shadow-lg shadow-primary/20"
             >
               {savingConfig ? <Spinner className="w-4 h-4 text-white" /> : '💾'}
-              {savingConfig ? 'Saving…' : 'Save All Settings'}
+              {savingConfig ? 'Saving...' : 'Save All Settings'}
             </button>
           </div>
         </div>

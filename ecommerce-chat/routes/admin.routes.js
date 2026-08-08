@@ -561,7 +561,7 @@ router.get(
     try {
       const agents = await Agent.find()
         .select('-password')
-        .sort({ role: 1, name: 1 })
+        .sort({ createdAt: -1 })
         .lean();
 
       const list = agents.map(serializeAgent);

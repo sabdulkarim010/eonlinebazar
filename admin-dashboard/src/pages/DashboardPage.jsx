@@ -45,7 +45,10 @@ export default function DashboardPage() {
     async (roomId) => {
       if (!roomId) return;
       const id = String(roomId);
-      setActiveRoom(id);
+      const cached = useChatStore
+        .getState()
+        .rooms.find((r) => String(r._id || r.id) === id);
+      setActiveRoom(id, cached || null);
       clearUnread(id);
       const socket = getSocket();
       if (socket?.connected) {
@@ -89,7 +92,7 @@ export default function DashboardPage() {
   }, [searchParams, openRoomFromUrl]);
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col bg-slate-100">
+    <div className="h-screen overflow-hidden flex flex-col bg-page">
       <StatsBar />
       <div className="flex-1 flex min-h-0">
         <div className="w-[280px] shrink-0 h-full">

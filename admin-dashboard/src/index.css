@@ -2,10 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-primary: #6c63ff;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+  --color-sidebar: #0f172a;
+  --color-page: #f1f5f9;
+}
+
 html,
 body,
 #root {
   height: 100%;
+}
+
+body {
+  background-color: #f1f5f9;
+  color: #0f172a;
+  font-size: 0.875rem;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Bangla text readability */
+.bn,
+[lang='bn'],
+.leading-bn {
+  line-height: 1.6;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 600;
 }
 
 /* Custom scrollbar for chat panels */
@@ -21,4 +53,23 @@ body,
 }
 .custom-scroll::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+.custom-scroll-dark::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scroll-dark::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scroll-dark::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 999px;
+}
+
+/* Search highlight mark */
+mark.search-hit {
+  background: #fde68a;
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
 }

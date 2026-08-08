@@ -1,15 +1,28 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import {
+  ChatBubbleLeftRightIcon,
+  MagnifyingGlassIcon,
+} from '@heroicons/react/24/outline';
 import RoomListItem from './RoomListItem';
 import useChatStore from '../store/chatStore';
 import { toBanglaDigits } from '../utils/helpers';
 
 const TABS = [
-  { id: 'BOT', label: 'AI', emoji: '🤖' },
-  { id: 'WAITING_FOR_AGENT', label: 'অপেক্ষায়', emoji: '🔴' },
-  { id: 'ACTIVE', label: 'লাইভ', emoji: '🟢' },
-  { id: 'RESOLVED', label: 'সমাপ্ত', emoji: '⚫' },
+  { id: 'BOT', label: 'AI', emoji: '🤖', empty: 'কোনো AI চ্যাট নেই' },
+  {
+    id: 'WAITING_FOR_AGENT',
+    label: 'অপেক্ষায়',
+    emoji: '🔴',
+    empty: 'কোনো অপেক্ষমাণ চ্যাট নেই',
+  },
+  { id: 'ACTIVE', label: 'লাইভ', emoji: '🟢', empty: 'কোনো লাইভ চ্যাট নেই' },
+  {
+    id: 'RESOLVED',
+    label: 'সমাপ্ত',
+    emoji: '⚫',
+    empty: 'কোনো সমাপ্ত চ্যাট নেই',
+  },
 ];
 
 export default function Sidebar({ onRefresh, onTabChange }) {
@@ -43,6 +56,7 @@ export default function Sidebar({ onRefresh, onTabChange }) {
   }, [rooms, tab, query]);
 
   const isOnline = onlineAgents.length > 0;
+  const activeTabMeta = TABS.find((t) => t.id === tab);
 
   const handleTabClick = (status) => {
     setTab(status);
@@ -50,10 +64,12 @@ export default function Sidebar({ onRefresh, onTabChange }) {
   };
 
   return (
-    <aside className="h-full bg-slate-900 text-slate-100 flex flex-col border-r border-slate-800">
+    <aside className="h-full bg-sidebar text-slate-100 flex flex-col border-r border-slate-800">
       <div className="px-4 py-4 border-b border-slate-800">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="font-semibold text-base tracking-tight">চ্যাট ড্যাশবোর্ড</h2>
+          <h2 className="font-semibold text-base tracking-tight">
+            চ্যাট ড্যাশবোর্ড
+          </h2>
           <button
             type="button"
             onClick={onRefresh}
@@ -66,7 +82,7 @@ export default function Sidebar({ onRefresh, onTabChange }) {
         <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
           <span
             className={`inline-block w-2 h-2 rounded-full ${
-              isOnline ? 'bg-green-400' : 'bg-slate-500'
+              isOnline ? 'bg-success animate-pulseDot' : 'bg-slate-500'
             }`}
           />
           {isOnline
@@ -88,16 +104,24 @@ export default function Sidebar({ onRefresh, onTabChange }) {
               onClick={() => handleTabClick(t.id)}
               className={`flex-1 rounded-lg px-1.5 py-2 text-[11px] font-medium transition ${
                 active
-                  ? 'bg-primary text-white'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              } ${waitingPulse && !active ? 'animate-pulseGlow ring-1 ring-orange-400/60' : ''}`}
+                  ? 'bg-primary text-white shadow-lg shadow-primary/25'
+                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+              } ${
+                waitingPulse
+                  ? 'ring-1 ring-warning/70 animate-pulseGlow'
+                  : ''
+              }`}
             >
               <div className="leading-tight">
                 {t.label} {t.emoji}
               </div>
               <div
-                className={`mt-1 inline-flex min-w-[18px] justify-center rounded-full px-1.5 text-[10px] ${
-                  active ? 'bg-white/20' : 'bg-slate-700'
+                className={`mt-1 inline-flex min-w-[18px] justify-center rounded-full px-1.5 text-[10px] font-semibold ${
+                  waitingPulse
+                    ? 'bg-warning text-white animate-pulseBadge'
+                    : active
+                      ? 'bg-white/20'
+                      : 'bg-slate-700'
                 }`}
               >
                 {toBanglaDigits(count)}
@@ -115,14 +139,28 @@ export default function Sidebar({ onRefresh, onTabChange }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="নাম বা মেসেজ খুঁজুন…"
-            className="w-full rounded-xl bg-slate-800 border border-slate-700 pl-9 pr-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-primary transition"
+            className="w-full rounded-xl bg-slate-800/80 border border-slate-700 pl-9 pr-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-primary transition"
           />
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scroll px-2 pb-3 space-y-1">
+      <div className="flex-1 overflow-y-auto custom-scroll-dark px-2 pb-3 space-y-1">
         {filtered.length === 0 ? (
-          <p className="text-center text-xs text-slate-500 py-8">কোনো চ্যাট নেই</p>
+          <div className="flex flex-col items-center justify-center py-12 px-4 text-center animate-fadeIn">
+            <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center mb-3">
+              <ChatBubbleLeftRightIcon className="w-6 h-6 text-slate-500" />
+            </div>
+            <p className="text-xs font-medium text-slate-400 leading-bn">
+              {query.trim()
+                ? 'কোনো মিল পাওয়া যায়নি'
+                : activeTabMeta?.empty || 'কোনো চ্যাট নেই'}
+            </p>
+            {query.trim() ? (
+              <p className="text-[11px] text-slate-500 mt-1">
+                অন্য কীওয়ার্ড চেষ্টা করুন
+              </p>
+            ) : null}
+          </div>
         ) : (
           filtered.map((room) => (
             <RoomListItem key={room._id || room.id} room={room} />

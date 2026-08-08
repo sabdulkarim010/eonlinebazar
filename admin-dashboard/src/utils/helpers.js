@@ -15,6 +15,63 @@ export function relativeTimeBn(date) {
   return toBanglaDigits(text);
 }
 
+/** Short English relative time: "2m ago", "1h ago" */
+export function relativeTimeShort(date) {
+  if (!date) return '';
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return '';
+  const seconds = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return format(d, 'MMM d');
+}
+
+/** Bangla relative for staff last-seen: "৫ মিনিট আগে" */
+export function relativeTimeBnShort(date) {
+  if (!date) return '—';
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return '—';
+  const seconds = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+  if (seconds < 60) return `${toBanglaDigits(seconds)} সেকেন্ড আগে`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${toBanglaDigits(minutes)} মিনিট আগে`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${toBanglaDigits(hours)} ঘণ্টা আগে`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${toBanglaDigits(days)} দিন আগে`;
+  return relativeTimeBn(date);
+}
+
+export function statusBorderClass(status) {
+  switch (status) {
+    case 'WAITING_FOR_AGENT':
+      return 'border-l-warning';
+    case 'ACTIVE':
+      return 'border-l-success';
+    case 'BOT':
+      return 'border-l-info';
+    case 'RESOLVED':
+      return 'border-l-slate-400';
+    default:
+      return 'border-l-slate-300';
+  }
+}
+
+/** Highlight case-insensitive search matches in plain text */
+export function highlightMatch(text, query) {
+  const raw = String(text || '');
+  const q = String(query || '').trim();
+  if (!q) return raw;
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = raw.split(new RegExp(`(${escaped})`, 'gi'));
+  return parts;
+}
+
 export function formatTime(date) {
   if (!date) return '';
   const d = new Date(date);

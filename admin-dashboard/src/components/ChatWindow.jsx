@@ -17,12 +17,66 @@ import {
   statusMeta,
 } from '../utils/helpers';
 
-function TypingDots() {
+function EmptyChatState() {
   return (
-    <div className="flex items-center gap-1 px-3 py-2 bg-slate-200 rounded-2xl w-fit mb-2">
-      <span className="w-1.5 h-1.5 rounded-full bg-slate-500 animate-bounce [animation-delay:-0.3s]" />
-      <span className="w-1.5 h-1.5 rounded-full bg-slate-500 animate-bounce [animation-delay:-0.15s]" />
-      <span className="w-1.5 h-1.5 rounded-full bg-slate-500 animate-bounce" />
+    <div className="h-full flex items-center justify-center bg-page px-6">
+      <div className="text-center max-w-sm animate-fadeIn">
+        <div className="mx-auto mb-5 w-24 h-24 rounded-3xl bg-white border border-slate-200 shadow-sm flex items-center justify-center">
+          <svg
+            width="56"
+            height="56"
+            viewBox="0 0 56 56"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden
+          >
+            <rect
+              x="6"
+              y="10"
+              width="36"
+              height="28"
+              rx="10"
+              fill="#E0DEFF"
+            />
+            <rect
+              x="14"
+              y="18"
+              width="44"
+              height="28"
+              rx="10"
+              fill="#6C63FF"
+            />
+            <circle cx="26" cy="32" r="2.5" fill="white" />
+            <circle cx="36" cy="32" r="2.5" fill="white" />
+            <circle cx="46" cy="32" r="2.5" fill="white" />
+            <path
+              d="M22 46l-4 6 10-4"
+              fill="#6C63FF"
+            />
+          </svg>
+        </div>
+        <h3 className="text-base font-semibold text-slate-800 leading-bn">
+          কোনো চ্যাট সিলেক্ট করা হয়নি
+        </h3>
+        <p className="text-sm text-slate-500 mt-2 leading-bn">
+          বাম দিক থেকে একটি চ্যাট সিলেক্ট করুন
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function TypingIndicator({ name }) {
+  return (
+    <div className="flex items-center gap-2 mb-2 animate-fadeIn">
+      <div className="flex items-center gap-1 px-3 py-2 bg-white border border-slate-200 rounded-2xl rounded-bl-md shadow-sm w-fit">
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.3s]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.15s]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" />
+      </div>
+      <span className="text-xs text-slate-400">
+        {name ? `${name} is typing...` : 'Agent is typing...'}
+      </span>
     </div>
   );
 }
@@ -47,7 +101,8 @@ export default function ChatWindow() {
   );
 
   const messages = messagesMap[activeRoomId] || [];
-  const isTyping = Boolean(typingRooms[activeRoomId]);
+  const typingInfo = typingRooms[activeRoomId];
+  const isTyping = Boolean(typingInfo);
 
   const [text, setText] = useState('');
   const [showCanned, setShowCanned] = useState(false);
@@ -87,7 +142,6 @@ export default function ChatWindow() {
     setCannedFilter('');
   }, [activeRoomId]);
 
-  // Typing indicator cleanup — clear stale indicators after 4s / on room change
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return undefined;
@@ -113,14 +167,18 @@ export default function ChatWindow() {
 
     socket.on('user_typing', onUserTyping);
     socket.on('customer_typing', onUserTyping);
+    socket.on('agent_typing', onUserTyping);
     socket.on('user_stopped_typing', onUserStoppedTyping);
     socket.on('customer_stopped_typing', onUserStoppedTyping);
+    socket.on('agent_stopped_typing', onUserStoppedTyping);
 
     return () => {
       socket.off('user_typing', onUserTyping);
       socket.off('customer_typing', onUserTyping);
+      socket.off('agent_typing', onUserTyping);
       socket.off('user_stopped_typing', onUserStoppedTyping);
       socket.off('customer_stopped_typing', onUserStoppedTyping);
+      socket.off('agent_stopped_typing', onUserStoppedTyping);
     };
   }, [setTyping]);
 
@@ -152,7 +210,6 @@ export default function ChatWindow() {
       toast.error('সকেট কানেক্টেড নয়');
       return;
     }
-    // agent_id comes from JWT on the server — never trust client-supplied id
     socket.emit('take_chat', { room_id: activeRoomId });
     toast.success('চ্যাট নেওয়ার অনুরোধ পাঠানো হয়েছে');
   };
@@ -187,9 +244,7 @@ export default function ChatWindow() {
     setShowCanned(false);
     emitTyping(false);
 
-    // Do not optimistically append — socket `new_message` is the single source of truth
     if (socket?.connected) {
-      // agent identity bound from JWT on server
       socket.emit('agent_message', {
         room_id: activeRoomId,
         message: body,
@@ -286,18 +341,12 @@ export default function ChatWindow() {
   };
 
   if (!activeRoomId) {
-    return (
-      <div className="h-full flex items-center justify-center bg-slate-50">
-        <p className="text-slate-400 text-sm">
-          বাম দিক থেকে চ্যাট সিলেক্ট করুন
-        </p>
-      </div>
-    );
+    return <EmptyChatState />;
   }
 
   if (!room) {
     return (
-      <div className="h-full flex items-center justify-center bg-slate-50">
+      <div className="h-full flex items-center justify-center bg-page">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-slate-400 text-sm">লোড হচ্ছে…</p>
@@ -307,22 +356,29 @@ export default function ChatWindow() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 border-x border-slate-200">
+    <div className="h-full flex flex-col bg-page border-x border-slate-200">
+      {/* Header */}
       <div className="shrink-0 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-semibold text-slate-900 truncate">
+            <h3 className="font-semibold text-slate-900 truncate text-sm">
               {room.guest_name || 'Guest'}
             </h3>
             <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
               {room.type === 'ORDER_SUPPORT' ? '📦 অর্ডার সাপোর্ট' : 'সাধারণ'}
             </span>
             <span
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${status.color}`}
+              className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${status.color}`}
             >
               {status.label}
             </span>
           </div>
+          {room.type === 'ORDER_SUPPORT' &&
+          (room.order_metadata?.order_number || room.order_id) ? (
+            <p className="text-xs text-slate-400 mt-1 leading-bn">
+              Order #{room.order_metadata?.order_number || room.order_id}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -330,7 +386,7 @@ export default function ChatWindow() {
             <button
               type="button"
               onClick={handleTakeChat}
-              className="rounded-xl bg-green-500 hover:bg-green-600 text-white text-sm font-semibold px-3 py-2 transition shadow-sm"
+              className="rounded-xl bg-success hover:bg-emerald-600 text-white text-sm font-semibold px-3.5 py-2 transition shadow-sm"
             >
               চ্যাট নিন 🙋
             </button>
@@ -339,7 +395,7 @@ export default function ChatWindow() {
             <button
               type="button"
               onClick={handleResolve}
-              className="rounded-xl bg-primary hover:bg-primary-600 text-white text-sm font-semibold px-3 py-2 transition shadow-sm"
+              className="rounded-xl bg-primary hover:bg-primary-600 text-white text-sm font-semibold px-3.5 py-2 transition shadow-sm"
             >
               সমাধান করুন ✓
             </button>
@@ -348,21 +404,22 @@ export default function ChatWindow() {
       </div>
 
       {room.status === 'BOT' && (
-        <div className="shrink-0 bg-blue-50 text-blue-700 text-sm px-4 py-2 border-b border-blue-100">
+        <div className="shrink-0 bg-blue-50 text-info text-sm px-4 py-2 border-b border-blue-100 leading-bn">
           AI পরিচালনা করছে
         </div>
       )}
       {room.status === 'WAITING_FOR_AGENT' && (
-        <div className="shrink-0 bg-orange-50 text-orange-700 text-sm px-4 py-2 border-b border-orange-100">
+        <div className="shrink-0 bg-amber-50 text-amber-700 text-sm px-4 py-2 border-b border-amber-100 leading-bn">
           কাস্টমার অপেক্ষায় আছেন — চ্যাট নিন
         </div>
       )}
 
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto custom-scroll px-4 py-4">
         {grouped.map((item) =>
           item.type === 'sep' ? (
             <div key={item.key} className="flex justify-center my-4">
-              <span className="text-[11px] px-3 py-1 rounded-full bg-slate-200 text-slate-500">
+              <span className="text-[11px] px-3 py-1 rounded-full bg-white border border-slate-200 text-slate-400 shadow-sm">
                 {item.label}
               </span>
             </div>
@@ -374,10 +431,13 @@ export default function ChatWindow() {
             />
           )
         )}
-        {isTyping && <TypingDots />}
+        {isTyping && (
+          <TypingIndicator name={typingInfo?.name || 'Customer'} />
+        )}
         <div ref={bottomRef} />
       </div>
 
+      {/* Input */}
       {canReply && (
         <div className="shrink-0 bg-white border-t border-slate-200 p-3 relative">
           {showCanned && (
@@ -388,11 +448,11 @@ export default function ChatWindow() {
             />
           )}
 
-          <div className="flex items-end gap-2">
+          <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-2 py-1.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 transition">
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition"
+              className="p-2 rounded-xl text-slate-500 hover:bg-white hover:text-primary transition"
               title="ইমেজ অ্যাটাচ"
             >
               <PhotoIcon className="w-5 h-5" />
@@ -411,7 +471,7 @@ export default function ChatWindow() {
                 setShowCanned((v) => !v);
                 setCannedFilter('');
               }}
-              className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition"
+              className="p-2 rounded-xl text-slate-500 hover:bg-white hover:text-primary transition"
               title="ক্যানড রেসপন্স (/)"
             >
               <CommandLineIcon className="w-5 h-5" />
@@ -425,18 +485,15 @@ export default function ChatWindow() {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="মেসেজ লিখুন… (/ ক্যানড রেসপন্স)"
-                className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition max-h-32"
+                className="w-full resize-none bg-transparent px-1 py-2 text-sm outline-none max-h-32 leading-bn"
               />
-              <span className="absolute bottom-1.5 right-2 text-[10px] text-slate-400">
-                {text.length}
-              </span>
             </div>
 
             <button
               type="button"
               onClick={() => sendMessage(text)}
               disabled={!text.trim()}
-              className="p-2.5 rounded-xl bg-primary hover:bg-primary-600 disabled:opacity-40 text-white transition shadow-sm"
+              className="p-2.5 rounded-xl bg-primary hover:bg-primary-600 disabled:opacity-40 text-white transition shadow-sm shadow-primary/20"
               title="পাঠান"
             >
               <PaperAirplaneIcon className="w-5 h-5" />

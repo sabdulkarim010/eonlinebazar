@@ -66,9 +66,9 @@ export default function MessageBubble({ message, currentAgentId }) {
         )}
 
         <div
-          className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm ${
+          className={`rounded-2xl px-3.5 py-2.5 text-sm leading-bn shadow-sm ${
             alignRight
-              ? 'bg-blue-600 text-white rounded-br-md'
+              ? 'bg-primary text-white rounded-br-md'
               : isBot
                 ? 'bg-slate-200 text-slate-800 rounded-bl-md'
                 : 'bg-white border border-slate-200 text-slate-800 rounded-bl-md'
@@ -116,7 +116,7 @@ export default function MessageBubble({ message, currentAgentId }) {
         )}
 
         {time && (
-          <span className="text-[10px] text-slate-400 mt-1 px-1">{time}</span>
+          <span className="text-xs text-slate-400 mt-1 px-1">{time}</span>
         )}
       </div>
 
