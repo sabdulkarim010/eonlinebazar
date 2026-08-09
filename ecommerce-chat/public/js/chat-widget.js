@@ -412,6 +412,7 @@
     }
 
     minimizeWidget();
+    // Fresh session with current widget config (preserves guestName / api URLs)
     Promise.resolve(bootstrap())
       .then(function () {
         setupSendButton();
@@ -595,6 +596,10 @@
       content: text || '',
       created_at: Date.now()
     });
+  }
+
+  function showSystemMessage(text) {
+    showSystemBanner(text);
   }
 
   function showCsat() {
@@ -901,7 +906,7 @@
     }
     if (!state.socket || !state.socket.connected) {
       console.error('Socket not connected!');
-      showSystemBanner('Connection lost. Reconnecting...');
+      showSystemMessage('Connection lost. Reconnecting...');
       try {
         if (state.socket) state.socket.connect();
       } catch (e) { /* ignore */ }
@@ -1138,7 +1143,7 @@
     }
 
     state.socket = global.io(String(socketUrl || state.socketUrl).replace(/\/$/, '') + '/customer', {
-      path: '/chat-socket/socket.io',
+      path: state.socketPath || '/chat-socket/socket.io',
       auth: {
         guest_session_id: state.guestSessionId,
         user_id: state.userId || undefined

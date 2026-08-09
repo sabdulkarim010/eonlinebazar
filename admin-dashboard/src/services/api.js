@@ -29,7 +29,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const url = String(error.config?.url || '');
+    const isLoginRequest = url.includes('/admin/login');
+    if (error.response?.status === 401 && !isLoginRequest) {
       useAuthStore.getState().logout();
       if (window.location.pathname !== '/chat-admin/login') {
         window.location.href = '/chat-admin/login';
@@ -40,7 +42,7 @@ api.interceptors.response.use(
 );
 
 export const fetchRooms = async (status = null) => {
-  const params = status ? `?status=${encodeURIComponent(status)}` : '';
+  const params = status ? `?status=${status}` : '';
   const res = await api.get(`/admin/rooms${params}`);
   return res.data;
 };

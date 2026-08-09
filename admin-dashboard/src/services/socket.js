@@ -3,10 +3,16 @@ import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import useChatStore from '../store/chatStore';
 
-const SOCKET_URL =
-  import.meta.env.VITE_SOCKET_URL ||
-  import.meta.env.VITE_API_URL ||
-  'http://localhost:5001';
+function resolveSocketUrl() {
+  const raw =
+    import.meta.env.VITE_SOCKET_URL ||
+    import.meta.env.VITE_API_URL ||
+    'http://localhost:5001';
+  // Socket.io is on the site origin; /chat-api is HTTP-only (nginx rewrite)
+  return String(raw).replace(/\/$/, '').replace(/\/chat-api$/i, '');
+}
+
+const SOCKET_URL = resolveSocketUrl();
 
 let socket = null;
 let listenersBound = false;

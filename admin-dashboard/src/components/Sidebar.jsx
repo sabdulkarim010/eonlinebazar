@@ -54,29 +54,27 @@ export default function Sidebar({
 
   const filtered = useMemo(() => {
     const q = (query || globalSearch || '').trim().toLowerCase();
-    // API already filters by status when tab fetch runs — keep soft status match
-    // so stale rooms from another tab never flash incorrectly.
-    return roomList
-      .filter((r) => !r?.status || r.status === activeTab)
-      .filter((r) => {
-        if (!q) return true;
-        return (
-          String(r?.guest_name || '')
-            .toLowerCase()
-            .includes(q) ||
-          String(r?.last_message || '')
-            .toLowerCase()
-            .includes(q) ||
-          String(r?.order_id || '')
-            .toLowerCase()
-            .includes(q) ||
-          String(r?.order_metadata?.order_number || '')
-            .toLowerCase()
-            .includes(q) ||
-          (r?.tags || []).some((t) => String(t).toLowerCase().includes(q))
-        );
-      });
-  }, [roomList, activeTab, query, globalSearch]);
+    // Trust API status filter — show every room returned for this tab
+    return roomList.filter((r) => {
+      if (!r) return false;
+      if (!q) return true;
+      return (
+        String(r?.guest_name || '')
+          .toLowerCase()
+          .includes(q) ||
+        String(r?.last_message || '')
+          .toLowerCase()
+          .includes(q) ||
+        String(r?.order_id || '')
+          .toLowerCase()
+          .includes(q) ||
+        String(r?.order_metadata?.order_number || '')
+          .toLowerCase()
+          .includes(q) ||
+        (r?.tags || []).some((t) => String(t).toLowerCase().includes(q))
+      );
+    });
+  }, [roomList, query, globalSearch]);
 
   const activeTabMeta = TABS.find((t) => t.id === activeTab);
   const currentStatus =
