@@ -25,17 +25,39 @@ export default function DashboardPage() {
   const setMobileView = useChatStore((s) => s.setMobileView);
   const hydrateTheme = useThemeStore((s) => s.hydrateTheme);
 
+  const [activeTab, setActiveTab] = useState('WAITING_FOR_AGENT');
   const [roomsLoading, setRoomsLoading] = useState(true);
 
   const loadRooms = useCallback(
     async (tabStatus) => {
+      const status = tabStatus || activeTab || 'WAITING_FOR_AGENT';
       try {
         setRoomsLoading(true);
-        const data = await fetchRooms(tabStatus);
-        setRooms(data.rooms || []);
-        if (data.counts) setCounts(data.counts);
+        const data = await fetchRooms(status);
+        setRooms(Array.isArray(data?.rooms) ? data.rooms : []);
+        if (data?.counts) setCounts(data.counts);
       } catch (err) {
+        console.error('Failed to load rooms:', err);
+        setRooms([]);
         toast.error(err.response?.data?.message || 'Failed to load rooms');
+      } finally {
+        setRoomsLoading(false);
+      }
+    },
+    [activeTab, setRooms, setCounts]
+  );
+
+  const handleTabChange = useCallback(
+    async (tabId) => {
+      setActiveTab(tabId);
+      try {
+        setRoomsLoading(true);
+        const data = await fetchRooms(tabId);
+        setRooms(Array.isArray(data?.rooms) ? data.rooms : []);
+        if (data?.counts) setCounts(data.counts);
+      } catch (err) {
+        console.error('Failed to load rooms:', err);
+        setRooms([]);
       } finally {
         setRoomsLoading(false);
       }
@@ -94,7 +116,8 @@ export default function DashboardPage() {
       clearInterval(timer);
       disconnectSocket();
     };
-  }, [loadRooms, loadStats, hydrateTheme]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial mount only
+  }, []);
 
   useEffect(() => {
     const roomParam = searchParams.get('room');
@@ -112,22 +135,14 @@ export default function DashboardPage() {
       <StatsBar />
 
       <div className="flex-1 flex min-h-0">
-        {/* Desktop sidebar */}
+        {/* Desktop sidebar — stay mounted so tab state never resets mid-fetch */}
         <div className="hidden md:block w-[280px] shrink-0 h-full">
-          {roomsLoading ? (
-            <div className="h-full bg-sidebar p-3 space-y-2">
-              <div className="skeleton h-10 bg-slate-700" />
-              <div className="skeleton h-16 bg-slate-700" />
-              <div className="skeleton h-14 bg-slate-700" />
-              <div className="skeleton h-14 bg-slate-700" />
-              <div className="skeleton h-14 bg-slate-700" />
-            </div>
-          ) : (
-            <Sidebar
-              onRefresh={() => loadRooms()}
-              onTabChange={(status) => loadRooms(status)}
-            />
-          )}
+          <Sidebar
+            activeTab={activeTab}
+            loadingRooms={roomsLoading}
+            onRefresh={() => loadRooms(activeTab)}
+            onTabChange={handleTabChange}
+          />
         </div>
 
         {/* Mobile: room list */}
@@ -137,8 +152,10 @@ export default function DashboardPage() {
           }`}
         >
           <Sidebar
-            onRefresh={() => loadRooms()}
-            onTabChange={(status) => loadRooms(status)}
+            activeTab={activeTab}
+            loadingRooms={roomsLoading}
+            onRefresh={() => loadRooms(activeTab)}
+            onTabChange={handleTabChange}
           />
         </div>
 

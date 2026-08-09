@@ -61,21 +61,18 @@ export default function LoginPage() {
       toast.success('Logged in successfully');
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      const serverMessage = err.response?.data?.message;
       if (err.response?.status === 401) {
-        setError(
-          serverMessage || 'Incorrect email or password. Please try again.'
-        );
+        setError('Incorrect email or password. Please check and try again.');
       } else if (err.response?.status === 429) {
         setError(
-          serverMessage || 'Too many attempts. Please wait 15 minutes.'
+          'Too many login attempts. Please wait 15 minutes and try again.'
         );
-      } else if (err.response?.status === 404) {
-        setError(
-          serverMessage || 'Account not found. Check your email address.'
-        );
+      } else if (err.response?.status === 500) {
+        setError('Server error. Please try again later.');
+      } else if (!err.response) {
+        setError('Cannot connect to server. Check your internet connection.');
       } else {
-        setError(serverMessage || 'Login failed. Please try again.');
+        setError('Login failed. Please try again.');
       }
     } finally {
       setLoading(false);

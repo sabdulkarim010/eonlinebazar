@@ -113,43 +113,47 @@ router.get('/rooms', authMiddleware, async (req, res) => {
     );
     const skip = (page - 1) * limit;
 
-    const [rooms, total, statusCounts] = await Promise.all([
+    const limitNum = limit;
+    const [roomsRaw, total, statusCounts] = await Promise.all([
       ChatRoom.find(filter)
-        .populate('assigned_agent_id', 'name email avatar is_online')
         .sort({ last_message_at: -1 })
         .skip(skip)
-        .limit(limit)
+        .limit(limitNum)
+        .populate('assigned_agent_id', 'name avatar email')
         .lean(),
       ChatRoom.countDocuments(filter),
       ChatRoom.aggregate([
-        {
-          $group: {
-            _id: '$status',
-            count: { $sum: 1 },
-          },
-        },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
       ]),
     ]);
 
-    const counts = {
-      BOT: 0,
+    const countsObj = {
       WAITING_FOR_AGENT: 0,
       ACTIVE: 0,
+      BOT: 0,
       RESOLVED: 0,
     };
-
-    statusCounts.forEach((row) => {
-      counts[row._id] = row.count;
+    statusCounts.forEach((c) => {
+      if (Object.prototype.hasOwnProperty.call(countsObj, c._id)) {
+        countsObj[c._id] = c.count;
+      }
     });
+
+    const rooms = (roomsRaw || []).map((r) => ({
+      ...r,
+      guest_name: r.guest_name || 'Guest',
+      last_message: r.last_message || '',
+      last_message_at: r.last_message_at || r.createdAt,
+    }));
 
     return res.json({
       success: true,
       rooms,
-      counts,
+      counts: countsObj,
       total,
       page,
-      limit,
-      pages: Math.ceil(total / limit) || 1,
+      limit: limitNum,
+      pages: Math.ceil(total / limitNum) || 1,
       hasMore: skip + rooms.length < total,
     });
   } catch (err) {

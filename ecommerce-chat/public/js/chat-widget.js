@@ -7,8 +7,9 @@
   'use strict';
 
   var STORAGE_SESSION = 'cw_guest_session_id';
-  var STORAGE_ROOM = 'cw_room_id';
+  var STORAGE_ROOM_PREFIX = 'cw_room_id_';
   var STORAGE_RATED = 'cw_rated_rooms';
+  var widgetConfig = { type: 'GENERAL' };
   var SOCKET_CDN = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
   var LOCAL_CHAT_ORIGIN = 'http://localhost:5001';
   var BUBBLE_SVG =
@@ -283,9 +284,6 @@
     bubble.addEventListener('click', openWidget);
     $('cw-minimize-btn').addEventListener('click', minimizeWidget);
     $('cw-close-btn').addEventListener('click', closeWidget);
-    document.getElementById('cw-send-btn').addEventListener('click', function () {
-      sendMessage();
-    });
     $('cw-attachment-btn').addEventListener('click', function () {
       if (!state.resolved) $('cw-file-input').click();
     });
@@ -314,14 +312,7 @@
       });
     });
 
-    var input = document.getElementById('cw-input');
-    input.addEventListener('input', onInputChange);
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
+    setupSendButton();
   }
 
   function orderLabel() {
@@ -388,7 +379,47 @@
   }
 
   function closeWidget() {
+    var endChat = false;
+    try {
+      endChat = global.confirm('End this chat?');
+    } catch (e) {
+      endChat = true;
+    }
+    if (endChat) {
+      startNewChat();
+      return;
+    }
     minimizeWidget();
+  }
+
+  function startNewChat() {
+    try {
+      localStorage.removeItem(STORAGE_ROOM_PREFIX + (widgetConfig.type || state.type || 'GENERAL'));
+      // Legacy key cleanup
+      localStorage.removeItem('cw_room_id');
+    } catch (e) { /* ignore */ }
+    state.roomId = null;
+    state.resolved = false;
+    state.agentName = null;
+    state.unread = 0;
+    state.renderedIds = Object.create(null);
+    state.pendingFile = null;
+
+    var msgs = document.getElementById('cw-messages');
+    if (msgs) {
+      msgs.innerHTML =
+        '<div id="cw-typing" aria-hidden="true"><span></span><span></span><span></span></div>';
+    }
+
+    minimizeWidget();
+    Promise.resolve(bootstrap())
+      .then(function () {
+        setupSendButton();
+        openWidget();
+      })
+      .catch(function (err) {
+        console.error('[ChatWidget] startNewChat failed:', err);
+      });
   }
 
   function updateBadge() {
@@ -479,7 +510,10 @@
     if (!imageUrl && msg && msg.imageUrl) imageUrl = msg.imageUrl;
 
     var wrap = document.createElement('div');
-    if (msgId) wrap.setAttribute('data-cw-id', msgId);
+    if (msgId) {
+      wrap.setAttribute('data-cw-id', msgId);
+      wrap.id = 'msg-' + msgId;
+    }
 
     if (type === 'SYSTEM') {
       wrap.className = 'cw-msg cw-system';
@@ -790,56 +824,101 @@
       autoResizeInput();
       updateSendButton();
     }
-    sendMessage();
+    doSend();
   }
 
-  function emitSendMessage(payload) {
-    if (!state.socket) {
-      console.error('[ChatWidget] Socket not available');
-      return;
-    }
-    if (state.socket.connected) {
-      state.socket.emit('send_message', payload);
-      return;
-    }
-    console.error('[ChatWidget] Socket not connected — reconnecting');
-    try {
-      state.socket.connect();
-    } catch (e) {
-      console.error('[ChatWidget] reconnect failed:', e);
-    }
-    setTimeout(function () {
-      if (state.socket) {
-        state.socket.emit('send_message', payload);
-      }
-    }, 1000);
+  function autoResizeTextarea(el) {
+    if (!el) return;
+    el.style.height = 'auto';
+    var max = parseFloat(getComputedStyle(el).lineHeight) * 3 + 20;
+    el.style.height = Math.min(el.scrollHeight, max) + 'px';
   }
 
-  async function sendMessage() {
-    // Allow sending in BOT / WAITING_FOR_AGENT / ACTIVE — only block when resolved
-    if (state.resolved || !state.roomId) return;
-
+  function setupSendButton() {
+    var sendBtn = document.getElementById('cw-send-btn');
     var input = document.getElementById('cw-input');
-    if (input && (input.disabled || input.readOnly)) {
-      setInputEnabled(true);
+
+    if (!sendBtn || !input) {
+      console.error('Send button or input not found!');
+      return;
     }
 
-    var message = (input && input.value ? input.value : '').trim();
-    var file = state.pendingFile;
+    // Remove all existing event listeners by cloning
+    var newSendBtn = sendBtn.cloneNode(true);
+    sendBtn.parentNode.replaceChild(newSendBtn, sendBtn);
 
-    if ((!message && !file) || !state.roomId) return;
+    var newInput = input.cloneNode(true);
+    input.parentNode.replaceChild(newInput, input);
+
+    newSendBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      doSend();
+    });
+
+    newInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        doSend();
+      }
+    });
+
+    newInput.addEventListener('input', function () {
+      newSendBtn.disabled =
+        state.resolved ||
+        (newInput.value.trim().length === 0 && !state.pendingFile);
+      autoResizeTextarea(newInput);
+      if (state.socket && state.socket.connected && state.roomId && !state.resolved) {
+        if (!state.isTyping) {
+          state.isTyping = true;
+          state.socket.emit('typing_start', { room_id: state.roomId });
+        }
+        clearTimeout(state.typingTimer);
+        state.typingTimer = setTimeout(function () {
+          state.isTyping = false;
+          if (state.socket && state.roomId) {
+            state.socket.emit('typing_stop', { room_id: state.roomId });
+          }
+        }, 2000);
+      }
+    });
+
+    updateSendButton();
+  }
+
+  async function doSend() {
+    var input = document.getElementById('cw-input');
+    if (!input) return;
+    if (state.resolved) return;
+
+    var message = input.value.trim();
+    var file = state.pendingFile;
+    if (!message && !file) return;
+
+    if (!state.roomId) {
+      console.error('No room ID!');
+      return;
+    }
+    if (!state.socket || !state.socket.connected) {
+      console.error('Socket not connected!');
+      showSystemBanner('Connection lost. Reconnecting...');
+      try {
+        if (state.socket) state.socket.connect();
+      } catch (e) { /* ignore */ }
+      return;
+    }
+
     if (message && message.length > 5000) {
       showErrorToast('বার্তা খুব বড় (সর্বোচ্চ ৫০০০ অক্ষর)।');
       return;
     }
 
-    // Clear input immediately (optimistic UX)
-    if (input) {
-      input.value = '';
-      input.style.height = 'auto';
-    }
+    // Clear input
+    input.value = '';
+    input.style.height = 'auto';
+    var sendBtn = document.getElementById('cw-send-btn');
+    if (sendBtn) sendBtn.disabled = true;
     emitTypingStop();
-    updateSendButton();
 
     var attachments = [];
     try {
@@ -854,15 +933,16 @@
             (uploadErr && uploadErr.message) ||
               'ছবি আপলোড ব্যর্থ হয়েছে। data URL পাঠানো হয়নি।'
           );
-          if (input && message) input.value = message;
+          if (message) input.value = message;
           updateSendButton();
           return;
         }
       }
 
-      // Show message in UI immediately (optimistic)
+      // Optimistic UI - show message immediately
+      var tmpId = 'tmp-' + Date.now();
       renderMessage({
-        _id: 'tmp-' + Date.now(),
+        _id: tmpId,
         sender_type: 'USER',
         message: message || (attachments.length ? '[Attachment]' : ''),
         content: message,
@@ -871,15 +951,17 @@
         image_url: attachments[0] ? attachments[0].url : undefined,
         createdAt: new Date().toISOString()
       });
+      scrollToBottom();
 
-      emitSendMessage({
+      // Send via socket
+      state.socket.emit('send_message', {
         room_id: state.roomId,
         message: message || (attachments.length ? '[Attachment]' : ''),
+        attachments: attachments,
         guest_session_id: state.guestSessionId,
         sender_name: state.guestName,
         sender_type: 'USER',
         content: message,
-        attachments: attachments,
         attachment: attachments[0] || undefined,
         image_url: attachments[0] ? attachments[0].url : undefined
       });
@@ -889,6 +971,9 @@
       updateSendButton();
     }
   }
+
+  // Back-compat alias
+  var sendMessage = doSend;
 
   /* ---------- socket ---------- */
 
@@ -907,9 +992,11 @@
     s.off('rating_submitted');
     s.off('error');
     s.off('connect');
+    s.off('connect_error');
     s.off('disconnect');
 
     s.on('connect', function () {
+      console.log('Chat socket connected:', s.id);
       if (state.roomId) {
         s.emit('join_room', {
           room_id: state.roomId,
@@ -918,8 +1005,19 @@
       }
     });
 
+    s.on('connect_error', function (err) {
+      console.error('Socket connection error:', err && err.message ? err.message : err);
+    });
+
     s.on('new_message', function (msg) {
       if (msg && msg.sender_type === 'INTERNAL') return;
+
+      // Remove optimistic message if exists
+      if (msg && msg._id) {
+        var tmpEl = document.getElementById('msg-tmp-' + msg._id);
+        if (tmpEl) tmpEl.remove();
+      }
+
       // Drop optimistic tmp bubble when the real USER message arrives
       var type = String((msg && (msg.sender_type || msg.senderType)) || '').toUpperCase();
       if (type === 'USER' || type === 'CUSTOMER' || type === 'GUEST') {
@@ -931,11 +1029,16 @@
             if (id.indexOf('tmp-') !== 0) return;
             var textEl = el.querySelector('.cw-bubble-text');
             var text = textEl ? String(textEl.textContent || '').trim() : '';
-            if (!content || text === content) el.remove();
+            if (!content || text === content) {
+              delete state.renderedIds[id];
+              el.remove();
+            }
           });
         }
       }
       renderMessage(msg);
+      scrollToBottom();
+      playNotificationSound();
     });
 
     s.on('error', function (err) {
@@ -986,15 +1089,12 @@
       showWaitingBanner(false);
       // Fully re-enable input when a live agent joins (ACTIVE)
       setInputEnabled(true);
+      setupSendButton();
       var inputEl = $('cw-input');
-      var sendEl = $('cw-send-btn');
       if (inputEl) {
         inputEl.disabled = false;
         inputEl.readOnly = false;
         inputEl.placeholder = 'আপনার বার্তা লিখুন...';
-      }
-      if (sendEl) {
-        sendEl.disabled = !(inputEl && (inputEl.value || '').trim().length > 0);
       }
       updateSendButton();
     });
@@ -1025,11 +1125,11 @@
     });
 
     s.on('disconnect', function () {
-      /* reconnect handled by socket.io */
+      console.log('Socket disconnected, will reconnect...');
     });
   }
 
-  function connectSocket() {
+  function initSocket(socketUrl) {
     if (!global.io) throw new Error('socket.io not loaded');
 
     if (state.socket) {
@@ -1037,20 +1137,24 @@
       state.socket = null;
     }
 
-    // Always connect to /customer namespace with /chat-socket/socket.io path
-    state.socket = global.io(state.socketUrl.replace(/\/$/, '') + '/customer', {
+    state.socket = global.io(String(socketUrl || state.socketUrl).replace(/\/$/, '') + '/customer', {
       path: '/chat-socket/socket.io',
       auth: {
         guest_session_id: state.guestSessionId,
         user_id: state.userId || undefined
       },
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 2000
     });
 
     bindSocketEvents();
+    return state.socket;
+  }
+
+  function connectSocket() {
+    return initSocket(state.socketUrl);
   }
 
   /* ---------- session / start ---------- */
@@ -1067,16 +1171,23 @@
     }
   }
 
+  function roomStorageKey() {
+    return STORAGE_ROOM_PREFIX + (widgetConfig.type || state.type || 'GENERAL');
+  }
+
   function persistRoom(roomId) {
     state.roomId = roomId;
     try {
-      localStorage.setItem(STORAGE_ROOM, roomId);
+      localStorage.setItem(roomStorageKey(), roomId);
     } catch (e) { /* ignore */ }
   }
 
   function readPersistedRoom() {
     try {
-      return localStorage.getItem(STORAGE_ROOM);
+      return (
+        localStorage.getItem(roomStorageKey()) ||
+        localStorage.getItem('cw_room_id')
+      );
     } catch (e) {
       return null;
     }
@@ -1249,10 +1360,16 @@
       null;
     state.orderMetadata = options.orderMetadata || options.order_metadata || null;
     state.type = options.type || 'GENERAL';
+    widgetConfig = {
+      type: state.type,
+      apiUrl: state.apiUrl,
+      socketUrl: state.socketUrl
+    };
     state.guestSessionId = getOrCreateSessionId();
     state.initialized = true;
 
     await bootstrap();
+    setupSendButton();
     return ChatWidget;
   }
 
@@ -1316,6 +1433,7 @@
     close: closeWidget,
     minimize: minimizeWidget,
     destroy: destroy,
+    startNewChat: startNewChat,
     openOrderSupport: openOrderSupport,
     getState: function () {
       return {

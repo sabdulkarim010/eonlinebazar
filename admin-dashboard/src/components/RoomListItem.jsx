@@ -35,6 +35,8 @@ export default function RoomListItem({ room }) {
   const addOrUpdateRoom = useChatStore((s) => s.addOrUpdateRoom);
   const clearUnread = useChatStore((s) => s.clearUnread);
 
+  if (!room) return null;
+
   const id = roomId(room);
   const isActive = activeRoomId === id;
   const unread = unreadCounts[id] || room.unread_count || 0;
@@ -44,7 +46,13 @@ export default function RoomListItem({ room }) {
     room.order_metadata?.order_number || room.order_id || null;
   const tags = room.tags || [];
 
+  const name =
+    room?.guest_name || room?.user_id?.name || 'Guest';
+  const lastMsg = room?.last_message || 'No messages yet';
+  const time = room?.last_message_at || room?.createdAt;
+
   const handleClick = async () => {
+    if (!id) return;
     setActiveRoom(id, room);
     clearUnread(id);
     const socket = getSocket();
@@ -88,11 +96,9 @@ export default function RoomListItem({ room }) {
           <div
             className={`w-10 h-10 rounded-full ring-2 ${statusRing(
               room.status
-            )} ${avatarColor(
-              room.guest_name || id
-            )} flex items-center justify-center text-xs font-semibold text-white`}
+            )} ${avatarColor(name || id)} flex items-center justify-center text-xs font-semibold text-white`}
           >
-            {getInitials(room.guest_name || 'G')}
+            {getInitials(name || 'G')}
           </div>
           {isWaiting && (
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-danger animate-pulseDot ring-2 ring-sidebar" />
@@ -102,10 +108,10 @@ export default function RoomListItem({ room }) {
         <div className="min-w-0 flex-1 pr-5">
           <div className="flex items-center justify-between gap-2">
             <span className="font-semibold text-sm text-white truncate">
-              {room.guest_name || 'Guest'}
+              {name}
             </span>
             <span className="shrink-0 text-[10px] text-slate-400 tabular-nums">
-              {relativeTimeBnShort(room.last_message_at)}
+              {relativeTimeBnShort(time)}
             </span>
           </div>
 
@@ -126,7 +132,7 @@ export default function RoomListItem({ room }) {
           </div>
 
           <p className="text-xs text-slate-400 mt-1 truncate leading-bn">
-            {truncate(room.last_message, 42) || 'No messages'}
+            {truncate(lastMsg, 42) || 'No messages yet'}
           </p>
         </div>
       </div>

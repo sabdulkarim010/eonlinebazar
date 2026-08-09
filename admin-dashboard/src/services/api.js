@@ -39,11 +39,11 @@ api.interceptors.response.use(
   }
 );
 
-export async function fetchRooms(status) {
-  const params = status ? { status } : undefined;
-  const { data } = await api.get('/admin/rooms', { params });
-  return data;
-}
+export const fetchRooms = async (status = null) => {
+  const params = status ? `?status=${encodeURIComponent(status)}` : '';
+  const res = await api.get(`/admin/rooms${params}`);
+  return res.data;
+};
 
 export async function fetchRoomDetail(roomId) {
   const { data } = await api.get(`/admin/rooms/${roomId}`);

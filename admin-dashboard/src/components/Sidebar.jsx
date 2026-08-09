@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ChatBubbleLeftRightIcon,
   MagnifyingGlassIcon,
@@ -7,33 +7,14 @@ import RoomListItem from './RoomListItem';
 import useAuthStore from '../store/authStore';
 import useChatStore from '../store/chatStore';
 import { emitPresence } from '../services/socket';
+import { fetchRooms } from '../services/api';
 import { toBanglaDigits } from '../utils/helpers';
 
 const TABS = [
-  {
-    id: 'WAITING_FOR_AGENT',
-    label: 'Waiting',
-    emoji: '🔴',
-    empty: 'No chats in this tab',
-  },
-  {
-    id: 'ACTIVE',
-    label: 'Live',
-    emoji: '🟢',
-    empty: 'No chats in this tab',
-  },
-  {
-    id: 'BOT',
-    label: 'AI chats',
-    emoji: '🤖',
-    empty: 'No chats in this tab',
-  },
-  {
-    id: 'RESOLVED',
-    label: 'Resolved',
-    emoji: '✅',
-    empty: 'No chats in this tab',
-  },
+  { id: 'WAITING_FOR_AGENT', label: 'Waiting', icon: '⏳', empty: 'No chats in this tab' },
+  { id: 'ACTIVE', label: 'Live', icon: '🟢', empty: 'No chats in this tab' },
+  { id: 'BOT', label: 'AI chats', icon: '🤖', empty: 'No chats in this tab' },
+  { id: 'RESOLVED', label: 'Resolved', icon: '✅', empty: 'No chats in this tab' },
 ];
 
 const STATUS_OPTS = [
@@ -42,53 +23,95 @@ const STATUS_OPTS = [
   { id: 'offline', label: 'Offline', dot: 'bg-slate-400' },
 ];
 
-export default function Sidebar({ onRefresh, onTabChange, compact = false }) {
+export default function Sidebar({
+  onRefresh,
+  onTabChange,
+  compact = false,
+  activeTab: controlledTab,
+  loadingRooms: controlledLoading,
+}) {
   const presence = useAuthStore((s) => s.presence);
   const rooms = useChatStore((s) => s.rooms);
   const counts = useChatStore((s) => s.counts);
+  const setRooms = useChatStore((s) => s.setRooms);
+  const setCounts = useChatStore((s) => s.setCounts);
   const globalSearch = useChatStore((s) => s.globalSearch);
-  const [tab, setTab] = useState('WAITING_FOR_AGENT');
+  const [internalTab, setInternalTab] = useState('WAITING_FOR_AGENT');
+  const [internalLoading, setInternalLoading] = useState(false);
   const [query, setQuery] = useState('');
+
+  const activeTab = controlledTab ?? internalTab;
+  const loadingRooms = controlledLoading ?? internalLoading;
+
+  const badgeCounts = {
+    WAITING_FOR_AGENT: counts?.WAITING_FOR_AGENT || 0,
+    ACTIVE: counts?.ACTIVE || 0,
+    BOT: counts?.BOT || 0,
+    RESOLVED: counts?.RESOLVED || 0,
+  };
+
+  const roomList = Array.isArray(rooms) ? rooms : [];
 
   const filtered = useMemo(() => {
     const q = (query || globalSearch || '').trim().toLowerCase();
-    return rooms
-      .filter((r) => r.status === tab)
+    // API already filters by status when tab fetch runs — keep soft status match
+    // so stale rooms from another tab never flash incorrectly.
+    return roomList
+      .filter((r) => !r?.status || r.status === activeTab)
       .filter((r) => {
         if (!q) return true;
         return (
-          String(r.guest_name || '')
+          String(r?.guest_name || '')
             .toLowerCase()
             .includes(q) ||
-          String(r.last_message || '')
+          String(r?.last_message || '')
             .toLowerCase()
             .includes(q) ||
-          String(r.order_id || '')
+          String(r?.order_id || '')
             .toLowerCase()
             .includes(q) ||
-          String(r.order_metadata?.order_number || '')
+          String(r?.order_metadata?.order_number || '')
             .toLowerCase()
             .includes(q) ||
-          (r.tags || []).some((t) => String(t).toLowerCase().includes(q))
+          (r?.tags || []).some((t) => String(t).toLowerCase().includes(q))
         );
       });
-  }, [rooms, tab, query, globalSearch]);
+  }, [roomList, activeTab, query, globalSearch]);
 
-  const activeTabMeta = TABS.find((t) => t.id === tab);
+  const activeTabMeta = TABS.find((t) => t.id === activeTab);
   const currentStatus =
     STATUS_OPTS.find((s) => s.id === presence) || STATUS_OPTS[0];
 
-  const handleTabClick = (status) => {
-    setTab(status);
-    if (onTabChange) onTabChange(status);
+  const handleTabClick = async (tabId) => {
+    setInternalTab(tabId);
+    if (onTabChange) {
+      onTabChange(tabId);
+      return;
+    }
+
+    setInternalLoading(true);
+    try {
+      const data = await fetchRooms(tabId);
+      setRooms(Array.isArray(data?.rooms) ? data.rooms : []);
+      if (data?.counts) setCounts(data.counts);
+    } catch (err) {
+      console.error('Failed to load rooms:', err);
+      setRooms([]);
+    } finally {
+      setInternalLoading(false);
+    }
   };
+
+  useEffect(() => {
+    if (controlledTab != null) setInternalTab(controlledTab);
+  }, [controlledTab]);
 
   if (compact) {
     return (
       <div className="flex items-stretch gap-1 px-2 py-2 bg-sidebar border-t border-slate-700">
         {TABS.map((t) => {
-          const count = counts?.[t.id] || 0;
-          const active = tab === t.id;
+          const count = badgeCounts[t.id] || 0;
+          const active = activeTab === t.id;
           const waitingPulse = t.id === 'WAITING_FOR_AGENT' && count > 0;
           return (
             <button
@@ -101,7 +124,7 @@ export default function Sidebar({ onRefresh, onTabChange, compact = false }) {
                   : 'bg-slate-800 text-slate-300'
               } ${waitingPulse ? 'animate-pulseGlow' : ''}`}
             >
-              <div>{t.emoji}</div>
+              <div>{t.icon}</div>
               <div className="mt-0.5">{toBanglaDigits(count)}</div>
             </button>
           );
@@ -125,7 +148,6 @@ export default function Sidebar({ onRefresh, onTabChange, compact = false }) {
           </button>
         </div>
 
-        {/* Agent status toggle */}
         <div className="flex rounded-btn bg-slate-800/80 p-1 gap-0.5">
           {STATUS_OPTS.map((s) => (
             <button
@@ -138,20 +160,23 @@ export default function Sidebar({ onRefresh, onTabChange, compact = false }) {
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${s.dot} ${presence === s.id && s.id === 'online' ? 'animate-pulseDot' : ''}`} />
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${s.dot} ${
+                  presence === s.id && s.id === 'online' ? 'animate-pulseDot' : ''
+                }`}
+              />
               {s.label}
             </button>
           ))}
         </div>
 
-        {/* Stats pills */}
         <div className="flex flex-wrap gap-1.5">
           {TABS.map((t) => (
             <span
               key={t.id}
               className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-slate-800 text-slate-300"
             >
-              {t.emoji} {toBanglaDigits(counts?.[t.id] || 0)}
+              {t.icon} {toBanglaDigits(badgeCounts[t.id] || 0)}
             </span>
           ))}
           <span className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-slate-800 text-slate-300">
@@ -163,8 +188,8 @@ export default function Sidebar({ onRefresh, onTabChange, compact = false }) {
 
       <div className="px-2 pt-3 flex gap-1">
         {TABS.map((t) => {
-          const count = counts?.[t.id] || 0;
-          const active = tab === t.id;
+          const count = badgeCounts[t.id] || 0;
+          const active = activeTab === t.id;
           const waitingPulse = t.id === 'WAITING_FOR_AGENT' && count > 0;
 
           return (
@@ -181,7 +206,7 @@ export default function Sidebar({ onRefresh, onTabChange, compact = false }) {
               }`}
             >
               <div className="leading-tight">
-                {t.emoji} {t.label}
+                {t.icon} {t.label}
               </div>
               <div
                 className={`mt-1 inline-flex min-w-[18px] justify-center rounded-full px-1.5 text-[10px] font-semibold ${
@@ -214,7 +239,14 @@ export default function Sidebar({ onRefresh, onTabChange, compact = false }) {
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scroll-dark px-2 pb-3 space-y-1">
-        {filtered.length === 0 ? (
+        {loadingRooms ? (
+          <div className="space-y-2 pt-1">
+            <div className="skeleton h-14 bg-slate-700 rounded-card" />
+            <div className="skeleton h-14 bg-slate-700 rounded-card" />
+            <div className="skeleton h-14 bg-slate-700 rounded-card" />
+            <div className="skeleton h-14 bg-slate-700 rounded-card" />
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 px-4 text-center animate-fadeIn">
             <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center mb-3">
               <ChatBubbleLeftRightIcon className="w-6 h-6 text-slate-500" />
@@ -227,7 +259,7 @@ export default function Sidebar({ onRefresh, onTabChange, compact = false }) {
           </div>
         ) : (
           filtered.map((room) => (
-            <RoomListItem key={room._id || room.id} room={room} />
+            <RoomListItem key={room?._id || room?.id} room={room} />
           ))
         )}
       </div>
