@@ -8,6 +8,7 @@ import {
   EyeIcon,
   EyeSlashIcon,
   CheckCircleIcon,
+  ExclamationCircleIcon,
 } from '@heroicons/react/24/solid';
 import useAuthStore from '../store/authStore';
 
@@ -34,6 +35,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const saved = localStorage.getItem(REMEMBER_KEY);
@@ -46,11 +48,12 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email.trim() || !password) {
-      toast.error('Enter email and password');
+      setError('Enter email and password');
       return;
     }
 
     setLoading(true);
+    setError('');
     try {
       await login(email.trim(), password);
       if (rememberMe) localStorage.setItem(REMEMBER_KEY, email.trim());
@@ -58,9 +61,22 @@ export default function LoginPage() {
       toast.success('Logged in successfully');
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      const msg =
-        err.response?.data?.message || err.message || 'Login failed';
-      toast.error(msg);
+      const serverMessage = err.response?.data?.message;
+      if (err.response?.status === 401) {
+        setError(
+          serverMessage || 'Incorrect email or password. Please try again.'
+        );
+      } else if (err.response?.status === 429) {
+        setError(
+          serverMessage || 'Too many attempts. Please wait 15 minutes.'
+        );
+      } else if (err.response?.status === 404) {
+        setError(
+          serverMessage || 'Account not found. Check your email address.'
+        );
+      } else {
+        setError(serverMessage || 'Login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -244,6 +260,16 @@ export default function LoginPage() {
                 'Login'
               )}
             </button>
+
+            {error ? (
+              <div
+                role="alert"
+                className="mt-3 flex items-start gap-2 rounded-btn border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700"
+              >
+                <ExclamationCircleIcon className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            ) : null}
           </form>
 
           <p className="mt-8 text-center text-xs text-text-secondary">

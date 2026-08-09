@@ -270,22 +270,22 @@
           '<div id="cw-attach-name"></div>' +
           '<button type="button" id="cw-attach-remove" aria-label="Remove attachment">×</button>' +
         '</div>' +
-        '<div id="cw-footer-row">' +
-          '<button type="button" id="cw-attachment-btn" aria-label="Attach image">📎</button>' +
-          '<textarea id="cw-input" rows="1" placeholder="আপনার বার্তা লিখুন..."></textarea>' +
-          '<button type="button" id="cw-send-btn" aria-label="Send" disabled>' + SEND_SVG + '</button>' +
-          '<input type="file" id="cw-file-input" accept="image/*" />' +
-        '</div>' +
+        '<button type="button" id="cw-attachment-btn" aria-label="Attach image">📎</button>' +
+        '<textarea id="cw-input" rows="1" placeholder="আপনার বার্তা লিখুন..."></textarea>' +
+        '<button type="button" id="cw-send-btn" aria-label="Send">➤</button>' +
+        '<input type="file" id="cw-file-input" accept="image/*" />' +
       '</div>';
 
-    // Always append to document.body — never inside host page containers
+    // Bubble and panel are siblings on document.body — bubble NEVER inside footer/container
     document.body.appendChild(bubble);
     document.body.appendChild(container);
 
     bubble.addEventListener('click', openWidget);
     $('cw-minimize-btn').addEventListener('click', minimizeWidget);
     $('cw-close-btn').addEventListener('click', closeWidget);
-    $('cw-send-btn').addEventListener('click', sendMessage);
+    document.getElementById('cw-send-btn').addEventListener('click', function () {
+      sendMessage();
+    });
     $('cw-attachment-btn').addEventListener('click', function () {
       if (!state.resolved) $('cw-file-input').click();
     });
@@ -314,7 +314,7 @@
       });
     });
 
-    var input = $('cw-input');
+    var input = document.getElementById('cw-input');
     input.addEventListener('input', onInputChange);
     input.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -479,6 +479,7 @@
     if (!imageUrl && msg && msg.imageUrl) imageUrl = msg.imageUrl;
 
     var wrap = document.createElement('div');
+    if (msgId) wrap.setAttribute('data-cw-id', msgId);
 
     if (type === 'SYSTEM') {
       wrap.className = 'cw-msg cw-system';
@@ -792,28 +793,53 @@
     sendMessage();
   }
 
+  function emitSendMessage(payload) {
+    if (!state.socket) {
+      console.error('[ChatWidget] Socket not available');
+      return;
+    }
+    if (state.socket.connected) {
+      state.socket.emit('send_message', payload);
+      return;
+    }
+    console.error('[ChatWidget] Socket not connected — reconnecting');
+    try {
+      state.socket.connect();
+    } catch (e) {
+      console.error('[ChatWidget] reconnect failed:', e);
+    }
+    setTimeout(function () {
+      if (state.socket) {
+        state.socket.emit('send_message', payload);
+      }
+    }, 1000);
+  }
+
   async function sendMessage() {
     // Allow sending in BOT / WAITING_FOR_AGENT / ACTIVE — only block when resolved
-    if (state.resolved || !state.socket || !state.roomId) return;
+    if (state.resolved || !state.roomId) return;
 
-    var input = $('cw-input');
+    var input = document.getElementById('cw-input');
     if (input && (input.disabled || input.readOnly)) {
-      // Recover if input was left disabled after agent join
       setInputEnabled(true);
     }
 
-    var text = (input && input.value ? input.value : '').trim();
+    var message = (input && input.value ? input.value : '').trim();
     var file = state.pendingFile;
 
-    if (!text && !file) return;
-    if (text && text.length > 5000) {
+    if ((!message && !file) || !state.roomId) return;
+    if (message && message.length > 5000) {
       showErrorToast('বার্তা খুব বড় (সর্বোচ্চ ৫০০০ অক্ষর)।');
       return;
     }
 
-    var sendBtn = $('cw-send-btn');
-    if (sendBtn) sendBtn.disabled = true;
+    // Clear input immediately (optimistic UX)
+    if (input) {
+      input.value = '';
+      input.style.height = 'auto';
+    }
     emitTypingStop();
+    updateSendButton();
 
     var attachments = [];
     try {
@@ -828,43 +854,35 @@
             (uploadErr && uploadErr.message) ||
               'ছবি আপলোড ব্যর্থ হয়েছে। data URL পাঠানো হয়নি।'
           );
+          if (input && message) input.value = message;
           updateSendButton();
-          return; // Do NOT send data URL fallback
+          return;
         }
       }
 
-      var payload = {
-        room_id: state.roomId,
-        guest_session_id: state.guestSessionId,
-        content: text,
-        message: text || (attachments.length ? '[Attachment]' : ''),
-        sender_name: state.guestName,
+      // Show message in UI immediately (optimistic)
+      renderMessage({
+        _id: 'tmp-' + Date.now(),
         sender_type: 'USER',
-        attachments: attachments
-      };
-      if (attachments[0]) {
-        payload.attachment = attachments[0];
-        payload.image_url = attachments[0].url;
-      }
+        message: message || (attachments.length ? '[Attachment]' : ''),
+        content: message,
+        attachments: attachments,
+        attachment: attachments[0] || undefined,
+        image_url: attachments[0] ? attachments[0].url : undefined,
+        createdAt: new Date().toISOString()
+      });
 
-      // Rely on socket `new_message` broadcast for UI append (avoids duplicates)
-      state.socket.emit('send_message', {
+      emitSendMessage({
         room_id: state.roomId,
-        message: payload.message,
+        message: message || (attachments.length ? '[Attachment]' : ''),
         guest_session_id: state.guestSessionId,
         sender_name: state.guestName,
         sender_type: 'USER',
-        content: text,
+        content: message,
         attachments: attachments,
         attachment: attachments[0] || undefined,
         image_url: attachments[0] ? attachments[0].url : undefined
       });
-
-      if (input) {
-        input.value = '';
-        autoResizeInput();
-      }
-      updateSendButton();
     } catch (err) {
       console.error('[ChatWidget] send failed:', err);
       showErrorToast('বার্তা পাঠানো যায়নি। আবার চেষ্টা করুন।');
@@ -902,6 +920,21 @@
 
     s.on('new_message', function (msg) {
       if (msg && msg.sender_type === 'INTERNAL') return;
+      // Drop optimistic tmp bubble when the real USER message arrives
+      var type = String((msg && (msg.sender_type || msg.senderType)) || '').toUpperCase();
+      if (type === 'USER' || type === 'CUSTOMER' || type === 'GUEST') {
+        var box = $('cw-messages');
+        if (box) {
+          var content = String((msg && (msg.content || msg.message || msg.text)) || '').trim();
+          box.querySelectorAll('.cw-msg.cw-user').forEach(function (el) {
+            var id = el.getAttribute('data-cw-id') || '';
+            if (id.indexOf('tmp-') !== 0) return;
+            var textEl = el.querySelector('.cw-bubble-text');
+            var text = textEl ? String(textEl.textContent || '').trim() : '';
+            if (!content || text === content) el.remove();
+          });
+        }
+      }
       renderMessage(msg);
     });
 
@@ -1004,16 +1037,16 @@
       state.socket = null;
     }
 
-    var socketPath = state.socketPath || '/socket.io';
+    // Always connect to /customer namespace with /chat-socket/socket.io path
     state.socket = global.io(state.socketUrl.replace(/\/$/, '') + '/customer', {
-      path: socketPath,
+      path: '/chat-socket/socket.io',
       auth: {
         guest_session_id: state.guestSessionId,
         user_id: state.userId || undefined
       },
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: Infinity,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000
     });
 
