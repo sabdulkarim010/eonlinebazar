@@ -244,6 +244,8 @@ function initChatSocket(io) {
             let confidence = null;
             let triggered_handover = false;
 
+            let aiError = false;
+
             if (attachments && attachments.length > 0) {
               botText =
                 'আপনার ফাইলটি পেয়েছি। একজন লাইভ এজেন্ট শীঘ্রই এটি পর্যালোচনা করে সাহায্য করবেন।';
@@ -263,9 +265,10 @@ function initChatSocket(io) {
                 : null;
 
               const ai = await getAIResponse(history, orderContext);
-              botText = ai.message;
+              botText = ai.message || '';
               confidence = ai.confidence;
               handover = handover || ai.handover;
+              aiError = Boolean(ai.error);
             }
 
             triggered_handover = handover;
@@ -275,20 +278,24 @@ function initChatSocket(io) {
               .lean();
             const botName = store?.ai_persona_name || 'Aria';
 
-            const botMsg = await ChatMessage.create({
-              room_id,
-              sender_type: 'BOT',
-              sender_id: 'ai-bot',
-              sender_name: botName,
-              message: botText,
-              ai_confidence: confidence,
-              triggered_handover,
-              is_read_by_user: false,
-              is_read_by_agent: false,
-            });
+            // On AI API/format error: skip BOT error bubble — SYSTEM handover only
+            let botMsg = null;
+            if (!aiError && botText) {
+              botMsg = await ChatMessage.create({
+                room_id,
+                sender_type: 'BOT',
+                sender_id: 'ai-bot',
+                sender_name: botName,
+                message: botText,
+                ai_confidence: confidence,
+                triggered_handover,
+                is_read_by_user: false,
+                is_read_by_agent: false,
+              });
 
-            room.last_message = botMsg.message;
-            room.last_message_at = new Date();
+              room.last_message = botMsg.message;
+              room.last_message_at = new Date();
+            }
 
             if (handover) {
               room.status = 'WAITING_FOR_AGENT';
@@ -297,20 +304,32 @@ function initChatSocket(io) {
                 room.tags.push('handover');
               }
 
+              const systemText = aiError
+                ? 'একজন প্রতিনিধি শীঘ্রই যোগ দেবেন। ⏳'
+                : 'আপনার চ্যাটটি একজন লাইভ এজেন্টের কাছে পাঠানো হয়েছে। অনুগ্রহ করে অপেক্ষা করুন।';
+
               const systemMsg = await ChatMessage.create({
                 room_id,
                 sender_type: 'SYSTEM',
                 sender_name: 'System',
-                message:
-                  'আপনার চ্যাটটি একজন লাইভ এজেন্টের কাছে পাঠানো হয়েছে। অনুগ্রহ করে অপেক্ষা করুন।',
+                message: systemText,
                 triggered_handover: true,
                 is_read_by_user: false,
                 is_read_by_agent: false,
               });
 
+              room.last_message = systemMsg.message;
+              room.last_message_at = new Date();
               await room.save();
 
-              customerNs.to(String(room_id)).emit('new_message', botMsg);
+              if (botMsg) {
+                customerNs.to(String(room_id)).emit('new_message', botMsg);
+                adminNs.emit('new_message', {
+                  room_id,
+                  message: botMsg,
+                  room,
+                });
+              }
               customerNs.to(String(room_id)).emit('new_message', systemMsg);
               customerNs.to(String(room_id)).emit('handover_started', {
                 room_id,
@@ -333,13 +352,8 @@ function initChatSocket(io) {
 
               adminNs.emit('new_handover_request', {
                 room,
-                last_message: botMsg,
+                last_message: botMsg || systemMsg,
                 system_message: systemMsg,
-              });
-              adminNs.emit('new_message', {
-                room_id,
-                message: botMsg,
-                room,
               });
               adminNs.emit('new_message', {
                 room_id,
@@ -347,8 +361,11 @@ function initChatSocket(io) {
                 room,
               });
 
-              handleHandoverNotify(room, botMsg.message);
-            } else {
+              handleHandoverNotify(
+                room,
+                (botMsg && botMsg.message) || systemMsg.message
+              );
+            } else if (botMsg) {
               await room.save();
               customerNs.to(String(room_id)).emit('new_message', botMsg);
               adminNs.emit('new_message', {

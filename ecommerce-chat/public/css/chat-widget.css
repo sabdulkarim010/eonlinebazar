@@ -39,6 +39,13 @@
   box-shadow: 0 6px 28px rgba(108, 99, 255, 0.7) !important;
 }
 
+/* Never overlay the open chat panel / footer input */
+#cw-bubble.cw-hidden {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
 #cw-bubble svg {
   width: 28px !important;
   height: 28px !important;
@@ -239,7 +246,8 @@
 .cw-msg.cw-system {
   align-self: center !important;
   align-items: center !important;
-  max-width: 90% !important;
+  max-width: 85% !important;
+  margin: 4px auto !important;
 }
 
 .cw-msg-label {
@@ -278,13 +286,17 @@
 }
 
 .cw-msg.cw-system .cw-bubble-text {
-  background: rgba(108,99,255,0.08) !important;
-  color: #6C63FF !important;
-  font-size: 12px !important;
-  font-style: italic !important;
+  font-size: 11px !important;
+  color: #888 !important;
   text-align: center !important;
-  padding: 6px 12px !important;
+  padding: 4px 12px !important;
+  background: rgba(108,99,255,0.06) !important;
+  border-radius: 20px !important;
+  max-width: 100% !important;
+  margin: 0 auto !important;
+  font-style: italic !important;
   box-shadow: none !important;
+  border: none !important;
 }
 
 .cw-msg-time {
@@ -371,13 +383,15 @@
 
 /* Footer */
 #cw-footer {
-  padding: 12px !important;
-  background: white !important;
-  border-top: 1px solid #F0F0F0 !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: stretch !important;
+  padding: 10px 12px !important;
   gap: 8px !important;
+  background: white !important;
+  border-top: 1px solid #F0F0F0 !important;
+  position: relative !important;
+  z-index: 1 !important;
   flex-shrink: 0 !important;
 }
 
@@ -385,10 +399,14 @@
   display: flex !important;
   align-items: flex-end !important;
   gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
 }
 
 #cw-input {
-  flex: 1 !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  max-width: calc(100% - 100px) !important;
   border: 1.5px solid #E8E8E8 !important;
   border-radius: 20px !important;
   padding: 8px 14px !important;
@@ -415,8 +433,10 @@
 }
 
 #cw-send-btn {
+  flex-shrink: 0 !important;
   width: 38px !important;
   height: 38px !important;
+  min-width: 38px !important;
   border-radius: 50% !important;
   background: #6C63FF !important;
   border: none !important;
@@ -425,7 +445,6 @@
   align-items: center !important;
   justify-content: center !important;
   transition: all 0.15s !important;
-  flex-shrink: 0 !important;
   padding: 0 !important;
 }
 
@@ -448,8 +467,10 @@
 }
 
 #cw-attachment-btn {
+  flex-shrink: 0 !important;
   width: 34px !important;
   height: 34px !important;
+  min-width: 34px !important;
   border-radius: 50% !important;
   background: transparent !important;
   border: 1.5px solid #E8E8E8 !important;
@@ -460,7 +481,6 @@
   color: #999 !important;
   font-size: 16px !important;
   transition: all 0.15s !important;
-  flex-shrink: 0 !important;
   padding: 0 !important;
 }
 
@@ -565,18 +585,39 @@
 /* Mobile responsive */
 @media (max-width: 480px) {
   #cw-container {
+    position: fixed !important;
     bottom: 0 !important;
-    right: 0 !important;
     left: 0 !important;
+    right: 0 !important;
     width: 100% !important;
     height: 85vh !important;
     max-height: 85vh !important;
-    border-radius: 16px 16px 0 0 !important;
+    border-radius: 20px 20px 0 0 !important;
+    display: none !important;
+    flex-direction: column !important;
+  }
+
+  #cw-container.cw-open {
+    display: flex !important;
+  }
+
+  #cw-messages {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  #cw-footer {
+    position: sticky !important;
+    bottom: 0 !important;
+    background: white !important;
+    padding-bottom: env(safe-area-inset-bottom, 10px) !important;
   }
 
   #cw-bubble {
     bottom: 16px !important;
     right: 16px !important;
+    z-index: 2147483647 !important;
   }
 }
 

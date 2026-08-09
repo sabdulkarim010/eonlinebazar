@@ -182,12 +182,32 @@ async function getAIResponse(messages = [], orderContext = null) {
       ],
     });
 
-    let reply =
-      completion.choices?.[0]?.message?.content?.trim() ||
-      'দুঃখিত, আমি এই মুহূর্তে উত্তর দিতে পারছি না। অনুগ্রহ করে একটু পরে আবার চেষ্টা করুন।';
+    const rawContent = completion?.choices?.[0]?.message?.content;
+    // Unexpected / empty format → silent handover (no BOT error text)
+    if (typeof rawContent !== 'string' || !rawContent.trim()) {
+      console.warn('[AI Service] Unexpected OpenAI response format — triggering handover');
+      return {
+        message: '',
+        handover: true,
+        error: true,
+        confidence: 0.2,
+        tokens_used: completion?.usage?.total_tokens || 0,
+      };
+    }
 
+    let reply = rawContent.trim();
     let handover = reply.includes('[HANDOVER_REQUIRED]');
     reply = reply.replace(/\[HANDOVER_REQUIRED\]/g, '').trim();
+
+    if (!reply) {
+      return {
+        message: '',
+        handover: true,
+        error: true,
+        confidence: 0.2,
+        tokens_used: completion?.usage?.total_tokens || 0,
+      };
+    }
 
     const lastUser = [...messages].reverse().find((m) => m.sender_type === 'USER');
     if (!handover && lastUser) {
@@ -200,15 +220,18 @@ async function getAIResponse(messages = [], orderContext = null) {
     return {
       message: reply,
       handover,
+      error: false,
       confidence,
       tokens_used,
     };
   } catch (err) {
-    console.error('[AI Service] OpenAI error:', err.message);
+    // Actual API failures (network, 401, 429, etc.) — silent handover, no BOT error text
+    const status = err?.status || err?.response?.status || err?.code;
+    console.error('[AI Service] OpenAI error:', err.message, status || '');
     return {
-      message:
-        'দুঃখিত, AI সেবায় সাময়িক সমস্যা হয়েছে। অনুগ্রহ করে একটু পরে আবার চেষ্টা করুন, অথবা লাইভ এজেন্টের সাথে কথা বলুন।',
+      message: '',
       handover: true,
+      error: true,
       confidence: 0.2,
       tokens_used: 0,
     };

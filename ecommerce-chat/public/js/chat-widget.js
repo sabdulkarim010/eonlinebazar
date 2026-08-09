@@ -356,6 +356,12 @@
 
   /* ---------- open / close ---------- */
 
+  function setBubbleVisible(visible) {
+    var bubble = $('cw-bubble');
+    if (!bubble) return;
+    bubble.classList.toggle('cw-hidden', !visible);
+  }
+
   function openWidget() {
     ensureDom();
     state.isOpen = true;
@@ -365,6 +371,7 @@
     if (!el) return;
     // Do NOT touch document.body overflow / scroll position
     el.classList.add('cw-open');
+    setBubbleVisible(false);
     scrollToBottom();
     setTimeout(function () {
       var input = $('cw-input');
@@ -377,6 +384,7 @@
     var el = $('cw-container');
     if (!el) return;
     el.classList.remove('cw-open');
+    setBubbleVisible(true);
   }
 
   function closeWidget() {
@@ -611,10 +619,15 @@
     var footer = $('cw-footer');
     if (!input) return;
     input.disabled = !enabled;
+    input.readOnly = !enabled;
     if (attach) attach.disabled = !enabled;
     if (footer) footer.classList.toggle('is-disabled', !enabled);
-    updateSendButton();
-    if (!enabled && send) send.disabled = true;
+    if (enabled) {
+      input.placeholder = 'আপনার বার্তা লিখুন...';
+      updateSendButton();
+    } else if (send) {
+      send.disabled = true;
+    }
   }
 
   /* ---------- input / typing / files ---------- */
@@ -780,9 +793,15 @@
   }
 
   async function sendMessage() {
+    // Allow sending in BOT / WAITING_FOR_AGENT / ACTIVE — only block when resolved
     if (state.resolved || !state.socket || !state.roomId) return;
 
     var input = $('cw-input');
+    if (input && (input.disabled || input.readOnly)) {
+      // Recover if input was left disabled after agent join
+      setInputEnabled(true);
+    }
+
     var text = (input && input.value ? input.value : '').trim();
     var file = state.pendingFile;
 
@@ -792,7 +811,8 @@
       return;
     }
 
-    $('cw-send-btn').disabled = true;
+    var sendBtn = $('cw-send-btn');
+    if (sendBtn) sendBtn.disabled = true;
     emitTypingStop();
 
     var attachments = [];
@@ -828,7 +848,17 @@
       }
 
       // Rely on socket `new_message` broadcast for UI append (avoids duplicates)
-      state.socket.emit('send_message', payload);
+      state.socket.emit('send_message', {
+        room_id: state.roomId,
+        message: payload.message,
+        guest_session_id: state.guestSessionId,
+        sender_name: state.guestName,
+        sender_type: 'USER',
+        content: text,
+        attachments: attachments,
+        attachment: attachments[0] || undefined,
+        image_url: attachments[0] ? attachments[0].url : undefined
+      });
 
       if (input) {
         input.value = '';
@@ -852,6 +882,7 @@
     s.off('agent_typing');
     s.off('agent_stopped_typing');
     s.off('waiting_for_agent');
+    s.off('handover_started');
     s.off('agent_joined');
     s.off('chat_resolved');
     s.off('chat_history');
@@ -905,15 +936,34 @@
 
     s.on('waiting_for_agent', function () {
       showWaitingBanner(true);
-      showSystemBanner('একজন প্রতিনিধি শীঘ্রই যোগ দেবেন...');
+      // Keep input enabled while waiting — customer may still send messages
+      if (!state.resolved) setInputEnabled(true);
+    });
+
+    s.on('handover_started', function () {
+      showWaitingBanner(true);
+      if (!state.resolved) setInputEnabled(true);
     });
 
     s.on('agent_joined', function (data) {
       var name = (data && (data.agent_name || data.name || data.agentName)) || 'Agent';
       state.agentName = name;
+      state.resolved = false;
       updateHeader();
       showWaitingBanner(false);
-      showSystemBanner(name + ' চ্যাটে যোগ দিয়েছেন');
+      // Fully re-enable input when a live agent joins (ACTIVE)
+      setInputEnabled(true);
+      var inputEl = $('cw-input');
+      var sendEl = $('cw-send-btn');
+      if (inputEl) {
+        inputEl.disabled = false;
+        inputEl.readOnly = false;
+        inputEl.placeholder = 'আপনার বার্তা লিখুন...';
+      }
+      if (sendEl) {
+        sendEl.disabled = !(inputEl && (inputEl.value || '').trim().length > 0);
+      }
+      updateSendButton();
     });
 
     s.on('chat_resolved', function () {
