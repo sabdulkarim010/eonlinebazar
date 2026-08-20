@@ -136,7 +136,16 @@ const loginAdmin = async (req, res) => {
     try {
         const { username, password } = req.body;
         
-        let admin = await Admin.findOne({ username });
+        let admin = await Admin.findOne({ username })
+            .select('+totpSecret +totpPendingSecret +password +loginOtpHash');
+
+        console.log('[LOGIN DEBUG]', {
+            username: admin?.username,
+            hasSecret: !!admin?.totpSecret,
+            secretLen: admin?.totpSecret?.length || 0,
+            method: admin?.twoFactorMethod,
+            verified: admin?.totpVerified
+        });
 
         // অ্যাডমিন না থাকলে এবং ক্রেডেনশিয়াল মিললে নতুন অ্যাডমিন তৈরি করা
         if (!admin && username === "admin" && password === process.env.ADMIN_PASSWORD) {

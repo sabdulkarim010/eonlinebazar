@@ -463,7 +463,15 @@ exports.loginAdmin = async (req, res) => {
         // totpSecret / totpPendingSecret / otp are select:false — must be included
         // or TOTP verification always sees undefined and fails.
         let admin = await Admin.findOne({ username })
-            .select('+totpSecret +totpPendingSecret +otp +otpExpiry');
+            .select('+totpSecret +totpPendingSecret +otp +otpExpiry +password +loginOtpHash');
+
+        console.log('[LOGIN DEBUG]', {
+            username: admin?.username,
+            hasSecret: !!admin?.totpSecret,
+            secretLen: admin?.totpSecret?.length || 0,
+            method: admin?.twoFactorMethod,
+            verified: admin?.totpVerified
+        });
 
         // Bootstrap: প্রথমবার সঠিক ক্রেডেনশিয়ালে অ্যাডমিন তৈরি
         // (এই অ্যাকাউন্টটি সব সময় সুপার অ্যাডমিন — মালিকের অ্যাক্সেস)
