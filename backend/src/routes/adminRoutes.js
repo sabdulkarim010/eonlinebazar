@@ -16,10 +16,12 @@ const {
     undoOrderRefund,
     createManualOrder,
     updateOrderShippingAddress,
-    getPendingPaymentProofOrders,
-    reviewPaymentProof,
     bulkDeleteOrders
-} = require('../controllers/orderController');
+} = require('../controllers/orderAdminController');
+const {
+    getPendingPaymentProofOrders,
+    reviewPaymentProof
+} = require('../controllers/orderPaymentProofController');
 const {
     getPaymentReconciliation,
     markGatewayOrderPaid

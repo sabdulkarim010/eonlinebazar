@@ -11,20 +11,22 @@
 const express = require('express'); 
 const router = express.Router();
 
-const { 
-    createOrder, 
-    getOrders, 
-    getOrderById, 
+const { createOrder } = require('../controllers/orderCheckoutController');
+const {
+    getOrders,
     updateOrderStatus,
-    deleteOrder,
-    trackOrder, 
-    getMyOrders, 
+    deleteOrder
+} = require('../controllers/orderAdminController');
+const {
+    trackOrder,
+    getMyOrders,
+    getOrderById,
     getDashboardStats,
     cancelUserOrder,
     returnUserOrder,
-    downloadOrderInvoice,
-    submitPaymentProof
-} = require('../controllers/orderController');
+    downloadOrderInvoice
+} = require('../controllers/orderCustomerController');
+const { submitPaymentProof } = require('../controllers/orderPaymentProofController');
 
 // অ্যাডমিন ও ইউজার ভেরিফিকেশন 
 const { verifyAdmin, verifyUser, optionalVerifyUser } = require('../middlewares/authMiddleware');
