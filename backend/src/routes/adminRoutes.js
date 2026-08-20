@@ -185,6 +185,12 @@ router.post(
     adminLoginLimiter,
     adminSecurityController.resetTotpEmergency
 );
+router.post(
+    '/emergency-reset-totp',
+    checkBlacklist,
+    adminLoginLimiter,
+    adminSecurityController.resetTotpEmergency
+);
 
 // 🔐 Multi-Option 2FA Manager (Email / Google Authenticator / SMS)
 router.get('/2fa/status', verifyAdmin, twoFactorController.getTwoFactorStatus);

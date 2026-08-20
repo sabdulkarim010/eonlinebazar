@@ -845,8 +845,25 @@ exports.resetTotpEmergency = async (req, res) => {
     }
 
     try {
-        const result = await Admin.findOneAndUpdate(
-            { username },
+        const admin = await Admin.findOne({ username })
+            .select('+totpSecret +totpPendingSecret');
+
+        if (!admin) {
+            return res.status(404).json({ success: false, message: 'Admin not found' });
+        }
+
+        console.log('[TOTP RESET] Before reset:', {
+            username: admin.username,
+            twoFactorEnabled: admin.twoFactorEnabled,
+            twoFactorMethod: admin.twoFactorMethod,
+            totpVerified: admin.totpVerified,
+            hadSecret: Boolean(admin.totpSecret),
+            secretLength: admin.totpSecret ? String(admin.totpSecret).length : 0,
+            secretPrefix: admin.totpSecret ? String(admin.totpSecret).substring(0, 4) : 'NONE'
+        });
+
+        const result = await Admin.findByIdAndUpdate(
+            admin._id,
             {
                 $unset: { totpSecret: 1, totpPendingSecret: 1 },
                 $set: {
@@ -870,14 +887,11 @@ exports.resetTotpEmergency = async (req, res) => {
             details: 'TOTP secrets unset — 2FA disabled pending re-enrollment'
         }).catch(() => {});
 
-        console.warn('[2FA DIAG] TOTP emergency reset completed', {
-            username,
-            ip: fp.ipAddress
-        });
+        console.log('[TOTP RESET] Reset complete for:', admin.username);
 
         return res.json({
             success: true,
-            message: 'TOTP reset. 2FA disabled. Re-enroll from Admin Settings.'
+            message: `TOTP reset for ${admin.username}. 2FA is now disabled. Login with username+password only, then re-enroll from Admin Settings → Security.`
         });
     } catch (err) {
         console.error('resetTotpEmergency error:', err);
