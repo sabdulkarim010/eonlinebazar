@@ -29,7 +29,7 @@ const { ROLES, ACCOUNT_STATUS } = require('../config/permissions');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const OTP_TTL_MINUTES = 5;
-const TOTP_WINDOW = 1; // ±30s clock-drift tolerance for Google Authenticator
+const TOTP_WINDOW = 2; // ±60s clock-drift tolerance for Google Authenticator
 
 /* helper: mask an email for safe display (a****@gmail.com) */
 function maskEmail(email = '') {
@@ -42,6 +42,67 @@ function maskEmail(email = '') {
 /** Normalize OTP to a 6-digit string (same format used at generation). */
 function normalizeOtp(value) {
     return String(value ?? '').replace(/\D/g, '').trim();
+}
+
+function extractTwoFactorCode(body = {}) {
+    const candidates = [
+        body.otp,
+        body.twoFactorCode,
+        body.two_factor_code,
+        body.totp,
+        body.totpCode,
+        body.code
+    ];
+    for (const candidate of candidates) {
+        const normalized = normalizeOtp(candidate);
+        if (normalized) return normalized;
+    }
+    return '';
+}
+
+function cleanTotpSecret(secret) {
+    return String(secret || '').replace(/\s+/g, '').trim();
+}
+
+function verifyTotpToken(secret, token) {
+    const cleanSecret = cleanTotpSecret(secret);
+    const cleanToken = normalizeOtp(token);
+    if (!cleanSecret || cleanToken.length !== 6) return false;
+
+    const encodings = ['base32', 'ascii'];
+    for (const encoding of encodings) {
+        try {
+            const ok = speakeasy.totp.verify({
+                secret: cleanSecret,
+                encoding,
+                token: cleanToken,
+                window: TOTP_WINDOW,
+                digits: 6,
+                step: 30
+            });
+            if (ok) return true;
+        } catch (_) { /* secret is not valid for this encoding */ }
+    }
+    return false;
+}
+
+function expectedTotpSamples(secret) {
+    const cleanSecret = cleanTotpSecret(secret);
+    if (!cleanSecret) return { base32: null, ascii: null };
+    const samples = {};
+    for (const encoding of ['base32', 'ascii']) {
+        try {
+            samples[encoding] = speakeasy.totp({
+                secret: cleanSecret,
+                encoding,
+                digits: 6,
+                step: 30
+            });
+        } catch (_) {
+            samples[encoding] = null;
+        }
+    }
+    return samples;
 }
 
 /**
@@ -159,16 +220,6 @@ async function rejectIfBlocked(res, admin, fp) {
     return true;
 }
 
-function verifyTotpToken(secret, token) {
-    if (!secret) return false;
-    return speakeasy.totp.verify({
-        secret,
-        encoding: 'base32',
-        token: normalizeOtp(token),
-        window: TOTP_WINDOW
-    });
-}
-
 /**
  * Finish login after password (2FA off) or after a valid inline/step-2 code.
  */
@@ -205,10 +256,10 @@ async function completeAdminLogin(res, admin, fp, details) {
  * Returns { ok: true } or { ok: false, status, reason, message }.
  */
 function verifyInlineTwoFactor(admin, method, inputOtp) {
-    const totpReady = Boolean(admin.totpSecret && admin.totpVerified);
+    const totpReady = Boolean(admin.totpSecret);
 
     // Prefer Google Authenticator when it is the chosen method, or when the
-    // account has a verified TOTP secret (covers mixed email+authenticator setups).
+    // account has a TOTP secret (covers mixed email+authenticator setups).
     if (method === 'totp' || totpReady) {
         if (method === 'totp' && !admin.totpSecret) {
             return {
@@ -226,7 +277,7 @@ function verifyInlineTwoFactor(admin, method, inputOtp) {
                 ok: false,
                 status: 401,
                 reason: 'INVALID_OTP',
-                message: 'Incorrect authenticator code. Check your device clock and try again.'
+                message: 'Invalid 2FA Code, please try again'
             };
         }
     }
@@ -253,7 +304,7 @@ function verifyInlineTwoFactor(admin, method, inputOtp) {
             ok: false,
             status: 401,
             reason: 'INVALID_OTP',
-            message: 'Incorrect verification code. Please try again.'
+            message: 'Invalid 2FA Code, please try again'
         };
     }
     return { ok: true, via: method };
@@ -398,9 +449,15 @@ exports.loginAdmin = async (req, res) => {
         // ── Resolve the admin's chosen 2FA method ──
         let method = admin.twoFactorMethod || 'email';
         const twoFactorOn = admin.twoFactorEnabled !== false;
+        const totpSecret = admin.totpSecret || '';
+        const totpReady = Boolean(totpSecret);
 
-        // Guard: if 'totp' is selected but not actually configured, fall back to email.
-        if (method === 'totp' && !(admin.totpSecret && admin.totpVerified)) method = 'email';
+        // Prefer a stored authenticator secret even if method was left on email.
+        if (totpReady) {
+            method = 'totp';
+        } else if (method === 'totp' && !totpSecret) {
+            method = 'email';
+        }
         // Guard: if 'sms' is selected but no phone on file, fall back to email.
         if (method === 'sms' && !admin.phone) method = 'email';
 
@@ -412,20 +469,42 @@ exports.loginAdmin = async (req, res) => {
         // Optional 2FA code from the same /admin-login form (step 2).
         // If present, verify it here and issue the session. If blank, stay on
         // the login page (otpRequired) so the TWO-FACTOR CODE field can appear.
-        const twoFactorCode = normalizeOtp(
-            req.body.otp || req.body.twoFactorCode || req.body.code || req.body.totp
-        );
+        const twoFactorCode = extractTwoFactorCode(req.body);
+
+        console.log('[Admin Login 2FA]', {
+            username: admin.username,
+            method,
+            twoFactorOn,
+            totpVerified: !!admin.totpVerified,
+            hasTotpSecret: Boolean(admin.totpSecret),
+            totpSecretLength: cleanTotpSecret(totpSecret).length,
+            bodyKeys: Object.keys(req.body || {}),
+            rawOtp: req.body?.otp,
+            rawTwoFactorCode: req.body?.twoFactorCode,
+            rawCode: req.body?.code,
+            extractedCode: twoFactorCode,
+            extractedLength: twoFactorCode.length,
+            expectedTotp: totpSecret ? expectedTotpSamples(totpSecret) : null
+        });
 
         if (twoFactorCode) {
             if (twoFactorCode.length !== 6) {
                 return res.status(400).json({
                     success: false,
                     reason: 'INVALID_OTP',
-                    message: 'Two-factor code must be exactly 6 digits.'
+                    message: 'Invalid 2FA Code, please try again'
                 });
             }
 
             const verified = verifyInlineTwoFactor(admin, method, twoFactorCode);
+            console.log('[Admin Login 2FA] verify result', {
+                username: admin.username,
+                ok: verified.ok,
+                via: verified.via || null,
+                reason: verified.reason || null,
+                providedCode: twoFactorCode,
+                expectedTotp: totpSecret ? expectedTotpSamples(totpSecret) : null
+            });
             if (!verified.ok) {
                 await recordLoginAttempt({
                     fingerprint: fp,
@@ -443,7 +522,9 @@ exports.loginAdmin = async (req, res) => {
                 return res.status(verified.status).json({
                     success: false,
                     reason: verified.reason,
-                    message: verified.message
+                    message: verified.reason === 'INVALID_OTP'
+                        ? 'Invalid 2FA Code, please try again'
+                        : verified.message
                 });
             }
 

@@ -117,11 +117,12 @@ function showToast(message, type = 'success') {
      → 2FA on: reveal TWO-FACTOR CODE on this form (never leave the page)
    Step 2: 6-digit code + submit again → /admin
 ================================================== */
-function revealAdmin2faStep(message) {
+function revealAdmin2faStep(message, options) {
     const tfaSection = document.getElementById('admin2faSection');
     const tfaInfo = document.getElementById('admin2faInfo');
     const tfaInput = document.getElementById('admin2faCode');
     const prompt = message || 'Enter your 6-digit Authenticator code';
+    const clearInput = !options || options.clearInput !== false;
 
     if (tfaInfo) tfaInfo.textContent = prompt;
     if (tfaSection) {
@@ -130,17 +131,25 @@ function revealAdmin2faStep(message) {
     }
     if (typeof setAdminLoading === 'function') setAdminLoading(false);
     if (tfaInput) {
-        tfaInput.value = '';
+        if (clearInput) tfaInput.value = '';
         setTimeout(() => tfaInput.focus(), 50);
     }
 }
 
+function readAdmin2faCode() {
+    const el = document.getElementById('admin2faCode');
+    return String(el && el.value != null ? el.value : '').replace(/\D/g, '').trim();
+}
+
+let adminLoginInFlight = false;
+
 async function handleAdminLogin() {
+    if (adminLoginInFlight) return;
     if (typeof hideAdminError === 'function') hideAdminError();
 
     const username = document.getElementById('adminUsername')?.value.trim() || '';
     const password = document.getElementById('adminPassword')?.value.trim() || '';
-    const twoFactorCode = (document.getElementById('admin2faCode')?.value || '').replace(/\D/g, '').trim();
+    const twoFactorCode = readAdmin2faCode();
     const tfaVisible = document.getElementById('admin2faSection')?.classList.contains('show');
 
     if (!username || !password) {
@@ -159,13 +168,23 @@ async function handleAdminLogin() {
     }
 
     if (typeof setAdminLoading === 'function') setAdminLoading(true);
+    adminLoginInFlight = true;
 
     try {
         const payload = { username, password };
-        if (twoFactorCode) {
+        if (tfaVisible || twoFactorCode) {
             payload.otp = twoFactorCode;
             payload.twoFactorCode = twoFactorCode;
+            payload.code = twoFactorCode;
+            payload.totp = twoFactorCode;
         }
+
+        console.log('[Admin Login] submitting 2FA payload', {
+            username,
+            tfaVisible,
+            otpLength: twoFactorCode.length,
+            hasOtp: Boolean(twoFactorCode)
+        });
 
         const response = await fetch('/api/admin/login', {
             method: 'POST',
@@ -173,7 +192,7 @@ async function handleAdminLogin() {
             body: JSON.stringify(payload)
         });
 
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
 
         if (response.status === 403 || response.status === 429) {
             if (typeof showAdminError === 'function') {
@@ -190,27 +209,40 @@ async function handleAdminLogin() {
             localStorage.setItem('adminToken', data.token);
             if (data.image) localStorage.setItem('adminProfilePic', data.image);
             showToast('Login successful! Redirecting to the dashboard...', 'success');
-            setTimeout(() => { window.location.href = '/admin'; }, 800);
-
-        } else if (data.success && data.otpRequired) {
-            const prompt = data.prompt || 'Enter your 6-digit Authenticator code';
-            revealAdmin2faStep(prompt);
-            showToast(data.message || prompt, 'success');
-
-        } else {
-            if (typeof showAdminError === 'function') {
-                showAdminError(data.message || 'Invalid username or password.');
-            }
-            if (data.reason === 'INVALID_OTP' || data.reason === 'OTP_EXPIRED') {
-                document.getElementById('admin2faCode')?.focus();
-            }
+            window.location.href = '/admin';
+            return;
         }
+
+        if (data.success && data.otpRequired) {
+            if (tfaVisible && twoFactorCode) {
+                if (typeof showAdminError === 'function') {
+                    showAdminError('Invalid 2FA Code, please try again');
+                }
+                document.getElementById('admin2faCode')?.focus();
+                return;
+            }
+            const prompt = data.prompt || 'Enter your 6-digit Authenticator code';
+            revealAdmin2faStep(prompt, { clearInput: true });
+            showToast(data.message || prompt, 'success');
+            return;
+        }
+
+        const invalid2fa = data.reason === 'INVALID_OTP' || data.reason === 'OTP_EXPIRED' || data.reason === 'OTP_NOT_FOUND';
+        if (typeof showAdminError === 'function') {
+            showAdminError(
+                invalid2fa
+                    ? (data.message || 'Invalid 2FA Code, please try again')
+                    : (data.message || 'Invalid username or password.')
+            );
+        }
+        if (invalid2fa) document.getElementById('admin2faCode')?.focus();
     } catch (err) {
         console.error('Error:', err);
         if (typeof showAdminError === 'function') {
             showAdminError('Something went wrong. Please try again.');
         }
     } finally {
+        adminLoginInFlight = false;
         if (typeof setAdminLoading === 'function') setAdminLoading(false);
     }
 }
