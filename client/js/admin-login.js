@@ -476,7 +476,7 @@ async function handleAdminLogin() {
                 return;
             }
             const prompt = data.prompt || data.message || 'Open Google Authenticator and enter the 6-digit code';
-            showToast(data.message || prompt, 'success');
+            revealAdmin2faStep(prompt);
             return;
         }
 
