@@ -215,7 +215,7 @@ function verifyInlineTwoFactor(admin, method, inputOtp) {
                 ok: false,
                 status: 401,
                 reason: 'OTP_NOT_FOUND',
-                message: 'Google Authenticator is not configured for this account. Leave the two-factor field blank to continue.'
+                message: 'Google Authenticator is not configured for this account. Sign in with username and password to continue.'
             };
         }
         if (admin.totpSecret && verifyTotpToken(admin.totpSecret, inputOtp)) {
@@ -237,7 +237,7 @@ function verifyInlineTwoFactor(admin, method, inputOtp) {
             ok: false,
             status: 401,
             reason: 'OTP_NOT_FOUND',
-            message: 'No code has been sent yet. Leave the two-factor field blank to receive a verification code.'
+            message: 'No code has been sent yet. Submit username and password first to receive a verification code.'
         };
     }
     if (Date.now() > expiryMs) {
@@ -245,7 +245,7 @@ function verifyInlineTwoFactor(admin, method, inputOtp) {
             ok: false,
             status: 400,
             reason: 'OTP_EXPIRED',
-            message: 'That verification code has expired. Leave the field blank to receive a new one.'
+            message: 'That verification code has expired. Submit username and password again to receive a new one.'
         };
     }
     if (String(admin.otp) !== String(inputOtp)) {
@@ -261,9 +261,9 @@ function verifyInlineTwoFactor(admin, method, inputOtp) {
 
 /**
  * Dispatch a login challenge for the admin's selected 2FA method.
- * Returns the payload the frontend needs to render /admin/verify-otp.
+ * Used by the same-page /admin-login step (email/SMS send a code; TOTP does not).
  *   - email / sms → generates + persists an epoch-ms OTP and delivers it
- *   - totp        → no code is sent (user reads it from their app)
+ *   - totp        → no code is sent (user reads it from their authenticator app)
  */
 async function dispatchChallenge(admin, method, fp) {
     const recipientEmail = admin.email || process.env.SMTP_USER || process.env.EMAIL_USER || '';
@@ -337,7 +337,7 @@ async function dispatchChallenge(admin, method, fp) {
 }
 
 /* ==================================================================
-   STEP 1 — Verify username & password; accept inline 2FA or dispatch OTP
+   STEP 1 — Verify username & password; complete login or request same-page 2FA
    POST /api/admin/login
    ================================================================== */
 exports.loginAdmin = async (req, res) => {
@@ -409,8 +409,9 @@ exports.loginAdmin = async (req, res) => {
             return completeAdminLogin(res, admin, fp, 'Password verified — 2FA disabled · login complete');
         }
 
-        // Optional code from /admin-login ("TWO-FACTOR CODE"). If present, verify
-        // it here and issue the session — skip /admin/verify-otp. If blank, challenge.
+        // Optional 2FA code from the same /admin-login form (step 2).
+        // If present, verify it here and issue the session. If blank, stay on
+        // the login page (otpRequired) so the TWO-FACTOR CODE field can appear.
         const twoFactorCode = normalizeOtp(
             req.body.otp || req.body.twoFactorCode || req.body.code || req.body.totp
         );
@@ -450,7 +451,7 @@ exports.loginAdmin = async (req, res) => {
             return completeAdminLogin(res, admin, fp, `Password + ${viaLabel} verified on login form`);
         }
 
-        // ── Field left blank → dispatch the 2FA challenge (verify-otp page) ──
+        // ── Password OK, 2FA on, code not yet entered → same-page step 2 ──
         const challenge = await dispatchChallenge(admin, method, fp);
 
         await recordLoginAttempt({
@@ -467,12 +468,14 @@ exports.loginAdmin = async (req, res) => {
             details: `2FA challenge (${challenge.channelLabel}) · ${fp.device} · ${fp.location}`
         });
 
+        const totpPrompt = 'Enter your 6-digit Authenticator code';
         return res.status(200).json({
             success: true,
             otpRequired: true,
             method: challenge.method,
             channelLabel: challenge.channelLabel,
-            message: challenge.message,
+            message: challenge.method === 'totp' ? totpPrompt : challenge.message,
+            prompt: totpPrompt,
             otpToken: challenge.otpToken,
             delivered: challenge.delivered,
             maskedTarget: challenge.maskedTarget || '',

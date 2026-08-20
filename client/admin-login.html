@@ -311,8 +311,20 @@
   .admin-back-link:hover { color: rgba(255,255,255,0.7); }
 
   .admin-2fa-section {
+    display: none;
+    margin-top: 4px;
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  .admin-2fa-section.show {
     display: block;
-    margin-top: 16px;
+    animation: tfaReveal 0.35s ease forwards;
+  }
+
+  @keyframes tfaReveal {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   .admin-otp-input {
@@ -465,7 +477,7 @@
       </div>
     </div>
 
-    <div class="admin-2fa-section" id="admin2faSection">
+    <div class="admin-2fa-section" id="admin2faSection" aria-hidden="true">
       <div class="admin-field">
         <label for="admin2faCode">Two-Factor Code</label>
         <div class="admin-input-wrap">
@@ -482,8 +494,8 @@
             onkeydown="if(event.key==='Enter') handleAdminLogin()"
           >
         </div>
-        <div class="admin-2fa-info">
-          Optional if 2FA is on — enter your authenticator code to skip the extra page
+        <div class="admin-2fa-info" id="admin2faInfo">
+          Enter your 6-digit Authenticator code
         </div>
       </div>
     </div>
@@ -561,9 +573,14 @@ function setAdminLoading(loading) {
   const btn = document.getElementById('adminLoginBtn');
   const spinner = document.getElementById('adminSpinner');
   const text = document.getElementById('adminBtnText');
+  const tfaOn = document.getElementById('admin2faSection')?.classList.contains('show');
   if (btn) btn.disabled = loading;
   if (spinner) spinner.style.display = loading ? 'block' : 'none';
-  if (text) text.textContent = loading ? 'Verifying...' : '🔓 Access Admin Panel';
+  if (text) {
+    text.textContent = loading
+      ? 'Verifying...'
+      : (tfaOn ? '🔓 Verify & Sign In' : '🔓 Access Admin Panel');
+  }
 }
 </script>
 

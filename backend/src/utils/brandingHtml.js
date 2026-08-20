@@ -23,7 +23,6 @@ const STOREFRONT_PAGES = new Set([
     'about.html',
     'contact.html',
     'forgot-password.html',
-    'verify-otp.html',
     'cms-page.html',
     'access-denied.html',
     '404.html'

@@ -210,11 +210,10 @@ function mountViewRoutes(app) {
         return res.redirect('/admin/login?loggedout=1');
     });
 
-    function serveAdminOtpPage(req, res) {
-        sendClientHtml(res, 'verify-otp.html');
-    }
-    app.get('/admin/verify-otp', serveAdminOtpPage);
-    app.get('/verify-otp', serveAdminOtpPage);
+    // Legacy OTP page removed — 2FA now happens on /admin/login.
+    app.get(['/admin/verify-otp', '/verify-otp'], (req, res) => {
+        return res.redirect(301, '/admin/login');
+    });
 
     app.get('/finance-login', (req, res) => {
         sendClientHtml(res, 'finance-login.html');

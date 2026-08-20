@@ -2,7 +2,7 @@
  * Project: EonlineBazar
  * Author: Abdul Karim Sheikh
  * File: js/admin-login.js
- * Description: Admin Login — password auth (OTP temporarily bypassed).
+ * Description: Admin login — same-page 2-step UX (password, then optional 2FA).
  * Also surfaces blacklist (403) and rate-limit (429) warnings cleanly.
  */
 
@@ -111,21 +111,50 @@ function showToast(message, type = 'success') {
 }
 
 /* ==================================================
-   2. LOGIN PROCESS
-   password + optional 2FA code → dashboard
-   2FA enabled but code blank → /admin/verify-otp
+   2. LOGIN PROCESS (same-page 2-step)
+   Step 1: username + password
+     → no 2FA: issue token and go to /admin
+     → 2FA on: reveal TWO-FACTOR CODE on this form (never leave the page)
+   Step 2: 6-digit code + submit again → /admin
 ================================================== */
+function revealAdmin2faStep(message) {
+    const tfaSection = document.getElementById('admin2faSection');
+    const tfaInfo = document.getElementById('admin2faInfo');
+    const tfaInput = document.getElementById('admin2faCode');
+    const prompt = message || 'Enter your 6-digit Authenticator code';
+
+    if (tfaInfo) tfaInfo.textContent = prompt;
+    if (tfaSection) {
+        tfaSection.classList.add('show');
+        tfaSection.setAttribute('aria-hidden', 'false');
+    }
+    if (typeof setAdminLoading === 'function') setAdminLoading(false);
+    if (tfaInput) {
+        tfaInput.value = '';
+        setTimeout(() => tfaInput.focus(), 50);
+    }
+}
+
 async function handleAdminLogin() {
     if (typeof hideAdminError === 'function') hideAdminError();
 
     const username = document.getElementById('adminUsername')?.value.trim() || '';
     const password = document.getElementById('adminPassword')?.value.trim() || '';
     const twoFactorCode = (document.getElementById('admin2faCode')?.value || '').replace(/\D/g, '').trim();
+    const tfaVisible = document.getElementById('admin2faSection')?.classList.contains('show');
 
     if (!username || !password) {
         if (typeof showAdminError === 'function') {
             showAdminError('Please enter your username & password');
         }
+        return;
+    }
+
+    if (tfaVisible && twoFactorCode.length !== 6) {
+        if (typeof showAdminError === 'function') {
+            showAdminError('Enter your 6-digit Authenticator code');
+        }
+        document.getElementById('admin2faCode')?.focus();
         return;
     }
 
@@ -153,38 +182,27 @@ async function handleAdminLogin() {
             return;
         }
 
-        try {
-            sessionStorage.removeItem('adminOtpToken');
-            sessionStorage.removeItem('adminOtpMeta');
-        } catch (_) { /* ignore */ }
-
-        // Password (+ optional 2FA) accepted — go straight to the dashboard.
         if (data.success && data.token) {
+            try {
+                sessionStorage.removeItem('adminOtpToken');
+                sessionStorage.removeItem('adminOtpMeta');
+            } catch (_) { /* ignore */ }
             localStorage.setItem('adminToken', data.token);
             if (data.image) localStorage.setItem('adminProfilePic', data.image);
             showToast('Login successful! Redirecting to the dashboard...', 'success');
             setTimeout(() => { window.location.href = '/admin'; }, 800);
 
         } else if (data.success && data.otpRequired) {
-            // 2FA is on but the login-form code was left blank.
-            sessionStorage.setItem('adminOtpToken', data.otpToken);
-            sessionStorage.setItem('adminOtpMeta', JSON.stringify({
-                method: data.method || 'email',
-                channelLabel: data.channelLabel || 'Email',
-                maskedTarget: data.maskedTarget || '',
-                delivered: !!data.delivered,
-                expiresInMinutes: data.expiresInMinutes || 5
-            }));
-
-            const tfaSection = document.getElementById('admin2faSection');
-            if (tfaSection) tfaSection.classList.add('show');
-
-            showToast(data.message || 'Verification required. Redirecting…', 'success');
-            setTimeout(() => { window.location.href = '/admin/verify-otp'; }, 1100);
+            const prompt = data.prompt || 'Enter your 6-digit Authenticator code';
+            revealAdmin2faStep(prompt);
+            showToast(data.message || prompt, 'success');
 
         } else {
             if (typeof showAdminError === 'function') {
                 showAdminError(data.message || 'Invalid username or password.');
+            }
+            if (data.reason === 'INVALID_OTP' || data.reason === 'OTP_EXPIRED') {
+                document.getElementById('admin2faCode')?.focus();
             }
         }
     } catch (err) {
@@ -222,7 +240,10 @@ window.addEventListener('pageshow', function (event) {
         if (eyeBtn) eyeBtn.classList.remove('show');
 
         const tfaSection = document.getElementById('admin2faSection');
-        if (tfaSection) tfaSection.classList.remove('show');
+        if (tfaSection) {
+            tfaSection.classList.remove('show');
+            tfaSection.setAttribute('aria-hidden', 'true');
+        }
 
         if (typeof hideAdminError === 'function') hideAdminError();
     }
