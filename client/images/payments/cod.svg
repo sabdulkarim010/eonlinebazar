@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 48" role="img" aria-label="Cash on Delivery">
-  <rect width="120" height="48" rx="8" fill="#059669"/>
-  <path fill="#fff" d="M28 14h44a6 6 0 016 6v16a6 6 0 01-6 6H28a6 6 0 01-6-6V20a6 6 0 016-6z" opacity=".95"/>
-  <path fill="#059669" d="M22 20h56v6H22z"/>
-  <path fill="#fff" d="M60 31c-3.8 0-7 2.2-7 5s3.2 5 7 5 7-2.2 7-5-3.2-5-7-5z"/>
-  <path fill="#fff" d="M82 10l6 6-26 26-12-12 6-6 6 6 20-20z"/>
-  <text x="28" y="43" font-family="Inter,Arial,sans-serif" font-size="9" font-weight="700" fill="#fff" letter-spacing=".04em">CASH ON DELIVERY</text>
-</svg>

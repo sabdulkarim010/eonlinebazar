@@ -10,7 +10,7 @@ const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
 const iconsDir = path.join(__dirname, '..', 'public', 'images', 'icons');
 const sourceCandidates = [
     path.join(__dirname, '..', 'public', 'images', 'og-default.jpg'),
-    path.join(__dirname, '..', 'client', 'images', 'placeholder-product.svg')
+    path.join(__dirname, '..', 'public', 'images', 'placeholder-product.svg')
 ];
 
 async function resolveSourceImage() {

@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 48" role="img" aria-label="Nagad">
-  <rect width="120" height="48" rx="8" fill="#F6921E"/>
-  <circle cx="36" cy="24" r="18" fill="#fff"/>
-  <path fill="#F6921E" d="M36 10c-2.7 0-5.2 1.1-7 2.9l2.5 2.5c1.3-1 2.7-1.6 4.5-1.6 3.4 0 6.2 2.7 6.2 6.1s-2.8 6.1-6.2 6.1c-1.8 0-3.3-.8-4.5-1.9l-3.1 2.2c1.7 2.3 4.4 3.7 7.6 3.7 5.2 0 9.3-4.1 9.3-9.3S41.2 10 36 10z"/>
-  <path fill="#F6921E" d="M28.8 22.2h14.4v3.8H28.8z"/>
-  <path fill="#F6921E" d="M43.2 17.2l3.5 3.5-3.5 3.5-2.6-2.6 2.1-2.1-2.1-2.1 2.6-2.2z"/>
-  <text x="68" y="31" font-family="Inter,Arial,sans-serif" font-size="18" font-weight="700" fill="#fff">Nagad</text>
-</svg>

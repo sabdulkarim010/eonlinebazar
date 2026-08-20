@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 
-const PAYMENTS_DIR = path.join(__dirname, '..', 'client', 'images', 'payments');
+const PAYMENTS_DIR = path.join(__dirname, '..', 'public', 'images', 'payments');
 const FILES = ['bkash', 'nagad', 'visa', 'mastercard', 'cod'];
 
 async function generate() {
