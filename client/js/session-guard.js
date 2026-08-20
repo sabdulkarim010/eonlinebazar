@@ -5,9 +5,10 @@
  * Description: Client-side session security layer that keeps the frontend in
  * sync with the database-backed JWT sessions on the server.
  *
- *   1. Global 401 interceptor  -> any protected API call that returns 401
- *      (e.g. the device was remotely logged out) instantly clears the token
- *      and redirects to the login page.
+ *   1. Global 401 interceptor  -> a protected API 401 (remote logout / expired
+ *      JWT) clears the local token. Redirect to /login happens ONLY on
+ *      account pages (/profile, /order-details). Public storefront pages
+ *      (/, catalog, cart, checkout, CMS) stay put and show Sign in / Account.
  *   2. validateSession()       -> pings the server on page load to confirm the
  *      stored token still maps to a live session.
  *   3. updateNavbarAuthUI()    -> flips the header between signed-in name display
@@ -23,7 +24,7 @@
     // টোকেন দুটি নামেই সেভ করা হয় (token / customerToken) — দুটোই হ্যান্ডেল করা হলো
     var TOKEN_KEYS = ['token', 'customerToken'];
 
-    // লগইন বাধ্যতামূলক এমন পেজগুলো (ক্লিন URL ও .html — দুই ফরম্যাটেই কাজ করে)
+    // Login is required only for account surfaces — never for the public homepage.
     var PROTECTED_PAGES = ['/profile', '/order-details'];
 
     // এই পাবলিক রুটগুলোতে 401 এলে লগআউট ট্রিগার করা যাবে না (লগইন/রেজিস্টার ব্যর্থ হলে)
@@ -34,7 +35,7 @@
         '/api/customer/reset-password'
     ];
 
-    var LOGIN_URL = '/login.html';
+    var LOGIN_URL = '/login';
 
     // রিডাইরেক্ট লুপ ঠেকাতে একবারের বেশি লগআউট চলবে না
     var loggingOut = false;
@@ -51,8 +52,9 @@
 
     function isProtectedPage() {
         var path = currentPath();
+        if (path === '/' || path === '/index' || path === '') return false;
         return PROTECTED_PAGES.some(function (seg) {
-            return path === seg || path.indexOf(seg) === 0;
+            return path === seg || path.indexOf(seg + '/') === 0;
         });
     }
 
@@ -135,8 +137,9 @@
     }
 
     /**
-     * টোকেন মুছে ফেলে ইউজারকে লগআউট করা এবং প্রয়োজনে লগইন পেজে পাঠানো।
-     * রিমোট লগআউট বা টোকেন এক্সপায়ার হলে এই ফাংশনটিই কেন্দ্রীয়ভাবে কাজ করে।
+     * Clear the local customer session. Redirect to /login ONLY on account pages.
+     * On the public storefront (home, search, product, cart, checkout, CMS)
+     * keep the visitor on the page and restore the Sign in / Account header.
      */
     function forceLogout(options) {
         options = options || {};
@@ -145,17 +148,31 @@
 
         clearSession();
         try { updateNavbarAuthUI(); } catch (e) { /* DOM না থাকলেও সমস্যা নেই */ }
+        try {
+            if (window.SidebarDrawer && typeof window.SidebarDrawer.syncGreeting === 'function') {
+                window.SidebarDrawer.syncGreeting();
+            }
+        } catch (e) { /* ignore */ }
 
-        // অলরেডি লগইন/রেজিস্টার পেজে থাকলে আর রিডাইরেক্ট করার দরকার নেই
         if (isAuthPage()) {
             loggingOut = false;
             return;
         }
 
-        // লগইন পেজে গিয়ে ইউজারকে জানানোর জন্য একটি ফ্ল্যাগ রাখা
+        var mustRedirect = isProtectedPage() && options.redirect !== false;
+        if (!mustRedirect) {
+            loggingOut = false;
+            return;
+        }
+
         try { sessionStorage.setItem('eob_session_expired', '1'); } catch (e) { /* ignore */ }
 
-        window.location.replace(LOGIN_URL);
+        var next = currentPath() + (window.location.search || '');
+        var loginUrl = LOGIN_URL;
+        if (next && next !== '/' && next !== LOGIN_URL) {
+            loginUrl += '?redirect=' + encodeURIComponent(next);
+        }
+        window.location.replace(loginUrl);
     }
 
     // কোন রিকোয়েস্টের 401-এ অটো-লগআউট হবে তা ঠিক করা
@@ -204,9 +221,10 @@
 
     /**
      * পেজ লোডে সার্ভারে টোকেন যাচাই করা।
-     * টোকেন না থাকলে (এবং প্রোটেক্টেড পেজ হলে) সরাসরি লগআউট।
+     * টোকেন না থাকলে (এবং প্রোটেক্টেড পেজ হলে) সরাসরি লগইন পেজে পাঠানো।
+     * পাবলিক স্টোরফ্রন্টে টোকেন না থাকলে কিছুই হয় না — গেস্ট ব্রাউজ করতে পারে।
      * টোকেন থাকলে /api/customer/profile কল করা হয়; রিমোটলি লগআউট হলে সার্ভার 401
-     * দেবে এবং উপরের ইন্টারসেপ্টর তখনই লগআউট করিয়ে দেবে।
+     * দেবে এবং উপরের ইন্টারসেপ্টর সেশন ক্লিয়ার করবে (লগইন রিডাইরেক্ট শুধু প্রোটেক্টেড পেজে)।
      */
     function validateSession() {
         if (validatePromise) return validatePromise;

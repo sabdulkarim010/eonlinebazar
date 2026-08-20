@@ -62,6 +62,9 @@ function mountViewRoutes(app) {
      # FRONTEND UI ROUTES (ক্লিন ইউআরএল লজিক)
      ********************************************************************/
 
+    // Public storefront pages (homepage, catalog, CMS, cart, checkout).
+    // These must NEVER check customer JWT or redirect to /login — guests browse freely.
+    // Account-gated HTML lives only at /profile and /order-details (client session-guard).
     app.get('/', (req, res) => {
         sendClientHtml(res, 'index.html');
     });

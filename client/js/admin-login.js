@@ -111,13 +111,16 @@ function showToast(message, type = 'success') {
 }
 
 /* ==================================================
-   2. LOGIN PROCESS (password → dashboard; 2FA → verify-otp)
+   2. LOGIN PROCESS
+   password + optional 2FA code → dashboard
+   2FA enabled but code blank → /admin/verify-otp
 ================================================== */
 async function handleAdminLogin() {
     if (typeof hideAdminError === 'function') hideAdminError();
 
     const username = document.getElementById('adminUsername')?.value.trim() || '';
     const password = document.getElementById('adminPassword')?.value.trim() || '';
+    const twoFactorCode = (document.getElementById('admin2faCode')?.value || '').replace(/\D/g, '').trim();
 
     if (!username || !password) {
         if (typeof showAdminError === 'function') {
@@ -129,10 +132,16 @@ async function handleAdminLogin() {
     if (typeof setAdminLoading === 'function') setAdminLoading(true);
 
     try {
+        const payload = { username, password };
+        if (twoFactorCode) {
+            payload.otp = twoFactorCode;
+            payload.twoFactorCode = twoFactorCode;
+        }
+
         const response = await fetch('/api/admin/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify(payload)
         });
 
         const data = await response.json();
@@ -149,6 +158,7 @@ async function handleAdminLogin() {
             sessionStorage.removeItem('adminOtpMeta');
         } catch (_) { /* ignore */ }
 
+        // Password (+ optional 2FA) accepted — go straight to the dashboard.
         if (data.success && data.token) {
             localStorage.setItem('adminToken', data.token);
             if (data.image) localStorage.setItem('adminProfilePic', data.image);
@@ -156,6 +166,7 @@ async function handleAdminLogin() {
             setTimeout(() => { window.location.href = '/admin'; }, 800);
 
         } else if (data.success && data.otpRequired) {
+            // 2FA is on but the login-form code was left blank.
             sessionStorage.setItem('adminOtpToken', data.otpToken);
             sessionStorage.setItem('adminOtpMeta', JSON.stringify({
                 method: data.method || 'email',

@@ -159,6 +159,106 @@ async function rejectIfBlocked(res, admin, fp) {
     return true;
 }
 
+function verifyTotpToken(secret, token) {
+    if (!secret) return false;
+    return speakeasy.totp.verify({
+        secret,
+        encoding: 'base32',
+        token: normalizeOtp(token),
+        window: TOTP_WINDOW
+    });
+}
+
+/**
+ * Finish login after password (2FA off) or after a valid inline/step-2 code.
+ */
+async function completeAdminLogin(res, admin, fp, details) {
+    await Admin.updateOne({ _id: admin._id }, clearOtpFields());
+    const { token } = await issueAdminSession(admin, fp);
+
+    await recordLoginAttempt({
+        fingerprint: fp,
+        username: admin.username,
+        status: 'success',
+        details
+    });
+    await logSecurityEvent({
+        action: 'Admin Login Success',
+        actor: admin.username,
+        actorType: 'admin',
+        ipAddress: fp.ipAddress,
+        details: `${details} · ${fp.device} · ${fp.location}`
+    });
+
+    return res.status(200).json({
+        success: true,
+        message: 'Login successful!',
+        token,
+        image: admin.image,
+        role: admin.role || ROLES.SUPER_ADMIN,
+        permissions: Array.isArray(admin.permissions) ? admin.permissions : []
+    });
+}
+
+/**
+ * Verify a 2FA code submitted on the login form (same TOTP/email/SMS rules as Step 2).
+ * Returns { ok: true } or { ok: false, status, reason, message }.
+ */
+function verifyInlineTwoFactor(admin, method, inputOtp) {
+    const totpReady = Boolean(admin.totpSecret && admin.totpVerified);
+
+    // Prefer Google Authenticator when it is the chosen method, or when the
+    // account has a verified TOTP secret (covers mixed email+authenticator setups).
+    if (method === 'totp' || totpReady) {
+        if (method === 'totp' && !admin.totpSecret) {
+            return {
+                ok: false,
+                status: 401,
+                reason: 'OTP_NOT_FOUND',
+                message: 'Google Authenticator is not configured for this account. Leave the two-factor field blank to continue.'
+            };
+        }
+        if (admin.totpSecret && verifyTotpToken(admin.totpSecret, inputOtp)) {
+            return { ok: true, via: 'totp' };
+        }
+        if (method === 'totp') {
+            return {
+                ok: false,
+                status: 401,
+                reason: 'INVALID_OTP',
+                message: 'Incorrect authenticator code. Check your device clock and try again.'
+            };
+        }
+    }
+
+    const expiryMs = toExpiryMs(admin.otpExpiry);
+    if (admin.otp == null || expiryMs == null) {
+        return {
+            ok: false,
+            status: 401,
+            reason: 'OTP_NOT_FOUND',
+            message: 'No code has been sent yet. Leave the two-factor field blank to receive a verification code.'
+        };
+    }
+    if (Date.now() > expiryMs) {
+        return {
+            ok: false,
+            status: 400,
+            reason: 'OTP_EXPIRED',
+            message: 'That verification code has expired. Leave the field blank to receive a new one.'
+        };
+    }
+    if (String(admin.otp) !== String(inputOtp)) {
+        return {
+            ok: false,
+            status: 401,
+            reason: 'INVALID_OTP',
+            message: 'Incorrect verification code. Please try again.'
+        };
+    }
+    return { ok: true, via: method };
+}
+
 /**
  * Dispatch a login challenge for the admin's selected 2FA method.
  * Returns the payload the frontend needs to render /admin/verify-otp.
@@ -237,7 +337,7 @@ async function dispatchChallenge(admin, method, fp) {
 }
 
 /* ==================================================================
-   STEP 1 — Verify username & password, dispatch OTP
+   STEP 1 — Verify username & password; accept inline 2FA or dispatch OTP
    POST /api/admin/login
    ================================================================== */
 exports.loginAdmin = async (req, res) => {
@@ -251,8 +351,8 @@ exports.loginAdmin = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Username and password are required.' });
         }
 
-        // totpSecret is select:false — include it so 'totp' admins can be challenged.
-        let admin = await Admin.findOne({ username }).select('+totpSecret');
+        // totpSecret / otp are select:false — include them so inline 2FA can be verified here.
+        let admin = await Admin.findOne({ username }).select('+totpSecret +otp +otpExpiry');
 
         // Bootstrap: প্রথমবার সঠিক ক্রেডেনশিয়ালে অ্যাডমিন তৈরি
         // (এই অ্যাকাউন্টটি সব সময় সুপার অ্যাডমিন — মালিকের অ্যাক্সেস)
@@ -306,29 +406,51 @@ exports.loginAdmin = async (req, res) => {
 
         // ── 2FA disabled → complete login immediately after password ──
         if (!twoFactorOn) {
-            await Admin.updateOne({ _id: admin._id }, clearOtpFields());
-            const { token } = await issueAdminSession(admin, fp);
-
-            await recordLoginAttempt({ fingerprint: fp, username: admin.username, status: 'success', details: 'Password verified — 2FA disabled · login complete' });
-            await logSecurityEvent({
-                action: 'Admin Login Success',
-                actor: admin.username,
-                actorType: 'admin',
-                ipAddress: fp.ipAddress,
-                details: `2FA disabled · ${fp.device} · ${fp.location}`
-            });
-
-            return res.status(200).json({
-                success: true,
-                message: 'Login successful!',
-                token,
-                image: admin.image,
-                role: admin.role || ROLES.SUPER_ADMIN,
-                permissions: Array.isArray(admin.permissions) ? admin.permissions : []
-            });
+            return completeAdminLogin(res, admin, fp, 'Password verified — 2FA disabled · login complete');
         }
 
-        // ── Step 1 success → dispatch the 2FA challenge for the chosen method ──
+        // Optional code from /admin-login ("TWO-FACTOR CODE"). If present, verify
+        // it here and issue the session — skip /admin/verify-otp. If blank, challenge.
+        const twoFactorCode = normalizeOtp(
+            req.body.otp || req.body.twoFactorCode || req.body.code || req.body.totp
+        );
+
+        if (twoFactorCode) {
+            if (twoFactorCode.length !== 6) {
+                return res.status(400).json({
+                    success: false,
+                    reason: 'INVALID_OTP',
+                    message: 'Two-factor code must be exactly 6 digits.'
+                });
+            }
+
+            const verified = verifyInlineTwoFactor(admin, method, twoFactorCode);
+            if (!verified.ok) {
+                await recordLoginAttempt({
+                    fingerprint: fp,
+                    username: admin.username,
+                    status: 'otp_failed',
+                    details: `Inline 2FA failed (${verified.reason})`
+                });
+                await logSecurityEvent({
+                    action: 'Admin OTP Failed',
+                    actor: admin.username,
+                    actorType: 'admin',
+                    ipAddress: fp.ipAddress,
+                    details: `Inline 2FA failed · ${verified.reason} · ${fp.device} · ${fp.location}`
+                });
+                return res.status(verified.status).json({
+                    success: false,
+                    reason: verified.reason,
+                    message: verified.message
+                });
+            }
+
+            const viaLabel = verified.via === 'totp' ? 'Google Authenticator' : verified.via.toUpperCase();
+            return completeAdminLogin(res, admin, fp, `Password + ${viaLabel} verified on login form`);
+        }
+
+        // ── Field left blank → dispatch the 2FA challenge (verify-otp page) ──
         const challenge = await dispatchChallenge(admin, method, fp);
 
         await recordLoginAttempt({
@@ -427,12 +549,7 @@ exports.verifyOtp = async (req, res) => {
                 );
             }
 
-            const totpOk = speakeasy.totp.verify({
-                secret: user.totpSecret,
-                encoding: 'base32',
-                token: inputOtp,
-                window: TOTP_WINDOW
-            });
+            const totpOk = verifyTotpToken(user.totpSecret, inputOtp);
 
             if (!totpOk) {
                 await recordLoginAttempt({ fingerprint: fp, username: user.username, status: 'otp_failed', details: 'Incorrect TOTP code' });

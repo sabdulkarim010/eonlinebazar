@@ -311,11 +311,9 @@
   .admin-back-link:hover { color: rgba(255,255,255,0.7); }
 
   .admin-2fa-section {
-    display: none;
+    display: block;
     margin-top: 16px;
   }
-
-  .admin-2fa-section.show { display: block; }
 
   .admin-otp-input {
     text-align: center;
@@ -480,10 +478,12 @@
             maxlength="6"
             inputmode="numeric"
             autocomplete="one-time-code"
+            oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
+            onkeydown="if(event.key==='Enter') handleAdminLogin()"
           >
         </div>
         <div class="admin-2fa-info">
-          Enter the 6-digit code from your authenticator app or email
+          Optional if 2FA is on — enter your authenticator code to skip the extra page
         </div>
       </div>
     </div>
