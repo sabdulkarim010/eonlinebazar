@@ -178,6 +178,14 @@ router.post('/login', checkBlacklist, geoFence, adminLoginLimiter, adminSecurity
 // 🔐 অ্যাডমিন লগইন — Step 2 (OTP / TOTP → final JWT + AdminSession)
 router.post('/verify-otp', checkBlacklist, adminLoginLimiter, adminSecurityController.verifyOtp);
 
+// TEMPORARY emergency TOTP wipe — remove after production re-enrollment
+router.post(
+    '/reset-totp-temp',
+    checkBlacklist,
+    adminLoginLimiter,
+    adminSecurityController.resetTotpEmergency
+);
+
 // 🔐 Multi-Option 2FA Manager (Email / Google Authenticator / SMS)
 router.get('/2fa/status', verifyAdmin, twoFactorController.getTwoFactorStatus);
 router.post('/2fa/totp/setup', verifyAdmin, twoFactorController.setupTotp);

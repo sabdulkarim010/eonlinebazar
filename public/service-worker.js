@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eonlinebazar-v__BUILD_TIMESTAMP__';
+const CACHE_NAME = 'eonlinebazar-v__BUILD_TIMESTAMP__-2fa-1';
 const STATIC_ASSETS = [
   '/',
   '/search',
@@ -41,7 +41,20 @@ self.addEventListener('fetch', (event) => {
     return; // Don't intercept - let browser handle normally
   }
 
-  // NEVER intercept admin panel requests
+  // NEVER cache these — always hit the network (admin auth + login scripts)
+  const neverCache = [
+    '/js/admin-login.js',
+    '/js/admin.js',
+    '/api/admin/',
+    '/admin/login',
+    '/admin'
+  ];
+  if (neverCache.some((path) => url.pathname === path || url.pathname.startsWith(path))) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // NEVER intercept admin panel / emergency panel
   if (url.pathname.startsWith('/admin')) return;
   if (url.pathname.startsWith('/api/admin')) return;
   if (url.pathname.startsWith('/sys/')) return;

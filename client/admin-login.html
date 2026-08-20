@@ -310,11 +310,13 @@
   }
   .admin-back-link:hover { color: rgba(255,255,255,0.7); }
 
+  .admin-login-step.is-hidden {
+    display: none;
+  }
+
   .admin-2fa-section {
     display: none;
     margin-top: 4px;
-    opacity: 0;
-    transform: translateY(-10px);
   }
 
   .admin-2fa-section.show {
@@ -327,19 +329,190 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  .admin-otp-input {
-    text-align: center;
-    font-size: 1.4rem;
-    letter-spacing: 10px;
-    font-weight: 700;
-    padding: 13px 16px !important;
+  @keyframes otpPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+    50% { box-shadow: 0 0 0 12px rgba(99, 102, 241, 0); }
   }
 
-  .admin-2fa-info {
-    font-size: 0.8rem;
-    color: rgba(255,255,255,0.4);
+  @keyframes otpShake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+
+  .otp-header {
     text-align: center;
-    margin-top: 8px;
+    margin-bottom: 24px;
+  }
+
+  .otp-icon-wrap {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4f46e5, #6366f1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    animation: otpPulse 2s ease-in-out infinite;
+    font-size: 1.8rem;
+  }
+
+  .otp-icon-wrap.is-success {
+    background: linear-gradient(135deg, #14532d, #22c55e);
+    animation: none;
+  }
+
+  .otp-icon-wrap.is-error {
+    background: linear-gradient(135deg, #7f1d1d, #ef4444);
+    animation: none;
+  }
+
+  .otp-title {
+    color: #f1f5f9;
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0 0 6px;
+  }
+
+  .otp-subtitle {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.85rem;
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .otp-subtitle strong {
+    color: #f97316;
+    font-weight: 700;
+  }
+
+  .otp-box-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .otp-box-row.is-shaking {
+    animation: otpShake 0.4s ease;
+  }
+
+  .otp-sep {
+    color: rgba(255, 255, 255, 0.2);
+    font-size: 1.25rem;
+    font-weight: 700;
+    padding: 0 2px;
+  }
+
+  .otp-box {
+    width: 48px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: #f1f5f9;
+    font-size: 1.55rem;
+    font-weight: 700;
+    text-align: center;
+    outline: none;
+    caret-color: #f97316;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  }
+
+  .otp-box:focus {
+    border-color: #f97316;
+    background: rgba(249, 115, 22, 0.08);
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.18);
+  }
+
+  .otp-box.is-filled {
+    border-color: #6366f1;
+    background: rgba(99, 102, 241, 0.1);
+  }
+
+  .otp-box.is-success {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.12);
+    color: #86efac;
+  }
+
+  .otp-box.is-error {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.12);
+  }
+
+  .otp-status {
+    text-align: center;
+    min-height: 20px;
+    margin-bottom: 16px;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.35);
+  }
+
+  .otp-status.is-ok { color: #86efac; }
+  .otp-status.is-bad { color: #fca5a5; }
+
+  .otp-timer-wrap { margin-top: 18px; }
+
+  .otp-timer-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.3);
+  }
+
+  .otp-timer-value {
+    color: #f97316;
+    font-weight: 700;
+  }
+
+  .otp-timer-value.is-urgent { color: #ef4444; }
+
+  .otp-timer-track {
+    height: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .otp-timer-bar {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, #f97316, #ef4444);
+    border-radius: 2px;
+    transition: width 1s linear;
+  }
+
+  .otp-back-btn {
+    width: 100%;
+    margin-top: 14px;
+    padding: 12px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .otp-back-btn:hover {
+    color: rgba(255, 255, 255, 0.8);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .otp-hidden-collector {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 1px;
+    height: 1px;
   }
 
   /* Toast notifications (success / info) */
@@ -399,6 +572,8 @@
   @media (max-width: 480px) {
     .admin-login-card { padding: 32px 24px; }
     .admin-logo-text { font-size: 1.3rem; }
+    .otp-box { width: 40px; height: 52px; font-size: 1.25rem; }
+    .otp-box-row { gap: 5px; }
   }
   </style>
 </head>
@@ -428,76 +603,100 @@
     <span id="adminLoginErrorText">Invalid credentials</span>
   </div>
 
-  <form id="adminLoginForm" onsubmit="return false">
+  <form id="adminLoginForm" onsubmit="return false" autocomplete="on">
 
-    <div class="admin-field">
-      <label for="adminUsername">Username</label>
-      <div class="admin-input-wrap">
-        <span class="admin-input-icon">👤</span>
-        <input
-          type="text"
-          id="adminUsername"
-          class="admin-input"
-          placeholder="Enter admin username"
-          autocomplete="username"
-          required
-        >
+    <div id="adminLoginStep">
+      <div class="admin-field">
+        <label for="adminUsername">Username</label>
+        <div class="admin-input-wrap">
+          <span class="admin-input-icon">👤</span>
+          <input
+            type="text"
+            id="adminUsername"
+            class="admin-input"
+            placeholder="Enter admin username"
+            autocomplete="username"
+            required
+          >
+        </div>
       </div>
-    </div>
 
-    <div class="admin-field">
-      <label for="adminPassword">Password</label>
-      <div class="admin-input-wrap">
-        <span class="admin-input-icon">🔐</span>
-        <input
-          type="password"
-          id="adminPassword"
-          class="admin-input admin-input-pwd"
-          placeholder="Enter your password"
-          autocomplete="current-password"
-          required
-          oninput="adminToggleEye(this)"
-          onkeydown="if(event.key==='Enter') handleAdminLogin()"
-        >
-        <button
-          type="button"
-          class="admin-eye-btn"
-          id="adminPasswordEye"
-          onclick="adminTogglePwd('adminPassword', this)"
-          title="Show password"
-          aria-label="Show password"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor"
-               stroke-width="2.5" stroke-linecap="round">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-            <circle cx="12" cy="12" r="3"/>
-          </svg>
-        </button>
+      <div class="admin-field">
+        <label for="adminPassword">Password</label>
+        <div class="admin-input-wrap">
+          <span class="admin-input-icon">🔐</span>
+          <input
+            type="password"
+            id="adminPassword"
+            class="admin-input admin-input-pwd"
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            required
+            oninput="adminToggleEye(this)"
+            onkeydown="if(event.key==='Enter') handleAdminLogin()"
+          >
+          <button
+            type="button"
+            class="admin-eye-btn"
+            id="adminPasswordEye"
+            onclick="adminTogglePwd('adminPassword', this)"
+            title="Show password"
+            aria-label="Show password"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
 
     <div class="admin-2fa-section" id="admin2faSection" aria-hidden="true">
-      <div class="admin-field">
-        <label for="admin2faCode">Two-Factor Code</label>
-        <div class="admin-input-wrap">
-          <span class="admin-input-icon">🛡️</span>
-          <input
-            type="text"
-            id="admin2faCode"
-            class="admin-input admin-otp-input"
-            placeholder="000000"
-            maxlength="6"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
-            onkeydown="if(event.key==='Enter') handleAdminLogin()"
-          >
+      <div class="otp-header">
+        <div class="otp-icon-wrap" id="otpIconWrapper" aria-hidden="true">🔐</div>
+        <h2 class="otp-title">Two-Factor Authentication</h2>
+        <p class="otp-subtitle" id="admin2faInfo">
+          Open <strong>Google Authenticator</strong> and enter the 6-digit code
+        </p>
+      </div>
+
+      <input
+        type="text"
+        id="admin2faCode"
+        class="otp-hidden-collector"
+        maxlength="6"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        tabindex="-1"
+        aria-hidden="true"
+      >
+
+      <div class="otp-box-row" id="otpBoxContainer" role="group" aria-label="Six-digit verification code">
+        <input type="tel" class="otp-box" maxlength="1" data-index="0" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 1">
+        <input type="tel" class="otp-box" maxlength="1" data-index="1" inputmode="numeric" autocomplete="off" aria-label="Digit 2">
+        <input type="tel" class="otp-box" maxlength="1" data-index="2" inputmode="numeric" autocomplete="off" aria-label="Digit 3">
+        <div class="otp-sep" aria-hidden="true">—</div>
+        <input type="tel" class="otp-box" maxlength="1" data-index="3" inputmode="numeric" autocomplete="off" aria-label="Digit 4">
+        <input type="tel" class="otp-box" maxlength="1" data-index="4" inputmode="numeric" autocomplete="off" aria-label="Digit 5">
+        <input type="tel" class="otp-box" maxlength="1" data-index="5" inputmode="numeric" autocomplete="off" aria-label="Digit 6">
+      </div>
+
+      <div class="otp-status" id="otpStatusText">Enter all 6 digits to sign in automatically</div>
+
+      <div class="otp-timer-wrap">
+        <div class="otp-timer-meta">
+          <span>Authenticator code refreshes every 30s</span>
+          <span class="otp-timer-value" id="otpTimer">30s</span>
         </div>
-        <div class="admin-2fa-info" id="admin2faInfo">
-          Enter your 6-digit Authenticator code
+        <div class="otp-timer-track">
+          <div class="otp-timer-bar" id="otpTimerBar"></div>
         </div>
       </div>
+
+      <button type="button" class="otp-back-btn" id="otpBackBtn">← Back to Login</button>
     </div>
 
     <button
@@ -580,6 +779,11 @@ function setAdminLoading(loading) {
     text.textContent = loading
       ? 'Verifying...'
       : (tfaOn ? '🔓 Verify & Sign In' : '🔓 Access Admin Panel');
+  }
+  const otpStatus = document.getElementById('otpStatusText');
+  if (otpStatus && tfaOn && loading) {
+    otpStatus.className = 'otp-status';
+    otpStatus.textContent = 'Verifying your code...';
   }
 }
 </script>

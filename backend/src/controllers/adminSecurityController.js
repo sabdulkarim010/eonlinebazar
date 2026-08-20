@@ -294,11 +294,30 @@ async function completeAdminLogin(res, admin, fp, details) {
  * Verify a 2FA code submitted on the login form (same TOTP/email/SMS rules as Step 2).
  * Returns { ok: true } or { ok: false, status, reason, message }.
  */
-function verifyInlineTwoFactor(admin, method, inputOtp) {
-    const totpReady = Boolean(admin.totpSecret);
+function isTotpFullyEnrolled(admin) {
+    return Boolean(admin && admin.totpSecret) && admin.totpVerified === true;
+}
 
-    // Prefer Google Authenticator when it is the chosen method, or when the
-    // account has a TOTP secret (covers mixed email+authenticator setups).
+/** Drop leftover authenticator secrets that were never confirmed via QR verify. */
+async function discardUnverifiedTotp(admin) {
+    const nextMethod = admin.twoFactorMethod === 'totp' ? 'email' : admin.twoFactorMethod;
+    await Admin.updateOne(
+        { _id: admin._id },
+        {
+            $unset: { totpSecret: 1, totpPendingSecret: 1 },
+            $set: { totpVerified: false, twoFactorMethod: nextMethod }
+        }
+    );
+    admin.totpSecret = undefined;
+    admin.totpPendingSecret = undefined;
+    admin.totpVerified = false;
+    admin.twoFactorMethod = nextMethod;
+}
+
+function verifyInlineTwoFactor(admin, method, inputOtp) {
+    const totpReady = isTotpFullyEnrolled(admin);
+
+    // Prefer Google Authenticator only when it is fully enrolled (secret + verified).
     if (method === 'totp' || totpReady) {
         if (method === 'totp' && !admin.totpSecret) {
             return {
@@ -308,7 +327,7 @@ function verifyInlineTwoFactor(admin, method, inputOtp) {
                 message: 'Google Authenticator is not configured for this account. Sign in with username and password to continue.'
             };
         }
-        if (admin.totpSecret && verifyTotpToken(admin.totpSecret, inputOtp)) {
+        if (totpReady && verifyTotpToken(admin.totpSecret, inputOtp)) {
             return { ok: true, via: 'totp' };
         }
         if (method === 'totp') {
@@ -441,8 +460,10 @@ exports.loginAdmin = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Username and password are required.' });
         }
 
-        // totpSecret / otp are select:false — include them so inline 2FA can be verified here.
-        let admin = await Admin.findOne({ username }).select('+totpSecret +otp +otpExpiry');
+        // totpSecret / totpPendingSecret / otp are select:false — must be included
+        // or TOTP verification always sees undefined and fails.
+        let admin = await Admin.findOne({ username })
+            .select('+totpSecret +totpPendingSecret +otp +otpExpiry');
 
         // Bootstrap: প্রথমবার সঠিক ক্রেডেনশিয়ালে অ্যাডমিন তৈরি
         // (এই অ্যাকাউন্টটি সব সময় সুপার অ্যাডমিন — মালিকের অ্যাক্সেস)
@@ -486,19 +507,29 @@ exports.loginAdmin = async (req, res) => {
         }
 
         // ── Resolve the admin's chosen 2FA method ──
+        // TOTP is used only when the secret exists AND the QR was confirmed
+        // (totpVerified). A leftover unverified secret must not steal the login
+        // path (production vs localhost enrollment mismatch).
         let method = admin.twoFactorMethod || 'email';
         const twoFactorOn = admin.twoFactorEnabled !== false;
-        const totpSecret = admin.totpSecret || '';
-        const totpReady = Boolean(totpSecret);
 
-        // Prefer a stored authenticator secret even if method was left on email.
-        if (totpReady) {
+        if (isTotpFullyEnrolled(admin)) {
             method = 'totp';
-        } else if (method === 'totp' && !totpSecret) {
+        } else if (admin.totpSecret && admin.totpVerified !== true) {
+            console.warn('[2FA DIAG] Discarding unverified totpSecret — falling back to email/SMS', {
+                username: admin.username,
+                previousMethod: method,
+                totpSecretLength: String(admin.totpSecret || '').length
+            });
+            await discardUnverifiedTotp(admin);
+            if (method === 'totp') method = 'email';
+        } else if (method === 'totp') {
             method = 'email';
         }
         // Guard: if 'sms' is selected but no phone on file, fall back to email.
         if (method === 'sms' && !admin.phone) method = 'email';
+
+        const totpSecret = admin.totpSecret || '';
 
         // ── 2FA disabled → complete login immediately after password ──
         if (!twoFactorOn) {
@@ -509,15 +540,28 @@ exports.loginAdmin = async (req, res) => {
         // If present, verify it here and issue the session. If blank, stay on
         // the login page (otpRequired) so the TWO-FACTOR CODE field can appear.
         const twoFactorCode = extractTwoFactorCode(req.body);
+        const cleanSecret = cleanTotpSecret(totpSecret);
+        const secretPrefix = cleanSecret ? cleanSecret.substring(0, 4) : 'EMPTY';
 
-        console.log('[Admin Login 2FA]', {
+        // TEMPORARY production diagnosis — remove extractedCode after the
+        // eonlinebazar.com TOTP failure is confirmed and re-enrollment is done.
+        console.log('[2FA DIAG]', {
             username: admin.username,
-            method,
-            twoFactorOn,
-            totpVerified: !!admin.totpVerified,
-            hasTotpSecret: Boolean(admin.totpSecret),
-            totpSecretLength: cleanTotpSecret(totpSecret).length,
-            extractedLength: twoFactorCode.length,
+            twoFactorEnabled: admin.twoFactorEnabled,
+            twoFactorMethod: admin.twoFactorMethod,
+            effectiveMethod: method,
+            totpVerified: admin.totpVerified === true,
+            totpSecretLength: cleanSecret.length,
+            pendingSecretLength: admin.totpPendingSecret ? String(admin.totpPendingSecret).length : 0,
+            secretPrefix,
+            secretCharset: !cleanSecret
+                ? 'empty'
+                : cleanSecret.startsWith('pmv1.')
+                    ? 'vault'
+                    : /^[A-Z2-7]+=*$/i.test(cleanSecret) ? 'base32' : 'other',
+            extractedCodeLength: twoFactorCode ? twoFactorCode.length : 0,
+            extractedCode: twoFactorCode, // TEMPORARY — remove after diagnosis
+            bodyKeys: Object.keys(req.body || {}),
             totpWindowSeconds: TOTP_WINDOW * 30,
             serverTimeUtc: new Date().toISOString()
         });
@@ -592,13 +636,14 @@ exports.loginAdmin = async (req, res) => {
         });
 
         const totpPrompt = 'Enter your 6-digit Authenticator code';
+        const emailSmsPrompt = challenge.message || 'Enter the 6-digit verification code';
         return res.status(200).json({
             success: true,
             otpRequired: true,
             method: challenge.method,
             channelLabel: challenge.channelLabel,
             message: challenge.method === 'totp' ? totpPrompt : challenge.message,
-            prompt: totpPrompt,
+            prompt: challenge.method === 'totp' ? totpPrompt : emailSmsPrompt,
             otpToken: challenge.otpToken,
             delivered: challenge.delivered,
             maskedTarget: challenge.maskedTarget || '',
@@ -652,7 +697,7 @@ exports.verifyOtp = async (req, res) => {
         }
 
         const user = await Admin.findOne({ username: payload.username })
-            .select('+otp +otpExpiry +totpSecret');
+            .select('+otp +otpExpiry +totpSecret +totpPendingSecret');
         if (!user) {
             return otpFail(res, 404, 'USER_NOT_FOUND', 'Admin account not found.', { restart: true });
         }
@@ -665,7 +710,7 @@ exports.verifyOtp = async (req, res) => {
 
         if (method === 'totp') {
             // ── Google Authenticator (TOTP) verification via speakeasy ──
-            if (!user.totpSecret) {
+            if (!isTotpFullyEnrolled(user)) {
                 return otpFail(
                     res,
                     401,
@@ -763,6 +808,80 @@ exports.verifyOtp = async (req, res) => {
     } catch (error) {
         console.error('Admin Verify OTP (Step 2) Error:', error);
         return otpFail(res, 500, 'SERVER_ERROR', 'Internal server error during verification.');
+    }
+};
+
+/* ==================================================================
+   TEMPORARY — POST /api/admin/reset-totp-temp
+   Emergency TOTP wipe so production can re-enroll Google Authenticator.
+   Guarded by EMERGENCY_MASTER_KEY. Remove this handler + route after
+   production re-enrollment is complete.
+   ================================================================== */
+exports.resetTotpEmergency = async (req, res) => {
+    const masterKey = process.env.EMERGENCY_MASTER_KEY;
+    const provided = String((req.body && req.body.masterKey) || '');
+    const username = String((req.body && req.body.username) || 'admin').trim();
+    const fp = fingerprint(req);
+
+    if (!masterKey) {
+        return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    const keyBuf = Buffer.from(masterKey);
+    const providedBuf = Buffer.from(provided);
+    const keyOk = keyBuf.length === providedBuf.length
+        && crypto.timingSafeEqual(keyBuf, providedBuf);
+
+    if (!keyOk) {
+        console.warn('[2FA DIAG] reset-totp-temp rejected — invalid master key', {
+            ip: fp.ipAddress,
+            username
+        });
+        return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    if (!username) {
+        return res.status(400).json({ success: false, message: 'Username is required.' });
+    }
+
+    try {
+        const result = await Admin.findOneAndUpdate(
+            { username },
+            {
+                $unset: { totpSecret: 1, totpPendingSecret: 1 },
+                $set: {
+                    totpVerified: false,
+                    twoFactorMethod: 'email',
+                    twoFactorEnabled: false
+                }
+            },
+            { new: true }
+        );
+
+        if (!result) {
+            return res.status(404).json({ success: false, message: 'Admin not found' });
+        }
+
+        await logSecurityEvent({
+            action: 'Admin TOTP Emergency Reset',
+            actor: username,
+            actorType: 'admin',
+            ipAddress: fp.ipAddress,
+            details: 'TOTP secrets unset — 2FA disabled pending re-enrollment'
+        }).catch(() => {});
+
+        console.warn('[2FA DIAG] TOTP emergency reset completed', {
+            username,
+            ip: fp.ipAddress
+        });
+
+        return res.json({
+            success: true,
+            message: 'TOTP reset. 2FA disabled. Re-enroll from Admin Settings.'
+        });
+    } catch (err) {
+        console.error('resetTotpEmergency error:', err);
+        return res.status(500).json({ success: false, message: 'Failed to reset TOTP.' });
     }
 };
 
