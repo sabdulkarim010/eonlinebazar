@@ -137,12 +137,12 @@ const loginAdmin = async (req, res) => {
         const { username, password } = req.body;
         
         let admin = await Admin.findOne({ username })
-            .select('+totpSecret +totpPendingSecret +password +loginOtpHash');
+            .select('+totpSecret +totpPendingSecret +password +loginOtpHash +loginOtpExpires');
 
-        console.log('[LOGIN DEBUG]', {
+        console.log('[TOTP LOGIN CHECK]', {
             username: admin?.username,
-            hasSecret: !!admin?.totpSecret,
-            secretLen: admin?.totpSecret?.length || 0,
+            secretLoaded: !!admin?.totpSecret,
+            secretLen: admin?.totpSecret?.length ?? 0,
             method: admin?.twoFactorMethod,
             verified: admin?.totpVerified
         });

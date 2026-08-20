@@ -463,12 +463,12 @@ exports.loginAdmin = async (req, res) => {
         // totpSecret / totpPendingSecret / otp are select:false — must be included
         // or TOTP verification always sees undefined and fails.
         let admin = await Admin.findOne({ username })
-            .select('+totpSecret +totpPendingSecret +otp +otpExpiry +password +loginOtpHash');
+            .select('+totpSecret +totpPendingSecret +password +loginOtpHash +loginOtpExpires +otp +otpExpiry');
 
-        console.log('[LOGIN DEBUG]', {
+        console.log('[TOTP LOGIN CHECK]', {
             username: admin?.username,
-            hasSecret: !!admin?.totpSecret,
-            secretLen: admin?.totpSecret?.length || 0,
+            secretLoaded: !!admin?.totpSecret,
+            secretLen: admin?.totpSecret?.length ?? 0,
             method: admin?.twoFactorMethod,
             verified: admin?.totpVerified
         });
@@ -512,6 +512,14 @@ exports.loginAdmin = async (req, res) => {
                 admin.markModified('password');
                 await admin.save();
             }
+        }
+
+        if ((admin.twoFactorMethod === 'totp' || admin.totpVerified === true) && !admin.totpSecret) {
+            console.error('[TOTP] totpSecret missing for', admin.username);
+            return res.status(500).json({
+                success: false,
+                message: 'Authenticator not configured. Contact support.'
+            });
         }
 
         // ── Resolve the admin's chosen 2FA method ──
@@ -705,10 +713,18 @@ exports.verifyOtp = async (req, res) => {
         }
 
         const user = await Admin.findOne({ username: payload.username })
-            .select('+otp +otpExpiry +totpSecret +totpPendingSecret');
+            .select('+totpSecret +totpPendingSecret +password +loginOtpHash +loginOtpExpires +otp +otpExpiry');
         if (!user) {
             return otpFail(res, 404, 'USER_NOT_FOUND', 'Admin account not found.', { restart: true });
         }
+
+        console.log('[TOTP LOGIN CHECK]', {
+            username: user?.username,
+            secretLoaded: !!user?.totpSecret,
+            secretLen: user?.totpSecret?.length ?? 0,
+            method: user?.twoFactorMethod,
+            verified: user?.totpVerified
+        });
 
         // 🚫 The Super Admin may have blocked this account between step 1 and step 2.
         if (await rejectIfBlocked(res, user, fp)) return;
@@ -718,6 +734,13 @@ exports.verifyOtp = async (req, res) => {
 
         if (method === 'totp') {
             // ── Google Authenticator (TOTP) verification via speakeasy ──
+            if (!user.totpSecret) {
+                console.error('[TOTP] totpSecret missing for', user.username);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Authenticator not configured. Contact support.'
+                });
+            }
             if (!isTotpFullyEnrolled(user)) {
                 return otpFail(
                     res,
