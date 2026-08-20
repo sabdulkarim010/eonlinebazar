@@ -1024,3 +1024,7 @@ document.addEventListener('languageChanged', () => {
     if (window.i18n) window.i18n.applyTranslations();
 });
 
+
+
+
+

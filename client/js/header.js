@@ -201,3 +201,10 @@ document.addEventListener('DOMContentLoaded', () => {
         window.HeaderSearch.bindScopeSelect();
     }
 });
+
+
+
+
+
+
+

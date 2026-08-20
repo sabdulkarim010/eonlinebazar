@@ -474,3 +474,7 @@ window.loadNewsletterSubscribersSection = loadNewsletterSubscribersSection;
 window.loadNewsletterCampaignsSection = loadNewsletterCampaignsSection;
 
 document.addEventListener('DOMContentLoaded', initNewsletterAdmin);
+
+
+
+

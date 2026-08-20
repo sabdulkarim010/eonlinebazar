@@ -2244,3 +2244,7 @@ document.addEventListener('languageChanged', () => {
         renderVariants(currentProductData);
     }
 });
+
+
+
+

@@ -111,3 +111,10 @@ async function subscribeNewsletter(inputId = 'newsletter-email') {
 }
 
 window.subscribeNewsletter = subscribeNewsletter;
+
+
+
+
+
+
+

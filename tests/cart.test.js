@@ -1,5 +1,5 @@
 const request = require('supertest');
-const Product = require('../models/product');
+const Product = require('../backend/src/models/product');
 const { getApp, createTestUser, getAuthToken } = require('./setup');
 
 describe('Cart API', () => {
@@ -124,7 +124,7 @@ describe('Cart API', () => {
     });
 
     test('GET /api/cart — prefers catalog image over stale stored cart image', async () => {
-        const Cart = require('../models/cart');
+        const Cart = require('../backend/src/models/cart');
         const product = await Product.create({
             productId: 'CART-IMG-002',
             name: 'Stale Image Shirt',

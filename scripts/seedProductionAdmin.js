@@ -12,8 +12,8 @@ require('dotenv').config();
 
 const crypto = require('crypto');
 const mongoose = require('mongoose');
-const Admin = require('../models/admin');
-const { ROLES, ACCOUNT_STATUS } = require('../config/permissions');
+const Admin = require('../backend/src/models/admin');
+const { ROLES, ACCOUNT_STATUS } = require('../backend/src/config/permissions');
 
 const ADMIN_EMAIL = 'admin@eonlinebazar.com';
 const ADMIN_USERNAME = 'admin';

@@ -452,3 +452,9 @@ window.initDistrictUpazilaPair = function initDistrictUpazilaPair(config) {
 
     return { districtSelect, upazilaSelect, populateUpazila };
 };
+
+
+
+
+
+

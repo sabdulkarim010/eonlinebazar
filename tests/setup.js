@@ -2,7 +2,7 @@
  * Jest global setup — in-memory MongoDB, mocks, and shared helpers.
  ********************************************************************/
 
-jest.mock('../utils/redisClient', () => {
+jest.mock('../backend/src/utils/redisClient', () => {
   const mockClient = {
     isReady: false,
     get: jest.fn().mockResolvedValue(null),
@@ -18,7 +18,7 @@ jest.mock('../utils/redisClient', () => {
   return mockClient;
 });
 
-jest.mock('../utils/socketService', () => ({
+jest.mock('../backend/src/services/socketService', () => ({
   initSocketServer: jest.fn(),
   emitToAdmins: jest.fn().mockReturnValue(false),
   getSocketServer: jest.fn().mockReturnValue(null),
@@ -49,9 +49,9 @@ const bcrypt = require('bcryptjs');
 const request = require('supertest');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
-const User = require('../models/user');
-const Admin = require('../models/admin');
-const { seedDefaultPaymentMethods } = require('../utils/paymentMethodService');
+const User = require('../backend/src/models/user');
+const Admin = require('../backend/src/models/admin');
+const { seedDefaultPaymentMethods } = require('../backend/src/services/paymentMethodService');
 
 let mongoServer;
 

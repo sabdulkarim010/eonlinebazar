@@ -1,6 +1,6 @@
 const request = require('supertest');
-const Product = require('../models/product');
-const PaymentMethod = require('../models/PaymentMethod');
+const Product = require('../backend/src/models/product');
+const PaymentMethod = require('../backend/src/models/PaymentMethod');
 const { getApp, createTestUser, getAuthToken } = require('./setup');
 
 describe('Order API', () => {

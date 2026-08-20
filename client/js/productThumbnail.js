@@ -619,3 +619,12 @@
     global.getProductImageHtml = getProductImageHtml;
     global.getProductEmojiOrPlaceholder = getProductEmojiOrPlaceholder;
 })(typeof window !== 'undefined' ? window : globalThis);
+
+
+
+
+
+
+
+
+

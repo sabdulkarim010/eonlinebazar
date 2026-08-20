@@ -1,8 +1,8 @@
 const request = require('supertest');
-const Order = require('../models/order');
-const Product = require('../models/product');
-const PaymentMethod = require('../models/PaymentMethod');
-const { getGatewayAdapter } = require('../utils/paymentGatewayAdapters');
+const Order = require('../backend/src/models/order');
+const Product = require('../backend/src/models/product');
+const PaymentMethod = require('../backend/src/models/PaymentMethod');
+const { getGatewayAdapter } = require('../backend/src/services/paymentGatewayAdapters');
 const { getApp, createTestAdmin, createTestUser, getAuthToken } = require('./setup');
 
 describe('Payment API', () => {

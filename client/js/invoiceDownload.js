@@ -82,3 +82,9 @@ async function downloadOrderInvoice(orderId, displayOrderId, triggerBtn = null) 
 }
 
 window.downloadOrderInvoice = downloadOrderInvoice;
+
+
+
+
+
+

@@ -1,0 +1,1532 @@
+/********************************************************************
+ * Project: EonlineBazar
+ * File: userController.js
+ * Location: controllers/userController.js
+ * Author: Abdul Karim Sheikh
+ * Description: Handles User Registration, Authentication (JWT Login), 
+ * Forgot/Reset Password via Email OTP, Profile management, and fully 
+ * compressed Avatar Upload using Sharp and Cloudinary.
+ ********************************************************************/
+
+const User = require('../models/user');
+const UserSession = require('../models/userSession');
+const Cart = require('../models/cart');
+const Product = require('../models/product');
+const Setting = require('../models/Setting');
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs'); 
+const jwt = require('jsonwebtoken'); 
+const nodemailer = require('nodemailer'); 
+const crypto = require('crypto'); 
+const cloudinary = require('cloudinary').v2;
+const sharp = require('sharp'); 
+const geoip = require('geoip-lite');
+const requestIp = require('request-ip');
+const { logSecurityEvent } = require('../utils/securityLogger');
+const { isValidDistrict, resolveDistrictLabel } = require('../utils/bangladeshDistricts');
+const { formatSavedAddressLine, parseSavedAddressPayload, syncUserProfileFromAddress } = require('../utils/savedAddress');
+const {
+    mergeGuestCartIntoUserCart,
+    normalizeGuestCartItems,
+    resolveGuestCartFromRequest,
+    toClientCartItem
+} = require('../services/cartMergeService');
+const {
+    loadRewardSettings,
+    calculatePointsCashValue,
+    POINTS_CONVERSION_UNIT
+} = require('../utils/rewardSettings');
+const { toPublicAnnouncementPayload } = require('../utils/announcementSettings');
+const { getDeliverySettings } = require('../services/deliveryChargeService');
+const { sendAdminOtpSms } = require('../utils/smsSender');
+const { isSandboxMode } = require('../services/sandboxService');
+
+const PROFILE_OTP_TTL_MS = 5 * 60 * 1000;
+const MIN_PASSWORD_LENGTH = 6;
+
+function generateProfileOtp() {
+    return String(crypto.randomInt(100000, 1000000));
+}
+
+function normalizeProfileOtp(value) {
+    return String(value || '').replace(/\D/g, '').slice(0, 6);
+}
+
+function maskEmail(email = '') {
+    const [local, domain] = String(email).split('@');
+    if (!local || !domain) return '***';
+    const visible = local.slice(0, Math.min(2, local.length));
+    return `${visible}***@${domain}`;
+}
+
+function maskPhone(phone = '') {
+    const digits = String(phone).replace(/\D/g, '');
+    if (digits.length < 4) return '***';
+    return `***${digits.slice(-4)}`;
+}
+
+function isValidBangladeshMobile(value = '') {
+    const digits = String(value).replace(/\D/g, '');
+    return /^01[3-9]\d{8}$/.test(digits);
+}
+
+function clearProfileUpdateOtpFields() {
+    return {
+        profileUpdateOtp: null,
+        profileUpdateOtpExpires: null,
+        profileUpdateType: null,
+        pendingEmail: null,
+        pendingMobile: null
+    };
+}
+
+// ইমেইল পাঠানোর কনফিগারেশন
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER, 
+        pass: process.env.EMAIL_PASS  
+    }
+});
+
+const VERIFICATION_TOKEN_TTL_MS = 48 * 60 * 60 * 1000;
+
+function buildVerificationUrl(token) {
+    const base = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+    return `${base}/api/customer/verify/${token}`;
+}
+
+function buildVerificationEmailHtml(userName, verificationUrl) {
+    return `
+        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px; max-width: 500px; margin: auto;">
+            <h2 style="color: #2563eb; text-align: center;">eOnlineBazar</h2>
+            <p>Dear <b>${userName}</b>,</p>
+            <p>Thank you for registering with us. Please verify your email address to activate your account:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${verificationUrl}" style="background-color: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Verify Email Address</a>
+            </div>
+            <p style="color: #666; font-size: 12px;">If the button doesn't work, copy and paste this link into your browser:</p>
+            <p style="color: #2563eb; font-size: 12px; word-break: break-all;">${verificationUrl}</p>
+            <p style="color: #666; font-size: 12px;">This link expires in 48 hours.</p>
+            <hr style="border: 0; border-top: 1px solid #eee; margin-top: 20px;">
+            <p style="color: #999; font-size: 11px; text-align: center;">This is an automated email, please do not reply.</p>
+        </div>
+    `;
+}
+
+async function sendVerificationEmail(user, token, subject = 'eOnlineBazar - Account Verification') {
+    const verificationUrl = buildVerificationUrl(token);
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: user.email,
+        subject,
+        html: buildVerificationEmailHtml(user.name, verificationUrl)
+    };
+    await transporter.sendMail(mailOptions);
+}
+
+function wantsJsonResponse(req) {
+    return req.query.format === 'json' || req.accepts(['html', 'json']) === 'json';
+}
+
+function buildVerificationResultHtml({ success, title, message }) {
+    const accent = success ? '#2563eb' : '#dc2626';
+    const icon = success ? '✓' : '!';
+    const loginUrl = `${(process.env.FRONTEND_URL || '').replace(/\/$/, '')}/login.html`;
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title} — eOnlineBazar</title>
+</head>
+<body style="margin:0;padding:40px 16px;font-family:Arial,sans-serif;background:#f8fafc;color:#0f172a;">
+    <div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,0.08);">
+        <div style="background:${accent};padding:28px;text-align:center;">
+            <div style="width:64px;height:64px;margin:0 auto 16px;border-radius:50%;background:rgba(255,255,255,0.18);color:#fff;font-size:32px;line-height:64px;font-weight:700;">${icon}</div>
+            <h1 style="margin:0;color:#fff;font-size:24px;">${title}</h1>
+        </div>
+        <div style="padding:28px;">
+            <p style="margin:0 0 20px;line-height:1.6;color:#334155;font-size:16px;">${message}</p>
+            ${success ? `<div style="text-align:center;margin-top:24px;">
+                <a href="${loginUrl}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:700;">Go to Login</a>
+            </div>` : ''}
+        </div>
+    </div>
+</body>
+</html>`;
+}
+
+function respondVerification(req, res, { statusCode, success, message, extra = {} }) {
+    const payload = { success, message, ...extra };
+    if (wantsJsonResponse(req)) {
+        return res.status(statusCode).json(payload);
+    }
+    const title = success ? 'Email Verified' : 'Verification Failed';
+    return res.status(statusCode).type('html').send(buildVerificationResultHtml({ success, title, message }));
+}
+
+// JWT সিক্রেট (ফলব্যাক সহ যাতে .env না থাকলেও কাজ করে)
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// টেস্ট রাউট
+exports.testUserRoute = (req, res) => {
+    res.status(200).json({ message: "User Controller is ready!" });
+};
+
+/* =======================================================
+   হেল্পার: User-Agent থেকে ডিভাইস ও ব্রাউজার শনাক্ত করা
+   ======================================================= */
+function parseUserAgent(uaString = '') {
+    const ua = uaString.toLowerCase();
+
+    let browser = 'Unknown Browser';
+    if (ua.includes('edg/')) browser = 'Microsoft Edge';
+    else if (ua.includes('opr/') || ua.includes('opera')) browser = 'Opera';
+    else if (ua.includes('chrome') && !ua.includes('edg/')) browser = 'Chrome';
+    else if (ua.includes('firefox')) browser = 'Firefox';
+    else if (ua.includes('safari') && !ua.includes('chrome')) browser = 'Safari';
+
+    let device = 'Desktop';
+    if (ua.includes('android')) device = 'Android Phone';
+    else if (ua.includes('iphone')) device = 'iPhone';
+    else if (ua.includes('ipad')) device = 'iPad';
+    else if (ua.includes('windows')) device = 'Windows PC';
+    else if (ua.includes('mac os')) device = 'Mac';
+    else if (ua.includes('linux')) device = 'Linux PC';
+
+    return { device, browser };
+}
+
+// ক্লায়েন্টের আইপি বের করা
+// request-ip লাইব্রেরি অনেক ধরনের প্রক্সি/CDN হেডার (x-forwarded-for, cf-connecting-ip,
+// x-real-ip ইত্যাদি) হ্যান্ডেল করে; সেটি ব্যর্থ হলে ম্যানুয়াল ফলব্যাক ব্যবহার করা হয়।
+function getClientIp(req) {
+    const detected = requestIp.getClientIp(req);
+    if (detected) return detected;
+    const fwd = req.headers['x-forwarded-for'];
+    if (fwd) return fwd.split(',')[0].trim();
+    return (req.socket && req.socket.remoteAddress) || req.ip || '';
+}
+
+/* =======================================================
+   হেল্পার: IP থেকে লোকেশন (City, Country) শনাক্ত করা
+   geoip-lite দিয়ে অফলাইন লুকআপ — কোনো এক্সটার্নাল API কল লাগে না।
+   লোকাল/প্রাইভেট IP হলে "Local Network", আর অজানা হলে "Unknown Location"।
+   ======================================================= */
+function getLocationFromIp(rawIp = '') {
+    try {
+        // IPv6-ম্যাপড IPv4 প্রিফিক্স পরিষ্কার করা (যেমন ::ffff:103.x.x.x)
+        const ip = String(rawIp).replace('::ffff:', '').trim();
+        if (!ip) return 'Unknown Location';
+
+        // লোকালহোস্ট ও প্রাইভেট নেটওয়ার্ক রেঞ্জ
+        if (
+            ip === '127.0.0.1' || ip === '::1' ||
+            ip.startsWith('10.') || ip.startsWith('192.168.') ||
+            /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip)
+        ) {
+            return 'Local Network';
+        }
+
+        const geo = geoip.lookup(ip);
+        if (!geo) return 'Unknown Location';
+
+        // কান্ট্রি কোড (যেমন BD/SA) থেকে পূর্ণ নাম তৈরি করা
+        let countryName = geo.country || '';
+        try {
+            const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+            countryName = regionNames.of(geo.country) || geo.country;
+        } catch (_) { /* Intl না থাকলে কোডই দেখানো হবে */ }
+
+        const parts = [geo.city, countryName].filter(Boolean);
+        return parts.length ? parts.join(', ') : 'Unknown Location';
+    } catch (err) {
+        return 'Unknown Location';
+    }
+}
+
+
+
+/* =======================================================
+   ১. ইউজার রেজিস্ট্রেশন (Register - ফিক্স করা হয়েছে)
+   ======================================================= */
+exports.registerUser = async (req, res) => {
+    try {
+        const {
+            firstName,
+            lastName,
+            district,
+            upazilaOrThana,
+            upazila,
+            thana,
+            mobile,
+            email,
+            password
+        } = req.body;
+
+        const trimmedFirstName = firstName ? String(firstName).trim() : '';
+        const trimmedLastName = lastName ? String(lastName).trim() : '';
+
+        if (!trimmedFirstName || !trimmedLastName) {
+            return res.status(400).json({
+                success: false,
+                message: "First name and last name are required."
+            });
+        }
+
+        if (!mobile || !email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "Mobile, email, and password are required."
+            });
+        }
+
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ success: false, message: "Email already exists!" });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        const verificationTokenExpiry = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
+
+        const userPayload = {
+            firstName: trimmedFirstName,
+            lastName: trimmedLastName,
+            mobile,
+            email,
+            password: hashedPassword,
+            verificationToken,
+            verificationTokenExpiry
+        };
+
+        const trimmedDistrict = district ? String(district).trim() : '';
+        if (trimmedDistrict) {
+            if (!isValidDistrict(trimmedDistrict)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Please select a valid Bangladesh district."
+                });
+            }
+            userPayload.district = resolveDistrictLabel(trimmedDistrict);
+        }
+
+        const resolvedUpazila = (upazilaOrThana || upazila || thana)
+            ? String(upazilaOrThana || upazila || thana).trim()
+            : '';
+        if (resolvedUpazila) {
+            userPayload.upazila = resolvedUpazila;
+            userPayload.thana = resolvedUpazila;
+        }
+
+        const inSandbox = await isSandboxMode();
+        if (inSandbox) userPayload.isSandbox = true;
+
+        const newUser = new User(userPayload);
+
+        await newUser.save();
+
+        try {
+            await sendVerificationEmail(newUser, verificationToken);
+        } catch (emailError) {
+            console.error('Verification email failed during registration (registration continues):', emailError);
+        }
+
+        res.status(201).json({ success: true, message: "Registration successful! Please check your email to verify your account." });
+
+    } catch (error) {
+        console.error("Register Error:", error);
+        res.status(500).json({ success: false, message: "Server error during registration." });
+    }
+};
+
+
+
+/* =======================================================
+   ২. ইউজার লগিন (Login)
+   ======================================================= */
+exports.loginUser = async (req, res) => {
+    try {
+        const loginInput = (req.body.loginInput || req.body.email || '').trim();
+        const { password } = req.body;
+
+        if (!loginInput || !password) {
+            return res.status(400).json({ success: false, message: "Invalid email or password." });
+        }
+
+        const digitsOnly = loginInput.replace(/\D/g, '');
+        const mobileLookup = /^01[3-9]\d{8}$/.test(digitsOnly) ? digitsOnly : loginInput;
+
+        const user = await User.findOne({
+            $or: [
+                { email: loginInput.toLowerCase() },
+                { mobile: mobileLookup }
+            ]
+        });
+
+        if (!user) {
+            await logSecurityEvent({
+                action: 'Customer Login Failed',
+                actor: loginInput || 'unknown',
+                actorType: 'customer',
+                ipAddress: getClientIp(req),
+                details: 'Unknown email or mobile number'
+            });
+            return res.status(400).json({ success: false, message: "Invalid email or password." });
+        }
+
+        if (!user.password) {
+            return res.status(400).json({
+                success: false,
+                message: "This account uses Google sign-in. Please log in with Google."
+            });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            await logSecurityEvent({
+                action: 'Customer Login Failed',
+                actor: user.email,
+                actorType: 'customer',
+                ipAddress: getClientIp(req),
+                details: 'Invalid password'
+            });
+            return res.status(401).json({
+                success: false,
+                message: "Invalid email or password.",
+                userEmail: user.email
+            });
+        }
+
+        if (user.accountStatus === 'blocked') {
+            await logSecurityEvent({
+                action: 'Customer Login Blocked',
+                actor: user.email,
+                actorType: 'customer',
+                ipAddress: getClientIp(req),
+                details: 'Blocked account login attempt'
+            });
+            return res.status(403).json({ success: false, message: "Your account has been blocked. Please contact support." });
+        }
+        if (user.accountStatus === 'suspended') {
+            await logSecurityEvent({
+                action: 'Customer Login Suspended',
+                actor: user.email,
+                actorType: 'customer',
+                ipAddress: getClientIp(req),
+                details: 'Suspended account login attempt'
+            });
+            return res.status(403).json({ success: false, message: "Your account is temporarily suspended. Please contact support." });
+        }
+
+        if (process.env.REQUIRE_EMAIL_VERIFICATION === 'true' && !user.isVerified) {
+            return res.status(403).json({
+                success: false,
+                message: 'Please verify your email before logging in.',
+                needsVerification: true
+            });
+        }
+
+        // 🌟 লগইন সেশন তৈরি করা (অ্যাক্টিভ ডিভাইস ট্র্যাকিং ও রিমোট লগআউটের জন্য)
+        // ইউনিক UUID সেশন আইডি জেনারেট করে আলাদা UserSession কালেকশনে সেভ করা হয়;
+        // এই sessionId-ই JWT-এর ভেতরে 'sid' হিসেবে এম্বেড হয়।
+        const { device, browser } = parseUserAgent(req.headers['user-agent']);
+        const sessionId = crypto.randomUUID();
+        const clientIp = getClientIp(req);
+
+        await UserSession.create({
+            sessionId,
+            userId: user._id,
+            userAgent: req.headers['user-agent'] || '',
+            device,
+            browser,
+            ipAddress: clientIp,
+            location: getLocationFromIp(clientIp)
+        });
+
+        const token = jwt.sign(
+            { id: user._id, sid: sessionId }, 
+            JWT_SECRET, 
+            { expiresIn: '7d' } 
+        );
+
+        await logSecurityEvent({
+            action: 'Customer Login Success',
+            actor: user.email,
+            actorType: 'customer',
+            ipAddress: clientIp,
+            details: `${device} · ${browser}`
+        });
+
+        let cartPayload = { merged: false, itemCount: 0, items: [] };
+        try {
+            const guestCartRaw = resolveGuestCartFromRequest(req);
+            const guestItems = normalizeGuestCartItems(guestCartRaw);
+
+            if (guestItems.length > 0) {
+                const mergedCart = await mergeGuestCartIntoUserCart(user._id, guestItems);
+                const mergedItems = (mergedCart.items || []).map(toClientCartItem);
+                cartPayload = {
+                    merged: true,
+                    itemCount: mergedItems.length,
+                    items: mergedItems
+                };
+            } else {
+                const existingCart = await Cart.findOne({ userId: user._id });
+                const existingItems = (existingCart?.items || []).map(toClientCartItem);
+                cartPayload = {
+                    merged: false,
+                    itemCount: existingItems.length,
+                    items: existingItems
+                };
+            }
+
+            if (req.session?.cart) {
+                delete req.session.cart;
+            }
+        } catch (mergeError) {
+            console.error('Guest cart merge failed during login (login continues):', mergeError);
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Login successful",
+            token,
+            user: { id: user._id, name: user.name, firstName: user.firstName, lastName: user.lastName, email: user.email, mobile: user.mobile },
+            cart: cartPayload
+        });
+
+    } catch (error) {
+        console.error("Login Error:", error);
+        res.status(500).json({ success: false, message: "Server error during login." });
+    }
+};
+
+/* =======================================================
+   ৩. ফরগেট পাসওয়ার্ড - OTP পাঠানো (Forgot Password)
+   ======================================================= */
+exports.forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: "No account found with this email." });
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        user.resetPasswordOtp = otp;
+        user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; 
+        await user.save();
+
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: user.email,
+            subject: 'eOnlineBazar - Password Reset OTP',
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                    <h2 style="color: #2563eb;">eOnlineBazar</h2>
+                    <p>Dear <b>${user.name}</b>,</p>
+                    <p>You requested to reset your password. Here is your 6-digit OTP:</p>
+                    <h1 style="color: #e74c3c; letter-spacing: 5px;">${otp}</h1>
+                    <p style="color: #e74c3c; font-size: 12px;"><i>This OTP is valid for 15 minutes only. Do not share it with anyone.</i></p>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        res.status(200).json({ success: true, message: "OTP sent to your email successfully." });
+
+    } catch (error) {
+        console.error("Forgot Password Error:", error);
+        res.status(500).json({ success: false, message: "Failed to send OTP. Please try again." });
+    }
+};
+
+/* =======================================================
+   ৪. নতুন পাসওয়ার্ড সেট করা (Reset Password)
+   ======================================================= */
+exports.resetPassword = async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+
+        const user = await User.findOne({ 
+            email,
+            resetPasswordOtp: otp,
+            resetPasswordExpires: { $gt: Date.now() } 
+        });
+
+        if (!user) {
+            return res.status(400).json({ success: false, message: "Invalid or expired OTP." });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+
+        user.resetPasswordOtp = null;
+        user.resetPasswordExpires = null;
+
+        await user.save();
+
+        res.status(200).json({ success: true, message: "Password reset successful! You can login now." });
+
+    } catch (error) {
+        console.error("Reset Password Error:", error);
+        res.status(500).json({ success: false, message: "Server error during password reset." });
+    }
+};
+
+/* =======================================================
+   ৫. ইউজারের প্রোফাইল ডাটা পাঠানো (Get Profile)
+   ======================================================= */
+exports.getUserProfile = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password'); 
+        
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found." });
+        }
+
+        const [rewardSettings, masterSettings, deliverySettings] = await Promise.all([
+            loadRewardSettings(),
+            Setting.getOrCreate(),
+            getDeliverySettings()
+        ]);
+
+        const profile = user.toObject();
+        profile.rewardSettings = rewardSettings;
+        profile.deliverySettings = deliverySettings;
+        profile.announcement = toPublicAnnouncementPayload(
+            { ...masterSettings.toObject(), freeShippingThreshold: deliverySettings.freeShippingThreshold },
+            rewardSettings
+        );
+
+        res.status(200).json(profile);
+    } catch (error) {
+        console.error("Get Profile Error:", error);
+        res.status(500).json({ success: false, message: "Server error while fetching profile." });
+    }
+};
+
+/* =======================================================
+   ৬. প্রোফাইল ইনফরমেশন আপডেট করা (Update Profile)
+   ======================================================= */
+exports.updateUserProfile = async (req, res) => {
+    try {
+        const {
+            name,
+            firstName,
+            lastName,
+            phone,
+            mobile,
+            gender,
+            dateOfBirth,
+            address,
+            district,
+            upazila,
+            thana,
+            fullAddress
+        } = req.body;
+        
+        const contactNumber = (phone !== undefined ? phone : mobile);
+
+        const updateFields = {};
+        const allowedGenders = ['Male', 'Female', 'Other'];
+        if (firstName !== undefined) updateFields.firstName = String(firstName).trim();
+        if (lastName !== undefined) updateFields.lastName = String(lastName).trim();
+        if (name !== undefined && firstName === undefined && lastName === undefined) {
+            const trimmed = String(name).trim();
+            if (!trimmed) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Full name is required.'
+                });
+            }
+            const parts = trimmed.split(/\s+/).filter(Boolean);
+            updateFields.firstName = parts[0] || trimmed;
+            updateFields.lastName = parts.length > 1 ? parts.slice(1).join(' ') : trimmed;
+        }
+        if (district !== undefined) updateFields.district = String(district).trim();
+        if (upazila !== undefined) updateFields.upazila = String(upazila).trim();
+        if (thana !== undefined) {
+            updateFields.thana = String(thana).trim();
+        } else if (upazila !== undefined) {
+            updateFields.thana = String(upazila).trim();
+        }
+        if (fullAddress !== undefined) updateFields.fullAddress = String(fullAddress).trim();
+
+        const resolvedDistrict = updateFields.district;
+        const resolvedUpazila = updateFields.upazila || updateFields.thana;
+        const resolvedFullAddress = updateFields.fullAddress;
+        if (resolvedDistrict || resolvedUpazila || resolvedFullAddress) {
+            const parts = [resolvedFullAddress, resolvedUpazila, resolvedDistrict].filter(Boolean);
+            updateFields.address = parts.join(', ');
+        } else if (address !== undefined) {
+            updateFields.address = String(address).trim();
+        }
+
+        if (contactNumber !== undefined) {
+            const user = await User.findById(req.user.id).select('email mobile phone');
+            if (!user) {
+                return res.status(404).json({ success: false, message: "User not found." });
+            }
+
+            const normalizedPhone = String(contactNumber).replace(/\D/g, '');
+            const currentPhone = String(user.mobile || user.phone || '').replace(/\D/g, '');
+
+            if (normalizedPhone && normalizedPhone !== currentPhone) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Phone number changes require OTP verification. Use Security → Update Phone."
+                });
+            }
+        }
+
+        if (gender !== undefined) {
+            if (gender === '' || gender === null) {
+                updateFields.gender = undefined;
+            } else if (allowedGenders.includes(gender)) {
+                updateFields.gender = gender;
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    message: "Please select a valid gender option."
+                });
+            }
+        }
+
+        if (dateOfBirth !== undefined) {
+            if (dateOfBirth === '' || dateOfBirth === null) {
+                updateFields.dateOfBirth = undefined;
+            } else {
+                const parsedDob = new Date(dateOfBirth);
+                if (Number.isNaN(parsedDob.getTime())) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Please provide a valid date of birth."
+                    });
+                }
+                updateFields.dateOfBirth = parsedDob;
+            }
+        }
+
+        const unsetFields = {};
+        if (updateFields.gender === undefined && gender !== undefined && (gender === '' || gender === null)) {
+            unsetFields.gender = '';
+            delete updateFields.gender;
+        }
+        if (updateFields.dateOfBirth === undefined && dateOfBirth !== undefined && (dateOfBirth === '' || dateOfBirth === null)) {
+            unsetFields.dateOfBirth = '';
+            delete updateFields.dateOfBirth;
+        }
+
+        const updateQuery = { $set: updateFields };
+        if (Object.keys(unsetFields).length > 0) {
+            updateQuery.$unset = unsetFields;
+        }
+
+        const updatedUser = await User.findByIdAndUpdate(
+            req.user.id,
+            updateQuery,
+            { new: true, runValidators: true } 
+        ).select('-password');
+
+        if (!updatedUser) {
+            return res.status(404).json({ success: false, message: "User not found." });
+        }
+
+        res.status(200).json({ success: true, message: "Profile updated successfully!", user: updatedUser });
+    } catch (error) {
+        console.error("Update Profile Error:", error);
+        res.status(500).json({ success: false, message: "Server error while updating profile." });
+    }
+};
+
+/* =======================================================
+   ৭. প্রোফাইল ছবি আপডেট করা (Update Avatar)
+   ======================================================= */
+exports.updateUserAvatar = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: "No image file provided." });
+        }
+
+        // Sharp দিয়ে ইমেজ ৩০০x৩০০ স্কয়ার ও কম্প্রেস করা হলো
+        const compressedBuffer = await sharp(req.file.buffer)
+            .resize({ width: 300, height: 300, fit: 'cover' }) 
+            .jpeg({ quality: 70 }) 
+            .toBuffer();
+
+        // ক্লাউডিনারিতে আপলোড স্ট্রিম
+        cloudinary.uploader.upload_stream(
+            { folder: 'eOnlineBazar/avatars' },
+            async (error, result) => {
+                if (error) {
+                    console.error("Cloudinary Upload Error:", error);
+                    return res.status(500).json({ success: false, message: "Cloudinary upload failed." });
+                }
+
+                try {
+                    const avatarUrl = result.secure_url;
+                    const publicId = result.public_id; 
+
+                    // পুরনো ছবি ক্লাউডিনারি থেকে ডিলিট করা
+                    const oldUser = await User.findById(req.user.id);
+                    if (oldUser && oldUser.avatarPublicId) {
+                        await cloudinary.uploader.destroy(oldUser.avatarPublicId);
+                        console.log("✅ Old avatar successfully deleted from Cloudinary");
+                    }
+
+                    // ডাটাবেজে আপডেট করা
+                    const updatedUser = await User.findByIdAndUpdate(
+                        req.user.id, 
+                        { 
+                            avatar: avatarUrl,
+                            avatarPublicId: publicId 
+                        },
+                        { returnDocument: 'after' }
+                    );
+
+                    if (!updatedUser) {
+                        return res.status(404).json({ success: false, message: "User not found in database." });
+                    }
+
+                    console.log("🌟 Successfully compressed & saved to MongoDB for User:", updatedUser.name);
+
+                    return res.status(200).json({ 
+                        success: true, 
+                        message: "Profile photo successfully compressed, updated, and old photo removed!", 
+                        avatarUrl 
+                    });
+
+                } catch (dbError) {
+                    console.error("❌ MongoDB Save Error inside Cloudinary Callback:", dbError);
+                    return res.status(500).json({ 
+                        success: false, 
+                        message: "Image uploaded, but failed to save data in database." 
+                    });
+                }
+            }
+        ).end(compressedBuffer); 
+
+    } catch (error) {
+        console.error("Avatar Update Error:", error);
+        res.status(500).json({ success: false, message: "Server error while uploading avatar." });
+    }
+};
+
+/* =======================================================
+   ৮. বর্তমান পাসওয়ার্ড পরিবর্তন করা (Change Password)
+   ======================================================= */
+exports.changePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword, confirmPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "Current password and new password are required."
+            });
+        }
+
+        if (String(newPassword).length < MIN_PASSWORD_LENGTH) {
+            return res.status(400).json({
+                success: false,
+                message: `New password must be at least ${MIN_PASSWORD_LENGTH} characters.`
+            });
+        }
+
+        if (confirmPassword !== undefined && newPassword !== confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "New password and confirm password do not match."
+            });
+        }
+
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found." });
+        }
+
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+            await logSecurityEvent({
+                action: 'Customer Password Change Failed',
+                actor: user.email,
+                actorType: 'customer',
+                ipAddress: getClientIp(req),
+                details: 'Incorrect current password'
+            });
+            return res.status(400).json({ success: false, message: "Incorrect current password." });
+        }
+
+        const sameAsCurrent = await bcrypt.compare(newPassword, user.password);
+        if (sameAsCurrent) {
+            return res.status(400).json({
+                success: false,
+                message: "New password must be different from your current password."
+            });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        await user.save();
+
+        await logSecurityEvent({
+            action: 'Customer Password Changed',
+            actor: user.email,
+            actorType: 'customer',
+            ipAddress: getClientIp(req),
+            details: 'Password updated from profile security tab'
+        });
+
+        res.status(200).json({ success: true, message: "Password changed successfully!" });
+    } catch (error) {
+        console.error("Change Password Error:", error);
+        res.status(500).json({ success: false, message: "Server error while changing password." });
+    }
+};
+
+/* =======================================================
+   ৮.১ ইমেইল / ফোন আপডেট — OTP অনুরোধ (Request Contact OTP)
+   ======================================================= */
+exports.requestContactUpdateOtp = async (req, res) => {
+    try {
+        const type = String(req.body.type || '').trim().toLowerCase();
+        const rawValue = String(req.body.value || '').trim();
+
+        if (!['email', 'mobile'].includes(type)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid update type. Use email or mobile."
+            });
+        }
+
+        if (!rawValue) {
+            return res.status(400).json({
+                success: false,
+                message: type === 'email' ? "Please enter a new email address." : "Please enter a new phone number."
+            });
+        }
+
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found." });
+        }
+
+        let normalizedValue = rawValue;
+        if (type === 'email') {
+            normalizedValue = rawValue.toLowerCase();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedValue)) {
+                return res.status(400).json({ success: false, message: "Please enter a valid email address." });
+            }
+            if (normalizedValue === user.email) {
+                return res.status(400).json({ success: false, message: "This is already your current email address." });
+            }
+            const taken = await User.findOne({ email: normalizedValue, _id: { $ne: user._id } });
+            if (taken) {
+                return res.status(400).json({ success: false, message: "This email is already registered to another account." });
+            }
+        } else {
+            normalizedValue = rawValue.replace(/\D/g, '');
+            if (!isValidBangladeshMobile(normalizedValue)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Please enter a valid Bangladesh mobile number (e.g. 01XXXXXXXXX)."
+                });
+            }
+            const currentMobile = String(user.mobile || user.phone || '').replace(/\D/g, '');
+            if (normalizedValue === currentMobile) {
+                return res.status(400).json({ success: false, message: "This is already your current phone number." });
+            }
+            const taken = await User.findOne({
+                mobile: normalizedValue,
+                _id: { $ne: user._id }
+            });
+            if (taken) {
+                return res.status(400).json({ success: false, message: "This phone number is already registered to another account." });
+            }
+        }
+
+        const otp = generateProfileOtp();
+        const otpExpiry = Date.now() + PROFILE_OTP_TTL_MS;
+
+        user.profileUpdateOtp = otp;
+        user.profileUpdateOtpExpires = otpExpiry;
+        user.profileUpdateType = type;
+        user.pendingEmail = type === 'email' ? normalizedValue : null;
+        user.pendingMobile = type === 'mobile' ? normalizedValue : null;
+        await user.save();
+
+        let delivery = { delivered: false, channel: type === 'email' ? 'email' : 'sms' };
+
+        if (type === 'email') {
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: normalizedValue,
+                subject: 'eOnlineBazar - Verify Your New Email',
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px; max-width: 500px; margin: auto;">
+                        <h2 style="color: #2563eb;">eOnlineBazar · Security Verification</h2>
+                        <p>Hi <b>${user.name}</b>,</p>
+                        <p>Use this 6-digit code to confirm your new email address:</p>
+                        <h1 style="color: #2563eb; letter-spacing: 5px; text-align: center;">${otp}</h1>
+                        <p style="color: #64748b; font-size: 13px; text-align: center;">This code expires in 5 minutes. Do not share it with anyone.</p>
+                    </div>
+                `
+            };
+
+            try {
+                if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+                    await transporter.sendMail(mailOptions);
+                    delivery.delivered = true;
+                } else {
+                    console.log(`[Profile OTP] Email to ${normalizedValue}: ${otp} (EMAIL_USER/EMAIL_PASS not set)`);
+                }
+            } catch (mailErr) {
+                console.error('[Profile OTP] Email send failed:', mailErr.message);
+                console.log(`[Profile OTP] Fallback — Email to ${normalizedValue}: ${otp}`);
+            }
+        } else {
+            const smsResult = await sendAdminOtpSms({
+                to: normalizedValue,
+                otp,
+                username: user.name,
+                expiresInMinutes: 5
+            });
+            delivery.delivered = !!smsResult.delivered;
+            if (!smsResult.delivered) {
+                console.log(`[Profile OTP] SMS to ${normalizedValue}: ${otp}`);
+            }
+        }
+
+        await logSecurityEvent({
+            action: 'Customer Contact Update OTP Sent',
+            actor: user.email,
+            actorType: 'customer',
+            ipAddress: getClientIp(req),
+            details: `${type} → ${type === 'email' ? maskEmail(normalizedValue) : maskPhone(normalizedValue)}`
+        });
+
+        res.status(200).json({
+            success: true,
+            message: `Verification code sent to ${type === 'email' ? maskEmail(normalizedValue) : maskPhone(normalizedValue)}.`,
+            type,
+            maskedDestination: type === 'email' ? maskEmail(normalizedValue) : maskPhone(normalizedValue),
+            expiresInMinutes: 5,
+            delivered: delivery.delivered
+        });
+    } catch (error) {
+        console.error('Request Contact OTP Error:', error);
+        res.status(500).json({ success: false, message: "Failed to send verification code. Please try again." });
+    }
+};
+
+/* =======================================================
+   ৮.২ ইমেইল / ফোন আপডেট — OTP যাচাই (Verify Contact OTP)
+   ======================================================= */
+exports.verifyContactUpdateOtp = async (req, res) => {
+    try {
+        const otp = normalizeProfileOtp(req.body.otp);
+
+        if (!otp || otp.length !== 6) {
+            return res.status(400).json({ success: false, message: "Please enter the 6-digit verification code." });
+        }
+
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found." });
+        }
+
+        if (!user.profileUpdateOtp || !user.profileUpdateOtpExpires || !user.profileUpdateType) {
+            return res.status(400).json({
+                success: false,
+                message: "No pending verification request. Please request a new code."
+            });
+        }
+
+        if (Date.now() > Number(user.profileUpdateOtpExpires)) {
+            Object.assign(user, clearProfileUpdateOtpFields());
+            await user.save();
+            return res.status(400).json({ success: false, message: "Verification code expired. Please request a new one." });
+        }
+
+        if (user.profileUpdateOtp !== otp) {
+            return res.status(400).json({ success: false, message: "Invalid verification code. Please try again." });
+        }
+
+        const updateType = user.profileUpdateType;
+        let updatedValue = '';
+
+        if (updateType === 'email' && user.pendingEmail) {
+            user.email = user.pendingEmail;
+            updatedValue = user.pendingEmail;
+        } else if (updateType === 'mobile' && user.pendingMobile) {
+            user.mobile = user.pendingMobile;
+            user.phone = user.pendingMobile;
+            updatedValue = user.pendingMobile;
+        } else {
+            return res.status(400).json({ success: false, message: "Pending update data is missing. Please start again." });
+        }
+
+        Object.assign(user, clearProfileUpdateOtpFields());
+        await user.save();
+
+        await logSecurityEvent({
+            action: 'Customer Contact Updated',
+            actor: updatedValue,
+            actorType: 'customer',
+            ipAddress: getClientIp(req),
+            details: `${updateType} verified via OTP`
+        });
+
+        const safeUser = await User.findById(req.user.id).select('-password');
+
+        res.status(200).json({
+            success: true,
+            message: updateType === 'email'
+                ? "Email address updated successfully!"
+                : "Phone number updated successfully!",
+            type: updateType,
+            user: safeUser
+        });
+    } catch (error) {
+        console.error('Verify Contact OTP Error:', error);
+        res.status(500).json({ success: false, message: "Server error during verification." });
+    }
+};
+
+
+/* =======================================================
+   ৮. ইমেইল ভেরিফিকেশন (Verify Email)
+   ======================================================= */
+exports.verifyEmail = async (req, res) => {
+    try {
+        const { token } = req.params;
+
+        if (!token) {
+            return respondVerification(req, res, {
+                statusCode: 400,
+                success: false,
+                message: 'Verification token is required.'
+            });
+        }
+
+        const user = await User.findOne({ verificationToken: token });
+
+        if (!user) {
+            return respondVerification(req, res, {
+                statusCode: 400,
+                success: false,
+                message: 'Invalid or expired verification link.'
+            });
+        }
+
+        if (user.isVerified) {
+            return respondVerification(req, res, {
+                statusCode: 200,
+                success: true,
+                message: 'Your email is already verified. You can log in now.'
+            });
+        }
+
+        if (!user.verificationTokenExpiry || user.verificationTokenExpiry < new Date()) {
+            return respondVerification(req, res, {
+                statusCode: 400,
+                success: false,
+                message: 'This verification link has expired. Please request a new verification email.'
+            });
+        }
+
+        user.isVerified = true;
+        user.verificationToken = null;
+        user.verificationTokenExpiry = null;
+        await user.save();
+
+        return respondVerification(req, res, {
+            statusCode: 200,
+            success: true,
+            message: 'Your email has been verified successfully! You can now log in to your account.'
+        });
+    } catch (error) {
+        console.error('Verify Email Error:', error);
+        if (wantsJsonResponse(req)) {
+            return res.status(500).json({ success: false, message: 'Server error during email verification.' });
+        }
+        return res.status(500).type('html').send(buildVerificationResultHtml({
+            success: false,
+            title: 'Verification Failed',
+            message: 'Something went wrong while verifying your email. Please try again later.'
+        }));
+    }
+};
+
+
+/* =======================================================
+   ৯. নতুন করে ভেরিফিকেশন মেইল পাঠানো (Resend Verification)
+   ======================================================= */
+exports.resendVerification = async (req, res) => {
+    try {
+        const email = String(req.body.email || '').trim().toLowerCase();
+
+        if (!email) {
+            return res.status(400).json({ success: false, message: 'Email is required.' });
+        }
+
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        if (user.isVerified) {
+            return res.status(400).json({ success: false, message: 'Account already verified.' });
+        }
+
+        const newVerificationToken = crypto.randomBytes(32).toString('hex');
+        user.verificationToken = newVerificationToken;
+        user.verificationTokenExpiry = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
+        await user.save();
+
+        await sendVerificationEmail(
+            user,
+            newVerificationToken,
+            'eOnlineBazar - Resend Verification Email'
+        );
+
+        res.status(200).json({ success: true, message: 'Verification email resent successfully!' });
+    } catch (error) {
+        console.error('Resend Verification Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to resend verification email.' });
+    }
+};
+
+
+/* =======================================================
+   ১০. উইশলিস্ট ম্যানেজমেন্ট (My Wishlist - persists until removed)
+   ======================================================= */
+
+// ১০.ক. ইউজারের উইশলিস্ট দেখা
+function enrichWishlistItem(item, product) {
+    const plain = item && typeof item.toObject === 'function' ? item.toObject() : { ...item };
+    const catalog = product && typeof product.toObject === 'function'
+        ? product.toObject()
+        : (product || {});
+
+    const image = (
+        plain.image
+        || (Array.isArray(catalog.images) && catalog.images[0])
+        || catalog.image
+        || catalog.thumbnail
+        || ''
+    );
+    const emojiIcon = plain.emojiIcon || plain.icon || catalog.icon || '📦';
+
+    return {
+        productId: plain.productId,
+        name: plain.name || catalog.name || '',
+        price: plain.price != null ? Number(plain.price) : Number(catalog.price) || 0,
+        image,
+        images: catalog.images || [],
+        icon: emojiIcon,
+        emojiIcon,
+        addedAt: plain.addedAt
+    };
+}
+
+async function enrichWishlistItems(wishlist = []) {
+    const items = Array.isArray(wishlist) ? wishlist : [];
+    if (items.length === 0) return [];
+
+    const productIds = [...new Set(items.map((item) => String(item.productId)).filter(Boolean))];
+    const objectIds = productIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+    const products = await Product.find({
+        $or: [
+            { _id: { $in: objectIds } },
+            { productId: { $in: productIds } }
+        ]
+    }).select('name price images image icon productId thumbnail');
+
+    const productByKey = new Map();
+    products.forEach((product) => {
+        productByKey.set(String(product._id), product);
+        if (product.productId) productByKey.set(String(product.productId), product);
+    });
+
+    return items.map((item) =>
+        enrichWishlistItem(item, productByKey.get(String(item.productId)))
+    );
+}
+
+exports.getWishlist = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('wishlist');
+        if (!user) return res.status(404).json({ success: false, message: "User not found." });
+        const enriched = await enrichWishlistItems(user.wishlist || []);
+        res.status(200).json({ success: true, wishlist: enriched });
+    } catch (error) {
+        console.error("Get Wishlist Error:", error);
+        res.status(500).json({ success: false, message: "Failed to load wishlist." });
+    }
+};
+
+// ১০.খ. উইশলিস্টে নতুন আইটেম যুক্ত করা (একই প্রোডাক্ট দুইবার যোগ হবে না)
+exports.addToWishlist = async (req, res) => {
+    try {
+        const { productId, name, price, image, icon } = req.body;
+        if (!productId) {
+            return res.status(400).json({ success: false, message: "Product ID is required." });
+        }
+
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ success: false, message: "User not found." });
+
+        const alreadyExists = user.wishlist.some(item => String(item.productId) === String(productId));
+        if (alreadyExists) {
+            return res.status(200).json({ success: true, message: "Already in your wishlist.", wishlist: user.wishlist });
+        }
+
+        user.wishlist.unshift({
+            productId,
+            name: name || '',
+            price: Number(price) || 0,
+            image: image || '',
+            icon: icon || '📦'
+        });
+        await user.save();
+
+        res.status(200).json({ success: true, message: "Added to wishlist!", wishlist: user.wishlist });
+    } catch (error) {
+        console.error("Add Wishlist Error:", error);
+        res.status(500).json({ success: false, message: "Failed to add to wishlist." });
+    }
+};
+
+// ১০.গ. উইশলিস্ট থেকে আইটেম রিমুভ করা
+exports.removeFromWishlist = async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ success: false, message: "User not found." });
+
+        user.wishlist = user.wishlist.filter(item => String(item.productId) !== String(productId));
+        await user.save();
+
+        res.status(200).json({ success: true, message: "Removed from wishlist.", wishlist: user.wishlist });
+    } catch (error) {
+        console.error("Remove Wishlist Error:", error);
+        res.status(500).json({ success: false, message: "Failed to remove from wishlist." });
+    }
+};
+
+
+/* =======================================================
+   ১১. ঠিকানা ম্যানেজমেন্ট (Addresses - Add / Update / Delete)
+   ======================================================= */
+
+// ১১.ক. সব ঠিকানা দেখা
+exports.getAddresses = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('addresses');
+        if (!user) return res.status(404).json({ success: false, message: "User not found." });
+        res.status(200).json({ success: true, addresses: user.addresses || [] });
+    } catch (error) {
+        console.error("Get Addresses Error:", error);
+        res.status(500).json({ success: false, message: "Failed to load addresses." });
+    }
+};
+
+// ১১.খ. নতুন ঠিকানা যুক্ত করা
+exports.addAddress = async (req, res) => {
+    try {
+        const parsed = parseSavedAddressPayload(req.body);
+        if (parsed.error) {
+            return res.status(parsed.error.status).json({
+                success: false,
+                message: parsed.error.message
+            });
+        }
+
+        const { label, district, upazilaOrThana, fullAddress, phone, isDefault } = parsed.data;
+
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ success: false, message: "User not found." });
+
+        const makeDefault = isDefault || user.addresses.length === 0;
+        if (makeDefault) {
+            user.addresses.forEach(addr => { addr.isDefault = false; });
+        }
+
+        user.addresses.push({
+            label,
+            district,
+            upazilaOrThana,
+            fullAddress,
+            phone,
+            isDefault: makeDefault
+        });
+
+        if (makeDefault) {
+            user.address = formatSavedAddressLine(user.addresses[user.addresses.length - 1]);
+            syncUserProfileFromAddress(user, user.addresses[user.addresses.length - 1]);
+        }
+
+        await user.save();
+        res.status(200).json({ success: true, message: "Address added successfully!", addresses: user.addresses });
+    } catch (error) {
+        console.error("Add Address Error:", error);
+        res.status(500).json({ success: false, message: "Failed to add address." });
+    }
+};
+
+// ১১.গ. ঠিকানা আপডেট করা
+exports.updateAddress = async (req, res) => {
+    try {
+        const { addressId } = req.params;
+        const parsed = parseSavedAddressPayload(req.body);
+        if (parsed.error) {
+            return res.status(parsed.error.status).json({
+                success: false,
+                message: parsed.error.message
+            });
+        }
+
+        const { label, district, upazilaOrThana, fullAddress, phone, isDefault } = parsed.data;
+
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ success: false, message: "User not found." });
+
+        const target = user.addresses.id(addressId);
+        if (!target) return res.status(404).json({ success: false, message: "Address not found." });
+
+        target.label = label;
+        target.district = district;
+        target.upazilaOrThana = upazilaOrThana;
+        target.fullAddress = fullAddress;
+        target.phone = phone;
+
+        if (isDefault) {
+            user.addresses.forEach(addr => { addr.isDefault = false; });
+            target.isDefault = true;
+            user.address = formatSavedAddressLine(target);
+            syncUserProfileFromAddress(user, target);
+        }
+
+        await user.save();
+        res.status(200).json({ success: true, message: "Address updated successfully!", addresses: user.addresses });
+    } catch (error) {
+        console.error("Update Address Error:", error);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Invalid address data."
+            });
+        }
+        res.status(500).json({ success: false, message: "Failed to update address." });
+    }
+};
+
+// ১১.ঘ. ঠিকানা ডিলিট করা
+exports.deleteAddress = async (req, res) => {
+    try {
+        const { addressId } = req.params;
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ success: false, message: "User not found." });
+
+        const target = user.addresses.id(addressId);
+        if (!target) return res.status(404).json({ success: false, message: "Address not found." });
+
+        const wasDefault = target.isDefault;
+        target.deleteOne();
+
+        // ডিফল্ট মুছে ফেললে প্রথম ঠিকানাটিকে নতুন ডিফল্ট করা হবে
+        if (wasDefault && user.addresses.length > 0) {
+            user.addresses[0].isDefault = true;
+            user.address = formatSavedAddressLine(user.addresses[0]);
+            syncUserProfileFromAddress(user, user.addresses[0]);
+        } else if (user.addresses.length === 0) {
+            user.address = '';
+        }
+
+        await user.save();
+        res.status(200).json({ success: true, message: "Address deleted successfully!", addresses: user.addresses });
+    } catch (error) {
+        console.error("Delete Address Error:", error);
+        res.status(500).json({ success: false, message: "Failed to delete address." });
+    }
+};
+
+
+/* =======================================================
+   ১২. পয়েন্ট কনভার্সন (Loyalty Points → Wallet Balance)
+   রেট: মাস্টার সেটিংস থেকে — 100 পয়েন্ট = pointsToTakaConversionRate Taka
+   ======================================================= */
+exports.convertPoints = async (req, res) => {
+    try {
+        const rewardSettings = await loadRewardSettings();
+        const pointsToConvert = Number(req.body.points);
+        const minPoints = rewardSettings.pointsConversionUnit || POINTS_CONVERSION_UNIT;
+
+        if (!pointsToConvert || pointsToConvert <= 0) {
+            return res.status(400).json({ success: false, message: "Please enter a valid number of points." });
+        }
+        if (pointsToConvert < minPoints) {
+            return res.status(400).json({ success: false, message: `Minimum ${minPoints} points are required to convert.` });
+        }
+        if (pointsToConvert % minPoints !== 0) {
+            return res.status(400).json({ success: false, message: `Points must be in multiples of ${minPoints}.` });
+        }
+
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ success: false, message: "User not found." });
+
+        if (user.loyaltyPoints < pointsToConvert) {
+            return res.status(400).json({ success: false, message: `You only have ${user.loyaltyPoints} points.` });
+        }
+
+        const cashValue = calculatePointsCashValue(pointsToConvert, rewardSettings);
+        if (cashValue <= 0) {
+            return res.status(400).json({ success: false, message: "Point conversion is currently disabled or misconfigured." });
+        }
+
+        user.loyaltyPoints -= pointsToConvert;
+        user.walletBalance += cashValue;
+        user.walletHistory.unshift({
+            type: 'conversion',
+            amount: cashValue,
+            note: `Converted ${pointsToConvert} points to wallet balance (${minPoints} pts = ৳${rewardSettings.pointsToTakaConversionRate})`
+        });
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: `Successfully converted ${pointsToConvert} points to ৳${cashValue}!`,
+            walletBalance: user.walletBalance,
+            loyaltyPoints: user.loyaltyPoints,
+            walletHistory: user.walletHistory,
+            rewardSettings
+        });
+    } catch (error) {
+        console.error("Convert Points Error:", error);
+        res.status(500).json({ success: false, message: "Server error during points conversion." });
+    }
+};
+
+
+/* =======================================================
+   ১৩. সেশন / অ্যাক্টিভ ডিভাইস ম্যানেজমেন্ট (Security)
+   এই ফিচারটি এখন ডেডিকেটেড UserSession কালেকশন ব্যবহার করে এবং
+   controllers/authController.js + routes/authRoutes.js (/api/auth/sessions)
+   থেকে পরিচালিত হয়। তাই এখানে পুরোনো এম্বেডেড লজিকটি সরিয়ে ফেলা হয়েছে।
+   ======================================================= */
+
+
+

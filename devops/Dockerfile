@@ -10,4 +10,4 @@ RUN mkdir -p logs public
 
 EXPOSE 5000
 
-CMD ["node", "server.js"]
+CMD ["node", "backend/src/server.js"]

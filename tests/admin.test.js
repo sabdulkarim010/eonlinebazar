@@ -1,7 +1,7 @@
 const request = require('supertest');
-const Order = require('../models/order');
-const Product = require('../models/product');
-const PaymentMethod = require('../models/PaymentMethod');
+const Order = require('../backend/src/models/order');
+const Product = require('../backend/src/models/product');
+const PaymentMethod = require('../backend/src/models/PaymentMethod');
 const { getApp, createTestAdmin, createTestUser } = require('./setup');
 
 describe('Admin API', () => {

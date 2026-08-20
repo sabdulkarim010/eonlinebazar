@@ -1279,3 +1279,12 @@ function syncNavbarUser() {
         })
         .catch(() => { /* silent */ });
 }
+
+
+
+
+
+
+
+
+

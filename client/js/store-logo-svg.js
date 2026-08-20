@@ -41,3 +41,10 @@
 
     global.renderDefaultStoreLogoSvg = renderDefaultLogoSvg;
 }(window));
+
+
+
+
+
+
+

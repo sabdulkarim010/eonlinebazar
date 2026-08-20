@@ -171,3 +171,10 @@ class AdminPagination {
 }
 
 window.AdminPagination = AdminPagination;
+
+
+
+
+
+
+

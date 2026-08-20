@@ -129,7 +129,8 @@ cp .env.example .env
 npm install
 
 # 5. Start the server
-node server.js
+npm start
+# or: node backend/src/server.js
 
 # 6. Open in browser
 # http://localhost:5000
@@ -211,6 +212,16 @@ Set `*_IS_LIVE=true` for each gateway when switching to production.
 
 ```
 eonlinebazar-fullstack/
+├── backend/
+│   └── src/
+│       ├── config/              # db, passport, permissions, cloudinary
+│       ├── controllers/         # Route handlers (MVC)
+│       ├── middlewares/         # Auth, RBAC, rate limits, uploads
+│       ├── models/              # Mongoose schemas
+│       ├── routes/              # Express route modules
+│       ├── services/            # Domain services & integrations
+│       ├── utils/               # Pure helpers (validateEnv, cryptoVault, …)
+│       └── server.js            # Canonical Express entry
 ├── client/                      # Storefront & admin UI (HTML / CSS / Vanilla JS)
 │   ├── css/                     # Page stylesheets
 │   ├── js/                      # Frontend logic (cart, checkout, admin, PWA, i18n)
@@ -218,28 +229,12 @@ eonlinebazar-fullstack/
 │   ├── partials/                # Reusable HTML fragments
 │   ├── products/                # Static product assets
 │   └── uploads/                 # Local branding uploads
-├── config/
-│   ├── db.js                    # MongoDB connection
-│   ├── passport.js              # Google OAuth strategy
-│   └── permissions.js           # Admin RBAC permission map
-├── controllers/                 # 30 route handlers (MVC)
-├── middleware/
-│   └── securityMiddleware.js    # Helmet, rate limits, sanitization
-├── middlewares/
-│   ├── authMiddleware.js        # JWT verification
-│   ├── adminSecurity.js         # Admin session & 2FA guards
-│   ├── geoFencing.js            # Country-based access control
-│   ├── rbac.js                  # Role-based access control
-│   ├── storeSettingsMiddleware.js
-│   └── uploadMiddleware.js      # Multer + Cloudinary uploads
-├── models/                      # 25 Mongoose schemas
 ├── public/                      # Static files served at root
 │   ├── images/                  # PWA icons, OG image, payment logos
 │   ├── js/                      # Shared i18n bundle
 │   ├── uploads/                 # Public upload directory
 │   ├── 404.html                 # Bengali 404 page
 │   └── service-worker.js        # PWA offline cache
-├── routes/                      # 20 Express route modules
 ├── scripts/
 │   ├── generate-pwa-icons.js
 │   └── generate-payment-pngs.js
@@ -251,22 +246,10 @@ eonlinebazar-fullstack/
 │   ├── order.test.js
 │   ├── payment.test.js
 │   └── admin.test.js
-├── utils/                       # Business logic & integrations (40+ modules)
-│   ├── validateEnv.js           # Boot-time env validation
-│   ├── cacheService.js          # Redis caching layer
-│   ├── courierService.js        # Pathao, RedX, Steadfast
-│   ├── paymentGatewayAdapters.js
-│   ├── socketService.js         # Socket.IO notifications
-│   ├── mailer.js                # Nodemailer
-│   ├── whatsappService.js
-│   ├── invoicePdf.js            # PDFKit invoice generation
-│   ├── bulkImportService.js     # CSV / Excel product import
-│   ├── seoHelper.js             # Meta tags & structured data
-│   └── cryptoVault.js           # AES-256-GCM credential encryption
 ├── docker-compose.yml           # App + MongoDB + Redis
 ├── docker-compose.prod.yml      # Production overrides
 ├── Dockerfile
-├── server.js                    # Entry point
+├── server.js                    # Compatibility shim → backend/src/server.js
 ├── seed.js                      # Database seeder
 └── package.json
 ```
@@ -275,7 +258,7 @@ eonlinebazar-fullstack/
 
 ## 🔒 Security Features
 
-- **Boot-time validation** — server refuses to start if required secrets are missing (`utils/validateEnv.js`)
+- **Boot-time validation** — server refuses to start if required secrets are missing (`backend/src/utils/validateEnv.js`)
 - **JWT with embedded session ID** — remote logout works across devices
 - **Admin 2FA** — TOTP (Google Authenticator) + Email OTP + SMS OTP
 - **Geo-fencing** — restrict admin login by country (BD default)
@@ -318,7 +301,7 @@ npm test
 1. Push your repository to GitHub
 2. Create a new **Web Service** on [Render](https://render.com)
 3. **Build Command:** `npm install`
-4. **Start Command:** `node server.js`
+4. **Start Command:** `node backend/src/server.js`
 5. Add all environment variables from `.env.example`
 6. Deploy
 
