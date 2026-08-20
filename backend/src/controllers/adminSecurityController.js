@@ -29,7 +29,7 @@ const { ROLES, ACCOUNT_STATUS } = require('../config/permissions');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const OTP_TTL_MINUTES = 5;
-const TOTP_WINDOW = 2; // ±60s clock-drift tolerance for Google Authenticator
+const TOTP_WINDOW = 3; // ±90s (3 × 30s steps) — production hosts often drift vs phone clocks
 
 /* helper: mask an email for safe display (a****@gmail.com) */
 function maskEmail(email = '') {
@@ -70,6 +70,8 @@ function verifyTotpToken(secret, token) {
     if (!cleanSecret || cleanToken.length !== 6) return false;
 
     const encodings = ['base32', 'ascii'];
+    const nowSec = Math.floor(Date.now() / 1000);
+
     for (const encoding of encodings) {
         try {
             const ok = speakeasy.totp.verify({
@@ -82,27 +84,64 @@ function verifyTotpToken(secret, token) {
             });
             if (ok) return true;
         } catch (_) { /* secret is not valid for this encoding */ }
+
+        // Explicit step walk — some runtimes mishandle speakeasy's `window` option.
+        for (let offset = -TOTP_WINDOW; offset <= TOTP_WINDOW; offset++) {
+            try {
+                const expected = speakeasy.totp({
+                    secret: cleanSecret,
+                    encoding,
+                    digits: 6,
+                    step: 30,
+                    time: nowSec + (offset * 30)
+                });
+                if (String(expected) === cleanToken) return true;
+            } catch (_) { /* ignore */ }
+        }
     }
     return false;
 }
 
-function expectedTotpSamples(secret) {
+function describeTotpMismatch(secret, providedCode) {
     const cleanSecret = cleanTotpSecret(secret);
-    if (!cleanSecret) return { base32: null, ascii: null };
-    const samples = {};
+    const cleanToken = normalizeOtp(providedCode);
+    const now = new Date();
+    const nowSec = Math.floor(now.getTime() / 1000);
+    const expectedByEncoding = {};
+
     for (const encoding of ['base32', 'ascii']) {
-        try {
-            samples[encoding] = speakeasy.totp({
-                secret: cleanSecret,
-                encoding,
-                digits: 6,
-                step: 30
-            });
-        } catch (_) {
-            samples[encoding] = null;
+        const steps = {};
+        for (let offset = -TOTP_WINDOW; offset <= TOTP_WINDOW; offset++) {
+            const key = `t${offset >= 0 ? '+' : ''}${offset}`;
+            try {
+                steps[key] = speakeasy.totp({
+                    secret: cleanSecret,
+                    encoding,
+                    digits: 6,
+                    step: 30,
+                    time: nowSec + (offset * 30)
+                });
+            } catch (_) {
+                steps[key] = null;
+            }
         }
+        expectedByEncoding[encoding] = steps;
     }
-    return samples;
+
+    const matchedAnyWindow = Object.values(expectedByEncoding).some((steps) =>
+        Object.values(steps).includes(cleanToken)
+    );
+
+    return {
+        serverTimeUtc: now.toISOString(),
+        serverUnix: nowSec,
+        providedCode: cleanToken,
+        windowSteps: TOTP_WINDOW,
+        windowSeconds: TOTP_WINDOW * 30,
+        secretLength: cleanSecret.length,
+        expectedByEncoding,
+        matchedAnyWindow
+    };
 }
 
 /**
@@ -478,13 +517,9 @@ exports.loginAdmin = async (req, res) => {
             totpVerified: !!admin.totpVerified,
             hasTotpSecret: Boolean(admin.totpSecret),
             totpSecretLength: cleanTotpSecret(totpSecret).length,
-            bodyKeys: Object.keys(req.body || {}),
-            rawOtp: req.body?.otp,
-            rawTwoFactorCode: req.body?.twoFactorCode,
-            rawCode: req.body?.code,
-            extractedCode: twoFactorCode,
             extractedLength: twoFactorCode.length,
-            expectedTotp: totpSecret ? expectedTotpSamples(totpSecret) : null
+            totpWindowSeconds: TOTP_WINDOW * 30,
+            serverTimeUtc: new Date().toISOString()
         });
 
         if (twoFactorCode) {
@@ -497,15 +532,16 @@ exports.loginAdmin = async (req, res) => {
             }
 
             const verified = verifyInlineTwoFactor(admin, method, twoFactorCode);
-            console.log('[Admin Login 2FA] verify result', {
-                username: admin.username,
-                ok: verified.ok,
-                via: verified.via || null,
-                reason: verified.reason || null,
-                providedCode: twoFactorCode,
-                expectedTotp: totpSecret ? expectedTotpSamples(totpSecret) : null
-            });
             if (!verified.ok) {
+                const mismatch = totpSecret
+                    ? describeTotpMismatch(totpSecret, twoFactorCode)
+                    : { providedCode: twoFactorCode, hasTotpSecret: false };
+                console.warn('[Admin Login 2FA] TOTP verification FAILED', {
+                    username: admin.username,
+                    method,
+                    reason: verified.reason || null,
+                    ...mismatch
+                });
                 await recordLoginAttempt({
                     fingerprint: fp,
                     username: admin.username,
@@ -527,6 +563,12 @@ exports.loginAdmin = async (req, res) => {
                         : verified.message
                 });
             }
+
+            console.log('[Admin Login 2FA] verified OK', {
+                username: admin.username,
+                via: verified.via,
+                windowSeconds: TOTP_WINDOW * 30
+            });
 
             const viaLabel = verified.via === 'totp' ? 'Google Authenticator' : verified.via.toUpperCase();
             return completeAdminLogin(res, admin, fp, `Password + ${viaLabel} verified on login form`);
@@ -636,6 +678,10 @@ exports.verifyOtp = async (req, res) => {
             const totpOk = verifyTotpToken(user.totpSecret, inputOtp);
 
             if (!totpOk) {
+                console.warn('[Admin Login 2FA] TOTP verification FAILED (verify-otp)', {
+                    username: user.username,
+                    ...describeTotpMismatch(user.totpSecret, inputOtp)
+                });
                 await recordLoginAttempt({ fingerprint: fp, username: user.username, status: 'otp_failed', details: 'Incorrect TOTP code' });
                 await logSecurityEvent({
                     action: 'Admin OTP Failed',

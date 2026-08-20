@@ -151,10 +151,18 @@ exports.verifyTotpSetup = async (req, res) => {
             secret: admin.totpPendingSecret,
             encoding: 'base32',
             token: inputToken,
-            window: 1 // tolerate ±30s clock drift
+            window: 3, // ±90s — same tolerance as admin login
+            digits: 6,
+            step: 30
         });
 
         if (!verified) {
+            console.warn('[Admin 2FA Setup] TOTP verification FAILED', {
+                username: admin.username,
+                providedLength: String(inputToken || '').length,
+                serverTimeUtc: new Date().toISOString(),
+                windowSeconds: 90
+            });
             return res.status(401).json({ success: false, message: 'Invalid code. Make sure your device time is correct and try again.' });
         }
 
