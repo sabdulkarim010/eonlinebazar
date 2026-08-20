@@ -9,7 +9,9 @@
 
 const express = require('express');
 const router = express.Router();
-const userController = require('../controllers/userController');
+const authController = require('../controllers/authController');
+const userProfileController = require('../controllers/userProfileController');
+const userWishlistController = require('../controllers/userWishlistController');
 
 // সিকিউরিটির জন্য মিডলওয়্যার ইমপোর্ট করা হলো
 const { verifyUser } = require('../middlewares/authMiddleware'); 
@@ -18,38 +20,38 @@ const { verifyUser } = require('../middlewares/authMiddleware');
 const upload = require('../middlewares/uploadMiddleware'); 
 
 // ================== পাবলিক রাউট (লগিন ছাড়াই ঢোকা যাবে) ==================
-router.get('/test', userController.testUserRoute);
-router.post('/register', userController.registerUser);
-router.post('/login', userController.loginUser);
-router.post('/forgot-password', userController.forgotPassword);
-router.post('/reset-password', userController.resetPassword);
-router.get('/verify/:token', userController.verifyEmail);
-router.post('/resend-verification', userController.resendVerification);
+router.get('/test', authController.testUserRoute);
+router.post('/register', authController.registerUser);
+router.post('/login', authController.loginUser);
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
+router.get('/verify/:token', authController.verifyEmail);
+router.post('/resend-verification', authController.resendVerification);
 
 // ================== প্রোটেক্টেড রাউট (অবশ্যই লগিন থাকতে হবে) ==================
-router.get('/profile', verifyUser, userController.getUserProfile);
-router.put('/update-profile', verifyUser, userController.updateUserProfile);
-router.put('/change-password', verifyUser, userController.changePassword);
-router.put('/profile/change-password', verifyUser, userController.changePassword);
-router.post('/profile/request-contact-otp', verifyUser, userController.requestContactUpdateOtp);
-router.post('/profile/verify-contact-otp', verifyUser, userController.verifyContactUpdateOtp);
+router.get('/profile', verifyUser, userProfileController.getUserProfile);
+router.put('/update-profile', verifyUser, userProfileController.updateUserProfile);
+router.put('/change-password', verifyUser, userProfileController.changePassword);
+router.put('/profile/change-password', verifyUser, userProfileController.changePassword);
+router.post('/profile/request-contact-otp', verifyUser, userProfileController.requestContactUpdateOtp);
+router.post('/profile/verify-contact-otp', verifyUser, userProfileController.verifyContactUpdateOtp);
 
 // ছবি আপলোডের রাউট
-router.post('/update-avatar', verifyUser, upload.single('avatar'), userController.updateUserAvatar);
+router.post('/update-avatar', verifyUser, upload.single('avatar'), userProfileController.updateUserAvatar);
 
 // ================== উইশলিস্ট (My Wishlist) ==================
-router.get('/wishlist', verifyUser, userController.getWishlist);
-router.post('/wishlist', verifyUser, userController.addToWishlist);
-router.delete('/wishlist/:productId', verifyUser, userController.removeFromWishlist);
+router.get('/wishlist', verifyUser, userWishlistController.getWishlist);
+router.post('/wishlist', verifyUser, userWishlistController.addToWishlist);
+router.delete('/wishlist/:productId', verifyUser, userWishlistController.removeFromWishlist);
 
 // ================== ঠিকানা ম্যানেজমেন্ট (Addresses) ==================
-router.get('/addresses', verifyUser, userController.getAddresses);
-router.post('/addresses', verifyUser, userController.addAddress);
-router.put('/addresses/:addressId', verifyUser, userController.updateAddress);
-router.delete('/addresses/:addressId', verifyUser, userController.deleteAddress);
+router.get('/addresses', verifyUser, userProfileController.getAddresses);
+router.post('/addresses', verifyUser, userProfileController.addAddress);
+router.put('/addresses/:addressId', verifyUser, userProfileController.updateAddress);
+router.delete('/addresses/:addressId', verifyUser, userProfileController.deleteAddress);
 
 // ================== ওয়ালেট ও পয়েন্ট (Wallet & Loyalty Points) ==================
-router.post('/convert-points', verifyUser, userController.convertPoints);
+router.post('/convert-points', verifyUser, userProfileController.convertPoints);
 
 // নোট: অ্যাক্টিভ সেশন / রিমোট লগআউট এখন /api/auth/sessions রুটে
 // (routes/authRoutes.js + controllers/authController.js) থেকে পরিচালিত হয়।

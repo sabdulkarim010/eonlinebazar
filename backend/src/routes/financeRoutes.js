@@ -13,13 +13,14 @@ const express = require('express');
 const router = express.Router();
 
 const {
-    getFinanceOverview,
-    getFinanceChartData,
-    getFinanceAnalytics,
-    getAnalyticsFilter,
     financeAdminLogin,
     verifyFinanceToken
 } = require('../controllers/financeController');
+const {
+    getFinanceOverview,
+    getFinanceChartData,
+    getFinanceAnalytics
+} = require('../controllers/financeAnalyticsController');
 
 /********************************************************************
  # FINANCE ROUTES (ফাইন্যান্স ও অ্যানালিটিক্স এপিআই)

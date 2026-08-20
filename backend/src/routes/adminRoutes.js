@@ -9,8 +9,9 @@
 
 const express = require('express');
 const router = express.Router();
-const adminController = require('../controllers/adminController'); 
-const { getFinanceAnalytics } = require('../controllers/financeController');
+const adminController = require('../controllers/adminController');
+const { getDashboardAnalytics } = require('../controllers/analyticsController');
+const { getFinanceAnalytics } = require('../controllers/financeAnalyticsController');
 const {
     approveOrderReturn,
     undoOrderRefund,
@@ -71,7 +72,7 @@ router.get('/me', verifyAdmin, staffController.getCurrentAdmin);
 router.get('/customers', verifyAdmin, checkPermission('manage_customers'), adminController.getAllCustomers);
 
 // ১গ. Sales & Order Analytics Dashboard (GET)
-router.get('/dashboard-analytics', verifyAdmin, checkPermission('view_analytics'), adminController.getDashboardAnalytics);
+router.get('/dashboard-analytics', verifyAdmin, checkPermission('view_analytics'), getDashboardAnalytics);
 
 // ১ঘ. Finance date-range analytics (GET)
 // URL: GET /api/admin/analytics?period=&startDate=&endDate=
