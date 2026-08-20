@@ -6,6 +6,13 @@
 
 import './admin-core.js';
 
+const LIVE_ORDERS_TABLE_COLS = window.LIVE_ORDERS_TABLE_COLS;
+const ORDER_COURIER_SEND_CLASSES = window.ORDER_COURIER_SEND_CLASSES;
+const ORDER_COURIER_SENT_CLASSES = window.ORDER_COURIER_SENT_CLASSES;
+const COURIER_TRACKING_BASE_URLS = window.COURIER_TRACKING_BASE_URLS;
+const COURIER_PROVIDER_LABELS = window.COURIER_PROVIDER_LABELS;
+const COURIER_BLOCKED_STATUSES = window.COURIER_BLOCKED_STATUSES;
+
 /* ==========================================================================
    SECTION 7: LIVE ORDER MANAGEMENT (লাইভ অর্ডার ও ইনভয়েস ইঞ্জিন)
    ========================================================================== */
@@ -707,29 +714,11 @@ function getOrderReasonDetails(order) {
    🚚 COURIER BOOKING (Steadfast / Pathao / RedX)
    ============================================================ */
 
-const COURIER_TRACKING_BASE_URLS = {
-    steadfast: 'https://steadfast.com.bd/t/',
-    pathao: 'https://merchant.pathao.com/tracking?consignment_id=',
-    redx: 'https://redx.com.bd/track-global-parcel/?trackingId=',
-    Steadfast: 'https://steadfast.com.bd/t/',
-    Pathao: 'https://merchant.pathao.com/tracking?consignment_id=',
-    RedX: 'https://redx.com.bd/track-global-parcel/?trackingId='
-};
-
 function normalizeAdminCourierSlug(value) {
     const raw = String(value || '').trim();
     const aliases = { Steadfast: 'steadfast', Pathao: 'pathao', RedX: 'redx', redX: 'redx' };
     return aliases[raw] || raw.toLowerCase();
 }
-
-const COURIER_PROVIDER_LABELS = {
-    steadfast: 'Steadfast',
-    pathao: 'Pathao',
-    redx: 'RedX'
-};
-
-// Mirrors the server-side guard — these orders can never be handed to a courier.
-const COURIER_BLOCKED_STATUSES = ['cancelled', 'canceled', 'returned', 'refunded', 'return requested'];
 
 // Filled from the Master Settings payload that fetchLiveOrders() already loads,
 // so the button can name the store's configured provider.

@@ -58,8 +58,6 @@ function buildOrderCopyField(displayHtml, copyValue) {
         </span>`;
 }
 
-const LIVE_ORDERS_TABLE_COLS = 10;
-
 function getOrderSearchInputEl() {
     return document.getElementById('order-search') || document.getElementById('orderSearchInput');
 }
@@ -200,9 +198,6 @@ function updateOrderTabCounts() {
     setCount('count-delivered', counts.delivered);
     setCount('count-cancelled', counts.cancelled);
 }
-
-const ORDER_COURIER_SEND_CLASSES = 'order-courier-send send-courier-btn bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 w-full flex items-center justify-center py-2 text-xs font-semibold rounded-md shadow-sm gap-1.5 transition-colors duration-150';
-const ORDER_COURIER_SENT_CLASSES = 'order-courier-sent bg-emerald-50 text-emerald-700 border border-emerald-200 w-full flex items-center justify-center py-2 text-xs font-semibold rounded-md shadow-sm text-center';
 
 /** Address cell — inline copy control visible on row hover. */
 function buildOrderAddressCopyField(address) {

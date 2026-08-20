@@ -129,6 +129,26 @@ window.inquiryDetailActiveId = null;
 window.messagesFilterTab = 'all';
 window.messagesSearchQuery = '';
 
+// Shared config used by admin-orders.js and admin-settings.js (ES modules do not
+// see sibling-file `const` bindings — put these on window before any module runs).
+window.LIVE_ORDERS_TABLE_COLS = 10;
+window.ORDER_COURIER_SEND_CLASSES = 'order-courier-send send-courier-btn bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 w-full flex items-center justify-center py-2 text-xs font-semibold rounded-md shadow-sm gap-1.5 transition-colors duration-150';
+window.ORDER_COURIER_SENT_CLASSES = 'order-courier-sent bg-emerald-50 text-emerald-700 border border-emerald-200 w-full flex items-center justify-center py-2 text-xs font-semibold rounded-md shadow-sm text-center';
+window.COURIER_TRACKING_BASE_URLS = {
+    steadfast: 'https://steadfast.com.bd/t/',
+    pathao: 'https://merchant.pathao.com/tracking?consignment_id=',
+    redx: 'https://redx.com.bd/track-global-parcel/?trackingId=',
+    Steadfast: 'https://steadfast.com.bd/t/',
+    Pathao: 'https://merchant.pathao.com/tracking?consignment_id=',
+    RedX: 'https://redx.com.bd/track-global-parcel/?trackingId='
+};
+window.COURIER_PROVIDER_LABELS = {
+    steadfast: 'Steadfast',
+    pathao: 'Pathao',
+    redx: 'RedX'
+};
+window.COURIER_BLOCKED_STATUSES = ['cancelled', 'canceled', 'returned', 'refunded', 'return requested'];
+
 /**
  * Project: EOnlineBazar (E-Commerce Platform)
  * Author: Abdul Karim
