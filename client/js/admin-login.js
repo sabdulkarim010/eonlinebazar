@@ -496,7 +496,10 @@ async function handleAdminLogin() {
                 : method === 'sms'
                     ? 'Enter the 6-digit code sent to your phone.'
                     : 'Open Google Authenticator and enter the 6-digit code.';
-            const prompt = data.prompt || data.message || defaultPrompt;
+            // TOTP/SMS must never inherit SMTP failure copy from an email challenge.
+            const prompt = (method === 'totp' || method === 'sms')
+                ? defaultPrompt
+                : (data.prompt || data.message || defaultPrompt);
             revealAdmin2faStep(prompt, { method });
             return;
         }

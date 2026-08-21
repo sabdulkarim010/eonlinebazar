@@ -68,6 +68,7 @@ exports.getTwoFactorStatus = async (req, res) => {
                 method: admin.twoFactorMethod || 'email',
                 email: effectiveEmail,
                 maskedEmail: maskEmail(effectiveEmail),
+                hasCustomEmail: Boolean(admin.email),
                 phone: admin.phone || '',
                 maskedPhone: maskPhone(admin.phone || ''),
                 smsConfigured: !!admin.phone,
@@ -345,6 +346,7 @@ exports.updateMethod = async (req, res) => {
     try {
         const method = String(req.body.method || '').toLowerCase().trim();
         const phone = req.body.phone !== undefined ? String(req.body.phone).trim() : undefined;
+        const email = req.body.email !== undefined ? String(req.body.email).trim().toLowerCase() : undefined;
         const enabled = req.body.enabled;
 
         if (method && !VALID_METHODS.includes(method)) {
@@ -356,6 +358,17 @@ exports.updateMethod = async (req, res) => {
         if (!admin) return res.status(404).json({ success: false, message: 'Admin not found.' });
 
         if (phone !== undefined) admin.phone = phone;
+
+        if (email !== undefined) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (email && !emailRegex.test(email)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid email address format.'
+                });
+            }
+            admin.email = email;
+        }
 
         if (method === 'totp' && !(admin.totpSecret && admin.totpVerified)) {
             return res.status(400).json({
@@ -391,7 +404,9 @@ exports.updateMethod = async (req, res) => {
                 method: admin.twoFactorMethod,
                 twoFactorEnabled: admin.twoFactorEnabled,
                 phone: admin.phone,
-                maskedPhone: maskPhone(admin.phone || '')
+                maskedPhone: maskPhone(admin.phone || ''),
+                email: admin.email || process.env.SMTP_USER || process.env.EMAIL_USER || '',
+                maskedEmail: maskEmail(admin.email || process.env.SMTP_USER || process.env.EMAIL_USER || '')
             }
         });
     } catch (error) {

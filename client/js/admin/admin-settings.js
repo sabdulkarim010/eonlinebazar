@@ -4066,9 +4066,12 @@ function setupAdminSettingsForms() {
         });
 
         if ($('twofaEmailTarget')) {
-            $('twofaEmailTarget').textContent = state.email
-                ? maskEmailFE(state.email)
-                : (state.maskedEmail ? `Code sent to ${state.maskedEmail}` : 'Using SMTP default');
+            const masked = state.email ? maskEmailFE(state.email) : (state.maskedEmail || 'SMTP default');
+            $('twofaEmailTarget').textContent = `OTP will be sent to: ${masked}`;
+        }
+        if ($('twofaEmailHint')) {
+            const masked = state.email ? maskEmailFE(state.email) : (state.maskedEmail || 'SMTP default');
+            $('twofaEmailHint').textContent = `OTP will be sent to: ${masked}`;
         }
         if ($('twofaTotpState')) $('twofaTotpState').textContent = state.totpConfigured ? 'Active & verified' : (state.totpPending ? 'Setup in progress' : 'Not configured');
         if ($('twofaSmsTarget')) $('twofaSmsTarget').textContent = state.maskedPhone ? `Code texted to ${state.maskedPhone}` : 'Add a phone number';
@@ -4149,6 +4152,56 @@ function setupAdminSettingsForms() {
         if (!confirmed) return;
 
         await updateMethod(method, {}, btn);
+    }
+
+    async function onEditEmail(btn) {
+        const current = String(state.email || '').trim();
+        let nextEmail = current;
+
+        if (typeof Swal !== 'undefined') {
+            const result = await Swal.fire({
+                title: 'Email for OTP Delivery',
+                text: 'OTP codes will be sent to this address.',
+                input: 'email',
+                inputValue: current,
+                inputPlaceholder: 'your@email.com',
+                showCancelButton: true,
+                confirmButtonText: 'Save Email',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#3b82f6',
+                cancelButtonColor: '#94a3b8',
+                inputValidator: (value) => {
+                    const email = String(value || '').trim();
+                    if (!email) return 'Enter an email address.';
+                    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Invalid email address format.';
+                    return null;
+                }
+            });
+            if (!result.isConfirmed) return;
+            nextEmail = String(result.value || '').trim().toLowerCase();
+        } else {
+            const typed = window.prompt('Email for OTP Delivery', current);
+            if (typed == null) return;
+            nextEmail = String(typed).trim().toLowerCase();
+            if (!nextEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+                return toast('Invalid email address format.', 'error');
+            }
+        }
+
+        const restore = setBusy(btn, 'Saving…');
+        try {
+            const { data } = await api('/api/admin/2fa/method', 'PUT', { email: nextEmail });
+            if (!data.success) { toast(data.message || 'Failed to save email.', 'error'); return; }
+            state.email = (data.data && data.data.email) || nextEmail;
+            state.maskedEmail = (data.data && data.data.maskedEmail) || maskEmailFE(state.email);
+            const profileEmail = document.getElementById('settingsAdminEmail');
+            if (profileEmail) profileEmail.value = state.email || '';
+            toast('OTP email updated.', 'success');
+            render();
+        } catch (err) {
+            console.error('Save OTP email failed:', err);
+            toast('Server error saving email.', 'error');
+        } finally { restore(); }
     }
 
     async function onSavePhone(btn) {
@@ -4282,6 +4335,7 @@ function setupAdminSettingsForms() {
         const btn = e.target.closest('button');
         if (!btn || !btn.id) return;
         switch (btn.id) {
+            case 'twofaEditEmailBtn':   onEditEmail(btn); break;
             case 'twofaSavePhoneBtn':   onSavePhone(btn); break;
             case 'twofaSendSmsBtn':     onSendSms(btn); break;
             case 'twofaVerifySmsBtn':   onVerifySms(btn); break;

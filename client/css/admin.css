@@ -7655,6 +7655,22 @@ td.col-actions button:last-child {
 /* SMS test-code verification row */
 .twofa-sms-verify { margin-top: 14px; padding-top: 14px; border-top: 1px dashed #e2e8f0; }
 .twofa-hint { margin: 0 0 10px; font-size: 12.5px; color: #475569; line-height: 1.5; }
+.twofa-email-config {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 4px 0 14px;
+    padding: 12px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+.twofa-email-config .twofa-hint {
+    margin: 0;
+    flex: 1 1 220px;
+}
 
 .twofa-inline { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .twofa-inline input {
