@@ -576,6 +576,8 @@ function applyAdminSettingsToUI(settings) {
     const setVal = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; };
     setVal('settingsDisplayName', settings.displayName);
     setVal('settingsUsername', settings.username);
+    const emailEl = document.getElementById('settingsAdminEmail');
+    if (emailEl) emailEl.value = settings.email || '';
     setVal('settingsStoreName', settings.storeName);
     setVal('settingsCurrency', settings.currency);
     setVal('settingsCurrencySymbol', settings.currencySymbol);
@@ -3823,6 +3825,7 @@ function setupAdminSettingsForms() {
 
             const displayName = document.getElementById('settingsDisplayName')?.value?.trim();
             const username = document.getElementById('settingsUsername')?.value?.trim();
+            const email = document.getElementById('settingsAdminEmail')?.value?.trim() || '';
             const currentPassword = document.getElementById('settingsCurrentPassword')?.value;
             const newPassword = document.getElementById('settingsNewPassword')?.value;
 
@@ -3836,6 +3839,7 @@ function setupAdminSettingsForms() {
                 const result = await saveAdminProfile({
                     displayName,
                     username,
+                    email,
                     currentPassword,
                     ...(newPassword ? { newPassword } : {})
                 });
@@ -3845,6 +3849,7 @@ function setupAdminSettingsForms() {
                     if (result.data) applyAdminSettingsToUI(result.data);
                     document.getElementById('settingsCurrentPassword').value = '';
                     document.getElementById('settingsNewPassword').value = '';
+                    if (typeof window.refreshTwoFactorSettings === 'function') window.refreshTwoFactorSettings();
 
                     // Changing the username or password invalidates this token —
                     // the server already revoked every session, so sign back in.
@@ -3984,6 +3989,13 @@ function setupAdminSettingsForms() {
 
     /* ---- Small helpers ---- */
 
+    function maskEmailFE(email) {
+        if (!email) return 'Not set';
+        const [user, domain] = String(email).split('@');
+        if (!domain) return email;
+        return user.slice(0, 2) + '***@' + domain;
+    }
+
     // Put a button into a loading state; returns a restore() that reverses it.
     function setBusy(btn, label) {
         if (!btn) return () => {};
@@ -4037,7 +4049,11 @@ function setupAdminSettingsForms() {
             btn.classList.toggle('active', btn.dataset.method === state.method);
         });
 
-        if ($('twofaEmailTarget')) $('twofaEmailTarget').textContent = state.maskedEmail ? `Code sent to ${state.maskedEmail}` : 'Code sent to your email';
+        if ($('twofaEmailTarget')) {
+            $('twofaEmailTarget').textContent = state.email
+                ? maskEmailFE(state.email)
+                : (state.maskedEmail ? `Code sent to ${state.maskedEmail}` : 'Using SMTP default');
+        }
         if ($('twofaTotpState')) $('twofaTotpState').textContent = state.totpConfigured ? 'Active & verified' : (state.totpPending ? 'Setup in progress' : 'Not configured');
         if ($('twofaSmsTarget')) $('twofaSmsTarget').textContent = state.maskedPhone ? `Code texted to ${state.maskedPhone}` : 'Add a phone number';
 

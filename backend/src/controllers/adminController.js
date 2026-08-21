@@ -542,7 +542,7 @@ const getAdminSettings = async (req, res) => {
 // ==============================================================
 const updateAdminProfile = async (req, res) => {
     try {
-        const { currentPassword, username, newPassword, displayName } = req.body;
+        const { currentPassword, username, newPassword, displayName, email } = req.body;
 
         if (!currentPassword) {
             return res.status(400).json({ success: false, message: 'Current password is required.' });
@@ -588,6 +588,17 @@ const updateAdminProfile = async (req, res) => {
         if (displayName !== undefined) {
             admin.displayName = String(displayName).trim();
             if (!admin.isSuperAdmin()) admin.name = admin.displayName;
+        }
+
+        if (email !== undefined) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (email && !emailRegex.test(email)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid email address format.'
+                });
+            }
+            admin.email = String(email).toLowerCase().trim();
         }
 
         await admin.save();

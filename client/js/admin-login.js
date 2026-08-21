@@ -367,6 +367,21 @@ function revealAdmin2faStep(message, options) {
     const tfaInfo = document.getElementById('admin2faInfo');
     const loginStep = document.getElementById('adminLoginStep');
     const prompt = message || 'Open Google Authenticator and enter the 6-digit code';
+    const method = options?.method || 'totp';
+    const iconEl = document.getElementById('otpIconWrapper');
+    if (iconEl) {
+        const iconTarget = iconEl.querySelector('span') || iconEl;
+        if (method === 'email') {
+            iconEl.style.background = 'linear-gradient(135deg, #0369a1, #0ea5e9)';
+            iconTarget.textContent = '📧';
+        } else if (method === 'sms') {
+            iconEl.style.background = 'linear-gradient(135deg, #15803d, #22c55e)';
+            iconTarget.textContent = '📱';
+        } else {
+            iconEl.style.background = 'linear-gradient(135deg, #1e40af, #3b82f6)';
+            iconTarget.textContent = '🔐';
+        }
+    }
     const clearInput = !options || options.clearInput !== false;
 
     if (tfaInfo) tfaInfo.textContent = prompt;
@@ -475,8 +490,14 @@ async function handleAdminLogin() {
                 setTimeout(() => setOtpIconState('idle'), 1600);
                 return;
             }
-            const prompt = data.prompt || data.message || 'Open Google Authenticator and enter the 6-digit code';
-            revealAdmin2faStep(prompt);
+            const method = data.method || 'totp';
+            const defaultPrompt = method === 'email'
+                ? 'Enter the 6-digit code sent to your email.'
+                : method === 'sms'
+                    ? 'Enter the 6-digit code sent to your phone.'
+                    : 'Open Google Authenticator and enter the 6-digit code.';
+            const prompt = data.prompt || data.message || defaultPrompt;
+            revealAdmin2faStep(prompt, { method });
             return;
         }
 

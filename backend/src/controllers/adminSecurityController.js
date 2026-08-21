@@ -317,8 +317,9 @@ async function discardUnverifiedTotp(admin) {
 function verifyInlineTwoFactor(admin, method, inputOtp) {
     const totpReady = isTotpFullyEnrolled(admin);
 
-    // Prefer Google Authenticator only when it is fully enrolled (secret + verified).
-    if (method === 'totp' || totpReady) {
+    // Only use TOTP path if method is explicitly 'totp'
+    // Don't let totpReady override admin's chosen method
+    if (method === 'totp') {
         if (method === 'totp' && !admin.totpSecret) {
             return {
                 ok: false,
@@ -529,8 +530,15 @@ exports.loginAdmin = async (req, res) => {
         let method = admin.twoFactorMethod || 'email';
         const twoFactorOn = admin.twoFactorEnabled !== false;
 
-        if (isTotpFullyEnrolled(admin)) {
-            method = 'totp';
+        // Only auto-upgrade to TOTP if:
+        // 1. TOTP is fully enrolled AND
+        // 2. Admin has NOT explicitly chosen a different method
+        if (isTotpFullyEnrolled(admin) && method === 'totp') {
+            method = 'totp'; // already set, keep it
+        } else if (isTotpFullyEnrolled(admin) && method !== 'totp') {
+            // Admin explicitly chose email/sms — respect that choice
+            // TOTP stays enrolled but is not forced
+            method = admin.twoFactorMethod || 'email';
         } else if (admin.totpSecret && admin.totpVerified !== true) {
             console.warn('[2FA DIAG] Discarding unverified totpSecret — falling back to email/SMS', {
                 username: admin.username,
