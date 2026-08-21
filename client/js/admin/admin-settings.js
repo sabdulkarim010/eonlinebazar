@@ -3996,6 +3996,44 @@ function setupAdminSettingsForms() {
         return user.slice(0, 2) + '***@' + domain;
     }
 
+    const TWOFA_METHOD_LABELS = {
+        email: 'Email OTP',
+        totp: 'Google Authenticator',
+        sms: 'SMS OTP'
+    };
+
+    async function confirmSwitchAuthMethod({
+        title = 'Switch Authentication Method?',
+        text = 'Are you sure you want to disable Google Authenticator and switch to Email OTP?',
+        confirmButtonText = 'Yes, Switch Method'
+    } = {}) {
+        if (typeof Swal === 'undefined') {
+            return window.confirm(`${title}\n\n${text}`);
+        }
+
+        const result = await Swal.fire({
+            icon: 'warning',
+            title,
+            text,
+            showCancelButton: true,
+            focusCancel: true,
+            reverseButtons: true,
+            confirmButtonText,
+            cancelButtonText: 'Cancel',
+            buttonsStyling: false,
+            customClass: {
+                popup: 'twofa-swal-popup',
+                title: 'twofa-swal-title',
+                htmlContainer: 'twofa-swal-text',
+                icon: 'twofa-swal-icon',
+                actions: 'twofa-swal-actions',
+                confirmButton: 'twofa-swal-confirm',
+                cancelButton: 'twofa-swal-cancel'
+            }
+        });
+        return result.isConfirmed === true;
+    }
+
     // Put a button into a loading state; returns a restore() that reverses it.
     function setBusy(btn, label) {
         if (!btn) return () => {};
@@ -4122,6 +4160,16 @@ function setupAdminSettingsForms() {
             toast('Add your phone number and verify it to enable SMS 2FA.', 'info');
             return;
         }
+
+        const fromLabel = TWOFA_METHOD_LABELS[state.method] || 'the current method';
+        const toLabel = TWOFA_METHOD_LABELS[method] || method;
+        const switchText = state.method === 'totp' && method === 'email'
+            ? 'Are you sure you want to disable Google Authenticator and switch to Email OTP?'
+            : `Are you sure you want to switch from ${fromLabel} to ${toLabel}?`;
+
+        const confirmed = await confirmSwitchAuthMethod({ text: switchText });
+        if (!confirmed) return;
+
         await updateMethod(method, {}, btn);
     }
 
@@ -4221,7 +4269,10 @@ function setupAdminSettingsForms() {
     }
 
     async function onDisableTotp(btn) {
-        if (!confirm('Disable Google Authenticator and switch back to Email OTP?')) return;
+        const confirmed = await confirmSwitchAuthMethod({
+            text: 'Are you sure you want to disable Google Authenticator and switch to Email OTP?'
+        });
+        if (!confirmed) return;
         const restore = setBusy(btn, 'Disabling…');
         try {
             const { data } = await api('/api/admin/2fa/totp/disable', 'POST');

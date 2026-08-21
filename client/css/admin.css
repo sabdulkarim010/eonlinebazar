@@ -7649,6 +7649,70 @@ td.col-actions button:last-child {
     .twofa-qr-box img { width: 160px; height: 160px; }
 }
 
+/* 2FA SweetAlert2 confirm — matches SaaS settings cards */
+.twofa-swal-popup.swal2-popup {
+    font-family: 'Inter', 'Hind Siliguri', sans-serif;
+    width: min(420px, calc(100vw - 32px));
+    padding: 28px 24px 22px;
+    border-radius: 12px;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    background: #fff;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+}
+.twofa-swal-title.swal2-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+    margin: 0 0 8px;
+}
+.twofa-swal-text.swal2-html-container {
+    font-size: 14px;
+    line-height: 1.55;
+    color: #64748b;
+    margin: 0 0 6px;
+}
+.twofa-swal-icon.swal2-icon.swal2-warning {
+    border-color: #fbbf24;
+    color: #d97706;
+    margin: 0 auto 14px;
+}
+.twofa-swal-actions.swal2-actions {
+    width: 100%;
+    margin-top: 18px;
+    gap: 10px;
+}
+.twofa-swal-confirm.swal2-confirm,
+.twofa-swal-cancel.swal2-cancel {
+    flex: 1 1 auto;
+    margin: 0;
+    min-height: 42px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+.twofa-swal-confirm.swal2-confirm {
+    background: #ef4444;
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(239, 68, 68, 0.28);
+}
+.twofa-swal-confirm.swal2-confirm:hover {
+    background: #dc2626;
+}
+.twofa-swal-cancel.swal2-cancel {
+    background: #f8fafc;
+    color: #475569;
+    border-color: #e2e8f0;
+}
+.twofa-swal-cancel.swal2-cancel:hover {
+    background: #f1f5f9;
+}
+
+
 
 /* --------------------------------------------------------------------------
    STAFF MANAGEMENT & RBAC — Enterprise Role Dashboard
