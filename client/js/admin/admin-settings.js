@@ -4004,34 +4004,12 @@ function setupAdminSettingsForms() {
 
     async function confirmSwitchAuthMethod({
         title = 'Switch Authentication Method?',
-        text = 'Are you sure you want to disable Google Authenticator and switch to Email OTP?',
-        confirmButtonText = 'Yes, Switch Method'
+        text = 'Are you sure you want to disable Google Authenticator and switch to Email OTP?'
     } = {}) {
-        if (typeof Swal === 'undefined') {
-            return window.confirm(`${title}\n\n${text}`);
+        if (typeof window.showCustomConfirm === 'function') {
+            return !!(await window.showCustomConfirm(title, text, null, 'danger'));
         }
-
-        const result = await Swal.fire({
-            icon: 'warning',
-            title,
-            text,
-            showCancelButton: true,
-            focusCancel: true,
-            reverseButtons: true,
-            confirmButtonText,
-            cancelButtonText: 'Cancel',
-            buttonsStyling: false,
-            customClass: {
-                popup: 'twofa-swal-popup',
-                title: 'twofa-swal-title',
-                htmlContainer: 'twofa-swal-text',
-                icon: 'twofa-swal-icon',
-                actions: 'twofa-swal-actions',
-                confirmButton: 'twofa-swal-confirm',
-                cancelButton: 'twofa-swal-cancel'
-            }
-        });
-        return result.isConfirmed === true;
+        return window.confirm(`${title}\n\n${text}`);
     }
 
     // Put a button into a loading state; returns a restore() that reverses it.

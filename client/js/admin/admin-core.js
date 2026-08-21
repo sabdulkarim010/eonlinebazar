@@ -963,26 +963,43 @@ window.showEnterpriseActionModal = showEnterpriseActionModal;
  * কনফার্মেশন ডায়ালগ (SweetAlert2)
  */
 window.showCustomConfirm = function(title, message, onConfirm, type = 'warning') {
+    const isDanger = type === 'danger' || type === 'warning';
+
     if (typeof Swal !== 'undefined') {
-        Swal.fire({
+        return Swal.fire({
             title: title || 'Are you sure?',
             text: message,
-            icon: type === 'danger' ? 'warning' : 'question',
+            icon: 'warning',
             showCancelButton: true,
+            focusCancel: true,
+            reverseButtons: false,
             confirmButtonText: 'Yes, Proceed',
             cancelButtonText: 'Cancel',
-            confirmButtonColor: type === 'danger' ? '#ef4444' : '#3b82f6',
-            cancelButtonColor: '#94a3b8',
-            reverseButtons: true
+            buttonsStyling: false,
+            width: 420,
+            padding: '2.1em 1.6em 1.6em',
+            customClass: {
+                popup: 'admin-confirm-swal',
+                title: 'admin-confirm-swal-title',
+                htmlContainer: 'admin-confirm-swal-text',
+                icon: 'admin-confirm-swal-icon',
+                actions: 'admin-confirm-swal-actions',
+                confirmButton: 'admin-confirm-swal-confirm',
+                cancelButton: 'admin-confirm-swal-cancel'
+            }
         }).then((result) => {
-            if (result.isConfirmed && onConfirm) onConfirm();
+            if (result.isConfirmed && typeof onConfirm === 'function') onConfirm();
+            return result.isConfirmed === true;
         });
-        return;
     }
 
     const modal = document.getElementById('customConfirmModal');
-    if (!modal) return;
-    
+    if (!modal) {
+        const ok = window.confirm(`${title || 'Are you sure?'}\n\n${message || ''}`);
+        if (ok && typeof onConfirm === 'function') onConfirm();
+        return Promise.resolve(ok);
+    }
+
     const titleEl = document.getElementById('confirmTitle');
     const messageEl = document.getElementById('confirmMessage');
     const iconBox = document.getElementById('confirmIconBox');
@@ -991,30 +1008,32 @@ window.showCustomConfirm = function(title, message, onConfirm, type = 'warning')
 
     titleEl.innerText = title;
     messageEl.innerText = message;
-    
-    // টাইপ অনুযায়ী ডেঞ্জার বা ওয়ার্নিং আইকন সেটআপ
-    iconBox.className = `confirm-icon-box ${type}`;
-    iconBox.innerHTML = type === 'danger' 
-        ? '<i class="fa-solid fa-triangle-exclamation"></i>' 
-        : '<i class="fa-solid fa-circle-question"></i>';
-        
-    confirmBtn.className = type === 'danger' ? 'btn-confirm danger-action' : 'btn-confirm';
 
-    // মডাল প্রদর্শন
+    iconBox.className = `confirm-icon-box ${isDanger ? 'danger' : 'warning'}`;
+    iconBox.innerHTML = '<i class="fa-solid fa-exclamation"></i>';
+    confirmBtn.className = 'btn-confirm danger-action';
+    confirmBtn.textContent = 'Yes, Proceed';
+
     modal.style.display = 'flex';
 
-    // ইভেন্ট লিসেনার ওভারল্যাপিং এড়াতে নোড ক্লোন করা
-    const newConfirmBtn = confirmBtn.cloneNode(true);
-    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-    
-    const newCancelBtn = cancelBtn.cloneNode(true);
-    cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+    return new Promise((resolve) => {
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
 
-    // ইভেন্ট লিসেনার যুক্তকরণ
-    newCancelBtn.addEventListener('click', () => modal.style.display = 'none');
-    newConfirmBtn.addEventListener('click', () => {
-        modal.style.display = 'none';
-        if (onConfirm) onConfirm();
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+        const close = (confirmed) => {
+            modal.style.display = 'none';
+            if (confirmed && typeof onConfirm === 'function') onConfirm();
+            resolve(confirmed);
+        };
+
+        newCancelBtn.addEventListener('click', () => close(false));
+        newConfirmBtn.addEventListener('click', () => close(true));
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) close(false);
+        }, { once: true });
     });
 };
 

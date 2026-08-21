@@ -1503,17 +1503,77 @@ a {
 .custom-confirm-card, .invoice-modal-card {
     background-color: #fff; padding: 30px; border-radius: 12px; box-shadow: var(--shadow-lg); position: relative; animation: modalFadeIn 0.3s ease-out;
 }
-.custom-confirm-card { width: 400px; text-align: center; }
+.custom-confirm-card {
+    width: min(420px, calc(100vw - 32px));
+    text-align: center;
+    padding: 32px 24px 24px;
+    box-sizing: border-box;
+}
 .invoice-modal-card { width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; }
 .close-modal-btn { position: absolute; top: 15px; right: 20px; background: none; border: none; font-size: 24px; color: var(--text-muted); cursor: pointer; }
 .close-modal-btn:hover { color: var(--danger-color); }
 
-.confirm-icon-box { font-size: 50px; color: var(--warning-color); margin-bottom: 15px; }
-.confirm-actions { display: flex; justify-content: center; gap: 15px; margin-top: 25px; }
-.btn-cancel { padding: 10px 20px; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; background-color: #e2e8f0; color: var(--text-main); transition: 0.3s; }
-.btn-cancel:hover { background-color: #cbd5e1; }
-.btn-confirm { padding: 10px 20px; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; background-color: var(--danger-color); color: #fff; transition: 0.3s; }
-.btn-confirm:hover { background-color: #dc2626; }
+.custom-confirm-card h3 {
+    margin: 0 0 10px;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #1e293b;
+}
+.custom-confirm-card p {
+    margin: 0;
+    padding: 0 8px;
+    font-size: 15px;
+    line-height: 1.55;
+    color: #64748b;
+}
+
+.confirm-icon-box {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    border: 3px solid rgba(245, 158, 11, 0.35);
+    background: #fffbeb;
+    color: #f59e0b;
+    font-size: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+.confirm-icon-box.danger {
+    border-color: rgba(245, 158, 11, 0.4);
+    background: #fffbeb;
+    color: #f59e0b;
+}
+.confirm-actions {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 24px;
+}
+.confirm-actions .btn-cancel,
+.confirm-actions .btn-confirm {
+    flex: 1 1 140px;
+    min-width: 0;
+    min-height: 46px;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: 0.3s;
+    white-space: nowrap;
+}
+.confirm-actions .btn-cancel { background-color: #f1f5f9; color: #475569; }
+.confirm-actions .btn-cancel:hover { background-color: #e2e8f0; color: #1e293b; }
+.confirm-actions .btn-confirm { background-color: #ef4444; color: #fff; }
+.confirm-actions .btn-confirm:hover { background-color: #dc2626; }
 
 /* Enterprise confirmation modal (sandbox resets, destructive actions) */
 .enterprise-modal-overlay {
@@ -7649,70 +7709,91 @@ td.col-actions button:last-child {
     .twofa-qr-box img { width: 160px; height: 160px; }
 }
 
-/* 2FA SweetAlert2 confirm — matches SaaS settings cards */
-.twofa-swal-popup.swal2-popup {
+/* Logout-style confirmation (2FA switch/disable + admin confirm) */
+.admin-confirm-swal.swal2-popup {
     font-family: 'Inter', 'Hind Siliguri', sans-serif;
-    width: min(420px, calc(100vw - 32px));
-    padding: 28px 24px 22px;
-    border-radius: 12px;
-    border: 1px solid rgba(226, 232, 240, 0.9);
+    width: min(420px, calc(100vw - 32px)) !important;
+    padding: 32px 24px 24px !important;
+    border-radius: 16px;
     background: #fff;
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
-.twofa-swal-title.swal2-title {
-    font-size: 18px;
+.admin-confirm-swal-icon.swal2-icon.swal2-warning {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 16px;
+    border: 3px solid rgba(245, 158, 11, 0.4);
+    border-radius: 50%;
+    color: #f59e0b;
+    background: #fffbeb;
+}
+.admin-confirm-swal-icon.swal2-icon.swal2-warning .swal2-icon-content {
+    font-size: 2.1rem;
     font-weight: 700;
-    color: #0f172a;
-    letter-spacing: -0.02em;
-    margin: 0 0 8px;
 }
-.twofa-swal-text.swal2-html-container {
-    font-size: 14px;
+.admin-confirm-swal-title.swal2-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1.3;
+    margin: 0 0 10px;
+    padding: 0 8px;
+}
+.admin-confirm-swal-text.swal2-html-container {
+    font-size: 15px;
     line-height: 1.55;
     color: #64748b;
-    margin: 0 0 6px;
-}
-.twofa-swal-icon.swal2-icon.swal2-warning {
-    border-color: #fbbf24;
-    color: #d97706;
-    margin: 0 auto 14px;
-}
-.twofa-swal-actions.swal2-actions {
-    width: 100%;
-    margin-top: 18px;
-    gap: 10px;
-}
-.twofa-swal-confirm.swal2-confirm,
-.twofa-swal-cancel.swal2-cancel {
-    flex: 1 1 auto;
     margin: 0;
-    min-height: 42px;
-    border-radius: 10px;
-    font-size: 13.5px;
+    padding: 0 10px 8px;
+}
+.admin-confirm-swal-actions.swal2-actions {
+    width: 100%;
+    margin: 24px 0 0;
+    padding: 0;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.admin-confirm-swal-confirm.swal2-confirm,
+.admin-confirm-swal-cancel.swal2-cancel {
+    flex: 1 1 140px;
+    min-width: 0;
+    min-height: 46px;
+    margin: 0;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
-    border: 1px solid transparent;
-    transition: background 0.15s ease, box-shadow 0.15s ease;
+    white-space: nowrap;
 }
-.twofa-swal-confirm.swal2-confirm {
+.admin-confirm-swal-cancel.swal2-cancel {
+    background: #f1f5f9;
+    color: #475569;
+}
+.admin-confirm-swal-cancel.swal2-cancel:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+.admin-confirm-swal-confirm.swal2-confirm {
     background: #ef4444;
     color: #fff;
-    box-shadow: 0 1px 2px rgba(239, 68, 68, 0.28);
 }
-.twofa-swal-confirm.swal2-confirm:hover {
+.admin-confirm-swal-confirm.swal2-confirm:hover {
     background: #dc2626;
 }
-.twofa-swal-cancel.swal2-cancel {
-    background: #f8fafc;
-    color: #475569;
-    border-color: #e2e8f0;
-}
-.twofa-swal-cancel.swal2-cancel:hover {
-    background: #f1f5f9;
-}
 
-
+@media (max-width: 420px) {
+    .admin-confirm-swal-confirm.swal2-confirm,
+    .admin-confirm-swal-cancel.swal2-cancel,
+    .confirm-actions .btn-cancel,
+    .confirm-actions .btn-confirm {
+        flex-basis: 100%;
+        white-space: normal;
+    }
+}
 
 /* --------------------------------------------------------------------------
    STAFF MANAGEMENT & RBAC — Enterprise Role Dashboard
