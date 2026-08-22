@@ -191,6 +191,35 @@ function generateEpochOtp() {
     return { otp, otpExpiry };
 }
 
+function hashOtp(value) {
+    return crypto.createHash('sha256').update(String(value || '').trim()).digest('hex');
+}
+
+function otpMatchesStored(stored, input) {
+    const saved = String(stored || '');
+    const candidate = String(input || '').trim();
+    if (!saved || !candidate) return false;
+
+    // New challenges are SHA-256 hex; leftover plaintext 6-digit codes still compare.
+    if (/^[a-f0-9]{64}$/i.test(saved)) {
+        const left = Buffer.from(saved, 'hex');
+        const right = Buffer.from(hashOtp(candidate), 'hex');
+        return left.length === right.length && crypto.timingSafeEqual(left, right);
+    }
+    return saved === candidate;
+}
+
+function isTwoFactorRequired(admin) {
+    const method = String(admin?.twoFactorMethod || '').toLowerCase();
+    if (admin?.twoFactorEnabled === true) return true;
+    if (admin?.twoFactorEnabled === false && !method) return false;
+    // Email/SMS/TOTP selected in Settings must never skip the challenge —
+    // emergency reset left method='email' with twoFactorEnabled=false, which
+    // showed Email OTP as Active in the UI while login issued a JWT immediately.
+    if (method === 'email' || method === 'sms' || method === 'totp') return true;
+    return admin?.twoFactorEnabled !== false;
+}
+
 /**
  * Create the AdminSession + signed 24h JWT after a fully-authenticated login.
  * Centralized so every 2FA path (bypass / email / sms / totp) is identical.
@@ -358,7 +387,7 @@ function verifyInlineTwoFactor(admin, method, inputOtp) {
             message: 'That verification code has expired. Submit username and password again to receive a new one.'
         };
     }
-    if (String(admin.otp) !== String(inputOtp)) {
+    if (!otpMatchesStored(admin.otp, inputOtp)) {
         return {
             ok: false,
             status: 401,
@@ -397,12 +426,9 @@ async function dispatchChallenge(admin, method, fp) {
         };
     }
 
-    // email or sms → make a fresh epoch-ms OTP
+    // email or sms → make a fresh epoch-ms OTP, persist only the hash
     const { otp, otpExpiry } = generateEpochOtp();
-    await Admin.updateOne(
-        { _id: admin._id },
-        { $set: { otp, otpExpiry }, $unset: { loginOtpHash: 1, loginOtpExpires: 1 } }
-    );
+    const otpHash = hashOtp(otp);
 
     if (method === 'sms') {
         const delivery = await sendAdminOtpSms({
@@ -411,6 +437,12 @@ async function dispatchChallenge(admin, method, fp) {
             username: admin.username,
             expiresInMinutes: OTP_TTL_MINUTES
         });
+        if (delivery.delivered) {
+            await Admin.updateOne(
+                { _id: admin._id },
+                { $set: { otp: otpHash, otpExpiry }, $unset: { loginOtpHash: 1, loginOtpExpires: 1 } }
+            );
+        }
         return {
             otpToken,
             method,
@@ -419,12 +451,12 @@ async function dispatchChallenge(admin, method, fp) {
             maskedTarget: maskPhone(admin.phone),
             message: delivery.delivered
                 ? `A 6-digit code was sent via SMS to ${maskPhone(admin.phone)}.`
-                : 'A 6-digit code was generated. SMS gateway is in fallback mode — check the server console.',
+                : 'Failed to send the SMS verification code. Please try again.',
             expiresInMinutes: OTP_TTL_MINUTES
         };
     }
 
-    // default: email
+    // default: email — send first; never issue a session if delivery fails
     const delivery = await sendAdminOtpEmail({
         to: recipientEmail,
         otp,
@@ -433,6 +465,12 @@ async function dispatchChallenge(admin, method, fp) {
         location: fp.location,
         expiresInMinutes: OTP_TTL_MINUTES
     });
+    if (delivery.delivered) {
+        await Admin.updateOne(
+            { _id: admin._id },
+            { $set: { otp: otpHash, otpExpiry }, $unset: { loginOtpHash: 1, loginOtpExpires: 1 } }
+        );
+    }
     return {
         otpToken,
         method: 'email',
@@ -441,7 +479,9 @@ async function dispatchChallenge(admin, method, fp) {
         maskedTarget: maskEmail(recipientEmail),
         message: delivery.delivered
             ? `A 6-digit verification code was sent to ${maskEmail(recipientEmail)}.`
-            : 'A 6-digit code was generated. Email delivery failed / SMTP not configured — check the server console.',
+            : (delivery.reason
+                ? `Failed to send the verification email (${delivery.reason}).`
+                : 'Failed to send the verification email. Please try again.'),
         expiresInMinutes: OTP_TTL_MINUTES
     };
 }
@@ -528,7 +568,7 @@ exports.loginAdmin = async (req, res) => {
         // (totpVerified). A leftover unverified secret must not steal the login
         // path (production vs localhost enrollment mismatch).
         let method = admin.twoFactorMethod || 'email';
-        const twoFactorOn = admin.twoFactorEnabled !== false;
+        const twoFactorOn = isTwoFactorRequired(admin);
 
         // Only auto-upgrade to TOTP if:
         // 1. TOTP is fully enrolled AND
@@ -645,6 +685,30 @@ exports.loginAdmin = async (req, res) => {
         // ── Password OK, 2FA on, code not yet entered → same-page step 2 ──
         const challenge = await dispatchChallenge(admin, method, fp);
 
+        if (challenge.method === 'email' && !challenge.delivered) {
+            await recordLoginAttempt({
+                fingerprint: fp,
+                username: admin.username,
+                status: 'otp_failed',
+                details: 'Email OTP delivery failed — login not completed'
+            });
+            await logSecurityEvent({
+                action: 'Admin OTP Failed',
+                actor: admin.username,
+                actorType: 'admin',
+                ipAddress: fp.ipAddress,
+                details: `Email OTP send failed · ${challenge.message} · ${fp.device} · ${fp.location}`
+            });
+            return res.status(503).json({
+                success: false,
+                requires2FA: true,
+                otpRequired: true,
+                method: 'email',
+                reason: 'EMAIL_DELIVERY_FAILED',
+                message: challenge.message || 'Failed to send the verification email. Please try again.'
+            });
+        }
+
         await recordLoginAttempt({
             fingerprint: fp,
             username: admin.username,
@@ -663,6 +727,7 @@ exports.loginAdmin = async (req, res) => {
         const emailSmsPrompt = challenge.message || 'Enter the 6-digit verification code';
         return res.status(200).json({
             success: true,
+            requires2FA: true,
             otpRequired: true,
             method: challenge.method,
             channelLabel: challenge.channelLabel,
@@ -780,7 +845,7 @@ exports.verifyOtp = async (req, res) => {
             // ── Email / SMS one-time code verification (epoch-ms, timezone-safe) ──
             user.otpExpiry = toExpiryMs(user.otpExpiry);
 
-            console.log('Input OTP:', inputOtp, 'Saved OTP:', user.otp, 'Is Expired:', Date.now() > user.otpExpiry);
+            console.log('Input OTP length:', String(inputOtp || '').length, 'Saved OTP hashed:', /^[a-f0-9]{64}$/i.test(String(user.otp || '')), 'Is Expired:', Date.now() > user.otpExpiry);
             console.log(
                 '[Admin OTP] expiry debug → nowMs:',
                 Date.now(),
@@ -807,7 +872,7 @@ exports.verifyOtp = async (req, res) => {
             }
 
             // Strict String equality (Number vs String safe)
-            if (String(user.otp) !== String(inputOtp)) {
+            if (!otpMatchesStored(user.otp, inputOtp)) {
                 await recordLoginAttempt({ fingerprint: fp, username: user.username, status: 'otp_failed', details: 'Incorrect OTP entered' });
                 await logSecurityEvent({
                     action: 'Admin OTP Failed',

@@ -464,7 +464,15 @@ async function handleAdminLogin() {
             return;
         }
 
-        if (data.success && data.token) {
+        if (data.reason === 'EMAIL_DELIVERY_FAILED') {
+            if (typeof showAdminError === 'function') {
+                showAdminError(data.message || 'Failed to send the verification email. Please try again.');
+            }
+            return;
+        }
+
+        const needs2FA = data.requires2FA === true || data.otpRequired === true;
+        if (data.success && data.token && !needs2FA) {
             try {
                 sessionStorage.removeItem('adminOtpToken');
                 sessionStorage.removeItem('adminOtpMeta');
@@ -477,7 +485,7 @@ async function handleAdminLogin() {
             return;
         }
 
-        if (data.success && data.otpRequired) {
+        if (needs2FA) {
             if (tfaVisible && twoFactorCode) {
                 otpAutoSubmitting = false;
                 shakeOtpBoxes();
@@ -490,16 +498,18 @@ async function handleAdminLogin() {
                 setTimeout(() => setOtpIconState('idle'), 1600);
                 return;
             }
-            const method = data.method || 'totp';
+            const method = data.method || 'email';
             const defaultPrompt = method === 'email'
                 ? 'Enter the 6-digit code sent to your email.'
                 : method === 'sms'
                     ? 'Enter the 6-digit code sent to your phone.'
                     : 'Open Google Authenticator and enter the 6-digit code.';
-            // TOTP/SMS must never inherit SMTP failure copy from an email challenge.
             const prompt = (method === 'totp' || method === 'sms')
                 ? defaultPrompt
                 : (data.prompt || data.message || defaultPrompt);
+            if (data.otpToken) {
+                try { sessionStorage.setItem('adminOtpToken', data.otpToken); } catch (_) { /* ignore */ }
+            }
             revealAdmin2faStep(prompt, { method });
             return;
         }

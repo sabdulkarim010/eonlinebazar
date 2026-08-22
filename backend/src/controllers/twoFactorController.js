@@ -384,7 +384,10 @@ exports.updateMethod = async (req, res) => {
             });
         }
 
-        if (method) admin.twoFactorMethod = method;
+        if (method) {
+            admin.twoFactorMethod = method;
+            admin.twoFactorEnabled = true;
+        }
         if (typeof enabled === 'boolean') admin.twoFactorEnabled = enabled;
 
         await admin.save();
