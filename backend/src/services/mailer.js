@@ -3,32 +3,17 @@
  * File: mailer.js
  * Location: services/mailer.js
  * Author: Abdul Karim Sheikh
- * Description: Production-ready Nodemailer transport for admin 2FA OTP
- * delivery, hardened for restrictive cloud networks (Render, Railway,
- * Fly.io, etc.) where outbound SMTP on port 465 is frequently blocked.
- *
- *   • HTTPS Resend API fallback when SMTP 587/465 is blocked (DigitalOcean).
- *   • Dynamic port failover: 465 (implicit TLS) → 587 (STARTTLS).
- *   • Pooled connections + bounded timeouts so a slow cloud network
- *     never freezes the login request or the frontend UI.
- *   • Bulletproof try/catch: if every SMTP route is blocked, the
- *     6-digit OTP is printed to the server console (Render logs) inside
- *     a high-visibility banner so login is never hard-blocked.
- *
- * Credentials: SMTP_* (legacy) and optional RESEND_API_KEY / RESEND_FROM.
- * Set RESEND_API_KEY to send OTP over HTTPS without waiting on blocked SMTP.
+ * Description: Nodemailer SMTP for store mail (orders, inquiries, newsletter).
+ * Admin login OTP is NOT sent from this file — see utils/sendEmail.js (Resend HTTPS).
  ********************************************************************/
 
 const nodemailer = require('nodemailer');
+const { sendAdminOtpEmail } = require('../utils/sendEmail');
 
 const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
 const SMTP_USER = process.env.SMTP_USER || process.env.EMAIL_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || process.env.EMAIL_PASS || '';
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
-const RESEND_API_KEY = String(process.env.RESEND_API_KEY || '').trim();
-const RESEND_FROM = process.env.RESEND_FROM || SMTP_FROM || SMTP_USER;
-const MAIL_TRANSPORT = String(process.env.MAIL_TRANSPORT || '').toLowerCase().trim();
-const PREFER_HTTP_MAIL = MAIL_TRANSPORT === 'resend' || String(process.env.SMTP_PREFER_HTTP || '').toLowerCase() === 'true' || Boolean(RESEND_API_KEY);
 
 // The admin-configured port is tried first; 587/465 are always kept as
 // automatic fallbacks so a blocked handshake transparently self-heals.
@@ -111,25 +96,6 @@ function isAuthError(err) {
     return err && (err.code === 'EAUTH' || err.responseCode === 535);
 }
 
-/** High-visibility OTP dump for the server / Render logs. */
-function logOtpToConsole({ otp, username, ip, location, expiresInMinutes, reason }) {
-    const cell = (label, value) => {
-        const text = `${label}: ${String(value || '')}`.slice(0, 60);
-        return `║  ${text.padEnd(60)}║`;
-    };
-    console.log('\n');
-    console.log('╔══════════════════════════════════════════════════════════════╗');
-    console.log('║          🔐  ADMIN 2FA OTP — FALLBACK (READ THIS)            ║');
-    console.log('╠══════════════════════════════════════════════════════════════╣');
-    console.log(cell('Username', username || 'admin'));
-    console.log(cell('OTP CODE', otp));
-    console.log(cell('Expires', `${expiresInMinutes} minutes`));
-    console.log(cell('Origin', `${ip || 'Unknown'} (${location || 'Unknown'})`));
-    if (reason) console.log(cell('Reason', reason));
-    console.log('╚══════════════════════════════════════════════════════════════╝');
-    console.log('\n');
-}
-
 /** Reject if a promise doesn't settle before `ms` — our anti-freeze guard. */
 function withTimeout(promise, ms, label) {
     let timer;
@@ -160,7 +126,7 @@ async function sendWithFailover(mailOptions) {
             return port;
         } catch (err) {
             lastError = err;
-            console.error(`Admin OTP email failed on port ${port}: ${err.message}`);
+            console.error(`SMTP email failed on port ${port}: ${err.message}`);
 
             // Bad credentials won't be fixed by another port — bail out now.
             if (isAuthError(err)) break;
@@ -169,164 +135,6 @@ async function sendWithFailover(mailOptions) {
     }
 
     throw lastError || new Error('All SMTP delivery routes failed');
-}
-
-function parseFromAddress(from) {
-    const raw = String(from || RESEND_FROM || SMTP_FROM || SMTP_USER || '').trim();
-    const angled = raw.match(/<([^>]+)>/);
-    const email = angled ? angled[1].trim() : raw.replace(/^"|"$/g, '').trim();
-    const nameMatch = raw.match(/^"?([^"<]+)"?\s*</);
-    const name = nameMatch ? nameMatch[1].trim() : 'EonlineBazar Security';
-    if (!email || !email.includes('@')) {
-        return { email: 'onboarding@resend.dev', name: 'EonlineBazar Security' };
-    }
-    return { email, name };
-}
-
-/**
- * Send via Resend HTTP API (HTTPS :443) — works on hosts that block SMTP 587/465.
- */
-async function sendViaResend(mailOptions) {
-    if (!RESEND_API_KEY) {
-        throw new Error('RESEND_API_KEY is not configured');
-    }
-
-    const parsedFrom = parseFromAddress(mailOptions.from);
-    const from = `${parsedFrom.name} <${parsedFrom.email}>`;
-    const to = Array.isArray(mailOptions.to) ? mailOptions.to : [mailOptions.to];
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
-
-    try {
-        const res = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${RESEND_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                from,
-                to,
-                subject: mailOptions.subject,
-                html: mailOptions.html
-            }),
-            signal: controller.signal
-        });
-
-        const payload = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            const detail = payload.message || payload.error || res.statusText || 'Resend API error';
-            throw new Error(detail);
-        }
-
-        console.log(`[Mail] Sent via Resend HTTP API to ${to.join(', ')}`);
-        return { delivered: true, via: 'resend', id: payload.id || null };
-    } catch (err) {
-        if (err && err.name === 'AbortError') {
-            throw new Error('Resend API timed out');
-        }
-        throw err;
-    } finally {
-        clearTimeout(timer);
-    }
-}
-
-/**
- * Deliver mail: prefer Resend HTTPS when configured (DigitalOcean blocks 587/465),
- * otherwise SMTP with port failover. Falls back across both when possible.
- */
-async function deliverMail(mailOptions, smtpLabel = 'SMTP delivery') {
-    const canSmtp = Boolean(SMTP_USER && SMTP_PASS);
-    const canResend = Boolean(RESEND_API_KEY);
-    let lastError;
-
-    const tryResend = async () => sendViaResend(mailOptions);
-    const trySmtp = async () => {
-        const port = await withTimeout(sendWithFailover(mailOptions), OVERALL_SEND_DEADLINE_MS, smtpLabel);
-        return { delivered: true, via: 'smtp', port };
-    };
-
-    const order = (canResend && PREFER_HTTP_MAIL)
-        ? [tryResend] // skip blocked SMTP 587/465 on DigitalOcean / cloud hosts
-        : [canSmtp ? trySmtp : null, canResend ? tryResend : null];
-
-    for (const attempt of order.filter(Boolean)) {
-        try {
-            return await attempt();
-        } catch (err) {
-            lastError = err;
-            console.error(`[Mail] ${attempt === tryResend ? 'Resend' : 'SMTP'} failed: ${err.message}`);
-        }
-    }
-
-    throw lastError || new Error('No email transport configured (set RESEND_API_KEY or SMTP_USER/SMTP_PASS)');
-}
-
-/**
- * Send the admin 2FA OTP email.
- * On missing config or any send failure → log OTP to the console and
- * return { delivered: false } so verification can still proceed and the
- * frontend can offer a smooth resend without freezing.
- */
-async function sendAdminOtpEmail({ to, otp, username, ip, location, expiresInMinutes = 5 }) {
-    const recipient = to || SMTP_USER;
-    const canSmtp = Boolean(SMTP_USER && SMTP_PASS);
-    const canResend = Boolean(RESEND_API_KEY);
-
-    if (!recipient || (!canSmtp && !canResend)) {
-        logOtpToConsole({
-            otp,
-            username,
-            ip,
-            location,
-            expiresInMinutes,
-            reason: 'SMTP not configured (set RESEND_API_KEY or SMTP_USER / SMTP_PASS)'
-        });
-        return { delivered: false, reason: 'Email transport not configured' };
-    }
-
-    const html = `
-        <div style="font-family: Arial, sans-serif; max-width: 520px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
-            <div style="background: #0f172a; padding: 22px; text-align: center;">
-                <h2 style="color: #f8fafc; margin: 0;">EonlineBazar · Admin Security</h2>
-                <p style="color: #94a3b8; margin: 6px 0 0; font-size: 13px;">Two-Factor Authentication</p>
-            </div>
-            <div style="padding: 28px;">
-                <p style="color:#111827;">A login to the <b>Super Admin Panel</b> was requested for <b>${username || 'admin'}</b>.</p>
-                <p style="color:#374151;">Enter this one-time verification code to complete sign-in:</p>
-                <div style="text-align:center; margin: 26px 0;">
-                    <span style="display:inline-block; font-size: 34px; letter-spacing: 10px; font-weight: 800; color:#0f172a; background:#f1f5f9; padding: 14px 26px; border-radius: 10px; border:1px dashed #cbd5e1;">${otp}</span>
-                </div>
-                <p style="color:#dc2626; font-size: 13px; text-align:center;"><i>This code expires in ${expiresInMinutes} minutes. Never share it with anyone.</i></p>
-                <hr style="border:0; border-top:1px solid #eee; margin: 20px 0;">
-                <p style="color:#6b7280; font-size:12px;">Request origin: <b>${ip || 'Unknown'}</b> — ${location || 'Unknown Location'}</p>
-                <p style="color:#6b7280; font-size:12px;">If you did not attempt this login, change your admin password immediately and review the Security &amp; Audit dashboard.</p>
-            </div>
-        </div>
-    `;
-
-    const mailOptions = {
-        from: `"EonlineBazar Security" <${RESEND_FROM || SMTP_USER || 'onboarding@resend.dev'}>`,
-        to: recipient,
-        subject: `🔐 Your Admin Login Code: ${otp}`,
-        html
-    };
-
-    try {
-        const result = await deliverMail(mailOptions, 'SMTP delivery');
-        return { delivered: true, via: result.via, port: result.port, id: result.id };
-    } catch (err) {
-        console.error('Admin OTP email send failed (all routes):', err.message);
-        logOtpToConsole({
-            otp,
-            username,
-            ip,
-            location,
-            expiresInMinutes,
-            reason: err.message || 'SMTP connection/send failure'
-        });
-        return { delivered: false, reason: err.message };
-    }
 }
 
 function escapeHtml(value) {

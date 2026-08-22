@@ -201,7 +201,7 @@ Set `*_IS_LIVE=true` for each gateway when switching to production.
 | Variable | Purpose |
 |----------|---------|
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth login |
-| `RESEND_API_KEY`, `RESEND_FROM` | HTTPS email (OTP) when SMTP 587/465 is blocked |
+| `RESEND_API_KEY`, `RESEND_FROM` | **Required** for admin login Email OTP (Resend HTTPS only; no SMTP) |
 | `SESSION_SECRET` | Required if using Google OAuth |
 | `PAYMENT_CREDENTIAL_ENCRYPTION_KEY` | AES-256-GCM for stored payment credentials |
 | `LOW_STOCK_ALERT_ENABLED` | Enable automated low-stock cron alerts |

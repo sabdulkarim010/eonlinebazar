@@ -21,7 +21,7 @@ const BlacklistedIP = require('../models/blacklistedIp');
 const LoginAttempt = require('../models/loginAttempt');
 
 const { fingerprint } = require('../utils/deviceParser');
-const { sendAdminOtpEmail } = require('../services/mailer');
+const { sendAdminOtpEmail } = require('../utils/sendEmail');
 const { sendAdminOtpSms } = require('../utils/smsSender');
 const { recordLoginAttempt, findActiveBan } = require('../middlewares/adminSecurity');
 const { logSecurityEvent } = require('../utils/securityLogger');
@@ -456,7 +456,7 @@ async function dispatchChallenge(admin, method, fp) {
         };
     }
 
-    // default: email — send first; never issue a session if delivery fails
+    // default: email — Resend HTTPS only (no SMTP 587/465). Never issue a session if delivery fails.
     const delivery = await sendAdminOtpEmail({
         to: recipientEmail,
         otp,
