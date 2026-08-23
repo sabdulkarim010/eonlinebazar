@@ -86,12 +86,16 @@ function applySecurityMiddleware(app) {
     });
 
     const authRoutes = [
-        '/api/auth/login',
-        '/api/auth/register',
         '/api/customer/login',
         '/api/customer/register',
-        '/api/auth/forgot-password',
         '/api/customer/forgot-password',
+        '/api/customer/reset-password',
+        '/api/customer/resend-verification',
+        '/api/auth/login',
+        '/api/auth/register',
+        '/api/auth/forgot-password',
+        '/api/auth/reset-password',
+        '/api/auth/resend-verification',
     ];
 
     authRoutes.forEach((route) => {
@@ -145,17 +149,27 @@ function applySecurityMiddleware(app) {
                     || /cloudinary\.com/i.test(s);
             };
 
-            const sanitizeValue = (val) => {
+            const SKIP_SANITIZE_KEYS = new Set([
+                'password',
+                'newpassword',
+                'confirmpassword',
+                'currentpassword',
+                'oldpassword',
+                'loginpassword',
+                'otp',
+                'new_password'
+            ]);
+
+            const sanitizeValue = (val, key) => {
                 if (typeof val === 'string') {
+                    if (key && SKIP_SANITIZE_KEYS.has(String(key).toLowerCase())) return val;
                     if (isLikelyUrlOrPath(val)) return val;
-                    return val
-                        .replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;')
-                        .replace(/"/g, '&quot;')
-                        .replace(/'/g, '&#x27;');
+                    // Encode angle brackets only — never rewrite apostrophes or quotes
+                    // (names like Cox's Bazar, O'Brien, and user passwords).
+                    return val.replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 }
                 if (typeof val === 'object' && val !== null) {
-                    Object.keys(val).forEach((k) => { val[k] = sanitizeValue(val[k]); });
+                    Object.keys(val).forEach((k) => { val[k] = sanitizeValue(val[k], k); });
                 }
                 return val;
             };

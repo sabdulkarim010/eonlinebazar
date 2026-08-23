@@ -1,5 +1,5 @@
 /********************************************************************
- * Admin OTP mail — Resend HTTP API only.
+ * Transactional mail — Resend HTTP API only (admin OTP + customer auth).
  * DigitalOcean blocks outbound SMTP (587/465). Never use nodemailer here.
  ********************************************************************/
 
@@ -56,7 +56,7 @@ async function sendEmail({ to, subject, html, from } = {}) {
             throw error;
         }
 
-        console.log(`[Mail] Admin OTP sent via Resend HTTP API to ${recipient}`);
+        console.log(`[Mail] Sent via Resend HTTP API to ${recipient}`);
         return { delivered: true, via: 'resend', id: payload.id || null };
     } catch (error) {
         if (error && error.name === 'AbortError') {

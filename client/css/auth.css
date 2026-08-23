@@ -1472,6 +1472,46 @@
     margin: 0;
 }
 
+.auth-verify-notice {
+    margin: 16px 0 0;
+    padding: 16px;
+    border: 1.5px solid #bfdbfe;
+    background: #eff6ff;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.auth-verify-notice p {
+    margin: 0;
+    color: #1e3a8a;
+    font-size: 0.92rem;
+    line-height: 1.5;
+}
+
+.auth-resend-btn {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 8px;
+    background: #2563eb;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.auth-resend-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.auth-verify-status {
+    margin-top: 10px !important;
+    color: #334155 !important;
+    font-size: 0.85rem !important;
+}
+
 @media (max-width: 768px) {
     .auth-page-wrapper {
         flex-direction: column;

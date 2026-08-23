@@ -13,7 +13,6 @@ const mongoose = require('mongoose');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const nodemailer = require('nodemailer');
 const requestIp = require('request-ip');
 const geoip = require('geoip-lite');
 const User = require('../models/user');
@@ -28,6 +27,7 @@ const {
     toClientCartItem
 } = require('../services/cartMergeService');
 const { isSandboxMode } = require('../services/sandboxService');
+const { sendEmail } = require('../utils/sendEmail');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -251,16 +251,37 @@ exports.handleGoogleCallback = async (req, res, next) => {
     }
 };
 
-// ইমেইল পাঠানোর কনফিগারেশন
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER, 
-        pass: process.env.EMAIL_PASS  
-    }
-});
-
 const VERIFICATION_TOKEN_TTL_MS = 48 * 60 * 60 * 1000;
+const MIN_PASSWORD_LENGTH = 6;
+const BD_MOBILE_RE = /^01[3-9]\d{8}$/;
+const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function normalizeEmail(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function normalizeMobile(value) {
+    return String(value || '').replace(/\D/g, '');
+}
+
+function isDuplicateKeyError(error) {
+    if (!error) return false;
+    if (error.code === 11000 || error.code === '11000') return true;
+    return error.name === 'MongoServerError' && /E11000/i.test(String(error.message || ''));
+}
+
+function firstValidationMessage(error) {
+    const first = error && error.errors ? Object.values(error.errors)[0] : null;
+    return (first && first.message) || 'Please check your details and try again.';
+}
 
 function buildVerificationUrl(token) {
     const base = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
@@ -269,31 +290,56 @@ function buildVerificationUrl(token) {
 
 function buildVerificationEmailHtml(userName, verificationUrl) {
     return `
-        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px; max-width: 500px; margin: auto;">
-            <h2 style="color: #2563eb; text-align: center;">eOnlineBazar</h2>
-            <p>Dear <b>${userName}</b>,</p>
-            <p>Thank you for registering with us. Please verify your email address to activate your account:</p>
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="${verificationUrl}" style="background-color: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Verify Email Address</a>
+        <div style="font-family: Arial, Helvetica, sans-serif; max-width: 520px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="background: #0f172a; padding: 22px; text-align: center;">
+                <h2 style="color: #f8fafc; margin: 0;">eOnlineBazar</h2>
+                <p style="color: #94a3b8; margin: 6px 0 0; font-size: 13px;">Verify your email address</p>
             </div>
-            <p style="color: #666; font-size: 12px;">If the button doesn't work, copy and paste this link into your browser:</p>
-            <p style="color: #2563eb; font-size: 12px; word-break: break-all;">${verificationUrl}</p>
-            <p style="color: #666; font-size: 12px;">This link expires in 48 hours.</p>
-            <hr style="border: 0; border-top: 1px solid #eee; margin-top: 20px;">
-            <p style="color: #999; font-size: 11px; text-align: center;">This is an automated email, please do not reply.</p>
+            <div style="padding: 28px;">
+                <p style="color:#111827; margin: 0 0 12px;">Dear <b>${userName}</b>,</p>
+                <p style="color:#374151; margin: 0 0 8px;">Thank you for creating an account. Confirm your email to activate it and start shopping.</p>
+                <div style="text-align: center; margin: 28px 0;">
+                    <a href="${verificationUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 26px; text-decoration: none; border-radius: 8px; font-weight: 700; display: inline-block;">Verify Email Address</a>
+                </div>
+                <p style="color: #6b7280; font-size: 12px; margin: 0 0 8px;">If the button does not work, copy and paste this link into your browser:</p>
+                <p style="color: #2563eb; font-size: 12px; word-break: break-all; margin: 0 0 16px;">${verificationUrl}</p>
+                <p style="color: #6b7280; font-size: 12px; margin: 0;">This link expires in 48 hours.</p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                <p style="color: #9ca3af; font-size: 11px; text-align: center; margin: 0;">This is an automated email. Please do not reply.</p>
+            </div>
         </div>
     `;
 }
 
-async function sendVerificationEmail(user, token, subject = 'eOnlineBazar - Account Verification') {
+function buildPasswordResetEmailHtml(userName, otp) {
+    return `
+        <div style="font-family: Arial, Helvetica, sans-serif; max-width: 520px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="background: #0f172a; padding: 22px; text-align: center;">
+                <h2 style="color: #f8fafc; margin: 0;">eOnlineBazar</h2>
+                <p style="color: #94a3b8; margin: 6px 0 0; font-size: 13px;">Password reset</p>
+            </div>
+            <div style="padding: 28px;">
+                <p style="color:#111827; margin: 0 0 12px;">Dear <b>${userName}</b>,</p>
+                <p style="color:#374151; margin: 0 0 8px;">Use this one-time code to reset your password:</p>
+                <div style="text-align:center; margin: 26px 0;">
+                    <span style="display:inline-block; font-size: 32px; letter-spacing: 8px; font-weight: 800; color:#0f172a; background:#f1f5f9; padding: 14px 26px; border-radius: 10px; border:1px dashed #cbd5e1;">${otp}</span>
+                </div>
+                <p style="color:#dc2626; font-size: 13px; text-align:center; margin: 0;"><i>This code is valid for 15 minutes. Do not share it with anyone.</i></p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                <p style="color: #9ca3af; font-size: 11px; text-align: center; margin: 0;">If you did not request this, you can ignore this email.</p>
+            </div>
+        </div>
+    `;
+}
+
+async function sendVerificationEmail(user, token, subject = 'Verify your eOnlineBazar account') {
     const verificationUrl = buildVerificationUrl(token);
-    const mailOptions = {
-        from: process.env.EMAIL_USER,
+    const displayName = escapeHtml(user.name || user.firstName || 'Customer');
+    await sendEmail({
         to: user.email,
         subject,
-        html: buildVerificationEmailHtml(user.name, verificationUrl)
-    };
-    await transporter.sendMail(mailOptions);
+        html: buildVerificationEmailHtml(displayName, verificationUrl)
+    });
 }
 
 function wantsJsonResponse(req) {
@@ -303,7 +349,7 @@ function wantsJsonResponse(req) {
 function buildVerificationResultHtml({ success, title, message }) {
     const accent = success ? '#2563eb' : '#dc2626';
     const icon = success ? '✓' : '!';
-    const loginUrl = `${(process.env.FRONTEND_URL || '').replace(/\/$/, '')}/login.html`;
+    const loginUrl = `${(process.env.FRONTEND_URL || '').replace(/\/$/, '')}/login`;
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -362,28 +408,53 @@ exports.registerUser = async (req, res) => {
 
         const trimmedFirstName = firstName ? String(firstName).trim() : '';
         const trimmedLastName = lastName ? String(lastName).trim() : '';
+        const normalizedEmail = normalizeEmail(email);
+        const normalizedMobile = normalizeMobile(mobile);
+        const rawPassword = password == null ? '' : String(password);
 
-        if (!trimmedFirstName || !trimmedLastName) {
+        if (!trimmedFirstName || !trimmedLastName || !normalizedMobile || !normalizedEmail || !rawPassword) {
             return res.status(400).json({
                 success: false,
-                message: "First name and last name are required."
+                message: "First name, last name, mobile, email, and password are required."
             });
         }
 
-        if (!mobile || !email || !password) {
+        if (!EMAIL_RE.test(normalizedEmail)) {
             return res.status(400).json({
                 success: false,
-                message: "Mobile, email, and password are required."
+                message: "Please enter a valid email address."
             });
         }
 
-        const existingUser = await User.findOne({ email });
+        if (!BD_MOBILE_RE.test(normalizedMobile)) {
+            return res.status(400).json({
+                success: false,
+                message: "Please enter a valid Bangladesh mobile number (01XXXXXXXXX)."
+            });
+        }
+
+        if (rawPassword.length < MIN_PASSWORD_LENGTH) {
+            return res.status(400).json({
+                success: false,
+                message: "Password must be at least 6 characters."
+            });
+        }
+
+        const existingUser = await User.findOne({
+            $or: [
+                { email: normalizedEmail },
+                { mobile: normalizedMobile }
+            ]
+        });
         if (existingUser) {
-            return res.status(400).json({ success: false, message: "Email already exists!" });
+            return res.status(409).json({
+                success: false,
+                message: "User with this email/mobile already exists."
+            });
         }
 
         const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
+        const hashedPassword = await bcrypt.hash(rawPassword, salt);
 
         const verificationToken = crypto.randomBytes(32).toString('hex');
         const verificationTokenExpiry = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
@@ -391,8 +462,8 @@ exports.registerUser = async (req, res) => {
         const userPayload = {
             firstName: trimmedFirstName,
             lastName: trimmedLastName,
-            mobile,
-            email,
+            mobile: normalizedMobile,
+            email: normalizedEmail,
             password: hashedPassword,
             verificationToken,
             verificationTokenExpiry
@@ -421,20 +492,44 @@ exports.registerUser = async (req, res) => {
         if (inSandbox) userPayload.isSandbox = true;
 
         const newUser = new User(userPayload);
-
         await newUser.save();
 
+        let emailSent = true;
         try {
             await sendVerificationEmail(newUser, verificationToken);
         } catch (emailError) {
+            emailSent = false;
             console.error('Verification email failed during registration (registration continues):', emailError);
         }
 
-        res.status(201).json({ success: true, message: "Registration successful! Please check your email to verify your account." });
+        return res.status(201).json({
+            success: true,
+            message: emailSent
+                ? "Registration successful! Please check your email to verify your account."
+                : "Registration successful, but we could not send the verification email. Please use Resend Verification Email.",
+            email: normalizedEmail,
+            emailSent,
+            needsVerification: true
+        });
 
     } catch (error) {
         console.error("Register Error:", error);
-        res.status(500).json({ success: false, message: "Server error during registration." });
+
+        if (error && error.name === 'ValidationError') {
+            return res.status(400).json({
+                success: false,
+                message: firstValidationMessage(error)
+            });
+        }
+
+        if (isDuplicateKeyError(error)) {
+            return res.status(409).json({
+                success: false,
+                message: "User with this email/mobile already exists."
+            });
+        }
+
+        return res.status(500).json({ success: false, message: "Server error during registration." });
     }
 };
 
@@ -517,11 +612,12 @@ exports.loginUser = async (req, res) => {
             return res.status(403).json({ success: false, message: "Your account is temporarily suspended. Please contact support." });
         }
 
-        if (process.env.REQUIRE_EMAIL_VERIFICATION === 'true' && !user.isVerified) {
+        if (process.env.REQUIRE_EMAIL_VERIFICATION !== 'false' && !user.isVerified) {
             return res.status(403).json({
                 success: false,
-                message: 'Please verify your email before logging in.',
-                needsVerification: true
+                message: 'Please verify your email before logging in. Check your inbox or resend the verification email.',
+                needsVerification: true,
+                email: user.email
             });
         }
 
@@ -605,7 +701,12 @@ exports.loginUser = async (req, res) => {
    ======================================================= */
 exports.forgotPassword = async (req, res) => {
     try {
-        const { email } = req.body;
+        const email = normalizeEmail(req.body.email);
+
+        if (!email || !EMAIL_RE.test(email)) {
+            return res.status(400).json({ success: false, message: "Please enter a valid email address." });
+        }
+
         const user = await User.findOne({ email });
 
         if (!user) {
@@ -613,33 +714,22 @@ exports.forgotPassword = async (req, res) => {
         }
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        
+
         user.resetPasswordOtp = otp;
-        user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; 
+        user.resetPasswordExpires = Date.now() + 15 * 60 * 1000;
         await user.save();
 
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
+        await sendEmail({
             to: user.email,
-            subject: 'eOnlineBazar - Password Reset OTP',
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-                    <h2 style="color: #2563eb;">eOnlineBazar</h2>
-                    <p>Dear <b>${user.name}</b>,</p>
-                    <p>You requested to reset your password. Here is your 6-digit OTP:</p>
-                    <h1 style="color: #e74c3c; letter-spacing: 5px;">${otp}</h1>
-                    <p style="color: #e74c3c; font-size: 12px;"><i>This OTP is valid for 15 minutes only. Do not share it with anyone.</i></p>
-                </div>
-            `
-        };
+            subject: 'eOnlineBazar - Password reset code',
+            html: buildPasswordResetEmailHtml(escapeHtml(user.name || user.firstName || 'Customer'), otp)
+        });
 
-        await transporter.sendMail(mailOptions);
-
-        res.status(200).json({ success: true, message: "OTP sent to your email successfully." });
+        return res.status(200).json({ success: true, message: "OTP sent to your email successfully." });
 
     } catch (error) {
         console.error("Forgot Password Error:", error);
-        res.status(500).json({ success: false, message: "Failed to send OTP. Please try again." });
+        return res.status(503).json({ success: false, message: "Failed to send OTP. Please try again." });
     }
 };
 
@@ -648,12 +738,22 @@ exports.forgotPassword = async (req, res) => {
    ======================================================= */
 exports.resetPassword = async (req, res) => {
     try {
-        const { email, otp, newPassword } = req.body;
+        const email = normalizeEmail(req.body.email);
+        const otp = String(req.body.otp || '').trim();
+        const newPassword = req.body.newPassword == null ? '' : String(req.body.newPassword);
 
-        const user = await User.findOne({ 
+        if (!email || !otp || !newPassword) {
+            return res.status(400).json({ success: false, message: "Email, OTP, and new password are required." });
+        }
+
+        if (newPassword.length < MIN_PASSWORD_LENGTH) {
+            return res.status(400).json({ success: false, message: "Password must be at least 6 characters." });
+        }
+
+        const user = await User.findOne({
             email,
             resetPasswordOtp: otp,
-            resetPasswordExpires: { $gt: Date.now() } 
+            resetPasswordExpires: { $gt: Date.now() }
         });
 
         if (!user) {
@@ -770,12 +870,17 @@ exports.resendVerification = async (req, res) => {
         await sendVerificationEmail(
             user,
             newVerificationToken,
-            'eOnlineBazar - Resend Verification Email'
+            'Verify your eOnlineBazar account'
         );
 
-        res.status(200).json({ success: true, message: 'Verification email resent successfully!' });
+        return res.status(200).json({
+            success: true,
+            message: 'Verification email resent successfully!',
+            email,
+            emailSent: true
+        });
     } catch (error) {
         console.error('Resend Verification Error:', error);
-        res.status(500).json({ success: false, message: 'Failed to resend verification email.' });
+        return res.status(503).json({ success: false, message: 'Failed to resend verification email.' });
     }
 };

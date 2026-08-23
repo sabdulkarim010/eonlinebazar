@@ -141,7 +141,69 @@ document.addEventListener('DOMContentLoaded', () => {
     if (registerForm) {
         registerForm.addEventListener('submit', handleRegisterSubmit);
     }
+
+    const resendVerifyBtn = document.getElementById('resendVerifyBtn');
+    if (resendVerifyBtn) {
+        resendVerifyBtn.addEventListener('click', handleResendVerificationClick);
+    }
 });
+
+function isEmailAddress(value) {
+    return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(String(value || '').trim());
+}
+
+function setResendEmail(email) {
+    const btn = document.getElementById('resendVerifyBtn');
+    if (btn) btn.dataset.email = email || '';
+}
+
+function showVerifyNotice(email, message) {
+    const notice = document.getElementById('verifyNotice');
+    const text = document.getElementById('verifyNoticeText');
+    if (!notice) return;
+    if (text && message) text.textContent = message;
+    setResendEmail(email);
+    notice.hidden = false;
+}
+
+function hideVerifyNotice() {
+    const notice = document.getElementById('verifyNotice');
+    const status = document.getElementById('resendVerifyStatus');
+    if (notice) notice.hidden = true;
+    if (status) status.textContent = '';
+}
+
+async function handleResendVerificationClick() {
+    const btn = document.getElementById('resendVerifyBtn');
+    const status = document.getElementById('resendVerifyStatus');
+    const email = (btn && btn.dataset.email) || '';
+
+    if (!email) {
+        if (status) status.textContent = 'Enter the email you registered with and try again.';
+        return;
+    }
+
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = 'Sending…';
+
+    try {
+        const response = await fetch('/api/customer/resend-verification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await response.json();
+        if (status) {
+            status.textContent = data.success
+                ? 'Verification email sent. Check your inbox and spam folder.'
+                : (data.message || 'Could not resend the email. Please try again.');
+        }
+    } catch (error) {
+        if (status) status.textContent = 'Could not resend the email. Please try again.';
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
 
 
 /* =========================================================================
@@ -521,6 +583,7 @@ async function handleLoginSubmit(e) {
     }
 
     hideLoginError();
+    hideVerifyNotice();
 
     const digitsOnly = rawLoginInput.replace(/\D/g, '');
     const loginInput = /^01[3-9]\d{8}$/.test(digitsOnly) ? digitsOnly : rawLoginInput;
@@ -567,6 +630,11 @@ async function handleLoginSubmit(e) {
         } else {
             showLoginError(data.message || authT('auth.invalid_credentials'));
             resetLoginSubmitButton(loginBtn);
+
+            if (data.needsVerification) {
+                const verifyEmail = data.email || (isEmailAddress(rawLoginInput) ? rawLoginInput.trim().toLowerCase() : '');
+                showVerifyNotice(verifyEmail, data.message || 'Please verify your email before logging in.');
+            }
 
             if (forgotPassLink) {
                 const forgotEmail = data.userEmail || (
@@ -616,6 +684,7 @@ async function handleRegisterSubmit(e) {
     }
 
     hideRegisterError();
+    hideVerifyNotice();
     setRegisterLoading(true);
 
     const payload = { firstName, lastName, mobile, email, password };
@@ -638,15 +707,27 @@ async function handleRegisterSubmit(e) {
 
             document.getElementById('register-section').style.display = 'none';
             const successMsg = document.getElementById('success-message');
+            const sent = data.emailSent !== false;
+            const safeEmail = String(data.email || email)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
             successMsg.style.display = 'block';
             successMsg.innerHTML = `
                 <i class="fa-solid fa-envelope-circle-check" style="font-size: 50px; color: #10b981; margin-bottom:15px;"></i>
-                <h3>Registration Successful! 🎉</h3>
+                <h3>Registration Successful!</h3>
                 <p>
-                    We sent a verification link to <b>${email}</b>.<br>
-                    Please check your inbox (and spam folder) to activate your account before logging in.
+                    ${sent
+                        ? `We sent a verification link to <b>${safeEmail}</b>. Check your inbox and spam folder, then sign in.`
+                        : `Your account was created, but we could not send the email to <b>${safeEmail}</b>. Use the button below to resend it.`}
                 </p>
             `;
+            showVerifyNotice(
+                data.email || email,
+                sent
+                    ? 'Did not get the email? Resend the verification link.'
+                    : 'Tap below to resend the verification email.'
+            );
         } else {
             const failMsg = data.message || 'Registration failed!';
             if (document.getElementById('registerError')) {

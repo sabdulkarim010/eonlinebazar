@@ -32,6 +32,14 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     );
 }
 
+// Aliases for customer auth (canonical routes remain /api/customer/*)
+router.post('/register', authController.registerUser);
+router.post('/login', authController.loginUser);
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
+router.get('/verify/:token', authController.verifyEmail);
+router.post('/resend-verification', authController.resendVerification);
+
 // ================== অ্যাক্টিভ সেশন / ডিভাইস ম্যানেজমেন্ট ==================
 router.get('/sessions', verifyUser, authController.getSessions);
 router.delete('/sessions/:id', verifyUser, authController.deleteSession);

@@ -31,6 +31,12 @@ jest.mock('nodemailer', () => ({
     }))
 }));
 
+jest.mock('../backend/src/utils/sendEmail', () => ({
+    sendEmail: jest.fn().mockResolvedValue({ delivered: true, via: 'resend', id: 'test-email-id' }),
+    sendAdminOtpEmail: jest.fn().mockResolvedValue({ delivered: true, via: 'resend' }),
+    getResendFrom: jest.fn(() => 'EonlineBazar <noreply@eonlinebazar.com>')
+}));
+
 jest.mock('cloudinary', () => ({
     v2: {
         config: jest.fn(),

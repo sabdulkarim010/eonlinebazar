@@ -32,7 +32,13 @@
         '/api/customer/login',
         '/api/customer/register',
         '/api/customer/forgot-password',
-        '/api/customer/reset-password'
+        '/api/customer/reset-password',
+        '/api/customer/resend-verification',
+        '/api/auth/login',
+        '/api/auth/register',
+        '/api/auth/forgot-password',
+        '/api/auth/reset-password',
+        '/api/auth/resend-verification'
     ];
 
     var LOGIN_URL = '/login';
