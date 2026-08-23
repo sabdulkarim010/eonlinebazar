@@ -144,7 +144,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const resendVerifyBtn = document.getElementById('resendVerifyBtn');
     if (resendVerifyBtn) {
+        resendVerifyBtn.dataset.defaultLabel = resendVerifyBtn.textContent.trim() || RESEND_VERIFY_LABEL;
         resendVerifyBtn.addEventListener('click', handleResendVerificationClick);
+        restoreResendCooldown();
     }
 });
 
@@ -152,9 +154,75 @@ function isEmailAddress(value) {
     return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(String(value || '').trim());
 }
 
+const RESEND_VERIFY_LABEL = 'Resend Verification Email';
+const RESEND_COOLDOWN_SECONDS = 60;
+const RESEND_COOLDOWN_UNTIL_KEY = 'eob_resend_verify_until';
+const RESEND_COOLDOWN_EMAIL_KEY = 'eob_resend_verify_email';
+const RESEND_SUCCESS_TOAST = 'Verification email resent successfully. Please check your inbox/spam.';
+let resendCooldownTimer = null;
+
 function setResendEmail(email) {
     const btn = document.getElementById('resendVerifyBtn');
     if (btn) btn.dataset.email = email || '';
+}
+
+function getResendRemainingSeconds() {
+    const endsAt = Number(sessionStorage.getItem(RESEND_COOLDOWN_UNTIL_KEY) || 0);
+    return Math.ceil((endsAt - Date.now()) / 1000);
+}
+
+function clearResendCooldown() {
+    if (resendCooldownTimer) {
+        clearInterval(resendCooldownTimer);
+        resendCooldownTimer = null;
+    }
+    sessionStorage.removeItem(RESEND_COOLDOWN_UNTIL_KEY);
+    sessionStorage.removeItem(RESEND_COOLDOWN_EMAIL_KEY);
+    const btn = document.getElementById('resendVerifyBtn');
+    if (!btn) return;
+    btn.disabled = false;
+    btn.textContent = btn.dataset.defaultLabel || RESEND_VERIFY_LABEL;
+}
+
+function tickResendCooldown() {
+    const btn = document.getElementById('resendVerifyBtn');
+    if (!btn) return;
+
+    const remaining = getResendRemainingSeconds();
+    if (remaining <= 0) {
+        clearResendCooldown();
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = `Resend available in ${remaining}s`;
+}
+
+function startResendCooldown(email, seconds = RESEND_COOLDOWN_SECONDS) {
+    const btn = document.getElementById('resendVerifyBtn');
+    if (btn && !btn.dataset.defaultLabel) {
+        btn.dataset.defaultLabel = RESEND_VERIFY_LABEL;
+    }
+    sessionStorage.setItem(RESEND_COOLDOWN_UNTIL_KEY, String(Date.now() + seconds * 1000));
+    if (email) sessionStorage.setItem(RESEND_COOLDOWN_EMAIL_KEY, email);
+    tickResendCooldown();
+    if (!resendCooldownTimer) {
+        resendCooldownTimer = setInterval(tickResendCooldown, 1000);
+    }
+}
+
+function restoreResendCooldown(email) {
+    const storedEmail = sessionStorage.getItem(RESEND_COOLDOWN_EMAIL_KEY) || '';
+    if (email && storedEmail && storedEmail !== email) return;
+    if (getResendRemainingSeconds() <= 0) {
+        sessionStorage.removeItem(RESEND_COOLDOWN_UNTIL_KEY);
+        sessionStorage.removeItem(RESEND_COOLDOWN_EMAIL_KEY);
+        return;
+    }
+    tickResendCooldown();
+    if (!resendCooldownTimer) {
+        resendCooldownTimer = setInterval(tickResendCooldown, 1000);
+    }
 }
 
 function showVerifyNotice(email, message) {
@@ -164,6 +232,7 @@ function showVerifyNotice(email, message) {
     if (text && message) text.textContent = message;
     setResendEmail(email);
     notice.hidden = false;
+    restoreResendCooldown(email);
 }
 
 function hideVerifyNotice() {
@@ -171,6 +240,36 @@ function hideVerifyNotice() {
     const status = document.getElementById('resendVerifyStatus');
     if (notice) notice.hidden = true;
     if (status) status.textContent = '';
+}
+
+function showRegistrationSuccess(email, sent) {
+    const registerSection = document.getElementById('register-section');
+    const successWrap = document.getElementById('success-message');
+    const messageEl = document.getElementById('successMessageText');
+    const formBox = document.querySelector('.auth-form-box--register');
+    const safeEmail = String(email || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    if (registerSection) registerSection.style.display = 'none';
+    if (formBox) formBox.classList.add('auth-form-box--success');
+    if (messageEl) {
+        messageEl.innerHTML = sent
+            ? `We sent a verification link to <b>${safeEmail}</b>. Check your inbox and spam folder, then sign in.`
+            : `Your account was created, but we could not send the email to <b>${safeEmail}</b>. Use the button below to resend it.`;
+    }
+    if (successWrap) {
+        successWrap.hidden = false;
+        successWrap.style.display = 'flex';
+    }
+
+    showVerifyNotice(
+        email,
+        sent
+            ? 'Did not get the email? Resend the verification link.'
+            : 'Tap below to resend the verification email.'
+    );
 }
 
 async function handleResendVerificationClick() {
@@ -183,7 +282,17 @@ async function handleResendVerificationClick() {
         return;
     }
 
-    if (btn) btn.disabled = true;
+    if (getResendRemainingSeconds() > 0) {
+        restoreResendCooldown(email);
+        return;
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        if (!btn.dataset.defaultLabel) {
+            btn.dataset.defaultLabel = btn.textContent.trim() || RESEND_VERIFY_LABEL;
+        }
+    }
     if (status) status.textContent = 'Sending…';
 
     try {
@@ -193,15 +302,23 @@ async function handleResendVerificationClick() {
             body: JSON.stringify({ email })
         });
         const data = await response.json();
-        if (status) {
-            status.textContent = data.success
-                ? 'Verification email sent. Check your inbox and spam folder.'
-                : (data.message || 'Could not resend the email. Please try again.');
+        if (data.success) {
+            if (status) status.textContent = '';
+            showCustomToast(RESEND_SUCCESS_TOAST, 'success');
+            startResendCooldown(email);
+            return;
+        }
+        if (status) status.textContent = data.message || 'Could not resend the email. Please try again.';
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = btn.dataset.defaultLabel || RESEND_VERIFY_LABEL;
         }
     } catch (error) {
         if (status) status.textContent = 'Could not resend the email. Please try again.';
-    } finally {
-        if (btn) btn.disabled = false;
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = btn.dataset.defaultLabel || RESEND_VERIFY_LABEL;
+        }
     }
 }
 
@@ -705,29 +822,7 @@ async function handleRegisterSubmit(e) {
                 window.analytics.trackSignUp('email');
             }
 
-            document.getElementById('register-section').style.display = 'none';
-            const successMsg = document.getElementById('success-message');
-            const sent = data.emailSent !== false;
-            const safeEmail = String(data.email || email)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;');
-            successMsg.style.display = 'block';
-            successMsg.innerHTML = `
-                <i class="fa-solid fa-envelope-circle-check" style="font-size: 50px; color: #10b981; margin-bottom:15px;"></i>
-                <h3>Registration Successful!</h3>
-                <p>
-                    ${sent
-                        ? `We sent a verification link to <b>${safeEmail}</b>. Check your inbox and spam folder, then sign in.`
-                        : `Your account was created, but we could not send the email to <b>${safeEmail}</b>. Use the button below to resend it.`}
-                </p>
-            `;
-            showVerifyNotice(
-                data.email || email,
-                sent
-                    ? 'Did not get the email? Resend the verification link.'
-                    : 'Tap below to resend the verification email.'
-            );
+            showRegistrationSuccess(data.email || email, data.emailSent !== false);
         } else {
             const failMsg = data.message || 'Registration failed!';
             if (document.getElementById('registerError')) {

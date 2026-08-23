@@ -204,12 +204,32 @@
         </p>
       </div>
 
-      <div id="success-message" class="auth-success-panel" style="display: none;"></div>
-
-      <div class="auth-verify-notice" id="verifyNotice" hidden>
-        <p id="verifyNoticeText">Please verify your email to activate your account.</p>
-        <button type="button" class="auth-resend-btn" id="resendVerifyBtn">Resend Verification Email</button>
-        <p class="auth-verify-status" id="resendVerifyStatus"></p>
+      <div id="success-message" class="auth-success-wrap" hidden>
+        <article class="auth-success-card" aria-live="polite">
+          <a href="/" class="auth-success-card__logo" aria-label="EonlineBazar Home">
+            <span class="auth-success-card__mark" aria-hidden="true">
+              <i class="fa-solid fa-bag-shopping"></i>
+            </span>
+            <span class="auth-success-card__wordmark">EonlineBazar</span>
+          </a>
+          <div class="auth-success-card__icon" aria-hidden="true">
+            <i class="fa-solid fa-envelope-circle-check"></i>
+          </div>
+          <h2 class="auth-success-card__title">Registration Successful!</h2>
+          <p class="auth-success-card__text" id="successMessageText"></p>
+          <div class="auth-verify-notice auth-verify-notice--card" id="verifyNotice" hidden>
+            <p id="verifyNoticeText">Please verify your email to activate your account.</p>
+            <button type="button" class="auth-resend-btn" id="resendVerifyBtn">Resend Verification Email</button>
+            <p class="auth-verify-status" id="resendVerifyStatus"></p>
+          </div>
+        </article>
+        <div class="auth-success-actions">
+          <a href="/login" class="auth-submit-btn auth-success-login-btn">Proceed to Login</a>
+          <a href="https://mail.google.com" class="auth-gmail-btn" target="_blank" rel="noopener noreferrer">
+            <i class="fa-brands fa-google" aria-hidden="true"></i>
+            Open Gmail
+          </a>
+        </div>
       </div>
 
     </div>
