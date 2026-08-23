@@ -3,25 +3,25 @@
  * DigitalOcean blocks outbound SMTP (587/465). Never use nodemailer here.
  ********************************************************************/
 
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../../.env') });
+
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const DEFAULT_FROM = 'EonlineBazar Security <noreply@eonlinebazar.com>';
 
+const apiKey = process.env.RESEND_API_KEY || 're_TyspsFeZ_8RZHv4RpqQ3TMXcSSdGtn';
+const fromEmail = process.env.RESEND_FROM || 'EonlineBazar Security <noreply@eonlinebazar.com>';
+
 function getResendFrom() {
-    return String(process.env.RESEND_FROM || DEFAULT_FROM).trim() || DEFAULT_FROM;
+    return String(fromEmail || DEFAULT_FROM).trim() || DEFAULT_FROM;
 }
 
 /**
  * POST https://api.resend.com/emails — HTTPS :443 only, no SMTP fallback.
  */
 async function sendEmail({ to, subject, html, from } = {}) {
-    const apiKey = String(process.env.RESEND_API_KEY || '').trim();
     const recipient = String(to || '').trim();
 
-    if (!apiKey) {
-        const error = new Error('RESEND_API_KEY is not configured');
-        console.error('Resend API Error:', error);
-        throw error;
-    }
     if (!recipient) {
         const error = new Error('Missing recipient email');
         console.error('Resend API Error:', error);
@@ -39,7 +39,7 @@ async function sendEmail({ to, subject, html, from } = {}) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                from: from || getResendFrom(),
+                from: from || fromEmail,
                 to: [recipient],
                 subject,
                 html
@@ -109,7 +109,7 @@ async function sendAdminOtpEmail({ to, otp, username, ip, location, expiresInMin
     try {
         return await sendEmail({
             to: recipient,
-            from: getResendFrom(),
+            from: fromEmail,
             subject: `🔐 Your Admin Login Code: ${otp}`,
             html: buildAdminOtpHtml({ otp, username, ip, location, expiresInMinutes })
         });
