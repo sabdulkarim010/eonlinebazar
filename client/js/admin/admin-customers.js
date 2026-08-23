@@ -14,6 +14,12 @@ import './admin-core.js';
  * ৬.১: কাস্টমারদের ডাটা টেবিলে প্রদর্শন করা
  * @param {Array} customers - ডাটাবেজ থেকে পাওয়া কাস্টমার অ্যারে
  */
+function getCustomerDisplayName(user = {}) {
+    const stored = String(user.name || '').trim();
+    const fromParts = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    return stored || fromParts || 'N/A';
+}
+
 function getCustomerStatusHtml(user) {
     const accountStatus = user.accountStatus || 'active';
     if (accountStatus === 'blocked') {
@@ -291,7 +297,7 @@ function renderCustomerTable(customers, totalFiltered) {
                     <input type="checkbox" class="customer-row-checkbox" value="${uid}" ${isChecked} onchange="toggleCustomerSelection(this)">
                 </td>
                 <td class="customers-td customers-td--id">${buildCustomerCopyCell(`<b>#${escapeHtml(displayId)}</b>`, userIdCopy)}</td>
-                <td class="customers-td customers-td--name"><span class="customers-name">${escapeHtml(user.name || 'N/A')}${user.isVip ? ' <span class="customers-vip-crown" aria-hidden="true">👑</span>' : ''}</span></td>
+                <td class="customers-td customers-td--name"><span class="customers-name">${escapeHtml(getCustomerDisplayName(user))}${user.isVip ? ' <span class="customers-vip-crown" aria-hidden="true">👑</span>' : ''}</span></td>
                 <td class="customers-td customers-td--email">${emailDisplay !== 'N/A' ? buildCustomerCopyCell(escapeHtml(emailDisplay), emailDisplay) : 'N/A'}</td>
                 <td class="customers-td customers-td--mobile">${mobileDisplay !== 'N/A' ? buildCustomerCopyCell(escapeHtml(mobileDisplay), mobileDisplay) : 'N/A'}</td>
                 <td class="customers-td customers-td--num">${getOrderCountBadge(user.orderCount)}</td>
@@ -303,6 +309,7 @@ function renderCustomerTable(customers, totalFiltered) {
                         <button type="button" class="action-btn view" onclick="viewCustomerDetails('${uid}')" title="View Profile"><i class="fa-solid fa-eye"></i></button>
                         <button type="button" class="action-btn edit" onclick="editCustomer('${uid}')" title="Edit Profile"><i class="fa-solid fa-pen-to-square"></i></button>
                         <button type="button" class="action-btn orders" onclick="viewCustomerOrders('${uid}')" title="Order History"><i class="fa-solid fa-clock-rotate-left"></i></button>
+                        <button type="button" class="action-btn delete" onclick="deleteCustomer('${uid}')" title="Delete Customer Permanently"><i class="fa-solid fa-trash"></i></button>
                         ${statusActionBtn}
                     </div>
                 </td>
@@ -370,7 +377,7 @@ window.viewCustomerDetails = async function(userId) {
         const u = result.data;
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val ?? '—'; };
 
-        set('cvName', u.name);
+        set('cvName', getCustomerDisplayName(u));
         set('cvEmail', u.email);
         set('cvMobile', u.mobile);
         set('cvPhone', u.phone || 'N/A');
@@ -475,7 +482,8 @@ window.editCustomer = async function(userId) {
 
         const u = result.data;
         document.getElementById('editCustomerId').value = u._id;
-        document.getElementById('editCustomerName').value = u.name || '';
+        const editName = getCustomerDisplayName(u);
+        document.getElementById('editCustomerName').value = editName === 'N/A' ? '' : editName;
         document.getElementById('editCustomerEmail').value = u.email || '';
         document.getElementById('editCustomerMobile').value = u.mobile || '';
         document.getElementById('editCustomerPhone').value = u.phone || '';
@@ -581,6 +589,36 @@ window.saveCustomerEdits = async function() {
         if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
     }
 };
+
+/**
+ * ৬.৪ক: কাস্টমার স্থায়ীভাবে ডিলিট
+ */
+function deleteCustomer(userId) {
+    showCustomConfirm(
+        'Delete Customer',
+        'Are you sure you want to permanently delete this customer? This action cannot be undone.',
+        async () => {
+            try {
+                const res = await fetch(`/api/admin/customers/${userId}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const result = await res.json();
+                if (result.success) {
+                    selectedCustomerIds.delete(String(userId));
+                    showToast(result.message || 'Customer deleted.', 'success');
+                    fetchDashboardData();
+                } else {
+                    showToast(result.message || 'Failed to delete customer.', 'error');
+                }
+            } catch (e) {
+                showToast('Server error deleting customer.', 'error');
+            }
+        },
+        'danger'
+    );
+}
+window.deleteCustomer = deleteCustomer;
 
 /**
  * ৬.৫: Block / Suspend / Activate কাস্টমার
@@ -1311,12 +1349,14 @@ Object.assign(window, {
     buildOrderExpandedPanel,
     buildOrderProductsSummary,
     clearInquirySelection,
+    deleteCustomer,
     deleteMessage,
     findCachedMessage,
     formatMessageDate,
     formatMessageListTime,
     formatPhoneDisplay,
     getAvatarColor,
+    getCustomerDisplayName,
     getCustomerInitial,
     getCustomerStatusHtml,
     getFilteredMessages,

@@ -3461,6 +3461,8 @@ td.col-actions button:last-child {
 .customer-actions-row .action-btn.block:hover { color: var(--danger-color); border-color: var(--danger-color); }
 .customer-actions .action-btn.activate:hover,
 .customer-actions-row .action-btn.activate:hover { color: var(--success-color); border-color: var(--success-color); }
+.customer-actions .action-btn.delete:hover,
+.customer-actions-row .action-btn.delete:hover { color: var(--danger-color); border-color: var(--danger-color); }
 
 .order-count-badge {
     display: inline-flex;
@@ -3541,6 +3543,12 @@ td.col-actions button:last-child {
     background: rgba(148, 163, 184, 0.1);
     color: #64748b;
     border-color: rgba(148, 163, 184, 0.16);
+}
+
+.segment-badge--inactive {
+    background: rgba(100, 116, 139, 0.1);
+    color: #475569;
+    border-color: rgba(100, 116, 139, 0.18);
 }
 
 .customers-status-badge {

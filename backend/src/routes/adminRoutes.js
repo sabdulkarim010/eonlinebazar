@@ -96,6 +96,7 @@ router.get('/customers/:id/orders', verifyAdmin, checkPermission('manage_custome
 router.get('/customers/:id', verifyAdmin, checkPermission('manage_customers'), adminController.getCustomerById);
 router.put('/customers/:id', verifyAdmin, checkPermission('manage_customers'), adminController.updateCustomer);
 router.patch('/customers/:id/status', verifyAdmin, checkPermission('manage_customers'), adminController.updateCustomerStatus);
+router.delete('/customers/:id', verifyAdmin, checkPermission('manage_customers'), adminController.deleteCustomer);
 
 // ১খ. অর্ডার রিটার্ন অনুমোদন ও ওয়ালেট রিফান্ড
 // URL: PUT /api/admin/orders/:id/approve-return

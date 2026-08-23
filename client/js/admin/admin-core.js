@@ -1243,6 +1243,10 @@ function getOrderCountBadge(count) {
 }
 
 function getCustomerSegmentBadge(user) {
+    const orderCount = Number(user.orderCount) || 0;
+    if (user.isInactive || user.segment === 'inactive' || orderCount === 0) {
+        return '<span class="segment-badge segment-badge--inactive"><i class="fa-solid fa-user-clock"></i> Inactive</span>';
+    }
     if (user.isVip) {
         return '<span class="segment-badge segment-badge--vip"><i class="fa-solid fa-crown"></i> VIP / Top Buyer</span>';
     }
@@ -1372,6 +1376,8 @@ window.fetchCustomers = function fetchCustomers(page, limit) {
             if (!q) return true;
             const haystack = [
                 user.name,
+                user.firstName,
+                user.lastName,
                 user.email,
                 user.mobile,
                 user.phone,
@@ -1390,6 +1396,9 @@ function filterCustomersBySegment(customers, segment = customerSegmentFilter) {
     const list = Array.isArray(customers) ? customers : [];
     if (segment === 'vip') return list.filter((user) => user.isVip);
     if (segment === 'frequent') return list.filter((user) => user.isFrequentBuyer);
+    if (segment === 'inactive') {
+        return list.filter((user) => user.isInactive || user.segment === 'inactive' || Number(user.orderCount) === 0);
+    }
     return list;
 }
 

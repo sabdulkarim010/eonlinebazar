@@ -1,7 +1,9 @@
 const request = require('supertest');
+const jwt = require('jsonwebtoken');
 const Order = require('../backend/src/models/order');
 const Product = require('../backend/src/models/product');
 const PaymentMethod = require('../backend/src/models/PaymentMethod');
+const User = require('../backend/src/models/user');
 const { getApp, createTestAdmin, createTestUser } = require('./setup');
 
 describe('Admin API', () => {
@@ -94,5 +96,67 @@ describe('Admin API', () => {
         expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);
         expect(String(res.body.data.status).toLowerCase()).toBe('processing');
+    });
+
+    async function getAdminAuthToken() {
+        const { username } = await createTestAdmin({ twoFactorEnabled: false });
+        return jwt.sign(
+            { username, role: 'admin' },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+    }
+
+    test('GET /api/admin/customers hydrates full name from firstName + lastName', async () => {
+        const { user } = await createTestUser({
+            firstName: 'Nusrat',
+            lastName: 'Jahan',
+            email: 'nusrat.jahan@test.local'
+        });
+        const token = await getAdminAuthToken();
+
+        const res = await request(app)
+            .get('/api/admin/customers')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        const match = (res.body.customers || []).find((row) => String(row._id) === String(user._id));
+        expect(match).toBeTruthy();
+        expect(match.name).toBe('Nusrat Jahan');
+        expect(match.orderCount).toBe(0);
+        expect(match.segment).toBe('inactive');
+        expect(match.isInactive).toBe(true);
+    });
+
+    test('DELETE /api/admin/customers/:id permanently removes the user so they can re-register', async () => {
+        const { user, email, mobile } = await createTestUser({
+            firstName: 'Delete',
+            lastName: 'Me',
+            email: 'delete.me@test.local',
+            mobile: '01733334444'
+        });
+        const token = await getAdminAuthToken();
+
+        const delRes = await request(app)
+            .delete(`/api/admin/customers/${user._id}`)
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(delRes.status).toBe(200);
+        expect(delRes.body.success).toBe(true);
+        expect(await User.findById(user._id)).toBeNull();
+
+        const registerRes = await request(app)
+            .post('/api/customer/register')
+            .send({
+                firstName: 'Delete',
+                lastName: 'Me',
+                mobile,
+                email,
+                password: 'SecurePass123!'
+            });
+
+        expect(registerRes.status).toBe(201);
+        expect(registerRes.body.success).toBe(true);
     });
 });

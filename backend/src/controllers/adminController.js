@@ -10,6 +10,7 @@
 const User = require('../models/user'); 
 const Admin = require('../models/admin'); 
 const Order = require('../models/order');
+const UserSession = require('../models/userSession');
 const SecurityLog = require('../models/securityLog');
 const AdminSession = require('../models/adminSession');
 const cloudinary = require('cloudinary').v2;
@@ -43,9 +44,11 @@ function resolveCustomerSegment(userStats = {}, thresholds = VIP_DEFAULTS) {
 
     const isVip = totalSpent >= vipMinSpent || orderCount >= vipMinOrders;
     const isFrequent = !isVip && orderCount >= frequentMin;
+    const isInactive = orderCount === 0;
 
     let segment = 'all';
-    if (isVip) segment = 'vip';
+    if (isInactive) segment = 'inactive';
+    else if (isVip) segment = 'vip';
     else if (isFrequent) segment = 'frequent';
 
     return {
@@ -53,8 +56,15 @@ function resolveCustomerSegment(userStats = {}, thresholds = VIP_DEFAULTS) {
         totalSpent,
         segment,
         isVip,
-        isFrequentBuyer: isFrequent
+        isFrequentBuyer: isFrequent,
+        isInactive
     };
+}
+
+function hydrateCustomerName(customer = {}) {
+    const fromParts = [customer.firstName, customer.lastName].filter(Boolean).join(' ').trim();
+    const legacy = customer.name ? String(customer.name).trim() : '';
+    return fromParts || legacy || 'N/A';
 }
 
 // ==============================================================
@@ -107,11 +117,13 @@ const getAllCustomers = async (req, res) => {
             const segmentMeta = resolveCustomerSegment(stats, thresholds);
             return {
                 ...customer,
+                name: hydrateCustomerName(customer),
                 orderCount: segmentMeta.orderCount,
                 totalSpent: segmentMeta.totalSpent,
                 segment: segmentMeta.segment,
                 isVip: segmentMeta.isVip,
-                isFrequentBuyer: segmentMeta.isFrequentBuyer
+                isFrequentBuyer: segmentMeta.isFrequentBuyer,
+                isInactive: segmentMeta.isInactive
             };
         });
 
@@ -292,7 +304,14 @@ const getCustomerById = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Customer not found.' });
         }
         const orderCount = await Order.countDocuments({ user: customer._id });
-        res.status(200).json({ success: true, data: { ...customer, orderCount } });
+        res.status(200).json({
+            success: true,
+            data: {
+                ...customer,
+                name: hydrateCustomerName(customer),
+                orderCount
+            }
+        });
     } catch (error) {
         console.error('Get Customer Error:', error);
         res.status(500).json({ success: false, message: 'Server error.' });
@@ -439,6 +458,41 @@ const updateCustomerStatus = async (req, res) => {
 };
 
 // ==============================================================
+// ৭ক. কাস্টমার স্থায়ীভাবে ডিলিট (ইমেইল/মোবাইল ফ্রি করে)
+// ==============================================================
+const deleteCustomer = async (req, res) => {
+    try {
+        const customer = await User.findById(req.params.id).select('firstName lastName email mobile');
+        if (!customer) {
+            return res.status(404).json({ success: false, message: 'Customer not found.' });
+        }
+
+        const displayName = hydrateCustomerName(customer);
+        const email = customer.email || '';
+        const mobile = customer.mobile || '';
+
+        await UserSession.deleteMany({ userId: customer._id });
+        await User.deleteOne({ _id: customer._id });
+
+        await logSecurityEvent({
+            action: 'Customer Account Deleted',
+            actor: req.admin?.username || 'admin',
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `Permanently deleted customer ${email || customer._id} (${displayName})${mobile ? `, mobile ${mobile}` : ''}`
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Customer permanently deleted. Email and mobile are now available for re-registration.'
+        });
+    } catch (error) {
+        console.error('Delete Customer Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to delete customer.' });
+    }
+};
+
+// ==============================================================
 // ৮. কাস্টমারের অর্ডার হিস্ট্রি (অ্যাডমিন)
 // ==============================================================
 const getCustomerOrders = async (req, res) => {
@@ -454,7 +508,7 @@ const getCustomerOrders = async (req, res) => {
             success: true,
             customer: {
                 id: customer._id,
-                name: customer.name,
+                name: hydrateCustomerName(customer),
                 email: customer.email,
                 mobile: customer.mobile
             },
@@ -922,6 +976,7 @@ module.exports = {
     getCustomerById,
     updateCustomer,
     updateCustomerStatus,
+    deleteCustomer,
     getCustomerOrders,
     getSecurityLogs,
     verifyAdminToken,
