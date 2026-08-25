@@ -625,3 +625,13 @@
   display: block !important;
   margin-top: 4px !important;
 }
+
+/* Drop widget under SweetAlert2 while the end-chat dialog is open */
+#cw-container.cw-swal-open,
+#cw-bubble.cw-swal-open {
+  z-index: 1 !important;
+}
+
+body > .swal2-container.cw-swal-on-top {
+  z-index: 2147483647 !important;
+}

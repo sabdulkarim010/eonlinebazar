@@ -11,6 +11,8 @@
   var STORAGE_RATED = 'cw_rated_rooms';
   var widgetConfig = { type: 'GENERAL' };
   var SOCKET_CDN = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
+  var SWAL_CDN = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
+  var SWAL_Z = 2147483647;
   var LOCAL_CHAT_ORIGIN = 'http://localhost:5001';
   var BUBBLE_SVG =
     '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
@@ -41,6 +43,8 @@
     isTyping: false,
     pendingFile: null,
     resolved: false,
+    endingSelf: false,
+    bootstrapping: null,
     agentName: null,
     initialized: false,
     cssLoaded: false,
@@ -160,6 +164,42 @@
       script.onload = function () { resolve(); };
       script.onerror = function () {
         reject(new Error('Failed to load socket.io-client'));
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  function loadSweetAlert() {
+    return new Promise(function (resolve, reject) {
+      if (global.Swal && typeof global.Swal.fire === 'function') {
+        resolve(global.Swal);
+        return;
+      }
+      var existing = document.querySelector('script[data-cw-swal]');
+      if (existing) {
+        existing.addEventListener('load', function () {
+          if (global.Swal && typeof global.Swal.fire === 'function') {
+            resolve(global.Swal);
+          } else {
+            reject(new Error('SweetAlert2 missing after load'));
+          }
+        });
+        existing.addEventListener('error', reject);
+        return;
+      }
+      var script = document.createElement('script');
+      script.src = SWAL_CDN;
+      script.async = true;
+      script.setAttribute('data-cw-swal', '1');
+      script.onload = function () {
+        if (global.Swal && typeof global.Swal.fire === 'function') {
+          resolve(global.Swal);
+        } else {
+          reject(new Error('SweetAlert2 missing after load'));
+        }
+      };
+      script.onerror = function () {
+        reject(new Error('Failed to load SweetAlert2'));
       };
       document.head.appendChild(script);
     });
@@ -353,14 +393,20 @@
     bubble.classList.toggle('cw-hidden', !visible);
   }
 
-  function openWidget() {
+  function setWidgetUnderSwal(active) {
+    var container = $('cw-container');
+    var bubble = $('cw-bubble');
+    if (container) container.classList.toggle('cw-swal-open', !!active);
+    if (bubble) bubble.classList.toggle('cw-swal-open', !!active);
+  }
+
+  function revealPanel() {
     ensureDom();
     state.isOpen = true;
     state.unread = 0;
     updateBadge();
     var el = $('cw-container');
     if (!el) return;
-    // Do NOT touch document.body overflow / scroll position
     el.classList.add('cw-open');
     setBubbleVisible(false);
     scrollToBottom();
@@ -368,6 +414,21 @@
       var input = $('cw-input');
       if (input && !input.disabled) input.focus();
     }, 260);
+  }
+
+  function openWidget() {
+    ensureDom();
+    if (!state.roomId && state.initialized && !state.endingSelf) {
+      return Promise.resolve(bootstrap())
+        .then(function () {
+          setupSendButton();
+          revealPanel();
+        })
+        .catch(function (err) {
+          console.error('[ChatWidget] reopen after end failed:', err);
+        });
+    }
+    revealPanel();
   }
 
   function minimizeWidget() {
@@ -378,42 +439,176 @@
     setBubbleVisible(true);
   }
 
-  function closeWidget() {
-    var endChat = false;
-    try {
-      endChat = global.confirm('End this chat?');
-    } catch (e) {
-      endChat = true;
+  function hideCsatUi() {
+    var csat = $('cw-csat');
+    if (!csat) return;
+    csat.classList.remove('visible');
+    csat.removeAttribute('data-rated');
+    csat.querySelectorAll('.cw-star').forEach(function (s) {
+      s.classList.remove('active');
+      s.disabled = false;
+    });
+    var thanks = $('cw-csat-thanks');
+    if (thanks) {
+      thanks.hidden = true;
+      thanks.textContent = '';
     }
-    if (endChat) {
-      startNewChat();
+  }
+
+  function clearPersistedRoom() {
+    try {
+      localStorage.removeItem(STORAGE_ROOM_PREFIX + (widgetConfig.type || state.type || 'GENERAL'));
+      localStorage.removeItem('cw_room_id');
+    } catch (e) { /* ignore */ }
+  }
+
+  function emitEndChatWithAck(roomId) {
+    return new Promise(function (resolve) {
+      var sock = state.socket;
+      if (!sock || typeof sock.emit !== 'function') {
+        resolve(false);
+        return;
+      }
+
+      var settled = false;
+      function finish(ok) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        try { sock.off('end_chat_ok', onOk); } catch (e1) { /* ignore */ }
+        try { sock.off('end_chat_failed', onFail); } catch (e2) { /* ignore */ }
+        resolve(!!ok);
+      }
+      function onOk() { finish(true); }
+      function onFail() { finish(false); }
+
+      var timer = setTimeout(function () {
+        console.error('[ChatWidget] end_chat timed out');
+        finish(false);
+      }, 5000);
+
+      sock.once('end_chat_ok', onOk);
+      sock.once('end_chat_failed', onFail);
+
+      try {
+        sock.emit(
+          'end_chat',
+          {
+            room_id: roomId,
+            guest_session_id: state.guestSessionId
+          },
+          function (ack) {
+            if (ack && ack.ok === false) finish(false);
+            else finish(true);
+          }
+        );
+      } catch (err) {
+        console.error('[ChatWidget] end_chat emit failed:', err);
+        finish(false);
+      }
+    });
+  }
+
+  async function confirmEndChat() {
+    try {
+      var SwalLib = await loadSweetAlert();
+      var result = await SwalLib.fire({
+        title: 'End this chat?',
+        text: 'This will close the conversation. You can start a new chat anytime.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'End chat',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#6C63FF',
+        cancelButtonColor: '#6b7280',
+        heightAuto: false,
+        customClass: {
+          container: 'cw-swal-on-top'
+        },
+        didOpen: function () {
+          setWidgetUnderSwal(true);
+          var el = document.querySelector('.swal2-container.cw-swal-on-top');
+          if (el) el.style.setProperty('z-index', String(SWAL_Z), 'important');
+        },
+        didClose: function () {
+          setWidgetUnderSwal(false);
+        },
+        didDestroy: function () {
+          setWidgetUnderSwal(false);
+        }
+      });
+      return !!(result && result.isConfirmed);
+    } catch (err) {
+      console.error('[ChatWidget] SweetAlert2 unavailable:', err);
+      try {
+        return !!global.confirm('End this chat?');
+      } catch (e2) {
+        return true;
+      }
+    }
+  }
+
+  async function endAndHideSession(options) {
+    options = options || {};
+    state.endingSelf = true;
+    emitTypingStop();
+
+    var roomId = state.roomId;
+    if (state.socket && roomId) {
+      try {
+        await emitEndChatWithAck(roomId);
+      } catch (err) {
+        console.error('[ChatWidget] end_chat failed:', err);
+      }
+    }
+
+    clearPersistedRoom();
+    state.roomId = null;
+    state.resolved = true;
+    state.agentName = null;
+    state.unread = 0;
+    updateBadge();
+    hideTyping();
+    showWaitingBanner(false);
+    hideCsatUi();
+    setInputEnabled(false);
+
+    if (!options.skipMinimize) {
+      minimizeWidget();
+    }
+
+    state.endingSelf = false;
+  }
+
+  async function closeWidget() {
+    var confirmed = await confirmEndChat();
+    if (confirmed) {
+      await endAndHideSession();
       return;
     }
     minimizeWidget();
   }
 
   function startNewChat() {
-    try {
-      localStorage.removeItem(STORAGE_ROOM_PREFIX + (widgetConfig.type || state.type || 'GENERAL'));
-      // Legacy key cleanup
-      localStorage.removeItem('cw_room_id');
-    } catch (e) { /* ignore */ }
-    state.roomId = null;
-    state.resolved = false;
-    state.agentName = null;
-    state.unread = 0;
-    state.renderedIds = Object.create(null);
-    state.pendingFile = null;
-
-    var msgs = document.getElementById('cw-messages');
-    if (msgs) {
-      msgs.innerHTML =
-        '<div id="cw-typing" aria-hidden="true"><span></span><span></span><span></span></div>';
-    }
-
-    minimizeWidget();
-    // Fresh session with current widget config (preserves guestName / api URLs)
-    Promise.resolve(bootstrap())
+    Promise.resolve()
+      .then(function () {
+        if (state.roomId) {
+          return endAndHideSession({ skipMinimize: true });
+        }
+      })
+      .then(function () {
+        state.resolved = false;
+        state.agentName = null;
+        state.unread = 0;
+        state.renderedIds = Object.create(null);
+        state.pendingFile = null;
+        var msgs = document.getElementById('cw-messages');
+        if (msgs) {
+          msgs.innerHTML =
+            '<div id="cw-typing" aria-hidden="true"><span></span><span></span><span></span></div>';
+        }
+        return bootstrap();
+      })
       .then(function () {
         setupSendButton();
         openWidget();
@@ -993,6 +1188,8 @@
     s.off('handover_started');
     s.off('agent_joined');
     s.off('chat_resolved');
+    s.off('end_chat_ok');
+    s.off('end_chat_failed');
     s.off('chat_history');
     s.off('rating_submitted');
     s.off('error');
@@ -1104,7 +1301,21 @@
       updateSendButton();
     });
 
-    s.on('chat_resolved', function () {
+    s.on('chat_resolved', function (payload) {
+      var endedBy = payload && payload.ended_by;
+      if (state.endingSelf || endedBy === 'CUSTOMER') {
+        state.resolved = true;
+        hideTyping();
+        showWaitingBanner(false);
+        hideCsatUi();
+        setInputEnabled(false);
+        if (endedBy === 'CUSTOMER' && !state.endingSelf) {
+          clearPersistedRoom();
+          state.roomId = null;
+          minimizeWidget();
+        }
+        return;
+      }
       state.resolved = true;
       hideTyping();
       showWaitingBanner(false);
@@ -1236,6 +1447,9 @@
   }
 
   async function bootstrap() {
+    if (state.bootstrapping) return state.bootstrapping;
+
+    state.bootstrapping = (async function () {
     ensureDom();
     updateHeader();
     setInputEnabled(true);
@@ -1290,6 +1504,13 @@
     } catch (err) {
       console.error('[ChatWidget] start failed:', err);
       showSystemBanner('চ্যাট শুরু করতে সমস্যা হয়েছে। পরে আবার চেষ্টা করুন।');
+    }
+    })();
+
+    try {
+      await state.bootstrapping;
+    } finally {
+      state.bootstrapping = null;
     }
   }
 

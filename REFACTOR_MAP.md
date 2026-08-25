@@ -10,6 +10,10 @@
 # STATUS KEY:
 # [DONE] = fully refactored, thin barrel, or kept as a finished single file
 
+## Docs (audit / notes)
+CHAT_AUDIT.md                        [DONE] live-chat close/end session + alert audit
+ecommerce-chat/socket/chatAuth.js    [DONE] chat socket ownership helpers for end_chat / resolve_chat
+
 ## HTML Files
 client/admin.html                    [DONE] removed — assembled by backend/src/utils/adminPageBuilder.js
 client/profile.html                  [DONE] thin shell — assembled with profile/partials by backend/src/utils/profilePageBuilder.js

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
+import 'sweetalert2/dist/sweetalert2.min.css';
 import {
   ArrowLeftIcon,
   ArrowUpRightIcon,
@@ -118,6 +120,8 @@ export default function ChatWindow({ onBack }) {
   const addMessage = useChatStore((s) => s.addMessage);
   const addOrUpdateRoom = useChatStore((s) => s.addOrUpdateRoom);
   const updateRoomStatus = useChatStore((s) => s.updateRoomStatus);
+  const setActiveRoom = useChatStore((s) => s.setActiveRoom);
+  const setMobileView = useChatStore((s) => s.setMobileView);
   const setTyping = useChatStore((s) => s.setTyping);
 
   const room = useMemo(
@@ -225,21 +229,84 @@ export default function ChatWindow({ onBack }) {
     toast.success('Take chat request sent');
   };
 
-  const handleResolve = () => {
-    if (!window.confirm('Resolve this chat?')) return;
+  const handleResolve = async () => {
+    const result = await Swal.fire({
+      title: 'Resolve this chat?',
+      text: 'The customer will be asked to rate the conversation.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Resolve',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#6C63FF',
+      cancelButtonColor: '#6b7280',
+      heightAuto: false,
+    });
+    if (!result.isConfirmed) return;
+
     const socket = getSocket();
     if (!socket?.connected) {
       toast.error('Socket not connected');
       return;
     }
-    socket.emit('resolve_chat', { room_id: activeRoomId });
-    updateRoomStatus(activeRoomId, 'RESOLVED');
-    addOrUpdateRoom({
-      _id: activeRoomId,
-      status: 'RESOLVED',
-      resolved_at: new Date().toISOString(),
-    });
-    toast.success('Chat resolved');
+
+    const roomId = activeRoomId;
+    if (!roomId) return;
+
+    try {
+      const ack = await new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (fn, value) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          socket.off('resolve_chat_ok', onOk);
+          socket.off('resolve_chat_failed', onFail);
+          fn(value);
+        };
+        const onOk = (payload) => {
+          if (
+            payload?.room_id &&
+            String(payload.room_id) !== String(roomId)
+          ) {
+            return;
+          }
+          finish(resolve, payload || { ok: true });
+        };
+        const onFail = (payload) => {
+          finish(resolve, payload || { ok: false, message: 'Failed to resolve chat' });
+        };
+        const timer = setTimeout(() => {
+          finish(reject, new Error('timeout'));
+        }, 8000);
+        socket.once('resolve_chat_ok', onOk);
+        socket.once('resolve_chat_failed', onFail);
+        socket.emit('resolve_chat', { room_id: roomId }, (res) => {
+          finish(resolve, res || { ok: true });
+        });
+      });
+
+      if (!ack || ack.ok === false) {
+        toast.error(ack?.message || 'Failed to resolve chat');
+        return;
+      }
+
+      socket.emit('leave_room', { room_id: roomId });
+      updateRoomStatus(roomId, 'RESOLVED');
+      addOrUpdateRoom({
+        _id: roomId,
+        status: 'RESOLVED',
+        resolved_at: new Date().toISOString(),
+      });
+      setActiveRoom(null);
+      setMobileView('list');
+      toast.success('Chat resolved');
+    } catch (err) {
+      toast.error(
+        err?.message === 'timeout'
+          ? 'Resolve timed out. Please try again.'
+          : 'Failed to resolve chat'
+      );
+    }
   };
 
   const sendInternalNote = () => {

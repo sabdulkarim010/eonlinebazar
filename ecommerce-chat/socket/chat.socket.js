@@ -9,6 +9,11 @@ const {
 } = require('../services/ai.service');
 const { sendHandoverAlert } = require('../services/notification.service');
 const { sanitizeAttachments } = require('../services/upload.service');
+const {
+  roomOwnedBySocket,
+  canAgentResolveRoom,
+  socketReply,
+} = require('./chatAuth');
 
 /**
  * Notify admins after handover — email failure must not break socket flow.
@@ -44,17 +49,54 @@ function createSocketRateLimiter(maxPerMinute) {
   };
 }
 
-function roomOwnedBySocket(room, socket) {
-  if (!room || !socket) return false;
-  const guestSessionId = socket.data.guest_session_id;
-  if (guestSessionId && room.guest_session_id === guestSessionId) {
-    return true;
+function roomPlain(room) {
+  if (!room) return room;
+  return typeof room.toObject === 'function' ? room.toObject() : room;
+}
+
+async function persistResolvedRoom(room, { endedBy, agent, systemText }) {
+  room.status = 'RESOLVED';
+  room.resolved_at = new Date();
+
+  const systemMsg = await ChatMessage.create({
+    room_id: room._id,
+    sender_type: 'SYSTEM',
+    sender_id: agent ? String(agent._id) : null,
+    sender_name: 'System',
+    message: systemText,
+    is_read_by_user: endedBy === 'CUSTOMER',
+    is_read_by_agent: endedBy === 'AGENT',
+  });
+
+  room.last_message = systemMsg.message;
+  room.last_message_at = new Date();
+  await room.save();
+
+  const aid = (agent && agent._id) || room.assigned_agent_id;
+  if (aid) {
+    await Agent.findByIdAndUpdate(aid, {
+      $pull: { active_chats: room._id },
+      last_seen: new Date(),
+    });
   }
-  const userId = socket.data.user_id;
-  if (userId && room.user_id && String(room.user_id) === String(userId)) {
-    return true;
+
+  return { room, systemMsg };
+}
+
+function broadcastChatResolved(customerNs, adminNs, room, systemMsg, extra) {
+  const room_id = String(room._id);
+  const payload = {
+    room_id,
+    message: systemMsg,
+    room: roomPlain(room),
+    ...(extra || {}),
+  };
+  customerNs.to(room_id).emit('chat_resolved', payload);
+  if (systemMsg) {
+    customerNs.to(room_id).emit('new_message', systemMsg);
   }
-  return false;
+  adminNs.emit('chat_resolved', payload);
+  return payload;
 }
 
 /**
@@ -470,6 +512,58 @@ function initChatSocket(io) {
       }
     });
 
+    socket.on('end_chat', async (payload, ack) => {
+      const reply = (data) =>
+        socketReply(socket, ack, 'end_chat_ok', 'end_chat_failed', data);
+
+      try {
+        const room_id = payload && payload.room_id;
+        if (!room_id) {
+          return reply({ ok: false, message: 'room_id required' });
+        }
+
+        const room = await ChatRoom.findById(room_id);
+        if (!room) {
+          return reply({ ok: false, message: 'Chat room not found' });
+        }
+
+        if (!roomOwnedBySocket(room, socket)) {
+          return reply({ ok: false, message: 'UNAUTHORIZED' });
+        }
+
+        if (room.status === 'RESOLVED') {
+          socket.leave(String(room_id));
+          return reply({
+            ok: true,
+            room_id: String(room_id),
+            already_resolved: true,
+            ended_by: 'CUSTOMER',
+          });
+        }
+
+        const { systemMsg } = await persistResolvedRoom(room, {
+          endedBy: 'CUSTOMER',
+          agent: null,
+          systemText: 'গ্রাহক চ্যাটটি শেষ করেছেন।',
+        });
+
+        broadcastChatResolved(customerNs, adminNs, room, systemMsg, {
+          ended_by: 'CUSTOMER',
+        });
+        socket.leave(String(room_id));
+
+        return reply({
+          ok: true,
+          room_id: String(room_id),
+          already_resolved: false,
+          ended_by: 'CUSTOMER',
+        });
+      } catch (err) {
+        console.error('[end_chat]', err.message);
+        return reply({ ok: false, message: 'Failed to end chat' });
+      }
+    });
+
     socket.on('disconnect', () => {
       clearTimeout(typingTimers.get(socket.id));
       typingTimers.delete(socket.id);
@@ -639,6 +733,11 @@ function initChatSocket(io) {
       } catch (err) {
         console.error('[admin join_room]', err.message);
       }
+    });
+
+    socket.on('leave_room', ({ room_id }) => {
+      if (!room_id || !socket.data.agent) return;
+      socket.leave(String(room_id));
     });
 
     socket.on('take_chat', async ({ room_id }) => {
@@ -923,62 +1022,64 @@ function initChatSocket(io) {
       }
     });
 
-    socket.on('resolve_chat', async ({ room_id }) => {
+    socket.on('resolve_chat', async (payload, ack) => {
+      const reply = (data) =>
+        socketReply(socket, ack, 'resolve_chat_ok', 'resolve_chat_failed', data);
+
       try {
         const agent = socket.data.agent;
+        const room_id = payload && payload.room_id;
+
+        if (!agent) {
+          return reply({ ok: false, message: 'AUTH_REQUIRED' });
+        }
         if (!room_id) {
-          socket.emit('error', { message: 'room_id required' });
-          return;
+          return reply({ ok: false, message: 'room_id required' });
         }
 
         const room = await ChatRoom.findById(room_id);
         if (!room) {
-          socket.emit('error', { message: 'Chat room not found' });
-          return;
+          return reply({ ok: false, message: 'Chat room not found' });
         }
 
-        room.status = 'RESOLVED';
-        room.resolved_at = new Date();
-        await room.save();
-
-        const systemMsg = await ChatMessage.create({
-          room_id,
-          sender_type: 'SYSTEM',
-          sender_id: agent ? String(agent._id) : null,
-          sender_name: 'System',
-          message:
-            'এই চ্যাটটি সমাধান করা হয়েছে। অনুগ্রহ করে আমাদের সেবা রেট করুন (১–৫)।',
-          is_read_by_user: false,
-          is_read_by_agent: true,
-        });
-
-        room.last_message = systemMsg.message;
-        room.last_message_at = new Date();
-        await room.save();
-
-        const aid = agent?._id || room.assigned_agent_id;
-        if (aid) {
-          await Agent.findByIdAndUpdate(aid, {
-            $pull: { active_chats: room._id },
-            last_seen: new Date(),
+        if (!canAgentResolveRoom(room, agent)) {
+          return reply({
+            ok: false,
+            message: 'Not assigned to this room',
           });
         }
 
-        io.of('/customer').to(String(room_id)).emit('chat_resolved', {
-          room_id,
-          message: systemMsg,
-          room,
-        });
-        io.of('/customer').to(String(room_id)).emit('new_message', systemMsg);
+        if (room.status === 'RESOLVED') {
+          socket.leave(String(room_id));
+          return reply({
+            ok: true,
+            room_id: String(room_id),
+            already_resolved: true,
+            ended_by: 'AGENT',
+          });
+        }
 
-        adminNs.emit('chat_resolved', {
-          room_id,
-          message: systemMsg,
-          room,
+        const { systemMsg } = await persistResolvedRoom(room, {
+          endedBy: 'AGENT',
+          agent,
+          systemText:
+            'এই চ্যাটটি সমাধান করা হয়েছে। অনুগ্রহ করে আমাদের সেবা রেট করুন (১–৫)।',
+        });
+
+        broadcastChatResolved(customerNs, adminNs, room, systemMsg, {
+          ended_by: 'AGENT',
+        });
+        socket.leave(String(room_id));
+
+        return reply({
+          ok: true,
+          room_id: String(room_id),
+          already_resolved: false,
+          ended_by: 'AGENT',
         });
       } catch (err) {
         console.error('[resolve_chat]', err.message);
-        socket.emit('error', { message: 'Failed to resolve chat' });
+        return reply({ ok: false, message: 'Failed to resolve chat' });
       }
     });
 

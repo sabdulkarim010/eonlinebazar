@@ -180,6 +180,10 @@ function bindListeners(sock) {
     const roomId = roomIdOf(payload);
     if (roomId) store.updateRoomStatus(roomId, 'RESOLVED');
     if (payload?.message) store.addMessage(roomId, payload.message);
+    if (roomId && store.activeRoomId === roomId) {
+      store.setActiveRoom(null);
+      store.setMobileView('list');
+    }
     store.pushNotification({
       type: 'resolved',
       title: 'Chat resolved',
