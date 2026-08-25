@@ -44,40 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const profileUpazila = document.getElementById('profile-upazila');
     const profileFullAddress = document.getElementById('profile-full-address');
     const profileAddress = document.getElementById('profile-address');
-    
-    const passwordForm = document.getElementById('password-form');
-    const passwordFeedback = document.getElementById('password-feedback');
-    const contactFeedback = document.getElementById('contact-feedback');
-    const securityCurrentEmail = document.getElementById('security-current-email');
-    const securityCurrentPhone = document.getElementById('security-current-phone');
-    const contactOtpModal = document.getElementById('contact-otp-modal');
-    const contactOtpForm = document.getElementById('contact-otp-form');
-    const contactOtpSubtext = document.getElementById('contact-otp-subtext');
-    const contactOtpFeedback = document.getElementById('contact-otp-feedback');
-    const contactOtpTimer = document.getElementById('contactOtpTimer');
-    const contactOtpResendBtn = document.getElementById('contact-otp-resend-btn');
-    const requestEmailOtpBtn = document.getElementById('request-email-otp-btn');
-    const requestPhoneOtpBtn = document.getElementById('request-phone-otp-btn');
-
-    let pendingContactUpdate = { type: null, maskedDestination: '', expiresAt: null, resendAvailableAt: null };
-    let contactOtpTimerInterval = null;
-    let contactOtpResendInterval = null;
-    
-    const ordersListTbody = document.getElementById('orders-list-tbody');
-    const ordersPaginationEl = document.getElementById('orders-pagination');
-    const ORDERS_PER_PAGE = 10;
-    let ordersCurrentPage = 1;
-    const mainBalanceAmount = document.getElementById('main-balance-amount');
-    const mainPointsAmount = document.getElementById('main-points-amount');
-    const logoutBtn = document.getElementById('logout-btn');
-
-    const themeToggleBtn = document.getElementById('theme-toggle-btn');
-    
-    const profileMenuToggle = document.getElementById('profile-menu-toggle');
-    const drawerOverlay = document.getElementById('profile-drawer-overlay');
-    const sidebar = document.getElementById('sidebar-menu') || document.querySelector('.profile-sidebar');
-    const menuItems = document.querySelectorAll('.sidebar-menu .menu-item[data-tab]');
-    const tabContents = document.querySelectorAll('.tab-content');
 
     // =================================================================
     // ৬. ইউজারের প্রোфাইল ডাটা ফেচ করা (Fetch Profile & Auto-Cache)
@@ -227,7 +193,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (profileName) profileName.value = data.name || '';
                 if (profileEmail) profileEmail.value = data.email || '';
                 if (profilePhone) profilePhone.value = data.phone || data.mobile || '';
-                updateSecurityContactDisplays(data);
+                if (typeof window.updateSecurityContactDisplays === 'function') {
+                    window.updateSecurityContactDisplays(data);
+                }
                 if (profileGender) profileGender.value = data.gender || '';
                 if (profileDob) profileDob.value = formatDateForInput(data.dateOfBirth);
                 applyProfileAddressToUI(data);
@@ -238,10 +206,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 // ওয়ালেট ও পয়েন্ট ডিসপ্লে আপডেট (Wallet tab)
-                updateWalletDisplay(data.walletBalance || 0, data.loyaltyPoints || 0);
-                renderCashbackHistory(data.walletHistory || []);
-                applyRewardSettingsUI(data.rewardSettings);
-                applyAnnouncementUI(data.announcement);
+                if (typeof window.updateWalletDisplay === 'function') {
+                    window.updateWalletDisplay(data.walletBalance || 0, data.loyaltyPoints || 0);
+                }
+                if (typeof window.renderCashbackHistory === 'function') {
+                    window.renderCashbackHistory(data.walletHistory || []);
+                }
+                if (typeof window.applyRewardSettingsUI === 'function') {
+                    window.applyRewardSettingsUI(data.rewardSettings);
+                }
+                if (typeof window.applyAnnouncementUI === 'function') {
+                    window.applyAnnouncementUI(data.announcement);
+                }
 
                 cacheProfileAddressForCheckout(data);
 
@@ -257,6 +233,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================
     // ৬.১ ড্যাশবোর্ড স্ট্যাটাস ফেচ করা (Fetch Dashboard Stats)
     // =================================================================
+    function renderDashboardActivityFallback(message) {
+        const dashboardTableBody = document.getElementById('dashboard-orders-tbody');
+        if (!dashboardTableBody) return;
+        const text = escapeHtml(message || 'Unable to load recent activity.');
+        dashboardTableBody.innerHTML = `<tr class="orders-state-row"><td colspan="6" class="text-center orders-error-cell"><i class="fa-solid fa-triangle-exclamation"></i> ${text}</td></tr>`;
+    }
+
     async function fetchDashboardStats() {
         try {
             console.log("ড্যাশবোর্ড ফেচ রিকোয়েস্ট পাঠানো হচ্ছে...");
@@ -296,19 +279,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (dashboardTableBody) {
                     const recentOrders = rawData.recentOrders || rawData.data?.recentOrders || [];
+                    const buildRow = window.buildOrderRowHtml;
 
                     if (recentOrders.length === 0) {
                         dashboardTableBody.innerHTML = `<tr class="orders-state-row"><td colspan="6" class="text-center orders-empty-cell"><i class="fa-solid fa-box-open orders-empty-icon"></i>No recent orders yet.</td></tr>`;
+                    } else if (typeof buildRow !== 'function') {
+                        renderDashboardActivityFallback('Unable to load recent activity.');
                     } else {
-                        dashboardTableBody.innerHTML = recentOrders.map(order => buildOrderRowHtml(order)).join('');
+                        try {
+                            dashboardTableBody.innerHTML = recentOrders.map(order => buildRow(order)).join('');
+                        } catch (rowError) {
+                            console.error('Error rendering recent orders:', rowError);
+                            renderDashboardActivityFallback('Unable to load recent activity.');
+                        }
                     }
                 }
 
             } else {
                 console.error("সার্ভার রেসপন্স ওকে নয়:", rawData.message);
+                renderDashboardActivityFallback(rawData.message || 'Unable to load recent activity.');
             }
         } catch (error) {
             console.error('Error fetching dashboard stats:', error);
+            renderDashboardActivityFallback('Unable to load recent activity.');
         }
     }
 
@@ -463,8 +456,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     fetchUserProfile();
     fetchDashboardStats();
-    fetchUserOrders();
-    fetchWishlist();
+    if (typeof window.fetchUserOrders === 'function') window.fetchUserOrders();
+    if (typeof window.fetchWishlist === 'function') window.fetchWishlist();
 
 Object.assign(window, {
     initProfileUpazilaSelect,

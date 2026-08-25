@@ -50,6 +50,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentUserId = window.profileCurrentUserId;
     let currentUser = window.profileCurrentUser;
 
+    const passwordForm = document.getElementById('password-form');
+    const passwordFeedback = document.getElementById('password-feedback');
+    const contactFeedback = document.getElementById('contact-feedback');
+    const securityCurrentEmail = document.getElementById('security-current-email');
+    const securityCurrentPhone = document.getElementById('security-current-phone');
+    const contactOtpModal = document.getElementById('contact-otp-modal');
+    const contactOtpForm = document.getElementById('contact-otp-form');
+    const contactOtpSubtext = document.getElementById('contact-otp-subtext');
+    const contactOtpFeedback = document.getElementById('contact-otp-feedback');
+    const contactOtpTimer = document.getElementById('contactOtpTimer');
+    const contactOtpResendBtn = document.getElementById('contact-otp-resend-btn');
+    const requestEmailOtpBtn = document.getElementById('request-email-otp-btn');
+    const requestPhoneOtpBtn = document.getElementById('request-phone-otp-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+
+    let pendingContactUpdate = { type: null, maskedDestination: '', expiresAt: null, resendAvailableAt: null };
+    let contactOtpTimerInterval = null;
+    let contactOtpResendInterval = null;
+
+    function updateSecurityContactDisplays(user = {}) {
+        if (securityCurrentEmail) securityCurrentEmail.textContent = user.email || '—';
+        if (securityCurrentPhone) {
+            securityCurrentPhone.textContent = user.phone || user.mobile || '—';
+        }
+    }
+    window.updateSecurityContactDisplays = updateSecurityContactDisplays;
 
     // =================================================================
     // ১১. সিকিউরিটি এবং পাসওয়ার্ড আপডেট লজিক (Security & Password)
@@ -586,6 +612,7 @@ document.addEventListener('DOMContentLoaded', () => {
             list.innerHTML = `<p class="text-center sessions-loading">Server error loading sessions.</p>`;
         }
     }
+    window.fetchSessions = fetchSessions;
 
     function updateLogoutAllVisibility(sessions) {
         const btn = document.getElementById('logout-all-btn');
@@ -788,7 +815,8 @@ Object.assign(window, {
     formatSessionLocationLine,
     buildSessionLogoutButton,
     setSessionLogoutButtonsLoading,
-    renderSessions
+    renderSessions,
+    updateSecurityContactDisplays
 });
 
 });

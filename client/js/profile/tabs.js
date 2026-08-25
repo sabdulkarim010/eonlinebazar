@@ -14,7 +14,7 @@
  *  * - profileAuthToken
  * - activateProfileTab
  * - closeProfileDrawer
- * - showToast
+ * - profileShowToast (delegates to toast.js; never overwrites window.showToast)
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -128,11 +128,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- সিলেক্টরস (এখানে আইডি সংশোধন করা হয়েছে) ---
-    const sidebarName = document.getElementById('sidebar-name');
-    const sidebarEmail = document.getElementById('sidebar-email');
     const sidebarAvatar = document.getElementById('sidebar-avatar');
     const navAvatar = document.getElementById('nav-avatar');
-    const avatarInput = document.getElementById('avatar-input');
 
     if (sidebarAvatar) {
         sidebarAvatar.src = AVATAR_PLACEHOLDER;
@@ -142,43 +139,6 @@ document.addEventListener('DOMContentLoaded', () => {
         navAvatar.src = AVATAR_PLACEHOLDER;
         bindImgFallback(navAvatar, AVATAR_PLACEHOLDER);
     }
-    
-    const profileForm = document.getElementById('profile-form');
-    const profileName = document.getElementById('profile-name');
-    const profileEmail = document.getElementById('profile-email');
-    const profilePhone = document.getElementById('profile-phone');
-    const profileGender = document.getElementById('profile-gender');
-    const profileDob = document.getElementById('profile-dob');
-    const profileDistrict = document.getElementById('district');
-    const profileUpazila = document.getElementById('profile-upazila');
-    const profileFullAddress = document.getElementById('profile-full-address');
-    const profileAddress = document.getElementById('profile-address');
-    
-    const passwordForm = document.getElementById('password-form');
-    const passwordFeedback = document.getElementById('password-feedback');
-    const contactFeedback = document.getElementById('contact-feedback');
-    const securityCurrentEmail = document.getElementById('security-current-email');
-    const securityCurrentPhone = document.getElementById('security-current-phone');
-    const contactOtpModal = document.getElementById('contact-otp-modal');
-    const contactOtpForm = document.getElementById('contact-otp-form');
-    const contactOtpSubtext = document.getElementById('contact-otp-subtext');
-    const contactOtpFeedback = document.getElementById('contact-otp-feedback');
-    const contactOtpTimer = document.getElementById('contactOtpTimer');
-    const contactOtpResendBtn = document.getElementById('contact-otp-resend-btn');
-    const requestEmailOtpBtn = document.getElementById('request-email-otp-btn');
-    const requestPhoneOtpBtn = document.getElementById('request-phone-otp-btn');
-
-    let pendingContactUpdate = { type: null, maskedDestination: '', expiresAt: null, resendAvailableAt: null };
-    let contactOtpTimerInterval = null;
-    let contactOtpResendInterval = null;
-    
-    const ordersListTbody = document.getElementById('orders-list-tbody');
-    const ordersPaginationEl = document.getElementById('orders-pagination');
-    const ORDERS_PER_PAGE = 10;
-    let ordersCurrentPage = 1;
-    const mainBalanceAmount = document.getElementById('main-balance-amount');
-    const mainPointsAmount = document.getElementById('main-points-amount');
-    const logoutBtn = document.getElementById('logout-btn');
 
     const themeToggleBtn = document.getElementById('theme-toggle-btn');
     
@@ -205,15 +165,19 @@ document.addEventListener('DOMContentLoaded', () => {
         el.classList.add(type === 'success' ? 'is-success' : 'is-error');
     }
 
-    function updateSecurityContactDisplays(user = {}) {
-        if (securityCurrentEmail) securityCurrentEmail.textContent = user.email || '—';
-        if (securityCurrentPhone) {
-            securityCurrentPhone.textContent = user.phone || user.mobile || '—';
-        }
-    }
+    // Capture toast.js before any local helper is assigned. Never write this
+    // wrapper back onto window.showToast — that caused infinite recursion.
+    const nativeShowToast = typeof window.showToast === 'function'
+        ? window.showToast
+        : null;
+
     function showToast(message, type = 'success') {
-        if (typeof window.showToast === 'function') {
-            window.showToast(message, type);
+        if (typeof nativeShowToast === 'function') {
+            nativeShowToast(message, type);
+            return;
+        }
+        if (window.Toast && typeof window.Toast.show === 'function') {
+            window.Toast.show(message, type);
         }
     }
 
@@ -344,18 +308,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function refreshTabData(targetTab) {
-        if (['my-orders', 'dashboard-overview'].includes(targetTab) && typeof fetchUserOrders === 'function') {
-            fetchUserOrders();
+        if (['my-orders', 'dashboard-overview'].includes(targetTab) && typeof window.fetchUserOrders === 'function') {
+            window.fetchUserOrders();
         }
-        if (targetTab === 'dashboard-overview' && typeof fetchDashboardStats === 'function') {
-            fetchDashboardStats();
+        if (targetTab === 'dashboard-overview' && typeof window.fetchDashboardStats === 'function') {
+            window.fetchDashboardStats();
         }
         if (targetTab === 'my-cart') {
-            fetchWishlist().then(() => renderProfileCartSection());
+            if (typeof window.fetchWishlist === 'function') {
+                window.fetchWishlist().then(() => renderProfileCartSection());
+            } else {
+                renderProfileCartSection();
+            }
         }
-        if (targetTab === 'addresses-settings' && typeof fetchAddresses === 'function') fetchAddresses();
-        if (targetTab === 'security-settings' && typeof fetchSessions === 'function') fetchSessions();
-        if (targetTab === 'wallet-points' && typeof fetchWalletData === 'function') fetchWalletData();
+        if (targetTab === 'addresses-settings' && typeof window.fetchAddresses === 'function') window.fetchAddresses();
+        if (targetTab === 'security-settings' && typeof window.fetchSessions === 'function') window.fetchSessions();
+        if (targetTab === 'wallet-points' && typeof window.fetchWalletData === 'function') window.fetchWalletData();
     }
 
     function activateProfileTab(targetTab, { scroll = false } = {}) {
@@ -462,8 +430,6 @@ Object.assign(window, {
     setAvatarSrc,
     buildProfileTabHeader,
     showInlineFeedback,
-    updateSecurityContactDisplays,
-    showToast,
     initTheme,
     isMobileProfileLayout,
     setProfileDrawerOpen,

@@ -51,6 +51,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentUserId = window.profileCurrentUserId;
     let currentUser = window.profileCurrentUser;
 
+    const ordersListTbody = document.getElementById('orders-list-tbody');
+    const ordersPaginationEl = document.getElementById('orders-pagination');
+    const ORDERS_PER_PAGE = 10;
+    let ordersCurrentPage = 1;
 
     // =================================================================
     // ৫.৯ অর্ডার টেবিল হেল্পার (Status, Actions, Row Builder)
@@ -333,7 +337,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 closeOrderActionModal();
                 showOrderActionSuccess(data.message || 'Request processed successfully.');
                 await fetchUserOrders();
-                await fetchDashboardStats();
+                if (typeof window.fetchDashboardStats === 'function') {
+                    await window.fetchDashboardStats();
+                }
             } else {
                 showToast(data.message || 'Request failed. Please try again.', 'danger');
             }
@@ -508,6 +514,9 @@ document.addEventListener('DOMContentLoaded', () => {
             renderOrdersPagination(null);
         }
     }
+
+    window.buildOrderRowHtml = buildOrderRowHtml;
+    window.fetchUserOrders = fetchUserOrders;
 
     if (ordersPaginationEl) {
         ordersPaginationEl.addEventListener('click', (e) => {
