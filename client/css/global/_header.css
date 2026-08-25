@@ -1,0 +1,1066 @@
+/* --- ২. প্রফেশনাল মেইন হেডার (ডেস্কটপ ও গ্লোবাল লেআউট) --- */
+header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background-color: var(--amazon-dark);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    padding: 4px 0;
+}
+
+.amazon-header {
+    overflow: visible;
+}
+
+.main-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 8px 0 10px;
+    min-height: auto;
+    max-height: none;
+}
+
+.header-row-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 12px;
+    min-height: 40px;
+}
+
+.header-row-search {
+    width: 100%;
+    margin-top: 8px;
+}
+
+/* বাম অংশ: লগো */
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo-box {
+    font-size: 40px;
+    cursor: pointer;
+    color: var(--white);
+    white-space: nowrap;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    line-height: 1;
+    max-height: 44px;
+    overflow: hidden;
+}
+
+.logo-box.has-store-logo {
+    font-size: inherit;
+    max-height: 44px;
+}
+
+/* Tailwind-equivalent logo sizing utilities */
+.h-8 {
+    height: 2rem;
+}
+
+.w-auto {
+    width: auto;
+}
+
+.object-contain {
+    object-fit: contain;
+}
+
+.logo-bold {
+    font-weight: 700;
+}
+
+.logo-light {
+    font-weight: 400;
+    color: var(--amazon-gold);
+}
+
+/* Global image logo normalization (header, footer, layout slots) */
+header img[data-store-logo],
+header .store-brand-logo,
+.logo-box img,
+.footer-logo-text img,
+[data-store-logo-slot]:not(.footer-logo) img {
+    max-height: 36px;
+    width: auto;
+    object-fit: contain;
+}
+
+
+/* Dynamic store logo slots (Admin → Store Branding, injected server-side) */
+.store-logo-static {
+    display: inline-block;
+    vertical-align: middle;
+    max-height: 36px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+.store-logo-static--compact {
+    max-height: 36px;
+    max-width: 130px;
+}
+
+.header-brand-logo .store-logo-static--compact,
+.header-right-brand .store-logo-static--compact,
+.payment-header-right-brand .store-logo-static--compact {
+    max-height: 36px;
+    max-width: 130px;
+}
+
+/* Dark amazon header — white pill behind uploaded logo */
+.amazon-header .logo-box:has(.store-brand-logo),
+.amazon-header .logo-box:has(.store-brand-text-fallback),
+.amazon-header .logo-box[data-store-logo-slot] {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 2px 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+    align-self: center;
+}
+
+a[data-store-logo-slot] {
+    text-decoration: none;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Global uploaded store logo (Admin → Store Branding) */
+.store-brand-logo,
+img[data-store-logo] {
+    display: inline-block;
+    vertical-align: middle;
+    max-height: 36px;
+    max-width: 140px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+.amazon-header .logo-box .store-brand-logo,
+.amazon-header .logo-box img[data-store-logo] {
+    max-height: 36px;
+    max-width: 140px;
+}
+
+.store-brand-text-fallback {
+    display: inline-block;
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: #1f2937;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.amazon-header .store-brand-text-fallback {
+    color: #1f2937;
+}
+
+.logo-box.has-store-brand-text,
+.logo-area.has-store-brand-text,
+.footer-logo-text.has-store-brand-text {
+    font-size: inherit;
+}
+
+/* Legacy SVG fallback styles — admin panel only */
+.store-brand-svg {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+    flex-shrink: 0;
+    max-width: 100%;
+}
+
+.store-brand-svg__graphic,
+.store-brand-svg svg {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.store-brand-svg--navbar .store-brand-svg__graphic,
+.store-brand-svg--navbar svg {
+    max-height: 45px;
+    max-width: 230px;
+}
+
+.store-brand-svg--compact .store-brand-svg__graphic,
+.store-brand-svg--compact svg {
+    max-height: 28px;
+    max-width: 120px;
+}
+
+.store-brand-svg--nav .store-brand-svg__graphic,
+.store-brand-svg--nav svg {
+    max-height: 30px;
+    max-width: 130px;
+}
+
+.store-brand-svg--footer .store-brand-svg__graphic,
+.store-brand-svg--footer svg {
+    max-height: 36px;
+    max-width: 200px;
+}
+
+.store-brand-svg--track .store-brand-svg__graphic,
+.store-brand-svg--track svg {
+    max-height: 38px;
+    max-width: 210px;
+}
+
+/* Compact headers: icon + primary wordmark only */
+.store-brand-svg--compact .logo-svg-type-top,
+.store-brand-svg--compact .logo-svg-subtext,
+.store-brand-svg--nav .logo-svg-type-top,
+.store-brand-svg--nav .logo-svg-subtext {
+    display: none;
+}
+
+/* Dark amazon header — light pill for text fallback on dark bar */
+.amazon-header .logo-box:has(.store-brand-text-fallback),
+.amazon-header .logo-box.has-store-brand-text {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 4px 10px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.logo-box.has-store-brand-text {
+    font-size: inherit;
+}
+
+.logo-box.has-store-logo,
+.logo-box .store-brand-logo {
+    max-height: 36px;
+    max-width: 140px;
+}
+
+.header-brand-logo.has-store-logo,
+.header-brand-logo .store-brand-logo {
+    max-height: 36px;
+    max-width: 140px;
+}
+
+.brand-logo-text.has-store-logo,
+.header-right-brand.has-store-logo {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.nav-logo.has-store-logo .store-brand-logo {
+    max-height: 36px;
+}
+
+.payment-header-right-brand.has-store-logo,
+.payment-header-right-brand .store-brand-logo {
+    max-height: 36px;
+    max-width: 140px;
+}
+
+.footer-logo-text.has-store-logo,
+.footer-logo-text .store-brand-logo {
+    max-height: 36px;
+    max-width: 160px;
+}
+
+.logo-area.has-store-logo,
+.logo-area .store-brand-logo {
+    max-height: 36px;
+    max-width: 180px;
+}
+
+.checkout-step-header__brand.has-store-logo .store-brand-logo,
+.checkout-step-header__brand .store-brand-logo,
+.checkout-step-header__brand img[data-store-logo] {
+    max-height: 28px;
+    max-width: 120px;
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.store-brand-text-fallback,
+.store-brand-fallback {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    color: inherit;
+    font-weight: 700;
+}
+
+.logo-area .store-brand-text-fallback,
+.logo-area .store-brand-fallback {
+    margin: 0;
+    color: inherit;
+}
+
+a.header-brand-logo,
+a.header-right-brand,
+a.payment-header-right-brand,
+a.checkout-step-header__brand,
+a.nav-logo,
+a.logo-area {
+    text-decoration: none;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+}
+
+.menu-toggle {
+    display: none; /* ডেস্কটপে মোবাইল মেনু বাটন হাইд থাকবে */
+    color: var(--white);
+    font-size: 24px;
+    cursor: pointer;
+}
+
+/* মাঝের অংশ: সার্চ বক্স কন্টেইনার */
+.nav-fill {
+    flex: 1;
+    max-width: 700px;
+}
+
+.search-box-container {
+    display: flex;
+    width: 100%;
+    height: 38px;
+    border-radius: 4px;
+    overflow: hidden;
+    background-color: var(--white);
+    transition: box-shadow 0.2s;
+}
+
+.main-nav .search-box-container {
+    flex: 1;
+    min-width: 0;
+}
+
+.search-box-container:focus-within {
+    box-shadow: 0 0 0 2px var(--amazon-orange);
+}
+
+.search-category {
+    background-color: #f3f3f3;
+    border: none;
+    padding: 0 10px;
+    font-size: 14px;
+    cursor: pointer;
+    outline: none;
+    min-width: 140px;
+    max-width: 220px;
+}
+
+.search-input {
+    flex: 1;
+    border: none;
+    padding: 0 5px;
+    font-size: 15px;
+    outline: none;
+}
+
+.search-submit-btn {
+    background-color: var(--amazon-gold);
+    border: none;
+    width: 45px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.2s;
+}
+
+.search-submit-btn:hover {
+    background-color: #f3a847;
+}
+
+/* ডান অংশ: ইউজার অ্যাকাউন্ট এবং কার্ট */
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    color: var(--white);
+    padding-right: 10px;
+}
+
+.nav-lang {
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.lang-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    flex-shrink: 0;
+}
+
+.amazon-header .lang-toggle {
+    color: var(--white);
+}
+
+.lang-toggle:hover {
+    border-color: currentColor;
+}
+
+.lang-toggle--auth,
+.lang-toggle--standalone {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 1000;
+    color: #232f3e;
+    border-color: #ddd;
+    background: #fff;
+}
+
+.lang-toggle--auth:hover,
+.lang-toggle--standalone:hover {
+    border-color: #232f3e;
+}
+
+.nav-user-account {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    cursor: pointer;
+    gap: 8px;
+}
+
+.nav-user-avatar-img {
+    display: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.nav-user-avatar-img.is-visible {
+    display: block;
+}
+
+.nav-line-1 {
+    font-size: 12px;
+    color: #cccccc;
+}
+
+.nav-line-2 {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* Signed-in navbar name: full name on desktop, first name on mobile */
+.nav-user-account.is-authed .nav-line-1 {
+    display: none !important;
+}
+
+.nav-user-account.is-authed .nav-user-text-wrapper {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+}
+
+.nav-user-account.is-authed .nav-user-display-name {
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+}
+
+
+
+
+
+/* কার্ট বক্স ডিজাইন */
+.nav-cart-box {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    position: relative;
+    padding: 5px;
+}
+
+.nav-cart-icon-wrapper,
+.cart-icon-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.cart-count {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background-color: var(--amazon-orange);
+    color: var(--white);
+    font-size: 12px;
+    font-weight: bold;
+    border-radius: 50%;
+    padding: 2px 6px;
+    min-width: 18px;
+    text-align: center;
+}
+
+.cart-text {
+    font-size: 14px;
+    font-weight: bold;
+    margin-top: 8px;
+}
+
+
+/* ==========================================================================
+   🛒 কার্ট ফ্লাই অ্যানিমেশন ও প্রিমিয়াম টোস্ট নোটিফিকেশন সিএসএস
+   ========================================================================== */
+.flying-cart-asset {
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    transition: all 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.flying-cart-asset img {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.flying-cart-asset .emoji-fly {
+    font-size: 50px;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+}
+
+.flying-cart-asset .text-fly {
+    background: #f4f4f4;
+    color: #666;
+    font-weight: bold;
+    font-size: 12px;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+/* ==========================================================================
+   🎯 প্রোডাক্ট কার্ডের লাইভ নোটিফিকেশন সিএসএস (In-Card Notification)
+   ========================================================================== */
+.card-toast {
+    position: absolute;
+    bottom: 60px;
+    left: 5%;
+    right: 5%;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    color: #fff;
+    z-index: 10;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    pointer-events: none;
+}
+
+.card-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.card-toast.success {
+    background: rgba(46, 204, 113, 0.95);
+    border: 1px solid #2ecc71;
+}
+
+.card-toast.warning {
+    background: rgba(243, 156, 18, 0.95);
+    border: 1px solid #f39c12;
+}
+
+/* ==========================================================================
+   ৪. রেসপনসিভ মিডিয়া কোয়েরি (মোবাইল ও ট্যাবলেট ফ্লেক্সবক্স লেআউট)
+   ========================================================================== */
+
+/* --- Desktop: single horizontal row [Logo | Search | Profile | Cart] --- */
+
+
+/* --- Mobile: 2-row layout [Logo + Actions] / [Full-width Search] --- */
+
+
+/* --- Standard smartphone refinements --- */
+
+
+/* --- Ultra-small screens --- */
+
+
+
+/* ==========================================================================
+   Amazon-style left hamburger drawer (☰ All)
+   Canonical styles live in /css/sidebar.css (load after this file).
+   Rules below remain as a fallback for pages that have not linked sidebar.css.
+   ========================================================================== */
+.nav-all-btn {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: var(--white);
+    font-size: 14px;
+    font-weight: 700;
+    font-family: inherit;
+    padding: 4px 9px;
+    cursor: pointer;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.nav-all-btn:hover,
+.nav-all-btn:focus-visible {
+    border-color: var(--white);
+    outline: none;
+}
+
+#categoryButtonContainer .nav-all-btn.nav-category-item {
+    border-radius: 3px;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 4px 9px;
+    gap: 6px;
+}
+
+.nav-all-btn__icon {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    width: 14px;
+    height: 12px;
+}
+
+.nav-all-btn__icon span {
+    display: block;
+    height: 2px;
+    width: 100%;
+    background: currentColor;
+    border-radius: 1px;
+}
+
+.nav-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10040;
+    background: rgba(0, 0, 0, 0.55);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.28s ease, visibility 0.28s ease;
+    pointer-events: none;
+}
+
+.nav-drawer-backdrop.is-visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.nav-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 10050;
+    width: min(365px, 86vw);
+    max-width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    background: #fff;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.28);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(-105%);
+    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: auto;
+    overflow: hidden;
+}
+
+.nav-drawer.is-open {
+    transform: translateX(0);
+}
+
+body.nav-drawer-open {
+    overflow: hidden;
+}
+
+.nav-drawer__header {
+    position: relative;
+    flex-shrink: 0;
+    background: var(--amazon-light);
+    color: #fff;
+    padding: 12px 12px 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 56px;
+    z-index: 3;
+}
+
+.nav-drawer__greeting {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    flex: 1;
+    min-width: 0;
+}
+
+.nav-drawer__avatar-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: inherit;
+    text-decoration: none;
+    border-radius: 50%;
+    line-height: 0;
+}
+
+.nav-drawer__avatar-link:hover .nav-drawer__avatar-fallback,
+.nav-drawer__avatar-link:focus-visible .nav-drawer__avatar-fallback {
+    color: #febd69;
+}
+
+.nav-drawer__avatar-link:focus-visible {
+    outline: 2px solid #febd69;
+    outline-offset: 2px;
+}
+
+.nav-drawer__avatar-wrap {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-drawer__avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    display: none;
+}
+
+.nav-drawer__avatar.is-visible {
+    display: block;
+}
+
+.nav-drawer__avatar-fallback {
+    font-size: 28px;
+    line-height: 1;
+    color: #fff;
+}
+
+.nav-drawer__avatar.is-visible + .nav-drawer__avatar-fallback {
+    display: none;
+}
+
+.nav-drawer__greeting-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    pointer-events: none;
+    user-select: none;
+}
+
+.nav-drawer__name--full {
+    display: none;
+}
+
+.nav-drawer__name--short {
+    display: inline;
+}
+
+
+
+/* Close (✕) inside dark header — hidden while drawer closed */
+.nav-drawer__close,
+#navDrawerCloseBtn {
+    display: none;
+    flex-shrink: 0;
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    margin: 0;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: transparent;
+    color: #fff;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    z-index: 5;
+    text-shadow: none;
+    pointer-events: none;
+}
+
+.nav-drawer.is-open .nav-drawer__close,
+.nav-drawer.is-open #navDrawerCloseBtn {
+    display: inline-flex;
+    pointer-events: auto;
+}
+
+.nav-drawer__close:hover,
+.nav-drawer__close:focus-visible {
+    color: #febd69;
+    outline: none;
+}
+
+.nav-drawer__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+    background: #fff;
+}
+
+.nav-drawer__panels {
+    position: relative;
+    height: 100%;
+    width: 100%;
+}
+
+.nav-drawer__panel {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: #fff;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    -webkit-overflow-scrolling: touch;
+}
+
+.nav-drawer__panel--main {
+    transform: translateX(0);
+    z-index: 1;
+}
+
+.nav-drawer__panel--sub {
+    transform: translateX(100%);
+    z-index: 2;
+}
+
+.nav-drawer.is-sub-open .nav-drawer__panel--main {
+    transform: translateX(-30%);
+}
+
+.nav-drawer.is-sub-open .nav-drawer__panel--sub {
+    transform: translateX(0);
+}
+
+.nav-drawer__section-title {
+    margin: 0;
+    padding: 16px 20px 10px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #111;
+    border-bottom: 1px solid #eee;
+}
+
+.nav-drawer__list {
+    list-style: none;
+    margin: 0;
+    padding: 6px 0 18px;
+}
+
+.nav-drawer__item {
+    display: flex;
+    align-items: stretch;
+    min-height: 44px;
+}
+
+.nav-drawer__link,
+.nav-drawer__expand {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    color: #111;
+    font-size: 14px;
+    font-family: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    gap: 12px;
+    transition: background 0.15s ease;
+}
+
+.nav-drawer__dept-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+    display: block;
+}
+
+.nav-drawer__dept-avatar--fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    line-height: 1;
+    background: color-mix(in srgb, var(--cat-color, #f97316) 13%, transparent);
+    border: 2px solid var(--cat-color, #f97316);
+}
+
+.nav-drawer__dept-avatar--fallback[hidden] {
+    display: none !important;
+}
+
+.nav-drawer__dept-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+    color: #1e293b;
+}
+
+.nav-drawer__link:hover,
+.nav-drawer__expand:hover,
+.nav-drawer__link:focus-visible,
+.nav-drawer__expand:focus-visible {
+    background: #f8fafc;
+    outline: none;
+}
+
+.nav-drawer__expand {
+    font-weight: 500;
+}
+
+.nav-drawer__chevron {
+    color: #94a3b8;
+    font-size: 12px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.nav-drawer__back {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 14px 20px;
+    border: none;
+    border-bottom: 1px solid #d5dbdb;
+    background: #fff;
+    color: #111;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.nav-drawer__back:hover,
+.nav-drawer__back:focus-visible {
+    background: #eaeded;
+    outline: none;
+}
+
+.nav-drawer__back i {
+    font-size: 12px;
+    color: #555;
+}
+
+.nav-drawer__sub-title {
+    margin: 0;
+    padding: 14px 20px 8px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #111;
+}
+
+.nav-drawer__divider {
+    height: 1px;
+    background: #d5dbdb;
+    margin: 8px 0;
+}
+
+.nav-drawer__footer-link {
+    display: block;
+    padding: 14px 20px 20px;
+    color: #111;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.nav-drawer__footer-link:hover {
+    color: var(--amazon-orange);
+    background: #eaeded;
+}
+
+.nav-drawer__empty {
+    padding: 20px;
+    color: #666;
+    font-size: 14px;
+}

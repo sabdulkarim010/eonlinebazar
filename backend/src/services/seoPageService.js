@@ -13,6 +13,7 @@ const Category = require('../models/category');
 const Admin = require('../models/admin');
 const { ROLES } = require('../config/permissions');
 const { applyBrandingToHtml } = require('../utils/brandingHtml');
+const { injectSharedPartials } = require('../utils/injectSharedPartials');
 const { DEFAULT_SETTINGS } = require('./storeSettingsService');
 const {
     generateMetaTags,
@@ -43,7 +44,7 @@ async function fetchOrganizationContact() {
 }
 
 function readClientHtml(filename) {
-    return fs.readFileSync(path.join(CLIENT_DIR, filename), 'utf8');
+    return injectSharedPartials(fs.readFileSync(path.join(CLIENT_DIR, filename), 'utf8'));
 }
 
 function sendBrandedHtml(res, filename, settings) {

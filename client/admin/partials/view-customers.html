@@ -1,0 +1,69 @@
+<section id="view-customers" class="admin-section" style="display: none;">
+                <div class="table-container customers-table-container">
+                    <div class="table-header customers-table-header">
+                        <h3 id="table-title">All Registered Customers</h3>
+                        <div class="customers-toolbar">
+                            <div class="search-box customers-search-box">
+                                <span class="search-icon" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                <input type="search" id="customerSearchInput" placeholder="Search by name, email, phone, or ID..." autocomplete="off" aria-label="Search customers">
+                            </div>
+                        </div>
+                        <div class="customer-segment-tabs" id="customerSegmentTabs">
+                            <button type="button" class="segment-tab active" data-segment="all">All Customers</button>
+                            <button type="button" class="segment-tab" data-segment="vip">👑 VIP / Top Buyers</button>
+                            <button type="button" class="segment-tab" data-segment="frequent">Frequent Buyers</button>
+                            <button type="button" class="segment-tab" data-segment="inactive">Inactive / No Orders</button>
+                        </div>
+                    </div>
+                    <div class="customers-table-scroll">
+                        <table class="data-table customers-table">
+                            <thead class="customers-table-head">
+                                <tr>
+                                    <th class="customers-th customers-th--check no-print">
+                                        <input type="checkbox" id="customers-select-all" onchange="toggleSelectAllCustomers(this)" aria-label="Select all customers on this page">
+                                    </th>
+                                    <th class="customers-th">User ID</th>
+                                    <th class="customers-th">Full Name</th>
+                                    <th class="customers-th">Email Address</th>
+                                    <th class="customers-th">Mobile Contact</th>
+                                    <th class="customers-th customers-th--num">Orders</th>
+                                    <th class="customers-th customers-th--num">Total Spent</th>
+                                    <th class="customers-th">Segment</th>
+                                    <th class="customers-th">Account Status</th>
+                                    <th class="customers-th customers-th--actions">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customerTableBody" class="customers-table-body">
+                                <tr><td colspan="10" class="loading-container"><div class="spinner"></div><p>Loading customers...</p></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="customers-bulk-toolbar" id="customers-bulk-toolbar" style="display:none">
+                        <span id="customers-selected-count">0 selected</span>
+                    </div>
+                    <div class="apg-wrapper no-print">
+                        <div class="apg-left">
+                            Show
+                            <select class="apg-limit-select" id="customer-pg-limit"
+                                    onchange="customerPg.changeLimit(this.value)">
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                            </select>
+                            entries &nbsp;|&nbsp;
+                            <span class="apg-info" id="customer-pg-info"></span>
+                        </div>
+                        <div class="apg-center" id="customer-pg-btns"></div>
+                        <div class="apg-right">
+                            Go to:
+                            <input type="number" class="apg-jump-input" id="customer-pg-jump" min="1"
+                                   onkeydown="if(event.key==='Enter') customerPg.goTo(+this.value)">
+                            <button type="button" class="apg-btn"
+                                    onclick="customerPg.goTo(+document.getElementById('customer-pg-jump').value)">
+                                Go
+                            </button>
+                            <span class="apg-info">Total: <strong id="customer-total-count">0</strong></span>
+                        </div>
+                    </div>
+                </div>
+            </section>

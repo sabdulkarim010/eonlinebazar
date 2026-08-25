@@ -1,0 +1,66 @@
+            <header class="top-header">
+                <div class="header-search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="adminSearchInput" placeholder="Search customers, orders, or products...">
+                </div>
+                <div class="header-actions">
+                    <div class="header-datetime">
+                        <div class="datetime-inline">
+                            <button type="button" id="current-date" class="date-display" title="Click to pick a date">
+                                <i class="fa-regular fa-calendar"></i>
+                                <span id="dateText">Loading date...</span>
+                                <i class="fa-solid fa-caret-down date-caret"></i>
+                            </button>
+                            <span class="datetime-separator" aria-hidden="true"></span>
+                            <span id="live-clock" class="live-clock" title="Live time">
+                                <i class="fa-regular fa-clock"></i>
+                                <span id="clockText">--:--:--</span>
+                            </span>
+                        </div>
+                        <input type="date" id="hiddenDatePicker" class="hidden-date-input" aria-label="Pick a date">
+                    </div>
+                    <button type="button" id="refreshDataBtn" class="sync-btn"><i class="fa-solid fa-rotate"></i> Sync Data</button>
+                    <button id="themeModeBtn" onclick="toggleAdminTheme()" title="Switch to Light Mode"
+                      style="
+                        width: 44px; height: 44px;
+                        border-radius: 50%;
+                        border: 2px solid #2d3748;
+                        background: #161b27;
+                        cursor: pointer;
+                        display: flex; align-items: center; justify-content: center;
+                        font-size: 20px;
+                        transition: all 0.3s;
+                        color: #f1f5f9;"
+                      onmouseover="this.style.borderColor='#f97316';this.style.transform='rotate(20deg)'"
+                      onmouseout="this.style.borderColor=document.documentElement.getAttribute('data-theme')==='light'?'#e2e8f0':'#2d3748';this.style.transform='rotate(0deg)'">
+                      🌙
+                    </button>
+                    <div class="admin-notif-bell-wrap" id="adminNotifBellWrap">
+                        <button type="button" id="adminNotifBellBtn" class="admin-notif-bell-btn" title="Notifications" aria-label="Notifications">
+                            <span class="admin-notif-bell-icon" aria-hidden="true">🔔</span>
+                            <span class="admin-notif-bell-count" id="adminNotifBellCount" hidden>0</span>
+                        </button>
+                        <div class="admin-notif-dropdown" id="adminNotifDropdown" hidden>
+                            <div class="admin-notif-dropdown-head">
+                                <strong>Notifications</strong>
+                                <button type="button" id="adminNotifMarkAllRead" class="admin-notif-mark-read">Mark all read</button>
+                            </div>
+                            <div class="admin-notif-dropdown-list" id="adminNotifDropdownList">
+                                <p class="admin-notif-empty">No notifications yet</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="whatsapp-alert-badge-wrap" id="whatsappAlertBadgeWrap" style="display: none;">
+                        <button type="button" id="whatsappAlertBadgeBtn" class="whatsapp-alert-badge-btn" title="Pending WhatsApp order alerts">
+                            <i class="fa-brands fa-whatsapp"></i>
+                            <span class="whatsapp-alert-badge-count" id="whatsappAlertBadgeCount">0</span>
+                        </button>
+                        <div class="whatsapp-alert-dropdown" id="whatsappAlertDropdown" style="display: none;"></div>
+                    </div>
+                </div>
+            </header>
+
+<div class="page-title-block">
+                <h1 id="page-main-title">Dashboard Overview</h1>
+                <p id="page-sub-title">Real-time monitoring engine for EonlineBazar platform.</p>
+            </div>

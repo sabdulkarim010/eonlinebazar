@@ -1,0 +1,151 @@
+        <!-- ═══ SECTION 6: PROFILE SETTINGS ═══ -->
+        <section id="profile-info" class="tab-content">
+            <div class="profile-card-panel">
+            <header class="profile-tab-header">
+                <a href="/profile" class="btn-back-icon profile-tab-header__back" data-navigate-tab="dashboard-overview" aria-label="Go Back" title="Back to Dashboard">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </a>
+                <div class="profile-tab-header__icon profile-card-icon" aria-hidden="true"><i class="fa-regular fa-user"></i></div>
+                <div class="profile-tab-header__text">
+                    <h2 class="profile-tab-header__title">Profile Settings</h2>
+                    <p class="profile-tab-header__subtitle">Keep your account complete and up to date. Saved details auto-fill at checkout.</p>
+                </div>
+            </header>
+
+            <div class="profile-card profile-settings-card card">
+                <div class="profile-card-body">
+                    <form id="profile-form" class="profile-settings-form" novalidate>
+
+                        <div class="profile-form-section">
+                            <div class="profile-section-header">
+                                <div class="profile-section-icon profile-card-icon" aria-hidden="true">
+                                    <i class="fa-regular fa-id-card"></i>
+                                </div>
+                                <div class="profile-section-copy">
+                                    <h3>Personal Information</h3>
+                                    <p>Name, contact details, and optional demographic info for your account.</p>
+                                </div>
+                            </div>
+
+                            <div class="profile-settings-grid form-grid profile-form-grid">
+                                <div class="profile-field input-group">
+                                    <label for="profile-name" class="profile-field-label">Full Name</label>
+                                    <div class="profile-input-wrap input-wrapper">
+                                        <i class="fa-regular fa-user profile-input-icon input-icon"></i>
+                                        <input type="text" id="profile-name" class="profile-input" required placeholder="Enter your full name" autocomplete="name">
+                                    </div>
+                                </div>
+
+                                <div class="profile-field input-group">
+                                    <label for="profile-email" class="profile-field-label">Email Address <span class="field-tag readonly badge-readonly">Read Only</span></label>
+                                    <div class="profile-input-wrap input-wrapper input-wrapper--disabled">
+                                        <i class="fa-regular fa-envelope profile-input-icon input-icon"></i>
+                                        <input type="email" id="profile-email" class="profile-input readonly-field" readonly title="Email cannot be changed" autocomplete="email">
+                                    </div>
+                                </div>
+
+                                <div class="profile-field input-group">
+                                    <label for="profile-phone" class="profile-field-label">Phone Number <span class="field-tag security badge-readonly">Security</span></label>
+                                    <div class="profile-input-wrap input-wrapper input-wrapper--disabled">
+                                        <i class="fa-solid fa-phone profile-input-icon input-icon"></i>
+                                        <input type="tel" id="profile-phone" class="profile-input readonly-field" readonly title="Update phone via Security tab" autocomplete="tel">
+                                    </div>
+                                    <small class="profile-field-hint">Change your phone number under <strong>Security</strong> with OTP verification.</small>
+                                </div>
+
+                                <div class="profile-field input-group">
+                                    <label for="profile-gender" class="profile-field-label">Gender</label>
+                                    <div class="profile-input-wrap input-wrapper select-wrapper">
+                                        <i class="fa-solid fa-venus-mars profile-input-icon input-icon"></i>
+                                        <select id="profile-gender" class="profile-input" aria-label="Gender">
+                                            <option value="">Select Gender</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="profile-field input-group">
+                                    <label for="profile-dob" class="profile-field-label">Date of Birth</label>
+                                    <div class="profile-input-wrap input-wrapper">
+                                        <i class="fa-regular fa-calendar profile-input-icon input-icon"></i>
+                                        <input type="date" id="profile-dob" class="profile-input" aria-label="Date of birth">
+                                    </div>
+                                    <small class="profile-field-hint">Optional — helps us tailor offers and improve store analytics.</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="profile-form-divider" role="separator" aria-hidden="true"></div>
+
+                        <div class="profile-form-section">
+                            <div class="profile-section-header">
+                                <div class="profile-section-icon profile-section-icon--location profile-card-icon" aria-hidden="true">
+                                    <i class="fa-solid fa-truck-fast"></i>
+                                </div>
+                                <div class="profile-section-copy">
+                                    <h3>Shipping &amp; Location Details</h3>
+                                    <p>Your default delivery address used for orders and shipping fee calculation.</p>
+                                </div>
+                            </div>
+
+                            <div class="profile-settings-grid form-grid profile-form-grid">
+                                <div class="profile-field input-group">
+                                    <label for="district-search-input" class="profile-field-label">District <span class="field-tag autofill badge-primary">Auto-fill ready</span></label>
+                                    <div class="profile-input-wrap input-wrapper district-search-wrapper">
+                                        <i class="fa-solid fa-map profile-input-icon input-icon"></i>
+                                        <div class="district-search-wrapper">
+                                            <input
+                                                type="text"
+                                                id="district-search-input"
+                                                class="profile-input district-search-input"
+                                                placeholder="Search district..."
+                                                autocomplete="off"
+                                            >
+                                            <div id="district-dropdown-list" class="district-dropdown-list"></div>
+                                            <input type="hidden" id="district" name="district">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="profile-field input-group">
+                                    <label for="profile-upazila" class="profile-field-label">Upazila / Thana</label>
+                                    <div class="profile-input-wrap input-wrapper select-wrapper">
+                                        <i class="fa-solid fa-location-crosshairs profile-input-icon input-icon"></i>
+                                        <select id="profile-upazila" class="profile-input" required disabled>
+                                            <option value="">Select upazila / thana</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="profile-field full-width input-group full-width">
+                                    <label for="profile-full-address" class="profile-field-label">Full Address / Village / Street</label>
+                                    <div class="profile-input-wrap input-wrapper text-area-wrapper">
+                                        <i class="fa-solid fa-location-dot profile-input-icon input-icon"></i>
+                                        <textarea id="profile-full-address" class="profile-input" rows="3" placeholder="House, road, village, area, post office details"></textarea>
+                                    </div>
+                                    <small class="profile-field-hint">Saved district and upazila will auto-fill on checkout for delivery fee calculation.</small>
+                                </div>
+
+                                <div class="profile-field full-width input-group full-width legacy-address-group" style="display:none;">
+                                    <label for="profile-address" class="profile-field-label">Legacy Address Snapshot</label>
+                                    <div class="profile-input-wrap input-wrapper text-area-wrapper">
+                                        <i class="fa-solid fa-location-dot profile-input-icon input-icon"></i>
+                                        <textarea id="profile-address" class="profile-input" rows="2" readonly></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions profile-form-actions">
+                            <button type="submit" class="save-profile-btn btn btn-primary btn-profile-save" id="save-profile-btn">
+                                <i class="fa-regular fa-floppy-disk"></i>
+                                <span>Update Profile</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            </div>
+        </section>

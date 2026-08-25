@@ -1,0 +1,61 @@
+<div id="toast-container" class="toast-wrapper"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="js/session-guard.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/stockAlert.js"></script>
+<script src="js/productThumbnail.js"></script>
+<script src="js/variantUtils.js"></script>
+<script src="js/cartDisplayUtils.js"></script>
+<script src="js/cart.js"></script>
+<script src="js/invoiceDownload.js"></script>
+<script>
+  // Chat service URL: runtime/Vite env → production Render → local ecommerce-chat
+  (function () {
+    var host = location.hostname || '';
+    var isProd = /(^|\.)eonlinebazar\.com$/i.test(host);
+    if (!window.CHAT_API_URL) {
+      var env = window.__ENV__ || window.__RUNTIME_CONFIG__ || {};
+      var fromEnv =
+        window.VITE_API_URL ||
+        env.VITE_API_URL ||
+        env.CHAT_API_URL ||
+        env.API_URL;
+      if (fromEnv) {
+        window.CHAT_API_URL = String(fromEnv).replace(/\/$/, '');
+      } else {
+        window.CHAT_API_URL = isProd
+          ? 'https://eonlinebazar.com/chat-api'
+          : 'http://localhost:5001';
+      }
+    }
+
+    // Production assets on main domain; local from chat server :5001
+    var assetBase = isProd
+      ? 'https://eonlinebazar.com'
+      : String(window.CHAT_API_URL).replace(/\/$/, '');
+    if (!document.querySelector('link[data-cw-css]')) {
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = assetBase + '/css/chat-widget.css';
+      link.setAttribute('data-cw-css', '1');
+      document.head.appendChild(link);
+    }
+    if (!document.querySelector('script[data-cw-socket]')) {
+      var socketScript = document.createElement('script');
+      socketScript.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
+      socketScript.setAttribute('data-cw-socket', '1');
+      document.head.appendChild(socketScript);
+    }
+    if (!document.getElementById('eob-chat-widget-script')) {
+      var widgetScript = document.createElement('script');
+      widgetScript.id = 'eob-chat-widget-script';
+      widgetScript.src = assetBase + '/js/chat-widget.js';
+      document.head.appendChild(widgetScript);
+    }
+  })();
+</script>
+<script src="js/orderChat.js"></script>
+<script src="js/bd-districts.js"></script>
+<script src="js/bd-upazilas.js"></script>
+<script type="module" src="js/profile.js"></script>

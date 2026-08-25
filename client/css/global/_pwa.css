@@ -1,0 +1,51 @@
+/* --- PWA Install Banner --- */
+#pwa-install-banner {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10000;
+    background: var(--amazon-dark, #131921);
+    color: #fff;
+    padding: 12px 16px;
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.2);
+    animation: pwa-slide-up 0.3s ease-out;
+}
+
+@keyframes pwa-slide-up {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+#pwa-install-banner .pwa-banner-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    max-width: 960px;
+    margin: 0 auto;
+    font-size: 14px;
+}
+
+#pwa-install-banner #pwa-install-btn,
+#pwa-install-banner #pwa-dismiss-btn {
+    border: none;
+    border-radius: 4px;
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+#pwa-install-banner #pwa-install-btn {
+    background: var(--amazon-orange, #f08804);
+    color: #fff;
+    font-weight: bold;
+}
+
+#pwa-install-banner #pwa-dismiss-btn {
+    background: transparent;
+    color: #ccc;
+    border: 1px solid #555;
+}

@@ -1,0 +1,86 @@
+        <!-- ═══ SECTION 1: DASHBOARD ═══ -->
+        <section id="dashboard-overview" class="tab-content active">
+            <div class="profile-card-panel">
+            <header class="profile-tab-header">
+                <a href="/" class="btn-back-icon profile-tab-header__back" aria-label="Go Back" title="Back to Home">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </a>
+                <div class="profile-tab-header__icon profile-card-icon" aria-hidden="true"><i class="fa-solid fa-gauge-high"></i></div>
+                <div class="profile-tab-header__text">
+                    <h2 class="profile-tab-header__title">Welcome Back, <span class="user-display-name">User</span>!</h2>
+                    <p class="profile-tab-header__subtitle">Here's your account overview and recent updates.</p>
+                </div>
+            </header>
+
+            <div class="dashboard-stats-grid">
+                <div class="stat-card orders total-orders">
+                    <span class="stat-card-icon"><i class="fa-solid fa-bag-shopping"></i></span>
+                    <div class="stat-card-value" id="stat-total-orders">0</div>
+                    <div class="stat-card-label">Total Orders</div>
+                </div>
+                <div class="stat-card pending pending-orders">
+                    <span class="stat-card-icon"><i class="fa-solid fa-truck-ramp-box"></i></span>
+                    <div class="stat-card-value" id="stat-pending-orders">0</div>
+                    <div class="stat-card-label">Pending Orders</div>
+                </div>
+                <div class="stat-card wallet available-balance">
+                    <span class="stat-card-icon"><i class="fa-solid fa-money-bill-wave"></i></span>
+                    <div class="stat-card-value" id="stat-wallet-balance">৳0.00</div>
+                    <div class="stat-card-label">Available Balance</div>
+                </div>
+                <div class="stat-card points loyalty-points">
+                    <span class="stat-card-icon"><i class="fa-solid fa-star"></i></span>
+                    <div class="stat-card-value" id="stat-loyalty-points">0</div>
+                    <div class="stat-card-label">Loyalty Points</div>
+                </div>
+            </div>
+
+            <div class="profile-card dashboard-orders-card card">
+                <div class="profile-card-header">
+                    <div class="profile-card-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                    <div>
+                        <h3 class="profile-card-title">Recent Order Activity</h3>
+                        <p class="profile-card-subtitle">Your latest purchases at a glance</p>
+                    </div>
+                </div>
+                <div class="profile-card-body">
+                    <div class="table-responsive orders-table-responsive mt-15">
+                        <table class="orders-table orders-table--responsive recent-orders-table">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Date</th>
+                                    <th>Products</th>
+                                    <th>Total Amount</th>
+                                    <th>Status</th>
+                                    <th class="order-actions-th">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashboard-orders-tbody">
+                                <tr>
+                                    <td colspan="6" class="text-center p-20">
+                                        <i class="fa-solid fa-spinner fa-spin"></i> Loading recent activity...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="overview-skeleton" class="skeleton-container hidden">
+                <div class="skeleton-line title"></div>
+                <div class="skeleton-line paragraph"></div>
+                <div class="skeleton-card"></div>
+            </div>
+
+            <div class="announcement-banner dashboard-announcement" id="dashboard-announcement-card">
+                <span class="announcement-icon"><i class="fa-solid fa-bullhorn"></i></span>
+                <div>
+                    <div class="announcement-title">Latest Announcement</div>
+                    <p class="announcement-text" id="dashboard-announcement-text">Loading the latest offers...</p>
+                    <ul class="perks-strip announcement-highlights" id="dashboard-announcement-highlights"></ul>
+                </div>
+            </div>
+            </div>
+        </section>

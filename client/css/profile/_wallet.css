@@ -1,0 +1,182 @@
+/* =================================================================
+   12. WALLET & POINTS
+   ================================================================= */
+.wallet-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+
+
+.balance-card,
+.balance-display-box {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border-radius: 16px;
+    padding: 24px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.balance-card::before {
+    content: '';
+    position: absolute;
+    width: 150px;
+    height: 150px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 50%;
+    top: -50px;
+    right: -30px;
+}
+
+.balance-label,
+.points-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.balance-amount,
+.main-balance-amount {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: white;
+    line-height: 1;
+    position: relative;
+    z-index: 1;
+}
+
+.points-card,
+.points-display-box {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    border-radius: 16px;
+    padding: 24px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+
+.points-amount,
+.main-points-amount {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: white;
+    line-height: 1;
+}
+
+.points-unit { font-size: 1rem; opacity: 0.8; }
+
+.converter-input-wrap {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.converter-input {
+    flex: 1;
+    padding: 11px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.9rem;
+    outline: none;
+    font-family: inherit;
+}
+
+.converter-input:focus { border-color: var(--primary); }
+
+.convert-btn {
+    padding: 11px 20px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.conversion-rate-text {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    margin-top: 8px;
+}
+
+.cashback-history-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 16px;
+}
+
+.history-item,
+.transaction-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #f8fafc;
+    justify-content: space-between;
+}
+
+.history-item:last-child,
+.transaction-item:last-child { border-bottom: none; }
+
+.history-item.empty {
+    justify-content: center;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.history-icon,
+.transaction-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+    color: var(--primary);
+}
+
+.history-item-main { display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0; }
+
+.history-item-note,
+.transaction-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.history-item-date,
+.transaction-date {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.history-amount,
+.transaction-amount {
+    font-size: 0.9rem;
+    font-weight: 800;
+    white-space: nowrap;
+    color: var(--success);
+}
+
+.history-amount.deduct,
+.transaction-amount.negative { color: var(--danger); }
+.history-amount.refund { color: #b45309; }
+
+.cashback-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}

@@ -1,0 +1,555 @@
+<section id="manage-category" class="admin-section catalog-page" style="display: none;">
+    <div class="catalog-page-header">
+        <div>
+            <h3><i class="fa-solid fa-tags"></i> Manage Categories</h3>
+            <p class="catalog-page-sub">Organize products with hierarchical categories, visuals, and display settings.</p>
+        </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="cat-stats-bar">
+      <div class="cat-stat">
+        <span class="cat-stat-val" id="catTotalCount">0</span>
+        <span class="cat-stat-lbl">Total</span>
+      </div>
+      <div class="cat-stat">
+        <span class="cat-stat-val" id="catActiveCount">0</span>
+        <span class="cat-stat-lbl">Active</span>
+      </div>
+      <div class="cat-stat">
+        <span class="cat-stat-val" id="catFeaturedCount">0</span>
+        <span class="cat-stat-lbl">Featured</span>
+      </div>
+      <div class="cat-stat">
+        <span class="cat-stat-val" id="catNavbarCount">0</span>
+        <span class="cat-stat-lbl">In Navbar</span>
+      </div>
+      <button type="button" class="btn btn-primary btn-sm"
+              onclick="openCategoryModal()">
+        + Add Category
+      </button>
+    </div>
+
+    <!-- Filter/Search -->
+    <div class="cat-filter-bar">
+      <input type="text" id="catSearch"
+             class="cat-search-input"
+             placeholder="🔍 Search categories..."
+             oninput="filterCategories()">
+      <select id="catFilterParent" onchange="filterCategories()">
+        <option value="all">All Types</option>
+        <option value="parent">Parent Only</option>
+        <option value="sub">Sub-categories Only</option>
+      </select>
+      <select id="catFilterStatus" onchange="filterCategories()">
+        <option value="all">All Status</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+    </div>
+
+    <!-- Category Tree/List -->
+    <div id="categoryTree" class="cat-tree">
+      <!-- Rendered by JS -->
+    </div>
+</section>
+
+<section id="manage-brands" class="admin-section catalog-page" style="display: none;">
+    <div class="catalog-page-header">
+        <div>
+            <h3><i class="fa-solid fa-copyright"></i> Manage Brands</h3>
+            <p class="catalog-page-sub">Maintain brand names for catalog filtering and display.</p>
+        </div>
+    </div>
+    <div class="catalog-toolbar">
+        <div class="catalog-add-form">
+            <div class="catalog-field catalog-field-grow">
+                <label for="newBrandName">New Brand Name</label>
+                <input type="text" id="newBrandName" placeholder="e.g., Samsung, Walton, Aarong">
+            </div>
+            <button type="button" onclick="addBrand()" class="btn-submit catalog-add-btn">
+                <i class="fa-solid fa-plus"></i> Add Brand
+            </button>
+        </div>
+    </div>
+    <div class="catalog-table-wrap">
+        <table class="catalog-table">
+            <thead>
+                <tr>
+                    <th class="col-name">Brand Name</th>
+                    <th class="col-date">Date Added</th>
+                    <th class="col-actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="brandTableBody"></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="manage-navbar-links" class="admin-section catalog-page navbar-links-page" style="display: none;">
+    <div class="catalog-page-header">
+        <div>
+            <h3><i class="fa-solid fa-bars"></i> Navbar Menu Links</h3>
+            <p class="catalog-page-sub">Manage top-bar promotional links (e.g. Today&#39;s Deals, Hot Offers). Product categories stay in the ☰ All drawer only.</p>
+        </div>
+    </div>
+
+    <form id="navbarLinkForm" class="navbar-link-form-card" novalidate>
+        <input type="hidden" id="navbarLinkEditId" value="">
+
+        <div class="navbar-link-form-card-head">
+            <div class="navbar-link-form-card-icon" aria-hidden="true">
+                <i class="fa-solid fa-link"></i>
+            </div>
+            <div>
+                <h4 id="navbarLinkFormHeading">Add Navbar Link</h4>
+                <p>Create an external path, site route, or a custom CMS page with rich content.</p>
+            </div>
+        </div>
+
+        <div class="navbar-link-form-grid">
+            <div class="catalog-field">
+                <label for="navbarLinkTitle">Title</label>
+                <input type="text" id="navbarLinkTitle" placeholder="e.g., Today's Deals" maxlength="80" required autocomplete="off">
+            </div>
+            <div class="catalog-field">
+                <label for="navbarLinkSlug">Slug <span class="field-optional">(optional)</span></label>
+                <input type="text" id="navbarLinkSlug" placeholder="auto from title" maxlength="80" autocomplete="off">
+            </div>
+            <div class="catalog-field navbar-link-url-field">
+                <label for="navbarLinkUrl">URL / Path</label>
+                <input type="text" id="navbarLinkUrl" placeholder="e.g., /deals or https://…" maxlength="500" required autocomplete="off">
+                <small class="field-hint" id="navbarLinkUrlHint">External or site-relative path. Auto-set when creating a custom CMS page.</small>
+            </div>
+            <div class="catalog-field">
+                <label for="navbarLinkTarget">Open In</label>
+                <select id="navbarLinkTarget">
+                    <option value="_self">Same tab</option>
+                    <option value="_blank">New tab</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="navbar-link-options-row">
+            <label class="navbar-link-switch" for="navbarLinkPublished">
+                <input type="checkbox" id="navbarLinkPublished" checked>
+                <span class="navbar-link-switch-ui" aria-hidden="true"></span>
+                <span class="navbar-link-switch-copy">
+                    <strong>Published</strong>
+                    <small>Show this link in the storefront top bar</small>
+                </span>
+            </label>
+            <label class="navbar-link-switch navbar-link-switch-accent" for="navbarLinkCustomPage">
+                <input type="checkbox" id="navbarLinkCustomPage">
+                <span class="navbar-link-switch-ui" aria-hidden="true"></span>
+                <span class="navbar-link-switch-copy">
+                    <strong>Create Custom CMS Page for this Link</strong>
+                    <small>Opens the rich text editor and auto-sets <code>/page/…</code></small>
+                </span>
+            </label>
+        </div>
+
+        <div id="navbarLinkCmsPanel" class="navbar-link-cms-panel" hidden>
+            <div class="navbar-link-cms-panel-head">
+                <div>
+                    <h4><i class="fa-solid fa-file-pen"></i> Custom Page Content</h4>
+                    <p>Rich content is saved as a storefront CMS page. Route preview: <code id="navbarLinkRoutePreview">/page/your-slug</code></p>
+                </div>
+                <a id="navbarLinkRouteOpen" class="navbar-link-route-open" href="/page/your-slug" target="_blank" rel="noopener noreferrer">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Preview route
+                </a>
+            </div>
+            <div class="navbar-link-quill-shell">
+                <div id="navbarLinkQuillToolbar" class="navbar-link-quill-toolbar">
+                    <span class="ql-formats">
+                        <select class="ql-font">
+                            <option selected></option>
+                            <option value="serif">Serif</option>
+                            <option value="monospace">Monospace</option>
+                            <option value="arial">Arial</option>
+                            <option value="georgia">Georgia</option>
+                            <option value="tahoma">Tahoma</option>
+                            <option value="verdana">Verdana</option>
+                            <option value="poppins">Poppins</option>
+                            <option value="hind-siliguri">Hind Siliguri</option>
+                        </select>
+                        <select class="ql-size">
+                            <option value="12px">12px</option>
+                            <option value="14px">14px</option>
+                            <option value="16px" selected></option>
+                            <option value="18px">18px</option>
+                            <option value="24px">24px</option>
+                            <option value="32px">32px</option>
+                            <option value="48px">48px</option>
+                        </select>
+                    </span>
+                    <span class="ql-formats">
+                        <button class="ql-bold" type="button"></button>
+                        <button class="ql-italic" type="button"></button>
+                        <button class="ql-underline" type="button"></button>
+                        <button class="ql-strike" type="button"></button>
+                    </span>
+                    <span class="ql-formats">
+                        <select class="ql-color"></select>
+                        <select class="ql-background"></select>
+                    </span>
+                    <span class="ql-formats">
+                        <button class="ql-list" value="ordered" type="button"></button>
+                        <button class="ql-list" value="bullet" type="button"></button>
+                        <select class="ql-align">
+                            <option selected></option>
+                            <option value="center"></option>
+                            <option value="right"></option>
+                            <option value="justify"></option>
+                        </select>
+                    </span>
+                    <span class="ql-formats">
+                        <button class="ql-link" type="button"></button>
+                        <button class="ql-image" type="button"></button>
+                        <button id="navbarLinkHtmlEmbedBtn" type="button" class="ql-html-embed" title="Insert HTML">HTML</button>
+                        <button class="ql-clean" type="button"></button>
+                    </span>
+                </div>
+                <div id="navbarLinkQuillEditor" class="navbar-link-quill-editor" aria-label="Custom page rich text editor"></div>
+            </div>
+            <textarea id="navbarLinkPageHtml" class="sr-only" hidden aria-hidden="true"></textarea>
+        </div>
+
+        <div class="navbar-link-form-actions">
+            <button type="submit" id="navbarLinkSubmitBtn" class="btn-submit navbar-link-save-btn">
+                <i class="fa-solid fa-plus"></i> <span id="navbarLinkSubmitLabel">Add Link</span>
+            </button>
+            <button type="button" id="navbarLinkCancelBtn" class="btn-secondary navbar-link-cancel-btn" style="display:none;" onclick="resetNavbarLinkForm()">
+                Cancel Edit
+            </button>
+        </div>
+    </form>
+
+    <div class="navbar-links-list-head">
+        <h4><i class="fa-solid fa-list-ul"></i> Active Links</h4>
+        <p>Drag order with the arrows. CMS badges open at <code>/page/:slug</code>.</p>
+    </div>
+    <div id="navbarLinkTableBody" class="navbar-links-card-list" role="list"></div>
+</section>
+
+<section id="manage-coupons" class="admin-section catalog-page" style="display: none;">
+    <div class="catalog-page-header">
+        <div>
+            <h3><i class="fa-solid fa-ticket"></i> Manage Coupons</h3>
+            <p class="catalog-page-sub">Create discount codes, set usage limits, and track redemption analytics.</p>
+        </div>
+    </div>
+
+    <form id="couponForm" class="coupon-form-card" novalidate>
+        <input type="hidden" id="couponEditId" value="">
+        <div class="coupon-form-grid">
+            <div class="catalog-field">
+                <label for="couponCode">Coupon Code</label>
+                <input type="text" id="couponCode" placeholder="e.g., EOB10" maxlength="32" required autocomplete="off">
+            </div>
+            <div class="catalog-field">
+                <label for="couponDiscountType">Discount Type</label>
+                <select id="couponDiscountType">
+                    <option value="percentage">Percentage (%)</option>
+                    <option value="flat">Flat Amount</option>
+                </select>
+            </div>
+            <div class="catalog-field">
+                <label for="couponDiscountValue">Discount Value</label>
+                <input type="number" id="couponDiscountValue" min="0" step="0.01" placeholder="e.g., 10" required>
+            </div>
+            <div class="catalog-field">
+                <label for="couponMinOrder">Min Order Amount</label>
+                <input type="number" id="couponMinOrder" min="0" step="1" placeholder="0" value="0">
+            </div>
+            <div class="catalog-field">
+                <label for="couponMaxDiscount">Max Discount <span class="optional-hint">(optional)</span></label>
+                <input type="number" id="couponMaxDiscount" min="0" step="1" placeholder="Cap for % discounts">
+            </div>
+            <div class="catalog-field coupon-limit-field">
+                <label for="couponUsageLimit">Global Usage Limit</label>
+                <input type="number" id="couponUsageLimit" min="1" step="1" placeholder="e.g., 100" required>
+            </div>
+            <div class="catalog-field coupon-limit-field">
+                <label for="couponPerUserLimit">Per-User Limit</label>
+                <input type="number" id="couponPerUserLimit" min="1" step="1" value="1" required>
+            </div>
+            <div class="catalog-field coupon-expiry-field">
+                <label for="couponExpiry">Expiry Date &amp; Time</label>
+                <div class="coupon-expiry-row">
+                    <div class="coupon-input-wrap coupon-input-date">
+                        <i class="fa-regular fa-calendar coupon-field-icon" aria-hidden="true"></i>
+                        <input type="date" id="couponExpiry" required aria-label="Coupon expiry date">
+                    </div>
+                    <div class="coupon-input-wrap coupon-input-time">
+                        <i class="fa-regular fa-clock coupon-field-icon" aria-hidden="true"></i>
+                        <input type="text" id="couponExpiryTime" class="coupon-time-input" inputmode="numeric" placeholder="hh:mm" maxlength="5" required value="11:59" autocomplete="off" aria-label="Coupon expiry time" title="12-hour time (hh:mm, minutes 00–59)">
+                    </div>
+                    <div class="coupon-input-wrap coupon-input-ampm">
+                        <select id="couponExpiryAmPm" aria-label="Coupon expiry AM or PM" required>
+                            <option value="AM">AM</option>
+                            <option value="PM" selected>PM</option>
+                        </select>
+                    </div>
+                </div>
+                <small id="couponExpiryTimeHint" class="coupon-time-hint" aria-live="polite"></small>
+                <small class="optional-hint">Platform timezone · 12-hour clock with AM/PM. Minutes must not exceed 59.</small>
+            </div>
+        </div>
+        <div class="coupon-form-actions">
+            <button type="submit" class="btn-submit catalog-add-btn" id="couponSaveBtn">
+                <i class="fa-solid fa-plus"></i> <span id="couponSaveBtnText">Create Coupon</span>
+            </button>
+            <button type="button" class="btn-secondary coupon-cancel-btn" id="couponCancelBtn" style="display:none;" onclick="resetCouponForm()">
+                Cancel Edit
+            </button>
+        </div>
+    </form>
+
+    <div class="coupon-list-toolbar">
+        <div class="coupon-status-tabs" id="couponStatusTabs" role="tablist" aria-label="Filter coupons by status">
+            <button type="button" class="coupon-status-tab active" data-coupon-filter="all" role="tab" aria-selected="true">All Coupons</button>
+            <button type="button" class="coupon-status-tab" data-coupon-filter="active" role="tab" aria-selected="false">Active</button>
+            <button type="button" class="coupon-status-tab" data-coupon-filter="expired" role="tab" aria-selected="false">Expired</button>
+        </div>
+    </div>
+
+    <div class="catalog-table-wrap coupon-table-wrap coupon-table-scroll">
+        <table class="catalog-table coupon-analytics-table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Discount</th>
+                    <th>Min Order</th>
+                    <th>Usage</th>
+                    <th>Created</th>
+                    <th>Expiry Date &amp; Time</th>
+                    <th>Status</th>
+                    <th class="col-actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="couponTableBody"></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="view-newsletter-subscribers" class="admin-section catalog-page" style="display: none;">
+    <div class="catalog-page-header">
+        <div>
+            <h3><i class="fa-solid fa-users"></i> Newsletter Subscribers</h3>
+            <p class="catalog-page-sub">Manage newsletter subscribers and filter by tags.</p>
+        </div>
+    </div>
+
+    <div class="newsletter-stats-bar" id="newsletterStatsBar">
+        <span class="newsletter-stat-pill"><strong id="nlStatTotal">0</strong> Total</span>
+        <span class="newsletter-stat-pill newsletter-stat-pill--active"><strong id="nlStatActive">0</strong> Active</span>
+        <span class="newsletter-stat-pill newsletter-stat-pill--inactive"><strong id="nlStatInactive">0</strong> Unsubscribed</span>
+    </div>
+
+    <div class="catalog-toolbar newsletter-toolbar">
+        <div class="catalog-field catalog-field-grow">
+            <label for="nlSubscriberSearch">Search</label>
+            <input type="search" id="nlSubscriberSearch" placeholder="Search subscribers...">
+        </div>
+        <div class="catalog-field">
+            <label for="nlSubscriberStatus">Status</label>
+            <select id="nlSubscriberStatus">
+                <option value="">All</option>
+                <option value="true">Active</option>
+                <option value="false">Unsubscribed</option>
+            </select>
+        </div>
+        <div class="catalog-field">
+            <label for="nlSubscriberTag">Tag</label>
+            <input type="text" id="nlSubscriberTag" placeholder="Filter by tag">
+        </div>
+        <button type="button" class="btn-secondary" id="nlSubscriberRefreshBtn"><i class="fa-solid fa-rotate"></i> Refresh</button>
+    </div>
+
+    <div class="catalog-table-wrap coupon-table-wrap coupon-table-scroll">
+        <table class="catalog-table">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Name</th>
+                    <th>Source</th>
+                    <th>Subscribed Date</th>
+                    <th>Status</th>
+                    <th class="col-actions">Action</th>
+                </tr>
+            </thead>
+            <tbody id="nlSubscriberTableBody"></tbody>
+        </table>
+    </div>
+
+    <div class="apg-wrapper">
+        <div class="apg-left">
+            Show
+            <select class="apg-limit-select" id="subscriber-pg-limit"
+                    onchange="subscriberPg.changeLimit(this.value)">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+            </select>
+            entries &nbsp;|&nbsp;
+            <span class="apg-info" id="subscriber-pg-info"></span>
+        </div>
+        <div class="apg-center" id="subscriber-pg-btns"></div>
+        <div class="apg-right">
+            Go to:
+            <input type="number" class="apg-jump-input" id="subscriber-pg-jump" min="1"
+                   onkeydown="if(event.key==='Enter') subscriberPg.goTo(+this.value)">
+            <button type="button" class="apg-btn"
+                    onclick="subscriberPg.goTo(+document.getElementById('subscriber-pg-jump').value)">
+                Go
+            </button>
+            <span class="apg-info">Total: <strong id="subscriber-total-count">0</strong></span>
+        </div>
+    </div>
+</section>
+
+<section id="view-newsletter-campaigns" class="admin-section catalog-page" style="display: none;">
+    <div class="catalog-page-header">
+        <div>
+            <h3><i class="fa-solid fa-paper-plane"></i> Email Campaigns</h3>
+            <p class="catalog-page-sub">Create, test, and send newsletter email campaigns.</p>
+        </div>
+    </div>
+
+    <form id="nlCampaignForm" class="coupon-form-card" novalidate>
+        <input type="hidden" id="nlCampaignEditId" value="">
+        <div class="coupon-form-grid">
+            <div class="catalog-field">
+                <label for="nlCampaignTitle">Campaign Title</label>
+                <input type="text" id="nlCampaignTitle" placeholder="Internal campaign title" required>
+            </div>
+            <div class="catalog-field">
+                <label for="nlCampaignSubject">Email Subject</label>
+                <input type="text" id="nlCampaignSubject" placeholder="Email subject line" required>
+            </div>
+            <div class="catalog-field catalog-field-full">
+                <label for="nlCampaignHtml">Email Content (HTML)</label>
+                <textarea id="nlCampaignHtml" rows="10" placeholder="<h1>Hello!</h1><p>Your offer here...</p>" required></textarea>
+                <small class="optional-hint">Write in HTML format</small>
+            </div>
+            <div class="catalog-field">
+                <label for="nlCampaignTags">Target Tags</label>
+                <input type="text" id="nlCampaignTags" placeholder="vip, sale (comma separated)">
+                <small class="optional-hint">Leave empty to send to all subscribers</small>
+            </div>
+            <div class="catalog-field">
+                <label for="nlCampaignSchedule">Schedule Date (optional)</label>
+                <input type="datetime-local" id="nlCampaignSchedule">
+            </div>
+            <div class="catalog-field">
+                <label for="nlCampaignTestEmail">Test Email Address</label>
+                <input type="email" id="nlCampaignTestEmail" placeholder="preview@example.com">
+            </div>
+        </div>
+        <div class="coupon-form-actions">
+            <button type="button" class="btn-submit catalog-add-btn" id="nlCampaignSaveBtn">
+                <i class="fa-solid fa-floppy-disk"></i> Save Draft
+            </button>
+            <button type="button" class="btn-secondary" id="nlCampaignTestBtn">
+                <i class="fa-solid fa-vial"></i> Send Test
+            </button>
+            <button type="button" class="btn-submit" id="nlCampaignSendBtn" style="background:#16a34a;">
+                <i class="fa-solid fa-paper-plane"></i> Send Now
+            </button>
+        </div>
+    </form>
+
+    <div class="catalog-table-wrap coupon-table-wrap coupon-table-scroll" style="margin-top:24px;">
+        <table class="catalog-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Subject</th>
+                    <th>Status</th>
+                    <th>Recipients</th>
+                    <th>Sent</th>
+                    <th>Created Date</th>
+                    <th class="col-actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="nlCampaignTableBody"></tbody>
+        </table>
+    </div>
+
+    <div class="apg-wrapper">
+        <div class="apg-left">
+            Show
+            <select class="apg-limit-select" id="campaign-pg-limit"
+                    onchange="campaignPg.changeLimit(this.value)">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+            </select>
+            entries &nbsp;|&nbsp;
+            <span class="apg-info" id="campaign-pg-info"></span>
+        </div>
+        <div class="apg-center" id="campaign-pg-btns"></div>
+        <div class="apg-right">
+            Go to:
+            <input type="number" class="apg-jump-input" id="campaign-pg-jump" min="1"
+                   onkeydown="if(event.key==='Enter') campaignPg.goTo(+this.value)">
+            <button type="button" class="apg-btn"
+                    onclick="campaignPg.goTo(+document.getElementById('campaign-pg-jump').value)">
+                Go
+            </button>
+            <span class="apg-info">Total: <strong id="campaign-total-count">0</strong></span>
+        </div>
+    </div>
+
+    <div id="nlCampaignViewModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="nlCampaignViewTitle">
+        <div class="modal-content" style="max-width:720px;">
+            <div class="modal-header">
+                <h3 id="nlCampaignViewTitle">Campaign Preview</h3>
+                <button type="button" class="modal-close" onclick="closeNlCampaignViewModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="nlCampaignViewMeta" class="newsletter-view-meta"></div>
+                <div id="nlCampaignViewHtml" class="newsletter-html-preview"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="manage-attributes" class="admin-section catalog-page" style="display: none;">
+    <div class="catalog-page-header">
+        <div>
+            <h3><i class="fa-solid fa-sliders"></i> Product Attributes</h3>
+            <p class="catalog-page-sub">Define attribute names and values (Size, Color, Material, etc.).</p>
+        </div>
+    </div>
+    <div class="catalog-toolbar">
+        <div class="catalog-add-form catalog-add-form-wide">
+            <div class="catalog-field catalog-field-grow">
+                <label for="newAttributeName">Attribute Name</label>
+                <input type="text" id="newAttributeName" placeholder="e.g., Size, Color, Material" oninput="checkAttributeNameDuplicate()">
+                <p id="attributeNameDuplicateWarn" class="field-inline-warn" role="alert" hidden></p>
+            </div>
+            <div class="catalog-field catalog-field-grow">
+                <label for="newAttributeValues">Values (comma separated)</label>
+                <input type="text" id="newAttributeValues" placeholder="e.g., S, M, L, XL">
+            </div>
+            <button type="button" onclick="addAttribute()" class="btn-submit catalog-add-btn">
+                <i class="fa-solid fa-plus"></i> Add Attribute
+            </button>
+        </div>
+    </div>
+    <div class="catalog-table-wrap">
+        <table class="catalog-table">
+            <thead>
+                <tr>
+                    <th class="col-name">Attribute</th>
+                    <th class="col-values">Values</th>
+                    <th class="col-date">Date Added</th>
+                    <th class="col-actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="attributeTableBody"></tbody>
+        </table>
+    </div>
+</section>

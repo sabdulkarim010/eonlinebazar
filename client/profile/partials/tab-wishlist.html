@@ -1,0 +1,38 @@
+        <!-- ═══ SECTION 3: CART & WISHLIST ═══ -->
+        <section id="my-cart" class="tab-content profile-cart-tab">
+            <div class="profile-card-panel">
+            <header class="profile-tab-header">
+                <a href="/profile" class="btn-back-icon profile-tab-header__back" data-navigate-tab="dashboard-overview" aria-label="Go Back" title="Back to Dashboard">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </a>
+                <div class="profile-tab-header__icon profile-card-icon" aria-hidden="true"><i class="fa-solid fa-bag-shopping"></i></div>
+                <div class="profile-tab-header__text">
+                    <h2 class="profile-tab-header__title">My Cart &amp; Wishlist</h2>
+                    <p class="profile-tab-header__subtitle">Review items in your bag and manage saved favorites.</p>
+                </div>
+            </header>
+
+            <div class="profile-card cart-section-card cart-preview-card profile-cart-full-width card">
+                <div class="profile-card-body">
+                    <div id="cart-items-preview-list" class="cart-preview-list w-full">
+                        <p class="text-center empty-cart-text">Your cart is empty. <a href="/" class="shop-now-link">Shop Now</a></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="profile-card wishlist-section-card card">
+                <div class="profile-card-header wishlist-header wishlist-section-header">
+                    <div class="profile-card-icon"><i class="fa-solid fa-heart"></i></div>
+                    <div>
+                        <h3 class="profile-card-title">My Wishlist</h3>
+                        <p class="profile-card-subtitle">Saved items stay here until you remove them.</p>
+                    </div>
+                </div>
+                <div class="profile-card-body">
+                    <div id="wishlist-items-list" class="wishlist-grid">
+                        <p class="text-center wishlist-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading your wishlist...</p>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </section>

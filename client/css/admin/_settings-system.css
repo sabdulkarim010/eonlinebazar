@@ -1,0 +1,392 @@
+/* EonlineBazar Admin — System settings section cards and confirm dialogs. */
+/* ==================================================================
+   System Settings — premium per-section cards
+================================================================== */
+.system-settings-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
+
+.system-settings-form {
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
+
+.system-settings-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 24px 26px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
+
+.system-settings-card:hover {
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.07), 0 2px 4px rgba(15, 23, 42, 0.04);
+}
+
+.system-settings-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 22px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.system-settings-card-heading h4 {
+    margin: 0 0 6px;
+    font-size: 17px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+}
+
+.system-settings-card-heading .settings-card-sub {
+    margin: 0;
+}
+
+.system-settings-card-icon {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: #fff;
+}
+
+.system-settings-card-icon--blue   { background: linear-gradient(135deg, #3b82f6, #2563eb); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28); }
+.system-settings-card-icon--teal   { background: linear-gradient(135deg, #14b8a6, #0d9488); box-shadow: 0 4px 12px rgba(13, 148, 136, 0.28); }
+.system-settings-card-icon--amber  { background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 4px 12px rgba(217, 119, 6, 0.28); }
+.system-settings-card-icon--green  { background: linear-gradient(135deg, #22c55e, #16a34a); box-shadow: 0 4px 12px rgba(22, 163, 74, 0.28); }
+.system-settings-card-icon--orange { background: linear-gradient(135deg, #fb923c, #ea580c); box-shadow: 0 4px 12px rgba(234, 88, 12, 0.28); }
+.system-settings-card-icon--indigo { background: linear-gradient(135deg, #6366f1, #4f46e5); box-shadow: 0 4px 12px rgba(79, 70, 229, 0.28); }
+.system-settings-card-icon--purple { background: linear-gradient(135deg, #a855f7, #9333ea); box-shadow: 0 4px 12px rgba(147, 51, 234, 0.28); }
+
+.system-settings-card--blue   { border-top: 3px solid #3b82f6; }
+.system-settings-card--teal   { border-top: 3px solid #14b8a6; }
+.system-settings-card--amber  { border-top: 3px solid #f59e0b; }
+.system-settings-card--green  { border-top: 3px solid #22c55e; }
+.system-settings-card--orange { border-top: 3px solid #fb923c; }
+.system-settings-card--red    { border-top: 3px solid #ef4444; }
+.system-settings-card--indigo { border-top: 3px solid #6366f1; }
+.system-settings-card--purple { border-top: 3px solid #a855f7; }
+
+.system-settings-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.system-settings-save-btn {
+    margin: 0;
+    min-width: 200px;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 14px;
+    padding: 11px 22px;
+}
+
+.system-settings-save-btn:disabled,
+.system-settings-save-btn.is-loading {
+    opacity: 0.72;
+    cursor: progress;
+}
+
+.system-settings-card .form-group > label {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    letter-spacing: 0.01em;
+}
+
+.system-settings-card .form-group > input,
+.system-settings-card .form-group > select,
+.system-settings-card .form-group > textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #0f172a;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.system-settings-card .form-group > input::placeholder,
+.system-settings-card .form-group > textarea::placeholder {
+    color: #94a3b8;
+    opacity: 1;
+}
+
+.system-settings-card .form-group > input:focus,
+.system-settings-card .form-group > select:focus,
+.system-settings-card .form-group > textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+.system-settings-card--teal .form-group > input:focus,
+.system-settings-card--teal .form-group > select:focus,
+.system-settings-card--teal .form-group > textarea:focus {
+    border-color: #14b8a6;
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.18);
+}
+
+.system-settings-card--purple .form-group > input:focus,
+.system-settings-card--purple .form-group > select:focus,
+.system-settings-card--purple .form-group > textarea:focus {
+    border-color: #a855f7;
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.18);
+}
+
+.system-settings-card .form-group > input[type="number"],
+.system-settings-card .form-group > select {
+    height: 44px;
+}
+
+.system-settings-card .form-group > textarea {
+    min-height: 92px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+.system-settings-card .field-hint,
+.system-settings-card .form-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.45;
+}
+
+.master-settings-actions-hint {
+    margin: 0;
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.5;
+}
+
+.master-settings-actions-hint i {
+    color: #2563eb;
+    margin-right: 6px;
+}
+
+.master-settings-actions .btn-submit {
+    margin: 0;
+    white-space: nowrap;
+}
+.form-hint { display: block; margin-top: 6px; font-size: 12px; color: #64748b; line-height: 1.45; }
+.form-hint strong { color: #475569; font-weight: 600; }
+
+.twofa-methods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 6px; align-items: stretch; }
+
+.twofa-method {
+    display: flex; align-items: center; gap: 12px; text-align: left; width: 100%;
+    padding: 16px 34px 16px 16px; border: 1.5px solid #e2e8f0; border-radius: 14px;
+    background: #f8fafc; cursor: pointer; transition: all .2s ease; position: relative;
+    font-family: inherit;
+}
+.twofa-method:hover { border-color: #93c5fd; background: #f1f5f9; transform: translateY(-1px); }
+.twofa-method.active { border-color: #2563eb; background: #eff6ff; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+.twofa-method.disabled { opacity: 0.55; }
+
+.twofa-method-icon {
+    width: 40px; height: 40px; flex-shrink: 0; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; font-size: 17px; color: #fff;
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+}
+.twofa-method-body { display: flex; flex-direction: column; gap: 3px; line-height: 1.3; flex: 1 1 auto; min-width: 0; }
+.twofa-method-body strong { font-size: 14px; color: #1e293b; }
+.twofa-method-body small { font-size: 11.5px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Active check sits in the top-right corner and never disturbs the row layout */
+.twofa-check { position: absolute; top: 10px; right: 12px; margin: 0; color: #2563eb; font-size: 16px; opacity: 0; transition: opacity .2s ease; }
+.twofa-method.active .twofa-check { opacity: 1; }
+
+/* Status pill (Not set up / Configured / Active) */
+.twofa-badge {
+    align-self: center; flex-shrink: 0; margin-left: auto;
+    font-size: 10px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase;
+    padding: 4px 9px; border-radius: 999px; line-height: 1.4; white-space: nowrap;
+    background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0;
+}
+.twofa-badge[data-state="off"]    { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+.twofa-badge[data-state="ready"]  { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
+.twofa-badge[data-state="active"] { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
+
+/* Inline loading spinner for busy buttons */
+.twofa-spinner {
+    display: inline-block; width: 13px; height: 13px; vertical-align: -2px;
+    border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+    animation: twofa-spin .6s linear infinite;
+}
+@keyframes twofa-spin { to { transform: rotate(360deg); } }
+.is-loading { cursor: progress; opacity: .85; }
+
+/* SMS test-code verification row */
+.twofa-sms-verify { margin-top: 14px; padding-top: 14px; border-top: 1px dashed #e2e8f0; }
+.twofa-hint { margin: 0 0 10px; font-size: 12.5px; color: #475569; line-height: 1.5; }
+.twofa-email-config {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 4px 0 14px;
+    padding: 12px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+.twofa-email-config .twofa-hint {
+    margin: 0;
+    flex: 1 1 220px;
+}
+
+.twofa-inline { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.twofa-inline input {
+    flex: 1; min-width: 160px; padding: 10px 14px; border: 1px solid #cbd5e1;
+    border-radius: 8px; font-size: 14px; background: #f8fafc; font-family: inherit;
+}
+.twofa-inline input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.14); background:#fff; }
+
+.twofa-totp-panel { border-top: 1px dashed #e2e8f0; padding-top: 16px; margin-top: 4px; }
+.twofa-totp-actions { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+
+/* Cohesive 2FA action button group — identical height, padding & font so
+   "Re-configure" and "Disable" line up perfectly instead of clashing. */
+.twofa-totp-actions .btn-submit,
+.twofa-totp-actions .btn-danger {
+    margin-top: 0;
+    height: 42px;
+    padding: 0 18px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    white-space: nowrap;
+    transition: all .2s ease;
+}
+.twofa-totp-actions .btn-danger { border: 1px solid #fecaca; }
+
+.twofa-qr-wrap { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start;
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; }
+.twofa-qr-box { background: #fff; padding: 10px; border-radius: 12px; border: 1px solid #e2e8f0; }
+.twofa-qr-box img { display: block; width: 190px; height: 190px; }
+.twofa-qr-info { flex: 1; min-width: 240px; }
+.twofa-qr-info p { margin: 0 0 10px; font-size: 13px; color: #475569; line-height: 1.5; }
+.twofa-manual-key {
+    display: inline-block; background: #0f172a; color: #93c5fd; padding: 8px 12px;
+    border-radius: 8px; font-family: 'Courier New', monospace; font-size: 13px;
+    letter-spacing: 1px; word-break: break-all; margin-bottom: 12px;
+}
+.btn-danger {
+    background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 10px 16px;
+    border-radius: 8px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px; transition: all .2s ease; font-family: inherit;
+}
+.btn-danger:hover { background: #fee2e2; }
+
+/* Logout-style confirmation (2FA switch/disable + admin confirm) */
+.admin-confirm-swal.swal2-popup {
+    font-family: 'Inter', 'Hind Siliguri', sans-serif;
+    width: min(420px, calc(100vw - 32px)) !important;
+    padding: 32px 24px 24px !important;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+.admin-confirm-swal-icon.swal2-icon.swal2-warning {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 16px;
+    border: 3px solid rgba(245, 158, 11, 0.4);
+    border-radius: 50%;
+    color: #f59e0b;
+    background: #fffbeb;
+}
+.admin-confirm-swal-icon.swal2-icon.swal2-warning .swal2-icon-content {
+    font-size: 2.1rem;
+    font-weight: 700;
+}
+.admin-confirm-swal-title.swal2-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1.3;
+    margin: 0 0 10px;
+    padding: 0 8px;
+}
+.admin-confirm-swal-text.swal2-html-container {
+    font-size: 15px;
+    line-height: 1.55;
+    color: #64748b;
+    margin: 0;
+    padding: 0 10px 8px;
+}
+.admin-confirm-swal-actions.swal2-actions {
+    width: 100%;
+    margin: 24px 0 0;
+    padding: 0;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.admin-confirm-swal-confirm.swal2-confirm,
+.admin-confirm-swal-cancel.swal2-cancel {
+    flex: 1 1 140px;
+    min-width: 0;
+    min-height: 46px;
+    margin: 0;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.admin-confirm-swal-cancel.swal2-cancel {
+    background: #f1f5f9;
+    color: #475569;
+}
+.admin-confirm-swal-cancel.swal2-cancel:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+.admin-confirm-swal-confirm.swal2-confirm {
+    background: #ef4444;
+    color: #fff;
+}
+.admin-confirm-swal-confirm.swal2-confirm:hover {
+    background: #dc2626;
+}

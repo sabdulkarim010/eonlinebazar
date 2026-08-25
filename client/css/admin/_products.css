@@ -1,0 +1,7 @@
+/* EonlineBazar Admin — Products barrel. Edit files in css/admin/_products-*.css */
+@import './_products-form.css';
+@import './_products-variants.css';
+@import './_products-catalog.css';
+@import './_products-navbar.css';
+@import './_products-coupons.css';
+@import './_products-categories.css';

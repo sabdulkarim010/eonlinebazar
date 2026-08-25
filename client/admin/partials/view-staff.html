@@ -1,0 +1,175 @@
+<!-- ============================================================
+     🛡️ ENTERPRISE ROLE & STAFF MANAGEMENT (Super Admin — RBAC)
+     ============================================================ -->
+<section id="view-staff" class="admin-section staff-dashboard" style="display: none;">
+    <div class="section-header-box security-header-box">
+        <div>
+            <h3>Enterprise Role &amp; Staff Management</h3>
+            <p class="section-subtitle">Provision credentials, assign granular permissions with one-click presets, and govern access across your admin team.</p>
+        </div>
+        <button type="button" id="staffRefreshBtn" class="btn-secondary no-print staff-refresh-btn" aria-label="Refresh staff accounts">
+            <i class="fa-solid fa-rotate staff-refresh-btn__icon" aria-hidden="true"></i>
+            <span class="staff-refresh-btn__label">Refresh</span>
+        </button>
+    </div>
+
+    <div class="metrics-grid staff-metrics-grid">
+        <div class="staff-metric-card">
+            <div class="staff-metric-icon staff-metric-icon--total"><i class="fa-solid fa-user-group"></i></div>
+            <div class="staff-metric-body">
+                <p class="staff-metric-label">Total Staff</p>
+                <h3 id="staffTotalCount">—</h3>
+                <small>Accounts managed by you</small>
+            </div>
+        </div>
+        <div class="staff-metric-card">
+            <div class="staff-metric-icon staff-metric-icon--active"><i class="fa-solid fa-circle-check"></i></div>
+            <div class="staff-metric-body">
+                <p class="staff-metric-label">Active</p>
+                <h3 id="staffActiveCount">—</h3>
+                <small>Can sign in right now</small>
+            </div>
+        </div>
+        <div class="staff-metric-card">
+            <div class="staff-metric-icon staff-metric-icon--blocked"><i class="fa-solid fa-user-lock"></i></div>
+            <div class="staff-metric-body">
+                <p class="staff-metric-label">Suspended</p>
+                <h3 id="staffBlockedCount">—</h3>
+                <small>Blocked — all devices signed out</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="staff-enterprise-shell">
+        <div class="staff-enterprise-shell-header">
+            <h4><i class="fa-solid fa-user-shield"></i> Create Staff Account</h4>
+            <p>Staff sign in at the same admin login page and only see sections enabled in the permissions matrix.</p>
+        </div>
+
+        <form id="createStaffForm" class="staff-enterprise-form" novalidate>
+            <div class="staff-create-layout">
+                <div class="staff-enterprise-card staff-credentials-col">
+                    <div class="staff-enterprise-card-header">
+                        <span class="staff-enterprise-card-icon"><i class="fa-solid fa-id-card"></i></span>
+                        <div>
+                            <h5>Staff Account Credentials</h5>
+                            <p>Identity, login details, and account lifecycle</p>
+                        </div>
+                    </div>
+                    <div class="staff-enterprise-card-body">
+                        <div class="form-group">
+                            <label for="staffName">Full Name <span class="req-star">*</span></label>
+                            <input type="text" id="staffName" placeholder="e.g. Rahim Uddin" autocomplete="off" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="staffUsername">Username <span class="req-star">*</span></label>
+                            <input type="text" id="staffUsername" placeholder="e.g. rahim.uddin" autocomplete="off" required>
+                            <small class="field-hint">Lowercase letters, numbers, dot, dash, or underscore (3–30 characters).</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="staffEmail">Email <span class="req-star">*</span></label>
+                            <input type="email" id="staffEmail" placeholder="staff@example.com" autocomplete="off" required>
+                            <small class="field-hint">Used for login OTP delivery and password recovery notices.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="staffPassword">Password <span class="req-star">*</span></label>
+                            <div class="staff-password-row">
+                                <input type="text" id="staffPassword" placeholder="Minimum 8 characters" autocomplete="new-password" required>
+                                <button type="button" class="btn-secondary staff-generate-btn" id="generateStaffPasswordBtn" title="Generate a strong password">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> Generate
+                                </button>
+                            </div>
+                            <small class="field-hint">Share it once — it is stored only as a bcrypt hash.</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Account Status</label>
+                            <div class="staff-status-segment" role="radiogroup" aria-label="Account status">
+                                <label class="staff-status-option">
+                                    <input type="radio" name="staffAccountStatus" id="staffStatusActive" value="active" checked>
+                                    <span><i class="fa-solid fa-circle-check"></i> Active</span>
+                                </label>
+                                <label class="staff-status-option staff-status-option--suspended">
+                                    <input type="radio" name="staffAccountStatus" id="staffStatusSuspended" value="blocked">
+                                    <span><i class="fa-solid fa-ban"></i> Suspended</span>
+                                </label>
+                            </div>
+                            <small class="field-hint">Suspended accounts cannot sign in until reactivated.</small>
+                        </div>
+                        <div class="form-group staff-2fa-group">
+                            <label class="staff-toggle-row" for="staffRequireTwoFactor">
+                                <span class="staff-toggle-row-text">
+                                    <strong>Require email OTP (2FA)</strong>
+                                    <small>Leave off if SMTP is not configured yet.</small>
+                                </span>
+                                <span class="toggle-switch">
+                                    <input type="checkbox" id="staffRequireTwoFactor" class="toggle-switch-input">
+                                    <span class="toggle-switch-slider" aria-hidden="true"></span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="staff-enterprise-card staff-permissions-col">
+                    <div class="staff-enterprise-card-header">
+                        <span class="staff-enterprise-card-icon staff-enterprise-card-icon--matrix"><i class="fa-solid fa-table-cells"></i></span>
+                        <div>
+                            <h5>Granular Role &amp; Permissions Matrix <span class="req-star">*</span></h5>
+                            <p>Toggle capabilities by category — presets apply instantly</p>
+                        </div>
+                    </div>
+                    <div class="staff-enterprise-card-body">
+                        <div class="staff-presets-bar" data-permission-presets="create">
+                            <span class="staff-presets-label">Quick Presets</span>
+                            <div class="staff-presets-actions">
+                                <button type="button" class="staff-preset-btn" data-preset="fullAdmin">Full Admin</button>
+                                <button type="button" class="staff-preset-btn" data-preset="inventoryManager">Inventory Manager</button>
+                                <button type="button" class="staff-preset-btn" data-preset="customerSupport">Customer Support</button>
+                                <button type="button" class="staff-preset-btn staff-preset-btn--ghost" data-preset="clear">Reset / Clear</button>
+                            </div>
+                        </div>
+                        <div class="permission-grid" id="staffPermissionGrid">
+                            <div class="loading-container"><div class="spinner"></div><p>Loading permissions...</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="staff-create-footer">
+                <button type="submit" class="btn-submit staff-create-submit" id="createStaffBtn">
+                    <i class="fa-solid fa-user-plus"></i> Create Staff Account
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="staff-list-section">
+        <div class="staff-list-header">
+            <div>
+                <h3>Staff Directory</h3>
+                <p class="section-subtitle">Edit roles, suspend access, reset passwords, or remove accounts permanently.</p>
+            </div>
+        </div>
+
+        <div class="staff-table-card">
+            <div class="staff-table-scroll">
+                <table class="data-table staff-table">
+                    <thead>
+                        <tr>
+                            <th>Staff</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Permissions</th>
+                            <th>Status</th>
+                            <th>Last Login</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="staffTableBody">
+                        <tr><td colspan="7" class="loading-container"><div class="spinner"></div><p>Loading staff accounts...</p></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>

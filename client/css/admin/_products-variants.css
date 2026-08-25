@@ -1,0 +1,353 @@
+/* EonlineBazar Admin — Product variations builder. */
+/* ==========================================================================
+   PRODUCT VARIATIONS BUILDER (Add / Edit Product forms)
+   ========================================================================== */
+.variations-block {
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 18px;
+    background: #f8fafc;
+}
+.variations-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+.variations-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--secondary-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 3px;
+}
+.variations-title i { color: var(--primary-color); }
+.variations-sub {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin: 0;
+}
+.variation-add-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary-hover);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.variation-add-btn:hover {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--primary-color);
+}
+.variations-table-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.variations-row {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr 0.9fr 0.9fr 40px;
+    gap: 8px;
+    align-items: center;
+}
+.variations-row-head {
+    padding: 0 4px;
+}
+.variations-row-head span {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.variations-row .v-input {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 13.5px;
+    background: #fff;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.variations-row .v-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+.variations-row.is-color-row .v-price,
+.variations-row.is-color-row .v-stock {
+    opacity: 0.45;
+    background: #f1f5f9;
+    cursor: not-allowed;
+}
+.variations-row .v-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1.5px solid rgba(220, 38, 38, 0.3);
+    background: transparent;
+    color: #dc2626;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+.variations-row .v-remove:hover {
+    background: rgba(220, 38, 38, 0.1);
+    border-color: #dc2626;
+}
+.variations-empty {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 0;
+    padding: 6px 2px;
+}
+
+/* Variant matrix (combination SKU builder) */
+.variant-matrix-block {
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 18px;
+    background: #f8fafc;
+}
+.product-type-toggle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 14px 0 10px;
+}
+.product-type-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--secondary-color);
+    transition: border-color 0.2s, background 0.2s;
+}
+.product-type-option:has(input:checked) {
+    border-color: var(--primary-color);
+    background: rgba(59, 130, 246, 0.08);
+    color: var(--primary-hover);
+}
+.product-type-option input { accent-color: var(--primary-color); }
+.simple-stock-hint {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin: 0 0 12px;
+}
+.variant-matrix-panel { margin-top: 8px; }
+.matrix-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.matrix-section-head h5 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--secondary-color);
+}
+.attribute-types-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.attribute-type-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr 40px;
+    gap: 8px;
+    align-items: center;
+}
+.attribute-type-row .v-input { width: 100%; }
+.matrix-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0 0 12px;
+}
+.matrix-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.btn-secondary-sm {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--secondary-color);
+}
+.btn-secondary-sm:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-hover);
+}
+.matrix-total-stock {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+.matrix-total-stock strong {
+    color: var(--secondary-color);
+    font-size: 15px;
+}
+.variant-matrix-wrap {
+    max-height: 320px;
+    overflow: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+}
+.variant-matrix-table {
+    width: 100%;
+    min-width: 760px;
+    table-layout: fixed;
+    border-collapse: collapse;
+    border-spacing: 0;
+    background: #fff;
+}
+.variant-matrix-table col.col-combination { width: 29%; }
+.variant-matrix-table col.col-sku { width: 16%; }
+.variant-matrix-table col.col-sell { width: 11%; }
+.variant-matrix-table col.col-buy { width: 11%; }
+.variant-matrix-table col.col-stock { width: 9%; }
+.variant-matrix-table col.col-image { width: 24%; }
+.variant-matrix-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+.variant-matrix-table th {
+    padding: 10px 8px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #64748b;
+    text-align: center;
+    white-space: nowrap;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    border-right: 1px solid #e5e7eb;
+    vertical-align: middle;
+    box-shadow: 0 1px 0 0 #e5e7eb, 0 4px 8px -4px rgba(15, 23, 42, 0.06);
+}
+.variant-matrix-table th:last-child {
+    border-right: none;
+}
+.variant-matrix-table td {
+    padding: 0;
+    border-bottom: 1px solid #e5e7eb;
+    border-right: 1px solid #e5e7eb;
+    vertical-align: middle;
+    background: #fff;
+}
+.variant-matrix-table td:last-child {
+    border-right: none;
+}
+.variant-matrix-table tbody tr:last-child td {
+    border-bottom: none;
+}
+.matrix-combo-cell {
+    text-align: left;
+    padding: 8px 12px;
+    background: #f8fafc;
+    overflow-x: auto;
+}
+.matrix-combo-label {
+    display: inline-block;
+    color: var(--secondary-color);
+    font-weight: 600;
+    font-size: 13px;
+    white-space: nowrap;
+}
+.matrix-input-cell {
+    padding: 0;
+}
+.variant-matrix-table .v-input {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 6px;
+    border: none;
+    border-radius: 0;
+    font: inherit;
+    font-size: 13px;
+    background: transparent;
+    text-align: center;
+    box-shadow: none;
+}
+.variant-matrix-table .matrix-sku {
+    font-size: 11.5px;
+    letter-spacing: 0.01em;
+}
+.variant-matrix-table .matrix-price,
+.variant-matrix-table .matrix-buying-price,
+.variant-matrix-table .matrix-stock {
+    font-size: 12px;
+}
+.variant-matrix-table .matrix-image {
+    font-size: 11px;
+    color: #2563eb;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.variant-matrix-table .matrix-image::placeholder {
+    color: #94a3b8;
+    font-family: inherit;
+}
+.variant-matrix-table .v-input:focus {
+    outline: none;
+    box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.15);
+    background: #fafbff;
+}
+.variant-matrix-table .matrix-image:focus {
+    color: #1d4ed8;
+    box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.18);
+    background: #f8fbff;
+}
+.stock-auto-locked {
+    background: #f1f5f9 !important;
+    cursor: not-allowed !important;
+    color: #64748b !important;
+}
+
+.field-inline-warn {
+    margin: 6px 0 0;
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: #b45309;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+}

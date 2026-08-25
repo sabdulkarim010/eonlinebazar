@@ -1,0 +1,42 @@
+        <!-- ═══ SECTION 2: MY ORDERS ═══ -->
+        <section id="my-orders" class="tab-content">
+            <div class="profile-card-panel">
+            <header class="profile-tab-header" id="orders-section">
+                <a href="/profile" class="btn-back-icon profile-tab-header__back" data-navigate-tab="dashboard-overview" aria-label="Go Back" title="Back to Dashboard">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </a>
+                <div class="profile-tab-header__icon profile-card-icon" aria-hidden="true"><i class="fa-solid fa-box-open"></i></div>
+                <div class="profile-tab-header__text">
+                    <h2 class="profile-tab-header__title">My Orders</h2>
+                    <p class="profile-tab-header__subtitle">Track your recent orders, view status, and manage invoices.</p>
+                </div>
+            </header>
+
+            <div class="profile-card orders-list-card card">
+                <div class="profile-card-body orders-list">
+                    <div class="table-responsive orders-table-responsive">
+                        <table class="orders-table orders-table--responsive">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Date</th>
+                                    <th>Products</th>
+                                    <th>Total Amount</th>
+                                    <th>Status</th>
+                                    <th class="order-actions-th">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="orders-list-tbody">
+                                <tr>
+                                    <td colspan="6" class="text-center p-20">
+                                        <i class="fa-solid fa-spinner fa-spin"></i> Loading orders...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <nav id="orders-pagination" class="orders-pagination hidden" aria-label="Orders pagination"></nav>
+                </div>
+            </div>
+            </div>
+        </section>

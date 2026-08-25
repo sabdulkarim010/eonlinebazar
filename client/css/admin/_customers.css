@@ -1,0 +1,828 @@
+/* EonlineBazar Admin — Customers */
+
+
+
+
+/* ===========================================================================
+   13. ALL CUSTOMERS SECTION (PREMIUM COMPACT TABLE)
+   ========================================================================== */
+
+#view-customers {
+    padding: 16px 18px;
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid #e8edf3;
+}
+
+.customers-table-container {
+    width: 100%;
+}
+
+.customers-table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 0 12px;
+    margin-bottom: 0;
+    border-bottom: 1px solid #e8edf3;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.customers-toolbar {
+    flex: 1 1 220px;
+    max-width: 360px;
+    min-width: 200px;
+}
+
+.customers-search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.customers-search-box input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 0.875rem;
+    background: transparent;
+    min-width: 0;
+}
+
+.customers-search-box .search-icon {
+    color: #94a3b8;
+    font-size: 0.85rem;
+}
+
+.customers-table-header h3 {
+    font-size: 16px;
+    color: var(--secondary-color);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0;
+}
+
+.customers-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.customers-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-top: 0;
+    min-width: 980px;
+}
+
+.customers-table-head .customers-th {
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.customers-table-head .customers-th--num {
+    text-align: right;
+}
+
+.customers-table-head .customers-th--actions {
+    text-align: center;
+}
+
+.customers-table .customers-td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 13px;
+    color: #334155;
+    vertical-align: middle;
+    white-space: nowrap;
+    line-height: 1.35;
+}
+
+.customers-table .customers-td--num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.customers-table .customers-td--actions {
+    text-align: center;
+}
+
+.customers-table tbody .customers-row {
+    transition: background-color 0.15s ease;
+}
+
+.customers-table tbody .customers-row:hover {
+    background-color: rgba(248, 250, 252, 0.8);
+}
+
+.customers-table tbody .customers-row:last-child .customers-td {
+    border-bottom: none;
+}
+
+.customers-name {
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.customers-vip-crown {
+    font-size: 12px;
+    margin-left: 2px;
+}
+
+/* Hover-to-show copy control (zero permanent layout space) */
+.customers-copy-cell {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+}
+
+.customers-copy-cell__text {
+    display: inline-block;
+}
+
+.customers-copy-cell__btn {
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.customers-copy-cell:hover .customers-copy-cell__btn,
+.customers-copy-cell__btn:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.customers-copy-cell__btn:hover {
+    color: var(--primary-color);
+    background: rgba(59, 130, 246, 0.08);
+}
+
+.customers-copy-cell__btn:focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.35);
+    outline-offset: 1px;
+}
+
+.customers-table .loading-container {
+    text-align: center;
+    padding: 32px !important;
+    white-space: normal;
+}
+
+
+
+/* ==========================================================
+   14. ADMIN PROFILE & IMAGE UPLOAD STYLES
+   ========================================================== */
+
+/* ছবির মূল কন্টেইনার */
+.profile-img-container {
+    position: relative;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    cursor: pointer;
+    overflow: hidden; 
+    border: 2px solid #d97706; /* থিমের সাথে মিলিয়ে গোল্ডেন বর্ডার */
+    flex-shrink: 0;
+}
+
+/* ভেতরের ছবি */
+.profile-img-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* ছবি যেন চ্যাপ্টা বা বিকৃত না হয় */
+    display: block;
+}
+
+/* माউস নিলে ক্যামেরা আইকনের ওভারলে */
+.profile-img-container .img-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    font-size: 14px;
+}
+
+/* হোভার ইফেক্ট */
+.profile-img-container:hover .img-overlay {
+    opacity: 1;
+}
+
+/* ==========================================================================
+   Outlook Split Inbox
+   ========================================================================== */
+.support-inbox-section {
+    padding: 20px 30px 16px;
+}
+
+.support-inbox-search-wrap {
+    position: relative;
+    width: 100%;
+}
+
+.support-inbox-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 13px;
+    pointer-events: none;
+}
+
+.support-inbox-search {
+    width: 100%;
+    padding: 9px 12px 9px 36px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    font-size: 13px;
+    font-family: inherit;
+    color: #0f172a;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.support-inbox-search:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.support-inbox-search::placeholder {
+    color: #94a3b8;
+}
+
+.support-inbox-tabs {
+    display: inline-flex;
+    gap: 4px;
+    padding: 3px;
+    background: #f1f5f9;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+.support-inbox-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    white-space: nowrap;
+}
+
+.support-inbox-tab:hover {
+    color: #334155;
+}
+
+.support-inbox-tab.is-active {
+    background: #fff;
+    color: #0f172a;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.support-inbox-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.support-inbox-tab.is-active .support-inbox-tab-count {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.support-inbox-tab-count--unread {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.support-inbox-tab-count--replied {
+    background: #d1fae5;
+    color: #047857;
+}
+
+.support-inbox-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.support-inbox-refresh-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.outlook-inbox-shell.support-inbox-split {
+    width: 100%;
+}
+
+.support-inbox-master-header {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 14px 12px;
+    background: #fafbfc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.support-inbox-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 6px 0;
+}
+
+.support-inbox-list-loading,
+.support-inbox-list-empty {
+    padding: 48px 20px;
+    text-align: center;
+    color: #64748b;
+    font-size: 14px;
+}
+
+.support-inbox-list-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 14px 12px 12px;
+    border: none;
+    border-left: 4px solid transparent;
+    border-bottom: 1px solid #f1f5f9;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.support-inbox-list-item:hover {
+    background: #f8fafc;
+}
+
+.support-inbox-list-item.is-active {
+    border-left-color: #2563eb;
+    background: rgba(239, 246, 255, 0.6);
+}
+
+.support-inbox-list-item.is-unread .support-inbox-list-name {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.support-inbox-list-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.support-inbox-list-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.support-inbox-list-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.support-inbox-list-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.support-inbox-list-time {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.support-inbox-list-subject {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.support-inbox-list-snippet {
+    font-size: 12px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.support-inbox-detail-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+    color: #64748b;
+}
+
+.support-inbox-detail-empty-icon {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #94a3b8;
+    font-size: 28px;
+    margin-bottom: 16px;
+}
+
+.support-inbox-detail-empty h4 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    color: #334155;
+}
+
+.support-inbox-detail-empty p {
+    margin: 0;
+    font-size: 14px;
+    max-width: 320px;
+}
+
+.support-inbox-detail-pane {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.outlook-reading-topbar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fff;
+}
+
+.outlook-reading-topbar-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.outlook-reading-subject {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.3;
+}
+
+.outlook-reading-status .support-status-pill {
+    font-size: 10px;
+}
+
+.outlook-reading-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.outlook-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.outlook-action-btn:hover {
+    background: #f8fafc;
+}
+
+.outlook-action-btn--danger {
+    color: #dc2626;
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+
+.outlook-action-btn--danger:hover {
+    background: #fee2e2;
+}
+
+.support-inbox-detail-scroll.outlook-reading-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.outlook-sender-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 16px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+}
+
+.outlook-sender-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.outlook-sender-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.outlook-sender-name {
+    display: block;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 8px;
+}
+
+.outlook-sender-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    font-size: 13px;
+    color: #475569;
+}
+
+.outlook-sender-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.outlook-sender-field i {
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+.outlook-sender-link {
+    color: #2563eb;
+    text-decoration: none;
+}
+
+.outlook-sender-link:hover {
+    text-decoration: underline;
+}
+
+.outlook-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #fff;
+    color: #64748b;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.outlook-copy-btn:hover {
+    background: #eff6ff;
+    color: #2563eb;
+    border-color: #bfdbfe;
+}
+
+.outlook-email-body-text {
+    color: #334155;
+    font-size: 15px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.outlook-sent-reply {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 12px;
+    padding: 16px 18px;
+}
+
+.outlook-sent-reply-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #047857;
+    margin-bottom: 8px;
+}
+
+.outlook-sent-reply-text {
+    color: #166534;
+    font-size: 14px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.outlook-sent-reply-at {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.support-inbox-detail-reply.outlook-reply-editor {
+    flex-shrink: 0;
+    padding: 14px 20px 18px;
+    border-top: 1px solid #e2e8f0;
+    background: #fff;
+}
+
+.outlook-reply-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+
+.support-inbox-detail-reply-textarea.outlook-reply-textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 12px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+}
+
+.support-inbox-detail-reply-textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.outlook-reply-footer,
+.support-inbox-detail-reply-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.support-inbox-detail-char-count {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.support-inbox-detail-send-btn {
+    white-space: nowrap;
+}
+
+.support-status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.support-status-pill--unread {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+
+.support-status-pill--read {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+
+.support-status-pill--replied {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+

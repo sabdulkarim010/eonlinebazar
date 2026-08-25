@@ -13,6 +13,9 @@ const seoRoutes = require('./seoRoutes');
 const { serveProductDetailsWithSeo, serveSearchWithSeo } = require('../services/seoPageService');
 const { applyBrandingToHtml } = require('../utils/brandingHtml');
 const { DEFAULT_SETTINGS } = require('../services/storeSettingsService');
+const getAdminPage = require('../utils/adminPageBuilder');
+const getProfilePage = require('../utils/profilePageBuilder');
+const { injectSharedPartials } = require('../utils/injectSharedPartials');
 
 const REPO_ROOT = path.join(__dirname, '..', '..', '..');
 const CLIENT_DIR = path.join(REPO_ROOT, 'client');
@@ -23,7 +26,24 @@ const CHAT_ADMIN_INDEX = path.join(CHAT_ADMIN_DIST, 'index.html');
 function sendClientHtml(res, filename) {
     const absPath = path.join(CLIENT_DIR, filename);
     const settings = res.locals.settings || DEFAULT_SETTINGS;
-    const html = applyBrandingToHtml(fs.readFileSync(absPath, 'utf8'), settings, { filename });
+    const html = applyBrandingToHtml(
+        injectSharedPartials(fs.readFileSync(absPath, 'utf8')),
+        settings,
+        { filename }
+    );
+    res.type('html').send(html);
+}
+
+function sendAdminHtml(res) {
+    const settings = res.locals.settings || DEFAULT_SETTINGS;
+    const html = applyBrandingToHtml(getAdminPage(), settings, { filename: 'admin.html' });
+    res.type('html').send(html);
+}
+
+function sendProfileHtml(res) {
+    // Assembles client/profile.html (thin shell) + client/profile/partials/*.html
+    const settings = res.locals.settings || DEFAULT_SETTINGS;
+    const html = applyBrandingToHtml(getProfilePage(), settings, { filename: 'profile.html' });
     res.type('html').send(html);
 }
 
@@ -74,7 +94,7 @@ function mountViewRoutes(app) {
     });
 
     app.get('/profile', (req, res) => {
-        sendClientHtml(res, 'profile.html');
+        sendProfileHtml(res);
     });
 
     app.get('/login', (req, res) => {
@@ -171,23 +191,23 @@ function mountViewRoutes(app) {
     });
 
     app.get('/admin', (req, res) => {
-        sendClientHtml(res, 'admin.html');
+        sendAdminHtml(res);
     });
 
     app.get('/admin/dashboard', (req, res) => {
-        sendClientHtml(res, 'admin.html');
+        sendAdminHtml(res);
     });
 
     app.get('/admin/messages', (req, res) => {
-        sendClientHtml(res, 'admin.html');
+        sendAdminHtml(res);
     });
 
     app.get('/admin/navbar-links', (req, res) => {
-        sendClientHtml(res, 'admin.html');
+        sendAdminHtml(res);
     });
 
     app.get('/admin/file-manager', (req, res) => {
-        sendClientHtml(res, 'admin.html');
+        sendAdminHtml(res);
     });
 
     app.get('/admin-login', (req, res) => {
@@ -232,7 +252,7 @@ function mountViewRoutes(app) {
     app.get('/admin/payment-reconciliation', servePaymentReconciliationPage);
 
     app.get('/admin/order-details/:orderId', (req, res) => {
-        sendClientHtml(res, 'admin.html');
+        sendAdminHtml(res);
     });
 
     app.get('/admin/*splat', (req, res) => {

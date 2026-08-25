@@ -1,0 +1,327 @@
+<!-- ============================================================
+     🖼️ HERO BANNER SLIDER MANAGEMENT (Premium Redesign)
+     ============================================================ -->
+<section id="view-banners" class="admin-section banner-manager-section" style="display: none;">
+
+    <!-- SECTION A: Page Header -->
+    <div class="banner-mgr-header">
+        <div>
+            <h1 class="banner-mgr-title">🖼️ Hero Banner Manager</h1>
+            <p class="banner-mgr-subtitle">Manage homepage banner slides — drag to reorder, click to preview</p>
+        </div>
+        <button type="button" id="openAddBannerBtn" class="banner-mgr-add-btn">
+            ➕ Add New Banner
+        </button>
+    </div>
+
+    <!-- SECTION B: Live Preview (left) + Current Banners (right) -->
+    <div class="banner-mgr-main-grid">
+
+        <!-- LEFT: Live Preview -->
+        <div class="banner-mgr-preview-card" aria-live="polite">
+            <div class="banner-preview-tabs">
+                <button type="button" id="previewDesktopTab" class="banner-preview-tab is-active"
+                        onclick="switchPreviewTab('desktop')">🖥️ Desktop</button>
+                <button type="button" id="previewMobileTab" class="banner-preview-tab"
+                        onclick="switchPreviewTab('mobile')">📱 Mobile</button>
+            </div>
+
+            <!-- Desktop frame -->
+            <div id="desktopPreviewFrame" class="banner-desktop-frame">
+                <div class="banner-browser-chrome">
+                    <span class="banner-traffic-light banner-traffic-light--red"></span>
+                    <span class="banner-traffic-light banner-traffic-light--yellow"></span>
+                    <span class="banner-traffic-light banner-traffic-light--green"></span>
+                    <div class="banner-browser-url">eonlinebazar.com</div>
+                </div>
+                <div id="desktopBannerPreview" class="banner-desktop-viewport" role="img" aria-label="Desktop banner preview">
+                    <img id="desktopPreviewImg" src="" alt="" class="banner-preview-bg-img" hidden>
+                    <div id="desktopPreviewOverlay" class="banner-preview-overlay" hidden></div>
+                    <div id="desktopPreviewContent" class="banner-desktop-preview-content">
+                        <div id="desktopPreviewText" class="banner-desktop-preview-text">
+                            <h2 id="desktopPreviewTitle">Click a banner below to preview</h2>
+                            <p id="desktopPreviewSubtitle">Select from Current Banners →</p>
+                            <button type="button" id="desktopPreviewBtn" class="banner-preview-cta" hidden>Shop Now</button>
+                        </div>
+                    </div>
+                    <!-- Legacy mount points kept for compatibility -->
+                    <div id="bannerLiveDesktop" class="banner-live-legacy-mount" hidden></div>
+                </div>
+            </div>
+
+            <!-- Mobile frame -->
+            <div id="mobilePreviewFrame" class="banner-mobile-frame" hidden>
+                <div class="banner-phone-shell">
+                    <div class="banner-phone-notch"></div>
+                    <div id="mobileBannerPreview" class="banner-mobile-viewport" role="img" aria-label="Mobile banner preview">
+                        <img id="mobilePreviewImg" src="" alt="" class="banner-preview-bg-img" hidden>
+                        <div id="mobilePreviewOverlay" class="banner-preview-overlay" hidden></div>
+                        <div id="mobilePreviewText" class="banner-mobile-preview-text">
+                            <p id="mobilePreviewTitle">📱 Preview</p>
+                            <p id="mobilePreviewSubtitle" class="banner-mobile-preview-sub" hidden></p>
+                            <button type="button" id="mobilePreviewBtn" class="banner-preview-cta banner-preview-cta--sm" hidden>Shop Now</button>
+                        </div>
+                        <div id="bannerLiveMobile" class="banner-live-legacy-mount" hidden></div>
+                    </div>
+                    <div class="banner-phone-homebar"></div>
+                </div>
+            </div>
+
+            <div class="banner-previewing-label">
+                <span id="previewingLabel">No banner selected</span>
+            </div>
+        </div>
+
+        <!-- RIGHT: Current Banners list -->
+        <div class="banner-mgr-list-card">
+            <div class="banner-mgr-list-header">
+                <h3>📋 Current Banners</h3>
+                <span id="bannerCount" class="banner-count-badge">0 banners</span>
+            </div>
+            <div id="bannersList" class="banner-mgr-list-body">
+                <div class="empty-state banner-mgr-empty">
+                    <div class="empty-state-icon">🖼️</div>
+                    <p>No banners yet. Click “Add New Banner” to create one.</p>
+                </div>
+            </div>
+            <p class="banner-mgr-list-hint">↕ Drag to reorder · Click to preview</p>
+        </div>
+    </div>
+
+    <!-- SECTION C: Slider Settings (accordion) -->
+    <div class="banner-mgr-settings-card">
+        <button type="button" class="banner-settings-toggle" onclick="toggleSliderSettings()" aria-expanded="true">
+            <span>⚙️ Slider Settings</span>
+            <span id="settingsToggleIcon">▲</span>
+        </button>
+        <div id="sliderSettingsBody" class="banner-settings-body">
+            <div class="banner-settings-grid">
+                <div class="banner-setting-card fg form-group">
+                    <label for="bannerAutoPlay">Auto Play</label>
+                    <select id="bannerAutoPlay">
+                        <option value="true">Enabled</option>
+                        <option value="false">Disabled</option>
+                    </select>
+                </div>
+                <div class="banner-setting-card fg form-group">
+                    <label for="bannerInterval">Interval</label>
+                    <select id="bannerInterval">
+                        <option value="3000">3 seconds</option>
+                        <option value="4000" selected>4 seconds</option>
+                        <option value="5000">5 seconds</option>
+                        <option value="7000">7 seconds</option>
+                    </select>
+                </div>
+                <div class="banner-setting-card fg form-group">
+                    <label for="bannerEffect">Effect</label>
+                    <select id="bannerEffect">
+                        <option value="slide">Slide</option>
+                        <option value="fade">Fade</option>
+                    </select>
+                </div>
+                <div class="banner-setting-card fg form-group">
+                    <label for="bannerHeight">Desktop Height</label>
+                    <select id="bannerHeight" onchange="onBannerHeightPresetChange('desktop')">
+                        <option value="300px" selected>Large (300px)</option>
+                        <option value="240px">Medium (240px)</option>
+                        <option value="180px">Small (180px)</option>
+                        <option value="custom">Custom Height</option>
+                    </select>
+                    <div id="bannerHeightCustomWrap" class="banner-custom-height-wrap" hidden>
+                        <label for="bannerHeightCustom" class="banner-custom-height-label">Custom desktop height (px)</label>
+                        <input type="number" id="bannerHeightCustom" class="pf-input" min="80" max="300"
+                               placeholder="e.g. 215" inputmode="numeric">
+                        <small class="banner-custom-height-hint">Max 300px</small>
+                    </div>
+                </div>
+                <div class="banner-setting-card fg form-group">
+                    <label for="bannerMobileHeight">Mobile Height</label>
+                    <select id="bannerMobileHeight" onchange="onBannerHeightPresetChange('mobile')">
+                        <option value="200px" selected>Large (200px)</option>
+                        <option value="150px">Medium (150px)</option>
+                        <option value="100px">Small (100px)</option>
+                        <option value="custom">Custom Height</option>
+                    </select>
+                    <div id="bannerMobileHeightCustomWrap" class="banner-custom-height-wrap" hidden>
+                        <label for="bannerMobileHeightCustom" class="banner-custom-height-label">Custom mobile height (px)</label>
+                        <input type="number" id="bannerMobileHeightCustom" class="pf-input" min="60" max="200"
+                               placeholder="e.g. 165" inputmode="numeric">
+                        <small class="banner-custom-height-hint">Max 200px</small>
+                    </div>
+                </div>
+                <div class="banner-setting-card fg form-group">
+                    <label for="bannerShowDots">Show Dots</label>
+                    <select id="bannerShowDots">
+                        <option value="true">Yes</option>
+                        <option value="false">No</option>
+                    </select>
+                </div>
+                <div class="banner-setting-card fg form-group">
+                    <label for="bannerShowArrows">Show Arrows</label>
+                    <select id="bannerShowArrows">
+                        <option value="true">Yes</option>
+                        <option value="false">No</option>
+                    </select>
+                </div>
+            </div>
+            <div class="banner-settings-save-row">
+                <button type="button" class="banner-settings-save-btn" onclick="saveBannerSettings()">
+                    💾 Save Settings
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD/EDIT BANNER — Right Drawer -->
+    <div id="bannerDrawer" class="banner-drawer" aria-hidden="true">
+        <div class="banner-drawer-header">
+            <h2 id="bannerFormTitle" class="banner-drawer-title">➕ Add New Banner</h2>
+            <button type="button" class="banner-drawer-close" onclick="closeBannerDrawer()"
+                    aria-label="Close drawer"
+                    onmouseover="this.style.background='#ef4444';this.style.color='#fff'"
+                    onmouseout="this.style.background='transparent';this.style.color='#ef4444'">✕</button>
+        </div>
+
+        <div class="banner-drawer-body" id="bannerFormCard">
+            <!-- Image uploads -->
+            <div class="banner-upload-grid">
+                <div class="fg form-group">
+                    <label id="bannerDesktopImgHint">🖥️ Desktop Image</label>
+                    <div class="banner-upload-zone" id="desktopImgZone"
+                         onclick="document.getElementById('bannerDesktopFile').click()">
+                        <div class="upload-zone-content" id="desktopImgPreview">
+                            <p>🖼️ Click to upload</p>
+                            <small>Max 10MB · JPG, PNG, WebP</small>
+                        </div>
+                    </div>
+                    <input type="file" id="bannerDesktopFile"
+                           accept="image/jpeg,image/png,image/webp" style="display:none"
+                           onchange="previewBannerImg(this, 'desktopImgPreview', 'desktopImgZone')">
+                </div>
+                <div class="fg form-group">
+                    <label>📱 Mobile Image <span class="banner-optional-hint">(optional)</span></label>
+                    <div class="banner-upload-zone" id="mobileImgZone"
+                         onclick="document.getElementById('bannerMobileFile').click()">
+                        <div class="upload-zone-content" id="mobileImgPreview">
+                            <p>📱 Click to upload</p>
+                            <small>768×400px recommended</small>
+                        </div>
+                    </div>
+                    <input type="file" id="bannerMobileFile"
+                           accept="image/jpeg,image/png,image/webp" style="display:none"
+                           onchange="previewBannerImg(this, 'mobileImgPreview', 'mobileImgZone')">
+                </div>
+            </div>
+
+            <!-- Solid background -->
+            <div class="banner-drawer-panel">
+                <label for="newBannerBgColor">🎨 Solid Background Color
+                    <span class="banner-optional-hint">(if no image — clear to use image)</span>
+                </label>
+                <div class="banner-color-row">
+                    <input type="color" id="newBannerBgColor" value="#1a1a2e"
+                           class="banner-color-input is-cleared"
+                           data-empty="1"
+                           title="Used when no desktop image is provided"
+                           oninput="onBannerBgColorInput()">
+                    <input type="text" id="bannerBgColorHex" class="banner-hex-input"
+                           placeholder="e.g. #1a1a2e" autocomplete="off"
+                           oninput="onBannerBgHexInput(this)">
+                    <button type="button" class="banner-color-clear-btn" id="clearBannerBgColorBtn"
+                            onclick="clearBannerBgColor()" title="Clear / Remove Color"
+                            aria-label="Clear background color">✕ Clear</button>
+                </div>
+            </div>
+
+            <!-- Text fields -->
+            <div class="banner-drawer-fields">
+                <div class="fg form-group">
+                    <label for="newBannerTitle">Banner Title</label>
+                    <input type="text" id="newBannerTitle" class="pf-input"
+                           placeholder="e.g. Best Quality Products"
+                           oninput="updateBannerLivePreview()">
+                </div>
+                <div class="fg form-group">
+                    <label for="newBannerSubtitle">Subtitle</label>
+                    <input type="text" id="newBannerSubtitle" class="pf-input"
+                           placeholder="e.g. Fast delivery, easy returns"
+                           oninput="updateBannerLivePreview()">
+                </div>
+                <div class="fg form-group">
+                    <label for="newBannerLinkText">Button Text</label>
+                    <input type="text" id="newBannerLinkText" class="pf-input"
+                           placeholder="Shop Now" value="Shop Now"
+                           oninput="updateBannerLivePreview()">
+                </div>
+                <div class="fg form-group">
+                    <label for="newBannerTextColor">Text Color</label>
+                    <div class="banner-color-row">
+                        <input type="color" id="newBannerTextColor" value="#ffffff"
+                               class="banner-color-input"
+                               oninput="syncBannerTextColorHex(); updateBannerLivePreview()">
+                        <input type="text" id="bannerTextColorHex" class="banner-hex-input" value="#ffffff"
+                               oninput="onBannerTextHexInput(this)">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Link settings -->
+            <div class="banner-drawer-panel">
+                <label class="banner-drawer-panel-title">🔗 Link Settings</label>
+                <div class="banner-drawer-fields">
+                    <div class="fg form-group">
+                        <label for="newBannerLinkScope">Target Link Scope</label>
+                        <select id="newBannerLinkScope" onchange="onBannerLinkScopeChange()">
+                            <option value="">None</option>
+                            <option value="category">Categories</option>
+                            <option value="page">Dynamic Pages</option>
+                            <option value="external">External</option>
+                        </select>
+                    </div>
+                    <div class="fg form-group" id="bannerLinkTargetWrap" hidden>
+                        <label for="newBannerLinkTarget" id="newBannerLinkTargetLabel">Select Target</label>
+                        <select id="newBannerLinkTarget" onchange="onBannerLinkTargetChange()">
+                            <option value="">Select…</option>
+                        </select>
+                    </div>
+                    <div class="fg form-group banner-link-path-field">
+                        <label for="newBannerLink" id="newBannerLinkLabel">Relative Path</label>
+                        <input type="text" id="newBannerLink" class="pf-input"
+                               placeholder="/category/fashion-apparel"
+                               autocomplete="off"
+                               oninput="onBannerLinkManualInput()">
+                        <small class="banner-field-hint" id="newBannerLinkHint">
+                            Site-relative path, e.g. /category/fashion-apparel or /page/deals
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Overlay -->
+            <div class="banner-drawer-panel banner-overlay-field">
+                <label for="newBannerOverlay" class="banner-overlay-inline-label">
+                    🌑 Overlay Darkness
+                    <span id="overlayVal" class="banner-overlay-value">30%</span>
+                </label>
+                <input type="range" id="newBannerOverlay"
+                       class="banner-overlay-range"
+                       min="0" max="100" value="30" step="1"
+                       oninput="syncBannerOverlayLabel(); updateBannerLivePreview()">
+                <div class="banner-overlay-range-hints">
+                    <span>0% = no overlay</span>
+                    <span>100% = very dark</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="banner-drawer-footer">
+            <button type="button" class="banner-drawer-cancel" id="cancelBannerEditBtn"
+                    onclick="closeBannerDrawer()">Cancel</button>
+            <button type="button" class="banner-drawer-save" id="addBannerBtn" onclick="addNewBanner()">
+                ☁️ Upload &amp; Save Banner
+            </button>
+        </div>
+    </div>
+    <div id="bannerDrawerBackdrop" class="banner-drawer-backdrop" onclick="closeBannerDrawer()" hidden></div>
+
+</section>

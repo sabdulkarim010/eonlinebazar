@@ -1,0 +1,121 @@
+<aside class="sidebar">
+            <div class="brand-logo" id="sidebarBrandLogo">
+                <img id="sidebarStoreLogo" class="sidebar-store-logo" style="display:none;" alt="Store logo">
+                <div id="sidebarDefaultLogo" class="store-brand-svg store-brand-svg--sidebar" aria-label="EOnlineBazar">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 120" width="100%" height="100%" role="img" aria-hidden="true">
+                        <defs>
+                            <linearGradient id="eBazarGradSidebar" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#007bff" />
+                                <stop offset="100%" stop-color="#00d2ff" />
+                            </linearGradient>
+                        </defs>
+                        <g transform="translate(10, 10)">
+                            <path d="M45,35 L85,35 L90,95 C90,100 85,105 80,105 L50,105 C45,105 40,100 40,95 Z" fill="url(#eBazarGradSidebar)" />
+                            <path d="M53,35 C53,20 77,20 77,35" fill="none" stroke="#007bff" stroke-width="5" stroke-linecap="round" />
+                            <path d="M60,55 L75,70 L65,75 L80,90" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+                        </g>
+                        <text x="125" y="82" font-family="'Poppins', 'Segoe UI', sans-serif" font-size="52" font-weight="900" fill="url(#eBazarGradSidebar)">E</text>
+                        <text x="160" y="82" font-family="'Poppins', 'Segoe UI', sans-serif" font-size="45" font-weight="700" fill="#e2e8f0">Online<tspan fill="#38bdf8">Bazar</tspan></text>
+                        <text x="165" y="105" font-family="'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#64748b" letter-spacing="4">YOUR PREMIUM STORE</text>
+                    </svg>
+                </div>
+                <i class="fa-solid fa-store" id="sidebarStoreIcon" style="display:none;"></i>
+                <span id="sidebarStoreName" style="display:none;">EonlineBazar</span>
+            </div>
+            
+            <nav class="sidebar-menu">
+                <ul>
+                    <li class="active" data-target="view-overview"><i class="fa-solid fa-chart-pie"></i> Overview</li>
+                    <li data-target="view-customers"><i class="fa-solid fa-users"></i> All Customers</li>
+                    <li data-target="view-orders"><i class="fa-solid fa-cart-shopping"></i> Live Orders <span id="sidebarOrdersBadge" class="sidebar-nav-badge" hidden>0</span></li>
+                    <li data-target="view-messages"><i class="fa-solid fa-envelope-open-text"></i> Messages / Inquiries <span id="sidebarMessagesBadge" class="sidebar-nav-badge" hidden>0</span></li>
+                    <li data-target="view-add-product"><i class="fa-solid fa-circle-plus"></i> Add New Product</li>
+                    <li data-target="view-manage-products"><i class="fa-solid fa-boxes-stacked"></i> Manage Products</li>
+
+                    <!-- 🛡️ Super Admin only — revealed by admin-staff.js after /api/admin/me -->
+                    <li data-target="view-staff" data-superadmin-only="true"><i class="fa-solid fa-user-shield"></i> Staff Management</li>
+                    <li data-target="view-file-manager" data-superadmin-only="true"><i class="fa-solid fa-folder-tree"></i> File Manager</li>
+
+                    <li class="menu-group">
+                        <div class="catalog-toggle">
+                            <span class="catalog-toggle-label"><i class="fa-solid fa-layer-group"></i> Catalog Management</span>
+                            <i class="fa-solid fa-chevron-down catalog-chevron"></i>
+                        </div>
+                        <ul class="submenu">
+                            <li data-target="manage-category"><i class="fa-solid fa-tags"></i> Manage Categories</li>
+                            <li data-target="manage-brands"><i class="fa-solid fa-copyright"></i> Manage Brands</li>
+                            <li data-target="manage-navbar-links"><i class="fa-solid fa-bars"></i> Navbar Menu Links</li>
+                            <li data-target="manage-attributes"><i class="fa-solid fa-sliders"></i> Attributes</li>
+                            <li data-target="manage-coupons"><i class="fa-solid fa-ticket"></i> Manage Coupons</li>
+                        </ul>
+                    </li>
+
+                    <li class="menu-group">
+                        <div class="catalog-toggle">
+                            <span class="catalog-toggle-label"><i class="fa-solid fa-envelope-circle-check"></i> Newsletter</span>
+                            <i class="fa-solid fa-chevron-down catalog-chevron"></i>
+                        </div>
+                        <ul class="submenu">
+                            <li data-target="view-newsletter-subscribers"><i class="fa-solid fa-users"></i> Subscribers</li>
+                            <li data-target="view-newsletter-campaigns"><i class="fa-solid fa-paper-plane"></i> Email Campaigns</li>
+                        </ul>
+                    </li>
+
+                    <li class="menu-group">
+                        <div class="catalog-toggle">
+                            <span class="catalog-toggle-label"><i class="fa-solid fa-lock"></i> Security Suite</span>
+                            <i class="fa-solid fa-chevron-down catalog-chevron"></i>
+                        </div>
+                        <ul class="submenu">
+                            <li data-target="view-security"><i class="fa-solid fa-shield-halved"></i> Security Logs</li>
+                            <li data-target="view-sessions"><i class="fa-solid fa-laptop-mobile"></i> Active Sessions</li>
+                            <li data-target="view-audit"><i class="fa-solid fa-user-shield"></i> Security &amp; Audit</li>
+                        </ul>
+                    </li>
+
+                    <li data-target="view-master-settings"><i class="fa-solid fa-sliders"></i> System Settings</li>
+                    <li data-target="view-banners"><i class="fa-solid fa-images"></i> Hero Banners</li>
+                    <li data-target="view-settings"><i class="fa-solid fa-gear"></i> Admin Settings</li>
+
+                </ul>
+
+                <a href="/finance-analytics" class="finance-nav-cta" data-permission="view_analytics" title="Open Finance & Analytics Dashboard">
+                    <span class="finance-cta-icon"><i class="fa-solid fa-chart-line"></i></span>
+                    <span class="finance-cta-text">
+                        <strong>Finance &amp; Analytics</strong>
+                        <small>Profit, Revenue &amp; Margin</small>
+                    </span>
+                    <i class="fa-solid fa-arrow-up-right-from-square finance-cta-arrow"></i>
+                </a>
+
+                <a href="/admin/payment-reconciliation" class="finance-nav-cta finance-nav-cta--reconciliation" data-permission="manage_orders" title="Payment Reconciliation">
+                    <span class="finance-cta-icon"><i class="fa-solid fa-credit-card"></i></span>
+                    <span class="finance-cta-text">
+                        <strong>Payment Reconciliation</strong>
+                        <small>Gateway, Manual &amp; COD</small>
+                    </span>
+                    <i class="fa-solid fa-arrow-up-right-from-square finance-cta-arrow"></i>
+                </a>
+            </nav>
+
+            <div class="admin-profile">
+                <div class="profile-img-container" title="Click to change photo">
+                    <img id="adminProfilePic" src="https://ui-avatars.com/api/?name=Abdul+Karim&background=d97706&color=fff" alt="Admin">
+                    
+                    <div class="img-overlay" onclick="document.getElementById('profileUploadInput').click()">
+                        <i class="fa-solid fa-camera"></i>
+                    </div>
+                    
+                    <input type="file" id="profileUploadInput" accept="image/*" style="display: none;">
+                </div>
+
+                <div class="info">
+                    <h4>Abdul Karim</h4>
+                    <p>Super Admin</p>
+                </div>
+                
+                <a href="/admin/logout" class="logout-btn" id="logoutBtn" role="button">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+                </a>
+            </div>
+        </aside>

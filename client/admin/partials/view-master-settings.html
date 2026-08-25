@@ -1,0 +1,590 @@
+<section id="view-master-settings" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <h3>System Settings</h3>
+        <p class="section-subtitle">Configure store-wide shipping, notifications, loyalty rewards, and operational integrations — each section saves independently.</p>
+    </div>
+
+    <div class="system-settings-stack">
+
+        <form id="form-system-announcement" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--blue">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--blue" aria-hidden="true">
+                        <i class="fa-solid fa-bullhorn"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>Announcement &amp; Free Shipping</h4>
+                        <p class="settings-card-sub">The threshold below drives the real checkout shipping fee <em>and</em> the "Latest Announcement" card on every customer dashboard.</p>
+                    </div>
+                </div>
+
+                <div class="master-settings-grid">
+                    <div class="form-group form-group-full">
+                        <label for="announcementText">Announcement Message Text</label>
+                        <textarea id="announcementText" rows="3" placeholder="Leave blank to auto-generate from your live settings"></textarea>
+                        <small class="field-hint">Leave blank to auto-generate the message from the free shipping threshold and reward rates below.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="masterFreeShippingThreshold">Free Shipping Threshold (৳)</label>
+                        <input type="number" id="masterFreeShippingThreshold" min="0" step="1" placeholder="2000" required>
+                        <small class="field-hint">Orders with a subtotal at or above this amount ship free. Set to <strong>0</strong> to give every order free shipping.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label" for="isAnnouncementActive">
+                            <input type="checkbox" id="isAnnouncementActive" checked>
+                            Show announcement on customer dashboard
+                        </label>
+                        <small class="field-hint">Uncheck to hide the announcement card from all customer profiles.</small>
+                    </div>
+                </div>
+
+                <div class="master-settings-preview" id="announcementSettingsPreview">
+                    <strong>Customer sees:</strong>
+                    <span id="announcementSettingsPreviewText">Loading preview...</span>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Announcement &amp; Shipping
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <form id="form-system-sms" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--teal">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--teal" aria-hidden="true">
+                        <i class="fa-solid fa-comment-sms"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>SMS Notifications</h4>
+                        <p class="settings-card-sub">Configure your Bangladeshi SMS gateway here. Values saved below are stored in MongoDB and override <code>.env</code> — no code changes needed when switching providers.</p>
+                    </div>
+                </div>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label class="checkbox-label" for="enableSmsNotifications">
+                            <input type="checkbox" id="enableSmsNotifications">
+                            Enable customer SMS notifications
+                        </label>
+                        <small class="field-hint">When enabled, customers receive SMS on order placement and when admins update order status.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="smsGatewayProvider">SMS Gateway Provider</label>
+                        <select id="smsGatewayProvider">
+                            <option value="">— Select provider —</option>
+                            <option value="Greenweb BD">Greenweb BD</option>
+                            <option value="BulkSMS BD">BulkSMS BD</option>
+                            <option value="AlphaSMS">AlphaSMS</option>
+                            <option value="Generic API">Generic API</option>
+                        </select>
+                        <small class="field-hint">Choose your Bangladeshi SMS provider. Use <strong>Generic API</strong> for custom endpoints via <code>SMS_API_URL</code> in <code>.env</code>.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="smsApiKey">SMS API Key / Token</label>
+                        <input type="text" id="smsApiKey" placeholder="Paste gateway API key or token" autocomplete="off">
+                        <small class="field-hint">Stored securely in MongoDB. Overrides <code>SMS_API_KEY</code> from <code>.env</code>.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="smsSenderId">SMS Sender ID</label>
+                        <input type="text" id="smsSenderId" placeholder="e.g. EOBAZAR" maxlength="20">
+                        <small class="field-hint">Approved sender name/ID from your gateway. Overrides <code>SMS_SENDER_ID</code> from <code>.env</code>.</small>
+                    </div>
+                </div>
+
+                <div class="master-settings-preview" id="smsSettingsPreview">
+                    <strong>SMS engine:</strong>
+                    <span id="smsSettingsPreviewText">Configure gateway credentials above, then enable notifications.</span>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save SMS Notifications
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <form id="form-system-courier" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--amber">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--amber" aria-hidden="true">
+                        <i class="fa-solid fa-truck-fast"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>Courier Booking</h4>
+                        <p class="settings-card-sub">Credentials for one-click parcel booking from the <strong>Live Orders</strong> panel. Saved to MongoDB and they override <code>.env</code> — swap providers or rotate keys with no code changes.</p>
+                    </div>
+                </div>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label for="defaultCourierProvider">Default Courier Provider</label>
+                        <select id="defaultCourierProvider">
+                            <option value="">— Select provider —</option>
+                            <option value="steadfast">Steadfast</option>
+                            <option value="pathao">Pathao</option>
+                            <option value="redx">RedX</option>
+                        </select>
+                        <small class="field-hint">Automated booking is live for <strong>Steadfast</strong>, <strong>Pathao</strong>, and <strong>RedX</strong> when credentials are configured.</small>
+                    </div>
+
+                    <div class="form-group" id="courierSteadfastFields">
+                        <label for="courierApiKey">Courier API Key</label>
+                        <input type="text" id="courierApiKey" placeholder="Paste your Steadfast Api-Key" autocomplete="off">
+                        <small class="field-hint">Sent as the <code>Api-Key</code> header. Find it in your Steadfast merchant portal under API settings.</small>
+                    </div>
+
+                    <div class="form-group" id="courierSteadfastSecretField">
+                        <label for="courierSecretKey">Courier Secret Key</label>
+                        <input type="password" id="courierSecretKey" placeholder="Paste your Steadfast Secret-Key" autocomplete="new-password">
+                        <small class="field-hint">Sent as the <code>Secret-Key</code> header. Masked here for safety — retype it to change it.</small>
+                    </div>
+
+                    <div class="form-group form-group-full" id="courierPathaoEnvPanel" style="display:none;">
+                        <label>Pathao API credentials (.env)</label>
+                        <div class="master-settings-preview" style="margin:0;">
+                            <p style="margin:0 0 8px;font-size:0.85rem;color:#64748b;">Pathao booking reads from server environment variables. Set these in your <code>.env</code> file:</p>
+                            <ul style="margin:0;padding-left:1.25rem;font-size:0.82rem;color:#475569;line-height:1.6;">
+                                <li><code>PATHAO_CLIENT_ID</code>, <code>PATHAO_CLIENT_SECRET</code></li>
+                                <li><code>PATHAO_USERNAME</code>, <code>PATHAO_PASSWORD</code></li>
+                                <li><code>PATHAO_STORE_ID</code></li>
+                                <li><code>PATHAO_IS_LIVE=true</code> for production API</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="form-group form-group-full" id="courierRedxEnvPanel" style="display:none;">
+                        <label>RedX API credentials (.env)</label>
+                        <div class="master-settings-preview" style="margin:0;">
+                            <p style="margin:0 0 8px;font-size:0.85rem;color:#64748b;">RedX booking reads from server environment variables. Set these in your <code>.env</code> file:</p>
+                            <ul style="margin:0;padding-left:1.25rem;font-size:0.82rem;color:#475569;line-height:1.6;">
+                                <li><code>REDX_API_TOKEN</code></li>
+                                <li><code>REDX_PICKUP_STORE_ID</code> (optional)</li>
+                                <li><code>REDX_IS_LIVE=true</code> for production API</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="master-settings-preview" id="courierSettingsPreview">
+                    <strong>Courier engine:</strong>
+                    <span id="courierSettingsPreviewText">Add your API key and secret key to enable one-click parcel booking.</span>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Courier Booking
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <form id="form-system-whatsapp" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--green">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--green" aria-hidden="true">
+                        <i class="fa-brands fa-whatsapp"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>WhatsApp Configuration</h4>
+                        <p class="settings-card-sub">Two isolated numbers: one shown to customers for chat &amp; inquiries, and one kept private for instant order alerts to your admin team.</p>
+                    </div>
+                </div>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label for="publicSupportWhatsApp">Public Customer WhatsApp Number</label>
+                        <input type="tel" id="publicSupportWhatsApp" placeholder="e.g. 8801712345678" autocomplete="off">
+                        <small class="field-hint">Shown on the storefront floating WhatsApp button and customer chat links. Updates live without a server restart.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="privateAdminAlertWhatsApp">Private Admin Notification WhatsApp Number</label>
+                        <input type="tel" id="privateAdminAlertWhatsApp" placeholder="e.g. 8801812345678" autocomplete="off">
+                        <small class="field-hint">Never exposed to customers. Backend sends new-order alerts here when the toggle below is enabled.</small>
+                    </div>
+
+                    <div class="form-group form-group-full">
+                        <label class="checkbox-label" for="enableWhatsAppOrderAlerts">
+                            <input type="checkbox" id="enableWhatsAppOrderAlerts">
+                            Enable instant order WhatsApp notifications
+                        </label>
+                        <small class="field-hint">When enabled, every new order triggers an automated WhatsApp alert to the private admin number above.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="whatsAppAlertProvider">Alert Gateway Provider</label>
+                        <select id="whatsAppAlertProvider">
+                            <option value="">— Select provider —</option>
+                            <option value="CallMeBot">CallMeBot (free — register at callmebot.com)</option>
+                            <option value="UltraMsg">UltraMsg</option>
+                            <option value="Green API">Green API</option>
+                            <option value="Generic">Generic HTTP</option>
+                        </select>
+                        <small class="field-hint">Required for automatic delivery. Without a gateway, alerts queue in the admin panel with a one-click <strong>wa.me</strong> link.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="whatsAppAlertApiKey">Alert API Key / Token</label>
+                        <input type="text" id="whatsAppAlertApiKey" placeholder="Gateway API key or CallMeBot apikey" autocomplete="off">
+                        <small class="field-hint">Stored in MongoDB. Overrides <code>WHATSAPP_ALERT_API_KEY</code> from <code>.env</code>.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="whatsAppAlertInstanceId">Instance ID (UltraMsg / Green API)</label>
+                        <input type="text" id="whatsAppAlertInstanceId" placeholder="e.g. instance1150 or Green API instance id" autocomplete="off">
+                        <small class="field-hint">Not needed for CallMeBot. Required for UltraMsg and Green API.</small>
+                    </div>
+                </div>
+
+                <div class="master-settings-preview" id="whatsappSettingsPreview">
+                    <strong>WhatsApp engine:</strong>
+                    <span id="whatsappSettingsPreviewText">Configure public and private numbers above.</span>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save WhatsApp Configuration
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <section id="paymentMethodsManager" class="system-settings-form" aria-labelledby="paymentMethodsHeading">
+            <div class="system-settings-card system-settings-card--green">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--green" aria-hidden="true">
+                        <i class="fa-solid fa-credit-card"></i>
+                    </div>
+                    <div class="system-settings-card-heading flex-1 min-w-0">
+                        <h4 id="paymentMethodsHeading">Accepted Payment Methods</h4>
+                        <p class="settings-card-sub">Fully dynamic catalog for checkout, product badges, gateway credentials, and future ledger tracking. Drag order or set display order to control checkout sequence.</p>
+                    </div>
+                </div>
+
+                <div id="paymentMethodsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pm-methods-grid" role="list">
+                    <div class="pm-grid-loading" id="paymentMethodsLoading">
+                        <i class="fa-solid fa-spinner fa-spin"></i>
+                        <span>Loading payment methods...</span>
+                    </div>
+                </div>
+
+                <div class="pm-add-footer" id="paymentMethodsAddFooter" hidden>
+                    <button type="button" id="addPaymentMethodBtn" class="pm-add-btn">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>Add New Payment Method</span>
+                    </button>
+                </div>
+
+                <div class="payment-gateway-preview-row" id="paymentGatewayPreviewRow" aria-hidden="true"></div>
+
+                <div class="master-settings-preview" id="paymentGatewaySettingsPreview">
+                    <strong>Checkout &amp; badges:</strong>
+                    <span id="paymentGatewaySettingsPreviewText">Loading payment methods...</span>
+                </div>
+            </div>
+        </section>
+
+        <form id="form-system-catalog" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--slate">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--slate" aria-hidden="true">
+                        <i class="fa-solid fa-table-list"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>Catalog Pagination</h4>
+                        <p class="settings-card-sub">Default page size for storefront product lists and search. Clients can still override with <code>?limit=</code> on the API.</p>
+                    </div>
+                </div>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label for="defaultProductsPerPage">Default Products Per Page</label>
+                        <input type="number" id="defaultProductsPerPage" min="1" max="100" step="1" placeholder="24">
+                        <small class="field-hint">Used when <code>page</code>/<code>limit</code> are omitted. Allowed range: 1–100 (default 24).</small>
+                    </div>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Catalog Pagination
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <form id="form-system-flash-sale" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--orange">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--orange" aria-hidden="true">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>Flash Sale Engine</h4>
+                        <p class="settings-card-sub">Schedule a homepage flash sale with a live countdown and automatic discounted pricing on selected products.</p>
+                    </div>
+                </div>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label class="checkbox-label" for="flashSaleEnabled">
+                            <input type="checkbox" id="flashSaleEnabled">
+                            Enable Flash Sale
+                        </label>
+                        <small class="field-hint">When enabled and before the end date, featured products show discounted prices on the storefront.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="flashSaleTitle">Sale Title</label>
+                        <input type="text" id="flashSaleTitle" placeholder="⚡ Mega Flash Sale">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="flashSaleEndDate">End Date</label>
+                        <input type="date" id="flashSaleEndDate">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="flashSaleEndTime">End Time</label>
+                        <input type="time" id="flashSaleEndTime" value="23:59">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="flashSaleDiscountPercent">Discount Percentage (%)</label>
+                        <input type="number" id="flashSaleDiscountPercent" min="0" max="100" step="1" placeholder="20">
+                    </div>
+
+                    <div class="form-group form-group-full">
+                        <label for="flashSaleProductIds">Featured Product IDs</label>
+                        <textarea id="flashSaleProductIds" rows="3" placeholder="Comma-separated product IDs or MongoDB _id values"></textarea>
+                        <small class="field-hint">Paste product <code>productId</code> or <code>_id</code> values separated by commas. Only these products receive the flash discount.</small>
+                    </div>
+                </div>
+
+                <div class="master-settings-preview" id="flashSaleSettingsPreview">
+                    <strong>Storefront:</strong>
+                    <span id="flashSaleSettingsPreviewText">Flash sale is currently inactive.</span>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Flash Sale
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <form id="form-system-vip" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--indigo">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--indigo" aria-hidden="true">
+                        <i class="fa-solid fa-crown"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>VIP Customer Segmentation</h4>
+                        <p class="settings-card-sub">Thresholds power the All Customers filter tabs and VIP badges in the admin customer table.</p>
+                    </div>
+                </div>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label for="vipMinTotalSpent">VIP Minimum Total Spent (৳)</label>
+                        <input type="number" id="vipMinTotalSpent" min="0" step="1" placeholder="10000">
+                    </div>
+                    <div class="form-group">
+                        <label for="vipMinOrderCount">VIP Minimum Order Count</label>
+                        <input type="number" id="vipMinOrderCount" min="0" step="1" placeholder="5">
+                    </div>
+                    <div class="form-group">
+                        <label for="frequentBuyerMinOrders">Frequent Buyer Minimum Orders</label>
+                        <input type="number" id="frequentBuyerMinOrders" min="0" step="1" placeholder="3">
+                    </div>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save VIP Segmentation
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <form id="form-system-rewards" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--purple">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--purple" aria-hidden="true">
+                        <i class="fa-solid fa-coins"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>Rewards &amp; Refund Engine</h4>
+                        <p class="settings-card-sub">These values replace hardcoded cashback and points logic across checkout, orders, and wallet flows.</p>
+                    </div>
+                </div>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label for="masterCashbackPercentage">Order Cashback Percentage (%)</label>
+                        <input type="number" id="masterCashbackPercentage" min="0" max="100" step="0.01" placeholder="1" required>
+                        <small class="field-hint">Percentage of order total credited to the customer wallet after delivery. Set to 0 to disable cashback.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="masterTakaToPointsRatio">Points Earned per Taka Spent</label>
+                        <input type="number" id="masterTakaToPointsRatio" min="0" step="1" placeholder="100" required>
+                        <small class="field-hint">How many taka a customer must spend to earn 1 loyalty point (e.g. 100 = 1 point per ৳100). Set to 0 to disable points earning.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="masterPointsConversionRate">Points Conversion Rate (100 Points = X Taka)</label>
+                        <input type="number" id="masterPointsConversionRate" min="0" step="0.01" placeholder="10" required>
+                        <small class="field-hint">Wallet taka value when a customer converts 100 loyalty points.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="masterRefundUndoWindow">Refund Undo Window (Hours)</label>
+                        <input type="number" id="masterRefundUndoWindow" min="0" step="1" placeholder="72" required>
+                        <small class="field-hint">How long admins can reverse an approved refund after wallet credit (0 = disabled).</small>
+                    </div>
+                </div>
+
+                <div class="master-settings-preview" id="masterSettingsPreview">
+                    <strong>Live preview:</strong>
+                    <span id="masterSettingsPreviewText">Loading current rules...</span>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Rewards &amp; Refunds
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <section id="footerSettingsManager" class="system-settings-form" aria-labelledby="footerSettingsHeading">
+            <div class="system-settings-card system-settings-card--slate">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--slate" aria-hidden="true">
+                        <i class="fa-solid fa-shoe-prints"></i>
+                    </div>
+                    <div class="system-settings-card-heading flex-1 min-w-0">
+                        <h4 id="footerSettingsHeading">Footer Settings</h4>
+                        <p class="settings-card-sub">Manage footer columns, social links, copyright, and payment badges. Pick a CMS page from the dropdown (or type its title) to auto-fill routes like <code>/privacy-policy</code>. New internal links also auto-create editable pages in Page Content Manager.</p>
+                    </div>
+                </div>
+
+                <div class="footer-settings-body">
+                    <div class="form-group form-group-full">
+                        <label for="footerCopyrightText">Copyright Text</label>
+                        <input type="text" id="footerCopyrightText" maxlength="300" placeholder="© 2026 EonlineBazar. All rights reserved. Designed by Abdul Karim Sheikh">
+                    </div>
+
+                    <div class="footer-settings-section">
+                        <div class="footer-settings-section-head">
+                            <h5><i class="fa-solid fa-table-columns"></i> Footer Columns &amp; Links</h5>
+                            <button type="button" id="footerAddColumnBtn" class="footer-settings-add-btn">
+                                <i class="fa-solid fa-plus"></i> Add Column
+                            </button>
+                        </div>
+                        <div id="footerColumnsEditor" class="footer-columns-editor"></div>
+                    </div>
+
+                    <div class="footer-settings-section">
+                        <div class="footer-settings-section-head">
+                            <h5><i class="fa-solid fa-share-nodes"></i> Social Media Links</h5>
+                            <button type="button" id="footerAddSocialBtn" class="footer-settings-add-btn">
+                                <i class="fa-solid fa-plus"></i> Add Social Link
+                            </button>
+                        </div>
+                        <div id="footerSocialEditor" class="footer-social-editor"></div>
+                    </div>
+
+                    <div class="footer-section-card footer-settings-section" id="footerPaymentBadgesCard">
+                        <div class="footer-section-header footer-settings-section-head">
+                            <div class="footer-payment-header-copy min-w-0">
+                                <h5><i class="fa-solid fa-wallet"></i> Payment Method Badges</h5>
+                                <p>Footer bottom-bar logos (bKash, Nagad, Visa, etc.). Upload custom icons or use presets.</p>
+                            </div>
+                            <div class="footer-payment-header-actions">
+                                <button type="button" id="footerTogglePaymentFormBtn" class="btn-toggle-payment-form" title="Hide or show the entire payment badges section on the storefront">
+                                    <i class="fa-solid fa-eye-slash"></i>
+                                    <span>Hide Payment Form</span>
+                                </button>
+                                <button type="button" id="footerClearPaymentBadgesBtn" class="btn-clear-payment-form" title="Remove all payment badges">
+                                    <i class="fa-solid fa-trash"></i>
+                                    <span>Clear All</span>
+                                </button>
+                                <button type="button" id="footerAddPaymentBtn" class="footer-settings-add-btn">
+                                    <i class="fa-solid fa-plus"></i> Add Badge
+                                </button>
+                            </div>
+                        </div>
+                        <div id="footerPaymentFormBody" class="footer-payment-form-body">
+                            <div id="footerPaymentEditor" class="footer-payment-editor"></div>
+                        </div>
+                    </div>
+
+                    <div class="master-settings-preview footer-settings-preview" id="footerSettingsPreview">
+                        <strong>Live preview:</strong>
+                        <p class="footer-preview-hint">Uses the same footer renderer as the storefront — updates instantly as you edit.</p>
+                        <div id="footerSettingsPreviewContent" class="footer-live-preview-wrap">
+                            <footer class="site-footer" aria-label="Footer preview">
+                                <div class="footer-container" id="footerLivePreviewInner"></div>
+                            </footer>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="button" id="footerSettingsSaveBtn" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Footer Settings
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="pageContentManager" class="system-settings-form" aria-labelledby="pageContentHeading">
+            <div class="system-settings-card system-settings-card--cyan">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--cyan" aria-hidden="true">
+                        <i class="fa-solid fa-file-lines"></i>
+                    </div>
+                    <div class="system-settings-card-heading flex-1 min-w-0">
+                        <h4 id="pageContentHeading">Page Content Manager</h4>
+                        <p class="settings-card-sub">Fully dynamic CMS — tabs come only from the database. Create pages here, or save internal Footer Column links (e.g. <code>/return-policy</code>) to auto-generate editable pages. Toggle publish to control footer links and public access.</p>
+                    </div>
+                    <button type="button" id="pageContentCreateBtn" class="page-content-create-btn">
+                        <i class="fa-solid fa-plus"></i> Create New Page
+                    </button>
+                </div>
+
+                <div class="page-content-body">
+                    <div class="page-content-tabs-row">
+                        <div class="page-content-tabs" id="pageContentTabs" role="tablist"></div>
+                    </div>
+
+                    <div class="page-content-editor" id="pageContentEditor">
+                        <p class="page-content-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading pages...</p>
+                    </div>
+                </div>
+
+                <div class="system-settings-card-footer page-content-footer-actions">
+                    <button type="button" id="pageContentAddToFooterBtn" class="btn-secondary page-content-footer-link-btn" style="display:none;">
+                        <i class="fa-solid fa-link"></i> Add to Footer
+                    </button>
+                    <button type="button" id="pageContentSaveBtn" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Page Content
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </div>
+</section>

@@ -1,0 +1,108 @@
+<div id="createPageModal" class="custom-modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="createPageModalTitle" onclick="if(event.target===this) closeCreatePageModal()">
+    <div class="custom-modal-box page-create-modal-box" style="max-width: 640px;">
+        <div class="modal-header">
+            <h3 id="createPageModalTitle"><i class="fa-solid fa-file-circle-plus"></i> Create New Page</h3>
+            <button type="button" class="close-icon-btn" id="createPageModalCloseBtn" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="page-content-form">
+                <div class="form-group">
+                    <label for="createPageTitle">Page Title</label>
+                    <input type="text" id="createPageTitle" maxlength="120" placeholder="e.g. Return Policy">
+                </div>
+                <div class="form-group">
+                    <label for="createPageSlug">Route / Slug</label>
+                    <div class="page-slug-input-wrap">
+                        <span class="page-slug-prefix">/</span>
+                        <input type="text" id="createPageSlug" maxlength="80" placeholder="return-policy">
+                    </div>
+                    <small class="field-hint">Auto-generated from title; editable. Public URL: <code id="createPageSlugPreview">/return-policy</code></small>
+                </div>
+                <div class="form-group form-group-full">
+                    <label for="createPageSubtitle">Subtitle (optional)</label>
+                    <input type="text" id="createPageSubtitle" maxlength="240" placeholder="Short supporting line">
+                </div>
+                <div class="form-group form-group-full">
+                    <label for="createPageMarkdown">Content (Markdown supported)</label>
+                    <textarea id="createPageMarkdown" rows="10" placeholder="## Return Policy&#10;&#10;Write details here..."></textarea>
+                </div>
+                <div class="form-group form-group-full page-create-footer-opt">
+                    <label class="page-create-checkbox-label">
+                        <input type="checkbox" id="createPageAddToFooter" checked>
+                        Also add link to Footer Columns
+                    </label>
+                    <select id="createPageFooterColumn" aria-label="Footer column">
+                        <option value="0">First column</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" id="createPageCancelBtn">Cancel</button>
+            <button type="button" class="btn-primary" id="createPageSubmitBtn">
+                <i class="fa-solid fa-plus"></i> Create Page
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="addPageToFooterModal" class="custom-modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="addPageToFooterTitle" onclick="if(event.target===this) closeAddPageToFooterModal()">
+    <div class="custom-modal-box" style="max-width: 440px;">
+        <div class="modal-header">
+            <h3 id="addPageToFooterTitle"><i class="fa-solid fa-link"></i> Add to Footer</h3>
+            <button type="button" class="close-icon-btn" id="addPageToFooterCloseBtn" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <p class="field-hint" id="addPageToFooterHint" style="margin-bottom: 12px;">Choose which footer column should link to this page.</p>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="addPageToFooterColumn">Footer Column</label>
+                <select id="addPageToFooterColumn"></select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" id="addPageToFooterCancelBtn">Cancel</button>
+            <button type="button" class="btn-primary" id="addPageToFooterConfirmBtn">
+                <i class="fa-solid fa-link"></i> Add Link
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="customConfirmModal" class="custom-modal-overlay" style="display: none;">
+        <div class="custom-confirm-card">
+            <div class="confirm-icon-box" id="confirmIconBox"><i class="fa-solid fa-circle-question"></i></div>
+            <h3 id="confirmTitle">Are you sure?</h3>
+            <p id="confirmMessage">Do you really want to perform this action?</p>
+            <div class="confirm-actions">
+                <button id="confirmCancelBtn" class="btn-cancel">Cancel</button>
+                <button id="confirmSuccessBtn" class="btn-confirm">Yes, Proceed</button>
+            </div>
+        </div>
+    </div>
+
+<div id="enterpriseConfirmModal" class="enterprise-modal-overlay" hidden aria-hidden="true">
+    <div class="enterprise-modal-card" role="dialog" aria-modal="true" aria-labelledby="enterpriseModalTitle">
+        <button type="button" class="enterprise-modal-close" id="enterpriseModalCloseBtn" aria-label="Close dialog">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+        <div class="enterprise-modal-icon-wrap" id="enterpriseModalIconWrap">
+            <i class="fa-solid fa-triangle-exclamation enterprise-modal-icon" id="enterpriseModalIcon" aria-hidden="true"></i>
+        </div>
+        <h3 class="enterprise-modal-title" id="enterpriseModalTitle">Confirm action</h3>
+        <p class="enterprise-modal-message" id="enterpriseModalMessage"></p>
+        <div class="enterprise-modal-typed-wrap" id="enterpriseModalTypedWrap" hidden>
+            <label class="enterprise-modal-typed-label" for="enterpriseModalTypedInput">
+                Type <strong id="enterpriseModalPhrase">DELETE REAL ORDERS</strong> to confirm:
+            </label>
+            <input type="text" id="enterpriseModalTypedInput" class="enterprise-modal-typed-input" autocomplete="off" spellcheck="false" placeholder="Type exactly as shown above">
+            <p class="enterprise-modal-typed-error" id="enterpriseModalTypedError" hidden></p>
+        </div>
+        <div class="enterprise-modal-actions">
+            <button type="button" class="enterprise-modal-btn enterprise-modal-btn--cancel" id="enterpriseModalCancelBtn">Cancel</button>
+            <button type="button" class="enterprise-modal-btn enterprise-modal-btn--confirm" id="enterpriseModalConfirmBtn">
+                <span class="enterprise-modal-btn-label" id="enterpriseModalConfirmLabel">Confirm</span>
+                <span class="enterprise-modal-btn-spinner" id="enterpriseModalSpinner" hidden aria-hidden="true"></span>
+            </button>
+        </div>
+    </div>
+</div>

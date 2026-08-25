@@ -1,0 +1,195 @@
+<!-- Category Modal -->
+<div class="modal-bg" id="categoryModal" onclick="if(event.target===this) closeCategoryModal()">
+  <div class="modal-box category-modal-box">
+    <!-- STICKY HEADER — stays visible while scrolling -->
+    <div class="category-modal-header">
+      <div class="category-modal-header-left">
+        <span id="catModalIcon" style="font-size:20px;">➕</span>
+        <h2 id="catModalTitle">Add New Category</h2>
+      </div>
+      <button type="button"
+              class="category-modal-close"
+              onclick="closeCategoryModal()"
+              title="Close"
+              onmouseover="this.style.background='#ef4444';this.style.color='#fff'"
+              onmouseout="this.style.background='transparent';this.style.color='#ef4444'">
+        ✕
+      </button>
+    </div>
+
+    <!-- SCROLLABLE BODY -->
+    <div class="category-modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+        <!-- Left: Basic Info -->
+        <div style="grid-column:1/-1">
+          <div class="modal-field">
+            <div class="modal-lbl">Category Name *</div>
+            <input type="text" id="catName" class="pf-input"
+                   placeholder="e.g. Fashion & Apparel">
+          </div>
+        </div>
+
+        <div>
+          <div class="modal-field">
+            <div class="modal-lbl">Parent Category (optional)</div>
+            <select id="catParent" class="pf-input">
+              <option value="">None (Top-level)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <div class="modal-field">
+            <div class="modal-lbl">Accent Color</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="color" id="catColor" value="#f97316"
+                     style="height:42px;width:60px;border-radius:8px;
+                            border:1.5px solid #e2e8f0;cursor:pointer"
+                     oninput="document.getElementById('catColorHex').value=this.value">
+              <input type="text" id="catColorHex"
+                     class="pf-input" style="flex:1"
+                     placeholder="#f97316"
+                     oninput="document.getElementById('catColor').value=this.value">
+            </div>
+          </div>
+        </div>
+
+        <div style="grid-column:1/-1">
+          <div class="modal-field">
+            <div class="modal-lbl">Description (optional)</div>
+            <textarea id="catDescription" class="pf-input" rows="2"
+                      placeholder="Brief description of this category..."></textarea>
+          </div>
+        </div>
+
+        <!-- Category Image -->
+        <div>
+          <div class="modal-field">
+            <div class="modal-lbl">Category Image</div>
+            <div class="banner-upload-zone" id="catImgZone" style="min-height:100px"
+                 onclick="document.getElementById('catImageFile').click()">
+              <div id="catImgPreview">
+                <span style="font-size:1.5rem">🖼️</span>
+                <p style="font-size:0.78rem;color:#64748b;margin:4px 0">
+                  Click to upload
+                </p>
+              </div>
+            </div>
+            <input type="file" id="catImageFile" accept="image/*"
+                   style="display:none"
+                   onchange="previewCatImg(this)">
+          </div>
+        </div>
+
+        <!-- Settings toggles -->
+        <div>
+          <div class="modal-field">
+            <div class="modal-lbl">Cashback % (optional)</div>
+            <input type="number" id="catCashback" class="pf-input"
+                   placeholder="Leave blank for global default" min="0" max="100">
+          </div>
+
+          <div class="modal-field">
+            <div class="modal-lbl">Position (display order)</div>
+            <input type="number" id="catPosition" class="pf-input"
+                   placeholder="0" min="0">
+          </div>
+        </div>
+
+        <!-- Toggle switches -->
+        <div style="grid-column:1/-1">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+
+            <label class="toggle-row">
+              <span class="toggle-label">Active</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="catIsActive" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </label>
+
+            <label class="toggle-row">
+              <span class="toggle-label">Featured</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="catIsFeatured">
+                <span class="toggle-slider"></span>
+              </label>
+            </label>
+
+            <label class="toggle-row">
+              <span class="toggle-label">Show in Navbar</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="catShowNavbar" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </label>
+
+            <label class="toggle-row">
+              <span class="toggle-label">Show on Homepage</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="catShowHomepage">
+                <span class="toggle-slider"></span>
+              </label>
+            </label>
+
+          </div>
+        </div>
+
+        <!-- SEO (collapsible) -->
+        <div style="grid-column:1/-1">
+          <details>
+            <summary style="cursor:pointer;font-size:0.875rem;
+                            font-weight:600;color:#64748b;padding:8px 0">
+              🔍 SEO Settings (optional)
+            </summary>
+            <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
+              <div class="modal-field">
+                <div class="modal-lbl">Meta Title</div>
+                <input type="text" id="catMetaTitle" class="pf-input"
+                       placeholder="Page title for search engines">
+              </div>
+              <div class="modal-field">
+                <div class="modal-lbl">Meta Description</div>
+                <textarea id="catMetaDesc" class="pf-input" rows="2"
+                          placeholder="Description for search engines (max 160 chars)"></textarea>
+              </div>
+            </div>
+          </details>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- STICKY FOOTER with Save/Cancel buttons -->
+    <div class="modal-footer category-modal-footer">
+      <button type="button" class="btn" style="background:#f8fafc;color:#64748b;border:2px solid #e2e8f0"
+              onclick="closeCategoryModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" id="saveCatBtn"
+              onclick="saveCategory()">
+        💾 Save Category
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Catalog quick-edit modal (replaces native prompt for Categories/Brands/Attributes) -->
+<div id="catalogQuickEditModal" class="custom-modal-overlay" style="display: none;">
+    <div class="custom-modal-box" style="max-width: 420px;">
+        <div class="modal-header">
+            <h3 id="cqeTitle">Edit Item</h3>
+            <button type="button" class="close-icon-btn" onclick="closeCatalogQuickEdit()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label id="cqeLabel">Name</label>
+                <input type="text" id="cqeInput" placeholder="">
+                <p id="cqeHint" class="field-hint" style="display: none; margin-top: 8px;"></p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeCatalogQuickEdit()">Cancel</button>
+            <button type="button" class="btn-primary" id="cqeSaveBtn"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        </div>
+    </div>
+</div>

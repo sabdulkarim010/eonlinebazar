@@ -1,0 +1,6 @@
+/* EonlineBazar Admin — Settings barrel. Edit files in css/admin/_settings-*.css */
+@import './_settings-branding.css';
+@import './_settings-security.css';
+@import './_settings-payments.css';
+@import './_settings-system.css';
+@import './_settings-footer.css';

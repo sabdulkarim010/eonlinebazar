@@ -1,0 +1,235 @@
+/* EonlineBazar Global — Responsive */
+
+@media screen and (min-width: 768px) {
+    .nav-user-account.is-authed .nav-user-display-name {
+        max-width: 160px;
+    }
+}
+
+@media screen and (max-width: 767px) {
+    .nav-user-account.is-authed .nav-user-display-name {
+        font-size: 0;
+    }
+
+    .nav-user-account.is-authed .nav-user-display-name::after {
+        content: attr(data-first-name);
+        font-size: 13px;
+        font-weight: bold;
+        color: var(--white, #fff);
+    }
+}
+
+@media screen and (min-width: 768px) {
+    .main-nav {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 15px;
+        padding: 4px 0;
+        min-height: 48px;
+        max-height: 56px;
+    }
+
+    /* Flatten rows when search is present */
+    .main-nav:has(.header-row-search) .header-row-top,
+    .main-nav:has(.header-row-search) .header-row-search {
+        display: contents;
+    }
+
+    .main-nav:has(.header-row-search) .logo-box {
+        order: 1;
+        flex-shrink: 0;
+    }
+
+    .main-nav:has(.header-row-search) .search-box-container {
+        order: 2;
+        flex: 1;
+        min-width: 0;
+        height: 35px;
+        border-radius: 4px;
+    }
+
+    .main-nav:has(.header-row-search) .nav-right {
+        order: 3;
+        flex-shrink: 0;
+        align-self: center;
+        padding-right: 10px;
+    }
+
+    /* Simple headers without search (about, contact) */
+    .main-nav:not(:has(.header-row-search)) .header-row-top {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .header-row-search {
+        margin-top: 0;
+    }
+
+    .nav-user-account {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0;
+    }
+
+    .nav-line-1,
+    .nav-line-2 {
+        display: block;
+    }
+
+    .cart-text {
+        display: inline;
+    }
+}
+
+@media screen and (max-width: 767px) {
+    header {
+        padding: 6px 0 8px;
+    }
+
+    .container.main-nav {
+        padding: 0 12px;
+    }
+
+    .header-row-top {
+        min-height: 38px;
+    }
+
+    .logo-box {
+        margin: 0;
+        line-height: 1;
+        font-size: 30px;
+        max-height: 40px;
+    }
+
+    .nav-right {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin: 0;
+        padding-right: 0;
+        flex-shrink: 0;
+    }
+
+    .nav-user-account {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .nav-line-1 {
+        display: inline-block;
+        font-size: 12px;
+        color: #ffffff;
+        font-weight: 500;
+    }
+
+    .nav-line-2 {
+        display: none;
+    }
+
+    .nav-cart-box span.cart-text {
+        display: none;
+    }
+
+    .header-row-search {
+        margin-top: 8px;
+    }
+
+    .search-box-container {
+        width: 100%;
+        height: 40px;
+        border-radius: 20px;
+    }
+
+    .search-category {
+        border-top-left-radius: 20px;
+        border-bottom-left-radius: 20px;
+    }
+
+    .search-submit-btn {
+        border-top-right-radius: 20px;
+        border-bottom-right-radius: 20px;
+    }
+
+    .sub-navbar {
+        padding: 8px 0;
+    }
+
+    .sub-flex {
+        padding: 0 4px;
+    }
+}
+
+@media screen and (max-width: 540px) {
+    .search-category {
+        flex: 0 0 105px;
+        font-size: 11.5px;
+        padding: 0 8px;
+        border-right: 1px solid #cbd5e1;
+        box-sizing: border-box;
+    }
+
+    .search-input {
+        flex: 1;
+        min-width: 0;
+        font-size: 12px;
+        padding: 0 8px;
+    }
+
+    .search-submit-btn {
+        flex: 0 0 42px;
+        font-size: 14px;
+    }
+}
+
+@media screen and (max-width: 360px) {
+    .search-category {
+        flex: 0 0 95px;
+        font-size: 11px;
+        padding: 0 6px;
+    }
+
+    .search-input {
+        font-size: 11.5px;
+        padding: 0 6px;
+    }
+
+    .search-submit-btn {
+        flex: 0 0 38px;
+        font-size: 13px;
+    }
+
+    .nav-right {
+        gap: 10px;
+    }
+
+    .logo-box {
+        font-size: 25px;
+    }
+}
+
+@media (min-width: 768px) {
+    .nav-drawer__name--full {
+        display: inline;
+    }
+
+    .nav-drawer__name--short {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .hp-cats-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+}
+
+@media (max-width: 480px) {
+    .hp-cat-img-wrap { width: 60px; height: 60px; }
+    .hp-cat-name { font-size: 0.7rem; max-width: 70px; }
+}
+
+@media (max-width: 480px) {
+    #pwa-install-banner .pwa-banner-content {
+        flex-direction: column;
+        text-align: center;
+    }
+}

@@ -1,0 +1,121 @@
+        <!-- ═══ SECTION 7: SECURITY ═══ -->
+        <section id="security-settings" class="tab-content">
+            <div class="profile-card-panel">
+            <header class="profile-tab-header">
+                <a href="/profile" class="btn-back-icon profile-tab-header__back" data-navigate-tab="dashboard-overview" aria-label="Go Back" title="Back to Dashboard">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </a>
+                <div class="profile-tab-header__icon profile-card-icon" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></div>
+                <div class="profile-tab-header__text">
+                    <h2 class="profile-tab-header__title">Security Settings &amp; Activity</h2>
+                    <p class="profile-tab-header__subtitle">Change your password, verify email or phone updates, and monitor active login sessions.</p>
+                </div>
+            </header>
+
+            <div class="security-stack">
+                <div class="profile-card security-card security-card--compact card">
+                    <div class="profile-card-header security-card-head">
+                        <div class="profile-card-icon" aria-hidden="true"><i class="fa-solid fa-lock"></i></div>
+                        <div>
+                            <h3 class="profile-card-title security-card-title">Change Password</h3>
+                            <p class="profile-card-subtitle security-subtext">Use a strong password you do not reuse elsewhere.</p>
+                        </div>
+                    </div>
+                    <div class="profile-card-body">
+                        <div id="password-feedback" class="security-inline-feedback hidden" role="alert" aria-live="polite"></div>
+
+                        <form id="password-form" class="security-compact-form" novalidate>
+                            <div class="password-grid security-form-grid">
+                                <div class="profile-field input-group">
+                                    <label for="current-password" class="profile-field-label">Current Password</label>
+                                    <div class="profile-input-wrap input-wrapper">
+                                        <i class="fa-solid fa-lock profile-input-icon input-icon"></i>
+                                        <input type="password" id="current-password" class="profile-input" required placeholder="••••••••" autocomplete="current-password">
+                                        <i class="fa-regular fa-eye-slash toggle-password" data-target="current-password" title="Show/hide password"></i>
+                                    </div>
+                                </div>
+
+                                <div class="profile-field input-group">
+                                    <label for="new-password" class="profile-field-label">New Password</label>
+                                    <div class="profile-input-wrap input-wrapper">
+                                        <i class="fa-solid fa-key profile-input-icon input-icon"></i>
+                                        <input type="password" id="new-password" class="profile-input" required placeholder="Min. 6 characters" autocomplete="new-password">
+                                        <i class="fa-regular fa-eye-slash toggle-password" data-target="new-password" title="Show/hide password"></i>
+                                    </div>
+                                </div>
+
+                                <div class="profile-field input-group">
+                                    <label for="confirm-password" class="profile-field-label">Confirm New Password</label>
+                                    <div class="profile-input-wrap input-wrapper">
+                                        <i class="fa-solid fa-check-double profile-input-icon input-icon"></i>
+                                        <input type="password" id="confirm-password" class="profile-input" required placeholder="Re-enter new password" autocomplete="new-password">
+                                        <i class="fa-regular fa-eye-slash toggle-password" data-target="confirm-password" title="Show/hide password"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-actions security-form-actions">
+                                <button type="submit" class="save-profile-btn btn btn-primary btn-compact" id="change-pass-btn">
+                                    <i class="fa-solid fa-shield-check"></i> Update Password
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="profile-card security-card security-card--compact card">
+                    <div class="profile-card-header security-card-head">
+                        <div class="profile-card-icon profile-section-icon--location" aria-hidden="true"><i class="fa-solid fa-user-shield"></i></div>
+                        <div>
+                            <h3 class="profile-card-title security-card-title">Email &amp; Phone Verification</h3>
+                            <p class="profile-card-subtitle security-subtext">Sensitive contact changes require a one-time 6-digit code (valid 5 minutes).</p>
+                        </div>
+                    </div>
+                    <div class="profile-card-body">
+                        <div id="contact-feedback" class="security-inline-feedback hidden" role="alert" aria-live="polite"></div>
+
+                        <div class="security-contact-section contact-update-grid">
+                            <div class="contact-update-block profile-field">
+                                <label for="security-new-email" class="profile-field-label">New Email Address</label>
+                                <div class="verify-field-wrap contact-update-row email-change-row">
+                                    <input type="email" id="security-new-email" class="verify-input" placeholder="you@example.com" autocomplete="email">
+                                    <button type="button" class="send-otp-btn btn btn-light btn-compact" id="request-email-otp-btn">
+                                        <i class="fa-solid fa-paper-plane"></i> Send OTP
+                                    </button>
+                                </div>
+                                <small class="profile-field-hint current-contact-info">Current: <span id="security-current-email">—</span></small>
+                            </div>
+
+                            <div class="contact-update-block profile-field">
+                                <label for="security-new-phone" class="profile-field-label">New Phone Number</label>
+                                <div class="verify-field-wrap contact-update-row phone-change-row">
+                                    <input type="tel" id="security-new-phone" class="verify-input" placeholder="01XXXXXXXXX" autocomplete="tel">
+                                    <button type="button" class="send-otp-btn btn btn-light btn-compact" id="request-phone-otp-btn">
+                                        <i class="fa-solid fa-comment-sms"></i> Send OTP
+                                    </button>
+                                </div>
+                                <small class="profile-field-hint current-contact-info">Current: <span id="security-current-phone">—</span></small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-card sessions-card card">
+                    <div class="profile-card-header sessions-card-head">
+                        <div class="profile-card-icon"><i class="fa-solid fa-laptop"></i></div>
+                        <div>
+                            <h3 class="profile-card-title">Active Devices &amp; Sessions</h3>
+                            <p class="profile-card-subtitle security-subtext">These are the devices currently logged into your account.</p>
+                        </div>
+                        <button type="button" id="logout-all-btn" class="logout-others-btn revoke-session-btn" title="Log out everywhere except this device">
+                            <i class="fa-solid fa-power-off"></i>
+                            <span>Log Out All Other Devices</span>
+                        </button>
+                    </div>
+                    <div class="profile-card-body login-activity-list mt-15" id="sessions-list">
+                        <p class="text-center sessions-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading active sessions...</p>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </section>

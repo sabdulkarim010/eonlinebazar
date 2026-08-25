@@ -1,0 +1,59 @@
+/* EonlineBazar Admin — Tokens */
+
+/* ==========================================================================
+   EonlineBazar - Unified Super Admin Panel CSS
+   Developer: Abdul Karim
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   01. VARIABLES, RESET & GLOBAL STYLES (ভেরিয়েবল এবং গ্লোবাল স্টাইল)
+   -------------------------------------------------------------------------- */
+:root {
+    /* Color Palette (কালার প্যালেট) */
+    --primary-color: #3b82f6;
+    --primary-hover: #2563eb;
+    --secondary-color: #1e293b;
+    --bg-color: #f1f5f9;
+    --card-bg: #ffffff;
+    --text-main: #334155;
+    --text-muted: #64748b;
+    
+    /* Status Colors (স্ট্যাটাস কালার) */
+    --success-color: #10b981;
+    --warning-color: #f59e0b;
+    --danger-color: #ef4444;
+    --info-color: #0ea5e9;
+    
+    /* Sidebar Styles (সাইডবার স্টাইল) — always dark */
+    --sidebar-bg: #111318;
+    --sidebar-text: #94a3b8;
+    --sidebar-active: #161b27;
+    --sidebar-hover: #161b27;
+    
+    /* Layout & Shadows (লেআউট এবং শ্যাডো) */
+    --sidebar-width: 260px;
+    --header-height: 70px;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --border-radius: 8px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', 'Hind Siliguri', sans-serif;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-size: 15px;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+

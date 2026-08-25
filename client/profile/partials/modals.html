@@ -1,0 +1,256 @@
+<div id="order-detail-modal" class="modal hidden">
+    <div class="modal-content order-modal-content">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-file-invoice modal-title-icon"></i> Order Details & Tracking</h2>
+            <span class="close-modal" id="close-order-modal">&times;</span>
+        </div>
+        
+        <div class="order-details-body">
+            <div id="order-cancelled-banner-modal" class="order-cancelled-banner hidden" role="alert" aria-live="polite"></div>
+            <div id="order-status-timeline-wrap-modal" class="order-status-timeline-card order-status-timeline-card--modal">
+                <h3><i class="fa-solid fa-route"></i> Order Progress</h3>
+                <div id="order-status-timeline-modal" class="order-status-timeline-host"></div>
+            </div>
+
+            <div class="order-info-grid">
+                <div class="info-box">
+                    <h4>Shipping Address</h4>
+                    <p id="modal-shipping-address">Telidanga, Post: Mahajon Bazar, Narail</p>
+                </div>
+                <div class="info-box">
+                    <h4>Payment Method</h4>
+                    <p id="modal-payment-method">Cash on Delivery (COD)</p>
+                </div>
+                <div class="info-box">
+                    <h4>Courier Service</h4>
+                    <p id="modal-courier-name">Steadfast Courier</p>
+                </div>
+                <div class="info-box">
+                    <h4>Tracking Number</h4>
+                    <p id="modal-tracking-id">SF-8839201</p>
+                </div>
+            </div>
+
+            <h4 class="ordered-products-title">Ordered Products</h4>
+            <div class="order-items-list" id="modal-items-container">
+                <div class="order-item-row">
+                    <img src="/images/placeholder-product.svg" alt="Product" class="order-item-img" onerror="this.onerror=null;this.src='/images/placeholder-product.svg';">
+                    <div class="order-item-details">
+                        <h5 class="order-item-title">Premium Wireless Headphone</h5>
+                        <p class="order-item-price">Qty: 1 × ৳1,450.00</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="order-total-section">
+                Total: <span id="modal-order-total">৳1,450.00</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="review-modal" class="modal hidden">
+    <div class="modal-content review-modal-content">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-star review-title-icon"></i> Write a Review</h2>
+            <span class="close-modal" id="close-review-modal">&times;</span>
+        </div>
+
+        <div class="review-product-banner">
+            <span class="review-verified-tag"><i class="fa-solid fa-shield-check"></i> Verified Purchase</span>
+            <p class="review-product-name" id="review-modal-product-name">Product</p>
+        </div>
+
+        <form id="review-form">
+            <input type="hidden" id="review-product-id">
+            <input type="hidden" id="review-order-id">
+            
+            <div class="input-group">
+                <label>Rate this product</label>
+                <div class="star-rating-input">
+                    <input type="radio" id="star5" name="rating" value="5" required>
+                    <label for="star5" title="5 stars"><i class="fa-solid fa-star"></i></label>
+                    <input type="radio" id="star4" name="rating" value="4">
+                    <label for="star4" title="4 stars"><i class="fa-solid fa-star"></i></label>
+                    <input type="radio" id="star3" name="rating" value="3">
+                    <label for="star3" title="3 stars"><i class="fa-solid fa-star"></i></label>
+                    <input type="radio" id="star2" name="rating" value="2">
+                    <label for="star2" title="2 stars"><i class="fa-solid fa-star"></i></label>
+                    <input type="radio" id="star1" name="rating" value="1">
+                    <label for="star1" title="1 star"><i class="fa-solid fa-star"></i></label>
+                </div>
+            </div>
+
+            <div class="input-group full-width">
+                <label for="review-comment">Your Review</label>
+                <div class="input-wrapper text-area-wrapper">
+                    <i class="fa-regular fa-comment-dots input-icon"></i>
+                    <textarea id="review-comment" rows="4" required placeholder="Tell us about your experience with this product..."></textarea>
+                </div>
+            </div>
+
+            <div class="input-group full-width">
+                <label for="review-photo">Add a Photo <span class="badge-readonly">Optional</span></label>
+                <label for="review-photo" class="review-photo-upload">
+                    <i class="fa-solid fa-camera"></i>
+                    <span id="review-photo-label">Click to upload a product photo</span>
+                </label>
+                <input type="file" id="review-photo" accept="image/*" hidden>
+                <div id="review-photo-preview" class="review-photo-preview hidden"></div>
+            </div>
+
+            <div class="form-actions mt-20">
+                <button type="submit" class="btn btn-primary save-profile-btn w-100" id="submit-review-btn">
+                    <i class="fa-regular fa-paper-plane"></i> Submit Review
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="address-modal" class="modal hidden">
+    <div class="modal-content address-modal-content">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-map-location-dot modal-title-icon"></i> <span id="address-modal-title">Add New Address</span></h2>
+            <span class="close-modal" id="close-address-modal">&times;</span>
+        </div>
+
+        <form id="address-form" class="address-form-body">
+            <input type="hidden" id="address-id">
+
+            <div class="input-group">
+                <label for="address-label">Address Label</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-tag input-icon"></i>
+                    <input type="text" id="address-label" placeholder="e.g. Home, Office" required>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="address-phone">Contact Phone</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-phone input-icon"></i>
+                    <input type="tel" id="address-phone" placeholder="e.g. +8801XXXXXXXXX">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="address-district">District</label>
+                <div class="input-wrapper select-wrapper">
+                    <i class="fa-solid fa-map input-icon"></i>
+                    <select id="address-district" required>
+                        <option value="">Select district</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="address-upazila">Upazila / Thana</label>
+                <div class="input-wrapper select-wrapper">
+                    <i class="fa-solid fa-location-crosshairs input-icon"></i>
+                    <select id="address-upazila" required disabled>
+                        <option value="">Select upazila / thana</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="input-group full-width">
+                <label for="address-full">Street / Village / House Details</label>
+                <div class="input-wrapper text-area-wrapper">
+                    <i class="fa-solid fa-location-dot input-icon"></i>
+                    <textarea id="address-full" rows="3" placeholder="House, road, village, area, post office details" required></textarea>
+                </div>
+            </div>
+
+            <label class="address-default-toggle">
+                <input type="checkbox" id="address-default">
+                <span>Set as default delivery address</span>
+            </label>
+
+            <div class="form-actions mt-20">
+                <button type="button" class="btn btn-light" id="cancel-address-btn">Cancel</button>
+                <button type="submit" class="btn btn-primary save-profile-btn" id="save-address-btn">
+                    <i class="fa-regular fa-floppy-disk"></i> Save Address
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="order-action-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="order-action-modal-title">
+    <div class="modal-content order-action-modal-content">
+        <div class="modal-header">
+            <h2 id="order-action-modal-title"><i class="fa-solid fa-circle-question order-action-modal-icon"></i> <span id="order-action-modal-title-text">Order Action</span></h2>
+            <span class="close-modal" id="close-order-action-modal" title="Close">&times;</span>
+        </div>
+
+        <form id="order-action-form" class="order-action-form" novalidate>
+            <p class="order-action-lead">Please provide a reason for this action.</p>
+
+            <div class="input-group">
+                <label for="order-action-reason-select">Select a reason</label>
+                <div class="input-wrapper select-wrapper">
+                    <i class="fa-solid fa-list-ul input-icon"></i>
+                    <select id="order-action-reason-select" required aria-label="Reason for action">
+                        <option value="">Choose a reason...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="input-group full-width order-action-other-group hidden" id="order-action-other-group" aria-hidden="true">
+                <label for="order-action-other-reason">Tell us more <span class="badge-readonly">Required for Other</span></label>
+                <div class="input-wrapper text-area-wrapper">
+                    <i class="fa-regular fa-comment-dots input-icon"></i>
+                    <textarea id="order-action-other-reason" rows="4" placeholder="Type your custom reason here..." aria-label="Custom reason"></textarea>
+                </div>
+                <small class="profile-field-hint">This field appears when you select &ldquo;Other&rdquo; from the list above.</small>
+            </div>
+
+            <div class="form-actions order-action-form-actions">
+                <button type="button" class="btn btn-light" id="order-action-close-btn">Close</button>
+                <button type="submit" class="btn btn-primary save-profile-btn" id="order-action-confirm-btn">
+                    <i class="fa-solid fa-check"></i> Confirm
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="contact-otp-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="contact-otp-title">
+    <div class="modal-content contact-otp-modal-content">
+        <div class="modal-header">
+            <h2 id="contact-otp-title"><i class="fa-solid fa-shield-halved modal-title-icon"></i> Verify OTP Code</h2>
+            <span class="close-modal" id="close-contact-otp-modal" title="Close">&times;</span>
+        </div>
+
+        <div class="contact-otp-body">
+            <p id="contact-otp-subtext" class="contact-otp-subtext">Enter the 6-digit code we sent to your contact.</p>
+
+            <form id="contact-otp-form" novalidate autocomplete="off">
+                <div class="otp-inputs" id="contactOtpInputs">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 1" autocomplete="one-time-code">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 2">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 3">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 4">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 5">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-cell" aria-label="Digit 6">
+                </div>
+
+                <div class="otp-timer" id="contactOtpTimer" aria-live="polite"></div>
+
+                <button type="button" class="btn btn-light btn-compact otp-resend-btn hidden" id="contact-otp-resend-btn" disabled>
+                    <i class="fa-solid fa-rotate-right"></i> Resend OTP
+                </button>
+
+                <div id="contact-otp-feedback" class="security-inline-feedback hidden" role="alert"></div>
+
+                <div class="form-actions contact-otp-actions">
+                    <button type="button" class="btn btn-light" id="cancel-contact-otp-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary save-profile-btn" id="verify-contact-otp-btn">
+                        <i class="fa-solid fa-circle-check"></i> Verify &amp; Update
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

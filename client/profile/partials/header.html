@@ -1,0 +1,28 @@
+<header class="sticky-navbar">
+    <div class="nav-left">
+        <button id="mobile-menu-toggle" class="mobile-toggle-btn" title="Open Menu">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+        <button type="button" id="profile-menu-toggle" class="profile-hamburger-btn" aria-label="Open navigation menu" aria-expanded="false" aria-controls="sidebar-menu">
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+        </button>
+        <a href="/" class="nav-logo" data-store-logo-slot data-logo-variant="nav" style="display: inline-block; vertical-align: middle;"></a>
+    </div>
+    
+    <div class="nav-right">
+        <button id="theme-toggle-btn" class="nav-icon-btn" title="Toggle Dark/Light Mode">
+            <i class="fa-solid fa-moon"></i>
+        </button>
+        
+        <button type="button" class="nav-icon-btn cart-badge-container" data-tab="my-cart" aria-label="Open My Cart">
+            <i class="fa-solid fa-cart-shopping"></i>
+            <span id="nav-cart-count" class="cart-count-badge">0</span>
+        </button>
+        
+        <div class="nav-profile-small-wrapper">
+            <img id="nav-avatar" src="/images/placeholder-product.svg" alt="User" class="nav-user-avatar" onerror="this.onerror=null;this.src='/images/placeholder-product.svg';">
+        </div>
+    </div>
+</header>

@@ -1,0 +1,50 @@
+        <!-- ═══ SECTION 4: WALLET & POINTS ═══ -->
+        <section id="wallet-points" class="tab-content">
+            <div class="profile-card-panel">
+            <header class="profile-tab-header">
+                <a href="/profile" class="btn-back-icon profile-tab-header__back" data-navigate-tab="dashboard-overview" aria-label="Go Back" title="Back to Dashboard">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </a>
+                <div class="profile-tab-header__icon profile-card-icon" aria-hidden="true"><i class="fa-solid fa-wallet"></i></div>
+                <div class="profile-tab-header__text">
+                    <h2 class="profile-tab-header__title">Wallet &amp; Loyalty Points</h2>
+                    <p class="profile-tab-header__subtitle">Manage your funds, track cashbacks, and convert reward points into wallet balance.</p>
+                </div>
+            </header>
+
+            <div class="wallet-grid">
+                <div class="profile-card card">
+                    <div class="profile-card-body">
+                        <div class="balance-card balance-display-box">
+                            <div class="balance-label">Current Funds</div>
+                            <div class="balance-amount main-balance-amount" id="main-balance-amount">৳0.00</div>
+                        </div>
+                        <h4 class="cashback-title profile-card-title" style="margin-top:20px;">Wallet Transaction History</h4>
+                        <ul class="cashback-history-list" id="cashback-list">
+                            <li class="history-item empty transaction-item">No recent cashback transactions.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="profile-card card">
+                    <div class="profile-card-body">
+                        <div class="points-card points-display-box">
+                            <div class="balance-label points-label">Your Points</div>
+                            <div class="points-amount main-points-amount" id="current-points-calc">0 <span class="points-unit">XP</span></div>
+                        </div>
+                        
+                        <div class="calculator-form mt-20">
+                            <label for="points-to-convert" class="profile-field-label">Enter Points to Convert</label>
+                            <div class="converter-input-wrap input-wrapper mt-8">
+                                <input type="number" id="points-to-convert" class="converter-input" placeholder="Minimum 100 points" min="100" step="100">
+                                <button type="button" id="convert-points-btn" class="convert-btn btn btn-primary">
+                                    <i class="fa-solid fa-rotate"></i> Convert
+                                </button>
+                            </div>
+                            <p class="conversion-rate-text mt-8" id="conversion-rate-text"><i class="fa-solid fa-circle-info"></i> Conversion Rate: 100 Points = ৳10 Wallet Balance</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </section>

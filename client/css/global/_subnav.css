@@ -1,0 +1,318 @@
+/* --- ৩. সাব নেভিগেশন বার (Sub Navbar - Horizontal Scroll) --- */
+.sub-navbar {
+    display: flex;
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: visible;
+    scrollbar-width: none;
+    background-color: var(--amazon-light);
+    color: var(--white);
+    padding: 8px 0;
+    margin-top: 0;
+    position: relative;
+    z-index: 9999; /* above hero banner / coming-soon so category dropdowns paint on top */
+    clear: both;
+    isolation: isolate;
+}
+
+/* overflow-x:auto forces overflow-y to clip; open dropdown → allow it to escape over the banner */
+.sub-navbar:has(.has-dropdown:hover),
+.sub-navbar:has(.has-dropdown:focus-within),
+.sub-navbar:has(.nav-category-item:hover .cat-dropdown),
+.sub-navbar.is-dropdown-open {
+    overflow: visible;
+}
+
+.amazon-header + .sub-navbar {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sub-navbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari & Opera */
+}
+
+.sub-flex {
+    display: flex;
+    align-items: center;
+    overflow: visible;
+    position: relative;
+    z-index: 9999;
+}
+
+.nav-links {
+    display: flex;
+    align-items: center;
+    list-style: none;
+    gap: 15px;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    position: relative;
+    z-index: 9999;
+}
+
+.nav-links li {
+    color: var(--white);
+    font-size: 13px;
+    font-weight: bold;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    border: 1px solid transparent;
+    border-radius: 20px;
+}
+
+/* Slot for JS-injected All + category links (no pill chrome on the wrapper) */
+.nav-links li.nav-categories-slot {
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    overflow: visible;
+    position: relative;
+    z-index: 9999;
+}
+
+.nav-links li.nav-categories-slot:hover {
+    border-color: transparent;
+}
+
+.nav-links a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.nav-links li.active,
+.nav-links li:hover {
+    border-color: var(--white);
+}
+
+/* জাভাস্ক্রিপ্টের তৈরি বাটনগুলোর মেইন কন্টেইনার */
+#categoryButtonContainer,
+#categoryButtonContainer.category-tabs-row.menu-categories {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    flex-wrap: nowrap;
+    overflow: visible; /* never clip sub-category dropdowns (overrides home.css .category-tabs-row) */
+    position: relative;
+    z-index: 9999;
+}
+
+#categoryButtonContainer .nav-category-item {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    background: transparent;
+    border: 1px solid transparent;
+    outline: none;
+    border-radius: 20px;
+    color: var(--white);
+    font-size: 13px;
+    font-weight: bold;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    text-decoration: none;
+    white-space: nowrap;
+    z-index: 1;
+}
+
+#categoryButtonContainer .nav-category-item .nav-category-link {
+    color: inherit;
+    text-decoration: none;
+    font: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+#categoryButtonContainer .nav-category-item .nav-cat-arrow {
+    font-size: 0.7em;
+    line-height: 1;
+    opacity: 0.9;
+}
+
+#categoryButtonContainer .nav-category-item:hover,
+#categoryButtonContainer .nav-category-item.active {
+    border-color: var(--white);
+    color: greenyellow;
+}
+
+/* Top-bar promo / operational links (NavbarLink) — not category mega-menu items */
+#categoryButtonContainer .nav-promo-link {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 20px;
+    color: var(--white);
+    font-size: 13px;
+    font-weight: bold;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+#categoryButtonContainer .nav-promo-link:hover,
+#categoryButtonContainer .nav-promo-link:focus-visible {
+    border-color: var(--white);
+    color: greenyellow;
+}
+
+/* Category mega-menu dropdown — floats above hero / banners */
+.nav-category-item,
+.nav-category-item.has-dropdown {
+    position: relative;
+}
+
+.nav-category-item.has-dropdown:hover,
+.nav-category-item.has-dropdown:focus-within {
+    z-index: 10000;
+}
+
+.nav-category-item:hover .cat-dropdown,
+.nav-category-item.has-dropdown:focus-within .cat-dropdown,
+.nav-category-item:hover .nav-dropdown,
+.nav-category-item.has-dropdown:focus-within .nav-dropdown,
+.nav-category-item:hover .submenu,
+.nav-category-item.has-dropdown:focus-within .submenu {
+    display: block;
+}
+
+.cat-dropdown,
+.nav-dropdown,
+.nav-category-item .submenu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: #ffffff;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+    padding: 10px 0;
+    min-width: 200px;
+    z-index: 9999;
+    border: 1px solid #f1f5f9;
+    white-space: normal;
+    list-style: none;
+    margin: 0;
+}
+
+.cat-dropdown-item,
+.nav-dropdown a,
+.nav-category-item .submenu a {
+    display: block;
+    padding: 9px 16px;
+    font-size: 0.875rem;
+    color: #1e293b;
+    text-decoration: none;
+    transition: background 0.12s ease, color 0.12s ease;
+    font-weight: 500;
+}
+
+.cat-dropdown-item:hover,
+.nav-dropdown a:hover,
+.nav-category-item .submenu a:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+/* Homepage Shop by Category */
+.homepage-categories {
+    padding: 32px 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.hp-cats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.hp-cats-header h2 {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.hp-cats-see-all {
+    color: #f97316;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.hp-cats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 14px;
+}
+
+
+
+.hp-cat-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    gap: 8px;
+    padding: 16px 8px;
+    border-radius: 12px;
+    background: #f8fafc;
+    border: 2px solid transparent;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.hp-cat-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--cat-color, #f97316);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.hp-cat-img-wrap {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 3px solid var(--cat-color, #e2e8f0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+.hp-cat-card:hover .hp-cat-img-wrap {
+    border-color: var(--cat-color, #f97316);
+}
+
+.hp-cat-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.hp-cat-emoji { font-size: 1.8rem; }
+
+.hp-cat-name {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #374151;
+    text-align: center;
+    line-height: 1.3;
+    max-width: 90px;
+}
+
+.hp-cat-count {
+    font-size: 0.68rem;
+    color: #94a3b8;
+}

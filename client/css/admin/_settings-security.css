@@ -1,0 +1,167 @@
+/* EonlineBazar Admin — Sessions, audit, blacklist, and 2FA settings card. */
+/* ==========================================================================
+   FORTIFIED ADMIN SECURITY SUITE — Sessions, Audit & Blacklist
+   ========================================================================== */
+.sessions-header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.btn-danger-soft {
+    background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;
+    padding: 9px 16px; border-radius: 8px; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px; transition: all .2s ease;
+}
+.btn-danger-soft:hover { background: #fecaca; }
+
+.sessions-grid {
+    display: flex; flex-direction: column;
+    gap: 10px; margin-top: 6px;
+}
+.session-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    transition: border-color 0.15s;
+}
+.session-card.current-device {
+    border-color: #6366f1;
+    background: #f5f3ff;
+}
+.session-icon {
+    width: 46px; height: 46px; flex-shrink: 0; border-radius: 12px;
+    background: #eff6ff; color: #2563eb; display: flex; align-items: center;
+    justify-content: center; font-size: 1.5rem;
+}
+.session-card.current-device .session-icon { background: #e0e7ff; color: #6366f1; }
+.session-info { flex: 1; min-width: 0; }
+.session-device {
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.current-badge {
+    padding: 2px 8px;
+    background: #6366f1;
+    color: white;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+.session-details {
+    font-size: 0.8rem;
+    color: #64748b;
+    margin-top: 4px;
+}
+.session-details i { width: 14px; color: #94a3b8; }
+.session-actions { flex-shrink: 0; }
+.btn-revoke-session {
+    padding: 6px 14px;
+    background: white;
+    border: 1.5px solid #ef4444;
+    color: #ef4444;
+    border-radius: 7px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+.btn-revoke-session:hover {
+    background: #ef4444;
+    color: white;
+}
+
+.empty-state {
+    grid-column: 1 / -1; text-align: center; padding: 40px; color: #64748b;
+    background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px;
+}
+.empty-state.error { color: #b91c1c; border-color: #fecaca; background: #fef2f2; }
+
+/* Audit tabs */
+.audit-tabs { display: flex; gap: 8px; margin: 4px 0 20px; border-bottom: 2px solid #e2e8f0; flex-wrap: wrap; }
+.audit-tab {
+    background: none; border: none; padding: 12px 18px; font-size: 14px; font-weight: 600;
+    color: #64748b; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;
+    display: inline-flex; align-items: center; gap: 8px; transition: all .2s ease;
+}
+.audit-tab:hover { color: #2563eb; }
+.audit-tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+
+/* Blacklist manager */
+.blacklist-add-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px;
+}
+.blacklist-add-card h4 { margin: 0 0 14px; font-size: 15px; color: #1e293b; display: flex; align-items: center; gap: 8px; }
+.blacklist-add-form { display: flex; gap: 10px; flex-wrap: wrap; }
+.blacklist-add-form input, .blacklist-add-form select {
+    padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; background: #f8fafc;
+}
+.blacklist-add-form input#blIpInput { flex: 1; min-width: 180px; }
+.blacklist-add-form input#blReasonInput { flex: 2; min-width: 200px; }
+
+.btn-unblock {
+    background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 6px 12px; border-radius: 7px;
+    font-size: 12.5px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: all .2s ease;
+}
+.btn-unblock:hover { background: #d1fae5; }
+.row-muted { opacity: 0.55; }
+
+/* ==================================================================
+   Two-Factor Authentication (2FA) settings card
+================================================================== */
+.settings-card-sub { margin: -6px 0 16px; font-size: 13px; color: #64748b; line-height: 1.5; }
+
+.master-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 20px;
+}
+
+.master-settings-preview {
+    margin: 18px 0 20px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px dashed rgba(37, 99, 235, 0.25);
+    background: rgba(37, 99, 235, 0.05);
+    font-size: 13px;
+    color: #334155;
+    line-height: 1.5;
+}
+
+.master-settings-preview strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #1e293b;
+}
+
+.master-settings-grid .form-group-full {
+    grid-column: 1 / -1;
+}
+
+.master-settings-grid textarea {
+    width: 100%;
+    min-height: 92px;
+    resize: vertical;
+}
+
+.checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    color: #1e293b;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #2563eb;
+}

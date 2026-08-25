@@ -1,0 +1,57 @@
+    <script>
+    function toggleAdminTheme() {
+      const html = document.documentElement;
+      const btn = document.getElementById('themeModeBtn');
+      const isLight = html.getAttribute('data-theme') === 'light';
+
+      if (isLight) {
+        html.removeAttribute('data-theme');
+        if (btn) {
+          btn.textContent = '🌙';
+          btn.title = 'Switch to Light Mode';
+          btn.style.background = '#161b27';
+          btn.style.borderColor = '#2d3748';
+          btn.style.color = '#f1f5f9';
+        }
+        localStorage.setItem('adminTheme', 'dark');
+      } else {
+        html.setAttribute('data-theme', 'light');
+        if (btn) {
+          btn.textContent = '☀️';
+          btn.title = 'Switch to Dark Mode';
+          btn.style.background = '#f8fafc';
+          btn.style.borderColor = '#e2e8f0';
+          btn.style.color = '#1e293b';
+        }
+        localStorage.setItem('adminTheme', 'light');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('themeModeBtn');
+      if (!btn) return;
+      if (document.documentElement.getAttribute('data-theme') === 'light') {
+        btn.textContent = '☀️';
+        btn.title = 'Switch to Dark Mode';
+        btn.style.background = '#f8fafc';
+        btn.style.borderColor = '#e2e8f0';
+        btn.style.color = '#1e293b';
+      } else {
+        btn.textContent = '🌙';
+        btn.title = 'Switch to Light Mode';
+      }
+    });
+    </script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/bd-districts.js"></script>
+    <script src="/js/bd-upazilas.js"></script>
+    <script src="/js/variantUtils.js"></script>
+    <script src="/js/paymentBrandLogos.js"></script>
+    <script src="/js/footerRenderer.js"></script>
+    <script src="/js/markdownToHtml.js"></script>
+    <script src="/js/orderStatusTimeline.js"></script>
+    <script type="module" src="/js/admin/admin-main.js"></script>
+    <script type="module" src="/js/admin-staff.js"></script>
+    <script src="/js/admin-banner.js"></script>
+    <script src="/js/admin-file-manager.js"></script>
+    <script src="/js/admin-newsletter.js"></script>

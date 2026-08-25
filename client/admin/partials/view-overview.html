@@ -1,0 +1,149 @@
+            <section id="view-overview" class="admin-section active">
+
+                <div class="dashboard-section-label">
+                    <h2><i class="fa-solid fa-chart-line"></i> Sales &amp; Order Analytics</h2>
+                </div>
+
+                <div class="metrics-grid sales-metrics-grid">
+                    <div class="metric-card revenue">
+                        <div class="icon"><i class="fa-solid fa-sack-dollar"></i></div>
+                        <div class="data">
+                            <p>TOTAL REVENUE (ALL-TIME)</p>
+                            <h3 id="stat-alltime-revenue">৳ 0</h3>
+                            <span class="metric-sub" id="stat-revenue-breakdown">Today: ৳ 0 · This Month: ৳ 0</span>
+                        </div>
+                    </div>
+                    <div class="metric-card warning">
+                        <div class="icon"><i class="fa-solid fa-clock"></i></div>
+                        <div class="data">
+                            <p>PENDING ORDERS</p>
+                            <h3 id="stat-pending-orders">0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card danger">
+                        <div class="icon"><i class="fa-solid fa-rotate-left"></i></div>
+                        <div class="data">
+                            <p>RETURN REQUESTS</p>
+                            <h3 id="stat-return-requests">0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card success">
+                        <div class="icon"><i class="fa-solid fa-users"></i></div>
+                        <div class="data">
+                            <p>TOTAL CUSTOMERS</p>
+                            <h3 id="stat-total-customers">0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="metrics-grid order-status-grid">
+                    <div class="metric-card mini">
+                        <div class="icon"><i class="fa-solid fa-box"></i></div>
+                        <div class="data">
+                            <p>TOTAL ORDERS</p>
+                            <h3 id="stat-total-orders">0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card mini">
+                        <div class="icon"><i class="fa-solid fa-gears"></i></div>
+                        <div class="data">
+                            <p>PROCESSING</p>
+                            <h3 id="stat-processing-orders">0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card mini success">
+                        <div class="icon"><i class="fa-solid fa-truck-fast"></i></div>
+                        <div class="data">
+                            <p>DELIVERED</p>
+                            <h3 id="stat-delivered-orders">0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-charts-grid">
+                    <div class="charts-section">
+                        <div class="charts-section-head">
+                            <h3>Sales Revenue Trend</h3>
+                            <div class="chart-toggle-group">
+                                <button type="button" class="chart-toggle-btn active" id="salesTrendDailyBtn" data-period="daily">Daily</button>
+                                <button type="button" class="chart-toggle-btn" id="salesTrendMonthlyBtn" data-period="monthly">Monthly</button>
+                            </div>
+                        </div>
+                        <div class="chart-container" style="position: relative; height:300px; width:100%;">
+                            <canvas id="salesTrendChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="charts-section">
+                        <div class="charts-section-head">
+                            <h3>Top 5 Selling Products</h3>
+                            <div class="chart-toggle-group">
+                                <button type="button" class="chart-toggle-btn active" id="topProductsBarBtn" data-chart="bar">Bar</button>
+                                <button type="button" class="chart-toggle-btn" id="topProductsPieBtn" data-chart="pie">Pie</button>
+                            </div>
+                        </div>
+                        <div class="chart-container" style="position: relative; height:300px; width:100%;">
+                            <canvas id="topProductsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-charts-grid">
+                    <div class="charts-section">
+                        <div class="charts-section-head">
+                            <h3>Customer Registration Growth</h3>
+                            <span id="chartPeriodLabel" class="chart-period-label">Last 6 months</span>
+                        </div>
+                        <div class="chart-container" style="position: relative; height:300px; width:100%;">
+                            <canvas id="userGrowthChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="charts-section inventory-alerts-section">
+                        <div class="charts-section-head">
+                            <h3><i class="fa-solid fa-triangle-exclamation"></i> Inventory Alerts</h3>
+                            <span id="inventoryAlertCount" class="chart-period-label">0 alerts</span>
+                        </div>
+                        <div id="inventoryAlertsList" class="inventory-alerts-list">
+                            <div class="inventory-alert-empty">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <p>All products are well stocked.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-section-label">
+                    <h2><i class="fa-solid fa-user-group"></i> Customer Insights</h2>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="icon"><i class="fa-solid fa-users"></i></div>
+                        <div class="data">
+                            <p>TOTAL REGISTERED</p>
+                            <h3 id="stat-total-users">0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card success">
+                        <div class="icon"><i class="fa-solid fa-user-check"></i></div>
+                        <div class="data">
+                            <p>VERIFIED ACCOUNTS</p>
+                            <h3 id="stat-verified-users">0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card warning">
+                        <div class="icon"><i class="fa-solid fa-boxes-stacked"></i></div>
+                        <div class="data">
+                            <p>PENDING ACCOUNTS</p>
+                            <h3 id="stat-pending-users">0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card danger">
+                        <div class="icon"><i class="fa-solid fa-ban"></i></div>
+                        <div class="data">
+                            <p>SPAM BLOCKS</p>
+                            <h3 id="stat-spam-blocks">0</h3>
+                        </div>
+                    </div>
+                </div>
+            </section>

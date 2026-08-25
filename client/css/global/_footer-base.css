@@ -1,0 +1,23 @@
+/* The footer wrapper is the last in-flow child of <body>. `margin-top: auto`
+   consumes all leftover vertical space, pinning the footer to the bottom of
+   the viewport on short pages while staying below content on tall pages. */
+#global-site-footer {
+    margin-top: auto;
+    width: 100%;
+}
+
+/* Footer logo on dark background */
+footer .footer-logo[data-store-logo-slot] {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+footer .footer-logo-shell .footer-logo img[data-store-logo],
+footer .footer-logo-shell .footer-logo .store-brand-logo {
+    max-height: 28px;
+    max-width: 140px;
+    background: transparent !important;
+    filter: none !important;
+    opacity: 1 !important;
+}

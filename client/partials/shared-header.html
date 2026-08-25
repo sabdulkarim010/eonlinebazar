@@ -1,0 +1,42 @@
+<header class="amazon-header">
+    <div class="container main-nav">
+        <div class="header-row header-row-top">
+            <a href="/" class="logo-box" id="home-brand-logo" data-store-logo-slot data-logo-variant="navbar" aria-label="EonlineBazar Home"></a>
+
+            <div class="nav-right">
+                <button type="button" class="lang-toggle" onclick="i18n.setLanguage(i18n.getCurrentLang() === 'bn' ? 'en' : 'bn')" title="Switch Language">
+                    <span id="lang-label">EN</span>
+                </button>
+
+                <div class="nav-user-account" id="nav-user-link" onclick="window.location.href='/login'">
+                    <img id="nav-user-avatar" src="" alt="User" class="nav-user-avatar-img">
+
+                    <div class="nav-user-text-wrapper">
+                        <span class="nav-line-1" id="nav-user-line1" data-i18n="nav.login">Login</span>
+                        <span class="nav-line-2" id="nav-user-line2" data-i18n="nav.profile">Profile</span>
+                    </div>
+                </div>
+
+                <div class="nav-cart-box" data-mini-cart-trigger role="button" tabindex="0" aria-label="Open shopping bag">
+                    <div class="nav-cart-icon-wrapper">
+                        <i class="fa fa-shopping-cart"></i>
+                        <span id="cartCountBadge" class="cart-count">0</span>
+                    </div>
+                    <span class="cart-text" data-i18n="nav.cart">Cart</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="header-row header-row-search">
+            <div class="search-box-container">
+                <select id="searchCategorySelect" class="search-category" aria-label="Search in category" data-role="search-scope">
+                    <option value="all">All Categories</option>
+                </select>
+                <input type="text" id="searchInput" class="search-input" data-i18n-placeholder="search.placeholder" placeholder="Search products...">
+                <button type="button" class="search-submit-btn" id="headerSearchBtn" title="Search" aria-label="Search">
+                    <i class="fa fa-search"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</header>

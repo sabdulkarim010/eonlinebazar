@@ -1,0 +1,9 @@
+# EonlineBazar Cursor Rules
+# Cursor AI must follow these when working on this project
+
+1. Always read REFACTOR_MAP.md and ARCHITECTURE.md first
+2. Never add styles to admin.css, profile.css, or style.css directly — use css/admin/*.css, css/profile/*.css, or css/global/*.css
+3. Never add code to admin-core.js directly — use js/admin/modules/*.js
+4. Never change function names or IDs without searching all files first
+5. Backend routes in routes/*.js are sacred — never restructure
+6. After any change, list which files were modified

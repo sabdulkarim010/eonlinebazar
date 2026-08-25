@@ -1,0 +1,115 @@
+<section id="view-orders" class="admin-section admin-section--orders" style="display: none;">
+    <div class="orders-panel-card">
+        <div class="order-tabs" role="tablist" aria-label="Order status filters">
+            <button type="button" class="order-tab active" data-status="all" onclick="setOrderStatusTab('all')">
+                All Orders <span class="tab-count" id="count-all">0</span>
+            </button>
+            <button type="button" class="order-tab" data-status="Pending" onclick="setOrderStatusTab('Pending')">
+                🕐 Pending <span class="tab-count pending" id="count-pending">0</span>
+            </button>
+            <button type="button" class="order-tab" data-status="Processing" onclick="setOrderStatusTab('Processing')">
+                ⚙️ Processing <span class="tab-count processing" id="count-processing">0</span>
+            </button>
+            <button type="button" class="order-tab" data-status="Shipped" onclick="setOrderStatusTab('Shipped')">
+                🚚 Shipped <span class="tab-count shipped" id="count-shipped">0</span>
+            </button>
+            <button type="button" class="order-tab" data-status="Delivered" onclick="setOrderStatusTab('Delivered')">
+                ✅ Delivered <span class="tab-count delivered" id="count-delivered">0</span>
+            </button>
+            <button type="button" class="order-tab" data-status="Cancelled" onclick="setOrderStatusTab('Cancelled')">
+                ❌ Cancelled <span class="tab-count cancelled" id="count-cancelled">0</span>
+            </button>
+        </div>
+
+        <div class="orders-toolbar">
+            <div class="toolbar-left">
+                <div class="order-sandbox-filter" role="group" aria-label="Order data filter">
+                    <button type="button" class="sandbox-filter-btn active" data-sandbox-filter="all" onclick="setOrderSandboxFilter('all')">All Orders</button>
+                    <button type="button" class="sandbox-filter-btn" data-sandbox-filter="live" onclick="setOrderSandboxFilter('live')">Live Only</button>
+                    <button type="button" class="sandbox-filter-btn" data-sandbox-filter="test" onclick="setOrderSandboxFilter('test')">Test Only</button>
+                </div>
+                <div class="search-box">
+                    <span class="search-icon" aria-hidden="true">🔍</span>
+                    <input type="text" id="order-search" placeholder="Search by Order ID or Phone..." oninput="debounceSearch()">
+                </div>
+                <input type="date" id="order-date-filter" onchange="filterByDate(this.value)" class="date-picker" aria-label="Filter by order date">
+            </div>
+            <div class="toolbar-right">
+                <div class="live-badge" id="live-indicator">
+                    <span class="live-dot"></span> Live Syncing
+                </div>
+                <button type="button" class="btn-create-order" id="openManualOrderModalBtn" data-permission="manage_orders" onclick="openManualOrderModal()">
+                    + Create Manual Order
+                </button>
+            </div>
+        </div>
+
+        <div class="orders-bulk-toolbar" id="orders-bulk-toolbar" style="display:none">
+            <span id="orders-selected-count">0 orders selected</span>
+            <label class="bulk-status-label" for="bulk-order-status">Change Status to:</label>
+            <select id="bulk-order-status" class="bulk-status-select">
+                <option value="Pending">Pending</option>
+                <option value="Processing">Processing</option>
+                <option value="Shipped">Shipped</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Cancelled">Cancelled</option>
+            </select>
+            <button type="button" class="bulk-apply-btn" onclick="bulkApplyOrderStatus()">Apply</button>
+            <button type="button" class="bulk-delete-btn" onclick="bulkDeleteOrders()">🗑️ Delete Selected</button>
+        </div>
+
+        <div class="table-responsive-wrapper orders-table-scroll">
+            <table class="dynamic-data-table orders-live-table">
+                <thead class="orders-table-head">
+                    <tr>
+                        <th class="col-checkbox">
+                            <input type="checkbox" id="orders-select-all" onchange="toggleSelectAllOrders(this)" aria-label="Select all orders on this page">
+                        </th>
+                        <th class="col-order-id">Order ID</th>
+                        <th class="col-datetime">Date &amp; Time</th>
+                        <th class="col-customer">Customer</th>
+                        <th class="col-address">Address</th>
+                        <th class="col-products">Products</th>
+                        <th class="col-total">Total</th>
+                        <th class="col-status">Status</th>
+                        <th class="col-courier-head">Courier Status</th>
+                        <th class="col-actions-head">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="adminOrderTableBody">
+                    <tr>
+                        <td colspan="10" class="loading-container">
+                            <div class="spinner"></div>
+                            <p>Connecting to Live Database...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="apg-wrapper orders-pagination-bar">
+            <div class="apg-left">
+                Show
+                <select class="apg-limit-select" id="order-pg-limit"
+                        onchange="orderPg.changeLimit(this.value)">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                </select>
+                entries &nbsp;|&nbsp;
+                <span class="apg-info" id="order-pg-info"></span>
+            </div>
+            <div class="apg-center" id="order-pg-btns"></div>
+            <div class="apg-right">
+                Go to:
+                <input type="number" class="apg-jump-input" id="order-pg-jump" min="1"
+                       onkeydown="if(event.key==='Enter') orderPg.goTo(+this.value)">
+                <button type="button" class="apg-btn"
+                        onclick="orderPg.goTo(+document.getElementById('order-pg-jump').value)">
+                    Go
+                </button>
+                <span class="apg-info">Total: <strong id="order-total-count">0</strong></span>
+            </div>
+        </div>
+    </div>
+</section>
