@@ -25,6 +25,7 @@ const storeRoutes = require('../backend/src/routes/storeRoutes');
 const paymentRoutes = require('../backend/src/routes/paymentRoutes');
 const contactRoutes = require('../backend/src/routes/contactRoutes');
 const inquiryRoutes = require('../backend/src/routes/inquiryRoutes');
+const noteRoutes = require('../backend/src/routes/noteRoutes');
 const storeSettingsMiddleware = require('../backend/src/middlewares/storeSettingsMiddleware');
 const { getOrders, updateOrderStatus } = require('../backend/src/controllers/orderController');
 const { verifyAdmin } = require('../backend/src/middlewares/authMiddleware');
@@ -53,6 +54,7 @@ app.use('/api/store', storeRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/inquiries', inquiryRoutes);
+app.use('/api/notes', noteRoutes);
 
 // Legacy admin API aliases used by the admin panel and smoke tests
 app.use('/admin/api', adminRoutes);

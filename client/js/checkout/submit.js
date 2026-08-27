@@ -9,16 +9,38 @@
  * - customerToken
  *
  * Globals this module exposes:
- *  * - handleProceedToPayment
+ *  * - bindProceedToPaymentButton
+ * - handleProceedToPayment
  * - handleProceedToPaymentAsync
  * - openCheckoutAlertModal
- * - closeCheckoutAlertModal
  * - closeCheckoutAlertModal
  */
 
 /* =========================================================================
    💳 ৬. পেমেন্ট সাবমিশন লজিক
    ========================================================================= */
+function bindProceedToPaymentButton() {
+    const handler = typeof handleProceedToPayment === 'function'
+        ? handleProceedToPayment
+        : window.handleProceedToPayment;
+    if (typeof handler !== 'function') return;
+
+    const proceedBtn = document.getElementById('proceedToPaymentBtn')
+        || document.getElementById('proceed-to-payment');
+    if (proceedBtn && proceedBtn.dataset.paymentBound !== '1') {
+        proceedBtn.dataset.paymentBound = '1';
+        proceedBtn.addEventListener('click', handler);
+    }
+
+    if (document.documentElement.dataset.checkoutPaymentDelegated === '1') return;
+    document.documentElement.dataset.checkoutPaymentDelegated = '1';
+    document.addEventListener('click', (event) => {
+        const btn = event.target?.closest?.('#proceedToPaymentBtn, #proceed-to-payment');
+        if (!btn || btn.dataset.paymentBound === '1') return;
+        handler(event);
+    });
+}
+
 function handleProceedToPayment() {
     handleProceedToPaymentAsync().catch((err) => {
         console.error('Proceed to payment error:', err);
@@ -59,10 +81,10 @@ async function handleProceedToPaymentAsync() {
         return;
     }
 
-    const nameVal = document.getElementById('shippingFullName').value.trim();
-    const mobileVal = document.getElementById('shippingMobile').value.trim();
+    const nameVal = document.getElementById('shippingFullName')?.value.trim() || '';
+    const mobileVal = document.getElementById('shippingMobile')?.value.trim() || '';
     const emailVal = document.getElementById('shippingEmail')?.value.trim() || '';
-    const streetAddressVal = document.getElementById('shippingAddress').value.trim();
+    const streetAddressVal = document.getElementById('shippingAddress')?.value.trim() || '';
     const noteVal = document.getElementById('shippingCourierNote')?.value.trim() || "";
     const shippingDistrict = document.getElementById('shippingDistrict')?.value?.trim() || selectedShippingDistrict;
     const shippingUpazila = document.getElementById('shippingUpazila')?.value?.trim() || selectedShippingUpazila;
@@ -161,6 +183,7 @@ function closeCheckoutAlertModal() {
     if(modal) modal.style.display = 'none';
 }
 Object.assign(window, {
+    bindProceedToPaymentButton,
     handleProceedToPayment,
     handleProceedToPaymentAsync,
     openCheckoutAlertModal,

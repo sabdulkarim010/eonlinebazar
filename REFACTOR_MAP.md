@@ -40,7 +40,9 @@ client/js/admin/admin-dashboard.js   [DONE] analytics module
 client/js/admin-banner.js            [DONE] kept as single file
 
 ## JS Files — Storefront
-client/js/profile.js                 [DONE] barrel → js/profile/{tabs,orders,reviews,wallet,wishlist,addresses,security,account}.js
+client/js/profile.js                 [DONE] barrel → js/profile/{tabs,orders,reviews,wallet,notes,wishlist,addresses,security,account}.js
+client/js/profile/notes.js           [DONE] Notes & Expenses premium notebook module
+client/css/profile/_notes.css        [DONE] Notes module styles
 client/js/product-details.js         [DONE] barrel → js/pdp/{fetch-render,variants,reviews,qty-cart,gallery}.js
 client/js/checkout.js                [DONE] barrel → js/checkout/{state,render,validation,actions,submit}.js
 
@@ -48,6 +50,9 @@ client/js/checkout.js                [DONE] barrel → js/checkout/{state,render
 backend/src/controllers/adminSecurityController.js  [DONE] barrel → controllers/admin/{auth,session,blacklist,loginHistory}Controller.js
 backend/src/controllers/adminController.js          [DONE] barrel → controllers/admin/{customerAdmin,adminProfile,adminSettings}Controller.js
 backend/src/controllers/authController.js           [DONE] barrel → controllers/auth/{register,login,password,oauth}Controller.js + authHelpers.js
+backend/src/controllers/noteController.js           [DONE] private notebook CRUD (note/expense/income/shopping)
+backend/src/models/note.js                          [DONE] Note schema (user-scoped, tags, pin, color)
+backend/src/routes/noteRoutes.js                    [DONE] GET/POST/PUT/DELETE /api/notes
 
 ## Folder Structure
 backend/src/controllers/admin/
@@ -69,6 +74,7 @@ client/js/profile/
   orders.js
   reviews.js
   wallet.js
+  notes.js
   wishlist.js
   addresses.js
   security.js
@@ -174,6 +180,7 @@ client/css/profile/
   _orders.css
   _wishlist.css
   _wallet.css
+  _notes.css
   _forms.css
   _modals.css
   _responsive.css
@@ -193,6 +200,7 @@ client/profile/partials/
   tab-orders.html
   tab-wishlist.html
   tab-wallet.html
+  tab-notes.html
   tab-addresses.html
   tab-settings.html
   tab-security.html

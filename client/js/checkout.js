@@ -8,28 +8,41 @@ import './checkout/actions.js';
 import './checkout/submit.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
-    if (window.CouponUI) {
-        checkoutCouponController = await CouponUI.bindCouponForm({
-            prefix: 'checkout',
-            getSubtotal: getCheckoutSubtotal,
-            getToken: () => getCheckoutAuthToken(),
-            onAvailabilityChange: (available) => {
-                checkoutCouponsAvailable = available;
-            },
-            onTotalsChange: (subtotal) => updateCheckoutTotals(subtotal)
-        });
-        checkoutCouponsAvailable = checkoutCouponController?.couponsAvailable === true;
+    try {
+        if (window.CouponUI && typeof window.CouponUI.bindCouponForm === 'function') {
+            checkoutCouponController = await window.CouponUI.bindCouponForm({
+                prefix: 'checkout',
+                getSubtotal: typeof getCheckoutSubtotal === 'function' ? getCheckoutSubtotal : () => 0,
+                getToken: () => (typeof getCheckoutAuthToken === 'function' ? getCheckoutAuthToken() : ''),
+                onAvailabilityChange: (available) => {
+                    checkoutCouponsAvailable = available;
+                },
+                onTotalsChange: (subtotal) => {
+                    if (typeof updateCheckoutTotals === 'function') updateCheckoutTotals(subtotal);
+                }
+            });
+            checkoutCouponsAvailable = checkoutCouponController?.couponsAvailable === true;
+        }
+
+        if (typeof ensureCheckoutLocationSelectors === 'function') ensureCheckoutLocationSelectors();
+        if (typeof syncCheckoutSelectPlaceholders === 'function') syncCheckoutSelectPlaceholders();
+        if (typeof initSavedAddressManualEditWatchers === 'function') initSavedAddressManualEditWatchers();
+        if (typeof initializeCheckoutPage === 'function') {
+            await initializeCheckoutPage();
+        } else if (typeof window.initializeCheckoutPage === 'function') {
+            await window.initializeCheckoutPage();
+        }
+        if (typeof initLiveValidationEngine === 'function') initLiveValidationEngine();
+        if (typeof initCheckoutWalletControls === 'function') initCheckoutWalletControls();
+    } catch (err) {
+        console.error('Checkout page initialization failed:', err);
     }
 
-    ensureCheckoutLocationSelectors();
-    syncCheckoutSelectPlaceholders();
-    initSavedAddressManualEditWatchers();
-    await initializeCheckoutPage();
-    initLiveValidationEngine();
-    initCheckoutWalletControls();
-
-    const proceedBtn = document.getElementById('proceedToPaymentBtn');
-    if (proceedBtn) proceedBtn.addEventListener('click', handleProceedToPayment);
+    if (typeof bindProceedToPaymentButton === 'function') {
+        bindProceedToPaymentButton();
+    } else if (typeof window.bindProceedToPaymentButton === 'function') {
+        window.bindProceedToPaymentButton();
+    }
 
     fetch('/api/products?limit=500')
         .then(res => res.json())

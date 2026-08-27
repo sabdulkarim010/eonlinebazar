@@ -9,6 +9,7 @@
  * - fetchAddresses
  * - fetchSessions
  * - fetchWalletData
+ * - fetchNotes
  *
  * Globals this module exposes:
  *  * - profileAuthToken
@@ -279,7 +280,10 @@ document.addEventListener('DOMContentLoaded', () => {
             orders: 'my-orders',
             'my-orders': 'my-orders',
             'orders-section': 'my-orders',
-            'recent-orders': 'my-orders'
+            'recent-orders': 'my-orders',
+            notes: 'my-notes',
+            'my-notes': 'my-notes',
+            expenses: 'my-notes'
         };
         if (aliases[key]) return aliases[key];
         return document.getElementById(key) ? key : null;
@@ -324,6 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetTab === 'addresses-settings' && typeof window.fetchAddresses === 'function') window.fetchAddresses();
         if (targetTab === 'security-settings' && typeof window.fetchSessions === 'function') window.fetchSessions();
         if (targetTab === 'wallet-points' && typeof window.fetchWalletData === 'function') window.fetchWalletData();
+        if (targetTab === 'my-notes' && typeof window.fetchNotes === 'function') window.fetchNotes();
     }
 
     function activateProfileTab(targetTab, { scroll = false } = {}) {

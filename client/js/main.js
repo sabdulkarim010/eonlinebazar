@@ -604,10 +604,7 @@ async function loadNavbarCategories() {
         || document.querySelector('.navbar-categories')
         || document.querySelector('nav .nav-links');
 
-    if (!btnContainer) {
-        console.warn('Navbar container not found');
-        return;
-    }
+    if (!btnContainer) return;
 
     // ☰ All opens the Amazon-style side drawer (categories only — not a /products link)
     const allBtn = `
@@ -778,10 +775,7 @@ async function loadHomepageCategories() {
         || document.querySelector('.homepage-categories')
         || document.querySelector('[data-section="categories"]');
 
-    if (!container) {
-        console.warn('Homepage category container not found');
-        return;
-    }
+    if (!container) return;
 
     try {
         const res = await fetch('/api/categories/homepage');

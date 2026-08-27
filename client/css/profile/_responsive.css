@@ -404,6 +404,16 @@
 }
 
 @media (max-width: 768px) {
+    .notebook-cover-content { flex-direction: column; align-items: flex-start; }
+    .notebook-cover { padding: 22px 18px; }
+    .budget-stats { grid-template-columns: 1fr; }
+    .nb-grid { grid-template-columns: 1fr; }
+    .nb-filter-row { flex-direction: column; align-items: stretch; }
+    .nb-search-wrapper { min-width: 0; }
+    .nb-modal.notebook-page { max-height: 95vh; }
+    .nb-card-actions { opacity: 1; }
+    .nb-title-input { font-size: 20px; }
+    .nb-amount-input { font-size: 28px; }
     .modal-content { width: 95%; max-height: 85vh; }
     .order-info-grid { grid-template-columns: 1fr; }
     .address-form-body { grid-template-columns: 1fr; }

@@ -35,6 +35,7 @@
  * - applySavedAddressToCheckoutForm
  * - initSavedAddressManualEditWatchers
  * - cacheCheckoutProfileLocally
+ * - updateGuestCheckoutUI
  * - initializeCheckoutPage
  * - initDistrictSelector
  * - initUpazilaSelector
@@ -485,13 +486,49 @@ function cacheCheckoutProfileLocally(profile = {}) {
     localStorage.setItem('shippingDistrict', profile.district || '');
 }
 
-async function initializeCheckoutPage() {
-    updateGuestCheckoutUI();
+function updateGuestCheckoutUI() {
+    const banner = document.getElementById('guestCheckoutBanner');
+    const saveToggle = document.querySelector('.checkout-save-address-toggle');
+    const emailGroup = document.getElementById('guestEmailFieldGroup');
+    const addressEl = document.getElementById('shippingAddress');
+    const savedSection = document.getElementById('savedAddressesSection');
 
-    if (isGuestCheckoutUser()) {
-        prepareGuestCheckoutSession();
+    if (typeof isGuestCheckoutUser !== 'function' || !isGuestCheckoutUser()) {
+        if (banner) banner.hidden = true;
+        if (saveToggle) saveToggle.style.display = '';
+        if (emailGroup) emailGroup.style.display = '';
+        if (addressEl) {
+            addressEl.placeholder = 'House, road, village, area — loaded from your profile when available';
+        }
+        return;
+    }
+
+    if (banner) banner.hidden = false;
+    if (saveToggle) saveToggle.style.display = 'none';
+    if (emailGroup) emailGroup.style.display = 'block';
+    if (savedSection) savedSection.hidden = true;
+    if (addressEl) {
+        addressEl.placeholder = 'House, road, village, area — enter your full delivery address';
+    }
+}
+
+if (typeof updateGuestCheckoutUI === 'function') {
+    window.updateGuestCheckoutUI = updateGuestCheckoutUI;
+}
+
+async function initializeCheckoutPage() {
+    if (typeof updateGuestCheckoutUI === 'function') {
+        updateGuestCheckoutUI();
+    } else if (typeof window.updateGuestCheckoutUI === 'function') {
+        window.updateGuestCheckoutUI();
+    }
+
+    if (typeof isGuestCheckoutUser === 'function' && isGuestCheckoutUser()) {
+        if (typeof prepareGuestCheckoutSession === 'function') prepareGuestCheckoutSession();
         await fetchDeliverySettings();
         recalculateCheckoutDelivery();
+        if (typeof bindProceedToPaymentButton === 'function') bindProceedToPaymentButton();
+        else if (typeof window.bindProceedToPaymentButton === 'function') window.bindProceedToPaymentButton();
         return;
     }
 
@@ -516,6 +553,8 @@ async function initializeCheckoutPage() {
     }
 
     recalculateCheckoutDelivery();
+    if (typeof bindProceedToPaymentButton === 'function') bindProceedToPaymentButton();
+    else if (typeof window.bindProceedToPaymentButton === 'function') window.bindProceedToPaymentButton();
 }
 
 function initDistrictSelector() {
@@ -834,13 +873,16 @@ function renderCheckoutCart() {
             badgesWrap.innerHTML = CDU.buildVariantBadgesHtml(item, realProduct);
         }
 
-        clone.querySelector('.cart-item-base-price-text').innerText = `৳${Number(cleanPrice).toLocaleString()}`;
+        const basePriceEl = clone.querySelector('.cart-item-base-price-text');
+        if (basePriceEl) basePriceEl.innerText = `৳${Number(cleanPrice).toLocaleString()}`;
         const qtyLabel = clone.querySelector('.cart-item-qty-label');
         if (qtyLabel) qtyLabel.textContent = `× ${cleanQty}`;
-        clone.querySelector('.cart-item-total').innerText = `৳${(cleanPrice * cleanQty).toLocaleString()}`;
+        const lineTotalEl = clone.querySelector('.cart-item-total');
+        if (lineTotalEl) lineTotalEl.innerText = `৳${(cleanPrice * cleanQty).toLocaleString()}`;
 
         const vId = item.variantId || '';
-        clone.querySelector('.checkout-row-delete-btn-main').onclick = () => temporarilyRemoveFromCheckout(item.id, vId);
+        const deleteBtn = clone.querySelector('.checkout-row-delete-btn-main');
+        if (deleteBtn) deleteBtn.onclick = () => temporarilyRemoveFromCheckout(item.id, vId);
 
         container.appendChild(clone);
     });
@@ -892,6 +934,7 @@ Object.assign(window, {
     applySavedAddressToCheckoutForm,
     initSavedAddressManualEditWatchers,
     cacheCheckoutProfileLocally,
+    updateGuestCheckoutUI,
     initializeCheckoutPage,
     initDistrictSelector,
     initUpazilaSelector,

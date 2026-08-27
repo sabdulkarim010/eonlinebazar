@@ -23,7 +23,7 @@ client/
 │   │   ├── admin-dashboard.js ← analytics widgets
 │   │   └── modules/           ← Actual logic files
 │   ├── profile.js         ← BARREL → js/profile/*.js
-│   ├── profile/           ← Profile page modules
+│   ├── profile/           ← Profile page modules (tabs, orders, wallet, notes, …)
 │   ├── product-details.js ← BARREL → js/pdp/*.js
 │   ├── pdp/               ← Product detail page modules
 │   ├── checkout.js        ← BARREL → js/checkout/*.js

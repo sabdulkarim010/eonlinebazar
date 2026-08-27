@@ -1,0 +1,84 @@
+        <!-- ═══ SECTION: MY NOTES & EXPENSES — Notebook ═══ -->
+        <section id="my-notes" class="tab-content">
+            <div class="notebook-container" id="tab-notes">
+
+                <div class="notebook-header">
+                    <div class="notebook-spine"></div>
+                    <div class="notebook-cover">
+                        <div class="notebook-cover-texture"></div>
+                        <div class="notebook-cover-content">
+                            <div class="notebook-icon-wrapper">
+                                <span class="notebook-icon">📔</span>
+                            </div>
+                            <div class="notebook-cover-text">
+                                <h2 class="notebook-title">My Notebook</h2>
+                                <p class="notebook-subtitle">Personal notes &amp; expense tracking</p>
+                                <div class="notebook-actions">
+                                    <button type="button" class="nb-btn nb-btn-primary" id="newNoteBtn">
+                                        <span>✏️</span> New Note
+                                    </button>
+                                    <button type="button" class="nb-btn nb-btn-expense" id="newExpenseBtn">
+                                        <span>💰</span> Add Expense
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="budget-summary-card" id="budgetSummary">
+                    <div class="budget-period">
+                        <button type="button" class="period-nav" id="prevMonth" aria-label="Previous month">‹</button>
+                        <span class="period-label" id="budgetPeriodLabel">August 2026</span>
+                        <button type="button" class="period-nav" id="nextMonth" aria-label="Next month">›</button>
+                    </div>
+                    <div class="budget-stats">
+                        <div class="budget-stat income">
+                            <span class="budget-stat-icon">📈</span>
+                            <span class="budget-stat-label">Total Income</span>
+                            <span class="budget-stat-amount" id="totalIncome">৳0</span>
+                        </div>
+                        <div class="budget-stat expense">
+                            <span class="budget-stat-icon">📉</span>
+                            <span class="budget-stat-label">Total Expense</span>
+                            <span class="budget-stat-amount" id="totalExpense">৳0</span>
+                        </div>
+                        <div class="budget-stat savings">
+                            <span class="budget-stat-icon">🏦</span>
+                            <span class="budget-stat-label">Savings</span>
+                            <span class="budget-stat-amount" id="totalSavings">৳0</span>
+                        </div>
+                    </div>
+                    <div class="budget-progress-wrapper">
+                        <div class="budget-progress-bar">
+                            <div class="budget-progress-fill" id="budgetProgressFill"></div>
+                        </div>
+                        <span class="budget-progress-label" id="budgetProgressLabel">0% of budget used</span>
+                    </div>
+                </div>
+
+                <div class="nb-filter-row">
+                    <div class="nb-search-wrapper">
+                        <span class="nb-search-icon">🔍</span>
+                        <input type="search" class="nb-search" id="notesSearch" placeholder="Search notes..." autocomplete="off">
+                    </div>
+                    <div class="nb-filter-tabs" role="tablist" aria-label="Filter notes">
+                        <button type="button" class="nb-filter active" data-filter="all">All</button>
+                        <button type="button" class="nb-filter" data-filter="note">📝 Note</button>
+                        <button type="button" class="nb-filter" data-filter="expense">💸 Expense</button>
+                        <button type="button" class="nb-filter" data-filter="income">📈 Income</button>
+                        <button type="button" class="nb-filter" data-filter="shopping">🛒 Shopping</button>
+                        <button type="button" class="nb-filter" data-filter="pinned">⭐ Pinned</button>
+                    </div>
+                </div>
+
+                <div class="nb-grid" id="notesGrid"></div>
+
+                <div class="nb-empty hidden" id="notesEmpty">
+                    <div class="nb-empty-illustration">📔</div>
+                    <h3>No notes yet</h3>
+                    <p>Write your first note or expense</p>
+                    <button type="button" class="nb-btn nb-btn-primary" id="emptyNewNoteBtn" onclick="openNewNoteModal()">✏️ Write a note</button>
+                </div>
+            </div>
+        </section>

@@ -45,21 +45,53 @@ function applySecurityMiddleware(app) {
         })
     );
 
+    function normalizeOrigin(value) {
+        return String(value || '').trim().replace(/\/$/, '');
+    }
+
+    const serverPort = String(process.env.PORT || 3000);
     const allowedOrigins = [
         ...new Set(
             [
                 'https://eonlinebazar.com',
                 'https://www.eonlinebazar.com',
                 'http://localhost:3000',
-                process.env.FRONTEND_URL,
+                'http://127.0.0.1:3000',
+                'http://localhost:5000',
+                'http://127.0.0.1:5000',
+                `http://localhost:${serverPort}`,
+                `http://127.0.0.1:${serverPort}`,
+                normalizeOrigin(process.env.FRONTEND_URL),
+                normalizeOrigin(process.env.PUBLIC_BASE_URL),
+                ...(process.env.CORS_ORIGINS || '')
+                    .split(',')
+                    .map((entry) => normalizeOrigin(entry))
+                    .filter(Boolean)
             ].filter(Boolean)
-        ),
+        )
     ];
+
+    function isSameOriginAsThisServer(origin) {
+        try {
+            const url = new URL(origin);
+            const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
+            if (!localHosts.has(url.hostname)) return false;
+            const originPort = url.port || (url.protocol === 'https:' ? '443' : '80');
+            return originPort === serverPort;
+        } catch (_) {
+            return false;
+        }
+    }
 
     const corsOptions = {
         origin(origin, callback) {
-            // Non-browser clients / same-origin requests may omit Origin
-            if (!origin || allowedOrigins.includes(origin)) {
+            // Non-browser clients may omit Origin. Same-origin page + API
+            // (static files served from this Express app) still send Origin.
+            if (
+                !origin
+                || allowedOrigins.includes(normalizeOrigin(origin))
+                || isSameOriginAsThisServer(origin)
+            ) {
                 callback(null, true);
                 return;
             }
@@ -67,7 +99,7 @@ function applySecurityMiddleware(app) {
             callback(null, false);
         },
         credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization'],
     };
 

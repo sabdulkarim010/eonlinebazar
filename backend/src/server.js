@@ -46,6 +46,7 @@ const newsletterRoutes = require('./routes/newsletterRoutes');
 const { seedDefaultPaymentMethods } = require('./services/paymentMethodService');
 const storeSettingsMiddleware = require('./middlewares/storeSettingsMiddleware');
 const bannerRoutes = require('./routes/bannerRoutes');
+const noteRoutes = require('./routes/noteRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -176,6 +177,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/inquiries', inquiryRoutes);
 app.use('/api/newsletter', newsletterRoutes);
 app.use('/api', bannerRoutes);
+app.use('/api/notes', noteRoutes);
 
 // Finance analytics — explicit path expected by the dashboard UI
 // URL: GET /admin/api/analytics?period=&startDate=&endDate=

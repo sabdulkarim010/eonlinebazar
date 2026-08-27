@@ -254,3 +254,103 @@
         </div>
     </div>
 </div>
+
+<div class="nb-modal-overlay hidden" id="noteModal" role="dialog" aria-modal="true" aria-labelledby="noteTitle">
+    <div class="nb-modal notebook-page">
+        <div class="nb-modal-header">
+            <div class="nb-modal-header-left">
+                <div class="nb-type-selector" id="noteTypeSelector">
+                    <button type="button" class="nb-type-btn active" data-type="note">📝 General Note</button>
+                    <button type="button" class="nb-type-btn" data-type="shopping">🛒 Shopping List</button>
+                    <button type="button" class="nb-type-btn" data-type="expense">💸 Expense</button>
+                    <button type="button" class="nb-type-btn" data-type="income">📈 Income</button>
+                </div>
+            </div>
+            <button type="button" class="nb-modal-close" id="closeNoteModal" aria-label="Close">✕</button>
+        </div>
+
+        <div class="nb-date-line">
+            <span class="nb-date-icon">📅</span>
+            <span class="nb-date-text" id="noteDateDisplay"></span>
+            <input type="date" id="noteDate" class="nb-date-input" aria-label="Note date">
+        </div>
+
+        <div class="nb-title-wrapper">
+            <input type="text" id="noteTitle" class="nb-title-input" maxlength="120" placeholder="Write a title...">
+        </div>
+
+        <div class="nb-amount-section hidden" id="amountSection">
+            <div class="nb-amount-wrapper">
+                <span class="nb-currency">৳</span>
+                <input type="number" id="noteAmount" class="nb-amount-input" placeholder="0.00" step="0.01" min="0" inputmode="decimal">
+            </div>
+            <div class="nb-category-row">
+                <span class="nb-category-label">Category:</span>
+                <div class="nb-category-chips" id="categoryChips">
+                    <button type="button" class="nb-chip active" data-category="food">🍚 Food</button>
+                    <button type="button" class="nb-chip" data-category="transport">🚌 Transport</button>
+                    <button type="button" class="nb-chip" data-category="shopping">🛒 Shopping</button>
+                    <button type="button" class="nb-chip" data-category="bill">💡 Bills</button>
+                    <button type="button" class="nb-chip" data-category="health">🏥 Health</button>
+                    <button type="button" class="nb-chip" data-category="education">📚 Education</button>
+                    <button type="button" class="nb-chip" data-category="other">📌 Others</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="nb-shopping-section hidden" id="shoppingSection">
+            <div class="nb-shopping-list" id="shoppingItems"></div>
+            <button type="button" class="nb-add-item-btn" id="addShoppingItem">+ Add Item</button>
+            <div class="nb-shopping-total">Total: <span id="shoppingTotal">৳0</span></div>
+        </div>
+
+        <div class="nb-content-wrapper">
+            <textarea id="noteContent" class="nb-content-input" maxlength="4000" placeholder="Write here...&#10;&#10;Your thoughts, plans, or any information..."></textarea>
+        </div>
+
+        <div class="nb-tags-row">
+            <span class="nb-tags-label">🏷️</span>
+            <div class="nb-tags-input-wrapper">
+                <input type="text" id="noteTagInput" class="nb-tag-input" placeholder="Add tags (press Enter)">
+                <div class="nb-tags-list" id="noteTagsList"></div>
+            </div>
+        </div>
+
+        <div class="nb-options-row">
+            <label class="nb-pin-toggle">
+                <input type="checkbox" id="notePinned">
+                <span class="nb-pin-icon">📌</span>
+                <span>Pin this note</span>
+            </label>
+            <div class="nb-color-picker" id="noteColorPicker">
+                <span class="nb-color-label">Color:</span>
+                <div class="nb-color-palette">
+                    <button type="button" class="nb-color-dot active" data-color="#FFFEF0" style="background:#FFFEF0" title="Cream"></button>
+                    <button type="button" class="nb-color-dot" data-color="#FFF9C4" style="background:#FFF9C4" title="Yellow"></button>
+                    <button type="button" class="nb-color-dot" data-color="#FFE4C4" style="background:#FFE4C4" title="Peach"></button>
+                    <button type="button" class="nb-color-dot" data-color="#FFD6D6" style="background:#FFD6D6" title="Pink"></button>
+                    <button type="button" class="nb-color-dot" data-color="#FFDDE1" style="background:#FFDDE1" title="Rose"></button>
+                    <button type="button" class="nb-color-dot" data-color="#E8F5E9" style="background:#E8F5E9" title="Mint"></button>
+                    <button type="button" class="nb-color-dot" data-color="#E3F2FD" style="background:#E3F2FD" title="Sky"></button>
+                    <button type="button" class="nb-color-dot" data-color="#EDE7F6" style="background:#EDE7F6" title="Lavender"></button>
+                    <button type="button" class="nb-color-dot" data-color="#E0F7FA" style="background:#E0F7FA" title="Aqua"></button>
+                    <button type="button" class="nb-color-dot" data-color="#F3E5F5" style="background:#F3E5F5" title="Lilac"></button>
+                    <label class="nb-color-custom" title="Custom color">
+                        <span>+</span>
+                        <input type="color" id="customColorInput" value="#ffffff">
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="nb-modal-footer">
+            <div class="nb-footer-left">
+                <span class="nb-char-count" id="charCount">0 characters</span>
+            </div>
+            <div class="nb-footer-right">
+                <button type="button" class="nb-btn nb-btn-ghost" id="cancelNoteBtn">Cancel</button>
+                <button type="button" class="nb-btn nb-btn-save" id="saveNoteBtn">💾 Save</button>
+            </div>
+        </div>
+    </div>
+</div>

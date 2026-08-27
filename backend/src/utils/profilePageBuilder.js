@@ -24,6 +24,7 @@ const REQUIRED_PARTIALS = [
     'tab-orders',
     'tab-wishlist',
     'tab-wallet',
+    'tab-notes',
     'tab-addresses',
     'tab-settings',
     'tab-security',

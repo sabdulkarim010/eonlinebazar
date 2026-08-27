@@ -6,6 +6,7 @@ import './profile/tabs.js';
 import './profile/orders.js';
 import './profile/reviews.js';
 import './profile/wallet.js';
+import './profile/notes.js';
 import './profile/wishlist.js';
 import './profile/addresses.js';
 import './profile/security.js';
