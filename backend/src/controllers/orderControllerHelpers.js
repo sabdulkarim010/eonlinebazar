@@ -101,29 +101,82 @@ function resolveAvailableStock(product, vIdx) {
     return Math.max(0, Number(product.stock) || 0);
 }
 
+function getOrderItemStockKey(item = {}) {
+    const pid = String(item.productId || item.id || item._id || '').trim();
+    const vid = String(item.variantId || item.variantSku || '').trim().toLowerCase();
+    return `${pid}::${vid}`;
+}
+
+function qtyMapFromOrderItems(items = []) {
+    const map = new Map();
+    for (const item of items) {
+        const key = getOrderItemStockKey(item);
+        if (!key || key === '::') continue;
+        const qty = Math.max(0, Number(item.quantity) || 0);
+        if (qty <= 0) continue;
+        map.set(key, (map.get(key) || 0) + qty);
+    }
+    return map;
+}
+
+async function findProductForOrderItem(item) {
+    const targetId = item?.id || item?.productId || item?._id;
+    if (!targetId) return null;
+
+    const query = mongoose.Types.ObjectId.isValid(targetId)
+        ? { $or: [{ _id: targetId }, { productId: targetId }] }
+        : { productId: targetId };
+
+    return Product.findOne(query);
+}
+
+/**
+ * @param {object} item
+ * @param {number} quantityDelta positive restores catalog stock, negative deducts
+ */
+async function adjustProductStockForItem(item, quantityDelta) {
+    const delta = Number(quantityDelta) || 0;
+    if (!delta) return;
+
+    const product = await findProductForOrderItem(item);
+    if (!product) return;
+
+    const vIdx = findVariantIndex(product, item);
+    if (vIdx > -1) {
+        const current = Number(product.variants[vIdx].stock) || 0;
+        product.variants[vIdx].stock = Math.max(0, current + delta);
+        product.markModified('variants');
+    }
+
+    product.stock = Math.max(0, (Number(product.stock) || 0) + delta);
+    product.stockQuantity = Math.max(0, (Number(product.stockQuantity) || 0) + delta);
+    await product.save();
+}
+
 async function deductOrderStock(normalizedItems) {
     for (const item of normalizedItems) {
-        const targetId = item.id || item.productId || item._id;
         const quantityOrdered = Number(item.quantity) || 1;
-        if (!targetId) continue;
+        await adjustProductStockForItem(item, -quantityOrdered);
+    }
+}
 
-        const query = mongoose.Types.ObjectId.isValid(targetId)
-            ? { $or: [{ _id: targetId }, { productId: targetId }] }
-            : { productId: targetId };
+async function applyOrderItemStockDeltas(oldItems = [], newItems = []) {
+    const oldMap = qtyMapFromOrderItems(oldItems);
+    const newMap = qtyMapFromOrderItems(newItems);
+    const keys = new Set([...oldMap.keys(), ...newMap.keys()]);
+    const lookup = new Map();
 
-        const product = await Product.findOne(query);
-        if (!product) continue;
+    for (const item of [...oldItems, ...newItems]) {
+        const key = getOrderItemStockKey(item);
+        if (key && key !== '::') lookup.set(key, item);
+    }
 
-        const vIdx = findVariantIndex(product, item);
-        if (vIdx > -1) {
-            const current = Number(product.variants[vIdx].stock) || 0;
-            product.variants[vIdx].stock = Math.max(0, current - quantityOrdered);
-            product.stock = Math.max(0, (Number(product.stock) || 0) - quantityOrdered);
-            product.markModified('variants');
-            await product.save();
-        } else {
-            await Product.updateOne(query, { $inc: { stock: -quantityOrdered, stockQuantity: -quantityOrdered } });
-        }
+    for (const key of keys) {
+        const soldDelta = (newMap.get(key) || 0) - (oldMap.get(key) || 0);
+        if (!soldDelta) continue;
+        const item = lookup.get(key);
+        if (!item) continue;
+        await adjustProductStockForItem(item, -soldDelta);
     }
 }
 
@@ -150,6 +203,11 @@ module.exports = {
     buildVariantSnapshot,
     resolveAvailableStock,
     deductOrderStock,
+    getOrderItemStockKey,
+    qtyMapFromOrderItems,
+    findProductForOrderItem,
+    adjustProductStockForItem,
+    applyOrderItemStockDeltas,
     normalizeOrderStatus,
     getOrderRefundAmount,
     getOrderDisplayId

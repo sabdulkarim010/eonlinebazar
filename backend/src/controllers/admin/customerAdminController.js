@@ -13,6 +13,8 @@ const User = require('../../models/user');
 const Order = require('../../models/order');
 const UserSession = require('../../models/userSession');
 const Setting = require('../../models/Setting');
+const cloudinary = require('cloudinary').v2;
+const sharp = require('sharp');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 
 const VIP_DEFAULTS = {
@@ -51,6 +53,74 @@ function hydrateCustomerName(customer = {}) {
     const fromParts = [customer.firstName, customer.lastName].filter(Boolean).join(' ').trim();
     const legacy = customer.name ? String(customer.name).trim() : '';
     return fromParts || legacy || 'N/A';
+}
+
+function getCustomerAvatarFields(user = {}) {
+    return {
+        avatar: user.avatar || '',
+        avatarUrl: user.avatarUrl || user.avatar || null,
+        avatarPublicId: user.avatarPublicId || ''
+    };
+}
+
+function isAvatarClearPayload(body = {}) {
+    if (body.clear === true || body.clear === 'true' || body.remove === true || body.remove === 'true') {
+        return true;
+    }
+    if (!Object.prototype.hasOwnProperty.call(body, 'avatar')) return false;
+    const value = body.avatar;
+    return value === null || value === '' || value === 'null' || value === undefined;
+}
+
+function cloudinaryPublicIdFromUrl(url = '') {
+    const match = String(url).match(/\/upload\/(?:v\d+\/)?(.+)\.[a-zA-Z0-9]+(?:\?.*)?$/);
+    return match ? match[1] : '';
+}
+
+async function destroyStoredCustomerAvatar(user) {
+    const publicId = String(user?.avatarPublicId || '').trim()
+        || cloudinaryPublicIdFromUrl(user?.avatar || user?.avatarUrl || '');
+    if (!publicId) return;
+    try {
+        await cloudinary.uploader.destroy(publicId);
+    } catch (err) {
+        console.error('Customer avatar Cloudinary delete error:', err);
+    }
+}
+
+function uploadBufferToCloudinary(buffer, folder) {
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (error, result) => {
+            if (settled) return;
+            settled = true;
+            if (error) reject(error);
+            else resolve(result);
+        };
+
+        const stream = cloudinary.uploader.upload_stream(
+            { folder },
+            (error, result) => finish(error, result)
+        );
+
+        if (stream && typeof stream.end === 'function') {
+            stream.end(buffer);
+            return;
+        }
+
+        if (!settled) {
+            finish(new Error('Cloudinary upload stream is unavailable.'));
+        }
+    });
+}
+
+function serializeCustomerAvatarResponse(user) {
+    const fields = getCustomerAvatarFields(user);
+    return {
+        _id: user._id,
+        name: hydrateCustomerName(user),
+        ...fields
+    };
 }
 
 // ==============================================================
@@ -248,6 +318,101 @@ const updateCustomer = async (req, res) => {
 };
 
 // ==============================================================
+// ৬ক. কাস্টমার প্রোফাইল ছবি আপলোড / ক্লিয়ার (অ্যাডমিন)
+// ==============================================================
+const updateCustomerAvatar = async (req, res) => {
+    try {
+        const customer = await User.findById(req.params.id).select('-password');
+        if (!customer) {
+            return res.status(404).json({ success: false, message: 'Customer not found.' });
+        }
+
+        if (!req.file) {
+            if (isAvatarClearPayload(req.body || {})) {
+                return clearCustomerAvatarRecord(req, res, customer);
+            }
+            return res.status(400).json({ success: false, message: 'No image file provided.' });
+        }
+
+        const compressedBuffer = await sharp(req.file.buffer)
+            .resize({ width: 600, height: 600, fit: 'cover' })
+            .jpeg({ quality: 80 })
+            .toBuffer();
+
+        const uploaded = await uploadBufferToCloudinary(compressedBuffer, 'eOnlineBazar/avatars');
+        if (!uploaded?.secure_url) {
+            return res.status(500).json({ success: false, message: 'Cloudinary upload failed.' });
+        }
+
+        await destroyStoredCustomerAvatar(customer);
+
+        customer.avatar = uploaded.secure_url;
+        customer.avatarUrl = uploaded.secure_url;
+        customer.avatarPublicId = uploaded.public_id || '';
+        await customer.save();
+
+        await logSecurityEvent({
+            action: 'Customer Avatar Updated',
+            actor: req.admin?.username || 'admin',
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `Customer ${customer.email || customer._id} avatar replaced by admin`
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Customer profile photo updated.',
+            avatarUrl: uploaded.secure_url,
+            data: serializeCustomerAvatarResponse(customer)
+        });
+    } catch (error) {
+        console.error('Update Customer Avatar Error:', error);
+        if (error.message && /unsupported|invalid/i.test(error.message)) {
+            return res.status(400).json({ success: false, message: 'Invalid image file.' });
+        }
+        return res.status(500).json({ success: false, message: 'Failed to update customer photo.' });
+    }
+};
+
+async function clearCustomerAvatarRecord(req, res, existingCustomer) {
+    const customer = existingCustomer || await User.findById(req.params.id).select('-password');
+    if (!customer) {
+        return res.status(404).json({ success: false, message: 'Customer not found.' });
+    }
+
+    await destroyStoredCustomerAvatar(customer);
+
+    customer.avatar = '';
+    customer.avatarUrl = null;
+    customer.avatarPublicId = '';
+    await customer.save();
+
+    await logSecurityEvent({
+        action: 'Customer Avatar Removed',
+        actor: req.admin?.username || 'admin',
+        actorType: 'admin',
+        ipAddress: getClientIp(req),
+        details: `Customer ${customer.email || customer._id} avatar removed by admin`
+    });
+
+    return res.status(200).json({
+        success: true,
+        message: 'Customer profile photo removed.',
+        avatarUrl: null,
+        data: serializeCustomerAvatarResponse(customer)
+    });
+}
+
+const deleteCustomerAvatar = async (req, res) => {
+    try {
+        return await clearCustomerAvatarRecord(req, res);
+    } catch (error) {
+        console.error('Delete Customer Avatar Error:', error);
+        return res.status(500).json({ success: false, message: 'Failed to remove customer photo.' });
+    }
+};
+
+// ==============================================================
 // ৭. কাস্টমার অ্যাকাউন্ট স্ট্যাটাস (Block / Suspend / Activate)
 // ==============================================================
 const updateCustomerStatus = async (req, res) => {
@@ -354,6 +519,8 @@ module.exports = {
     getAllCustomers,
     getCustomerById,
     updateCustomer,
+    updateCustomerAvatar,
+    deleteCustomerAvatar,
     updateCustomerStatus,
     deleteCustomer,
     getCustomerOrders

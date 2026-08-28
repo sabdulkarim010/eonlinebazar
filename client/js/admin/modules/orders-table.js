@@ -309,7 +309,7 @@ window.renderOrderTable = function() {
             <td class="order-courier-cell">${courierActionHtml}</td>
             <td class="order-actions-cell">
                 <div class="order-actions-toolbar">
-                    <button type="button" class="action-icon edit" onclick="event.stopPropagation(); openEditOrderShippingModal('${orderId}')" title="Edit Shipping Details" aria-label="Edit">✏️</button>
+                    <button type="button" class="action-icon edit" onclick="event.stopPropagation(); openEditOrderShippingModal('${orderId}')" title="Edit Order Details" aria-label="Edit">✏️</button>
                     <button type="button" class="action-icon view" onclick="event.stopPropagation(); viewInvoice('${orderId}')" title="View Invoice" aria-label="View">👁️</button>
                     <button type="button" class="action-icon delete" onclick="event.stopPropagation(); deleteOrder('${orderId}')" title="Delete Order" aria-label="Delete">🗑️</button>
                 </div>

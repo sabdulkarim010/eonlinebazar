@@ -1,10 +1,10 @@
 /**
  * Project: EOnlineBazar (E-Commerce Platform)
  * File: js/admin/modules/orders-invoice.js
- * Description: Invoice modal, payment-proof review, shipping edit, and print.
+ * Description: Invoice modal, payment-proof review, and print.
  */
 /* Dependencies: token, globalOrders, currentInvoiceOrderId, showToast, showAdminSuccess, buildAdminOrderStatusCell (window) */
-/* Exposes: window.buildAdminCompositeAddress, window.closeEditOrderShippingModal, window.closeInvoiceModal, window.openEditOrderShippingModal, window.printInvoice, window.renderInvoicePaymentProofSection, window.reviewInvoicePaymentProof, window.saveOrderShippingEdits, window.viewInvoice */
+/* Exposes: window.closeInvoiceModal, window.printInvoice, window.renderInvoicePaymentProofSection, window.reviewInvoicePaymentProof, window.viewInvoice */
 
 import '../admin-core.js';
 
@@ -232,124 +232,6 @@ window.closeInvoiceModal = function() {
     currentInvoiceOrderId = null;
 };
 
-function buildAdminCompositeAddress({ street = '', upazila = '', district = '' } = {}) {
-    return [street, upazila, district].filter(Boolean).join(', ');
-}
-
-window.openEditOrderShippingModal = function(orderId) {
-    const resolvedOrderId = orderId || currentInvoiceOrderId;
-    const order = globalOrders.find(o => String(o._id) === String(resolvedOrderId));
-    if (!order) return showToast('Order not found.', 'error');
-
-    currentInvoiceOrderId = order._id;
-    document.getElementById('editShippingOrderId').value = order._id;
-
-    const labelEl = document.getElementById('editShippingOrderLabel');
-    if (labelEl) {
-        labelEl.textContent = `Order #${order.orderId || order._id.slice(-6).toUpperCase()}`;
-    }
-
-    document.getElementById('editShippingName').value = order.customerName || '';
-    document.getElementById('editShippingPhone').value = order.customerPhone || '';
-    document.getElementById('editShippingNote').value = order.note || '';
-
-    const districtSelect = document.getElementById('editShippingDistrict');
-    const upazilaSelect = document.getElementById('editShippingUpazila');
-    const parsed = parseCompositeAddressParts(
-        order.customerAddress || '',
-        order.shippingDistrict || '',
-        ''
-    );
-
-    populateDistrictSelect(districtSelect, order.shippingDistrict || parsed.district || '');
-    bindAdminDistrictUpazilaHandlers(districtSelect, upazilaSelect);
-
-    const districtValue = order.shippingDistrict || parsed.district || districtSelect.value || '';
-    if (districtValue) districtSelect.value = districtValue;
-    populateAdminUpazilaSelect(districtSelect, upazilaSelect, districtValue, parsed.upazila || '');
-    document.getElementById('editShippingStreet').value = parsed.street || '';
-
-    document.getElementById('orderShippingEditModal').style.display = 'flex';
-};
-
-window.closeEditOrderShippingModal = function() {
-    const modal = document.getElementById('orderShippingEditModal');
-    if (modal) modal.style.display = 'none';
-};
-
-window.saveOrderShippingEdits = async function() {
-    const orderId = document.getElementById('editShippingOrderId').value;
-    const customerName = document.getElementById('editShippingName').value.trim();
-    const customerPhone = document.getElementById('editShippingPhone').value.replace(/\D/g, '');
-    const shippingDistrict = document.getElementById('editShippingDistrict')?.value?.trim() || '';
-    const shippingUpazila = document.getElementById('editShippingUpazila')?.value?.trim() || '';
-    const shippingStreetAddress = document.getElementById('editShippingStreet').value.trim();
-    const note = document.getElementById('editShippingNote').value.trim();
-
-    if (!customerName) return showToast('Full name is required.', 'warning');
-    if (customerName.length < 2) return showToast('Full name must be at least 2 characters.', 'warning');
-    if (!/^01[3-9]\d{8}$/.test(customerPhone)) {
-        return showToast('Mobile must be a valid 11-digit Bangladeshi number.', 'warning');
-    }
-    if (!shippingDistrict) return showToast('Please select a district.', 'warning');
-    if (!shippingUpazila) return showToast('Please select an upazila / thana.', 'warning');
-    if (!shippingStreetAddress) return showToast('Delivery address is required.', 'warning');
-
-    const btn = document.getElementById('saveOrderShippingBtn');
-    const originalText = btn ? btn.innerHTML : '';
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
-    }
-
-    try {
-        const res = await fetch(`/api/admin/orders/${orderId}/address`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                customerName,
-                customerPhone,
-                shippingDistrict,
-                shippingUpazila,
-                shippingStreetAddress,
-                customerAddress: buildAdminCompositeAddress({
-                    street: shippingStreetAddress,
-                    upazila: shippingUpazila,
-                    district: shippingDistrict
-                }),
-                note
-            })
-        });
-        const result = await res.json();
-
-        if (res.ok && result.success) {
-            const updated = result.data || {};
-            const idx = globalOrders.findIndex(o => String(o._id) === String(orderId));
-            if (idx > -1) {
-                globalOrders[idx] = { ...globalOrders[idx], ...updated };
-                filterAndRenderOrders();
-            }
-            showToast(result.message || 'Shipping details updated.', 'success');
-            closeEditOrderShippingModal();
-            if (currentInvoiceOrderId === orderId) {
-                viewInvoice(orderId);
-            }
-        } else {
-            showToast(result.message || 'Failed to update shipping details.', 'error');
-        }
-    } catch (error) {
-        showToast('Server error while saving shipping details.', 'error');
-    } finally {
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-        }
-    }
-};
-
 window.printInvoice = function() {
     document.body.classList.add('printing-invoice');
     const cleanup = () => {
@@ -362,7 +244,6 @@ window.printInvoice = function() {
 
 /* Expose module functions for HTML onclick + cross-module calls */
 Object.assign(window, {
-    buildAdminCompositeAddress,
     renderInvoicePaymentProofSection
 });
 

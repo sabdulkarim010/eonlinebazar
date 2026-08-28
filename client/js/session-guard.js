@@ -112,7 +112,9 @@
             var parts = splitDisplayName(name);
             if (link) {
                 link.classList.add('is-authed');
+                link.style.display = 'flex';
                 link.setAttribute('onclick', "window.location.href='/profile'");
+                link.setAttribute('aria-label', parts.full ? ('Profile — ' + parts.full) : 'Profile');
             }
             if (line1) {
                 line1.textContent = '';
@@ -124,7 +126,12 @@
                 line2.classList.add('nav-user-display-name');
             }
         } else {
-            if (link) link.classList.remove('is-authed');
+            if (link) {
+                link.classList.remove('is-authed', 'has-avatar');
+                link.style.display = 'flex';
+                link.setAttribute('onclick', "window.location.href='/login'");
+                link.setAttribute('aria-label', window.i18n ? window.i18n.t('nav.login') : 'Login');
+            }
             if (line1) {
                 line1.style.display = '';
                 line1.textContent = window.i18n ? window.i18n.t('nav.login') : 'Sign in';
@@ -134,10 +141,10 @@
                 line2.classList.remove('nav-user-display-name');
                 delete line2.dataset.firstName;
             }
-            if (link) link.setAttribute('onclick', "window.location.href='/login'");
             if (navUserAvatar) {
                 navUserAvatar.src = '';
                 navUserAvatar.style.display = 'none';
+                navUserAvatar.classList.remove('is-visible');
             }
         }
     }

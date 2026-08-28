@@ -262,6 +262,51 @@
 }
 
 @media (max-width: 640px) {
+    .order-card-compact {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px 14px;
+    }
+
+    .occ-left { gap: 6px; }
+    .occ-date { display: none; }
+
+    .occ-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .occ-middle { justify-content: flex-start; }
+
+    .order-detail-footer,
+    .order-card-footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .order-totals-mini { width: 100%; }
+
+    .order-actions,
+    .order-card-footer-actions {
+        width: 100%;
+        margin-left: 0;
+        justify-content: stretch;
+    }
+
+    .order-card .order-actions .oab,
+    .order-card .order-actions .order-action-btn {
+        flex: 1 1 auto;
+        justify-content: center;
+        min-width: 0;
+    }
+
+    .order-card .order-item-row {
+        gap: 12px;
+    }
+}
+
+@media (max-width: 640px) {
     .pagination-container,
     .orders-pagination-inner {
         gap: 6px;

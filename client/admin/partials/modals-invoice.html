@@ -75,56 +75,97 @@
 
         <div class="invoice-modal-actions no-print">
             <button type="button" class="btn-secondary" id="editOrderShippingBtn" onclick="openEditOrderShippingModal()">
-                <i class="fa-solid fa-truck-fast"></i> Edit Shipping Details
+                <i class="fa-solid fa-pen-to-square"></i> Edit Order Details
             </button>
             <button class="btn-print" onclick="printInvoice()"><i class="fa-solid fa-print"></i> Print Invoice</button>
         </div>
     </div>
 </div>
 
-<!-- Admin: Edit Order Shipping Details -->
+<!-- Admin: Unified Master Order Editor (shipping + items) -->
 <div id="orderShippingEditModal" class="custom-modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="orderShippingEditTitle" onclick="if(event.target===this) closeEditOrderShippingModal()">
-    <div class="custom-modal-box customer-modal-box">
+    <div class="custom-modal-box master-order-editor-box">
         <div class="modal-header">
-            <h3 id="orderShippingEditTitle"><i class="fa-solid fa-truck-fast"></i> Edit Shipping Details</h3>
+            <h3 id="orderShippingEditTitle"><i class="fa-solid fa-pen-to-square"></i> Edit Order Details</h3>
             <button type="button" class="close-icon-btn" onclick="closeEditOrderShippingModal()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div class="modal-body">
+        <div class="master-order-tabs" role="tablist" aria-label="Order editor sections">
+            <button type="button" class="master-order-tab active" id="masterOrderTabShipping" role="tab" aria-selected="true" aria-controls="masterOrderPanelShipping" data-tab="shipping">
+                🚚 Shipping Details
+            </button>
+            <button type="button" class="master-order-tab" id="masterOrderTabItems" role="tab" aria-selected="false" aria-controls="masterOrderPanelItems" data-tab="items">
+                📦 Order Items
+            </button>
+        </div>
+        <div class="modal-body master-order-editor-body">
             <input type="hidden" id="editShippingOrderId">
-            <p class="customer-orders-subtitle" id="editShippingOrderLabel">Order —</p>
-            <div class="form-group">
-                <label for="editShippingName">Full Name</label>
-                <input type="text" id="editShippingName" placeholder="Customer full name" maxlength="50">
-            </div>
-            <div class="form-group">
-                <label for="editShippingPhone">Mobile Number</label>
-                <input type="tel" id="editShippingPhone" placeholder="01XXXXXXXXX" maxlength="11">
-            </div>
-            <div class="form-row-custom">
+            <p class="customer-orders-subtitle" id="editShippingOrderLabel" hidden>Order —</p>
+
+            <div id="masterOrderPanelShipping" class="master-order-tab-panel" role="tabpanel" aria-labelledby="masterOrderTabShipping">
                 <div class="form-group">
-                    <label for="editShippingDistrict">District</label>
-                    <select id="editShippingDistrict"></select>
+                    <label for="editShippingName">Full Name</label>
+                    <input type="text" id="editShippingName" placeholder="Customer full name" maxlength="50">
                 </div>
                 <div class="form-group">
-                    <label for="editShippingUpazila">Upazila / Thana</label>
-                    <select id="editShippingUpazila" disabled>
-                        <option value="">Select upazila / thana</option>
-                    </select>
+                    <label for="editShippingPhone">Mobile Number</label>
+                    <input type="tel" id="editShippingPhone" placeholder="01XXXXXXXXX" maxlength="11">
+                </div>
+                <div class="form-row-custom">
+                    <div class="form-group">
+                        <label for="editShippingDistrict">District</label>
+                        <select id="editShippingDistrict"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editShippingUpazila">Upazila / Thana</label>
+                        <select id="editShippingUpazila" disabled>
+                            <option value="">Select upazila / thana</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="editShippingStreet">Full Delivery Address</label>
+                    <textarea id="editShippingStreet" rows="3" placeholder="House, road, village, area details" maxlength="120"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="editShippingNote">Courier Note (Optional)</label>
+                    <textarea id="editShippingNote" rows="2" placeholder="Delivery instructions for courier"></textarea>
                 </div>
             </div>
-            <div class="form-group">
-                <label for="editShippingStreet">Full Delivery Address</label>
-                <textarea id="editShippingStreet" rows="3" placeholder="House, road, village, area details" maxlength="120"></textarea>
+
+            <div id="masterOrderPanelItems" class="master-order-tab-panel" role="tabpanel" aria-labelledby="masterOrderTabItems" hidden>
+                <div class="master-order-add-wrap">
+                    <label for="masterOrderProductSearch">Search to add products</label>
+                    <input type="search" id="masterOrderProductSearch" placeholder="Type product name, SKU, or category…" autocomplete="off">
+                    <div id="masterOrderProductResults" class="master-order-search-results" hidden></div>
+                </div>
+                <div class="master-order-lines-wrap">
+                    <table class="catalog-table master-order-lines-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Unit Price</th>
+                                <th>Qty</th>
+                                <th>Line Total</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="masterOrderItemsBody">
+                            <tr class="master-order-empty-row">
+                                <td colspan="5">No items on this order.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div class="form-group">
-                <label for="editShippingNote">Courier Note (Optional)</label>
-                <textarea id="editShippingNote" rows="2" placeholder="Delivery instructions for courier"></textarea>
-            </div>
+        </div>
+        <div class="master-order-summary" id="masterOrderSummaryFooter">
+            <span>Subtotal: <strong id="masterOrderSubtotal">৳0</strong></span>
+            <span>Final Total: <strong id="masterOrderGrandTotal">৳0</strong></span>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn-secondary" onclick="closeEditOrderShippingModal()">Cancel</button>
             <button type="button" class="btn-primary" id="saveOrderShippingBtn" onclick="saveOrderShippingEdits()">
-                <i class="fa-solid fa-floppy-disk"></i> Save Shipping Details
+                <i class="fa-solid fa-floppy-disk"></i> Save All Changes
             </button>
         </div>
     </div>

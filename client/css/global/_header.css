@@ -448,6 +448,15 @@ a.logo-area {
     align-items: center;
     cursor: pointer;
     gap: 8px;
+    flex-shrink: 0;
+}
+
+.nav-user-icon {
+    display: none;
+    font-size: 22px;
+    line-height: 1;
+    color: inherit;
+    flex-shrink: 0;
 }
 
 .nav-user-avatar-img {
@@ -461,6 +470,11 @@ a.logo-area {
 
 .nav-user-avatar-img.is-visible {
     display: block;
+}
+
+.nav-user-account.has-avatar .nav-user-icon,
+.nav-user-avatar-img.is-visible ~ .nav-user-icon {
+    display: none !important;
 }
 
 .nav-line-1 {

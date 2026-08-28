@@ -402,6 +402,7 @@ function initDashboard() {
     setupHeaderDatePicker();
     setupAdminSettingsForms();
     setupManualOrderEngine();
+    if (typeof setupMasterOrderEditor === 'function') setupMasterOrderEditor();
     setupWhatsAppAlertBadge();
     fetchAdminSettings();
     if (typeof loadSandboxStatus === 'function') loadSandboxStatus();

@@ -17,6 +17,7 @@ const {
     undoOrderRefund,
     createManualOrder,
     updateOrderShippingAddress,
+    masterUpdateOrder,
     bulkDeleteOrders
 } = require('../controllers/orderAdminController');
 const {
@@ -92,6 +93,10 @@ router.get('/analytics/status', verifyAdmin, (req, res) => {
 });
 
 // ১ক. নির্দিষ্ট কাস্টমার, আপডেট, স্ট্যাটাস ও অর্ডার হিস্ট্রি
+router.put('/users/:id/avatar', verifyAdmin, checkPermission('manage_customers'), upload.single('avatar'), adminController.updateCustomerAvatar);
+router.delete('/users/:id/avatar', verifyAdmin, checkPermission('manage_customers'), adminController.deleteCustomerAvatar);
+router.put('/customers/:id/avatar', verifyAdmin, checkPermission('manage_customers'), upload.single('avatar'), adminController.updateCustomerAvatar);
+router.delete('/customers/:id/avatar', verifyAdmin, checkPermission('manage_customers'), adminController.deleteCustomerAvatar);
 router.get('/customers/:id/orders', verifyAdmin, checkPermission('manage_customers'), adminController.getCustomerOrders);
 router.get('/customers/:id', verifyAdmin, checkPermission('manage_customers'), adminController.getCustomerById);
 router.put('/customers/:id', verifyAdmin, checkPermission('manage_customers'), adminController.updateCustomer);
@@ -125,6 +130,9 @@ router.patch('/payments/:orderId/mark-paid', verifyAdmin, checkPermission('manag
 
 // URL: PUT /api/admin/orders/:id/address — admin edits shipping / contact details
 router.put('/orders/:id/address', verifyAdmin, checkPermission('manage_orders'), updateOrderShippingAddress);
+
+// URL: PUT /api/admin/orders/:id/master-update — shipping + items with live total recalc
+router.put('/orders/:id/master-update', verifyAdmin, checkPermission('manage_orders'), masterUpdateOrder);
 
 // URL: GET /api/admin/whatsapp-alerts/pending — wa.me fallback queue for undelivered alerts
 router.get('/whatsapp-alerts/pending', verifyAdmin, checkPermission('manage_orders'), whatsappAlertsController.getPendingWhatsAppAlertsHandler);

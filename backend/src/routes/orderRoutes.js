@@ -92,6 +92,7 @@ router.get('/:id', verifyUser, getOrderById);
 
 // খ. অর্ডারের স্ট্যাটাস আপডেট করার রুট (🔒 অ্যাডমিন + manage_orders)
 // URL: PUT /api/orders/:id
+// Admin master editor (shipping + items) lives at PUT /api/admin/orders/:id/master-update
 router.put('/:id', verifyAdmin, checkPermission('manage_orders'), updateOrderStatus);
 
 // গ. অর্ডার ডিলিট করার রুট (🔒 অ্যাডমিন + manage_orders)

@@ -11,12 +11,44 @@ const { generateOrderInvoicePdf, resolveInvoiceNumber } = require('../utils/invo
 const { enrichOrderItemsWithImages, enrichOrdersWithImages } = require('../utils/orderItemImages');
 const { normalizeOrderStatus } = require('./orderControllerHelpers');
 
+function mapCustomerOrderItem(item = {}) {
+    const productImages = Array.isArray(item.product?.images) ? item.product.images : [];
+    const image = item.image
+        || item.productImage
+        || item.imageUrl
+        || productImages[0]
+        || item.product?.image
+        || '';
+    const variant = item.variant
+        || item.variantLabel
+        || [item.variantAttribute, item.variantValue].filter(Boolean).join(' ')
+        || '';
+
+    return {
+        ...item,
+        name: item.name || item.product?.name || 'Product',
+        price: Number(item.price) || 0,
+        quantity: Number(item.quantity || item.qty) || 1,
+        image,
+        productImage: item.productImage || image,
+        color: item.color || '',
+        size: item.size || '',
+        variant
+    };
+}
+
+function mapCustomerOrder(order = {}) {
+    return {
+        ...order,
+        items: Array.isArray(order.items) ? order.items.map(mapCustomerOrderItem) : []
+    };
+}
+
 // ৩. লগইন করা নির্দিষ্ট ইউজারের নিজস্ব অর্ডারগুলো দেখা (My Orders সেকশন)
 const getMyOrders = async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page, 10) || 1);
         const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
-        const skip = (page - 1) * limit;
         const filter = { user: req.user.id };
 
         const total = await Order.countDocuments(filter);
@@ -28,7 +60,7 @@ const getMyOrders = async (req, res) => {
             .skip((safePage - 1) * limit)
             .limit(limit);
 
-        const enrichedOrders = await enrichOrdersWithImages(myOrders);
+        const enrichedOrders = (await enrichOrdersWithImages(myOrders)).map(mapCustomerOrder);
 
         res.json({
             success: true,

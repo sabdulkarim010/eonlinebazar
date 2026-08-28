@@ -26,6 +26,7 @@ const {
     isWithinRefundUndoWindow
 } = require('../utils/rewardSettings');
 const { pickImageFromSources, pickEmojiFromSources } = require('../utils/orderItemImages');
+const { computeProcessingFee } = require('../services/paymentMethodService');
 const { notifyOrderStatusUpdated } = require('../services/smsService');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { findVariantIndex } = require('../utils/variantHelpers');
@@ -44,10 +45,159 @@ const {
     buildVariantSnapshot,
     resolveAvailableStock,
     deductOrderStock,
+    getOrderItemStockKey,
+    qtyMapFromOrderItems,
+    findProductForOrderItem,
+    applyOrderItemStockDeltas,
     normalizeOrderStatus,
     getOrderRefundAmount,
     getOrderDisplayId
 } = require('./orderControllerHelpers');
+
+const ITEM_EDIT_BLOCKED_STATUSES = ['cancelled', 'canceled', 'returned', 'refunded', 'return requested'];
+
+function toPlainOrderItem(item) {
+    if (!item) return {};
+    if (typeof item.toObject === 'function') return item.toObject();
+    return { ...item };
+}
+
+function findExistingOrderLine(existingItems, incoming) {
+    const incomingKey = getOrderItemStockKey(incoming);
+    const incomingIds = new Set(
+        [incoming.productId, incoming.id, incoming._id]
+            .map((value) => String(value || '').trim().toLowerCase())
+            .filter(Boolean)
+    );
+    const incomingVariant = String(incoming.variantId || incoming.variantSku || '').trim().toLowerCase();
+
+    return existingItems.find((item) => {
+        if (incomingKey && incomingKey !== '::' && getOrderItemStockKey(item) === incomingKey) return true;
+        const itemVariant = String(item.variantId || item.variantSku || '').trim().toLowerCase();
+        if (itemVariant !== incomingVariant) return false;
+        return [item.productId, item.id, item._id]
+            .map((value) => String(value || '').trim().toLowerCase())
+            .some((id) => id && incomingIds.has(id));
+    }) || null;
+}
+
+function hasShippingUpdateFields(body = {}) {
+    const nested = body.shipping && typeof body.shipping === 'object' && !Array.isArray(body.shipping)
+        ? body.shipping
+        : {};
+    const src = { ...body, ...nested };
+    return Boolean(
+        String(src.customerName || '').trim()
+        || String(src.customerPhone || '').trim()
+        || String(src.shippingDistrict || '').trim()
+        || String(src.customerAddress || '').trim()
+        || String(src.shippingStreetAddress || src.streetAddress || '').trim()
+        || String(src.shippingUpazila || src.upazila || '').trim()
+        || src.note !== undefined
+    );
+}
+
+async function applyOrderShippingFields(order, body = {}) {
+    const nested = body.shipping && typeof body.shipping === 'object' && !Array.isArray(body.shipping)
+        ? body.shipping
+        : {};
+    const src = { ...body, ...nested };
+
+    const trimmedName = String(src.customerName || '').trim();
+    const trimmedPhone = String(src.customerPhone || '').replace(/\D/g, '');
+    const district = resolveDistrictLabel(String(src.shippingDistrict || '').trim());
+    const resolvedUpazila = String(src.shippingUpazila || src.upazila || '').trim();
+    const street = String(src.shippingStreetAddress || src.streetAddress || '').trim();
+    const directAddress = String(src.customerAddress || '').trim();
+    const compositeAddress = directAddress
+        || [street, resolvedUpazila, district].filter(Boolean).join(', ');
+
+    if (!trimmedName) {
+        return { status: 400, message: 'Customer name is required.' };
+    }
+    if (!/^01[3-9]\d{8}$/.test(trimmedPhone)) {
+        return { status: 400, message: 'Phone must be a valid 11-digit Bangladeshi mobile number.' };
+    }
+    if (!district || !isValidDistrict(district)) {
+        return { status: 400, message: 'Please select a valid district.' };
+    }
+    if (!resolvedUpazila) {
+        return { status: 400, message: 'Upazila / thana is required.' };
+    }
+    if (!compositeAddress) {
+        return { status: 400, message: 'Delivery address is required.' };
+    }
+
+    const deliverySettings = await getDeliverySettings();
+    const deliveryLocationType = resolveDeliveryZone(deliverySettings, district);
+    const shippingLocationType = toShippingLocationLabel(deliveryLocationType);
+
+    order.customerName = trimmedName;
+    order.customerPhone = trimmedPhone;
+    order.customerAddress = compositeAddress;
+    order.shippingDistrict = district;
+    order.shippingLocationType = shippingLocationType;
+    order.deliveryLocationType = deliveryLocationType;
+    if (src.note !== undefined) {
+        order.note = String(src.note || '').trim();
+    }
+
+    return null;
+}
+
+function recalculateMasterOrderTotals(order, normalizedItems) {
+    const subtotal = roundMoney(
+        normalizedItems.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 0)), 0)
+    );
+    const totalBuyingPrice = roundMoney(
+        normalizedItems.reduce((sum, item) => sum + ((Number(item.buyingPrice) || 0) * (Number(item.quantity) || 0)), 0)
+    );
+    const discountAmount = roundMoney(Math.min(Math.max(0, Number(order.discountAmount) || 0), subtotal));
+    const deliveryCharge = roundMoney(Number(order.deliveryCharge ?? order.shippingFee) || 0);
+    const lockedTotals = buildLockedOrderTotals({
+        itemSubtotal: subtotal,
+        discountAmount,
+        deliveryCharge
+    });
+
+    const merchandiseGrand = lockedTotals.grandTotal;
+    const feeType = String(order.payment?.feeType || '').trim().toLowerCase();
+    const feeRate = Number(order.payment?.feeRate);
+    let processingFee = roundMoney(Number(order.processingFee ?? order.payment?.processingFee) || 0);
+
+    if (feeType === 'percentage' && Number.isFinite(feeRate) && feeRate > 0) {
+        processingFee = computeProcessingFee({ processingFee: feeRate, feeType: 'percentage' }, merchandiseGrand);
+    } else if (feeType === 'flat' && Number.isFinite(feeRate) && feeRate >= 0) {
+        processingFee = computeProcessingFee({ processingFee: feeRate, feeType: 'flat' }, merchandiseGrand);
+    }
+
+    const walletApplied = roundMoney(Math.min(
+        Math.max(0, Number(order.walletApplied) || 0),
+        roundMoney(merchandiseGrand + processingFee)
+    ));
+    const grandTotal = roundMoney(Math.max(0, merchandiseGrand + processingFee - walletApplied));
+
+    order.items = normalizedItems;
+    order.markModified('items');
+    order.subTotal = lockedTotals.subTotal;
+    order.subtotal = lockedTotals.subTotal;
+    order.discountAmount = discountAmount;
+    order.deliveryCharge = lockedTotals.deliveryCharge;
+    order.shippingFee = lockedTotals.deliveryCharge;
+    order.processingFee = processingFee;
+    order.walletApplied = walletApplied;
+    order.grandTotal = grandTotal;
+    order.totalAmount = grandTotal;
+    order.totalBuyingPrice = totalBuyingPrice;
+
+    if (order.payment && typeof order.payment === 'object') {
+        order.payment.processingFee = processingFee;
+        order.payment.feeBaseAmount = merchandiseGrand;
+        order.markModified('payment');
+    }
+
+    return lockedTotals;
+}
 
 /**
  * Staff POS / phone-order entry — admin creates orders with manual pricing,
@@ -317,63 +467,14 @@ const getOrders = async (req, res) => {
  */
 const updateOrderShippingAddress = async (req, res) => {
     try {
-        const {
-            customerName,
-            customerPhone,
-            customerAddress,
-            shippingDistrict,
-            shippingUpazila,
-            upazila,
-            shippingStreetAddress,
-            streetAddress,
-            note
-        } = req.body;
-
         const order = await Order.findById(req.params.id);
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found.' });
         }
 
-        const trimmedName = String(customerName || '').trim();
-        const trimmedPhone = String(customerPhone || '').replace(/\D/g, '');
-        const district = resolveDistrictLabel(String(shippingDistrict || '').trim());
-        const resolvedUpazila = String(shippingUpazila || upazila || '').trim();
-        const street = String(shippingStreetAddress || streetAddress || '').trim();
-        const directAddress = String(customerAddress || '').trim();
-        const compositeAddress = directAddress
-            || [street, resolvedUpazila, district].filter(Boolean).join(', ');
-
-        if (!trimmedName) {
-            return res.status(400).json({ success: false, message: 'Customer name is required.' });
-        }
-        if (!/^01[3-9]\d{8}$/.test(trimmedPhone)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Phone must be a valid 11-digit Bangladeshi mobile number.'
-            });
-        }
-        if (!district || !isValidDistrict(district)) {
-            return res.status(400).json({ success: false, message: 'Please select a valid district.' });
-        }
-        if (!resolvedUpazila) {
-            return res.status(400).json({ success: false, message: 'Upazila / thana is required.' });
-        }
-        if (!compositeAddress) {
-            return res.status(400).json({ success: false, message: 'Delivery address is required.' });
-        }
-
-        const deliverySettings = await getDeliverySettings();
-        const deliveryLocationType = resolveDeliveryZone(deliverySettings, district);
-        const shippingLocationType = toShippingLocationLabel(deliveryLocationType);
-
-        order.customerName = trimmedName;
-        order.customerPhone = trimmedPhone;
-        order.customerAddress = compositeAddress;
-        order.shippingDistrict = district;
-        order.shippingLocationType = shippingLocationType;
-        order.deliveryLocationType = deliveryLocationType;
-        if (note !== undefined) {
-            order.note = String(note || '').trim();
+        const shippingError = await applyOrderShippingFields(order, req.body);
+        if (shippingError) {
+            return res.status(shippingError.status).json({ success: false, message: shippingError.message });
         }
 
         await order.save();
@@ -394,6 +495,242 @@ const updateOrderShippingAddress = async (req, res) => {
     } catch (error) {
         console.error('Update Order Shipping Error:', error);
         return res.status(500).json({ success: false, message: 'Failed to update shipping details.' });
+    }
+};
+
+/**
+ * Admin master editor — shipping and/or order items in one request.
+ * PUT /api/admin/orders/:id/master-update
+ */
+const masterUpdateOrder = async (req, res) => {
+    try {
+        const body = req.body || {};
+        const incomingItems = Array.isArray(body.items)
+            ? body.items
+            : (Array.isArray(body.orderItems) ? body.orderItems : null);
+        const wantsItems = incomingItems !== null;
+        const wantsShipping = hasShippingUpdateFields(body);
+
+        if (!wantsItems && !wantsShipping) {
+            return res.status(400).json({
+                success: false,
+                message: 'Provide shipping details and/or order items to update.'
+            });
+        }
+
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found.' });
+        }
+
+        if (wantsShipping) {
+            const shippingError = await applyOrderShippingFields(order, body);
+            if (shippingError) {
+                return res.status(shippingError.status).json({ success: false, message: shippingError.message });
+            }
+        }
+
+        let lockedTotals = null;
+
+        if (wantsItems) {
+            const status = normalizeOrderStatus(order.status);
+            if (ITEM_EDIT_BLOCKED_STATUSES.includes(status)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Order items cannot be edited while status is "${order.status}".`
+                });
+            }
+
+            if (incomingItems.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Add at least one product line to the order.'
+                });
+            }
+
+            const existingItems = Array.isArray(order.items) ? order.items.map(toPlainOrderItem) : [];
+            const oldQtyMap = qtyMapFromOrderItems(existingItems);
+            const flashSettings = await loadFlashSaleSettings();
+            const mergedByKey = new Map();
+            const normalizedItems = [];
+
+            for (const rawItem of incomingItems) {
+                const item = { ...rawItem };
+                const targetId = item.id || item.productId || item._id;
+                const quantity = Math.max(1, Number(item.quantity) || 1);
+
+                if (!targetId) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Each line item must include a valid product id.'
+                    });
+                }
+
+                const lineKey = getOrderItemStockKey({ ...item, quantity });
+                if (mergedByKey.has(lineKey)) {
+                    const existingIdx = mergedByKey.get(lineKey);
+                    normalizedItems[existingIdx].quantity += quantity;
+                    continue;
+                }
+
+                const existingLine = findExistingOrderLine(existingItems, item);
+                const prod = await findProductForOrderItem(item);
+
+                if (!prod) {
+                    if (!existingLine) {
+                        return res.status(400).json({
+                            success: false,
+                            message: `Product not found: ${targetId}`
+                        });
+                    }
+                    if (quantity > (Number(existingLine.quantity) || 0)) {
+                        return res.status(400).json({
+                            success: false,
+                            message: `Cannot increase quantity for "${existingLine.name || targetId}" because the product is no longer in the catalog.`
+                        });
+                    }
+                    const kept = {
+                        ...existingLine,
+                        quantity,
+                        price: Number(existingLine.price) || 0,
+                        buyingPrice: Number(existingLine.buyingPrice) || 0
+                    };
+                    mergedByKey.set(lineKey, normalizedItems.length);
+                    normalizedItems.push(kept);
+                    continue;
+                }
+
+                const vIdx = findVariantIndex(prod, item);
+                const hasVariants = Array.isArray(prod.variants) && prod.variants.length > 0;
+
+                if (hasVariants && vIdx <= -1) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Select a valid Size/Color variant for "${prod.name}".`
+                    });
+                }
+
+                const previousQty = oldQtyMap.get(lineKey)
+                    || (existingLine ? Number(existingLine.quantity) || 0 : 0);
+                const availableStock = resolveAvailableStock(prod, vIdx) + previousQty;
+
+                if (quantity > availableStock) {
+                    const variantHint = vIdx > -1 ? buildVariantSnapshot(prod, vIdx).variantLabel : 'default';
+                    return res.status(400).json({
+                        success: false,
+                        message: `Insufficient stock for "${prod.name}" (${variantHint || 'default'}). Available: ${availableStock}, requested: ${quantity}.`
+                    });
+                }
+
+                let nextItem = existingLine ? { ...existingLine } : {};
+                nextItem.quantity = quantity;
+                nextItem.name = prod.name;
+                nextItem.productId = existingLine?.productId || prod.productId || String(prod._id);
+                nextItem.id = existingLine?.id || existingLine?.productId || String(prod._id);
+                nextItem.category = prod.category || existingLine?.category || 'General';
+
+                if (vIdx > -1) {
+                    Object.assign(nextItem, buildVariantSnapshot(prod, vIdx));
+                }
+
+                if (existingLine) {
+                    nextItem.price = Number(existingLine.price) || 0;
+                    nextItem.buyingPrice = Number(existingLine.buyingPrice) || 0;
+                } else {
+                    const verifiedPrice = resolveSellingPriceFromSettings(prod, item, flashSettings);
+                    if (!Number.isFinite(verifiedPrice) || verifiedPrice < 0) {
+                        return res.status(400).json({
+                            success: false,
+                            message: `Unable to verify price for "${prod.name || targetId}".`
+                        });
+                    }
+                    nextItem.price = verifiedPrice;
+                    let buyingPrice = Number(prod.buyingPrice) || 0;
+                    if (vIdx > -1) {
+                        const variantBuying = Number(prod.variants[vIdx].buyingPrice);
+                        buyingPrice = (Number.isFinite(variantBuying) && variantBuying > 0)
+                            ? variantBuying
+                            : buyingPrice;
+                    }
+                    nextItem.buyingPrice = buyingPrice;
+                }
+
+                const snapshotImage = pickImageFromSources(nextItem, prod) || pickImageFromSources(item, prod);
+                const snapshotEmoji = pickEmojiFromSources(nextItem, prod) || pickEmojiFromSources(item, prod);
+                if (snapshotImage) {
+                    nextItem.image = snapshotImage;
+                    nextItem.imageUrl = snapshotImage;
+                    nextItem.products = snapshotImage;
+                }
+                if (snapshotEmoji) {
+                    nextItem.emoji = snapshotEmoji;
+                    nextItem.icon = snapshotEmoji;
+                }
+
+                mergedByKey.set(lineKey, normalizedItems.length);
+                const canonicalKey = getOrderItemStockKey(nextItem);
+                if (canonicalKey && canonicalKey !== lineKey) mergedByKey.set(canonicalKey, normalizedItems.length);
+                normalizedItems.push(nextItem);
+            }
+
+            for (const line of normalizedItems) {
+                const prod = await findProductForOrderItem(line);
+                if (!prod) continue;
+                const vIdx = findVariantIndex(prod, line);
+                const previousQty = oldQtyMap.get(getOrderItemStockKey(line))
+                    || Number(findExistingOrderLine(existingItems, line)?.quantity)
+                    || 0;
+                const availableStock = resolveAvailableStock(prod, vIdx) + previousQty;
+                if (Number(line.quantity) > availableStock) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Insufficient stock for "${line.name}". Available: ${availableStock}, requested: ${line.quantity}.`
+                    });
+                }
+            }
+
+            await applyOrderItemStockDeltas(existingItems, normalizedItems);
+            lockedTotals = recalculateMasterOrderTotals(order, normalizedItems);
+            await invalidate(CACHE_KEYS.POPULAR_PRODUCTS);
+        }
+
+        await order.save();
+
+        const changed = [
+            wantsShipping ? 'shipping' : null,
+            wantsItems ? 'items' : null
+        ].filter(Boolean).join(' + ');
+
+        await logSecurityEvent({
+            action: 'Order Master Updated',
+            actor: req.admin?.username || 'admin',
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `${order.orderId || order._id} master update (${changed})`
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: wantsItems
+                ? 'Order details updated. Totals recalculated.'
+                : 'Shipping details updated successfully.',
+            data: order,
+            lockedPricing: lockedTotals
+                ? buildLockedPricingPayload({
+                    ...lockedTotals,
+                    processingFee: order.processingFee,
+                    walletApplied: order.walletApplied,
+                    payableTotal: order.grandTotal,
+                    paymentMethod: order.paymentMethod,
+                    shippingDistrict: order.shippingDistrict,
+                    shippingLocationType: order.shippingLocationType,
+                    deliveryLocationType: order.deliveryLocationType
+                })
+                : undefined
+        });
+    } catch (error) {
+        console.error('Master Update Order Error:', error);
+        return res.status(500).json({ success: false, message: 'Failed to update order details.' });
     }
 };
 
@@ -727,6 +1064,7 @@ module.exports = {
     createManualOrder,
     getOrders,
     updateOrderShippingAddress,
+    masterUpdateOrder,
     updateOrderStatus,
     deleteOrder,
     bulkDeleteOrders,

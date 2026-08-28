@@ -4,9 +4,301 @@
  * Description: Customer view/edit/status modals and order-history modal.
  */
 /* Dependencies: token, showToast, showCustomConfirm, getCustomerDisplayName, populateAdminUpazilaSelect, parseCompositeAddressParts (window) */
-/* Exposes: window.bindAdminDistrictUpazilaHandlers, window.closeCustomerEditModal, window.closeCustomerOrdersModal, window.closeCustomerViewModal, window.deleteCustomer, window.editCustomer, window.getUpazilasForDistrict, window.parseCompositeAddressParts, window.populateAdminUpazilaSelect, window.saveCustomerEdits, window.setCustomerStatus, window.viewCustomerDetails, window.viewCustomerOrders */
+/* Exposes: window.bindAdminDistrictUpazilaHandlers, window.closeCustomerAvatarLightbox, window.closeCustomerEditModal, window.closeCustomerOrdersModal, window.closeCustomerViewModal, window.deleteCustomer, window.editCustomer, window.getUpazilasForDistrict, window.openCustomerAvatarLightbox, window.parseCompositeAddressParts, window.populateAdminUpazilaSelect, window.removeCustomerAvatar, window.saveCustomerEdits, window.setCustomerStatus, window.triggerCustomerAvatarUpload, window.viewCustomerDetails, window.viewCustomerOrders */
 
 import '../admin-core.js';
+
+const CUSTOMER_AVATAR_PALETTE = ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#059669', '#0891b2', '#4f46e5', '#0f766e'];
+const CUSTOMER_AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+
+let viewedCustomer = null;
+
+function getCustomerAvatarUrl(customer = {}) {
+    const candidates = [
+        customer.profilePicture,
+        customer.avatar,
+        customer.avatarUrl,
+        customer.profileImage
+    ];
+    for (const value of candidates) {
+        const url = String(value || '').trim();
+        if (url) return url;
+    }
+    return '';
+}
+
+function getCustomerAvatarInitial(name = '') {
+    const trimmed = String(name || '').trim();
+    if (!trimmed || trimmed === 'N/A') return '?';
+    return trimmed.charAt(0).toUpperCase();
+}
+
+function getCustomerAvatarColor(userId = '') {
+    const seed = String(userId || '');
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+        hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return CUSTOMER_AVATAR_PALETTE[Math.abs(hash) % CUSTOMER_AVATAR_PALETTE.length];
+}
+
+function appendCustomerAvatarOverlay(mount) {
+    const overlay = document.createElement('span');
+    overlay.className = 'customer-profile-avatar-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.innerHTML = '<i class="fa-solid fa-expand"></i>';
+    mount.appendChild(overlay);
+}
+
+function paintCustomerAvatar(mount, customer = {}, options = {}) {
+    if (!mount) return;
+
+    const withOverlay = !!options.withOverlay;
+    const ariaLabelPrefix = options.ariaLabelPrefix || 'Photo of';
+    const name = getCustomerDisplayName(customer);
+    const initial = getCustomerAvatarInitial(name);
+    const color = getCustomerAvatarColor(customer._id || customer.id || name);
+    const pictureUrl = getCustomerAvatarUrl(customer);
+
+    const showInitial = () => {
+        mount.replaceChildren();
+        mount.style.background = color;
+        mount.removeAttribute('data-has-photo');
+        const letter = document.createElement('span');
+        letter.className = 'customer-profile-avatar-initial';
+        letter.textContent = initial;
+        mount.appendChild(letter);
+        if (withOverlay) appendCustomerAvatarOverlay(mount);
+        mount.setAttribute('aria-label', `${ariaLabelPrefix} ${name}`);
+    };
+
+    if (!pictureUrl) {
+        showInitial();
+        return;
+    }
+
+    mount.replaceChildren();
+    mount.style.background = '#e2e8f0';
+    mount.setAttribute('data-has-photo', 'true');
+    const img = document.createElement('img');
+    img.src = pictureUrl;
+    img.alt = name;
+    img.className = 'customer-profile-avatar-img';
+    img.addEventListener('error', showInitial, { once: true });
+    mount.appendChild(img);
+    if (withOverlay) appendCustomerAvatarOverlay(mount);
+    mount.setAttribute('aria-label', `${ariaLabelPrefix} ${name}`);
+}
+
+function renderCustomerProfileAvatar(customer = {}) {
+    paintCustomerAvatar(document.getElementById('cvAvatar'), customer, {
+        withOverlay: true,
+        ariaLabelPrefix: 'View or update photo for'
+    });
+}
+
+function renderCustomerEditAvatar(customer = {}) {
+    paintCustomerAvatar(document.getElementById('editCustomerAvatar'), customer, {
+        withOverlay: false,
+        ariaLabelPrefix: 'Photo of'
+    });
+}
+
+function renderCustomerAvatarLightboxPreview(customer = {}) {
+    const preview = document.getElementById('cvAvatarLightboxPreview');
+    const nameEl = document.getElementById('cvAvatarLightboxName');
+    const removeBtn = document.getElementById('cvAvatarRemoveBtn');
+    if (!preview) return;
+
+    const name = getCustomerDisplayName(customer);
+    const pictureUrl = getCustomerAvatarUrl(customer);
+    const color = getCustomerAvatarColor(customer._id || customer.id || name);
+
+    if (nameEl) nameEl.textContent = name === 'N/A' ? '' : name;
+
+    preview.replaceChildren();
+    if (pictureUrl) {
+        preview.style.background = '#e2e8f0';
+        const img = document.createElement('img');
+        img.src = pictureUrl;
+        img.alt = `${name} profile photo`;
+        img.addEventListener('error', () => {
+            preview.replaceChildren();
+            const fallback = document.createElement('div');
+            fallback.className = 'customer-avatar-lightbox-preview-initial';
+            fallback.style.background = color;
+            fallback.textContent = getCustomerAvatarInitial(name);
+            preview.appendChild(fallback);
+        }, { once: true });
+        preview.appendChild(img);
+    } else {
+        const fallback = document.createElement('div');
+        fallback.className = 'customer-avatar-lightbox-preview-initial';
+        fallback.style.background = color;
+        fallback.textContent = getCustomerAvatarInitial(name);
+        preview.appendChild(fallback);
+    }
+
+    if (removeBtn) {
+        removeBtn.disabled = !pictureUrl;
+        removeBtn.style.display = pictureUrl ? '' : 'none';
+    }
+}
+
+function applyCustomerAvatarState(url, publicId) {
+    if (!viewedCustomer) return;
+    const nextUrl = String(url || '').trim();
+    viewedCustomer.avatar = nextUrl;
+    viewedCustomer.avatarUrl = nextUrl || null;
+    viewedCustomer.profilePicture = nextUrl;
+    viewedCustomer.profileImage = nextUrl;
+    if (publicId !== undefined) viewedCustomer.avatarPublicId = publicId || '';
+
+    if (Array.isArray(window.allCustomers)) {
+        const row = window.allCustomers.find((c) => String(c._id) === String(viewedCustomer._id));
+        if (row) {
+            row.avatar = viewedCustomer.avatar;
+            row.avatarUrl = viewedCustomer.avatarUrl;
+            row.profilePicture = nextUrl;
+            row.profileImage = nextUrl;
+        }
+    }
+
+    renderCustomerProfileAvatar(viewedCustomer);
+    renderCustomerAvatarLightboxPreview(viewedCustomer);
+    renderCustomerEditAvatar(viewedCustomer);
+}
+
+function bindCustomerAvatarLightboxOnce() {
+    const input = document.getElementById('cvAvatarFileInput');
+    if (input && input.dataset.bound !== '1') {
+        input.dataset.bound = '1';
+        input.addEventListener('change', onCustomerAvatarFileSelected);
+    }
+    if (document.body.dataset.customerAvatarEscBound === '1') return;
+    document.body.dataset.customerAvatarEscBound = '1';
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        if (document.querySelector('.swal2-container')) return;
+        window.closeCustomerAvatarLightbox();
+    });
+}
+
+function setCustomerAvatarUploadBusy(isBusy) {
+    const uploadBtn = document.getElementById('cvAvatarUploadBtn');
+    const removeBtn = document.getElementById('cvAvatarRemoveBtn');
+    if (uploadBtn) {
+        uploadBtn.disabled = !!isBusy;
+        uploadBtn.innerHTML = isBusy
+            ? '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...'
+            : '<i class="fa-solid fa-cloud-arrow-up"></i> Upload New Image';
+    }
+    if (removeBtn && getCustomerAvatarUrl(viewedCustomer || {})) {
+        removeBtn.disabled = !!isBusy;
+    }
+}
+
+async function onCustomerAvatarFileSelected(event) {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = '';
+    if (!file || !viewedCustomer?._id) return;
+
+    if (!String(file.type || '').startsWith('image/')) {
+        return showToast('Please choose an image file.', 'warning');
+    }
+    if (file.size > CUSTOMER_AVATAR_MAX_BYTES) {
+        return showToast('Image size should be less than 5MB.', 'warning');
+    }
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+    setCustomerAvatarUploadBusy(true);
+
+    try {
+        const res = await fetch(`/api/admin/users/${viewedCustomer._id}/avatar`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+        });
+        const result = await res.json();
+        if (!result.success) {
+            return showToast(result.message || 'Failed to update photo.', 'error');
+        }
+        applyCustomerAvatarState(result.avatarUrl || result.data?.avatar, result.data?.avatarPublicId);
+        showToast(result.message || 'Customer photo updated.', 'success');
+    } catch (err) {
+        showToast('Server error while uploading photo.', 'error');
+    } finally {
+        setCustomerAvatarUploadBusy(false);
+    }
+}
+
+window.openCustomerAvatarLightbox = function() {
+    if (!viewedCustomer) return;
+    bindCustomerAvatarLightboxOnce();
+    renderCustomerAvatarLightboxPreview(viewedCustomer);
+    const lightbox = document.getElementById('customerAvatarLightbox');
+    if (lightbox) lightbox.style.display = 'flex';
+};
+
+window.closeCustomerAvatarLightbox = function() {
+    const lightbox = document.getElementById('customerAvatarLightbox');
+    if (lightbox) lightbox.style.display = 'none';
+};
+
+window.triggerCustomerAvatarUpload = function() {
+    const input = document.getElementById('cvAvatarFileInput');
+    if (input) input.click();
+};
+
+window.removeCustomerAvatar = async function() {
+    if (!viewedCustomer?._id || !getCustomerAvatarUrl(viewedCustomer)) return;
+
+    let confirmed = false;
+    if (typeof window.Swal === 'object' && typeof window.Swal.fire === 'function') {
+        confirmed = (await Swal.fire({
+            title: 'Remove profile photo?',
+            text: "This will permanently remove the customer's profile picture.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, remove',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#ef4444',
+            customClass: { container: 'customer-avatar-swal' }
+        })).isConfirmed;
+    } else {
+        confirmed = window.confirm('Remove this profile photo?');
+    }
+
+    if (!confirmed) return;
+
+    const removeBtn = document.getElementById('cvAvatarRemoveBtn');
+    const originalHtml = removeBtn ? removeBtn.innerHTML : '';
+    if (removeBtn) {
+        removeBtn.disabled = true;
+        removeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Removing...';
+    }
+
+    try {
+        const res = await fetch(`/api/admin/users/${viewedCustomer._id}/avatar`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+        if (!result.success) {
+            return showToast(result.message || 'Failed to remove photo.', 'error');
+        }
+        applyCustomerAvatarState('', '');
+        showToast(result.message || 'Customer photo removed.', 'success');
+    } catch (err) {
+        showToast('Server error while removing photo.', 'error');
+    } finally {
+        if (removeBtn) {
+            removeBtn.innerHTML = originalHtml || '<i class="fa-solid fa-trash"></i> Remove Image';
+        }
+        renderCustomerAvatarLightboxPreview(viewedCustomer || {});
+    }
+};
 
 window.viewCustomerDetails = async function(userId) {
     try {
@@ -19,8 +311,11 @@ window.viewCustomerDetails = async function(userId) {
         }
 
         const u = result.data;
+        viewedCustomer = u;
+        bindCustomerAvatarLightboxOnce();
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val ?? '—'; };
 
+        renderCustomerProfileAvatar(u);
         set('cvName', getCustomerDisplayName(u));
         set('cvEmail', u.email);
         set('cvMobile', u.mobile);
@@ -107,6 +402,10 @@ function bindAdminDistrictUpazilaHandlers(districtSelect, upazilaSelect, onDistr
 }
 
 window.closeCustomerViewModal = function() {
+    if (typeof window.closeCustomerAvatarLightbox === 'function') {
+        window.closeCustomerAvatarLightbox();
+    }
+    viewedCustomer = null;
     const modal = document.getElementById('customerViewModal');
     if (modal) modal.style.display = 'none';
 };
@@ -127,6 +426,7 @@ window.editCustomer = async function(userId) {
         const u = result.data;
         document.getElementById('editCustomerId').value = u._id;
         const editName = getCustomerDisplayName(u);
+        renderCustomerEditAvatar(u);
         document.getElementById('editCustomerName').value = editName === 'N/A' ? '' : editName;
         document.getElementById('editCustomerEmail').value = u.email || '';
         document.getElementById('editCustomerMobile').value = u.mobile || '';

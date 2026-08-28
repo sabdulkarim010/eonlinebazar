@@ -1268,6 +1268,7 @@ function syncNavbarUser() {
                 navUserAvatar.src = data.avatar;
                 navUserAvatar.style.display = 'block';
                 navUserAvatar.classList.add('is-visible');
+                if (navUserLink) navUserLink.classList.add('has-avatar');
             }
             if (data.name) localStorage.setItem('userName', data.name);
             try {

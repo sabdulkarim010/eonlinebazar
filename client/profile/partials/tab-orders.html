@@ -13,27 +13,12 @@
             </header>
 
             <div class="profile-card orders-list-card card">
-                <div class="profile-card-body orders-list">
-                    <div class="table-responsive orders-table-responsive">
-                        <table class="orders-table orders-table--responsive">
-                            <thead>
-                                <tr>
-                                    <th>Order ID</th>
-                                    <th>Date</th>
-                                    <th>Products</th>
-                                    <th>Total Amount</th>
-                                    <th>Status</th>
-                                    <th class="order-actions-th">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="orders-list-tbody">
-                                <tr>
-                                    <td colspan="6" class="text-center p-20">
-                                        <i class="fa-solid fa-spinner fa-spin"></i> Loading orders...
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                <div class="profile-card-body">
+                    <div id="ordersContainer" class="orders-list" data-section="orders">
+                        <div class="orders-empty-state">
+                            <i class="fa-solid fa-spinner fa-spin orders-loading-icon" aria-hidden="true"></i>
+                            <h3>Loading your orders...</h3>
+                        </div>
                     </div>
                     <nav id="orders-pagination" class="orders-pagination hidden" aria-label="Orders pagination"></nav>
                 </div>

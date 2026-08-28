@@ -41,8 +41,10 @@ client/js/admin-banner.js            [DONE] kept as single file
 
 ## JS Files — Storefront
 client/js/profile.js                 [DONE] barrel → js/profile/{tabs,orders,reviews,wallet,notes,wishlist,addresses,security,account}.js
+client/js/profile/orders.js          [DONE] compact expandable order cards
 client/js/profile/notes.js           [DONE] Notes & Expenses premium notebook module
 client/css/profile/_notes.css        [DONE] Notes module styles
+client/css/profile/_orders.css       [DONE] compact expandable My Orders cards
 client/js/product-details.js         [DONE] barrel → js/pdp/{fetch-render,variants,reviews,qty-cart,gallery}.js
 client/js/checkout.js                [DONE] barrel → js/checkout/{state,render,validation,actions,submit}.js
 
@@ -165,6 +167,7 @@ client/js/admin/modules/
   orders-table.js
   orders-actions.js
   orders-invoice.js
+  orders-editor.js
   orders-pos.js
   customers-table.js
   customers-modals.js

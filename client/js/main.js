@@ -997,6 +997,8 @@ async function fetchNavbarProfile(token, avatarElement) {
                 avatarElement.src = data.avatar;
                 avatarElement.style.display = 'block';
                 avatarElement.classList.add('is-visible');
+                const navUserLink = document.getElementById('nav-user-link');
+                if (navUserLink) navUserLink.classList.add('has-avatar');
             }
             if (data.name) localStorage.setItem('userName', data.name);
             try {
