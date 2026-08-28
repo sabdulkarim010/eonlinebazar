@@ -29,9 +29,9 @@ jobs:
           username: ${{ secrets.DO_USERNAME }}
           key: ${{ secrets.DO_SSH_KEY }}
           script: |
-            set -e
             cd /var/www/eonlinebazar
             git pull origin main
-            npm ci --only=production
+            cd backend
+            npm install --only=production
             pm2 reload eonlinebazar-store --update-env || pm2 restart all
             pm2 status
