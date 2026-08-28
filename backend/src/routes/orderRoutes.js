@@ -23,6 +23,7 @@ const {
     getOrderById,
     getDashboardStats,
     cancelUserOrder,
+    cancelPendingOrder,
     returnUserOrder,
     downloadOrderInvoice
 } = require('../controllers/orderCustomerController');
@@ -74,8 +75,11 @@ router.get('/', verifyAdmin, checkPermission('manage_orders'), getOrders);
 // =================================================================
 
 // ক. ইউজার অর্ডার বাতিল / রিটার্ন রিকোয়েস্ট (/:id এর আগে রাখতে হবে)
-// URL: POST /api/orders/:id/cancel
+// URL: POST /api/orders/:id/cancel — pending or processing (storefront)
 router.post('/:id/cancel', verifyUser, cancelUserOrder);
+
+// URL: PUT /api/orders/:id/cancel — Pending only (mobile)
+router.put('/:id/cancel', verifyUser, cancelPendingOrder);
 
 // URL: POST /api/orders/:id/return
 router.post('/:id/return', verifyUser, returnUserOrder);

@@ -7,6 +7,7 @@
     "start": "node backend/src/server.js",
     "dev": "nodemon backend/src/server.js",
     "test": "jest --runInBand --forceExit",
+    "seed:products": "node scripts/seedDemoProducts.js",
     "kill-port": "npx kill-port 5000"
   },
   "jest": {
@@ -21,6 +22,11 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^3.1.1",
+    "@react-navigation/bottom-tabs": "^7.18.18",
+    "@react-navigation/native": "^7.3.18",
+    "@react-navigation/native-stack": "^7.18.10",
+    "axios": "^1.20.0",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
     "cors": "^2.8.6",
@@ -43,13 +49,16 @@
     "passport-google-oauth20": "^2.0.0",
     "pdfkit": "^0.19.1",
     "qrcode": "^1.5.4",
+    "react-native-safe-area-context": "^5.9.1",
+    "react-native-screens": "^4.27.0",
     "request-ip": "^3.3.0",
     "sharp": "^0.34.5",
     "socket.io": "^4.8.3",
     "speakeasy": "^2.0.0",
     "streamifier": "^0.1.1",
     "ua-parser-js": "^2.0.10",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
@@ -58,6 +67,3 @@
     "supertest": "^7.2.2"
   }
 }
-
-
-

@@ -52,6 +52,52 @@ const {
     buildLockedPricingPayload
 } = require('./orderControllerHelpers');
 
+const FALLBACK_COD_METHOD = Object.freeze({
+    _id: null,
+    code: 'cod',
+    name: 'Cash on Delivery',
+    type: 'manual',
+    provider: '',
+    accountNumber: '',
+    processingFee: 0,
+    feeType: 'percentage',
+    isActive: true,
+    apiConfig: {}
+});
+
+function isCodPaymentRequest(value) {
+    const normalized = String(value || '').trim().toLowerCase().replace(/[_-]+/g, ' ');
+    return normalized === 'cod'
+        || normalized === 'cash on delivery'
+        || normalized === 'cashondelivery';
+}
+
+function looksLikePersistedProductId(id) {
+    return /^[a-fA-F0-9]{24}$/.test(String(id || '').trim());
+}
+
+function buildMockOrderLine(item, targetId, quantity) {
+    if (looksLikePersistedProductId(targetId)) return null;
+
+    const name = String(item.name || '').trim();
+    const price = Number(item.price);
+    if (!name || !Number.isFinite(price) || price < 0) return null;
+
+    const image = String(item.image || item.imageUrl || '').trim();
+    return {
+        id: String(targetId),
+        productId: String(item.productId || targetId),
+        name,
+        price: roundMoney(price),
+        quantity,
+        buyingPrice: 0,
+        category: item.category || 'General',
+        image,
+        imageUrl: image,
+        isMock: true
+    };
+}
+
 // ১. নতুন অর্ডার তৈরি করা এবং স্টক কমানো
 const createOrder = async (req, res) => {
     try {
@@ -113,6 +159,9 @@ const createOrder = async (req, res) => {
             }
 
             selectedPaymentMethod = await resolvePaymentMethodForCheckout(requestedPaymentMethod);
+            if (!selectedPaymentMethod && isCodPaymentRequest(requestedPaymentMethod)) {
+                selectedPaymentMethod = FALLBACK_COD_METHOD;
+            }
             if (!selectedPaymentMethod) {
                 return res.status(400).json({
                     success: false,
@@ -147,10 +196,16 @@ const createOrder = async (req, res) => {
 
             const prod = await Product.findOne(query).select('price buyingPrice variants name image images icon productId category');
             if (!prod) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Product not found: ${targetId}`
-                });
+                const mockLine = buildMockOrderLine(item, targetId, quantity);
+                if (!mockLine) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Product not found: ${targetId}`
+                    });
+                }
+                subtotal += mockLine.price * mockLine.quantity;
+                normalizedItems.push(mockLine);
+                continue;
             }
 
             const verifiedPrice = resolveSellingPriceFromSettings(prod, item, flashSettings);
@@ -198,6 +253,8 @@ const createOrder = async (req, res) => {
         }
 
         subtotal = roundMoney(subtotal);
+        const isMockOrder = normalizedItems.length > 0
+            && normalizedItems.every((line) => line.isMock === true);
 
         // Server-side coupon re-validation (never trust client discount alone)
         let discountAmount = 0;
@@ -388,7 +445,7 @@ const createOrder = async (req, res) => {
             note,
             status: 'Pending',
             isDelivered: false,
-            isSandbox: inSandbox
+            isSandbox: inSandbox || isMockOrder
         });
 
         try {
@@ -453,7 +510,7 @@ const createOrder = async (req, res) => {
                 const targetId = item.id || item.productId || item._id;
                 const quantityOrdered = Number(item.quantity) || 1; 
 
-                if (!targetId) continue;
+                if (!targetId || item.isMock) continue;
 
                 let query = {};
                 if (mongoose.Types.ObjectId.isValid(targetId)) {
@@ -503,10 +560,15 @@ const createOrder = async (req, res) => {
             recipientEmail = String(orderUser?.email || '').trim();
         }
 
-        notifyOrderPlaced(newOrder);
-        console.log(`[Order] ✓ Order #${newOrder.orderId} saved — scheduling background WhatsApp alert`);
-        dispatchAdminWhatsAppAlertSafely(newOrder);
-        notifyOrderConfirmationEmail({ to: recipientEmail, order: newOrder.toObject() });
+        if (!isMockOrder) {
+            notifyOrderPlaced(newOrder);
+            console.log(`[Order] ✓ Order #${newOrder.orderId} saved — scheduling background WhatsApp alert`);
+            dispatchAdminWhatsAppAlertSafely(newOrder);
+            notifyOrderConfirmationEmail({ to: recipientEmail, order: newOrder.toObject() });
+            await invalidate(CACHE_KEYS.POPULAR_PRODUCTS);
+        } else {
+            console.log(`[Order] ✓ Mock order #${newOrder.orderId} saved (catalog ids not in MongoDB)`);
+        }
 
         emitToAdmins('new_order', {
             orderId: newOrder.orderId,
@@ -515,8 +577,6 @@ const createOrder = async (req, res) => {
             paymentMethod: newOrder.paymentMethod,
             createdAt: newOrder.createdAt
         });
-
-        await invalidate(CACHE_KEYS.POPULAR_PRODUCTS);
 
         res.status(201).json({
             success: true,

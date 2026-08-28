@@ -1,5 +1,6 @@
 const request = require('supertest');
 const Product = require('../backend/src/models/product');
+const Order = require('../backend/src/models/order');
 const PaymentMethod = require('../backend/src/models/PaymentMethod');
 const { getApp, createTestUser, getAuthToken } = require('./setup');
 
@@ -74,6 +75,34 @@ describe('Order API', () => {
 
         expect(res.status).toBe(200);
         expect(res.body.orderId).toBe(orderId);
+    });
+
+    test('PUT /api/orders/:id/cancel — cancels a Pending order', async () => {
+        const { orderRes, token } = await createCodOrder();
+        const mongoId = orderRes.body.data._id;
+
+        const res = await request(app)
+            .put(`/api/orders/${mongoId}/cancel`)
+            .set('Authorization', `Bearer ${token}`)
+            .send({ reason: 'Changed my mind' });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(String(res.body.data.status).toLowerCase()).toBe('cancelled');
+    });
+
+    test('PUT /api/orders/:id/cancel — rejects non-Pending orders', async () => {
+        const { orderRes, token } = await createCodOrder();
+        const mongoId = orderRes.body.data._id;
+        await Order.findByIdAndUpdate(mongoId, { status: 'Shipped' });
+
+        const res = await request(app)
+            .put(`/api/orders/${mongoId}/cancel`)
+            .set('Authorization', `Bearer ${token}`)
+            .send({ reason: 'Too late' });
+
+        expect(res.status).toBe(400);
+        expect(res.body.success).toBe(false);
     });
 
     test('POST /api/orders/:orderId/cancel — customer cancels order, expect 200', async () => {
@@ -164,5 +193,67 @@ describe('Order API', () => {
             expect(item).toHaveProperty('image');
             expect(item.image).toBeTruthy();
         });
+    });
+
+    test('POST /api/orders — dummy catalog ids (p1) create a mock order instead of 400', async () => {
+        const { email, password, user } = await createTestUser();
+        const token = await getAuthToken(email, password);
+
+        const res = await request(app)
+            .post('/api/orders')
+            .set('Authorization', `Bearer ${token}`)
+            .send({
+                customerName: 'Mobile Tester',
+                customerPhone: user.mobile,
+                customerAddress: 'House 12, Banani, Dhaka',
+                shippingDistrict: 'Dhaka',
+                paymentMethod: 'cod',
+                items: [{
+                    id: 'p1',
+                    productId: 'p1',
+                    name: 'Wireless Bluetooth Earbuds',
+                    price: 2490,
+                    quantity: 2,
+                    image: 'https://picsum.photos/seed/earbuds/400/400',
+                    category: 'Electronics'
+                }]
+            });
+
+        expect(res.status).toBe(201);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.orderId).toBeTruthy();
+        expect(res.body.data.items).toHaveLength(1);
+        expect(res.body.data.items[0].name).toBe('Wireless Bluetooth Earbuds');
+        expect(res.body.data.items[0].price).toBe(2490);
+        expect(res.body.data.items[0].quantity).toBe(2);
+        expect(res.body.data.items[0].isMock).toBe(true);
+        expect(res.body.data.isSandbox).toBe(true);
+        expect(res.body.data.subTotal).toBe(4980);
+    });
+
+    test('POST /api/orders — missing Mongo ObjectId still returns 400', async () => {
+        const { email, password, user } = await createTestUser();
+        const token = await getAuthToken(email, password);
+
+        const res = await request(app)
+            .post('/api/orders')
+            .set('Authorization', `Bearer ${token}`)
+            .send({
+                customerName: 'Test Customer',
+                customerPhone: user.mobile,
+                customerAddress: 'House 12, Road 5, Gulshan',
+                shippingDistrict: 'Dhaka',
+                paymentMethod: 'cod',
+                items: [{
+                    id: '507f1f77bcf86cd799439011',
+                    name: 'Ghost Product',
+                    price: 10,
+                    quantity: 1
+                }]
+            });
+
+        expect(res.status).toBe(400);
+        expect(res.body.success).toBe(false);
+        expect(res.body.message).toMatch(/Product not found/i);
     });
 });

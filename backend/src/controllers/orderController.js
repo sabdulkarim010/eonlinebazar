@@ -12,6 +12,7 @@ const {
     downloadOrderInvoice,
     trackOrder,
     cancelUserOrder,
+    cancelPendingOrder,
     returnUserOrder,
     getDashboardStats
 } = require('./orderCustomerController');
@@ -47,6 +48,7 @@ module.exports = {
     trackOrder,
     getDashboardStats,
     cancelUserOrder,
+    cancelPendingOrder,
     returnUserOrder,
     approveOrderReturn,
     undoOrderRefund,

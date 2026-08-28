@@ -18,6 +18,10 @@ const {
     deleteProduct, 
     getProductById,
 } = require('../controllers/productController');
+const {
+    getSeedDemoInfo,
+    seedDemoProductsHandler,
+} = require('../controllers/productSeedController');
 
 // মিডলওয়্যার ইমপোর্ট করা হলো
 const { verifyAdmin } = require('../middlewares/authMiddleware');
@@ -40,6 +44,12 @@ router.get('/', getProducts);
 // ⚠️ গুরুত্বপূর্ণ: এই রুটটি অবশ্যই '/:id' রুটের আগে থাকতে হবে, নইলে
 // "search" শব্দটি প্রোডাক্ট আইডি হিসেবে ধরা পড়বে।
 router.get('/search', searchProducts);
+
+// Demo catalog seed (must be registered before '/:id')
+// GET  /api/products/seed-demo — describe the demo set
+// POST /api/products/seed-demo — upsert demo products (disabled in production unless ALLOW_PRODUCT_SEED=true)
+router.get('/seed-demo', getSeedDemoInfo);
+router.post('/seed-demo', seedDemoProductsHandler);
 
 // ২. সিঙ্গেল প্রোডাক্টের ডিটেইলস দেখার রুট (পাবলিক)
 // URL: GET /api/products/:id

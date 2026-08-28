@@ -1,0 +1,46 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://eonlinebazar.com/api"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://eonlinebazar.com/api"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://eonlinebazar.com/api"
+      }
+    },
+    "production-apk": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://eonlinebazar.com/api"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

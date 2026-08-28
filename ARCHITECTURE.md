@@ -43,10 +43,31 @@ backend/src/
 │   ├── adminSecurityController.js   ← BARREL
 │   └── authController.js            ← BARREL
 ├── routes/                ← NEVER split routes — keep as barrel files
+├── data/demoProducts.js   ← DEMO-* catalog for seed:products / POST /api/products/seed-demo
 └── utils/
     ├── adminPageBuilder.js    ← assembles admin/partials (including modals-*)
     ├── profilePageBuilder.js  ← assembles profile.html shell + profile/partials
     └── injectSharedPartials.js
+
+## Mobile App (Expo)
+mobile/
+├── App.js                     ← root stack; hydrates Zustand in useEffect; ErrorBoundary around NavigationContainer
+├── index.js                   ← entry (gesture-handler → splash preventAutoHide → registerRootComponent)
+├── package.json               ← "main": "index.js" (classic App.js + React Navigation v7, not expo-router)
+├── metro.config.js            ← Expo default Metro (Hermes-safe; no extra transformers)
+├── src/
+│   ├── splash.js              ← SplashScreen.preventAutoHideAsync() before screens/stores load
+│   ├── api/                   ← Axios client and backend endpoints
+│   ├── components/            ← Reusable UI (headers, cards, buttons, ErrorBoundary)
+│   ├── navigation/            ← Stack and Tab navigators
+│   ├── data/                  ← Legacy dummy catalog (Home/Shop now use the API)
+│   ├── theme/                 ← Light/dark palettes
+│   ├── screens/               ← Application pages (incl. ProductDetails, Wishlist, OrderDetails)
+│   ├── services/              ← Axios instance (live DigitalOcean https://eonlinebazar.com/api)
+│   ├── utils/                 ← Shared helpers (product mapping, media URLs)
+│   └── store/                 ← Zustand (cart, auth, orders, products, wishlist, toast, theme)
+├── app.json                   ← scheme eonlinebazar, android.package com.eonlinebazar.app, newArchEnabled false, expo-splash-screen plugin (not expo-router)
+├── eas.json                   ← preview = internal APK; production AAB
 
 ## Page assembly
 - GET /admin → adminPageBuilder.js (partials; admin.html is not used)

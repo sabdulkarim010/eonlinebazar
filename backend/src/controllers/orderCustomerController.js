@@ -234,6 +234,58 @@ const cancelUserOrder = async (req, res) => {
     }
 };
 
+async function findOrderForCustomer(id) {
+    const value = String(id || '');
+    if (/^[a-fA-F0-9]{24}$/.test(value)) {
+        const byId = await Order.findById(value);
+        if (byId) return byId;
+    }
+    return Order.findOne({ orderId: value });
+}
+
+// PUT /api/orders/:id/cancel — Pending orders only (mobile + API clients)
+const cancelPendingOrder = async (req, res) => {
+    try {
+        const order = await findOrderForCustomer(req.params.id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found.' });
+        }
+
+        assertOrderOwnership(order, req.user.id);
+
+        const status = normalizeOrderStatus(order.status);
+        if (status === 'cancelled' || status === 'canceled') {
+            return res.status(400).json({ success: false, message: 'This order is already cancelled.' });
+        }
+        if (status !== 'pending') {
+            return res.status(400).json({
+                success: false,
+                message: `Order can only be cancelled while status is Pending. Current status: "${order.status}".`
+            });
+        }
+
+        const cancelReason = resolveSubmittedReason(req.body) || 'Cancelled from the mobile app';
+        order.status = 'Cancelled';
+        order.cancelReason = cancelReason;
+        order.cancelledBy = 'Customer';
+        order.actionReason = cancelReason;
+        await order.save();
+
+        res.json({
+            success: true,
+            message: 'Your order has been cancelled successfully.',
+            data: order
+        });
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        if (statusCode >= 500) console.error('Cancel Pending Order Error:', err);
+        res.status(statusCode).json({
+            success: false,
+            message: err.statusCode ? err.message : 'Failed to cancel order.'
+        });
+    }
+};
+
 // ১০. ইউজার রিটার্ন রিকোয়েস্ট (Return Order — admin approval required)
 const returnUserOrder = async (req, res) => {
     try {
@@ -332,6 +384,7 @@ module.exports = {
     downloadOrderInvoice,
     trackOrder,
     cancelUserOrder,
+    cancelPendingOrder,
     returnUserOrder,
     getDashboardStats
 };

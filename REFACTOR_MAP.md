@@ -54,7 +54,13 @@ backend/src/controllers/adminController.js          [DONE] barrel → controller
 backend/src/controllers/authController.js           [DONE] barrel → controllers/auth/{register,login,password,oauth}Controller.js + authHelpers.js
 backend/src/controllers/noteController.js           [DONE] private notebook CRUD (note/expense/income/shopping)
 backend/src/models/note.js                          [DONE] Note schema (user-scoped, tags, pin, color)
-backend/src/routes/noteRoutes.js                    [DONE] GET/POST/PUT/DELETE /api/notes
+backend/src/controllers/orderCheckoutController.js  [DONE] mock catalog ids (p1…) + COD fallback for mobile Place order
+backend/src/controllers/orderCustomerController.js  [DONE] POST cancel + PUT /api/orders/:id/cancel (Pending only)
+backend/src/controllers/productSeedController.js    [DONE] GET/POST /api/products/seed-demo
+backend/src/services/productSeedService.js          [DONE] upsert DEMO-* products + categories
+backend/src/data/demoProducts.js                    [DONE] 8 demo products (title, price, category, image)
+scripts/seedDemoProducts.js                          [DONE] CLI — npm run seed:products
+tests/product-seed.test.js                           [DONE] seed-demo route upserts catalog
 
 ## Folder Structure
 backend/src/controllers/admin/
@@ -213,3 +219,41 @@ client/partials/
   shared-header.html
   shared-footer.html
   shared-whatsapp.html
+
+## Mobile App (Expo / React Native)
+mobile/App.js                            [DONE] root stack; hydrate in useEffect; ErrorBoundary; splash hide on nav ready
+mobile/app.json                          [DONE] scheme eonlinebazar, package com.eonlinebazar.app, splash plugin, New Arch off
+mobile/eas.json                          [DONE] preview: internal APK; production AAB
+mobile/package.json                      [DONE] main index.js; Expo 54 + React Navigation v7 + expo-font ~14.0.12
+mobile/metro.config.js                   [DONE] default Expo Metro (Hermes-safe)
+mobile/index.js                          [DONE] gesture-handler → splash → registerRootComponent
+mobile/src/splash.js                     [DONE] preventAutoHideAsync before App.js imports
+mobile/src/components/ErrorBoundary.js   [DONE] launch/render error fallback + hide splash
+mobile/src/services/api.js               [DONE] default API https://eonlinebazar.com/api (DigitalOcean live)
+mobile/src/screens/CheckoutScreen.js     [DONE] shipping + phone + COD; createOrder → Orders + toast
+mobile/src/screens/CartScreen.js         [DONE] cart list + Proceed to Checkout + clear toast
+mobile/src/screens/OrdersScreen.js       [DONE] my-orders + RefreshControl live refetch
+mobile/src/screens/OrderDetailsScreen.js [DONE] items, qty, price, address, status badge; Cancel if Pending
+mobile/src/screens/LoginScreen.js        [DONE] email/mobile + password → useAuthStore.login
+mobile/src/screens/RegisterScreen.js     [DONE] name/email/mobile/password → useAuthStore.register
+mobile/src/screens/ProfileScreen.js      [DONE] edit profile, Wishlist link, Dark mode switch
+mobile/src/screens/WishlistScreen.js     [DONE] saved products from useWishlistStore
+mobile/src/navigation/AppNavigator.js    [DONE] bottom tabs — Home, Shop, Cart, Orders, Profile (themed)
+mobile/src/screens/HomeScreen.js         [DONE] GET /api/products + RefreshControl live refetch
+mobile/src/screens/ShopScreen.js         [DONE] GET /api/products + RefreshControl live refetch
+mobile/src/components/ProductGrid.js     [DONE] API catalog, search, chips, heart, RefreshControl, loading/error
+mobile/src/screens/ProductDetailsScreen.js [DONE] GET /api/products/:id; Add to Cart + wishlist heart
+mobile/src/data/products.js              [DONE] leftover dummy catalog (Home/Shop no longer use it)
+mobile/src/utils/normalizeProduct.js     [DONE] API product → card shape + media URL
+mobile/src/theme/palettes.js             [DONE] light/dark color tokens
+mobile/src/api/                          [DONE] Axios client + endpoints
+mobile/src/services/api.js               [DONE] default API https://eonlinebazar.com/api (DigitalOcean live)
+mobile/src/components/                   [DONE] ScreenHeader, ProductGrid, ToastBanner, HeartButton, ErrorBoundary
+mobile/src/store/                        [DONE] Zustand cart + auth + order + toast + wishlist + theme + products
+mobile/src/store/useCartStore.js         [DONE] add/remove/update qty, getTotalPrice, clearCart
+mobile/src/store/useAuthStore.js         [DONE] auth + updateProfile; hydrate() called from App.js useEffect
+mobile/src/store/useOrderStore.js        [DONE] createOrder, fetchOrderHistory, fetchOrderById, PUT cancel
+mobile/src/store/useToastStore.js        [DONE] showToast/hideToast banners
+mobile/src/store/useWishlistStore.js     [DONE] persisted favorites; hydrate() called from App.js useEffect
+mobile/src/store/useThemeStore.js        [DONE] light/dark mode; hydrate() called from App.js useEffect
+mobile/src/store/useProductStore.js      [DONE] live catalog from GET /api/products

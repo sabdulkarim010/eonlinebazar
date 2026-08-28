@@ -250,7 +250,8 @@ eonlinebazar-fullstack/
 ├── docker-compose.prod.yml      # Production overrides
 ├── Dockerfile
 ├── server.js                    # Compatibility shim → backend/src/server.js
-├── seed.js                      # Database seeder
+├── seed.js                      # Database seeder (legacy products.json wipe)
+├── scripts/seedDemoProducts.js  # Upsert DEMO-* products (`npm run seed:products`)
 └── package.json
 ```
 
