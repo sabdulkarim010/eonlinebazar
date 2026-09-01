@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import ScreenHeader from '../components/ScreenHeader';
+import { LEGAL_LINKS } from './LegalScreen';
 import useAuthStore from '../store/useAuthStore';
 import { useAppTheme } from '../store/useThemeStore';
 import useToastStore from '../store/useToastStore';
@@ -29,6 +30,24 @@ function ThemeToggleRow({ colors, isDark, toggleTheme }) {
         trackColor={{ false: colors.border, true: colors.accent }}
         thumbColor="#ffffff"
       />
+    </View>
+  );
+}
+
+function LegalLinks({ colors, navigation }) {
+  return (
+    <View style={styles.legalWrap}>
+      <Text style={[styles.sectionLabel, { color: colors.muted }]}>About</Text>
+      {LEGAL_LINKS.map((item) => (
+        <Pressable
+          key={item.slug}
+          style={[styles.rowCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => navigation.navigate('Legal', { slug: item.slug, title: item.title })}
+        >
+          <Text style={[styles.rowLabel, { color: colors.text }]}>{item.title}</Text>
+          <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+        </Pressable>
+      ))}
     </View>
   );
 }
@@ -123,6 +142,7 @@ export default function ProfileScreen({ navigation }) {
 
           <WishlistRow colors={colors} onPress={() => navigation.navigate('Wishlist')} />
           <ThemeToggleRow colors={colors} isDark={isDark} toggleTheme={toggleTheme} />
+          <LegalLinks colors={colors} navigation={navigation} />
 
           <Text style={[styles.label, { color: colors.text }]}>Name</Text>
           <TextInput
@@ -208,13 +228,29 @@ export default function ProfileScreen({ navigation }) {
           >
             <Text style={[styles.logoutBtnText, { color: colors.text }]}>Logout</Text>
           </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.dangerRow,
+              { borderColor: colors.price },
+              pressed && { opacity: 0.8 },
+            ]}
+            onPress={() => navigation.navigate('DeleteAccount')}
+          >
+            <Text style={[styles.dangerText, { color: colors.price }]}>Delete account</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.price} />
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     );
   }
 
   return (
-    <View style={[styles.guest, { backgroundColor: colors.bg }]}>
+    <ScrollView
+      style={[styles.flex, { backgroundColor: colors.bg }]}
+      contentContainerStyle={styles.guest}
+      keyboardShouldPersistTaps="handled"
+    >
       <ScreenHeader
         title="Profile"
         subtitle="Sign in to manage your account, orders, and saved details."
@@ -222,6 +258,7 @@ export default function ProfileScreen({ navigation }) {
       <View style={styles.guestActions}>
         <WishlistRow colors={colors} onPress={() => navigation.navigate('Wishlist')} />
         <ThemeToggleRow colors={colors} isDark={isDark} toggleTheme={toggleTheme} />
+        <LegalLinks colors={colors} navigation={navigation} />
       </View>
       <Pressable
         style={({ pressed }) => [
@@ -243,7 +280,7 @@ export default function ProfileScreen({ navigation }) {
       >
         <Text style={[styles.secondaryBtnText, { color: colors.text }]}>Create account</Text>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -261,10 +298,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   guest: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+    paddingBottom: 32,
   },
   guestActions: {
     width: '100%',
@@ -294,6 +332,19 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  legalWrap: {
+    width: '100%',
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+    marginTop: 6,
   },
   label: {
     fontSize: 13,
@@ -338,6 +389,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoutBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  dangerRow: {
+    marginTop: 20,
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  dangerText: {
     fontSize: 16,
     fontWeight: '700',
   },

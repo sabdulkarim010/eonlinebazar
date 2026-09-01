@@ -25,6 +25,10 @@ exports.handleGoogleCallback = async (req, res, next) => {
             return res.redirect('/login?error=google_failed');
         }
 
+        if (user.isDeleted) {
+            return res.redirect('/login?error=google_failed');
+        }
+
         if (user.accountStatus === 'blocked') {
             return res.redirect('/login?error=google_failed');
         }

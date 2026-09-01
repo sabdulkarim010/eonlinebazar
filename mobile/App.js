@@ -14,8 +14,11 @@ import RegisterScreen from './src/screens/RegisterScreen';
 import CheckoutScreen from './src/screens/CheckoutScreen';
 import OrderDetailsScreen from './src/screens/OrderDetailsScreen';
 import WishlistScreen from './src/screens/WishlistScreen';
+import DeleteAccountScreen from './src/screens/DeleteAccountScreen';
+import LegalScreen from './src/screens/LegalScreen';
 import ToastBanner from './src/components/ToastBanner';
 import useAuthStore from './src/store/useAuthStore';
+import useCartStore, { waitForCartPersist } from './src/store/useCartStore';
 import useThemeStore, { useAppTheme } from './src/store/useThemeStore';
 import useWishlistStore from './src/store/useWishlistStore';
 
@@ -96,6 +99,16 @@ function RootNavigation() {
           component={WishlistScreen}
           options={{ title: 'Wishlist' }}
         />
+        <Stack.Screen
+          name="DeleteAccount"
+          component={DeleteAccountScreen}
+          options={{ title: 'Delete Account' }}
+        />
+        <Stack.Screen
+          name="Legal"
+          component={LegalScreen}
+          options={({ route }) => ({ title: route.params?.title || 'Legal' })}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -103,13 +116,22 @@ function RootNavigation() {
 
 export default function App() {
   useEffect(() => {
-    Promise.all([
-      useAuthStore.getState().hydrate(),
-      useThemeStore.getState().hydrate(),
-      useWishlistStore.getState().hydrate(),
-    ]).catch((error) => {
-      console.warn('Store hydration failed', error);
-    });
+    (async () => {
+      try {
+        await Promise.all([
+          useAuthStore.getState().hydrate(),
+          useThemeStore.getState().hydrate(),
+          useWishlistStore.getState().hydrate(),
+          waitForCartPersist(),
+        ]);
+        if (useAuthStore.getState().token) {
+          await useCartStore.getState().loadFromServer();
+          await useWishlistStore.getState().loadFromServer();
+        }
+      } catch (error) {
+        console.warn('Store hydration failed', error);
+      }
+    })();
   }, []);
 
   return (

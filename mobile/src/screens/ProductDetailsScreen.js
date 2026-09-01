@@ -37,7 +37,10 @@ export default function ProductDetailsScreen({ navigation, route }) {
   const addItem = useCartStore((state) => state.addItem);
   const showToast = useToastStore((state) => state.showToast);
   const cartQuantity = useCartStore(
-    (state) => state.items.find((item) => item.id === productId)?.quantity || 0
+    (state) =>
+      state.items
+        .filter((item) => item.id === productId || item.productId === productId)
+        .reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)
   );
   const [quantity, setQuantity] = useState(1);
 

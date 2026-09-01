@@ -62,7 +62,7 @@ mobile/
 │   ├── navigation/            ← Stack and Tab navigators
 │   ├── data/                  ← Legacy dummy catalog (Home/Shop now use the API)
 │   ├── theme/                 ← Light/dark palettes
-│   ├── screens/               ← Application pages (incl. ProductDetails, Wishlist, OrderDetails)
+│   ├── screens/               ← Application pages (incl. ProductDetails, Wishlist, OrderDetails, DeleteAccount, Legal)
 │   ├── services/              ← Axios instance (live DigitalOcean https://eonlinebazar.com/api)
 │   ├── utils/                 ← Shared helpers (product mapping, media URLs)
 │   └── store/                 ← Zustand (cart, auth, orders, products, wishlist, toast, theme)

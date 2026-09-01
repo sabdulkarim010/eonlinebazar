@@ -8,6 +8,10 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
+    "androidStatusBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#131921"
+    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -51,7 +55,9 @@
     "extra": {
       "eas": {
         "projectId": "6d7f319f-3444-46fa-a6fe-1b7bd0d0efc4"
-      }
+      },
+      "privacyUrl": "https://eonlinebazar.com/privacy-policy",
+      "termsUrl": "https://eonlinebazar.com/terms-conditions"
     }
   }
 }

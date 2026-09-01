@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { endpoints } from '../api/endpoints';
 import api from '../services/api';
+import useCartStore, { waitForCartPersist } from './useCartStore';
+import useWishlistStore, { waitForWishlistPersist } from './useWishlistStore';
 
 const TOKEN_KEY = 'eonlinebazar_token';
 const USER_KEY = 'eonlinebazar_user';
@@ -39,6 +41,18 @@ async function persistSession(token, user) {
   if (user) writes.push(AsyncStorage.setItem(USER_KEY, JSON.stringify(user)));
   else writes.push(AsyncStorage.removeItem(USER_KEY));
   await Promise.all(writes);
+}
+
+async function mergeLocalDataAfterLogin() {
+  try {
+    await Promise.all([waitForCartPersist(), waitForWishlistPersist()]);
+    await useCartStore.getState().syncToServer();
+    await useCartStore.getState().loadFromServer();
+    await useWishlistStore.getState().syncToServer();
+    await useWishlistStore.getState().loadFromServer();
+  } catch (error) {
+    console.warn('Local data merge after login failed:', error?.message || error);
+  }
 }
 
 const useAuthStore = create((set, get) => ({
@@ -111,6 +125,7 @@ const useAuthStore = create((set, get) => ({
       const user = toPublicUser(data.user);
       await persistSession(data.token, user);
       set({ user, token: data.token, isLoading: false });
+      await mergeLocalDataAfterLogin();
       return { success: true, user, token: data.token };
     } catch (error) {
       set({ isLoading: false });
@@ -150,6 +165,7 @@ const useAuthStore = create((set, get) => ({
         const user = toPublicUser(data.user);
         await persistSession(data.token, user);
         set({ user, token: data.token, isLoading: false });
+        await mergeLocalDataAfterLogin();
         return { success: true, user, token: data.token, ...data };
       }
 
@@ -174,6 +190,25 @@ const useAuthStore = create((set, get) => ({
   logout: async () => {
     await persistSession(null, null);
     set({ user: null, token: null, isLoading: false });
+  },
+
+  deleteAccount: async ({ password, reason } = {}) => {
+    try {
+      const { data } = await api.delete(endpoints.auth.account, {
+        data: { password, reason },
+      });
+      if (!data?.success) {
+        return { success: false, message: data?.message || 'Failed to delete account.' };
+      }
+      await get().logout();
+      return { success: true, message: data.message };
+    } catch (error) {
+      const payload = error.response?.data || {};
+      return {
+        success: false,
+        message: payload.message || apiErrorMessage(error, 'Failed to delete account.'),
+      };
+    }
   },
 
   updateProfile: async ({ name, mobile, address } = {}) => {

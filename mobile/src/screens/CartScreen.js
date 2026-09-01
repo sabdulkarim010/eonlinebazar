@@ -55,7 +55,7 @@ function CartLine({ item, onIncrease, onDecrease, onRemove, colors }) {
               <Text style={[styles.qtyBtnText, { color: colors.text }]}>+</Text>
             </Pressable>
           </View>
-          <Pressable onPress={() => onRemove(item.id)} hitSlop={8}>
+          <Pressable onPress={() => onRemove(item.key || item.id)} hitSlop={8}>
             <Text style={[styles.removeText, { color: colors.link }]}>Remove</Text>
           </Pressable>
         </View>
@@ -75,14 +75,14 @@ export default function CartScreen({ navigation }) {
 
   const increaseQty = useCallback(
     (item) => {
-      updateQuantity(item.id, item.quantity + 1);
+      updateQuantity(item.key || item.id, item.quantity + 1);
     },
     [updateQuantity]
   );
 
   const decreaseQty = useCallback(
     (item) => {
-      updateQuantity(item.id, item.quantity - 1);
+      updateQuantity(item.key || item.id, item.quantity - 1);
     },
     [updateQuantity]
   );
@@ -102,7 +102,7 @@ export default function CartScreen({ navigation }) {
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <FlatList
         data={items}
-        keyExtractor={(item) => String(item.id)}
+        keyExtractor={(item) => String(item.key || item.id)}
         renderItem={({ item }) => (
           <CartLine
             item={item}

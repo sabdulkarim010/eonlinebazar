@@ -9,18 +9,19 @@ function apiErrorMessage(error, fallback) {
 }
 
 function toOrderItem(item) {
-  const id = item.id || item.productId || item._id;
+  const nested = item?.product && typeof item.product === 'object' ? item.product : {};
+  const id = item.id || item.productId || item._id || nested._id || nested.id;
   return {
     id,
-    productId: item.productId || id,
-    name: item.name,
-    price: Number(item.price) || 0,
+    productId: item.productId || nested.productId || id,
+    name: item.name || nested.name,
+    price: Number(item.price ?? nested.price) || 0,
     quantity: Math.max(1, Number(item.quantity) || 1),
-    image: item.image || '',
-    variantId: item.variantId || '',
-    variantLabel: item.variantLabel || '',
-    variantAttribute: item.variantAttribute || '',
-    variantValue: item.variantValue || '',
+    image: item.image || nested.image || '',
+    variantId: item.variantId || item.variant?.variantId || '',
+    variantLabel: item.variantLabel || item.variant?.variantLabel || '',
+    variantAttribute: item.variantAttribute || item.variant?.variantAttribute || '',
+    variantValue: item.variantValue || item.variant?.variantValue || '',
   };
 }
 
@@ -54,6 +55,8 @@ function buildCreatePayload(shipping = {}, items = []) {
     paymentMethodId: shipping.paymentMethodId,
     paymentMethod: shipping.paymentMethod || shipping.method,
     applyWallet: shipping.applyWallet === true,
+    deliveryCharge: Number(shipping.deliveryCharge) || 0,
+    totalAmount: shipping.totalAmount,
     items: items.map(toOrderItem),
   };
 }

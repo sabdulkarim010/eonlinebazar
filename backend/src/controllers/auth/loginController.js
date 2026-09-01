@@ -15,6 +15,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../../models/user');
 const Cart = require('../../models/cart');
+const Order = require('../../models/order');
+const Note = require('../../models/note');
 const UserSession = require('../../models/userSession');
 const { logSecurityEvent } = require('../../utils/securityLogger');
 const {
@@ -161,6 +163,10 @@ exports.loginUser = async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid email or password." });
         }
 
+        if (user.isDeleted) {
+            return res.status(401).json({ success: false, message: "Invalid email or password." });
+        }
+
         if (!user.password) {
             return res.status(400).json({
                 success: false,
@@ -286,5 +292,111 @@ exports.loginUser = async (req, res) => {
     } catch (error) {
         console.error("Login Error:", error);
         res.status(500).json({ success: false, message: "Server error during login." });
+    }
+};
+
+/* =======================================================
+   ৩. অ্যাকাউন্ট ডিলিট (Play Store in-app deletion)
+   DELETE /api/auth/account  and  DELETE /api/customer/account
+   ======================================================= */
+exports.deleteAccount = async (req, res) => {
+    try {
+        const userId = req.user.id || req.user._id;
+        const { password, reason } = req.body || {};
+
+        const user = await User.findById(userId);
+        if (!user || user.isDeleted) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        if (user.password) {
+            if (!password) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Please enter your password to confirm account deletion.'
+                });
+            }
+            const passwordOk = await bcrypt.compare(String(password), user.password);
+            if (!passwordOk) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Incorrect password. Account not deleted.'
+                });
+            }
+        } else {
+            const confirm = String(password || req.body.confirm || '').trim().toUpperCase();
+            if (confirm !== 'DELETE') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'This account has no password. Type DELETE to confirm account deletion.'
+                });
+            }
+        }
+
+        const deletionReason = String(reason || 'User requested').trim().slice(0, 500);
+
+        await logSecurityEvent({
+            action: 'Customer Account Deleted',
+            actor: user.email,
+            actorType: 'customer',
+            ipAddress: getClientIp(req),
+            details: deletionReason
+        });
+
+        await Order.updateMany(
+            { user: userId, status: { $in: ['Pending', 'pending'] } },
+            { $set: { status: 'Cancelled', cancelReason: 'Account deleted by user', cancelledBy: 'Customer' } }
+        );
+
+        await Promise.all([
+            Cart.deleteMany({ userId }),
+            UserSession.deleteMany({ userId }),
+            Note.deleteMany({ user: userId })
+        ]);
+
+        await User.findByIdAndUpdate(userId, {
+            firstName: 'Deleted',
+            lastName: 'User',
+            email: `deleted_${userId}@deleted.invalid`,
+            mobile: null,
+            phone: '',
+            address: '',
+            district: '',
+            upazila: '',
+            thana: '',
+            fullAddress: '',
+            googleId: null,
+            avatar: '',
+            avatarUrl: null,
+            avatarPublicId: '',
+            password: null,
+            isVerified: false,
+            isDeleted: true,
+            deletedAt: new Date(),
+            deletionReason,
+            accountStatus: 'blocked',
+            wishlist: [],
+            addresses: [],
+            walletHistory: [],
+            verificationToken: null,
+            verificationTokenExpiry: null,
+            resetPasswordOtp: null,
+            resetPasswordExpires: null,
+            profileUpdateOtp: null,
+            profileUpdateOtpExpires: null,
+            pendingEmail: null,
+            pendingMobile: null
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Your account has been deleted. Personal data has been removed.'
+        });
+    } catch (err) {
+        console.error('Delete Account Error:', err);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to delete account. Please try again.'
+        });
     }
 };

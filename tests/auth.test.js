@@ -203,4 +203,52 @@ describe('Auth API', () => {
         expect(res.status).toBe(400);
         expect(res.body.success).toBe(false);
     });
+
+    test('DELETE /api/auth/account with wrong password — should return 401', async () => {
+        const { email, password } = await createTestUser({
+            email: 'keep-me@test.local',
+            password: 'SecurePass123!'
+        });
+        const token = await getAuthToken(email, password);
+
+        const res = await request(app)
+            .delete('/api/auth/account')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ password: 'WrongPassword999!' });
+
+        expect(res.status).toBe(401);
+        expect(res.body.success).toBe(false);
+
+        const user = await User.findOne({ email: 'keep-me@test.local' });
+        expect(user).toBeTruthy();
+        expect(user.isDeleted).toBeFalsy();
+    });
+
+    test('DELETE /api/auth/account with password — should anonymize user and block login', async () => {
+        const { email, password, user } = await createTestUser({
+            email: 'gone@test.local',
+            password: 'SecurePass123!'
+        });
+        const token = await getAuthToken(email, password);
+
+        const res = await request(app)
+            .delete('/api/auth/account')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ password, reason: 'Play Store test' });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+
+        const deleted = await User.findById(user._id);
+        expect(deleted.isDeleted).toBe(true);
+        expect(deleted.email).toMatch(/^deleted_/);
+        expect(deleted.mobile).toBeNull();
+
+        const loginRes = await request(app)
+            .post('/api/customer/login')
+            .send({ email, password });
+
+        expect(loginRes.status).toBeGreaterThanOrEqual(400);
+        expect(loginRes.body.success).toBe(false);
+    });
 });

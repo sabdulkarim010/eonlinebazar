@@ -52,6 +52,7 @@ client/js/checkout.js                [DONE] barrel → js/checkout/{state,render
 backend/src/controllers/adminSecurityController.js  [DONE] barrel → controllers/admin/{auth,session,blacklist,loginHistory}Controller.js
 backend/src/controllers/adminController.js          [DONE] barrel → controllers/admin/{customerAdmin,adminProfile,adminSettings}Controller.js
 backend/src/controllers/authController.js           [DONE] barrel → controllers/auth/{register,login,password,oauth}Controller.js + authHelpers.js
+backend/src/controllers/auth/loginController.js     [DONE] login + sessions + DELETE account (Play in-app deletion)
 backend/src/controllers/noteController.js           [DONE] private notebook CRUD (note/expense/income/shopping)
 backend/src/models/note.js                          [DONE] Note schema (user-scoped, tags, pin, color)
 backend/src/controllers/orderCheckoutController.js  [DONE] mock catalog ids (p1…) + COD fallback for mobile Place order
@@ -230,7 +231,7 @@ mobile/index.js                          [DONE] gesture-handler → splash → r
 mobile/src/splash.js                     [DONE] preventAutoHideAsync before App.js imports
 mobile/src/components/ErrorBoundary.js   [DONE] launch/render error fallback + hide splash
 mobile/src/services/api.js               [DONE] default API https://eonlinebazar.com/api (DigitalOcean live)
-mobile/src/screens/CheckoutScreen.js     [DONE] shipping + phone + COD; createOrder → Orders + toast
+mobile/src/screens/CheckoutScreen.js     [DONE] district modal picker + shipping quote in totals
 mobile/src/screens/CartScreen.js         [DONE] cart list + Proceed to Checkout + clear toast
 mobile/src/screens/OrdersScreen.js       [DONE] my-orders + RefreshControl live refetch
 mobile/src/screens/OrderDetailsScreen.js [DONE] items, qty, price, address, status badge; Cancel if Pending
@@ -238,6 +239,8 @@ mobile/src/screens/LoginScreen.js        [DONE] email/mobile + password → useA
 mobile/src/screens/RegisterScreen.js     [DONE] name/email/mobile/password → useAuthStore.register
 mobile/src/screens/ProfileScreen.js      [DONE] edit profile, Wishlist link, Dark mode switch
 mobile/src/screens/WishlistScreen.js     [DONE] saved products from useWishlistStore
+mobile/src/screens/DeleteAccountScreen.js [DONE] password confirm → DELETE /api/auth/account
+mobile/src/screens/LegalScreen.js        [DONE] WebView CMS pages (privacy, terms, contact, return)
 mobile/src/navigation/AppNavigator.js    [DONE] bottom tabs — Home, Shop, Cart, Orders, Profile (themed)
 mobile/src/screens/HomeScreen.js         [DONE] GET /api/products + RefreshControl live refetch
 mobile/src/screens/ShopScreen.js         [DONE] GET /api/products + RefreshControl live refetch
@@ -247,13 +250,16 @@ mobile/src/data/products.js              [DONE] leftover dummy catalog (Home/Sho
 mobile/src/utils/normalizeProduct.js     [DONE] API product → card shape + media URL
 mobile/src/theme/palettes.js             [DONE] light/dark color tokens
 mobile/src/api/                          [DONE] Axios client + endpoints
+mobile/src/api/cart.js                   [DONE] cart GET/merge/add/update/remove/clear (baseURL already /api)
+mobile/src/api/wishlist.js               [DONE] GET /customer/wishlist, POST /wishlist/toggle, DELETE /customer/wishlist/:id
+mobile/src/api/store.js                  [DONE] GET /store/districts + GET /store/shipping-quote
 mobile/src/services/api.js               [DONE] default API https://eonlinebazar.com/api (DigitalOcean live)
 mobile/src/components/                   [DONE] ScreenHeader, ProductGrid, ToastBanner, HeartButton, ErrorBoundary
 mobile/src/store/                        [DONE] Zustand cart + auth + order + toast + wishlist + theme + products
-mobile/src/store/useCartStore.js         [DONE] add/remove/update qty, getTotalPrice, clearCart
-mobile/src/store/useAuthStore.js         [DONE] auth + updateProfile; hydrate() called from App.js useEffect
+mobile/src/store/useCartStore.js         [DONE] persist eonlinebazar-cart + syncToServer/loadFromServer
+mobile/src/store/useAuthStore.js         [DONE] auth + updateProfile + deleteAccount; hydrate() from App.js
 mobile/src/store/useOrderStore.js        [DONE] createOrder, fetchOrderHistory, fetchOrderById, PUT cancel
 mobile/src/store/useToastStore.js        [DONE] showToast/hideToast banners
-mobile/src/store/useWishlistStore.js     [DONE] persisted favorites; hydrate() called from App.js useEffect
+mobile/src/store/useWishlistStore.js     [DONE] persist + loadFromServer/syncToServer; toggle hits /wishlist/toggle
 mobile/src/store/useThemeStore.js        [DONE] light/dark mode; hydrate() called from App.js useEffect
 mobile/src/store/useProductStore.js      [DONE] live catalog from GET /api/products

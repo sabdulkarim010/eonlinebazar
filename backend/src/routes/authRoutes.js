@@ -44,5 +44,6 @@ router.post('/resend-verification', authController.resendVerification);
 router.get('/sessions', verifyUser, authController.getSessions);
 router.delete('/sessions/:id', verifyUser, authController.deleteSession);
 router.post('/sessions/logout-others', verifyUser, authController.logoutOtherSessions);
+router.delete('/account', verifyUser, authController.deleteAccount);
 
 module.exports = router;

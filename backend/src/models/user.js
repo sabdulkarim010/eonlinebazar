@@ -193,6 +193,21 @@ const userSchema = new mongoose.Schema({
         default: false
     },
 
+    isDeleted: {
+        type: Boolean,
+        default: false,
+        index: true
+    },
+    deletedAt: {
+        type: Date,
+        default: null
+    },
+    deletionReason: {
+        type: String,
+        default: '',
+        trim: true
+    },
+
     createdAt: {
         type: Date,
         default: Date.now

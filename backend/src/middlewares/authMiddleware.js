@@ -96,6 +96,14 @@ const verifyUser = async (req, res, next) => {
         const userId = decoded.id || decoded._id || decoded.userId;
         req.user = { id: userId, sid: decoded.sid || null };
 
+        const account = await User.findById(userId).select('isDeleted accountStatus').lean();
+        if (!account || account.isDeleted || account.accountStatus === 'blocked') {
+            return res.status(401).json({
+                success: false,
+                message: 'Account is no longer available. Please sign in again.'
+            });
+        }
+
         // 🌟 সেশন ভ্যালিডেশন: টোকেনে sid থাকলে সেই সেশনটি এখনো UserSession কালেকশনে
         // আছে কিনা যাচাই করা হয়। কোনো ডিভাইস রিমোট লগআউট করা হলে রেকর্ডটি মুছে যায় →
         // তখন সেই ডিভাইসের টোকেন এই চেকে ব্যর্থ হয়ে 401 পাবে (forced logout)।
