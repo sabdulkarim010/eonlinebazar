@@ -1,0 +1,51 @@
+export const profileLightT = {
+  bg: '#f1f5f9',
+  card: '#ffffff',
+  text: '#0f172a',
+  sub: '#64748b',
+  muted: '#94a3b8',
+  border: '#e2e8f0',
+  accent: '#f97316',
+  accentBg: '#fff7ed',
+  danger: '#ef4444',
+  success: '#16a34a',
+  successBg: '#f0fdf4',
+  expense: '#ea580c',
+  expenseBg: '#fff7ed',
+  savings: '#0d9488',
+  savingsBg: '#ecfdf5',
+  shadow: 'rgba(0,0,0,0.06)',
+  iconBg: '#f8fafc',
+  chipSelected: '#0f172a',
+  chipSelectedText: '#ffffff',
+  online: '#22c55e',
+  onlineBg: '#f0fdf4',
+};
+
+export const profileDarkT = {
+  bg: '#0a0f1e',
+  card: '#141d2e',
+  text: '#f1f5f9',
+  sub: '#94a3b8',
+  muted: '#475569',
+  border: '#1e2d45',
+  accent: '#f97316',
+  accentBg: '#1a0d00',
+  danger: '#f87171',
+  success: '#4ade80',
+  successBg: '#052e16',
+  expense: '#fb923c',
+  expenseBg: '#1a0d00',
+  savings: '#2dd4bf',
+  savingsBg: '#042f2e',
+  shadow: 'rgba(0,0,0,0.4)',
+  iconBg: '#1e293b',
+  chipSelected: '#f97316',
+  chipSelectedText: '#111111',
+  online: '#4ade80',
+  onlineBg: '#052e16',
+};
+
+export function useProfileModuleTokens(isDark) {
+  return isDark ? profileDarkT : profileLightT;
+}

@@ -1,32 +1,65 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import DistrictUpazilaPicker, { DistrictModalHost } from '../components/DistrictUpazilaPicker';
+import AuthLayout, {
+  AuthFeedbackBadge,
+  AuthPrimaryButton,
+  REGISTER_TRUST_BADGES,
+} from '../components/auth/AuthChrome';
+import AuthTextInput from '../components/auth/AuthTextInput';
 import useAuthStore from '../store/useAuthStore';
-import { useAppTheme } from '../store/useThemeStore';
+import useToastStore from '../store/useToastStore';
+import { useTheme } from '../theme/tokens';
+import { passwordStrength, registerFieldErrors } from '../utils/authForm';
 
 const BD_MOBILE_RE = /^01[3-9]\d{8}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function RegisterScreen({ navigation }) {
-  const { colors } = useAppTheme();
+  const T = useTheme();
   const register = useAuthStore((state) => state.register);
-  const isLoading = useAuthStore((state) => state.isLoading);
+  const isRegistering = useAuthStore((state) => state.isRegistering);
+  const showToast = useToastStore((state) => state.showToast);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [district, setDistrict] = useState('');
+  const [upazila, setUpazila] = useState('');
   const [error, setError] = useState('');
+  const emailRef = useRef(null);
+  const mobileRef = useRef(null);
+  const passwordRef = useRef(null);
+  const confirmPasswordRef = useRef(null);
+
+  const fieldErrors = useMemo(() => registerFieldErrors({
+    firstName,
+    lastName,
+    email,
+    mobile,
+    password,
+    confirmPassword,
+    district,
+    upazila,
+  }), [firstName, lastName, email, mobile, password, confirmPassword, district, upazila]);
+
+  const strength = useMemo(() => passwordStrength(password), [password]);
+  const canSubmit = Object.keys(fieldErrors).length === 0;
+
+  const fail = (message) => {
+    setError(message);
+    showToast(message, 'error');
+  };
 
   const handleRegister = async () => {
     setError('');
@@ -37,187 +70,217 @@ export default function RegisterScreen({ navigation }) {
       email: email.trim().toLowerCase(),
       mobile: mobile.replace(/\D/g, ''),
       password,
+      district,
+      upazila,
     };
 
     if (!payload.firstName || !payload.lastName || !payload.email || !payload.mobile || !payload.password) {
-      setError('First name, last name, mobile, email, and password are required.');
+      fail('First name, last name, mobile, email, and password are required.');
+      return;
+    }
+    if (!payload.district) {
+      fail('Please select your district.');
+      return;
+    }
+    if (!payload.upazila) {
+      fail('Please select your upazila / thana.');
       return;
     }
     if (!EMAIL_RE.test(payload.email)) {
-      setError('Please enter a valid email address.');
+      fail('Please enter a valid email address.');
       return;
     }
     if (!BD_MOBILE_RE.test(payload.mobile)) {
-      setError('Please enter a valid Bangladesh mobile number (01XXXXXXXXX).');
+      fail('Please enter a valid Bangladesh mobile number (01XXXXXXXXX).');
       return;
     }
     if (payload.password.length < 6) {
-      setError('Password must be at least 6 characters.');
+      fail('Password must be at least 6 characters.');
       return;
     }
     if (payload.password !== confirmPassword) {
-      setError('Passwords do not match.');
+      fail('Passwords do not match.');
       return;
     }
 
     const result = await register(payload);
     if (!result.success) {
-      setError(result.message || 'Registration failed.');
+      fail(result.message || 'Registration failed.');
       return;
     }
 
-    navigation.navigate('Login', {
-      message:
-        result.message ||
-        'Registration successful. Please check your email to verify your account, then sign in.',
+    const message = result.message
+      || 'Registration successful. Please check your email to verify your account, then sign in.';
+    showToast(message, 'success');
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Main', params: { screen: 'Profile' } }],
     });
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.flex, { backgroundColor: colors.bg }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
+    <DistrictModalHost style={[styles.flex, { backgroundColor: T.bg }]}>
+      <KeyboardAvoidingView
+        style={[styles.flex, { backgroundColor: T.bg }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Text style={[styles.title, { color: colors.text }]}>Create account</Text>
-        <Text style={[styles.subtitle, { color: colors.muted }]}>
-          Register with your name, email, and Bangladesh mobile number.
-        </Text>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+        >
+        <AuthLayout
+          colors={T}
+          icon="sparkles"
+          title="Create Account ✨"
+          subtitle="Join EOnlineBazar — shop smarter today"
+          badges={REGISTER_TRUST_BADGES}
+          footer={(
+            <Pressable onPress={() => navigation.navigate('Login')} hitSlop={8}>
+              <Text style={[styles.footerText, { color: T.muted }]}>
+                Already have an account?{' '}
+                <Text style={styles.footerLink}>Login</Text>
+              </Text>
+            </Pressable>
+          )}
+        >
+          <AuthFeedbackBadge colors={T} type="error" message={error} />
 
-        <View style={styles.row}>
-          <View style={styles.half}>
-            <Text style={[styles.label, { color: colors.text }]}>First name</Text>
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text },
-              ]}
+          <View style={styles.row}>
+            <AuthTextInput
+              colors={T}
+              label="First Name"
+              icon="person-outline"
               value={firstName}
               onChangeText={setFirstName}
               autoCapitalize="words"
+              keyboardType="default"
+              textContentType="givenName"
+              autoComplete="given-name"
               placeholder="First name"
-              placeholderTextColor={colors.muted}
+              fieldError={fieldErrors.firstName}
+              containerStyle={styles.half}
             />
-          </View>
-          <View style={styles.half}>
-            <Text style={[styles.label, { color: colors.text }]}>Last name</Text>
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text },
-              ]}
+            <AuthTextInput
+              colors={T}
+              label="Last Name"
+              icon="person-outline"
               value={lastName}
               onChangeText={setLastName}
               autoCapitalize="words"
+              keyboardType="default"
+              textContentType="familyName"
+              autoComplete="family-name"
               placeholder="Last name"
-              placeholderTextColor={colors.muted}
+              fieldError={fieldErrors.lastName}
+              containerStyle={styles.half}
             />
           </View>
-        </View>
 
-        <Text style={[styles.label, { color: colors.text }]}>Email</Text>
-        <TextInput
-          style={[
-            styles.input,
-            { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text },
-          ]}
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          placeholder="you@example.com"
-          placeholderTextColor={colors.muted}
-        />
+          <DistrictUpazilaPicker
+            district={district}
+            upazila={upazila}
+            colors={T}
+            onDistrictChange={setDistrict}
+            onUpazilaChange={setUpazila}
+          />
 
-        <Text style={[styles.label, { color: colors.text }]}>Mobile</Text>
-        <TextInput
-          style={[
-            styles.input,
-            { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text },
-          ]}
-          value={mobile}
-          onChangeText={setMobile}
-          keyboardType="phone-pad"
-          placeholder="01XXXXXXXXX"
-          placeholderTextColor={colors.muted}
-        />
+          <AuthTextInput
+            colors={T}
+            label="Mobile Number"
+            icon="call-outline"
+            ref={mobileRef}
+            value={mobile}
+            onChangeText={setMobile}
+            keyboardType="phone-pad"
+            placeholder="01XXXXXXXXX"
+            maxLength={11}
+            fieldError={fieldErrors.mobile}
+            returnKeyType="next"
+            blurOnSubmit={false}
+            onSubmitEditing={() => emailRef.current?.focus()}
+          />
 
-        <Text style={[styles.label, { color: colors.text }]}>Password</Text>
-        <TextInput
-          style={[
-            styles.input,
-            { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text },
-          ]}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          placeholder="At least 6 characters"
-          placeholderTextColor={colors.muted}
-        />
+          <AuthTextInput
+            colors={T}
+            label="Email"
+            icon="mail-outline"
+            ref={emailRef}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            placeholder="you@example.com"
+            fieldError={fieldErrors.email}
+            returnKeyType="next"
+            blurOnSubmit={false}
+            onSubmitEditing={() => passwordRef.current?.focus()}
+          />
 
-        <Text style={[styles.label, { color: colors.text }]}>Confirm password</Text>
-        <TextInput
-          style={[
-            styles.input,
-            { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text },
-          ]}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-          placeholder="Re-enter password"
-          placeholderTextColor={colors.muted}
-        />
+          <AuthTextInput
+            colors={T}
+            label="Password"
+            icon="lock-closed-outline"
+            ref={passwordRef}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholder="At least 6 characters"
+            fieldError={fieldErrors.password}
+            returnKeyType="next"
+            blurOnSubmit={false}
+            onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+          />
+          {password ? (
+            <View style={styles.strengthWrap}>
+              <View style={[styles.strengthTrack, { backgroundColor: T.border }]}>
+                <View
+                  style={[
+                    styles.strengthFill,
+                    { backgroundColor: strength.color, width: strength.width },
+                  ]}
+                />
+              </View>
+              <Text style={[styles.strengthLabel, { color: strength.color }]}>
+                {strength.label}
+              </Text>
+            </View>
+          ) : null}
 
-        {error ? <Text style={[styles.error, { color: colors.price }]}>{error}</Text> : null}
+          <AuthTextInput
+            colors={T}
+            label="Confirm Password"
+            icon="shield-checkmark-outline"
+            ref={confirmPasswordRef}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+            placeholder="Re-enter password"
+            fieldError={fieldErrors.confirmPassword}
+            returnKeyType="done"
+            onSubmitEditing={handleRegister}
+          />
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.primaryBtn,
-            pressed && styles.primaryBtnPressed,
-            isLoading && styles.btnDisabled,
-          ]}
-          onPress={handleRegister}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#111111" />
-          ) : (
-            <Text style={styles.primaryBtnText}>Create account</Text>
-          )}
-        </Pressable>
-
-        <Pressable onPress={() => navigation.navigate('Login')} hitSlop={8}>
-          <Text style={[styles.link, { color: colors.link }]}>Already have an account? Sign in</Text>
-        </Pressable>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <AuthPrimaryButton
+            colors={T}
+            label="Create Account"
+            loading={isRegistering}
+            disabled={!canSubmit}
+            onPress={handleRegister}
+          />
+        </AuthLayout>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </DistrictModalHost>
   );
 }
 
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
-    backgroundColor: '#eaeded',
   },
-  content: {
-    padding: 20,
-    paddingTop: 28,
-    paddingBottom: 40,
-  },
-  title: {
-    color: '#111111',
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  subtitle: {
-    color: '#565959',
-    fontSize: 15,
-    marginTop: 8,
-    marginBottom: 20,
+  scroll: {
+    flexGrow: 1,
   },
   row: {
     flexDirection: 'row',
@@ -226,51 +289,31 @@ const styles = StyleSheet.create({
   half: {
     flex: 1,
   },
-  label: {
-    color: '#111111',
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#d5d9d9',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#111111',
-    marginBottom: 14,
-  },
-  error: {
-    color: '#b12704',
-    fontSize: 14,
-    marginBottom: 10,
-  },
-  primaryBtn: {
-    backgroundColor: '#ffd814',
-    borderRadius: 24,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  primaryBtnPressed: {
-    backgroundColor: '#f7ca00',
-  },
-  btnDisabled: {
-    opacity: 0.7,
-  },
-  primaryBtnText: {
-    color: '#111111',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  link: {
-    color: '#007185',
-    fontSize: 14,
-    fontWeight: '600',
+  footerText: {
     textAlign: 'center',
-    marginTop: 18,
+    marginTop: 22,
+    fontSize: 14,
+  },
+  footerLink: {
+    color: '#f97316',
+    fontWeight: '800',
+  },
+  strengthWrap: {
+    marginTop: -8,
+    marginBottom: 8,
+    gap: 6,
+  },
+  strengthTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  strengthFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  strengthLabel: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

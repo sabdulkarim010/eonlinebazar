@@ -285,7 +285,7 @@ exports.loginUser = async (req, res) => {
             success: true,
             message: "Login successful",
             token,
-            user: { id: user._id, name: user.name, firstName: user.firstName, lastName: user.lastName, email: user.email, mobile: user.mobile },
+            user: { id: user._id, name: user.name, firstName: user.firstName, lastName: user.lastName, email: user.email, mobile: user.mobile, isVerified: user.isVerified, avatar: user.avatar || user.avatarUrl || '', avatarUrl: user.avatarUrl || user.avatar || null },
             cart: cartPayload
         });
 

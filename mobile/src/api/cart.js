@@ -14,25 +14,33 @@ export const cartAPI = {
 
   mergeCart: (items) => api.post('/cart/merge', { cartItems: items, items }),
 
-  addToCart: (productId, quantity, variant) =>
-    api.post('/cart/add', {
+  addToCart: (productId, quantity, extra = {}) => {
+    const variant = extra.variant && typeof extra.variant === 'object' ? extra.variant : extra;
+    return api.post('/cart/add', {
       productId,
       quantity,
+      name: extra.name,
+      price: extra.price,
+      image: extra.image,
       variant,
-      variantId: variant?.variantId,
-      selectedColor: variant?.color,
-      selectedSize: variant?.size,
-    }),
+      variantId: extra.variantId || variant?.variantId || '',
+      selectedColor: extra.selectedColor || variant?.color || variant?.selectedColor || '',
+      selectedSize: extra.selectedSize || variant?.size || variant?.selectedSize || '',
+    });
+  },
 
   updateQuantity: (productId, quantity, variantId) =>
-    api.put('/cart/update-quantity', { productId, quantity, variantId }),
+    api.put('/cart/update-quantity', { productId, quantity, variantId: variantId || '' }),
 
   removeItem: (productId, variantId) =>
     api.delete(`/cart/remove/${encodeURIComponent(productId)}`, {
-      params: variantId ? { variantId } : undefined,
+      params: { variantId: variantId || '' },
     }),
 
   clearCart: () => api.delete('/cart/clear'),
+
+  toggleSelection: (productId, selected, variantId = '') =>
+    api.put('/cart/toggle-selection', { productId, selected, variantId: variantId || '' }),
 };
 
 export { extractCartItems };

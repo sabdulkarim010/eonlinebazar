@@ -12,40 +12,57 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import AuthTextInput from '../components/auth/AuthTextInput';
 import useAuthStore from '../store/useAuthStore';
 import { useAppTheme } from '../store/useThemeStore';
+import useToastStore from '../store/useToastStore';
 
 export default function DeleteAccountScreen({ navigation }) {
   const { colors } = useAppTheme();
   const deleteAccount = useAuthStore((state) => state.deleteAccount);
+  const showToast = useToastStore((state) => state.showToast);
   const [password, setPassword] = useState('');
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const fail = (title, message) => {
+    const text = message || 'Please try again.';
+    showToast(text, 'error');
+    Alert.alert(title, text);
+  };
+
   const confirmDelete = async () => {
     const trimmedPassword = password.trim();
     if (!trimmedPassword) {
-      Alert.alert('Password required', 'Enter your password. Google accounts: type DELETE.');
+      fail('Password required', 'Enter your password. Google accounts: type DELETE.');
       return;
     }
 
     setLoading(true);
-    const result = await deleteAccount({
-      password: trimmedPassword,
-      reason: reason.trim(),
-    });
-    setLoading(false);
+    try {
+      const result = await deleteAccount({
+        password: trimmedPassword,
+        reason: reason.trim(),
+      });
 
-    if (!result.success) {
-      Alert.alert('Could not delete account', result.message || 'Please try again.');
-      return;
+      if (!result?.success) {
+        fail('Could not delete account', result?.message || 'Please try again.');
+        return;
+      }
+
+      const message = result.message || 'Your account has been permanently deleted.';
+      showToast(message, 'success');
+      Alert.alert('Account deleted', message, [
+        { text: 'OK', onPress: () => navigation.replace('Login') },
+      ]);
+    } catch (err) {
+      fail(
+        'Could not delete account',
+        err.response?.data?.message || err.message || 'Please try again.'
+      );
+    } finally {
+      setLoading(false);
     }
-
-    Alert.alert(
-      'Account deleted',
-      result.message || 'Your account has been permanently deleted.',
-      [{ text: 'OK', onPress: () => navigation.replace('Login') }]
-    );
   };
 
   const handleDelete = () => {
@@ -87,25 +104,25 @@ export default function DeleteAccountScreen({ navigation }) {
           placeholderTextColor={colors.muted}
           value={reason}
           onChangeText={setReason}
+          autoCapitalize="sentences"
           multiline
           textAlignVertical="top"
         />
 
-        <Text style={[styles.label, { color: colors.text }]}>Confirm password *</Text>
-        <Text style={[styles.hint, { color: colors.muted }]}>
-          Google sign-in accounts: type DELETE
-        </Text>
-        <TextInput
-          style={[
-            styles.input,
-            { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text },
-          ]}
-          placeholder="Password"
-          placeholderTextColor={colors.muted}
+        <AuthTextInput
+          colors={colors}
+          label="Confirm password"
+          icon="lock-closed-outline"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+          placeholder="Password"
         />
+        <Text style={[styles.hint, { color: colors.muted }]}>
+          Google sign-in accounts: type DELETE
+        </Text>
 
         <Pressable
           style={({ pressed }) => [
@@ -166,6 +183,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 13,
+    marginTop: -8,
     marginBottom: 8,
   },
   input: {

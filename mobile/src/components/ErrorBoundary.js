@@ -25,11 +25,17 @@ export default class ErrorBoundary extends Component {
 
   render() {
     if (this.state.error) {
+      const message = String(this.state.error?.message || '');
+      const isUpdateError = /remote update|expo-updates|failed to download|IOException/i.test(message);
       return (
         <View style={styles.wrap}>
-          <Text style={styles.title}>Something went wrong</Text>
+          <Text style={styles.title}>
+            {isUpdateError ? 'Could not load app update' : 'Something went wrong'}
+          </Text>
           <Text style={styles.body}>
-            {this.state.error?.message || 'The app hit an unexpected error on launch.'}
+            {isUpdateError
+              ? 'The app will use the version installed on your device. Tap Try again to continue.'
+              : message || 'The app hit an unexpected error on launch.'}
           </Text>
           <Pressable onPress={this.handleRetry} style={styles.button}>
             <Text style={styles.buttonText}>Try again</Text>

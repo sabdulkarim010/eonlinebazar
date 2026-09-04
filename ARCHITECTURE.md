@@ -58,9 +58,9 @@ mobile/
 ├── src/
 │   ├── splash.js              ← SplashScreen.preventAutoHideAsync() before screens/stores load
 │   ├── api/                   ← Axios client and backend endpoints
-│   ├── components/            ← Reusable UI (headers, cards, buttons, ErrorBoundary)
+│   ├── components/            ← Reusable UI (headers, cards, auth, profile Action Hub, DistrictUpazilaPicker, AddressForm, ErrorBoundary)
 │   ├── navigation/            ← Stack and Tab navigators
-│   ├── data/                  ← Legacy dummy catalog (Home/Shop now use the API)
+│   ├── data/                  ← Bangladesh locations (district IDs + upazilas); Home/Shop use the API
 │   ├── theme/                 ← Light/dark palettes
 │   ├── screens/               ← Application pages (incl. ProductDetails, Wishlist, OrderDetails, DeleteAccount, Legal)
 │   ├── services/              ← Axios instance (live DigitalOcean https://eonlinebazar.com/api)

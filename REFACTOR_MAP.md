@@ -222,42 +222,107 @@ client/partials/
   shared-whatsapp.html
 
 ## Mobile App (Expo / React Native)
-mobile/App.js                            [DONE] root stack; hydrate in useEffect; ErrorBoundary; splash hide on nav ready
-mobile/app.json                          [DONE] scheme eonlinebazar, package com.eonlinebazar.app, splash plugin, New Arch off
-mobile/eas.json                          [DONE] preview: internal APK; production AAB
-mobile/package.json                      [DONE] main index.js; Expo 54 + React Navigation v7 + expo-font ~14.0.12
+mobile/App.js                            [DONE] static navTheme + stack options; DistrictModalHost wraps nav + ToastBanner
+mobile/src/services/api.js               [DONE] Axios /api + SecureStore JWT helpers with timeouts; 401 skip during login/hydrate sync
+mobile/app.json                          [DONE] scheme eonlinebazar; splash + expo-secure-store; updates disabled (NEVER)
+mobile/eas.json                          [DONE] preview: internal APK; production AAB; build channels
+mobile/package.json                      [DONE] Expo 54 + expo-secure-store ~15.0.8 + expo-updates ~29.0.20
 mobile/metro.config.js                   [DONE] default Expo Metro (Hermes-safe)
-mobile/index.js                          [DONE] gesture-handler → splash → registerRootComponent
+mobile/index.js                          [DONE] gesture-handler → splash → startup guards → registerRootComponent
+mobile/src/startup.js                    [DONE] OTA guards; dev-silent probe when updates disabled in app.json
 mobile/src/splash.js                     [DONE] preventAutoHideAsync before App.js imports
-mobile/src/components/ErrorBoundary.js   [DONE] launch/render error fallback + hide splash
+mobile/src/components/ErrorBoundary.js   [DONE] launch/render error fallback; OTA fetch message + hide splash
 mobile/src/services/api.js               [DONE] default API https://eonlinebazar.com/api (DigitalOcean live)
-mobile/src/screens/CheckoutScreen.js     [DONE] district modal picker + shipping quote in totals
-mobile/src/screens/CartScreen.js         [DONE] cart list + Proceed to Checkout + clear toast
-mobile/src/screens/OrdersScreen.js       [DONE] my-orders + RefreshControl live refetch
-mobile/src/screens/OrderDetailsScreen.js [DONE] items, qty, price, address, status badge; Cancel if Pending
-mobile/src/screens/LoginScreen.js        [DONE] email/mobile + password → useAuthStore.login
-mobile/src/screens/RegisterScreen.js     [DONE] name/email/mobile/password → useAuthStore.register
-mobile/src/screens/ProfileScreen.js      [DONE] edit profile, Wishlist link, Dark mode switch
+mobile/src/data/bdLocations.js            [DONE] 64 districts (BBS ids) + cascading upazilas
+mobile/src/components/DistrictUpazilaPicker.js [DONE] searchable district → upazila; modal portaled outside ScrollView/KAV
+mobile/src/components/AddressForm.js      [DONE] address fields + DistrictUpazilaPicker
+mobile/src/components/auth/AuthTextInput.js [DONE] keyboardType falls back to default; password/email/phone autoCapitalize none
+mobile/src/components/auth/OtpInput.js    [DONE] auto-focus 6-digit OTP boxes
+mobile/src/components/auth/AuthChrome.js  [DONE] trust badges, orange CTA, error/success banners
+mobile/src/components/auth/AuthTextInput.js [DONE] fixed-height wrapper; no focus shadow jitter; Android textAlignVertical
+mobile/src/screens/LoginScreen.js        [DONE] Premium redesign; ScrollView keyboard guards; Android KAV off
+mobile/src/screens/RegisterScreen.js      [DONE] isRegistering spinner; district modal host; name fields keyboardType default
+mobile/src/screens/ForgotPasswordScreen.js [DONE] OTP boxes + password reset with toasts
+mobile/src/screens/AddressesScreen.js     [DONE] customer address CRUD + cascading location picker
+mobile/src/screens/CartScreen.js         [DONE] Item checkboxes, select all, selected-only totals + checkout gate
+mobile/src/screens/CheckoutScreen.js      [DONE] Saved-address radio cards; web-matched shipping form + save-to-profile
+mobile/src/store/useOrderStore.js        [DONE] saveAddressToProfile/saveAddressAsDefault on createOrder payload
+mobile/src/screens/ChangePasswordScreen.js [DONE] AuthTextInput eye toggle + error toasts
+mobile/src/screens/CartScreen.js         [DONE] Clickable images + variant display
+mobile/src/screens/OrdersScreen.js       [DONE] silent refetch on refocus; memo OrderCard; one list tree
+mobile/src/screens/OrderDetailsScreen.js [DONE] Clickable images
+mobile/src/screens/ProfileScreen.js      [DONE] Full mobile + phone badge; avatar upload; premium menu hub
+mobile/src/screens/EditProfileScreen.js  [NEW] Name + email/phone OTP contact updates
+mobile/src/screens/SecuritySettingsScreen.js [NEW] Active sessions + logout devices
+mobile/src/screens/WalletScreen.js       [NEW] Balance, transactions, convert points
+mobile/src/screens/LoyaltyPointsScreen.js [NEW] Points balance + activity + wallet link
+mobile/src/screens/NotebookScreen.js     [DONE] Premium notebook — summary cards, filters, expense CRUD
+mobile/src/screens/LiveSupportScreen.js  [DONE] Root KeyboardAvoidingView; FAQ hides on keyboard; confirm modal
+mobile/src/components/support/AriaChatPanel.js [DONE] forwardRef endChat; header action callbacks
+mobile/src/components/support/ChatEndConfirmModal.js [NEW] SweetAlert-style close/minimize confirmation
+mobile/src/navigation/AppNavigator.js    [DONE] Profile tab avatar/initials with active ring highlight
+mobile/src/screens/HomeScreen.js         [DONE] Clean logo-only header; thick embedded-icon search
+mobile/src/components/ProductGrid.js     [DONE] Premium search pill — magnifier embedded on right end
+mobile/src/api/chat.js                   [NEW] POST /chat/start REST helper
+mobile/src/config/chatConfig.js          [NEW] Chat API/socket URLs + Aria quick replies
+mobile/src/screens/OrderSuccessScreen.js [NEW] Guest order success
+mobile/src/components/profile/ProfileAvatar.js [DONE] Editable avatar + camera badge + resolveMediaUrl
+mobile/src/api/profile.js                [NEW] Avatar upload, OTP, sessions, convert points
+mobile/src/api/notes.js                  [NEW] Notebook CRUD helpers
+mobile/src/utils/maskContact.js          [DONE] formatDisplayPhone + heroContactLine for profile header
+mobile/src/theme/profileModuleTokens.js  [NEW] Shared light/dark tokens for profile sub-screens
+mobile/src/utils/supportLinks.js         [NEW] WhatsApp URL builder + support FAQ content
+mobile/src/components/profile/ActionCard.js [DONE] icon + title + subtitle action cards
+mobile/src/components/profile/LogoutConfirmModal.js [DONE] animated Cancel / Yes, Sign Out modal
 mobile/src/screens/WishlistScreen.js     [DONE] saved products from useWishlistStore
-mobile/src/screens/DeleteAccountScreen.js [DONE] password confirm → DELETE /api/auth/account
+mobile/src/screens/DeleteAccountScreen.js [DONE] password eye toggle + toast and Alert on failure
 mobile/src/screens/LegalScreen.js        [DONE] WebView CMS pages (privacy, terms, contact, return)
-mobile/src/navigation/AppNavigator.js    [DONE] bottom tabs — Home, Shop, Cart, Orders, Profile (themed)
-mobile/src/screens/HomeScreen.js         [DONE] GET /api/products + RefreshControl live refetch
-mobile/src/screens/ShopScreen.js         [DONE] GET /api/products + RefreshControl live refetch
-mobile/src/components/ProductGrid.js     [DONE] API catalog, search, chips, heart, RefreshControl, loading/error
-mobile/src/screens/ProductDetailsScreen.js [DONE] GET /api/products/:id; Add to Cart + wishlist heart
-mobile/src/data/products.js              [DONE] leftover dummy catalog (Home/Shop no longer use it)
-mobile/src/utils/normalizeProduct.js     [DONE] API product → card shape + media URL
-mobile/src/theme/palettes.js             [DONE] light/dark color tokens
-mobile/src/api/                          [DONE] Axios client + endpoints
-mobile/src/api/cart.js                   [DONE] cart GET/merge/add/update/remove/clear (baseURL already /api)
+mobile/src/navigation/AppNavigator.js    [DONE] static tab options; Profile headerShown false; Shop tabPress only clears real params
+mobile/src/screens/HomeScreen.js         [DONE] Header avatar/login + premium search bar
+mobile/src/screens/ShopScreen.js         [DONE] memo ShopScreen; ProductGrid stays mounted across tab taps
+mobile/src/components/ProductGrid.js     [DONE] Variant guard on add to cart
+mobile/src/api/search.js                 [DONE] /products/search, /categories/navbar, /categories/homepage, /store/banners, /store/flash-sale
+mobile/src/components/StarRating.js      [NEW] Half-star product rating row for cards + PDP
+mobile/src/components/CategoryGrid.js    [NEW] Homepage circular category icons — GET /categories/homepage
+mobile/src/components/OrderStatusTimeline.js [NEW] Order tracking steps (web orderStatusTimeline.js parity)
+mobile/src/store/useLanguageStore.js     [NEW] EN/BN language preference + AsyncStorage hydrate
+mobile/src/i18n/translations.js          [NEW] Mobile i18n string table (core keys)
+mobile/src/components/ProductGrid.js     [DONE] Star ratings, stock badges, discount %, premium search borderRadius 16
+mobile/src/screens/HomeScreen.js         [DONE] Header avatar/login + CategoryGrid in hero
+mobile/src/screens/OrderDetailsScreen.js [DONE] OrderStatusTimeline tracking section
+mobile/src/screens/ProfileScreen.js      [DONE] Language switcher (logged-in + guest preferences)
+mobile/App.js                            [DONE] hydrate useLanguageStore on boot
+AUDIT_REPORT.md                          [NEW] Full mobile audit summary (2026-09-04)
+mobile/src/screens/ProductDetailsScreen.js [DONE] gallery, variants, stock, cart/buy now + reviews
+mobile/src/data/products.js              [REMOVED] dummy catalog deleted; shop uses GET /products/search
+mobile/src/utils/normalizeProduct.js     [DONE] images + variants/colors/sizes/stock kept for PDP
+mobile/src/theme/palettes.js             [DONE] legacy nav/tab palette (App.js navigation chrome)
+mobile/src/theme/tokens.js               [NEW] unified design system — spacing, radius, fontSize, fontWeight, shadow, lightTheme/darkTheme, useTheme()
+mobile/src/api/endpoints.js              [DONE] payment methods, initiate, payment-proof, coupons active-check routes
+mobile/src/store/useCartStore.js         [DONE] selected flag per line; toggleItemSelection/toggleSelectAll; selected totals
+mobile/src/api/cart.js                   [DONE] PUT /cart/toggle-selection for logged-in selection sync
 mobile/src/api/wishlist.js               [DONE] GET /customer/wishlist, POST /wishlist/toggle, DELETE /customer/wishlist/:id
 mobile/src/api/store.js                  [DONE] GET /store/districts + GET /store/shipping-quote
+mobile/src/api/reviews.js                [DONE] GET /reviews/:productId + POST /reviews
+mobile/src/api/addresses.js              [DONE] GET/POST/PUT/DELETE /customer/addresses
+mobile/src/api/coupons.js                [DONE] GET /coupons/active-check + POST /coupons/apply
+mobile/src/api/payments.js               [NEW] GET /payments/methods; POST /payments/initiate; PATCH payment-proof
 mobile/src/services/api.js               [DONE] default API https://eonlinebazar.com/api (DigitalOcean live)
-mobile/src/components/                   [DONE] ScreenHeader, ProductGrid, ToastBanner, HeartButton, ErrorBoundary
+mobile/src/components/                   [DONE] ScreenHeader, ProductGrid, ToastBanner, HeartButton, ErrorBoundary, ReviewsSection, DistrictUpazilaPicker, AddressForm, auth/*, profile/*
+mobile/src/components/SkeletonBox.js        [NEW] SkeletonBox, ProductCardSkeleton, OrderCardSkeleton, BannerSkeleton, ProductSkeletonGrid
+mobile/src/components/EmptyState.js         [NEW] Typed empty/error/network states with CTA
+mobile/src/components/ProductGrid.js         [DONE] ProductSkeletonGrid loading; EmptyState for search/error/retry
+mobile/src/screens/HomeScreen.js           [DONE] BannerSkeleton; hero network EmptyState; skeletonCount 6
+mobile/src/screens/ShopScreen.js             [DONE] skeletonCount 8; error EmptyState via ProductGrid
+mobile/src/screens/OrdersScreen.js           [DONE] OrderCardSkeleton loading; orders/error EmptyState
+mobile/src/screens/WishlistScreen.js       [DONE] wishlist EmptyState
+mobile/src/screens/CartScreen.js             [DONE] cart EmptyState
+mobile/src/screens/AddressesScreen.js      [DONE] OrderCardSkeleton loading; addresses EmptyState
+mobile/src/components/index.js               [DONE] export Skeleton + EmptyState barrels
+mobile/src/components/ReviewsSection.js  [DONE] GET /reviews/:productId + verified-purchase write modal
 mobile/src/store/                        [DONE] Zustand cart + auth + order + toast + wishlist + theme + products
-mobile/src/store/useCartStore.js         [DONE] persist eonlinebazar-cart + syncToServer/loadFromServer
-mobile/src/store/useAuthStore.js         [DONE] auth + updateProfile + deleteAccount; hydrate() from App.js
+mobile/src/store/useAuthStore.js         [DONE] walletHistory/rewardSettings, uploadAvatar, OTP, convertPoints, refreshProfile
+mobile/App.js                            [DONE] Stack routes: EditProfile, SecuritySettings, Wallet, LoyaltyPoints, Notebook, LiveSupport
 mobile/src/store/useOrderStore.js        [DONE] createOrder, fetchOrderHistory, fetchOrderById, PUT cancel
 mobile/src/store/useToastStore.js        [DONE] showToast/hideToast banners
 mobile/src/store/useWishlistStore.js     [DONE] persist + loadFromServer/syncToServer; toggle hits /wishlist/toggle

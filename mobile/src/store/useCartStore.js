@@ -119,10 +119,63 @@ function hasAuthHeader() {
   return Boolean(api.defaults.headers.common.Authorization);
 }
 
+function variantIdOf(item) {
+  return String(item?.variantId || item?.variant?.variantId || '');
+}
+
+let cartSyncQueue = Promise.resolve();
+let cartSyncPending = 0;
+
+function enqueueCartSync(task) {
+  if (!hasAuthHeader()) return Promise.resolve({ skipped: true });
+  cartSyncPending += 1;
+  const job = cartSyncQueue.then(async () => {
+    let payload = null;
+    let failed = false;
+    try {
+      payload = await task();
+    } catch (err) {
+      failed = true;
+      console.warn('Cart sync failed:', err?.message || err);
+    }
+    cartSyncPending = Math.max(0, cartSyncPending - 1);
+    const store = useCartStore.getState();
+    if (cartSyncPending === 0 && failed) {
+      await store.loadFromServer();
+      return { success: false };
+    }
+    if (cartSyncPending === 0 && payload) {
+      store.replaceFromServer(extractCartItems(payload));
+    }
+    return { success: !failed, data: payload };
+  });
+  cartSyncQueue = job.then(() => {}, () => {});
+  return job;
+}
+
 const useCartStore = create(
   persist(
     (set, get) => ({
       items: [],
+
+      appliedCoupon: null,
+
+      setAppliedCoupon: (coupon) => {
+        set({ appliedCoupon: coupon || null });
+      },
+
+      clearAppliedCoupon: () => {
+        set({ appliedCoupon: null });
+      },
+
+      replaceFromServer: (rawItems) => {
+        const list = Array.isArray(rawItems) ? rawItems : [];
+        set({
+          items: list.map((item) => toCartLine(item, item.quantity, item.variant)),
+        });
+      },
+
+      getGuestMergeItems: () => get().items.map(toMergePayload),
 
       addItem: (product, quantity, variant = null) => {
         if (!product) return;
@@ -144,29 +197,75 @@ const useCartStore = create(
                 : item
             ),
           });
-          return;
+        } else {
+          set({ items: [...items, line] });
         }
 
-        set({ items: [...items, line] });
-      },
-
-      removeItem: (key) =>
-        set({ items: get().items.filter((item) => !matchLine(item, key)) }),
-
-      updateQuantity: (key, quantity) => {
-        const nextQty = Math.floor(Number(quantity));
-        if (!Number.isFinite(nextQty) || nextQty <= 0) {
-          set({ items: get().items.filter((item) => !matchLine(item, key)) });
-          return;
-        }
-        set({
-          items: get().items.map((item) =>
-            matchLine(item, key) ? { ...item, quantity: Math.min(99, nextQty) } : item
-          ),
+        enqueueCartSync(async () => {
+          const { data } = await cartAPI.addToCart(line.productId || line.id, line.quantity, line);
+          if (data?.success === false) throw new Error(data.message || 'Add to cart failed');
+          return data;
         });
       },
 
-      clearCart: () => set({ items: [] }),
+      removeItem: (key) => {
+        const previous = get().items;
+        const target = previous.find((item) => matchLine(item, key));
+        set({ items: previous.filter((item) => !matchLine(item, key)) });
+        if (!target) return;
+
+        enqueueCartSync(async () => {
+          const { data } = await cartAPI.removeItem(target.productId || target.id, variantIdOf(target));
+          if (data?.success === false) throw new Error(data.message || 'Remove from cart failed');
+          return data;
+        });
+      },
+
+      updateQuantity: (key, quantity) => {
+        const nextQty = Math.floor(Number(quantity));
+        const previous = get().items;
+        const target = previous.find((item) => matchLine(item, key));
+        if (!target) return;
+
+        if (!Number.isFinite(nextQty) || nextQty <= 0) {
+          set({ items: previous.filter((item) => !matchLine(item, key)) });
+          enqueueCartSync(async () => {
+            const { data } = await cartAPI.removeItem(target.productId || target.id, variantIdOf(target));
+            if (data?.success === false) throw new Error(data.message || 'Remove from cart failed');
+            return data;
+          });
+          return;
+        }
+
+        const cappedQty = Math.min(99, nextQty);
+        set({
+          items: previous.map((item) =>
+            matchLine(item, key) ? { ...item, quantity: cappedQty } : item
+          ),
+        });
+
+        enqueueCartSync(async () => {
+          const { data } = await cartAPI.updateQuantity(
+            target.productId || target.id,
+            cappedQty,
+            variantIdOf(target)
+          );
+          if (data?.success === false) throw new Error(data.message || 'Update cart failed');
+          return data;
+        });
+      },
+
+      clearCart: () => {
+        set({ items: [] });
+        enqueueCartSync(async () => {
+          const { data } = await cartAPI.clearCart();
+          if (data?.success === false) throw new Error(data.message || 'Clear cart failed');
+          return data;
+        });
+      },
+
+      getSelectedItems: () =>
+        get().items.filter((item) => item.selected !== false),
 
       getTotalItems: () =>
         get().items.reduce((sum, item) => sum + lineQty(item), 0),
@@ -174,13 +273,79 @@ const useCartStore = create(
       getTotalPrice: () =>
         get().items.reduce((sum, item) => sum + linePrice(item) * lineQty(item), 0),
 
+      getSelectedTotalItems: () =>
+        get()
+          .items
+          .filter((item) => item.selected !== false)
+          .reduce((sum, item) => sum + lineQty(item), 0),
+
+      getSelectedTotalPrice: () =>
+        get()
+          .items
+          .filter((item) => item.selected !== false)
+          .reduce((sum, item) => sum + linePrice(item) * lineQty(item), 0),
+
+      toggleItemSelection: (key, selected) => {
+        const previous = get().items;
+        const target = previous.find((item) => matchLine(item, key));
+        if (!target) return;
+
+        const nextSelected = selected !== undefined ? Boolean(selected) : target.selected === false;
+        set({
+          items: previous.map((item) =>
+            matchLine(item, key) ? { ...item, selected: nextSelected } : item
+          ),
+        });
+
+        enqueueCartSync(async () => {
+          const { data } = await cartAPI.toggleSelection(
+            target.productId || target.id,
+            nextSelected,
+            variantIdOf(target)
+          );
+          if (data?.success === false) throw new Error(data.message || 'Update selection failed');
+          return data;
+        });
+      },
+
+      toggleSelectAll: (selected) => {
+        const nextSelected = Boolean(selected);
+        const previous = get().items;
+        if (!previous.length) return;
+
+        set({
+          items: previous.map((item) => ({ ...item, selected: nextSelected })),
+        });
+
+        enqueueCartSync(async () => {
+          await Promise.all(
+            previous.map(async (item) => {
+              const { data } = await cartAPI.toggleSelection(
+                item.productId || item.id,
+                nextSelected,
+                variantIdOf(item)
+              );
+              if (data?.success === false) {
+                throw new Error(data.message || 'Update selection failed');
+              }
+            })
+          );
+          const { data } = await cartAPI.getCart();
+          if (data?.success === false) throw new Error(data.message || 'Reload cart failed');
+          return data;
+        });
+      },
+
       syncToServer: async () => {
         try {
-          const { items } = get();
-          if (!hasAuthHeader() || items.length === 0) return { success: true, skipped: true };
+          if (!hasAuthHeader()) return { success: true, skipped: true };
 
-          const { data } = await cartAPI.mergeCart(items.map(toMergePayload));
-          return { success: data?.success !== false, data };
+          const { data } = await cartAPI.mergeCart(get().items.map(toMergePayload));
+          if (data?.success === false) {
+            return { success: false, message: data?.message };
+          }
+          get().replaceFromServer(extractCartItems(data));
+          return { success: true, data };
         } catch (err) {
           console.warn('Cart sync failed:', err.message);
           return { success: false, message: err.message };
@@ -192,15 +357,10 @@ const useCartStore = create(
           if (!hasAuthHeader()) return { success: true, skipped: true };
 
           const { data } = await cartAPI.getCart();
-          const serverItems = extractCartItems(data);
           if (data?.success === false) {
             return { success: false, message: data?.message };
           }
-          if (serverItems.length > 0) {
-            set({
-              items: serverItems.map((item) => toCartLine(item, item.quantity, item.variant)),
-            });
-          }
+          get().replaceFromServer(extractCartItems(data));
           return { success: true, items: get().items };
         } catch (err) {
           console.warn('Load server cart failed:', err.message);
@@ -211,12 +371,16 @@ const useCartStore = create(
     {
       name: 'eonlinebazar-cart',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ items: state.items }),
+      partialize: (state) => ({
+        items: state.items,
+        appliedCoupon: state.appliedCoupon,
+      }),
       merge: (persistedState, currentState) => {
         const rawItems = Array.isArray(persistedState?.items) ? persistedState.items : [];
         return {
           ...currentState,
           items: rawItems.map((item) => toCartLine(item, item.quantity, item.variant)),
+          appliedCoupon: persistedState?.appliedCoupon || null,
         };
       },
     }

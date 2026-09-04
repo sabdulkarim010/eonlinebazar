@@ -50,8 +50,24 @@
           }
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-secure-store",
+      "expo-status-bar",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow EOnlineBazar to access your photos to update your profile picture.",
+          "cameraPermission": "Allow EOnlineBazar to use your camera for profile photos."
+        }
+      ]
     ],
+    "updates": {
+      "enabled": false,
+      "checkAutomatically": "NEVER"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "extra": {
       "eas": {
         "projectId": "6d7f319f-3444-46fa-a6fe-1b7bd0d0efc4"

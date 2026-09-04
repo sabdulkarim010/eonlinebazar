@@ -1,4 +1,7 @@
+import { DISTRICT_NAMES } from '../data/bdLocations';
 import api from '../services/api';
+
+export const FALLBACK_DISTRICTS = DISTRICT_NAMES;
 
 function asDistrictNames(raw) {
   if (!Array.isArray(raw)) return [];

@@ -1,18 +1,20 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   FlatList,
   Image,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import HeartButton from '../components/HeartButton';
-import ScreenHeader from '../components/ScreenHeader';
+import EmptyState from '../components/EmptyState';
 import useCartStore from '../store/useCartStore';
 import { useAppTheme } from '../store/useThemeStore';
 import useToastStore from '../store/useToastStore';
 import useWishlistStore from '../store/useWishlistStore';
+import { haptic } from '../utils/haptics';
 
 function formatBdt(price) {
   return `৳${Number(price).toLocaleString('en-US')}`;
@@ -21,13 +23,25 @@ function formatBdt(price) {
 export default function WishlistScreen({ navigation }) {
   const { colors } = useAppTheme();
   const items = useWishlistStore((state) => state.items);
+  const loadFromServer = useWishlistStore((state) => state.loadFromServer);
   const addItem = useCartStore((state) => state.addItem);
   const showToast = useToastStore((state) => state.showToast);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadFromServer();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadFromServer]);
 
   const addToCart = useCallback(
     (product) => {
+      haptic.success();
       addItem({ ...product, quantity: 1 });
-      showToast(`${product.name} added to cart`);
+      showToast(`${product.name} added to cart`, 'cart');
     },
     [addItem, showToast]
   );
@@ -35,9 +49,9 @@ export default function WishlistScreen({ navigation }) {
   if (items.length === 0) {
     return (
       <View style={[styles.empty, { backgroundColor: colors.bg }]}>
-        <ScreenHeader
-          title="Wishlist"
-          subtitle="Tap the heart on a product to save it here."
+        <EmptyState
+          type="wishlist"
+          onAction={() => navigation.navigate('Main', { screen: 'Shop' })}
         />
       </View>
     );
@@ -80,6 +94,14 @@ export default function WishlistScreen({ navigation }) {
               <Text style={[styles.cartBtnText, { color: colors.primaryBtnText }]}>Add to Cart</Text>
             </Pressable>
           </View>
+        )}
+        refreshControl={(
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#f97316"
+            colors={['#f97316']}
+          />
         )}
       />
     </View>

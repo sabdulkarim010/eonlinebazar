@@ -12,7 +12,8 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://eonlinebazar.com/api"
-      }
+      },
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
@@ -21,7 +22,8 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://eonlinebazar.com/api"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
       "android": {
@@ -29,7 +31,8 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://eonlinebazar.com/api"
-      }
+      },
+      "channel": "production"
     },
     "production-apk": {
       "android": {
@@ -37,7 +40,8 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://eonlinebazar.com/api"
-      }
+      },
+      "channel": "production"
     }
   },
   "submit": {

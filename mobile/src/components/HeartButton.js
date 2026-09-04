@@ -1,16 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
+import { memo, useCallback } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import useToastStore from '../store/useToastStore';
 import useWishlistStore from '../store/useWishlistStore';
 import { useAppTheme } from '../store/useThemeStore';
 
-export default function HeartButton({ product, size = 22, style }) {
+function HeartButton({ product, size = 22, style }) {
+  const productId = product?.id;
   const { colors } = useAppTheme();
   const saved = useWishlistStore((state) =>
-    state.items.some((item) => item.id === product?.id)
+    state.items.some((item) => item.id === productId)
   );
   const toggleItem = useWishlistStore((state) => state.toggleItem);
   const showToast = useToastStore((state) => state.showToast);
+
+  const onPress = useCallback(async () => {
+    if (!product) return;
+    const added = await toggleItem(product);
+    showToast(added ? 'Added to wishlist' : 'Removed from wishlist');
+  }, [product, showToast, toggleItem]);
 
   if (!product) return null;
 
@@ -18,10 +26,7 @@ export default function HeartButton({ product, size = 22, style }) {
     <Pressable
       hitSlop={8}
       style={[styles.btn, { backgroundColor: colors.card }, style]}
-      onPress={async () => {
-        const added = await toggleItem(product);
-        showToast(added ? 'Added to wishlist' : 'Removed from wishlist');
-      }}
+      onPress={onPress}
     >
       <Ionicons
         name={saved ? 'heart' : 'heart-outline'}
@@ -41,3 +46,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+
+export default memo(HeartButton);
