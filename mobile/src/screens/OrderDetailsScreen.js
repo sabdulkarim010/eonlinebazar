@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useSupportWhatsApp from '../hooks/useSupportWhatsApp';
+import AppStatusBar from '../components/AppStatusBar';
 import OrderStatusTimeline from '../components/OrderStatusTimeline';
 import useOrderStore from '../store/useOrderStore';
 import { useTheme } from '../theme/tokens';
@@ -258,6 +259,7 @@ export default function OrderDetailsScreen({ navigation, route }) {
   if (!order && isLoading) {
     return (
       <View style={[styles.centered, { backgroundColor: T.bg }]}>
+        <AppStatusBar />
         <ActivityIndicator size="large" color={T.accent} />
       </View>
     );
@@ -266,6 +268,7 @@ export default function OrderDetailsScreen({ navigation, route }) {
   if (!order) {
     return (
       <View style={[styles.centered, { backgroundColor: T.bg }]}>
+        <AppStatusBar />
         <Text style={[styles.missingTitle, { color: T.text }]}>Order not found</Text>
         <Text style={[styles.missingBody, { color: T.muted }]}>
           {error || `We could not load order ${orderId || '—'}.`}
@@ -284,6 +287,7 @@ export default function OrderDetailsScreen({ navigation, route }) {
 
   return (
     <>
+      <AppStatusBar />
       <ScrollView
         style={[styles.container, { backgroundColor: T.bg }]}
         contentContainerStyle={styles.content}

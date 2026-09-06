@@ -457,6 +457,29 @@ function openShareWindow(shareUrl) {
     window.open(shareUrl, '_blank', 'noopener,noreferrer,width=600,height=520');
 }
 
+function setupOrderWhatsAppButton() {
+    const btn = document.getElementById('orderWhatsAppBtn');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+        const title = (currentProductData && currentProductData.name)
+            ? String(currentProductData.name).trim()
+            : (document.getElementById('productTitle')?.innerText || 'Product').trim();
+        const price = (document.getElementById('productPrice')?.innerText || '').trim();
+        const support = window.WhatsAppSupport || {};
+        const url = typeof support.buildProductOrderUrl === 'function'
+            ? support.buildProductOrderUrl(support.getSupportPhone?.(), title, price)
+            : '';
+
+        if (!url) {
+            showToast('WhatsApp support is not configured yet.', 'error');
+            return;
+        }
+
+        openShareWindow(url);
+    });
+}
+
 function setupShareButtons() {
     const whatsappBtn = document.getElementById('shareWhatsApp');
     const facebookBtn = document.getElementById('shareFacebook');
@@ -518,5 +541,6 @@ Object.assign(window, {
     renderActivePaymentBadges,
     getProductSharePayload,
     openShareWindow,
+    setupOrderWhatsAppButton,
     setupShareButtons
 });

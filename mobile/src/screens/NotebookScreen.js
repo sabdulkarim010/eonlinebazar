@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { extractNotes, notesAPI } from '../api/notes';
+import AppStatusBar from '../components/AppStatusBar';
 import useAuthStore from '../store/useAuthStore';
 import { useAppTheme } from '../store/useThemeStore';
 import useToastStore from '../store/useToastStore';
@@ -380,6 +381,7 @@ export default function NotebookScreen() {
   if (!token) {
     return (
       <View style={[styles.centered, { backgroundColor: T.bg }]}>
+        <AppStatusBar />
         <Text style={[styles.emptyTitle, { color: T.text }]}>Sign in to use your notebook</Text>
       </View>
     );
@@ -387,6 +389,7 @@ export default function NotebookScreen() {
 
   return (
     <View style={[styles.flex, { backgroundColor: T.bg }]}>
+      <AppStatusBar />
       {loading && !notes.length ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={T.accent} />

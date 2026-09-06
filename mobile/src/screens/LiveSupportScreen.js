@@ -13,6 +13,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import storeAPI, { extractSupportWhatsApp } from '../api/store';
 import AriaChatPanel from '../components/support/AriaChatPanel';
 import ChatEndConfirmModal from '../components/support/ChatEndConfirmModal';
 import { useAppTheme } from '../store/useThemeStore';
@@ -86,11 +87,26 @@ export default function LiveSupportScreen() {
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [confirmVariant, setConfirmVariant] = useState('close');
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const [supportWhatsApp, setSupportWhatsApp] = useState(SUPPORT.whatsapp);
 
   const guestName = useMemo(
     () => user?.name || user?.firstName || 'Guest',
     [user?.firstName, user?.name]
   );
+
+  useEffect(() => {
+    let active = true;
+    storeAPI.getBranding()
+      .then(({ data }) => {
+        if (!active) return;
+        const number = extractSupportWhatsApp(data);
+        if (number) setSupportWhatsApp(number);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -141,6 +157,13 @@ export default function LiveSupportScreen() {
 
   const showFaq = !chatMinimized && !keyboardVisible;
 
+  const openWhatsApp = () => {
+    openUrl(
+      buildWhatsAppUrl(supportWhatsApp, 'Hello EOnlineBazar Support'),
+      'WhatsApp is not available on this device.'
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       style={[styles.flex, { backgroundColor: T.bg }]}
@@ -151,7 +174,7 @@ export default function LiveSupportScreen() {
         <View style={styles.actionRow}>
           <SpringButton
             style={styles.actionWrap}
-            onPress={() => openUrl(buildWhatsAppUrl(), 'WhatsApp is not available.')}
+            onPress={openWhatsApp}
           >
             <View style={[styles.actionPill, { backgroundColor: '#ecfdf5', borderColor: '#10b981' }]}>
               <Ionicons name="logo-whatsapp" size={18} color="#10b981" />

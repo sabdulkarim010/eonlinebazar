@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import AppStatusBar from '../components/AppStatusBar';
 import useAuthStore from '../store/useAuthStore';
 import { useAppTheme } from '../store/useThemeStore';
 import useToastStore from '../store/useToastStore';
@@ -105,6 +106,7 @@ export default function WalletScreen({ navigation }) {
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.bg }]}>
+      <AppStatusBar />
       <FlatList
         data={history}
         keyExtractor={(item, index) => String(item._id || item.id || index)}

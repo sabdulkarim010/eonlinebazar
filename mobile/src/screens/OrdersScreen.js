@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import EmptyState from '../components/EmptyState';
+import AppStatusBar from '../components/AppStatusBar';
 import { OrderCardSkeleton } from '../components/SkeletonBox';
 import ScreenHeader from '../components/ScreenHeader';
 import useAuthStore from '../store/useAuthStore';
@@ -262,6 +263,7 @@ function OrdersScreen({ navigation }) {
   if (!token && orders.length === 0) {
     return (
       <View style={[styles.guest, { backgroundColor: T.bg }]}>
+        <AppStatusBar />
         <ScreenHeader
           title="Orders"
           subtitle="Sign in to see orders placed with your account."
@@ -314,6 +316,7 @@ function OrdersScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: T.bg }]}>
+      <AppStatusBar />
       <FlatList
         data={filteredOrders}
         keyExtractor={orderKey}

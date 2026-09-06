@@ -1,66 +1,55 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAppTheme } from '../store/useThemeStore';
-
-const lightT = {
-  bg: '#f8fafc',
-  card: '#ffffff',
-  text: '#111827',
-  sub: '#6b7280',
-  border: '#e5e7eb',
-  iconBg: '#f0fdf4',
-};
-
-const darkT = {
-  bg: '#0f172a',
-  card: '#1e293b',
-  text: '#f1f5f9',
-  sub: '#94a3b8',
-  border: '#334155',
-  iconBg: 'rgba(5, 150, 105, 0.15)',
-};
+import AppStatusBar from '../components/AppStatusBar';
+import { radius, useTheme } from '../theme/tokens';
 
 function formatBdt(price) {
   return `৳${Number(price || 0).toLocaleString('en-US')}`;
 }
 
 export default function OrderSuccessScreen({ route, navigation }) {
-  const { isDark } = useAppTheme();
-  const T = isDark ? darkT : lightT;
+  const T = useTheme();
   const { orderId, orderNumber, total } = route.params || {};
   const displayId = orderNumber
     || (orderId ? String(orderId).slice(-8).toUpperCase() : '—');
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: T.bg }]}>
+      <AppStatusBar />
       <View style={styles.iconWrapper}>
-        <View style={[styles.iconCircle, { backgroundColor: T.iconBg }]}>
+        <View style={[styles.iconCircle, { backgroundColor: T.successBg }]}>
           <Text style={styles.icon}>✅</Text>
         </View>
       </View>
 
       <Text style={[styles.title, { color: T.text }]}>Order Placed!</Text>
-      <Text style={[styles.subtitle, { color: T.sub }]}>
+      <Text style={[styles.subtitle, { color: T.textSub }]}>
         Your order has been placed successfully.
       </Text>
 
       <View style={[styles.orderCard, { backgroundColor: T.card, borderColor: T.border }]}>
-        <Text style={[styles.orderLabel, { color: T.sub }]}>Order ID</Text>
-        <Text style={styles.orderId}>#{displayId}</Text>
+        <Text style={[styles.orderLabel, { color: T.textMuted }]}>Order ID</Text>
+        <Text style={[styles.orderId, { color: T.accent }]}>#{displayId}</Text>
         <Text style={[styles.orderTotal, { color: T.text }]}>
           Total: {formatBdt(total)}
         </Text>
       </View>
 
-      <Text style={[styles.hint, { color: T.sub }]}>
+      <Text style={[styles.hint, { color: T.textSub }]}>
         💡 Create an account or sign in to track your order and get updates.
       </Text>
 
       <Pressable
-        style={({ pressed }) => [styles.loginBtn, pressed && { opacity: 0.9 }]}
+        style={({ pressed }) => [
+          styles.loginBtn,
+          { backgroundColor: T.primaryBtn },
+          pressed && { backgroundColor: T.primaryBtnPressed },
+        ]}
         onPress={() => navigation.navigate('Login')}
       >
-        <Text style={styles.loginBtnText}>Sign In to Track Order</Text>
+        <Text style={[styles.loginBtnText, { color: T.primaryBtnText }]}>
+          Sign In to Track Order
+        </Text>
       </Pressable>
 
       <Pressable
@@ -93,7 +82,7 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: radius.full,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -112,7 +101,7 @@ const styles = StyleSheet.create({
   },
   orderCard: {
     width: '100%',
-    borderRadius: 14,
+    borderRadius: radius.lg,
     padding: 20,
     borderWidth: 1,
     alignItems: 'center',
@@ -128,7 +117,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: 1,
-    color: '#f97316',
   },
   orderTotal: {
     fontSize: 16,
@@ -143,22 +131,20 @@ const styles = StyleSheet.create({
   },
   loginBtn: {
     width: '100%',
-    backgroundColor: '#f97316',
-    borderRadius: 12,
+    borderRadius: radius.lg,
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
   },
   loginBtnText: {
-    color: '#ffffff',
     fontSize: 15,
     fontWeight: '700',
   },
   shopBtn: {
     width: '100%',
     borderWidth: 1.5,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     height: 48,
     justifyContent: 'center',
     alignItems: 'center',

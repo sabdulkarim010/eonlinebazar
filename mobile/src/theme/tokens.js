@@ -5,7 +5,7 @@ export const spacing = {
 };
 
 export const radius = {
-  sm: 6, md: 10, lg: 14, xl: 18, xxl: 24, full: 999,
+  xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 20, full: 999,
 };
 
 export const fontSize = {
@@ -78,6 +78,7 @@ const lightThemeBase = {
   skeleton: '#e2e8f0',
   skeletonShimmer: '#f1f5f9',
   sectionLabel: '#94a3b8',
+  brandWhatsApp: '#25D366',
 
   statusPending: { bg: '#fff7ed', text: '#c2410c', border: '#fed7aa' },
   statusProcessing: { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' },
@@ -127,6 +128,7 @@ const darkThemeBase = {
   skeleton: '#1e2d45',
   skeletonShimmer: '#263352',
   sectionLabel: '#475569',
+  brandWhatsApp: '#25D366',
 
   statusPending: { bg: '#1a0d00', text: '#fb923c', border: '#7c2d12' },
   statusProcessing: { bg: '#0c1a33', text: '#60a5fa', border: '#1e3a5f' },

@@ -13,6 +13,7 @@ export { default as AuthLayout } from './auth/AuthChrome';
 export { default as ActionCard } from './profile/ActionCard';
 export { default as ProfileAvatar } from './profile/ProfileAvatar';
 export { default as LogoutConfirmModal } from './profile/LogoutConfirmModal';
+export { default as ProfileEditSheet } from './profile/ProfileEditSheet';
 export {
   SkeletonBox,
   ProductCardSkeleton,

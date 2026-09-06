@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Animated,
   FlatList,
+  Image,
   Keyboard,
   Platform,
   Pressable,
@@ -54,6 +55,34 @@ function HeaderIconButton({ icon, onPress, T, accessibilityLabel }) {
     >
       <Ionicons name={icon} size={18} color={T.sub} />
     </Pressable>
+  );
+}
+
+function ChatPersonaAvatar({ personaName, T }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const isAria = personaName === 'Aria';
+
+  if (!isAria) {
+    return (
+      <View style={[styles.avatar, { backgroundColor: T.successBg }]}>
+        <Text style={styles.avatarEmoji}>👤</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.avatar, { backgroundColor: T.accentBg, overflow: 'hidden' }]}>
+      {!imgFailed ? (
+        <Image
+          source={require('../../../assets/icon.png')}
+          style={styles.avatarImage}
+          resizeMode="cover"
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <Text style={styles.avatarEmoji}>🤖</Text>
+      )}
+    </View>
   );
 }
 
@@ -175,9 +204,7 @@ const AriaChatPanel = forwardRef(function AriaChatPanel({
   return (
     <View style={[styles.flex, { backgroundColor: T.card, borderColor: T.border }]}>
       <View style={[styles.header, { borderBottomColor: T.border, backgroundColor: T.card }]}>
-        <View style={[styles.avatar, { backgroundColor: T.accentBg }]}>
-          <Text style={styles.avatarEmoji}>{personaName === 'Aria' ? '🤖' : '👤'}</Text>
-        </View>
+        <ChatPersonaAvatar personaName={personaName} T={T} />
         <View style={styles.headerInfo}>
           <Text style={[styles.headerName, { color: T.text }]}>{personaName}</Text>
           <View style={styles.statusRow}>
@@ -367,6 +394,11 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarImage: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
   },
   avatarEmoji: { fontSize: 22 },
   headerInfo: { flex: 1 },

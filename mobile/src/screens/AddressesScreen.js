@@ -21,6 +21,7 @@ import {
 } from '../api/addresses';
 import { extractDistricts, storeAPI } from '../api/store';
 import AddressForm from '../components/AddressForm';
+import AppStatusBar from '../components/AppStatusBar';
 import EmptyState from '../components/EmptyState';
 import { OrderCardSkeleton } from '../components/SkeletonBox';
 import { resolveDistrictName, resolveUpazilaName } from '../data/bdLocations';
@@ -229,6 +230,7 @@ export default function AddressesScreen({ navigation, route }) {
   if (!token) {
     return (
       <View style={[styles.centered, { backgroundColor: colors.bg }]}>
+        <AppStatusBar />
         <Text style={[styles.emptyTitle, { color: colors.text }]}>Sign in to manage addresses</Text>
         <Text style={[styles.emptyBody, { color: colors.muted }]}>
           Saved addresses are available after you log in.
@@ -282,6 +284,7 @@ export default function AddressesScreen({ navigation, route }) {
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.bg }]}>
+      <AppStatusBar />
       {loading && !addresses.length ? (
         <View style={styles.skeletonList}>
           <OrderCardSkeleton />

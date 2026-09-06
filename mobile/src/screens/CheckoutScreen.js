@@ -29,11 +29,12 @@ import {
   storeAPI,
 } from '../api/store';
 import DistrictUpazilaPicker from '../components/DistrictUpazilaPicker';
+import AppStatusBar from '../components/AppStatusBar';
 import { resolveDistrictName, resolveUpazilaName } from '../data/bdLocations';
 import useAuthStore from '../store/useAuthStore';
 import useCartStore from '../store/useCartStore';
 import useOrderStore from '../store/useOrderStore';
-import { useTheme } from '../theme/tokens';
+import { radius, useTheme } from '../theme/tokens';
 import useToastStore from '../store/useToastStore';
 import { haptic } from '../utils/haptics';
 import { resolveMediaUrl } from '../utils/normalizeProduct';
@@ -513,6 +514,7 @@ export default function CheckoutScreen({ navigation, route }) {
   if (allCartItems.length === 0 || checkoutItems.length === 0) {
     return (
       <View style={[styles.empty, { backgroundColor: T.bg }]}>
+        <AppStatusBar />
         <Text style={[styles.emptyTitle, { color: T.text }]}>
           {allCartItems.length === 0 ? 'Your cart is empty' : 'No items selected'}
         </Text>
@@ -540,6 +542,7 @@ export default function CheckoutScreen({ navigation, route }) {
       style={[styles.flex, { backgroundColor: T.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <AppStatusBar />
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -1041,7 +1044,7 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: radius.md,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
@@ -1073,7 +1076,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: radius.lg,
     padding: 12,
     gap: 12,
     marginBottom: 8,
@@ -1096,7 +1099,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   defaultBadge: {
-    borderRadius: 4,
+    borderRadius: radius.xs,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
@@ -1156,7 +1159,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: radius.md,
     paddingHorizontal: 12,
     paddingVertical: 12,
     marginBottom: 14,
@@ -1176,7 +1179,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   couponBtn: {
-    borderRadius: 8,
+    borderRadius: radius.md,
     paddingHorizontal: 16,
     height: 46,
     alignItems: 'center',
@@ -1208,7 +1211,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: 14,
     marginBottom: 18,
     gap: 12,
@@ -1238,18 +1241,18 @@ const styles = StyleSheet.create({
   methodLogo: {
     width: 44,
     height: 44,
-    borderRadius: 8,
+    borderRadius: radius.md,
   },
   methodLogoFallback: {
     width: 44,
     height: 44,
-    borderRadius: 8,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   instructionsBox: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: 14,
     marginBottom: 14,
     gap: 8,
@@ -1267,7 +1270,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   accountChip: {
-    borderRadius: 8,
+    borderRadius: radius.md,
     paddingHorizontal: 10,
     paddingVertical: 8,
     alignSelf: 'flex-start',
@@ -1290,7 +1293,7 @@ const styles = StyleSheet.create({
   summaryItemImg: {
     width: 52,
     height: 52,
-    borderRadius: 8,
+    borderRadius: radius.md,
   },
   summaryItemInfo: {
     flex: 1,
@@ -1304,7 +1307,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: 4,
+    borderRadius: radius.xs,
     alignSelf: 'flex-start',
   },
   summaryItemQty: {
@@ -1348,7 +1351,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   primaryBtn: {
-    borderRadius: 24,
+    borderRadius: radius.xxl,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 6,

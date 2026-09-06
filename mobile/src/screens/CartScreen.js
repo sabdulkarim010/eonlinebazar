@@ -10,9 +10,10 @@ import {
 import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppImage from '../components/AppImage';
+import AppStatusBar from '../components/AppStatusBar';
 import EmptyState from '../components/EmptyState';
 import useCartStore from '../store/useCartStore';
-import { useTheme } from '../theme/tokens';
+import { radius, useTheme } from '../theme/tokens';
 import useToastStore from '../store/useToastStore';
 import { haptic } from '../utils/haptics';
 
@@ -51,14 +52,14 @@ function CartLine({
 
   const renderRightActions = () => (
     <Pressable
-      style={styles.deleteAction}
+      style={[styles.deleteAction, { backgroundColor: T.error }]}
       onPress={() => {
         swipeRef.current?.close();
         onRemove(item.key || item.id);
       }}
     >
-      <Ionicons name="trash-outline" size={22} color="#ffffff" />
-      <Text style={styles.deleteText}>Delete</Text>
+      <Ionicons name="trash-outline" size={22} color={T.textOnAccent} />
+      <Text style={[styles.deleteText, { color: T.textOnAccent }]}>Delete</Text>
     </Pressable>
   );
 
@@ -172,9 +173,15 @@ export default function CartScreen({ navigation }) {
 
   const increaseQty = useCallback(
     (item) => {
+      const maxQty = Number(item.product?.stock ?? item.stock ?? 99);
+      if (item.quantity >= maxQty) {
+        haptic.warning();
+        showToast(`Only ${maxQty} available`, 'warning');
+        return;
+      }
       updateQuantity(item.key || item.id, item.quantity + 1);
     },
-    [updateQuantity]
+    [showToast, updateQuantity]
   );
 
   const decreaseQty = useCallback(
@@ -245,6 +252,7 @@ export default function CartScreen({ navigation }) {
   if (items.length === 0) {
     return (
       <View style={[styles.empty, { backgroundColor: T.bg }]}>
+        <AppStatusBar />
         <EmptyState
           type="cart"
           onAction={() => navigation.navigate('Main', { screen: 'Shop' })}
@@ -255,6 +263,7 @@ export default function CartScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: T.bg }]}>
+      <AppStatusBar />
       <FlatList
         data={items}
         keyExtractor={(item) => String(item.key || item.id)}
@@ -343,7 +352,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: radius.md,
     paddingHorizontal: 12,
     paddingVertical: 12,
     marginBottom: 12,
@@ -362,7 +371,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
-    borderRadius: 20,
+    borderRadius: radius.xxl,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginBottom: 12,
@@ -374,7 +383,7 @@ const styles = StyleSheet.create({
   },
   line: {
     flexDirection: 'row',
-    borderRadius: 8,
+    borderRadius: radius.md,
     borderWidth: 1,
     padding: 10,
     marginBottom: 12,
@@ -383,15 +392,13 @@ const styles = StyleSheet.create({
   },
   deleteAction: {
     width: 88,
-    backgroundColor: '#ef4444',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: radius.md,
     marginBottom: 12,
     gap: 4,
   },
   deleteText: {
-    color: '#ffffff',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -401,7 +408,7 @@ const styles = StyleSheet.create({
   lineImage: {
     width: 88,
     height: 88,
-    borderRadius: 6,
+    borderRadius: radius.sm,
   },
   lineBody: {
     flex: 1,
@@ -415,7 +422,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: radius.xs,
     alignSelf: 'flex-start',
   },
   lineCategory: {
@@ -441,7 +448,7 @@ const styles = StyleSheet.create({
   qtyBtn: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: radius.xl,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -476,7 +483,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   clearBtn: {
-    borderRadius: 20,
+    borderRadius: radius.xxl,
     borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -486,7 +493,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   checkoutBtn: {
-    borderRadius: 24,
+    borderRadius: radius.xxl,
     paddingVertical: 14,
     alignItems: 'center',
   },

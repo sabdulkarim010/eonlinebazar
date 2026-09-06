@@ -30,8 +30,15 @@ export function extractDeliveryCharge(payload) {
   return Number.isFinite(charge) ? charge : 0;
 }
 
+export function extractSupportWhatsApp(payload) {
+  const data = payload?.data && typeof payload.data === 'object' ? payload.data : payload;
+  return String(data?.publicSupportWhatsApp || '').trim();
+}
+
 export const storeAPI = {
   getDistricts: () => api.get('/store/districts'),
+
+  getBranding: () => api.get('/store/branding'),
 
   getShippingQuote: (district, subtotal = 0) =>
     api.get('/store/shipping-quote', {

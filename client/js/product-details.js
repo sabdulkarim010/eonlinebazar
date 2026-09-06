@@ -24,5 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setupGalleryDelegation();
     setupCarouselNavButtons();
     setupShareButtons();
+    setupOrderWhatsAppButton();
     renderActivePaymentBadges();
 });

@@ -1,20 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
-import { memo, useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
+  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AppStatusBar from '../components/AppStatusBar';
 import ProfileAvatar from '../components/profile/ProfileAvatar';
 import LogoutConfirmModal from '../components/profile/LogoutConfirmModal';
 import useAuthStore from '../store/useAuthStore';
@@ -23,9 +24,27 @@ import useThemeStore from '../store/useThemeStore';
 import useToastStore from '../store/useToastStore';
 import useWishlistStore from '../store/useWishlistStore';
 import useLanguageStore, { useTranslation } from '../store/useLanguageStore';
-import { useTheme } from '../theme/tokens';
+import { radius, useTheme } from '../theme/tokens';
+import useSupportWhatsApp from '../hooks/useSupportWhatsApp';
 import { haptic } from '../utils/haptics';
 import { heroContactLine, heroContactIsPhone } from '../utils/maskContact';
+
+function getProfileIconColors(dark) {
+  return {
+    orders: { icon: '#3b82f6', bg: dark ? '#0c1a33' : '#eff6ff' },
+    wishlist: { icon: '#ef4444', bg: dark ? '#1e0a0a' : '#fef2f2' },
+    addresses: { icon: '#10b981', bg: dark ? '#052e16' : '#ecfdf5' },
+    notebook: { icon: '#8b5cf6', bg: dark ? '#1a0a3e' : '#f5f3ff' },
+    wallet: { icon: '#f59e0b', bg: dark ? '#1a1000' : '#fffbeb' },
+    chat: { icon: '#06b6d4', bg: dark ? '#0a1f2e' : '#ecfeff' },
+    password: { icon: '#6366f1', bg: dark ? '#1a1a3e' : '#eef2ff' },
+    delete: { icon: '#ef4444', bg: dark ? '#1e0a0a' : '#fef2f2' },
+    privacy: { icon: '#64748b', bg: dark ? '#1e293b' : '#f8fafc' },
+    terms: { icon: '#64748b', bg: dark ? '#1e293b' : '#f8fafc' },
+    profile: { icon: '#3b82f6', bg: dark ? '#0c1a33' : '#eff6ff' },
+    security: { icon: '#0ea5e9', bg: dark ? '#042f2e' : '#ecfeff' },
+  };
+}
 
 const MENU_SECTIONS = [
   {
@@ -33,40 +52,18 @@ const MENU_SECTIONS = [
     label: 'SHOPPING & UTILITIES',
     items: [
       {
-        key: 'orders',
-        icon: 'cube-outline',
-        label: 'My Orders',
-        screen: 'Orders',
-        color: '#3b82f6',
-        bg: '#eff6ff',
-        darkBg: '#0c1a33',
-      },
-      {
-        key: 'wishlist',
-        icon: 'heart-outline',
-        label: 'My Wishlist',
-        screen: 'Wishlist',
-        color: '#ef4444',
-        bg: '#fef2f2',
-        darkBg: '#1e0a0a',
-      },
-      {
         key: 'addresses',
         icon: 'location-outline',
         label: 'Saved Addresses',
         screen: 'Addresses',
-        color: '#10b981',
-        bg: '#ecfdf5',
-        darkBg: '#052e16',
+        paletteKey: 'addresses',
       },
       {
         key: 'notebook',
         icon: 'book-outline',
         label: 'My Notebook',
         screen: 'Notebook',
-        color: '#8b5cf6',
-        bg: '#f5f3ff',
-        darkBg: '#1a0a3e',
+        paletteKey: 'notebook',
       },
     ],
   },
@@ -79,36 +76,28 @@ const MENU_SECTIONS = [
         icon: 'person-outline',
         label: 'Personal Info',
         screen: 'EditProfile',
-        color: '#3b82f6',
-        bg: '#eff6ff',
-        darkBg: '#0c1a33',
+        paletteKey: 'profile',
       },
       {
         key: 'security',
         icon: 'shield-checkmark-outline',
         label: 'Security Settings',
         screen: 'SecuritySettings',
-        color: '#0ea5e9',
-        bg: '#ecfeff',
-        darkBg: '#042f2e',
+        paletteKey: 'security',
       },
       {
         key: 'password',
         icon: 'lock-closed-outline',
         label: 'Change Password',
         screen: 'ChangePassword',
-        color: '#8b5cf6',
-        bg: '#f5f3ff',
-        darkBg: '#1a0a3e',
+        paletteKey: 'password',
       },
       {
         key: 'delete',
         icon: 'trash-outline',
         label: 'Delete Account',
         screen: 'DeleteAccount',
-        color: '#ef4444',
-        bg: '#fef2f2',
-        darkBg: '#1e0a0a',
+        paletteKey: 'delete',
         danger: true,
       },
     ],
@@ -122,9 +111,7 @@ const MENU_SECTIONS = [
         icon: 'chatbubbles-outline',
         label: 'Live Support',
         screen: 'LiveSupport',
-        color: '#10b981',
-        bg: '#ecfdf5',
-        darkBg: '#052e16',
+        paletteKey: 'chat',
       },
       {
         key: 'privacy',
@@ -132,9 +119,7 @@ const MENU_SECTIONS = [
         label: 'Privacy Policy',
         screen: 'Legal',
         params: { slug: 'privacy-policy', title: 'Privacy Policy' },
-        color: '#64748b',
-        bg: '#f8fafc',
-        darkBg: '#1e293b',
+        paletteKey: 'privacy',
       },
       {
         key: 'terms',
@@ -142,9 +127,7 @@ const MENU_SECTIONS = [
         label: 'Terms & Conditions',
         screen: 'Legal',
         params: { slug: 'terms-conditions', title: 'Terms & Conditions' },
-        color: '#64748b',
-        bg: '#f8fafc',
-        darkBg: '#1e293b',
+        paletteKey: 'terms',
       },
       {
         key: 'returns',
@@ -152,9 +135,7 @@ const MENU_SECTIONS = [
         label: 'Return Policy',
         screen: 'Legal',
         params: { slug: 'return-policy', title: 'Return Policy' },
-        color: '#64748b',
-        bg: '#f8fafc',
-        darkBg: '#1e293b',
+        paletteKey: 'terms',
       },
       {
         key: 'contact',
@@ -162,9 +143,7 @@ const MENU_SECTIONS = [
         label: 'Contact Us',
         screen: 'Legal',
         params: { slug: 'contact', title: 'Contact Us' },
-        color: '#64748b',
-        bg: '#f8fafc',
-        darkBg: '#1e293b',
+        paletteKey: 'terms',
       },
     ],
   },
@@ -188,8 +167,9 @@ function StatItem({ label, value, icon, color, T, onPress }) {
   return <View style={styles.statPressable}>{content}</View>;
 }
 
-function MenuRow({ item, dark, T, isLast, onPress }) {
+function MenuRow({ item, iconColors, T, isLast, onPress }) {
   const scale = useRef(new Animated.Value(1)).current;
+  const palette = iconColors[item.paletteKey] || iconColors.privacy;
 
   const onPressIn = () => {
     Animated.spring(scale, {
@@ -222,13 +202,13 @@ function MenuRow({ item, dark, T, isLast, onPress }) {
         <View
           style={[
             styles.iconBox,
-            { backgroundColor: dark ? item.darkBg : item.bg },
+            { backgroundColor: palette.bg },
           ]}
         >
           <Ionicons
             name={item.icon}
             size={18}
-            color={item.danger ? T.danger : item.color}
+            color={item.danger ? T.danger : palette.icon}
           />
         </View>
         <Text
@@ -245,60 +225,119 @@ function MenuRow({ item, dark, T, isLast, onPress }) {
   );
 }
 
-function GuestView({ navigation, dark, T, toggleTheme, lang, setLanguage, t }) {
+function GuestView({ navigation, isDark, T, toggleTheme, lang, setLanguage, t, onWhatsAppHelp, iconColors }) {
   return (
-    <View style={[styles.root, styles.guestRoot, { backgroundColor: T.bg }]}>
-      <View style={[styles.guestCard, { backgroundColor: T.card, shadowColor: T.shadow }]}>
-        <View style={[styles.guestIconWrap, { backgroundColor: T.guestIconBg }]}>
-          <Ionicons name="person-circle-outline" size={80} color={T.muted} />
+    <ScrollView
+      style={[styles.root, { backgroundColor: T.bg }]}
+      contentContainerStyle={styles.guestScroll}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={[styles.guestAuthCard, { backgroundColor: T.card, shadowColor: T.shadow }]}>
+        <View style={styles.guestHeroArt}>
+          <View style={[styles.guestHeroGlow, { backgroundColor: `${T.accent}18` }]} />
+          <View style={[styles.guestHeroRing, { borderColor: `${T.accent}40` }]}>
+            <View style={[styles.guestHeroInner, { backgroundColor: T.accentBg }]}>
+              <View style={[styles.guestHeroIconCore, { backgroundColor: T.accent }]}>
+                <Ionicons name="shield-checkmark" size={34} color={T.textOnAccent} />
+              </View>
+            </View>
+          </View>
         </View>
+
         <Text style={[styles.guestTitle, { color: T.text }]}>
           Welcome to EOnlineBazar
         </Text>
         <Text style={[styles.guestSub, { color: T.sub }]}>
-          Sign in to access your orders, wishlist, and saved addresses.
+          Sign in to track orders, save wishlists, and manage your account securely.
         </Text>
+
         <Pressable
-          style={[styles.guestLoginBtn, { backgroundColor: T.accent, shadowColor: T.accent }]}
+          style={({ pressed }) => [
+            styles.guestLoginBtn,
+            { backgroundColor: T.accent, shadowColor: T.accent },
+            pressed && styles.guestBtnPressed,
+          ]}
           onPress={() => navigation.navigate('Login')}
         >
-          <Text style={styles.guestLoginText}>Sign In</Text>
+          <Text style={[styles.guestLoginText, { color: T.textOnAccent }]}>Sign In</Text>
         </Pressable>
+
         <Pressable
-          style={[styles.guestRegBtn, { borderColor: T.border }]}
+          style={({ pressed }) => [
+            styles.guestRegBtn,
+            { borderColor: T.border, backgroundColor: T.card },
+            pressed && styles.guestBtnPressed,
+          ]}
           onPress={() => navigation.navigate('Register')}
         >
           <Text style={[styles.guestRegText, { color: T.text }]}>Create Account</Text>
         </Pressable>
       </View>
-      <Pressable style={styles.themeToggleGuest} onPress={toggleTheme}>
-        <Ionicons
-          name={dark ? 'moon' : 'sunny-outline'}
-          size={20}
-          color={T.sub}
-        />
-        <Text style={[styles.themeToggleText, { color: T.sub }]}>
-          {dark ? 'Dark Mode' : 'Light Mode'}
-        </Text>
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.guestSupportRow,
+          {
+            backgroundColor: T.cardSecondary,
+            borderColor: T.border,
+          },
+          pressed && styles.guestBtnPressed,
+        ]}
+        onPress={onWhatsAppHelp}
+      >
+        <View style={[styles.guestWaBadge, { backgroundColor: T.brandWhatsApp }]}>
+          <Ionicons name="logo-whatsapp" size={20} color={T.textOnAccent} />
+        </View>
+        <View style={styles.guestSupportCopy}>
+          <Text style={[styles.guestSupportTitle, { color: T.text }]}>
+            WhatsApp Customer Support
+          </Text>
+          <Text style={[styles.guestSupportSub, { color: T.sub }]}>
+            Get instant order help & inquiries
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={T.muted} />
       </Pressable>
-      <View style={[styles.guestLangRow, { borderColor: T.border }]}>
-        <Text style={[styles.themeToggleText, { color: T.sub }]}>{t('profile.language')}</Text>
-        <View style={[styles.langSwitch, { backgroundColor: T.iconBg, borderColor: T.border }]}>
-          <Pressable
-            style={[styles.langOption, lang === 'en' && { backgroundColor: T.accent }]}
-            onPress={() => setLanguage('en')}
-          >
-            <Text style={[styles.langOptionText, { color: lang === 'en' ? '#ffffff' : T.sub }]}>EN</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.langOption, lang === 'bn' && { backgroundColor: T.accent }]}
-            onPress={() => setLanguage('bn')}
-          >
-            <Text style={[styles.langOptionText, { color: lang === 'bn' ? '#ffffff' : T.sub }]}>বাং</Text>
-          </Pressable>
+
+      <View style={[styles.guestPrefsCard, { backgroundColor: T.card, borderColor: T.border }]}>
+        <Pressable style={styles.guestPrefRow} onPress={toggleTheme}>
+          <View style={[styles.guestPrefIcon, { backgroundColor: T.iconBg }]}>
+            <Ionicons
+              name={isDark ? 'moon' : 'sunny-outline'}
+              size={18}
+              color={T.warning}
+            />
+          </View>
+          <Text style={[styles.guestPrefLabel, { color: T.text }]}>
+            {isDark ? 'Dark Mode' : 'Light Mode'}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={T.muted} />
+        </Pressable>
+
+        <View style={[styles.guestPrefDivider, { backgroundColor: T.border }]} />
+
+        <View style={styles.guestPrefRow}>
+          <View style={[styles.guestPrefIcon, { backgroundColor: T.iconBg }]}>
+            <Ionicons name="language-outline" size={18} color={iconColors.password.icon} />
+          </View>
+          <Text style={[styles.guestPrefLabel, { color: T.text }]}>{t('profile.language')}</Text>
+          <View style={[styles.langSwitch, { backgroundColor: T.iconBg, borderColor: T.border }]}>
+            <Pressable
+              style={[styles.langOption, lang === 'en' && { backgroundColor: T.accent }]}
+              onPress={() => setLanguage('en')}
+            >
+              <Text style={[styles.langOptionText, { color: lang === 'en' ? T.textOnAccent : T.sub }]}>EN</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.langOption, lang === 'bn' && { backgroundColor: T.accent }]}
+              onPress={() => setLanguage('bn')}
+            >
+              <Text style={[styles.langOptionText, { color: lang === 'bn' ? T.textOnAccent : T.sub }]}>বাং</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -322,8 +361,25 @@ function ProfileScreen({ navigation }) {
   const [loggingOut, setLoggingOut] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const { guestHelpUrl } = useSupportWhatsApp();
+
+  const iconColors = useMemo(() => getProfileIconColors(isDark), [isDark]);
 
   const isLoggedIn = Boolean(token && user);
+
+  const openGuestWhatsApp = useCallback(async () => {
+    try {
+      const supported = await Linking.canOpenURL(guestHelpUrl);
+      if (!supported) {
+        showToast('WhatsApp is not available on this device.', 'error');
+        return;
+      }
+      haptic.light();
+      await Linking.openURL(guestHelpUrl);
+    } catch {
+      showToast('Could not open WhatsApp.', 'error');
+    }
+  }, [guestHelpUrl, showToast]);
 
   useFocusEffect(
     useCallback(() => {
@@ -402,6 +458,7 @@ function ProfileScreen({ navigation }) {
   if (isHydrating && !isLoggedIn) {
     return (
       <View style={[styles.centered, { backgroundColor: T.bg }]}>
+        <AppStatusBar />
         <ActivityIndicator size="large" color={T.accent} />
       </View>
     );
@@ -410,18 +467,17 @@ function ProfileScreen({ navigation }) {
   if (!isLoggedIn) {
     return (
       <View style={[styles.root, { backgroundColor: T.bg, paddingTop: insets.top }]}>
-        <StatusBar
-          barStyle={isDark ? 'light-content' : 'dark-content'}
-          backgroundColor={T.bg}
-        />
+        <AppStatusBar />
         <GuestView
           navigation={navigation}
-          dark={isDark}
+          isDark={isDark}
           T={T}
           toggleTheme={toggleTheme}
           lang={lang}
           setLanguage={setLanguage}
           t={t}
+          onWhatsAppHelp={openGuestWhatsApp}
+          iconColors={iconColors}
         />
       </View>
     );
@@ -438,10 +494,7 @@ function ProfileScreen({ navigation }) {
 
   return (
     <View style={[styles.root, { backgroundColor: T.bg }]}>
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={T.header}
-      />
+      <AppStatusBar />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -526,7 +579,7 @@ function ProfileScreen({ navigation }) {
               label="Orders"
               value={displayOrders}
               icon="cube-outline"
-              color="#3b82f6"
+              color={iconColors.orders.icon}
               T={T}
               onPress={() => navigation.navigate('Orders')}
             />
@@ -535,7 +588,7 @@ function ProfileScreen({ navigation }) {
               label="Wishlist"
               value={displayWishlist}
               icon="heart-outline"
-              color="#ef4444"
+              color={iconColors.wishlist.icon}
               T={T}
               onPress={() => navigation.navigate('Wishlist')}
             />
@@ -544,7 +597,7 @@ function ProfileScreen({ navigation }) {
               label="Points"
               value={Number(user?.loyaltyPoints || 0).toLocaleString('en-US')}
               icon="star-outline"
-              color="#f59e0b"
+              color={iconColors.wallet.icon}
               T={T}
               onPress={() => navigation.navigate('LoyaltyPoints')}
             />
@@ -553,7 +606,7 @@ function ProfileScreen({ navigation }) {
               label="Wallet"
               value={walletLabel}
               icon="wallet-outline"
-              color="#10b981"
+              color={iconColors.addresses.icon}
               T={T}
               onPress={() => navigation.navigate('Wallet')}
             />
@@ -578,7 +631,7 @@ function ProfileScreen({ navigation }) {
                 <MenuRow
                   key={item.key}
                   item={item}
-                  dark={isDark}
+                  iconColors={iconColors}
                   T={T}
                   isLast={idx === section.items.length - 1}
                   onPress={() => {
@@ -609,8 +662,8 @@ function ProfileScreen({ navigation }) {
             ]}
           >
             <View style={[styles.menuRow, { borderBottomColor: T.border }]}>
-              <View style={[styles.iconBox, { backgroundColor: T.iconBg }]}>
-                <Ionicons name="language-outline" size={18} color="#6366f1" />
+              <View style={[styles.iconBox, { backgroundColor: iconColors.password.bg }]}>
+                <Ionicons name="language-outline" size={18} color={iconColors.password.icon} />
               </View>
               <Text style={[styles.menuLabel, { color: T.text }]}>
                 {t('profile.language')}
@@ -623,7 +676,7 @@ function ProfileScreen({ navigation }) {
                   ]}
                   onPress={() => setLanguage('en')}
                 >
-                  <Text style={[styles.langOptionText, { color: lang === 'en' ? '#ffffff' : T.sub }]}>
+                  <Text style={[styles.langOptionText, { color: lang === 'en' ? T.textOnAccent : T.sub }]}>
                     EN
                   </Text>
                 </Pressable>
@@ -634,7 +687,7 @@ function ProfileScreen({ navigation }) {
                   ]}
                   onPress={() => setLanguage('bn')}
                 >
-                  <Text style={[styles.langOptionText, { color: lang === 'bn' ? '#ffffff' : T.sub }]}>
+                  <Text style={[styles.langOptionText, { color: lang === 'bn' ? T.textOnAccent : T.sub }]}>
                     বাং
                   </Text>
                 </Pressable>
@@ -645,7 +698,7 @@ function ProfileScreen({ navigation }) {
                 <Ionicons
                   name={isDark ? 'moon' : 'sunny-outline'}
                   size={18}
-                  color={isDark ? '#818cf8' : '#f59e0b'}
+                  color={T.warning}
                 />
               </View>
               <Text style={[styles.menuLabel, { color: T.text }]}>
@@ -664,6 +717,7 @@ function ProfileScreen({ navigation }) {
                     {
                       left: isDark ? 22 : 2,
                       backgroundColor: T.toggleThumb,
+                      shadowColor: T.shadow,
                     },
                   ]}
                 />
@@ -829,7 +883,6 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    shadowColor: '#000000',
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 2,
@@ -873,49 +926,140 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  guestRoot: { flex: 1, justifyContent: 'center', padding: 24, gap: 16 },
-  guestCard: {
-    borderRadius: 24,
-    padding: 28,
-    alignItems: 'center',
-    gap: 12,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  guestIconWrap: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+  guestScroll: {
+    flexGrow: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    gap: 14,
   },
-  guestTitle: { fontSize: 22, fontWeight: '800', textAlign: 'center' },
-  guestSub: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  guestAuthCard: {
+    borderRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 24,
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 6,
+  },
+  guestHeroArt: {
+    width: 112,
+    height: 112,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  guestHeroGlow: {
+    position: 'absolute',
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+  },
+  guestHeroRing: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestHeroInner: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestHeroIconCore: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: -0.4,
+  },
+  guestSub: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 21,
+    marginTop: 8,
+    marginBottom: 24,
+    paddingHorizontal: 8,
+  },
   guestLoginBtn: {
     width: '100%',
-    borderRadius: 12,
+    borderRadius: 14,
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
     elevation: 4,
   },
-  guestLoginText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
+  guestLoginText: { fontSize: 16, fontWeight: '700' },
   guestRegBtn: {
     width: '100%',
     borderWidth: 1.5,
-    borderRadius: 12,
-    height: 48,
+    borderRadius: 14,
+    height: 50,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 10,
   },
   guestRegText: { fontSize: 15, fontWeight: '600' },
+  guestBtnPressed: { opacity: 0.9, transform: [{ scale: 0.99 }] },
+  guestSupportRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  guestWaBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestSupportCopy: { flex: 1, gap: 3 },
+  guestSupportTitle: { fontSize: 15, fontWeight: '700' },
+  guestSupportSub: { fontSize: 12, fontWeight: '500', lineHeight: 17 },
+  guestPrefsCard: {
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  guestPrefRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  guestPrefIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestPrefLabel: { flex: 1, fontSize: 15, fontWeight: '600' },
+  guestPrefDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 16,
+  },
   themeToggleGuest: {
     flexDirection: 'row',
     alignItems: 'center',

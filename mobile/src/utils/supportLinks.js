@@ -13,8 +13,21 @@ export function normalizeWhatsAppNumber(phone = '') {
 
 export function buildWhatsAppUrl(phone, message) {
   const normalized = normalizeWhatsAppNumber(phone || DEFAULT_WHATSAPP);
-  const text = encodeURIComponent(message || 'Hello EOnlineBazar, I need help with my order.');
+  const text = encodeURIComponent(message || 'Hello EOnlineBazar Support');
   return `https://wa.me/${normalized}?text=${text}`;
+}
+
+export function buildGuestHelpWhatsAppUrl(phone) {
+  return buildWhatsAppUrl(phone, 'Hello EOnlineBazar Support, I have a query.');
+}
+
+export function buildProductOrderWhatsAppUrl(phone, title, price) {
+  const safeTitle = String(title || 'Product').trim();
+  const priceLabel = typeof price === 'number'
+    ? `৳${Number(price).toLocaleString('en-US')}`
+    : String(price || '').trim();
+  const message = `Hi, I want to order: ${safeTitle} (Price: ${priceLabel})`;
+  return buildWhatsAppUrl(phone, message);
 }
 
 export const SUPPORT = {

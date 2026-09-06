@@ -14,6 +14,7 @@ import AuthLayout, {
   AuthPrimaryButton,
 } from '../components/auth/AuthChrome';
 import AuthTextInput from '../components/auth/AuthTextInput';
+import AppStatusBar from '../components/AppStatusBar';
 import OtpInput from '../components/auth/OtpInput';
 import api from '../services/api';
 import { useAppTheme } from '../store/useThemeStore';
@@ -107,6 +108,7 @@ export default function ForgotPasswordScreen({ navigation }) {
       style={[styles.flex, { backgroundColor: colors.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <AppStatusBar />
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ProductGrid from '../components/ProductGrid';
+import AppStatusBar from '../components/AppStatusBar';
 import { useTheme } from '../theme/tokens';
 
 function ShopHeader({ title, subtitle, onSearchPress }) {
@@ -71,6 +72,7 @@ function ShopScreen({ navigation, route }) {
 
   return (
     <View style={[styles.container, { backgroundColor: T.bg }]}>
+      <AppStatusBar />
       <ShopHeader
         title={title}
         subtitle={subtitle}

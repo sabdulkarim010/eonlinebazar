@@ -8,12 +8,14 @@ import {
   Text,
   View,
 } from 'react-native';
+import AppStatusBar from '../components/AppStatusBar';
 import HeartButton from '../components/HeartButton';
 import EmptyState from '../components/EmptyState';
 import useCartStore from '../store/useCartStore';
 import { useAppTheme } from '../store/useThemeStore';
 import useToastStore from '../store/useToastStore';
 import useWishlistStore from '../store/useWishlistStore';
+import { radius } from '../theme/tokens';
 import { haptic } from '../utils/haptics';
 
 function formatBdt(price) {
@@ -37,18 +39,29 @@ export default function WishlistScreen({ navigation }) {
     }
   }, [loadFromServer]);
 
-  const addToCart = useCallback(
+  const handleWishlistAddToCart = useCallback(
     (product) => {
+      const hasVariants = product.colors?.length > 0 || product.sizes?.length > 0;
+
+      if (hasVariants) {
+        navigation.navigate('ProductDetails', {
+          productId: product._id || product.id,
+          autoOpenCart: true,
+        });
+        return;
+      }
+
+      addItem(product, 1, null);
       haptic.success();
-      addItem({ ...product, quantity: 1 });
-      showToast(`${product.name} added to cart`, 'cart');
+      showToast('Added to cart!', 'cart');
     },
-    [addItem, showToast]
+    [addItem, navigation, showToast]
   );
 
   if (items.length === 0) {
     return (
       <View style={[styles.empty, { backgroundColor: colors.bg }]}>
+        <AppStatusBar />
         <EmptyState
           type="wishlist"
           onAction={() => navigation.navigate('Main', { screen: 'Shop' })}
@@ -59,6 +72,7 @@ export default function WishlistScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      <AppStatusBar />
       <FlatList
         data={items}
         keyExtractor={(item) => String(item.id)}
@@ -89,7 +103,7 @@ export default function WishlistScreen({ navigation }) {
             </Pressable>
             <Pressable
               style={[styles.cartBtn, { backgroundColor: colors.primaryBtn }]}
-              onPress={() => addToCart(item)}
+              onPress={() => handleWishlistAddToCart(item)}
             >
               <Text style={[styles.cartBtnText, { color: colors.primaryBtnText }]}>Add to Cart</Text>
             </Pressable>
@@ -99,8 +113,8 @@ export default function WishlistScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#f97316"
-            colors={['#f97316']}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
           />
         )}
       />
@@ -133,7 +147,7 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    borderRadius: 8,
+    borderRadius: radius.md,
     overflow: 'hidden',
     borderWidth: 1,
   },
@@ -162,7 +176,7 @@ const styles = StyleSheet.create({
   },
   cartBtn: {
     margin: 10,
-    borderRadius: 20,
+    borderRadius: radius.xxl,
     paddingVertical: 8,
     alignItems: 'center',
   },

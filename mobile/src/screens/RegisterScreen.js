@@ -15,9 +15,10 @@ import AuthLayout, {
   REGISTER_TRUST_BADGES,
 } from '../components/auth/AuthChrome';
 import AuthTextInput from '../components/auth/AuthTextInput';
+import AppStatusBar from '../components/AppStatusBar';
 import useAuthStore from '../store/useAuthStore';
 import useToastStore from '../store/useToastStore';
-import { useTheme } from '../theme/tokens';
+import { radius, useTheme } from '../theme/tokens';
 import { passwordStrength, registerFieldErrors } from '../utils/authForm';
 
 const BD_MOBILE_RE = /^01[3-9]\d{8}$/;
@@ -120,6 +121,7 @@ export default function RegisterScreen({ navigation }) {
 
   return (
     <DistrictModalHost style={[styles.flex, { backgroundColor: T.bg }]}>
+      <AppStatusBar />
       <KeyboardAvoidingView
         style={[styles.flex, { backgroundColor: T.bg }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -305,12 +307,12 @@ const styles = StyleSheet.create({
   },
   strengthTrack: {
     height: 6,
-    borderRadius: 3,
+    borderRadius: radius.xs,
     overflow: 'hidden',
   },
   strengthFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: radius.xs,
   },
   strengthLabel: {
     fontSize: 12,

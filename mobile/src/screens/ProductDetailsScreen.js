@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppImage from '../components/AppImage';
+import AppStatusBar from '../components/AppStatusBar';
 import HeartButton from '../components/HeartButton';
 import { ProductCard } from '../components/ProductGrid';
 import ReviewsSection from '../components/ReviewsSection';
@@ -271,6 +272,7 @@ export default function ProductDetailsScreen({ navigation, route }) {
   if (!product && isProductLoading) {
     return (
       <View style={[styles.missing, { backgroundColor: T.bg }]}>
+        <AppStatusBar />
         <ActivityIndicator size="large" color={T.accent} />
         <Text style={[styles.missingBody, { color: T.muted }]}>Loading product…</Text>
       </View>
@@ -280,6 +282,7 @@ export default function ProductDetailsScreen({ navigation, route }) {
   if (!product) {
     return (
       <View style={[styles.missing, { backgroundColor: T.bg }]}>
+        <AppStatusBar />
         <Text style={[styles.missingTitle, { color: T.text }]}>Product not found</Text>
         <Text style={[styles.missingBody, { color: T.muted }]}>
           {productError || `We could not find a product for id ${productId || '—'}.`}
@@ -293,6 +296,7 @@ export default function ProductDetailsScreen({ navigation, route }) {
 
   return (
     <View style={[styles.screen, { backgroundColor: T.bg }]}>
+      <AppStatusBar />
       <ScrollView
         ref={scrollRef}
         style={styles.container}

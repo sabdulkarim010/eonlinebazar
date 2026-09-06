@@ -42,11 +42,21 @@ function profileInitials(user) {
   return String(n).slice(0, 2).toUpperCase() || '?';
 }
 
+function profileTabLabel(user) {
+  if (!user) return 'Profile';
+  const raw = String(user.firstName || user.name || '').trim();
+  const firstName = raw.split(/\s+/).filter(Boolean)[0];
+  if (!firstName) return 'Profile';
+  return firstName.length > 12 ? `${firstName.slice(0, 11)}…` : firstName;
+}
+
 function ProfileTabIcon({ focused, color, accentColor, user }) {
   const [imgFailed, setImgFailed] = useState(false);
   const avatarUri = pickAvatarUri(user);
   const showImage = Boolean(avatarUri) && !imgFailed;
   const size = 24;
+  const iconColor = color || accentColor || '#666666';
+  const ringColor = accentColor || iconColor;
 
   useEffect(() => {
     setImgFailed(false);
@@ -54,14 +64,20 @@ function ProfileTabIcon({ focused, color, accentColor, user }) {
 
   if (!user) {
     const icons = { focused: 'person', default: 'person-outline' };
-    return <Ionicons name={focused ? icons.focused : icons.default} size={size} color={color} />;
+    return (
+      <Ionicons
+        name={focused ? icons.focused : icons.default}
+        size={size}
+        color={iconColor}
+      />
+    );
   }
 
   return (
     <View
       style={[
         tabIconStyles.avatarSlot,
-        focused && { borderColor: accentColor, borderWidth: 2 },
+        focused && { borderColor: ringColor, borderWidth: 2 },
       ]}
     >
       {showImage ? (
@@ -72,8 +88,8 @@ function ProfileTabIcon({ focused, color, accentColor, user }) {
           onError={() => setImgFailed(true)}
         />
       ) : (
-        <View style={[tabIconStyles.initialsWrap, { backgroundColor: `${accentColor}22` }]}>
-          <Text style={[tabIconStyles.initialsText, { color: accentColor, fontSize: 10 }]}>
+        <View style={[tabIconStyles.initialsWrap, { backgroundColor: `${ringColor}22` }]}>
+          <Text style={[tabIconStyles.initialsText, { color: ringColor, fontSize: 10 }]}>
             {profileInitials(user)}
           </Text>
         </View>
@@ -83,11 +99,14 @@ function ProfileTabIcon({ focused, color, accentColor, user }) {
 }
 
 function TabBarIcon({ routeName, focused, color, size, accentColor, user }) {
+  const iconColor = color || accentColor || '#666666';
+  const iconSize = size || 24;
+
   if (routeName === 'Profile') {
     return (
       <ProfileTabIcon
         focused={focused}
-        color={color}
+        color={iconColor}
         accentColor={accentColor}
         user={user}
       />
@@ -95,30 +114,41 @@ function TabBarIcon({ routeName, focused, color, size, accentColor, user }) {
   }
 
   const icons = TAB_ICONS[routeName] || TAB_ICONS.Home;
-  return <Ionicons name={focused ? icons.focused : icons.default} size={size} color={color} />;
+  return (
+    <Ionicons
+      name={focused ? icons.focused : icons.default}
+      size={iconSize}
+      color={iconColor}
+    />
+  );
 }
 
 function makeTabScreenOptions(colors, user) {
   const tabBarStyle = {
-    backgroundColor: colors.tabBar,
-    borderTopColor: colors.border,
+    backgroundColor: colors?.tabBar ?? '#ffffff',
+    borderTopColor: colors?.border ?? '#e2e8f0',
   };
+  const accentColor = colors?.accent ?? '#f97316';
+  const headerBg = colors?.header ?? '#131921';
+  const headerText = colors?.headerText ?? '#ffffff';
+  const tabInactive = colors?.tabInactive ?? '#666666';
+
   return ({ route }) => ({
-    headerStyle: { backgroundColor: colors.header },
-    headerTintColor: colors.headerText,
+    headerStyle: { backgroundColor: headerBg },
+    headerTintColor: headerText,
     headerTitleStyle: HEADER_TITLE_STYLE,
-    tabBarActiveTintColor: colors.accent,
-    tabBarInactiveTintColor: colors.tabInactive,
+    tabBarActiveTintColor: accentColor,
+    tabBarInactiveTintColor: tabInactive,
     tabBarStyle,
     freezeOnBlur: true,
     tabBarIcon: ({ focused, color, size }) => (
       <TabBarIcon
         routeName={route.name}
         focused={focused}
-        color={color}
+        color={color || tabInactive}
         size={size}
-        accentColor={colors.accent}
-        user={route.name === 'Profile' && user ? user : null}
+        accentColor={accentColor}
+        user={route.name === 'Profile' ? user : null}
       />
     ),
   });
@@ -183,8 +213,11 @@ export default function AppNavigator() {
   );
 
   const profileOptions = useMemo(
-    () => ({ headerShown: false }),
-    []
+    () => ({
+      headerShown: false,
+      tabBarLabel: profileTabLabel(profileUser),
+    }),
+    [profileUser]
   );
 
   return (

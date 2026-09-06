@@ -13,9 +13,11 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
-    console.warn('App ErrorBoundary', error, info?.componentStack);
+    const message = error?.message ?? (error != null ? String(error) : 'Unknown error');
+    const componentStack = typeof info?.componentStack === 'string' ? info.componentStack : '';
+    console.warn('App ErrorBoundary', message, componentStack || undefined);
     SplashScreen.hideAsync().catch((hideError) => {
-      console.warn('SplashScreen.hideAsync failed', hideError);
+      console.warn('SplashScreen.hideAsync failed', hideError?.message ?? hideError);
     });
   }
 

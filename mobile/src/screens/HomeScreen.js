@@ -11,14 +11,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { loadFlashSaleCatalog, searchAPI } from '../api/search';
 import CategoryGrid from '../components/CategoryGrid';
+import AppStatusBar from '../components/AppStatusBar';
 import EmptyState from '../components/EmptyState';
 import ProductGrid, { ProductCard } from '../components/ProductGrid';
 import { BannerSkeleton } from '../components/SkeletonBox';
-import useAuthStore from '../store/useAuthStore';
 import useCartStore from '../store/useCartStore';
 import useToastStore from '../store/useToastStore';
 import { useTheme } from '../theme/tokens';
@@ -62,28 +61,9 @@ function openBannerLink(navigation, linkUrl) {
   navigation.navigate('Shop');
 }
 
-const HomeHeader = memo(function HomeHeader({ navigation, user, token }) {
+const HomeHeader = memo(function HomeHeader() {
   const insets = useSafeAreaInsets();
   const T = useTheme();
-  const cartCount = useCartStore((state) =>
-    state.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)
-  );
-  const isLoggedIn = Boolean(token && user);
-  const avatarUri = resolveMediaUrl(
-    user?.avatar || user?.avatarUrl || user?.profilePicture || user?.image || ''
-  );
-
-  const openAccount = () => {
-    if (isLoggedIn) {
-      navigation.navigate('Main', { screen: 'Profile' });
-      return;
-    }
-    navigation.navigate('Login');
-  };
-
-  const openCart = () => {
-    navigation.navigate('Main', { screen: 'Cart' });
-  };
 
   return (
     <View
@@ -106,37 +86,6 @@ const HomeHeader = memo(function HomeHeader({ navigation, user, token }) {
           <Text style={[hStyles.brandName, { color: T.headerText }]}>EOnlineBazar</Text>
           <Text style={[hStyles.brandSub, { color: T.headerSub }]}>Trusted Shopping</Text>
         </View>
-      </View>
-      <View style={hStyles.headerActions}>
-        <Pressable
-          style={[hStyles.iconBtn, { backgroundColor: T.iconBtnBg }]}
-          onPress={openCart}
-          accessibilityRole="button"
-          accessibilityLabel="Open cart"
-        >
-          <Ionicons name="cart-outline" size={20} color={T.headerText} />
-          {cartCount > 0 ? (
-            <View style={hStyles.cartBadge}>
-              <Text style={hStyles.cartBadgeText} numberOfLines={1}>
-                {cartCount > 99 ? '99+' : cartCount}
-              </Text>
-            </View>
-          ) : null}
-        </Pressable>
-        <Pressable
-          style={[hStyles.accountBtn, { backgroundColor: T.iconBtnBg }]}
-          onPress={openAccount}
-          accessibilityRole="button"
-          accessibilityLabel={isLoggedIn ? 'Open profile' : 'Sign in'}
-        >
-          {isLoggedIn && avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={hStyles.accountAvatar} />
-          ) : (
-            <Text style={[hStyles.accountIcon, { color: T.headerText }]}>
-              {isLoggedIn ? String(user?.name || 'U').slice(0, 1).toUpperCase() : '👤'}
-            </Text>
-          )}
-        </Pressable>
       </View>
     </View>
   );
@@ -341,8 +290,6 @@ const HomeHero = memo(function HomeHero({
 
 function HomeScreen({ navigation }) {
   const T = useTheme();
-  const user = useAuthStore((state) => state.user);
-  const token = useAuthStore((state) => state.token);
   const addItem = useCartStore((state) => state.addItem);
   const showToast = useToastStore((state) => state.showToast);
   const [banners, setBanners] = useState([]);
@@ -420,7 +367,8 @@ function HomeScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: T.bg }]}>
-      <HomeHeader navigation={navigation} user={user} token={token} />
+      <AppStatusBar />
+      <HomeHeader />
       {heroError ? (
         <EmptyState
           type="network"
@@ -451,7 +399,6 @@ const hStyles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
@@ -461,54 +408,6 @@ const hStyles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     flex: 1,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  iconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cartBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#ef4444',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  cartBadgeText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  accountBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  accountAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-  },
-  accountIcon: {
-    fontSize: 18,
-    fontWeight: '700',
   },
   logo: {
     width: 38,

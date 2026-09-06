@@ -516,6 +516,18 @@ body {
     gap: 15px;
 }
 
+.btn-order-whatsapp {
+    grid-column: 1 / -1;
+    background: #25d366;
+    color: #fff;
+    border: none !important;
+}
+
+.btn-order-whatsapp:hover {
+    background: #1ebe57;
+    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.35);
+}
+
 .action-buttons-group button {
     padding: 14px;
     font-size: 16px;

@@ -12,11 +12,12 @@ import {
 } from 'react-native';
 import { endpoints } from '../api/endpoints';
 import AuthTextInput from '../components/auth/AuthTextInput';
+import AppStatusBar from '../components/AppStatusBar';
 import api from '../services/api';
 import useAuthStore from '../store/useAuthStore';
 import useThemeStore from '../store/useThemeStore';
 import useToastStore from '../store/useToastStore';
-import { useTheme } from '../theme/tokens';
+import { radius, useTheme } from '../theme/tokens';
 import { haptic } from '../utils/haptics';
 import { authIdentifierKeyboard, loginFieldErrors } from '../utils/authForm';
 
@@ -128,6 +129,7 @@ export default function LoginScreen({ navigation, route }) {
       style={[styles.flex, { backgroundColor: T.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <AppStatusBar />
       <ScrollView
         style={styles.flex}
         contentContainerStyle={styles.scroll}
@@ -285,7 +287,7 @@ const styles = StyleSheet.create({
   logo: {
     width: 72,
     height: 72,
-    borderRadius: 16,
+    borderRadius: radius.xl,
   },
   brandName: {
     fontSize: 24,
@@ -297,7 +299,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   card: {
-    borderRadius: 20,
+    borderRadius: radius.xxl,
     padding: 24,
     gap: 14,
     shadowOffset: { width: 0, height: 4 },
@@ -316,7 +318,7 @@ const styles = StyleSheet.create({
   },
   errorBanner: {
     backgroundColor: '#fef2f2',
-    borderRadius: 10,
+    borderRadius: radius.lg,
     padding: 12,
     borderWidth: 1,
     borderColor: '#fecaca',
@@ -332,7 +334,7 @@ const styles = StyleSheet.create({
   },
   infoBanner: {
     backgroundColor: '#ecfdf5',
-    borderRadius: 10,
+    borderRadius: radius.lg,
     padding: 12,
     borderWidth: 1,
     borderColor: '#a7f3d0',
@@ -374,7 +376,7 @@ const styles = StyleSheet.create({
   },
   loginBtn: {
     backgroundColor: '#f97316',
-    borderRadius: 12,
+    borderRadius: radius.lg,
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',
@@ -407,7 +409,7 @@ const styles = StyleSheet.create({
   },
   registerBtn: {
     borderWidth: 1.5,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     height: 48,
     justifyContent: 'center',
     alignItems: 'center',

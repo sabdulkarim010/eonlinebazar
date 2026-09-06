@@ -305,6 +305,7 @@ mobile/src/data/products.js              [REMOVED] dummy catalog deleted; shop u
 mobile/src/utils/normalizeProduct.js     [DONE] images + variants/colors/sizes/stock kept for PDP
 mobile/src/theme/palettes.js             [DONE] legacy nav/tab palette (App.js navigation chrome)
 mobile/src/theme/tokens.js               [NEW] unified design system — spacing, radius, fontSize, fontWeight, shadow, lightTheme/darkTheme, useTheme()
+mobile/src/components/AppStatusBar.js    [NEW] theme-aware StatusBar for all screens
 mobile/src/api/endpoints.js              [DONE] payment methods, initiate, payment-proof, coupons active-check routes
 mobile/src/store/useCartStore.js         [DONE] selected flag per line; toggleItemSelection/toggleSelectAll; selected totals
 mobile/src/api/cart.js                   [DONE] PUT /cart/toggle-selection for logged-in selection sync
