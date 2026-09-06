@@ -10,13 +10,14 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import AppImage from '../components/AppImage';
 import EmptyState from '../components/EmptyState';
 import AppStatusBar from '../components/AppStatusBar';
 import { OrderCardSkeleton } from '../components/SkeletonBox';
 import ScreenHeader from '../components/ScreenHeader';
 import useAuthStore from '../store/useAuthStore';
 import useOrderStore from '../store/useOrderStore';
-import { useTheme } from '../theme/tokens';
+import { radius, useTheme } from '../theme/tokens';
 
 const STATUS_TABS = [
   { id: 'all', label: 'All' },
@@ -27,7 +28,7 @@ const STATUS_TABS = [
   { id: 'cancelled', label: 'Cancelled' },
 ];
 
-const TRACK_STEPS = ['Placed', 'Processing', 'Shipped', 'Delivered'];
+const ORDER_STEPS = ['Pending', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered'];
 
 function formatBdt(price) {
   return `৳${Number(price || 0).toLocaleString('en-US')}`;
@@ -60,22 +61,103 @@ function orderMatchesTab(order, tabId) {
   return status === tabId;
 }
 
-function trackingStepIndex(order) {
-  const status = normalizeStatus(order.status);
-  if (status === 'cancelled' || status === 'canceled') return -1;
-  if (order.isDelivered || status === 'delivered') return 3;
-  if (status === 'shipped') return 2;
-  if (status === 'processing') return 1;
+function getStepIndex(status) {
+  const raw = String(status || 'Pending').trim();
+  const map = {
+    Pending: 0,
+    Processing: 1,
+    Shipped: 2,
+    'Out for Delivery': 3,
+    OutForDelivery: 3,
+    Delivered: 4,
+  };
+  if (map[raw] !== undefined) return map[raw];
+
+  const normalized = raw.toLowerCase();
+  if (normalized === 'cancelled' || normalized === 'canceled') return -1;
+  if (normalized === 'delivered') return 4;
+  if (normalized === 'out for delivery' || normalized === 'outfordelivery') return 3;
+  if (normalized === 'shipped') return 2;
+  if (normalized === 'processing') return 1;
   return 0;
 }
 
+function orderItemImageUri(item) {
+  return item.image || item.product?.image || item.product?.images?.[0] || '';
+}
+
+const StackedThumbs = memo(function StackedThumbs({ items, T }) {
+  const MAX = 3;
+  const visible = items.slice(0, MAX);
+  const extra = items.length - MAX;
+  const THUMB = 36;
+  const totalW = (visible.length - 1) * 22 + THUMB;
+
+  if (!items.length) return null;
+
+  return (
+    <View style={{ width: totalW + (extra > 0 ? 22 : 0), height: THUMB, position: 'relative', marginTop: 8 }}>
+      {visible.map((item, i) => {
+        const uri = orderItemImageUri(item);
+        return (
+          <View
+            key={`${item.id || item.productId || i}`}
+            style={{
+              position: 'absolute',
+              left: i * 22,
+              zIndex: MAX - i,
+              width: THUMB,
+              height: THUMB,
+              borderRadius: radius.md,
+              borderWidth: 2,
+              borderColor: T.card,
+              backgroundColor: T.cardSecondary,
+              overflow: 'hidden',
+            }}
+          >
+            <AppImage
+              source={uri ? { uri } : undefined}
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="cover"
+            />
+          </View>
+        );
+      })}
+      {extra > 0 ? (
+        <View
+          style={{
+            position: 'absolute',
+            left: visible.length * 22,
+            zIndex: 0,
+            width: THUMB,
+            height: THUMB,
+            borderRadius: radius.md,
+            borderWidth: 2,
+            borderColor: T.card,
+            backgroundColor: T.accent,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ color: T.textOnAccent, fontSize: 10, fontWeight: '800' }}>
+            +{extra}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+});
+
 const OrderTrackingBar = memo(function OrderTrackingBar({ order, T }) {
-  const activeStep = trackingStepIndex(order);
+  const activeStep = getStepIndex(order.status);
+  if (order?.isDelivered && activeStep < 4) {
+    activeStep = 4;
+  }
   if (activeStep < 0) return null;
 
   return (
     <View style={styles.trackingWrap}>
-      {TRACK_STEPS.map((step, index) => {
+      {ORDER_STEPS.map((step, index) => {
         const done = index <= activeStep;
         const current = index === activeStep;
         return (
@@ -90,7 +172,7 @@ const OrderTrackingBar = memo(function OrderTrackingBar({ order, T }) {
                   },
                 ]}
               />
-              {index < TRACK_STEPS.length - 1 ? (
+              {index < ORDER_STEPS.length - 1 ? (
                 <View
                   style={[
                     styles.trackingLine,
@@ -117,8 +199,6 @@ const OrderTrackingBar = memo(function OrderTrackingBar({ order, T }) {
 
 const OrderCard = memo(function OrderCard({ order, onPress, T }) {
   const items = Array.isArray(order.items) ? order.items : [];
-  const firstName = items[0]?.name;
-  const extra = items.length > 1 ? ` +${items.length - 1} more` : '';
   const total = order.grandTotal ?? order.totalAmount ?? 0;
   const status = order.status || 'Pending';
 
@@ -133,12 +213,7 @@ const OrderCard = memo(function OrderCard({ order, onPress, T }) {
         </Text>
         <Text style={[styles.status, { color: T.accent }]} numberOfLines={1}>{status}</Text>
       </View>
-      {firstName ? (
-        <Text style={[styles.items, { color: T.muted }]} numberOfLines={1}>
-          {firstName}
-          {extra}
-        </Text>
-      ) : null}
+      <StackedThumbs items={items} T={T} />
       <OrderTrackingBar order={order} T={T} />
       <View style={styles.cardBottom}>
         <Text style={[styles.date, { color: T.muted }]}>{formatDate(order.createdAt)}</Text>
@@ -420,10 +495,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  items: {
-    fontSize: 14,
-    marginTop: 8,
-  },
   trackingWrap: {
     flexDirection: 'row',
     marginTop: 12,
@@ -440,18 +511,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   trackingDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
   },
   trackingLine: {
     flex: 1,
     height: 2,
-    marginHorizontal: 2,
+    marginHorizontal: 1,
   },
   trackingLabel: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '600',
     marginTop: 4,
     textAlign: 'center',

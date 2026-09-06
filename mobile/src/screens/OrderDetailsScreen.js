@@ -20,6 +20,7 @@ import useOrderStore from '../store/useOrderStore';
 import { useTheme } from '../theme/tokens';
 import useToastStore from '../store/useToastStore';
 import { resolveOrderTracking } from '../utils/courierTracking';
+import { buildWhatsAppUrl } from '../utils/supportLinks';
 
 const RETURN_REASONS = [
   'Wrong item received',
@@ -72,13 +73,32 @@ function orderDiscountAmount(order) {
   ) || 0;
 }
 
-function statusColors(status, theme) {
-  const value = normalizeStatus(status);
-  if (value.includes('deliver')) return { bg: theme.successBg, fg: theme.success };
-  if (value.includes('cancel')) return { bg: theme.errorBg, fg: theme.error };
-  if (value.includes('ship')) return { bg: theme.infoBg, fg: theme.info };
-  if (value.includes('return')) return { bg: theme.warningBg, fg: theme.warning };
-  return { bg: theme.warningBg, fg: theme.warning };
+function resolveStatusStyle(status, T) {
+  const raw = String(status || 'Pending').trim();
+  const STATUS_STYLES = {
+    Pending: { bg: T.statusPending.bg, text: T.statusPending.text, icon: 'time-outline' },
+    Processing: { bg: T.statusProcessing.bg, text: T.statusProcessing.text, icon: 'cog-outline' },
+    Shipped: { bg: T.statusShipped.bg, text: T.statusShipped.text, icon: 'airplane-outline' },
+    'Out for Delivery': { bg: T.infoBg, text: T.info, icon: 'bicycle-outline' },
+    Delivered: { bg: T.statusDelivered.bg, text: T.statusDelivered.text, icon: 'checkmark-circle-outline' },
+    Cancelled: { bg: T.statusCancelled.bg, text: T.statusCancelled.text, icon: 'close-circle-outline' },
+  };
+
+  if (STATUS_STYLES[raw]) return { ...STATUS_STYLES[raw], label: raw };
+
+  const lower = raw.toLowerCase();
+  if (lower === 'canceled') return { ...STATUS_STYLES.Cancelled, label: raw };
+  if (lower === 'out for delivery' || lower === 'outfordelivery') {
+    return { ...STATUS_STYLES['Out for Delivery'], label: 'Out for Delivery' };
+  }
+  if (lower === 'return requested') {
+    return { bg: T.warningBg, text: T.warning, icon: 'return-down-back-outline', label: raw };
+  }
+
+  const titleCase = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+  return STATUS_STYLES[titleCase]
+    ? { ...STATUS_STYLES[titleCase], label: raw }
+    : { ...STATUS_STYLES.Pending, label: raw };
 }
 
 function findLocalOrder(orders, currentOrder, orderId) {
@@ -145,7 +165,7 @@ export default function OrderDetailsScreen({ navigation, route }) {
   const cancelOrder = useOrderStore((state) => state.cancelOrder);
   const requestReturn = useOrderStore((state) => state.requestReturn);
   const showToast = useToastStore((state) => state.showToast);
-  const { guestHelpUrl } = useSupportWhatsApp();
+  const { phone, guestHelpUrl } = useSupportWhatsApp();
   const [cancelling, setCancelling] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [returnReason, setReturnReason] = useState('');
@@ -278,7 +298,8 @@ export default function OrderDetailsScreen({ navigation, route }) {
   }
 
   const items = Array.isArray(order.items) ? order.items : [];
-  const badge = statusColors(order.status, T);
+  const statusStyle = resolveStatusStyle(order.status, T);
+  const orderWhatsAppUrl = buildWhatsAppUrl(phone, `Order ${order.orderId || orderId || ''}`);
   const subtotal = Number(order.subTotal ?? order.subtotal ?? 0);
   const deliveryCharge = Number(order.deliveryCharge ?? order.shippingFee ?? 0);
   const discount = orderDiscountAmount(order);
@@ -294,9 +315,10 @@ export default function OrderDetailsScreen({ navigation, route }) {
       >
         <View style={styles.headerRow}>
           <Text style={[styles.orderId, { color: T.text }]}>{order.orderId || 'Order'}</Text>
-          <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-            <Text style={[styles.badgeText, { color: badge.fg }]}>
-              {order.status || 'Pending'}
+          <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+            <Ionicons name={statusStyle.icon} size={14} color={statusStyle.text} />
+            <Text style={[styles.statusText, { color: statusStyle.text }]}>
+              {statusStyle.label}
             </Text>
           </View>
         </View>
@@ -465,6 +487,32 @@ export default function OrderDetailsScreen({ navigation, route }) {
           </Text>
         </View>
 
+        <View style={[styles.actionsSection, { backgroundColor: T.card, borderColor: T.border }]}>
+          <Text style={[styles.actionsSectionTitle, { color: T.textSub }]}>
+            Need Help?
+          </Text>
+
+          <Pressable
+            style={[styles.supportBtn, { borderColor: T.brandWhatsApp }]}
+            onPress={() => Linking.openURL(orderWhatsAppUrl || guestHelpUrl)}
+          >
+            <Text style={styles.supportEmoji}>💬</Text>
+            <Text style={[styles.supportBtnText, { color: T.brandWhatsApp }]}>
+              WhatsApp Support
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.supportBtn, { borderColor: T.accent }]}
+            onPress={() => navigation.navigate('LiveSupport')}
+          >
+            <Ionicons name="chatbubble-outline" size={18} color={T.accent} />
+            <Text style={[styles.supportBtnText, { color: T.accent }]}>
+              Live Chat
+            </Text>
+          </Pressable>
+        </View>
+
         {isPending ? (
           <Pressable
             style={({ pressed }) => [
@@ -596,6 +644,18 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 10,
     paddingVertical: 5,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   badgeText: {
     fontSize: 12,
@@ -770,6 +830,36 @@ const styles = StyleSheet.create({
   shipLine: {
     fontSize: 14,
     marginTop: 4,
+  },
+  actionsSection: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+    marginTop: 18,
+    gap: 10,
+  },
+  actionsSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  supportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  supportEmoji: {
+    fontSize: 18,
+  },
+  supportBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   cancelBtn: {
     marginTop: 24,
