@@ -5,6 +5,7 @@ import {
   Alert,
   Dimensions,
   FlatList,
+  Linking,
   Pressable,
   ScrollView,
   Share,
@@ -23,6 +24,7 @@ import useCartStore from '../store/useCartStore';
 import useProductStore from '../store/useProductStore';
 import { useTheme } from '../theme/tokens';
 import useToastStore from '../store/useToastStore';
+import useSupportWhatsApp from '../hooks/useSupportWhatsApp';
 import { haptic } from '../utils/haptics';
 import {
   getVariantPrice,
@@ -31,7 +33,7 @@ import {
 } from '../utils/normalizeProduct';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const STICKY_BAR_HEIGHT = 72;
+const STICKY_BAR_HEIGHT = 120;
 
 function formatBdt(price) {
   return `৳${Number(price || 0).toLocaleString('en-US')}`;
@@ -42,6 +44,7 @@ export default function ProductDetailsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const productId = route.params?.productId;
   const autoOpenCart = route.params?.autoOpenCart;
+  const autoOpenReview = route.params?.autoOpenReview;
   const fetchProductById = useProductStore((state) => state.fetchProductById);
   const isProductLoading = useProductStore((state) => state.isProductLoading);
   const productError = useProductStore((state) => state.productError);
@@ -57,6 +60,7 @@ export default function ProductDetailsScreen({ navigation, route }) {
   });
   const addItem = useCartStore((state) => state.addItem);
   const showToast = useToastStore((state) => state.showToast);
+  const { productOrderUrl } = useSupportWhatsApp();
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState(null);
@@ -65,7 +69,9 @@ export default function ProductDetailsScreen({ navigation, route }) {
   const [relatedProducts, setRelatedProducts] = useState([]);
   const scrollRef = useRef(null);
   const variantSectionRef = useRef(null);
+  const reviewsSectionY = useRef(0);
   const autoOpenCartHandled = useRef(false);
+  const autoOpenReviewHandled = useRef(false);
 
   useEffect(() => {
     if (productId) fetchProductById(productId);
@@ -166,6 +172,17 @@ export default function ProductDetailsScreen({ navigation, route }) {
     return () => clearTimeout(timer);
   }, [autoOpenCart, product, showToast]);
 
+  useEffect(() => {
+    if (!autoOpenReview || !product || autoOpenReviewHandled.current) return undefined;
+    autoOpenReviewHandled.current = true;
+    const timer = setTimeout(() => {
+      if (reviewsSectionY.current > 0) {
+        scrollRef.current?.scrollTo({ y: reviewsSectionY.current, animated: true });
+      }
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [autoOpenReview, product]);
+
   const decreaseQty = useCallback(() => {
     setQuantity((current) => Math.max(1, current - 1));
   }, []);
@@ -234,6 +251,22 @@ export default function ProductDetailsScreen({ navigation, route }) {
   const openRelatedProduct = useCallback((item) => {
     navigation.push('ProductDetails', { productId: item.id });
   }, [navigation]);
+
+  const handleOrderViaWhatsApp = useCallback(async () => {
+    if (!product) return;
+    const url = productOrderUrl(product.name, currentPrice);
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        showToast('WhatsApp is not available on this device.', 'error');
+        return;
+      }
+      haptic.light();
+      await Linking.openURL(url);
+    } catch {
+      showToast('Could not open WhatsApp.', 'error');
+    }
+  }, [currentPrice, product, productOrderUrl, showToast]);
 
   if (!product && isProductLoading) {
     return (
@@ -438,11 +471,18 @@ export default function ProductDetailsScreen({ navigation, route }) {
           ) : null}
         </View>
 
-        <ReviewsSection
-          productId={product.id}
-          product={product}
-          navigation={navigation}
-        />
+        <View
+          onLayout={(event) => {
+            reviewsSectionY.current = event.nativeEvent.layout.y;
+          }}
+        >
+          <ReviewsSection
+            productId={product.id}
+            product={product}
+            navigation={navigation}
+            autoOpenReview={autoOpenReview}
+          />
+        </View>
 
         {relatedProducts.length > 0 ? (
           <View style={styles.relatedSection}>
@@ -473,6 +513,7 @@ export default function ProductDetailsScreen({ navigation, route }) {
           },
         ]}
       >
+        <View style={styles.stickyActionsRow}>
         <Pressable
           style={({ pressed }) => [
             styles.cartBtn,
@@ -500,6 +541,17 @@ export default function ProductDetailsScreen({ navigation, route }) {
           disabled={outOfStock || adding}
         >
           <Text style={[styles.buyBtnText, { color: T.primaryBtnText }]}>Buy Now</Text>
+        </Pressable>
+        </View>
+        <Pressable
+          style={({ pressed }) => [
+            styles.whatsappBtn,
+            pressed && styles.whatsappBtnPressed,
+          ]}
+          onPress={handleOrderViaWhatsApp}
+        >
+          <Ionicons name="logo-whatsapp" size={18} color="#ffffff" />
+          <Text style={styles.whatsappBtnText}>Order via WhatsApp</Text>
         </Pressable>
       </View>
     </View>
@@ -704,11 +756,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     paddingHorizontal: 12,
     paddingTop: 12,
     borderTopWidth: 1,
+  },
+  stickyActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
   },
   cartBtn: {
     flex: 1,
@@ -731,6 +786,23 @@ const styles = StyleSheet.create({
   },
   buyBtnText: {
     fontSize: 15,
+    fontWeight: '700',
+  },
+  whatsappBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#25D366',
+  },
+  whatsappBtnPressed: {
+    opacity: 0.88,
+  },
+  whatsappBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: '700',
   },
   btnDisabled: {

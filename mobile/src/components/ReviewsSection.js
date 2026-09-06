@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -100,7 +100,12 @@ function StarSelector({ value, onChange, colors }) {
   );
 }
 
-export default function ReviewsSection({ productId, product, navigation }) {
+export default function ReviewsSection({
+  productId,
+  product,
+  navigation,
+  autoOpenReview = false,
+}) {
   const { colors } = useAppTheme();
   const token = useAuthStore((state) => state.token);
   const fetchOrderHistory = useOrderStore((state) => state.fetchOrderHistory);
@@ -111,6 +116,7 @@ export default function ReviewsSection({ productId, product, navigation }) {
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [eligibleOrder, setEligibleOrder] = useState(null);
+  const autoOpenReviewHandled = useRef(false);
 
   const ids = useMemo(
     () => uniqueIds(productId, product?.id, product?._id, product?.productId),
@@ -204,6 +210,15 @@ export default function ReviewsSection({ productId, product, navigation }) {
     setEligibleOrder(eligible);
     setShowWriteReview(true);
   }, [findEligibleOrder, navigation, token]);
+
+  useEffect(() => {
+    if (!autoOpenReview || autoOpenReviewHandled.current) return undefined;
+    autoOpenReviewHandled.current = true;
+    const timer = setTimeout(() => {
+      openWriteReview();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [autoOpenReview, openWriteReview]);
 
   const submitReview = useCallback(async () => {
     if (!token) {

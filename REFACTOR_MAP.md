@@ -252,7 +252,8 @@ mobile/src/screens/CartScreen.js         [DONE] Clickable images + variant displ
 mobile/src/screens/OrdersScreen.js       [DONE] silent refetch on refocus; memo OrderCard; one list tree
 mobile/src/screens/OrderDetailsScreen.js [DONE] Clickable images
 mobile/src/screens/ProfileScreen.js      [DONE] Full mobile + phone badge; avatar upload; premium menu hub
-mobile/src/screens/EditProfileScreen.js  [NEW] Name + email/phone OTP contact updates
+mobile/src/screens/EditProfileScreen.js  [DONE] Premium iOS settings layout — identity card, grouped rows, bottom-sheet edits, logout/delete
+mobile/src/components/profile/ProfileEditSheet.js [NEW] Spring bottom sheet — name save + email/phone OTP verify in-sheet
 mobile/src/screens/SecuritySettingsScreen.js [NEW] Active sessions + logout devices
 mobile/src/screens/WalletScreen.js       [NEW] Balance, transactions, convert points
 mobile/src/screens/LoyaltyPointsScreen.js [NEW] Points balance + activity + wallet link
@@ -289,7 +290,13 @@ mobile/src/store/useLanguageStore.js     [NEW] EN/BN language preference + Async
 mobile/src/i18n/translations.js          [NEW] Mobile i18n string table (core keys)
 mobile/src/components/ProductGrid.js     [DONE] Star ratings, stock badges, discount %, premium search borderRadius 16
 mobile/src/screens/HomeScreen.js         [DONE] Header avatar/login + CategoryGrid in hero
-mobile/src/screens/OrderDetailsScreen.js [DONE] OrderStatusTimeline tracking section
+mobile/src/screens/OrderDetailsScreen.js [DONE] OrderStatusTimeline; review CTA per item; courier track; return modal; discount row
+mobile/src/api/orders.js                 [NEW] POST /orders/:id/return helper
+mobile/src/utils/courierTracking.js      [NEW] courierProvider + trackingId URL builder
+mobile/src/store/useOrderStore.js        [DONE] requestReturn action
+mobile/src/api/endpoints.js              [DONE] orderReturn route
+mobile/src/components/ReviewsSection.js  [DONE] autoOpenReview prop opens write modal
+mobile/src/screens/ProductDetailsScreen.js [DONE] autoOpenReview scroll + ReviewsSection hook
 mobile/src/screens/ProfileScreen.js      [DONE] Language switcher (logged-in + guest preferences)
 mobile/App.js                            [DONE] hydrate useLanguageStore on boot
 AUDIT_REPORT.md                          [NEW] Full mobile audit summary (2026-09-04)
@@ -328,3 +335,25 @@ mobile/src/store/useToastStore.js        [DONE] showToast/hideToast banners
 mobile/src/store/useWishlistStore.js     [DONE] persist + loadFromServer/syncToServer; toggle hits /wishlist/toggle
 mobile/src/store/useThemeStore.js        [DONE] light/dark mode; hydrate() called from App.js useEffect
 mobile/src/store/useProductStore.js      [DONE] live catalog from GET /api/products
+mobile/src/navigation/AppNavigator.js    [DONE] ProfileTabIcon — destructure `color` prop + safe icon/accent fallbacks on logout
+mobile/src/components/ErrorBoundary.js   [DONE] componentDidCatch — optional chaining on error/info before logging
+mobile/src/screens/HomeScreen.js         [DONE] Logo-only header (cart/profile icons removed from top bar)
+mobile/src/screens/ProfileScreen.js      [DONE] Orders/Wishlist stat boxes only — removed duplicate menu rows from SHOPPING section
+mobile/src/screens/LiveSupportScreen.js  [DONE] WhatsApp deep-link via GET /store/branding publicSupportWhatsApp + canOpenURL guard
+mobile/src/components/support/AriaChatPanel.js [DONE] Aria header avatar — app icon image with emoji fallback
+mobile/src/api/store.js                  [DONE] GET /store/branding + extractSupportWhatsApp helper
+mobile/src/utils/supportLinks.js         [DONE] Guest help message "I have a query." + buildProductOrderWhatsAppUrl
+mobile/src/hooks/useSupportWhatsApp.js   [NEW] Fetch GET /store/branding publicSupportWhatsApp for screens
+mobile/src/screens/ProductDetailsScreen.js [DONE] Order via WhatsApp sticky action — dynamic product title + price
+mobile/src/screens/ProfileScreen.js      [DONE] Premium guest hub — shield hero, auth CTAs, WhatsApp support quick row
+mobile/src/screens/HomeScreen.js         [DONE] Minimal logo-only header — WhatsApp icon removed from home top bar
+client/js/whatsapp.js                    [DONE] Guest query message; product order URLs; floating/auth links only
+client/partials/shared-header.html       [DONE] Minimal header — nav WhatsApp icon removed
+client/css/global/_header.css            [DONE] Removed .nav-whatsapp-btn (header cleanup)
+client/product-details.html              [DONE] Order via WhatsApp button + store-branding/whatsapp scripts
+client/css/product-details.css           [DONE] .btn-order-whatsapp full-width green action
+client/js/pdp/qty-cart.js                [DONE] setupOrderWhatsAppButton — dynamic product order deep link
+client/js/product-details.js             [DONE] wires setupOrderWhatsAppButton on DOMContentLoaded
+client/login.html                        [DONE] Guest auth — Need Help? Chat on WhatsApp support card
+client/register.html                     [DONE] Guest auth — Need Help? Chat on WhatsApp support card
+client/css/auth.css                      [DONE] .auth-whatsapp-support card styles

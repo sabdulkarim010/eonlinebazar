@@ -1,18 +1,32 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import useSupportWhatsApp from '../hooks/useSupportWhatsApp';
+import OrderStatusTimeline from '../components/OrderStatusTimeline';
 import useOrderStore from '../store/useOrderStore';
 import { useTheme } from '../theme/tokens';
 import useToastStore from '../store/useToastStore';
-import OrderStatusTimeline from '../components/OrderStatusTimeline';
+import { resolveOrderTracking } from '../utils/courierTracking';
+
+const RETURN_REASONS = [
+  'Wrong item received',
+  'Damaged / defective product',
+  'Item not as described',
+  'Changed my mind',
+  'Other',
+];
 
 function formatBdt(price) {
   return `৳${Number(price || 0).toLocaleString('en-US')}`;
@@ -31,12 +45,39 @@ function formatDate(value) {
   });
 }
 
+function normalizeStatus(status) {
+  return String(status || '').trim().toLowerCase();
+}
+
+function isDeliveredStatus(status) {
+  return normalizeStatus(status) === 'delivered';
+}
+
+function isShippedStatus(status) {
+  return normalizeStatus(status) === 'shipped';
+}
+
+function isReturnRequested(order) {
+  return normalizeStatus(order?.status) === 'return requested'
+    || Boolean(order?.returnRequested);
+}
+
+function orderDiscountAmount(order) {
+  return Number(
+    order?.discountAmount
+    ?? order?.discount
+    ?? order?.couponDiscount
+    ?? 0
+  ) || 0;
+}
+
 function statusColors(status, theme) {
-  const value = String(status || '').toLowerCase();
-  if (value.includes('deliver')) return { bg: '#e6f4ea', fg: theme.success };
-  if (value.includes('cancel')) return { bg: '#fdecea', fg: theme.price };
-  if (value.includes('ship')) return { bg: '#eef2ff', fg: '#3730a3' };
-  return { bg: '#fff4e5', fg: '#b45309' };
+  const value = normalizeStatus(status);
+  if (value.includes('deliver')) return { bg: theme.successBg, fg: theme.success };
+  if (value.includes('cancel')) return { bg: theme.errorBg, fg: theme.error };
+  if (value.includes('ship')) return { bg: theme.infoBg, fg: theme.info };
+  if (value.includes('return')) return { bg: theme.warningBg, fg: theme.warning };
+  return { bg: theme.warningBg, fg: theme.warning };
 }
 
 function findLocalOrder(orders, currentOrder, orderId) {
@@ -66,6 +107,32 @@ function orderVariantLabel(item) {
   return label || '';
 }
 
+function TotalRow({ label, value, bold, valueStyle, T }) {
+  return (
+    <View style={styles.totalRow}>
+      <Text
+        style={[
+          styles.totalLabel,
+          bold && styles.totalLabelBold,
+          { color: T.textSub },
+        ]}
+      >
+        {label}
+      </Text>
+      <Text
+        style={[
+          styles.totalValue,
+          bold && styles.totalValueBold,
+          { color: T.text },
+          valueStyle,
+        ]}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
 export default function OrderDetailsScreen({ navigation, route }) {
   const T = useTheme();
   const orderId = route.params?.orderId;
@@ -75,8 +142,13 @@ export default function OrderDetailsScreen({ navigation, route }) {
   const error = useOrderStore((state) => state.error);
   const fetchOrderById = useOrderStore((state) => state.fetchOrderById);
   const cancelOrder = useOrderStore((state) => state.cancelOrder);
+  const requestReturn = useOrderStore((state) => state.requestReturn);
   const showToast = useToastStore((state) => state.showToast);
+  const { guestHelpUrl } = useSupportWhatsApp();
   const [cancelling, setCancelling] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnReason, setReturnReason] = useState('');
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
 
   const order = useMemo(
     () => findLocalOrder(orders, currentOrder, orderId),
@@ -87,7 +159,15 @@ export default function OrderDetailsScreen({ navigation, route }) {
     if (orderId) fetchOrderById(orderId);
   }, [orderId, fetchOrderById]);
 
-  const isPending = String(order?.status || '').toLowerCase() === 'pending';
+  const isPending = normalizeStatus(order?.status) === 'pending';
+  const isDelivered = isDeliveredStatus(order?.status);
+  const isShipped = isShippedStatus(order?.status);
+  const returnRequested = order ? isReturnRequested(order) : false;
+
+  const tracking = useMemo(
+    () => resolveOrderTracking(order || {}),
+    [order]
+  );
 
   const handleCancel = () => {
     Alert.alert(
@@ -113,6 +193,68 @@ export default function OrderDetailsScreen({ navigation, route }) {
     );
   };
 
+  const handleTrackOrder = useCallback(async () => {
+    if (!order) return;
+
+    if (tracking.trackingUrl) {
+      try {
+        const supported = await Linking.canOpenURL(tracking.trackingUrl);
+        if (!supported) {
+          showToast('Could not open tracking link.', 'error');
+          return;
+        }
+        await Linking.openURL(tracking.trackingUrl);
+      } catch {
+        showToast('Could not open tracking link.', 'error');
+      }
+      return;
+    }
+
+    if (tracking.trackingNumber) {
+      Alert.alert(
+        'Tracking unavailable',
+        `${tracking.courierName || 'Courier'}: ${tracking.trackingNumber}\n\nContact support for live updates.`,
+        [
+          { text: 'WhatsApp', onPress: () => Linking.openURL(guestHelpUrl) },
+          { text: 'OK', style: 'cancel' },
+        ]
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Order Shipped',
+      'Your order is on its way!\n\nFor tracking updates, contact us via WhatsApp or Live Chat.',
+      [
+        { text: 'WhatsApp', onPress: () => Linking.openURL(guestHelpUrl) },
+        { text: 'OK', style: 'cancel' },
+      ]
+    );
+  }, [guestHelpUrl, order, showToast, tracking.courierName, tracking.trackingNumber, tracking.trackingUrl]);
+
+  const submitReturn = async () => {
+    if (!returnReason || !order) return;
+    setReturnSubmitting(true);
+    try {
+      const result = await requestReturn(order._id || order.orderId || orderId, returnReason);
+      if (!result.success) {
+        Alert.alert('Error', result.message || 'Failed to submit return request. Please try again.');
+        return;
+      }
+      setShowReturnModal(false);
+      setReturnReason('');
+      await fetchOrderById(orderId);
+      Alert.alert(
+        'Submitted',
+        result.message || 'Your return request has been submitted. We will review it within 24 hours.'
+      );
+    } catch {
+      Alert.alert('Error', 'Failed to submit return request. Please try again.');
+    } finally {
+      setReturnSubmitting(false);
+    }
+  };
+
   if (!order && isLoading) {
     return (
       <View style={[styles.centered, { backgroundColor: T.bg }]}>
@@ -134,124 +276,281 @@ export default function OrderDetailsScreen({ navigation, route }) {
 
   const items = Array.isArray(order.items) ? order.items : [];
   const badge = statusColors(order.status, T);
-  const total = order.grandTotal ?? order.totalAmount ?? 0;
+  const subtotal = Number(order.subTotal ?? order.subtotal ?? 0);
+  const deliveryCharge = Number(order.deliveryCharge ?? order.shippingFee ?? 0);
+  const discount = orderDiscountAmount(order);
+  const total = Number(order.grandTotal ?? order.totalAmount ?? 0);
+  const couponCode = String(order.couponCode || '').trim();
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: T.bg }]}
-      contentContainerStyle={styles.content}
-    >
-      <View style={styles.headerRow}>
-        <Text style={[styles.orderId, { color: T.text }]}>{order.orderId || 'Order'}</Text>
-        <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-          <Text style={[styles.badgeText, { color: badge.fg }]}>
-            {order.status || 'Pending'}
-          </Text>
+    <>
+      <ScrollView
+        style={[styles.container, { backgroundColor: T.bg }]}
+        contentContainerStyle={styles.content}
+      >
+        <View style={styles.headerRow}>
+          <Text style={[styles.orderId, { color: T.text }]}>{order.orderId || 'Order'}</Text>
+          <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+            <Text style={[styles.badgeText, { color: badge.fg }]}>
+              {order.status || 'Pending'}
+            </Text>
+          </View>
         </View>
-      </View>
-      <Text style={[styles.meta, { color: T.muted }]}>{formatDate(order.createdAt)}</Text>
+        <Text style={[styles.meta, { color: T.muted }]}>{formatDate(order.createdAt)}</Text>
 
-      <Text style={[styles.section, { color: T.text }]}>Order tracking</Text>
-      <View style={[styles.timelineCard, { backgroundColor: T.card, borderColor: T.border }]}>
-        <OrderStatusTimeline status={order.status} colors={T} />
-      </View>
+        <Text style={[styles.section, { color: T.text }]}>Order tracking</Text>
+        <View style={[styles.timelineCard, { backgroundColor: T.card, borderColor: T.border }]}>
+          <OrderStatusTimeline status={order.status} colors={T} />
+        </View>
 
-      <Text style={[styles.section, { color: T.text }]}>Items</Text>
-      {items.map((item, index) => {
-        const qty = Number(item.quantity) || 1;
-        const price = Number(item.price) || 0;
-        const productId = orderItemProductId(item);
-        const imageUri = orderItemImageUri(item);
-        const variantText = orderVariantLabel(item);
-        return (
+        {isShipped ? (
           <Pressable
-            key={`${item.id || item.productId || index}`}
-            style={[styles.line, { backgroundColor: T.card, borderColor: T.border }]}
-            onPress={() => {
-              if (productId) {
-                navigation.navigate('ProductDetails', { productId });
-              }
-            }}
+            style={({ pressed }) => [
+              styles.trackBtn,
+              {
+                backgroundColor: T.infoBg,
+                borderColor: T.infoBorder,
+              },
+              pressed && styles.btnPressed,
+            ]}
+            onPress={handleTrackOrder}
           >
-            {imageUri ? (
-              <Image
-                source={{ uri: imageUri }}
-                style={[styles.lineImage, { backgroundColor: T.imageBg }]}
-              />
-            ) : (
-              <View style={[styles.lineImage, { backgroundColor: T.imageBg }]} />
-            )}
-            <View style={styles.lineBody}>
-              <Text style={[styles.lineName, { color: T.text }]}>{item.name || 'Product'}</Text>
-              {variantText ? (
-                <Text style={[styles.lineVariant, { color: T.muted, backgroundColor: T.qtyBg }]}>
-                  {variantText}
+            <Ionicons name="location-outline" size={18} color={T.info} />
+            <View style={styles.trackCopy}>
+              <Text style={[styles.trackTitle, { color: T.info }]}>
+                Track Your Package
+              </Text>
+              {tracking.trackingNumber ? (
+                <Text style={[styles.trackNumber, { color: T.textMuted }]}>
+                  {tracking.courierName ? `${tracking.courierName}: ` : ''}
+                  {tracking.trackingNumber}
                 </Text>
               ) : null}
-              <Text style={[styles.lineMeta, { color: T.muted }]}>
-                Qty {qty} × {formatBdt(price)}
-              </Text>
             </View>
-            <Text style={[styles.lineTotal, { color: T.text }]}>{formatBdt(price * qty)}</Text>
+            <Ionicons name="chevron-forward" size={16} color={T.info} />
           </Pressable>
-        );
-      })}
-
-      <View style={[styles.totals, { backgroundColor: T.card, borderColor: T.border }]}>
-        <View style={styles.totalRow}>
-          <Text style={[styles.totalLabel, { color: T.muted }]}>Subtotal</Text>
-          <Text style={[styles.totalValue, { color: T.text }]}>
-            {formatBdt(order.subTotal ?? order.subtotal)}
-          </Text>
-        </View>
-        <View style={styles.totalRow}>
-          <Text style={[styles.totalLabel, { color: T.muted }]}>Delivery</Text>
-          <Text style={[styles.totalValue, { color: T.text }]}>
-            {formatBdt(order.deliveryCharge ?? order.shippingFee)}
-          </Text>
-        </View>
-        <View style={styles.totalRow}>
-          <Text style={[styles.grandLabel, { color: T.text }]}>Total</Text>
-          <Text style={[styles.grandValue, { color: T.price }]}>{formatBdt(total)}</Text>
-        </View>
-      </View>
-
-      <Text style={[styles.section, { color: T.text }]}>Shipping address</Text>
-      <View style={[styles.card, { backgroundColor: T.card, borderColor: T.border }]}>
-        <Text style={[styles.shipName, { color: T.text }]}>{order.customerName || '—'}</Text>
-        <Text style={[styles.shipLine, { color: T.text }]}>{order.customerPhone || ''}</Text>
-        <Text style={[styles.shipLine, { color: T.text }]}>{order.customerAddress || '—'}</Text>
-        {order.shippingDistrict ? (
-          <Text style={[styles.shipLine, { color: T.text }]}>{order.shippingDistrict}</Text>
         ) : null}
-      </View>
 
-      <Text style={[styles.section, { color: T.text }]}>Payment</Text>
-      <View style={[styles.card, { backgroundColor: T.card, borderColor: T.border }]}>
-        <Text style={[styles.shipLine, { color: T.text }]}>
-          {order.paymentMethod || 'Cash on Delivery'}
-        </Text>
-      </View>
+        <Text style={[styles.section, { color: T.text }]}>Items</Text>
+        {items.map((item, index) => {
+          const qty = Number(item.quantity) || 1;
+          const price = Number(item.price) || 0;
+          const productId = orderItemProductId(item);
+          const imageUri = orderItemImageUri(item);
+          const variantText = orderVariantLabel(item);
+          return (
+            <View
+              key={`${item.id || item.productId || index}`}
+              style={[styles.lineWrap, { borderColor: T.border, backgroundColor: T.card }]}
+            >
+              <Pressable
+                style={styles.line}
+                onPress={() => {
+                  if (productId) {
+                    navigation.navigate('ProductDetails', { productId });
+                  }
+                }}
+              >
+                {imageUri ? (
+                  <Image
+                    source={{ uri: imageUri }}
+                    style={[styles.lineImage, { backgroundColor: T.imageBg }]}
+                  />
+                ) : (
+                  <View style={[styles.lineImage, { backgroundColor: T.imageBg }]} />
+                )}
+                <View style={styles.lineBody}>
+                  <Text style={[styles.lineName, { color: T.text }]}>{item.name || 'Product'}</Text>
+                  {variantText ? (
+                    <Text style={[styles.lineVariant, { color: T.muted, backgroundColor: T.qtyBg }]}>
+                      {variantText}
+                    </Text>
+                  ) : null}
+                  <Text style={[styles.lineMeta, { color: T.muted }]}>
+                    Qty {qty} × {formatBdt(price)}
+                  </Text>
+                </View>
+                <Text style={[styles.lineTotal, { color: T.text }]}>{formatBdt(price * qty)}</Text>
+              </Pressable>
 
-      {isPending ? (
-        <Pressable
-          style={({ pressed }) => [
-            styles.cancelBtn,
-            { borderColor: T.price },
-            pressed && styles.cancelBtnPressed,
-            cancelling && styles.btnDisabled,
-          ]}
-          onPress={handleCancel}
-          disabled={cancelling}
-        >
-          {cancelling ? (
-            <ActivityIndicator color={T.price} />
+              {isDelivered && productId ? (
+                <Pressable
+                  style={[styles.reviewCta, { backgroundColor: T.accentLight }]}
+                  onPress={() => navigation.navigate('ProductDetails', {
+                    productId,
+                    autoOpenReview: true,
+                  })}
+                >
+                  <Ionicons name="star-outline" size={14} color={T.accent} />
+                  <Text style={[styles.reviewCtaText, { color: T.accent }]}>
+                    Write a Review
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+          );
+        })}
+
+        {isDelivered && !returnRequested ? (
+          <Pressable
+            style={({ pressed }) => [
+              styles.returnBtn,
+              { borderColor: T.border },
+              pressed && styles.btnPressed,
+            ]}
+            onPress={() => setShowReturnModal(true)}
+          >
+            <Ionicons name="return-down-back-outline" size={16} color={T.textSub} />
+            <Text style={[styles.returnBtnText, { color: T.textSub }]}>
+              Request Return / Refund
+            </Text>
+          </Pressable>
+        ) : null}
+
+        {returnRequested ? (
+          <View style={[styles.returnStatus, { backgroundColor: T.warningBg, borderColor: T.warningBorder }]}>
+            <Ionicons name="time-outline" size={16} color={T.warning} />
+            <Text style={[styles.returnStatusText, { color: T.warning }]}>
+              Return requested — under review
+            </Text>
+          </View>
+        ) : null}
+
+        <View style={[styles.totals, { backgroundColor: T.card, borderColor: T.border }]}>
+          <TotalRow label="Subtotal" value={formatBdt(subtotal)} T={T} />
+
+          {deliveryCharge > 0 ? (
+            <TotalRow label="Delivery" value={formatBdt(deliveryCharge)} T={T} />
           ) : (
-            <Text style={[styles.cancelBtnText, { color: T.price }]}>Cancel Order</Text>
+            <TotalRow
+              label="Delivery"
+              value="FREE"
+              valueStyle={{ color: T.success }}
+              T={T}
+            />
           )}
-        </Pressable>
-      ) : null}
-    </ScrollView>
+
+          {discount > 0 ? (
+            <TotalRow
+              label={`Coupon${couponCode ? ` (${couponCode})` : ''}`}
+              value={`−${formatBdt(discount)}`}
+              valueStyle={{ color: T.success }}
+              T={T}
+            />
+          ) : null}
+
+          <View style={[styles.totalDivider, { backgroundColor: T.border }]} />
+
+          <TotalRow label="Total" value={formatBdt(total)} bold T={T} />
+        </View>
+
+        <Text style={[styles.section, { color: T.text }]}>Shipping address</Text>
+        <View style={[styles.card, { backgroundColor: T.card, borderColor: T.border }]}>
+          <Text style={[styles.shipName, { color: T.text }]}>{order.customerName || '—'}</Text>
+          <Text style={[styles.shipLine, { color: T.text }]}>{order.customerPhone || ''}</Text>
+          <Text style={[styles.shipLine, { color: T.text }]}>{order.customerAddress || '—'}</Text>
+          {order.shippingDistrict ? (
+            <Text style={[styles.shipLine, { color: T.text }]}>{order.shippingDistrict}</Text>
+          ) : null}
+        </View>
+
+        <Text style={[styles.section, { color: T.text }]}>Payment</Text>
+        <View style={[styles.card, { backgroundColor: T.card, borderColor: T.border }]}>
+          <Text style={[styles.shipLine, { color: T.text }]}>
+            {order.paymentMethod || 'Cash on Delivery'}
+          </Text>
+        </View>
+
+        {isPending ? (
+          <Pressable
+            style={({ pressed }) => [
+              styles.cancelBtn,
+              { borderColor: T.price },
+              pressed && styles.btnPressed,
+              cancelling && styles.btnDisabled,
+            ]}
+            onPress={handleCancel}
+            disabled={cancelling}
+          >
+            {cancelling ? (
+              <ActivityIndicator color={T.price} />
+            ) : (
+              <Text style={[styles.cancelBtnText, { color: T.price }]}>Cancel Order</Text>
+            )}
+          </Pressable>
+        ) : null}
+      </ScrollView>
+
+      <Modal
+        visible={showReturnModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowReturnModal(false)}
+      >
+        <SafeAreaView style={[styles.modalSafe, { backgroundColor: T.bg }]}>
+          <View style={[styles.modal, { backgroundColor: T.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: T.text }]}>
+                Request Return / Refund
+              </Text>
+              <Pressable onPress={() => setShowReturnModal(false)} hitSlop={8}>
+                <Ionicons name="close" size={24} color={T.textSub} />
+              </Pressable>
+            </View>
+
+            <Text style={[styles.modalSubtitle, { color: T.textSub }]}>
+              Select a reason:
+            </Text>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {RETURN_REASONS.map((reason) => {
+                const selected = returnReason === reason;
+                return (
+                  <Pressable
+                    key={reason}
+                    style={[
+                      styles.reasonRow,
+                      { borderColor: T.border },
+                      selected && {
+                        borderColor: T.accent,
+                        backgroundColor: T.accentLight,
+                      },
+                    ]}
+                    onPress={() => setReturnReason(reason)}
+                  >
+                    <Ionicons
+                      name={selected ? 'radio-button-on' : 'radio-button-off'}
+                      size={18}
+                      color={selected ? T.accent : T.textMuted}
+                    />
+                    <Text style={[styles.reasonText, { color: T.text }]}>{reason}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.submitBtn,
+                { backgroundColor: T.primaryBtn },
+                (!returnReason || returnSubmitting) && styles.submitBtnDisabled,
+                pressed && returnReason && !returnSubmitting && { backgroundColor: T.primaryBtnPressed },
+              ]}
+              onPress={submitReturn}
+              disabled={!returnReason || returnSubmitting}
+            >
+              {returnSubmitting ? (
+                <ActivityIndicator color={T.primaryBtnText} />
+              ) : (
+                <Text style={[styles.submitBtnText, { color: T.primaryBtnText }]}>
+                  Submit Request
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </Modal>
+    </>
   );
 }
 
@@ -310,19 +609,42 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     marginBottom: 4,
   },
+  trackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  trackCopy: {
+    flex: 1,
+  },
+  trackTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  trackNumber: {
+    fontSize: 12,
+    marginTop: 2,
+  },
   section: {
     fontSize: 16,
     fontWeight: '700',
     marginTop: 18,
     marginBottom: 10,
   },
+  lineWrap: {
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
   line: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 8,
-    borderWidth: 1,
     padding: 10,
-    marginBottom: 8,
     gap: 10,
   },
   lineImage: {
@@ -353,6 +675,52 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  reviewCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 0,
+    marginLeft: 10,
+    marginBottom: 10,
+  },
+  reviewCtaText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  returnBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  returnBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  returnStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  returnStatusText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
   totals: {
     borderRadius: 8,
     borderWidth: 1,
@@ -363,21 +731,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 8,
+    gap: 12,
   },
   totalLabel: {
     fontSize: 14,
+    flex: 1,
+  },
+  totalLabelBold: {
+    fontSize: 16,
+    fontWeight: '700',
   },
   totalValue: {
     fontSize: 14,
     fontWeight: '600',
   },
-  grandLabel: {
+  totalValueBold: {
     fontSize: 16,
     fontWeight: '700',
   },
-  grandValue: {
-    fontSize: 16,
-    fontWeight: '700',
+  totalDivider: {
+    height: 1,
+    marginVertical: 4,
+    marginBottom: 12,
   },
   card: {
     borderRadius: 8,
@@ -400,14 +775,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
-  cancelBtnPressed: {
-    opacity: 0.7,
-  },
   cancelBtnText: {
     fontSize: 16,
     fontWeight: '700',
   },
+  btnPressed: {
+    opacity: 0.85,
+  },
   btnDisabled: {
     opacity: 0.7,
+  },
+  modalSafe: {
+    flex: 1,
+  },
+  modal: {
+    flex: 1,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    flex: 1,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  reasonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  reasonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  submitBtn: {
+    borderRadius: 24,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  submitBtnDisabled: {
+    opacity: 0.5,
+  },
+  submitBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
