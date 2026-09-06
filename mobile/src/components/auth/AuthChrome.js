@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -134,6 +135,7 @@ export function AuthTrustBadges({ badges = LOGIN_TRUST_BADGES, colors }) {
 export default function AuthLayout({
   colors,
   icon = 'bag-handle',
+  logoSource,
   title,
   subtitle,
   badges,
@@ -142,9 +144,17 @@ export default function AuthLayout({
 }) {
   return (
     <View style={styles.inner}>
-      <View style={[styles.iconCircle, { borderColor: 'rgba(249, 115, 22, 0.25)' }]}>
-        <Ionicons name={icon} size={26} color="#f97316" />
-      </View>
+      {logoSource ? (
+        <Image
+          source={logoSource}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
+      ) : (
+        <View style={[styles.iconCircle, { borderColor: 'rgba(249, 115, 22, 0.25)' }]}>
+          <Ionicons name={icon} size={26} color="#f97316" />
+        </View>
+      )}
       <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
       {subtitle ? (
         <Text style={[styles.subtitle, { color: colors.muted }]}>{subtitle}</Text>
@@ -172,6 +182,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  logoImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
     alignSelf: 'center',
     marginBottom: 12,
   },

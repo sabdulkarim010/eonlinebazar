@@ -132,7 +132,7 @@ export default function RegisterScreen({ navigation }) {
         >
         <AuthLayout
           colors={T}
-          icon="sparkles"
+          logoSource={require('../../assets/icon.png')}
           title="Create Account ✨"
           subtitle="Join EOnlineBazar — shop smarter today"
           badges={REGISTER_TRUST_BADGES}

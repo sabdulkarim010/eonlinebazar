@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppImage from '../components/AppImage';
 import AppStatusBar from '../components/AppStatusBar';
 import EmptyState from '../components/EmptyState';
+import { OrderCardSkeleton } from '../components/SkeletonBox';
 import useCartStore from '../store/useCartStore';
 import { radius, useTheme } from '../theme/tokens';
 import useToastStore from '../store/useToastStore';
@@ -135,6 +136,7 @@ function CartLine({
 export default function CartScreen({ navigation }) {
   const T = useTheme();
   const insets = useSafeAreaInsets();
+  const [loading, setLoading] = useState(true);
   const items = useCartStore((state) => state.items);
   const appliedCoupon = useCartStore((state) => state.appliedCoupon);
   const clearAppliedCoupon = useCartStore((state) => state.clearAppliedCoupon);
@@ -161,6 +163,11 @@ export default function CartScreen({ navigation }) {
   const checkoutTotal = Math.max(0, selectedTotal - couponDiscount);
   const allSelected = items.length > 0 && selectedCount === items.length;
   const canCheckout = selectedCount > 0;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const openProduct = useCallback(
     (item) => {
@@ -248,6 +255,19 @@ export default function CartScreen({ navigation }) {
     items.length,
     selectedCount,
   ]);
+
+  if (loading) {
+    return (
+      <View style={[styles.loading, { backgroundColor: T.bg }]}>
+        <AppStatusBar />
+        <View style={styles.skeletonList}>
+          <OrderCardSkeleton />
+          <OrderCardSkeleton />
+          <OrderCardSkeleton />
+        </View>
+      </View>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -342,6 +362,13 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  loading: {
+    flex: 1,
+  },
+  skeletonList: {
+    padding: 16,
+    gap: 12,
   },
   list: {
     padding: 16,

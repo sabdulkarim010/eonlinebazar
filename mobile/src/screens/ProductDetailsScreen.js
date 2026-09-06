@@ -40,6 +40,34 @@ function formatBdt(price) {
   return `৳${Number(price || 0).toLocaleString('en-US')}`;
 }
 
+const COLOR_MAP = {
+  red: '#ef4444',
+  blue: '#3b82f6',
+  green: '#22c55e',
+  black: '#000000',
+  white: '#ffffff',
+  yellow: '#eab308',
+  orange: '#f97316',
+  purple: '#8b5cf6',
+  pink: '#ec4899',
+  gray: '#6b7280',
+  grey: '#6b7280',
+  brown: '#92400e',
+  navy: '#1e3a5f',
+  maroon: '#7f1d1d',
+  beige: '#f5e6d3',
+  teal: '#0d9488',
+  cyan: '#06b6d4',
+  gold: '#d97706',
+  silver: '#94a3b8',
+  cream: '#fef3c7',
+  olive: '#65a30d',
+};
+
+function getColorHex(colorName) {
+  return COLOR_MAP[String(colorName || '').trim().toLowerCase()] || null;
+}
+
 export default function ProductDetailsScreen({ navigation, route }) {
   const T = useTheme();
   const insets = useSafeAreaInsets();
@@ -392,18 +420,36 @@ export default function ProductDetailsScreen({ navigation, route }) {
               </Text>
               <View style={styles.chips}>
                 {product.colors.map((color) => {
-                  const selected = color === selectedColor;
+                  const hex = getColorHex(color);
+                  const isSelected = selectedColor === color;
+
                   return (
                     <Pressable
                       key={color}
                       onPress={() => setSelectedColor(color)}
                       style={[
-                        styles.chip,
+                        styles.colorChip,
                         { borderColor: T.border, backgroundColor: T.card },
-                        selected && { borderColor: T.accent, backgroundColor: T.qtyBg },
+                        isSelected && styles.colorChipSelected,
+                        isSelected && { borderColor: T.accent, backgroundColor: T.qtyBg },
                       ]}
                     >
-                      <Text style={[styles.chipText, { color: selected ? T.accent : T.text }]} numberOfLines={1}>
+                      {hex ? (
+                        <View
+                          style={[
+                            styles.colorSwatch,
+                            {
+                              backgroundColor: hex,
+                              borderWidth: hex === '#ffffff' ? 1 : 0,
+                              borderColor: T.border,
+                            },
+                          ]}
+                        />
+                      ) : null}
+                      <Text
+                        style={[styles.chipText, { color: isSelected ? T.accent : T.text }]}
+                        numberOfLines={1}
+                      >
                         {color}
                       </Text>
                     </Pressable>
@@ -692,6 +738,21 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 8,
+  },
+  colorChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  colorChipSelected: {},
+  colorSwatch: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: 6,
   },
   sizeChip: {
     minWidth: 44,
