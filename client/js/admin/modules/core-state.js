@@ -37,6 +37,8 @@ window.ADMIN_PAGE_META = {
     'view-banners':          { title: 'Hero Banners',             subtitle: 'Upload and manage homepage banner slides, autoplay, and display settings.' },
     'view-messages':        { title: 'Messages / Inquiries',     subtitle: 'Customer contact form submissions from the storefront.' },
     'view-chat':            { title: 'Live Chats',               subtitle: 'Real-time customer support — conversations, order context, and quick replies.' },
+    'view-chat-analytics':  { title: 'Chat Analytics',           subtitle: 'Volume, resolution rate, response times, and customer ratings.' },
+    'view-canned-responses': { title: 'Quick Replies',           subtitle: 'Manage canned responses for live chat agents.' },
     'view-newsletter-subscribers': { title: 'Newsletter Subscribers', subtitle: 'Manage newsletter subscribers and filter by tags.' },
     'view-newsletter-campaigns':   { title: 'Email Campaigns',        subtitle: 'Create, test, and send newsletter email campaigns.' },
     'view-staff':           { title: 'Staff Management',         subtitle: 'Create staff accounts, assign permissions, and control access instantly.' },

@@ -23,6 +23,8 @@ const VIEW_PARTIALS = [
     'view-banners',
     'view-messages',
     'view-chat',
+    'view-chat-analytics',
+    'view-canned-responses',
     'view-file-manager',
     'view-staff',
     'view-settings',

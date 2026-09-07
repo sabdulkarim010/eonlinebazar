@@ -23,6 +23,8 @@ let isAgentTyping = false;
 let typingTimer = null;
 let chatSocket = null;
 let socketBound = false;
+let chatVolumeChartInstance = null;
+let analyticsPeriod = '7d';
 
 function esc(str) {
     if (typeof window.escapeHtml === 'function') return window.escapeHtml(str);
@@ -998,6 +1000,261 @@ function showSystemMessage(text) {
     scrollToBottom();
 }
 
+function requireChatToken(showGateId, contentId) {
+    const hasToken = Boolean(getChatToken());
+    const gate = showGateId ? document.getElementById(showGateId) : null;
+    const content = contentId ? document.getElementById(contentId) : null;
+    if (gate) gate.hidden = hasToken;
+    if (content) content.hidden = !hasToken;
+    return hasToken;
+}
+
+function gotoLiveChatsNav(e) {
+    e?.preventDefault();
+    const nav = document.querySelector('[data-target="view-chat"]');
+    if (typeof navigateAdminSection === 'function') navigateAdminSection('view-chat', nav);
+}
+
+function formatSeconds(s) {
+    const n = Number(s);
+    if (!n) return '—';
+    if (n < 60) return `${n}s`;
+    if (n < 3600) return `${Math.round(n / 60)}m`;
+    return `${Math.round(n / 3600)}h`;
+}
+
+function bindChatAnalyticsUi() {
+    document.querySelectorAll('.chat-period-btn').forEach((btn) => {
+        if (btn.dataset.bound) return;
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.chat-period-btn').forEach((b) => b.classList.remove('is-active'));
+            btn.classList.add('is-active');
+            loadChatAnalytics(btn.dataset.period || '7d');
+        });
+    });
+
+    document.querySelectorAll('[data-goto-chat]').forEach((link) => {
+        if (link.dataset.bound) return;
+        link.dataset.bound = '1';
+        link.addEventListener('click', gotoLiveChatsNav);
+    });
+}
+
+function bindCannedResponsesUi() {
+    const createBtn = document.getElementById('createCannedBtn');
+    if (createBtn && !createBtn.dataset.bound) {
+        createBtn.dataset.bound = '1';
+        createBtn.addEventListener('click', createCannedResponse);
+    }
+}
+
+async function loadChatAnalytics(period = '7d') {
+    bindChatAnalyticsUi();
+    analyticsPeriod = period || '7d';
+    if (!requireChatToken('chatAnalyticsGate', 'chatAnalyticsContent')) return;
+
+    try {
+        const data = await chatApi(`/admin/analytics?period=${encodeURIComponent(analyticsPeriod)}`);
+        renderChatAnalyticsStats(data.analytics || {});
+        renderChatVolumeChart(data.analytics?.chatsByDay || []);
+        renderChatLabelsChart(data.analytics?.topLabels || []);
+    } catch (err) {
+        console.error('[chat-admin] analytics', err);
+        if (err.status === 401) {
+            localStorage.removeItem(CHAT_TOKEN_KEY);
+            requireChatToken('chatAnalyticsGate', 'chatAnalyticsContent');
+        }
+        if (typeof showToast === 'function') showToast('Failed to load analytics', 'error');
+    }
+}
+
+function renderChatAnalyticsStats(analytics) {
+    const container = document.getElementById('chatAnalyticsStats');
+    if (!container) return;
+
+    const stats = [
+        { label: 'Total Chats', value: analytics.totalChats ?? 0, icon: '💬', color: '#3b82f6' },
+        { label: 'Resolution Rate', value: `${analytics.resolutionRate ?? 0}%`, icon: '✅', color: '#16a34a' },
+        { label: 'Avg First Response', value: formatSeconds(analytics.avgFirstResponseSeconds), icon: '⚡', color: '#f97316' },
+        {
+            label: 'Avg Rating',
+            value: analytics.avgRating ? `${analytics.avgRating} ⭐` : 'No ratings',
+            icon: '⭐',
+            color: '#f59e0b'
+        }
+    ];
+
+    container.innerHTML = stats.map((stat) => `
+        <div class="chat-analytics-stat-card">
+            <div class="chat-analytics-stat-icon">${stat.icon}</div>
+            <div class="chat-analytics-stat-value" style="color:${stat.color}">${esc(String(stat.value))}</div>
+            <div class="chat-analytics-stat-label">${esc(stat.label)}</div>
+        </div>`).join('');
+}
+
+function renderChatVolumeChart(chatsByDay) {
+    const canvas = document.getElementById('chatVolumeCanvas');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    const labels = (chatsByDay || []).map((d) => {
+        const raw = d._id || d.date || '';
+        try {
+            return new Date(raw).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        } catch (_) {
+            return String(raw);
+        }
+    });
+    const values = (chatsByDay || []).map((d) => d.count || 0);
+
+    if (chatVolumeChartInstance) {
+        chatVolumeChartInstance.destroy();
+        chatVolumeChartInstance = null;
+    }
+
+    chatVolumeChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: labels.length ? labels : ['No data'],
+            datasets: [{
+                label: 'Chats',
+                data: values.length ? values : [0],
+                backgroundColor: 'rgba(249, 115, 22, 0.75)',
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 } }
+            }
+        }
+    });
+}
+
+function renderChatLabelsChart(topLabels) {
+    const container = document.getElementById('chatLabelsChart');
+    if (!container) return;
+
+    if (!topLabels?.length) {
+        container.innerHTML = '<p class="chat-labels-empty">No labels in this period</p>';
+        return;
+    }
+
+    const max = Math.max(...topLabels.map((l) => l.count || 0), 1);
+    container.innerHTML = topLabels.map((item) => {
+        const pct = Math.round(((item.count || 0) / max) * 100);
+        return `
+            <div class="chat-label-row">
+                <span class="chat-label-name" title="${esc(item._id || '')}">${esc(item._id || '—')}</span>
+                <div class="chat-label-bar-wrap">
+                    <div class="chat-label-bar" style="width:${pct}%"></div>
+                </div>
+                <span class="chat-label-count">${item.count || 0}</span>
+            </div>`;
+    }).join('');
+}
+
+async function loadCannedResponsesUI() {
+    bindCannedResponsesUi();
+    if (!requireChatToken('cannedResponsesGate', 'cannedResponsesContent')) return;
+
+    try {
+        await loadCannedResponses();
+        renderCannedResponsesList();
+    } catch (err) {
+        console.error('[chat-admin] canned UI', err);
+        if (err.status === 401) {
+            localStorage.removeItem(CHAT_TOKEN_KEY);
+            requireChatToken('cannedResponsesGate', 'cannedResponsesContent');
+        }
+    }
+}
+
+function renderCannedResponsesList() {
+    const container = document.getElementById('cannedResponsesList');
+    if (!container) return;
+
+    if (!cannedResponses.length) {
+        container.innerHTML = '<p class="chat-canned-empty">No quick replies yet. Add one above!</p>';
+        return;
+    }
+
+    container.innerHTML = cannedResponses.map((r) => {
+        const id = esc(String(r._id || ''));
+        const usage = r.usage_count ?? r.usageCount ?? 0;
+        return `
+            <div class="chat-canned-item">
+                <div class="chat-canned-item-body">
+                    <div class="chat-canned-item-head">
+                        <span class="chat-canned-item-title">${esc(r.title || '')}</span>
+                        ${r.shortcut ? `<span class="chat-canned-chip chat-canned-chip-shortcut">${esc(r.shortcut)}</span>` : ''}
+                        <span class="chat-canned-chip chat-canned-chip-category">${esc(r.category || 'general')}</span>
+                    </div>
+                    <div class="chat-canned-item-text">${esc(r.text || '')}</div>
+                    <div class="chat-canned-item-meta">Used ${usage} times</div>
+                </div>
+                <button type="button" class="chat-canned-delete" data-delete-canned="${id}" title="Delete">🗑</button>
+            </div>`;
+    }).join('');
+
+    container.querySelectorAll('[data-delete-canned]').forEach((btn) => {
+        btn.addEventListener('click', () => deleteCannedResponseUI(btn.dataset.deleteCanned));
+    });
+}
+
+async function createCannedResponse() {
+    if (!requireChatToken('cannedResponsesGate', 'cannedResponsesContent')) {
+        if (typeof showToast === 'function') showToast('Sign in via Live Chats first', 'warning');
+        return;
+    }
+
+    const title = document.getElementById('newCannedTitle')?.value?.trim();
+    const text = document.getElementById('newCannedText')?.value?.trim();
+    const shortcut = document.getElementById('newCannedShortcut')?.value?.trim();
+    const category = document.getElementById('newCannedCategory')?.value || 'general';
+
+    if (!title || !text) {
+        if (typeof showToast === 'function') showToast('Title and text are required', 'error');
+        return;
+    }
+
+    try {
+        const data = await chatApi('/admin/canned', {
+            method: 'POST',
+            body: JSON.stringify({ title, text, shortcut, category })
+        });
+
+        if (data.response) {
+            cannedResponses.push(data.response);
+            renderCannedResponsesList();
+            const titleEl = document.getElementById('newCannedTitle');
+            const textEl = document.getElementById('newCannedText');
+            const shortcutEl = document.getElementById('newCannedShortcut');
+            if (titleEl) titleEl.value = '';
+            if (textEl) textEl.value = '';
+            if (shortcutEl) shortcutEl.value = '';
+            if (typeof showToast === 'function') showToast('Quick reply added!', 'success');
+        }
+    } catch (err) {
+        if (typeof showToast === 'function') showToast(err.message || 'Failed to add quick reply', 'error');
+    }
+}
+
+async function deleteCannedResponseUI(id) {
+    if (!id) return;
+    try {
+        await chatApi(`/admin/canned/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        cannedResponses = cannedResponses.filter((r) => String(r._id) !== String(id));
+        renderCannedResponsesList();
+        if (typeof showToast === 'function') showToast('Deleted', 'success');
+    } catch (err) {
+        if (typeof showToast === 'function') showToast(err.message || 'Failed to delete', 'error');
+    }
+}
+
 Object.assign(window, {
     initChatModule,
     selectConversation,
@@ -1013,9 +1270,16 @@ Object.assign(window, {
     handleAdminKeydown,
     insertQuickReply,
     handleChatFileUpload,
-    insertOrderCard
+    insertOrderCard,
+    loadChatAnalytics,
+    loadCannedResponsesUI,
+    createCannedResponse,
+    deleteCannedResponseUI,
+    formatSeconds
 });
 
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('view-chat')) bindChatUiEvents();
+    bindChatAnalyticsUi();
+    bindCannedResponsesUi();
 });

@@ -522,6 +522,8 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-banners': () => window.loadBanners && window.loadBanners(),
         'view-messages': fetchAdminMessages,
         'view-chat': () => window.initChatModule && window.initChatModule(),
+        'view-chat-analytics': () => window.loadChatAnalytics && window.loadChatAnalytics('7d'),
+        'view-canned-responses': () => window.loadCannedResponsesUI && window.loadCannedResponsesUI(),
         'view-newsletter-subscribers': () => window.loadNewsletterSubscribersSection && window.loadNewsletterSubscribersSection(),
         'view-newsletter-campaigns': () => window.loadNewsletterCampaignsSection && window.loadNewsletterCampaignsSection(),
         // Staff Management lives in js/admin-staff.js (Super Admin only)

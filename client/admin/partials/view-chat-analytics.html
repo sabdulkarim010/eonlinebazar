@@ -1,0 +1,36 @@
+<!-- Chat Analytics -->
+<section id="view-chat-analytics" class="admin-section chat-analytics-section" style="display: none;">
+    <div class="section-header-box">
+        <div>
+            <h3>📊 Chat Analytics</h3>
+            <p class="section-subtitle">Volume, resolution rate, response times, and ratings from live chat</p>
+        </div>
+    </div>
+
+    <div id="chatAnalyticsGate" class="chat-analytics-gate" hidden>
+        <p>Sign in via <a href="#" data-goto-chat>Live Chats</a> with your chat agent credentials to view analytics.</p>
+    </div>
+
+    <div id="chatAnalyticsContent">
+        <div class="chat-analytics-periods" role="tablist" aria-label="Analytics period">
+            <button type="button" class="chat-period-btn" data-period="1d">Today</button>
+            <button type="button" class="chat-period-btn is-active" data-period="7d">7 Days</button>
+            <button type="button" class="chat-period-btn" data-period="30d">30 Days</button>
+        </div>
+
+        <div id="chatAnalyticsStats" class="chat-analytics-stats"></div>
+
+        <div class="chat-analytics-charts">
+            <div class="chat-analytics-chart-card chat-analytics-chart-card--wide">
+                <h4 class="chat-analytics-chart-title">Chat volume</h4>
+                <div class="chat-analytics-chart-wrap">
+                    <canvas id="chatVolumeCanvas" aria-label="Chat volume chart"></canvas>
+                </div>
+            </div>
+            <div class="chat-analytics-chart-card">
+                <h4 class="chat-analytics-chart-title">Top labels</h4>
+                <div id="chatLabelsChart" class="chat-labels-list"></div>
+            </div>
+        </div>
+    </div>
+</section>

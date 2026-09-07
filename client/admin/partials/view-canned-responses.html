@@ -1,0 +1,34 @@
+<!-- Canned / Quick Replies Management -->
+<section id="view-canned-responses" class="admin-section chat-canned-section" style="display: none;">
+    <div class="section-header-box">
+        <div>
+            <h3>⚡ Quick Replies</h3>
+            <p class="section-subtitle">Create canned responses for common customer questions</p>
+        </div>
+    </div>
+
+    <div id="cannedResponsesGate" class="chat-analytics-gate" hidden>
+        <p>Sign in via <a href="#" data-goto-chat>Live Chats</a> with your chat agent credentials to manage quick replies.</p>
+    </div>
+
+    <div id="cannedResponsesContent">
+        <div class="chat-canned-form-card">
+            <h4 class="chat-canned-form-title">+ New Quick Reply</h4>
+            <div class="chat-canned-form-grid">
+                <input type="text" id="newCannedTitle" class="chat-canned-input" placeholder="Title (e.g. Shipping Info)">
+                <input type="text" id="newCannedShortcut" class="chat-canned-input" placeholder="Shortcut (e.g. /ship)">
+                <select id="newCannedCategory" class="chat-canned-input">
+                    <option value="general">General</option>
+                    <option value="greeting">Greeting</option>
+                    <option value="shipping">Shipping</option>
+                    <option value="payment">Payment</option>
+                    <option value="return">Returns</option>
+                </select>
+            </div>
+            <textarea id="newCannedText" class="chat-canned-textarea" rows="3" placeholder="Response text…"></textarea>
+            <button type="button" id="createCannedBtn" class="btn-primary chat-canned-submit">+ Add Quick Reply</button>
+        </div>
+
+        <div id="cannedResponsesList" class="chat-canned-list"></div>
+    </div>
+</section>

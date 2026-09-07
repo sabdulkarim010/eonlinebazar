@@ -234,6 +234,8 @@ client/js/admin/modules/
   settings-reviews.js     [DONE] admin review moderation UI
 client/admin/partials/
   view-chat.html          [DONE] 3-column live chat workspace + agent login gate
+  view-chat-analytics.html [DONE] chat volume, stats, labels analytics
+  view-canned-responses.html [DONE] canned / quick reply CRUD UI
   view-reviews.html       [DONE] reviews moderation section
 client/css/admin/
   _chat.css               [DONE] live chat workspace styles
