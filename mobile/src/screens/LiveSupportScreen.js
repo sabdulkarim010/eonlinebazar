@@ -73,8 +73,9 @@ function MinimizedChatBar({ onExpand, T }) {
   );
 }
 
-export default function LiveSupportScreen() {
+export default function LiveSupportScreen({ route }) {
   const navigation = useNavigation();
+  const orderContext = route?.params?.orderContext || null;
   const { isDark, colors } = useAppTheme();
   const T = useProfileModuleTokens(isDark);
   const user = useAuthStore((state) => state.user);
@@ -212,6 +213,7 @@ export default function LiveSupportScreen() {
             ref={chatRef}
             user={user}
             guestName={guestName}
+            orderContext={orderContext}
             T={T}
             colors={colors}
             onMinimizePress={() => openConfirm('minimize')}

@@ -13,6 +13,13 @@ import {
 
 const STORAGE_ROOM_GENERAL = `${CHAT_ROOM_KEY_PREFIX}GENERAL`;
 
+function resolveRoomStorageKey(orderContext) {
+  if (orderContext?.orderId) {
+    return `${CHAT_ROOM_KEY_PREFIX}ORDER_${orderContext.orderId}`;
+  }
+  return STORAGE_ROOM_GENERAL;
+}
+
 function createUuid() {
   if (globalThis.crypto?.randomUUID) {
     return globalThis.crypto.randomUUID();
@@ -65,27 +72,42 @@ async function getOrCreateGuestSessionId() {
   }
 }
 
-async function readPersistedRoomId() {
+async function readPersistedRoomId(storageKey = STORAGE_ROOM_GENERAL) {
   try {
-    return await AsyncStorage.getItem(STORAGE_ROOM_GENERAL);
+    return await AsyncStorage.getItem(storageKey);
   } catch {
     return null;
   }
 }
 
-async function persistRoomId(roomId) {
+async function persistRoomId(roomId, storageKey = STORAGE_ROOM_GENERAL) {
   try {
     if (roomId) {
-      await AsyncStorage.setItem(STORAGE_ROOM_GENERAL, String(roomId));
+      await AsyncStorage.setItem(storageKey, String(roomId));
     } else {
-      await AsyncStorage.removeItem(STORAGE_ROOM_GENERAL);
+      await AsyncStorage.removeItem(storageKey);
     }
   } catch {
     /* ignore storage errors */
   }
 }
 
-export function useAriaChat({ user, guestName = 'Guest' }) {
+function buildOrderMetadata(orderContext) {
+  if (!orderContext) return null;
+  return {
+    order_number: orderContext.orderNumber || orderContext.orderId || null,
+    order_mongo_id: orderContext.orderId || null,
+    status: orderContext.orderStatus || null,
+    total_amount: orderContext.orderTotal ?? null,
+    items: (orderContext.orderItems || []).map((item) => ({
+      name: item.name || 'Item',
+      quantity: Number(item.qty ?? item.quantity) || 1,
+      price: Number(item.price) || 0,
+    })),
+  };
+}
+
+export function useAriaChat({ user, guestName = 'Guest', orderContext = null }) {
   const [messages, setMessages] = useState([]);
   const [connectionState, setConnectionState] = useState('connecting');
   const [roomStatus, setRoomStatus] = useState('BOT');
@@ -102,6 +124,12 @@ export function useAriaChat({ user, guestName = 'Guest' }) {
   const typingTimerRef = useRef(null);
   const isTypingRef = useRef(false);
   const bootstrappingRef = useRef(null);
+  const orderContextRef = useRef(orderContext);
+  orderContextRef.current = orderContext;
+  const roomStorageKey = useMemo(
+    () => resolveRoomStorageKey(orderContext),
+    [orderContext?.orderId]
+  );
 
   const displayName = useMemo(
     () => guestName || user?.name || 'Guest',
@@ -257,13 +285,13 @@ export function useAriaChat({ user, guestName = 'Guest' }) {
       const code = payload?.message || '';
       if (code === 'TOO_MANY_MESSAGES') {
         setError('Too many messages — please wait a moment.');
-      } else if (code === 'UNAUTHORIZED' || code === 'SESSION_REQUIRED') {
+      } else       if (code === 'UNAUTHORIZED' || code === 'SESSION_REQUIRED') {
         setError('Session expired. Restarting chat…');
-        persistRoomId(null);
+        persistRoomId(null, roomStorageKey);
         roomIdRef.current = null;
       }
     });
-  }, [appendMessage, emitTypingStop, replaceHistory]);
+  }, [appendMessage, emitTypingStop, replaceHistory, roomStorageKey]);
 
   const connectSocket = useCallback((guestSessionId, userId) => {
     if (socketRef.current) {
@@ -310,14 +338,17 @@ export function useAriaChat({ user, guestName = 'Guest' }) {
       const userId = user?.id ? String(user.id) : null;
       connectSocket(guestSessionId, userId);
 
-      const persistedRoom = await readPersistedRoomId();
+      const persistedRoom = await readPersistedRoomId(roomStorageKey);
       if (persistedRoom) {
         roomIdRef.current = persistedRoom;
       }
 
+      const ctx = orderContextRef.current;
+      const isOrderSupport = Boolean(ctx?.orderId);
       const startPayload = {
-        type: 'GENERAL',
-        order_id: null,
+        type: isOrderSupport ? 'ORDER_SUPPORT' : 'GENERAL',
+        order_id: isOrderSupport ? ctx.orderId : null,
+        order_metadata: isOrderSupport ? buildOrderMetadata(ctx) : null,
         guest_session_id: guestSessionId,
         guest_name: displayName,
         guest_email: user?.email || null,
@@ -331,7 +362,7 @@ export function useAriaChat({ user, guestName = 'Guest' }) {
       }
 
       roomIdRef.current = roomId;
-      await persistRoomId(roomId);
+      await persistRoomId(roomId, roomStorageKey);
 
       if (data?.room?.status) {
         setRoomStatus(data.room.status);
@@ -358,6 +389,28 @@ export function useAriaChat({ user, guestName = 'Guest' }) {
         appendMessage(data.welcome_message);
       }
 
+      if (isOrderSupport && ctx && !data?.is_existing) {
+        const intro = ctx.initialMessage
+          || `I need help with Order #${ctx.orderNumber || ctx.orderId} (Status: ${ctx.orderStatus || 'Unknown'})`;
+        setTimeout(() => {
+          if (socketRef.current?.connected && roomIdRef.current) {
+            socketRef.current.emit('send_message', {
+              room_id: roomIdRef.current,
+              message: intro,
+              guest_session_id: guestSessionRef.current,
+              sender_name: displayName,
+              sender_type: 'USER',
+            });
+            appendMessage({
+              _id: `tmp-intro-${Date.now()}`,
+              sender_type: 'USER',
+              message: intro,
+              createdAt: new Date().toISOString(),
+            });
+          }
+        }, 600);
+      }
+
       setConnectionState(socket?.connected ? 'online' : 'connecting');
     })();
 
@@ -369,7 +422,7 @@ export function useAriaChat({ user, guestName = 'Guest' }) {
     } finally {
       bootstrappingRef.current = null;
     }
-  }, [appendMessage, connectSocket, displayName, user?.email, user?.id]);
+  }, [appendMessage, connectSocket, displayName, roomStorageKey, user?.email, user?.id]);
 
   useEffect(() => {
     bootstrap();
@@ -503,7 +556,7 @@ export function useAriaChat({ user, guestName = 'Guest' }) {
       });
     }
 
-    await persistRoomId(null);
+    await persistRoomId(null, roomStorageKey);
     roomIdRef.current = null;
     renderedIdsRef.current = new Set();
     setMessages([]);
@@ -512,7 +565,7 @@ export function useAriaChat({ user, guestName = 'Guest' }) {
     setUsedQuickReplyIds([]);
     setIsAgentTyping(false);
     setError(null);
-  }, [emitTypingStop]);
+  }, [emitTypingStop, roomStorageKey]);
 
   const resetChat = useCallback(async () => {
     await endChat();

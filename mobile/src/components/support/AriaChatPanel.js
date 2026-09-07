@@ -129,6 +129,7 @@ function MessageBubble({ item, T }) {
 const AriaChatPanel = forwardRef(function AriaChatPanel({
   user,
   guestName,
+  orderContext,
   T,
   colors,
   onMinimizePress,
@@ -154,7 +155,7 @@ const AriaChatPanel = forwardRef(function AriaChatPanel({
     onInputChange,
     retryBootstrap,
     endChat,
-  } = useAriaChat({ user, guestName });
+  } = useAriaChat({ user, guestName, orderContext });
 
   useImperativeHandle(ref, () => ({ endChat }), [endChat]);
 

@@ -149,10 +149,8 @@ const StackedThumbs = memo(function StackedThumbs({ items, T }) {
 });
 
 const OrderTrackingBar = memo(function OrderTrackingBar({ order, T }) {
-  const activeStep = getStepIndex(order.status);
-  if (order?.isDelivered && activeStep < 4) {
-    activeStep = 4;
-  }
+  const baseStep = getStepIndex(order.status);
+  const activeStep = order?.isDelivered && baseStep >= 0 && baseStep < 4 ? 4 : baseStep;
   if (activeStep < 0) return null;
 
   return (

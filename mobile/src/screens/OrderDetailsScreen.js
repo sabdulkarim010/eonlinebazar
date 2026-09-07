@@ -13,6 +13,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { WebView } from 'react-native-webview';
+import { ordersAPI } from '../api/orders';
 import useSupportWhatsApp from '../hooks/useSupportWhatsApp';
 import AppStatusBar from '../components/AppStatusBar';
 import OrderStatusTimeline from '../components/OrderStatusTimeline';
@@ -20,14 +22,15 @@ import useOrderStore from '../store/useOrderStore';
 import { useTheme } from '../theme/tokens';
 import useToastStore from '../store/useToastStore';
 import { resolveOrderTracking } from '../utils/courierTracking';
+import { haptic } from '../utils/haptics';
 import { buildWhatsAppUrl } from '../utils/supportLinks';
 
 const RETURN_REASONS = [
-  'Wrong item received',
-  'Damaged / defective product',
-  'Item not as described',
-  'Changed my mind',
-  'Other',
+  { key: 'wrong_item', label: 'Wrong item received' },
+  { key: 'damaged', label: 'Damaged / defective product' },
+  { key: 'not_as_described', label: 'Not as described' },
+  { key: 'changed_mind', label: 'Changed my mind' },
+  { key: 'other', label: 'Other reason' },
 ];
 
 function formatBdt(price) {
@@ -59,9 +62,37 @@ function isShippedStatus(status) {
   return normalizeStatus(status) === 'shipped';
 }
 
-function isReturnRequested(order) {
-  return normalizeStatus(order?.status) === 'return requested'
-    || Boolean(order?.returnRequested);
+function isOrderReturnFlowActive(status) {
+  const normalized = normalizeStatus(status);
+  return normalized === 'return requested' || normalized === 'returned';
+}
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  if (typeof globalThis.btoa === 'function') {
+    return globalThis.btoa(binary);
+  }
+  throw new Error('Base64 encoding is not available.');
+}
+
+function refundMethodLabel(method) {
+  switch (String(method || '').toLowerCase()) {
+    case 'wallet':
+      return 'Wallet Balance';
+    case 'bkash':
+      return 'bKash';
+    case 'nagad':
+      return 'Nagad';
+    case 'cash':
+      return 'Cash';
+    default:
+      return 'Original payment';
+  }
 }
 
 function orderDiscountAmount(order) {
@@ -163,13 +194,16 @@ export default function OrderDetailsScreen({ navigation, route }) {
   const error = useOrderStore((state) => state.error);
   const fetchOrderById = useOrderStore((state) => state.fetchOrderById);
   const cancelOrder = useOrderStore((state) => state.cancelOrder);
-  const requestReturn = useOrderStore((state) => state.requestReturn);
+  const requestReturnItems = useOrderStore((state) => state.requestReturnItems);
   const showToast = useToastStore((state) => state.showToast);
   const { phone, guestHelpUrl } = useSupportWhatsApp();
   const [cancelling, setCancelling] = useState(false);
-  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnModalItem, setReturnModalItem] = useState(null);
   const [returnReason, setReturnReason] = useState('');
   const [returnSubmitting, setReturnSubmitting] = useState(false);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoicePdfBase64, setInvoicePdfBase64] = useState(null);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
   const order = useMemo(
     () => findLocalOrder(orders, currentOrder, orderId),
@@ -183,7 +217,51 @@ export default function OrderDetailsScreen({ navigation, route }) {
   const isPending = normalizeStatus(order?.status) === 'pending';
   const isDelivered = isDeliveredStatus(order?.status);
   const isShipped = isShippedStatus(order?.status);
-  const returnRequested = order ? isReturnRequested(order) : false;
+  const returnFlowActive = order ? isOrderReturnFlowActive(order.status) : false;
+
+  const loadOrder = useCallback(async () => {
+    if (orderId) await fetchOrderById(orderId);
+  }, [fetchOrderById, orderId]);
+
+  const openReturnModal = useCallback((item, productId) => {
+    setReturnModalItem({ ...item, productId });
+    setReturnReason('');
+    haptic.light();
+  }, []);
+
+  const openOrderChat = useCallback(() => {
+    if (!order) return;
+    haptic.light();
+    navigation.navigate('LiveSupport', {
+      orderContext: {
+        orderId: order._id,
+        orderNumber: order.orderId || order.orderNumber,
+        orderStatus: order.status,
+        orderTotal: order.grandTotal ?? order.totalAmount,
+        orderItems: (order.items || []).map((item) => ({
+          name: item.name || item.product?.name,
+          qty: item.quantity,
+          price: item.price,
+        })),
+      },
+    });
+  }, [navigation, order]);
+
+  const handleDownloadInvoice = useCallback(async () => {
+    if (!order?._id) return;
+    haptic.light();
+    setInvoiceLoading(true);
+    try {
+      const { data } = await ordersAPI.downloadInvoice(order._id);
+      const base64 = arrayBufferToBase64(data);
+      setInvoicePdfBase64(base64);
+      setShowInvoiceModal(true);
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Could not download invoice.', 'error');
+    } finally {
+      setInvoiceLoading(false);
+    }
+  }, [order, showToast]);
 
   const tracking = useMemo(
     () => resolveOrderTracking(order || {}),
@@ -253,24 +331,43 @@ export default function OrderDetailsScreen({ navigation, route }) {
     );
   }, [guestHelpUrl, order, showToast, tracking.courierName, tracking.trackingNumber, tracking.trackingUrl]);
 
-  const submitReturn = async () => {
-    if (!returnReason || !order) return;
+  const submitItemReturn = async () => {
+    if (!returnReason || !order || !returnModalItem) {
+      showToast('Please select a reason', 'warning');
+      return;
+    }
+
+    const reasonLabel = RETURN_REASONS.find((r) => r.key === returnReason)?.label || returnReason;
+
     setReturnSubmitting(true);
     try {
-      const result = await requestReturn(order._id || order.orderId || orderId, returnReason);
+      haptic.medium();
+      const result = await requestReturnItems(order._id || order.orderId || orderId, {
+        items: [{
+          productId: returnModalItem.productId,
+          productName: returnModalItem.name || returnModalItem.product?.name,
+          quantity: returnModalItem.quantity,
+          price: returnModalItem.price,
+          reason: reasonLabel,
+        }],
+        reason: reasonLabel,
+      });
+
       if (!result.success) {
-        Alert.alert('Error', result.message || 'Failed to submit return request. Please try again.');
+        showToast(result.message || 'Failed to submit return', 'error');
         return;
       }
-      setShowReturnModal(false);
+
+      haptic.success();
+      setReturnModalItem(null);
       setReturnReason('');
-      await fetchOrderById(orderId);
+      await loadOrder();
       Alert.alert(
-        'Submitted',
-        result.message || 'Your return request has been submitted. We will review it within 24 hours.'
+        '✅ Return Requested',
+        'Your return request has been submitted. We will review it within 24 hours.'
       );
     } catch {
-      Alert.alert('Error', 'Failed to submit return request. Please try again.');
+      showToast('Network error', 'error');
     } finally {
       setReturnSubmitting(false);
     }
@@ -358,19 +455,23 @@ export default function OrderDetailsScreen({ navigation, route }) {
         ) : null}
 
         <Text style={[styles.section, { color: T.text }]}>Items</Text>
-        {items.map((item, index) => {
+        {items.map((item, idx) => {
           const qty = Number(item.quantity) || 1;
           const price = Number(item.price) || 0;
           const productId = orderItemProductId(item);
           const imageUri = orderItemImageUri(item);
           const variantText = orderVariantLabel(item);
+          const returnItem = (order.returnItems || []).find(
+            (entry) => String(entry.productId) === String(productId)
+          );
+
           return (
             <View
-              key={`${item.id || item.productId || index}`}
-              style={[styles.lineWrap, { borderColor: T.border, backgroundColor: T.card }]}
+              key={`${item.id || item.productId || idx}`}
+              style={[styles.itemCard, { backgroundColor: T.card, borderColor: T.border }]}
             >
               <Pressable
-                style={styles.line}
+                style={styles.itemRow}
                 onPress={() => {
                   if (productId) {
                     navigation.navigate('ProductDetails', { productId });
@@ -380,60 +481,83 @@ export default function OrderDetailsScreen({ navigation, route }) {
                 {imageUri ? (
                   <Image
                     source={{ uri: imageUri }}
-                    style={[styles.lineImage, { backgroundColor: T.imageBg }]}
+                    style={[styles.itemImg, { backgroundColor: T.imageBg }]}
                   />
                 ) : (
-                  <View style={[styles.lineImage, { backgroundColor: T.imageBg }]} />
+                  <View style={[styles.itemImg, { backgroundColor: T.imageBg }]} />
                 )}
-                <View style={styles.lineBody}>
-                  <Text style={[styles.lineName, { color: T.text }]}>{item.name || 'Product'}</Text>
+
+                <View style={styles.itemInfo}>
+                  <Text style={[styles.itemName, { color: T.text }]} numberOfLines={2}>
+                    {item.name || item.product?.name || 'Product'}
+                  </Text>
                   {variantText ? (
-                    <Text style={[styles.lineVariant, { color: T.muted, backgroundColor: T.qtyBg }]}>
+                    <Text style={[styles.itemVariant, { color: T.textSub, backgroundColor: T.cardSecondary }]}>
                       {variantText}
                     </Text>
                   ) : null}
-                  <Text style={[styles.lineMeta, { color: T.muted }]}>
+                  <Text style={[styles.itemQty, { color: T.textMuted }]}>
                     Qty {qty} × {formatBdt(price)}
                   </Text>
-                </View>
-                <Text style={[styles.lineTotal, { color: T.text }]}>{formatBdt(price * qty)}</Text>
-              </Pressable>
-
-              {isDelivered && productId ? (
-                <Pressable
-                  style={[styles.reviewCta, { backgroundColor: T.accentLight }]}
-                  onPress={() => navigation.navigate('ProductDetails', {
-                    productId,
-                    autoOpenReview: true,
-                  })}
-                >
-                  <Ionicons name="star-outline" size={14} color={T.accent} />
-                  <Text style={[styles.reviewCtaText, { color: T.accent }]}>
-                    Write a Review
+                  <Text style={[styles.itemTotal, { color: T.accent }]}>
+                    {formatBdt(price * qty)}
                   </Text>
-                </Pressable>
-              ) : null}
+
+                  {isDelivered ? (
+                    <View style={styles.itemActions}>
+                      <Pressable
+                        style={[styles.itemActionBtn, styles.reviewBtn, { backgroundColor: T.accentLight }]}
+                        onPress={() => {
+                          haptic.light();
+                          navigation.navigate('ProductDetails', {
+                            productId,
+                            autoOpenReview: true,
+                          });
+                        }}
+                      >
+                        <Ionicons name="star-outline" size={12} color={T.accent} />
+                        <Text style={[styles.itemActionText, { color: T.accent }]}>Review</Text>
+                      </Pressable>
+
+                      {!returnItem && !returnFlowActive && productId ? (
+                        <Pressable
+                          style={[styles.itemActionBtn, styles.returnItemBtn, { backgroundColor: T.warningBg }]}
+                          onPress={() => openReturnModal(item, productId)}
+                        >
+                          <Ionicons name="return-down-back-outline" size={12} color={T.warning} />
+                          <Text style={[styles.itemActionText, { color: T.warning }]}>Return</Text>
+                        </Pressable>
+                      ) : null}
+
+                      {returnItem ? (
+                        <View style={[
+                          styles.returnStatusChip,
+                          {
+                            backgroundColor: returnItem.status === 'approved'
+                              ? T.successBg
+                              : T.warningBg,
+                          },
+                        ]}
+                        >
+                          <Text style={{
+                            fontSize: 10,
+                            fontWeight: '700',
+                            color: returnItem.status === 'approved' ? T.success : T.warning,
+                          }}
+                          >
+                            Return {returnItem.status}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </View>
+              </Pressable>
             </View>
           );
         })}
 
-        {isDelivered && !returnRequested ? (
-          <Pressable
-            style={({ pressed }) => [
-              styles.returnBtn,
-              { borderColor: T.border },
-              pressed && styles.btnPressed,
-            ]}
-            onPress={() => setShowReturnModal(true)}
-          >
-            <Ionicons name="return-down-back-outline" size={16} color={T.textSub} />
-            <Text style={[styles.returnBtnText, { color: T.textSub }]}>
-              Request Return / Refund
-            </Text>
-          </Pressable>
-        ) : null}
-
-        {returnRequested ? (
+        {returnFlowActive ? (
           <View style={[styles.returnStatus, { backgroundColor: T.warningBg, borderColor: T.warningBorder }]}>
             <Ionicons name="time-outline" size={16} color={T.warning} />
             <Text style={[styles.returnStatusText, { color: T.warning }]}>
@@ -470,6 +594,31 @@ export default function OrderDetailsScreen({ navigation, route }) {
           <TotalRow label="Total" value={formatBdt(total)} bold T={T} />
         </View>
 
+        {Number(order.refundAmount) > 0 ? (
+          <View style={[styles.refundStatusCard, { backgroundColor: T.successBg, borderColor: T.successBorder }]}>
+            <View style={styles.refundStatusRow}>
+              <Ionicons name="checkmark-circle" size={20} color={T.success} />
+              <View style={styles.refundStatusCopy}>
+                <Text style={[styles.refundStatusTitle, { color: T.success }]}>
+                  Refund Processed
+                </Text>
+                <Text style={[styles.refundStatusDetail, { color: T.textSub }]}>
+                  {formatBdt(order.refundAmount)} via {refundMethodLabel(order.refundMethod)}
+                </Text>
+                {order.refundedAt ? (
+                  <Text style={[styles.refundDate, { color: T.textMuted }]}>
+                    {new Date(order.refundedAt).toLocaleDateString('en-US', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          </View>
+        ) : null}
+
         <Text style={[styles.section, { color: T.text }]}>Shipping address</Text>
         <View style={[styles.card, { backgroundColor: T.card, borderColor: T.border }]}>
           <Text style={[styles.shipName, { color: T.text }]}>{order.customerName || '—'}</Text>
@@ -493,6 +642,21 @@ export default function OrderDetailsScreen({ navigation, route }) {
           </Text>
 
           <Pressable
+            style={[styles.invoiceBtn, { borderColor: T.border }]}
+            onPress={handleDownloadInvoice}
+            disabled={invoiceLoading}
+          >
+            {invoiceLoading ? (
+              <ActivityIndicator size="small" color={T.textSub} />
+            ) : (
+              <Ionicons name="document-outline" size={16} color={T.textSub} />
+            )}
+            <Text style={[styles.invoiceBtnText, { color: T.textSub }]}>
+              {invoiceLoading ? 'Loading invoice…' : 'Download Invoice'}
+            </Text>
+          </Pressable>
+
+          <Pressable
             style={[styles.supportBtn, { borderColor: T.brandWhatsApp }]}
             onPress={() => Linking.openURL(orderWhatsAppUrl || guestHelpUrl)}
           >
@@ -504,7 +668,7 @@ export default function OrderDetailsScreen({ navigation, route }) {
 
           <Pressable
             style={[styles.supportBtn, { borderColor: T.accent }]}
-            onPress={() => navigation.navigate('LiveSupport')}
+            onPress={openOrderChat}
           >
             <Ionicons name="chatbubble-outline" size={18} color={T.accent} />
             <Text style={[styles.supportBtnText, { color: T.accent }]}>
@@ -534,48 +698,56 @@ export default function OrderDetailsScreen({ navigation, route }) {
       </ScrollView>
 
       <Modal
-        visible={showReturnModal}
+        visible={!!returnModalItem}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowReturnModal(false)}
+        onRequestClose={() => setReturnModalItem(null)}
       >
         <SafeAreaView style={[styles.modalSafe, { backgroundColor: T.bg }]}>
-          <View style={[styles.modal, { backgroundColor: T.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: T.text }]}>
-                Request Return / Refund
+          <View style={[styles.returnModal, { backgroundColor: T.card }]}>
+            <View style={styles.returnModalHeader}>
+              <Text style={[styles.returnModalTitle, { color: T.text }]}>
+                ↩️ Return Item
               </Text>
-              <Pressable onPress={() => setShowReturnModal(false)} hitSlop={8}>
+              <Pressable onPress={() => setReturnModalItem(null)} hitSlop={8}>
                 <Ionicons name="close" size={24} color={T.textSub} />
               </Pressable>
             </View>
 
-            <Text style={[styles.modalSubtitle, { color: T.textSub }]}>
-              Select a reason:
+            <View style={[styles.returnItemPreview, { backgroundColor: T.cardSecondary }]}>
+              <Text style={[styles.returnItemName, { color: T.text }]}>
+                {returnModalItem?.name || returnModalItem?.product?.name}
+              </Text>
+              <Text style={[styles.returnItemQty, { color: T.textSub }]}>
+                Qty: {returnModalItem?.quantity} · {formatBdt(returnModalItem?.price)}
+              </Text>
+            </View>
+
+            <Text style={[styles.returnReasonLabel, { color: T.textSub }]}>
+              Select reason:
             </Text>
 
             <ScrollView showsVerticalScrollIndicator={false}>
               {RETURN_REASONS.map((reason) => {
-                const selected = returnReason === reason;
+                const selected = returnReason === reason.key;
                 return (
                   <Pressable
-                    key={reason}
+                    key={reason.key}
                     style={[
-                      styles.reasonRow,
-                      { borderColor: T.border },
-                      selected && {
-                        borderColor: T.accent,
-                        backgroundColor: T.accentLight,
-                      },
+                      styles.reasonOption,
+                      { borderColor: selected ? T.accent : T.border },
+                      selected && { backgroundColor: T.accentLight },
                     ]}
-                    onPress={() => setReturnReason(reason)}
+                    onPress={() => setReturnReason(reason.key)}
                   >
                     <Ionicons
                       name={selected ? 'radio-button-on' : 'radio-button-off'}
                       size={18}
                       color={selected ? T.accent : T.textMuted}
                     />
-                    <Text style={[styles.reasonText, { color: T.text }]}>{reason}</Text>
+                    <Text style={[styles.reasonText, { color: selected ? T.accent : T.text }]}>
+                      {reason.label}
+                    </Text>
                   </Pressable>
                 );
               })}
@@ -583,23 +755,46 @@ export default function OrderDetailsScreen({ navigation, route }) {
 
             <Pressable
               style={({ pressed }) => [
-                styles.submitBtn,
+                styles.submitReturnBtn,
                 { backgroundColor: T.primaryBtn },
-                (!returnReason || returnSubmitting) && styles.submitBtnDisabled,
+                (!returnReason || returnSubmitting) && styles.submitReturnBtnDisabled,
                 pressed && returnReason && !returnSubmitting && { backgroundColor: T.primaryBtnPressed },
               ]}
-              onPress={submitReturn}
+              onPress={submitItemReturn}
               disabled={!returnReason || returnSubmitting}
             >
               {returnSubmitting ? (
                 <ActivityIndicator color={T.primaryBtnText} />
               ) : (
-                <Text style={[styles.submitBtnText, { color: T.primaryBtnText }]}>
-                  Submit Request
+                <Text style={[styles.submitReturnBtnText, { color: T.primaryBtnText }]}>
+                  ↩️ Submit Return Request
                 </Text>
               )}
             </Pressable>
           </View>
+        </SafeAreaView>
+      </Modal>
+
+      <Modal
+        visible={showInvoiceModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowInvoiceModal(false)}
+      >
+        <SafeAreaView style={[styles.modalSafe, { backgroundColor: T.bg }]}>
+          <View style={styles.invoiceModalHeader}>
+            <Text style={[styles.returnModalTitle, { color: T.text }]}>Invoice</Text>
+            <Pressable onPress={() => setShowInvoiceModal(false)} hitSlop={8}>
+              <Ionicons name="close" size={24} color={T.textSub} />
+            </Pressable>
+          </View>
+          {invoicePdfBase64 ? (
+            <WebView
+              style={styles.invoiceWebView}
+              originWhitelist={['*']}
+              source={{ uri: `data:application/pdf;base64,${invoicePdfBase64}` }}
+            />
+          ) : null}
         </SafeAreaView>
       </Modal>
     </>
@@ -705,6 +900,73 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     overflow: 'hidden',
   },
+  itemCard: {
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    gap: 12,
+  },
+  itemImg: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
+  },
+  itemInfo: {
+    flex: 1,
+  },
+  itemName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  itemVariant: {
+    fontSize: 11,
+    marginTop: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  itemQty: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  itemTotal: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  itemActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  itemActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  reviewBtn: {},
+  returnItemBtn: {},
+  itemActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  returnStatusChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
   line: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -784,6 +1046,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     flex: 1,
+  },
+  refundStatusCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 12,
+  },
+  refundStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  refundStatusCopy: {
+    flex: 1,
+  },
+  refundStatusTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  refundStatusDetail: {
+    fontSize: 13,
+    marginTop: 4,
+  },
+  refundDate: {
+    fontSize: 11,
+    marginTop: 4,
+  },
+  invoiceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  invoiceBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   totals: {
     borderRadius: 8,
@@ -880,6 +1182,72 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   modalSafe: {
+    flex: 1,
+  },
+  returnModal: {
+    flex: 1,
+    padding: 20,
+  },
+  returnModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  returnModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    flex: 1,
+  },
+  returnItemPreview: {
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+  },
+  returnItemName: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  returnItemQty: {
+    fontSize: 13,
+    marginTop: 4,
+  },
+  returnReasonLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  reasonOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  submitReturnBtn: {
+    borderRadius: 24,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  submitReturnBtnDisabled: {
+    opacity: 0.5,
+  },
+  submitReturnBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  invoiceModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  invoiceWebView: {
     flex: 1,
   },
   modal: {

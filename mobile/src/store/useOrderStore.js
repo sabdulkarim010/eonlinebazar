@@ -203,6 +203,51 @@ const useOrderStore = create((set, get) => ({
     }
   },
 
+  requestReturnItems: async (orderId, payload) => {
+    const id = String(orderId || '');
+    const match = (order) =>
+      String(order?._id || '') === id || String(order?.orderId || '') === id;
+    const previous =
+      get().orders.find(match) || (match(get().currentOrder) ? get().currentOrder : null);
+
+    const mongoId = previous && /^[a-fA-F0-9]{24}$/.test(String(previous._id))
+      ? String(previous._id)
+      : (/^[a-fA-F0-9]{24}$/.test(id) ? id : null);
+
+    if (!mongoId) {
+      const message = 'Order not found.';
+      set({ error: message });
+      return { success: false, message };
+    }
+
+    try {
+      const { data } = await ordersAPI.requestReturnItems(mongoId, payload);
+      if (!data?.success) {
+        const message = data?.message || 'Failed to submit return request.';
+        set({ error: message });
+        return { success: false, message };
+      }
+
+      const order = data.data;
+      if (order) {
+        set((state) => ({
+          currentOrder: order,
+          orders: state.orders.map((item) => (match(item) ? order : item)),
+          error: null,
+        }));
+      }
+      return {
+        success: true,
+        message: data.message || 'Return request submitted.',
+        order,
+      };
+    } catch (error) {
+      const message = apiErrorMessage(error, 'Failed to submit return request.');
+      set({ error: message });
+      return { success: false, message };
+    }
+  },
+
   requestReturn: async (orderId, reason) => {
     const id = String(orderId || '');
     const match = (order) =>

@@ -20,6 +20,8 @@ export const endpoints = {
   orders: '/orders',
   orderCancel: (id) => `/orders/${id}/cancel`,
   orderReturn: (id) => `/orders/${id}/return`,
+  orderReturnItems: (id) => `/orders/${id}/return/items`,
+  orderInvoice: (id) => `/orders/${id}/invoice`,
   reviews: '/reviews',
   reviewsByProduct: (id) => `/reviews/${id}`,
   profile: '/customer/profile',
