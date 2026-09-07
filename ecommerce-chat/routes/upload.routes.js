@@ -6,6 +6,10 @@ const {
   deleteChatImage,
 } = require('../services/upload.service');
 const { authMiddleware, roleGuard } = require('../middleware/auth.middleware');
+const {
+  agentAvatarMulter,
+  handleAgentAvatarUpload,
+} = require('../handlers/agentAvatarUpload');
 
 const router = express.Router();
 
@@ -86,6 +90,17 @@ router.post(
       });
     }
   }
+);
+
+/**
+ * POST /api/upload/agent-avatar
+ * multipart field: image — uploads to Cloudinary and updates logged-in agent profile
+ */
+router.post(
+  '/agent-avatar',
+  authMiddleware,
+  agentAvatarMulter,
+  handleAgentAvatarUpload
 );
 
 /**

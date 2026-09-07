@@ -334,6 +334,32 @@ function showToast(message, type = 'success') {
     }
 }
 
+function buildProductChatContext(product) {
+    const p = product || currentProductData || window.currentProductData;
+    if (!p) return null;
+
+    const productId = p.productId || p._id || p.id;
+    if (!productId) return null;
+
+    const image =
+        (typeof resolveDisplayImageUrl === 'function' && resolveDisplayImageUrl(p)) ||
+        p.image ||
+        (Array.isArray(p.images) && p.images[0]) ||
+        '';
+
+    const price = Number(p.salePrice ?? p.price ?? p.regularPrice) || null;
+
+    return {
+        product_id: String(productId),
+        title: String(p.name || p.title || 'Product').slice(0, 300),
+        image: String(image || '').slice(0, 500),
+        price,
+        url: `${window.location.origin}/product-details?id=${encodeURIComponent(String(productId))}`,
+        slug: String(p.slug || '').slice(0, 200),
+        currency: 'BDT',
+    };
+}
+
 document.addEventListener('languageChanged', () => {
     if (window.i18n) window.i18n.applyTranslations();
     if (currentProductData) {
@@ -356,5 +382,6 @@ Object.assign(window, {
     renderHighlights,
     renderDescriptions,
     setupTabSystem,
-    showToast
+    showToast,
+    buildProductChatContext,
 });

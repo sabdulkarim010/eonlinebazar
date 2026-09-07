@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { ClipboardDocumentIcon, TruckIcon } from '@heroicons/react/24/outline';
+import { ClipboardDocumentIcon, TruckIcon, ShoppingBagIcon } from '@heroicons/react/24/outline';
 import useChatStore from '../store/chatStore';
-import { fetchOrder, fetchRoomDetail } from '../services/api';
+import { fetchOrder, fetchRoomDetail, fetchCustomerOrders, fetchCustomerProfile } from '../services/api';
 import { getSocket } from '../services/socket';
 import TransferModal from './TransferModal';
 import TagModal, { tagChipClass } from './TagModal';
@@ -11,6 +11,7 @@ import {
   formatTime,
   getInitials,
   relativeTimeBn,
+  resolveAssetUrl,
   roomId as getRoomId,
 } from '../utils/helpers';
 
@@ -49,6 +50,13 @@ export default function CustomerContext({
   const [order, setOrder] = useState(null);
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderError, setOrderError] = useState(null);
+  const [storeOrders, setStoreOrders] = useState([]);
+  const [storeOrdersLoading, setStoreOrdersLoading] = useState(false);
+  const [storeOrdersError, setStoreOrdersError] = useState(null);
+  const [liveProfile, setLiveProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState(null);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [showTag, setShowTag] = useState(false);
 
@@ -57,6 +65,11 @@ export default function CustomerContext({
   useEffect(() => {
     setOrder(null);
     setOrderError(null);
+    setStoreOrders([]);
+    setStoreOrdersError(null);
+    setLiveProfile(null);
+    setProfileError(null);
+    setAvatarFailed(false);
     setShowTransfer(false);
     setShowTag(false);
 
@@ -99,6 +112,69 @@ export default function CustomerContext({
       cancelled = true;
     };
   }, [room?._id, room?.order_id, room?.type, room?.order_metadata]);
+
+  useEffect(() => {
+    setLiveProfile(null);
+    setProfileError(null);
+    setAvatarFailed(false);
+
+    const userId = room?.user_id || room?.customer_profile?.user_id;
+    if (!userId) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      setProfileLoading(true);
+      try {
+        const data = await fetchCustomerProfile(userId, { fresh: true });
+        if (!cancelled) {
+          setLiveProfile(data?.profile || data?.data || null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setProfileError(
+            err.response?.data?.message || 'Could not load customer profile'
+          );
+        }
+      } finally {
+        if (!cancelled) setProfileLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [room?._id, room?.user_id, room?.customer_profile?.user_id]);
+
+  useEffect(() => {
+    setStoreOrders([]);
+    setStoreOrdersError(null);
+
+    const userId = room?.user_id || room?.customer_profile?.user_id;
+    if (!userId) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      setStoreOrdersLoading(true);
+      try {
+        const data = await fetchCustomerOrders(userId, 20);
+        if (!cancelled) {
+          setStoreOrders(Array.isArray(data?.orders) ? data.orders : data?.data || []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setStoreOrdersError(
+            err.response?.data?.message || 'Could not load order history'
+          );
+        }
+      } finally {
+        if (!cancelled) setStoreOrdersLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [room?._id, room?.user_id, room?.customer_profile?.user_id]);
 
   const previousChats = useMemo(() => {
     if (!room) return [];
@@ -176,6 +252,29 @@ export default function CustomerContext({
       ? `https://www.google.com/search?q=${encodeURIComponent(order.tracking_id)}`
       : null);
 
+  const profile = {
+    ...(room.customer_profile || {}),
+    ...(liveProfile || {}),
+  };
+  const userId = room.user_id || profile.user_id || liveProfile?.user_id;
+  const isRegistered = Boolean(
+    room.is_registered || userId || profile.user_id
+  );
+  const displayName =
+    profile.name ||
+    room.guest_name ||
+    (isRegistered ? 'Customer' : 'Guest');
+  const displayEmail = profile.email || room.guest_email || null;
+  const displayPhone = profile.mobile || profile.phone || null;
+  const displayAddress =
+    profile.defaultAddress?.formatted ||
+    profile.defaultAddress?.fullAddress ||
+    null;
+  const rawAvatar = profile.avatarUrl || profile.avatar || null;
+  const avatarUrl =
+    !avatarFailed && rawAvatar ? resolveAssetUrl(rawAvatar) : null;
+  const productMeta = room.product_metadata || null;
+
   return (
     <aside className="h-full w-full bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 overflow-y-auto custom-scroll">
       <div className="p-4 space-y-5">
@@ -183,34 +282,60 @@ export default function CustomerContext({
           <h4 className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-3">
             Customer details
           </h4>
+          {profileLoading && <Skeleton />}
+          {profileError && !liveProfile && (
+            <p className="text-xs text-amber-600 mb-2">{profileError}</p>
+          )}
           <div className="flex items-center gap-3">
-            <div
-              className={`w-12 h-12 rounded-full ${avatarColor(
-                room.guest_name
-              )} flex items-center justify-center text-white font-semibold`}
-            >
-              {getInitials(room.guest_name || 'G')}
-            </div>
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={displayName}
+                className="w-12 h-12 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                onError={() => setAvatarFailed(true)}
+              />
+            ) : (
+              <div
+                className={`w-12 h-12 rounded-full ${avatarColor(
+                  displayName
+                )} flex items-center justify-center text-white font-semibold shrink-0`}
+              >
+                {getInitials(displayName || 'G')}
+              </div>
+            )}
             <div className="min-w-0">
               <p className="font-semibold text-text-primary dark:text-white truncate">
-                {room.guest_name || 'Guest'}
+                {displayName}
               </p>
-              {room.guest_email && (
+              {displayEmail && (
                 <p className="text-xs text-text-secondary truncate">
-                  {room.guest_email}
+                  {displayEmail}
+                </p>
+              )}
+              {displayPhone && (
+                <p className="text-xs text-text-secondary truncate">
+                  {displayPhone}
                 </p>
               )}
               <span
                 className={`inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                  room.user_id
+                  isRegistered
                     ? 'bg-emerald-50 text-emerald-700'
                     : 'bg-slate-100 text-slate-600'
                 }`}
               >
-                {room.user_id ? 'Registered' : 'Guest'}
+                {isRegistered ? 'Registered' : 'Guest'}
               </span>
             </div>
           </div>
+          {displayAddress && (
+            <p className="text-xs text-text-secondary mt-3 leading-bn">
+              <span className="font-medium text-slate-600 dark:text-slate-300">
+                Shipping:{' '}
+              </span>
+              {displayAddress}
+            </p>
+          )}
           <p className="text-xs text-text-secondary mt-3 leading-bn">
             Session: {relativeTimeBn(room.createdAt)} ({formatTime(room.createdAt)})
           </p>
@@ -232,6 +357,44 @@ export default function CustomerContext({
             </div>
           )}
         </section>
+
+        {productMeta && (productMeta.title || productMeta.product_id) && (
+          <section className="rounded-card border border-violet-100 dark:border-violet-900 shadow-soft p-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-3">
+              Product context
+            </h4>
+            <div className="flex gap-3">
+              {productMeta.image && (
+                <img
+                  src={productMeta.image}
+                  alt={productMeta.title || 'Product'}
+                  className="w-14 h-14 rounded-lg object-cover border border-slate-100 dark:border-slate-800 shrink-0"
+                />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-text-primary dark:text-white line-clamp-2">
+                  {productMeta.title || 'Product'}
+                </p>
+                {productMeta.price != null && (
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    BDT {Number(productMeta.price).toLocaleString()}
+                  </p>
+                )}
+                {productMeta.url && (
+                  <a
+                    href={productMeta.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 mt-1.5 text-xs font-medium text-primary hover:underline"
+                  >
+                    <ShoppingBagIcon className="w-3.5 h-3.5" />
+                    View product
+                  </a>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
 
         {room.type === 'ORDER_SUPPORT' && room.order_id && (
           <section className="rounded-card border border-slate-100 dark:border-slate-800 shadow-soft p-3">
@@ -320,6 +483,58 @@ export default function CustomerContext({
                   </a>
                 )}
               </div>
+            )}
+          </section>
+        )}
+
+        {(userId || profile.user_id) && (
+          <section>
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-3">
+              Order history
+            </h4>
+            {storeOrdersLoading && <Skeleton />}
+            {storeOrdersError && !storeOrders.length && (
+              <p className="text-xs text-text-secondary">{storeOrdersError}</p>
+            )}
+            {!storeOrdersLoading && storeOrders.length === 0 && !storeOrdersError && (
+              <p className="text-xs text-text-secondary">No store orders found</p>
+            )}
+            {storeOrders.length > 0 && (
+              <ul className="space-y-2">
+                {storeOrders.map((storeOrder) => {
+                  const oid =
+                    storeOrder.orderId ||
+                    storeOrder.order_number ||
+                    storeOrder._id;
+                  const total =
+                    storeOrder.grandTotal ?? storeOrder.total ?? storeOrder.total_amount;
+                  return (
+                    <li
+                      key={String(storeOrder._id || oid)}
+                      className="rounded-card border border-slate-100 dark:border-slate-800 px-3 py-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <code className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">
+                          #{oid}
+                        </code>
+                        {storeOrder.status && (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 shrink-0">
+                            {storeOrder.status}
+                          </span>
+                        )}
+                      </div>
+                      {total != null && (
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          BDT {Number(total).toLocaleString()}
+                          {storeOrder.createdAt
+                            ? ` · ${relativeTimeBn(storeOrder.createdAt)}`
+                            : ''}
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </section>
         )}

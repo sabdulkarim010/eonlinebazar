@@ -1,29 +1,33 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   ArrowLeftIcon,
+  CameraIcon,
   EyeIcon,
   EyeSlashIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
+import AgentAvatar from '../components/AgentAvatar';
 import useAuthStore from '../store/authStore';
 import {
   changePassword,
   fetchProfile,
   updateProfile,
+  uploadAgentAvatar,
 } from '../services/api';
-import {
-  avatarColor,
-  getInitials,
-  toBanglaDigits,
-} from '../utils/helpers';
+import { toBanglaDigits } from '../utils/helpers';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function ProfilePage() {
   const agent = useAuthStore((s) => s.agent);
   const setAgent = useAuthStore((s) => s.setAgent);
 
   const [name, setName] = useState(agent?.name || '');
+  const [email, setEmail] = useState(agent?.email || '');
   const [avatar, setAvatar] = useState(agent?.avatar || '');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [stats, setStats] = useState({
     total_chats_handled: 0,
     avg_rating: null,
@@ -31,12 +35,16 @@ export default function ProfilePage() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPw, setShowPw] = useState(false);
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
+
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +56,7 @@ export default function ProfilePage() {
         const a = data.agent;
         if (a) {
           setName(a.name || '');
+          setEmail(a.email || '');
           setAvatar(a.avatar || '');
           setAgent(a);
           setStats({
@@ -67,15 +76,74 @@ export default function ProfilePage() {
     };
   }, [setAgent]);
 
-  const saveProfile = async (e) => {
-    e.preventDefault();
+  const handleAvatarFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose an image file (JPEG, PNG, WebP, GIF)');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be 5MB or smaller');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const data = await uploadAgentAvatar(file);
+      const nextAvatar = data.url || data.agent?.avatar || '';
+      setAvatar(nextAvatar);
+      if (data.agent) setAgent(data.agent);
+      toast.success('Profile photo updated');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Photo upload failed');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const removeAvatar = async () => {
     setSaving(true);
     try {
-      const data = await updateProfile({
-        name: name.trim(),
-        avatar: avatar.trim() || null,
-      });
+      const data = await updateProfile({ clear_avatar: true });
+      setAvatar('');
       if (data.agent) setAgent(data.agent);
+      toast.success('Profile photo removed');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to remove photo');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveProfile = async (e) => {
+    e.preventDefault();
+
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!EMAIL_RE.test(trimmedEmail)) {
+      toast.error('Enter a valid email address');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        name: name.trim(),
+        email: trimmedEmail,
+      };
+      if (avatarUrl.trim()) {
+        payload.avatar = avatarUrl.trim();
+      }
+
+      const data = await updateProfile(payload);
+      if (data.agent) {
+        setAgent(data.agent);
+        setAvatar(data.agent.avatar || '');
+        setEmail(data.agent.email || trimmedEmail);
+      }
+      setAvatarUrl('');
       toast.success('Profile updated');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Save failed');
@@ -86,14 +154,23 @@ export default function ProfilePage() {
 
   const savePassword = async (e) => {
     e.preventDefault();
+    if (newPassword.length < 8) {
+      toast.error('New password must be at least 8 characters');
+      return;
+    }
     if (newPassword !== confirmPassword) {
       toast.error('New passwords do not match');
       return;
     }
+    if (currentPassword === newPassword) {
+      toast.error('New password must differ from current password');
+      return;
+    }
+
     setChangingPw(true);
     try {
-      await changePassword(currentPassword, newPassword);
-      toast.success('Password changed');
+      await changePassword(currentPassword, newPassword, confirmPassword);
+      toast.success('Password changed successfully');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -109,6 +186,13 @@ export default function ProfilePage() {
       ? (stats.avg_response_time_seconds / 60).toFixed(1)
       : null;
 
+  const roleLabel =
+    agent?.role === 'SUPER_ADMIN'
+      ? 'Super Admin'
+      : agent?.role === 'ADMIN'
+        ? 'Admin'
+        : 'Agent';
+
   return (
     <div className="min-h-screen bg-page dark:bg-[#0b1220]">
       <div className="max-w-3xl mx-auto px-4 py-6">
@@ -120,9 +204,17 @@ export default function ProfilePage() {
           Back to dashboard
         </Link>
 
-        <h1 className="text-2xl font-bold text-text-primary dark:text-white mb-6">
-          Agent Profile
-        </h1>
+        <div className="flex items-center justify-between gap-3 mb-6">
+          <h1 className="text-2xl font-bold text-text-primary dark:text-white">
+            Profile &amp; Security
+          </h1>
+          <Link
+            to="/settings"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            Chat settings →
+          </Link>
+        </div>
 
         {loading ? (
           <div className="space-y-3">
@@ -165,36 +257,65 @@ export default function ProfilePage() {
               onSubmit={saveProfile}
               className="rounded-card bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-soft p-5 space-y-4"
             >
-              <div className="flex items-center gap-4">
-                <div
-                  className={`w-16 h-16 rounded-full ${avatarColor(
-                    name || 'A'
-                  )} flex items-center justify-center text-white text-xl font-bold overflow-hidden`}
-                >
-                  {avatar ? (
-                    <img
-                      src={avatar}
-                      alt=""
-                      className="w-full h-full object-cover"
+              <h2 className="font-semibold text-text-primary dark:text-white">
+                Account details
+              </h2>
+
+              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                <div className="flex flex-col items-start gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handleAvatarFile}
+                  />
+                  <button
+                    type="button"
+                    disabled={uploadingAvatar || saving}
+                    onClick={() => fileInputRef.current?.click()}
+                    aria-label="Change profile photo"
+                    className="relative w-20 h-20 rounded-full shrink-0 group focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60"
+                  >
+                    <AgentAvatar
+                      name={name}
+                      avatar={avatar}
+                      size="xl"
+                      className="w-20 h-20 ring-2 ring-slate-100 dark:ring-slate-700 group-hover:ring-primary/40 transition"
                     />
-                  ) : (
-                    getInitials(name || 'A')
+                    {uploadingAvatar && (
+                      <div className="absolute inset-0 rounded-full bg-black/45 flex items-center justify-center">
+                        <span className="text-white text-xs font-medium">…</span>
+                      </div>
+                    )}
+                    <span className="absolute -bottom-0.5 -right-0.5 w-7 h-7 rounded-full bg-primary text-white border-2 border-white dark:border-slate-900 shadow-md flex items-center justify-center group-hover:bg-primary/90 transition">
+                      <CameraIcon className="w-3.5 h-3.5" />
+                    </span>
+                  </button>
+                  {avatar && (
+                    <button
+                      type="button"
+                      disabled={uploadingAvatar || saving}
+                      onClick={removeAvatar}
+                      className="inline-flex items-center gap-1 text-xs text-danger hover:underline disabled:opacity-50"
+                    >
+                      <TrashIcon className="w-3.5 h-3.5" />
+                      Remove photo
+                    </button>
                   )}
                 </div>
-                <div>
-                  <p className="font-semibold text-text-primary dark:text-white">
-                    {agent?.email}
-                  </p>
-                  <p className="text-xs text-text-secondary">{agent?.role}</p>
-                </div>
               </div>
+
+              <p className="text-xs text-text-secondary leading-bn">
+                JPG, PNG, WebP or GIF — max 5MB. Stored securely on Cloudinary.
+              </p>
 
               <div>
                 <label
                   htmlFor="profile-name"
                   className="block text-sm font-medium text-text-primary dark:text-white mb-1.5"
                 >
-                  Name
+                  Display name
                 </label>
                 <input
                   id="profile-name"
@@ -202,31 +323,58 @@ export default function ProfilePage() {
                   onChange={(e) => setName(e.target.value)}
                   className="w-full rounded-btn border border-slate-200 dark:border-slate-700 px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 dark:bg-slate-800 dark:text-white transition"
                   required
+                  minLength={2}
                 />
               </div>
 
               <div>
                 <label
-                  htmlFor="profile-avatar"
+                  htmlFor="profile-email"
                   className="block text-sm font-medium text-text-primary dark:text-white mb-1.5"
                 >
-                  Avatar URL
+                  Email address
                 </label>
                 <input
-                  id="profile-avatar"
-                  value={avatar}
-                  onChange={(e) => setAvatar(e.target.value)}
-                  placeholder="https://…"
+                  id="profile-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
                   className="w-full rounded-btn border border-slate-200 dark:border-slate-700 px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 dark:bg-slate-800 dark:text-white transition"
+                  required
                 />
+                <p className="text-xs text-text-secondary mt-1">
+                  Used to sign in to the chat admin dashboard.
+                </p>
+              </div>
+
+              <details className="rounded-btn border border-slate-100 dark:border-slate-800 px-3 py-2">
+                <summary className="text-sm font-medium text-text-secondary cursor-pointer select-none">
+                  Advanced — paste avatar URL
+                </summary>
+                <div className="mt-3">
+                  <input
+                    id="profile-avatar-url"
+                    value={avatarUrl}
+                    onChange={(e) => setAvatarUrl(e.target.value)}
+                    placeholder="https://…"
+                    className="w-full rounded-btn border border-slate-200 dark:border-slate-700 px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 dark:bg-slate-800 dark:text-white transition"
+                  />
+                </div>
+              </details>
+
+              <div className="flex items-center gap-2 text-xs text-text-secondary">
+                <span className="font-medium">{roleLabel}</span>
+                <span>·</span>
+                <span>{agent?.email}</span>
               </div>
 
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || uploadingAvatar}
                 className="rounded-btn btn-gradient text-white font-semibold px-5 py-2.5 text-sm disabled:opacity-50"
               >
-                {saving ? 'Saving…' : 'Save profile'}
+                {saving ? 'Saving…' : 'Save account details'}
               </button>
             </form>
 
@@ -237,6 +385,9 @@ export default function ProfilePage() {
               <h2 className="font-semibold text-text-primary dark:text-white">
                 Change password
               </h2>
+              <p className="text-xs text-text-secondary leading-bn">
+                Use at least 8 characters. You will stay signed in after updating.
+              </p>
 
               <div>
                 <label
@@ -248,18 +399,20 @@ export default function ProfilePage() {
                 <div className="relative">
                   <input
                     id="current-password"
-                    type={showPw ? 'text' : 'password'}
+                    type={showCurrentPw ? 'text' : 'password'}
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
+                    autoComplete="current-password"
                     className="w-full rounded-btn border border-slate-200 dark:border-slate-700 px-3 py-2.5 pr-10 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 dark:bg-slate-800 dark:text-white transition"
                     required
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPw((v) => !v)}
+                    onClick={() => setShowCurrentPw((v) => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    aria-label="Toggle current password visibility"
                   >
-                    {showPw ? (
+                    {showCurrentPw ? (
                       <EyeSlashIcon className="w-5 h-5" />
                     ) : (
                       <EyeIcon className="w-5 h-5" />
@@ -275,15 +428,30 @@ export default function ProfilePage() {
                 >
                   New password
                 </label>
-                <input
-                  id="new-password"
-                  type={showPw ? 'text' : 'password'}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full rounded-btn border border-slate-200 dark:border-slate-700 px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 dark:bg-slate-800 dark:text-white transition"
-                  required
-                  minLength={8}
-                />
+                <div className="relative">
+                  <input
+                    id="new-password"
+                    type={showNewPw ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    autoComplete="new-password"
+                    className="w-full rounded-btn border border-slate-200 dark:border-slate-700 px-3 py-2.5 pr-10 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 dark:bg-slate-800 dark:text-white transition"
+                    required
+                    minLength={8}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPw((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    aria-label="Toggle new password visibility"
+                  >
+                    {showNewPw ? (
+                      <EyeSlashIcon className="w-5 h-5" />
+                    ) : (
+                      <EyeIcon className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -291,13 +459,14 @@ export default function ProfilePage() {
                   htmlFor="confirm-password"
                   className="block text-sm font-medium mb-1.5 dark:text-white"
                 >
-                  Confirm password
+                  Confirm new password
                 </label>
                 <input
                   id="confirm-password"
-                  type={showPw ? 'text' : 'password'}
+                  type={showNewPw ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
                   className="w-full rounded-btn border border-slate-200 dark:border-slate-700 px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 dark:bg-slate-800 dark:text-white transition"
                   required
                   minLength={8}

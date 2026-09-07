@@ -742,6 +742,10 @@ async function handleLoginSubmit(e) {
                 window.analytics.trackLogin('email');
             }
 
+            if (window.OrderChat && typeof window.OrderChat.syncIdentity === 'function') {
+                window.OrderChat.syncIdentity().catch(function () { /* ignore */ });
+            }
+
             hideLoginError();
             window.location.href = resolvePostLoginRedirect();
         } else {

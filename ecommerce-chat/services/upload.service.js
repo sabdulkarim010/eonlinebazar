@@ -90,6 +90,49 @@ async function uploadChatImage(fileBuffer, mimeType, roomId) {
 }
 
 /**
+ * Upload agent/staff profile photo to Cloudinary.
+ * @param {Buffer} fileBuffer
+ * @param {string} mimeType
+ * @param {string} agentId
+ */
+async function uploadAgentAvatar(fileBuffer, mimeType, agentId) {
+  if (!fileBuffer || !Buffer.isBuffer(fileBuffer)) {
+    throw new Error('Invalid file buffer');
+  }
+  if (!agentId) {
+    throw new Error('agentId is required');
+  }
+
+  const dataUri = `data:${mimeType || 'image/jpeg'};base64,${fileBuffer.toString('base64')}`;
+
+  const result = await cloudinary.uploader.upload(dataUri, {
+    folder: `chat-agents/${agentId}`,
+    resource_type: 'image',
+    transformation: [
+      { width: 400, height: 400, crop: 'fill', gravity: 'face', quality: 'auto', fetch_format: 'auto' },
+    ],
+  });
+
+  const thumbnail_url = cloudinary.url(result.public_id, {
+    width: 80,
+    height: 80,
+    crop: 'fill',
+    gravity: 'face',
+    quality: 'auto',
+    fetch_format: 'auto',
+    secure: true,
+  });
+
+  return {
+    url: result.secure_url || result.url,
+    thumbnail_url,
+    public_id: result.public_id,
+    bytes: result.bytes,
+    format: result.format,
+  };
+}
+
+/**
  * Parse a base64 string (optionally data-URI prefixed) and upload as buffer.
  * Rejects storing data: URLs; max decoded size 3MB.
  * @param {string} base64String
@@ -175,6 +218,7 @@ function sanitizeAttachments(attachments = []) {
 
 module.exports = {
   uploadChatImage,
+  uploadAgentAvatar,
   uploadFromBase64,
   deleteChatImage,
   isAllowedAttachmentUrl,

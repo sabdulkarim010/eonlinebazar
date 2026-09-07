@@ -423,9 +423,7 @@ export default function ChatWindow({ onBack }) {
       const form = new FormData();
       form.append('image', file);
       form.append('room_id', activeRoomId);
-      const { data } = await api.post('/upload/image', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const { data } = await api.post('/upload/image', form);
       if (!data?.url || String(data.url).startsWith('data:')) {
         throw new Error('Invalid upload response');
       }

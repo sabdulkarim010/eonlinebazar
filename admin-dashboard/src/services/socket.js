@@ -2,14 +2,53 @@ import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import useChatStore from '../store/chatStore';
+import { getChatSiteOrigin } from './api';
+
+const LOCAL_MAIN_ORIGIN = 'http://localhost:5000';
+
+function isLocalDevHost() {
+  if (typeof window === 'undefined') return true;
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1';
+}
+
+function isProductionApiUrl(url) {
+  return /eonlinebazar\.com/i.test(String(url || ''));
+}
 
 function resolveSocketUrl() {
-  const raw =
+  const readMeta = () => {
+    if (typeof document === 'undefined') return '';
+    return (
+      document.querySelector('meta[name="chat-api-url"]')?.getAttribute('content') ||
+      ''
+    ).trim();
+  };
+
+  let raw =
     import.meta.env.VITE_SOCKET_URL ||
     import.meta.env.VITE_API_URL ||
-    'http://localhost:5001';
-  // Socket.io is on the site origin; /chat-api is HTTP-only (nginx rewrite)
-  return String(raw).replace(/\/$/, '').replace(/\/chat-api$/i, '');
+    readMeta() ||
+    '';
+
+  if (raw && isLocalDevHost() && isProductionApiUrl(raw)) {
+    raw = readMeta() || '';
+  }
+
+  if (!raw || (/\/chat-admin/i.test(String(raw)) && !raw.includes('/api/chat-admin'))) {
+    if (typeof window !== 'undefined') {
+      const { pathname } = window.location;
+      if (pathname.startsWith('/chat-admin')) {
+        return getChatSiteOrigin();
+      }
+    }
+    raw = LOCAL_MAIN_ORIGIN;
+  }
+
+  return String(raw)
+    .replace(/\/$/, '')
+    .replace(/\/chat-api$/i, '')
+    .replace(/\/api\/chat-admin$/i, '');
 }
 
 const SOCKET_URL = resolveSocketUrl();

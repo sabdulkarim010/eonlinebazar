@@ -130,6 +130,8 @@ const AriaChatPanel = forwardRef(function AriaChatPanel({
   user,
   guestName,
   orderContext,
+  authToken = null,
+  productContext = null,
   T,
   colors,
   onMinimizePress,
@@ -155,7 +157,7 @@ const AriaChatPanel = forwardRef(function AriaChatPanel({
     onInputChange,
     retryBootstrap,
     endChat,
-  } = useAriaChat({ user, guestName, orderContext });
+  } = useAriaChat({ user, guestName, orderContext, authToken, productContext });
 
   useImperativeHandle(ref, () => ({ endChat }), [endChat]);
 

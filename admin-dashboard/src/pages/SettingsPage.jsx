@@ -884,6 +884,16 @@ export default function SettingsPage() {
               Dashboard
             </Link>
             <div className="h-5 w-px bg-slate-200" />
+            <Link
+              to="/profile"
+              onClick={(e) => {
+                if (isDirty && !confirmLeave()) e.preventDefault();
+              }}
+              className="text-sm text-slate-600 hover:text-primary transition hidden sm:inline"
+            >
+              Profile
+            </Link>
+            <div className="h-5 w-px bg-slate-200 hidden sm:block" />
             <h1 className="text-lg font-semibold text-slate-900">Settings ⚙️</h1>
           </div>
           <div className="flex items-center gap-3">

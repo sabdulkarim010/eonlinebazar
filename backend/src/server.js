@@ -47,11 +47,20 @@ const { seedDefaultPaymentMethods } = require('./services/paymentMethodService')
 const storeSettingsMiddleware = require('./middlewares/storeSettingsMiddleware');
 const bannerRoutes = require('./routes/bannerRoutes');
 const noteRoutes = require('./routes/noteRoutes');
+const internalRoutes = require('./routes/internalRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const PUBLIC_DIR = path.join(REPO_ROOT, 'public');
+
+// Chat microservice proxy — BEFORE body parsers (multipart avatar upload must stream)
+const {
+  mountChatServiceProxy,
+  logChatProxyConfig,
+} = require('./middlewares/chatApiProxy');
+mountChatServiceProxy(app);
+logChatProxyConfig();
 
 // ২. ডাটাবেজ কানেক্ট করা
 // কানেকশনের পরপরই RBAC ডিফল্ট ব্যাকফিল করা হয় — RBAC চালুর আগে তৈরি হওয়া
@@ -101,7 +110,19 @@ connectDB().then(async () => {
 // ৩. প্রয়োজনীয় মিডলওয়্যারসমূহ
 // প্রক্সি/হোস্টিং (Render, Vercel, Nginx ইত্যাদি)-এর পেছনে আসল ক্লায়েন্ট IP পেতে
 app.set('trust proxy', true);
-app.use(express.json());
+
+// JSON body parser — skip chat proxy routes and raw multipart (avatar upload stream)
+const jsonBodyParser = express.json();
+app.use((req, res, next) => {
+  if (req._chatProxyHandled || req._chatProxySkipBodyParse) {
+    return next();
+  }
+  const contentType = String(req.headers['content-type'] || '');
+  if (/^multipart\/form-data/i.test(contentType)) {
+    return next();
+  }
+  return jsonBodyParser(req, res, next);
+});
 // request-ip must run before rate limiting so localhost/admin bypass can read client IP
 app.use(requestIp.mw());
 applySecurityMiddleware(app);
@@ -186,6 +207,7 @@ app.use('/api/inquiries', inquiryRoutes);
 app.use('/api/newsletter', newsletterRoutes);
 app.use('/api', bannerRoutes);
 app.use('/api/notes', noteRoutes);
+app.use('/api/internal', internalRoutes);
 
 // Finance analytics — explicit path expected by the dashboard UI
 // URL: GET /admin/api/analytics?period=&startDate=&endDate=
@@ -209,9 +231,18 @@ app.use((err, req, res, next) => {
 
 // ৫. সার্ভার স্টার্ট করা (Socket.IO requires the raw HTTP server)
 const http = require('http');
+const { PROXY_STREAM_TIMEOUT_MS } = require('./middlewares/chatApiProxy');
 const httpServer = http.createServer(app);
 const { initSocketServer } = require('./services/socketService');
 initSocketServer(httpServer);
+
+// Allow long-running multipart uploads through chat proxy (avatar)
+const uploadSocketTimeoutMs = Math.max(PROXY_STREAM_TIMEOUT_MS + 5000, 60_000);
+httpServer.timeout = uploadSocketTimeoutMs;
+httpServer.headersTimeout = uploadSocketTimeoutMs + 5000;
+if (typeof httpServer.requestTimeout === 'number') {
+  httpServer.requestTimeout = uploadSocketTimeoutMs;
+}
 
 httpServer.listen(PORT, () => {
     console.log(`Server is running at http://localhost:${PORT}`);

@@ -8,8 +8,11 @@ import {
   CHAT_ROOM_KEY_PREFIX,
   CHAT_SESSION_KEY,
   CHAT_SOCKET_PATH,
+  buildChatApiUrl,
   resolveChatSocketUrl,
 } from '../config/chatConfig';
+
+const STORAGE_RATED = 'cw_rated_rooms';
 
 const STORAGE_ROOM_GENERAL = `${CHAT_ROOM_KEY_PREFIX}GENERAL`;
 
@@ -42,6 +45,8 @@ function normalizeSenderType(raw) {
 function normalizeMessage(raw) {
   if (!raw) return null;
   const id = raw._id || raw.id || `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const attachments = Array.isArray(raw.attachments) ? raw.attachments : [];
+  const messageType = raw.message_type || raw.messageType || (attachments.length ? 'image' : 'text');
   return {
     id: String(id),
     senderType: normalizeSenderType(raw.sender_type || raw.senderType || raw.type),
@@ -51,7 +56,33 @@ function normalizeMessage(raw) {
     quickReplies: Array.isArray(raw.quick_replies || raw.quickReplies)
       ? raw.quick_replies || raw.quickReplies
       : [],
+    attachments,
+    messageType,
+    isPending: Boolean(raw.isPending),
   };
+}
+
+async function getRatedRooms() {
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_RATED);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function markRoomRated(roomId) {
+  if (!roomId) return;
+  try {
+    const rooms = await getRatedRooms();
+    if (!rooms.includes(String(roomId))) {
+      rooms.push(String(roomId));
+      await AsyncStorage.setItem(STORAGE_RATED, JSON.stringify(rooms));
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 function sortMessages(list) {
@@ -107,7 +138,7 @@ function buildOrderMetadata(orderContext) {
   };
 }
 
-export function useAriaChat({ user, guestName = 'Guest', orderContext = null }) {
+export function useAriaChat({ user, guestName = 'Guest', orderContext = null, authToken = null, productContext = null }) {
   const [messages, setMessages] = useState([]);
   const [connectionState, setConnectionState] = useState('connecting');
   const [roomStatus, setRoomStatus] = useState('BOT');
@@ -116,6 +147,8 @@ export function useAriaChat({ user, guestName = 'Guest', orderContext = null }) 
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState(null);
   const [usedQuickReplyIds, setUsedQuickReplyIds] = useState([]);
+  const [hasRated, setHasRated] = useState(false);
+  const [roomId, setRoomId] = useState(null);
 
   const socketRef = useRef(null);
   const roomIdRef = useRef(null);
@@ -126,6 +159,10 @@ export function useAriaChat({ user, guestName = 'Guest', orderContext = null }) 
   const bootstrappingRef = useRef(null);
   const orderContextRef = useRef(orderContext);
   orderContextRef.current = orderContext;
+  const authTokenRef = useRef(authToken);
+  authTokenRef.current = authToken;
+  const productContextRef = useRef(productContext);
+  productContextRef.current = productContext;
   const roomStorageKey = useMemo(
     () => resolveRoomStorageKey(orderContext),
     [orderContext?.orderId]
@@ -279,6 +316,11 @@ export function useAriaChat({ user, guestName = 'Guest', orderContext = null }) 
       setRoomStatus('RESOLVED');
       setIsAgentTyping(false);
       emitTypingStop();
+      getRatedRooms().then((rooms) => {
+        if (roomIdRef.current) {
+          setHasRated(rooms.includes(String(roomIdRef.current)));
+        }
+      });
     });
 
     socket.on('error', (payload) => {
@@ -345,14 +387,20 @@ export function useAriaChat({ user, guestName = 'Guest', orderContext = null }) 
 
       const ctx = orderContextRef.current;
       const isOrderSupport = Boolean(ctx?.orderId);
+      const token = authTokenRef.current;
+      const productMeta = productContextRef.current;
       const startPayload = {
         type: isOrderSupport ? 'ORDER_SUPPORT' : 'GENERAL',
         order_id: isOrderSupport ? ctx.orderId : null,
         order_metadata: isOrderSupport ? buildOrderMetadata(ctx) : null,
+        product_metadata: productMeta || null,
         guest_session_id: guestSessionId,
         guest_name: displayName,
         guest_email: user?.email || null,
         user_id: userId,
+        auth_token: token || undefined,
+        customer_avatar_url: user?.avatar || user?.avatarUrl || undefined,
+        customer_avatar: user?.avatar || user?.avatarUrl || undefined,
       };
 
       const data = await startChatSession(startPayload);
@@ -362,7 +410,11 @@ export function useAriaChat({ user, guestName = 'Guest', orderContext = null }) 
       }
 
       roomIdRef.current = roomId;
+      setRoomId(roomId);
       await persistRoomId(roomId, roomStorageKey);
+
+      const ratedRooms = await getRatedRooms();
+      setHasRated(ratedRooms.includes(String(roomId)));
 
       if (data?.room?.status) {
         setRoomStatus(data.room.status);
@@ -577,13 +629,83 @@ export function useAriaChat({ user, guestName = 'Guest', orderContext = null }) 
       }
       socketRef.current = null;
     }
+    setRoomId(null);
+    setHasRated(false);
     await bootstrap();
   }, [bootstrap, endChat]);
+
+  const submitRating = useCallback(async (score) => {
+    const rid = roomIdRef.current;
+    if (!rid || !score) return false;
+    try {
+      const url = buildChatApiUrl(`/api/chat/${encodeURIComponent(rid)}/rate`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          score,
+          rating: score,
+          guest_session_id: guestSessionRef.current,
+          user_id: user?.id ? String(user.id) : undefined,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.message || 'Rating failed');
+      }
+      await markRoomRated(rid);
+      setHasRated(true);
+      return true;
+    } catch (err) {
+      setError(err?.message || 'Could not submit rating.');
+      return false;
+    }
+  }, [user?.id]);
+
+  const sendImage = useCallback(async (uri) => {
+    const rid = roomIdRef.current;
+    if (!rid || !uri || roomStatus === 'RESOLVED') return false;
+    if (!socketRef.current?.connected) {
+      setError('Connection lost. Reconnecting…');
+      return false;
+    }
+
+    setIsSending(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', {
+        uri,
+        type: 'image/jpeg',
+        name: 'chat_image.jpg',
+      });
+      formData.append('guest_session_id', guestSessionRef.current || '');
+
+      const url = buildChatApiUrl(`/api/chat/${encodeURIComponent(rid)}/upload`);
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || 'Upload failed');
+      }
+      setError(null);
+      return true;
+    } catch (err) {
+      setError(err?.message || 'Failed to send image.');
+      return false;
+    } finally {
+      setIsSending(false);
+    }
+  }, [roomStatus]);
+
+  const showRatingPrompt = roomStatus === 'RESOLVED' && !hasRated;
 
   return {
     messages,
     connectionState,
     roomStatus,
+    roomId,
     agentName,
     personaName: agentName || ARIA_PERSONA,
     statusLabel,
@@ -593,8 +715,12 @@ export function useAriaChat({ user, guestName = 'Guest', orderContext = null }) 
     error,
     activeQuickReplies,
     canSend,
+    showRatingPrompt,
+    hasRated,
     sendMessage,
     sendQuickReply,
+    sendImage,
+    submitRating,
     onInputChange: emitTypingStart,
     retryBootstrap: bootstrap,
     endChat,

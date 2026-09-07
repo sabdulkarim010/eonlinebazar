@@ -125,3 +125,19 @@ export function statusMeta(status) {
 export function roomId(room) {
   return String(room?._id || room?.id || '');
 }
+
+/** Resolve relative store asset paths to absolute URLs for avatars/images. */
+export function resolveAssetUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+  const storeBase =
+    import.meta.env.VITE_STORE_URL ||
+    import.meta.env.VITE_MAIN_STORE_URL ||
+    'http://localhost:5000';
+  const base = String(storeBase).replace(/\/$/, '');
+  return `${base}${trimmed.startsWith('/') ? trimmed : `/${trimmed}`}`;
+}

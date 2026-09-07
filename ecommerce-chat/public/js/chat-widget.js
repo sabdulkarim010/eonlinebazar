@@ -30,6 +30,9 @@
     guestName: 'Guest',
     guestEmail: null,
     userId: null,
+    userAvatar: null,
+    authToken: null,
+    productMetadata: null,
     orderId: null,
     orderDisplayId: null,
     orderMetadata: null,
@@ -1419,9 +1422,15 @@
 
     if (state.guestEmail) body.guest_email = state.guestEmail;
     if (state.userId) body.user_id = state.userId;
+    if (state.authToken) body.auth_token = state.authToken;
+    if (state.userAvatar) {
+      body.customer_avatar_url = state.userAvatar;
+      body.customer_avatar = state.userAvatar;
+    }
     if (state.type === 'ORDER_SUPPORT' && state.orderMetadata) {
       body.order_metadata = state.orderMetadata;
     }
+    if (state.productMetadata) body.product_metadata = state.productMetadata;
 
     var data = await api('/api/chat/start', {
       method: 'POST',
@@ -1578,6 +1587,13 @@
     state.guestName = options.guestName || options.guest_name || 'Guest';
     state.guestEmail = options.guestEmail || options.guest_email || null;
     state.userId = options.userId || options.user_id || null;
+    state.userAvatar =
+      options.userAvatar ||
+      options.user_avatar ||
+      options.customer_avatar_url ||
+      null;
+    state.authToken = options.authToken || options.auth_token || null;
+    state.productMetadata = options.productMetadata || options.product_metadata || null;
     state.orderId = options.orderId || options.order_id || null;
     state.orderDisplayId =
       options.orderDisplayId ||
@@ -1625,6 +1641,13 @@
       guestName: options.guestName || options.guest_name || 'Guest',
       guestEmail: options.guestEmail || options.guest_email || null,
       userId: options.userId || options.user_id || null,
+      userAvatar:
+        options.userAvatar ||
+        options.user_avatar ||
+        options.customer_avatar_url ||
+        null,
+      authToken: options.authToken || options.auth_token || null,
+      productMetadata: options.productMetadata || options.product_metadata || null,
       orderId: options.orderId || options.order_id || null,
       orderDisplayId: options.orderDisplayId || options.order_display_id || null,
       orderMetadata: options.orderMetadata || options.order_metadata || null,
@@ -1650,6 +1673,83 @@
     state.orderDisplayId = null;
     state.guestEmail = null;
     state.userId = null;
+    state.userAvatar = null;
+    state.authToken = null;
+    state.productMetadata = null;
+  }
+
+  function readStoreUser() {
+    try {
+      var raw =
+        localStorage.getItem('customerData') ||
+        localStorage.getItem('userInfo') ||
+        localStorage.getItem('user');
+      if (!raw) return null;
+      var user = JSON.parse(raw);
+      if (!user.name && (user.firstName || user.lastName)) {
+        user.name = [user.firstName, user.lastName].filter(Boolean).join(' ');
+      }
+      if (!user._id && user.id) user._id = user.id;
+      return user;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function readStoreToken() {
+    try {
+      return localStorage.getItem('token') || localStorage.getItem('customerToken') || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function linkRegisteredUser(options) {
+    options = options || {};
+    var user = options.user || readStoreUser();
+    var token = options.token || readStoreToken();
+
+    if (user) {
+      state.userId = user._id || user.id || state.userId;
+      state.guestName =
+        user.name ||
+        [user.firstName, user.lastName].filter(Boolean).join(' ') ||
+        state.guestName;
+      state.guestEmail = user.email || state.guestEmail;
+      state.userAvatar = user.avatarUrl || user.avatar || state.userAvatar;
+    }
+    if (token) state.authToken = token;
+
+    updateHeader();
+
+    if (!state.roomId) return ChatWidget;
+
+    try {
+      await api('/api/chat/link-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          room_id: state.roomId,
+          guest_session_id: state.guestSessionId,
+          user_id: state.userId || undefined,
+          guest_name: state.guestName,
+          guest_email: state.guestEmail,
+          auth_token: state.authToken || undefined,
+          customer_avatar_url: state.userAvatar || undefined,
+          customer_avatar: state.userAvatar || undefined,
+        }),
+      });
+
+      if (state.socket) {
+        state.socket.auth = state.socket.auth || {};
+        state.socket.auth.user_id = state.userId || undefined;
+        state.socket.auth.guest_session_id = state.guestSessionId;
+      }
+    } catch (err) {
+      console.warn('[ChatWidget] linkRegisteredUser failed:', err);
+    }
+
+    return ChatWidget;
   }
 
   var ChatWidget = {
@@ -1661,6 +1761,7 @@
     destroy: destroy,
     startNewChat: startNewChat,
     openOrderSupport: openOrderSupport,
+    linkRegisteredUser: linkRegisteredUser,
     getState: function () {
       return {
         roomId: state.roomId,

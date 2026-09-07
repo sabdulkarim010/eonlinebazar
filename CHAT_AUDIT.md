@@ -379,3 +379,315 @@ Do **not** put chat close logic in `admin-core.js`, `admin.css`, `profile.css`, 
 | Customer × does not end the session | No customer socket end event; `/api/chat/start` returns the still-open room; guest session id reused |
 | Staff/Admin Resolve does not hide the chat window | `activeRoomId` never cleared; no `leave_room`; no resolve ack |
 | Same bug for Staff and Admin | Shared `ChatWindow` + `/admin` `resolve_chat`; roles do not branch |
+
+---
+
+# Live Chat 6-Phase Roadmap Audit (Full System)
+
+**Date:** 2026-09-07  
+**Scope:** Customer profile sidebar, widget, admin dashboard, chat microservice, mobile bridge, roadmap gap analysis  
+**Status:** Audit + P0 CRM enrichment implemented (2026-09-07)  
+**Related:** Sections 1–9 above (close/end session audit). Several items from that audit have since been implemented — see **§10.4 Post-audit fixes**.
+
+---
+
+## 10. Architecture snapshot
+
+| Layer | Path | Port / mount |
+|-------|------|--------------|
+| Chat microservice | `ecommerce-chat/` | `:5001`, socket path `/chat-socket` |
+| Admin dashboard | `admin-dashboard/` (React/Vite) | `/chat-admin` |
+| Storefront widget | `ecommerce-chat/public/js/chat-widget.js` | Embedded via `client/js/orderChat.js` |
+| Mobile chat | `mobile/src/hooks/useAriaChat.js`, `LiveSupportScreen.js` | Same chat API |
+| Main store backend | `backend/` | User model, orders — **separate MongoDB** from chat |
+| Order proxy | `ecommerce-chat/routes/order.routes.js` | Proxies to `MAIN_STORE_API_URL` |
+
+**Note:** There is no `CustomerDetails.jsx`. The admin **Customer Details** sidebar is `admin-dashboard/src/components/CustomerContext.jsx`. The inbox list is `admin-dashboard/src/components/Sidebar.jsx`.
+
+**Inferred 6-phase roadmap** (no dedicated chat roadmap doc exists in repo; phases inferred from product maturity and audit checklist):
+
+| Phase | Scope |
+|-------|--------|
+| **1** | Core chat — widget, sockets, rooms, AI bot |
+| **2** | Agent dashboard — inbox, take/transfer, tags, internal notes |
+| **3** | Customer context — order support, sidebar, session history |
+| **4** | Rich messaging — typing, attachments (Cloudinary), canned `/` responses |
+| **5** | CSAT & session lifecycle — resolve, end chat, ratings, stats |
+| **6** | CRM enrichment — profile avatar/phone/address, order history, product context, block/link to main admin |
+
+### 10.1 Overall completion (estimated)
+
+| Phase | Completion | Notes |
+|-------|------------|-------|
+| 1 — Core chat | **~95%** | Widget, bot, handover, namespaces working |
+| 2 — Agent dashboard | **~90%** | Inbox, take, transfer, tags, notes, stats |
+| 3 — Customer context | **~45%** | Order snapshot OK; profile enrichment missing |
+| 4 — Rich messaging | **~85%** | Typing, canned, attachments E2E with env caveats |
+| 5 — CSAT & lifecycle | **~80%** | CSAT + `end_chat`/`resolve_chat` acks in socket layer |
+| 6 — CRM / product context | **~75%** | Profile snapshot, avatar, orders, product context; block still stub |
+
+**Overall live chat maturity: ~82%** (post P0 implementation)
+
+### 10.2 Post-audit fixes (since §1–9, 2026-08-25)
+
+These close/end-session gaps from the earlier audit appear **addressed in code**:
+
+| Item | Evidence |
+|------|----------|
+| Admin Resolve uses SweetAlert2 | `admin-dashboard/src/components/ChatWindow.jsx` imports `Swal` |
+| `end_chat` / `resolve_chat` socket handlers | `ecommerce-chat/socket/chat.socket.js` |
+| Ownership helpers | `ecommerce-chat/socket/chatAuth.js`, `tests/chat-end-session.test.js` |
+| Widget CSAT after resolve | `#cw-csat` + `submit_rating` in `chat-widget.js` |
+
+**Re-verify in browser:** customer × close still calls `startNewChat()` in some paths; confirm full teardown UX on production build.
+
+---
+
+## 11. Customer profile & avatar audit
+
+### 11.1 Symptom
+
+Admin **Customer Details** sidebar shows **initials only** (e.g. `SS`) in a colored circle — not the registered user’s profile picture from the main store.
+
+### 11.2 Data flow (current)
+
+```
+ChatRoom (ecommerce-chat DB)
+  guest_name, guest_email, user_id, guest_session_id
+  order_metadata (snapshot at chat start)
+       ↓
+GET /api/admin/rooms/:id  →  admin-dashboard chatStore
+       ↓
+CustomerContext.jsx
+  getInitials(guest_name) + avatarColor()  ← NO image URL
+```
+
+### 11.3 Root cause
+
+| # | Issue | Location |
+|---|--------|----------|
+| 1 | Sidebar **never renders an `<img>`** for customer avatar | `CustomerContext.jsx` — uses `getInitials()` / `avatarColor()` from `utils/helpers.js` |
+| 2 | `ChatRoom` schema has **no avatar / profileImage field** | `ecommerce-chat/models/ChatRoom.model.js` |
+| 3 | `user_id` is stored at chat start but **never used to fetch User** from main backend | `ecommerce-chat/routes/chat.routes.js` start flow |
+| 4 | Main User model has `avatar`, `avatarUrl`, `avatarPublicId`, `mobile`, `addresses[]` | `backend/src/models/user.js` — **different DB**, not wired to chat |
+| 5 | Admin API returns room as-is; no enrichment middleware | `ecommerce-chat/routes/admin.routes.js` |
+
+### 11.4 Customer Details field matrix
+
+| Field | Expected (dashboard UI) | Status | Source today |
+|-------|-------------------------|--------|--------------|
+| Display name | ✅ | **Working** | `room.guest_name` |
+| Email | ✅ | **Working** | `room.guest_email` |
+| Registered vs Guest badge | ✅ | **Working** | `room.user_id` truthy check |
+| Profile picture | ❌ | **Missing** | Initials fallback only |
+| Phone number | ❌ | **Missing** | Not in ChatRoom; User.mobile not fetched |
+| Shipping address | ❌ | **Missing** | User.addresses not fetched |
+| Current order (ORDER_SUPPORT) | ✅ | **Partial** | `order_metadata` snapshot or `fetchOrder()` |
+| Full order history (store orders) | ❌ | **Missing** | Only “Previous chats” (resolved rooms) |
+| Session duration | ✅ | **Working** | `room.createdAt` |
+| Typing indicator | ✅ | **Working** | Socket `typing` events |
+| Block customer | ❌ | **UI stub** | Toast: “coming soon” |
+| Link to main admin customer profile | ❌ | **Missing** | No deep link by `user_id` |
+
+### 11.5 Order fetch path (ORDER_SUPPORT)
+
+- `admin-dashboard/src/services/api.js` → `fetchOrder(orderId)` → `GET /api/orders/:id` on chat service.
+- `ecommerce-chat/routes/order.routes.js` proxies to main store when `MAIN_STORE_API_URL` is set.
+- **Without env:** returns **503** — sidebar falls back to `order_metadata` snapshot only (still usable if snapshot was sent at chat start).
+
+### 11.6 Recommended fix path (Phase 6)
+
+1. **Chat start (registered user):** when `user_id` or JWT present, call main store `GET /api/users/:id/profile` (or internal service token) and persist snapshot on room: `customer_profile: { avatarUrl, mobile, defaultAddress }`.
+2. **Admin room detail:** enrich `GET /api/admin/rooms/:id` with live profile fetch when `user_id` set (cache 5 min).
+3. **CustomerContext.jsx:** render `<img src={profile.avatarUrl} />` with initials fallback; add phone, formatted address, “View in store admin” link.
+4. **Order history:** new `GET /api/admin/customers/:userId/orders` proxy on chat service → main store admin orders API.
+
+---
+
+## 12. Feature classification [A] / [B] / [C]
+
+### [A] Fully implemented (working end-to-end)
+
+| Feature | Key files |
+|---------|-----------|
+| AI bot + handover to human | `ecommerce-chat/services/ai.service.js`, socket `request_handover` |
+| Room lifecycle BOT → WAITING → ACTIVE → RESOLVED | `ChatRoom.model.js`, `chat.socket.js` |
+| Socket namespaces `/customer`, `/admin` | `ecommerce-chat/socket/chat.socket.js` |
+| Storefront widget embed | `chat-widget.js`, `client/js/orderChat.js` |
+| Mobile ORDER_SUPPORT + GENERAL | `useAriaChat.js`, `LiveSupportScreen.js` |
+| Admin inbox (Waiting / Active / Resolved tabs) | `Sidebar.jsx`, `DashboardPage.jsx` |
+| Take chat / transfer / tags | `ChatWindow.jsx`, `TransferModal.jsx`, `TagModal.jsx` |
+| Internal notes | Socket + `MessageBubble` note styling |
+| **Typing indicators** | Widget, `ChatWindow`, `CustomerContext` |
+| **CSAT rating** | Widget `#cw-csat`, `submit_rating`; admin `CsatCard` in `ChatWindow` |
+| **Canned responses `/` command** | `CannedResponses.jsx`, `ChatWindow` slash handler; CRUD in `SettingsPage` → `StoreConfig.canned_responses` |
+| **Cloudinary attachments** | `upload.service.js`, agent upload in `ChatWindow`, customer upload in widget + `POST /api/chat/:room_id/upload` |
+| Order context at chat start | `order_metadata` on room; web `OrderChat.openForOrder`, mobile order payload |
+| Knowledge base + agent management | `KnowledgePage`, `AgentsPage`, admin routes |
+| Stats + daily report email | `StatsBar`, `report.service.js` |
+| Resolve / end chat with acks | `chat.socket.js`, `chatAuth.js`, tests |
+
+### [B] Partial / UI-only / incomplete
+
+| Feature | Gap |
+|---------|-----|
+| **Customer profile sidebar** | Name/email only; initials avatar; no phone/address/order list |
+| **Order live lookup** | Depends on `MAIN_STORE_API_URL`; 503 if unset |
+| **Block customer** | Button exists; no backend |
+| **Customer avatar in widget header** | Emoji 🤖/👤 — not user photo |
+| **Registered user enrichment** | `user_id` stored, never resolved to User document |
+| **Previous chats** | Chat sessions only — not e-commerce order history |
+| **Product page context** | Not implemented (only order context) |
+| **§1–9 close audit doc** | Partially stale — Swal + socket acks added since 2026-08-25 |
+| **Guest attachment upload** | Widget tries `/api/upload/image` (auth) then room upload — verify guest path in prod |
+| **Cross-link to main admin** | No navigation from chat admin to store customer modal |
+
+### [C] Missing critical (per roadmap / dashboard expectations)
+
+| Feature | Priority |
+|---------|----------|
+| Real profile picture in admin sidebar | **P0** |
+| Phone + default shipping address in sidebar | **P0** |
+| Store order history list (not just chat history) | **P1** |
+| Product browsing context (“viewing Product X”) | **P1** |
+| Unified customer record guest ↔ registered User | **P1** |
+| Block / suspend customer from chat admin | **P2** |
+| Admin modal CSAT prompt (customer gets widget CSAT; admin sees result — verify E2E) | **P2** |
+
+**Clarification:** Typing indicator, CSAT, canned `/` responses, and Cloudinary attachments are **not missing** — they are implemented. Gaps are mainly **Phase 6 CRM enrichment** and **product context**.
+
+---
+
+## 13. Phase-by-phase detail
+
+### Phase 1 — Core chat (~95%)
+
+- ✅ Widget UI, persistence via `guest_session_id`, reconnect
+- ✅ REST `POST /api/chat/start`, message history
+- ✅ Gemini/OpenAI bot (`ai.service.js`)
+- ⚠️ Guest identity is name/email only — no OAuth profile sync
+
+### Phase 2 — Agent dashboard (~90%)
+
+- ✅ React dashboard layout: `Sidebar` | `ChatWindow` | `CustomerContext`
+- ✅ Real-time room list via socket + polling fallback
+- ✅ Take, transfer, resolve, urgent flag, tags
+- ⚠️ Block customer stub
+
+### Phase 3 — Customer context (~45%)
+
+- ✅ ORDER_SUPPORT rooms with `order_id` + `order_metadata`
+- ✅ Previous **chat** sessions by email/session
+- ❌ Phone, address, avatar, store order history
+- ❌ Product context
+
+### Phase 4 — Rich messaging (~85%)
+
+- ✅ Typing (`typing_start` / `typing_stop`) both directions
+- ✅ Canned responses with `/` filter in composer
+- ✅ Image upload Cloudinary (agent auth + room guest route)
+- ⚠️ Non-image attachments not supported
+- ⚠️ Cloudinary env required (`CLOUDINARY_*`)
+
+### Phase 5 — CSAT & lifecycle (~80%)
+
+- ✅ Customer star rating UI post-resolve
+- ✅ `rating` / `is_rated` on ChatRoom
+- ✅ Admin sees CSAT in `CsatCard`
+- ✅ `end_chat`, `resolve_chat` with acks (post §9 audit)
+- ⚠️ Re-test widget × close vs true session end
+
+### Phase 6 — CRM & product context (~15%)
+
+- ❌ Profile enrichment from main User model
+- ❌ Product page tracking in widget/mobile
+- ❌ Full order history panel
+- ❌ Block customer + link to store admin customer record
+
+---
+
+## 14. Action roadmap (prioritized)
+
+| Priority | Task | Owner layer | Effort |
+|----------|------|-------------|--------|
+| **P0** | Add `customer_profile` snapshot at chat start for logged-in users | `ecommerce-chat` + main API | M |
+| **P0** | Render avatar/phone/address in `CustomerContext.jsx` | `admin-dashboard` | S |
+| **P0** | Proxy `GET /api/admin/customers/:userId` (profile + orders) | `ecommerce-chat/routes` | M |
+| **P1** | Product context: pass `product_id` / slug from PDP → widget → room | widget + mobile + ChatRoom schema | M |
+| **P1** | Order history section in sidebar (last 5 orders) | admin-dashboard + proxy | M |
+| **P1** | Document `MAIN_STORE_API_URL` + Cloudinary in deploy checklist | ops / README | S |
+| **P2** | Implement block customer → sync `accountStatus` on main User | chat admin + backend | L |
+| **P2** | Deep link “Open in Store Admin” for `user_id` | admin-dashboard | S |
+| **P2** | Re-run E2E close/end session test on production widget | QA | S |
+| **P2** | Deprecate or update §1–9 verdict table where fixed | docs | S |
+
+---
+
+## 15. Key files reference
+
+| Concern | Path |
+|---------|------|
+| Customer Details sidebar | `admin-dashboard/src/components/CustomerContext.jsx` |
+| Inbox sidebar | `admin-dashboard/src/components/Sidebar.jsx` |
+| Initials avatar helpers | `admin-dashboard/src/utils/helpers.js` |
+| Chat room schema | `ecommerce-chat/models/ChatRoom.model.js` |
+| User avatar fields | `backend/src/models/user.js` (`avatar`, `avatarUrl`, `mobile`, `addresses`) |
+| Order proxy | `ecommerce-chat/routes/order.routes.js` |
+| Upload / Cloudinary | `ecommerce-chat/services/upload.service.js`, `routes/upload.routes.js` |
+| Canned responses | `admin-dashboard/src/components/CannedResponses.jsx` |
+| Widget CSAT + attachments | `ecommerce-chat/public/js/chat-widget.js` |
+| Socket events | `ecommerce-chat/socket/chat.socket.js` |
+| Storefront bridge | `client/js/orderChat.js` |
+| Mobile chat hook | `mobile/src/hooks/useAriaChat.js` |
+
+---
+
+## 16. Verdict (2026-09-07)
+
+| Symptom | Root cause |
+|---------|------------|
+| Initials only in Customer Details | `CustomerContext` uses `getInitials()` — no profile URL on room or fetch by `user_id` |
+| Phone / address missing | Chat DB isolated from main User; no enrichment API |
+| Order history missing | Sidebar shows previous **chat** rooms only |
+| Product context missing | No schema or widget hook for current product page |
+| “Missing” typing / CSAT / canned / attachments | **False alarm** — implemented; verify env and E2E in staging |
+
+**Next implementation pass:** P2 block customer + deep link to store admin; re-verify widget × close teardown.
+
+---
+
+## 17. P0 CRM enrichment implementation (2026-09-07)
+
+### 17.1 Registered user / Guest badge fix
+
+| Layer | Change |
+|-------|--------|
+| Storefront `orderChat.js` | Reads `customerData` (login storage key), passes `userId`, `authToken`, `userAvatar`, `productMetadata` |
+| `chat-widget.js` | Sends `auth_token`, `customer_avatar_url`, `product_metadata` on start; `linkRegisteredUser()` after login |
+| `auth.js` | Calls `OrderChat.syncIdentity()` post-login to link open guest rooms |
+| `chat.routes.js` | `enrichRoomWithCustomer()` on start + `POST /api/chat/link-user`; fallback room lookup by `guest_session_id` when user logs in |
+| `ChatRoom.model.js` | Added `is_registered`, `customer_profile`, `product_metadata` |
+
+### 17.2 Profile & order enrichment
+
+| Layer | Change |
+|-------|--------|
+| Main store | `GET /api/internal/customers/:id`, `/orders`, `/customers/:id/orders` via `INTERNAL_API_KEY` |
+| `storeProfile.service.js` | Fetches profile by token or user id; order history proxy |
+| Chat admin API | `GET /api/admin/customers/:userId`, `/orders` |
+| `CustomerContext.jsx` | Avatar `<img>`, phone, shipping address, recent orders, product context card |
+
+### 17.3 Product context (PDP)
+
+| Layer | Change |
+|-------|--------|
+| `pdp/fetch-render.js` | `buildProductChatContext(product)` exposed on `window` |
+| `orderChat.js` | Auto-includes PDP context when `currentProductData` is set |
+| Mobile | `productContext` param on `LiveSupportScreen` → `useAriaChat` |
+
+### 17.4 Required env (chat + main store)
+
+```
+MAIN_STORE_API_URL=https://eonlinebazar.com   # or http://localhost:3000
+INTERNAL_API_KEY=<shared-secret>              # same value on both services
+```

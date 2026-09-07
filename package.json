@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node backend/src/server.js",
     "dev": "nodemon backend/src/server.js",
+    "dev:chat": "node --watch ecommerce-chat/server.js",
+    "dev:store": "nodemon backend/src/server.js",
     "test": "jest --runInBand --forceExit",
     "seed:products": "node scripts/seedDemoProducts.js",
     "kill-port": "npx kill-port 5000"

@@ -6,13 +6,15 @@ import StatsBar from '../components/StatsBar';
 import Sidebar from '../components/Sidebar';
 import ChatWindow from '../components/ChatWindow';
 import CustomerContext from '../components/CustomerContext';
-import { fetchRooms, fetchRoomDetail, fetchStats } from '../services/api';
+import { fetchRooms, fetchRoomDetail, fetchStats, fetchProfile } from '../services/api';
 import { connectSocket, disconnectSocket, getSocket } from '../services/socket';
 import useChatStore from '../store/chatStore';
 import useThemeStore from '../store/themeStore';
+import useAuthStore from '../store/authStore';
 
 export default function DashboardPage() {
   const [searchParams] = useSearchParams();
+  const setAgent = useAuthStore((s) => s.setAgent);
   const setRooms = useChatStore((s) => s.setRooms);
   const setCounts = useChatStore((s) => s.setCounts);
   const setStats = useChatStore((s) => s.setStats);
@@ -106,6 +108,14 @@ export default function DashboardPage() {
     loadRooms('WAITING_FOR_AGENT');
     loadStats();
     connectSocket();
+
+    fetchProfile()
+      .then((data) => {
+        if (data?.agent) setAgent(data.agent);
+      })
+      .catch(() => {
+        /* keep persisted agent from auth store */
+      });
 
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {});

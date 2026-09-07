@@ -16,7 +16,8 @@ import useAuthStore from '../store/authStore';
 import useChatStore from '../store/chatStore';
 import useThemeStore from '../store/themeStore';
 import { disconnectSocket, emitPresence, getSocket } from '../services/socket';
-import { avatarColor, getInitials, relativeTimeBnShort } from '../utils/helpers';
+import AgentAvatar from './AgentAvatar';
+import { relativeTimeBnShort } from '../utils/helpers';
 
 function roleBadge(role) {
   if (role === 'SUPER_ADMIN') return '👑 SUPER';
@@ -81,8 +82,6 @@ export default function HeaderBar() {
     toast.success('Logged out');
     navigate('/login', { replace: true });
   };
-
-  const agentId = agent?.id || agent?._id || 'A';
 
   return (
     <header className="shrink-0 h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-4 flex items-center gap-3 z-30">
@@ -195,21 +194,11 @@ export default function HeaderBar() {
             onClick={() => setMenuOpen((v) => !v)}
             className="flex items-center gap-2 rounded-btn pl-1 pr-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 transition duration-200"
           >
-            <div
-              className={`w-8 h-8 rounded-full ${avatarColor(
-                agent?.name || agentId
-              )} flex items-center justify-center text-white text-xs font-semibold overflow-hidden`}
-            >
-              {agent?.avatar ? (
-                <img
-                  src={agent.avatar}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                getInitials(agent?.name || 'A')
-              )}
-            </div>
+            <AgentAvatar
+              name={agent?.name || 'Agent'}
+              avatar={agent?.avatar}
+              size="sm"
+            />
             <div className="hidden sm:block text-left min-w-0">
               <p className="text-xs font-semibold text-text-primary dark:text-white truncate max-w-[120px]">
                 {agent?.name || 'Agent'}
@@ -223,6 +212,21 @@ export default function HeaderBar() {
 
           {menuOpen && (
             <div className="absolute right-0 mt-2 w-52 rounded-card border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-layered z-50 py-1 animate-fadeIn">
+              <div className="px-3 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
+                <AgentAvatar
+                  name={agent?.name || 'Agent'}
+                  avatar={agent?.avatar}
+                  size="sm"
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-text-primary dark:text-white truncate">
+                    {agent?.name || 'Agent'}
+                  </p>
+                  <p className="text-[10px] text-text-secondary truncate">
+                    {agent?.email}
+                  </p>
+                </div>
+              </div>
               <Link
                 to="/profile"
                 onClick={() => setMenuOpen(false)}

@@ -30,6 +30,10 @@ const agentSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    avatar_public_id: {
+      type: String,
+      default: null,
+    },
     is_online: {
       type: Boolean,
       default: false,
