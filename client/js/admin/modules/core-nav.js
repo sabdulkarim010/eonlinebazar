@@ -521,6 +521,7 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-master-settings': fetchMasterSettings,
         'view-banners': () => window.loadBanners && window.loadBanners(),
         'view-messages': fetchAdminMessages,
+        'view-chat': () => window.initChatModule && window.initChatModule(),
         'view-newsletter-subscribers': () => window.loadNewsletterSubscribersSection && window.loadNewsletterSubscribersSection(),
         'view-newsletter-campaigns': () => window.loadNewsletterCampaignsSection && window.loadNewsletterCampaignsSection(),
         // Staff Management lives in js/admin-staff.js (Super Admin only)

@@ -22,6 +22,7 @@ const VIEW_PARTIALS = [
     'view-master-settings',
     'view-banners',
     'view-messages',
+    'view-chat',
     'view-file-manager',
     'view-staff',
     'view-settings',

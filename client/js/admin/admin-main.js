@@ -10,3 +10,4 @@ import './admin-products.js';
 import './admin-orders.js';
 import './admin-customers.js';
 import './admin-settings.js';
+import './admin-chat.js';

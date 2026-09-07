@@ -68,6 +68,7 @@ client/js/admin/admin-core.js        [DONE] barrel → modules/core-*.js
 client/js/admin/admin-products.js    [DONE] barrel → modules/products-*.js + catalog-*.js
 client/js/admin/admin-orders.js      [DONE] barrel → modules/orders-*.js
 client/js/admin/admin-customers.js   [DONE] barrel → modules/customers-*.js + messages-inbox.js
+client/js/admin/admin-chat.js        [DONE] barrel → modules/chat-admin.js (legacy admin live chat)
 client/js/admin/admin-settings.js    [DONE] barrel → modules/settings-*.js
 client/js/admin/admin-dashboard.js   [DONE] analytics module
 client/js/admin-banner.js            [DONE] kept as single file
@@ -223,6 +224,7 @@ client/js/admin/modules/
   customers-table.js
   customers-modals.js
   messages-inbox.js
+  chat-admin.js           [DONE] legacy admin 3-column live chat (ecommerce-chat API + socket)
   settings-security.js
   settings-platform.js
   settings-payments.js
@@ -231,8 +233,10 @@ client/js/admin/modules/
   settings-2fa.js
   settings-reviews.js     [DONE] admin review moderation UI
 client/admin/partials/
+  view-chat.html          [DONE] 3-column live chat workspace + agent login gate
   view-reviews.html       [DONE] reviews moderation section
 client/css/admin/
+  _chat.css               [DONE] live chat workspace styles
   _reviews.css            [DONE] reviews moderation styles
   _layout.css
   _orders.css
