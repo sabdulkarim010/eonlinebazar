@@ -10,6 +10,7 @@
 const mongoose = require('mongoose');
 const Review = require('../models/review');
 const Order = require('../models/order');
+const Product = require('../models/product');
 const cloudinary = require('cloudinary').v2;
 const streamifier = require('streamifier');
 
@@ -19,6 +20,48 @@ cloudinary.config({
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
+
+async function syncProductRating(productId) {
+    try {
+        const pid = String(productId || '').trim();
+        if (!pid) return;
+
+        const stats = await Review.aggregate([
+            {
+                $match: {
+                    productId: pid,
+                    isHidden: { $ne: true }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    avgRating: { $avg: '$rating' },
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        const avgRating = stats[0]?.avgRating || 0;
+        const numOfReviews = stats[0]?.count || 0;
+        const rounded = Math.round(avgRating * 10) / 10;
+
+        const query = mongoose.Types.ObjectId.isValid(pid)
+            ? { $or: [{ productId: pid }, { _id: pid }] }
+            : { productId: pid };
+
+        await Product.findOneAndUpdate(query, {
+            rating: rounded,
+            numOfReviews,
+            averageRating: rounded,
+            reviewCount: numOfReviews
+        });
+    } catch (err) {
+        console.error('Rating sync failed:', err.message);
+    }
+}
+
+exports.syncProductRating = syncProductRating;
 
 // =======================================================
 // ১. রিভিউ সেভ বা আপডেট করার ফাংশন (POST)
@@ -125,6 +168,7 @@ exports.addOrUpdateReview = async (req, res) => {
             }
             
             await existingReview.save();
+            await syncProductRating(productId);
 
             return res.status(200).json({ 
                 success: true, 
@@ -143,6 +187,7 @@ exports.addOrUpdateReview = async (req, res) => {
                 isSandbox: !!order.isSandbox
             });
             await newReview.save();
+            await syncProductRating(productId);
 
             return res.status(201).json({ 
                 success: true, 
@@ -164,7 +209,10 @@ exports.addOrUpdateReview = async (req, res) => {
 exports.getReviewsByProduct = async (req, res) => {
     try {
         const { orderId, userId } = req.query;
-        let query = { productId: req.params.productId };
+        let query = {
+            productId: req.params.productId,
+            isHidden: { $ne: true }
+        };
 
         // যদি কুয়েরি প্যারামিটারে অর্ডার আইডি এবং ইউজার আইডি পাঠানো হয়, তবে ফিল্টারিং আরও সুনির্দিষ্ট হবে
         if (orderId) query.orderId = orderId;
@@ -175,6 +223,29 @@ exports.getReviewsByProduct = async (req, res) => {
     } catch (error) {
         console.error('Error fetching reviews:', error);
         res.status(500).json({ success: false, message: 'Error fetching reviews.' });
+    }
+};
+
+exports.deleteOwnReview = async (req, res) => {
+    try {
+        const userId = req.user.id || req.user._id;
+        const review = await Review.findOne({
+            _id: req.params.id,
+            userId
+        });
+
+        if (!review) {
+            return res.status(404).json({ success: false, message: 'Review not found.' });
+        }
+
+        const productId = review.productId;
+        await review.deleteOne();
+        await syncProductRating(productId);
+
+        res.json({ success: true, message: 'Review deleted.' });
+    } catch (error) {
+        console.error('Delete own review error:', error);
+        res.status(500).json({ success: false, message: 'Failed to delete review.' });
     }
 };
 

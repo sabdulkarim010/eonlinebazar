@@ -25,6 +25,7 @@ const {
     cancelUserOrder,
     cancelPendingOrder,
     returnUserOrder,
+    returnOrderItems,
     downloadOrderInvoice
 } = require('../controllers/orderCustomerController');
 const { submitPaymentProof } = require('../controllers/orderPaymentProofController');
@@ -83,6 +84,9 @@ router.put('/:id/cancel', verifyUser, cancelPendingOrder);
 
 // URL: POST /api/orders/:id/return
 router.post('/:id/return', verifyUser, returnUserOrder);
+
+// URL: POST /api/orders/:id/return/items — per-line-item return request
+router.post('/:id/return/items', verifyUser, returnOrderItems);
 
 // URL: PATCH /api/orders/:orderId/payment-proof — manual payment TRX proof
 router.patch('/:orderId/payment-proof', verifyUser, upload.single('screenshot'), submitPaymentProof);

@@ -100,9 +100,17 @@ async function reverseWalletCredit(userId, amount, note = 'Reversal: Refund canc
     ).select('walletBalance walletHistory');
 }
 
+/**
+ * Admin manual debit — same atomic guard as order debit, generic note.
+ */
+async function debitWalletForAdmin(userId, amount, note = 'Admin adjustment') {
+    return deductWalletForOrder(userId, amount, '', note);
+}
+
 module.exports = {
     buildWalletHistoryEntry,
     deductWalletForOrder,
+    debitWalletForAdmin,
     creditWalletForUser,
     reverseWalletCredit,
     normalizeWalletType

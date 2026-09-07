@@ -15,11 +15,19 @@ const { getFinanceAnalytics } = require('../controllers/financeAnalyticsControll
 const {
     approveOrderReturn,
     undoOrderRefund,
+    rejectOrderReturn,
+    processRefund,
     createManualOrder,
     updateOrderShippingAddress,
     masterUpdateOrder,
     bulkDeleteOrders
 } = require('../controllers/orderAdminController');
+const { adjustCustomerWallet } = require('../controllers/admin/walletAdminController');
+const {
+    getAllReviews,
+    moderateReview,
+    deleteReview
+} = require('../controllers/reviewAdminController');
 const {
     getPendingPaymentProofOrders,
     reviewPaymentProof
@@ -103,9 +111,25 @@ router.put('/customers/:id', verifyAdmin, checkPermission('manage_customers'), a
 router.patch('/customers/:id/status', verifyAdmin, checkPermission('manage_customers'), adminController.updateCustomerStatus);
 router.delete('/customers/:id', verifyAdmin, checkPermission('manage_customers'), adminController.deleteCustomer);
 
+// Manual wallet credit/debit for a customer
+// URL: POST /api/admin/customers/:userId/wallet
+router.post('/customers/:userId/wallet', verifyAdmin, checkPermission('manage_customers'), adjustCustomerWallet);
+
+// Admin review moderation
+// URL: GET /api/admin/reviews
+router.get('/reviews', verifyAdmin, checkPermission('manage_orders'), getAllReviews);
+router.patch('/reviews/:id/moderate', verifyAdmin, checkPermission('manage_orders'), moderateReview);
+router.delete('/reviews/:id', verifyAdmin, checkPermission('manage_orders'), deleteReview);
+
 // ১খ. অর্ডার রিটার্ন অনুমোদন ও ওয়ালেট রিফান্ড
 // URL: PUT /api/admin/orders/:id/approve-return
 router.put('/orders/:id/approve-return', verifyAdmin, checkPermission('manage_orders'), approveOrderReturn);
+
+// URL: PUT /api/admin/orders/:id/reject-return
+router.put('/orders/:id/reject-return', verifyAdmin, checkPermission('manage_orders'), rejectOrderReturn);
+
+// URL: PATCH /api/admin/orders/:id/refund — flexible refund (wallet / bKash / Nagad / cash)
+router.patch('/orders/:id/refund', verifyAdmin, checkPermission('manage_orders'), processRefund);
 
 // URL: POST /api/admin/orders/:id/undo-refund
 router.post('/orders/:id/undo-refund', verifyAdmin, checkPermission('manage_orders'), undoOrderRefund);

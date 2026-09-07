@@ -21,6 +21,9 @@ router.post(
     reviewController.addOrUpdateReview
 );
 
+// DELETE /api/reviews/:id — customer deletes own review
+router.delete('/:id', requireSignIn, reviewController.deleteOwnReview);
+
 module.exports = router;
 
 

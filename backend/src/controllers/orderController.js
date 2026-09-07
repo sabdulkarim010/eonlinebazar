@@ -14,6 +14,7 @@ const {
     cancelUserOrder,
     cancelPendingOrder,
     returnUserOrder,
+    returnOrderItems,
     getDashboardStats
 } = require('./orderCustomerController');
 const {
@@ -25,7 +26,9 @@ const {
     deleteOrder,
     bulkDeleteOrders,
     approveOrderReturn,
-    undoOrderRefund
+    undoOrderRefund,
+    rejectOrderReturn,
+    processRefund
 } = require('./orderAdminController');
 const {
     submitPaymentProof,
@@ -50,8 +53,11 @@ module.exports = {
     cancelUserOrder,
     cancelPendingOrder,
     returnUserOrder,
+    returnOrderItems,
     approveOrderReturn,
     undoOrderRefund,
+    rejectOrderReturn,
+    processRefund,
     submitPaymentProof,
     getPendingPaymentProofOrders,
     reviewPaymentProof

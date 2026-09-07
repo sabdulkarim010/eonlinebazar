@@ -56,7 +56,16 @@ backend/src/controllers/auth/loginController.js     [DONE] login + sessions + DE
 backend/src/controllers/noteController.js           [DONE] private notebook CRUD (note/expense/income/shopping)
 backend/src/models/note.js                          [DONE] Note schema (user-scoped, tags, pin, color)
 backend/src/controllers/orderCheckoutController.js  [DONE] mock catalog ids (p1…) + COD fallback for mobile Place order
-backend/src/controllers/orderCustomerController.js  [DONE] POST cancel + PUT /api/orders/:id/cancel (Pending only)
+backend/src/controllers/orderCustomerController.js  [DONE] POST cancel + PUT cancel + return + per-item return/items
+backend/src/controllers/orderAdminController.js    [DONE] approve-return, reject-return, processRefund, undo-refund
+backend/src/services/walletService.js              [DONE] credit/debit + debitWalletForAdmin
+backend/src/services/notificationService.js        [NEW] admin socket notifications (return_request)
+backend/src/controllers/admin/walletAdminController.js [NEW] POST manual wallet credit/debit
+backend/src/controllers/reviewAdminController.js   [NEW] list/moderate/delete reviews (admin)
+backend/src/controllers/reviewController.js      [DONE] syncProductRating, deleteOwnReview, hide filter on GET
+backend/src/models/order.js                        [DONE] returnItems, refundMethod, notification flags
+backend/src/models/review.js                       [DONE] isHidden, adminNote, moderatedAt
+backend/src/services/mailer.js                     [DONE] sendReturnStatusEmail
 backend/src/controllers/productSeedController.js    [DONE] GET/POST /api/products/seed-demo
 backend/src/services/productSeedService.js          [DONE] upsert DEMO-* products + categories
 backend/src/data/demoProducts.js                    [DONE] 8 demo products (title, price, category, image)
@@ -322,7 +331,7 @@ mobile/src/components/EmptyState.js         [NEW] Typed empty/error/network stat
 mobile/src/components/ProductGrid.js         [DONE] ProductSkeletonGrid loading; EmptyState for search/error/retry
 mobile/src/screens/HomeScreen.js           [DONE] BannerSkeleton; hero network EmptyState; skeletonCount 6
 mobile/src/screens/ShopScreen.js             [DONE] skeletonCount 8; error EmptyState via ProductGrid
-mobile/src/screens/OrdersScreen.js           [DONE] OrderCardSkeleton loading; orders/error EmptyState
+mobile/src/screens/OrdersScreen.js           [DONE] OrderCardSkeleton loading; orders/error EmptyState; stacked thumbs; 5-step tracker; activeStep read-only fix
 mobile/src/screens/WishlistScreen.js       [DONE] wishlist EmptyState
 mobile/src/screens/CartScreen.js             [DONE] cart EmptyState
 mobile/src/screens/AddressesScreen.js      [DONE] OrderCardSkeleton loading; addresses EmptyState

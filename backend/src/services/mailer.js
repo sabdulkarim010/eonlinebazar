@@ -564,10 +564,58 @@ async function sendNewsletterCampaignEmail({ to, subject, htmlContent, unsubscri
     }
 }
 
+/**
+ * Return approved / rejected status email to customer.
+ */
+async function sendReturnStatusEmail({ to, name, orderNumber, status, reason }) {
+    const recipientEmail = String(to || '').trim();
+    if (!recipientEmail) {
+        return { delivered: false, reason: 'Missing recipient email' };
+    }
+    if (!SMTP_USER || !SMTP_PASS) {
+        return { delivered: false, reason: 'Email transport not configured' };
+    }
+
+    const safeName = escapeHtml(String(name || 'Customer'));
+    const safeOrder = escapeHtml(String(orderNumber || 'N/A'));
+    const isRejected = String(status || '').toLowerCase() === 'rejected';
+    const headline = isRejected ? 'Return Request Update' : 'Return Approved';
+    const bodyText = isRejected
+        ? `Your return request for order #${safeOrder} was not approved.${reason ? ` Reason: ${escapeHtml(String(reason))}` : ''}`
+        : `Your return for order #${safeOrder} has been approved and your refund is being processed.`;
+
+    const mailOptions = {
+        from: `"EonlineBazar Support" <${SMTP_USER}>`,
+        to: recipientEmail,
+        subject: `${headline} — Order #${orderNumber || 'N/A'}`,
+        html: `
+            <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
+                <h2 style="color:#0f172a;">${headline}</h2>
+                <p>Hi ${safeName},</p>
+                <p>${bodyText}</p>
+                <p style="color:#64748b;font-size:13px;">Questions? Reply to this email or contact EonlineBazar support.</p>
+            </div>
+        `
+    };
+
+    try {
+        const portUsed = await withTimeout(
+            sendWithFailover(mailOptions),
+            OVERALL_SEND_DEADLINE_MS,
+            'Return status email'
+        );
+        return { delivered: true, port: portUsed };
+    } catch (err) {
+        console.error('Return status email error:', err.message || err);
+        return { delivered: false, reason: err.message };
+    }
+}
+
 module.exports = {
     sendAdminOtpEmail,
     sendOrderConfirmationEmail,
     notifyOrderConfirmationEmail,
+    sendReturnStatusEmail,
     sendInquiryReplyEmail,
     sendStockAlertEmail,
     sendNewsletterWelcomeEmail,

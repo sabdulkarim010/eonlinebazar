@@ -31,6 +31,8 @@ const { notifyOrderStatusUpdated } = require('../services/smsService');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { findVariantIndex } = require('../utils/variantHelpers');
 const { creditWalletForUser, reverseWalletCredit } = require('../services/walletService');
+const { sendSms } = require('../services/smsService');
+const { sendReturnStatusEmail } = require('../services/mailer');
 const { loadFlashSaleSettings } = require('../services/flashSaleService');
 const { invalidate, CACHE_KEYS } = require('../services/cacheService');
 const { emitToAdmins } = require('../services/socketService');
@@ -1060,6 +1062,253 @@ const undoOrderRefund = async (req, res) => {
     }
 };
 
+function mapReturnItemsWithStatus(returnItems, status) {
+    if (!Array.isArray(returnItems) || returnItems.length === 0) return returnItems;
+
+    return returnItems.map((item) => {
+        const plain = typeof item.toObject === 'function' ? item.toObject() : { ...item };
+        return { ...plain, status };
+    });
+}
+
+function computeRefundTotalFromReturnItems(order) {
+    if (!Array.isArray(order.returnItems) || order.returnItems.length === 0) {
+        return getOrderRefundAmount(order);
+    }
+
+    const total = order.returnItems.reduce((sum, item) => {
+        const qty = Math.max(1, Number(item.quantity) || 1);
+        const price = Number(item.price) || 0;
+        return sum + (price * qty);
+    }, 0);
+
+    return roundMoney(total);
+}
+
+const rejectOrderReturn = async (req, res) => {
+    try {
+        const { reason } = req.body || {};
+        const order = await Order.findById(req.params.id);
+
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found.' });
+        }
+
+        if (normalizeOrderStatus(order.status) !== 'return requested') {
+            return res.status(400).json({
+                success: false,
+                message: 'Order is not in Return Requested state.'
+            });
+        }
+
+        if (order.returnItems?.length) {
+            order.returnItems = mapReturnItemsWithStatus(order.returnItems, 'rejected');
+            order.markModified('returnItems');
+        }
+
+        order.status = order.statusBeforeRefund || 'Delivered';
+        order.returnRejectedReason = String(reason || 'Return request rejected').trim();
+        order.returnRejectedAt = new Date();
+        if (!order.notificationsSent) order.notificationsSent = {};
+        order.notificationsSent.returnRejected = true;
+        order.markModified('notificationsSent');
+        await order.save();
+
+        try {
+            const customer = await User.findById(order.user).select('email phone name mobile');
+            const orderNumber = order.orderId || getOrderDisplayId(order);
+            const phone = customer?.mobile || customer?.phone || order.customerPhone;
+
+            if (phone) {
+                await sendSms({
+                    to: phone,
+                    body: `[EonlineBazar] Your return request for order #${orderNumber} was reviewed. ${order.returnRejectedReason}`,
+                    context: 'RETURN REJECTED'
+                });
+            }
+
+            if (customer?.email) {
+                await sendReturnStatusEmail({
+                    to: customer.email,
+                    name: customer.name || order.customerName,
+                    orderNumber,
+                    status: 'rejected',
+                    reason: order.returnRejectedReason
+                });
+            }
+        } catch (notifErr) {
+            console.warn('Reject notification failed:', notifErr.message);
+        }
+
+        res.json({
+            success: true,
+            message: 'Return request rejected.',
+            data: { _id: order._id, status: order.status }
+        });
+    } catch (err) {
+        console.error('rejectOrderReturn error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+const processRefund = async (req, res) => {
+    try {
+        const {
+            refundMethod = 'wallet',
+            refundAmount,
+            bkashNumber,
+            nagadNumber,
+            adminNote
+        } = req.body || {};
+
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found.' });
+        }
+
+        const status = normalizeOrderStatus(order.status);
+        if (status !== 'return requested' && status !== 'returned') {
+            return res.status(400).json({
+                success: false,
+                message: `Refund can only be processed for return requests. Current status: "${order.status}".`
+            });
+        }
+
+        if (!order.user && refundMethod === 'wallet') {
+            return res.status(400).json({
+                success: false,
+                message: 'Wallet refunds require a registered customer account on this order.'
+            });
+        }
+
+        const amount = refundAmount != null && refundAmount !== ''
+            ? roundMoney(Number(refundAmount))
+            : computeRefundTotalFromReturnItems(order);
+
+        if (amount <= 0) {
+            return res.status(400).json({ success: false, message: 'Invalid refund amount.' });
+        }
+
+        const method = String(refundMethod || 'wallet').trim().toLowerCase();
+        const displayOrderId = getOrderDisplayId(order);
+
+        if (method === 'wallet') {
+            const credited = await creditWalletForUser(
+                order.user,
+                amount,
+                displayOrderId,
+                'Refund for returned items'
+            );
+            if (!credited) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Failed to credit customer wallet.'
+                });
+            }
+        } else if (method === 'bkash') {
+            order.refundBkashNumber = String(bkashNumber || order.payment?.accountNumber || '').trim();
+            if (!order.refundBkashNumber) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'bKash number required for bKash refund.'
+                });
+            }
+            console.log(`[BKASH REFUND] Order #${displayOrderId}: ৳${amount} → ${order.refundBkashNumber}`);
+        } else if (method === 'nagad') {
+            order.refundNagadNumber = String(nagadNumber || '').trim();
+            if (!order.refundNagadNumber) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Nagad number required for Nagad refund.'
+                });
+            }
+            console.log(`[NAGAD REFUND] Order #${displayOrderId}: ৳${amount} → ${order.refundNagadNumber}`);
+        } else if (method === 'cash') {
+            console.log(`[CASH REFUND] Order #${displayOrderId}: ৳${amount}`);
+        } else if (method === 'original_payment') {
+            console.log(`[ORIGINAL PAYMENT REFUND] Order #${displayOrderId}: ৳${amount} — manual gateway reversal required`);
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid refund method.'
+            });
+        }
+
+        order.status = 'Returned';
+        order.refundAmount = amount;
+        order.refundMethod = method;
+        order.refundedAt = new Date();
+        order.returnApprovedAt = new Date();
+        order.adminReturnNote = String(adminNote || '').trim();
+        if (!order.statusBeforeRefund) {
+            order.statusBeforeRefund = 'Return Requested';
+        }
+
+        if (!order.payment || typeof order.payment !== 'object') {
+            order.payment = {};
+        }
+        order.payment.status = 'refunded';
+        order.markModified('payment');
+
+        if (order.returnItems?.length) {
+            order.returnItems = mapReturnItemsWithStatus(order.returnItems, 'approved');
+            order.markModified('returnItems');
+        }
+
+        if (!order.notificationsSent) order.notificationsSent = {};
+        order.notificationsSent.returnApproved = true;
+        order.notificationsSent.refundProcessed = true;
+        order.markModified('notificationsSent');
+
+        await order.save();
+
+        try {
+            const customer = await User.findById(order.user).select('email phone name mobile');
+            const orderNumber = order.orderId || displayOrderId;
+            const phone = customer?.mobile || customer?.phone || order.customerPhone;
+            const methodLabels = {
+                wallet: 'your EonlineBazar wallet',
+                bkash: `bKash (${order.refundBkashNumber})`,
+                nagad: `Nagad (${order.refundNagadNumber})`,
+                cash: 'cash',
+                original_payment: 'your original payment method'
+            };
+
+            if (phone) {
+                await sendSms({
+                    to: phone,
+                    body: `[EonlineBazar] Refund of ৳${amount} for order #${orderNumber} processed to ${methodLabels[method] || method}.`,
+                    context: 'REFUND PROCESSED'
+                });
+            }
+
+            if (customer?.email) {
+                await sendReturnStatusEmail({
+                    to: customer.email,
+                    name: customer.name || order.customerName,
+                    orderNumber,
+                    status: 'approved',
+                    reason: order.adminReturnNote
+                });
+            }
+        } catch (notifErr) {
+            console.warn('Refund notification failed:', notifErr.message);
+        }
+
+        res.json({
+            success: true,
+            message: `Refund of ৳${amount.toLocaleString()} processed via ${method}.`,
+            refundAmount: amount,
+            refundMethod: method,
+            refundedAt: order.refundedAt,
+            data: order
+        });
+    } catch (err) {
+        console.error('processRefund error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
 module.exports = {
     createManualOrder,
     getOrders,
@@ -1069,6 +1318,8 @@ module.exports = {
     deleteOrder,
     bulkDeleteOrders,
     approveOrderReturn,
-    undoOrderRefund
+    undoOrderRefund,
+    rejectOrderReturn,
+    processRefund
 };
 

@@ -40,6 +40,19 @@ const reviewSchema = new mongoose.Schema({
     isSandbox: {
         type: Boolean,
         default: false
+    },
+    isHidden: {
+        type: Boolean,
+        default: false
+    },
+    adminNote: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    moderatedAt: {
+        type: Date,
+        default: null
     }
 }, { timestamps: true });
 

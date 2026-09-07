@@ -10,6 +10,7 @@ const User = require('../models/user');
 const { generateOrderInvoicePdf, resolveInvoiceNumber } = require('../utils/invoicePdf');
 const { enrichOrderItemsWithImages, enrichOrdersWithImages } = require('../utils/orderItemImages');
 const { normalizeOrderStatus } = require('./orderControllerHelpers');
+const { sendAdminNotification } = require('../services/notificationService');
 
 function mapCustomerOrderItem(item = {}) {
     const productImages = Array.isArray(item.product?.images) ? item.product.images : [];
@@ -321,6 +322,7 @@ const returnUserOrder = async (req, res) => {
         order.status = 'Return Requested';
         order.returnReason = returnReason;
         order.actionReason = returnReason;
+        order.returnRequestedAt = new Date();
         await order.save();
 
         res.json({
@@ -335,6 +337,142 @@ const returnUserOrder = async (req, res) => {
             success: false,
             message: err.statusCode ? err.message : 'Failed to submit return request.'
         });
+    }
+};
+
+function collectOrderLineProductIds(item = {}) {
+    return [item.productId, item.id, item._id, item.product]
+        .map((value) => String(value || '').trim())
+        .filter(Boolean);
+}
+
+function findOrderLineForProduct(order, productId) {
+    const target = String(productId || '').trim();
+    if (!target || !Array.isArray(order.items)) return null;
+
+    return order.items.find((item) =>
+        collectOrderLineProductIds(item).some((id) => id === target)
+    ) || null;
+}
+
+// Per-line-item return request (subset of order items)
+const returnOrderItems = async (req, res) => {
+    try {
+        const userId = req.user.id || req.user._id;
+        const { items, reason, photos } = req.body || {};
+
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'At least one item is required for a return request.'
+            });
+        }
+
+        const order = await Order.findOne({ _id: req.params.id, user: userId });
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found.' });
+        }
+
+        const status = normalizeOrderStatus(order.status);
+        if (status === 'return requested') {
+            return res.status(400).json({
+                success: false,
+                message: 'A return has already been requested for this order.'
+            });
+        }
+        if (status !== 'delivered') {
+            return res.status(400).json({
+                success: false,
+                message: 'Returns are only allowed for delivered orders.'
+            });
+        }
+        if (!isOrderWithinReturnWindow(order)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Return window has expired (7 days after delivery).'
+            });
+        }
+
+        const returnItems = [];
+
+        for (const item of items) {
+            const productId = String(item.productId || '').trim();
+            if (!productId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Each return item must include productId.'
+                });
+            }
+
+            const orderLine = findOrderLineForProduct(order, productId);
+            if (!orderLine) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Product ${productId} was not found in this order.`
+                });
+            }
+
+            const requestedQty = Math.max(1, Number(item.quantity) || 1);
+            const maxQty = Math.max(1, Number(orderLine.quantity) || 1);
+            if (requestedQty > maxQty) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Return quantity for "${orderLine.name || productId}" cannot exceed ${maxQty}.`
+                });
+            }
+
+            returnItems.push({
+                productId,
+                productName: String(item.productName || orderLine.name || 'Product').trim(),
+                quantity: requestedQty,
+                price: Number(item.price ?? orderLine.price) || 0,
+                reason: String(item.reason || reason || 'No reason provided').trim(),
+                photos: Array.isArray(photos) ? photos : (Array.isArray(item.photos) ? item.photos : []),
+                status: 'pending'
+            });
+        }
+
+        const returnReason = resolveSubmittedReason(req.body)
+            || String(reason || '').trim()
+            || returnItems[0]?.reason
+            || 'Return requested';
+
+        order.returnItems = returnItems;
+        order.returnReason = returnReason;
+        order.actionReason = returnReason;
+        order.status = 'Return Requested';
+        order.returnRequestedAt = new Date();
+        if (!order.notificationsSent) order.notificationsSent = {};
+        order.notificationsSent.returnReceived = true;
+        order.markModified('returnItems');
+        order.markModified('notificationsSent');
+        await order.save();
+
+        try {
+            const customer = await User.findById(userId).select('name');
+            await sendAdminNotification({
+                type: 'return_request',
+                orderId: order._id,
+                orderNumber: order.orderId,
+                customerName: customer?.name || order.customerName,
+                itemCount: returnItems.length
+            });
+        } catch (notifErr) {
+            console.warn('Return notification failed:', notifErr.message);
+        }
+
+        res.json({
+            success: true,
+            message: 'Return request submitted successfully.',
+            data: {
+                _id: order._id,
+                status: order.status,
+                returnItems: order.returnItems
+            }
+        });
+    } catch (err) {
+        console.error('returnOrderItems error:', err);
+        res.status(500).json({ success: false, message: err.message });
     }
 };
 
@@ -386,6 +524,7 @@ module.exports = {
     cancelUserOrder,
     cancelPendingOrder,
     returnUserOrder,
+    returnOrderItems,
     getDashboardStats
 };
 

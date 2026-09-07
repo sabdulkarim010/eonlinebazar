@@ -101,6 +101,29 @@ const paymentProofSchema = new mongoose.Schema({
     adminNote: { type: String, default: null }
 }, { _id: false });
 
+const returnItemSchema = new mongoose.Schema({
+    productId: { type: String, default: '', trim: true },
+    productName: { type: String, default: '', trim: true },
+    quantity: { type: Number, default: 1, min: 1 },
+    price: { type: Number, default: 0, min: 0 },
+    reason: { type: String, default: '', trim: true },
+    photos: { type: [String], default: [] },
+    status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
+    }
+}, { _id: true });
+
+const orderNotificationsSchema = new mongoose.Schema({
+    returnReceived: { type: Boolean, default: false },
+    returnApproved: { type: Boolean, default: false },
+    returnRejected: { type: Boolean, default: false },
+    refundProcessed: { type: Boolean, default: false },
+    reviewReminder: { type: Boolean, default: false },
+    shipped: { type: Boolean, default: false }
+}, { _id: false });
+
 const orderSchema = new mongoose.Schema({
     orderId: String,
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }, 
@@ -139,6 +162,20 @@ const orderSchema = new mongoose.Schema({
     cancelReason: { type: String, default: '', trim: true },
     cancelledBy: { type: String, enum: ['Customer', 'Admin', ''], default: '' },
     returnReason: { type: String, default: '', trim: true },
+    returnRequestedAt: { type: Date, default: null },
+    returnItems: { type: [returnItemSchema], default: [] },
+    refundMethod: {
+        type: String,
+        enum: ['wallet', 'bkash', 'nagad', 'original_payment', 'cash'],
+        default: 'wallet'
+    },
+    refundBkashNumber: { type: String, default: '', trim: true },
+    refundNagadNumber: { type: String, default: '', trim: true },
+    returnRejectedReason: { type: String, default: '', trim: true },
+    returnRejectedAt: { type: Date, default: null },
+    returnApprovedAt: { type: Date, default: null },
+    adminReturnNote: { type: String, default: '', trim: true },
+    notificationsSent: { type: orderNotificationsSchema, default: () => ({}) },
     actionReason: { type: String, default: '', trim: true }, // legacy — mirrors cancel/return reason
     refundedAt: { type: Date, default: null },
     refundAmount: { type: Number, default: 0, min: 0 },
