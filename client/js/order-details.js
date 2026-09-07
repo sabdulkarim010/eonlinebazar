@@ -546,11 +546,54 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             document.getElementById('total-amount').textContent = `৳${financials.grandTotal}`;
+            renderRefundStatusPanel(order);
         }
 
         if (elements.orderContent) elements.orderContent.classList.remove('hidden');
 
         renderPaymentInfo(order);
+    }
+
+    function renderRefundStatusPanel(order) {
+        const host = document.getElementById('orderTotals');
+        if (!host) return;
+
+        document.getElementById('order-refund-panel')?.remove();
+
+        const refundAmount = Number(order.refundAmount) || 0;
+        if (refundAmount <= 0) return;
+
+        const methodLabels = {
+            wallet: '💰 Wallet Balance',
+            bkash: '📱 bKash',
+            nagad: '📱 Nagad',
+            cash: '💵 Cash',
+            original_payment: '💳 Original Payment'
+        };
+        const methodKey = String(order.refundMethod || '').toLowerCase();
+        const methodLabel = methodLabels[methodKey] || order.refundMethod || 'Refund';
+        const refundedDate = order.refundedAt
+            ? new Date(order.refundedAt).toLocaleDateString('en-US', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            })
+            : '';
+
+        host.insertAdjacentHTML('afterend', `
+            <div class="refund-status-panel" id="order-refund-panel">
+                <div class="refund-status-panel__row">
+                    <span class="refund-status-panel__icon" aria-hidden="true">✅</span>
+                    <div class="refund-status-panel__copy">
+                        <div class="refund-status-panel__title">Refund Processed</div>
+                        <div class="refund-status-panel__amount">
+                            ৳${refundAmount.toLocaleString()} via ${methodLabel}
+                        </div>
+                        ${refundedDate ? `<div class="refund-status-panel__date">${refundedDate}</div>` : ''}
+                    </div>
+                </div>
+            </div>
+        `);
     }
 
     function renderPaymentInfo(order) {

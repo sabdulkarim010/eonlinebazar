@@ -44,6 +44,8 @@
  * - renderOrdersPagination
  * - goToOrdersPage
  * - fetchUserOrders
+ * - renderItemReviewButtons
+ * - openReturnModal
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -67,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const ordersPaginationEl = document.getElementById('orders-pagination');
     const ORDERS_PER_PAGE = 10;
     let ordersCurrentPage = 1;
+    let ordersCache = [];
 
     // =================================================================
     // ৫.৯ অর্ডার টেবিল হেল্পার (Status, Actions, Row Builder)
@@ -418,27 +421,205 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>`;
     }
 
-    function renderOrderActions(order, mongoId, canonical) {
-        const firstItem = Array.isArray(order.items) ? order.items[0] : null;
-        const productId = firstItem ? escapeHtml(String(getItemProductId(firstItem))) : '';
-        const productName = firstItem ? escapeHtml(firstItem.name || 'Product') : '';
+    function getDaysSinceDelivery(order) {
+        const historyEntry = Array.isArray(order.statusHistory)
+            ? order.statusHistory.find((entry) => String(entry.status || '').toLowerCase() === 'delivered')
+            : null;
+        const deliveryDate = historyEntry?.date || getOrderDeliveryDate(order);
+        if (!deliveryDate) return 999;
+
+        const delivered = new Date(deliveryDate);
+        if (Number.isNaN(delivered.getTime())) return 999;
+
+        return Math.floor((Date.now() - delivered.getTime()) / (1000 * 60 * 60 * 24));
+    }
+
+    const RETURN_REASON_LABELS = {
+        wrong_item: 'Wrong item received',
+        damaged: 'Damaged / defective product',
+        not_as_described: 'Not as described',
+        changed_mind: 'Changed my mind',
+        other: 'Other reason'
+    };
+
+    function renderItemReviewButtons(order, mongoId) {
+        if (canonicalStatus(order.status) !== 'Delivered') return '';
+
+        const safeItems = Array.isArray(order.items) ? order.items : [];
+        if (!safeItems.length) return '';
+
         const safeMongoId = escapeHtml(mongoId);
+
+        return `
+    <div class="order-item-reviews">
+      ${safeItems.map((item) => {
+            const productId = escapeHtml(String(getItemProductId(item)));
+            const productName = escapeHtml(item.name || 'Product');
+            const imageSrc = escapeHtml(getItemImageSrc(item) || IMAGE_PLACEHOLDER || '/images/placeholder.png');
+            return `
+        <div class="item-review-row">
+          <img src="${imageSrc}" alt="${productName}" class="item-review-thumb" width="40" height="40" onerror="${IMG_ONERROR}">
+          <span class="item-review-name">${productName}</span>
+          <button type="button"
+                  class="item-review-btn btn-write-review"
+                  data-order-id="${safeMongoId}"
+                  data-product-id="${productId}"
+                  data-product-name="${productName}">
+            ⭐ Write Review
+          </button>
+        </div>`;
+        }).join('')}
+    </div>`;
+    }
+
+    function renderOrderActions(order, mongoId, canonical) {
+        const safeMongoId = escapeHtml(mongoId);
+        const statusLower = String(order.status || '').toLowerCase();
+        const daysSince = getDaysSinceDelivery(order);
+        const actions = [];
 
         const trackBtn = canonical === 'Shipped'
             ? `<button type="button" class="oab primary order-action-btn" data-action="track" data-id="${safeMongoId}">🚚 Track Order</button>`
             : '';
-        const cancelBtn = canonical === 'Pending'
-            ? `<button type="button" class="oab danger order-action-btn btn-order-cancel" data-action="cancel" data-id="${safeMongoId}">Cancel</button>`
-            : '';
-        const reviewBtn = canonical === 'Delivered'
-            ? `<button type="button" class="oab primary order-action-btn btn-write-review" data-action="review" data-id="${safeMongoId}" data-order-id="${safeMongoId}" data-product-id="${productId}" data-product-name="${productName}">⭐ Review</button>`
-            : '';
+
+        if (canonical === 'Pending') {
+            actions.push(`
+      <button type="button" class="oab danger order-action-btn btn-order-cancel" data-action="cancel" data-id="${safeMongoId}">
+        Cancel Order
+      </button>`);
+        }
+
+        if (statusLower === 'delivered' && daysSince <= 7 && statusLower !== 'return requested') {
+            actions.push(`
+      <button type="button" class="oab secondary order-action-btn" data-action="return-request" data-id="${safeMongoId}">
+        ↩️ Request Return
+      </button>`);
+        }
+
+        if (statusLower === 'return requested') {
+            actions.push(`
+      <span class="order-status-chip status-warning">
+        ⏳ Return Under Review
+      </span>`);
+        }
+
+        if (statusLower === 'delivered' && daysSince < 7) {
+            const daysLeft = 7 - daysSince;
+            actions.push(`
+      <span class="order-return-window">
+        Return window: ${daysLeft} day${daysLeft !== 1 ? 's' : ''} left
+      </span>`);
+        }
 
         return `
     <div class="order-actions order-card-footer-actions">
       <button type="button" class="oab secondary order-action-btn" data-action="view" data-id="${safeMongoId}">👁 View Details</button>
-      ${cancelBtn}${trackBtn}${reviewBtn}
+      ${trackBtn}${actions.join('')}
     </div>`;
+    }
+
+    function openReturnModal(orderId) {
+        const order = ordersCache.find((entry) => String(entry._id) === String(orderId));
+        if (!order) {
+            showToast('Order not found. Please refresh and try again.', 'warning');
+            return;
+        }
+
+        if (typeof Swal === 'undefined') {
+            showToast('Return modal is unavailable. Please try again later.', 'warning');
+            return;
+        }
+
+        const items = Array.isArray(order.items) ? order.items : [];
+
+        Swal.fire({
+            title: '↩️ Request Return',
+            html: `
+      <div class="profile-return-modal">
+        <p class="profile-return-lead">
+          Select items to return and provide a reason:
+        </p>
+        ${items.map((item, i) => {
+                const productId = escapeHtml(String(getItemProductId(item) || item.product || ''));
+                const imageSrc = escapeHtml(getItemImageSrc(item) || IMAGE_PLACEHOLDER || '/images/placeholder.png');
+                const name = escapeHtml(item.name || 'Product');
+                const qty = Number(item.quantity || item.qty) || 1;
+                const price = Number(item.price) || 0;
+                return `
+          <div class="profile-return-item">
+            <input type="checkbox" id="returnItem_${i}" value="${productId}" class="profile-return-checkbox">
+            <img src="${imageSrc}" alt="${name}" class="profile-return-thumb" width="40" height="40">
+            <div class="profile-return-item-copy">
+              <div class="profile-return-item-name">${name}</div>
+              <div class="profile-return-item-meta">Qty: ${qty} · ৳${price.toLocaleString()}</div>
+            </div>
+          </div>`;
+            }).join('')}
+        <select id="returnReasonSelect" class="profile-return-reason-select">
+          <option value="">Select reason...</option>
+          <option value="wrong_item">Wrong item received</option>
+          <option value="damaged">Damaged / defective</option>
+          <option value="not_as_described">Not as described</option>
+          <option value="changed_mind">Changed my mind</option>
+          <option value="other">Other</option>
+        </select>
+      </div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Submit Return Request',
+            confirmButtonColor: '#f97316',
+            focusConfirm: false,
+            preConfirm: () => {
+                const selectedItems = [];
+                items.forEach((item, i) => {
+                    const cb = document.getElementById(`returnItem_${i}`);
+                    if (cb?.checked) {
+                        selectedItems.push({
+                            productId: cb.value,
+                            productName: item.name,
+                            quantity: item.quantity || item.qty || 1,
+                            price: item.price
+                        });
+                    }
+                });
+
+                const reasonKey = document.getElementById('returnReasonSelect')?.value || '';
+                if (!selectedItems.length) {
+                    Swal.showValidationMessage('Please select at least one item');
+                    return false;
+                }
+                if (!reasonKey) {
+                    Swal.showValidationMessage('Please select a reason');
+                    return false;
+                }
+
+                const reason = RETURN_REASON_LABELS[reasonKey] || reasonKey;
+                return { items: selectedItems, reason };
+            }
+        }).then(async (result) => {
+            if (!result.isConfirmed) return;
+
+            try {
+                const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/return/items`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(result.value)
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    Swal.fire('✅ Return Requested', 'We will review your request within 24 hours.', 'success');
+                    await fetchUserOrders();
+                } else {
+                    Swal.fire('Error', data.message || 'Failed to submit return request.', 'error');
+                }
+            } catch (err) {
+                console.error('Return items error:', err);
+                Swal.fire('Error', 'Network error. Please try again.', 'error');
+            }
+        });
     }
 
     function collapseOrderCard(card) {
@@ -537,6 +718,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="order-card-expanded">
         ${renderOrderProgress(currentStatus)}
         ${renderOrderItemsDetail(items)}
+        ${renderItemReviewButtons(order, mongoId)}
         <div class="order-detail-footer order-card-footer">
           <div class="order-totals-mini">
             <span>Subtotal <strong>৳${formatMoney(totals.subtotal)}</strong></span>
@@ -893,6 +1075,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return fetchUserOrders(pagination.totalPages);
                 }
 
+                ordersCache = orderList;
                 renderOrders(orderList);
                 renderOrdersPagination(pagination);
             } else {
@@ -1006,6 +1189,10 @@ document.addEventListener('click', function(e) {
         }
         if (action === 'cancel' || actionBtn.classList.contains('btn-order-cancel')) {
             cancelOrder(orderId);
+            return;
+        }
+        if (action === 'return-request') {
+            openReturnModal(orderId);
         }
         return;
     }
@@ -1061,7 +1248,9 @@ Object.assign(window, {
     buildOrdersPaginationRange,
     renderOrdersPagination,
     goToOrdersPage,
-    fetchUserOrders
+    fetchUserOrders,
+    renderItemReviewButtons,
+    openReturnModal
 });
 
 });
