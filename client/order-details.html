@@ -8,10 +8,11 @@
     <link rel="stylesheet" href="css/order-details.css">
     <link rel="stylesheet" href="css/product-thumbnail.css">
     <link rel="stylesheet" href="css/courier-badge.css">
+    <link rel="stylesheet" href="css/chat-widget.css">
 </head>
 <body>
 
-    <div class="order-details-container">
+    <div class="order-details-container" data-order-id="" data-order-number="">
         <div class="header-section">
             <a id="smart-back-btn" href="/profile" class="back-btn" aria-label="Back" style="text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: #2563eb;">← Back</a>
             <h2>Order Details</h2>
@@ -210,51 +211,8 @@
     <script src="js/invoiceDownload.js"></script>
     <script src="js/orderStatusTimeline.js"></script>
     <script src="js/courierBadge.js"></script>
-    <script>
-      (function () {
-        var host = location.hostname || '';
-        var isProd = /(^|\.)eonlinebazar\.com$/i.test(host);
-        if (!window.CHAT_API_URL) {
-          var env = window.__ENV__ || window.__RUNTIME_CONFIG__ || {};
-          var fromEnv =
-            window.VITE_API_URL ||
-            env.VITE_API_URL ||
-            env.CHAT_API_URL ||
-            env.API_URL;
-          if (fromEnv) {
-            window.CHAT_API_URL = String(fromEnv).replace(/\/$/, '');
-          } else {
-            window.CHAT_API_URL = isProd
-              ? 'https://eonlinebazar.com/chat-api'
-              : 'http://localhost:5001';
-          }
-        }
-
-        // Production assets on main domain; local from chat server :5001
-        var assetBase = isProd
-          ? 'https://eonlinebazar.com'
-          : String(window.CHAT_API_URL).replace(/\/$/, '');
-        if (!document.querySelector('link[data-cw-css]')) {
-          var link = document.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = assetBase + '/css/chat-widget.css';
-          link.setAttribute('data-cw-css', '1');
-          document.head.appendChild(link);
-        }
-        if (!document.querySelector('script[data-cw-socket]')) {
-          var socketScript = document.createElement('script');
-          socketScript.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
-          socketScript.setAttribute('data-cw-socket', '1');
-          document.head.appendChild(socketScript);
-        }
-        if (!document.getElementById('eob-chat-widget-script')) {
-          var widgetScript = document.createElement('script');
-          widgetScript.id = 'eob-chat-widget-script';
-          widgetScript.src = assetBase + '/js/chat-widget.js';
-          document.head.appendChild(widgetScript);
-        }
-      })();
-    </script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js" defer></script>
+    <script src="js/chat-widget.js" defer></script>
     <script src="js/orderChat.js"></script>
     <script src="js/order-details.js"></script>
 </body>

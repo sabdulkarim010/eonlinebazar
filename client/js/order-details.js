@@ -430,6 +430,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const displayId = order.orderId || (order._id ? order._id.substring(order._id.length - 6).toUpperCase() : orderId);
         currentOrderMongoId = order._id || orderId;
         currentDisplayOrderId = displayId;
+
+        const detailsRoot = document.querySelector('.order-details-container');
+        if (detailsRoot) {
+            detailsRoot.dataset.orderId = String(order._id || orderId || '');
+            detailsRoot.dataset.orderNumber = String(displayId || '');
+        }
+
         document.getElementById('order-id-display').textContent = `#${displayId}`;
         
         const orderDate = new Date(order.createdAt || Date.now()).toLocaleDateString('en-US', {

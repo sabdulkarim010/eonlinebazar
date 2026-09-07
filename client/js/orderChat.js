@@ -88,17 +88,97 @@
   }
 
   function resolveAssetBase() {
+    if (shouldUseStorefrontWidget()) {
+      return global.location.origin;
+    }
     if (isProductionHost()) return PROD_ASSET_BASE;
     return resolveChatApiUrl();
   }
 
+  function shouldUseStorefrontWidget() {
+    try {
+      var host = global.location && global.location.hostname || '';
+      var port = global.location && global.location.port || '';
+      if (/(^|\.)eonlinebazar\.com$/i.test(host)) return true;
+      if (port === '5000' || port === '3000' || port === '') return true;
+      return false;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  function resolveWidgetScriptUrl() {
+    if (shouldUseStorefrontWidget()) {
+      return global.location.origin + '/js/chat-widget.js';
+    }
+    return resolveAssetBase() + '/js/chat-widget.js';
+  }
+
+  function resolveWidgetCssUrl() {
+    if (shouldUseStorefrontWidget()) {
+      return global.location.origin + '/css/chat-widget.css';
+    }
+    return resolveAssetBase() + '/css/chat-widget.css';
+  }
+
   function readUser() {
     try {
-      var raw = localStorage.getItem('userInfo') || localStorage.getItem('user');
-      return raw ? JSON.parse(raw) : null;
+      var raw =
+        localStorage.getItem('customerData') ||
+        localStorage.getItem('userInfo') ||
+        localStorage.getItem('user');
+      if (!raw) return null;
+      var user = JSON.parse(raw);
+      if (!user.name && (user.firstName || user.lastName)) {
+        user.name = [user.firstName, user.lastName].filter(Boolean).join(' ');
+      }
+      if (!user._id && user.id) user._id = user.id;
+      return user;
     } catch (e) {
       return null;
     }
+  }
+
+  function readAuthToken() {
+    try {
+      return localStorage.getItem('token') || localStorage.getItem('customerToken') || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function readProductContext(extraOptions) {
+    if (extraOptions && extraOptions.productMetadata) {
+      return extraOptions.productMetadata;
+    }
+    try {
+      if (typeof global.buildProductChatContext === 'function' && global.currentProductData) {
+        return global.buildProductChatContext(global.currentProductData);
+      }
+    } catch (e) { /* ignore */ }
+    return null;
+  }
+
+  function buildChatUserPayload(user, extraOptions) {
+    extraOptions = extraOptions || {};
+    return {
+      guestName:
+        extraOptions.guestName ||
+        (user && (user.name || user.fullName)) ||
+        (typeof global.currentUser !== 'undefined' && global.currentUser && global.currentUser.name) ||
+        'Guest',
+      guestEmail:
+        extraOptions.guestEmail ||
+        (user && user.email) ||
+        null,
+      userId: extraOptions.userId || (user && (user._id || user.id)) || null,
+      userAvatar:
+        extraOptions.userAvatar ||
+        (user && (user.avatarUrl || user.avatar)) ||
+        null,
+      authToken: extraOptions.authToken || readAuthToken(),
+      productMetadata: readProductContext(extraOptions),
+    };
   }
 
   function ensureWidgetScript() {
@@ -135,7 +215,7 @@
       if (!document.querySelector('link[data-cw-css]')) {
         var link = document.createElement('link');
         link.rel = 'stylesheet';
-        link.href = resolveAssetBase() + '/css/chat-widget.css';
+        link.href = resolveWidgetCssUrl();
         link.setAttribute('data-cw-css', '1');
         document.head.appendChild(link);
       }
@@ -148,7 +228,7 @@
 
       var script = document.createElement('script');
       script.id = SCRIPT_ID;
-      script.src = resolveAssetBase() + '/js/chat-widget.js';
+      script.src = resolveWidgetScriptUrl();
       script.async = true;
       script.onload = done;
       script.onerror = function () {
@@ -235,22 +315,19 @@
     extraOptions = extraOptions || {};
     var user = readUser();
     var api = resolveChatApiUrl();
+    var chatUser = buildChatUserPayload(user, extraOptions);
 
     try {
       return await launchWidget({
         apiUrl: extraOptions.apiUrl || api,
         socketUrl: extraOptions.socketUrl || resolveSocketUrl(),
         socketPath: extraOptions.socketPath || SOCKET_PATH,
-        guestName:
-          extraOptions.guestName ||
-          (user && (user.name || user.fullName)) ||
-          (typeof global.currentUser !== 'undefined' && global.currentUser && global.currentUser.name) ||
-          'Guest',
-        guestEmail:
-          extraOptions.guestEmail ||
-          (user && user.email) ||
-          null,
-        userId: extraOptions.userId || (user && (user._id || user.id)) || null,
+        guestName: chatUser.guestName,
+        guestEmail: chatUser.guestEmail,
+        userId: chatUser.userId,
+        userAvatar: chatUser.userAvatar,
+        authToken: chatUser.authToken,
+        productMetadata: chatUser.productMetadata,
         type: 'GENERAL'
       });
     } catch (err) {
@@ -275,23 +352,19 @@
       (metadata && metadata.order_number) ||
       order.orderId ||
       orderId;
+    var chatUser = buildChatUserPayload(user, extraOptions);
 
     try {
       return await launchWidget({
         apiUrl: extraOptions.apiUrl || api,
         socketUrl: extraOptions.socketUrl || resolveSocketUrl(),
         socketPath: extraOptions.socketPath || SOCKET_PATH,
-        guestName:
-          extraOptions.guestName ||
-          (user && (user.name || user.fullName)) ||
-          order.customerName ||
-          'Guest',
-        guestEmail:
-          extraOptions.guestEmail ||
-          (user && user.email) ||
-          order.customerEmail ||
-          null,
-        userId: extraOptions.userId || (user && (user._id || user.id)) || null,
+        guestName: chatUser.guestName || order.customerName || 'Guest',
+        guestEmail: chatUser.guestEmail || order.customerEmail || null,
+        userId: chatUser.userId,
+        userAvatar: chatUser.userAvatar,
+        authToken: chatUser.authToken,
+        productMetadata: chatUser.productMetadata,
         orderId: orderId,
         orderDisplayId: displayId,
         orderMetadata: metadata,
@@ -327,12 +400,28 @@
     return openForOrder(order);
   }
 
+  async function syncIdentity() {
+    try {
+      var ChatWidget = global.ChatWidget;
+      if (!ChatWidget || typeof ChatWidget.linkRegisteredUser !== 'function') return null;
+      var user = readUser();
+      var token = readAuthToken();
+      if (!user && !token) return null;
+      return await ChatWidget.linkRegisteredUser({ user: user, token: token });
+    } catch (err) {
+      console.warn('[OrderChat] syncIdentity failed:', err);
+      return null;
+    }
+  }
+
   var OrderChat = {
     openGeneral: openGeneral,
     openForOrder: openForOrder,
     openFromButton: openFromButton,
     buildMetadata: buildMetadata,
-    getChatApiUrl: resolveChatApiUrl
+    getChatApiUrl: resolveChatApiUrl,
+    syncIdentity: syncIdentity,
+    readUser: readUser,
   };
 
   global.OrderChat = OrderChat;

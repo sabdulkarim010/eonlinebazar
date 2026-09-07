@@ -74,6 +74,11 @@ client/js/admin/admin-dashboard.js   [DONE] analytics module
 client/js/admin-banner.js            [DONE] kept as single file
 
 ## JS Files — Storefront
+client/js/chat-widget.js               [DONE] premium FAB live chat widget for storefront
+client/js/orderChat.js                 [DONE] chat launcher; prefers same-origin /js/chat-widget.js
+client/css/global/_chat-widget.css     [DONE] storefront chat widget styles
+client/css/chat-widget.css             [DONE] CSS barrel for chat widget
+client/partials/shared-chat-widget.html [DONE] shared script include for storefront pages
 client/js/profile.js                 [DONE] barrel → js/profile/{tabs,orders,reviews,wallet,notes,wishlist,addresses,security,account}.js
 client/js/profile/orders.js          [DONE] compact expandable order cards
 client/js/profile/notes.js           [DONE] Notes & Expenses premium notebook module
