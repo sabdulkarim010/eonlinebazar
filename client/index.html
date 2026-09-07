@@ -41,7 +41,7 @@
 </head>
 <body>
 
-<header class="amazon-header">
+<header class="amazon-header site-header">
     <div class="container main-nav">
         <div class="header-row header-row-top">
             <a href="/" class="logo-box" id="home-brand-logo" data-store-logo-slot data-logo-variant="navbar" aria-label="EonlineBazar Home"></a>
@@ -98,39 +98,51 @@
         </div>
     </nav>
 
-    <div id="heroBannerSlider"></div>
+    <div id="heroBannerSlider" class="animate-on-scroll"></div>
 
-    <section class="homepage-categories" id="homepageCats">
+    <section class="homepage-categories animate-on-scroll delay-1" id="homepageCats">
       <!-- Rendered by JS -->
     </section>
 
     <main class="container products-container">
-        <section id="flashSaleBanner" class="flash-sale-banner" style="display:none;" aria-live="polite">
-            <div class="flash-sale-banner__content">
+        <section id="flashSaleBanner" class="flash-sale-banner flash-sale-section animate-on-scroll delay-2" style="display:none;" aria-live="polite">
+            <div class="flash-sale-banner__content flash-sale-header">
                 <div class="flash-sale-banner__copy">
                     <span class="flash-sale-banner__eyebrow">Limited Time Offer</span>
-                    <h2 id="flashSaleTitle" data-i18n="home.flash_sale">Flash Sale</h2>
+                    <h2 id="flashSaleTitle" class="flash-sale-title" data-i18n="home.flash_sale">⚡ Flash Sale</h2>
                     <p id="flashSaleSubtitle">Grab exclusive discounts before the timer hits zero.</p>
                 </div>
                 <div class="flash-sale-banner__timer-wrap">
                     <span class="flash-sale-banner__timer-label" data-i18n="home.ends_in">Ends in</span>
-                    <div class="flash-sale-countdown" id="flashSaleCountdown">
-                        <div class="flash-sale-countdown__unit"><strong id="flashHours">00</strong><small>Hours</small></div>
-                        <span class="flash-sale-countdown__sep">:</span>
-                        <div class="flash-sale-countdown__unit"><strong id="flashMinutes">00</strong><small>Minutes</small></div>
-                        <span class="flash-sale-countdown__sep">:</span>
-                        <div class="flash-sale-countdown__unit"><strong id="flashSeconds">00</strong><small>Seconds</small></div>
+                    <div class="flash-sale-countdown flash-countdown" id="flashSaleCountdown">
+                        <div class="flash-sale-countdown__unit countdown-block"><strong id="flashHours" class="countdown-num">00</strong><small class="countdown-label">Hours</small></div>
+                        <span class="flash-sale-countdown__sep countdown-sep">:</span>
+                        <div class="flash-sale-countdown__unit countdown-block"><strong id="flashMinutes" class="countdown-num">00</strong><small class="countdown-label">Min</small></div>
+                        <span class="flash-sale-countdown__sep countdown-sep">:</span>
+                        <div class="flash-sale-countdown__unit countdown-block"><strong id="flashSeconds" class="countdown-num">00</strong><small class="countdown-label">Sec</small></div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <div class="catalog-header-row">
-            <h2 class="section-title" data-i18n="home.featured">Featured Products</h2>
+        <div class="catalog-header-row section-header-premium animate-on-scroll delay-1">
+            <h2 class="section-title section-title-premium" data-i18n="home.featured">Featured Products</h2>
+            <a href="/search" class="section-see-all hp-cats-see-all">See All <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
         </div>
-        <div id="productGrid" class="product-layout-grid"></div>
+        <div id="productGrid" class="product-layout-grid animate-on-scroll delay-2"></div>
         <div id="homeLoadMoreWrap" class="catalog-load-more-wrap" hidden></div>
         <div id="homePaginationContainer" class="catalog-pagination search-pagination"></div>
+
+        <section class="newsletter-section animate-on-scroll delay-3" aria-labelledby="homeNewsletterTitle">
+            <h2 id="homeNewsletterTitle" class="newsletter-title" data-i18n="footer.newsletter_title">Get Exclusive Deals</h2>
+            <p class="newsletter-subtitle">Subscribe for flash sales, new arrivals &amp; member-only offers.</p>
+            <form class="newsletter-form" onsubmit="event.preventDefault(); subscribeNewsletter('home-newsletter-email');">
+                <input type="email" id="home-newsletter-email" class="newsletter-input"
+                       placeholder="Enter your email" required autocomplete="email">
+                <button type="submit" class="newsletter-btn" data-i18n="footer.newsletter_btn">Subscribe</button>
+            </form>
+            <p id="home-newsletter-msg" class="footer-newsletter-msg" style="display:none;margin-top:12px;color:#fff;" role="status"></p>
+        </section>
     </main>
 
     <!-- WhatsApp Button S-->
@@ -154,6 +166,8 @@
     <script src="/js/products.js"></script>
     <script src="/js/sidebarDrawer.js"></script>
     <script src="/js/header.js"></script>
+    <script src="/js/footerRenderer.js"></script>
+    <script src="/js/footer.js"></script>
     <script src="/js/main.js"></script>
     <script src="/js/banner-slider.js"></script>
     <script src="/js/variantUtils.js"></script>

@@ -257,6 +257,85 @@
     gap: 14px;
 }
 
+.category-strip {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scrollbar-width: none;
+    grid-template-columns: unset;
+}
+
+.category-strip::-webkit-scrollbar {
+    display: none;
+}
+
+.category-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform 0.2s;
+    padding: 0;
+    border: none;
+    background: transparent;
+}
+
+.category-pill:hover {
+    transform: translateY(-3px);
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.category-pill-icon {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.category-pill:hover .category-pill-icon {
+    border-color: #f97316;
+    box-shadow: 0 4px 16px rgba(249, 115, 22, 0.3);
+}
+
+.category-pill-emoji {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    border: 3px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s;
+    background: #f8fafc;
+}
+
+.category-pill:hover .category-pill-emoji {
+    border-color: #f97316;
+    box-shadow: 0 4px 16px rgba(249, 115, 22, 0.3);
+}
+
+.category-pill-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    text-align: center;
+    max-width: 80px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 
 
 .hp-cat-card {

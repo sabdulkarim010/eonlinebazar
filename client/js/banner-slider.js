@@ -123,31 +123,33 @@ class BannerSlider {
       <div id="bannerSliderWrap"
            style="--banner-height:${h};--banner-mobile-height:${mh};--banner-h:${hNum};--banner-mh:${mhNum}">
         ${this.banners.map((b, i) => `
-          <div class="banner-slide ${i === 0 ? 'active' : ''}
+          <div class="banner-slide hero-banner-slide ${i === 0 ? 'active' : ''}
                ${this.settings.transitionEffect === 'fade' ? 'fade-mode' : ''}"
                data-index="${i}">
             ${this.renderSlideBackground(b, i)}
             <div class="banner-overlay"
                  style="--opacity:${b.overlayOpacity ?? 0.3}"></div>
             ${(b.title || b.subtitle || b.linkUrl) ? `
-              <div class="banner-content">
-                ${b.title ? `
-                  <h2 class="banner-title"
-                      style="color:${this.escapeHtml(b.textColor || '#fff')}">
-                    ${this.escapeHtml(b.title)}
-                  </h2>
-                ` : ''}
-                ${b.subtitle ? `
-                  <p class="banner-subtitle"
-                     style="color:${this.escapeHtml(b.textColor || '#fff')}">
-                    ${this.escapeHtml(b.subtitle)}
-                  </p>
-                ` : ''}
-                ${b.linkUrl ? `
-                  <a href="${this.escapeHtml(b.linkUrl)}" class="banner-cta">
-                    ${this.escapeHtml(b.linkText || 'Shop Now')}
-                  </a>
-                ` : ''}
+              <div class="banner-text-overlay">
+                <div class="banner-content banner-content--premium">
+                  ${b.title ? `
+                    <h2 class="banner-title"
+                        style="color:${this.escapeHtml(b.textColor || '#fff')}">
+                      ${this.escapeHtml(b.title)}
+                    </h2>
+                  ` : ''}
+                  ${b.subtitle ? `
+                    <p class="banner-subtitle"
+                       style="color:${this.escapeHtml(b.textColor || '#fff')}">
+                      ${this.escapeHtml(b.subtitle)}
+                    </p>
+                  ` : ''}
+                  ${b.linkUrl ? `
+                    <a href="${this.escapeHtml(b.linkUrl)}" class="banner-cta">
+                      ${this.escapeHtml(b.linkText || 'Shop Now')} <i class="fa fa-arrow-right" aria-hidden="true"></i>
+                    </a>
+                  ` : ''}
+                </div>
               </div>
             ` : ''}
           </div>

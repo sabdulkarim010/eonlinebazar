@@ -84,14 +84,21 @@ async function subscribeNewsletter(inputId = 'newsletter-email') {
     const email = emailInput.value.trim();
     if (!email) return;
 
-    const msgId = inputId === 'newsletter-email-mobile' ? 'newsletter-msg-mobile' : 'newsletter-msg';
+    const msgId = inputId === 'newsletter-email-mobile'
+        ? 'newsletter-msg-mobile'
+        : inputId === 'home-newsletter-email'
+            ? 'home-newsletter-msg'
+            : 'newsletter-msg';
     const msg = document.getElementById(msgId);
 
     try {
         const res = await fetch('/api/newsletter/subscribe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, source: 'footer_form' })
+            body: JSON.stringify({
+                email,
+                source: inputId === 'home-newsletter-email' ? 'homepage_form' : 'footer_form'
+            })
         });
         const data = await res.json();
         if (msg) {

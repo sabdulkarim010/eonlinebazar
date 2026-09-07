@@ -39,7 +39,33 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSearchCategorySelect();
     loadHomepageCategories();
     fetchAndRenderProducts();
+    initScrollReveal();
 });
+
+function initScrollReveal() {
+    if (!('IntersectionObserver' in window)) {
+        document.querySelectorAll('.animate-on-scroll').forEach((el) => {
+            el.classList.add('is-visible');
+        });
+        return;
+    }
+
+    const observer = new IntersectionObserver(
+        (entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        },
+        { threshold: 0.1 }
+    );
+
+    document.querySelectorAll('.animate-on-scroll').forEach((el) => {
+        observer.observe(el);
+    });
+}
 
 /* ==========================================================================
    SECTION 2: FETCH PRODUCTS FROM API (ডাটাবেজ থেকে ডাটা আনা)
@@ -250,8 +276,8 @@ function createHomeProductCard(product) {
     productLink.style.color = 'inherit';
     productLink.style.display = 'block';
 
-    const imgBox = document.createElement('div');
-    imgBox.className = 'product-img-box';
+    const imgWrap = document.createElement('div');
+    imgWrap.className = 'product-image-wrap product-img-box';
 
     const PT = window.ProductThumbnail;
     const meta = PT ? PT.getDisplayMeta(product) : { image: product.image || product.photo || '', emoji: product.icon || '' };
@@ -261,7 +287,7 @@ function createHomeProductCard(product) {
     const iconData = meta.emoji;
 
     if (PT) {
-        PT.mountInto(imgBox, product, { variant: 'card', alt: product.name || 'Product Image' });
+        PT.mountInto(imgWrap, product, { variant: 'card', alt: product.name || 'Product Image' });
     }
 
     const productInfo = document.createElement('div');
@@ -282,8 +308,12 @@ function createHomeProductCard(product) {
         })
         : null;
 
+    const quickOverlay = document.createElement('div');
+    quickOverlay.className = 'quick-add-overlay';
+
     const addToCartBtn = document.createElement('button');
-    addToCartBtn.className = 'add-to-cart-btn';
+    addToCartBtn.type = 'button';
+    addToCartBtn.className = 'quick-add-btn add-to-cart-btn';
     addToCartBtn.innerText = t('product.add_to_cart');
 
     addToCartBtn.addEventListener('click', (e) => {
@@ -299,11 +329,22 @@ function createHomeProductCard(product) {
         }
     });
 
-    productLink.appendChild(imgBox);
+    quickOverlay.appendChild(addToCartBtn);
+
+    if (wishlistBtn) {
+        wishlistBtn.classList.add('wishlist-quick-btn');
+        wishlistBtn.classList.remove('wishlist-heart-btn');
+        quickOverlay.appendChild(wishlistBtn);
+    }
+
+    productLink.appendChild(imgWrap);
     productLink.appendChild(productInfo);
     productCard.appendChild(productLink);
-    if (wishlistBtn) productCard.appendChild(wishlistBtn);
-    productCard.appendChild(addToCartBtn);
+    productCard.appendChild(quickOverlay);
+
+    if (wishlistBtn && !quickOverlay.contains(wishlistBtn)) {
+        productCard.appendChild(wishlistBtn);
+    }
 
     return productCard;
 }
@@ -790,11 +831,11 @@ async function loadHomepageCategories() {
 
         container.style.display = '';
         container.innerHTML = `
-            <div class="hp-cats-header">
-                <h2>🛍️ Shop by Category</h2>
-                <a href="/products" class="hp-cats-see-all">See All →</a>
+            <div class="hp-cats-header section-header-premium">
+                <h2 class="section-title-premium">🛍️ Shop by Category</h2>
+                <a href="/products" class="section-see-all hp-cats-see-all">See All <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
             </div>
-            <div class="hp-cats-grid" id="category-grid">
+            <div class="category-strip hp-cats-grid" id="category-grid">
                 ${categories.map((cat) => {
                     const name = escapeCatHtml(cat.name);
                     const color = escapeCatHtml(categoryAccent(cat));
@@ -803,24 +844,19 @@ async function loadHomepageCategories() {
                     const href = categoryListingHref(cat);
                     const id = escapeCatHtml(cat._id || '');
                     const imgHtml = img
-                        ? `<img src="${escapeCatHtml(img)}" alt="${name}" class="hp-cat-img"
+                        ? `<img src="${escapeCatHtml(img)}" alt="${name}" class="category-pill-icon hp-cat-img"
                                 onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='inline')">
-                           <span class="hp-cat-emoji" style="display:none">${icon}</span>`
-                        : `<span class="hp-cat-emoji">${icon}</span>`;
+                           <span class="hp-cat-emoji category-pill-emoji" style="display:none">${icon}</span>`
+                        : `<span class="hp-cat-emoji category-pill-emoji">${icon}</span>`;
 
                     return `
                         <a href="${href}"
-                           class="hp-cat-card category-card"
+                           class="category-pill hp-cat-card category-card"
                            data-category-id="${id}"
-                           style="--cat-color: ${color}">
-                            <div class="hp-cat-img-wrap"
-                                 style="background:${color}20;border-color:${color}">
-                                ${imgHtml}
-                            </div>
-                            <div class="hp-cat-name">${name}</div>
-                            ${cat.productCount ? `
-                                <div class="hp-cat-count">${Number(cat.productCount)} items</div>
-                            ` : ''}
+                           style="--cat-color: ${color}"
+                           title="${name}">
+                            ${imgHtml}
+                            <span class="category-pill-name hp-cat-name">${name}</span>
                         </a>`;
                 }).join('')}
             </div>
@@ -930,6 +966,11 @@ document.addEventListener('DOMContentLoaded', () => {
    SECTION 6: DYNAMIC FOOTER LOADER (ফুটার স্ক্রিপ্ট লোড করা)
    ========================================================================== */
 document.addEventListener("DOMContentLoaded", () => {
+    if (typeof window.initGlobalFooterEngine === 'function') {
+        window.initGlobalFooterEngine();
+        return;
+    }
+
     // Absolute paths so dynamic routes (/page/:slug, /pages/:slug, /:slug)
     // never resolve to /page/js/... (404 / wrong MIME).
     const rendererScript = document.createElement('script');

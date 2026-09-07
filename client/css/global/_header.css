@@ -1,10 +1,41 @@
-/* --- ২. প্রফেশনাল মেইন হেডার (ডেস্কটপ ও গ্লোবাল লেআউট) --- */
-header {
+header,
+.site-header,
+.amazon-header.site-header {
     position: sticky;
     top: 0;
     z-index: 1000;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, padding 0.3s ease;
+}
+
+.site-header.scrolled,
+.amazon-header.site-header.scrolled {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+}
+
+.site-header.scrolled .main-nav,
+.amazon-header.site-header.scrolled .main-nav {
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.site-header.scrolled .logo-box img,
+.site-header.scrolled .logo-box .store-brand-logo,
+.site-header.scrolled .logo-box img[data-store-logo],
+.amazon-header.site-header.scrolled .logo-box img,
+.amazon-header.site-header.scrolled .logo-box .store-brand-logo {
+    max-height: 32px;
+    transition: max-height 0.3s ease;
+}
+
+.site-header.header-hidden,
+.amazon-header.site-header.header-hidden {
+    transform: translateY(-100%);
+}
+
+/* --- ২. প্রফেশনাল মেইন হেডার (ডেস্কটপ ও গ্লোবাল লেআউট) --- */
+header {
     background-color: var(--amazon-dark);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
     padding: 4px 0;
 }
 

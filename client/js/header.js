@@ -200,7 +200,39 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.HeaderSearch) {
         window.HeaderSearch.bindScopeSelect();
     }
+    initScrollAwareHeader();
 });
+
+function initScrollAwareHeader() {
+    const header = document.querySelector('.site-header')
+        || document.querySelector('.amazon-header')
+        || document.querySelector('header');
+    if (!header) return;
+
+    let lastScroll = 0;
+
+    window.addEventListener('scroll', () => {
+        const scrollY = window.scrollY;
+
+        if (scrollY > 60) {
+            header.classList.add('scrolled');
+        } else {
+            header.classList.remove('scrolled');
+        }
+
+        if (scrollY > 200) {
+            if (scrollY > lastScroll) {
+                header.classList.add('header-hidden');
+            } else {
+                header.classList.remove('header-hidden');
+            }
+        } else {
+            header.classList.remove('header-hidden');
+        }
+
+        lastScroll = scrollY;
+    }, { passive: true });
+}
 
 
 
