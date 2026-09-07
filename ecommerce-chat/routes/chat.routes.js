@@ -8,6 +8,8 @@ const {
   uploadChatImage,
   uploadFromBase64,
 } = require('../services/upload.service');
+const { resolveCustomerProfile } = require('../services/storeProfile.service');
+const chatAdminController = require('../controllers/chatAdminController');
 
 const router = express.Router();
 
@@ -57,6 +59,123 @@ function normalizeOrderMetadata(raw) {
   };
 }
 
+function normalizeProductMetadata(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const priceRaw = raw.price ?? raw.salePrice ?? raw.regularPrice ?? null;
+  const price =
+    priceRaw == null || Number.isNaN(Number(priceRaw)) ? null : Number(priceRaw);
+
+  return {
+    product_id: raw.product_id || raw.productId || raw._id || raw.id || null,
+    title: String(raw.title || raw.name || '').slice(0, 300),
+    image: String(raw.image || raw.imageUrl || raw.thumbnail || '').slice(0, 500),
+    price,
+    url: String(raw.url || raw.productUrl || '').slice(0, 500),
+    slug: String(raw.slug || '').slice(0, 200),
+    currency: raw.currency ? String(raw.currency) : 'BDT',
+  };
+}
+
+function isPlaceholderGuestName(name) {
+  const n = String(name || '').trim().toLowerCase();
+  return !n || n === 'guest' || n === 'customer';
+}
+
+/**
+ * Apply registered-user identity + profile snapshot to an open room.
+ */
+async function enrichRoomWithCustomer(room, payload = {}) {
+  if (!room) return room;
+
+  const {
+    user_id = null,
+    guest_name = null,
+    guest_email = null,
+    auth_token = null,
+    customer_avatar = null,
+    customer_avatar_url = null,
+    product_metadata = null,
+  } = payload;
+
+  let changed = false;
+
+  if (product_metadata) {
+    room.product_metadata = product_metadata;
+    changed = true;
+  }
+
+  const resolvedUserId = user_id || room.user_id || null;
+  const shouldRegister = Boolean(resolvedUserId || auth_token);
+
+  if (shouldRegister) {
+    const profile = await resolveCustomerProfile({
+      user_id: resolvedUserId,
+      auth_token,
+      guest_name,
+      guest_email,
+      avatar: customer_avatar,
+      avatarUrl: customer_avatar_url || customer_avatar,
+    });
+
+    if (profile) {
+      if (resolvedUserId) {
+        room.user_id = resolvedUserId;
+      } else if (profile.user_id) {
+        room.user_id = profile.user_id;
+      }
+      room.is_registered = true;
+      room.customer_profile = profile;
+
+      const displayName =
+        (guest_name && !isPlaceholderGuestName(guest_name) ? guest_name : null) ||
+        profile.name ||
+        room.guest_name;
+      if (displayName && room.guest_name !== displayName) {
+        room.guest_name = displayName;
+        changed = true;
+      } else if (isPlaceholderGuestName(room.guest_name) && profile.name) {
+        room.guest_name = profile.name;
+        changed = true;
+      }
+
+      const email = guest_email || profile.email;
+      if (email && room.guest_email !== email) {
+        room.guest_email = email;
+        changed = true;
+      }
+
+      room.is_registered = true;
+      room.customer_profile = profile;
+      changed = true;
+    } else if (resolvedUserId) {
+      room.user_id = resolvedUserId;
+      room.is_registered = true;
+      if (guest_name && !isPlaceholderGuestName(guest_name)) {
+        room.guest_name = guest_name;
+      }
+      if (guest_email) room.guest_email = guest_email;
+      changed = true;
+    }
+  } else {
+    if (guest_name && !isPlaceholderGuestName(guest_name) && room.guest_name !== guest_name) {
+      room.guest_name = guest_name;
+      changed = true;
+    }
+    if (guest_email && room.guest_email !== guest_email) {
+      room.guest_email = guest_email;
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    await room.save();
+    return room;
+  }
+
+  return room;
+}
+
 /**
  * POST /api/chat/start
  * Start a new chat or return existing open room.
@@ -67,16 +186,21 @@ router.post('/start', async (req, res) => {
       type = 'GENERAL',
       order_id = null,
       order_metadata = null,
+      product_metadata = null,
       guest_session_id,
       guest_name = 'Guest',
       guest_email = null,
       user_id = null,
+      auth_token = null,
+      customer_avatar = null,
+      customer_avatar_url = null,
+      source = 'web',
     } = req.body || {};
 
-    if (!guest_session_id && !user_id) {
+    if (!guest_session_id && !user_id && !auth_token) {
       return res.status(400).json({
         success: false,
-        message: 'guest_session_id or user_id is required',
+        message: 'guest_session_id, user_id, or auth_token is required',
       });
     }
 
@@ -89,6 +213,9 @@ router.post('/start', async (req, res) => {
 
     const metadata =
       type === 'ORDER_SUPPORT' ? normalizeOrderMetadata(order_metadata) : null;
+    const productMeta = normalizeProductMetadata(product_metadata);
+    const validSources = ['web', 'mobile', 'order_page', 'product_page', 'whatsapp'];
+    const chatSource = validSources.includes(source) ? source : 'web';
 
     const openStatuses = ['BOT', 'WAITING_FOR_AGENT', 'ACTIVE'];
     const query = {
@@ -102,16 +229,45 @@ router.post('/start', async (req, res) => {
 
     let room = await ChatRoom.findOne(query).sort({ createdAt: -1 });
 
+    // Fallback: guest started chat, then logged in — find open room by session only
+    if (!room && guest_session_id && user_id) {
+      room = await ChatRoom.findOne({
+        guest_session_id,
+        type,
+        status: { $in: openStatuses },
+        order_id: order_id || null,
+      }).sort({ createdAt: -1 });
+    }
+
     if (room) {
       if (metadata) {
         room.order_metadata = metadata;
-        await room.save();
       }
+      if (productMeta) {
+        room.product_metadata = productMeta;
+      }
+      if (chatSource && !room.source) {
+        room.source = chatSource;
+      }
+      room = await enrichRoomWithCustomer(room, {
+        user_id,
+        guest_name,
+        guest_email,
+        auth_token,
+        customer_avatar,
+        customer_avatar_url: customer_avatar_url || customer_avatar,
+        product_metadata: productMeta,
+      });
 
       const welcome = await ChatMessage.findOne({
         room_id: room._id,
         sender_type: 'BOT',
       }).sort({ createdAt: 1 });
+
+      const io = req.app.get('io');
+      if (io && (user_id || auth_token)) {
+        io.of('/admin').emit('room_updated', { room: room.toObject ? room.toObject() : room });
+      }
 
       return res.json({
         success: true,
@@ -121,19 +277,37 @@ router.post('/start', async (req, res) => {
       });
     }
 
+    let resolvedName = guest_name;
+    if (isPlaceholderGuestName(resolvedName) && user_id) {
+      resolvedName = 'Customer';
+    }
+
     room = await ChatRoom.create({
       user_id: user_id || null,
       guest_session_id: guest_session_id || null,
-      guest_name,
+      guest_name: resolvedName,
       guest_email,
+      is_registered: Boolean(user_id || auth_token),
       type,
       order_id: order_id || null,
       order_metadata: metadata,
+      product_metadata: productMeta,
       status: 'BOT',
+      source: chatSource,
       last_message: '',
       last_message_at: new Date(),
       unread_count: 0,
       tags: [type.toLowerCase()],
+    });
+
+    room = await enrichRoomWithCustomer(room, {
+      user_id,
+      guest_name: resolvedName,
+      guest_email,
+      auth_token,
+      customer_avatar,
+      customer_avatar_url: customer_avatar_url || customer_avatar,
+      product_metadata: productMeta,
     });
 
     const store = await StoreConfig.findOne().lean();
@@ -174,6 +348,84 @@ router.post('/start', async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to start chat',
+      error: err.message,
+    });
+  }
+});
+
+/**
+ * POST /api/chat/link-user
+ * Link an open guest room to a registered user after login (same session).
+ */
+router.post('/link-user', async (req, res) => {
+  try {
+    const {
+      room_id,
+      guest_session_id,
+      user_id = null,
+      guest_name = null,
+      guest_email = null,
+      auth_token = null,
+      customer_avatar = null,
+      customer_avatar_url = null,
+    } = req.body || {};
+
+    if (!room_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'room_id is required',
+      });
+    }
+
+    const room = await ChatRoom.findById(room_id);
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat room not found',
+      });
+    }
+
+    if (
+      guest_session_id &&
+      room.guest_session_id &&
+      room.guest_session_id !== guest_session_id
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'UNAUTHORIZED',
+      });
+    }
+
+    const openStatuses = ['BOT', 'WAITING_FOR_AGENT', 'ACTIVE'];
+    if (!openStatuses.includes(room.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Room is not open for linking',
+      });
+    }
+
+    const updated = await enrichRoomWithCustomer(room, {
+      user_id: user_id || room.user_id,
+      guest_name,
+      guest_email,
+      auth_token,
+      customer_avatar,
+      customer_avatar_url: customer_avatar_url || customer_avatar,
+    });
+
+    const io = req.app.get('io');
+    if (io) {
+      const plain = updated.toObject ? updated.toObject() : updated;
+      io.of('/admin').emit('room_updated', { room: plain });
+      io.of('/customer').to(String(room_id)).emit('room_updated', { room: plain });
+    }
+
+    return res.json({ success: true, room: updated });
+  } catch (err) {
+    console.error('[POST /api/chat/link-user]', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to link user',
       error: err.message,
     });
   }
@@ -384,6 +636,16 @@ router.post(
       });
     }
   }
+);
+
+/** POST /api/chat/:room_id/rate — REST rating (socket submit_rating also supported) */
+router.post('/:room_id/rate', chatAdminController.rateConversation);
+
+/** POST /api/chat/:room_id/attachment — alias for customer file upload */
+router.post(
+  '/:room_id/attachment',
+  upload.single('attachment'),
+  chatAdminController.sendAttachment
 );
 
 module.exports = router;

@@ -1,6 +1,17 @@
-require('dotenv').config();
-
 const path = require('path');
+const fs = require('fs');
+
+(function loadEnv() {
+  const localEnv = path.join(__dirname, '.env');
+  const rootEnv = path.join(__dirname, '..', '.env');
+  if (fs.existsSync(localEnv)) {
+    require('dotenv').config({ path: localEnv });
+  } else if (fs.existsSync(rootEnv)) {
+    require('dotenv').config({ path: rootEnv });
+  } else {
+    require('dotenv').config();
+  }
+})();
 const http = require('http');
 const express = require('express');
 const cors = require('cors');
@@ -21,6 +32,7 @@ const {
 } = require('./middleware/rateLimit.middleware');
 
 const PORT = process.env.PORT || 5001;
+const HOST = process.env.CHAT_HOST || process.env.HOST || '0.0.0.0';
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
 const MONGO_URI =
   process.env.MONGO_URI || 'mongodb://localhost:27017/ecommerce_chat';
@@ -201,10 +213,20 @@ async function start() {
     await mongoose.connect(MONGO_URI);
     console.log('✅ MongoDB connected');
 
-    server.listen(PORT, () => {
-      console.log(`🚀 Chat server running on http://localhost:${PORT}`);
+    try {
+      const CannedResponse = require('./models/CannedResponse.model');
+      await CannedResponse.seedDefaults();
+      console.log('✅ Canned responses seeded (if empty)');
+    } catch (seedErr) {
+      console.warn('Canned response seed skipped:', seedErr.message);
+    }
+
+    server.listen(PORT, HOST, () => {
+      console.log(`🚀 Chat server running on http://localhost:${PORT} (bound ${HOST}:${PORT})`);
       console.log(`📡 Socket namespaces: /customer , /admin`);
       console.log(`🌐 CORS origins: ${ALLOWED_ORIGINS.join(', ')}`);
+      console.log(`📎 Avatar upload: POST http://localhost:${PORT}/api/admin/me/avatar`);
+      console.log(`👤 Customer CRM: GET http://localhost:${PORT}/api/admin/customers/:userId`);
     });
   } catch (err) {
     console.error('❌ Failed to start server:', err.message);

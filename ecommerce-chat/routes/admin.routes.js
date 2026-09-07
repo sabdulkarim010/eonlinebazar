@@ -7,6 +7,16 @@ const { StoreConfig } = require('../models/AIKnowledgeBase.model');
 const { DEFAULT_STORE_CONFIG } = require('../data/defaultKnowledge');
 const { authMiddleware, roleGuard } = require('../middleware/auth.middleware');
 const { sendDailyReport } = require('../services/notification.service');
+const {
+  fetchProfileByUserId,
+  fetchCustomerOrders,
+  invalidateProfileCache,
+} = require('../services/storeProfile.service');
+const {
+  agentAvatarMulter,
+  handleAgentAvatarUpload,
+} = require('../handlers/agentAvatarUpload');
+const chatAdminController = require('../controllers/chatAdminController');
 
 const router = express.Router();
 
@@ -142,6 +152,7 @@ router.get('/rooms', authMiddleware, async (req, res) => {
     const rooms = (roomsRaw || []).map((r) => ({
       ...r,
       guest_name: r.guest_name || 'Guest',
+      is_registered: Boolean(r.is_registered || r.user_id),
       last_message: r.last_message || '',
       last_message_at: r.last_message_at || r.createdAt,
     }));
@@ -210,7 +221,11 @@ router.get('/rooms/:room_id', authMiddleware, async (req, res) => {
 
     return res.json({
       success: true,
-      room: { ...room, unread_count: 0 },
+      room: {
+        ...room,
+        unread_count: 0,
+        is_registered: Boolean(room.is_registered || room.user_id),
+      },
       messages,
       total,
       page,
@@ -222,6 +237,69 @@ router.get('/rooms/:room_id', authMiddleware, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch room',
+      error: err.message,
+    });
+  }
+});
+
+/**
+ * GET /api/admin/customers/:userId — profile proxy for CustomerContext sidebar
+ */
+router.get('/customers/:userId', authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!process.env.MAIN_STORE_API_URL) {
+      return res.status(503).json({
+        success: false,
+        message: 'Customer lookup unavailable — set MAIN_STORE_API_URL',
+      });
+    }
+
+    if (req.query.fresh === '1' || req.query.fresh === 'true') {
+      invalidateProfileCache(userId);
+    }
+
+    const profile = await fetchProfileByUserId(userId);
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer profile not found',
+      });
+    }
+
+    return res.json({ success: true, profile, data: profile });
+  } catch (err) {
+    console.error('[GET /api/admin/customers/:userId]', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch customer profile',
+      error: err.message,
+    });
+  }
+});
+
+/**
+ * GET /api/admin/customers/:userId/orders?limit=5
+ */
+router.get('/customers/:userId/orders', authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const limit = Math.min(20, Math.max(1, parseInt(req.query.limit, 10) || 5));
+
+    if (!process.env.MAIN_STORE_API_URL) {
+      return res.status(503).json({
+        success: false,
+        message: 'Order history unavailable — set MAIN_STORE_API_URL',
+      });
+    }
+
+    const orders = await fetchCustomerOrders(userId, limit);
+    return res.json({ success: true, orders, data: orders });
+  } catch (err) {
+    console.error('[GET /api/admin/customers/:userId/orders]', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch customer orders',
       error: err.message,
     });
   }
@@ -564,11 +642,22 @@ router.get('/me', authMiddleware, async (req, res) => {
 });
 
 /**
- * PATCH /api/admin/me — update own name / avatar
+ * POST /api/admin/me/avatar — multipart profile photo (Cloudinary)
+ * Alias of POST /api/upload/agent-avatar for admin-dashboard proxy compatibility
+ */
+router.post(
+  '/me/avatar',
+  authMiddleware,
+  agentAvatarMulter,
+  handleAgentAvatarUpload
+);
+
+/**
+ * PATCH /api/admin/me — update own name, email, avatar
  */
 router.patch('/me', authMiddleware, async (req, res) => {
   try {
-    const { name, avatar } = req.body || {};
+    const { name, avatar, email, clear_avatar } = req.body || {};
     const updates = {};
     if (name !== undefined) {
       const trimmed = String(name).trim();
@@ -580,8 +669,46 @@ router.patch('/me', authMiddleware, async (req, res) => {
       }
       updates.name = trimmed;
     }
-    if (avatar !== undefined) {
+    if (email !== undefined) {
+      const normalized = String(email).trim().toLowerCase();
+      if (
+        !normalized ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: 'A valid email address is required',
+        });
+      }
+      const duplicate = await Agent.findOne({
+        email: normalized,
+        _id: { $ne: req.agent.id },
+      }).select('_id');
+      if (duplicate) {
+        return res.status(409).json({
+          success: false,
+          message: 'Email already in use by another account',
+        });
+      }
+      updates.email = normalized;
+    }
+    if (clear_avatar === true || clear_avatar === 'true') {
+      const current = await Agent.findById(req.agent.id);
+      if (current?.avatar_public_id) {
+        try {
+          const { deleteChatImage } = require('../services/upload.service');
+          await deleteChatImage(current.avatar_public_id);
+        } catch (deleteErr) {
+          console.warn('[PATCH /me] avatar delete failed:', deleteErr.message);
+        }
+      }
+      updates.avatar = null;
+      updates.avatar_public_id = null;
+    } else if (avatar !== undefined) {
       updates.avatar = avatar ? String(avatar).trim() : null;
+      if (!avatar) {
+        updates.avatar_public_id = null;
+      }
     }
     if (!Object.keys(updates).length) {
       return res.status(400).json({
@@ -602,6 +729,12 @@ router.patch('/me', authMiddleware, async (req, res) => {
     return res.json({ success: true, agent: serializeAgent(agent) });
   } catch (err) {
     console.error('[PATCH /api/admin/me]', err);
+    if (err.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'Email already in use',
+      });
+    }
     return res.status(500).json({
       success: false,
       message: 'Failed to update profile',
@@ -615,17 +748,32 @@ router.patch('/me', authMiddleware, async (req, res) => {
  */
 router.post('/me/change-password', authMiddleware, async (req, res) => {
   try {
-    const { current_password, new_password } = req.body || {};
+    const { current_password, new_password, confirm_password } = req.body || {};
     if (!current_password || !new_password) {
       return res.status(400).json({
         success: false,
         message: 'current_password and new_password are required',
       });
     }
+    if (
+      confirm_password !== undefined &&
+      String(new_password) !== String(confirm_password)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password and confirmation do not match',
+      });
+    }
     if (String(new_password).length < 8) {
       return res.status(400).json({
         success: false,
         message: 'Password must be at least 8 characters',
+      });
+    }
+    if (String(current_password) === String(new_password)) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be different from current password',
       });
     }
 
@@ -997,6 +1145,38 @@ router.delete(
       });
     }
   }
+);
+
+/** Extended chat admin API */
+router.get('/analytics', authMiddleware, chatAdminController.getChatAnalytics);
+router.get('/canned', authMiddleware, chatAdminController.getCannedResponses);
+router.post('/canned', authMiddleware, chatAdminController.createCannedResponse);
+router.delete('/canned/:id', authMiddleware, chatAdminController.deleteCannedResponse);
+
+router.get(
+  '/rooms/:room_id/customer-profile',
+  authMiddleware,
+  chatAdminController.getChatCustomerProfile
+);
+router.post(
+  '/rooms/:room_id/notes',
+  authMiddleware,
+  chatAdminController.addInternalNote
+);
+router.patch(
+  '/rooms/:room_id/assign',
+  authMiddleware,
+  chatAdminController.assignAgent
+);
+router.patch(
+  '/rooms/:room_id/labels',
+  authMiddleware,
+  chatAdminController.setLabels
+);
+router.patch(
+  '/rooms/:room_id/priority',
+  authMiddleware,
+  chatAdminController.setPriority
 );
 
 module.exports = router;

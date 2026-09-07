@@ -41,11 +41,46 @@ const chatMessageSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    sender_avatar: {
+      type: String,
+      default: '',
+    },
+    message_type: {
+      type: String,
+      enum: [
+        'text',
+        'image',
+        'file',
+        'order_card',
+        'quick_reply',
+        'system_event',
+        'typing',
+      ],
+      default: 'text',
+    },
     message: {
       type: String,
       required: true,
       trim: true,
       maxlength: 5000,
+    },
+    order_card: {
+      type: new mongoose.Schema(
+        {
+          order_id: { type: mongoose.Schema.Types.ObjectId, default: null },
+          order_number: { type: String, default: '' },
+          status: { type: String, default: '' },
+          total: { type: Number, default: null },
+          items: [
+            {
+              name: { type: String, default: '' },
+              image: { type: String, default: '' },
+            },
+          ],
+        },
+        { _id: false }
+      ),
+      default: null,
     },
     attachments: {
       type: [attachmentSchema],
@@ -66,6 +101,31 @@ const chatMessageSchema = new mongoose.Schema(
       default: false,
     },
     is_read_by_user: {
+      type: Boolean,
+      default: false,
+    },
+    read_by: {
+      type: [
+        new mongoose.Schema(
+          {
+            user_id: { type: mongoose.Schema.Types.ObjectId, default: null },
+            role: { type: String, default: '' },
+            read_at: { type: Date, default: Date.now },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
+    is_deleted: {
+      type: Boolean,
+      default: false,
+    },
+    deleted_at: {
+      type: Date,
+      default: null,
+    },
+    is_internal: {
       type: Boolean,
       default: false,
     },

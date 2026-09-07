@@ -14,6 +14,13 @@ const {
   canAgentResolveRoom,
   socketReply,
 } = require('./chatAuth');
+const {
+  applyLastMessage,
+  syncWaitingQueuePositions,
+} = require('../utils/chatRoomHelpers');
+
+/** socket.id → Set of room_id strings the customer joined */
+const socketConversationMap = new Map();
 
 /**
  * Notify admins after handover — email failure must not break socket flow.
@@ -57,6 +64,9 @@ function roomPlain(room) {
 async function persistResolvedRoom(room, { endedBy, agent, systemText }) {
   room.status = 'RESOLVED';
   room.resolved_at = new Date();
+  room.closed_at = new Date();
+  room.closed_by =
+    endedBy === 'CUSTOMER' ? 'customer' : endedBy === 'AGENT' ? 'agent' : 'system';
 
   const systemMsg = await ChatMessage.create({
     room_id: room._id,
@@ -168,6 +178,11 @@ function initChatSocket(io) {
         socket.join(String(room_id));
         socket.data.room_id = String(room_id);
 
+        if (!socketConversationMap.has(socket.id)) {
+          socketConversationMap.set(socket.id, new Set());
+        }
+        socketConversationMap.get(socket.id).add(String(room_id));
+
         const messages = await ChatMessage.find({
           room_id,
           sender_type: { $ne: 'INTERNAL' },
@@ -262,6 +277,12 @@ function initChatSocket(io) {
 
           room.last_message = userMsg.message;
           room.last_message_at = new Date();
+          applyLastMessage(room, {
+            text: userMsg.message,
+            senderType: 'USER',
+            messageType: attachments.length ? 'file' : 'text',
+            attachments,
+          });
           room.unread_count = (room.unread_count || 0) + 1;
           await room.save();
 
@@ -342,8 +363,12 @@ function initChatSocket(io) {
             if (handover) {
               room.status = 'WAITING_FOR_AGENT';
               room.is_urgent = true;
+              room.priority = 'urgent';
               if (!room.tags.includes('handover')) {
                 room.tags.push('handover');
+              }
+              if (!room.labels.includes('handover')) {
+                room.labels.push('handover');
               }
 
               const systemText = aiError
@@ -407,6 +432,9 @@ function initChatSocket(io) {
                 room,
                 (botMsg && botMsg.message) || systemMsg.message
               );
+              syncWaitingQueuePositions().catch((err) =>
+                console.error('[syncWaitingQueuePositions]', err.message)
+              );
             } else if (botMsg) {
               await room.save();
               customerNs.to(String(room_id)).emit('new_message', botMsg);
@@ -469,7 +497,53 @@ function initChatSocket(io) {
       adminNs.emit('user_stopped_typing', { room_id });
     });
 
-    socket.on('submit_rating', async ({ room_id, rating }) => {
+    socket.on('mark_read', async ({ room_id, conversationId }) => {
+      const targetRoomId = room_id || conversationId;
+      if (!targetRoomId) return;
+
+      try {
+        const room = await ChatRoom.findById(targetRoomId);
+        if (!room || !roomOwnedBySocket(room, socket)) return;
+
+        await ChatRoom.findByIdAndUpdate(targetRoomId, {
+          unread_by_customer: 0,
+        });
+
+        const readerId = socket.data.user_id || null;
+        await ChatMessage.updateMany(
+          {
+            room_id: targetRoomId,
+            sender_type: { $in: ['AGENT', 'BOT', 'SYSTEM'] },
+            is_read_by_user: false,
+          },
+          {
+            $set: { is_read_by_user: true },
+            ...(readerId
+              ? {
+                  $push: {
+                    read_by: {
+                      user_id: readerId,
+                      role: 'customer',
+                      read_at: new Date(),
+                    },
+                  },
+                }
+              : {}),
+          }
+        );
+
+        adminNs.emit('messages_read', {
+          room_id: String(targetRoomId),
+          conversationId: String(targetRoomId),
+          readBy: 'customer',
+          readAt: new Date(),
+        });
+      } catch (err) {
+        console.error('[mark_read]', err.message);
+      }
+    });
+
+    socket.on('submit_rating', async ({ room_id, rating, feedback }) => {
       try {
         if (!room_id || !rating || rating < 1 || rating > 5) {
           socket.emit('error', { message: 'Invalid rating' });
@@ -490,7 +564,12 @@ function initChatSocket(io) {
 
         const room = await ChatRoom.findOneAndUpdate(
           { _id: room_id, is_rated: false },
-          { rating: Number(rating), is_rated: true },
+          {
+            rating: Number(rating),
+            rating_feedback: feedback ? String(feedback).slice(0, 2000) : null,
+            rated_at: new Date(),
+            is_rated: true,
+          },
           { new: true }
         );
 
@@ -501,10 +580,12 @@ function initChatSocket(io) {
         customerNs.to(String(room_id)).emit('rating_submitted', {
           room_id,
           rating: room.rating,
+          feedback: room.rating_feedback,
         });
         adminNs.emit('rating_submitted', {
           room_id,
           rating: room.rating,
+          feedback: room.rating_feedback,
         });
       } catch (err) {
         console.error('[submit_rating]', err.message);
@@ -567,6 +648,18 @@ function initChatSocket(io) {
     socket.on('disconnect', () => {
       clearTimeout(typingTimers.get(socket.id));
       typingTimers.delete(socket.id);
+
+      const activeConvs = socketConversationMap.get(socket.id);
+      if (activeConvs && activeConvs.size) {
+        activeConvs.forEach((convId) => {
+          adminNs.emit('customer_disconnected', {
+            conversationId: convId,
+            room_id: convId,
+          });
+        });
+      }
+      socketConversationMap.delete(socket.id);
+
       console.log(`[Customer] disconnected: ${socket.id}`);
     });
   });
@@ -773,8 +866,10 @@ function initChatSocket(io) {
           {
             status: 'ACTIVE',
             assigned_agent_id: agent._id,
+            assigned_at: new Date(),
             unread_count: 0,
             is_urgent: false,
+            priority: 'normal',
           },
           { new: true }
         );
@@ -893,14 +988,28 @@ function initChatSocket(io) {
             sender_type: 'AGENT',
             sender_id: String(agent._id),
             sender_name: agent.name,
+            sender_avatar: agent.avatar || '',
             message: message || '[Attachment]',
+            message_type: attachments.length ? 'image' : 'text',
             attachments,
             is_read_by_agent: true,
             is_read_by_user: false,
           });
 
-          room.last_message = agentMsg.message;
-          room.last_message_at = new Date();
+          if (!room.first_response_at) {
+            room.first_response_at = new Date();
+            room.first_response_time = Math.round(
+              (Date.now() - new Date(room.createdAt).getTime()) / 1000
+            );
+          }
+
+          applyLastMessage(room, {
+            text: agentMsg.message,
+            senderType: 'AGENT',
+            messageType: agentMsg.message_type,
+            attachments,
+          });
+          room.unread_by_customer = (room.unread_by_customer || 0) + 1;
           room.unread_count = 0;
           await room.save();
 
@@ -1097,6 +1206,27 @@ function initChatSocket(io) {
       customerNs.to(String(room_id)).emit('agent_stopped_typing', {
         room_id,
       });
+    });
+
+    socket.on('admin_mark_read', async ({ room_id, conversationId }) => {
+      const targetRoomId = room_id || conversationId;
+      if (!targetRoomId || !socket.data.agent) return;
+
+      try {
+        await ChatRoom.findByIdAndUpdate(targetRoomId, { unread_count: 0 });
+        await ChatMessage.updateMany(
+          { room_id: targetRoomId, is_read_by_agent: false },
+          { $set: { is_read_by_agent: true } }
+        );
+
+        adminNs.emit('admin_read', {
+          room_id: String(targetRoomId),
+          conversationId: String(targetRoomId),
+          readAt: new Date(),
+        });
+      } catch (err) {
+        console.error('[admin_mark_read]', err.message);
+      }
     });
 
     socket.on('disconnect', async () => {

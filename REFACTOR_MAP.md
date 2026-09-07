@@ -11,8 +11,41 @@
 # [DONE] = fully refactored, thin barrel, or kept as a finished single file
 
 ## Docs (audit / notes)
-CHAT_AUDIT.md                        [DONE] live-chat close/end session + alert audit
+CHAT_AUDIT.md                        [DONE] live-chat audit §1–16 + P0 CRM enrichment §17 (2026-09-07)
 ecommerce-chat/socket/chatAuth.js    [DONE] chat socket ownership helpers for end_chat / resolve_chat
+ecommerce-chat/services/storeProfile.service.js [NEW] main store profile/order fetch for CRM enrichment
+ecommerce-chat/models/ChatRoom.model.js [DONE] is_registered, customer_profile, product_metadata
+backend/src/middlewares/internalServiceAuth.js [NEW] INTERNAL_API_KEY guard for chat microservice
+backend/src/controllers/internalChatController.js [NEW] internal customer profile + orders for chat
+backend/src/routes/internalRoutes.js [NEW] GET /api/internal/customers/:id, orders, order by id
+admin-dashboard/src/components/AgentAvatar.jsx [NEW] agent profile photo or initials avatar
+admin-dashboard/src/pages/ProfilePage.jsx [DONE] camera-badge avatar upload UI (no separate upload button)
+admin-dashboard/src/pages/DashboardPage.jsx [DONE] hydrate agent profile on mount for header avatar
+admin-dashboard/src/components/CustomerContext.jsx [DONE] live fetch GET /admin/customers/:userId + order history
+admin-dashboard/src/services/api.js [DONE] local relative /api/chat-admin; FormData without Content-Type
+admin-dashboard/src/services/socket.js [DONE] socket URL falls back to site origin / localhost:5000
+admin-dashboard/src/components/ChatWindow.jsx [DONE] chat image upload FormData without manual Content-Type
+backend/src/middlewares/chatApiProxy.js [DONE] direct 127.0.0.1 stream for avatar + CRM; no health-check delay
+admin-dashboard/src/services/api.js [DONE] X-Chat-Admin header for proxy context detection
+ecommerce-chat/server.js [DONE] bind 0.0.0.0:5001; __dirname .env load + root fallback
+package.json [DONE] npm run dev:chat via node --watch (no global nodemon)
+backend/src/middlewares/chatApiProxy.js [DONE] proxyStreamOnce 30s timeout; dedicated POST avatar route; no res.close abort
+backend/src/server.js [DONE] skip express.json for multipart + chat proxy; upload socket timeout
+devops/nginx.conf [DONE] /chat-admin/admin/ proxy fallback + client_max_body_size on chat-api
+admin-dashboard/src/utils/helpers.js [DONE] resolveAssetUrl() for store avatar paths
+ecommerce-chat/handlers/agentAvatarUpload.js [NEW] shared multer + Cloudinary handler for agent avatar
+ecommerce-chat/models/Agent.model.js [DONE] avatar_public_id for Cloudinary cleanup
+ecommerce-chat/services/upload.service.js [DONE] uploadAgentAvatar() for staff profile photos
+ecommerce-chat/routes/upload.routes.js [DONE] POST /api/upload/agent-avatar (shared handler)
+ecommerce-chat/models/CannedResponse.model.js     [NEW] canned response CRUD + seedDefaults
+ecommerce-chat/controllers/chatAdminController.js [NEW] rating, attachments, notes, assign, labels, priority, analytics, customer profile
+ecommerce-chat/utils/chatRoomHelpers.js           [NEW] last message preview, queue sync, label sync
+ecommerce-chat/models/ChatRoom.model.js           [DONE] priority, source, labels, internal_notes, rating_feedback, queue metrics, unread_by_customer
+ecommerce-chat/models/ChatMessage.model.js        [DONE] message_type, sender_avatar, read_by, order_card, is_internal
+ecommerce-chat/routes/admin.routes.js             [DONE] analytics, canned CRUD, assign, labels, priority, customer-profile, notes
+ecommerce-chat/routes/chat.routes.js              [DONE] POST rate + attachment; source on start
+ecommerce-chat/socket/chat.socket.js              [DONE] mark_read, admin_mark_read, messages_read, customer_disconnected, first response tracking
+ecommerce-chat/server.js                          [DONE] seed canned responses on boot
 
 ## HTML Files
 client/admin.html                    [DONE] removed — assembled by backend/src/utils/adminPageBuilder.js
