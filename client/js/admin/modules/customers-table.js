@@ -137,8 +137,13 @@ function buildOrderExpandedPanel(order) {
 
     const timelineHostId = `order-timeline-${order._id}`;
 
+    const returnActionsHtml = typeof window.renderReturnActions === 'function'
+        ? window.renderReturnActions(order)
+        : '';
+
     return `
         <div class="order-expanded-panel">
+            ${returnActionsHtml}
             <div class="order-expanded-grid">
                 <div class="order-expanded-section">
                     <h4>Full Address</h4>

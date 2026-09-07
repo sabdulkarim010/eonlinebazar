@@ -1,0 +1,34 @@
+<!-- ============================================================
+     ⭐ CUSTOMER REVIEWS — MODERATION
+     ============================================================ -->
+<section id="view-reviews" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <div>
+            <h3>⭐ Customer Reviews</h3>
+            <p class="section-subtitle">Manage and moderate product reviews</p>
+        </div>
+    </div>
+
+    <div class="reviews-stats-row" id="reviewsStatsRow"></div>
+
+    <div class="reviews-filters">
+        <input type="text" id="reviewSearchInput" class="reviews-filter-input"
+            placeholder="Search reviews..." autocomplete="off">
+        <select id="reviewStatusFilter" class="reviews-filter-select">
+            <option value="">All Reviews</option>
+            <option value="visible">Visible</option>
+            <option value="hidden">Hidden</option>
+        </select>
+        <select id="reviewRatingFilter" class="reviews-filter-select">
+            <option value="">All Ratings</option>
+            <option value="5">⭐⭐⭐⭐⭐ 5 Stars</option>
+            <option value="4">⭐⭐⭐⭐ 4 Stars</option>
+            <option value="3">⭐⭐⭐ 3 Stars</option>
+            <option value="2">⭐⭐ 2 Stars</option>
+            <option value="1">⭐ 1 Star</option>
+        </select>
+        <button type="button" onclick="loadAdminReviews()" class="reviews-search-btn">🔍 Search</button>
+    </div>
+
+    <div id="reviewsTableContainer" class="reviews-table-container"></div>
+</section>

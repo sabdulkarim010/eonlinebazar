@@ -194,7 +194,11 @@ client/js/admin/modules/
   settings-footer.js
   settings-cms.js
   settings-2fa.js
-client/css/profile/
+  settings-reviews.js     [DONE] admin review moderation UI
+client/admin/partials/
+  view-reviews.html       [DONE] reviews moderation section
+client/css/admin/
+  _reviews.css            [DONE] reviews moderation styles
   _layout.css
   _orders.css
   _wishlist.css

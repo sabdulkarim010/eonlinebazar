@@ -4,7 +4,7 @@
  * Description: Order status updates, courier booking, bulk operations, returns/refunds, WhatsApp alerts.
  */
 /* Dependencies: token, globalOrders, adminCourierConfig, showToast, showCustomConfirm, renderOrderTable, filterAndRenderOrders, fetchLiveOrders (window) */
-/* Exposes: window.approveOrderReturn, window.buildAdminOrderStatusCell, window.buildAdminPaymentProofPendingBadge, window.buildCourierActionHtml, window.bulkApplyOrderStatus, window.bulkDeleteOrders, window.cacheAdminCourierSettings, window.changeOrderStatus, window.closeOrderReasonModal, window.deleteOrder, window.fetchPendingWhatsAppAlerts, window.getCourierTrackingUrl, window.normalizeAdminCourierSlug, window.refreshAdminCourierStatus, window.renderWhatsAppAlertDropdown, window.sendOrderToCourier, window.setupWhatsAppAlertBadge, window.showOrderReasonDetails, window.toggleSelectAllOrders, window.undoOrderRefund, window.updateOrdersBulkToolbar */
+/* Exposes: window.approveOrderReturn, window.buildAdminOrderStatusCell, window.buildAdminPaymentProofPendingBadge, window.buildCourierActionHtml, window.bulkApplyOrderStatus, window.bulkDeleteOrders, window.cacheAdminCourierSettings, window.changeOrderStatus, window.closeOrderReasonModal, window.deleteOrder, window.fetchPendingWhatsAppAlerts, window.getCourierTrackingUrl, window.normalizeAdminCourierSlug, window.processReturnRefund, window.refreshAdminCourierStatus, window.rejectReturn, window.renderReturnActions, window.renderWhatsAppAlertDropdown, window.sendOrderToCourier, window.setupWhatsAppAlertBadge, window.showOrderReasonDetails, window.toggleSelectAllOrders, window.undoOrderRefund, window.updateOrdersBulkToolbar */
 
 import '../admin-core.js';
 
@@ -342,13 +342,207 @@ function buildAdminOrderStatusCell(order) {
            </button>`
         : '';
 
-    const approveReturnBtn = isReturnRequested
-        ? `<button type="button" class="order-action-pill approve-return-btn" onclick="approveOrderReturn('${orderId}')" title="Approve Return &amp; Refund Wallet">
-                <i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i><span class="approve-return-label">Approve</span>
-           </button>`
+    return `<div class="order-status-cell">${badgeHtml}${undoRefundBtn}${reasonBtn}</div>`;
+}
+
+function renderReturnActions(order) {
+    const statusLower = String(order.status || '').toLowerCase();
+    if (!['return requested', 'returned'].includes(statusLower)) return '';
+
+    const orderId = order._id;
+    const defaultAmount = getOrderGrandTotal(order) || Number(order.grandTotal ?? order.totalAmount) || 0;
+    const returnReason = escHtml(order.returnReason || order.actionReason || 'Not specified');
+    const returnItems = Array.isArray(order.returnItems) ? order.returnItems : [];
+
+    const itemsHtml = returnItems.length
+        ? `<div class="return-actions-items">${returnItems.map((item) => `
+            <div class="return-actions-item">
+              <span class="return-actions-item-name">${escHtml(item.productName || 'Product')}</span>
+              <span class="return-actions-item-meta">Qty: ${Number(item.quantity) || 1} · ৳${Number(item.price) || 0}</span>
+              <span class="return-actions-item-badge badge-${escHtml(item.status || 'pending')}">${escHtml(item.status || 'pending')}</span>
+            </div>`).join('')}</div>`
         : '';
 
-    return `<div class="order-status-cell">${badgeHtml}${approveReturnBtn}${undoRefundBtn}${reasonBtn}</div>`;
+    return `
+        <div class="return-actions-panel">
+            <div class="return-actions-title">↩️ Return Request — Action Required</div>
+            <div class="return-actions-reason">Reason: <strong>${returnReason}</strong></div>
+            ${itemsHtml}
+            <div class="return-actions-refund-grid">
+                <div>
+                    <label class="return-actions-label" for="refundMethod_${orderId}">REFUND METHOD</label>
+                    <select id="refundMethod_${orderId}" class="return-actions-select">
+                        <option value="wallet">💰 Wallet Balance</option>
+                        <option value="bkash">📱 bKash</option>
+                        <option value="nagad">📱 Nagad</option>
+                        <option value="cash">💵 Cash</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="return-actions-label" for="refundAmount_${orderId}">REFUND AMOUNT (৳)</label>
+                    <input type="number" id="refundAmount_${orderId}" class="return-actions-input"
+                        value="${defaultAmount}" min="0" step="0.01">
+                </div>
+            </div>
+            <div id="payoutNumberRow_${orderId}" class="return-actions-payout-row" style="display:none;">
+                <label class="return-actions-label" for="payoutNumber_${orderId}">PAYOUT NUMBER</label>
+                <input type="text" id="payoutNumber_${orderId}" class="return-actions-input"
+                    placeholder="01XXXXXXXXX">
+            </div>
+            <div class="return-actions-buttons">
+                <button type="button" class="return-actions-btn return-actions-btn--approve"
+                    onclick="processReturnRefund('${orderId}')">✅ Approve &amp; Refund</button>
+                <button type="button" class="return-actions-btn return-actions-btn--reject"
+                    onclick="rejectReturn('${orderId}')">❌ Reject Return</button>
+            </div>
+            <textarea id="adminReturnNote_${orderId}" class="return-actions-note"
+                placeholder="Admin note (optional)..."></textarea>
+        </div>`;
+}
+
+window.processReturnRefund = async function processReturnRefund(orderId) {
+    const method = document.getElementById(`refundMethod_${orderId}`)?.value || 'wallet';
+    const amount = document.getElementById(`refundAmount_${orderId}`)?.value;
+    const payoutNumber = document.getElementById(`payoutNumber_${orderId}`)?.value || '';
+    const adminNote = document.getElementById(`adminReturnNote_${orderId}`)?.value || '';
+
+    if (!amount || Number(amount) <= 0) {
+        showToast('Enter a valid refund amount.', 'error');
+        return;
+    }
+
+    if (['bkash', 'nagad'].includes(method) && !String(payoutNumber).trim()) {
+        showToast('Payout number is required for bKash/Nagad refunds.', 'error');
+        return;
+    }
+
+    const confirmRefund = async () => {
+        try {
+            const response = await fetch(`/api/admin/orders/${orderId}/refund`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    refundMethod: method,
+                    refundAmount: Number(amount),
+                    bkashNumber: method === 'bkash' ? payoutNumber : undefined,
+                    nagadNumber: method === 'nagad' ? payoutNumber : undefined,
+                    adminNote
+                })
+            });
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                const idx = globalOrders.findIndex((o) => String(o._id) === String(orderId));
+                if (idx !== -1) {
+                    const updated = data.data?.order || data.order || {};
+                    globalOrders[idx] = { ...globalOrders[idx], ...updated };
+                }
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire('Refund Processed!', data.message || 'Refund completed.', 'success');
+                } else {
+                    showAdminSuccess('Refund Processed', data.message || 'Refund completed.');
+                }
+                filterAndRenderOrders();
+            } else {
+                showToast(data.message || 'Refund failed.', 'error');
+            }
+        } catch (err) {
+            console.error('processReturnRefund error:', err);
+            showToast('Network error processing refund.', 'error');
+        }
+    };
+
+    if (typeof Swal !== 'undefined') {
+        const confirmed = await Swal.fire({
+            title: 'Process Refund?',
+            html: `<p>Refund <strong>৳${Number(amount).toLocaleString()}</strong> via <strong>${escHtml(method)}</strong>?</p>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#16a34a',
+            confirmButtonText: '✅ Confirm Refund',
+            cancelButtonText: 'Cancel'
+        });
+        if (confirmed.isConfirmed) await confirmRefund();
+        return;
+    }
+
+    showCustomConfirm(
+        'Process Refund?',
+        `Refund ৳${Number(amount).toLocaleString()} via ${method}?`,
+        confirmRefund,
+        'warning'
+    );
+};
+
+window.rejectReturn = async function rejectReturn(orderId) {
+    let reason = '';
+
+    if (typeof Swal !== 'undefined') {
+        const result = await Swal.fire({
+            title: 'Reject Return Request?',
+            input: 'textarea',
+            inputLabel: 'Reason for rejection',
+            inputPlaceholder: 'Explain why the return is rejected...',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            confirmButtonText: 'Reject',
+            inputValidator: (value) => {
+                if (!String(value || '').trim()) return 'A rejection reason is required.';
+                return undefined;
+            }
+        });
+        if (!result.isConfirmed) return;
+        reason = String(result.value || '').trim();
+    } else {
+        reason = window.prompt('Reason for rejecting this return:') || '';
+        if (!reason.trim()) return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/orders/${orderId}/reject-return`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ reason })
+        });
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            const idx = globalOrders.findIndex((o) => String(o._id) === String(orderId));
+            if (idx !== -1) {
+                const updated = data.data?.order || data.order || {};
+                globalOrders[idx] = { ...globalOrders[idx], ...updated, status: updated.status || 'Delivered' };
+            }
+            if (typeof Swal !== 'undefined') {
+                Swal.fire('Return Rejected', 'Customer will be notified.', 'success');
+            } else {
+                showAdminSuccess('Return Rejected', 'Customer will be notified.');
+            }
+            filterAndRenderOrders();
+        } else {
+            showToast(data.message || 'Failed to reject return.', 'error');
+        }
+    } catch (err) {
+        console.error('rejectReturn error:', err);
+        showToast('Network error rejecting return.', 'error');
+    }
+};
+
+if (!window.__returnRefundMethodBound) {
+    window.__returnRefundMethodBound = true;
+    document.addEventListener('change', (e) => {
+        if (!e.target?.id?.startsWith('refundMethod_')) return;
+        const oid = e.target.id.replace('refundMethod_', '');
+        const payoutRow = document.getElementById(`payoutNumberRow_${oid}`);
+        if (payoutRow) {
+            payoutRow.style.display = ['bkash', 'nagad'].includes(e.target.value) ? 'block' : 'none';
+        }
+    });
 }
 
 window.showOrderReasonDetails = function(orderId) {
@@ -699,6 +893,7 @@ Object.assign(window, {
     getCourierTrackingUrl,
     normalizeAdminCourierSlug,
     refreshAdminCourierStatus,
+    renderReturnActions,
     renderWhatsAppAlertDropdown,
     setupWhatsAppAlertBadge
 });

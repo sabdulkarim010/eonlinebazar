@@ -24,7 +24,8 @@ const VIEW_PARTIALS = [
     'view-messages',
     'view-file-manager',
     'view-staff',
-    'view-settings'
+    'view-settings',
+    'view-reviews'
 ];
 
 const MODAL_PARTIALS = [

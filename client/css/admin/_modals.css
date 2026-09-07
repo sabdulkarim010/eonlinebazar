@@ -1052,6 +1052,54 @@ body.enterprise-modal-open {
 }
 .cv-item strong { font-size: 14px; color: var(--secondary-color); }
 
+.wallet-adjust-section {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 10px;
+    padding: 14px;
+    margin-top: 12px;
+}
+
+.wallet-adjust-title {
+    font-weight: 700;
+    color: #15803d;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.wallet-adjust-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.wallet-adjust-select,
+.wallet-adjust-input,
+.wallet-adjust-note {
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    font-size: 13px;
+    font-family: inherit;
+}
+
+.wallet-adjust-input { flex: 1; min-width: 100px; }
+.wallet-adjust-note { flex: 2; min-width: 140px; }
+
+.wallet-adjust-btn {
+    padding: 8px 16px;
+    background: #16a34a;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
 .customer-orders-subtitle {
     font-size: 13px;
     color: var(--text-muted);

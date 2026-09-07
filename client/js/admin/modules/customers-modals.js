@@ -328,6 +328,8 @@ window.viewCustomerDetails = async function(userId) {
         set('cvAddress', u.address || 'Not provided');
         set('cvJoined', u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—');
 
+        renderCustomerWalletAdjust(u);
+
         const editFromView = document.getElementById('cvEditFromViewBtn');
         if (editFromView) {
             editFromView.onclick = () => {
@@ -656,10 +658,75 @@ window.closeCustomerOrdersModal = function() {
     if (modal) modal.style.display = 'none';
 };
 
+function renderCustomerWalletAdjust(customer) {
+    const host = document.getElementById('cvWalletAdjustHost');
+    if (!host || !customer?._id) {
+        if (host) host.innerHTML = '';
+        return;
+    }
+
+    const balance = Number(customer.walletBalance) || 0;
+    host.innerHTML = `
+        <div class="wallet-adjust-section">
+            <div class="wallet-adjust-title">💰 Wallet Balance: ৳${balance.toLocaleString()}</div>
+            <div class="wallet-adjust-row">
+                <select id="walletAdjustType" class="wallet-adjust-select">
+                    <option value="credit">+ Credit</option>
+                    <option value="debit">- Debit</option>
+                </select>
+                <input type="number" id="walletAdjustAmount" class="wallet-adjust-input" placeholder="Amount (৳)" min="0" step="0.01">
+                <input type="text" id="walletAdjustNote" class="wallet-adjust-note" placeholder="Reason">
+                <button type="button" class="wallet-adjust-btn" onclick="adjustWalletBalance('${customer._id}')">Apply</button>
+            </div>
+        </div>`;
+}
+
+window.adjustWalletBalance = async function adjustWalletBalance(userId) {
+    const type = document.getElementById('walletAdjustType')?.value;
+    const amount = document.getElementById('walletAdjustAmount')?.value;
+    const note = document.getElementById('walletAdjustNote')?.value;
+
+    if (!amount || Number(amount) <= 0 || !String(note || '').trim()) {
+        showToast('Amount and reason are required.', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/admin/customers/${userId}/wallet`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ amount: Number(amount), type, description: note.trim() })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+            showToast(`Wallet ${type === 'credit' ? 'credited' : 'debited'} by ৳${Number(amount).toLocaleString()}. New balance: ৳${Number(data.newBalance || 0).toLocaleString()}`, 'success');
+            if (viewedCustomer && String(viewedCustomer._id) === String(userId)) {
+                viewedCustomer.walletBalance = data.newBalance;
+                const walletEl = document.getElementById('cvWallet');
+                if (walletEl) walletEl.textContent = formatAdminPrice(data.newBalance || 0);
+                renderCustomerWalletAdjust(viewedCustomer);
+            }
+            if (typeof fetchCustomers === 'function') fetchCustomers();
+            else if (typeof fetchDashboardData === 'function') fetchDashboardData();
+        } else {
+            showToast(data.message || 'Wallet adjustment failed.', 'error');
+        }
+    } catch (err) {
+        console.error('adjustWalletBalance error:', err);
+        showToast('Network error adjusting wallet.', 'error');
+    }
+};
+
 /* Expose module functions for HTML onclick + cross-module calls */
 Object.assign(window, {
+    adjustWalletBalance: window.adjustWalletBalance,
     bindAdminDistrictUpazilaHandlers,
     parseCompositeAddressParts,
-    populateAdminUpazilaSelect
+    populateAdminUpazilaSelect,
+    renderCustomerWalletAdjust
 });
 

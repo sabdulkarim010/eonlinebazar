@@ -527,7 +527,8 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-staff': () => window.loadStaffSection && window.loadStaffSection(),
         // File Manager lives in js/admin-file-manager.js (Super Admin only)
         'view-file-manager': () => window.loadFileManagerSection && window.loadFileManagerSection(),
-        'view-settings': fetchAdminSettings
+        'view-settings': fetchAdminSettings,
+        'view-reviews': () => window.loadAdminReviews && window.loadAdminReviews()
     };
     if (typeof refreshMap[targetId] === 'function') {
         if (targetId === 'view-manage-products') readProductListSessionState();
