@@ -121,7 +121,11 @@ const orderNotificationsSchema = new mongoose.Schema({
     returnRejected: { type: Boolean, default: false },
     refundProcessed: { type: Boolean, default: false },
     reviewReminder: { type: Boolean, default: false },
-    shipped: { type: Boolean, default: false }
+    processing: { type: Boolean, default: false },
+    shipped: { type: Boolean, default: false },
+    out_for_delivery: { type: Boolean, default: false },
+    delivered: { type: Boolean, default: false },
+    cancelled: { type: Boolean, default: false }
 }, { _id: false });
 
 const orderSchema = new mongoose.Schema({

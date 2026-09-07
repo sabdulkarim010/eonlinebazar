@@ -57,7 +57,9 @@ backend/src/controllers/noteController.js           [DONE] private notebook CRUD
 backend/src/models/note.js                          [DONE] Note schema (user-scoped, tags, pin, color)
 backend/src/controllers/orderCheckoutController.js  [DONE] mock catalog ids (p1…) + COD fallback for mobile Place order
 backend/src/controllers/orderCustomerController.js  [DONE] POST cancel + PUT cancel + return + per-item return/items
-backend/src/controllers/orderAdminController.js    [DONE] approve-return, reject-return, processRefund, undo-refund
+backend/src/controllers/orderAdminController.js    [DONE] approve-return, reject-return, processRefund, undo-refund, status notifications
+backend/src/services/mailer.js                     [DONE] sendReturnStatusEmail, sendOrderShippedEmail
+backend/src/jobs/reviewReminderJob.js            [DONE] daily review reminder SMS cron
 backend/src/services/walletService.js              [DONE] credit/debit + debitWalletForAdmin
 backend/src/services/notificationService.js        [NEW] admin socket notifications (return_request)
 backend/src/controllers/admin/walletAdminController.js [NEW] POST manual wallet credit/debit

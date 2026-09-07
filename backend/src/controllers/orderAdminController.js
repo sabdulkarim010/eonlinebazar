@@ -27,12 +27,11 @@ const {
 } = require('../utils/rewardSettings');
 const { pickImageFromSources, pickEmojiFromSources } = require('../utils/orderItemImages');
 const { computeProcessingFee } = require('../services/paymentMethodService');
-const { notifyOrderStatusUpdated } = require('../services/smsService');
+const { sendSms, isCustomerSmsEnabled } = require('../services/smsService');
+const { sendReturnStatusEmail, sendOrderShippedEmail } = require('../services/mailer');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { findVariantIndex } = require('../utils/variantHelpers');
 const { creditWalletForUser, reverseWalletCredit } = require('../services/walletService');
-const { sendSms } = require('../services/smsService');
-const { sendReturnStatusEmail } = require('../services/mailer');
 const { loadFlashSaleSettings } = require('../services/flashSaleService');
 const { invalidate, CACHE_KEYS } = require('../services/cacheService');
 const { emitToAdmins } = require('../services/socketService');
@@ -737,6 +736,99 @@ const masterUpdateOrder = async (req, res) => {
 };
 
 // ৫. অর্ডারের স্ট্যাটাস পরিবর্তন করা (অ্যাডমিন প্যানেল থেকে - Pending/Delivered)
+function normalizeStatusNotificationKey(status) {
+    return String(status || '').trim().toLowerCase().replace(/\s+/g, '_');
+}
+
+function canonicalStatusForNotification(status) {
+    const key = String(status || '').trim().toLowerCase();
+    const map = {
+        processing: 'Processing',
+        shipped: 'Shipped',
+        'out for delivery': 'Out for Delivery',
+        out_for_delivery: 'Out for Delivery',
+        delivered: 'Delivered',
+        cancelled: 'Cancelled',
+        canceled: 'Cancelled'
+    };
+    return map[key] || String(status || '').trim();
+}
+
+function resolveOrderNumber(order) {
+    return order.orderId || order.orderNumber || String(order._id || '').slice(-8).toUpperCase();
+}
+
+function resolveCustomerPhone(customer, order) {
+    return String(customer?.phone || customer?.mobile || order?.customerPhone || '').trim();
+}
+
+async function sendOrderStatusNotification(order, newStatus, customer) {
+    const canonicalStatus = canonicalStatusForNotification(newStatus);
+    const orderNumber = resolveOrderNumber(order);
+
+    const templates = {
+        Processing: {
+            sms: `[EonlineBazar] Your order #${orderNumber} is now being processed. We'll notify you when it ships.`,
+            subject: 'Order Being Processed'
+        },
+        Shipped: {
+            sms: `[EonlineBazar] Great news! Order #${orderNumber} has been shipped. ${order.courierTrackingId ? `Tracking: ${order.courierTrackingId}` : 'You will receive it soon.'}`,
+            subject: 'Order Shipped!'
+        },
+        'Out for Delivery': {
+            sms: `[EonlineBazar] Your order #${orderNumber} is out for delivery today! Please be available to receive it.`,
+            subject: 'Your Order is Out for Delivery'
+        },
+        Delivered: {
+            sms: `[EonlineBazar] Your order #${orderNumber} has been delivered. Enjoy! Leave a review to earn loyalty points.`,
+            subject: 'Order Delivered!'
+        },
+        Cancelled: {
+            sms: `[EonlineBazar] Your order #${orderNumber} has been cancelled.${order.refundAmount ? ` Refund of ৳${Number(order.refundAmount).toLocaleString('en-US')} will be processed shortly.` : ''}`,
+            subject: 'Order Cancelled'
+        }
+    };
+
+    const template = templates[canonicalStatus];
+    if (!template) return;
+
+    const key = normalizeStatusNotificationKey(canonicalStatus);
+    if (order.notificationsSent?.[key]) return;
+
+    if (!(await isCustomerSmsEnabled())) {
+        return;
+    }
+
+    try {
+        const phone = resolveCustomerPhone(customer, order);
+        if (phone) {
+            await sendSms({
+                to: phone,
+                body: template.sms,
+                context: `ORDER STATUS: ${canonicalStatus}`
+            });
+        }
+
+        const email = String(customer?.email || order?.customerEmail || '').trim();
+        if (email && canonicalStatus === 'Shipped') {
+            await sendOrderShippedEmail({
+                to: email,
+                name: customer?.name || order.customerName,
+                orderNumber,
+                trackingId: order.courierTrackingId,
+                courierName: order.courierProvider,
+                estimatedDelivery: '3-5 business days'
+            });
+        }
+
+        await Order.findByIdAndUpdate(order._id, {
+            $set: { [`notificationsSent.${key}`]: true }
+        });
+    } catch (err) {
+        console.warn(`[NOTIF] Failed to send ${canonicalStatus} notification:`, err.message);
+    }
+}
+
 const updateOrderStatus = async (req, res) => {
     try {
         const { status } = req.body;
@@ -796,7 +888,12 @@ const updateOrderStatus = async (req, res) => {
         }
 
         if (String(existingOrder.status || '') !== String(updatedOrder.status || '')) {
-            notifyOrderStatusUpdated(updatedOrder, updatedOrder.status);
+            const customer = updatedOrder.user
+                ? await User.findById(updatedOrder.user).select('name email phone mobile').lean()
+                : null;
+            sendOrderStatusNotification(updatedOrder, updatedOrder.status, customer).catch((err) => {
+                console.warn('[NOTIF] Async status notification error:', err.message);
+            });
         }
 
         res.json({ success: true, message: "Order status updated successfully!", data: updatedOrder });

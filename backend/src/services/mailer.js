@@ -564,9 +564,6 @@ async function sendNewsletterCampaignEmail({ to, subject, htmlContent, unsubscri
     }
 }
 
-/**
- * Return approved / rejected status email to customer.
- */
 async function sendReturnStatusEmail({ to, name, orderNumber, status, reason }) {
     const recipientEmail = String(to || '').trim();
     if (!recipientEmail) {
@@ -611,11 +608,72 @@ async function sendReturnStatusEmail({ to, name, orderNumber, status, reason }) 
     }
 }
 
+/**
+ * Shipped order email with optional courier tracking details.
+ */
+async function sendOrderShippedEmail({
+    to,
+    name,
+    orderNumber,
+    trackingId,
+    courierName,
+    estimatedDelivery
+}) {
+    const recipientEmail = String(to || '').trim();
+    if (!recipientEmail) {
+        return { delivered: false, reason: 'Missing recipient email' };
+    }
+    if (!SMTP_USER || !SMTP_PASS) {
+        return { delivered: false, reason: 'Email transport not configured' };
+    }
+
+    const safeName = escapeHtml(String(name || 'Customer'));
+    const safeOrder = escapeHtml(String(orderNumber || 'N/A'));
+    const safeTracking = escapeHtml(String(trackingId || '').trim());
+    const safeCourier = escapeHtml(String(courierName || 'Courier').trim());
+    const safeEta = escapeHtml(String(estimatedDelivery || '3-5 business days'));
+
+    const trackingBlock = safeTracking
+        ? `<p style="margin:12px 0;padding:12px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe;">
+                <strong>Tracking ID:</strong> ${safeTracking}<br>
+                <strong>Courier:</strong> ${safeCourier}
+           </p>`
+        : `<p style="margin:12px 0;">Your parcel is on its way. We will share tracking details when available.</p>`;
+
+    const mailOptions = {
+        from: `"EonlineBazar" <${SMTP_USER}>`,
+        to: recipientEmail,
+        subject: `Order Shipped! — #${orderNumber || 'N/A'}`,
+        html: `
+            <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
+                <h2 style="color:#0f172a;">Your order has shipped 🚚</h2>
+                <p>Hi ${safeName},</p>
+                <p>Great news — order <strong>#${safeOrder}</strong> is on its way.</p>
+                ${trackingBlock}
+                <p style="color:#64748b;font-size:13px;">Estimated delivery: ${safeEta}</p>
+            </div>
+        `
+    };
+
+    try {
+        const portUsed = await withTimeout(
+            sendWithFailover(mailOptions),
+            OVERALL_SEND_DEADLINE_MS,
+            'Order shipped email'
+        );
+        return { delivered: true, port: portUsed };
+    } catch (err) {
+        console.error('Order shipped email error:', err.message || err);
+        return { delivered: false, reason: err.message };
+    }
+}
+
 module.exports = {
     sendAdminOtpEmail,
     sendOrderConfirmationEmail,
     notifyOrderConfirmationEmail,
     sendReturnStatusEmail,
+    sendOrderShippedEmail,
     sendInquiryReplyEmail,
     sendStockAlertEmail,
     sendNewsletterWelcomeEmail,

@@ -85,6 +85,14 @@ connectDB().then(async () => {
         console.error('Stock alert cron bootstrap error:', err.message);
     }
 
+    // Daily review reminder SMS (delivered orders ~3 days ago)
+    try {
+        const { startReviewReminderCron } = require('./jobs/reviewReminderJob');
+        startReviewReminderCron();
+    } catch (err) {
+        console.error('Review reminder cron bootstrap error:', err.message);
+    }
+
     const redisClient = require('./utils/redisClient');
     redisClient.on('connect', () => console.log('Redis Connected ✅'));
     redisClient.on('error', (err) => console.warn('Redis unavailable:', err.message));
