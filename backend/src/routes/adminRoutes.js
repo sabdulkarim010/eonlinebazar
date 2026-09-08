@@ -77,6 +77,56 @@ router.use('/files', fileManagerRoutes);
 router.get('/permissions', verifyAdmin, staffController.getPermissionCatalogue);
 router.get('/me', verifyAdmin, staffController.getCurrentAdmin);
 
+// Chat-admin / SPA compatibility — admin profile avatar (store Admin.image field)
+router.get('/me/avatar', verifyAdmin, (req, res) => {
+    try {
+        const account = req.adminAccount;
+        if (!account) {
+            return res.status(401).json({
+                success: false,
+                message: 'Admin session could not be verified.',
+            });
+        }
+        return res.json({
+            success: true,
+            avatar: account.image || null,
+            name: account.displayName || account.name || account.username,
+        });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+router.put('/me/avatar', verifyAdmin, async (req, res) => {
+    try {
+        const { avatar } = req.body || {};
+        if (!avatar || !String(avatar).trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'avatar URL is required',
+            });
+        }
+        const Admin = require('../models/admin');
+        const account = req.adminAccount;
+        if (!account) {
+            return res.status(401).json({
+                success: false,
+                message: 'Admin session could not be verified.',
+            });
+        }
+        await Admin.findByIdAndUpdate(account._id, {
+            image: String(avatar).trim(),
+        });
+        return res.json({
+            success: true,
+            message: 'Avatar updated',
+            avatar: String(avatar).trim(),
+        });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 // ১. কাস্টমারদের ডাটা পাওয়ার রাস্তা (GET)
 router.get('/customers', verifyAdmin, checkPermission('manage_customers'), adminController.getAllCustomers);
 

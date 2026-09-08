@@ -45,7 +45,9 @@ async function handleAgentAvatarUpload(req, res) {
       });
     }
 
-    const agent = await Agent.findById(req.agent.id);
+    const agent =
+      req.resolvedAgent ||
+      (await Agent.findById(req.agent.id).select('-password'));
     if (!agent) {
       return res.status(404).json({
         success: false,

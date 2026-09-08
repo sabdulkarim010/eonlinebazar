@@ -1,5 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const { getJwtSecret } = require('../config/jwtSecret');
 const Agent = require('../models/Agent.model');
 const ChatRoom = require('../models/ChatRoom.model');
 const ChatMessage = require('../models/ChatMessage.model');
@@ -55,13 +56,6 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    if (!process.env.JWT_SECRET) {
-      return res.status(500).json({
-        success: false,
-        message: 'JWT_SECRET is not configured',
-      });
-    }
-
     const token = jwt.sign(
       {
         id: agent._id,
@@ -69,7 +63,7 @@ router.post('/login', async (req, res) => {
         role: agent.role,
         name: agent.name,
       },
-      process.env.JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: '24h' }
     );
 
@@ -598,7 +592,9 @@ router.get('/config', authMiddleware, async (req, res) => {
  */
 router.get('/me', authMiddleware, async (req, res) => {
   try {
-    const agent = await Agent.findById(req.agent.id).select('-password');
+    const agent =
+      req.resolvedAgent ||
+      (await Agent.findById(req.agent.id).select('-password'));
     if (!agent) {
       return res.status(404).json({ success: false, message: 'Agent not found' });
     }

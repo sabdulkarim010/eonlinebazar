@@ -15,6 +15,17 @@ const agentSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    adminId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    },
+    storeAdminUsername: {
+      type: String,
+      default: null,
+      trim: true,
+      index: true,
+    },
     password: {
       type: String,
       required: true,

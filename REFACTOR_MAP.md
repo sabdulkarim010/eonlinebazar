@@ -22,14 +22,19 @@ admin-dashboard/src/components/AgentAvatar.jsx [NEW] agent profile photo or init
 admin-dashboard/src/pages/ProfilePage.jsx [DONE] camera-badge avatar upload UI (no separate upload button)
 admin-dashboard/src/pages/DashboardPage.jsx [DONE] hydrate agent profile on mount for header avatar
 admin-dashboard/src/components/CustomerContext.jsx [DONE] live fetch GET /admin/customers/:userId + order history
-admin-dashboard/src/services/api.js [DONE] local relative /api/chat-admin; FormData without Content-Type
-admin-dashboard/src/services/socket.js [DONE] socket URL falls back to site origin / localhost:5000
-admin-dashboard/src/components/ChatWindow.jsx [DONE] chat image upload FormData without manual Content-Type
-backend/src/middlewares/chatApiProxy.js [DONE] direct 127.0.0.1 stream for avatar + CRM; no health-check delay
-admin-dashboard/src/services/api.js [DONE] X-Chat-Admin header for proxy context detection
-ecommerce-chat/server.js [DONE] bind 0.0.0.0:5001; __dirname .env load + root fallback
+admin-dashboard/src/services/api.js [DONE] browser enforces /api/chat-admin; rejects :5001 VITE_API_URL; chat_admin_token only
+admin-dashboard/vite.config.js [DONE] chat proxy preserves paths + auth; /chat-socket ws proxy
+admin-dashboard/src/services/socket.js [DONE] socket auth from chat_admin_token localStorage only
+backend/src/middlewares/chatApiProxy.js [DONE] canonical Authorization/Cookie on stream + non-stream proxy
+ecommerce-chat/config/loadEnv.js [NEW] shared JWT_SECRET from repo-root/backend .env; dev fallback
+ecommerce-chat/config/jwtSecret.js [NEW] getJwtSecret() for sign + verify
+ecommerce-chat/server.js [DONE] use config/loadEnv + jwtSecret
+ecommerce-chat/middleware/auth.middleware.js [DONE] getJwtSecret; clear admin_token on invalid signature
+ecommerce-chat/routes/admin.routes.js [DONE] sign with getJwtSecret()
+ecommerce-chat/socket/chat.socket.js [DONE] verify with getJwtSecret()
+client/js/admin/modules/chat-admin.js [DONE] bearerAuthHeader from chat_admin_token; credentials on all fetch
 package.json [DONE] npm run dev:chat via node --watch (no global nodemon)
-backend/src/middlewares/chatApiProxy.js [DONE] proxyStreamOnce 30s timeout; dedicated POST avatar route; no res.close abort
+backend/src/middlewares/chatApiProxy.js [DONE] force chat-admin customers/orders to :5001; early avatar stream before body parsers
 backend/src/server.js [DONE] skip express.json for multipart + chat proxy; upload socket timeout
 devops/nginx.conf [DONE] /chat-admin/admin/ proxy fallback + client_max_body_size on chat-api
 admin-dashboard/src/utils/helpers.js [DONE] resolveAssetUrl() for store avatar paths
@@ -45,7 +50,14 @@ ecommerce-chat/models/ChatMessage.model.js        [DONE] message_type, sender_av
 ecommerce-chat/routes/admin.routes.js             [DONE] analytics, canned CRUD, assign, labels, priority, customer-profile, notes
 ecommerce-chat/routes/chat.routes.js              [DONE] POST rate + attachment; source on start
 ecommerce-chat/socket/chat.socket.js              [DONE] mark_read, admin_mark_read, messages_read, customer_disconnected, first response tracking
-ecommerce-chat/server.js                          [DONE] seed canned responses on boot
+ecommerce-chat/services/agentResolver.service.js [NEW] resolve chat/store-admin JWT → Agent; auto-create + adminId link
+ecommerce-chat/models/Agent.model.js [DONE] adminId + storeAdminUsername for main-store admin sync
+ecommerce-chat/middleware/auth.middleware.js [DONE] async resolveAgentFromRequest after JWT verify
+ecommerce-chat/socket/chat.socket.js [DONE] socket admin auth uses agentResolver
+ecommerce-chat/scripts/linkAgentsToAdmins.js [NEW] one-time adminId backfill migration
+backend/src/middlewares/rbac.js [DONE] req.adminId on attachAdminAccount
+backend/src/routes/adminRoutes.js [DONE] GET|PUT /api/admin/me/avatar for chat-admin compatibility
+admin-dashboard/src/services/api.js [DONE] chat_admin_token only — no store adminToken fallback
 
 ## HTML Files
 client/admin.html                    [DONE] removed — assembled by backend/src/utils/adminPageBuilder.js

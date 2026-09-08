@@ -91,6 +91,7 @@ async function attachAdminAccount(req, res, decoded) {
     }
 
     req.adminAccount = account;
+    req.adminId = account._id;
     req.admin = {
         ...decoded,
         id: account._id,

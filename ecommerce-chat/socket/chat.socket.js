@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { getJwtSecret } = require('../config/jwtSecret');
 const ChatRoom = require('../models/ChatRoom.model');
 const ChatMessage = require('../models/ChatMessage.model');
 const Agent = require('../models/Agent.model');
@@ -143,13 +144,11 @@ function initChatSocket(io) {
           ''
         );
       if (!token) return next(new Error('AUTH_REQUIRED'));
-      if (!process.env.JWT_SECRET) {
-        return next(new Error('JWT_SECRET_MISSING'));
-      }
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const agent = await Agent.findById(decoded.id).select('-password');
+      const decoded = jwt.verify(token, getJwtSecret());
+      const { resolveAgentFromToken } = require('../services/agentResolver.service');
+      const agent = await resolveAgentFromToken(decoded, `Bearer ${token}`);
       if (!agent) return next(new Error('AGENT_NOT_FOUND'));
-      socket.data.agent = agent; // bind from token only
+      socket.data.agent = agent;
       next();
     } catch {
       next(new Error('INVALID_TOKEN'));

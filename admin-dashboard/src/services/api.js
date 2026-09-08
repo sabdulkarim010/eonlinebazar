@@ -11,19 +11,45 @@ export function getChatSiteOrigin() {
   return LOCAL_MAIN_ORIGIN;
 }
 
-function isLocalDevHost() {
-  if (typeof window === 'undefined') return true;
-  const host = window.location.hostname;
-  return host === 'localhost' || host === '127.0.0.1';
-}
-
 function isProductionApiUrl(url) {
   return /eonlinebazar\.com/i.test(String(url || ''));
 }
 
+/** Detect VITE_API_URL values that skip /api and cause 404 on chat routes. */
+function isMisconfiguredDirectChatUrl(url) {
+  const s = String(url || '')
+    .trim()
+    .replace(/\/$/, '');
+  if (!s) return false;
+
+  // e.g. http://localhost:5001 or http://127.0.0.1:5001 (missing /api prefix)
+  if (/^https?:\/\/(?:[^/]*:5001|127\.0\.0\.1:5001)$/i.test(s)) {
+    return true;
+  }
+
+  // Absolute dev URL without chat namespace (/api/chat-admin or /chat-api)
+  if (
+    /^https?:\/\//i.test(s) &&
+    !isProductionApiUrl(s) &&
+    !s.includes('/api/chat-admin') &&
+    !s.includes('/chat-api') &&
+    !/\/api$/i.test(s)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+const CHAT_ADMIN_TOKEN_KEY = 'chat_admin_token';
+const DEFAULT_CHAT_API_BASE = '/api/chat-admin';
+
 /**
  * Chat admin JSON API root — proxied by main backend / nginx to ecommerce-chat.
  * Paths like `/admin/rooms` resolve to `/api/chat-admin/admin/rooms`.
+ *
+ * In the browser we always use same-origin relative paths so a misconfigured
+ * VITE_API_URL (e.g. http://localhost:5001) cannot bypass the proxy layer.
  */
 function resolveApiBaseUrl() {
   const readMeta = () => {
@@ -34,44 +60,42 @@ function resolveApiBaseUrl() {
     ).trim();
   };
 
-  let url = (import.meta.env.VITE_API_URL || readMeta() || '').trim();
-  url = url.replace(/\/$/, '');
-
-  // Never use production API host when the dashboard is running locally
-  if (url && isLocalDevHost() && isProductionApiUrl(url)) {
-    url = readMeta() || '';
-  }
-
-  if (url && /\/chat-admin/i.test(url) && !url.includes('/api/chat-admin')) {
-    url = '';
-  }
-
-  if (url) {
-    if (/\/chat-api\/api$/i.test(url)) {
-      url = url.replace(/\/api$/i, '');
-    }
-    // Relative paths — same origin (localhost:5000, :3000 Vite, or production)
-    if (url.startsWith('/api/chat-admin') || url.startsWith('/chat-api')) {
-      return `${getChatSiteOrigin()}${url}`;
-    }
-    if (/^https?:\/\//i.test(url)) {
-      return url;
-    }
+  const meta = readMeta().replace(/\/$/, '');
+  if (meta.startsWith('/api/chat-admin') || meta.startsWith('/chat-api')) {
+    return meta;
   }
 
   if (typeof window !== 'undefined') {
-    const { pathname } = window.location;
-    if (pathname.startsWith('/chat-admin')) {
-      return `${getChatSiteOrigin()}/api/chat-admin`;
+    const viteUrl = String(import.meta.env.VITE_API_URL || '')
+      .trim()
+      .replace(/\/$/, '');
+
+    if (
+      viteUrl.startsWith('/api/chat-admin') ||
+      viteUrl.startsWith('/chat-api')
+    ) {
+      return viteUrl;
     }
+
+    if (
+      viteUrl &&
+      !isMisconfiguredDirectChatUrl(viteUrl) &&
+      !isProductionApiUrl(viteUrl) &&
+      /^https?:\/\//i.test(viteUrl) &&
+      (viteUrl.includes('/api/chat-admin') || viteUrl.includes('/chat-api'))
+    ) {
+      return viteUrl;
+    }
+
+    return DEFAULT_CHAT_API_BASE;
   }
 
-  return `${LOCAL_MAIN_ORIGIN}/api/chat-admin`;
+  return `${LOCAL_MAIN_ORIGIN}${DEFAULT_CHAT_API_BASE}`;
 }
 
-/** Avatar upload — same origin so main backend proxy streams multipart to chat :5001. */
+/** Avatar upload — same-origin relative path (proxied to chat :5001). */
 export function resolveAvatarUploadUrl() {
-  return `${getChatSiteOrigin()}/api/admin/me/avatar`;
+  return '/api/admin/me/avatar';
 }
 
 const baseURL = resolveApiBaseUrl();
@@ -86,20 +110,53 @@ const api = axios.create({
   },
 });
 
-function authHeaders() {
-  const token =
-    localStorage.getItem('chat_admin_token') ||
-    useAuthStore.getState().token;
+export function getChatAdminToken() {
+  if (typeof localStorage === 'undefined') return '';
+  return String(
+    localStorage.getItem(CHAT_ADMIN_TOKEN_KEY) ||
+      useAuthStore.getState().token ||
+      ''
+  ).trim();
+}
+
+function bearerAuthHeader() {
+  const token = getChatAdminToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-api.interceptors.request.use((config) => {
-  const token =
-    localStorage.getItem('chat_admin_token') ||
-    useAuthStore.getState().token;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+/** Same-origin fetch for chat CRM routes with explicit Bearer token. */
+async function chatAdminFetch(relativePath, options = {}) {
+  const headers = {
+    Accept: 'application/json',
+    'X-Chat-Admin': '1',
+    ...bearerAuthHeader(),
+    ...(options.headers || {}),
+  };
+  if (
+    options.body &&
+    !(options.body instanceof FormData) &&
+    !headers['Content-Type']
+  ) {
+    headers['Content-Type'] = 'application/json';
   }
+
+  const res = await fetch(relativePath, {
+    credentials: 'include',
+    ...options,
+    headers,
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.message || data.error || `HTTP ${res.status}`);
+    err.response = { status: res.status, data };
+    throw err;
+  }
+  return data;
+}
+
+api.interceptors.request.use((config) => {
+  Object.assign(config.headers, bearerAuthHeader());
   // Let the browser set multipart boundary — never send a manual Content-Type
   if (config.data instanceof FormData) {
     delete config.headers['Content-Type'];
@@ -221,22 +278,23 @@ export async function resetAgentPassword(id, new_password) {
 }
 
 export async function fetchOrder(orderId) {
-  const { data } = await api.get(`/orders/${orderId}`);
-  return data;
+  return chatAdminFetch(
+    `/api/chat-admin/orders/${encodeURIComponent(orderId)}`
+  );
 }
 
 export async function fetchCustomerProfile(userId, { fresh = true } = {}) {
-  const { data } = await api.get(`/admin/customers/${userId}`, {
-    params: fresh ? { fresh: '1' } : undefined,
-  });
-  return data;
+  const qs = fresh ? '?fresh=1' : '';
+  return chatAdminFetch(
+    `/api/admin/customers/${encodeURIComponent(userId)}${qs}`
+  );
 }
 
 export async function fetchCustomerOrders(userId, limit = 20) {
-  const { data } = await api.get(`/admin/customers/${userId}/orders`, {
-    params: { limit },
-  });
-  return data;
+  const params = new URLSearchParams({ limit: String(limit) });
+  return chatAdminFetch(
+    `/api/admin/customers/${encodeURIComponent(userId)}/orders?${params}`
+  );
 }
 
 export async function persistTag(roomId, tag) {
@@ -257,25 +315,33 @@ export async function updateProfile(payload) {
 }
 
 export async function uploadAgentAvatar(file) {
+  const token = getChatAdminToken();
+  const headers = { 'X-Chat-Admin': '1' };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const form = new FormData();
   form.append('image', file);
-  // Same-origin POST — proxy streams raw FormData (no manual Content-Type)
-  const { data } = await axios.post(resolveAvatarUploadUrl(), form, {
-    withCredentials: true,
-    headers: {
-      ...authHeaders(),
-      'X-Chat-Admin': '1',
-    },
-    timeout: 20000,
-    transformRequest: [(body, headers) => {
-      if (body instanceof FormData) {
-        delete headers['Content-Type'];
-        delete headers.common?.['Content-Type'];
-        delete headers.post?.['Content-Type'];
-      }
-      return body;
-    }],
+
+  const res = await fetch(resolveAvatarUploadUrl(), {
+    method: 'POST',
+    credentials: 'include',
+    headers,
+    body: form,
   });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(
+      data.message ||
+        (res.status === 401
+          ? 'Not authenticated — sign in again'
+          : 'Photo upload failed')
+    );
+    err.response = { status: res.status, data };
+    throw err;
+  }
   return data;
 }
 
