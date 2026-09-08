@@ -278,23 +278,22 @@ export async function resetAgentPassword(id, new_password) {
 }
 
 export async function fetchOrder(orderId) {
-  return chatAdminFetch(
-    `/api/chat-admin/orders/${encodeURIComponent(orderId)}`
-  );
+  const { data } = await api.get(`/orders/${encodeURIComponent(orderId)}`);
+  return data;
 }
 
 export async function fetchCustomerProfile(userId, { fresh = true } = {}) {
   const qs = fresh ? '?fresh=1' : '';
-  return chatAdminFetch(
-    `/api/admin/customers/${encodeURIComponent(userId)}${qs}`
-  );
+  const { data } = await api.get(`/admin/customers/${encodeURIComponent(userId)}${qs}`);
+  return data;
 }
 
 export async function fetchCustomerOrders(userId, limit = 20) {
   const params = new URLSearchParams({ limit: String(limit) });
-  return chatAdminFetch(
-    `/api/admin/customers/${encodeURIComponent(userId)}/orders?${params}`
+  const { data } = await api.get(
+    `/admin/customers/${encodeURIComponent(userId)}/orders?${params}`
   );
+  return data;
 }
 
 export async function persistTag(roomId, tag) {

@@ -126,18 +126,125 @@ export function roomId(room) {
   return String(room?._id || room?.id || '');
 }
 
-/** Resolve relative store asset paths to absolute URLs for avatars/images. */
+/** Resolve string user id when room.user_id is populated as an object. */
+export function resolveRoomUserId(room) {
+  const raw = room?.user_id;
+  if (typeof raw === 'object' && raw !== null) {
+    return String(raw._id || raw.id || '') || null;
+  }
+  return raw || room?.customer_profile?.user_id || null;
+}
+
+/** Canonical customer avatar fallback chain for admin UI components. */
+export function pickCustomerAvatar(customer = {}, room = null) {
+  const cp = room?.customer_profile || {};
+  const userFromId =
+    room?.user_id && typeof room.user_id === 'object' ? room.user_id : null;
+
+  const avatarUrl =
+    customer?.avatarUrl ||
+    customer?.avatar ||
+    cp.avatarUrl ||
+    cp.avatar ||
+    cp.image ||
+    cp.profilePic;
+
+  return (
+    avatarUrl ||
+    customer?.image ||
+    customer?.profilePic ||
+    userFromId?.avatarUrl ||
+    userFromId?.avatar ||
+    userFromId?.image ||
+    userFromId?.profilePic ||
+    customer?.user?.avatarUrl ||
+    customer?.user?.avatar ||
+    customer?.user?.image ||
+    customer?.customerId?.avatarUrl ||
+    customer?.customerId?.avatar ||
+    customer?.customerId?.image ||
+    room?.user?.avatarUrl ||
+    room?.user?.avatar ||
+    room?.user?.image ||
+    room?.avatar ||
+    room?.image ||
+    room?.guest_avatar ||
+    room?.customer_avatar_url ||
+    null
+  );
+}
+
+/** Customer avatar URL from room payload (socket, API, or snapshot). */
+export function pickRoomCustomerAvatar(room) {
+  if (!room) return null;
+  return pickCustomerAvatar(room.customer || {}, room);
+}
+
+/** Default store origin for relative /uploads/* paths in local dev. */
+function defaultStoreAssetBase() {
+  if (typeof window === 'undefined') return 'http://localhost:5000';
+  const { hostname, port, origin } = window.location;
+  const isLocal = /localhost|127\.0\.0\.1/i.test(hostname);
+  // Vite chat-admin on :3000 — assets live on main store :5000
+  if (isLocal && (port === '3000' || port === '5173')) {
+    return 'http://localhost:5000';
+  }
+  return origin.replace(/\/$/, '');
+}
+
+const DEFAULT_CLOUDINARY_CLOUD = 'd1o6p4utt';
+
+/** Resolve relative store asset paths and bare Cloudinary public IDs to absolute URLs. */
 export function resolveAssetUrl(url) {
   if (!url || typeof url !== 'string') return null;
   const trimmed = url.trim();
   if (!trimmed) return null;
+
   if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:')) {
     return trimmed;
   }
-  const storeBase =
-    import.meta.env.VITE_STORE_URL ||
-    import.meta.env.VITE_MAIN_STORE_URL ||
-    'http://localhost:5000';
-  const base = String(storeBase).replace(/\/$/, '');
-  return `${base}${trimmed.startsWith('/') ? trimmed : `/${trimmed}`}`;
+  if (/^\/\//.test(trimmed)) {
+    return `https:${trimmed}`;
+  }
+  if (/res\.cloudinary\.com/i.test(trimmed)) {
+    return trimmed.startsWith('http') ? trimmed : `https://${trimmed.replace(/^\/+/, '')}`;
+  }
+
+  const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  const isStoreUploadPath =
+    path.startsWith('/uploads') || path.startsWith('/images');
+
+  if (isStoreUploadPath) {
+    let base =
+      import.meta.env.VITE_STORE_URL ||
+      import.meta.env.VITE_MAIN_STORE_URL ||
+      defaultStoreAssetBase();
+    base = String(base).replace(/\/$/, '');
+
+    if (
+      typeof window !== 'undefined' &&
+      /localhost|127\.0\.0\.1/i.test(window.location.hostname)
+    ) {
+      base = 'http://localhost:5000';
+    } else if (!import.meta.env.VITE_STORE_URL && !import.meta.env.VITE_MAIN_STORE_URL) {
+      base = defaultStoreAssetBase();
+    }
+
+    if (
+      typeof window !== 'undefined' &&
+      /localhost|127\.0\.0\.1/i.test(window.location.hostname) &&
+      /eonlinebazar\.com/i.test(base)
+    ) {
+      base = defaultStoreAssetBase();
+    }
+
+    return `${base}${path}`;
+  }
+
+  const cloudName =
+    import.meta.env.VITE_CLOUDINARY_CLOUD_NAME ||
+    import.meta.env.VITE_CLOUD_NAME ||
+    DEFAULT_CLOUDINARY_CLOUD;
+  const publicId = trimmed.replace(/^\/+/, '');
+  return `https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`;
 }

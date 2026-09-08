@@ -1,31 +1,17 @@
+import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import useChatStore from '../store/chatStore';
 import { fetchRoomDetail } from '../services/api';
 import { getSocket } from '../services/socket';
 import { tagChipClass } from './TagModal';
 import {
-  avatarColor,
-  getInitials,
   relativeTimeBnShort,
+  resolveAssetUrl,
   roomId,
+  pickCustomerAvatar,
   truncate,
   toBanglaDigits,
 } from '../utils/helpers';
-
-function statusRing(status) {
-  switch (status) {
-    case 'WAITING_FOR_AGENT':
-      return 'ring-warning';
-    case 'ACTIVE':
-      return 'ring-success';
-    case 'BOT':
-      return 'ring-info';
-    case 'RESOLVED':
-      return 'ring-slate-400';
-    default:
-      return 'ring-slate-500';
-  }
-}
 
 export default function RoomListItem({ room }) {
   const activeRoomId = useChatStore((s) => s.activeRoomId);
@@ -34,6 +20,13 @@ export default function RoomListItem({ room }) {
   const setMessages = useChatStore((s) => s.setMessages);
   const addOrUpdateRoom = useChatStore((s) => s.addOrUpdateRoom);
   const clearUnread = useChatStore((s) => s.clearUnread);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+
+  const rawAvatar = pickCustomerAvatar(room?.customer || {}, room);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [room?._id, room?.id, rawAvatar]);
 
   if (!room) return null;
 
@@ -46,8 +39,26 @@ export default function RoomListItem({ room }) {
     room.order_metadata?.order_number || room.order_id || null;
   const tags = room.tags || [];
 
+  const avatarUrl =
+    room?.customer_profile?.avatar ||
+    room?.customer_profile?.avatarUrl ||
+    room?.customer_avatar_url ||
+    room?.guest_avatar ||
+    rawAvatar ||
+    null;
+  const resolvedAvatarUrl =
+    !avatarFailed && avatarUrl ? resolveAssetUrl(avatarUrl) : null;
   const name =
-    room?.guest_name || room?.user_id?.name || 'Guest';
+    room?.customer_profile?.name ||
+    room?.guest_name ||
+    room?.user_id?.name ||
+    'Customer';
+  const initials = name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
   const lastMsg = room?.last_message || 'No messages yet';
   const time = room?.last_message_at || room?.createdAt;
 
@@ -93,13 +104,27 @@ export default function RoomListItem({ room }) {
 
       <div className="flex items-start gap-2.5">
         <div className="relative shrink-0">
+          {resolvedAvatarUrl ? (
+            <img
+              src={resolvedAvatarUrl}
+              alt={name}
+              className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-slate-900 flex-shrink-0"
+              loading="lazy"
+              onError={() => setAvatarFailed(true)}
+            />
+          ) : null}
           <div
-            className={`w-10 h-10 rounded-full ring-2 ${statusRing(
-              room.status
-            )} ${avatarColor(name || id)} flex items-center justify-center text-xs font-semibold text-white`}
+            className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-semibold text-sm"
+            style={{
+              display: resolvedAvatarUrl ? 'none' : 'flex',
+              background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+            }}
           >
-            {getInitials(name || 'G')}
+            {initials}
           </div>
+          {room?.status === 'ACTIVE' && (
+            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full ring-2 ring-white dark:ring-slate-900" />
+          )}
           {isWaiting && (
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-danger animate-pulseDot ring-2 ring-sidebar" />
           )}

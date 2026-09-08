@@ -15,8 +15,9 @@ import {
 import useAuthStore from '../store/authStore';
 import useChatStore from '../store/chatStore';
 import useThemeStore from '../store/themeStore';
-import { disconnectSocket, emitPresence, getSocket } from '../services/socket';
 import AgentAvatar from './AgentAvatar';
+import LogoutModal from './LogoutModal';
+import { disconnectSocket, emitPresence, getSocket } from '../services/socket';
 import { relativeTimeBnShort } from '../utils/helpers';
 
 function roleBadge(role) {
@@ -40,6 +41,7 @@ export default function HeaderBar() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
+  const [showLogout, setShowLogout] = useState(false);
   const menuRef = useRef(null);
   const bellRef = useRef(null);
 
@@ -67,7 +69,12 @@ export default function HeaderBar() {
   }, []);
 
   const handleLogout = () => {
-    if (!window.confirm('Are you sure you want to log out?')) return;
+    setMenuOpen(false);
+    setShowLogout(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    setShowLogout(false);
     try {
       const socket = getSocket();
       if (socket?.connected) {
@@ -255,6 +262,12 @@ export default function HeaderBar() {
           )}
         </div>
       </div>
+
+      <LogoutModal
+        isOpen={showLogout}
+        onClose={() => setShowLogout(false)}
+        onConfirm={handleConfirmLogout}
+      />
     </header>
   );
 }

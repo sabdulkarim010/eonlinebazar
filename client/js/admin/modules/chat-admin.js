@@ -36,18 +36,28 @@ function esc(str) {
 }
 
 function getChatToken() {
-    return localStorage.getItem(CHAT_TOKEN_KEY) || '';
+    return String(
+        localStorage.getItem(CHAT_TOKEN_KEY) ||
+            localStorage.getItem('adminToken') ||
+            localStorage.getItem('token') ||
+            ''
+    ).trim();
+}
+
+function bearerAuthHeader() {
+    const token = getChatToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 function chatHeaders(json = true) {
-    const h = { Authorization: `Bearer ${getChatToken()}` };
+    const h = { 'X-Chat-Admin': '1', ...bearerAuthHeader() };
     if (json) h['Content-Type'] = 'application/json';
-    h['X-Chat-Admin'] = '1';
     return h;
 }
 
 async function chatApi(path, options = {}) {
     const res = await fetch(`${CHAT_API}${path}`, {
+        credentials: 'include',
         ...options,
         headers: { ...chatHeaders(!(options.body instanceof FormData)), ...(options.headers || {}) }
     });
@@ -60,6 +70,41 @@ async function chatApi(path, options = {}) {
     return data;
 }
 
+/** POST /api/admin/me/avatar — explicit Bearer token (same-origin proxy). */
+async function uploadChatAgentAvatar(file) {
+    const token = getChatToken();
+    const headers = { 'X-Chat-Admin': '1' };
+    if (token) {
+        headers.Authorization = `Bearer ${token}`;
+    }
+
+    const form = new FormData();
+    form.append('image', file);
+    const res = await fetch('/api/admin/me/avatar', {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: form,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw new Error(data.message || 'Avatar upload failed');
+    }
+    return data;
+}
+
+async function fetchChatCustomerProfile(userId, { fresh = false } = {}) {
+    const qs = fresh ? '?fresh=1' : '';
+    return chatApi(`/admin/customers/${encodeURIComponent(userId)}${qs}`);
+}
+
+async function fetchChatCustomerOrders(userId, limit = 20) {
+    const params = new URLSearchParams({ limit: String(limit) });
+    return chatApi(
+        `/admin/customers/${encodeURIComponent(userId)}/orders?${params}`
+    );
+}
+
 function roomId(room) {
     return String(room?._id || room?.id || '');
 }
@@ -69,7 +114,13 @@ function customerName(room) {
 }
 
 function customerAvatar(room) {
-    return room?.customer_profile?.avatar || room?.customer_profile?.avatarUrl || '';
+    return (
+        room?.guest_avatar ||
+        room?.profilePic ||
+        room?.customer_profile?.avatar ||
+        room?.customer_profile?.avatarUrl ||
+        ''
+    );
 }
 
 function orderNumber(room) {
@@ -935,7 +986,11 @@ async function handleChatFileUpload(input) {
         form.append('room_id', activeRoomId);
         const res = await fetch(`${CHAT_API}/upload/image`, {
             method: 'POST',
-            headers: { Authorization: `Bearer ${getChatToken()}`, 'X-Chat-Admin': '1' },
+            credentials: 'include',
+            headers: {
+                'X-Chat-Admin': '1',
+                ...bearerAuthHeader(),
+            },
             body: form
         });
         const data = await res.json();
@@ -1275,7 +1330,10 @@ Object.assign(window, {
     loadCannedResponsesUI,
     createCannedResponse,
     deleteCannedResponseUI,
-    formatSeconds
+    formatSeconds,
+    uploadChatAgentAvatar,
+    fetchChatCustomerProfile,
+    fetchChatCustomerOrders,
 });
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -3,12 +3,13 @@
  * Requires MAIN_STORE_API_URL and INTERNAL_API_KEY in ecommerce-chat env.
  */
 
+const { getMainStoreApiUrl } = require('../config/storeApi');
+
 const PROFILE_CACHE_MS = 5 * 60 * 1000;
 const profileCache = new Map();
 
 function getBaseUrl() {
-  const raw = process.env.MAIN_STORE_API_URL;
-  return raw ? String(raw).replace(/\/$/, '') : null;
+  return getMainStoreApiUrl();
 }
 
 function internalHeaders(extra = {}) {
@@ -63,17 +64,27 @@ function buildSnapshotFromUser(user, overrides = {}) {
     hydrateNameFromParts(user.firstName, user.lastName, user.name) ||
     'Customer';
 
+  const avatarUrl =
+    overrides.avatarUrl ||
+    user.avatarUrl ||
+    user.avatar ||
+    null;
+  const image =
+    overrides.image ||
+    user.image ||
+    avatarUrl ||
+    user.avatar ||
+    null;
+
   return {
     user_id: String(user._id || user.id || overrides.user_id || ''),
     name,
     email: overrides.email || user.email || null,
     mobile: overrides.mobile || user.mobile || user.phone || null,
     avatar: overrides.avatar || user.avatar || '',
-    avatarUrl:
-      overrides.avatarUrl ||
-      user.avatarUrl ||
-      user.avatar ||
-      null,
+    avatarUrl,
+    image,
+    profilePic: overrides.profilePic || image || avatarUrl || null,
     defaultAddress: legacyAddr,
     fetched_at: new Date(),
   };
@@ -91,14 +102,14 @@ async function fetchJson(url, options = {}) {
 }
 
 /**
- * Resolve registered user from customer JWT via main store /api/users/profile.
+ * Resolve registered user from customer JWT via main store /api/customer/profile.
  */
 async function fetchProfileByAuthToken(authToken) {
   const baseUrl = getBaseUrl();
   if (!baseUrl || !authToken) return null;
 
   try {
-    const profile = await fetchJson(`${baseUrl}/api/users/profile`, {
+    const profile = await fetchJson(`${baseUrl}/api/customer/profile`, {
       headers: internalHeaders({
         Authorization: `Bearer ${authToken}`,
       }),
@@ -136,6 +147,8 @@ async function fetchProfileByUserId(userId) {
       mobile: data.mobile || null,
       avatar: data.avatar || '',
       avatarUrl: data.avatarUrl || data.avatar || null,
+      image: data.image || data.avatarUrl || data.avatar || null,
+      profilePic: data.profilePic || data.image || data.avatarUrl || data.avatar || null,
       defaultAddress: data.defaultAddress || null,
       fetched_at: new Date(),
     };

@@ -6,18 +6,34 @@ const { StoreConfig } = require('../models/AIKnowledgeBase.model');
 const { getWelcomeQuickReplies } = require('../services/ai.service');
 const {
   uploadChatImage,
+  uploadChatFile,
   uploadFromBase64,
 } = require('../services/upload.service');
-const { resolveCustomerProfile } = require('../services/storeProfile.service');
+const { resolveCustomerProfile, fetchProfileByUserId } = require('../services/storeProfile.service');
+const {
+  attachCustomerAvatarFields,
+  enrichRoomCustomerAvatar,
+} = require('../utils/chatRoomHelpers');
 const chatAdminController = require('../controllers/chatAdminController');
 
 const router = express.Router();
+
+async function roomPayloadForAdmin(room) {
+  if (!room) return room;
+  const enriched = await enrichRoomCustomerAvatar(room, {
+    fetchProfileByUserId,
+  });
+  return attachCustomerAvatarFields(enriched);
+}
 
 const ALLOWED_MIME = new Set([
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/gif',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
 
 const upload = multer({
@@ -27,7 +43,7 @@ const upload = multer({
     if (ALLOWED_MIME.has(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only JPEG, PNG, WebP, and GIF images are allowed'));
+      cb(new Error('Only JPEG, PNG, WebP, GIF images and PDF/DOC files are allowed'));
     }
   },
 });
@@ -125,7 +141,6 @@ async function enrichRoomWithCustomer(room, payload = {}) {
         room.user_id = profile.user_id;
       }
       room.is_registered = true;
-      room.customer_profile = profile;
 
       const displayName =
         (guest_name && !isPlaceholderGuestName(guest_name) ? guest_name : null) ||
@@ -146,7 +161,16 @@ async function enrichRoomWithCustomer(room, payload = {}) {
       }
 
       room.is_registered = true;
-      room.customer_profile = profile;
+      const avatarUrl =
+        profile.avatarUrl || profile.avatar || profile.image || null;
+      room.customer_profile = {
+        ...profile,
+        user_id: String(profile.user_id || resolvedUserId || room.user_id || ''),
+        avatar: profile.avatar || avatarUrl || '',
+        avatarUrl: profile.avatarUrl || avatarUrl || null,
+        image: profile.image || profile.avatarUrl || profile.avatar || avatarUrl || null,
+        profilePic: profile.profilePic || avatarUrl || null,
+      };
       changed = true;
     } else if (resolvedUserId) {
       room.user_id = resolvedUserId;
@@ -155,6 +179,17 @@ async function enrichRoomWithCustomer(room, payload = {}) {
         room.guest_name = guest_name;
       }
       if (guest_email) room.guest_email = guest_email;
+      const avatarHint = customer_avatar_url || customer_avatar || null;
+      if (avatarHint) {
+        room.customer_profile = {
+          ...(room.customer_profile || {}),
+          user_id: String(resolvedUserId),
+          avatar: avatarHint,
+          avatarUrl: avatarHint,
+          image: avatarHint,
+          profilePic: avatarHint,
+        };
+      }
       changed = true;
     }
   } else {
@@ -175,6 +210,36 @@ async function enrichRoomWithCustomer(room, payload = {}) {
 
   return room;
 }
+
+/** POST /api/chat/rating — submit customer rating by roomId in body */
+router.post('/rating', async (req, res) => {
+  try {
+    const { roomId, rating, label } = req.body || {};
+    if (!roomId || !rating || rating < 1 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid rating',
+      });
+    }
+
+    await ChatRoom.findByIdAndUpdate(roomId, {
+      rating: Number(rating),
+      rating_feedback: label ? String(label).slice(0, 2000) : null,
+      rated_at: new Date(),
+      is_rated: true,
+      rating_detail: {
+        score: Number(rating),
+        label: label || null,
+        submittedAt: new Date(),
+      },
+    });
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[POST /api/chat/rating]', err);
+    return res.status(500).json({ success: false });
+  }
+});
 
 /**
  * POST /api/chat/start
@@ -265,13 +330,21 @@ router.post('/start', async (req, res) => {
       }).sort({ createdAt: 1 });
 
       const io = req.app.get('io');
-      if (io && (user_id || auth_token)) {
-        io.of('/admin').emit('room_updated', { room: room.toObject ? room.toObject() : room });
+      if (io) {
+        const adminRoom = await roomPayloadForAdmin(room);
+        io.of('/admin').emit('room_updated', { room: adminRoom });
+        io.of('/admin').emit('chat_updated', { room: adminRoom });
+        io.of('/admin').emit('new_room', { room: adminRoom });
+        if (room.status === 'WAITING_FOR_AGENT') {
+          io.of('/admin').emit('new_handover_request', { room: adminRoom });
+        } else if (openStatuses.includes(room.status)) {
+          io.of('/admin').emit('new_chat', { room: adminRoom });
+        }
       }
 
       return res.json({
         success: true,
-        room,
+        room: await roomPayloadForAdmin(room),
         welcome_message: welcome,
         is_existing: true,
       });
@@ -337,9 +410,18 @@ router.post('/start', async (req, res) => {
     room.last_message_at = new Date();
     await room.save();
 
+    const io = req.app.get('io');
+    if (io) {
+      const adminRoom = await roomPayloadForAdmin(room);
+      io.of('/admin').emit('new_chat', { room: adminRoom });
+      io.of('/admin').emit('new_room', { room: adminRoom });
+      io.of('/admin').emit('room_updated', { room: adminRoom });
+      io.of('/admin').emit('chat_updated', { room: adminRoom });
+    }
+
     return res.status(201).json({
       success: true,
-      room,
+      room: await roomPayloadForAdmin(room),
       welcome_message,
       is_existing: false,
     });
@@ -415,12 +497,14 @@ router.post('/link-user', async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
+      const adminRoom = await roomPayloadForAdmin(updated);
       const plain = updated.toObject ? updated.toObject() : updated;
-      io.of('/admin').emit('room_updated', { room: plain });
+      io.of('/admin').emit('room_updated', { room: adminRoom });
+      io.of('/admin').emit('chat_updated', { room: adminRoom });
       io.of('/customer').to(String(room_id)).emit('room_updated', { room: plain });
     }
 
-    return res.json({ success: true, room: updated });
+    return res.json({ success: true, room: await roomPayloadForAdmin(updated) });
   } catch (err) {
     console.error('[POST /api/chat/link-user]', err);
     return res.status(500).json({
@@ -547,15 +631,20 @@ router.post(
 
       let uploaded;
       let filename;
+      let isImage = true;
 
       if (req.file?.buffer) {
-        uploaded = await uploadChatImage(
-          req.file.buffer,
-          req.file.mimetype,
-          room_id
-        );
+        isImage = String(req.file.mimetype || '').startsWith('image/');
+        uploaded = isImage
+          ? await uploadChatImage(req.file.buffer, req.file.mimetype, room_id)
+          : await uploadChatFile(
+              req.file.buffer,
+              req.file.mimetype,
+              room_id,
+              req.file.originalname
+            );
         filename =
-          req.file.originalname || `image.${uploaded.format || 'jpg'}`;
+          req.file.originalname || `file.${uploaded.format || 'bin'}`;
       } else {
         const base64 =
           req.body?.base64 ||
@@ -595,7 +684,7 @@ router.post(
           {
             url: uploaded.url,
             thumbnail_url: uploaded.thumbnail_url,
-            type: 'IMAGE',
+            type: isImage ? 'IMAGE' : 'FILE',
             filename,
             size: uploaded.bytes || req.file?.size || 0,
             public_id: uploaded.public_id,

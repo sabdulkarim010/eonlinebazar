@@ -27,6 +27,9 @@ const useChatStore = create((set, get) => ({
     ACTIVE: 0,
     RESOLVED: 0,
   },
+  activeInboxTab: 'WAITING_FOR_AGENT',
+
+  setActiveInboxTab: (activeInboxTab) => set({ activeInboxTab }),
 
   setRooms: (rooms) => {
     const unreadCounts = {};
@@ -66,6 +69,14 @@ const useChatStore = create((set, get) => ({
     const id = String(room._id || room.id);
     const rooms = get().rooms;
     const exists = rooms.some((r) => String(r._id || r.id) === id);
+    const existing = exists
+      ? rooms.find((r) => String(r._id || r.id) === id)
+      : null;
+    if (!exists && room.status) {
+      get().adjustCounts(null, room.status);
+    } else if (exists && room.status && existing?.status && existing.status !== room.status) {
+      get().adjustCounts(existing.status, room.status);
+    }
     const newRooms = exists
       ? rooms.map((r) =>
           String(r._id || r.id) === id ? { ...r, ...room } : r
@@ -81,6 +92,27 @@ const useChatStore = create((set, get) => ({
       set({
         activeRoom: { ...(get().activeRoom || {}), ...room, _id: id },
       });
+    }
+  },
+
+  /** Apply socket/API realtime payload — updates messages, room row, and tab counts. */
+  applyRealtimeMessage: (payload) => {
+    if (!payload) return;
+    const roomId = String(
+      payload?.room_id ||
+        payload?.room?._id ||
+        payload?.room?.id ||
+        payload?.message?.room_id ||
+        ''
+    );
+    const message = payload?.message || payload;
+    if (payload?.room) {
+      get().addOrUpdateRoom(payload.room);
+    } else if (roomId && payload?.status) {
+      get().updateRoomStatus(roomId, payload.status);
+    }
+    if (roomId && message && (message._id || message.id || message.sender_type)) {
+      get().addMessage(roomId, message);
     }
   },
 

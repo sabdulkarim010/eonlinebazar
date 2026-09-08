@@ -4,6 +4,7 @@ const {
   uploadAgentAvatar,
   deleteChatImage,
 } = require('../services/upload.service');
+const { syncStoreAdminAvatar } = require('../services/storeAdminSync.service');
 
 const ALLOWED_MIME = new Set([
   'image/jpeg',
@@ -75,6 +76,10 @@ async function handleAgentAvatarUpload(req, res) {
     agent.avatar = uploaded.url;
     agent.avatar_public_id = uploaded.public_id;
     await agent.save();
+
+    const authHeader =
+      req.headers.authorization || req.headers.Authorization || '';
+    await syncStoreAdminAvatar(agent, agent.avatar, authHeader);
 
     return res.json({
       success: true,

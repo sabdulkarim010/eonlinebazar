@@ -1,17 +1,6 @@
 const path = require('path');
-const fs = require('fs');
-
-(function loadEnv() {
-  const localEnv = path.join(__dirname, '.env');
-  const rootEnv = path.join(__dirname, '..', '.env');
-  if (fs.existsSync(localEnv)) {
-    require('dotenv').config({ path: localEnv });
-  } else if (fs.existsSync(rootEnv)) {
-    require('dotenv').config({ path: rootEnv });
-  } else {
-    require('dotenv').config();
-  }
-})();
+require('./config/loadEnv');
+const { getJwtSecret } = require('./config/jwtSecret');
 const http = require('http');
 const express = require('express');
 const cors = require('cors');
@@ -53,7 +42,7 @@ const ALLOWED_ORIGINS = [
       'https://www.eonlinebazar.com',
       CLIENT_URL,
       process.env.ADMIN_DASHBOARD_URL,
-      ...(process.env.CORS_ORIGINS || '')
+      ...(process.env.CORS_ORIGIN || process.env.CORS_ORIGINS || '')
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean),
@@ -73,28 +62,41 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Chat-Admin'],
 };
 
 const app = express();
 // Required behind Nginx so express-rate-limit sees real client IPs
 app.set('trust proxy', 1);
 
+const SOCKET_CORS = {
+  origin: [
+    'https://eonlinebazar.com',
+    'https://www.eonlinebazar.com',
+    'http://localhost:3000',
+    'http://localhost:5173',
+    ...ALLOWED_ORIGINS,
+    ...(process.env.SOCKET_CORS_ORIGIN || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  ],
+  methods: ['GET', 'POST'],
+  credentials: true,
+};
+
 const server = http.createServer(app);
 
+/** Primary path for chat-admin + storefront widget (proxied via store :5000). */
 const io = new Server(server, {
-  path: '/chat-socket/socket.io', // custom path — avoid conflict with store /socket.io/
-  cors: {
-    origin: [
-      'https://eonlinebazar.com',
-      'https://www.eonlinebazar.com',
-      'http://localhost:3000',
-      'http://localhost:5173',
-      ...ALLOWED_ORIGINS,
-    ],
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
+  path: '/chat-socket/socket.io',
+  cors: SOCKET_CORS,
+});
+
+/** Legacy /socket.io path — direct :5001 clients and alternate proxy routes. */
+const ioLegacy = new Server(server, {
+  path: '/socket.io',
+  cors: SOCKET_CORS,
 });
 
 // Make io available to routes (e.g. upload → emit new_message)
@@ -167,6 +169,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/knowledge', knowledgeRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/admin/orders', orderRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
@@ -184,7 +187,7 @@ app.use((err, _req, res, _next) => {
 });
 
 // ─── Socket.io ────────────────────────────────────────────────────
-initChatSocket(io);
+initChatSocket([io, ioLegacy]);
 
 // ─── Graceful shutdown ────────────────────────────────────────────
 process.on('SIGTERM', () => {
@@ -210,6 +213,14 @@ process.on('SIGINT', () => {
 // ─── Start ────────────────────────────────────────────────────────
 async function start() {
   try {
+    try {
+      getJwtSecret();
+    } catch {
+      console.warn(
+        '⚠️  JWT_SECRET is not set — chat admin login tokens will fail. Use the same JWT_SECRET as repo-root .env / backend.'
+      );
+    }
+
     await mongoose.connect(MONGO_URI);
     console.log('✅ MongoDB connected');
 
@@ -223,6 +234,7 @@ async function start() {
 
     server.listen(PORT, HOST, () => {
       console.log(`🚀 Chat server running on http://localhost:${PORT} (bound ${HOST}:${PORT})`);
+      console.log(`📡 Socket paths: /chat-socket/socket.io , /socket.io`);
       console.log(`📡 Socket namespaces: /customer , /admin`);
       console.log(`🌐 CORS origins: ${ALLOWED_ORIGINS.join(', ')}`);
       console.log(`📎 Avatar upload: POST http://localhost:${PORT}/api/admin/me/avatar`);
@@ -236,4 +248,4 @@ async function start() {
 
 start();
 
-module.exports = { app, server, io };
+module.exports = { app, server, io, ioLegacy };

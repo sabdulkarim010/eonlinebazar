@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+require('../config/loadEnv');
 const { getJwtSecret } = require('../config/jwtSecret');
 const ChatRoom = require('../models/ChatRoom.model');
 const ChatMessage = require('../models/ChatMessage.model');
@@ -18,10 +19,71 @@ const {
 const {
   applyLastMessage,
   syncWaitingQueuePositions,
+  attachCustomerAvatarFields,
+  enrichRoomCustomerAvatar,
+  withCustomerUserPopulate,
 } = require('../utils/chatRoomHelpers');
+const {
+  ADMIN_ROOM,
+  registerAdminNamespace,
+  wireAdminBroadcast,
+  broadcastAdminNewMessage,
+} = require('../utils/adminSocketHub');
+const { fetchProfileByUserId } = require('../services/storeProfile.service');
+const { fetchStoreAdminProfile } = require('../services/agentResolver.service');
 
 /** socket.id → Set of room_id strings the customer joined */
 const socketConversationMap = new Map();
+
+function debounce(fn, ms) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+
+const pendingAgentStatusPayloads = new Map();
+
+function flushAgentStatusBroadcast(adminNs) {
+  pendingAgentStatusPayloads.forEach((payload) => {
+    adminNs.emit('agent_status_change', payload);
+  });
+  pendingAgentStatusPayloads.clear();
+}
+
+const scheduleAgentStatusBroadcast = debounce((adminNs) => {
+  flushAgentStatusBroadcast(adminNs);
+}, 500);
+
+function broadcastAgentStatus(adminNs, payload) {
+  const agentId = String(payload?.agent_id || payload?.id || '');
+  if (agentId) {
+    pendingAgentStatusPayloads.set(agentId, payload);
+  } else {
+    adminNs.emit('agent_status_change', payload);
+    return;
+  }
+  scheduleAgentStatusBroadcast(adminNs);
+}
+
+async function resolveAgentAvatar(agent, adminToken) {
+  if (agent?.avatar) return agent.avatar;
+  if (!adminToken) return null;
+  try {
+    const storeAdmin = await fetchStoreAdminProfile(
+      adminToken.startsWith('Bearer ') ? adminToken : `Bearer ${adminToken}`
+    );
+    const avatar = storeAdmin?.image || storeAdmin?.avatar || null;
+    if (avatar && agent?._id) {
+      await Agent.findByIdAndUpdate(agent._id, { avatar });
+      agent.avatar = avatar;
+    }
+    return avatar;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Notify admins after handover — email failure must not break socket flow.
@@ -62,6 +124,39 @@ function roomPlain(room) {
   return typeof room.toObject === 'function' ? room.toObject() : room;
 }
 
+/** Customer-facing new_message payload with agent name/avatar. */
+function buildCustomerMessagePayload(savedMsg, agent, agentAvatar) {
+  const base =
+    typeof savedMsg.toObject === 'function' ? savedMsg.toObject() : { ...savedMsg };
+  const roomId = String(base.room_id || '');
+  const avatar = agentAvatar || base.sender_avatar || agent?.avatar || null;
+  const name = agent?.name || base.sender_name || 'Support Agent';
+  return {
+    ...base,
+    roomId,
+    room_id: roomId,
+    sender: 'agent',
+    sender_avatar: avatar,
+    agent: {
+      _id: agent?._id || base.sender_id || null,
+      name,
+      avatar: avatar || null,
+    },
+  };
+}
+
+async function roomForAdmin(room) {
+  try {
+    const enriched = await enrichRoomCustomerAvatar(room, {
+      fetchProfileByUserId,
+    });
+    return attachCustomerAvatarFields(roomPlain(enriched));
+  } catch (e) {
+    console.warn('[roomForAdmin] avatar enrich failed:', e.message);
+    return attachCustomerAvatarFields(roomPlain(room));
+  }
+}
+
 async function persistResolvedRoom(room, { endedBy, agent, systemText }) {
   room.status = 'RESOLVED';
   room.resolved_at = new Date();
@@ -94,12 +189,14 @@ async function persistResolvedRoom(room, { endedBy, agent, systemText }) {
   return { room, systemMsg };
 }
 
-function broadcastChatResolved(customerNs, adminNs, room, systemMsg, extra) {
+async function broadcastChatResolved(customerNs, adminNs, room, systemMsg, extra) {
   const room_id = String(room._id);
   const payload = {
     room_id,
+    roomId: room_id,
     message: systemMsg,
-    room: roomPlain(room),
+    room: await roomForAdmin(room),
+    resolvedBy: extra?.resolvedBy || extra?.agent_name || null,
     ...(extra || {}),
   };
   customerNs.to(room_id).emit('chat_resolved', payload);
@@ -110,12 +207,48 @@ function broadcastChatResolved(customerNs, adminNs, room, systemMsg, extra) {
   return payload;
 }
 
+/** Extract admin JWT from socket handshake (proxy-safe: auth, headers, query, cookies). */
+function extractAdminSocketToken(socket) {
+  const authToken = socket.handshake.auth?.token;
+  if (authToken) return String(authToken).trim();
+
+  const authHeader =
+    socket.handshake.headers?.authorization ||
+    socket.handshake.headers?.Authorization ||
+    '';
+  const fromHeader = String(authHeader).replace(/^Bearer\s+/i, '').trim();
+  if (fromHeader) return fromHeader;
+
+  const queryToken = socket.handshake.query?.token;
+  if (queryToken) {
+    const q = Array.isArray(queryToken) ? queryToken[0] : queryToken;
+    if (q) return String(q).trim();
+  }
+
+  const cookieHeader = socket.handshake.headers?.cookie || '';
+  for (const name of ['chat_admin_token', 'admin_token', 'token']) {
+    const re = new RegExp(`(?:^|;\\s*)${name}=([^;]+)`, 'i');
+    const match = cookieHeader.match(re);
+    if (match?.[1]) {
+      try {
+        return decodeURIComponent(match[1].trim());
+      } catch {
+        return match[1].trim();
+      }
+    }
+  }
+
+  return '';
+}
+
 /**
- * Initialize Socket.io namespaces: /customer and /admin
+ * Initialize Socket.io namespaces: /customer and /admin on one Server instance.
  */
-function initChatSocket(io) {
+function initChatSocketOnce(io) {
   const customerNs = io.of('/customer');
   const adminNs = io.of('/admin');
+  registerAdminNamespace(adminNs);
+
   const messageRateLimiter = createSocketRateLimiter(30);
   const typingTimers = new Map();
 
@@ -137,20 +270,42 @@ function initChatSocket(io) {
   // ─── Admin auth: JWT required before connection handler ──────────
   adminNs.use(async (socket, next) => {
     try {
-      const token =
-        socket.handshake.auth?.token ||
-        (socket.handshake.headers?.authorization || '').replace(
-          /^Bearer\s+/i,
-          ''
-        );
+      const token = extractAdminSocketToken(socket);
       if (!token) return next(new Error('AUTH_REQUIRED'));
-      const decoded = jwt.verify(token, getJwtSecret());
-      const { resolveAgentFromToken } = require('../services/agentResolver.service');
+
+      let decoded;
+      try {
+        decoded = jwt.verify(token, getJwtSecret());
+      } catch (verifyErr) {
+        console.warn('[admin socket auth] JWT verify failed:', verifyErr.message);
+        return next(new Error('INVALID_TOKEN'));
+      }
+
+      const { resolveAgentFromToken, isStoreAdminToken } = require('../services/agentResolver.service');
       const agent = await resolveAgentFromToken(decoded, `Bearer ${token}`);
-      if (!agent) return next(new Error('AGENT_NOT_FOUND'));
+
+      if (!agent) {
+        const role = String(decoded.role || '').toUpperCase();
+        const isChatRole = ['SUPER_ADMIN', 'ADMIN', 'AGENT'].includes(role);
+        const hint = isStoreAdminToken(decoded)
+          ? 'Store admin token accepted but agent profile could not be resolved'
+          : isChatRole
+            ? 'Chat agent not found for token'
+            : 'Admin privileges required';
+        console.warn('[admin socket auth]', hint, {
+          role: decoded.role,
+          accountRole: decoded.accountRole,
+          hasId: Boolean(decoded.id || decoded._id),
+          username: decoded.username || null,
+        });
+        return next(new Error('AGENT_NOT_FOUND'));
+      }
+
       socket.data.agent = agent;
+      socket.data.adminToken = token;
       next();
-    } catch {
+    } catch (err) {
+      console.error('[admin socket auth]', err.message);
       next(new Error('INVALID_TOKEN'));
     }
   });
@@ -208,9 +363,9 @@ function initChatSocket(io) {
       }
     });
 
-    socket.on('send_message', async (payload) => {
-      messageRateLimiter(socket, async () => {
-        try {
+    const handleCustomerSendMessage = async (payload) => {
+      console.log('📡 Customer message received on chat server:', payload);
+      try {
           const {
             room_id,
             message,
@@ -286,7 +441,16 @@ function initChatSocket(io) {
           await room.save();
 
           customerNs.to(String(room_id)).emit('new_message', userMsg);
-          adminNs.emit('new_message', { room_id, message: userMsg, room });
+
+          const adminBroadcastPayload = {
+            room_id: String(room._id),
+            message: userMsg,
+            room: await roomForAdmin(room),
+          };
+          console.log('📤 Broadcasting to admin namespace/room:', adminBroadcastPayload);
+          broadcastAdminNewMessage(adminBroadcastPayload);
+          adminNs.emit('new_message', adminBroadcastPayload);
+          adminNs.emit('chat_message', adminBroadcastPayload);
 
           // Agent-handled rooms: no bot reply
           if (
@@ -340,9 +504,9 @@ function initChatSocket(io) {
               .lean();
             const botName = store?.ai_persona_name || 'Aria';
 
-            // On AI API/format error: skip BOT error bubble — SYSTEM handover only
+            // Skip empty BOT bubble on hard failures; still show KB/canned fallback text when present
             let botMsg = null;
-            if (!aiError && botText) {
+            if (botText) {
               botMsg = await ChatMessage.create({
                 room_id,
                 sender_type: 'BOT',
@@ -390,10 +554,10 @@ function initChatSocket(io) {
 
               if (botMsg) {
                 customerNs.to(String(room_id)).emit('new_message', botMsg);
-                adminNs.emit('new_message', {
-                  room_id,
+                broadcastAdminNewMessage({
+                  room_id: String(room_id),
                   message: botMsg,
-                  room,
+                  room: await roomForAdmin(room),
                 });
               }
               customerNs.to(String(room_id)).emit('new_message', systemMsg);
@@ -408,23 +572,23 @@ function initChatSocket(io) {
               adminNs.emit('handover_started', {
                 room_id,
                 status: room.status,
-                room,
+                room: await roomForAdmin(room),
               });
               adminNs.emit('waiting_for_agent', {
                 room_id,
                 status: room.status,
-                room,
+                room: await roomForAdmin(room),
               });
 
               adminNs.emit('new_handover_request', {
-                room,
+                room: await roomForAdmin(room),
                 last_message: botMsg || systemMsg,
                 system_message: systemMsg,
               });
-              adminNs.emit('new_message', {
-                room_id,
+              broadcastAdminNewMessage({
+                room_id: String(room_id),
                 message: systemMsg,
-                room,
+                room: await roomForAdmin(room),
               });
 
               handleHandoverNotify(
@@ -437,19 +601,32 @@ function initChatSocket(io) {
             } else if (botMsg) {
               await room.save();
               customerNs.to(String(room_id)).emit('new_message', botMsg);
-              adminNs.emit('new_message', {
-                room_id,
+              broadcastAdminNewMessage({
+                room_id: String(room_id),
                 message: botMsg,
-                room,
+                room: await roomForAdmin(room),
               });
             }
           }
-        } catch (err) {
-          console.error('[send_message]', err.message);
-          socket.emit('error', { message: 'Failed to send message' });
-        }
+      } catch (err) {
+        console.error('[send_message]', err.message);
+        socket.emit('error', { message: 'Failed to send message' });
+      }
+    };
+
+    const CUSTOMER_MESSAGE_EVENTS = [
+      'send_message',
+      'customer_message',
+      'user_message',
+      'chat_message',
+      'message',
+    ];
+
+    for (const eventName of CUSTOMER_MESSAGE_EVENTS) {
+      socket.on(eventName, (payload) => {
+        messageRateLimiter(socket, () => handleCustomerSendMessage(payload));
       });
-    });
+    }
 
     socket.on('typing_start', ({ room_id, name }) => {
       if (!room_id) return;
@@ -627,7 +804,7 @@ function initChatSocket(io) {
           systemText: 'গ্রাহক চ্যাটটি শেষ করেছেন।',
         });
 
-        broadcastChatResolved(customerNs, adminNs, room, systemMsg, {
+        await broadcastChatResolved(customerNs, adminNs, room, systemMsg, {
           ended_by: 'CUSTOMER',
         });
         socket.leave(String(room_id));
@@ -666,6 +843,11 @@ function initChatSocket(io) {
   // ─── Admin namespace ──────────────────────────────────────────────
   adminNs.on('connection', (socket) => {
     console.log(`[Admin] connected: ${socket.id}`);
+    socket.join(ADMIN_ROOM);
+
+    socket.on('join_admin_room', () => {
+      socket.join(ADMIN_ROOM);
+    });
 
     // Auto-bind online status from authenticated agent (token only)
     const authAgent = socket.data.agent;
@@ -678,7 +860,7 @@ function initChatSocket(io) {
         .then((agent) => {
           if (!agent) return;
           socket.join(`agent:${agent._id}`);
-          adminNs.emit('agent_status_change', {
+          broadcastAgentStatus(adminNs, {
             agent_id: agent._id,
             is_online: true,
             name: agent.name,
@@ -716,7 +898,7 @@ function initChatSocket(io) {
         socket.data.presence = 'online';
         socket.join(`agent:${updated._id}`);
 
-        adminNs.emit('agent_status_change', {
+        broadcastAgentStatus(adminNs, {
           agent_id: updated._id,
           is_online: true,
           status: 'online',
@@ -758,7 +940,7 @@ function initChatSocket(io) {
         socket.data.agent = updated;
         socket.data.presence = 'away';
 
-        adminNs.emit('agent_status_change', {
+        broadcastAgentStatus(adminNs, {
           agent_id: updated._id,
           is_online: true,
           status: 'away',
@@ -799,7 +981,7 @@ function initChatSocket(io) {
 
         socket.data.presence = 'offline';
 
-        adminNs.emit('agent_status_change', {
+        broadcastAgentStatus(adminNs, {
           agent_id: updated._id,
           is_online: false,
           status: 'offline',
@@ -816,12 +998,24 @@ function initChatSocket(io) {
     socket.on('join_room', async ({ room_id }) => {
       try {
         if (!room_id || !socket.data.agent) return;
-        const room = await ChatRoom.findById(room_id).select('_id');
-        if (!room) {
+        const roomDoc = await withCustomerUserPopulate(
+          ChatRoom.findById(room_id)
+        )
+          .populate('assigned_agent_id', 'name avatar email')
+          .lean();
+        if (!roomDoc) {
           socket.emit('error', { message: 'Chat room not found' });
           return;
         }
         socket.join(String(room_id));
+
+        const messages = await ChatMessage.find({ room_id })
+          .sort({ createdAt: 1 })
+          .limit(100)
+          .lean();
+
+        const room = await roomForAdmin(roomDoc);
+        socket.emit('chat_history', { room_id, room, messages });
       } catch (err) {
         console.error('[admin join_room]', err.message);
       }
@@ -882,6 +1076,11 @@ function initChatSocket(io) {
 
         socket.join(String(room_id));
 
+        const joinedAvatar =
+          (await resolveAgentAvatar(currentAgent, socket.data.adminToken)) ||
+          agent.avatar ||
+          null;
+
         const systemMsg = await ChatMessage.create({
           room_id,
           sender_type: 'SYSTEM',
@@ -899,7 +1098,7 @@ function initChatSocket(io) {
           agent: {
             id: agent._id,
             name: agent.name,
-            avatar: agent.avatar,
+            avatar: joinedAvatar,
           },
           message: systemMsg,
         });
@@ -908,13 +1107,13 @@ function initChatSocket(io) {
           room_id,
           status: 'ACTIVE',
           agent,
-          room,
+          room: await roomForAdmin(room),
         });
         adminNs.emit('chat_taken', {
           room_id,
           agent_id: agent._id,
           agent_name: agent.name,
-          room,
+          room: await roomForAdmin(room),
           message: systemMsg,
         });
 
@@ -982,12 +1181,17 @@ function initChatSocket(io) {
             return;
           }
 
+          const agentAvatar =
+            (await resolveAgentAvatar(agent, socket.data.adminToken)) ||
+            agent.avatar ||
+            '';
+
           const agentMsg = await ChatMessage.create({
             room_id,
             sender_type: 'AGENT',
             sender_id: String(agent._id),
             sender_name: agent.name,
-            sender_avatar: agent.avatar || '',
+            sender_avatar: agentAvatar,
             message: message || '[Attachment]',
             message_type: attachments.length ? 'image' : 'text',
             attachments,
@@ -1012,11 +1216,16 @@ function initChatSocket(io) {
           room.unread_count = 0;
           await room.save();
 
-          customerNs.to(String(room_id)).emit('new_message', agentMsg);
+          const customerMsgPayload = buildCustomerMessagePayload(
+            agentMsg,
+            agent,
+            agentAvatar
+          );
+          customerNs.to(String(room_id)).emit('new_message', customerMsgPayload);
           adminNs.emit('new_message', {
             room_id,
             message: agentMsg,
-            room,
+            room: await roomForAdmin(room),
           });
         } catch (err) {
           console.error('[agent_message]', err.message);
@@ -1113,6 +1322,7 @@ function initChatSocket(io) {
           room_id,
           from_agent: fromAgent.name,
           to_agent: targetAgent.name,
+          room: await roomForAdmin(room),
         });
         adminNs.emit('new_message', {
           room_id,
@@ -1174,8 +1384,9 @@ function initChatSocket(io) {
             'এই চ্যাটটি সমাধান করা হয়েছে। অনুগ্রহ করে আমাদের সেবা রেট করুন (১–৫)।',
         });
 
-        broadcastChatResolved(customerNs, adminNs, room, systemMsg, {
+        await broadcastChatResolved(customerNs, adminNs, room, systemMsg, {
           ended_by: 'AGENT',
+          resolvedBy: agent.name,
         });
         socket.leave(String(room_id));
 
@@ -1247,7 +1458,7 @@ function initChatSocket(io) {
         ).select('-password');
 
         if (updated) {
-          adminNs.emit('agent_status_change', {
+          broadcastAgentStatus(adminNs, {
             agent_id: updated._id,
             is_online: false,
             name: updated.name,
@@ -1264,4 +1475,12 @@ function initChatSocket(io) {
   return { customerNs, adminNs };
 }
 
-module.exports = { initChatSocket };
+/** Attach handlers on one or many Socket.io Server instances (dual path support). */
+function initChatSocket(ioOrList) {
+  const ios = Array.isArray(ioOrList) ? ioOrList : [ioOrList];
+  const results = ios.map((io) => initChatSocketOnce(io));
+  wireAdminBroadcast();
+  return results[0];
+}
+
+module.exports = { initChatSocket, initChatSocketOnce };

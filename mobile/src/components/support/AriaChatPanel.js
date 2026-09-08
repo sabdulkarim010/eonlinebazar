@@ -86,7 +86,7 @@ function ChatPersonaAvatar({ personaName, T }) {
   );
 }
 
-function MessageBubble({ item, T }) {
+function MessageBubble({ item, T, agentAvatarUrl }) {
   if (item.senderType === 'SYSTEM') {
     return (
       <View style={styles.systemWrap}>
@@ -102,9 +102,24 @@ function MessageBubble({ item, T }) {
   const bubbleColor = isUser ? T.accent : isAgent ? T.successBg : T.card;
   const textColor = isUser ? '#ffffff' : T.text;
   const align = isUser ? 'flex-end' : 'flex-start';
+  const avatarUri = item.senderAvatar || agentAvatarUrl || null;
 
   return (
     <View style={[styles.bubbleRow, { alignItems: align, alignSelf: isUser ? 'flex-end' : 'flex-start' }]}>
+      {!isUser ? (
+        <View style={styles.agentRow}>
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.msgAvatarImg} />
+          ) : (
+            <View style={[styles.msgAvatarFallback, { backgroundColor: isAgent ? '#6366f1' : T.accentBg }]}>
+              <Text style={styles.msgAvatarInitial}>
+                {isAgent ? (item.senderName || 'A').charAt(0).toUpperCase() : '🤖'}
+              </Text>
+            </View>
+          )}
+        </View>
+      ) : null}
+      <View style={{ maxWidth: '88%' }}>
       {!isUser ? (
         <Text style={[styles.senderLabel, { color: T.muted }]}>
           {isAgent ? `${item.senderName || 'Agent'} 👤` : 'Aria 🤖'}
@@ -122,6 +137,7 @@ function MessageBubble({ item, T }) {
         <Text style={[styles.bubbleText, { color: textColor }]}>{item.text}</Text>
       </View>
       <Text style={[styles.timeText, { color: T.muted }]}>{formatTime(item.createdAt)}</Text>
+      </View>
     </View>
   );
 }
@@ -135,7 +151,6 @@ const AriaChatPanel = forwardRef(function AriaChatPanel({
   T,
   colors,
   onMinimizePress,
-  onClosePress,
 }, ref) {
   const listRef = useRef(null);
   const [draft, setDraft] = useState('');
@@ -156,10 +171,10 @@ const AriaChatPanel = forwardRef(function AriaChatPanel({
     sendQuickReply,
     onInputChange,
     retryBootstrap,
-    endChat,
+    agentAvatarUrl,
   } = useAriaChat({ user, guestName, orderContext, authToken, productContext });
 
-  useImperativeHandle(ref, () => ({ endChat }), [endChat]);
+  useImperativeHandle(ref, () => ({ minimize: onMinimizePress }), [onMinimizePress]);
 
   const scrollToBottom = useCallback((animated = true) => {
     requestAnimationFrame(() => {
@@ -245,14 +260,6 @@ const AriaChatPanel = forwardRef(function AriaChatPanel({
               accessibilityLabel="Minimize chat"
             />
           ) : null}
-          {onClosePress ? (
-            <HeaderIconButton
-              icon="close-outline"
-              onPress={onClosePress}
-              T={T}
-              accessibilityLabel="Close chat"
-            />
-          ) : null}
         </View>
       </View>
 
@@ -269,7 +276,7 @@ const AriaChatPanel = forwardRef(function AriaChatPanel({
         style={styles.list}
         data={messages}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <MessageBubble item={item} T={T} />}
+        renderItem={({ item }) => <MessageBubble item={item} T={T} agentAvatarUrl={agentAvatarUrl} />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -437,6 +444,24 @@ const styles = StyleSheet.create({
   greetingWrap: { marginBottom: 10 },
   loader: { marginBottom: 8 },
   bubbleRow: { marginBottom: 12, maxWidth: '88%' },
+  agentRow: { marginBottom: 4 },
+  msgAvatarImg: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  msgAvatarFallback: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  msgAvatarInitial: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   senderLabel: { fontSize: 11, fontWeight: '700', marginBottom: 4 },
   bubble: {
     borderWidth: 1,

@@ -5,10 +5,56 @@
 (function (global) {
     'use strict';
 
+    var ALLOWED_WIDGET_PATHS = ['/profile', '/account'];
+
+    function isChatWidgetAllowed() {
+        try {
+            var path = (global.location && global.location.pathname) || '';
+            var isAllowedPage = ALLOWED_WIDGET_PATHS.some(function (p) {
+                return path === p || path.indexOf(p + '/') === 0;
+            });
+            if (!isAllowedPage) return false;
+
+            var token = null;
+            try {
+                token =
+                    localStorage.getItem('token') ||
+                    localStorage.getItem('customerToken');
+            } catch (e) { /* ignore */ }
+            return !!token;
+        } catch (e2) {
+            return false;
+        }
+    }
+
+    if (!isChatWidgetAllowed()) {
+        global.ChatWidget = {
+            init: function () { return Promise.resolve(global.ChatWidget); },
+            open: function () {},
+            close: function () {},
+            toggle: function () {},
+            mount: function () {},
+            destroy: function () {},
+            openOrderSupport: function () { return Promise.resolve(global.ChatWidget); },
+            linkRegisteredUser: function () { return Promise.resolve(global.ChatWidget); }
+        };
+        return;
+    }
+
     var STORAGE_SESSION = 'cw_guest_session_id';
     var STORAGE_ROOM_PREFIX = 'cw_room_id_';
     var STORAGE_RATED = 'cw_rated_rooms';
     var SOCKET_CDN = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
+    var BOT_AVATAR_SVG =
+        '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="sw-avatar-svg">' +
+            '<rect x="3" y="5" width="18" height="14" rx="4" fill="currentColor" opacity="0.2"/>' +
+            '<path d="M12 3a5 5 0 0 1 5 5v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V8a5 5 0 0 1 5-5z" fill="currentColor"/>' +
+        '</svg>';
+    var AGENT_AVATAR_SVG =
+        '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="sw-avatar-svg">' +
+            '<circle cx="12" cy="8" r="4" fill="currentColor"/>' +
+            '<path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6" fill="currentColor"/>' +
+        '</svg>';
 
     var state = {
         apiUrl: '',
@@ -35,7 +81,10 @@
         bootstrapping: null,
         mounted: false,
         initialized: false,
-        renderedIds: Object.create(null)
+        renderedIds: Object.create(null),
+        agentAvatarUrl: null,
+        agentName: null,
+        endingSelf: false
     };
 
     function $(id) {
@@ -48,6 +97,71 @@
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    var CLOUDINARY_CLOUD =
+        (global.CHAT_CONFIG && global.CHAT_CONFIG.cloudinaryCloudName) ||
+        'd1o6p4utt';
+
+    function resolveAssetUrl(url) {
+        if (!url || typeof url !== 'string') return null;
+        var trimmed = url.trim();
+        if (!trimmed) return null;
+        if (/^https?:\/\//i.test(trimmed) || trimmed.indexOf('data:') === 0) {
+            return trimmed;
+        }
+        if (/^\/\//.test(trimmed)) {
+            return 'https:' + trimmed;
+        }
+        if (/res\.cloudinary\.com/i.test(trimmed)) {
+            return trimmed.indexOf('http') === 0 ? trimmed : 'https://' + trimmed.replace(/^\/+/, '');
+        }
+        var path = trimmed.charAt(0) === '/' ? trimmed : '/' + trimmed;
+        if (/^\/(uploads|images)\//i.test(path)) {
+            try {
+                return global.location.origin.replace(/\/$/, '') + path;
+            } catch (e) {
+                return path;
+            }
+        }
+        var publicId = trimmed.replace(/^\/+/, '');
+        return 'https://res.cloudinary.com/' + CLOUDINARY_CLOUD + '/image/upload/' + publicId;
+    }
+
+    function normalizeIncomingMessage(payload) {
+        if (!payload || typeof payload !== 'object') return null;
+        if (
+            payload.message &&
+            typeof payload.message === 'object' &&
+            !Array.isArray(payload.message) &&
+            (payload.message.sender_type || payload.message.sender || payload.message._id)
+        ) {
+            return payload.message;
+        }
+        if (payload.sender_type || payload.sender || payload._id) {
+            return payload;
+        }
+        return null;
+    }
+
+    function mergeAgentMeta(msg, payload) {
+        if (!msg || typeof msg !== 'object') return msg;
+        var agent = payload && payload.agent;
+        if (agent) {
+            if (agent.avatar && !msg.sender_avatar) msg.sender_avatar = agent.avatar;
+            if (agent.name) {
+                msg.sender_name = agent.name;
+                state.agentName = agent.name;
+            }
+            if (agent.avatar) state.agentAvatarUrl = agent.avatar;
+        }
+        if (!msg.agent && (msg.sender_name || state.agentName)) {
+            msg.agent = {
+                name: msg.sender_name || state.agentName,
+                avatar: msg.sender_avatar || state.agentAvatarUrl || null
+            };
+        }
+        return msg;
     }
 
     function uuid() {
@@ -214,7 +328,6 @@
                     '</div>' +
                     '<div class="sw-chat-header-actions">' +
                         '<button type="button" class="sw-chat-icon-btn" id="chatMinBtn" aria-label="Minimize">−</button>' +
-                        '<button type="button" class="sw-chat-icon-btn" id="chatCloseBtn" aria-label="Close">✕</button>' +
                     '</div>' +
                 '</div>' +
                 '<div id="orderContextBanner">📦 <span id="orderContextText">Chatting about an order</span></div>' +
@@ -232,12 +345,18 @@
                     '<div class="sw-rating-stars" id="ratingStars"></div>' +
                 '</div>' +
                 '<div class="sw-chat-composer" id="chatComposer">' +
-                    '<label class="sw-attach-btn" title="Send image">' +
-                        '<input type="file" id="widgetFileInput" accept="image/*" hidden>' +
-                        '📷' +
-                    '</label>' +
+                    '<button type="button" id="cw-attach-btn" class="sw-attach-btn" title="Attach file" aria-label="Attach file">' +
+                        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
+                            '<path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>' +
+                        '</svg>' +
+                    '</button>' +
+                    '<input type="file" id="widgetFileInput" accept="image/*,.pdf,.doc,.docx" hidden>' +
                     '<textarea id="widgetMessageInput" rows="1" placeholder="Type a message…"></textarea>' +
-                    '<button type="button" id="widgetSendBtn" aria-label="Send">➤</button>' +
+                    '<button type="button" id="widgetSendBtn" aria-label="Send">' +
+                        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">' +
+                            '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>' +
+                        '</svg>' +
+                    '</button>' +
                 '</div>' +
                 '<div class="sw-chat-powered">Powered by EOnlineBazar</div>' +
             '</div>'
@@ -258,16 +377,30 @@
 
         $('chatFab').addEventListener('click', function () { ChatWidget.toggle(); });
         $('chatMinBtn').addEventListener('click', function () { ChatWidget.minimize(); });
-        $('chatCloseBtn').addEventListener('click', function () { ChatWidget.close(); });
         $('widgetSendBtn').addEventListener('click', function () { ChatWidget.sendMessage(); });
         $('widgetMessageInput').addEventListener('input', function () { ChatWidget.handleTyping(); });
         $('widgetMessageInput').addEventListener('keydown', function (e) { ChatWidget.handleKeydown(e); });
-        $('widgetFileInput').addEventListener('change', function () { ChatWidget.sendImage(this); });
+        $('cw-attach-btn').addEventListener('click', function () {
+            var input = $('widgetFileInput');
+            if (input) input.click();
+        });
+        $('widgetFileInput').addEventListener('change', function () { ChatWidget.handleFileAttachment(this); });
         document.querySelectorAll('.faq-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 ChatWidget.sendFAQ(btn.getAttribute('data-faq') || btn.textContent);
             });
         });
+
+        var msgArea = $('chatWidgetMessages');
+        if (msgArea) {
+            msgArea.addEventListener('error', function (e) {
+                var img = e.target;
+                if (!img || !img.classList || !img.classList.contains('sw-msg-avatar-img')) return;
+                img.style.display = 'none';
+                var fb = img.parentNode && img.parentNode.querySelector('.sw-msg-avatar-fallback');
+                if (fb) fb.hidden = false;
+            }, true);
+        }
 
         renderWelcome();
         state.mounted = true;
@@ -278,7 +411,7 @@
         if (!area || area.children.length) return;
         area.innerHTML =
             '<div class="sw-msg-row">' +
-                '<div class="sw-msg-avatar sw-msg-avatar-bot">🛍️</div>' +
+                '<div class="sw-msg-avatar sw-msg-avatar-bot">' + BOT_AVATAR_SVG + '</div>' +
                 '<div class="sw-msg-bubble sw-msg-bubble-in">' +
                     'Hi! 👋 Welcome to EOnlineBazar support.<br>How can I help you today?' +
                 '</div>' +
@@ -327,9 +460,150 @@
         if (faq) faq.style.display = 'none';
     }
 
+    function setFabVisible(visible) {
+        var fab = $('chatFab');
+        if (!fab) return;
+        fab.classList.toggle('sw-hidden', !visible);
+        fab.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    }
+
+    function avatarHtml(type, msg) {
+        var isAgent = type === 'AGENT';
+        var cls = isAgent ? 'sw-msg-avatar-agent' : 'sw-msg-avatar-bot';
+        var fallback = isAgent ? AGENT_AVATAR_SVG : BOT_AVATAR_SVG;
+        var rawUrl = isAgent && msg && (
+            msg.sender_avatar ||
+            msg.senderAvatar ||
+            msg.avatar ||
+            (msg.agent && (msg.agent.avatar || msg.agent.avatarUrl)) ||
+            state.agentAvatarUrl
+        );
+        var url = resolveAssetUrl(rawUrl);
+        if (url) {
+            return (
+                '<div class="sw-msg-avatar ' + cls + ' sw-msg-avatar-img-wrap">' +
+                    '<img src="' + esc(url) + '" alt="" class="sw-msg-avatar-img">' +
+                    '<span class="sw-msg-avatar-fallback" hidden>' + fallback + '</span>' +
+                '</div>'
+            );
+        }
+        return '<div class="sw-msg-avatar ' + cls + '">' + fallback + '</div>';
+    }
+
+    function clearPersistedRoom() {
+        try {
+            localStorage.removeItem(roomStorageKey());
+            localStorage.removeItem('chatConversationId');
+            localStorage.removeItem('cw_room_id');
+        } catch (e) { /* ignore */ }
+    }
+
+    function emitEndChatWithAck(roomId) {
+        return new Promise(function (resolve) {
+            if (!state.socket || !roomId) {
+                resolve(false);
+                return;
+            }
+            var settled = false;
+            function finish(ok) {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                try { state.socket.off('end_chat_ok', onOk); } catch (e1) { /* ignore */ }
+                try { state.socket.off('end_chat_failed', onFail); } catch (e2) { /* ignore */ }
+                resolve(!!ok);
+            }
+            function onOk() { finish(true); }
+            function onFail() { finish(false); }
+            var timer = setTimeout(function () { finish(false); }, 5000);
+            state.socket.once('end_chat_ok', onOk);
+            state.socket.once('end_chat_failed', onFail);
+            state.socket.emit('end_chat', {
+                room_id: roomId,
+                guest_session_id: state.guestSessionId
+            }, function (ack) {
+                if (ack && ack.ok === false) finish(false);
+                else finish(true);
+            });
+        });
+    }
+
+    function showChatEndedState() {
+        setComposerEnabled(false);
+        var composer = $('chatComposer');
+        if (composer) {
+            composer.innerHTML =
+                '<div style="text-align:center;padding:16px;color:#6b7280;font-size:13px;">' +
+                    '<p>Chat ended. Thank you!</p>' +
+                    '<button type="button" id="sw-start-new-chat" style="margin-top:8px;padding:6px 16px;background:#f97316;color:white;border:none;border-radius:8px;cursor:pointer;font-size:12px;">Start new chat</button>' +
+                '</div>';
+            var btn = $('sw-start-new-chat');
+            if (btn) {
+                btn.addEventListener('click', function () {
+                    ChatWidget.startNewChat();
+                });
+            }
+        }
+    }
+
+    async function endAndHideSession() {
+        state.endingSelf = true;
+        var roomId = state.roomId;
+        if (state.socket && roomId) {
+            try {
+                await emitEndChatWithAck(roomId);
+            } catch (err) {
+                console.error('[ChatWidget] end_chat failed:', err);
+            }
+        }
+        clearPersistedRoom();
+        state.roomId = null;
+        state.resolved = true;
+        state.agentAvatarUrl = null;
+        state.agentName = null;
+        showChatEndedState();
+        state.endingSelf = false;
+    }
+
+    function emitJoinRoom() {
+        if (!state.socket || !state.roomId) return;
+        state.socket.emit('join_room', {
+            room_id: state.roomId,
+            guest_session_id: state.guestSessionId
+        });
+    }
+
     function setComposerEnabled(enabled) {
         var composer = $('chatComposer');
         if (composer) composer.classList.toggle('is-disabled', !enabled);
+    }
+
+    function renderAgentMessage(msg) {
+        var agentName = (msg.agent && msg.agent.name) || msg.sender_name || state.agentName || 'Support';
+        var agentAvatar = (msg.agent && msg.agent.avatar) || msg.sender_avatar || state.agentAvatarUrl || null;
+        var content = msg.content || msg.message || msg.text || '';
+        var time = formatTime(msg.createdAt || msg.created_at);
+        var url = resolveAssetUrl(agentAvatar);
+        var avatarHtml = url
+            ? '<div class="sw-msg-avatar sw-msg-avatar-agent sw-msg-avatar-img-wrap">' +
+                '<img src="' + esc(url) + '" alt="" class="sw-msg-avatar-img" />' +
+                '<span class="sw-msg-avatar-fallback" hidden>' + AGENT_AVATAR_SVG + '</span>' +
+              '</div>'
+            : '<div class="sw-msg-avatar sw-msg-avatar-agent" style="background:linear-gradient(135deg,#6366f1,#4f46e5);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;">' +
+                esc(agentName.charAt(0).toUpperCase()) +
+              '</div>';
+
+        return (
+            '<div class="sw-msg-row">' +
+                avatarHtml +
+                '<div class="sw-msg-bubble-wrap">' +
+                    '<p style="font-size:10px;color:#6b7280;margin:0 0 3px 4px;font-weight:500;">' + esc(agentName) + '</p>' +
+                    '<div class="sw-msg-bubble sw-msg-bubble-in">' + esc(content) +
+                        '<div class="sw-msg-time">' + time + '</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>'
+        );
     }
 
     function renderMessage(msg, opts) {
@@ -351,8 +625,18 @@
 
         if (type === 'INTERNAL') return;
 
+        if (type === 'AGENT') {
+            area.insertAdjacentHTML('beforeend', renderAgentMessage(msg));
+            if (!opts.skipScroll) scrollToBottom();
+            if (!state.isOpen && !opts.fromHistory) {
+                state.unread += 1;
+                updateUnreadBadge();
+            }
+            return;
+        }
+
         var isUser = type === 'USER';
-        var content = msg.message || msg.text || '';
+        var content = msg.content || msg.message || msg.text || '';
         var attachments = msg.attachments || [];
         var inner = esc(content);
 
@@ -360,17 +644,30 @@
             inner = attachments.map(function (att) {
                 var url = att.url || att.thumbnail_url;
                 if (!url) return '';
-                return '<img src="' + esc(url) + '" alt="" class="sw-msg-img">';
+                var attType = String(att.type || '').toUpperCase();
+                var isImage =
+                    attType === 'IMAGE' ||
+                    att.attachmentType === 'image' ||
+                    /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
+                if (isImage) {
+                    return '<img src="' + esc(url) + '" alt="" class="sw-msg-img" onclick="window.open(\'' + esc(url) + '\',\'_blank\')">';
+                }
+                var fileName = att.filename || att.attachmentName || 'Download file';
+                return (
+                    '<a href="' + esc(url) + '" target="_blank" rel="noopener" class="sw-msg-file">' +
+                        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
+                            '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>' +
+                        '</svg>' +
+                        esc(fileName) +
+                    '</a>'
+                );
             }).join('') + (content && content !== '[Attachment]' ? '<div>' + esc(content) + '</div>' : '');
         }
 
         var html =
             '<div class="sw-msg-row' + (isUser ? ' sw-msg-row-user' : '') + '"' +
                 (id ? ' data-msg-id="' + esc(id) + '"' : '') + '>' +
-                (isUser ? '' :
-                    '<div class="sw-msg-avatar ' + (type === 'AGENT' ? 'sw-msg-avatar-agent' : 'sw-msg-avatar-bot') + '">' +
-                        (type === 'AGENT' ? '👤' : '🛍️') +
-                    '</div>') +
+                (isUser ? '' : avatarHtml(type, msg)) +
                 '<div class="sw-msg-bubble ' + (isUser ? 'sw-msg-bubble-out' : 'sw-msg-bubble-in') + '">' +
                     inner +
                     '<div class="sw-msg-time">' + formatTime(msg.createdAt || msg.created_at) +
@@ -390,7 +687,7 @@
                 try {
                     new Notification('EOnlineBazar Support', {
                         body: content || 'New message',
-                        icon: '/images/logo.png'
+                        icon: '/images/favicon.png'
                     });
                 } catch (e) { /* ignore */ }
             }
@@ -412,21 +709,45 @@
             reconnection: true
         });
 
+        state.socket.on('connect', function () {
+            emitJoinRoom();
+        });
+
+        state.socket.on('reconnect', function () {
+            emitJoinRoom();
+        });
+
         state.socket.on('new_message', function (payload) {
-            var msg = payload && (payload.message || payload);
-            if (!msg) return;
-            if (msg.room_id && String(msg.room_id) !== String(state.roomId)) return;
-            if (msg.sender_type === 'USER') return;
+            var msg = normalizeIncomingMessage(payload);
+            if (!msg || typeof msg !== 'object') return;
+            var payloadRoomId = payload.room_id || payload.roomId || msg.room_id || msg.roomId;
+            if (payloadRoomId && state.roomId && String(payloadRoomId) !== String(state.roomId)) return;
+            if (String((msg.sender_type || msg.sender || '')).toUpperCase() === 'USER') return;
+            mergeAgentMeta(msg, payload);
             renderMessage(msg);
             if (state.isOpen && state.roomId) {
                 state.socket.emit('mark_read', { room_id: state.roomId });
             }
         });
 
+        state.socket.on('agent_joined', function (data) {
+            state.agentName = (data && (data.agent_name || data.name)) || 'Agent';
+            state.agentAvatarUrl =
+                (data && data.agent && (data.agent.avatar || data.agent.avatarUrl)) ||
+                (data && (data.agent_avatar || data.agentAvatar)) ||
+                null;
+        });
+
         state.socket.on('agent_typing', function (payload) {
-            if (String(payload.room_id) !== String(state.roomId)) return;
+            if (payload && payload.room_id && String(payload.room_id) !== String(state.roomId)) return;
             var el = $('widgetTypingIndicator');
-            if (el) el.style.display = payload.isTyping === false ? 'none' : 'block';
+            if (el) el.style.display = payload && payload.isTyping === false ? 'none' : 'block';
+        });
+
+        state.socket.on('agent_stopped_typing', function (payload) {
+            if (payload && payload.room_id && String(payload.room_id) !== String(state.roomId)) return;
+            var el = $('widgetTypingIndicator');
+            if (el) el.style.display = 'none';
         });
 
         state.socket.on('user_typing', function (payload) {
@@ -445,6 +766,10 @@
             if (String(payload.room_id || payload.roomId) !== String(state.roomId)) return;
             state.resolved = true;
             setComposerEnabled(false);
+            if (state.endingSelf || payload.ended_by === 'CUSTOMER') {
+                showChatEndedState();
+                return;
+            }
             showRatingPrompt();
         });
 
@@ -523,10 +848,7 @@
             if (persisted) {
                 state.roomId = persisted;
                 if (state.socket && state.socket.connected) {
-                    state.socket.emit('join_room', {
-                        room_id: state.roomId,
-                        guest_session_id: state.guestSessionId
-                    });
+                    emitJoinRoom();
                 }
                 await loadHistory();
             }
@@ -534,14 +856,7 @@
             await startChat();
 
             if (state.socket) {
-                var join = function () {
-                    state.socket.emit('join_room', {
-                        room_id: state.roomId,
-                        guest_session_id: state.guestSessionId
-                    });
-                };
-                if (state.socket.connected) join();
-                else state.socket.once('connect', join);
+                if (state.socket.connected) emitJoinRoom();
             }
         })();
 
@@ -596,6 +911,7 @@
                 await ChatWidget.init({});
             }
             state.isOpen = true;
+            setFabVisible(false);
             var win = $('chatWindow');
             if (win) {
                 win.style.display = 'flex';
@@ -610,16 +926,49 @@
         },
 
         close: function () {
+            ChatWidget.minimize();
+        },
+
+        endChat: async function () {
+            if (!state.roomId || state.resolved) {
+                ChatWidget.minimize();
+                return;
+            }
+            var confirmed = false;
+            try {
+                confirmed = global.confirm('End this conversation?');
+            } catch (e) {
+                confirmed = true;
+            }
+            if (confirmed) {
+                await endAndHideSession();
+            }
+        },
+
+        startNewChat: async function () {
+            clearPersistedRoom();
+            state.roomId = null;
+            state.resolved = false;
+            state.agentAvatarUrl = null;
+            state.agentName = null;
+            state.renderedIds = Object.create(null);
+            var area = $('chatWidgetMessages');
+            if (area) area.innerHTML = '';
+            mountDom();
+            renderWelcome();
+            setComposerEnabled(true);
+            await bootstrap();
+            await ChatWidget.open();
+        },
+
+        minimize: function () {
             state.isOpen = false;
+            setFabVisible(true);
             var win = $('chatWindow');
             if (win) {
                 win.classList.remove('is-open');
                 setTimeout(function () { win.style.display = 'none'; }, 280);
             }
-        },
-
-        minimize: function () {
-            ChatWidget.close();
         },
 
         handleTyping: function () {
@@ -688,26 +1037,39 @@
         },
 
         sendImage: async function (input) {
+            return ChatWidget.handleFileAttachment(input);
+        },
+
+        handleFileAttachment: async function (input) {
             var file = input?.files?.[0];
-            input.value = '';
-            if (!file || !file.type.startsWith('image/')) return;
-            if (file.size > 5 * 1024 * 1024) return;
+            if (input) input.value = '';
+            if (!file) return;
+
+            if (file.size > 5 * 1024 * 1024) {
+                try { global.alert('File too large. Max size is 5MB.'); } catch (e) { /* ignore */ }
+                return;
+            }
 
             if (!state.initialized) await ChatWidget.init({});
             if (!state.roomId) return;
 
             hideFaq();
+            var isImage = file.type.startsWith('image/');
             var form = new FormData();
-            form.append('image', file);
+            form.append(isImage ? 'image' : 'file', file);
             form.append('guest_session_id', state.guestSessionId);
 
             try {
-                await fetch(apiUrl('/api/chat/' + encodeURIComponent(state.roomId) + '/upload'), {
-                    method: 'POST',
-                    body: form
-                });
+                var res = await fetch(
+                    apiUrl('/api/chat/' + encodeURIComponent(state.roomId) + '/upload'),
+                    { method: 'POST', body: form }
+                );
+                if (!res.ok) {
+                    throw new Error('Upload failed');
+                }
             } catch (err) {
                 console.error('[ChatWidget] upload', err);
+                try { global.alert('Upload failed. Try again.'); } catch (e2) { /* ignore */ }
             }
         },
 
@@ -807,7 +1169,9 @@
                         user_id: state.userId,
                         guest_name: state.guestName,
                         guest_email: state.guestEmail,
-                        auth_token: state.authToken
+                        auth_token: state.authToken,
+                        customer_avatar_url: state.userAvatar,
+                        customer_avatar: state.userAvatar
                     })
                 });
             } catch (err) {
@@ -836,6 +1200,8 @@
     global.ChatWidget = ChatWidget;
 
     document.addEventListener('DOMContentLoaded', function () {
+        if (!isChatWidgetAllowed()) return;
+
         var root = document.querySelector('[data-order-id]');
         var orderId = root?.dataset?.orderId || null;
         var orderNumber = root?.dataset?.orderNumber || null;

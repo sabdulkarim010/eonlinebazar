@@ -18,6 +18,16 @@
     '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
       '<path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>' +
     '</svg>';
+  var BOT_AVATAR_SVG =
+    '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="cw-avatar-svg">' +
+      '<rect x="3" y="5" width="18" height="14" rx="4" fill="currentColor" opacity="0.2"/>' +
+      '<path d="M12 3a5 5 0 0 1 5 5v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V8a5 5 0 0 1 5-5z" fill="currentColor"/>' +
+    '</svg>';
+  var AGENT_AVATAR_SVG =
+    '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="cw-avatar-svg">' +
+      '<circle cx="12" cy="8" r="4" fill="currentColor"/>' +
+      '<path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6" fill="currentColor"/>' +
+    '</svg>';
   var SEND_SVG =
     '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
       '<path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>' +
@@ -49,6 +59,7 @@
     endingSelf: false,
     bootstrapping: null,
     agentName: null,
+    agentAvatarUrl: null,
     initialized: false,
     cssLoaded: false,
     renderedIds: Object.create(null)
@@ -114,6 +125,72 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  var CLOUDINARY_CLOUD =
+    (global.CHAT_CONFIG && global.CHAT_CONFIG.cloudinaryCloudName) ||
+    'd1o6p4utt';
+
+  function resolveAssetUrl(url) {
+    if (!url || typeof url !== 'string') return null;
+    var trimmed = url.trim();
+    if (!trimmed) return null;
+    if (/^https?:\/\//i.test(trimmed) || trimmed.indexOf('data:') === 0) {
+      return trimmed;
+    }
+    if (/^\/\//.test(trimmed)) {
+      return 'https:' + trimmed;
+    }
+    if (/res\.cloudinary\.com/i.test(trimmed)) {
+      return trimmed.indexOf('http') === 0 ? trimmed : 'https://' + trimmed.replace(/^\/+/, '');
+    }
+    var path = trimmed.charAt(0) === '/' ? trimmed : '/' + trimmed;
+    if (/^\/(uploads|images)\//i.test(path)) {
+      try {
+        return global.location.origin.replace(/\/$/, '') + path;
+      } catch (e) {
+        return path;
+      }
+    }
+    var publicId = trimmed.replace(/^\/+/, '');
+    return 'https://res.cloudinary.com/' + CLOUDINARY_CLOUD + '/image/upload/' + publicId;
+  }
+
+  function normalizeIncomingMessage(payload) {
+    if (!payload || typeof payload !== 'object') return null;
+    if (
+      payload.message &&
+      typeof payload.message === 'object' &&
+      !Array.isArray(payload.message) &&
+      (payload.message.sender_type || payload.message.sender || payload.message._id)
+    ) {
+      return payload.message;
+    }
+    if (payload.sender_type || payload.sender || payload._id) {
+      return payload;
+    }
+    return null;
+  }
+
+  function mergeAgentMeta(msg, payload) {
+    if (!msg || typeof msg !== 'object') return msg;
+    var agent = payload && payload.agent;
+    if (agent) {
+      if (agent.avatar && !msg.sender_avatar) msg.sender_avatar = agent.avatar;
+      if (agent.name && !msg.sender_name) msg.sender_name = agent.name;
+      if (agent.name) state.agentName = agent.name;
+      if (agent.avatar) {
+        state.agentAvatarUrl = agent.avatar;
+        updateHeader();
+      }
+    }
+    if (!msg.agent && (msg.sender_name || state.agentName)) {
+      msg.agent = {
+        name: msg.sender_name || state.agentName,
+        avatar: msg.sender_avatar || state.agentAvatarUrl || null
+      };
+    }
+    return msg;
   }
 
   function resolveWidgetOrigin() {
@@ -285,14 +362,13 @@
     container.setAttribute('aria-label', 'Customer support chat');
     container.innerHTML =
       '<div id="cw-header">' +
-        '<div id="cw-avatar">🤖</div>' +
+        '<div id="cw-avatar">' + BOT_AVATAR_SVG + '</div>' +
         '<div id="cw-header-info">' +
           '<p id="cw-agent-name">Aria</p>' +
           '<p id="cw-status">Online</p>' +
         '</div>' +
         '<div id="cw-header-actions">' +
           '<button type="button" id="cw-minimize-btn" aria-label="Minimize">−</button>' +
-          '<button type="button" id="cw-close-btn" aria-label="Close">×</button>' +
         '</div>' +
       '</div>' +
       '<div id="cw-messages">' +
@@ -326,7 +402,6 @@
 
     bubble.addEventListener('click', openWidget);
     $('cw-minimize-btn').addEventListener('click', minimizeWidget);
-    $('cw-close-btn').addEventListener('click', closeWidget);
     $('cw-attachment-btn').addEventListener('click', function () {
       if (!state.resolved) $('cw-file-input').click();
     });
@@ -367,11 +442,31 @@
     );
   }
 
+  function setHeaderAvatar(type, avatarUrl) {
+    var avatar = $('cw-avatar');
+    if (!avatar) return;
+    avatar.className = 'cw-avatar-' + (type === 'agent' ? 'agent' : 'bot');
+    if (type === 'agent' && avatarUrl) {
+      avatar.innerHTML =
+        '<img src="' + escapeHtml(resolveAssetUrl(avatarUrl) || avatarUrl) + '" alt="" class="cw-avatar-img">' +
+        '<span class="cw-avatar-fallback" hidden>' + AGENT_AVATAR_SVG + '</span>';
+      var img = avatar.querySelector('.cw-avatar-img');
+      if (img) {
+        img.addEventListener('error', function () {
+          img.style.display = 'none';
+          var fb = avatar.querySelector('.cw-avatar-fallback');
+          if (fb) fb.hidden = false;
+        });
+      }
+      return;
+    }
+    avatar.innerHTML = type === 'agent' ? AGENT_AVATAR_SVG : BOT_AVATAR_SVG;
+  }
+
   function updateHeader() {
     var label = $('cw-agent-name');
     var sub = $('cw-status');
-    var avatar = $('cw-avatar');
-    if (!label || !sub || !avatar) return;
+    if (!label || !sub) return;
 
     if (state.type === 'ORDER_SUPPORT') {
       sub.textContent = 'Order #' + orderLabel() + ' সাপোর্ট';
@@ -381,10 +476,10 @@
 
     if (state.agentName) {
       label.textContent = state.agentName;
-      avatar.textContent = '👤';
+      setHeaderAvatar('agent', state.agentAvatarUrl || null);
     } else {
       label.textContent = 'Aria';
-      avatar.textContent = '🤖';
+      setHeaderAvatar('bot');
     }
   }
 
@@ -687,10 +782,10 @@
     }
 
     var box = $('cw-messages');
-    var type = String((msg.sender_type || msg.senderType || msg.type) || 'BOT').toUpperCase();
+    var type = String((msg.sender_type || msg.senderType || msg.sender || msg.type) || 'BOT').toUpperCase();
     if (type === 'CUSTOMER' || type === 'GUEST') type = 'USER';
     if (type === 'AI' || type === 'BOT_MESSAGE') type = 'BOT';
-    if (type === 'HUMAN' || type === 'SUPPORT') type = 'AGENT';
+    if (type === 'HUMAN' || type === 'SUPPORT' || type === 'AGENT') type = 'AGENT';
 
     var content = msg.content || msg.message || msg.text || '';
     var createdAt = msg.created_at || msg.createdAt || msg.timestamp || Date.now();
@@ -741,13 +836,47 @@
         '</a>';
     }
 
-    wrap.innerHTML =
+    var bubbleHtml =
       label +
       '<div class="cw-bubble-text">' +
         (content ? escapeHtml(content) : '') +
         imageHtml +
       '</div>' +
       '<div class="cw-msg-time">' + formatTime(createdAt) + '</div>';
+
+    if (type === 'AGENT') {
+      var agentAvatarRaw =
+        (msg && (msg.sender_avatar || msg.senderAvatar || msg.avatar)) ||
+        (msg && msg.agent && (msg.agent.avatar || msg.agent.avatarUrl)) ||
+        state.agentAvatarUrl ||
+        null;
+      var agentAvatarResolved = resolveAssetUrl(agentAvatarRaw);
+      wrap.classList.add('cw-msg-row-agent');
+      if (agentAvatarResolved) {
+        var av = document.createElement('img');
+        av.src = agentAvatarResolved;
+        av.alt = '';
+        av.className = 'cw-msg-avatar-img';
+        av.addEventListener('error', function () {
+          av.replaceWith(document.createElement('span'));
+        });
+        wrap.appendChild(av);
+      } else {
+        var fallback = document.createElement('div');
+        fallback.className = 'cw-msg-avatar-fallback';
+        fallback.textContent = (
+          (msg && (msg.sender_name || msg.senderName || state.agentName)) ||
+          'A'
+        ).charAt(0).toUpperCase();
+        wrap.appendChild(fallback);
+      }
+      var bubbleWrap = document.createElement('div');
+      bubbleWrap.className = 'cw-msg-body';
+      bubbleWrap.innerHTML = bubbleHtml;
+      wrap.appendChild(bubbleWrap);
+    } else {
+      wrap.innerHTML = bubbleHtml;
+    }
 
     var typingEl = $('cw-typing');
     if (typingEl && typingEl.parentNode === box) {
@@ -1214,8 +1343,14 @@
       console.error('Socket connection error:', err && err.message ? err.message : err);
     });
 
-    s.on('new_message', function (msg) {
-      if (msg && msg.sender_type === 'INTERNAL') return;
+    s.on('new_message', function (payload) {
+      if (payload && payload.sender_type === 'INTERNAL') return;
+
+      var msg = normalizeIncomingMessage(payload);
+      if (!msg || typeof msg !== 'object') return;
+
+      var payloadRoomId = payload.room_id || payload.roomId || msg.room_id || msg.roomId;
+      if (payloadRoomId && state.roomId && String(payloadRoomId) !== String(state.roomId)) return;
 
       // Remove optimistic message if exists
       if (msg && msg._id) {
@@ -1224,7 +1359,7 @@
       }
 
       // Drop optimistic tmp bubble when the real USER message arrives
-      var type = String((msg && (msg.sender_type || msg.senderType)) || '').toUpperCase();
+      var type = String((msg && (msg.sender_type || msg.senderType || msg.sender)) || '').toUpperCase();
       if (type === 'USER' || type === 'CUSTOMER' || type === 'GUEST') {
         var box = $('cw-messages');
         if (box) {
@@ -1241,6 +1376,7 @@
           });
         }
       }
+      mergeAgentMeta(msg, payload);
       renderMessage(msg);
       scrollToBottom();
       playNotificationSound();
@@ -1289,6 +1425,10 @@
     s.on('agent_joined', function (data) {
       var name = (data && (data.agent_name || data.name || data.agentName)) || 'Agent';
       state.agentName = name;
+      state.agentAvatarUrl =
+        (data && data.agent && (data.agent.avatar || data.agent.avatarUrl)) ||
+        (data && (data.agent_avatar || data.agentAvatar)) ||
+        null;
       state.resolved = false;
       updateHeader();
       showWaitingBanner(false);
@@ -1756,7 +1896,7 @@
     init: init,
     _init: _init,
     open: openWidget,
-    close: closeWidget,
+    close: minimizeWidget,
     minimize: minimizeWidget,
     destroy: destroy,
     startNewChat: startNewChat,

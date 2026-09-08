@@ -144,6 +144,72 @@ async function detectHandoverNeeded(message) {
 }
 
 /**
+ * Keyword match against active knowledge-base entries when OpenAI is unavailable.
+ */
+async function matchKnowledgeBaseFallback(userMessage) {
+  if (!userMessage || typeof userMessage !== 'string') return null;
+
+  const entries = await AIKnowledgeBase.find({ is_active: true }).lean();
+  if (!entries.length) return null;
+
+  const lower = userMessage.toLowerCase();
+  let bestAnswer = null;
+  let bestScore = 0;
+
+  for (const entry of entries) {
+    const needles = [
+      ...(Array.isArray(entry.keywords) ? entry.keywords : []),
+      entry.question,
+    ]
+      .map((kw) => String(kw || '').toLowerCase().trim())
+      .filter(Boolean);
+
+    let score = 0;
+    for (const needle of needles) {
+      if (lower.includes(needle)) score += needle.length >= 4 ? 2 : 1;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestAnswer = entry.answer;
+    }
+  }
+
+  return bestScore > 0 ? bestAnswer : null;
+}
+
+/**
+ * Build a safe fallback when OpenAI fails (429, network, etc.).
+ * Prefer knowledge-base match; otherwise hand over to a live agent.
+ */
+async function buildOpenAiFailureFallback(messages = []) {
+  const lastUser = [...messages].reverse().find((m) => m.sender_type === 'USER');
+  const userText = lastUser?.message || '';
+  const needsHandover = userText ? await detectHandoverNeeded(userText) : true;
+
+  const kbAnswer = userText ? await matchKnowledgeBaseFallback(userText) : null;
+  if (kbAnswer) {
+    return {
+      message: kbAnswer,
+      handover: needsHandover,
+      error: true,
+      confidence: 0.5,
+      tokens_used: 0,
+      fallback: 'knowledge_base',
+    };
+  }
+
+  return {
+    message: '',
+    handover: true,
+    error: true,
+    confidence: 0.2,
+    tokens_used: 0,
+    fallback: 'handover',
+  };
+}
+
+/**
  * Get AI response using gpt-4o-mini with last 10 messages.
  */
 async function getAIResponse(messages = [], orderContext = null) {
@@ -156,6 +222,9 @@ async function getAIResponse(messages = [], orderContext = null) {
 
   // Fallback if OpenAI key missing
   if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes('your-openai')) {
+    const fallback = await buildOpenAiFailureFallback(messages);
+    if (fallback.message) return fallback;
+
     const lastUser = [...messages].reverse().find((m) => m.sender_type === 'USER');
     const needsHandover = lastUser
       ? await detectHandoverNeeded(lastUser.message)
@@ -166,8 +235,10 @@ async function getAIResponse(messages = [], orderContext = null) {
         ? 'আপনার অনুরোধটি গুরুত্বপূর্ণ। একজন লাইভ এজেন্ট শীঘ্রই আপনার সাথে যোগাযোগ করবেন।'
         : 'ধন্যবাদ! আমি আপনার প্রশ্নটি পেয়েছি। আরও বিস্তারিত জানালে আমি সাহায্য করতে পারব।',
       handover: needsHandover,
+      error: true,
       confidence: 0.4,
       tokens_used: 0,
+      fallback: 'default',
     };
   }
 
@@ -225,16 +296,18 @@ async function getAIResponse(messages = [], orderContext = null) {
       tokens_used,
     };
   } catch (err) {
-    // Actual API failures (network, 401, 429, etc.) — silent handover, no BOT error text
+    // API failures (network, 401, 429 quota, etc.) — KB fallback or silent handover
     const status = err?.status || err?.response?.status || err?.code;
-    console.error('[AI Service] OpenAI error:', err.message, status || '');
-    return {
-      message: '',
-      handover: true,
-      error: true,
-      confidence: 0.2,
-      tokens_used: 0,
-    };
+    const isQuota =
+      status === 429 ||
+      /quota|rate limit|insufficient/i.test(String(err?.message || ''));
+    console.error(
+      '[AI Service] OpenAI error:',
+      err.message,
+      status || '',
+      isQuota ? '(quota/rate limit — using fallback)' : ''
+    );
+    return buildOpenAiFailureFallback(messages);
   }
 }
 
@@ -262,6 +335,8 @@ function getWelcomeQuickReplies(type = 'GENERAL') {
 module.exports = {
   buildSystemPrompt,
   detectHandoverNeeded,
+  matchKnowledgeBaseFallback,
+  buildOpenAiFailureFallback,
   getAIResponse,
   getWelcomeQuickReplies,
 };

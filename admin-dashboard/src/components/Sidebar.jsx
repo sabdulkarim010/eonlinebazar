@@ -54,9 +54,10 @@ export default function Sidebar({
 
   const filtered = useMemo(() => {
     const q = (query || globalSearch || '').trim().toLowerCase();
-    // Trust API status filter — show every room returned for this tab
+    // Trust API status filter — only show rooms matching the active inbox tab
     return roomList.filter((r) => {
       if (!r) return false;
+      if (activeTab && r.status && r.status !== activeTab) return false;
       if (!q) return true;
       return (
         String(r?.guest_name || '')
@@ -74,7 +75,7 @@ export default function Sidebar({
         (r?.tags || []).some((t) => String(t).toLowerCase().includes(q))
       );
     });
-  }, [roomList, query, globalSearch]);
+  }, [roomList, query, globalSearch, activeTab]);
 
   const activeTabMeta = TABS.find((t) => t.id === activeTab);
   const currentStatus =

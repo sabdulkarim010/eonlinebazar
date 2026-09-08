@@ -47,6 +47,12 @@ export default function ProfilePage() {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
+    if (agent?.avatar || agent?.image) {
+      setAvatar(agent.avatar || agent.image);
+    }
+  }, [agent?.avatar, agent?.image]);
+
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -55,10 +61,11 @@ export default function ProfilePage() {
         if (cancelled) return;
         const a = data.agent;
         if (a) {
+          const avatarFromApi = a.avatar || a.image || '';
           setName(a.name || '');
           setEmail(a.email || '');
-          setAvatar(a.avatar || '');
-          setAgent(a);
+          setAvatar(avatarFromApi);
+          setAgent({ ...a, avatar: avatarFromApi || null });
           setStats({
             total_chats_handled: a.total_chats_handled || 0,
             avg_rating: a.avg_rating,
@@ -95,7 +102,11 @@ export default function ProfilePage() {
       const data = await uploadAgentAvatar(file);
       const nextAvatar = data.url || data.agent?.avatar || '';
       setAvatar(nextAvatar);
-      if (data.agent) setAgent(data.agent);
+      if (data.agent) {
+        setAgent({ ...useAuthStore.getState().agent, ...data.agent, avatar: nextAvatar });
+      } else if (nextAvatar) {
+        setAgent({ ...useAuthStore.getState().agent, avatar: nextAvatar });
+      }
       toast.success('Profile photo updated');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Photo upload failed');

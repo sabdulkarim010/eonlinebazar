@@ -90,6 +90,41 @@ async function uploadChatImage(fileBuffer, mimeType, roomId) {
 }
 
 /**
+ * Upload a non-image chat attachment (PDF, DOC, etc.) to Cloudinary.
+ */
+async function uploadChatFile(fileBuffer, mimeType, roomId, filename) {
+  if (!fileBuffer || !Buffer.isBuffer(fileBuffer)) {
+    throw new Error('Invalid file buffer');
+  }
+  if (!roomId) {
+    throw new Error('roomId is required');
+  }
+
+  const dataUri = `data:${mimeType || 'application/octet-stream'};base64,${fileBuffer.toString('base64')}`;
+  const isImage = String(mimeType || '').startsWith('image/');
+
+  if (isImage) {
+    return uploadChatImage(fileBuffer, mimeType, roomId);
+  }
+
+  const result = await cloudinary.uploader.upload(dataUri, {
+    folder: `chat-attachments/${roomId}`,
+    resource_type: 'raw',
+    public_id: filename
+      ? String(filename).replace(/\.[^.]+$/, '').slice(0, 80)
+      : undefined,
+  });
+
+  return {
+    url: result.secure_url || result.url,
+    thumbnail_url: result.secure_url || result.url,
+    public_id: result.public_id,
+    bytes: result.bytes,
+    format: result.format || 'file',
+  };
+}
+
+/**
  * Upload agent/staff profile photo to Cloudinary.
  * @param {Buffer} fileBuffer
  * @param {string} mimeType
@@ -218,6 +253,7 @@ function sanitizeAttachments(attachments = []) {
 
 module.exports = {
   uploadChatImage,
+  uploadChatFile,
   uploadAgentAvatar,
   uploadFromBase64,
   deleteChatImage,

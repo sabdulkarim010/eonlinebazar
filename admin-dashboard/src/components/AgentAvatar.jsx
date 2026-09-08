@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { avatarColor, getInitials } from '../utils/helpers';
+import { avatarColor, getInitials, resolveAssetUrl } from '../utils/helpers';
 
 const SIZE_CLASS = {
   xs: 'w-7 h-7 text-[10px]',
@@ -20,7 +20,8 @@ export default function AgentAvatar({
 }) {
   const [failed, setFailed] = useState(false);
   const sizeClass = SIZE_CLASS[size] || SIZE_CLASS.md;
-  const showImage = Boolean(avatar) && !failed;
+  const resolvedAvatar = resolveAssetUrl(avatar);
+  const showImage = Boolean(resolvedAvatar) && !failed;
 
   return (
     <div
@@ -30,7 +31,7 @@ export default function AgentAvatar({
     >
       {showImage ? (
         <img
-          src={avatar}
+          src={resolvedAvatar}
           alt={name || 'Agent'}
           className="w-full h-full object-cover"
           onError={() => setFailed(true)}

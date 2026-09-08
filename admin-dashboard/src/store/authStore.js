@@ -37,6 +37,8 @@ const useAuthStore = create(
 
       logout: () => {
         localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('token');
         set({
           agent: null,
           token: null,

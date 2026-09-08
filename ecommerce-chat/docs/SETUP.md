@@ -46,7 +46,7 @@ Admin dashboard (আলাদা ফোল্ডার `admin-dashboard/`):
 cd ../admin-dashboard
 npm install
 cp .env.example .env
-# VITE_API_URL=http://localhost:5001
+# Use relative /api/chat-admin (default) — do NOT set VITE_API_URL=http://localhost:5001
 npm run dev
 ```
 

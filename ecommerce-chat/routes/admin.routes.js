@@ -13,10 +13,22 @@ const {
   fetchCustomerOrders,
   invalidateProfileCache,
 } = require('../services/storeProfile.service');
+const { getMainStoreApiUrl } = require('../config/storeApi');
+const { syncStoreAdminAvatar } = require('../services/storeAdminSync.service');
+const {
+  fetchStoreAdminProfile,
+} = require('../services/agentResolver.service');
+const {
+  enrichRoomCustomerAvatar,
+  attachCustomerAvatarFields,
+  withCustomerUserPopulate,
+} = require('../utils/chatRoomHelpers');
+require('../models/StoreUser.model');
 const {
   agentAvatarMulter,
   handleAgentAvatarUpload,
 } = require('../handlers/agentAvatarUpload');
+const { broadcastAdminNewMessage } = require('../utils/adminSocketHub');
 const chatAdminController = require('../controllers/chatAdminController');
 
 const router = express.Router();
@@ -119,7 +131,7 @@ router.get('/rooms', authMiddleware, async (req, res) => {
 
     const limitNum = limit;
     const [roomsRaw, total, statusCounts] = await Promise.all([
-      ChatRoom.find(filter)
+      withCustomerUserPopulate(ChatRoom.find(filter))
         .sort({ last_message_at: -1 })
         .skip(skip)
         .limit(limitNum)
@@ -143,13 +155,21 @@ router.get('/rooms', authMiddleware, async (req, res) => {
       }
     });
 
-    const rooms = (roomsRaw || []).map((r) => ({
-      ...r,
-      guest_name: r.guest_name || 'Guest',
-      is_registered: Boolean(r.is_registered || r.user_id),
-      last_message: r.last_message || '',
-      last_message_at: r.last_message_at || r.createdAt,
-    }));
+    const rooms = await Promise.all(
+      (roomsRaw || []).map(async (r) => {
+        const base = {
+          ...r,
+          guest_name: r.guest_name || 'Guest',
+          is_registered: Boolean(r.is_registered || r.user_id),
+          last_message: r.last_message || '',
+          last_message_at: r.last_message_at || r.createdAt,
+        };
+        const enriched = await enrichRoomCustomerAvatar(base, {
+          fetchProfileByUserId,
+        });
+        return attachCustomerAvatarFields(enriched);
+      })
+    );
 
     return res.json({
       success: true,
@@ -185,7 +205,9 @@ router.get('/rooms/:room_id', authMiddleware, async (req, res) => {
     );
     const skip = (page - 1) * limit;
 
-    const room = await ChatRoom.findById(room_id)
+    const room = await withCustomerUserPopulate(
+      ChatRoom.findById(room_id)
+    )
       .populate('assigned_agent_id', 'name email avatar is_online')
       .lean();
 
@@ -213,13 +235,17 @@ router.get('/rooms/:room_id', authMiddleware, async (req, res) => {
       ChatMessage.countDocuments({ room_id }),
     ]);
 
+    const enrichedRoom = await enrichRoomCustomerAvatar(room, {
+      fetchProfileByUserId,
+    });
+
     return res.json({
       success: true,
-      room: {
-        ...room,
+      room: attachCustomerAvatarFields({
+        ...enrichedRoom,
         unread_count: 0,
-        is_registered: Boolean(room.is_registered || room.user_id),
-      },
+        is_registered: Boolean(enrichedRoom.is_registered || enrichedRoom.user_id),
+      }),
       messages,
       total,
       page,
@@ -242,7 +268,7 @@ router.get('/rooms/:room_id', authMiddleware, async (req, res) => {
 router.get('/customers/:userId', authMiddleware, async (req, res) => {
   try {
     const { userId } = req.params;
-    if (!process.env.MAIN_STORE_API_URL) {
+    if (!getMainStoreApiUrl()) {
       return res.status(503).json({
         success: false,
         message: 'Customer lookup unavailable — set MAIN_STORE_API_URL',
@@ -261,7 +287,17 @@ router.get('/customers/:userId', authMiddleware, async (req, res) => {
       });
     }
 
-    return res.json({ success: true, profile, data: profile });
+    const avatarUrl =
+      profile.avatarUrl || profile.avatar || profile.image || null;
+    const normalized = {
+      ...profile,
+      avatar: profile.avatar || avatarUrl || '',
+      avatarUrl,
+      image: profile.image || avatarUrl || null,
+      profilePic: profile.profilePic || avatarUrl || null,
+    };
+
+    return res.json({ success: true, profile: normalized, data: normalized });
   } catch (err) {
     console.error('[GET /api/admin/customers/:userId]', err);
     return res.status(500).json({
@@ -280,7 +316,7 @@ router.get('/customers/:userId/orders', authMiddleware, async (req, res) => {
     const { userId } = req.params;
     const limit = Math.min(20, Math.max(1, parseInt(req.query.limit, 10) || 5));
 
-    if (!process.env.MAIN_STORE_API_URL) {
+    if (!getMainStoreApiUrl()) {
       return res.status(503).json({
         success: false,
         message: 'Order history unavailable — set MAIN_STORE_API_URL',
@@ -323,11 +359,13 @@ router.post('/rooms/:room_id/messages', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'INVALID_MESSAGE_LENGTH' });
     }
 
+    const agentAvatar = agent.avatar || '';
     const msg = await ChatMessage.create({
       room_id: req.params.room_id,
       sender_type: 'AGENT',
       sender_id: String(agent._id),
       sender_name: agent.name,
+      sender_avatar: agentAvatar,
       message,
       attachments,
       is_read_by_agent: true,
@@ -341,12 +379,26 @@ router.post('/rooms/:room_id/messages', authMiddleware, async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
-      io.of('/customer').to(req.params.room_id).emit('new_message', msg);
-      io.of('/admin').to(req.params.room_id).emit('new_message', msg);
-      io.of('/admin').emit('new_message', {
-        room_id: req.params.room_id,
+      const enrichedRoom = attachCustomerAvatarFields(
+        await enrichRoomCustomerAvatar(room, { fetchProfileByUserId })
+      );
+      const customerPayload = {
+        ...(typeof msg.toObject === 'function' ? msg.toObject() : msg),
+        roomId: String(req.params.room_id),
+        room_id: String(req.params.room_id),
+        sender: 'agent',
+        sender_avatar: agentAvatar,
+        agent: {
+          _id: agent._id,
+          name: agent.name,
+          avatar: agentAvatar || null,
+        },
+      };
+      io.of('/customer').to(req.params.room_id).emit('new_message', customerPayload);
+      broadcastAdminNewMessage({
+        room_id: String(req.params.room_id),
         message: msg,
-        room,
+        room: enrichedRoom,
       });
     }
 
@@ -616,10 +668,23 @@ router.get('/me', authMiddleware, async (req, res) => {
     ]);
 
     const serialized = serializeAgent(agent);
+    const authHeader =
+      req.headers.authorization || req.headers.Authorization || '';
+    let storeImage = null;
+    if (!serialized.avatar && authHeader) {
+      const storeAdmin = await fetchStoreAdminProfile(authHeader);
+      storeImage = storeAdmin?.image || storeAdmin?.avatar || null;
+    }
+    const avatarUrl = serialized.avatar || storeImage || null;
+
     return res.json({
       success: true,
+      avatar: avatarUrl,
+      image: avatarUrl,
       agent: {
         ...serialized,
+        avatar: avatarUrl,
+        image: avatarUrl,
         total_chats_handled: agent.total_chats_handled || 0,
         avg_response_time_seconds: agent.avg_response_time_seconds || 0,
         avg_rating: ratingAgg[0]
@@ -638,6 +703,33 @@ router.get('/me', authMiddleware, async (req, res) => {
 });
 
 /**
+ * GET /api/admin/me/avatar — current agent avatar URL
+ */
+router.get('/me/avatar', authMiddleware, async (req, res) => {
+  try {
+    const agent =
+      req.resolvedAgent ||
+      (await Agent.findById(req.agent.id).select('-password'));
+    if (!agent) {
+      return res.status(404).json({ success: false, message: 'Agent not found' });
+    }
+
+    return res.json({
+      success: true,
+      avatar: agent.avatar || null,
+      agent: serializeAgent(agent),
+    });
+  } catch (err) {
+    console.error('[GET /api/admin/me/avatar]', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch avatar',
+      error: err.message,
+    });
+  }
+});
+
+/**
  * POST /api/admin/me/avatar — multipart profile photo (Cloudinary)
  * Alias of POST /api/upload/agent-avatar for admin-dashboard proxy compatibility
  */
@@ -647,6 +739,51 @@ router.post(
   agentAvatarMulter,
   handleAgentAvatarUpload
 );
+
+/**
+ * PUT /api/admin/me/avatar — JSON avatar URL (sync Agent + store Admin.image)
+ */
+router.put('/me/avatar', authMiddleware, async (req, res) => {
+  try {
+    const avatar = req.body?.avatar || req.body?.url;
+    if (!avatar || !String(avatar).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'avatar URL is required',
+      });
+    }
+
+    const agent =
+      req.resolvedAgent ||
+      (await Agent.findById(req.agent.id).select('-password'));
+    if (!agent) {
+      return res.status(404).json({
+        success: false,
+        message: 'Agent not found',
+      });
+    }
+
+    agent.avatar = String(avatar).trim();
+    await agent.save();
+
+    const authHeader =
+      req.headers.authorization || req.headers.Authorization || '';
+    await syncStoreAdminAvatar(agent, agent.avatar, authHeader);
+
+    return res.json({
+      success: true,
+      avatar: agent.avatar,
+      agent: serializeAgent(agent),
+    });
+  } catch (err) {
+    console.error('[PUT /api/admin/me/avatar]', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update avatar',
+      error: err.message,
+    });
+  }
+});
 
 /**
  * PATCH /api/admin/me — update own name, email, avatar
@@ -713,13 +850,20 @@ router.patch('/me', authMiddleware, async (req, res) => {
       });
     }
 
-    const agent = await Agent.findByIdAndUpdate(req.agent.id, updates, {
+    const agentId = req.resolvedAgent?._id || req.agent.id;
+    const agent = await Agent.findByIdAndUpdate(agentId, updates, {
       new: true,
       runValidators: true,
     }).select('-password');
 
     if (!agent) {
       return res.status(404).json({ success: false, message: 'Agent not found' });
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, 'avatar')) {
+      const authHeader =
+        req.headers.authorization || req.headers.Authorization || '';
+      await syncStoreAdminAvatar(agent, agent.avatar, authHeader);
     }
 
     return res.json({ success: true, agent: serializeAgent(agent) });

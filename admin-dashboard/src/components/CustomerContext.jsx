@@ -7,12 +7,12 @@ import { getSocket } from '../services/socket';
 import TransferModal from './TransferModal';
 import TagModal, { tagChipClass } from './TagModal';
 import {
-  avatarColor,
   formatTime,
-  getInitials,
   relativeTimeBn,
   resolveAssetUrl,
   roomId as getRoomId,
+  resolveRoomUserId,
+  pickCustomerAvatar,
 } from '../utils/helpers';
 
 function Skeleton() {
@@ -118,7 +118,7 @@ export default function CustomerContext({
     setProfileError(null);
     setAvatarFailed(false);
 
-    const userId = room?.user_id || room?.customer_profile?.user_id;
+    const userId = resolveRoomUserId(room);
     if (!userId) return undefined;
 
     let cancelled = false;
@@ -149,7 +149,7 @@ export default function CustomerContext({
     setStoreOrders([]);
     setStoreOrdersError(null);
 
-    const userId = room?.user_id || room?.customer_profile?.user_id;
+    const userId = resolveRoomUserId(room);
     if (!userId) return undefined;
 
     let cancelled = false;
@@ -175,6 +175,22 @@ export default function CustomerContext({
       cancelled = true;
     };
   }, [room?._id, room?.user_id, room?.customer_profile?.user_id]);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [
+    activeRoomId,
+    liveProfile?.avatarUrl,
+    liveProfile?.avatar,
+    liveProfile?.image,
+    liveProfile?.profilePic,
+    room?.customer_profile?.avatarUrl,
+    room?.customer_profile?.avatar,
+    room?.customer?.avatarUrl,
+    room?.customer?.avatar,
+    room?.user_id?.avatarUrl,
+    room?.user_id?.avatar,
+  ]);
 
   const previousChats = useMemo(() => {
     if (!room) return [];
@@ -256,7 +272,13 @@ export default function CustomerContext({
     ...(room.customer_profile || {}),
     ...(liveProfile || {}),
   };
-  const userId = room.user_id || profile.user_id || liveProfile?.user_id;
+  const customer = {
+    ...(room.customer || {}),
+    ...profile,
+    user: room.user || profile.user || null,
+  };
+  const userId =
+    resolveRoomUserId(room) || profile.user_id || liveProfile?.user_id;
   const isRegistered = Boolean(
     room.is_registered || userId || profile.user_id
   );
@@ -270,9 +292,20 @@ export default function CustomerContext({
     profile.defaultAddress?.formatted ||
     profile.defaultAddress?.fullAddress ||
     null;
-  const rawAvatar = profile.avatarUrl || profile.avatar || null;
+  const rawAvatar = pickCustomerAvatar(customer, {
+    ...room,
+    customer_profile: profile,
+    customer,
+  });
+  const avatarSrc =
+    profile?.avatar ||
+    profile?.avatarUrl ||
+    room?.customer_profile?.avatar ||
+    room?.customer_profile?.avatarUrl ||
+    rawAvatar ||
+    null;
   const avatarUrl =
-    !avatarFailed && rawAvatar ? resolveAssetUrl(rawAvatar) : null;
+    !avatarFailed && avatarSrc ? resolveAssetUrl(avatarSrc) : null;
   const productMeta = room.product_metadata || null;
 
   return (
@@ -286,45 +319,45 @@ export default function CustomerContext({
           {profileError && !liveProfile && (
             <p className="text-xs text-amber-600 mb-2">{profileError}</p>
           )}
-          <div className="flex items-center gap-3">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={displayName}
-                className="w-12 h-12 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0"
-                onError={() => setAvatarFailed(true)}
-              />
-            ) : (
+          <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div className="relative flex-shrink-0">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="w-14 h-14 rounded-full object-cover ring-2 ring-orange-400"
+                  onError={() => setAvatarFailed(true)}
+                />
+              ) : null}
               <div
-                className={`w-12 h-12 rounded-full ${avatarColor(
-                  displayName
-                )} flex items-center justify-center text-white font-semibold shrink-0`}
+                className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl ring-2 ring-orange-400"
+                style={{
+                  display: avatarUrl ? 'none' : 'flex',
+                  background: 'linear-gradient(135deg, #f97316, #ea580c)',
+                }}
               >
-                {getInitials(displayName || 'G')}
+                {displayName?.charAt(0)?.toUpperCase() || '?'}
               </div>
-            )}
-            <div className="min-w-0">
-              <p className="font-semibold text-text-primary dark:text-white truncate">
-                {displayName}
+              <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full ring-2 ring-white dark:ring-slate-800" />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-slate-800 dark:text-white text-sm truncate">
+                {displayName || 'Customer'}
               </p>
               {displayEmail && (
-                <p className="text-xs text-text-secondary truncate">
+                <p className="text-slate-500 dark:text-slate-400 text-xs truncate">
                   {displayEmail}
                 </p>
               )}
               {displayPhone && (
-                <p className="text-xs text-text-secondary truncate">
+                <p className="text-slate-500 dark:text-slate-400 text-xs truncate">
                   {displayPhone}
                 </p>
               )}
-              <span
-                className={`inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                  isRegistered
-                    ? 'bg-emerald-50 text-emerald-700'
-                    : 'bg-slate-100 text-slate-600'
-                }`}
-              >
-                {isRegistered ? 'Registered' : 'Guest'}
+              <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                {profile?.isVerified || isRegistered ? 'Verified' : 'Registered'}
               </span>
             </div>
           </div>

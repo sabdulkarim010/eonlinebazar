@@ -51,6 +51,7 @@ export default function LiveSupportScreen({ route, navigation }) {
     connectionState,
     roomStatus,
     agentName,
+    agentAvatarUrl,
     personaName,
     statusLabel,
     isAgentTyping,
@@ -139,9 +140,12 @@ export default function LiveSupportScreen({ route, navigation }) {
 
   const renderMessage = ({ item: msg }) => {
     const isCustomer = msg.senderType === 'USER';
+    const isAgent = msg.senderType === 'AGENT';
     const isSystem = msg.senderType === 'SYSTEM';
     const imageUrl = getImageUrl(msg);
     const isPending = msg.isPending || String(msg.id).startsWith('tmp-');
+    const agentLabel = msg.senderName || agentName || 'Support';
+    const avatarUri = msg.senderAvatar || agentAvatarUrl || null;
 
     if (isSystem && !imageUrl) {
       return (
@@ -159,17 +163,32 @@ export default function LiveSupportScreen({ route, navigation }) {
         isCustomer ? styles.msgRowRight : styles.msgRowLeft,
       ]}>
         {!isCustomer && (
-          <View style={[styles.agentAvatar, { backgroundColor: '#0f3460' }]}>
-            <Text style={styles.agentAvatarEmoji}>🛍️</Text>
-          </View>
+          avatarUri ? (
+            <Image
+              source={{ uri: avatarUri }}
+              style={styles.agentAvatarImg}
+            />
+          ) : (
+            <View style={[styles.agentAvatar, { backgroundColor: isAgent ? '#6366f1' : '#0f3460' }]}>
+              <Text style={styles.agentAvatarEmoji}>
+                {isAgent ? agentLabel.charAt(0).toUpperCase() : '🛍️'}
+              </Text>
+            </View>
+          )
         )}
 
-        <View style={[
-          styles.bubble,
-          isCustomer
-            ? [styles.bubbleCustomer, { backgroundColor: T.accent }]
-            : [styles.bubbleAgent, { backgroundColor: T.card, borderColor: T.border }],
-        ]}>
+        <View style={{ maxWidth: SCREEN_W * 0.72 }}>
+          {!isCustomer && isAgent ? (
+            <Text style={[styles.agentLabel, { color: T.textMuted }]}>
+              {agentLabel}
+            </Text>
+          ) : null}
+          <View style={[
+            styles.bubble,
+            isCustomer
+              ? [styles.bubbleCustomer, { backgroundColor: T.accent }]
+              : [styles.bubbleAgent, { backgroundColor: T.card, borderColor: T.border }],
+          ]}>
           {imageUrl ? (
             <Image
               source={{ uri: imageUrl }}
@@ -196,6 +215,7 @@ export default function LiveSupportScreen({ route, navigation }) {
             {isCustomer && !isPending ? ' ✓' : ''}
             {isPending ? ' ⏳' : ''}
           </Text>
+        </View>
         </View>
       </View>
     );
@@ -446,6 +466,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
+  },
+  agentAvatarImg: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    flexShrink: 0,
+  },
+  agentLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginBottom: 3,
+    marginLeft: 4,
   },
   agentAvatarEmoji: { color: '#fff', fontSize: 12 },
   agentAvatarEmojiSmall: { color: '#fff', fontSize: 10 },

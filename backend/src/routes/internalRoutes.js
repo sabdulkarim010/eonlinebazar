@@ -4,6 +4,7 @@ const {
     getInternalCustomerProfile,
     getInternalCustomerOrders,
     getInternalOrderById,
+    updateInternalAdminImage,
 } = require('../controllers/internalChatController');
 
 const router = express.Router();
@@ -18,5 +19,8 @@ router.get('/customers/:id/orders', getInternalCustomerOrders);
 
 /** GET /api/internal/orders/:id — order detail for chat sidebar */
 router.get('/orders/:id', getInternalOrderById);
+
+/** PUT /api/internal/admins/:id/image — chat agent avatar → store Admin.image */
+router.put('/admins/:id/image', updateInternalAdminImage);
 
 module.exports = router;

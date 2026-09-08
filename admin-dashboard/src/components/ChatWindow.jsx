@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import Swal from 'sweetalert2';
-import 'sweetalert2/dist/sweetalert2.min.css';
 import {
   ArrowLeftIcon,
   ArrowUpRightIcon,
@@ -17,14 +15,15 @@ import MessageBubble from './MessageBubble';
 import CannedResponses from './CannedResponses';
 import TransferModal from './TransferModal';
 import TagModal from './TagModal';
+import ResolveModal from './ResolveModal';
 import useAuthStore from '../store/authStore';
 import useChatStore from '../store/chatStore';
 import { getSocket } from '../services/socket';
 import api, { sendAgentMessage } from '../services/api';
 import {
-  avatarColor,
   dateSeparatorLabel,
-  getInitials,
+  pickCustomerAvatar,
+  resolveAssetUrl,
   roomId as getRoomId,
   statusMeta,
   toBanglaDigits,
@@ -142,8 +141,10 @@ export default function ChatWindow({ onBack }) {
   const [showEmoji, setShowEmoji] = useState(false);
   const [showNote, setShowNote] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [showTag, setShowTag] = useState(false);
+  const [showResolve, setShowResolve] = useState(false);
   const bottomRef = useRef(null);
   const fileRef = useRef(null);
   const textareaRef = useRef(null);
@@ -179,6 +180,7 @@ export default function ChatWindow({ onBack }) {
     setShowNote(false);
     setNoteText('');
     setShowEmoji(false);
+    setAvatarFailed(false);
   }, [activeRoomId]);
 
   useEffect(() => {
@@ -230,19 +232,6 @@ export default function ChatWindow({ onBack }) {
   };
 
   const handleResolve = async () => {
-    const result = await Swal.fire({
-      title: 'Resolve this chat?',
-      text: 'The customer will be asked to rate the conversation.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Resolve',
-      cancelButtonText: 'Cancel',
-      confirmButtonColor: '#6C63FF',
-      cancelButtonColor: '#6b7280',
-      heightAuto: false,
-    });
-    if (!result.isConfirmed) return;
-
     const socket = getSocket();
     if (!socket?.connected) {
       toast.error('Socket not connected');
@@ -335,6 +324,18 @@ export default function ChatWindow({ onBack }) {
     }
 
     const socket = getSocket();
+    const tmpId = `tmp-${Date.now()}`;
+    addMessage(activeRoomId, {
+      _id: tmpId,
+      sender_type: 'AGENT',
+      sender_id: agent?._id || agent?.id,
+      sender_name: agent?.name || 'Agent',
+      sender_avatar: agent?.avatar || null,
+      message: body,
+      attachments,
+      createdAt: new Date().toISOString(),
+    });
+
     setText('');
     setShowCanned(false);
     setShowEmoji(false);
@@ -346,6 +347,7 @@ export default function ChatWindow({ onBack }) {
         room_id: activeRoomId,
         message: body,
         attachments,
+        temp_id: tmpId,
       });
       return;
     }
@@ -457,68 +459,96 @@ export default function ChatWindow({ onBack }) {
   if (!activeRoomId) return <EmptyChatState />;
   if (!room) return <ChatSkeleton />;
 
+  const headerAvatarRaw =
+    room?.customer_profile?.avatar ||
+    room?.customer_profile?.avatarUrl ||
+    room?.customer_avatar_url ||
+    pickCustomerAvatar(room?.customer || {}, room);
+  const headerAvatar =
+    !avatarFailed && headerAvatarRaw ? resolveAssetUrl(headerAvatarRaw) : null;
+  const customerName =
+    room?.customer_profile?.name || room.guest_name || 'Customer';
+  const channelLabel =
+    room.type === 'ORDER_SUPPORT' ? 'Order Support' : room?.channel || 'General';
+  const isLive = room.status === 'ACTIVE';
+
   return (
     <div
-      className="h-full flex flex-col bg-page dark:bg-[#0b1220] border-x border-slate-200 dark:border-slate-800"
+      className="h-full flex flex-col bg-page dark:bg-[#0b1220]"
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
       {/* Header */}
-      <div className="shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-4 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            {onBack && (
-              <button
-                type="button"
-                onClick={onBack}
-                className="lg:hidden p-1.5 rounded-btn hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition"
-                aria-label="Back"
-              >
-                <ArrowLeftIcon className="w-5 h-5" />
-              </button>
-            )}
-            <div
-              className={`w-10 h-10 rounded-full ${avatarColor(
-                room.guest_name
-              )} flex items-center justify-center text-white text-sm font-semibold shrink-0`}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="lg:hidden p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+              aria-label="Back"
             >
-              {getInitials(room.guest_name || 'G')}
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-semibold text-text-primary dark:text-white truncate text-sm">
-                  {room.guest_name || 'Guest'}
-                </h3>
-                <span
-                  className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${status.color}`}
-                >
+              <ArrowLeftIcon className="w-5 h-5" />
+            </button>
+          )}
+
+          <div className="relative shrink-0">
+            {headerAvatar ? (
+              <img
+                src={headerAvatar}
+                alt={customerName}
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-green-400"
+                onError={() => setAvatarFailed(true)}
+              />
+            ) : (
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+              >
+                {customerName?.charAt(0)?.toUpperCase()}
+              </div>
+            )}
+            {isLive && (
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full ring-2 ring-white dark:ring-slate-900" />
+            )}
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-semibold text-slate-800 dark:text-white text-sm leading-tight truncate">
+                {customerName}
+              </h3>
+              {isLive && (
+                <span className="px-1.5 py-0.5 rounded-md text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                  Live
+                </span>
+              )}
+              {!isLive && status && (
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${status.color}`}>
                   {status.label}
                 </span>
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  {room.type === 'ORDER_SUPPORT'
-                    ? '📦 ORDER_SUPPORT'
-                    : 'GENERAL'}
-                </span>
-              </div>
-              {room.type === 'ORDER_SUPPORT' &&
-              (room.order_metadata?.order_number || room.order_id) ? (
-                <p className="text-xs text-text-secondary mt-0.5 leading-bn">
-                  Order #{room.order_metadata?.order_number || room.order_id}
-                </p>
-              ) : null}
+              )}
             </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+              {channelLabel}
+              {room.type === 'ORDER_SUPPORT' &&
+              (room.order_metadata?.order_number || room.order_id)
+                ? ` · #${room.order_metadata?.order_number || room.order_id}`
+                : ''}
+              {isLive ? ' · Active now' : ''}
+            </p>
           </div>
         </div>
 
-        <div className="mt-3 flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1 shrink-0">
           {room.status === 'WAITING_FOR_AGENT' && (
             <button
               type="button"
               onClick={handleTakeChat}
-              className="inline-flex items-center gap-1.5 rounded-btn bg-success hover:bg-emerald-600 text-white text-xs font-semibold px-3 py-2 transition duration-200 shadow-sm"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 flex items-center gap-1.5 transition-colors"
             >
-              <CheckIcon className="w-4 h-4" />
-              Take chat
+              <CheckIcon className="w-3.5 h-3.5" />
+              Take
             </button>
           )}
           {room.status === 'ACTIVE' && (
@@ -526,17 +556,17 @@ export default function ChatWindow({ onBack }) {
               <button
                 type="button"
                 onClick={() => setShowTransfer(true)}
-                className="inline-flex items-center gap-1.5 rounded-btn bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold px-3 py-2 transition duration-200"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 flex items-center gap-1.5 transition-colors"
               >
-                <ArrowUpRightIcon className="w-4 h-4" />
+                <ArrowUpRightIcon className="w-3.5 h-3.5" />
                 Transfer
               </button>
               <button
                 type="button"
-                onClick={handleResolve}
-                className="inline-flex items-center gap-1.5 rounded-btn bg-primary hover:bg-primary-600 text-white text-xs font-semibold px-3 py-2 transition duration-200"
+                onClick={() => setShowResolve(true)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 flex items-center gap-1.5 transition-colors"
               >
-                <CheckIcon className="w-4 h-4" />
+                <CheckIcon className="w-3.5 h-3.5" />
                 Resolve
               </button>
             </>
@@ -544,18 +574,18 @@ export default function ChatWindow({ onBack }) {
           <button
             type="button"
             onClick={() => setShowNote((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-btn border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold px-3 py-2 transition duration-200"
+            className="hidden sm:inline-flex px-2.5 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            title="Add note"
           >
-            <ClipboardDocumentListIcon className="w-4 h-4" />
-            Add note
+            <ClipboardDocumentListIcon className="w-3.5 h-3.5" />
           </button>
           <button
             type="button"
             onClick={() => setShowTag(true)}
-            className="inline-flex items-center gap-1.5 rounded-btn border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold px-3 py-2 transition duration-200"
+            className="hidden sm:inline-flex px-2.5 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            title="Tag"
           >
-            <TagIcon className="w-4 h-4" />
-            Tag
+            <TagIcon className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -574,7 +604,14 @@ export default function ChatWindow({ onBack }) {
       <CsatCard room={room} />
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto custom-scroll px-4 py-4">
+      <div
+        className="flex-1 overflow-y-auto custom-scroll px-4 py-4 space-y-1 bg-slate-50/50 dark:bg-slate-950/50"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.08) 1px, transparent 0)',
+          backgroundSize: '24px 24px',
+        }}
+      >
         {grouped.map((item) =>
           item.type === 'sep' ? (
             <div key={item.key} className="flex justify-center my-4">
@@ -745,6 +782,14 @@ export default function ChatWindow({ onBack }) {
         open={showTag}
         onClose={() => setShowTag(false)}
         existing={room.tags || []}
+      />
+      <ResolveModal
+        isOpen={showResolve}
+        onClose={() => setShowResolve(false)}
+        onConfirm={() => {
+          setShowResolve(false);
+          handleResolve();
+        }}
       />
     </div>
   );

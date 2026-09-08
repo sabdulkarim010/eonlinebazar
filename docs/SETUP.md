@@ -43,7 +43,7 @@ npm run dev
 
 ```bash
 cd ../admin-dashboard
-cp .env.example .env   # VITE_API_URL=http://localhost:5001
+cp .env.example .env   # use relative /api/chat-admin (do NOT set VITE_API_URL=http://localhost:5001)
 npm install
 npm run dev
 # → http://localhost:5173

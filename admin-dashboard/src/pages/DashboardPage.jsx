@@ -22,17 +22,18 @@ export default function DashboardPage() {
   const setMessages = useChatStore((s) => s.setMessages);
   const addOrUpdateRoom = useChatStore((s) => s.addOrUpdateRoom);
   const clearUnread = useChatStore((s) => s.clearUnread);
+  const activeInboxTab = useChatStore((s) => s.activeInboxTab);
+  const setActiveInboxTab = useChatStore((s) => s.setActiveInboxTab);
   const activeRoomId = useChatStore((s) => s.activeRoomId);
   const mobileView = useChatStore((s) => s.mobileView);
   const setMobileView = useChatStore((s) => s.setMobileView);
   const hydrateTheme = useThemeStore((s) => s.hydrateTheme);
 
-  const [activeTab, setActiveTab] = useState('WAITING_FOR_AGENT');
   const [roomsLoading, setRoomsLoading] = useState(true);
 
   const loadRooms = useCallback(
     async (tabStatus) => {
-      const status = tabStatus || activeTab || 'WAITING_FOR_AGENT';
+      const status = tabStatus || activeInboxTab || 'WAITING_FOR_AGENT';
       try {
         setRoomsLoading(true);
         const data = await fetchRooms(status);
@@ -46,12 +47,12 @@ export default function DashboardPage() {
         setRoomsLoading(false);
       }
     },
-    [activeTab, setRooms, setCounts]
+    [activeInboxTab, setRooms, setCounts]
   );
 
   const handleTabChange = useCallback(
     async (tabId) => {
-      setActiveTab(tabId);
+      setActiveInboxTab(tabId);
       try {
         setRoomsLoading(true);
         const data = await fetchRooms(tabId);
@@ -64,7 +65,7 @@ export default function DashboardPage() {
         setRoomsLoading(false);
       }
     },
-    [setRooms, setCounts]
+    [setRooms, setCounts, setActiveInboxTab]
   );
 
   const loadStats = useCallback(async () => {
@@ -111,7 +112,13 @@ export default function DashboardPage() {
 
     fetchProfile()
       .then((data) => {
-        if (data?.agent) setAgent(data.agent);
+        if (data?.agent) {
+          const prev = useAuthStore.getState().agent;
+          setAgent({
+            ...data.agent,
+            avatar: data.agent.avatar || data.agent.image || prev?.avatar || prev?.image || null,
+          });
+        }
       })
       .catch(() => {
         /* keep persisted agent from auth store */
@@ -148,9 +155,9 @@ export default function DashboardPage() {
         {/* Desktop sidebar — stay mounted so tab state never resets mid-fetch */}
         <div className="hidden md:block w-[280px] shrink-0 h-full">
           <Sidebar
-            activeTab={activeTab}
+            activeTab={activeInboxTab}
             loadingRooms={roomsLoading}
-            onRefresh={() => loadRooms(activeTab)}
+            onRefresh={() => loadRooms(activeInboxTab)}
             onTabChange={handleTabChange}
           />
         </div>
@@ -162,9 +169,9 @@ export default function DashboardPage() {
           }`}
         >
           <Sidebar
-            activeTab={activeTab}
+            activeTab={activeInboxTab}
             loadingRooms={roomsLoading}
-            onRefresh={() => loadRooms(activeTab)}
+            onRefresh={() => loadRooms(activeInboxTab)}
             onTabChange={handleTabChange}
           />
         </div>

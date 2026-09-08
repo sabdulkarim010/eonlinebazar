@@ -6,15 +6,23 @@
 
 const crypto = require('crypto');
 const Agent = require('../models/Agent.model');
+const { getMainStoreApiUrl } = require('../config/storeApi');
 
 function getStoreBaseUrl() {
-  const raw = process.env.MAIN_STORE_API_URL;
-  return raw ? String(raw).replace(/\/$/, '') : null;
+  return getMainStoreApiUrl();
 }
 
 function isStoreAdminToken(decoded) {
   if (!decoded || typeof decoded !== 'object') return false;
-  if (decoded.role === 'admin' && decoded.username) return true;
+
+  const role = String(decoded.role || '').toLowerCase();
+  const accountRole = String(decoded.accountRole || '').toLowerCase();
+  const adminRoles = new Set(['admin', 'superadmin', 'super_admin']);
+
+  if (decoded.username && (adminRoles.has(role) || adminRoles.has(accountRole))) {
+    return true;
+  }
+
   return Boolean(decoded.username && !decoded.id && !decoded._id && !decoded.userId);
 }
 
@@ -125,10 +133,25 @@ async function resolveAgentFromToken(decoded, authorizationHeader = '') {
   if (query) {
     const existing = await Agent.findOne(query).select('-password');
     if (existing) {
-      return backfillAgentLink(existing, {
+      const linked = await backfillAgentLink(existing, {
         adminId: decoded.adminId || decoded.storeAdminId,
         storeAdminUsername: decoded.username,
       });
+      if (isStoreAdminToken(decoded)) {
+        const authHeader =
+          authorizationHeader && authorizationHeader.startsWith('Bearer ')
+            ? authorizationHeader
+            : authorizationHeader
+              ? `Bearer ${authorizationHeader}`
+              : '';
+        const storeAdmin = await fetchStoreAdminProfile(authHeader);
+        const avatar = storeAdmin?.image || storeAdmin?.avatar || null;
+        if (avatar && linked.avatar !== avatar) {
+          linked.avatar = avatar;
+          await Agent.findByIdAndUpdate(linked._id, { avatar });
+        }
+      }
+      return linked;
     }
   }
 
@@ -142,6 +165,24 @@ async function resolveAgentFromToken(decoded, authorizationHeader = '') {
     const storeAdmin = await fetchStoreAdminProfile(authHeader);
     if (storeAdmin) {
       return createAgentFromStoreAdmin(storeAdmin, decoded);
+    }
+
+    // Store API unreachable — still allow socket/API auth from JWT claims
+    const username = String(decoded.username || '').trim();
+    if (username) {
+      console.warn(
+        '[agentResolver] store profile unavailable — linking agent from JWT for',
+        username
+      );
+      return createAgentFromStoreAdmin(
+        {
+          username,
+          email: decoded.email || null,
+          role: decoded.accountRole || decoded.role,
+          name: username,
+        },
+        decoded
+      );
     }
   }
 
@@ -170,4 +211,5 @@ module.exports = {
   resolveAgentFromToken,
   toAgentAuthPayload,
   isStoreAdminToken,
+  fetchStoreAdminProfile,
 };

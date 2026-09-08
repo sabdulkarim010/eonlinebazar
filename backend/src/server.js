@@ -57,6 +57,7 @@ const PUBLIC_DIR = path.join(REPO_ROOT, 'public');
 // Chat microservice proxy — BEFORE body parsers (multipart avatar upload must stream)
 const {
   mountChatServiceProxy,
+  mountChatWebSocketProxy,
   logChatProxyConfig,
 } = require('./middlewares/chatApiProxy');
 mountChatServiceProxy(app);
@@ -190,6 +191,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/customer', userRoutes);
+app.use('/api/users', userRoutes); // alias — chat microservice + legacy clients (GET /api/users/profile)
 app.use('/api/auth', authRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/wishlist', wishlistRoutes);
@@ -233,6 +235,8 @@ app.use((err, req, res, next) => {
 const http = require('http');
 const { PROXY_STREAM_TIMEOUT_MS } = require('./middlewares/chatApiProxy');
 const httpServer = http.createServer(app);
+// Chat Socket.io on :5001 — proxy /chat-socket/* and chat-admin /socket.io/* before store Socket.IO
+mountChatWebSocketProxy(httpServer);
 const { initSocketServer } = require('./services/socketService');
 initSocketServer(httpServer);
 

@@ -2,6 +2,7 @@ const ChatRoom = require('../models/ChatRoom.model');
 const ChatMessage = require('../models/ChatMessage.model');
 const Agent = require('../models/Agent.model');
 const CannedResponse = require('../models/CannedResponse.model');
+require('../models/StoreUser.model');
 const {
   fetchProfileByUserId,
   fetchCustomerOrders,
@@ -10,6 +11,7 @@ const { uploadChatImage } = require('../services/upload.service');
 const {
   applyLastMessage,
   syncLabelsAndTags,
+  withCustomerUserPopulate,
 } = require('../utils/chatRoomHelpers');
 
 function roomOwnedByGuest(room, guestSessionId, userId) {
@@ -473,7 +475,7 @@ exports.getChatCustomerProfile = async (req, res) => {
   try {
     const { room_id } = req.params;
 
-    const room = await ChatRoom.findById(room_id).lean();
+    const room = await withCustomerUserPopulate(ChatRoom.findById(room_id)).lean();
     if (!room) {
       return res.status(404).json({ success: false, message: 'Not found' });
     }
@@ -502,6 +504,13 @@ exports.getChatCustomerProfile = async (req, res) => {
     }
 
     const profile = liveProfile || profileSnap;
+    const avatarUrl =
+      profile.avatarUrl ||
+      profile.avatar ||
+      profile.image ||
+      profileSnap.avatarUrl ||
+      profileSnap.avatar ||
+      null;
 
     return res.json({
       success: true,
@@ -510,7 +519,9 @@ exports.getChatCustomerProfile = async (req, res) => {
         name: profile.name || room.guest_name,
         email: profile.email || room.guest_email,
         phone: profile.mobile || profile.phone || null,
-        avatar: profile.avatarUrl || profile.avatar || null,
+        avatar: avatarUrl,
+        image: avatarUrl,
+        profilePic: avatarUrl,
         isVerified: profile.isVerified || false,
         memberSince: profile.memberSince || profile.fetched_at || null,
         orderCount: profile.totalOrders || 0,

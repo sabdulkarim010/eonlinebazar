@@ -51,6 +51,11 @@ function normalizeMessage(raw) {
     id: String(id),
     senderType: normalizeSenderType(raw.sender_type || raw.senderType || raw.type),
     senderName: raw.sender_name || raw.senderName || '',
+    senderAvatar:
+      raw.sender_avatar ||
+      raw.senderAvatar ||
+      (raw.agent && (raw.agent.avatar || raw.agent.avatarUrl)) ||
+      null,
     text: String(raw.message || raw.content || raw.text || '').trim(),
     createdAt: raw.created_at || raw.createdAt || raw.timestamp || new Date().toISOString(),
     quickReplies: Array.isArray(raw.quick_replies || raw.quickReplies)
@@ -143,6 +148,7 @@ export function useAriaChat({ user, guestName = 'Guest', orderContext = null, au
   const [connectionState, setConnectionState] = useState('connecting');
   const [roomStatus, setRoomStatus] = useState('BOT');
   const [agentName, setAgentName] = useState(null);
+  const [agentAvatarUrl, setAgentAvatarUrl] = useState(null);
   const [isAgentTyping, setIsAgentTyping] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState(null);
@@ -289,6 +295,10 @@ export function useAriaChat({ user, guestName = 'Guest', orderContext = null, au
 
     socket.on('new_message', (msg) => {
       if (msg?.sender_type === 'INTERNAL') return;
+      if (msg?.agent?.name) setAgentName(msg.agent.name);
+      if (msg?.agent?.avatar || msg?.sender_avatar) {
+        setAgentAvatarUrl(msg.agent?.avatar || msg.sender_avatar || null);
+      }
       const normalized = normalizeMessage(msg);
       appendMessage(msg, { replaceTmpText: normalized?.text });
       setIsAgentTyping(false);
@@ -305,6 +315,13 @@ export function useAriaChat({ user, guestName = 'Guest', orderContext = null, au
     socket.on('agent_joined', (payload) => {
       const name = payload?.agent_name || payload?.name || payload?.agentName || 'Agent';
       setAgentName(name);
+      setAgentAvatarUrl(
+        payload?.agent?.avatar ||
+          payload?.agent?.avatarUrl ||
+          payload?.agent_avatar ||
+          payload?.agentAvatar ||
+          null
+      );
       setRoomStatus('ACTIVE');
       setIsAgentTyping(false);
     });
@@ -369,6 +386,7 @@ export function useAriaChat({ user, guestName = 'Guest', orderContext = null, au
       setError(null);
       setConnectionState('connecting');
       setAgentName(null);
+      setAgentAvatarUrl(null);
       setRoomStatus('BOT');
       renderedIdsRef.current = new Set();
       setMessages([]);
@@ -707,6 +725,7 @@ export function useAriaChat({ user, guestName = 'Guest', orderContext = null, au
     roomStatus,
     roomId,
     agentName,
+    agentAvatarUrl,
     personaName: agentName || ARIA_PERSONA,
     statusLabel,
     waitingForAgent,

@@ -91,7 +91,6 @@ const chatRoomSchema = new mongoose.Schema(
     order_id: {
       type: String,
       default: null,
-      index: true,
     },
     /**
      * Snapshot of order context at chat start so admins see
@@ -231,6 +230,17 @@ const chatRoomSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    rating_detail: {
+      type: new mongoose.Schema(
+        {
+          score: { type: Number, min: 1, max: 5, default: null },
+          label: { type: String, default: null },
+          submittedAt: { type: Date, default: null },
+        },
+        { _id: false }
+      ),
+      default: null,
+    },
     source: {
       type: String,
       enum: ['web', 'mobile', 'order_page', 'product_page', 'whatsapp'],
@@ -268,5 +278,22 @@ chatRoomSchema.index({ status: 1, last_message_at: -1 });
 chatRoomSchema.index({ assigned_agent_id: 1, status: 1 });
 chatRoomSchema.index({ user_id: 1 });
 chatRoomSchema.index({ order_id: 1 });
+
+/** Aliases for admin CRM populate — both map to registered store user_id. */
+chatRoomSchema.virtual('user', {
+  ref: 'User',
+  localField: 'user_id',
+  foreignField: '_id',
+  justOne: true,
+});
+chatRoomSchema.virtual('customerId', {
+  ref: 'User',
+  localField: 'user_id',
+  foreignField: '_id',
+  justOne: true,
+});
+
+chatRoomSchema.set('toJSON', { virtuals: true });
+chatRoomSchema.set('toObject', { virtuals: true });
 
 module.exports = mongoose.model('ChatRoom', chatRoomSchema);

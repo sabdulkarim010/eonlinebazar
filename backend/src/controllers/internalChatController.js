@@ -5,6 +5,7 @@
 
 const User = require('../models/user');
 const Order = require('../models/order');
+const Admin = require('../models/admin');
 const { enrichOrderItemsWithImages } = require('../utils/orderItemImages');
 
 function hydrateCustomerName(customer = {}) {
@@ -32,14 +33,17 @@ function formatAddressSnapshot(addr) {
 }
 
 function buildChatProfile(customer) {
+    const avatarUrl = customer.avatarUrl || customer.avatar || null;
     const defaultAddress = pickDefaultAddress(customer.addresses);
     return {
         user_id: String(customer._id),
         name: hydrateCustomerName(customer),
         email: customer.email || null,
         mobile: customer.mobile || customer.phone || null,
-        avatar: customer.avatar || '',
-        avatarUrl: customer.avatarUrl || customer.avatar || null,
+        avatar: customer.avatar || avatarUrl || '',
+        avatarUrl,
+        image: avatarUrl,
+        profilePic: avatarUrl,
         defaultAddress: formatAddressSnapshot(defaultAddress),
     };
 }
@@ -123,8 +127,43 @@ const getInternalOrderById = async (req, res) => {
     }
 };
 
+/** PUT /api/internal/admins/:id/image — chat service sync for Admin.image */
+const updateInternalAdminImage = async (req, res) => {
+    try {
+        const image = req.body?.image || req.body?.avatar;
+        if (!image || !String(image).trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'image URL is required',
+            });
+        }
+
+        const admin = await Admin.findByIdAndUpdate(
+            req.params.id,
+            { image: String(image).trim() },
+            { new: true }
+        ).select('-password');
+
+        if (!admin) {
+            return res.status(404).json({
+                success: false,
+                message: 'Admin not found.',
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            image: admin.image || null,
+        });
+    } catch (error) {
+        console.error('[internal] updateInternalAdminImage:', error);
+        return res.status(500).json({ success: false, message: 'Server error.' });
+    }
+};
+
 module.exports = {
     getInternalCustomerProfile,
     getInternalCustomerOrders,
     getInternalOrderById,
+    updateInternalAdminImage,
 };

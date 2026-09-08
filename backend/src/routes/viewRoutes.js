@@ -18,9 +18,10 @@ const getProfilePage = require('../utils/profilePageBuilder');
 const { injectSharedPartials } = require('../utils/injectSharedPartials');
 
 const REPO_ROOT = path.join(__dirname, '..', '..', '..');
+const BACKEND_ROOT = path.join(__dirname, '..', '..');
 const CLIENT_DIR = path.join(REPO_ROOT, 'client');
 const PUBLIC_DIR = path.join(REPO_ROOT, 'public');
-const CHAT_ADMIN_DIST = path.join(REPO_ROOT, 'admin-dashboard', 'dist');
+const CHAT_ADMIN_DIST = path.join(BACKEND_ROOT, 'public', 'chat-admin');
 const CHAT_ADMIN_INDEX = path.join(CHAT_ADMIN_DIST, 'index.html');
 
 function sendClientHtml(res, filename) {
