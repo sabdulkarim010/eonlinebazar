@@ -5,6 +5,7 @@ import {
   FlatList,
   TextInput,
   Pressable,
+  TouchableOpacity,
   Image,
   StyleSheet,
   KeyboardAvoidingView,
@@ -31,6 +32,12 @@ const FAQ_ITEMS = [
   { icon: '💳', text: 'Payment methods?' },
   { icon: '🚚', text: 'Delivery time?' },
 ];
+
+const RATING_PROMPT =
+  'EOnlineBazar-এর সাথে থাকার জন্য আপনাকে ধন্যবাদ! আমাদের আজকের কাস্টমার সাপোর্ট সার্ভিসটি আপনার কেমন লেগেছে? ৫ স্টারের মধ্যে আপনার অভিজ্ঞতা শেয়ার করুন।';
+
+const RATING_THANK_YOU =
+  'আপনার মূল্যবান মতামতের জন্য ধন্যবাদ! EOnlineBazar-এ কেনাকাটা উপভোগ করুন।';
 
 function getImageUrl(msg) {
   const att = msg.attachments?.[0];
@@ -60,6 +67,7 @@ export default function LiveSupportScreen({ route, navigation }) {
     error,
     canSend,
     showRatingPrompt,
+    hasRated,
     sendMessage,
     sendImage,
     submitRating,
@@ -75,6 +83,8 @@ export default function LiveSupportScreen({ route, navigation }) {
 
   const [inputText, setInputText] = useState('');
   const [faqVisible, setFaqVisible] = useState(true);
+  const [selectedRating, setSelectedRating] = useState(0);
+  const [submittingRating, setSubmittingRating] = useState(false);
   const flatListRef = useRef(null);
 
   const isLoading = connectionState === 'connecting' && messages.length === 0;
@@ -140,11 +150,23 @@ export default function LiveSupportScreen({ route, navigation }) {
   };
 
   const handleRate = async (score) => {
+    if (submittingRating || hasRated) return;
+    setSelectedRating(score);
+    setSubmittingRating(true);
+    haptic.light();
     const ok = await submitRating(score);
+    setSubmittingRating(false);
     if (ok) {
       haptic.success();
-      Alert.alert('Thank you!', 'Your feedback helps us improve.');
+    } else {
+      setSelectedRating(0);
     }
+  };
+
+  const handleStartNewChat = () => {
+    setSelectedRating(0);
+    setFaqVisible(true);
+    resetChat();
   };
 
   const handleInputChange = (text) => {
@@ -341,27 +363,6 @@ export default function LiveSupportScreen({ route, navigation }) {
           </View>
         ) : null}
 
-        {showRatingPrompt ? (
-          <View style={[styles.ratingSection, { backgroundColor: T.card, borderTopColor: T.border }]}>
-            <Text style={[styles.ratingTitle, { color: T.text }]}>
-              How was our support? ⭐
-            </Text>
-            <View style={styles.ratingRow}>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <Pressable
-                  key={n}
-                  onPress={() => handleRate(n)}
-                  style={styles.ratingBtn}
-                >
-                  <Text style={styles.ratingStars}>
-                    {'⭐'.repeat(n)}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
         {!isResolved ? (
           <View style={[styles.inputSection, {
             backgroundColor: T.card,
@@ -403,18 +404,58 @@ export default function LiveSupportScreen({ route, navigation }) {
             </Pressable>
           </View>
         ) : (
-          <View style={[styles.resolvedBanner, { backgroundColor: T.successBg, paddingBottom: insets.bottom + 8 }]}>
-            <Text style={[styles.resolvedText, { color: T.success }]}>
-              ✅ This conversation has been resolved.
-            </Text>
-            <Pressable onPress={() => {
-              setFaqVisible(true);
-              resetChat();
-            }}>
-              <Text style={[styles.newChatText, { color: T.accent }]}>
-                Start new chat
-              </Text>
-            </Pressable>
+          <View style={[styles.resolvedFooter, {
+            backgroundColor: T.card,
+            borderTopColor: T.border,
+            paddingBottom: insets.bottom + 12,
+          }]}>
+            {showRatingPrompt ? (
+              <View style={styles.ratingSection}>
+                <Text style={[styles.ratingPrompt, { color: T.textSub }]}>
+                  {RATING_PROMPT}
+                </Text>
+                <View style={styles.ratingRow}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <TouchableOpacity
+                      key={n}
+                      onPress={() => handleRate(n)}
+                      disabled={submittingRating}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                      style={styles.starTouchable}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Rate ${n} out of 5 stars`}
+                    >
+                      {submittingRating && selectedRating === n ? (
+                        <ActivityIndicator size="small" color="#f59e0b" />
+                      ) : (
+                        <Ionicons
+                          name={n <= selectedRating ? 'star' : 'star-outline'}
+                          size={36}
+                          color="#f59e0b"
+                        />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            ) : hasRated ? (
+              <View style={[styles.thankYouBanner, { backgroundColor: T.successBg }]}>
+                <Ionicons name="heart" size={20} color={T.success} />
+                <Text style={[styles.thankYouText, { color: T.success }]}>
+                  {RATING_THANK_YOU}
+                </Text>
+              </View>
+            ) : null}
+
+            <TouchableOpacity
+              style={[styles.newChatBtn, { backgroundColor: T.accent }]}
+              onPress={handleStartNewChat}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" />
+              <Text style={styles.newChatBtnText}>Start New Chat</Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -560,16 +601,62 @@ const styles = StyleSheet.create({
   },
   faqIcon: { fontSize: 12 },
   faqText: { fontSize: 11, fontWeight: '500' },
-  ratingSection: {
-    padding: 16,
+  resolvedFooter: {
     borderTopWidth: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    gap: 14,
+  },
+  ratingSection: {
+    alignItems: 'center',
+    gap: 16,
+  },
+  ratingPrompt: {
+    fontSize: 14,
+    lineHeight: 22,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    paddingHorizontal: 4,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  starTouchable: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thankYouBanner: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
   },
-  ratingTitle: { fontSize: 14, fontWeight: '700' },
-  ratingRow: { flexDirection: 'row', gap: 8 },
-  ratingBtn: { padding: 4 },
-  ratingStars: { fontSize: 28 },
+  thankYouText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '600',
+  },
+  newChatBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  newChatBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
   inputSection: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -606,12 +693,4 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   sendBtnDisabled: { opacity: 0.5 },
-  resolvedBanner: {
-    padding: 16,
-    alignItems: 'center',
-    gap: 8,
-    borderTopWidth: 1,
-  },
-  resolvedText: { fontSize: 13, fontWeight: '600' },
-  newChatText: { fontSize: 13, fontWeight: '700', textDecorationLine: 'underline' },
 });

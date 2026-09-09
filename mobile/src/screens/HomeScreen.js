@@ -11,18 +11,14 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { loadFlashSaleCatalog, searchAPI } from '../api/search';
 import CategoryGrid from '../components/CategoryGrid';
 import AppStatusBar from '../components/AppStatusBar';
 import EmptyState from '../components/EmptyState';
 import ProductGrid, { ProductCard } from '../components/ProductGrid';
-import ProfileAvatar from '../components/profile/ProfileAvatar';
 import { BannerSkeleton } from '../components/SkeletonBox';
-import useAuthStore from '../store/useAuthStore';
 import useCartStore from '../store/useCartStore';
-import useThemeStore from '../store/useThemeStore';
 import useToastStore from '../store/useToastStore';
 import { useTheme } from '../theme/tokens';
 import { haptic } from '../utils/haptics';
@@ -65,15 +61,9 @@ function openBannerLink(navigation, linkUrl) {
   navigation.navigate('Shop');
 }
 
-const HomeHeader = memo(function HomeHeader({ navigation }) {
+const HomeHeader = memo(function HomeHeader() {
   const insets = useSafeAreaInsets();
   const T = useTheme();
-  const dark = useThemeStore((state) => state.mode === 'dark');
-  const cartCount = useCartStore((state) =>
-    state.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
-  const user = useAuthStore((state) => state.user);
-  const token = useAuthStore((state) => state.token);
-  const isLoggedIn = Boolean(token && user);
 
   return (
     <View
@@ -96,39 +86,6 @@ const HomeHeader = memo(function HomeHeader({ navigation }) {
           <Text style={[hStyles.brandName, { color: T.headerText }]}>EOnlineBazar</Text>
           <Text style={[hStyles.brandSub, { color: T.headerSub }]}>Trusted Shopping</Text>
         </View>
-      </View>
-
-      <View style={hStyles.rightActions}>
-        <Pressable
-          style={hStyles.iconBtn}
-          onPress={() => navigation.navigate('Cart')}
-          hitSlop={8}
-          accessibilityLabel="Cart"
-        >
-          <Ionicons name="cart-outline" size={22} color={T.headerText} />
-          {cartCount > 0 ? (
-            <View style={[hStyles.badge, { backgroundColor: T.error }]}>
-              <Text style={[hStyles.badgeText, { color: T.textOnAccent }]}>
-                {cartCount > 9 ? '9+' : cartCount}
-              </Text>
-            </View>
-          ) : null}
-        </Pressable>
-
-        <Pressable
-          style={hStyles.avatarBtn}
-          onPress={() => navigation.navigate('Profile')}
-          hitSlop={8}
-          accessibilityLabel={isLoggedIn ? 'Profile' : 'Sign in'}
-        >
-          {isLoggedIn ? (
-            <ProfileAvatar user={user} size={32} showRing={false} dark={dark} />
-          ) : (
-            <View style={[hStyles.signInIcon, { backgroundColor: T.accentLight }]}>
-              <Ionicons name="person-outline" size={16} color={T.accent} />
-            </View>
-          )}
-        </Pressable>
       </View>
     </View>
   );
@@ -411,7 +368,7 @@ function HomeScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: T.bg }]}>
       <AppStatusBar />
-      <HomeHeader navigation={navigation} />
+      <HomeHeader />
       {heroError ? (
         <EmptyState
           type="network"
@@ -442,7 +399,7 @@ const hStyles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
@@ -451,40 +408,6 @@ const hStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    flex: 1,
-  },
-  rightActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  iconBtn: {
-    position: 'relative',
-    padding: 4,
-  },
-  badge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  avatarBtn: {
-    marginLeft: 2,
-  },
-  signInIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   logo: {
     width: 38,
