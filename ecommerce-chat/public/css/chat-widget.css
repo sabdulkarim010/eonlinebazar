@@ -238,6 +238,7 @@
   display: flex !important;
   flex-direction: row !important;
   align-items: flex-end !important;
+  justify-content: flex-start !important;
   gap: 6px !important;
   margin-bottom: 2px !important;
   padding: 0 8px !important;
@@ -307,8 +308,10 @@
 
 .cw-msg-row-customer {
   display: flex !important;
+  flex-direction: column !important;
   justify-content: flex-end !important;
   align-items: flex-end !important;
+  align-self: flex-end !important;
   margin-bottom: 2px !important;
   padding: 0 8px !important;
   width: 100% !important;
@@ -369,6 +372,18 @@
   flex-direction: column !important;
   animation: cw-msgIn 0.2s ease !important;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+}
+
+.cw-msg.cw-msg-row-agent {
+  flex-direction: row !important;
+  justify-content: flex-start !important;
+  align-self: flex-start !important;
+}
+
+.cw-msg.cw-msg-row-customer {
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  align-self: flex-end !important;
 }
 
 @keyframes cw-msgIn {
@@ -458,6 +473,13 @@
 
 .cw-msg-status.seen path {
   stroke: #22c55e;
+}
+
+.cw-tick {
+  display: inline-flex !important;
+  align-items: center !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
 }
 
 /* Quick replies */

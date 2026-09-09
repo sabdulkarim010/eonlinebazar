@@ -202,6 +202,33 @@
       .replace(/'/g, '&#39;');
   }
 
+  function tickSVG(color) {
+    var c = color === 'green' ? '#22c55e' : '#9ca3af';
+    return '<svg width="18" height="10"' +
+      ' viewBox="0 0 18 10" fill="none"' +
+      ' xmlns="http://www.w3.org/2000/svg">' +
+      '<path d="M1 5L4.5 8.5L10.5 1.5"' +
+      ' stroke="' + c + '" stroke-width="1.5"' +
+      ' stroke-linecap="round"' +
+      ' stroke-linejoin="round"/>' +
+      '</svg>';
+  }
+
+  function doubleTickSVG() {
+    return '<svg width="22" height="10"' +
+      ' viewBox="0 0 22 10" fill="none"' +
+      ' xmlns="http://www.w3.org/2000/svg">' +
+      '<path d="M1 5L4.5 8.5L10.5 1.5"' +
+      ' stroke="#22c55e" stroke-width="1.5"' +
+      ' stroke-linecap="round"' +
+      ' stroke-linejoin="round"/>' +
+      '<path d="M6 5L9.5 8.5L15.5 1.5"' +
+      ' stroke="#22c55e" stroke-width="1.5"' +
+      ' stroke-linecap="round"' +
+      ' stroke-linejoin="round"/>' +
+      '</svg>';
+  }
+
   var CLOUDINARY_CLOUD =
     (global.CHAT_CONFIG && global.CHAT_CONFIG.cloudinaryCloudName) ||
     'd1o6p4utt';
@@ -441,7 +468,7 @@
         '<div id="cw-header-info">' +
           '<p id="cw-agent-name">Aria</p>' +
           '<p id="cw-status">' +
-            '<span id="cw-status-dot" style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;margin-right:4px;"></span>' +
+            '<span id="cw-status-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-right:5px;vertical-align:middle;"></span>' +
             'Online' +
           '</p>' +
         '</div>' +
@@ -540,15 +567,30 @@
     avatar.innerHTML = type === 'agent' ? AGENT_AVATAR_SVG : BOT_AVATAR_SVG;
   }
 
+  function setStatusSubtext(text) {
+    var sub = $('cw-status');
+    if (!sub) return;
+    var dot = $('cw-status-dot');
+    sub.textContent = '';
+    if (!dot) {
+      dot = document.createElement('span');
+      dot.id = 'cw-status-dot';
+      dot.style.cssText =
+        'display:inline-block;width:8px;height:8px;border-radius:50%;' +
+        'background:#22c55e;margin-right:5px;vertical-align:middle;';
+    }
+    sub.appendChild(dot);
+    sub.appendChild(document.createTextNode(text));
+  }
+
   function updateHeader() {
     var label = $('cw-agent-name');
-    var sub = $('cw-status');
-    if (!label || !sub) return;
+    if (!label) return;
 
     if (state.type === 'ORDER_SUPPORT') {
-      sub.textContent = 'Order #' + orderLabel() + ' সাপোর্ট';
+      setStatusSubtext('Order #' + orderLabel() + ' সাপোর্ট');
     } else {
-      sub.textContent = state.agentName ? 'Connected with agent' : 'Online';
+      setStatusSubtext(state.agentName ? 'Connected with agent' : 'Online');
     }
 
     if (state.agentName) {
@@ -965,21 +1007,22 @@
         customerBubble.appendChild(customerImgLink);
       }
 
-      var statusEl = document.createElement('span');
-      statusEl.className = 'cw-msg-status';
-      statusEl.setAttribute('data-msg-id', msgId || msg._id || msg.id || '');
-      statusEl.innerHTML =
-        '<svg width="16" height="11" viewBox="0 0 16 11" fill="none" style="vertical-align:middle">' +
-          '<path d="M1 5.5L4.5 9L10 3" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round"/>' +
-        '</svg>';
-      statusEl.title = 'Sent';
+      wrap.appendChild(customerBubble);
 
-      var bubbleRow = document.createElement('div');
-      bubbleRow.style.cssText =
-        'display:flex;align-items:flex-end;justify-content:flex-end;gap:3px;';
-      bubbleRow.appendChild(customerBubble);
-      bubbleRow.appendChild(statusEl);
-      wrap.appendChild(bubbleRow);
+      var statusWrap = document.createElement('div');
+      statusWrap.style.cssText =
+        'display:flex;align-items:center;' +
+        'justify-content:flex-end;gap:2px;' +
+        'margin-top:2px;padding-right:2px;';
+
+      var statusEl = document.createElement('span');
+      statusEl.className = 'cw-tick';
+      var msgIdForTick = msg._id || msg.id || msgId || '';
+      statusEl.setAttribute('data-tick-id', msgIdForTick);
+      statusEl.innerHTML = tickSVG('grey');
+      statusEl.title = 'Sent';
+      statusWrap.appendChild(statusEl);
+      wrap.appendChild(statusWrap);
 
       var customerTime = document.createElement('span');
       customerTime.className = 'cw-msg-time';
@@ -1787,35 +1830,24 @@
     });
 
     s.on('messages_read', function (data) {
-      if (data && data.readBy === 'agent') {
-        document.querySelectorAll(
-          '.cw-msg-status:not(.seen)'
-        ).forEach(function (el) {
-          el.classList.add('seen');
-          el.title = 'Seen';
-          el.innerHTML =
-            '<svg width="20" height="11" viewBox="0 0 20 11" fill="none" style="vertical-align:middle">' +
-              '<path d="M1 5.5L4.5 9L10 3" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/>' +
-              '<path d="M6 5.5L9.5 9L15 3" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/>' +
-            '</svg>';
-        });
-      }
+      if (!data || data.readBy !== 'agent') return;
+      document.querySelectorAll('.cw-tick').forEach(function (el) {
+        el.innerHTML = doubleTickSVG();
+        el.title = 'Seen';
+      });
     });
 
     s.on('agent_status_change', function (data) {
       if (!data) return;
-      var dot = $('cw-status-dot');
-      var sub = $('cw-status');
+
       if (data.is_online === false) {
-        if (sub) sub.textContent = 'Away';
-        if (dot) dot.style.background = '#f59e0b';
+        setStatusSubtext('Away');
+        var dotOff = document.getElementById('cw-status-dot');
+        if (dotOff) dotOff.style.background = '#9ca3af';
       } else {
-        if (sub) {
-          sub.innerHTML =
-            '<span id="cw-status-dot" style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;margin-right:4px;"></span>' +
-            (state.agentName ? 'Connected with agent' : 'Online');
-        }
-        if (dot) dot.style.background = '#22c55e';
+        setStatusSubtext(
+          state.agentName ? 'Connected with agent' : 'Online'
+        );
       }
     });
   }
