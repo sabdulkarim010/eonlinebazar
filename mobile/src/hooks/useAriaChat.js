@@ -302,6 +302,33 @@ export function useAriaChat({ user, guestName = 'Guest', orderContext = null, au
       const normalized = normalizeMessage(msg);
       appendMessage(msg, { replaceTmpText: normalized?.text });
       setIsAgentTyping(false);
+
+      if (normalized?.senderType === 'AGENT') {
+        setMessages((prev) => {
+          const hasAgentMsg = prev.some(
+            (m) => m.senderType === 'AGENT' ||
+              m.sender_type === 'AGENT' ||
+              m.sender === 'agent'
+          );
+          if (!hasAgentMsg) return prev;
+
+          return prev.filter((m) => {
+            if (
+              m.senderType !== 'SYSTEM' &&
+              m.sender_type !== 'SYSTEM' &&
+              m.sender !== 'system'
+            ) return true;
+
+            const txt = m.message || m.content || m.text || '';
+            const isWaiting =
+              txt.includes('প্রতিনিধি') ||
+              txt.includes('শীঘ্রই') ||
+              txt.includes('অপেক্ষা') ||
+              txt.includes('সাহায্য করবেন');
+            return !isWaiting;
+          });
+        });
+      }
     });
 
     socket.on('handover_started', (payload) => {

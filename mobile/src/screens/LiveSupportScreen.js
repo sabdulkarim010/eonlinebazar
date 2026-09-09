@@ -171,7 +171,9 @@ export default function LiveSupportScreen({ route, navigation }) {
           ) : (
             <View style={[styles.agentAvatar, { backgroundColor: isAgent ? '#6366f1' : '#0f3460' }]}>
               <Text style={styles.agentAvatarEmoji}>
-                {isAgent ? agentLabel.charAt(0).toUpperCase() : '🛍️'}
+                {isAgent
+                  ? agentLabel.charAt(0).toUpperCase()
+                  : '🤖'}
               </Text>
             </View>
           )
@@ -231,7 +233,11 @@ export default function LiveSupportScreen({ route, navigation }) {
         </Pressable>
         <View style={styles.agentInfo}>
           <View style={[styles.agentIcon, { backgroundColor: '#0f3460' }]}>
-            <Text style={styles.agentIconEmoji}>🛍️</Text>
+            <Text style={styles.agentIconEmoji}>
+              {agentName && agentName !== 'Aria'
+                ? agentName.charAt(0).toUpperCase()
+                : '🤖'}
+            </Text>
           </View>
           <View>
             <Text style={styles.agentName}>{displayAgentName}</Text>
@@ -285,7 +291,7 @@ export default function LiveSupportScreen({ route, navigation }) {
               isAgentTyping ? (
                 <View style={styles.typingIndicator}>
                   <View style={[styles.agentAvatar, { backgroundColor: '#0f3460' }]}>
-                    <Text style={styles.agentAvatarEmojiSmall}>🛍️</Text>
+                    <Text style={styles.agentAvatarEmojiSmall}>🤖</Text>
                   </View>
                   <View style={[styles.typingBubble, { backgroundColor: T.card, borderColor: T.border }]}>
                     <Text style={{ color: T.textMuted, fontSize: 12 }}>

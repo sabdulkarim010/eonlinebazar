@@ -59,6 +59,7 @@
     endingSelf: false,
     bootstrapping: null,
     agentName: null,
+    lastAgentName: null,
     agentAvatarUrl: null,
     initialized: false,
     cssLoaded: false,
@@ -439,7 +440,10 @@
         '<div id="cw-avatar">' + BOT_AVATAR_SVG + '</div>' +
         '<div id="cw-header-info">' +
           '<p id="cw-agent-name">Aria</p>' +
-          '<p id="cw-status">Online</p>' +
+          '<p id="cw-status">' +
+            '<span id="cw-status-dot" style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;margin-right:4px;"></span>' +
+            'Online' +
+          '</p>' +
         '</div>' +
         '<div id="cw-header-actions">' +
           '<button type="button" id="cw-minimize-btn" aria-label="Minimize">−</button>' +
@@ -960,7 +964,22 @@
         customerImgLink.appendChild(customerImg);
         customerBubble.appendChild(customerImgLink);
       }
-      wrap.appendChild(customerBubble);
+
+      var statusEl = document.createElement('span');
+      statusEl.className = 'cw-msg-status';
+      statusEl.setAttribute('data-msg-id', msgId || msg._id || msg.id || '');
+      statusEl.innerHTML =
+        '<svg width="16" height="11" viewBox="0 0 16 11" fill="none" style="vertical-align:middle">' +
+          '<path d="M1 5.5L4.5 9L10 3" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round"/>' +
+        '</svg>';
+      statusEl.title = 'Sent';
+
+      var bubbleRow = document.createElement('div');
+      bubbleRow.style.cssText =
+        'display:flex;align-items:flex-end;justify-content:flex-end;gap:3px;';
+      bubbleRow.appendChild(customerBubble);
+      bubbleRow.appendChild(statusEl);
+      wrap.appendChild(bubbleRow);
 
       var customerTime = document.createElement('span');
       customerTime.className = 'cw-msg-time';
@@ -1560,6 +1579,8 @@
     s.off('connect');
     s.off('connect_error');
     s.off('disconnect');
+    s.off('messages_read');
+    s.off('agent_status_change');
 
     s.on('connect', function () {
       console.log('Chat socket connected:', s.id);
@@ -1601,15 +1622,30 @@
       ) {
         clearSystemPills();
       }
-      if (type === 'USER' || type === 'CUSTOMER' || type === 'GUEST') {
+      if (
+        type === 'USER' ||
+        type === 'CUSTOMER' ||
+        type === 'GUEST'
+      ) {
         var box = $('cw-messages');
         if (box) {
-          var content = String((msg && (msg.content || msg.message || msg.text)) || '').trim();
-          box.querySelectorAll('.cw-msg.cw-user').forEach(function (el) {
+          var content = String(
+            (msg && (msg.content || msg.message)) || ''
+          ).trim();
+
+          box.querySelectorAll(
+            '.cw-msg-row-customer[data-cw-id]'
+          ).forEach(function (el) {
             var id = el.getAttribute('data-cw-id') || '';
             if (id.indexOf('tmp-') !== 0) return;
-            var textEl = el.querySelector('.cw-bubble-text');
-            var text = textEl ? String(textEl.textContent || '').trim() : '';
+
+            var textEl = el.querySelector(
+              '.cw-bubble-customer'
+            );
+            var text = textEl
+              ? String(textEl.textContent || '').trim()
+              : '';
+
             if (!content || text === content) {
               delete state.renderedIds[id];
               el.remove();
@@ -1662,27 +1698,11 @@
     });
 
     s.on('agent_joined', function (data) {
-      // Remove waiting system message pills only (join pill stays until agent replies)
-      var systemMsgs = document.querySelectorAll('.cw-msg.cw-system');
-      systemMsgs.forEach(function (el) {
-        var textEl = el.querySelector('.cw-bubble-text');
-        var text = textEl ? String(textEl.textContent || '') : '';
-        if (
-          text.indexOf('প্রতিনিধি') === -1 &&
-          text.indexOf('শীঘ্রই') === -1 &&
-          text.indexOf('অপেক্ষা') === -1
-        ) {
-          return;
-        }
-        el.style.transition = 'opacity 0.4s';
-        el.style.opacity = '0';
-        setTimeout(function () {
-          if (el.parentNode) el.remove();
-        }, 400);
-      });
+      clearSystemPills();
 
       var name = (data && (data.agent_name || data.name || data.agentName)) || 'Agent';
       state.agentName = name;
+      state.lastAgentName = name;
       state.agentAvatarUrl =
         (data && data.agent && (data.agent.avatar || data.agent.avatarUrl)) ||
         (data && (data.agent_avatar || data.agentAvatar)) ||
@@ -1764,6 +1784,39 @@
 
     s.on('disconnect', function () {
       console.log('Socket disconnected, will reconnect...');
+    });
+
+    s.on('messages_read', function (data) {
+      if (data && data.readBy === 'agent') {
+        document.querySelectorAll(
+          '.cw-msg-status:not(.seen)'
+        ).forEach(function (el) {
+          el.classList.add('seen');
+          el.title = 'Seen';
+          el.innerHTML =
+            '<svg width="20" height="11" viewBox="0 0 20 11" fill="none" style="vertical-align:middle">' +
+              '<path d="M1 5.5L4.5 9L10 3" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/>' +
+              '<path d="M6 5.5L9.5 9L15 3" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/>' +
+            '</svg>';
+        });
+      }
+    });
+
+    s.on('agent_status_change', function (data) {
+      if (!data) return;
+      var dot = $('cw-status-dot');
+      var sub = $('cw-status');
+      if (data.is_online === false) {
+        if (sub) sub.textContent = 'Away';
+        if (dot) dot.style.background = '#f59e0b';
+      } else {
+        if (sub) {
+          sub.innerHTML =
+            '<span id="cw-status-dot" style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;margin-right:4px;"></span>' +
+            (state.agentName ? 'Connected with agent' : 'Online');
+        }
+        if (dot) dot.style.background = '#22c55e';
+      }
     });
   }
 
@@ -1931,6 +1984,15 @@
     } catch (err) {
       console.error('[ChatWidget] start failed:', err);
       showSystemBanner('চ্যাট শুরু করতে সমস্যা হয়েছে। পরে আবার চেষ্টা করুন।');
+    }
+
+    if (
+      state.roomId &&
+      state.roomStatus === 'ACTIVE' &&
+      !state.agentName
+    ) {
+      state.agentName = state.lastAgentName || 'Support Agent';
+      updateHeader();
     }
     })();
 

@@ -1439,6 +1439,14 @@ function initChatSocketOnce(io) {
           conversationId: String(targetRoomId),
           readAt: new Date(),
         });
+
+        customerNs.to(String(targetRoomId)).emit(
+          'messages_read',
+          {
+            room_id: String(targetRoomId),
+            readBy: 'agent',
+          }
+        );
       } catch (err) {
         console.error('[admin_mark_read]', err.message);
       }
@@ -1468,6 +1476,16 @@ function initChatSocketOnce(io) {
             is_online: false,
             name: updated.name,
           });
+
+          if (updated.current_room_id) {
+            io.of('/customer')
+              .to(String(updated.current_room_id))
+              .emit('agent_status_change', {
+                agent_id: updated._id,
+                is_online: false,
+                name: updated.name,
+              });
+          }
         }
 
         console.log(`[Admin] disconnected: ${socket.id}`);
