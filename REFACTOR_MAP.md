@@ -33,6 +33,17 @@ backend/src/middlewares/internalServiceAuth.js [NEW] INTERNAL_API_KEY guard for 
 backend/src/controllers/internalChatController.js [NEW] internal customer profile + orders for chat
 backend/src/routes/internalRoutes.js [NEW] GET /api/internal/customers/:id, orders, order by id
 admin-dashboard/src/components/AgentAvatar.jsx [NEW] agent profile photo or initials avatar
+admin-dashboard/src/components/CustomerAvatar.jsx [NEW] customer avatar with colorful initials onError fallback
+admin-dashboard/src/components/MessageBubble.jsx [DONE] Messenger-style bubbles, grouped avatars, no in-bubble names (2026-09-09)
+admin-dashboard/src/components/ChatWindow.jsx [DONE] header action buttons + message grouping + CustomerAvatar (2026-09-09)
+admin-dashboard/src/components/RoomListItem.jsx [DONE] CustomerAvatar sidebar list (2026-09-09)
+admin-dashboard/src/components/CustomerContext.jsx [DONE] CustomerAvatar in context panel (2026-09-09)
+ecommerce-chat/public/css/chat-widget.css [DONE] Messenger bubbles: no names, pre-wrap, 75% max-width (2026-09-09)
+ecommerce-chat/public/js/chat-widget.js [DONE] remove sender names; BOT messenger rows + avatar grouping (2026-09-09)
+client/css/global/_chat-widget.css [DONE] Messenger bubble radius + 75% max-width (2026-09-09)
+client/js/chat-widget.js [DONE] remove agent name label; avatar onError initials fallback (2026-09-09)
+ecommerce-chat/models/Agent.model.js [DONE] password minlength 8 aligned with API (2026-09-09)
+ecommerce-chat/routes/admin.routes.js [DONE] sendRouteError for PATCH /me + change-password (2026-09-09)
 admin-dashboard/src/pages/ProfilePage.jsx [DONE] camera-badge avatar upload UI (no separate upload button)
 admin-dashboard/src/pages/DashboardPage.jsx [DONE] hydrate agent profile on mount for header avatar
 admin-dashboard/src/components/CustomerContext.jsx [DONE] live fetch GET /admin/customers/:userId + order history

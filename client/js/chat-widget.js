@@ -586,8 +586,10 @@
         var url = resolveAssetUrl(agentAvatar);
         var avatarHtml = url
             ? '<div class="sw-msg-avatar sw-msg-avatar-agent sw-msg-avatar-img-wrap">' +
-                '<img src="' + esc(url) + '" alt="" class="sw-msg-avatar-img" />' +
-                '<span class="sw-msg-avatar-fallback" hidden>' + AGENT_AVATAR_SVG + '</span>' +
+                '<img src="' + esc(url) + '" alt="" class="sw-msg-avatar-img" onerror="this.style.display=\'none\';this.nextElementSibling.hidden=false;" />' +
+                '<span class="sw-msg-avatar-fallback" hidden style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;font-size:12px;font-weight:600;">' +
+                  esc(agentName.charAt(0).toUpperCase()) +
+                '</span>' +
               '</div>'
             : '<div class="sw-msg-avatar sw-msg-avatar-agent" style="background:linear-gradient(135deg,#6366f1,#4f46e5);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;">' +
                 esc(agentName.charAt(0).toUpperCase()) +
@@ -597,7 +599,6 @@
             '<div class="sw-msg-row">' +
                 avatarHtml +
                 '<div class="sw-msg-bubble-wrap">' +
-                    '<p style="font-size:10px;color:#6b7280;margin:0 0 3px 4px;font-weight:500;">' + esc(agentName) + '</p>' +
                     '<div class="sw-msg-bubble sw-msg-bubble-in">' + esc(content) +
                         '<div class="sw-msg-time">' + time + '</div>' +
                     '</div>' +

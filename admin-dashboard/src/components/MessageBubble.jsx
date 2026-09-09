@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { avatarColor, formatTime, getInitials, resolveAssetUrl } from '../utils/helpers';
+import AgentAvatar from './AgentAvatar';
+import { formatTime } from '../utils/helpers';
 
 const SYSTEM_MESSAGES_EN = {
   agent_joined: (name) => `${name || 'Agent'} has joined the conversation`,
@@ -61,17 +62,29 @@ function SystemMessageBubble({ message }) {
   );
 }
 
+function AvatarSlot({ showAvatar, avatarSpacer, children }) {
+  if (!showAvatar && !avatarSpacer) return null;
+  return (
+    <div
+      className={`w-7 h-7 shrink-0 self-end ${avatarSpacer ? 'invisible' : ''}`}
+      aria-hidden={avatarSpacer}
+    >
+      {showAvatar ? children : null}
+    </div>
+  );
+}
+
 /**
- * Bubble alignment (per product spec):
- * - USER → RIGHT, purple gradient
- * - BOT/AI → LEFT, gray + 🤖
- * - AGENT → LEFT, white card + avatar
- * - SYSTEM → centered pill
- * - INTERNAL → LEFT, yellow + 🔒
+ * Messenger-style bubbles:
+ * - USER → right, accent fill
+ * - BOT/AGENT → left, avatar at bottom-left of group (no in-bubble names)
  */
-export default function MessageBubble({ message }) {
+export default function MessageBubble({
+  message,
+  showAvatar = true,
+  avatarSpacer = false,
+}) {
   const [expanded, setExpanded] = useState(null);
-  const [avatarFailed, setAvatarFailed] = useState(false);
   const type = String(message?.sender_type || 'USER').toUpperCase();
   const time = formatTime(
     message?.createdAt || message?.timestamp || message?.created_at
@@ -86,7 +99,7 @@ export default function MessageBubble({ message }) {
   if (type === 'INTERNAL') {
     return (
       <div className="flex justify-start my-3 animate-fadeIn">
-        <div className="max-w-[85%] rounded-bubble border border-amber-200 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800 px-3.5 py-2.5 text-sm text-amber-900 dark:text-amber-100 shadow-soft">
+        <div className="max-w-[75%] rounded-[18px] border border-amber-200 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800 px-3.5 py-2.5 text-sm text-amber-900 dark:text-amber-100 shadow-soft">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300 mb-1">
             🔒 Internal note · {message.sender_name || 'Agent'}
           </p>
@@ -107,68 +120,52 @@ export default function MessageBubble({ message }) {
     type === 'USER' || type === 'CUSTOMER' || type === 'GUEST';
   const isBot = type === 'BOT' || type === 'AI';
   const isAgent = type === 'AGENT' || type === 'HUMAN' || type === 'SUPPORT';
+  const isIncoming = isBot || isAgent;
+
   const agentAvatarRaw =
     message?.sender_avatar ||
     message?.senderAvatar ||
     message?.avatar ||
     null;
-  const agentAvatarUrl =
-    isAgent && !avatarFailed && agentAvatarRaw
-      ? resolveAssetUrl(agentAvatarRaw)
-      : null;
 
-  // Spec: USER on the right; BOT/AGENT on the left
-  const alignRight = isUser;
+  const bubbleBase =
+    'inline-block max-w-full px-3 py-2 text-sm leading-relaxed break-words whitespace-pre-wrap shadow-soft';
+
+  const bubbleClass = isUser
+    ? `${bubbleBase} bg-orange-500 text-white rounded-[18px] rounded-br-[4px]`
+    : isBot
+      ? `${bubbleBase} bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-[18px] rounded-bl-[4px]`
+      : `${bubbleBase} bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-[18px] rounded-bl-[4px]`;
 
   return (
     <div
-      className={`flex mb-3 animate-fadeIn ${
-        alignRight ? 'justify-end' : 'justify-start'
+      className={`flex mb-1 animate-fadeIn ${
+        isUser ? 'justify-end' : 'justify-start items-end gap-2'
       }`}
     >
-      {isAgent && (
-        agentAvatarUrl ? (
-          <img
-            src={agentAvatarUrl}
-            alt={message.sender_name || 'Agent'}
-            className="w-7 h-7 rounded-full object-cover mr-2 mt-5 shrink-0 border border-slate-200 dark:border-slate-700"
-            onError={() => setAvatarFailed(true)}
-          />
-        ) : (
-          <div
-            className={`w-7 h-7 rounded-full ${avatarColor(
-              message.sender_name || 'A'
-            )} flex items-center justify-center text-white text-[10px] font-semibold mr-2 mt-5 shrink-0`}
-          >
-            {getInitials(message.sender_name || 'A')}
-          </div>
-        )
+      {isIncoming && (
+        <AvatarSlot showAvatar={showAvatar} avatarSpacer={avatarSpacer}>
+          {isBot ? (
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-primary-600 flex items-center justify-center text-white text-xs shrink-0">
+              🤖
+            </div>
+          ) : (
+            <AgentAvatar
+              name={message.sender_name || 'Agent'}
+              avatar={agentAvatarRaw}
+              size="xs"
+            />
+          )}
+        </AvatarSlot>
       )}
 
       <div
-        className={`max-w-[75%] flex flex-col ${
-          alignRight ? 'items-end' : 'items-start'
+        className={`max-w-[75%] min-w-0 flex flex-col ${
+          isUser ? 'items-end' : 'items-start'
         }`}
       >
-        {(isBot || isAgent) && (
-          <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1 px-1">
-            {isBot ? '🤖 AI' : message.sender_name || 'Agent'}
-          </span>
-        )}
-
-        <div
-          className={`inline-block max-w-xs lg:max-w-md px-3 py-2 rounded-lg text-sm leading-relaxed break-words shadow-soft ${
-            alignRight
-              ? 'bg-orange-500 text-white rounded-br-md'
-              : isBot
-                ? 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-bl-md'
-                : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-bl-md'
-          }`}
-          style={{ width: 'fit-content' }}
-        >
-          {message.message && (
-            <p className="whitespace-pre-wrap break-words">{message.message}</p>
-          )}
+        <div className={bubbleClass} style={{ width: 'fit-content' }}>
+          {message.message && <span>{message.message}</span>}
 
           {attachments.length > 0 && (
             <div
@@ -214,7 +211,7 @@ export default function MessageBubble({ message }) {
         )}
 
         {time && (
-          <span className="text-xs text-slate-400 mt-1 px-1">{time}</span>
+          <span className="text-[10px] text-slate-400 mt-0.5 px-1">{time}</span>
         )}
       </div>
 

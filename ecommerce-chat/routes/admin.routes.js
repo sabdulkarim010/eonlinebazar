@@ -35,6 +35,28 @@ const router = express.Router();
 
 const AGENT_ROLES = ['SUPER_ADMIN', 'ADMIN', 'AGENT'];
 
+function sendRouteError(res, err, fallbackMessage, statusCode = 500) {
+  console.error(fallbackMessage, err);
+  if (err?.name === 'ValidationError') {
+    const message =
+      Object.values(err.errors || {})
+        .map((e) => e.message)
+        .filter(Boolean)
+        .join('; ') || 'Validation failed';
+    return res.status(400).json({ success: false, message });
+  }
+  if (err?.code === 11000) {
+    return res.status(409).json({
+      success: false,
+      message: 'Email already in use by another account',
+    });
+  }
+  return res.status(statusCode).json({
+    success: false,
+    message: fallbackMessage,
+  });
+}
+
 /**
  * POST /api/admin/login
  */
@@ -868,18 +890,7 @@ router.patch('/me', authMiddleware, async (req, res) => {
 
     return res.json({ success: true, agent: serializeAgent(agent) });
   } catch (err) {
-    console.error('[PATCH /api/admin/me]', err);
-    if (err.code === 11000) {
-      return res.status(409).json({
-        success: false,
-        message: 'Email already in use',
-      });
-    }
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to update profile',
-      error: err.message,
-    });
+    return sendRouteError(res, err, 'Failed to update profile');
   }
 });
 
@@ -938,12 +949,7 @@ router.post('/me/change-password', authMiddleware, async (req, res) => {
       message: 'Password updated successfully',
     });
   } catch (err) {
-    console.error('[POST /api/admin/me/change-password]', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to change password',
-      error: err.message,
-    });
+    return sendRouteError(res, err, 'Failed to change password');
   }
 });
 

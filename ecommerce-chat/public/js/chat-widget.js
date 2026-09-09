@@ -112,6 +112,17 @@
     return keyNext && keyCurr && keyNext === keyCurr;
   }
 
+  function isSameBotAsNext(messages, currentIndex) {
+    if (currentIndex >= messages.length - 1) return false;
+    var next = messages[currentIndex + 1];
+    var curr = messages[currentIndex];
+    if (!next || !curr) return false;
+    return (
+      normalizeMsgSenderType(next) === 'BOT' &&
+      normalizeMsgSenderType(curr) === 'BOT'
+    );
+  }
+
   function clearAvatarSlot(slot) {
     if (!slot) return;
     while (slot.firstChild) slot.removeChild(slot.firstChild);
@@ -1010,13 +1021,6 @@
       var body = document.createElement('div');
       body.className = 'cw-msg-body';
 
-      if (isFirst) {
-        var nameEl = document.createElement('span');
-        nameEl.className = 'cw-msg-name';
-        nameEl.textContent = agentName || 'Agent';
-        body.appendChild(nameEl);
-      }
-
       var bubble = document.createElement('div');
       bubble.className = 'cw-bubble-agent';
       if (content) {
@@ -1043,26 +1047,62 @@
 
       wrap.appendChild(avatarSlot);
       wrap.appendChild(body);
-    } else {
-      var roleClass = type === 'BOT' ? 'cw-bot' : 'cw-bot';
-      wrap.className = 'cw-msg ' + roleClass;
+    } else if (type === 'BOT') {
+      var botId = 'bot:aria';
+      var botMessagesList = options.messagesList || null;
+      var botIndex = typeof options.msgIndex === 'number' ? options.msgIndex : -1;
+      var botIsLast =
+        botMessagesList && botIndex >= 0
+          ? !isSameBotAsNext(botMessagesList, botIndex)
+          : true;
 
-      var label = '';
-      if (type === 'BOT') label = '<div class="cw-msg-label">Aria 🤖</div>';
+      wrap.className = 'cw-msg cw-msg-row-agent';
 
-      var imageHtml = '';
-      if (imageUrl) {
-        imageHtml =
-          '<a href="' + escapeHtml(imageUrl) + '" target="_blank" rel="noopener noreferrer">' +
-            '<img class="cw-img-thumb" src="' + escapeHtml(imageUrl) + '" alt="Attachment" />' +
-          '</a>';
+      var botAvatarSlot = document.createElement('div');
+      if (botIsLast) {
+        botAvatarSlot.className = 'cw-msg-avatar-slot';
+        var botFallback = document.createElement('div');
+        botFallback.className = 'cw-msg-avatar-fallback';
+        botFallback.textContent = '🤖';
+        botAvatarSlot.appendChild(botFallback);
+      } else {
+        botAvatarSlot.className = 'cw-msg-avatar-slot cw-avatar-spacer';
       }
 
+      var botBody = document.createElement('div');
+      botBody.className = 'cw-msg-body';
+
+      var botBubble = document.createElement('div');
+      botBubble.className = 'cw-bubble-agent';
+      if (content) {
+        botBubble.appendChild(document.createTextNode(content));
+      }
+      if (imageUrl) {
+        var botImgLink = document.createElement('a');
+        botImgLink.href = imageUrl;
+        botImgLink.target = '_blank';
+        botImgLink.rel = 'noopener noreferrer';
+        var botImg = document.createElement('img');
+        botImg.className = 'cw-img-thumb';
+        botImg.src = imageUrl;
+        botImg.alt = 'Attachment';
+        botImgLink.appendChild(botImg);
+        botBubble.appendChild(botImgLink);
+      }
+      botBody.appendChild(botBubble);
+
+      var botTime = document.createElement('span');
+      botTime.className = 'cw-msg-time';
+      botTime.textContent = formattedTime;
+      botBody.appendChild(botTime);
+
+      wrap.appendChild(botAvatarSlot);
+      wrap.appendChild(botBody);
+    } else {
+      wrap.className = 'cw-msg cw-bot';
       wrap.innerHTML =
-        label +
         '<div class="cw-bubble-text">' +
           (content ? escapeHtml(content) : '') +
-          imageHtml +
         '</div>' +
         '<div class="cw-msg-time">' + formattedTime + '</div>';
     }

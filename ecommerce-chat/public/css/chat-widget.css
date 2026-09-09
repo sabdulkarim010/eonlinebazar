@@ -287,15 +287,7 @@
 }
 
 .cw-msg-name {
-  font-size: 11px !important;
-  color: #65676B !important;
-  font-weight: 500 !important;
-  margin: 0 0 3px 4px !important;
   display: none !important;
-}
-
-.cw-msg-row-agent.cw-group-first .cw-msg-name {
-  display: block !important;
 }
 
 .cw-bubble-agent {
@@ -306,6 +298,7 @@
   font-size: 14px !important;
   line-height: 1.4 !important;
   word-break: break-word !important;
+  white-space: pre-wrap !important;
   display: inline-block !important;
   max-width: 100% !important;
   box-shadow: none !important;
@@ -329,6 +322,7 @@
   font-size: 14px !important;
   line-height: 1.4 !important;
   word-break: break-word !important;
+  white-space: pre-wrap !important;
   display: inline-block !important;
   max-width: 75% !important;
   box-shadow: none !important;
@@ -401,19 +395,17 @@
 }
 
 .cw-msg-label {
-  font-size: 11px !important;
-  color: #65676B !important;
-  font-weight: 500 !important;
-  margin: 0 0 2px 4px !important;
-  display: block !important;
+  display: none !important;
 }
 
 .cw-bubble-text {
   padding: 10px 14px !important;
-  border-radius: 16px !important;
+  border-radius: 18px !important;
   font-size: 13.5px !important;
   line-height: 1.5 !important;
   word-break: break-word !important;
+  white-space: pre-wrap !important;
+  max-width: 75% !important;
   color: #1a1a1a !important;
   background: white !important;
   box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important;

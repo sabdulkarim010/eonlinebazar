@@ -6,10 +6,10 @@ import { fetchOrder, fetchRoomDetail, fetchCustomerOrders, fetchCustomerProfile 
 import { getSocket } from '../services/socket';
 import TransferModal from './TransferModal';
 import TagModal, { tagChipClass } from './TagModal';
+import CustomerAvatar from './CustomerAvatar';
 import {
   formatTime,
   relativeTimeBn,
-  resolveAssetUrl,
   roomId as getRoomId,
   resolveRoomUserId,
   pickCustomerAvatar,
@@ -56,7 +56,6 @@ export default function CustomerContext({
   const [liveProfile, setLiveProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState(null);
-  const [avatarFailed, setAvatarFailed] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [showTag, setShowTag] = useState(false);
 
@@ -69,7 +68,6 @@ export default function CustomerContext({
     setStoreOrdersError(null);
     setLiveProfile(null);
     setProfileError(null);
-    setAvatarFailed(false);
     setShowTransfer(false);
     setShowTag(false);
 
@@ -175,22 +173,6 @@ export default function CustomerContext({
       cancelled = true;
     };
   }, [room?._id, room?.user_id, room?.customer_profile?.user_id]);
-
-  useEffect(() => {
-    setAvatarFailed(false);
-  }, [
-    activeRoomId,
-    liveProfile?.avatarUrl,
-    liveProfile?.avatar,
-    liveProfile?.image,
-    liveProfile?.profilePic,
-    room?.customer_profile?.avatarUrl,
-    room?.customer_profile?.avatar,
-    room?.customer?.avatarUrl,
-    room?.customer?.avatar,
-    room?.user_id?.avatarUrl,
-    room?.user_id?.avatar,
-  ]);
 
   const previousChats = useMemo(() => {
     if (!room) return [];
@@ -304,8 +286,6 @@ export default function CustomerContext({
     room?.customer_profile?.avatarUrl ||
     rawAvatar ||
     null;
-  const avatarUrl =
-    !avatarFailed && avatarSrc ? resolveAssetUrl(avatarSrc) : null;
   const productMeta = room.product_metadata || null;
 
   return (
@@ -320,26 +300,13 @@ export default function CustomerContext({
             <p className="text-xs text-amber-600 mb-2">{profileError}</p>
           )}
           <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-            <div className="relative flex-shrink-0">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={displayName}
-                  className="w-14 h-14 rounded-full object-cover ring-2 ring-orange-400"
-                  onError={() => setAvatarFailed(true)}
-                />
-              ) : null}
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl ring-2 ring-orange-400"
-                style={{
-                  display: avatarUrl ? 'none' : 'flex',
-                  background: 'linear-gradient(135deg, #f97316, #ea580c)',
-                }}
-              >
-                {displayName?.charAt(0)?.toUpperCase() || '?'}
-              </div>
-              <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full ring-2 ring-white dark:ring-slate-800" />
-            </div>
+            <CustomerAvatar
+              name={displayName}
+              avatar={avatarSrc}
+              size="lg"
+              ringClass="ring-2 ring-orange-400"
+              showLiveDot={room?.status === 'ACTIVE'}
+            />
 
             <div className="min-w-0 flex-1">
               <p className="font-semibold text-slate-800 dark:text-white text-sm truncate">

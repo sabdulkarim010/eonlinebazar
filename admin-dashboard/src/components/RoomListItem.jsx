@@ -1,12 +1,11 @@
-import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import useChatStore from '../store/chatStore';
 import { fetchRoomDetail } from '../services/api';
 import { getSocket } from '../services/socket';
+import CustomerAvatar from './CustomerAvatar';
 import { tagChipClass } from './TagModal';
 import {
   relativeTimeBnShort,
-  resolveAssetUrl,
   roomId,
   pickCustomerAvatar,
   truncate,
@@ -20,11 +19,6 @@ export default function RoomListItem({ room }) {
   const setMessages = useChatStore((s) => s.setMessages);
   const addOrUpdateRoom = useChatStore((s) => s.addOrUpdateRoom);
   const clearUnread = useChatStore((s) => s.clearUnread);
-  const [avatarFailed, setAvatarFailed] = useState(false);
-
-  useEffect(() => {
-    setAvatarFailed(false);
-  }, [room?._id, room?.id, room?.customer_profile?.avatar, room?.customer_avatar_url]);
 
   if (!room) return null;
 
@@ -54,15 +48,7 @@ export default function RoomListItem({ room }) {
     'Customer';
 
   const avatarUrl = getCustomerAvatar(room);
-  const resolvedAvatarUrl =
-    !avatarFailed && avatarUrl ? resolveAssetUrl(avatarUrl) : null;
   const name = getCustomerName(room);
-  const initials = name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
   const lastMsg = room?.last_message || 'No messages yet';
   const time = room?.last_message_at || room?.createdAt;
 
@@ -107,33 +93,13 @@ export default function RoomListItem({ room }) {
       )}
 
       <div className="flex items-start gap-2.5">
-        <div className="relative w-10 h-10 flex-shrink-0">
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold absolute inset-0"
-            style={{
-              background: 'linear-gradient(135deg, #f97316, #ea580c)',
-            }}
-          >
-            {initials}
-          </div>
-          {resolvedAvatarUrl && (
-            <img
-              src={resolvedAvatarUrl}
-              alt={name}
-              className="w-10 h-10 rounded-full object-cover absolute inset-0 ring-2 ring-white dark:ring-slate-900"
-              loading="lazy"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
-          )}
-          {room?.status === 'ACTIVE' && (
-            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full ring-2 ring-white dark:ring-slate-900 z-10" />
-          )}
-          {isWaiting && (
-            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-danger animate-pulseDot ring-2 ring-sidebar" />
-          )}
-        </div>
+        <CustomerAvatar
+          name={name}
+          avatar={avatarUrl}
+          size="md"
+          showLiveDot={room?.status === 'ACTIVE'}
+          showWaitingDot={isWaiting}
+        />
 
         <div className="min-w-0 flex-1 pr-5">
           <div className="flex items-center justify-between gap-2">

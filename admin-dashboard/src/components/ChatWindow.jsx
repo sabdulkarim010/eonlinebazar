@@ -12,6 +12,7 @@ import {
   CommandLineIcon,
 } from '@heroicons/react/24/solid';
 import MessageBubble from './MessageBubble';
+import CustomerAvatar from './CustomerAvatar';
 import CannedResponses from './CannedResponses';
 import TransferModal from './TransferModal';
 import TagModal from './TagModal';
@@ -23,7 +24,6 @@ import api, { sendAgentMessage } from '../services/api';
 import {
   dateSeparatorLabel,
   pickCustomerAvatar,
-  resolveAssetUrl,
   roomId as getRoomId,
   statusMeta,
   toBanglaDigits,
@@ -31,6 +31,30 @@ import {
 
 const EMOJIS = ['😊', '👍', '🙏', '❤️', '😄', '🎉', '✅', '👋'];
 const MAX_CHARS = 2000;
+
+function messageSenderKey(msg) {
+  const type = String(msg?.sender_type || 'USER').toUpperCase();
+  if (type === 'USER' || type === 'CUSTOMER' || type === 'GUEST') {
+    return `user:${msg.sender_id || 'customer'}`;
+  }
+  if (type === 'BOT' || type === 'AI') return 'bot:aria';
+  if (type === 'AGENT' || type === 'HUMAN' || type === 'SUPPORT') {
+    return `agent:${msg.sender_id || msg.sender_name || 'agent'}`;
+  }
+  if (type === 'SYSTEM' || type === 'INTERNAL') return `${type}:${msg._id || msg.id}`;
+  return type;
+}
+
+function isIncomingMessage(msg) {
+  const type = String(msg?.sender_type || 'USER').toUpperCase();
+  return (
+    type === 'BOT' ||
+    type === 'AI' ||
+    type === 'AGENT' ||
+    type === 'HUMAN' ||
+    type === 'SUPPORT'
+  );
+}
 
 function EmptyChatState() {
   return (
@@ -141,7 +165,6 @@ export default function ChatWindow({ onBack }) {
   const [showEmoji, setShowEmoji] = useState(false);
   const [showNote, setShowNote] = useState(false);
   const [noteText, setNoteText] = useState('');
-  const [avatarFailed, setAvatarFailed] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [showTag, setShowTag] = useState(false);
   const [showResolve, setShowResolve] = useState(false);
@@ -154,16 +177,27 @@ export default function ChatWindow({ onBack }) {
   const grouped = useMemo(() => {
     const items = [];
     let lastLabel = null;
-    messages.forEach((msg) => {
+    messages.forEach((msg, idx) => {
       const label = dateSeparatorLabel(msg.createdAt || msg.timestamp);
       if (label && label !== lastLabel) {
         items.push({ type: 'sep', label, key: `sep-${label}-${msg._id}` });
         lastLabel = label;
       }
+      const senderKey = messageSenderKey(msg);
+      const prevKey =
+        idx > 0 ? messageSenderKey(messages[idx - 1]) : null;
+      const nextKey =
+        idx < messages.length - 1
+          ? messageSenderKey(messages[idx + 1])
+          : null;
+      const incoming = isIncomingMessage(msg);
       items.push({
         type: 'msg',
         message: msg,
         key: msg._id || msg.id || Math.random(),
+        showAvatar: incoming && senderKey !== nextKey,
+        avatarSpacer: incoming && senderKey === nextKey,
+        groupGap: incoming && senderKey !== prevKey && idx > 0,
       });
     });
     return items;
@@ -180,7 +214,6 @@ export default function ChatWindow({ onBack }) {
     setShowNote(false);
     setNoteText('');
     setShowEmoji(false);
-    setAvatarFailed(false);
   }, [activeRoomId]);
 
   useEffect(() => {
@@ -476,15 +509,7 @@ export default function ChatWindow({ onBack }) {
     'Customer';
 
   const headerAvatarRaw = getCustomerAvatar(room);
-  const headerAvatar =
-    !avatarFailed && headerAvatarRaw ? resolveAssetUrl(headerAvatarRaw) : null;
   const customerName = getCustomerName(room);
-  const customerInitials = customerName
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
   const channelLabel =
     room.type === 'ORDER_SUPPORT' ? 'Order Support' : room?.channel || 'General';
   const isLive = room.status === 'ACTIVE';
@@ -496,7 +521,7 @@ export default function ChatWindow({ onBack }) {
       onTouchEnd={onTouchEnd}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 shrink-0 shadow-soft">
         <div className="flex items-center gap-3 min-w-0">
           {onBack && (
             <button
@@ -509,27 +534,13 @@ export default function ChatWindow({ onBack }) {
             </button>
           )}
 
-          <div className="relative w-9 h-9 flex-shrink-0">
-            <div
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold absolute inset-0"
-              style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
-            >
-              {customerInitials}
-            </div>
-            {headerAvatar && (
-              <img
-                src={headerAvatar}
-                alt={customerName}
-                className="w-9 h-9 rounded-full object-cover absolute inset-0 ring-2 ring-green-400"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-            )}
-            {isLive && (
-              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full ring-2 ring-white dark:ring-slate-900 z-10" />
-            )}
-          </div>
+          <CustomerAvatar
+            name={customerName}
+            avatar={headerAvatarRaw}
+            size="sm"
+            ringClass="ring-2 ring-green-400"
+            showLiveDot={isLive}
+          />
 
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -558,15 +569,15 @@ export default function ChatWindow({ onBack }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {room.status === 'WAITING_FOR_AGENT' && (
             <button
               type="button"
               onClick={handleTakeChat}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 flex items-center gap-1.5 transition-colors"
+              className="px-3.5 py-2 rounded-lg text-xs font-bold bg-success text-white hover:bg-emerald-600 shadow-sm shadow-emerald-500/25 flex items-center gap-1.5 transition-colors"
             >
               <CheckIcon className="w-3.5 h-3.5" />
-              Take
+              Take Chat
             </button>
           )}
           {room.status === 'ACTIVE' && (
@@ -574,7 +585,7 @@ export default function ChatWindow({ onBack }) {
               <button
                 type="button"
                 onClick={() => setShowTransfer(true)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-2 rounded-lg text-xs font-bold bg-primary text-white hover:bg-primary-600 shadow-sm shadow-primary/25 flex items-center gap-1.5 transition-colors"
               >
                 <ArrowUpRightIcon className="w-3.5 h-3.5" />
                 Transfer
@@ -582,28 +593,45 @@ export default function ChatWindow({ onBack }) {
               <button
                 type="button"
                 onClick={() => setShowResolve(true)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-2 rounded-lg text-xs font-bold bg-success text-white hover:bg-emerald-600 shadow-sm shadow-emerald-500/25 flex items-center gap-1.5 transition-colors"
               >
                 <CheckIcon className="w-3.5 h-3.5" />
                 Resolve
               </button>
             </>
           )}
+          {canReply && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowCanned((v) => !v);
+                setCannedFilter('');
+                setShowEmoji(false);
+              }}
+              className="hidden sm:inline-flex px-3 py-2 rounded-lg text-xs font-bold bg-info text-white hover:bg-blue-600 shadow-sm shadow-blue-500/20 items-center gap-1.5 transition-colors"
+              title="Canned responses"
+            >
+              <CommandLineIcon className="w-3.5 h-3.5" />
+              Canned
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowNote((v) => !v)}
-            className="hidden sm:inline-flex px-2.5 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            className="hidden sm:inline-flex px-3 py-2 rounded-lg text-xs font-bold border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm items-center gap-1.5 transition-colors"
             title="Add note"
           >
             <ClipboardDocumentListIcon className="w-3.5 h-3.5" />
+            Note
           </button>
           <button
             type="button"
             onClick={() => setShowTag(true)}
-            className="hidden sm:inline-flex px-2.5 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            className="hidden sm:inline-flex px-3 py-2 rounded-lg text-xs font-bold border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm items-center gap-1.5 transition-colors"
             title="Tag"
           >
             <TagIcon className="w-3.5 h-3.5" />
+            Tag
           </button>
         </div>
       </div>
@@ -638,7 +666,16 @@ export default function ChatWindow({ onBack }) {
               </span>
             </div>
           ) : (
-            <MessageBubble key={item.key} message={item.message} />
+            <div
+              key={item.key}
+              className={item.groupGap ? 'mt-3' : undefined}
+            >
+              <MessageBubble
+                message={item.message}
+                showAvatar={item.showAvatar}
+                avatarSpacer={item.avatarSpacer}
+              />
+            </div>
           )
         )}
         {isTyping && (
