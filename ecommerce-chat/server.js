@@ -24,7 +24,16 @@ const PORT = process.env.PORT || 5001;
 const HOST = process.env.CHAT_HOST || process.env.HOST || '0.0.0.0';
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
 const MONGO_URI =
-  process.env.MONGO_URI || 'mongodb://localhost:27017/ecommerce_chat';
+  process.env.MONGO_URI ||
+  process.env.MONGODB_URI?.replace(/\/[^/?]+(\?|$)/, '/ecommerce_chat$1') ||
+  (process.env.NODE_ENV === 'production'
+    ? null
+    : 'mongodb://localhost:27017/ecommerce_chat');
+
+if (!MONGO_URI) {
+  console.error('MONGO_URI is required in production');
+  process.exit(1);
+}
 
 /** Local demo + production storefront + env (CLIENT_URL, ADMIN_DASHBOARD_URL, CORS_ORIGINS). */
 const ALLOWED_ORIGINS = [
