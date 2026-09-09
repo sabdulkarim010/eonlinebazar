@@ -617,9 +617,21 @@
         if (!area) return;
 
         if (type === 'SYSTEM') {
-            area.insertAdjacentHTML('beforeend',
-                '<div class="sw-msg-system">' + esc(msg.message || msg.text || '') + '</div>');
+            var sysText = msg.message || msg.text || '';
+            var sysEl = document.createElement('div');
+            sysEl.className = 'sw-msg-system';
+            sysEl.style.transition = 'opacity 0.5s ease';
+            sysEl.textContent = sysText;
+            area.appendChild(sysEl);
             if (!opts.skipScroll) scrollToBottom();
+            if (!opts.fromHistory) {
+                setTimeout(function () {
+                    sysEl.style.opacity = '0';
+                    setTimeout(function () {
+                        if (sysEl.parentNode) sysEl.remove();
+                    }, 500);
+                }, 4000);
+            }
             return;
         }
 

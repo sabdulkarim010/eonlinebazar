@@ -436,21 +436,6 @@
 }
 
 /* Waiting banner */
-#cw-waiting-banner {
-  display: none !important;
-  background: #FFF8E1 !important;
-  color: #F59E0B !important;
-  font-size: 12px !important;
-  text-align: center !important;
-  padding: 8px !important;
-  border-top: 1px solid #FDE68A !important;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif !important;
-}
-
-#cw-waiting-banner.visible {
-  display: block !important;
-}
-
 /* Footer — attachment + input + send only (bubble is separate, on document.body) */
 #cw-footer {
   display: flex !important;

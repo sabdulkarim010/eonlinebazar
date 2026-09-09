@@ -116,8 +116,10 @@ function pickCustomerAvatarFromRoom(room) {
   return (
     cp.avatarUrl ||
     cp.avatar ||
+    cp.profileImage ||
     cp.image ||
     cp.profilePic ||
+    room.customer_avatar_url ||
     customer.avatar ||
     customer.image ||
     customer.avatarUrl ||

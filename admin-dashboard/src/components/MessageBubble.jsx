@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { avatarColor, formatTime, getInitials, resolveAssetUrl } from '../utils/helpers';
 
 const SYSTEM_MESSAGES_EN = {
@@ -42,6 +42,25 @@ function getSystemMessage(msg) {
   return content || 'System notification';
 }
 
+function SystemMessageBubble({ message }) {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setVisible(false), 4000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div className="flex justify-center my-3 animate-fadeIn transition-opacity duration-500">
+      <span className="px-3 py-1 rounded-full text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-400 font-medium">
+        {getSystemMessage(message)}
+      </span>
+    </div>
+  );
+}
+
 /**
  * Bubble alignment (per product spec):
  * - USER → RIGHT, purple gradient
@@ -61,13 +80,7 @@ export default function MessageBubble({ message }) {
   const quickReplies = message?.quick_replies || message?.quickReplies || [];
 
   if (type === 'SYSTEM') {
-    return (
-      <div className="flex justify-center my-3 animate-fadeIn">
-        <span className="px-3 py-1 rounded-full text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-400 font-medium">
-          {getSystemMessage(message)}
-        </span>
-      </div>
-    );
+    return <SystemMessageBubble message={message} />;
   }
 
   if (type === 'INTERNAL') {

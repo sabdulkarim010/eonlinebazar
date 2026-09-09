@@ -459,15 +459,32 @@ export default function ChatWindow({ onBack }) {
   if (!activeRoomId) return <EmptyChatState />;
   if (!room) return <ChatSkeleton />;
 
-  const headerAvatarRaw =
-    room?.customer_profile?.avatar ||
-    room?.customer_profile?.avatarUrl ||
-    room?.customer_avatar_url ||
-    pickCustomerAvatar(room?.customer || {}, room);
+  const getCustomerAvatar = (r) =>
+    r?.customer_profile?.avatar ||
+    r?.customer_profile?.avatarUrl ||
+    r?.customer_profile?.profileImage ||
+    r?.customer_avatar_url ||
+    r?.guest_avatar ||
+    pickCustomerAvatar(r?.customer || {}, r) ||
+    null;
+
+  const getCustomerName = (r) =>
+    r?.customer_profile?.name ||
+    r?.customer_profile?.displayName ||
+    r?.guest_name ||
+    (typeof r?.user_id === 'object' ? r?.user_id?.name : null) ||
+    'Customer';
+
+  const headerAvatarRaw = getCustomerAvatar(room);
   const headerAvatar =
     !avatarFailed && headerAvatarRaw ? resolveAssetUrl(headerAvatarRaw) : null;
-  const customerName =
-    room?.customer_profile?.name || room.guest_name || 'Customer';
+  const customerName = getCustomerName(room);
+  const customerInitials = customerName
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
   const channelLabel =
     room.type === 'ORDER_SUPPORT' ? 'Order Support' : room?.channel || 'General';
   const isLive = room.status === 'ACTIVE';
@@ -492,22 +509,21 @@ export default function ChatWindow({ onBack }) {
             </button>
           )}
 
-          <div className="relative shrink-0">
-            {headerAvatar ? (
+          <div className="relative w-9 h-9 flex-shrink-0">
+            {headerAvatar && (
               <img
                 src={headerAvatar}
                 alt={customerName}
-                className="w-9 h-9 rounded-full object-cover ring-2 ring-green-400"
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-green-400 absolute inset-0"
                 onError={() => setAvatarFailed(true)}
               />
-            ) : (
-              <div
-                className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold"
-                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
-              >
-                {customerName?.charAt(0)?.toUpperCase()}
-              </div>
             )}
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+              style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+            >
+              {customerInitials}
+            </div>
             {isLive && (
               <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full ring-2 ring-white dark:ring-slate-900" />
             )}

@@ -146,6 +146,7 @@ export function pickCustomerAvatar(customer = {}, room = null) {
     customer?.avatar ||
     cp.avatarUrl ||
     cp.avatar ||
+    cp.profileImage ||
     cp.image ||
     cp.profilePic;
 

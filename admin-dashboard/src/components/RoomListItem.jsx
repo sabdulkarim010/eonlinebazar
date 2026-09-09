@@ -22,11 +22,9 @@ export default function RoomListItem({ room }) {
   const clearUnread = useChatStore((s) => s.clearUnread);
   const [avatarFailed, setAvatarFailed] = useState(false);
 
-  const rawAvatar = pickCustomerAvatar(room?.customer || {}, room);
-
   useEffect(() => {
     setAvatarFailed(false);
-  }, [room?._id, room?.id, rawAvatar]);
+  }, [room?._id, room?.id, room?.customer_profile?.avatar, room?.customer_avatar_url]);
 
   if (!room) return null;
 
@@ -39,20 +37,26 @@ export default function RoomListItem({ room }) {
     room.order_metadata?.order_number || room.order_id || null;
   const tags = room.tags || [];
 
-  const avatarUrl =
-    room?.customer_profile?.avatar ||
-    room?.customer_profile?.avatarUrl ||
-    room?.customer_avatar_url ||
-    room?.guest_avatar ||
-    rawAvatar ||
+  const getCustomerAvatar = (r) =>
+    r?.customer_profile?.avatar ||
+    r?.customer_profile?.avatarUrl ||
+    r?.customer_profile?.profileImage ||
+    r?.customer_avatar_url ||
+    r?.guest_avatar ||
+    pickCustomerAvatar(r?.customer || {}, r) ||
     null;
+
+  const getCustomerName = (r) =>
+    r?.customer_profile?.name ||
+    r?.customer_profile?.displayName ||
+    r?.guest_name ||
+    (typeof r?.user_id === 'object' ? r?.user_id?.name : null) ||
+    'Customer';
+
+  const avatarUrl = getCustomerAvatar(room);
   const resolvedAvatarUrl =
     !avatarFailed && avatarUrl ? resolveAssetUrl(avatarUrl) : null;
-  const name =
-    room?.customer_profile?.name ||
-    room?.guest_name ||
-    room?.user_id?.name ||
-    'Customer';
+  const name = getCustomerName(room);
   const initials = name
     .split(' ')
     .map((n) => n[0])
@@ -103,21 +107,20 @@ export default function RoomListItem({ room }) {
       )}
 
       <div className="flex items-start gap-2.5">
-        <div className="relative shrink-0">
-          {resolvedAvatarUrl ? (
+        <div className="relative w-10 h-10 flex-shrink-0">
+          {resolvedAvatarUrl && (
             <img
               src={resolvedAvatarUrl}
               alt={name}
-              className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-slate-900 flex-shrink-0"
+              className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-slate-900 absolute inset-0"
               loading="lazy"
               onError={() => setAvatarFailed(true)}
             />
-          ) : null}
+          )}
           <div
-            className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-semibold text-sm"
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold"
             style={{
-              display: resolvedAvatarUrl ? 'none' : 'flex',
-              background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+              background: 'linear-gradient(135deg, #f97316, #ea580c)',
             }}
           >
             {initials}

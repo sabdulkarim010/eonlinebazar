@@ -374,7 +374,6 @@
       '<div id="cw-messages">' +
         '<div id="cw-typing" aria-hidden="true"><span></span><span></span><span></span></div>' +
       '</div>' +
-      '<div id="cw-waiting-banner">একজন প্রতিনিধি শীঘ্রই যোগ দেবেন...</div>' +
       '<div id="cw-csat">' +
         '<p>আমাদের সেবা কেমন লেগেছে?</p>' +
         '<div class="cw-stars" role="group" aria-label="Rating">' +
@@ -667,7 +666,6 @@
     state.unread = 0;
     updateBadge();
     hideTyping();
-    showWaitingBanner(false);
     hideCsatUi();
     setInputEnabled(false);
 
@@ -761,12 +759,6 @@
     if (el) el.classList.remove('visible');
   }
 
-  function showWaitingBanner(visible) {
-    var el = $('cw-waiting-banner');
-    if (!el) return;
-    el.classList.toggle('visible', !!visible);
-  }
-
   function renderMessage(msg, options) {
     options = options || {};
     ensureDom();
@@ -813,8 +805,17 @@
       wrap.className = 'cw-msg cw-system';
       wrap.innerHTML =
         '<div class="cw-bubble-text">' + escapeHtml(content) + '</div>';
+      wrap.style.transition = 'opacity 0.5s ease';
       box.appendChild(wrap);
       if (!options.skipScroll) scrollToBottom();
+      if (!options.fromHistory) {
+        setTimeout(function () {
+          wrap.style.opacity = '0';
+          setTimeout(function () {
+            if (wrap.parentNode) wrap.remove();
+          }, 500);
+        }, 4000);
+      }
       return wrap;
     }
 
@@ -934,7 +935,6 @@
     var el = $('cw-csat');
     if (!el) return;
 
-    showWaitingBanner(false);
     el.classList.add('visible');
     setInputEnabled(false);
 
@@ -1412,13 +1412,11 @@
     });
 
     s.on('waiting_for_agent', function () {
-      showWaitingBanner(true);
       // Keep input enabled while waiting — customer may still send messages
       if (!state.resolved) setInputEnabled(true);
     });
 
     s.on('handover_started', function () {
-      showWaitingBanner(true);
       if (!state.resolved) setInputEnabled(true);
     });
 
@@ -1431,7 +1429,6 @@
         null;
       state.resolved = false;
       updateHeader();
-      showWaitingBanner(false);
       // Fully re-enable input when a live agent joins (ACTIVE)
       setInputEnabled(true);
       setupSendButton();
@@ -1449,7 +1446,6 @@
       if (state.endingSelf || endedBy === 'CUSTOMER') {
         state.resolved = true;
         hideTyping();
-        showWaitingBanner(false);
         hideCsatUi();
         setInputEnabled(false);
         if (endedBy === 'CUSTOMER' && !state.endingSelf) {
@@ -1461,7 +1457,6 @@
       }
       state.resolved = true;
       hideTyping();
-      showWaitingBanner(false);
       showSystemBanner('চ্যাট সম্পন্ন হয়েছে');
       showCsat();
     });
@@ -1607,7 +1602,6 @@
     state.unread = 0;
     state.renderedIds = Object.create(null);
     updateBadge();
-    showWaitingBanner(false);
 
     var box = $('cw-messages');
     if (box) {
