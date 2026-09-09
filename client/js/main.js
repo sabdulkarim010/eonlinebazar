@@ -308,12 +308,9 @@ function createHomeProductCard(product) {
         })
         : null;
 
-    const quickOverlay = document.createElement('div');
-    quickOverlay.className = 'quick-add-overlay';
-
     const addToCartBtn = document.createElement('button');
     addToCartBtn.type = 'button';
-    addToCartBtn.className = 'quick-add-btn add-to-cart-btn';
+    addToCartBtn.className = 'add-to-cart-btn';
     addToCartBtn.innerText = t('product.add_to_cart');
 
     addToCartBtn.addEventListener('click', (e) => {
@@ -329,22 +326,14 @@ function createHomeProductCard(product) {
         }
     });
 
-    quickOverlay.appendChild(addToCartBtn);
-
     if (wishlistBtn) {
-        wishlistBtn.classList.add('wishlist-quick-btn');
-        wishlistBtn.classList.remove('wishlist-heart-btn');
-        quickOverlay.appendChild(wishlistBtn);
+        imgWrap.appendChild(wishlistBtn);
     }
 
     productLink.appendChild(imgWrap);
     productLink.appendChild(productInfo);
     productCard.appendChild(productLink);
-    productCard.appendChild(quickOverlay);
-
-    if (wishlistBtn && !quickOverlay.contains(wishlistBtn)) {
-        productCard.appendChild(wishlistBtn);
-    }
+    productCard.appendChild(addToCartBtn);
 
     return productCard;
 }

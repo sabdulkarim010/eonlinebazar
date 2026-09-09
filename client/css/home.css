@@ -590,9 +590,11 @@
 /* ডেক্সটপ বা বড় ল্যাপটপে এক লাইনে ৪টি বা ৫টি করে স্ট্যান্ডার্ড লুক দেওয়া হলো (৭টি দিলে বেশি ছোট হয়ে যায়) */
 .product-layout-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr); 
-    gap: 5px;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 12px;
     width: 100%;
+    padding: 0 4px;
+    box-sizing: border-box;
 }
 
 /* ==========================================================================
@@ -618,6 +620,7 @@
 
 .product-image-wrap,
 .product-img-box {
+    position: relative;
     width: 100%;
     height: 120px;
     display: flex;
@@ -643,73 +646,6 @@
     transform: scale(1.05);
 }
 
-.product-card .quick-add-overlay {
-    position: absolute;
-    bottom: -40px;
-    left: 0;
-    right: 0;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.95);
-    transition: bottom 0.25s ease;
-    display: flex;
-    gap: 8px;
-    z-index: 4;
-}
-
-.product-card:hover .quick-add-overlay {
-    bottom: 0;
-}
-
-.product-card .quick-add-btn {
-    flex: 1;
-    padding: 8px;
-    background: #f97316;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.2s;
-    margin-top: 0;
-    width: auto;
-}
-
-.product-card .quick-add-btn:hover {
-    background: #ea580c;
-    border-color: transparent;
-}
-
-.product-card .wishlist-quick-btn {
-    width: 38px;
-    height: 38px;
-    min-width: 38px;
-    position: static;
-    top: auto;
-    right: auto;
-    background: #f1f5f9;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 16px;
-    color: #6b7280;
-    box-shadow: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s;
-}
-
-.product-card .wishlist-quick-btn:hover {
-    background: #ffe4e6;
-    color: #ef4444;
-    transform: none;
-}
-
-.product-card > .add-to-cart-btn:not(.quick-add-btn) {
-    display: none;
-}
-
 .product-emoji-display {
     font-size: 70px;
     display: flex;
@@ -722,7 +658,7 @@
 
 /* প্রোডাক্ট টেক্সট ও প্রাইস এরিয়া */
 .product-info {
-    padding: 10px;
+    padding: 10px 10px 6px;
     display: flex;
     flex-direction: column;
     flex-grow: 1;
@@ -756,28 +692,33 @@
     margin-right: 3px;
 }
 
-/* অ্যাড টু ব্যাগ বোতাম */
-.add-to-cart-btn {
-    background: #cedcdf;
-    border: 1px solid #c3d6d2;
-    color: #0f1111;
-    padding: 2px 5px;
-    font-size: 13px;
-    font-weight: 500;
-    border-radius: 6px;
+/* Add to Cart — always visible below title & price */
+.product-card > .add-to-cart-btn {
+    display: block;
+    flex-shrink: 0;
+    width: calc(100% - 16px);
+    margin: 0 8px 8px;
+    padding: 7px 8px;
+    background: #f97316;
+    border: none;
+    color: #fff;
+    font-size: clamp(10px, 1.1vw, 12px);
+    font-weight: 600;
+    line-height: 1.2;
+    border-radius: 8px;
     cursor: pointer;
-    width: 100%;
-    margin-top: auto; /* বাটন সবসময় কার্ডের নিচে সমান লাইনে থাকবে */
-    transition: background 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.2s ease, transform 0.15s ease;
 }
 
-.add-to-cart-btn:hover {
-    background: #f7ca00;
-    border-color: #f2c200;
+.product-card > .add-to-cart-btn:hover {
+    background: #ea580c;
 }
 
-.add-to-cart-btn:active {
-    background: #f0c14b;
+.product-card > .add-to-cart-btn:active {
+    transform: scale(0.98);
 }
 
 /* Wishlist heart button on product cards */
@@ -990,17 +931,25 @@
 @media screen and (max-width: 540px) {
     /* প্রোডাক্ট লেআউট গ্রিড ফিক্স (মোবাইলে এক লাইনে ২টি করে প্রোডাক্ট - স্ট্যান্ডার্ড নিয়ম) */
     .product-layout-grid {
-        grid-template-columns: repeat(3, 1fr); 
+        grid-template-columns: repeat(2, 1fr);
         gap: 10px;
+        padding: 0 6px;
     }
-    
-    /* ছবির উচ্চতা মোবাইলের গ্রিডের সাথে ফিট করা হলো */
-    .product-img-box { 
-        height: 130px; 
-    } 
-    
-    .product-info { 
-        padding: 8px; 
+
+    .product-image-wrap,
+    .product-img-box {
+        height: 130px;
+    }
+
+    .product-info {
+        padding: 8px 8px 4px;
+    }
+
+    .product-card > .add-to-cart-btn {
+        width: calc(100% - 12px);
+        margin: 0 6px 6px;
+        padding: 8px 6px;
+        font-size: 11px;
     }
     
     .product-info h3 {
@@ -1259,7 +1208,7 @@
 }
 
 /* ==========================================================================
-   Premium homepage — section headers, newsletter, scroll animations
+   Premium homepage — section headers, scroll animations
    ========================================================================== */
 .section-header-premium {
     display: flex;
@@ -1306,82 +1255,6 @@
     gap: 8px;
 }
 
-.newsletter-section {
-    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
-    border-radius: 20px;
-    padding: 48px 24px;
-    text-align: center;
-    margin: 40px 0;
-    position: relative;
-    overflow: hidden;
-}
-
-.newsletter-section::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 60%);
-    pointer-events: none;
-}
-
-.newsletter-title {
-    font-size: 28px;
-    font-weight: 800;
-    color: #fff;
-    margin-bottom: 8px;
-    position: relative;
-    z-index: 1;
-}
-
-.newsletter-subtitle {
-    font-size: 15px;
-    color: rgba(255, 255, 255, 0.85);
-    margin-bottom: 24px;
-    position: relative;
-    z-index: 1;
-}
-
-.newsletter-form {
-    display: flex;
-    max-width: 400px;
-    margin: 0 auto;
-    gap: 0;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    border-radius: 10px;
-    overflow: hidden;
-    position: relative;
-    z-index: 1;
-}
-
-.newsletter-input {
-    flex: 1;
-    padding: 14px 20px;
-    border: none;
-    font-size: 14px;
-    outline: none;
-    border-radius: 0;
-    min-width: 0;
-}
-
-.newsletter-btn {
-    padding: 14px 24px;
-    background: #1a1a2e;
-    color: #fff;
-    border: none;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.2s;
-    white-space: nowrap;
-}
-
-.newsletter-btn:hover {
-    background: #0f3460;
-}
-
 .animate-on-scroll {
     opacity: 0;
     transform: translateY(20px);
@@ -1397,23 +1270,3 @@
 .animate-on-scroll.delay-2 { transition-delay: 0.2s; }
 .animate-on-scroll.delay-3 { transition-delay: 0.3s; }
 
-@media (max-width: 640px) {
-    .newsletter-section {
-        padding: 32px 16px;
-    }
-
-    .newsletter-title {
-        font-size: 22px;
-    }
-
-    .newsletter-form {
-        flex-direction: column;
-        border-radius: 12px;
-    }
-
-    .newsletter-input,
-    .newsletter-btn {
-        width: 100%;
-        border-radius: 0;
-    }
-}

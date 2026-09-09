@@ -872,6 +872,19 @@ function renderProducts(list, options = {}) {
             PT.mountInto(imgBox, product, { variant: 'card', alt: product.name || 'Product Image' });
         }
 
+        const wishlistBtn = (window.WishlistEngine && typeof window.WishlistEngine.createHeartButton === 'function')
+            ? window.WishlistEngine.createHeartButton(productId, {
+                name: product.name,
+                price: product.price,
+                image: imageSource,
+                icon: iconData
+            })
+            : null;
+
+        if (wishlistBtn) {
+            imgBox.appendChild(wishlistBtn);
+        }
+
         const productInfo = document.createElement('div');
         productInfo.className = 'product-info';
         productInfo.innerHTML = `
@@ -882,16 +895,8 @@ function renderProducts(list, options = {}) {
             </div>
         `;
 
-        const wishlistBtn = (window.WishlistEngine && typeof window.WishlistEngine.createHeartButton === 'function')
-            ? window.WishlistEngine.createHeartButton(productId, {
-                name: product.name,
-                price: product.price,
-                image: imageSource,
-                icon: iconData
-            })
-            : null;
-
         const addToCartBtn = document.createElement('button');
+        addToCartBtn.type = 'button';
         addToCartBtn.className = 'add-to-cart-btn';
         addToCartBtn.innerText = t('product.add_to_cart');
         addToCartBtn.addEventListener('click', (e) => {
@@ -907,7 +912,6 @@ function renderProducts(list, options = {}) {
         productLink.appendChild(imgBox);
         productLink.appendChild(productInfo);
         productCard.appendChild(productLink);
-        if (wishlistBtn) productCard.appendChild(wishlistBtn);
         productCard.appendChild(addToCartBtn);
         grid.appendChild(productCard);
         newCards.push(productCard);

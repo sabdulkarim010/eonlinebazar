@@ -86,9 +86,7 @@ async function subscribeNewsletter(inputId = 'newsletter-email') {
 
     const msgId = inputId === 'newsletter-email-mobile'
         ? 'newsletter-msg-mobile'
-        : inputId === 'home-newsletter-email'
-            ? 'home-newsletter-msg'
-            : 'newsletter-msg';
+        : 'newsletter-msg';
     const msg = document.getElementById(msgId);
 
     try {
@@ -97,7 +95,7 @@ async function subscribeNewsletter(inputId = 'newsletter-email') {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 email,
-                source: inputId === 'home-newsletter-email' ? 'homepage_form' : 'footer_form'
+                source: 'footer_form'
             })
         });
         const data = await res.json();
