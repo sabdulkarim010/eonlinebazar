@@ -10,9 +10,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ProductGrid from '../components/ProductGrid';
 import AppStatusBar from '../components/AppStatusBar';
+import { useTranslation } from '../store/useLanguageStore';
 import { useTheme } from '../theme/tokens';
 
-function ShopHeader({ title, subtitle, onSearchPress }) {
+function ShopHeader({ title, subtitle, onSearchPress, searchLabel }) {
   const insets = useSafeAreaInsets();
   const T = useTheme();
 
@@ -41,7 +42,7 @@ function ShopHeader({ title, subtitle, onSearchPress }) {
         onPress={onSearchPress}
         hitSlop={6}
         accessibilityRole="button"
-        accessibilityLabel="Focus search"
+        accessibilityLabel={searchLabel}
       >
         <Ionicons name="search" size={20} color={T.headerText} />
       </Pressable>
@@ -51,13 +52,14 @@ function ShopHeader({ title, subtitle, onSearchPress }) {
 
 function ShopScreen({ navigation, route }) {
   const T = useTheme();
+  const { t } = useTranslation();
   const searchInputRef = useRef(null);
   const flashOnly = route.params?.filter === 'flash-sale';
   const initialCategory = String(route.params?.category || '');
-  const title = flashOnly ? 'Flash Sale' : 'Shop';
+  const title = flashOnly ? t('shop.flash_sale') : t('shop.title');
   const subtitle = flashOnly
-    ? 'Limited-time deals'
-    : 'Browse the full catalog';
+    ? t('shop.flash_subtitle')
+    : t('shop.subtitle');
 
   useEffect(() => {
     if (route.params?.focusSearch) {
@@ -76,13 +78,14 @@ function ShopScreen({ navigation, route }) {
       <ShopHeader
         title={title}
         subtitle={subtitle}
+        searchLabel={t('shop.focus_search')}
         onSearchPress={() => searchInputRef.current?.focus()}
       />
       <ProductGrid
         showScreenHeader={false}
         title={title}
         subtitle={subtitle}
-        searchPlaceholder={flashOnly ? 'Search flash deals' : 'Search the shop'}
+        searchPlaceholder={flashOnly ? t('shop.search_flash') : t('shop.search_shop')}
         navigation={navigation}
         flashOnly={flashOnly}
         initialCategory={initialCategory}

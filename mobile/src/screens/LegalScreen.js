@@ -7,14 +7,20 @@ import {
   View,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
+import {
+  legalPageUrlWithEmbed,
+  legalTitleForSlug,
+  MOBILE_EMBED_INJECT,
+} from '../i18n/legalWebView';
 import { API_ORIGIN } from '../services/api';
+import { useTranslation } from '../store/useLanguageStore';
 import { useAppTheme } from '../store/useThemeStore';
 
 export const LEGAL_LINKS = [
-  { title: 'Privacy Policy', slug: 'privacy-policy' },
-  { title: 'Terms & Conditions', slug: 'terms-conditions' },
-  { title: 'Contact Us', slug: 'contact' },
-  { title: 'Return Policy', slug: 'return-policy' },
+  { titleKey: 'legal.privacy_policy', slug: 'privacy-policy' },
+  { titleKey: 'legal.terms_conditions', slug: 'terms-conditions' },
+  { titleKey: 'legal.contact_us', slug: 'contact' },
+  { titleKey: 'legal.return_policy', slug: 'return-policy' },
 ];
 
 const PAGE_PATHS = {
@@ -28,17 +34,30 @@ const PAGE_PATHS = {
   'return-policy': '/return-policy',
 };
 
-export function legalPageUrl(slug) {
+export function legalPageUrl(slug, lang) {
   const key = String(slug || '').trim().toLowerCase();
   const path = PAGE_PATHS[key] || `/page/${encodeURIComponent(key)}`;
-  return `${API_ORIGIN}${path}`;
+  const base = `${API_ORIGIN}${path}`;
+  return legalPageUrlWithEmbed(base, lang);
+}
+
+function resolveScreenTitle(route, lang, t) {
+  const titleKey = route.params?.titleKey;
+  if (titleKey) return t(titleKey);
+  const slug = route.params?.slug;
+  if (slug) return legalTitleForSlug(slug, lang);
+  return route.params?.title || t('screen.legal');
 }
 
 export default function LegalScreen({ navigation, route }) {
   const { colors } = useAppTheme();
+  const { lang, t } = useTranslation();
   const slug = route.params?.slug || 'privacy-policy';
-  const title = route.params?.title || 'Legal';
-  const pageUrl = useMemo(() => legalPageUrl(slug), [slug]);
+  const title = useMemo(
+    () => resolveScreenTitle(route, lang, t),
+    [route, lang, t]
+  );
+  const pageUrl = useMemo(() => legalPageUrl(slug, lang), [slug, lang]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
@@ -50,7 +69,9 @@ export default function LegalScreen({ navigation, route }) {
   if (error) {
     return (
       <View style={[styles.centered, { backgroundColor: colors.bg }]}>
-        <Text style={[styles.errorTitle, { color: colors.text }]}>Could not load page</Text>
+        <Text style={[styles.errorTitle, { color: colors.text }]}>
+          {t('legal.load_error')}
+        </Text>
         <Text style={[styles.errorBody, { color: colors.muted }]}>{error}</Text>
         <Pressable
           style={[styles.retryBtn, { backgroundColor: colors.primaryBtn }]}
@@ -60,7 +81,9 @@ export default function LegalScreen({ navigation, route }) {
             setReloadKey((key) => key + 1);
           }}
         >
-          <Text style={[styles.retryText, { color: colors.primaryBtnText }]}>Try again</Text>
+          <Text style={[styles.retryText, { color: colors.primaryBtnText }]}>
+            {t('legal.try_again')}
+          </Text>
         </Pressable>
       </View>
     );
@@ -74,20 +97,21 @@ export default function LegalScreen({ navigation, route }) {
         </View>
       ) : null}
       <WebView
-        key={reloadKey}
+        key={`${reloadKey}-${lang}`}
         source={{ uri: pageUrl }}
         originWhitelist={['https://*', 'http://*']}
+        injectedJavaScriptBeforeContentLoaded={MOBILE_EMBED_INJECT}
         startInLoadingState={false}
         onLoadStart={() => setLoading(true)}
         onLoadEnd={() => setLoading(false)}
         onError={() => {
           setLoading(false);
-          setError(`Unable to open ${pageUrl}`);
+          setError(t('legal.page_error', { url: pageUrl }));
         }}
         onHttpError={({ nativeEvent }) => {
           if (nativeEvent.statusCode >= 400) {
             setLoading(false);
-            setError(`This page returned ${nativeEvent.statusCode}.`);
+            setError(t('legal.http_error', { code: nativeEvent.statusCode }));
           }
         }}
         style={styles.webview}
@@ -95,44 +119,3 @@ export default function LegalScreen({ navigation, route }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  webview: {
-    flex: 1,
-  },
-  loaderWrap: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  errorTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  errorBody: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  retryBtn: {
-    borderRadius: 24,
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-  },
-  retryText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-});

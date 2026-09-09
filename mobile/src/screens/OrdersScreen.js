@@ -17,16 +17,19 @@ import { OrderCardSkeleton } from '../components/SkeletonBox';
 import ScreenHeader from '../components/ScreenHeader';
 import useAuthStore from '../store/useAuthStore';
 import useOrderStore from '../store/useOrderStore';
+import { useTranslation } from '../store/useLanguageStore';
 import { radius, useTheme } from '../theme/tokens';
 
-const STATUS_TABS = [
-  { id: 'all', label: 'All' },
-  { id: 'pending', label: 'Pending' },
-  { id: 'processing', label: 'Processing' },
-  { id: 'shipped', label: 'Shipped' },
-  { id: 'delivered', label: 'Delivered' },
-  { id: 'cancelled', label: 'Cancelled' },
-];
+function useStatusTabs(t) {
+  return [
+    { id: 'all', label: t('order.tab.all') },
+    { id: 'pending', label: t('order.tab.pending') },
+    { id: 'processing', label: t('order.tab.processing') },
+    { id: 'shipped', label: t('order.tab.shipped') },
+    { id: 'delivered', label: t('order.tab.delivered') },
+    { id: 'cancelled', label: t('order.tab.cancelled') },
+  ];
+}
 
 const ORDER_STEPS = ['Pending', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered'];
 
@@ -223,6 +226,8 @@ const OrderCard = memo(function OrderCard({ order, onPress, T }) {
 
 function OrdersScreen({ navigation }) {
   const T = useTheme();
+  const { t } = useTranslation();
+  const statusTabs = useStatusTabs(t);
   const token = useAuthStore((state) => state.token);
   const orders = useOrderStore((state) => state.orders);
   const isLoading = useOrderStore((state) => state.isLoading);
@@ -254,12 +259,12 @@ function OrdersScreen({ navigation }) {
 
   const tabCounts = useMemo(() => {
     const counts = { all: orders.length };
-    STATUS_TABS.forEach((tab) => {
+    statusTabs.forEach((tab) => {
       if (tab.id === 'all') return;
       counts[tab.id] = orders.filter((order) => orderMatchesTab(order, tab.id)).length;
     });
     return counts;
-  }, [orders]);
+  }, [orders, statusTabs]);
 
   const filteredOrders = useMemo(
     () => orders.filter((order) => orderMatchesTab(order, activeTab)),
@@ -299,7 +304,7 @@ function OrdersScreen({ navigation }) {
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.tabs}
     >
-      {STATUS_TABS.map((tab) => {
+      {statusTabs.map((tab) => {
         const selected = tab.id === activeTab;
         const count = tabCounts[tab.id] || 0;
         return (

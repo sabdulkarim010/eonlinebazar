@@ -9,6 +9,7 @@ import OrdersScreen from '../screens/OrdersScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import useAuthStore from '../store/useAuthStore';
 import useCartStore from '../store/useCartStore';
+import { useTranslation } from '../store/useLanguageStore';
 import { useAppTheme } from '../store/useThemeStore';
 import { palettes } from '../theme/palettes';
 import { resolveMediaUrl } from '../utils/normalizeProduct';
@@ -42,11 +43,11 @@ function profileInitials(user) {
   return String(n).slice(0, 2).toUpperCase() || '?';
 }
 
-function profileTabLabel(user) {
-  if (!user) return 'Profile';
+function profileTabLabel(user, fallback) {
+  if (!user) return fallback;
   const raw = String(user.firstName || user.name || '').trim();
   const firstName = raw.split(/\s+/).filter(Boolean)[0];
-  if (!firstName) return 'Profile';
+  if (!firstName) return fallback;
   return firstName.length > 12 ? `${firstName.slice(0, 11)}…` : firstName;
 }
 
@@ -180,6 +181,7 @@ function shopTabListeners({ navigation, route }) {
 
 export default function AppNavigator() {
   const { isDark, colors } = useAppTheme();
+  const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.token);
   const profileUser = token && user ? user : null;
@@ -215,9 +217,42 @@ export default function AppNavigator() {
   const profileOptions = useMemo(
     () => ({
       headerShown: false,
-      tabBarLabel: profileTabLabel(profileUser),
+      tabBarLabel: profileTabLabel(profileUser, t('tab.profile')),
     }),
-    [profileUser]
+    [profileUser, t]
+  );
+
+  const cartTabOptions = useMemo(
+    () => ({
+      ...cartOptions,
+      title: t('tab.cart'),
+      tabBarLabel: t('tab.cart'),
+    }),
+    [cartOptions, t]
+  );
+
+  const ordersTabOptions = useMemo(
+    () => ({
+      title: t('tab.orders'),
+      tabBarLabel: t('tab.orders'),
+    }),
+    [t]
+  );
+
+  const homeTabOptions = useMemo(
+    () => ({
+      ...homeOptions,
+      tabBarLabel: t('tab.home'),
+    }),
+    [homeOptions, t]
+  );
+
+  const shopTabOptions = useMemo(
+    () => ({
+      ...shopOptions,
+      tabBarLabel: t('tab.shop'),
+    }),
+    [shopOptions, t]
   );
 
   return (
@@ -225,19 +260,19 @@ export default function AppNavigator() {
       detachInactiveScreens={false}
       screenOptions={screenOptions}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={homeOptions} />
+      <Tab.Screen name="Home" component={HomeScreen} options={homeTabOptions} />
       <Tab.Screen
         name="Shop"
         component={ShopScreen}
-        options={shopOptions}
+        options={shopTabOptions}
         listeners={shopTabListeners}
       />
       <Tab.Screen
         name="Cart"
         component={CartScreen}
-        options={cartOptions}
+        options={cartTabOptions}
       />
-      <Tab.Screen name="Orders" component={OrdersScreen} />
+      <Tab.Screen name="Orders" component={OrdersScreen} options={ordersTabOptions} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={profileOptions} />
     </Tab.Navigator>
   );

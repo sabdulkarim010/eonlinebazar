@@ -23,6 +23,7 @@ import {
   searchAPI,
 } from '../api/search';
 import useCartStore from '../store/useCartStore';
+import { useTranslation } from '../store/useLanguageStore';
 import { useAppTheme } from '../store/useThemeStore';
 import useToastStore from '../store/useToastStore';
 import { useTheme } from '../theme/tokens';
@@ -36,13 +37,15 @@ import StarRating from './StarRating';
 
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 400;
-const SORT_OPTIONS = [
-  { id: 'newest', label: 'Newest' },
-  { id: 'price_asc', label: 'Price: Low to High' },
-  { id: 'price_desc', label: 'Price: High to Low' },
-  { id: 'rating_desc', label: 'Best Rating' },
-  { id: 'popular', label: 'Most Popular' },
-];
+function getSortOptions(t) {
+  return [
+    { id: 'newest', label: t('sort.newest') },
+    { id: 'price_asc', label: t('sort.price_asc') },
+    { id: 'price_desc', label: t('sort.price_desc') },
+    { id: 'rating_desc', label: t('sort.rating_desc') },
+    { id: 'popular', label: t('sort.popular') },
+  ];
+}
 
 function productDiscountPercent(product) {
   if (product.flashSaleActive && product.originalPrice > product.price) {
@@ -78,6 +81,7 @@ export const ProductCard = memo(function ProductCard({
 }) {
   const themeFromHook = useTheme();
   const { isDark } = useAppTheme();
+  const { t } = useTranslation();
   const T = colors || themeFromHook;
   const isDarkMode = dark ?? isDark;
   const scale = useRef(new Animated.Value(1)).current;
@@ -224,12 +228,12 @@ export const ProductCard = memo(function ProductCard({
         >
           {isOOS ? (
             <Text style={[pcStyles.addBtnText, { color: T.textMuted || T.muted }]}>
-              Unavailable
+              {t('cart.unavailable')}
             </Text>
           ) : (
             <>
               <Ionicons name="cart-outline" size={14} color="#fff" />
-              <Text style={pcStyles.addBtnText}>Add to Cart</Text>
+              <Text style={pcStyles.addBtnText}>{t('product.add_to_cart')}</Text>
             </>
           )}
         </Pressable>
@@ -389,6 +393,8 @@ function ProductGrid({
   onSearchNavigate,
 }) {
   const { colors, isDark } = useAppTheme();
+  const { t } = useTranslation();
+  const sortOptions = useMemo(() => getSortOptions(t), [t]);
   const addItem = useCartStore((state) => state.addItem);
   const showToast = useToastStore((state) => state.showToast);
   const internalSearchRef = useRef(null);
@@ -607,7 +613,7 @@ function ProductGrid({
     return count;
   }, [query, selectedCategory, showSort, sortBy]);
 
-  const sortLabel = SORT_OPTIONS.find((item) => item.id === sortBy)?.label || 'Sort';
+  const sortLabel = sortOptions.find((item) => item.id === sortBy)?.label || t('sort.title');
 
   const filtersHeader = useMemo(
     () => (
@@ -871,7 +877,7 @@ function ProductGrid({
       <SortBottomSheet
         visible={sortSheetOpen}
         onClose={() => setSortSheetOpen(false)}
-        options={SORT_OPTIONS}
+        options={sortOptions}
         selectedId={sortBy}
         onSelect={setSortBy}
       />

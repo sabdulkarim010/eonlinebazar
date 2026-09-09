@@ -12,6 +12,7 @@ import AppStatusBar from '../components/AppStatusBar';
 import HeartButton from '../components/HeartButton';
 import EmptyState from '../components/EmptyState';
 import useCartStore from '../store/useCartStore';
+import { useTranslation } from '../store/useLanguageStore';
 import { useAppTheme } from '../store/useThemeStore';
 import useToastStore from '../store/useToastStore';
 import useWishlistStore from '../store/useWishlistStore';
@@ -24,6 +25,7 @@ function formatBdt(price) {
 
 export default function WishlistScreen({ navigation }) {
   const { colors } = useAppTheme();
+  const { t } = useTranslation();
   const items = useWishlistStore((state) => state.items);
   const loadFromServer = useWishlistStore((state) => state.loadFromServer);
   const addItem = useCartStore((state) => state.addItem);
@@ -53,9 +55,9 @@ export default function WishlistScreen({ navigation }) {
 
       addItem(product, 1, null);
       haptic.success();
-      showToast('Added to cart!', 'cart');
+      showToast(t('toast.added_to_cart'), 'cart');
     },
-    [addItem, navigation, showToast]
+    [addItem, navigation, showToast, t]
   );
 
   if (items.length === 0) {
@@ -81,7 +83,7 @@ export default function WishlistScreen({ navigation }) {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <Text style={[styles.count, { color: colors.muted }]}>
-            {items.length} saved {items.length === 1 ? 'item' : 'items'}
+            {t('wishlist.saved_count', { count: items.length })}
           </Text>
         }
         renderItem={({ item }) => (
@@ -105,7 +107,7 @@ export default function WishlistScreen({ navigation }) {
               style={[styles.cartBtn, { backgroundColor: colors.primaryBtn }]}
               onPress={() => handleWishlistAddToCart(item)}
             >
-              <Text style={[styles.cartBtnText, { color: colors.primaryBtnText }]}>Add to Cart</Text>
+              <Text style={[styles.cartBtnText, { color: colors.primaryBtnText }]}>{t('product.add_to_cart')}</Text>
             </Pressable>
           </View>
         )}

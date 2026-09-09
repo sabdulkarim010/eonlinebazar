@@ -32,7 +32,8 @@ import ToastBanner from './src/components/ToastBanner';
 import useAuthStore from './src/store/useAuthStore';
 import useCartStore, { waitForCartPersist } from './src/store/useCartStore';
 import useThemeStore, { useAppTheme } from './src/store/useThemeStore';
-import useLanguageStore from './src/store/useLanguageStore';
+import useLanguageStore, { useTranslation } from './src/store/useLanguageStore';
+import { legalTitleForSlug } from './src/i18n/legalWebView';
 import useWishlistStore from './src/store/useWishlistStore';
 import { palettes } from './src/theme/palettes';
 
@@ -78,26 +79,38 @@ const STACK_SCREEN_OPTIONS = {
 };
 
 const MAIN_OPTIONS = { headerShown: false };
-const PRODUCT_DETAILS_OPTIONS = { title: 'Product Details' };
-const LOGIN_OPTIONS = { title: 'Sign in' };
-const REGISTER_OPTIONS = { title: 'Create account' };
-const CHECKOUT_OPTIONS = { title: 'Checkout' };
-const ORDER_DETAILS_OPTIONS = { title: 'Order details' };
 const ORDER_SUCCESS_OPTIONS = { headerShown: false };
-const WISHLIST_OPTIONS = { title: 'Wishlist' };
-const DELETE_ACCOUNT_OPTIONS = { title: 'Delete Account' };
-const ADDRESSES_OPTIONS = { title: 'My Addresses' };
-const FORGOT_PASSWORD_OPTIONS = { title: 'Reset Password' };
-const CHANGE_PASSWORD_OPTIONS = { title: 'Change Password' };
-const EDIT_PROFILE_OPTIONS = { title: 'Personal Info' };
-const SECURITY_SETTINGS_OPTIONS = { title: 'Security Settings' };
-const WALLET_OPTIONS = { title: 'My Wallet' };
-const LOYALTY_POINTS_OPTIONS = { title: 'Loyalty Points' };
-const NOTEBOOK_OPTIONS = { title: 'My Notebook' };
-const LIVE_SUPPORT_OPTIONS = { title: 'Live Support' };
 
-function legalScreenOptions({ route }) {
-  return { title: route.params?.title || 'Legal' };
+function useLocalizedStackTitles() {
+  const { lang, t } = useTranslation();
+  return {
+    lang,
+    titles: {
+      ProductDetails: t('screen.product_details'),
+      Login: t('screen.login'),
+      Register: t('screen.register'),
+      Checkout: t('screen.checkout'),
+      OrderDetails: t('screen.order_details'),
+      Wishlist: t('screen.wishlist'),
+      DeleteAccount: t('screen.delete_account'),
+      Addresses: t('screen.addresses'),
+      ForgotPassword: t('screen.forgot_password'),
+      ChangePassword: t('screen.change_password'),
+      EditProfile: t('screen.edit_profile'),
+      SecuritySettings: t('screen.security_settings'),
+      Wallet: t('screen.wallet'),
+      LoyaltyPoints: t('screen.loyalty_points'),
+      Notebook: t('screen.notebook'),
+      LiveSupport: t('screen.live_support'),
+    },
+    legalTitle: (route) => {
+      const titleKey = route.params?.titleKey;
+      if (titleKey) return t(titleKey);
+      const slug = route.params?.slug;
+      if (slug) return legalTitleForSlug(slug, lang);
+      return route.params?.title || t('screen.legal');
+    },
+  };
 }
 
 function hideSplash() {
@@ -108,6 +121,7 @@ function hideSplash() {
 
 function RootNavigation() {
   const { isDark, colors } = useAppTheme();
+  const { titles, legalTitle } = useLocalizedStackTitles();
   const navTheme = isDark ? NAV_THEME.dark : NAV_THEME.light;
   const screenOptions = isDark ? STACK_SCREEN_OPTIONS.dark : STACK_SCREEN_OPTIONS.light;
 
@@ -124,24 +138,24 @@ function RootNavigation() {
     <NavigationContainer theme={navTheme} onReady={onReady}>
       <Stack.Navigator screenOptions={screenOptions}>
         <Stack.Screen name="Main" component={AppNavigator} options={MAIN_OPTIONS} />
-        <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} options={PRODUCT_DETAILS_OPTIONS} />
-        <Stack.Screen name="Login" component={LoginScreen} options={LOGIN_OPTIONS} />
-        <Stack.Screen name="Register" component={RegisterScreen} options={REGISTER_OPTIONS} />
-        <Stack.Screen name="Checkout" component={CheckoutScreen} options={CHECKOUT_OPTIONS} />
+        <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} options={{ title: titles.ProductDetails }} />
+        <Stack.Screen name="Login" component={LoginScreen} options={{ title: titles.Login }} />
+        <Stack.Screen name="Register" component={RegisterScreen} options={{ title: titles.Register }} />
+        <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: titles.Checkout }} />
         <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} options={ORDER_SUCCESS_OPTIONS} />
-        <Stack.Screen name="OrderDetails" component={OrderDetailsScreen} options={ORDER_DETAILS_OPTIONS} />
-        <Stack.Screen name="Wishlist" component={WishlistScreen} options={WISHLIST_OPTIONS} />
-        <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={DELETE_ACCOUNT_OPTIONS} />
-        <Stack.Screen name="Legal" component={LegalScreen} options={legalScreenOptions} />
-        <Stack.Screen name="Addresses" component={AddressesScreen} options={ADDRESSES_OPTIONS} />
-        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={FORGOT_PASSWORD_OPTIONS} />
-        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={CHANGE_PASSWORD_OPTIONS} />
-        <Stack.Screen name="EditProfile" component={EditProfileScreen} options={EDIT_PROFILE_OPTIONS} />
-        <Stack.Screen name="SecuritySettings" component={SecuritySettingsScreen} options={SECURITY_SETTINGS_OPTIONS} />
-        <Stack.Screen name="Wallet" component={WalletScreen} options={WALLET_OPTIONS} />
-        <Stack.Screen name="LoyaltyPoints" component={LoyaltyPointsScreen} options={LOYALTY_POINTS_OPTIONS} />
-        <Stack.Screen name="Notebook" component={NotebookScreen} options={NOTEBOOK_OPTIONS} />
-        <Stack.Screen name="LiveSupport" component={LiveSupportScreen} options={LIVE_SUPPORT_OPTIONS} />
+        <Stack.Screen name="OrderDetails" component={OrderDetailsScreen} options={{ title: titles.OrderDetails }} />
+        <Stack.Screen name="Wishlist" component={WishlistScreen} options={{ title: titles.Wishlist }} />
+        <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={{ title: titles.DeleteAccount }} />
+        <Stack.Screen name="Legal" component={LegalScreen} options={({ route }) => ({ title: legalTitle(route) })} />
+        <Stack.Screen name="Addresses" component={AddressesScreen} options={{ title: titles.Addresses }} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: titles.ForgotPassword }} />
+        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ title: titles.ChangePassword }} />
+        <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: titles.EditProfile }} />
+        <Stack.Screen name="SecuritySettings" component={SecuritySettingsScreen} options={{ title: titles.SecuritySettings }} />
+        <Stack.Screen name="Wallet" component={WalletScreen} options={{ title: titles.Wallet }} />
+        <Stack.Screen name="LoyaltyPoints" component={LoyaltyPointsScreen} options={{ title: titles.LoyaltyPoints }} />
+        <Stack.Screen name="Notebook" component={NotebookScreen} options={{ title: titles.Notebook }} />
+        <Stack.Screen name="LiveSupport" component={LiveSupportScreen} options={{ title: titles.LiveSupport }} />
       </Stack.Navigator>
       <StatusBar style="light" backgroundColor={colors.header} />
     </NavigationContainer>

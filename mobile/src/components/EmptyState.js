@@ -1,55 +1,56 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from '../store/useLanguageStore';
 import { useTheme } from '../theme/tokens';
 
-const CONFIGS = {
+const CONFIG_KEYS = {
   orders: {
     icon: 'cube-outline',
-    title: 'No Orders Yet',
-    subtitle: 'Your orders will appear here once you make a purchase.',
-    action: 'Start Shopping',
+    title: 'order.empty_title',
+    subtitle: 'order.empty_subtitle',
+    action: 'order.start_shopping',
     color: '#3b82f6',
   },
   cart: {
     icon: 'cart-outline',
-    title: 'Your Cart is Empty',
-    subtitle: 'Add items to your cart and they will appear here.',
-    action: 'Browse Products',
+    title: 'cart.empty_title',
+    subtitle: 'cart.empty_subtitle',
+    action: 'cart.browse',
     color: '#f97316',
   },
   wishlist: {
     icon: 'heart-outline',
-    title: 'No Saved Items',
-    subtitle: 'Tap the heart icon on any product to save it here.',
-    action: 'Explore Products',
+    title: 'wishlist.empty_title',
+    subtitle: 'wishlist.empty_subtitle',
+    action: 'wishlist.explore',
     color: '#ef4444',
   },
   search: {
     icon: 'search-outline',
-    title: 'No Results Found',
-    subtitle: 'Try different keywords or browse by category.',
-    action: 'Clear Search',
+    title: 'empty.search_title',
+    subtitle: 'empty.search_subtitle',
+    action: 'empty.clear_search',
     color: '#8b5cf6',
   },
   addresses: {
     icon: 'location-outline',
-    title: 'No Saved Addresses',
-    subtitle: 'Add an address for faster checkout.',
-    action: 'Add Address',
+    title: 'empty.addresses_title',
+    subtitle: 'empty.addresses_subtitle',
+    action: 'empty.add_address',
     color: '#10b981',
   },
   error: {
     icon: 'cloud-offline-outline',
-    title: 'Something Went Wrong',
-    subtitle: 'Please check your connection and try again.',
-    action: 'Try Again',
+    title: 'empty.error_title',
+    subtitle: 'empty.error_subtitle',
+    action: 'empty.try_again',
     color: '#ef4444',
   },
   network: {
     icon: 'wifi-outline',
-    title: 'No Internet Connection',
-    subtitle: 'Please check your network and try again.',
-    action: 'Retry',
+    title: 'empty.network_title',
+    subtitle: 'empty.network_subtitle',
+    action: 'empty.retry',
     color: '#64748b',
   },
 };
@@ -63,7 +64,8 @@ export default function EmptyState({
   style,
 }) {
   const T = useTheme();
-  const cfg = CONFIGS[type] || CONFIGS.error;
+  const { t } = useTranslation();
+  const cfg = CONFIG_KEYS[type] || CONFIG_KEYS.error;
 
   return (
     <View style={[es.container, style]}>
@@ -71,17 +73,17 @@ export default function EmptyState({
         <Ionicons name={cfg.icon} size={48} color={cfg.color} />
       </View>
       <Text style={[es.title, { color: T.text }]}>
-        {title || cfg.title}
+        {title || t(cfg.title)}
       </Text>
       <Text style={[es.subtitle, { color: T.textSub }]}>
-        {subtitle || cfg.subtitle}
+        {subtitle || t(cfg.subtitle)}
       </Text>
       {onAction ? (
         <Pressable
           style={[es.btn, { backgroundColor: cfg.color }]}
           onPress={onAction}
         >
-          <Text style={es.btnText}>{actionText || cfg.action}</Text>
+          <Text style={es.btnText}>{actionText || t(cfg.action)}</Text>
         </Pressable>
       ) : null}
     </View>

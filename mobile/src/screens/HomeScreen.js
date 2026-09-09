@@ -19,6 +19,7 @@ import EmptyState from '../components/EmptyState';
 import ProductGrid, { ProductCard } from '../components/ProductGrid';
 import { BannerSkeleton } from '../components/SkeletonBox';
 import useCartStore from '../store/useCartStore';
+import { useTranslation } from '../store/useLanguageStore';
 import useToastStore from '../store/useToastStore';
 import { useTheme } from '../theme/tokens';
 import { haptic } from '../utils/haptics';
@@ -64,6 +65,7 @@ function openBannerLink(navigation, linkUrl) {
 const HomeHeader = memo(function HomeHeader() {
   const insets = useSafeAreaInsets();
   const T = useTheme();
+  const { t } = useTranslation();
 
   return (
     <View
@@ -83,8 +85,8 @@ const HomeHeader = memo(function HomeHeader() {
           resizeMode="contain"
         />
         <View>
-          <Text style={[hStyles.brandName, { color: T.headerText }]}>EOnlineBazar</Text>
-          <Text style={[hStyles.brandSub, { color: T.headerSub }]}>Trusted Shopping</Text>
+          <Text style={[hStyles.brandName, { color: T.headerText }]}>{t('brand.name')}</Text>
+          <Text style={[hStyles.brandSub, { color: T.headerSub }]}>{t('brand.tagline')}</Text>
         </View>
       </View>
     </View>
@@ -226,6 +228,7 @@ const FlashSaleRow = memo(function FlashSaleRow({
   flashEndTime,
   navigation,
   T,
+  seeAllLabel,
   onAddToCart,
   onOpenProduct,
 }) {
@@ -237,7 +240,7 @@ const FlashSaleRow = memo(function FlashSaleRow({
         <Text style={[styles.flashTitle, { color: T.text }]}>{flashTitle}</Text>
         <FlashCountdown endsAt={flashEndTime} T={T} />
         <Pressable onPress={() => navigation.navigate('Shop', { filter: 'flash-sale' })}>
-          <Text style={[styles.seeAll, { color: T.link }]}>See all</Text>
+          <Text style={[styles.seeAll, { color: T.link }]}>{seeAllLabel}</Text>
         </Pressable>
       </View>
       <ScrollView
@@ -268,6 +271,7 @@ const HomeHero = memo(function HomeHero({
   flashEndTime,
   navigation,
   T,
+  seeAllLabel,
   onAddToCart,
   onOpenProduct,
 }) {
@@ -281,6 +285,7 @@ const HomeHero = memo(function HomeHero({
         flashEndTime={flashEndTime}
         navigation={navigation}
         T={T}
+        seeAllLabel={seeAllLabel}
         onAddToCart={onAddToCart}
         onOpenProduct={onOpenProduct}
       />
@@ -290,12 +295,13 @@ const HomeHero = memo(function HomeHero({
 
 function HomeScreen({ navigation }) {
   const T = useTheme();
+  const { t } = useTranslation();
   const addItem = useCartStore((state) => state.addItem);
   const showToast = useToastStore((state) => state.showToast);
   const [banners, setBanners] = useState([]);
   const [bannersLoading, setBannersLoading] = useState(true);
   const [flashSale, setFlashSale] = useState([]);
-  const [flashTitle, setFlashTitle] = useState('Flash Sale');
+  const [flashTitle, setFlashTitle] = useState(() => t('home.flash_sale'));
   const [flashEndTime, setFlashEndTime] = useState(null);
   const [heroError, setHeroError] = useState('');
 
@@ -308,7 +314,7 @@ function HomeScreen({ navigation }) {
       setBanners(list);
     } catch {
       setBanners([]);
-      setHeroError('Could not load homepage content. Check your connection.');
+      setHeroError(t('home.hero_error'));
     } finally {
       setBannersLoading(false);
     }
@@ -316,23 +322,27 @@ function HomeScreen({ navigation }) {
     try {
       const { settings, products } = await loadFlashSaleCatalog(10);
       setFlashSale(products);
-      setFlashTitle(settings.flashSaleTitle || 'Flash Sale');
+      setFlashTitle(settings.flashSaleTitle || t('home.flash_sale'));
       setFlashEndTime(settings.isActive ? settings.endsAt : null);
     } catch {
       setFlashSale([]);
       setFlashEndTime(null);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadHero();
   }, [loadHero]);
 
+  useEffect(() => {
+    setFlashTitle((prev) => (prev === 'Flash Sale' || prev === 'ফ্ল্যাশ সেল' ? t('home.flash_sale') : prev));
+  }, [t]);
+
   const onAddToCart = useCallback((product) => {
     haptic.success();
     addItem({ ...product, quantity: 1 });
-    showToast(`${product.name} added to cart`, 'cart');
-  }, [addItem, showToast]);
+    showToast(t('product.added_to_cart', { name: product.name }), 'cart');
+  }, [addItem, showToast, t]);
 
   const onOpenProduct = useCallback((product) => {
     navigation.navigate('ProductDetails', { productId: product.id });
@@ -348,6 +358,7 @@ function HomeScreen({ navigation }) {
         flashEndTime={flashEndTime}
         navigation={navigation}
         T={T}
+        seeAllLabel={t('home.see_all')}
         onAddToCart={onAddToCart}
         onOpenProduct={onOpenProduct}
       />
@@ -362,6 +373,7 @@ function HomeScreen({ navigation }) {
       navigation,
       onAddToCart,
       onOpenProduct,
+      t,
     ]
   );
 
@@ -382,7 +394,7 @@ function HomeScreen({ navigation }) {
           searchVariant="premium"
           searchNavigateOnly
           onSearchNavigate={() => navigation.navigate('Shop', { focusSearch: true })}
-          searchPlaceholder="Search products, brands & categories..."
+          searchPlaceholder={t('home.search_placeholder')}
           navigation={navigation}
           maxItems={24}
           skeletonCount={6}

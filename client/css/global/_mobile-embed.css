@@ -1,0 +1,16 @@
+/* Hide storefront chrome when loaded inside the Expo mobile app WebView (?embed=mobile) */
+html.mobile-app-embed .amazon-header,
+html.mobile-app-embed #global-site-footer,
+html.mobile-app-embed .whatsapp-floating-container,
+html.mobile-app-embed .sw-chat-widget,
+html.mobile-app-embed #cw-root {
+  display: none !important;
+}
+
+html.mobile-app-embed .info-page-hero {
+  padding-top: 12px;
+}
+
+html.mobile-app-embed body {
+  padding-top: 0;
+}

@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { searchAPI } from '../api/search';
+import { useTranslation } from '../store/useLanguageStore';
 import { resolveMediaUrl } from '../utils/normalizeProduct';
 
 function categoryId(cat) {
@@ -52,6 +53,7 @@ function CategoryTile({ cat, onPress, colors }) {
 }
 
 function CategoryGrid({ navigation, colors, onLoaded }) {
+  const { t } = useTranslation();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -92,9 +94,9 @@ function CategoryGrid({ navigation, colors, onLoaded }) {
   return (
     <View style={styles.section}>
       <View style={styles.headerRow}>
-        <Text style={[styles.title, { color: colors.text }]}>Shop by Category</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t('home.shop_by_category')}</Text>
         <Pressable onPress={() => navigation.navigate('Shop')} hitSlop={8}>
-          <Text style={[styles.seeAll, { color: colors.link }]}>See all</Text>
+          <Text style={[styles.seeAll, { color: colors.link }]}>{t('home.see_all')}</Text>
         </Pressable>
       </View>
       <ScrollView

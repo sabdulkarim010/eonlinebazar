@@ -23,6 +23,7 @@ import useOrderStore from '../store/useOrderStore';
 import useThemeStore from '../store/useThemeStore';
 import useToastStore from '../store/useToastStore';
 import useWishlistStore from '../store/useWishlistStore';
+import { getProfileMenuSections } from '../i18n/profileMenu';
 import useLanguageStore, { useTranslation } from '../store/useLanguageStore';
 import { radius, useTheme } from '../theme/tokens';
 import useSupportWhatsApp from '../hooks/useSupportWhatsApp';
@@ -45,109 +46,6 @@ function getProfileIconColors(dark) {
     security: { icon: '#0ea5e9', bg: dark ? '#042f2e' : '#ecfeff' },
   };
 }
-
-const MENU_SECTIONS = [
-  {
-    key: 'shopping',
-    label: 'SHOPPING & UTILITIES',
-    items: [
-      {
-        key: 'addresses',
-        icon: 'location-outline',
-        label: 'Saved Addresses',
-        screen: 'Addresses',
-        paletteKey: 'addresses',
-      },
-      {
-        key: 'notebook',
-        icon: 'book-outline',
-        label: 'My Notebook',
-        screen: 'Notebook',
-        paletteKey: 'notebook',
-      },
-    ],
-  },
-  {
-    key: 'account',
-    label: 'ACCOUNT & SECURITY',
-    items: [
-      {
-        key: 'edit-profile',
-        icon: 'person-outline',
-        label: 'Personal Info',
-        screen: 'EditProfile',
-        paletteKey: 'profile',
-      },
-      {
-        key: 'security',
-        icon: 'shield-checkmark-outline',
-        label: 'Security Settings',
-        screen: 'SecuritySettings',
-        paletteKey: 'security',
-      },
-      {
-        key: 'password',
-        icon: 'lock-closed-outline',
-        label: 'Change Password',
-        screen: 'ChangePassword',
-        paletteKey: 'password',
-      },
-      {
-        key: 'delete',
-        icon: 'trash-outline',
-        label: 'Delete Account',
-        screen: 'DeleteAccount',
-        paletteKey: 'delete',
-        danger: true,
-      },
-    ],
-  },
-  {
-    key: 'support',
-    label: 'SUPPORT & HELP',
-    items: [
-      {
-        key: 'live-support',
-        icon: 'chatbubbles-outline',
-        label: 'Live Support',
-        screen: 'LiveSupport',
-        paletteKey: 'chat',
-      },
-      {
-        key: 'privacy',
-        icon: 'shield-outline',
-        label: 'Privacy Policy',
-        screen: 'Legal',
-        params: { slug: 'privacy-policy', title: 'Privacy Policy' },
-        paletteKey: 'privacy',
-      },
-      {
-        key: 'terms',
-        icon: 'document-text-outline',
-        label: 'Terms & Conditions',
-        screen: 'Legal',
-        params: { slug: 'terms-conditions', title: 'Terms & Conditions' },
-        paletteKey: 'terms',
-      },
-      {
-        key: 'returns',
-        icon: 'return-down-back-outline',
-        label: 'Return Policy',
-        screen: 'Legal',
-        params: { slug: 'return-policy', title: 'Return Policy' },
-        paletteKey: 'terms',
-      },
-      {
-        key: 'contact',
-        icon: 'call-outline',
-        label: 'Contact Us',
-        screen: 'Legal',
-        params: { slug: 'contact', title: 'Contact Us' },
-        paletteKey: 'terms',
-      },
-    ],
-  },
-];
 
 function StatItem({ label, value, icon, color, T, onPress }) {
   const content = (
@@ -245,10 +143,10 @@ function GuestView({ navigation, isDark, T, toggleTheme, lang, setLanguage, t, o
         </View>
 
         <Text style={[styles.guestTitle, { color: T.text }]}>
-          Welcome to EOnlineBazar
+          {t('profile.welcome_title')}
         </Text>
         <Text style={[styles.guestSub, { color: T.sub }]}>
-          Sign in to track orders, save wishlists, and manage your account securely.
+          {t('profile.welcome_sub')}
         </Text>
 
         <Pressable
@@ -259,7 +157,7 @@ function GuestView({ navigation, isDark, T, toggleTheme, lang, setLanguage, t, o
           ]}
           onPress={() => navigation.navigate('Login')}
         >
-          <Text style={[styles.guestLoginText, { color: T.textOnAccent }]}>Sign In</Text>
+          <Text style={[styles.guestLoginText, { color: T.textOnAccent }]}>{t('profile.sign_in')}</Text>
         </Pressable>
 
         <Pressable
@@ -270,7 +168,7 @@ function GuestView({ navigation, isDark, T, toggleTheme, lang, setLanguage, t, o
           ]}
           onPress={() => navigation.navigate('Register')}
         >
-          <Text style={[styles.guestRegText, { color: T.text }]}>Create Account</Text>
+          <Text style={[styles.guestRegText, { color: T.text }]}>{t('profile.create_account')}</Text>
         </Pressable>
       </View>
 
@@ -290,10 +188,10 @@ function GuestView({ navigation, isDark, T, toggleTheme, lang, setLanguage, t, o
         </View>
         <View style={styles.guestSupportCopy}>
           <Text style={[styles.guestSupportTitle, { color: T.text }]}>
-            WhatsApp Customer Support
+            {t('profile.whatsapp_support')}
           </Text>
           <Text style={[styles.guestSupportSub, { color: T.sub }]}>
-            Get instant order help & inquiries
+            {t('profile.whatsapp_sub')}
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={T.muted} />
@@ -309,7 +207,7 @@ function GuestView({ navigation, isDark, T, toggleTheme, lang, setLanguage, t, o
             />
           </View>
           <Text style={[styles.guestPrefLabel, { color: T.text }]}>
-            {isDark ? 'Dark Mode' : 'Light Mode'}
+            {isDark ? t('profile.dark_mode') : t('profile.light_mode')}
           </Text>
           <Ionicons name="chevron-forward" size={16} color={T.muted} />
         </Pressable>
@@ -326,13 +224,13 @@ function GuestView({ navigation, isDark, T, toggleTheme, lang, setLanguage, t, o
               style={[styles.langOption, lang === 'en' && { backgroundColor: T.accent }]}
               onPress={() => setLanguage('en')}
             >
-              <Text style={[styles.langOptionText, { color: lang === 'en' ? T.textOnAccent : T.sub }]}>EN</Text>
+              <Text style={[styles.langOptionText, { color: lang === 'en' ? T.textOnAccent : T.sub }]}>{t('profile.language_en')}</Text>
             </Pressable>
             <Pressable
               style={[styles.langOption, lang === 'bn' && { backgroundColor: T.accent }]}
               onPress={() => setLanguage('bn')}
             >
-              <Text style={[styles.langOptionText, { color: lang === 'bn' ? T.textOnAccent : T.sub }]}>বাং</Text>
+              <Text style={[styles.langOptionText, { color: lang === 'bn' ? T.textOnAccent : T.sub }]}>{t('profile.language_bn')}</Text>
             </Pressable>
           </View>
         </View>
@@ -364,6 +262,7 @@ function ProfileScreen({ navigation }) {
   const { guestHelpUrl } = useSupportWhatsApp();
 
   const iconColors = useMemo(() => getProfileIconColors(isDark), [isDark]);
+  const menuSections = useMemo(() => getProfileMenuSections(t), [t]);
 
   const isLoggedIn = Boolean(token && user);
 
@@ -371,15 +270,15 @@ function ProfileScreen({ navigation }) {
     try {
       const supported = await Linking.canOpenURL(guestHelpUrl);
       if (!supported) {
-        showToast('WhatsApp is not available on this device.', 'error');
+        showToast(t('common.whatsapp_unavailable'), 'error');
         return;
       }
       haptic.light();
       await Linking.openURL(guestHelpUrl);
     } catch {
-      showToast('Could not open WhatsApp.', 'error');
+      showToast(t('common.whatsapp_failed'), 'error');
     }
-  }, [guestHelpUrl, showToast]);
+  }, [guestHelpUrl, showToast, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -401,16 +300,16 @@ function ProfileScreen({ navigation }) {
     const result = await uploadAvatar(asset);
     setUploadingAvatar(false);
     if (!result.success) {
-      showToast(result.message || 'Could not update photo.', 'error');
+      showToast(result.message || t('profile.photo_failed'), 'error');
       return;
     }
-    showToast(result.message || 'Profile photo updated.', 'success');
+    showToast(result.message || t('profile.photo_updated'), 'success');
   };
 
   const pickFromLibrary = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      showToast('Photo library permission is required.', 'error');
+      showToast(t('common.permission_photos'), 'error');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -426,7 +325,7 @@ function ProfileScreen({ navigation }) {
   const pickFromCamera = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      showToast('Camera permission is required.', 'error');
+      showToast(t('common.permission_camera'), 'error');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -439,10 +338,10 @@ function ProfileScreen({ navigation }) {
   };
 
   const handleAvatarPress = () => {
-    Alert.alert('Change profile photo', 'Choose a photo source', [
-      { text: 'Photo library', onPress: pickFromLibrary },
-      { text: 'Camera', onPress: pickFromCamera },
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('profile.change_photo'), t('profile.choose_photo'), [
+      { text: t('profile.photo_library'), onPress: pickFromLibrary },
+      { text: t('profile.camera'), onPress: pickFromCamera },
+      { text: t('common.cancel'), style: 'cancel' },
     ]);
   };
 
@@ -452,7 +351,7 @@ function ProfileScreen({ navigation }) {
     await logout();
     setLoggingOut(false);
     setShowLogout(false);
-    showToast('Logged out successfully.', 'success');
+    showToast(t('profile.logged_out'), 'success');
   };
 
   if (isHydrating && !isLoggedIn) {
@@ -533,7 +432,7 @@ function ProfileScreen({ navigation }) {
               {memberYear ? (
                 <View style={[styles.memberBadge, { backgroundColor: T.accentBg }]}>
                   <Text style={[styles.memberText, { color: T.accent }]}>
-                    Since {memberYear}
+                    {t('profile.since', { year: memberYear })}
                   </Text>
                 </View>
               ) : null}
@@ -541,7 +440,7 @@ function ProfileScreen({ navigation }) {
 
             <View style={styles.heroInfo}>
               <Text style={[styles.heroName, { color: T.text }]} numberOfLines={1}>
-                {user?.name || 'My Account'}
+                {user?.name || t('profile.my_account')}
               </Text>
               {contactLine ? (
                 <View style={styles.contactRow}>
@@ -560,14 +459,14 @@ function ProfileScreen({ navigation }) {
                 <View style={[styles.chip, { backgroundColor: T.chipVerifiedBg }]}>
                   <Ionicons name="shield-checkmark" size={12} color={T.chipVerifiedText} />
                   <Text style={[styles.chipText, { color: T.chipVerifiedText }]}>
-                    Verified
+                    {t('profile.verified')}
                   </Text>
                 </View>
               ) : (
                 <View style={[styles.chip, { backgroundColor: T.chipUnverifiedBg }]}>
                   <Ionicons name="mail-unread-outline" size={12} color={T.chipUnverifiedText} />
                   <Text style={[styles.chipText, { color: T.chipUnverifiedText }]}>
-                    Unverified Email
+                    {t('profile.unverified_email')}
                   </Text>
                 </View>
               )}
@@ -576,7 +475,7 @@ function ProfileScreen({ navigation }) {
 
           <View style={[styles.statsRow, { borderTopColor: T.border }]}>
             <StatItem
-              label="Orders"
+              label={t('profile.orders')}
               value={displayOrders}
               icon="cube-outline"
               color={iconColors.orders.icon}
@@ -585,7 +484,7 @@ function ProfileScreen({ navigation }) {
             />
             <View style={[styles.statDiv, { backgroundColor: T.border }]} />
             <StatItem
-              label="Wishlist"
+              label={t('profile.wishlist')}
               value={displayWishlist}
               icon="heart-outline"
               color={iconColors.wishlist.icon}
@@ -594,7 +493,7 @@ function ProfileScreen({ navigation }) {
             />
             <View style={[styles.statDiv, { backgroundColor: T.border }]} />
             <StatItem
-              label="Points"
+              label={t('profile.points')}
               value={Number(user?.loyaltyPoints || 0).toLocaleString('en-US')}
               icon="star-outline"
               color={iconColors.wallet.icon}
@@ -603,7 +502,7 @@ function ProfileScreen({ navigation }) {
             />
             <View style={[styles.statDiv, { backgroundColor: T.border }]} />
             <StatItem
-              label="Wallet"
+              label={t('profile.wallet')}
               value={walletLabel}
               icon="wallet-outline"
               color={iconColors.addresses.icon}
@@ -613,7 +512,7 @@ function ProfileScreen({ navigation }) {
           </View>
         </View>
 
-        {MENU_SECTIONS.map((section) => (
+        {menuSections.map((section) => (
           <View key={section.key} style={styles.section}>
             <Text style={[styles.sectionLabel, { color: T.sectionLabel }]}>
               {section.label}
@@ -650,7 +549,7 @@ function ProfileScreen({ navigation }) {
 
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: T.sectionLabel }]}>
-            PREFERENCES
+            {t('profile.preferences')}
           </Text>
           <View
             style={[
@@ -677,7 +576,7 @@ function ProfileScreen({ navigation }) {
                   onPress={() => setLanguage('en')}
                 >
                   <Text style={[styles.langOptionText, { color: lang === 'en' ? T.textOnAccent : T.sub }]}>
-                    EN
+                    {t('profile.language_en')}
                   </Text>
                 </Pressable>
                 <Pressable
@@ -688,7 +587,7 @@ function ProfileScreen({ navigation }) {
                   onPress={() => setLanguage('bn')}
                 >
                   <Text style={[styles.langOptionText, { color: lang === 'bn' ? T.textOnAccent : T.sub }]}>
-                    বাং
+                    {t('profile.language_bn')}
                   </Text>
                 </Pressable>
               </View>
@@ -702,7 +601,7 @@ function ProfileScreen({ navigation }) {
                 />
               </View>
               <Text style={[styles.menuLabel, { color: T.text }]}>
-                {isDark ? 'Dark Mode' : 'Light Mode'}
+                {isDark ? t('profile.dark_mode') : t('profile.light_mode')}
               </Text>
               <Pressable
                 onPress={toggleTheme}
@@ -731,11 +630,11 @@ function ProfileScreen({ navigation }) {
           onPress={() => setShowLogout(true)}
         >
           <Ionicons name="log-out-outline" size={18} color={T.danger} />
-          <Text style={[styles.logoutText, { color: T.danger }]}>Sign Out</Text>
+          <Text style={[styles.logoutText, { color: T.danger }]}>{t('profile.sign_out')}</Text>
         </Pressable>
 
         <Text style={[styles.versionText, { color: T.muted }]}>
-          EOnlineBazar v1.0 · All rights reserved
+          {t('profile.version')}
         </Text>
       </ScrollView>
 

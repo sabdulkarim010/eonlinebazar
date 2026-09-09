@@ -453,7 +453,16 @@ mobile/src/components/StarRating.js      [NEW] Half-star product rating row for 
 mobile/src/components/CategoryGrid.js    [NEW] Homepage circular category icons — GET /categories/homepage
 mobile/src/components/OrderStatusTimeline.js [NEW] Order tracking steps (web orderStatusTimeline.js parity)
 mobile/src/store/useLanguageStore.js     [NEW] EN/BN language preference + AsyncStorage hydrate
-mobile/src/i18n/translations.js          [NEW] Mobile i18n string table (core keys)
+mobile/src/i18n/translations.js          [DONE] Full EN/BN string table — tabs, screens, profile, cart, orders, legal
+mobile/src/i18n/legalWebView.js          [NEW] Legal WebView embed URL + injected CSS for mobile chrome strip
+mobile/src/i18n/profileMenu.js           [NEW] Profile menu sections with i18n titleKey for Legal routes
+mobile/src/store/useLanguageStore.js       [DONE] AsyncStorage persist; reactive useTranslation hook
+client/partials/info-page-header.html    [NEW] Logo-only header for CMS/info pages (no EN/cart/profile)
+client/css/global/_mobile-embed.css      [NEW] Hide web chrome when ?embed=mobile (Expo WebView)
+client/js/mobile-embed.js                [NEW] Mobile embed bootstrap + lang sync for info pages
+client/cms-page.html                     [DONE] Logo-only header; mobile-embed + i18n scripts
+client/about.html                        [DONE] Logo-only header; mobile-embed + i18n scripts
+client/contact.html                      [DONE] Logo-only header; mobile-embed + i18n scripts
 mobile/src/components/ProductGrid.js     [DONE] Star ratings, stock badges, discount %, premium search borderRadius 16
 mobile/src/screens/HomeScreen.js         [DONE] Header avatar/login + CategoryGrid in hero
 mobile/src/screens/OrderDetailsScreen.js [DONE] OrderStatusTimeline; review CTA per item; courier track; return modal; discount row

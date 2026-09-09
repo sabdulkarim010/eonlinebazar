@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from '../store/useLanguageStore';
 import useToastStore from '../store/useToastStore';
 
 const TOAST_ICONS = {
@@ -12,16 +13,16 @@ const TOAST_ICONS = {
   cart: { icon: 'cart-outline', color: '#f97316', bg: '#fff7ed', border: '#fed7aa' },
 };
 
-const TOAST_TITLES = {
-  success: 'Success',
-  error: 'Error',
-  warning: 'Warning',
-  info: 'Notice',
-  cart: 'Added to Cart',
-};
-
 export default function ToastBanner() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  const toastTitles = {
+    success: t('toast.success'),
+    error: t('toast.error'),
+    warning: t('toast.warning'),
+    info: t('toast.info'),
+    cart: t('toast.added_to_cart'),
+  };
   const visible = useToastStore((state) => state.visible);
   const message = useToastStore((state) => state.message);
   const title = useToastStore((state) => state.title);
@@ -66,7 +67,7 @@ export default function ToastBanner() {
   if (!message) return null;
 
   const config = TOAST_ICONS[type] || TOAST_ICONS.info;
-  const displayTitle = title || TOAST_TITLES[type] || TOAST_TITLES.info;
+  const displayTitle = title || toastTitles[type] || toastTitles.info;
 
   return (
     <Animated.View

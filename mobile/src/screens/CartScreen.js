@@ -14,6 +14,7 @@ import AppStatusBar from '../components/AppStatusBar';
 import EmptyState from '../components/EmptyState';
 import { OrderCardSkeleton } from '../components/SkeletonBox';
 import useCartStore from '../store/useCartStore';
+import { useTranslation } from '../store/useLanguageStore';
 import { radius, useTheme } from '../theme/tokens';
 import useToastStore from '../store/useToastStore';
 import { haptic } from '../utils/haptics';
@@ -44,6 +45,7 @@ function CartLine({
   onDecrease,
   onRemove,
   onOpenProduct,
+  deleteLabel,
   T,
 }) {
   const lineTotal = Number(item.price) * Number(item.quantity);
@@ -60,7 +62,7 @@ function CartLine({
       }}
     >
       <Ionicons name="trash-outline" size={22} color={T.textOnAccent} />
-      <Text style={[styles.deleteText, { color: T.textOnAccent }]}>Delete</Text>
+      <Text style={[styles.deleteText, { color: T.textOnAccent }]}>{deleteLabel}</Text>
     </Pressable>
   );
 
@@ -135,6 +137,7 @@ function CartLine({
 
 export default function CartScreen({ navigation }) {
   const T = useTheme();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const items = useCartStore((state) => state.items);
@@ -183,12 +186,12 @@ export default function CartScreen({ navigation }) {
       const maxQty = Number(item.product?.stock ?? item.stock ?? 99);
       if (item.quantity >= maxQty) {
         haptic.warning();
-        showToast(`Only ${maxQty} available`, 'warning');
+        showToast(t('cart.only_available', { count: maxQty }), 'warning');
         return;
       }
       updateQuantity(item.key || item.id, item.quantity + 1);
     },
-    [showToast, updateQuantity]
+    [showToast, t, updateQuantity]
   );
 
   const decreaseQty = useCallback(
@@ -227,9 +230,9 @@ export default function CartScreen({ navigation }) {
           size={22}
           color={allSelected ? T.accent : T.muted}
         />
-        <Text style={[styles.selectAllText, { color: T.text }]}>Select all</Text>
+        <Text style={[styles.selectAllText, { color: T.text }]}>{t('cart.select_all')}</Text>
         <Text style={[styles.selectAllCount, { color: T.muted }]} numberOfLines={1}>
-          {selectedCount} of {items.length} selected
+          {t('cart.selected_of', { selected: selectedCount, total: items.length })}
         </Text>
       </Pressable>
       {appliedCoupon?.code ? (
@@ -254,6 +257,7 @@ export default function CartScreen({ navigation }) {
     handleToggleSelectAll,
     items.length,
     selectedCount,
+    t,
   ]);
 
   if (loading) {
@@ -298,6 +302,7 @@ export default function CartScreen({ navigation }) {
             onDecrease={decreaseQty}
             onRemove={handleRemoveItem}
             onOpenProduct={openProduct}
+            deleteLabel={t('cart.delete')}
           />
         )}
         contentContainerStyle={styles.list}
@@ -316,7 +321,7 @@ export default function CartScreen({ navigation }) {
         <View style={styles.footerTop}>
           <View>
             <Text style={[styles.footerLabel, { color: T.muted }]}>
-              {selectedCount} item{selectedCount === 1 ? '' : 's'} selected
+              {t('cart.items_selected', { count: selectedCount })}
             </Text>
             <Text style={[styles.footerTotal, { color: T.price }]}>{formatBdt(checkoutTotal)}</Text>
           </View>
@@ -329,10 +334,10 @@ export default function CartScreen({ navigation }) {
             onPress={() => {
               clearCart();
               clearAppliedCoupon();
-              showToast('Cart cleared');
+              showToast(t('cart.cleared'));
             }}
           >
-            <Text style={[styles.clearBtnText, { color: T.text }]}>Clear cart</Text>
+            <Text style={[styles.clearBtnText, { color: T.text }]}>{t('cart.clear')}</Text>
           </Pressable>
         </View>
         <Pressable
@@ -346,7 +351,7 @@ export default function CartScreen({ navigation }) {
           disabled={!canCheckout}
         >
           <Text style={[styles.checkoutBtnText, { color: T.primaryBtnText }]}>
-            Checkout — {formatBdt(checkoutTotal)}
+            {t('cart.checkout_total', { total: formatBdt(checkoutTotal) })}
           </Text>
         </Pressable>
       </View>

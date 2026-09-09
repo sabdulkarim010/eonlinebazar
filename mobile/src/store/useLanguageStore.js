@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback } from 'react';
 import { create } from 'zustand';
 import { translate } from '../i18n/translations';
 
@@ -34,7 +35,7 @@ const useLanguageStore = create((set, get) => ({
 
 export function useTranslation() {
   const lang = useLanguageStore((state) => state.lang);
-  const t = useLanguageStore((state) => state.t);
+  const t = useCallback((key, vars) => translate(lang, key, vars), [lang]);
   return { lang, t };
 }
 
