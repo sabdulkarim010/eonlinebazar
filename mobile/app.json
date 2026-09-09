@@ -25,6 +25,7 @@
     "android": {
       "package": "com.eonlinebazar.app",
       "versionCode": 3,
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#131921",
         "foregroundImage": "./assets/android-icon-foreground.png",

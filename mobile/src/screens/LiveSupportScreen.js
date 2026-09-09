@@ -8,6 +8,7 @@ import {
   Image,
   StyleSheet,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   ActivityIndicator,
   Alert,
@@ -91,11 +92,24 @@ export default function LiveSupportScreen({ route, navigation }) {
     }
   }, [messages]);
 
-  const scrollToEnd = () => {
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+  const scrollToEnd = (animated = true) => {
+    requestAnimationFrame(() => {
+      flatListRef.current?.scrollToEnd({ animated });
+    });
   };
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => scrollToEnd(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => scrollToEnd(false));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const handleSend = async (text = inputText.trim()) => {
     if (!text || isSending) return;
@@ -224,7 +238,11 @@ export default function LiveSupportScreen({ route, navigation }) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: T.bg }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: T.bg }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
+    >
       <AppStatusBar />
 
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
@@ -269,11 +287,7 @@ export default function LiveSupportScreen({ route, navigation }) {
         </View>
       ) : null}
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={insets.top}
-      >
+      <View style={styles.flex}>
         {isLoading ? (
           <View style={styles.loadingCenter}>
             <ActivityIndicator size="large" color={T.accent} />
@@ -285,8 +299,9 @@ export default function LiveSupportScreen({ route, navigation }) {
             renderItem={renderMessage}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.messagesList}
-            onContentSizeChange={scrollToEnd}
+            onContentSizeChange={() => scrollToEnd(false)}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
             ListFooterComponent={
               isAgentTyping ? (
                 <View style={styles.typingIndicator}>
@@ -371,6 +386,7 @@ export default function LiveSupportScreen({ route, navigation }) {
               placeholderTextColor={T.textMuted}
               value={inputText}
               onChangeText={handleInputChange}
+              onFocus={() => scrollToEnd(true)}
               multiline
               maxLength={1000}
               editable={canSend}
@@ -401,8 +417,8 @@ export default function LiveSupportScreen({ route, navigation }) {
             </Pressable>
           </View>
         )}
-      </KeyboardAvoidingView>
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -453,7 +469,7 @@ const styles = StyleSheet.create({
   },
   contextText: { fontSize: 12, fontWeight: '600' },
   loadingCenter: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  messagesList: { padding: 16, gap: 8, paddingBottom: 20 },
+  messagesList: { flexGrow: 1, padding: 16, gap: 8, paddingBottom: 20 },
   systemMsg: { alignItems: 'center', marginVertical: 4 },
   systemMsgText: {
     fontSize: 12,
