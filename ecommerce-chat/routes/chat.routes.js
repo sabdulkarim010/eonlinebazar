@@ -162,14 +162,28 @@ async function enrichRoomWithCustomer(room, payload = {}) {
 
       room.is_registered = true;
       const avatarUrl =
-        profile.avatarUrl || profile.avatar || profile.image || null;
+        customer_avatar_url ||
+        customer_avatar ||
+        profile.avatarUrl ||
+        profile.avatar ||
+        profile.image ||
+        null;
+      const customerName =
+        (guest_name && !isPlaceholderGuestName(guest_name) ? guest_name : null) ||
+        profile.name ||
+        room.guest_name ||
+        'Customer';
       room.customer_profile = {
         ...profile,
+        name: customerName,
+        email: guest_email || profile.email || room.guest_email || null,
         user_id: String(profile.user_id || resolvedUserId || room.user_id || ''),
-        avatar: profile.avatar || avatarUrl || '',
-        avatarUrl: profile.avatarUrl || avatarUrl || null,
-        image: profile.image || profile.avatarUrl || profile.avatar || avatarUrl || null,
-        profilePic: profile.profilePic || avatarUrl || null,
+        userId: String(profile.user_id || resolvedUserId || room.user_id || ''),
+        avatar: avatarUrl || profile.avatar || '',
+        avatarUrl: avatarUrl || profile.avatarUrl || null,
+        profileImage: avatarUrl || profile.profileImage || null,
+        image: avatarUrl || profile.image || profile.avatarUrl || profile.avatar || null,
+        profilePic: avatarUrl || profile.profilePic || null,
       };
       changed = true;
     } else if (resolvedUserId) {
@@ -179,17 +193,26 @@ async function enrichRoomWithCustomer(room, payload = {}) {
         room.guest_name = guest_name;
       }
       if (guest_email) room.guest_email = guest_email;
-      const avatarHint = customer_avatar_url || customer_avatar || null;
-      if (avatarHint) {
-        room.customer_profile = {
-          ...(room.customer_profile || {}),
-          user_id: String(resolvedUserId),
-          avatar: avatarHint,
-          avatarUrl: avatarHint,
-          image: avatarHint,
-          profilePic: avatarHint,
-        };
-      }
+      const avatarHint =
+        customer_avatar_url ||
+        customer_avatar ||
+        null;
+      const customerName =
+        (guest_name && !isPlaceholderGuestName(guest_name) ? guest_name : null) ||
+        room.guest_name ||
+        'Customer';
+      room.customer_profile = {
+        ...(room.customer_profile || {}),
+        name: customerName,
+        email: guest_email || room.guest_email || null,
+        user_id: String(resolvedUserId),
+        userId: String(resolvedUserId),
+        avatar: avatarHint || room.customer_profile?.avatar || '',
+        avatarUrl: avatarHint || room.customer_profile?.avatarUrl || null,
+        profileImage: avatarHint || room.customer_profile?.profileImage || null,
+        image: avatarHint || room.customer_profile?.image || null,
+        profilePic: avatarHint || room.customer_profile?.profilePic || null,
+      };
       changed = true;
     }
   } else {
@@ -199,6 +222,23 @@ async function enrichRoomWithCustomer(room, payload = {}) {
     }
     if (guest_email && room.guest_email !== guest_email) {
       room.guest_email = guest_email;
+      changed = true;
+    }
+    const guestAvatar =
+      customer_avatar_url ||
+      customer_avatar ||
+      null;
+    if (guestAvatar) {
+      room.customer_profile = {
+        ...(room.customer_profile || {}),
+        name: room.guest_name || guest_name || 'Guest',
+        email: guest_email || room.guest_email || null,
+        avatar: guestAvatar,
+        avatarUrl: guestAvatar,
+        profileImage: guestAvatar,
+        image: guestAvatar,
+        profilePic: guestAvatar,
+      };
       changed = true;
     }
   }

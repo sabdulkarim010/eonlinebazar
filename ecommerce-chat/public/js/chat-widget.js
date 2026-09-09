@@ -822,6 +822,51 @@
     if (el) el.classList.remove('visible');
   }
 
+  // Track previous message for grouping
+  var _lastRenderedSender = null;
+  var _lastRenderedSenderId = null;
+
+  function isNewGroup(senderType, senderId) {
+    var isNew =
+      _lastRenderedSender !== senderType ||
+      _lastRenderedSenderId !== senderId;
+    _lastRenderedSender = senderType;
+    _lastRenderedSenderId = senderId;
+    return isNew;
+  }
+
+  function resetGroupTracking() {
+    _lastRenderedSender = null;
+    _lastRenderedSenderId = null;
+  }
+
+  function clearSystemPills() {
+    var pills = document.querySelectorAll('.cw-msg.cw-system');
+    pills.forEach(function (el) {
+      el.style.transition = 'opacity 0.5s';
+      el.style.opacity = '0';
+      setTimeout(function () {
+        if (el.parentNode) el.remove();
+      }, 500);
+    });
+  }
+
+  function hideNonLastAvatars() {
+    var box = $('cw-messages');
+    if (!box) return;
+    var rows = box.querySelectorAll('.cw-msg-row-agent');
+    rows.forEach(function (row, i) {
+      var slot = row.querySelector('.cw-msg-avatar-slot');
+      if (!slot) return;
+      var next = rows[i + 1];
+      if (next) {
+        slot.style.visibility = 'hidden';
+      } else {
+        slot.style.visibility = 'visible';
+      }
+    });
+  }
+
   function renderMessage(msg, options) {
     options = options || {};
     ensureDom();
@@ -882,86 +927,144 @@
       return wrap;
     }
 
-    var roleClass = type === 'USER' ? 'cw-user' : type === 'AGENT' ? 'cw-agent' : 'cw-bot';
-    wrap.className = 'cw-msg ' + roleClass;
+    var formattedTime = formatTime(createdAt);
 
-    var label = '';
-    if (type === 'BOT') label = '<div class="cw-msg-label">Aria 🤖</div>';
-    if (type === 'AGENT') {
-      var agentLabel = (msg && (msg.sender_name || msg.senderName || state.agentName)) || 'Agent';
-      label = '<div class="cw-msg-label">' + escapeHtml(agentLabel) + ' 👤</div>';
-    }
+    if (type === 'USER') {
+      wrap.className = 'cw-msg cw-msg-row-customer';
 
-    var imageHtml = '';
-    if (imageUrl) {
-      imageHtml =
-        '<a href="' + escapeHtml(imageUrl) + '" target="_blank" rel="noopener noreferrer">' +
-          '<img class="cw-img-thumb" src="' + escapeHtml(imageUrl) + '" alt="Attachment" />' +
-        '</a>';
-    }
+      var customerBubble = document.createElement('div');
+      customerBubble.className = 'cw-bubble-customer';
+      if (content) {
+        customerBubble.appendChild(document.createTextNode(content));
+      }
+      if (imageUrl) {
+        var customerImgLink = document.createElement('a');
+        customerImgLink.href = imageUrl;
+        customerImgLink.target = '_blank';
+        customerImgLink.rel = 'noopener noreferrer';
+        var customerImg = document.createElement('img');
+        customerImg.className = 'cw-img-thumb';
+        customerImg.src = imageUrl;
+        customerImg.alt = 'Attachment';
+        customerImgLink.appendChild(customerImg);
+        customerBubble.appendChild(customerImgLink);
+      }
+      wrap.appendChild(customerBubble);
 
-    var bubbleHtml =
-      label +
-      '<div class="cw-bubble-text">' +
-        (content ? escapeHtml(content) : '') +
-        imageHtml +
-      '</div>' +
-      '<div class="cw-msg-time">' + formatTime(createdAt) + '</div>';
-
-    if (type === 'AGENT') {
+      var customerTime = document.createElement('span');
+      customerTime.className = 'cw-msg-time';
+      customerTime.textContent = formattedTime;
+      wrap.appendChild(customerTime);
+    } else if (type === 'AGENT') {
       var agentAvatarRaw =
         (msg && (msg.sender_avatar || msg.senderAvatar || msg.avatar)) ||
         (msg && msg.agent && (msg.agent.avatar || msg.agent.avatarUrl)) ||
         state.agentAvatarUrl ||
         null;
       var agentAvatarResolved = resolveAssetUrl(agentAvatarRaw);
-      var agentKey = getAgentGroupKey(msg);
+      var agentName =
+        (msg && (msg.sender_name || msg.senderName || state.agentName)) || 'Agent';
+      var agentId =
+        options.agentId ||
+        msg.sender_id ||
+        msg.senderId ||
+        (msg.agent && (msg.agent._id || msg.agent.id)) ||
+        'agent';
       var messagesList = options.messagesList || null;
       var msgIndex = typeof options.msgIndex === 'number' ? options.msgIndex : -1;
-      var isLastInGroup =
+      var isLast =
         messagesList && msgIndex >= 0
           ? !isSameAgentAsNext(messagesList, msgIndex)
           : true;
-      var agentDisplayName =
-        (msg && (msg.sender_name || msg.senderName || state.agentName)) || 'Agent';
+      var isFirst = isNewGroup('AGENT', agentId);
 
-      wrap.classList.add('cw-msg-row-agent');
-      if (agentKey) wrap.setAttribute('data-cw-agent-key', agentKey);
+      wrap.className = 'cw-msg cw-msg-row-agent';
+      if (isFirst) {
+        wrap.classList.add('cw-group-first');
+      }
 
-      var avatarEl = document.createElement('div');
-      avatarEl.className = 'cw-msg-avatar-slot';
+      var avatarSlot = document.createElement('div');
 
-      if (isLastInGroup) {
-        if (agentAvatarResolved) {
-          var av = document.createElement('img');
-          av.className = 'cw-msg-avatar-img';
-          av.src = agentAvatarResolved;
-          av.alt = agentDisplayName;
-          av.addEventListener('error', function () {
-            av.style.display = 'none';
-            if (av.nextSibling) av.nextSibling.style.display = 'flex';
-          });
-          avatarEl.appendChild(av);
-        }
+      if (isLast) {
+        avatarSlot.className = 'cw-msg-avatar-slot';
         var fallback = document.createElement('div');
         fallback.className = 'cw-msg-avatar-fallback';
-        fallback.textContent = agentDisplayName.charAt(0).toUpperCase();
-        fallback.style.display = agentAvatarResolved ? 'none' : 'flex';
-        avatarEl.appendChild(fallback);
+        fallback.textContent = (agentName || 'A').charAt(0).toUpperCase();
+        if (agentAvatarResolved) {
+          var img = document.createElement('img');
+          img.className = 'cw-msg-avatar-img';
+          img.src = agentAvatarResolved;
+          img.alt = '';
+          img.addEventListener('error', function () {
+            img.style.display = 'none';
+            fallback.style.display = 'flex';
+          });
+          fallback.style.display = 'none';
+          avatarSlot.appendChild(img);
+        }
+        avatarSlot.appendChild(fallback);
+      } else {
+        avatarSlot.className = 'cw-msg-avatar-slot cw-avatar-spacer';
       }
 
-      wrap.appendChild(avatarEl);
+      var body = document.createElement('div');
+      body.className = 'cw-msg-body';
 
-      var bubbleWrap = document.createElement('div');
-      bubbleWrap.className = 'cw-msg-body';
-      bubbleWrap.innerHTML = bubbleHtml;
-      wrap.appendChild(bubbleWrap);
-
-      if (!options.fromHistory && isLastInGroup && agentKey) {
-        updateAgentAvatarGrouping(wrap, agentKey);
+      if (isFirst) {
+        var nameEl = document.createElement('span');
+        nameEl.className = 'cw-msg-name';
+        nameEl.textContent = agentName || 'Agent';
+        body.appendChild(nameEl);
       }
+
+      var bubble = document.createElement('div');
+      bubble.className = 'cw-bubble-agent';
+      if (content) {
+        bubble.appendChild(document.createTextNode(content));
+      }
+      if (imageUrl) {
+        var agentImgLink = document.createElement('a');
+        agentImgLink.href = imageUrl;
+        agentImgLink.target = '_blank';
+        agentImgLink.rel = 'noopener noreferrer';
+        var agentImg = document.createElement('img');
+        agentImg.className = 'cw-img-thumb';
+        agentImg.src = imageUrl;
+        agentImg.alt = 'Attachment';
+        agentImgLink.appendChild(agentImg);
+        bubble.appendChild(agentImgLink);
+      }
+      body.appendChild(bubble);
+
+      var timeEl = document.createElement('span');
+      timeEl.className = 'cw-msg-time';
+      timeEl.textContent = formattedTime;
+      body.appendChild(timeEl);
+
+      wrap.appendChild(avatarSlot);
+      wrap.appendChild(body);
     } else {
-      wrap.innerHTML = bubbleHtml;
+      var roleClass = type === 'BOT' ? 'cw-bot' : 'cw-bot';
+      wrap.className = 'cw-msg ' + roleClass;
+
+      var label = '';
+      if (type === 'BOT') label = '<div class="cw-msg-label">Aria 🤖</div>';
+
+      var imageHtml = '';
+      if (imageUrl) {
+        imageHtml =
+          '<a href="' + escapeHtml(imageUrl) + '" target="_blank" rel="noopener noreferrer">' +
+            '<img class="cw-img-thumb" src="' + escapeHtml(imageUrl) + '" alt="Attachment" />' +
+          '</a>';
+      }
+
+      wrap.innerHTML =
+        label +
+        '<div class="cw-bubble-text">' +
+          (content ? escapeHtml(content) : '') +
+          imageHtml +
+        '</div>' +
+        '<div class="cw-msg-time">' + formattedTime + '</div>';
     }
 
     var typingEl = $('cw-typing');
@@ -989,6 +1092,10 @@
         qr.appendChild(btn);
       });
       wrap.appendChild(qr);
+    }
+
+    if (type === 'AGENT') {
+      hideNonLastAvatars();
     }
 
     if (!options.skipScroll) scrollToBottom();
@@ -1445,6 +1552,15 @@
 
       // Drop optimistic tmp bubble when the real USER message arrives
       var type = String((msg && (msg.sender_type || msg.senderType || msg.sender)) || '').toUpperCase();
+      var senderLower = String((msg && msg.sender) || '').toLowerCase();
+      if (
+        type === 'AGENT' ||
+        type === 'HUMAN' ||
+        type === 'SUPPORT' ||
+        senderLower === 'agent'
+      ) {
+        clearSystemPills();
+      }
       if (type === 'USER' || type === 'CUSTOMER' || type === 'GUEST') {
         var box = $('cw-messages');
         if (box) {
@@ -1506,9 +1622,18 @@
     });
 
     s.on('agent_joined', function (data) {
-      // Remove all waiting system message pills
+      // Remove waiting system message pills only (join pill stays until agent replies)
       var systemMsgs = document.querySelectorAll('.cw-msg.cw-system');
       systemMsgs.forEach(function (el) {
+        var textEl = el.querySelector('.cw-bubble-text');
+        var text = textEl ? String(textEl.textContent || '') : '';
+        if (
+          text.indexOf('প্রতিনিধি') === -1 &&
+          text.indexOf('শীঘ্রই') === -1 &&
+          text.indexOf('অপেক্ষা') === -1
+        ) {
+          return;
+        }
         el.style.transition = 'opacity 0.4s';
         el.style.opacity = '0';
         setTimeout(function () {
@@ -1562,6 +1687,7 @@
         ? payload
         : (payload && (payload.messages || payload.history)) || [];
       state.renderedIds = Object.create(null);
+      resetGroupTracking();
       var box = $('cw-messages');
       if (box) {
         box.querySelectorAll('.cw-msg').forEach(function (n) {
@@ -1592,6 +1718,7 @@
           msgIndex: i
         });
       }
+      hideNonLastAvatars();
       scrollToBottom();
     });
 

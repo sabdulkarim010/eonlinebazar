@@ -1095,10 +1095,15 @@ function initChatSocketOnce(io) {
         io.of('/customer').to(String(room_id)).emit('agent_joined', {
           room_id,
           agent_name: agent.name,
+          name: agent.name,
+          agentName: agent.name,
+          agent_avatar: joinedAvatar || null,
+          agentAvatar: joinedAvatar || null,
           agent: {
             id: agent._id,
             name: agent.name,
-            avatar: joinedAvatar,
+            avatar: joinedAvatar || null,
+            avatarUrl: joinedAvatar || null,
           },
           message: systemMsg,
         });
