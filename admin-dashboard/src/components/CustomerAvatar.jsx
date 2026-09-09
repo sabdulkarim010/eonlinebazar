@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { avatarColor, getInitials, resolveAssetUrl } from '../utils/helpers';
 
 const SIZE_CLASS = {
@@ -20,14 +19,8 @@ export default function CustomerAvatar({
   showLiveDot = false,
   showWaitingDot = false,
 }) {
-  const [failed, setFailed] = useState(false);
   const sizeClass = SIZE_CLASS[size] || SIZE_CLASS.md;
   const resolvedAvatar = resolveAssetUrl(avatar);
-  const showImage = Boolean(resolvedAvatar) && !failed;
-
-  useEffect(() => {
-    setFailed(false);
-  }, [avatar]);
 
   return (
     <div className={`relative flex-shrink-0 ${sizeClass} ${className}`}>
@@ -38,13 +31,15 @@ export default function CustomerAvatar({
       >
         {getInitials(name)}
       </div>
-      {showImage && (
+      {resolvedAvatar && (
         <img
           src={resolvedAvatar}
           alt={name}
           className={`w-full h-full rounded-full object-cover absolute inset-0 ${ringClass}`}
           loading="lazy"
-          onError={() => setFailed(true)}
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
         />
       )}
       {showLiveDot && (

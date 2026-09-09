@@ -114,7 +114,6 @@ export default function CustomerContext({
   useEffect(() => {
     setLiveProfile(null);
     setProfileError(null);
-    setAvatarFailed(false);
 
     const userId = resolveRoomUserId(room);
     if (!userId) return undefined;
