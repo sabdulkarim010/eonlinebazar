@@ -62,8 +62,71 @@
     agentAvatarUrl: null,
     initialized: false,
     cssLoaded: false,
-    renderedIds: Object.create(null)
+    renderedIds: Object.create(null),
+    roomStatus: null
   };
+
+  function normalizeMsgSenderType(msg) {
+    if (!msg) return '';
+    var type = String((msg.sender_type || msg.senderType || msg.sender || msg.type) || '').toUpperCase();
+    if (type === 'HUMAN' || type === 'SUPPORT') type = 'AGENT';
+    return type;
+  }
+
+  function getAgentGroupKey(msg) {
+    if (!msg) return '';
+    return String(
+      msg.sender_id ||
+        msg.senderId ||
+        (msg.agent && (msg.agent._id || msg.agent.id)) ||
+        msg.sender_name ||
+        msg.senderName ||
+        state.agentName ||
+        ''
+    );
+  }
+
+  function isSameAgentAsPrev(messages, currentIndex) {
+    if (currentIndex === 0) return false;
+    var prev = messages[currentIndex - 1];
+    var curr = messages[currentIndex];
+    if (!prev || !curr) return false;
+    if (normalizeMsgSenderType(prev) !== 'AGENT' || normalizeMsgSenderType(curr) !== 'AGENT') {
+      return false;
+    }
+    var keyPrev = getAgentGroupKey(prev);
+    var keyCurr = getAgentGroupKey(curr);
+    return keyPrev && keyCurr && keyPrev === keyCurr;
+  }
+
+  function isSameAgentAsNext(messages, currentIndex) {
+    if (currentIndex >= messages.length - 1) return false;
+    var next = messages[currentIndex + 1];
+    var curr = messages[currentIndex];
+    if (!next || !curr) return false;
+    if (normalizeMsgSenderType(next) !== 'AGENT' || normalizeMsgSenderType(curr) !== 'AGENT') {
+      return false;
+    }
+    var keyNext = getAgentGroupKey(next);
+    var keyCurr = getAgentGroupKey(curr);
+    return keyNext && keyCurr && keyNext === keyCurr;
+  }
+
+  function clearAvatarSlot(slot) {
+    if (!slot) return;
+    while (slot.firstChild) slot.removeChild(slot.firstChild);
+  }
+
+  function updateAgentAvatarGrouping(wrap, agentKey) {
+    var box = $('cw-messages');
+    if (!box || !wrap || !agentKey) return;
+    var agentRows = box.querySelectorAll('.cw-msg.cw-agent');
+    if (agentRows.length < 2) return;
+    var prev = agentRows[agentRows.length - 2];
+    if (prev && prev.getAttribute('data-cw-agent-key') === agentKey) {
+      clearAvatarSlot(prev.querySelector('.cw-msg-avatar-slot'));
+    }
+  }
 
   /* ---------- helpers ---------- */
 
@@ -852,29 +915,51 @@
         state.agentAvatarUrl ||
         null;
       var agentAvatarResolved = resolveAssetUrl(agentAvatarRaw);
+      var agentKey = getAgentGroupKey(msg);
+      var messagesList = options.messagesList || null;
+      var msgIndex = typeof options.msgIndex === 'number' ? options.msgIndex : -1;
+      var isLastInGroup =
+        messagesList && msgIndex >= 0
+          ? !isSameAgentAsNext(messagesList, msgIndex)
+          : true;
+      var agentDisplayName =
+        (msg && (msg.sender_name || msg.senderName || state.agentName)) || 'Agent';
+
       wrap.classList.add('cw-msg-row-agent');
-      if (agentAvatarResolved) {
-        var av = document.createElement('img');
-        av.src = agentAvatarResolved;
-        av.alt = '';
-        av.className = 'cw-msg-avatar-img';
-        av.addEventListener('error', function () {
-          av.replaceWith(document.createElement('span'));
-        });
-        wrap.appendChild(av);
-      } else {
+      if (agentKey) wrap.setAttribute('data-cw-agent-key', agentKey);
+
+      var avatarEl = document.createElement('div');
+      avatarEl.className = 'cw-msg-avatar-slot';
+
+      if (isLastInGroup) {
+        if (agentAvatarResolved) {
+          var av = document.createElement('img');
+          av.className = 'cw-msg-avatar-img';
+          av.src = agentAvatarResolved;
+          av.alt = agentDisplayName;
+          av.addEventListener('error', function () {
+            av.style.display = 'none';
+            if (av.nextSibling) av.nextSibling.style.display = 'flex';
+          });
+          avatarEl.appendChild(av);
+        }
         var fallback = document.createElement('div');
         fallback.className = 'cw-msg-avatar-fallback';
-        fallback.textContent = (
-          (msg && (msg.sender_name || msg.senderName || state.agentName)) ||
-          'A'
-        ).charAt(0).toUpperCase();
-        wrap.appendChild(fallback);
+        fallback.textContent = agentDisplayName.charAt(0).toUpperCase();
+        fallback.style.display = agentAvatarResolved ? 'none' : 'flex';
+        avatarEl.appendChild(fallback);
       }
+
+      wrap.appendChild(avatarEl);
+
       var bubbleWrap = document.createElement('div');
       bubbleWrap.className = 'cw-msg-body';
       bubbleWrap.innerHTML = bubbleHtml;
       wrap.appendChild(bubbleWrap);
+
+      if (!options.fromHistory && isLastInGroup && agentKey) {
+        updateAgentAvatarGrouping(wrap, agentKey);
+      }
     } else {
       wrap.innerHTML = bubbleHtml;
     }
@@ -1421,6 +1506,16 @@
     });
 
     s.on('agent_joined', function (data) {
+      // Remove all waiting system message pills
+      var systemMsgs = document.querySelectorAll('.cw-msg.cw-system');
+      systemMsgs.forEach(function (el) {
+        el.style.transition = 'opacity 0.4s';
+        el.style.opacity = '0';
+        setTimeout(function () {
+          if (el.parentNode) el.remove();
+        }, 400);
+      });
+
       var name = (data && (data.agent_name || data.name || data.agentName)) || 'Agent';
       state.agentName = name;
       state.agentAvatarUrl =
@@ -1428,6 +1523,7 @@
         (data && (data.agent_avatar || data.agentAvatar)) ||
         null;
       state.resolved = false;
+      state.roomStatus = 'ACTIVE';
       updateHeader();
       // Fully re-enable input when a live agent joins (ACTIVE)
       setInputEnabled(true);
@@ -1472,9 +1568,30 @@
           n.remove();
         });
       }
-      messages.forEach(function (m) {
-        renderMessage(m, { fromHistory: true, skipScroll: true });
-      });
+      var payloadRoom = payload && payload.room ? payload.room : payload;
+      var roomIsActive =
+        (payloadRoom && (payloadRoom.status === 'ACTIVE' || payloadRoom.status === 'active')) ||
+        state.roomStatus === 'ACTIVE';
+
+      for (var i = 0; i < messages.length; i++) {
+        var m = messages[i];
+        var sysText = String((m && (m.content || m.message || m.text)) || '');
+        var isWaitingPill =
+          normalizeMsgSenderType(m) === 'SYSTEM' &&
+          sysText &&
+          (sysText.indexOf('প্রতিনিধি') !== -1 ||
+            sysText.indexOf('শীঘ্রই') !== -1 ||
+            sysText.indexOf('অপেক্ষা') !== -1);
+
+        if (isWaitingPill && roomIsActive) continue;
+
+        renderMessage(m, {
+          fromHistory: true,
+          skipScroll: true,
+          messagesList: messages,
+          msgIndex: i
+        });
+      }
       scrollToBottom();
     });
 

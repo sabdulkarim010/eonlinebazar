@@ -124,8 +124,8 @@
 }
 
 #cw-avatar {
-  width: 38px !important;
-  height: 38px !important;
+  width: 36px !important;
+  height: 36px !important;
   border-radius: 50% !important;
   background: rgba(255,255,255,0.25) !important;
   display: flex !important;
@@ -240,20 +240,34 @@
   gap: 8px !important;
 }
 
-.cw-msg-avatar-img,
-.cw-msg-avatar-fallback {
-  width: 28px !important;
-  height: 28px !important;
+.cw-msg-avatar-slot {
+  width: 32px !important;
+  height: 32px !important;
+  flex-shrink: 0 !important;
+  align-self: flex-end !important;
+  margin-right: 6px !important;
+}
+
+.cw-msg-avatar-img {
+  width: 32px !important;
+  height: 32px !important;
   border-radius: 50% !important;
   object-fit: cover !important;
-  flex-shrink: 0 !important;
-  background: #6366f1 !important;
-  color: #fff !important;
+  display: block !important;
+}
+
+.cw-msg-avatar-fallback {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+  color: white !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  font-size: 12px !important;
-  font-weight: 600 !important;
+  flex-shrink: 0 !important;
 }
 
 .cw-msg-body {
@@ -292,7 +306,7 @@
 .cw-msg {
   display: flex !important;
   flex-direction: column !important;
-  max-width: 80% !important;
+  max-width: 75% !important;
   animation: cw-msgIn 0.2s ease !important;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif !important;
 }
@@ -321,10 +335,11 @@
 }
 
 .cw-msg-label {
-  font-size: 10px !important;
-  color: #999 !important;
-  margin-bottom: 3px !important;
+  font-size: 11px !important;
+  color: #65676B !important;
   font-weight: 500 !important;
+  margin: 0 0 2px 4px !important;
+  display: block !important;
 }
 
 .cw-bubble-text {
@@ -341,7 +356,7 @@
 .cw-msg.cw-user .cw-bubble-text {
   background: #6C63FF !important;
   color: white !important;
-  border-radius: 16px 16px 4px 16px !important;
+  border-radius: 18px 18px 4px 18px !important;
 }
 
 .cw-msg.cw-bot .cw-bubble-text {
@@ -352,7 +367,7 @@
 .cw-msg.cw-agent .cw-bubble-text {
   background: white !important;
   border: 1px solid #E8E8E8 !important;
-  border-radius: 16px 16px 16px 4px !important;
+  border-radius: 18px 18px 18px 4px !important;
 }
 
 .cw-msg.cw-system .cw-bubble-text {
@@ -371,9 +386,10 @@
 
 .cw-msg-time {
   font-size: 10px !important;
-  color: #BBBBBB !important;
+  color: #BCC0C4 !important;
   margin-top: 3px !important;
   padding: 0 4px !important;
+  display: block !important;
 }
 
 /* Quick replies */
@@ -381,25 +397,35 @@
   display: flex !important;
   flex-wrap: wrap !important;
   gap: 6px !important;
-  margin-top: 6px !important;
+  padding: 8px 12px 4px !important;
 }
 
 .cw-qr-btn {
-  background: white !important;
-  border: 1.5px solid #6C63FF !important;
-  color: #6C63FF !important;
-  padding: 6px 12px !important;
-  border-radius: 20px !important;
-  font-size: 12px !important;
-  cursor: pointer !important;
-  transition: all 0.15s !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  padding: 7px 14px !important;
+  background: #F0F2F5 !important;
+  color: #050505 !important;
+  border: 1px solid #E4E6EB !important;
+  border-radius: 18px !important;
+  font-size: 13px !important;
   font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: background 0.15s, border-color 0.15s !important;
+  white-space: nowrap !important;
+  line-height: 1.2 !important;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif !important;
 }
 
 .cw-qr-btn:hover {
-  background: #6C63FF !important;
-  color: white !important;
+  background: #E4E6EB !important;
+  border-color: #CDD0D4 !important;
+}
+
+.cw-qr-btn:active {
+  transform: scale(0.97) !important;
+  background: #D8DADF !important;
 }
 
 /* Typing indicator */

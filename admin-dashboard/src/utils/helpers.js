@@ -201,7 +201,7 @@ export function resolveAssetUrl(url) {
   const trimmed = url.trim();
   if (!trimmed) return null;
 
-  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:')) {
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
     return trimmed;
   }
   if (/^\/\//.test(trimmed)) {
@@ -216,30 +216,20 @@ export function resolveAssetUrl(url) {
     path.startsWith('/uploads') || path.startsWith('/images');
 
   if (isStoreUploadPath) {
-    let base =
+    let storeUrl =
       import.meta.env.VITE_STORE_URL ||
       import.meta.env.VITE_MAIN_STORE_URL ||
-      defaultStoreAssetBase();
-    base = String(base).replace(/\/$/, '');
+      'https://eonlinebazar.com';
 
     if (
       typeof window !== 'undefined' &&
       /localhost|127\.0\.0\.1/i.test(window.location.hostname)
     ) {
-      base = 'http://localhost:5000';
-    } else if (!import.meta.env.VITE_STORE_URL && !import.meta.env.VITE_MAIN_STORE_URL) {
-      base = defaultStoreAssetBase();
+      storeUrl = 'http://localhost:5000';
     }
 
-    if (
-      typeof window !== 'undefined' &&
-      /localhost|127\.0\.0\.1/i.test(window.location.hostname) &&
-      /eonlinebazar\.com/i.test(base)
-    ) {
-      base = defaultStoreAssetBase();
-    }
-
-    return `${base}${path}`;
+    storeUrl = String(storeUrl).replace(/\/$/, '');
+    return `${storeUrl}${path}`;
   }
 
   const cloudName =

@@ -317,18 +317,18 @@ async function getAIResponse(messages = [], orderContext = null) {
 function getWelcomeQuickReplies(type = 'GENERAL') {
   if (type === 'ORDER_SUPPORT') {
     return [
-      { label: '📦 Where is my order?', value: 'Where is my order right now?' },
-      { label: '🔄 Return this order', value: 'I want to return this order' },
-      { label: '❌ Cancel order', value: 'I want to cancel my order' },
-      { label: '👤 Talk to Agent', value: 'Connect me to a live agent' },
+      { label: 'Where is my order?', value: 'Where is my order right now?' },
+      { label: 'Return this order', value: 'I want to return this order' },
+      { label: 'Cancel order', value: 'I want to cancel my order' },
+      { label: 'Talk to Agent', value: 'Connect me to a live agent' },
     ];
   }
 
   return [
-    { label: '🚚 Delivery Charges', value: 'What are the delivery charges?' },
-    { label: '📦 Track My Order', value: 'How do I track my order?' },
-    { label: '🔄 Return Policy', value: 'Can I return a product?' },
-    { label: '👤 Talk to Human', value: 'I want to talk to a live agent' },
+    { label: 'Delivery Charges', value: 'What are the delivery charges?' },
+    { label: 'Track My Order', value: 'How do I track my order?' },
+    { label: 'Return Policy', value: 'Can I return a product?' },
+    { label: 'Talk to Human', value: 'I want to talk to a live agent' },
   ];
 }
 

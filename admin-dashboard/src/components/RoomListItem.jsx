@@ -108,25 +108,27 @@ export default function RoomListItem({ room }) {
 
       <div className="flex items-start gap-2.5">
         <div className="relative w-10 h-10 flex-shrink-0">
-          {resolvedAvatarUrl && (
-            <img
-              src={resolvedAvatarUrl}
-              alt={name}
-              className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-slate-900 absolute inset-0"
-              loading="lazy"
-              onError={() => setAvatarFailed(true)}
-            />
-          )}
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold absolute inset-0"
             style={{
               background: 'linear-gradient(135deg, #f97316, #ea580c)',
             }}
           >
             {initials}
           </div>
+          {resolvedAvatarUrl && (
+            <img
+              src={resolvedAvatarUrl}
+              alt={name}
+              className="w-10 h-10 rounded-full object-cover absolute inset-0 ring-2 ring-white dark:ring-slate-900"
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          )}
           {room?.status === 'ACTIVE' && (
-            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full ring-2 ring-white dark:ring-slate-900" />
+            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full ring-2 ring-white dark:ring-slate-900 z-10" />
           )}
           {isWaiting && (
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-danger animate-pulseDot ring-2 ring-sidebar" />
