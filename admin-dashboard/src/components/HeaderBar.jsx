@@ -250,6 +250,14 @@ export default function HeaderBar() {
                 <Cog6ToothIcon className="w-4 h-4" />
                 Settings
               </Link>
+              <Link
+                to="/chat-settings"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+              >
+                <ChatBubbleLeftRightIcon className="w-4 h-4" />
+                Chat Settings
+              </Link>
               <button
                 type="button"
                 onClick={handleLogout}

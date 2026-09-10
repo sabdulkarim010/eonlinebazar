@@ -130,6 +130,35 @@ async function uploadChatFile(fileBuffer, mimeType, roomId, filename) {
  * @param {string} mimeType
  * @param {string} agentId
  */
+/**
+ * Upload bot profile photo to Cloudinary.
+ * @param {Buffer} fileBuffer
+ * @param {string} mimeType
+ */
+async function uploadBotAvatar(fileBuffer, mimeType) {
+  if (!fileBuffer || !Buffer.isBuffer(fileBuffer)) {
+    throw new Error('Invalid file buffer');
+  }
+
+  const dataUri = `data:${mimeType || 'image/jpeg'};base64,${fileBuffer.toString('base64')}`;
+
+  const result = await cloudinary.uploader.upload(dataUri, {
+    folder: 'chat-bot-avatars',
+    resource_type: 'image',
+    transformation: [
+      { width: 400, height: 400, crop: 'fill', gravity: 'face', quality: 'auto', fetch_format: 'auto' },
+    ],
+  });
+
+  return {
+    url: result.secure_url || result.url,
+    secure_url: result.secure_url || result.url,
+    public_id: result.public_id,
+    bytes: result.bytes,
+    format: result.format,
+  };
+}
+
 async function uploadAgentAvatar(fileBuffer, mimeType, agentId) {
   if (!fileBuffer || !Buffer.isBuffer(fileBuffer)) {
     throw new Error('Invalid file buffer');
@@ -254,6 +283,7 @@ function sanitizeAttachments(attachments = []) {
 module.exports = {
   uploadChatImage,
   uploadChatFile,
+  uploadBotAvatar,
   uploadAgentAvatar,
   uploadFromBase64,
   deleteChatImage,

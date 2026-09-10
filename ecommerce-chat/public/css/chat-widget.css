@@ -239,61 +239,46 @@
   flex-direction: row !important;
   align-items: flex-end !important;
   justify-content: flex-start !important;
-  gap: 6px !important;
   margin-bottom: 2px !important;
-  padding: 0 8px !important;
-  max-width: 100% !important;
-  align-self: flex-start !important;
+  padding: 0 40px 0 8px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .cw-msg-avatar-slot {
-  width: 28px !important;
-  height: 28px !important;
-  flex-shrink: 0 !important;
-  align-self: flex-end !important;
-}
-
-.cw-msg-avatar-slot.cw-avatar-spacer {
-  width: 28px !important;
-  height: 28px !important;
-  visibility: hidden !important;
+  display: none !important;
 }
 
 .cw-msg-avatar-img {
-  width: 28px !important;
-  height: 28px !important;
-  border-radius: 50% !important;
-  object-fit: cover !important;
-  display: block !important;
+  display: none !important;
 }
 
 .cw-msg-avatar-fallback {
-  width: 28px !important;
-  height: 28px !important;
-  border-radius: 50% !important;
-  background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
-  color: white !important;
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex-shrink: 0 !important;
+  display: none !important;
 }
 
-.cw-msg-avatar-fallback[hidden] {
+.cw-avatar-spacer {
   display: none !important;
 }
 
 .cw-msg-body {
   display: flex !important;
   flex-direction: column !important;
-  max-width: calc(100% - 40px) !important;
+  max-width: 75% !important;
   min-width: 0 !important;
-  flex: 1 !important;
 }
 
 .cw-msg-name {
   display: none !important;
+}
+
+.cw-msg-row-agent.cw-group-first .cw-msg-name {
+  display: block !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #65676B !important;
+  margin-bottom: 2px !important;
+  padding-left: 4px !important;
 }
 
 .cw-bubble-agent {
@@ -313,13 +298,12 @@
 
 .cw-msg-row-customer {
   display: flex !important;
-  flex-direction: column !important;
   justify-content: flex-end !important;
   align-items: flex-end !important;
-  align-self: flex-end !important;
   margin-bottom: 2px !important;
-  padding: 0 8px !important;
+  padding: 0 8px 0 40px !important;
   width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .cw-bubble-customer {
@@ -332,9 +316,9 @@
   word-break: break-word !important;
   white-space: pre-wrap !important;
   display: block !important;
-  width: fit-content !important;
-  max-width: 100% !important;
+  max-width: 75% !important;
   margin-left: auto !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
 }
 
 .cw-msg-row-agent + .cw-msg-row-customer,

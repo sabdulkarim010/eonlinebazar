@@ -1,7 +1,9 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { getJwtSecret } = require('../config/jwtSecret');
+const multer = require('multer');
 const Agent = require('../models/Agent.model');
+const ChatSettings = require('../models/ChatSettings.model');
 const ChatRoom = require('../models/ChatRoom.model');
 const ChatMessage = require('../models/ChatMessage.model');
 const { StoreConfig } = require('../models/AIKnowledgeBase.model');
@@ -28,6 +30,37 @@ const {
   agentAvatarMulter,
   handleAgentAvatarUpload,
 } = require('../handlers/agentAvatarUpload');
+const { uploadBotAvatar, deleteChatImage } = require('../services/upload.service');
+
+const botAvatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = new Set([
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+    ]);
+    if (allowed.has(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG, PNG, WebP, and GIF images are allowed'));
+    }
+  },
+});
+
+function botAvatarMulter(req, res, next) {
+  botAvatarUpload.single('avatar')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'Upload failed',
+      });
+    }
+    next();
+  });
+}
 const { broadcastAdminNewMessage } = require('../utils/adminSocketHub');
 const chatAdminController = require('../controllers/chatAdminController');
 
@@ -1288,6 +1321,116 @@ router.delete(
         success: false,
         message: 'Failed to delete agent / স্টাফ মুছা ব্যর্থ',
         error: err.message,
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/admin/settings/chat
+ */
+router.get('/settings/chat', authMiddleware, async (req, res) => {
+  try {
+    let settings = await ChatSettings.findOne({ key: 'global' });
+    if (!settings) {
+      settings = await ChatSettings.create({
+        key: 'global',
+        quickReplies: [
+          { id: '1', label: 'Delivery Charges', value: 'delivery_charges', isVisible: true, order: 0 },
+          { id: '2', label: 'Track My Order', value: 'track_order', isVisible: true, order: 1 },
+          { id: '3', label: 'Return Policy', value: 'return_policy', isVisible: true, order: 2 },
+          { id: '4', label: 'Talk to Human', value: 'talk_to_human', isVisible: true, order: 3 },
+        ],
+      });
+    }
+    return res.json({ success: true, settings });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
+
+/**
+ * PATCH /api/admin/settings/chat
+ */
+router.patch('/settings/chat', authMiddleware, async (req, res) => {
+  try {
+    const { botName, quickReplies, welcomeMessage, isMaintenanceMode } = req.body || {};
+
+    const settings = await ChatSettings.findOneAndUpdate(
+      { key: 'global' },
+      {
+        $set: {
+          botName,
+          quickReplies,
+          welcomeMessage,
+          isMaintenanceMode,
+          updatedAt: new Date(),
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    return res.json({ success: true, settings });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
+
+/**
+ * POST /api/admin/settings/chat/bot-avatar
+ */
+router.post(
+  '/settings/chat/bot-avatar',
+  authMiddleware,
+  botAvatarMulter,
+  async (req, res) => {
+    try {
+      if (!req.file?.buffer) {
+        return res.status(400).json({
+          success: false,
+          message: 'avatar file is required (field: avatar)',
+        });
+      }
+
+      const existing = await ChatSettings.findOne({ key: 'global' });
+      const result = await uploadBotAvatar(req.file.buffer, req.file.mimetype);
+
+      if (
+        existing?.botAvatarPublicId &&
+        existing.botAvatarPublicId !== result.public_id
+      ) {
+        try {
+          await deleteChatImage(existing.botAvatarPublicId);
+        } catch (deleteErr) {
+          console.warn('[bot-avatar] old image delete failed:', deleteErr.message);
+        }
+      }
+
+      await ChatSettings.findOneAndUpdate(
+        { key: 'global' },
+        {
+          $set: {
+            botAvatar: result.secure_url,
+            botAvatarPublicId: result.public_id,
+          },
+        },
+        { upsert: true }
+      );
+
+      return res.json({
+        success: true,
+        url: result.secure_url,
+      });
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        message: err.message,
       });
     }
   }

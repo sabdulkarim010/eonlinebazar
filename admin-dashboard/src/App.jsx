@@ -4,6 +4,7 @@ import useAuthStore from './store/authStore';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
+import ChatSettingsPage from './pages/ChatSettingsPage';
 import ProfilePage from './pages/ProfilePage';
 
 function ProtectedRoute({ children }) {
@@ -50,6 +51,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/chat-settings"
+          element={
+            <ProtectedRoute>
+              <ChatSettingsPage />
             </ProtectedRoute>
           }
         />

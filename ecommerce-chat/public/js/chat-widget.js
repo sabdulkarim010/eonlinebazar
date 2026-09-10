@@ -1040,12 +1040,6 @@
       customerTime.textContent = formattedTime;
       wrap.appendChild(customerTime);
     } else if (type === 'AGENT') {
-      var agentAvatarRaw =
-        (msg && (msg.sender_avatar || msg.senderAvatar || msg.avatar)) ||
-        (msg && msg.agent && (msg.agent.avatar || msg.agent.avatarUrl)) ||
-        state.agentAvatarUrl ||
-        null;
-      var agentAvatarResolved = resolveAssetUrl(agentAvatarRaw);
       var agentName =
         (msg && (msg.sender_name || msg.senderName || state.agentName)) || 'Agent';
       var agentId =
@@ -1054,12 +1048,6 @@
         msg.senderId ||
         (msg.agent && (msg.agent._id || msg.agent.id)) ||
         'agent';
-      var messagesList = options.messagesList || null;
-      var msgIndex = typeof options.msgIndex === 'number' ? options.msgIndex : -1;
-      var isLast =
-        messagesList && msgIndex >= 0
-          ? !isSameAgentAsNext(messagesList, msgIndex)
-          : true;
       var isFirst = isNewGroup('AGENT', agentId);
 
       wrap.className = 'cw-msg cw-msg-row-agent';
@@ -1067,42 +1055,15 @@
         wrap.classList.add('cw-group-first');
       }
 
-      var avatarSlot = document.createElement('div');
-
-      if (isLast) {
-        avatarSlot.className = 'cw-msg-avatar-slot';
-
-        if (agentAvatarResolved) {
-          var img = document.createElement('img');
-          img.className = 'cw-msg-avatar-img';
-          img.src = agentAvatarResolved;
-          img.alt = agentName || 'Agent';
-
-          var fallback = document.createElement('div');
-          fallback.className = 'cw-msg-avatar-fallback';
-          fallback.textContent = (agentName || 'A').charAt(0).toUpperCase();
-          fallback.hidden = true;
-
-          img.addEventListener('error', function () {
-            img.style.display = 'none';
-            fallback.hidden = false;
-          });
-
-          avatarSlot.appendChild(img);
-          avatarSlot.appendChild(fallback);
-        } else {
-          var fbOnly = document.createElement('div');
-          fbOnly.className = 'cw-msg-avatar-fallback';
-          fbOnly.textContent = (agentName || 'A').charAt(0).toUpperCase();
-          fbOnly.style.display = 'flex';
-          avatarSlot.appendChild(fbOnly);
-        }
-      } else {
-        avatarSlot.className = 'cw-msg-avatar-slot cw-avatar-spacer';
-      }
-
       var body = document.createElement('div');
       body.className = 'cw-msg-body';
+
+      if (isFirst) {
+        var nameEl = document.createElement('span');
+        nameEl.className = 'cw-msg-name';
+        nameEl.textContent = agentName;
+        body.appendChild(nameEl);
+      }
 
       var bubble = document.createElement('div');
       bubble.className = 'cw-bubble-agent';
@@ -1128,7 +1089,6 @@
       timeEl.textContent = formattedTime;
       body.appendChild(timeEl);
 
-      wrap.appendChild(avatarSlot);
       wrap.appendChild(body);
     } else if (type === 'BOT') {
       var botId = 'bot:aria';
@@ -1850,17 +1810,29 @@
         (payloadRoom && (payloadRoom.status === 'ACTIVE' || payloadRoom.status === 'active')) ||
         state.roomStatus === 'ACTIVE';
 
+      var hasAgentReplied = messages.some(function (histMsg) {
+        var histType = normalizeMsgSenderType(histMsg);
+        return histType === 'AGENT' || String(histMsg.sender || '').toLowerCase() === 'agent';
+      });
+
       for (var i = 0; i < messages.length; i++) {
         var m = messages[i];
+        var sysType = normalizeMsgSenderType(m);
         var sysText = String((m && (m.content || m.message || m.text)) || '');
         var isWaitingPill =
-          normalizeMsgSenderType(m) === 'SYSTEM' &&
+          sysType === 'SYSTEM' &&
           sysText &&
           (sysText.indexOf('প্রতিনিধি') !== -1 ||
             sysText.indexOf('শীঘ্রই') !== -1 ||
             sysText.indexOf('অপেক্ষা') !== -1);
+        var isJoinPill =
+          sysType === 'SYSTEM' &&
+          sysText &&
+          (sysText.indexOf('সাহায্য করবেন') !== -1 ||
+            sysText.indexOf('এখন আপনাকে') !== -1);
 
         if (isWaitingPill && roomIsActive) continue;
+        if ((isWaitingPill || isJoinPill) && hasAgentReplied) continue;
 
         renderMessage(m, {
           fromHistory: true,
