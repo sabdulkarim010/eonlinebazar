@@ -97,6 +97,10 @@ mobile/src/components/ProductGrid.js [DONE] cursor-based load more
 ARCHITECTURE.md [DONE] enterprise models, nav groups, mobile env, feature matrix
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Section 2 Phase 1–4 items marked complete
 #
+# Phase 2 Audit — Sidebar routing fixes: 2026-09-10
+client/admin/partials/view-master-settings.html [DONE] #rewards-section scroll anchor for Loyalty Program deep link
+client/js/admin/modules/core-nav.js [DONE] data-scroll-target delayed scroll + link label title; data-settings-tab tab activation
+#
 # Phase 3 CRM & Automation: 2026-09-10
 # --- Task 1: Abandoned cart tracking ---
 backend/src/models/cart.js [DONE] lastActivityAt + abandonedNotifiedAt fields, re-arm pre-save hook, {userId:1,updatedAt:-1} index

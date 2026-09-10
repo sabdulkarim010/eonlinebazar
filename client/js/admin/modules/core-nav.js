@@ -17,6 +17,47 @@ function updateAdminPageHeader(sectionId, fallbackLabel) {
     if (subTitle) subTitle.textContent = meta ? meta.subtitle : '';
 }
 
+/** Sidebar deep links use aliases when data-settings-tab does not match a tab button id. */
+const ADMIN_SETTINGS_TAB_ALIASES = {
+    security: 'profile',
+    system: 'profile'
+};
+
+function activateAdminSettingsTab(tabId) {
+    if (!tabId) return;
+
+    const resolvedTabId = ADMIN_SETTINGS_TAB_ALIASES[tabId] || tabId;
+    const tab =
+        document.querySelector(`.admin-settings-tab[data-tab="${tabId}"]`) ||
+        document.querySelector(`.admin-settings-tab[data-tab="${resolvedTabId}"]`) ||
+        document.getElementById(tabId) ||
+        document.getElementById(`adminTab${resolvedTabId.charAt(0).toUpperCase()}${resolvedTabId.slice(1)}`);
+
+    if (!tab || !tab.classList.contains('admin-settings-tab')) return;
+
+    const target = tab.dataset.tab;
+    if (!target) return;
+
+    const tabs = document.querySelectorAll('.admin-settings-tab');
+    const panels = document.querySelectorAll('.admin-settings-panel');
+
+    tabs.forEach((t) => {
+        const isActive = t === tab;
+        t.classList.toggle('is-active', isActive);
+        t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+
+    panels.forEach((panel) => {
+        const isActive = panel.dataset.panel === target;
+        panel.classList.toggle('is-active', isActive);
+        panel.hidden = !isActive;
+    });
+
+    if (target === 'profile' && typeof loadSandboxStatus === 'function') {
+        loadSandboxStatus();
+    }
+}
+
 /**
  * ক্যাটালগ আইটেম এডিটের জন্য পেশাদার ইনলাইন মোডাল (native prompt এর বিকল্প)
  */
@@ -571,19 +612,22 @@ function navigateAdminSection(targetId, clickedItem) {
     }
 
     const label = clickedItem ? clickedItem.textContent.trim() : '';
-    updateAdminPageHeader(targetId, label);
+    const scrollTarget = clickedItem?.getAttribute?.('data-scroll-target');
+    const settingsTab = clickedItem?.getAttribute?.('data-settings-tab');
+
+    if (scrollTarget && label) {
+        const mainTitle = document.getElementById('page-main-title');
+        const subTitle = document.getElementById('page-sub-title');
+        if (mainTitle) mainTitle.textContent = label;
+        if (subTitle) subTitle.textContent = '';
+    } else {
+        updateAdminPageHeader(targetId, label);
+    }
+
     if (typeof renderAdminBreadcrumb === 'function') {
         renderAdminBreadcrumb(targetId, clickedItem);
     }
     syncNavAccordionState(targetId);
-
-    const scrollTarget = clickedItem?.getAttribute?.('data-scroll-target');
-    if (scrollTarget) {
-        requestAnimationFrame(() => {
-            const el = document.getElementById(scrollTarget) || document.querySelector(`[data-section="${scrollTarget}"]`);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-    }
 
     const refreshMap = {
         'view-orders': fetchLiveOrders,
@@ -633,6 +677,18 @@ function navigateAdminSection(targetId, clickedItem) {
     if (targetId === 'view-add-product') {
         initAddProductFormUI();
         loadCategoryDropdownForProduct('prodCategory');
+    }
+
+    if (scrollTarget || settingsTab) {
+        setTimeout(() => {
+            if (settingsTab) {
+                activateAdminSettingsTab(settingsTab);
+            }
+            if (scrollTarget) {
+                const el = document.getElementById(scrollTarget) || document.querySelector(`[data-section="${scrollTarget}"]`);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 100);
     }
 }
 window.navigateAdminSection = navigateAdminSection;
