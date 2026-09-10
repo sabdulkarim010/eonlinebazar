@@ -564,6 +564,87 @@ async function sendNewsletterCampaignEmail({ to, subject, htmlContent, unsubscri
     }
 }
 
+function buildAbandonedCartHtml({ customerName, items = [], cartUrl, storeName = 'EonlineBazar' }) {
+    const safeName = escapeHtml(customerName || 'Customer');
+    const brand = escapeHtml(storeName);
+    const safeUrl = escapeHtml(cartUrl || '/cart.html');
+
+    const rows = (Array.isArray(items) ? items : []).slice(0, 8).map((item) => {
+        const name = escapeHtml(item.name || 'Product');
+        const qty = Math.max(1, Number(item.quantity) || 1);
+        const price = formatMoneyBdt(Number(item.price || 0) * qty);
+        return `
+            <tr>
+                <td style="padding:12px;border-bottom:1px solid #e2e8f0;">${name}</td>
+                <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:center;">${qty}</td>
+                <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:right;">${price}</td>
+            </tr>`;
+    }).join('');
+
+    return `
+        <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#ffffff;">
+            <div style="background:#0f172a;padding:24px;text-align:center;">
+                <h2 style="color:#f8fafc;margin:0;font-size:24px;">${brand}</h2>
+                <p style="color:#94a3b8;margin:8px 0 0;font-size:14px;">You left something behind 🛒</p>
+            </div>
+            <div style="padding:28px;">
+                <p style="color:#111827;font-size:16px;margin:0 0 12px;">Dear <b>${safeName}</b>,</p>
+                <p style="color:#374151;line-height:1.6;margin:0 0 20px;">Your cart is still waiting for you! Complete your purchase before these items sell out.</p>
+                <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                    <thead>
+                        <tr style="background:#f1f5f9;">
+                            <th style="padding:12px;text-align:left;">Item</th>
+                            <th style="padding:12px;text-align:center;">Qty</th>
+                            <th style="padding:12px;text-align:right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows || '<tr><td colspan="3" style="padding:12px;color:#64748b;">Your saved items</td></tr>'}</tbody>
+                </table>
+                <div style="text-align:center;margin:28px 0 8px;">
+                    <a href="${safeUrl.replace(/&amp;/g, '&')}" style="display:inline-block;background:#f97316;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:15px;">Complete Your Order</a>
+                </div>
+            </div>
+            <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:18px 28px;text-align:center;">
+                <p style="margin:0;color:#64748b;font-size:12px;">&copy; ${new Date().getFullYear()} ${brand}. All rights reserved.</p>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Send an abandoned-cart recovery email. Never throws — returns { delivered }.
+ */
+async function sendAbandonedCartEmail({ to, customerName, items, cartUrl, storeName = 'EonlineBazar' }) {
+    const recipientEmail = String(to || '').trim();
+    if (!recipientEmail) {
+        return { delivered: false, reason: 'Missing recipient email' };
+    }
+    if (!SMTP_USER || !SMTP_PASS) {
+        console.error('EMAIL ERROR: SMTP not configured for abandoned cart recovery.');
+        return { delivered: false, reason: 'Email transport not configured' };
+    }
+
+    const mailOptions = {
+        from: `"${storeName}" <${SMTP_FROM || SMTP_USER}>`,
+        to: recipientEmail,
+        subject: `${customerName ? `${customerName}, y` : 'Y'}ou left items in your cart — ${storeName}`,
+        html: buildAbandonedCartHtml({ customerName, items, cartUrl, storeName })
+    };
+
+    try {
+        const portUsed = await withTimeout(
+            sendWithFailover(mailOptions),
+            OVERALL_SEND_DEADLINE_MS,
+            'Abandoned cart email'
+        );
+        console.log(`SUCCESS: Abandoned cart email sent to ${recipientEmail}`);
+        return { delivered: true, port: portUsed };
+    } catch (err) {
+        console.error('EMAIL ERROR (abandoned cart):', err.message || err);
+        return { delivered: false, reason: err.message };
+    }
+}
+
 async function sendReturnStatusEmail({ to, name, orderNumber, status, reason }) {
     const recipientEmail = String(to || '').trim();
     if (!recipientEmail) {
@@ -678,6 +759,7 @@ module.exports = {
     sendStockAlertEmail,
     sendNewsletterWelcomeEmail,
     sendNewsletterCampaignEmail,
+    sendAbandonedCartEmail,
     buildOrderConfirmationHtml,
     buildInquiryReplyHtml,
     buildNewsletterWelcomeHtml,

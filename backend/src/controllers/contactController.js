@@ -4,10 +4,13 @@
  ********************************************************************/
 
 const ContactMessage = require('../models/ContactMessage');
+const { TICKET_STATUSES, TICKET_PRIORITIES } = require('../models/ContactMessage');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { sendInquiryReplyEmail } = require('../services/mailer');
 const { getStoreSettings } = require('../services/storeSettingsService');
 const { emitToAdmins } = require('../services/socketService');
+
+const CLOSED_TICKET_STATUSES = ['resolved', 'closed'];
 
 function readString(value, max) {
     return String(value ?? '').trim().slice(0, max);
@@ -83,21 +86,13 @@ const listContactMessages = async (req, res) => {
     }
 };
 
+// Read/unread is now a separate inbox flag from the ticket lifecycle status.
 const markContactMessageRead = async (req, res) => {
     try {
         const doc = await ContactMessage.findById(req.params.id);
         if (!doc) return res.status(404).json({ success: false, message: 'Message not found.' });
 
-        if (doc.status === 'replied') {
-            return res.status(200).json({
-                success: true,
-                message: 'Replied inquiries remain marked as replied.',
-                data: doc.toAdminObject()
-            });
-        }
-
         doc.isRead = true;
-        doc.status = 'read';
         await doc.save();
 
         res.status(200).json({ success: true, message: 'Marked as read.', data: doc.toAdminObject() });
@@ -112,15 +107,7 @@ const markContactMessageUnread = async (req, res) => {
         const doc = await ContactMessage.findById(req.params.id);
         if (!doc) return res.status(404).json({ success: false, message: 'Message not found.' });
 
-        if (doc.status === 'replied') {
-            return res.status(400).json({
-                success: false,
-                message: 'Replied inquiries cannot be marked as unread.'
-            });
-        }
-
         doc.isRead = false;
-        doc.status = 'unread';
         await doc.save();
 
         res.status(200).json({ success: true, message: 'Marked as unread.', data: doc.toAdminObject() });
@@ -175,10 +162,14 @@ const replyContactMessage = async (req, res) => {
             });
         }
 
-        doc.status = 'replied';
         doc.replyMessage = replyMessage;
         doc.repliedAt = new Date();
         doc.isRead = true;
+        // A reply moves a brand-new ticket into progress; admins can later flip
+        // it to resolved/closed via the dedicated status endpoint.
+        if (doc.status === 'open') {
+            doc.status = 'in_progress';
+        }
         await doc.save();
 
         await logSecurityEvent({
@@ -200,11 +191,138 @@ const replyContactMessage = async (req, res) => {
     }
 };
 
+// PATCH /api/admin/tickets/:id/assign — assign (or unassign) a ticket to an admin.
+const assignTicket = async (req, res) => {
+    try {
+        const assignedTo = readString(req.body?.assignedTo, 80);
+
+        const doc = await ContactMessage.findById(req.params.id);
+        if (!doc) return res.status(404).json({ success: false, message: 'Ticket not found.' });
+
+        doc.assignedTo = assignedTo;
+        await doc.save();
+
+        await logSecurityEvent({
+            actor: req.admin?.username || 'admin',
+            actorType: 'admin',
+            action: 'Ticket Assigned',
+            ipAddress: getClientIp(req),
+            details: `${doc.ticketNumber || doc._id} → ${assignedTo || 'Unassigned'}`
+        });
+
+        res.status(200).json({
+            success: true,
+            message: assignedTo ? `Ticket assigned to ${assignedTo}.` : 'Ticket unassigned.',
+            data: doc.toAdminObject()
+        });
+    } catch (error) {
+        console.error('Assign Ticket Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to assign ticket.' });
+    }
+};
+
+// PATCH /api/admin/tickets/:id/status — move a ticket through its lifecycle.
+const updateTicketStatus = async (req, res) => {
+    try {
+        const status = readString(req.body?.status, 20).toLowerCase();
+        if (!TICKET_STATUSES.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid status. Allowed: ${TICKET_STATUSES.join(', ')}.`
+            });
+        }
+
+        const priority = req.body?.priority !== undefined
+            ? readString(req.body.priority, 20).toLowerCase()
+            : null;
+        if (priority !== null && !TICKET_PRIORITIES.includes(priority)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid priority. Allowed: ${TICKET_PRIORITIES.join(', ')}.`
+            });
+        }
+
+        const doc = await ContactMessage.findById(req.params.id);
+        if (!doc) return res.status(404).json({ success: false, message: 'Ticket not found.' });
+
+        doc.status = status;
+        if (priority !== null) doc.priority = priority;
+
+        // Stamp the resolution time on close, clear it when re-opened.
+        if (CLOSED_TICKET_STATUSES.includes(status)) {
+            if (!doc.resolvedAt) doc.resolvedAt = new Date();
+        } else {
+            doc.resolvedAt = null;
+        }
+
+        await doc.save();
+
+        await logSecurityEvent({
+            actor: req.admin?.username || 'admin',
+            actorType: 'admin',
+            action: 'Ticket Status Updated',
+            ipAddress: getClientIp(req),
+            details: `${doc.ticketNumber || doc._id} → ${status}${priority !== null ? ` (${priority})` : ''}`
+        });
+
+        res.status(200).json({
+            success: true,
+            message: `Ticket marked as ${status.replace('_', ' ')}.`,
+            data: doc.toAdminObject()
+        });
+    } catch (error) {
+        console.error('Update Ticket Status Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update ticket status.' });
+    }
+};
+
+// GET /api/admin/tickets/stats — counts by status/priority for the inbox header.
+const getTicketStats = async (req, res) => {
+    try {
+        const [byStatus, byPriority, total, unassigned, unread] = await Promise.all([
+            ContactMessage.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+            ContactMessage.aggregate([{ $group: { _id: '$priority', count: { $sum: 1 } } }]),
+            ContactMessage.countDocuments({}),
+            ContactMessage.countDocuments({ $or: [{ assignedTo: '' }, { assignedTo: { $exists: false } }] }),
+            ContactMessage.countDocuments({ isRead: false })
+        ]);
+
+        const statusCounts = TICKET_STATUSES.reduce((acc, s) => { acc[s] = 0; return acc; }, {});
+        byStatus.forEach((row) => {
+            const key = TICKET_STATUSES.includes(row._id) ? row._id : 'open';
+            statusCounts[key] += row.count;
+        });
+
+        const priorityCounts = TICKET_PRIORITIES.reduce((acc, p) => { acc[p] = 0; return acc; }, {});
+        byPriority.forEach((row) => {
+            const key = TICKET_PRIORITIES.includes(row._id) ? row._id : 'normal';
+            priorityCounts[key] += row.count;
+        });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                total,
+                unassigned,
+                unread,
+                byStatus: statusCounts,
+                byPriority: priorityCounts
+            }
+        });
+    } catch (error) {
+        console.error('Get Ticket Stats Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load ticket stats.' });
+    }
+};
+
 module.exports = {
     submitContactMessage,
     listContactMessages,
     markContactMessageRead,
     markContactMessageUnread,
     deleteContactMessage,
-    replyContactMessage
+    replyContactMessage,
+    assignTicket,
+    updateTicketStatus,
+    getTicketStats
 };

@@ -434,9 +434,34 @@
                 <small class="optional-hint">Write in HTML format</small>
             </div>
             <div class="catalog-field">
+                <label for="nlCampaignChannel">Delivery Channel</label>
+                <select id="nlCampaignChannel">
+                    <option value="email">Email</option>
+                    <option value="sms">SMS</option>
+                    <option value="whatsapp">WhatsApp</option>
+                </select>
+                <small class="optional-hint">SMS &amp; WhatsApp use the message template below</small>
+            </div>
+            <div class="catalog-field">
+                <label for="nlCampaignSegment">Target Segment</label>
+                <select id="nlCampaignSegment">
+                    <option value="all">All customers</option>
+                    <option value="vip">VIP / Top buyers</option>
+                    <option value="frequent">Frequent buyers</option>
+                    <option value="inactive">Inactive (no orders)</option>
+                    <option value="new">New (last 30 days)</option>
+                </select>
+                <small class="optional-hint">Segments target the customer base (not tags)</small>
+            </div>
+            <div class="catalog-field catalog-field-full">
+                <label for="nlCampaignWhatsappTemplate">SMS / WhatsApp Message</label>
+                <textarea id="nlCampaignWhatsappTemplate" rows="4" placeholder="Hi {name}! Enjoy 20% off this week at EonlineBazar."></textarea>
+                <small class="optional-hint">Plain text used for SMS and WhatsApp broadcast channels</small>
+            </div>
+            <div class="catalog-field">
                 <label for="nlCampaignTags">Target Tags</label>
                 <input type="text" id="nlCampaignTags" placeholder="vip, sale (comma separated)">
-                <small class="optional-hint">Leave empty to send to all subscribers</small>
+                <small class="optional-hint">Email + All segment only — leave empty to send to all subscribers</small>
             </div>
             <div class="catalog-field">
                 <label for="nlCampaignSchedule">Schedule Date (optional)</label>

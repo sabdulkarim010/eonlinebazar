@@ -6,7 +6,90 @@
 
 const Newsletter = require('../models/newsletter');
 const EmailCampaign = require('../models/emailCampaign');
+const User = require('../models/user');
+const Order = require('../models/order');
+const Setting = require('../models/Setting');
 const { sendNewsletterCampaignEmail } = require('../services/mailer');
+const { sendSms } = require('../services/smsService');
+const whatsappService = require('../services/whatsappService');
+
+const VALID_SEGMENTS = ['all', 'vip', 'frequent', 'inactive', 'new'];
+const VALID_CHANNELS = ['email', 'sms', 'whatsapp'];
+const NEW_CUSTOMER_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Mirrors resolveCustomerSegment in admin/customerAdminController.js so campaign
+// targeting uses the same VIP / Frequent / Inactive thresholds as the customer list.
+function classifyCustomerSegment(stats, thresholds) {
+    const orderCount = Number(stats.orderCount) || 0;
+    const totalSpent = Number(stats.totalSpent) || 0;
+    const isVip = totalSpent >= Number(thresholds.vipMinTotalSpent)
+        || orderCount >= Number(thresholds.vipMinOrderCount);
+    const isFrequent = !isVip && orderCount >= Number(thresholds.frequentBuyerMinOrders);
+    const isInactive = orderCount === 0;
+    return { orderCount, totalSpent, isVip, isFrequent, isInactive };
+}
+
+/**
+ * Resolve the customers a segmented campaign should reach. Returns lightweight
+ * recipient objects { name, email, phone }. `channel` decides whether an email
+ * or a phone number is the required contact field.
+ */
+async function resolveSegmentRecipients(segment, channel) {
+    const [users, orderStats, masterSettings] = await Promise.all([
+        User.find({ isDeleted: { $ne: true }, accountStatus: 'active' })
+            .select('firstName lastName name email phone mobile createdAt')
+            .lean(),
+        Order.aggregate([
+            { $match: { user: { $ne: null }, status: { $nin: ['Cancelled', 'Canceled'] } } },
+            {
+                $group: {
+                    _id: '$user',
+                    orderCount: { $sum: 1 },
+                    totalSpent: {
+                        $sum: {
+                            $add: [
+                                { $ifNull: ['$grandTotal', 0] },
+                                { $ifNull: ['$walletApplied', 0] }
+                            ]
+                        }
+                    }
+                }
+            }
+        ]),
+        Setting.getOrCreate()
+    ]);
+
+    const statsMap = new Map(orderStats.map((row) => [String(row._id), {
+        orderCount: row.orderCount || 0,
+        totalSpent: Math.round(Number(row.totalSpent) || 0)
+    }]));
+
+    const thresholds = {
+        vipMinTotalSpent: masterSettings.vipMinTotalSpent,
+        vipMinOrderCount: masterSettings.vipMinOrderCount,
+        frequentBuyerMinOrders: masterSettings.frequentBuyerMinOrders
+    };
+
+    const now = Date.now();
+
+    return users
+        .filter((user) => {
+            if (segment === 'all') return true;
+            const meta = classifyCustomerSegment(statsMap.get(String(user._id)) || {}, thresholds);
+            const isNew = user.createdAt && (now - new Date(user.createdAt).getTime()) <= NEW_CUSTOMER_WINDOW_MS;
+            if (segment === 'vip') return meta.isVip;
+            if (segment === 'frequent') return meta.isFrequent;
+            if (segment === 'inactive') return meta.isInactive && !isNew;
+            if (segment === 'new') return Boolean(isNew);
+            return true;
+        })
+        .map((user) => ({
+            name: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.name || '',
+            email: String(user.email || '').trim(),
+            phone: String(user.phone || user.mobile || '').trim()
+        }))
+        .filter((r) => (channel === 'email' ? Boolean(r.email) : Boolean(r.phone)));
+}
 
 function readString(value, max) {
     return String(value ?? '').trim().slice(0, max);
@@ -141,8 +224,22 @@ const createCampaign = async (req, res) => {
         const subject = readString(body.subject, 200);
         const htmlContent = readString(body.htmlContent, 500000);
 
-        if (!title || !subject || !htmlContent) {
-            return res.status(400).json({ success: false, message: 'Title, subject, and HTML content are required' });
+        const channel = VALID_CHANNELS.includes(body.channel) ? body.channel : 'email';
+        const targetSegment = VALID_SEGMENTS.includes(body.targetSegment) ? body.targetSegment : 'all';
+        const whatsappTemplate = readString(body.whatsappTemplate, 10000);
+
+        // Email needs HTML; SMS/WhatsApp deliver a plain-text template instead.
+        if (!title || !subject) {
+            return res.status(400).json({ success: false, message: 'Title and subject are required' });
+        }
+        if (channel === 'email' && !htmlContent) {
+            return res.status(400).json({ success: false, message: 'HTML content is required for email campaigns' });
+        }
+        if (channel === 'whatsapp' && !whatsappTemplate) {
+            return res.status(400).json({ success: false, message: 'WhatsApp template message is required' });
+        }
+        if (channel === 'sms' && !whatsappTemplate && !htmlContent) {
+            return res.status(400).json({ success: false, message: 'SMS message text is required' });
         }
 
         const targetTags = parseTagsInput(body.targetTags);
@@ -157,6 +254,9 @@ const createCampaign = async (req, res) => {
             subject,
             htmlContent,
             targetTags,
+            targetSegment,
+            channel,
+            whatsappTemplate,
             scheduledAt,
             status: 'draft',
             createdBy: req.admin?._id || req.admin?.id || null
@@ -209,37 +309,99 @@ const sendCampaign = async (req, res) => {
             });
         }
 
-        const recipientQuery = buildCampaignRecipientQuery(campaign.targetTags);
-        const subscribers = await Newsletter.find(recipientQuery);
+        const channel = VALID_CHANNELS.includes(campaign.channel) ? campaign.channel : 'email';
+        const segment = VALID_SEGMENTS.includes(campaign.targetSegment) ? campaign.targetSegment : 'all';
 
-        campaign.status = 'sending';
-        campaign.stats.totalRecipients = subscribers.length;
-        campaign.stats.sent = 0;
-        campaign.stats.failed = 0;
-        await campaign.save();
+        // Legacy path: a plain email campaign with no segment still targets the
+        // newsletter subscriber list (honouring targetTags). Any other channel or
+        // a specific segment resolves recipients from the customer (User) base.
+        const useSubscriberList = channel === 'email' && segment === 'all';
 
         let sentCount = 0;
         let failedCount = 0;
+        let totalRecipients = 0;
 
-        for (let i = 0; i < subscribers.length; i += 10) {
-            const batch = subscribers.slice(i, i + 10);
-            const results = await Promise.all(
-                batch.map((sub) => sendCampaignEmail(sub, campaign).catch(() => ({ delivered: false })))
-            );
+        if (useSubscriberList) {
+            const subscribers = await Newsletter.find(buildCampaignRecipientQuery(campaign.targetTags));
+            totalRecipients = subscribers.length;
 
-            results.forEach((r) => {
-                if (r.delivered) sentCount += 1;
-                else failedCount += 1;
-            });
-
-            campaign.stats.sent = sentCount;
-            campaign.stats.failed = failedCount;
+            campaign.status = 'sending';
+            campaign.stats.totalRecipients = totalRecipients;
+            campaign.stats.sent = 0;
+            campaign.stats.failed = 0;
             await campaign.save();
 
-            if (i + 10 < subscribers.length) await sleep(1000);
+            for (let i = 0; i < subscribers.length; i += 10) {
+                const batch = subscribers.slice(i, i + 10);
+                const results = await Promise.all(
+                    batch.map((sub) => sendCampaignEmail(sub, campaign).catch(() => ({ delivered: false })))
+                );
+                results.forEach((r) => { r.delivered ? (sentCount += 1) : (failedCount += 1); });
+
+                campaign.stats.sent = sentCount;
+                campaign.stats.failed = failedCount;
+                await campaign.save();
+
+                if (i + 10 < subscribers.length) await sleep(1000);
+            }
+        } else {
+            const recipients = await resolveSegmentRecipients(segment, channel);
+            totalRecipients = recipients.length;
+
+            campaign.status = 'sending';
+            campaign.stats.totalRecipients = totalRecipients;
+            campaign.stats.sent = 0;
+            campaign.stats.failed = 0;
+            await campaign.save();
+
+            if (channel === 'whatsapp') {
+                // WhatsApp broadcasts go through the gateway in one batched call.
+                const result = await whatsappService.sendBroadcast(
+                    recipients.map((r) => r.phone),
+                    campaign.whatsappTemplate
+                );
+                sentCount = result.sent;
+                failedCount = result.failed + (result.skipped || 0);
+            } else if (channel === 'sms') {
+                const smsBody = campaign.whatsappTemplate || campaign.subject;
+                for (let i = 0; i < recipients.length; i += 10) {
+                    const batch = recipients.slice(i, i + 10);
+                    const results = await Promise.all(
+                        batch.map((r) => sendSms({ to: r.phone, body: smsBody, context: 'CAMPAIGN SMS' })
+                            .catch(() => ({ delivered: false })))
+                    );
+                    results.forEach((r) => { r.delivered ? (sentCount += 1) : (failedCount += 1); });
+
+                    campaign.stats.sent = sentCount;
+                    campaign.stats.failed = failedCount;
+                    await campaign.save();
+
+                    if (i + 10 < recipients.length) await sleep(1000);
+                }
+            } else {
+                // Segmented email — send to customers directly (no subscriber row).
+                for (let i = 0; i < recipients.length; i += 10) {
+                    const batch = recipients.slice(i, i + 10);
+                    const results = await Promise.all(
+                        batch.map((r) => sendNewsletterCampaignEmail({
+                            to: r.email,
+                            subject: campaign.subject,
+                            htmlContent: campaign.htmlContent,
+                            unsubscribeUrl: `${getFrontendBaseUrl()}/api/newsletter/unsubscribe?token=`
+                        }).catch(() => ({ delivered: false })))
+                    );
+                    results.forEach((r) => { r.delivered ? (sentCount += 1) : (failedCount += 1); });
+
+                    campaign.stats.sent = sentCount;
+                    campaign.stats.failed = failedCount;
+                    await campaign.save();
+
+                    if (i + 10 < recipients.length) await sleep(1000);
+                }
+            }
         }
 
-        campaign.status = failedCount === subscribers.length && subscribers.length > 0 ? 'failed' : 'sent';
+        campaign.status = failedCount === totalRecipients && totalRecipients > 0 ? 'failed' : 'sent';
         campaign.sentAt = new Date();
         campaign.stats.sent = sentCount;
         campaign.stats.failed = failedCount;
@@ -247,7 +409,7 @@ const sendCampaign = async (req, res) => {
 
         res.json({
             success: true,
-            message: `Campaign sent to ${sentCount} subscriber(s)`,
+            message: `Campaign sent to ${sentCount} recipient(s) via ${channel}`,
             data: campaign
         });
     } catch (error) {

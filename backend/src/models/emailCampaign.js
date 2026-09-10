@@ -18,6 +18,25 @@ const emailCampaignSchema = new mongoose.Schema({
         default: 'draft'
     },
     targetTags: [String],
+    // 🎯 Segment targeting — recipients resolved from the User model by segment
+    // (thresholds live in Setting.js). 'all' keeps the legacy subscriber behaviour
+    // for email campaigns without a specific segment.
+    targetSegment: {
+        type: String,
+        enum: ['all', 'vip', 'frequent', 'inactive', 'new'],
+        default: 'all'
+    },
+    // 📣 Delivery channel — email (newsletter/SMTP), sms, or whatsapp broadcast.
+    channel: {
+        type: String,
+        enum: ['email', 'sms', 'whatsapp'],
+        default: 'email'
+    },
+    // Message body used for the WhatsApp broadcast channel (htmlContent is email-only).
+    whatsappTemplate: {
+        type: String,
+        default: ''
+    },
     scheduledAt: { type: Date, default: null },
     sentAt: { type: Date, default: null },
     stats: {

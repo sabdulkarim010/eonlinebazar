@@ -49,6 +49,7 @@ const footerSettingsController = require('../controllers/footerSettingsControlle
 const pageContentController = require('../controllers/pageContentController');
 const contactController = require('../controllers/contactController');
 const newsletterAdminController = require('../controllers/newsletterAdminController');
+const crmController = require('../controllers/admin/crmController');
 const upload = require('../middlewares/uploadMiddleware');
 const { brandingUpload, paymentMethodLogoUpload, footerIconUpload, importFileUpload } = upload;
 const staffController = require('../controllers/staffController');
@@ -412,6 +413,20 @@ router.get('/messages', verifyAdmin, checkPermission('manage_settings'), contact
 router.patch('/messages/:id/read', verifyAdmin, checkPermission('manage_settings'), contactController.markContactMessageRead);
 router.patch('/messages/:id/unread', verifyAdmin, checkPermission('manage_settings'), contactController.markContactMessageUnread);
 router.delete('/messages/:id', verifyAdmin, checkPermission('manage_settings'), contactController.deleteContactMessage);
+
+/********************************************************************
+ # ৫চ.২ 🎫 SUPPORT TICKET LIFECYCLE (ContactMessage tickets)
+ # URL: /api/admin/tickets/*
+ ********************************************************************/
+router.get('/tickets/stats', verifyAdmin, checkPermission('manage_settings'), contactController.getTicketStats);
+router.patch('/tickets/:id/assign', verifyAdmin, checkPermission('manage_settings'), contactController.assignTicket);
+router.patch('/tickets/:id/status', verifyAdmin, checkPermission('manage_settings'), contactController.updateTicketStatus);
+
+/********************************************************************
+ # ৫চ.১ 🤝 CRM AUTOMATION DASHBOARDS
+ # URL: /api/admin/crm/*
+ ********************************************************************/
+router.get('/crm/abandoned-carts', verifyAdmin, checkPermission('manage_marketing'), crmController.getAbandonedCartStats);
 
 /********************************************************************
  # ৫ছ. 📧 NEWSLETTER & EMAIL CAMPAIGNS

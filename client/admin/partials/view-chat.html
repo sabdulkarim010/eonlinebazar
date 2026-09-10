@@ -1,91 +1,18 @@
-<!-- Live Chat — 3-column agent workspace (store admin panel) -->
+<!-- Live Chat (legacy) — DEPRECATED. Superseded by the standalone /chat-admin dashboard. -->
 <section id="view-chat" class="admin-section chat-admin-section" style="display: none;">
-    <div id="chatAgentLoginGate" class="chat-agent-login-gate" hidden>
-        <div class="chat-agent-login-card">
-            <h3>💬 Live Chat Agent Login</h3>
-            <p>Connect to the chat service with your agent credentials (same as <a href="/chat-admin" target="_blank" rel="noopener">Chat Admin</a>).</p>
-            <form id="chatAgentLoginForm" class="chat-agent-login-form">
-                <label for="chatAgentEmail">Email</label>
-                <input type="email" id="chatAgentEmail" required autocomplete="username" placeholder="agent@store.com">
-                <label for="chatAgentPassword">Password</label>
-                <input type="password" id="chatAgentPassword" required autocomplete="current-password" placeholder="••••••••">
-                <button type="submit" class="btn-primary chat-agent-login-btn">Sign in to Live Chat</button>
-            </form>
-            <p class="chat-agent-login-hint">Or open the full dashboard: <a href="/chat-admin" target="_blank" rel="noopener">/chat-admin</a></p>
+    <div class="chat-deprecated-notice">
+        <div class="chat-deprecated-card">
+            <span class="chat-deprecated-icon" aria-hidden="true">💬</span>
+            <h3>Live Chat has moved</h3>
+            <p>
+                The in-panel live chat workspace has been retired. Agent chat now lives in the
+                dedicated <strong>Chat Admin</strong> dashboard, which offers the full 3-column
+                agent workspace, presence, and analytics.
+            </p>
+            <a href="/chat-admin" class="btn-primary chat-deprecated-btn" target="_blank" rel="noopener">
+                <i class="fa-solid fa-up-right-from-square"></i> Open Chat Admin
+            </a>
+            <p class="chat-deprecated-hint">Bookmark <a href="/chat-admin" target="_blank" rel="noopener">/chat-admin</a> for direct access.</p>
         </div>
-    </div>
-
-    <div id="chatWorkspace" class="chat-workspace" hidden>
-        <!-- LEFT: Conversation list -->
-        <aside class="chat-list-panel" aria-label="Conversation list">
-            <div class="chat-list-header">
-                <div class="chat-list-title-row">
-                    <h3 class="chat-list-title">💬 Live Chats</h3>
-                    <span id="totalChatsCount" class="chat-total-badge">0</span>
-                </div>
-                <input type="search" id="chatSearchInput" class="chat-search-input"
-                    placeholder="🔍 Search conversations..." aria-label="Search conversations">
-                <div class="chat-filter-tabs" role="tablist" aria-label="Filter conversations">
-                    <button type="button" class="chat-filter-tab is-active" data-filter="waiting">⏳ Waiting</button>
-                    <button type="button" class="chat-filter-tab" data-filter="active">🟢 Active</button>
-                    <button type="button" class="chat-filter-tab" data-filter="resolved">✅ Resolved</button>
-                    <button type="button" class="chat-filter-tab" data-filter="all">All</button>
-                </div>
-            </div>
-            <div id="conversationList" class="chat-conversation-list" role="listbox"></div>
-        </aside>
-
-        <!-- MIDDLE: Chat window -->
-        <div class="chat-main-panel">
-            <div id="noChatSelected" class="chat-empty-state">
-                <span class="chat-empty-icon" aria-hidden="true">💬</span>
-                <h3>Select a conversation</h3>
-                <p>Choose a chat from the left panel</p>
-            </div>
-
-            <div id="activeChatWindow" class="chat-active-window" hidden>
-                <header id="chatWindowHeader" class="chat-window-header"></header>
-
-                <div id="messagesArea" class="chat-messages-area" role="log" aria-live="polite"></div>
-
-                <div id="customerTypingIndicator" class="chat-typing-indicator" hidden>
-                    Customer is typing…
-                </div>
-
-                <div id="quickRepliesBar" class="chat-quick-replies-bar" hidden>
-                    <div class="chat-quick-replies-label">QUICK REPLIES</div>
-                    <div id="quickRepliesList" class="chat-quick-replies-list"></div>
-                </div>
-
-                <footer class="chat-composer">
-                    <div class="chat-composer-toolbar">
-                        <label class="chat-toolbar-btn" title="Send image/file">
-                            <input type="file" id="chatFileInput" accept="image/*,.pdf,.doc,.docx" hidden>
-                            <span aria-hidden="true">📎</span>
-                        </label>
-                        <button type="button" class="chat-toolbar-btn" id="orderCardBtn" title="Attach order info">📦</button>
-                        <button type="button" class="chat-toolbar-btn chat-toolbar-text" id="quickRepliesToggle" title="Quick replies">⚡ Quick</button>
-                        <button type="button" class="chat-toolbar-btn chat-toolbar-text" id="internalNoteToggle" title="Internal note">🔒 Note</button>
-                    </div>
-
-                    <div id="internalNoteBanner" class="chat-internal-note-banner" hidden>
-                        📝 Internal note — not visible to customer
-                    </div>
-
-                    <div class="chat-composer-row">
-                        <textarea id="adminMessageInput" class="chat-message-input" rows="2"
-                            placeholder="Type a message… (/ for quick replies)"></textarea>
-                        <button type="button" id="sendMsgBtn" class="chat-send-btn" title="Send message" aria-label="Send message">➤</button>
-                    </div>
-                </footer>
-            </div>
-        </div>
-
-        <!-- RIGHT: Customer context -->
-        <aside class="chat-context-panel" aria-label="Customer details">
-            <div id="chatContextPanel" class="chat-context-inner">
-                <p class="chat-context-placeholder">Select a conversation to view details</p>
-            </div>
-        </aside>
     </div>
 </section>

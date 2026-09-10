@@ -68,6 +68,7 @@ const FIELD_ALIASES = {
     vipMinTotalSpent: ['vipMinTotalSpent'],
     vipMinOrderCount: ['vipMinOrderCount'],
     frequentBuyerMinOrders: ['frequentBuyerMinOrders'],
+    referralRewardAmount: ['referralRewardAmount', 'referralReward'],
     defaultProductsPerPage: ['defaultProductsPerPage', 'productsPerPage']
 };
 
@@ -80,6 +81,7 @@ const NUMERIC_FIELD_RULES = {
     vipMinTotalSpent: { label: 'VIP minimum total spent', min: 0 },
     vipMinOrderCount: { label: 'VIP minimum order count', min: 0 },
     frequentBuyerMinOrders: { label: 'Frequent buyer minimum orders', min: 0 },
+    referralRewardAmount: { label: 'Referral reward amount', min: 0 },
     defaultProductsPerPage: { label: 'Default products per page', min: 1, max: 100 }
 };
 
@@ -160,6 +162,9 @@ const buildUnifiedPayload = async (settingsDoc) => {
         vipMinTotalSpent: settingsDoc.vipMinTotalSpent,
         vipMinOrderCount: settingsDoc.vipMinOrderCount,
         frequentBuyerMinOrders: settingsDoc.frequentBuyerMinOrders,
+        referralRewardAmount: Number.isFinite(Number(settingsDoc.referralRewardAmount))
+            ? Number(settingsDoc.referralRewardAmount)
+            : 100,
         defaultProductsPerPage: Number(settingsDoc.defaultProductsPerPage) > 0
             ? Number(settingsDoc.defaultProductsPerPage)
             : 24,

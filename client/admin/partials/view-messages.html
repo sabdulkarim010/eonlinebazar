@@ -26,15 +26,21 @@
                         aria-label="Search inquiries"
                     >
                 </div>
-                <div class="support-inbox-tabs" role="tablist" aria-label="Filter inquiries by status">
+                <div class="support-inbox-tabs" role="tablist" aria-label="Filter tickets by status">
                     <button type="button" class="support-inbox-tab is-active" data-filter="all" role="tab" aria-selected="true">
                         All <span class="support-inbox-tab-count" id="supportTabCountAll">0</span>
                     </button>
-                    <button type="button" class="support-inbox-tab" data-filter="unread" role="tab" aria-selected="false">
-                        Unread <span class="support-inbox-tab-count support-inbox-tab-count--unread" id="supportTabCountUnread">0</span>
+                    <button type="button" class="support-inbox-tab" data-filter="open" role="tab" aria-selected="false">
+                        Open <span class="support-inbox-tab-count support-inbox-tab-count--unread" id="supportTabCountOpen">0</span>
                     </button>
-                    <button type="button" class="support-inbox-tab" data-filter="replied" role="tab" aria-selected="false">
-                        Replied <span class="support-inbox-tab-count support-inbox-tab-count--replied" id="supportTabCountReplied">0</span>
+                    <button type="button" class="support-inbox-tab" data-filter="in_progress" role="tab" aria-selected="false">
+                        In Progress <span class="support-inbox-tab-count support-inbox-tab-count--read" id="supportTabCountProgress">0</span>
+                    </button>
+                    <button type="button" class="support-inbox-tab" data-filter="resolved" role="tab" aria-selected="false">
+                        Resolved <span class="support-inbox-tab-count support-inbox-tab-count--replied" id="supportTabCountResolved">0</span>
+                    </button>
+                    <button type="button" class="support-inbox-tab" data-filter="closed" role="tab" aria-selected="false">
+                        Closed <span class="support-inbox-tab-count support-inbox-tab-count--closed" id="supportTabCountClosed">0</span>
                     </button>
                 </div>
             </div>
@@ -86,7 +92,10 @@
                 <div class="outlook-reading-topbar">
                     <div class="outlook-reading-topbar-main">
                         <h2 id="inquiryDetailSubjectLine" class="outlook-reading-subject">—</h2>
-                        <span id="inquiryDetailStatusBadge" class="outlook-reading-status"></span>
+                        <div class="ticket-reading-meta">
+                            <span id="inquiryDetailTicketNumber" class="ticket-number-chip ticket-number-chip--lg"></span>
+                            <span id="inquiryDetailStatusBadge" class="outlook-reading-status"></span>
+                        </div>
                     </div>
                     <div class="support-inbox-detail-actions outlook-reading-actions">
                         <button type="button" class="outlook-action-btn" id="inquiryDetailMarkReadBtn" title="Mark as read">
@@ -136,6 +145,37 @@
                         <span class="outlook-sent-reply-label">Your Reply</span>
                         <div id="inquiryDetailSentReplyText" class="outlook-sent-reply-text"></div>
                         <small id="inquiryDetailSentReplyAt" class="outlook-sent-reply-at"></small>
+                    </div>
+                </div>
+
+                <div class="ticket-controls-bar">
+                    <div class="ticket-control-group">
+                        <label for="inquiryDetailStatusSelect">Status</label>
+                        <select id="inquiryDetailStatusSelect" class="ticket-control-select">
+                            <option value="open">Open</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="closed">Closed</option>
+                        </select>
+                    </div>
+                    <div class="ticket-control-group">
+                        <label for="inquiryDetailPrioritySelect">Priority</label>
+                        <select id="inquiryDetailPrioritySelect" class="ticket-control-select">
+                            <option value="low">Low</option>
+                            <option value="normal">Normal</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+                    <div class="ticket-control-group ticket-control-group--assignee">
+                        <label for="inquiryDetailAssignee">Assigned To</label>
+                        <div class="ticket-assignee-row">
+                            <input type="text" id="inquiryDetailAssignee" class="ticket-control-input"
+                                   placeholder="Admin username" autocomplete="off" maxlength="80">
+                            <button type="button" id="inquiryDetailAssignBtn" class="btn-secondary ticket-assign-btn">
+                                <i class="fa-solid fa-user-check"></i> Assign
+                            </button>
+                        </div>
                     </div>
                 </div>
 

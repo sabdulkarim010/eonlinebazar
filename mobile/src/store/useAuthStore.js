@@ -254,6 +254,7 @@ const useAuthStore = create((set, get) => ({
         password: payload.password,
         district: payload.district,
         upazila: payload.upazila || payload.upazilaOrThana || payload.thana,
+        ...(payload.referralCode ? { referralCode: payload.referralCode } : {}),
       });
 
       if (!data?.success) {

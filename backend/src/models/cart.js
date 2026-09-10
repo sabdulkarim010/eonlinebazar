@@ -35,8 +35,32 @@ const cartSchema = new mongoose.Schema({
             selectedColor: { type: String, default: '' },
             selectedSize: { type: String, default: '' }
         }
-    ]
+    ],
+    // 🛒 Abandoned cart tracking (CRM automation — abandonedCartJob.js)
+    // lastActivityAt bumps on every cart mutation; abandonedNotifiedAt is set
+    // once a recovery email/SMS has been dispatched so we never re-notify.
+    lastActivityAt: {
+        type: Date,
+        default: Date.now
+    },
+    abandonedNotifiedAt: {
+        type: Date,
+        default: null
+    }
 }, { timestamps: true });
+
+// Every save is a cart change — keep lastActivityAt fresh and re-arm the
+// recovery flag so a returning shopper who edits their cart can be notified
+// again if they abandon it a second time.
+cartSchema.pre('save', function markCartActivity() {
+    if (this.isModified('items')) {
+        this.lastActivityAt = new Date();
+        this.abandonedNotifiedAt = null;
+    }
+});
+
+// Abandoned cart cron query: filter by owner + recency of last update.
+cartSchema.index({ userId: 1, updatedAt: -1 });
 
 module.exports = mongoose.model('Cart', cartSchema);
 

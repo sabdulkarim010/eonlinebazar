@@ -182,6 +182,9 @@ function readCampaignForm() {
         subject: document.getElementById('nlCampaignSubject')?.value.trim() || '',
         htmlContent: document.getElementById('nlCampaignHtml')?.value.trim() || '',
         targetTags: document.getElementById('nlCampaignTags')?.value.trim() || '',
+        channel: document.getElementById('nlCampaignChannel')?.value || 'email',
+        targetSegment: document.getElementById('nlCampaignSegment')?.value || 'all',
+        whatsappTemplate: document.getElementById('nlCampaignWhatsappTemplate')?.value.trim() || '',
         scheduledAt: document.getElementById('nlCampaignSchedule')?.value || null
     };
 }
@@ -192,6 +195,12 @@ function fillCampaignForm(campaign) {
     document.getElementById('nlCampaignSubject').value = campaign?.subject || '';
     document.getElementById('nlCampaignHtml').value = campaign?.htmlContent || '';
     document.getElementById('nlCampaignTags').value = (campaign?.targetTags || []).join(', ');
+    const channelSel = document.getElementById('nlCampaignChannel');
+    if (channelSel) channelSel.value = campaign?.channel || 'email';
+    const segmentSel = document.getElementById('nlCampaignSegment');
+    if (segmentSel) segmentSel.value = campaign?.targetSegment || 'all';
+    const waTemplate = document.getElementById('nlCampaignWhatsappTemplate');
+    if (waTemplate) waTemplate.value = campaign?.whatsappTemplate || '';
 
     const schedInput = document.getElementById('nlCampaignSchedule');
     if (schedInput) {
@@ -206,8 +215,16 @@ function fillCampaignForm(campaign) {
 
 async function saveNewsletterCampaignDraft() {
     const form = readCampaignForm();
-    if (!form.title || !form.subject || !form.htmlContent) {
-        nlNotify('Title, subject, and HTML content are required', 'error');
+    if (!form.title || !form.subject) {
+        nlNotify('Title and subject are required', 'error');
+        return null;
+    }
+    if (form.channel === 'email' && !form.htmlContent) {
+        nlNotify('HTML content is required for email campaigns', 'error');
+        return null;
+    }
+    if ((form.channel === 'whatsapp' || form.channel === 'sms') && !form.whatsappTemplate) {
+        nlNotify('Message template is required for SMS / WhatsApp campaigns', 'error');
         return null;
     }
 
@@ -215,7 +232,10 @@ async function saveNewsletterCampaignDraft() {
         title: form.title,
         subject: form.subject,
         htmlContent: form.htmlContent,
-        targetTags: form.targetTags
+        targetTags: form.targetTags,
+        channel: form.channel,
+        targetSegment: form.targetSegment,
+        whatsappTemplate: form.whatsappTemplate
     };
     if (form.scheduledAt) payload.scheduledAt = new Date(form.scheduledAt).toISOString();
 

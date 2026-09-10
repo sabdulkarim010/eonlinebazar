@@ -27,6 +27,58 @@ client/admin/partials/modals-invoice.html [DONE] Marketing permission preset (ed
 client/css/admin/_orders.css [DONE] order-assign-staff-select styles
 client/css/admin/_settings-security.css [DONE] staff audit panel styles
 backend/src/utils/adminPageBuilder.js [DONE] registers settings-staff-audit partial
+#
+# Phase 3 CRM & Automation: 2026-09-10
+# --- Task 1: Abandoned cart tracking ---
+backend/src/models/cart.js [DONE] lastActivityAt + abandonedNotifiedAt fields, re-arm pre-save hook, {userId:1,updatedAt:-1} index
+backend/src/services/mailer.js [DONE] buildAbandonedCartHtml + sendAbandonedCartEmail
+backend/src/jobs/abandonedCartJob.js [NEW] daily 10am cron — email+SMS recovery, stamps abandonedNotifiedAt; ABANDON_THRESHOLD_MS
+backend/src/server.js [DONE] startAbandonedCartCron() bootstrap after Redis connect
+backend/src/controllers/admin/crmController.js [NEW] getAbandonedCartStats (count/value/notified/recovered/recoveryRate)
+backend/src/routes/adminRoutes.js [DONE] GET /crm/abandoned-carts + ticket routes (stats/assign/status)
+client/js/admin/modules/crm-abandoned.js [NEW] loadAbandonedCartStats — abandoned cart KPI loader
+client/js/admin/admin-customers.js [DONE] imports crm-abandoned.js
+client/admin/partials/view-crm-abandoned.html [NEW] Abandoned Carts KPI section
+client/admin/partials/sidebar.html [DONE] Abandoned Carts + external /chat-admin link
+client/js/admin/modules/core-nav.js [DONE] view-crm-abandoned loader mapping
+backend/src/utils/adminPageBuilder.js [DONE] registers view-crm-abandoned partial
+# --- Task 2: Referral system ---
+backend/src/models/user.js [DONE] referralCode (unique auto 8-char) + referredBy + referralEarnings + pre-save hook
+backend/src/controllers/auth/registerController.js [DONE] links referredBy from referralCode on signup
+backend/src/models/Setting.js [DONE] referralRewardAmount
+backend/src/controllers/masterSettingsController.js [DONE] referralRewardAmount alias/rule/output
+backend/src/controllers/referralController.js [NEW] getReferralInfo + processReferralReward + buildReferralLink
+backend/src/routes/userRoutes.js [DONE] GET /referral (verifyUser)
+backend/src/controllers/orderCheckoutController.js [DONE] processReferralReward on referred user's first order
+# --- Task 3: Unified support inbox / ticket lifecycle ---
+backend/src/models/ContactMessage.js [DONE] ticketNumber + status/priority/assignedTo/resolvedAt + isRead; ticket-code hook
+backend/src/controllers/contactController.js [DONE] assignTicket + updateTicketStatus + getTicketStats; reply bumps to in_progress
+scripts/migrationAddTicketNumbers.js [NEW] backfill ticketNumber + legacy status/priority mapping
+client/js/admin/modules/messages-inbox.js [DONE] ticket status/priority/assignee UI + status-tab filtering
+client/admin/partials/view-messages.html [DONE] ticket tabs + controls bar (status/priority/assignee)
+client/css/admin/_customers.css [DONE] ticket priority/number/assignee pills + controls bar styles
+# --- Tasks 4 & 5: Segment campaigns + WhatsApp broadcast ---
+backend/src/models/emailCampaign.js [DONE] targetSegment + channel + whatsappTemplate
+backend/src/services/whatsappService.js [DONE] sendBroadcast(recipients, templateMessage)
+backend/src/controllers/newsletterAdminController.js [DONE] segment resolver + channel dispatch (email/sms/whatsapp)
+client/js/admin-newsletter.js [DONE] segment + channel + WhatsApp template form fields
+client/admin/partials/view-catalog.html [DONE] campaign form: channel/segment selectors + message template
+# --- Task 6: Legacy chat admin deprecation ---
+client/admin/partials/view-chat.html [DEPRECATED] redirect notice + Open Chat Admin button
+client/js/admin/modules/chat-admin.js [DEPRECATED] console.warn on load; route kept registered
+client/css/admin/_chat.css [DONE] chat-deprecated-* notice + sidebar external-link styles
+# --- Task 7 + Task 2 mobile: Referral screen ---
+mobile/src/api/user.js [NEW] userAPI.getReferral (GET /customer/referral)
+mobile/src/api/endpoints.js [DONE] referral endpoint
+mobile/src/api/index.js [DONE] exports userAPI
+mobile/src/screens/ReferralScreen.js [NEW] referral code + copy (expo-clipboard) + Share invite + stats
+mobile/App.js [DONE] Referral stack route
+mobile/src/i18n/translations.js [DONE] screen.referral + profile.refer_earn (en/bn)
+mobile/src/i18n/profileMenu.js [DONE] Refer & Earn menu item
+mobile/src/screens/ProfileScreen.js [DONE] referral menu item rendered via profileMenu
+mobile/src/screens/RegisterScreen.js [DONE] optional referralCode input
+mobile/src/store/useAuthStore.js [DONE] forwards referralCode on register
+mobile/package.json [DONE] expo-clipboard dependency
 # Refactoring complete — all listed files are [DONE]
 #
 # RULE: Every time you modify a file during refactoring,

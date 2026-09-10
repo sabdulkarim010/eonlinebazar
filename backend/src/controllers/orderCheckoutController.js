@@ -51,6 +51,7 @@ const {
     resolveSellingPriceFromSettings,
     buildLockedPricingPayload
 } = require('./orderControllerHelpers');
+const { processReferralReward } = require('./referralController');
 
 const FALLBACK_COD_METHOD = Object.freeze({
     _id: null,
@@ -566,6 +567,25 @@ const createOrder = async (req, res) => {
             dispatchAdminWhatsAppAlertSafely(newOrder);
             notifyOrderConfirmationEmail({ to: recipientEmail, order: newOrder.toObject() });
             await invalidate(CACHE_KEYS.POPULAR_PRODUCTS);
+
+            // 🤝 Referral reward — credit the referrer's wallet the first time an
+            // invited customer completes a real order. Fire-and-forget so a
+            // reward failure never blocks order confirmation.
+            if (userId && !inSandbox) {
+                try {
+                    const realOrderCount = await Order.countDocuments({
+                        user: userId,
+                        isSandbox: { $ne: true }
+                    });
+                    if (realOrderCount === 1) {
+                        processReferralReward(userId).catch((err) => {
+                            console.error('[Referral] Reward dispatch error:', err.message);
+                        });
+                    }
+                } catch (referralErr) {
+                    console.error('[Referral] First-order check failed:', referralErr.message);
+                }
+            }
         } else {
             console.log(`[Order] ✓ Mock order #${newOrder.orderId} saved (catalog ids not in MongoDB)`);
         }

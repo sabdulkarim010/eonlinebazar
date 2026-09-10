@@ -3,3 +3,4 @@ export { cartAPI, extractCartItems } from './cart';
 export { endpoints } from './endpoints';
 export { storeAPI, extractDeliveryCharge, extractDistricts } from './store';
 export { wishlistAPI } from './wishlist';
+export { userAPI } from './user';

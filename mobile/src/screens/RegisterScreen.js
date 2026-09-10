@@ -37,6 +37,7 @@ export default function RegisterScreen({ navigation }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [district, setDistrict] = useState('');
   const [upazila, setUpazila] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [error, setError] = useState('');
   const emailRef = useRef(null);
   const mobileRef = useRef(null);
@@ -73,6 +74,7 @@ export default function RegisterScreen({ navigation }) {
       password,
       district,
       upazila,
+      referralCode: referralCode.trim().toUpperCase(),
     };
 
     if (!payload.firstName || !payload.lastName || !payload.email || !payload.mobile || !payload.password) {
@@ -259,6 +261,20 @@ export default function RegisterScreen({ navigation }) {
             secureTextEntry
             placeholder="Re-enter password"
             fieldError={fieldErrors.confirmPassword}
+            returnKeyType="next"
+            onSubmitEditing={handleRegister}
+          />
+
+          <AuthTextInput
+            colors={T}
+            label="Referral Code (optional)"
+            icon="gift-outline"
+            value={referralCode}
+            onChangeText={setReferralCode}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            placeholder="Enter a friend's code"
+            maxLength={12}
             returnKeyType="done"
             onSubmitEditing={handleRegister}
           />

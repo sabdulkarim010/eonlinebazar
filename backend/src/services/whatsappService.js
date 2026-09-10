@@ -674,6 +674,70 @@ function isGatewayConfigured(config) {
     );
 }
 
+/**
+ * Broadcast a single WhatsApp message to many recipients using the store's
+ * configured gateway. Recipients may be raw phone strings or objects with a
+ * `phone`/`mobile` field. Numbers are normalized and de-duplicated. Sends are
+ * spaced out slightly to stay within provider rate limits.
+ *
+ * @param {Array<string|Object>} recipients
+ * @param {string} templateMessage
+ * @returns {Promise<{sent:number, failed:number, total:number, skipped:number, reason?:string}>}
+ */
+async function sendBroadcast(recipients, templateMessage) {
+    const body = String(templateMessage || '').trim();
+    if (!body) {
+        return { sent: 0, failed: 0, total: 0, skipped: 0, reason: 'Empty broadcast message' };
+    }
+
+    const numbers = [...new Set(
+        (Array.isArray(recipients) ? recipients : [])
+            .map((entry) => {
+                if (entry && typeof entry === 'object') {
+                    return sanitizeWhatsAppInput(entry.phone || entry.mobile || entry.to || '');
+                }
+                return sanitizeWhatsAppInput(entry);
+            })
+            .filter(Boolean)
+    )];
+
+    if (numbers.length === 0) {
+        return { sent: 0, failed: 0, total: 0, skipped: 0, reason: 'No valid recipient numbers' };
+    }
+
+    const gatewayConfig = await loadWhatsAppAlertGatewayConfig();
+    if (!isGatewayConfigured(gatewayConfig)) {
+        return {
+            sent: 0,
+            failed: 0,
+            total: numbers.length,
+            skipped: numbers.length,
+            reason: 'No WhatsApp gateway configured in Master Settings'
+        };
+    }
+
+    let sent = 0;
+    let failed = 0;
+
+    for (const to of numbers) {
+        try {
+            // eslint-disable-next-line no-await-in-loop
+            const result = await sendAdminAlertViaGateway({ to, body, gatewayConfig });
+            if (result.delivered) sent += 1;
+            else failed += 1;
+        } catch (err) {
+            console.warn('[WhatsApp] Broadcast send failed for', to, err.message);
+            failed += 1;
+        }
+        // Gentle spacing between messages to respect provider throughput limits.
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((resolve) => setTimeout(resolve, 350));
+    }
+
+    console.log(`[WhatsApp] Broadcast complete — ${sent} sent, ${failed} failed of ${numbers.length}`);
+    return { sent, failed, total: numbers.length, skipped: 0 };
+}
+
 module.exports = {
     DEFAULT_PUBLIC_WHATSAPP,
     VALID_ALERT_PROVIDERS,
@@ -689,6 +753,7 @@ module.exports = {
     loadWhatsAppAlertGatewayConfig,
     sendAdminOrderAlert,
     sendAdminCustomAlert,
+    sendBroadcast,
     notifyAdminOrderPlaced,
     dispatchWhatsAppNotification,
     getPendingWhatsAppAlerts,

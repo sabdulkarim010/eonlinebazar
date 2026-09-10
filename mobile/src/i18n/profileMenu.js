@@ -19,6 +19,13 @@ export function getProfileMenuSections(t) {
           screen: 'Notebook',
           paletteKey: 'notebook',
         },
+        {
+          key: 'referral',
+          icon: 'gift-outline',
+          label: t('profile.refer_earn'),
+          screen: 'Referral',
+          paletteKey: 'wallet',
+        },
       ],
     },
     {

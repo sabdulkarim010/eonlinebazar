@@ -107,6 +107,13 @@ const settingSchema = new mongoose.Schema({
         default: 3,
         min: 0
     },
+    // 🤝 Referral program — wallet credit given to a referrer once the customer
+    // they invited completes their first order. Set to 0 to disable rewards.
+    referralRewardAmount: {
+        type: Number,
+        default: 100,
+        min: 0
+    },
     // Storefront catalog / search default page size (overridable via ?limit=)
     defaultProductsPerPage: {
         type: Number,

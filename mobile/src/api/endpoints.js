@@ -25,6 +25,7 @@ export const endpoints = {
   reviews: '/reviews',
   reviewsByProduct: (id) => `/reviews/${id}`,
   profile: '/customer/profile',
+  referral: '/customer/referral',
   updateAvatar: '/customer/update-avatar',
   convertPoints: '/customer/convert-points',
   requestContactOtp: '/customer/profile/request-contact-otp',

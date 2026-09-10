@@ -1,0 +1,47 @@
+<!-- ============================================================
+     🛒 CRM → ABANDONED CART RECOVERY
+     Stats populated by js/admin/modules/crm-abandoned.js
+     (GET /api/admin/crm/abandoned-carts). A daily cron
+     (jobs/abandonedCartJob.js) sends recovery email + SMS.
+     ============================================================ -->
+<section id="view-crm-abandoned" class="admin-section" style="display: none;">
+    <div class="dashboard-section-label" style="display:flex;align-items:center;justify-content:space-between;">
+        <h2><i class="fa-solid fa-cart-arrow-down"></i> Abandoned Cart Recovery</h2>
+        <button type="button" id="abandonedCartRefreshBtn" class="btn-secondary">
+            <i class="fa-solid fa-rotate"></i> Refresh
+        </button>
+    </div>
+    <p class="section-subtitle" style="margin:0 0 18px;">
+        Carts left idle for 24h+ that still hold items. A daily job emails and SMS-es customers a recovery reminder.
+    </p>
+
+    <div class="metrics-grid sales-metrics-grid">
+        <div class="metric-card warning">
+            <div class="icon"><i class="fa-solid fa-cart-shopping"></i></div>
+            <div class="data">
+                <p>ABANDONED CARTS</p>
+                <h3 id="abandonedCartCount">0</h3>
+                <span class="metric-sub">Idle 24h+ with items</span>
+            </div>
+        </div>
+        <div class="metric-card revenue">
+            <div class="icon"><i class="fa-solid fa-sack-dollar"></i></div>
+            <div class="data">
+                <p>RECOVERABLE VALUE</p>
+                <h3 id="abandonedCartValue">৳ 0</h3>
+                <span class="metric-sub">Merchandise sitting in carts</span>
+            </div>
+        </div>
+        <div class="metric-card success">
+            <div class="icon"><i class="fa-solid fa-arrow-rotate-left"></i></div>
+            <div class="data">
+                <p>RECOVERY RATE</p>
+                <h3 id="abandonedCartRecoveryRate">0%</h3>
+                <span class="metric-sub">
+                    Notified: <strong id="abandonedCartNotified">0</strong> ·
+                    Recovered: <strong id="abandonedCartRecovered">0</strong>
+                </span>
+            </div>
+        </div>
+    </div>
+</section>

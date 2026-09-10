@@ -106,6 +106,14 @@ connectDB().then(async () => {
     const redisClient = require('./utils/redisClient');
     redisClient.on('connect', () => console.log('Redis Connected ✅'));
     redisClient.on('error', (err) => console.warn('Redis unavailable:', err.message));
+
+    // Daily abandoned-cart recovery (idle 24h+ carts → email + SMS)
+    try {
+        const { startAbandonedCartCron } = require('./jobs/abandonedCartJob');
+        startAbandonedCartCron();
+    } catch (err) {
+        console.error('Abandoned cart cron bootstrap error:', err.message);
+    }
 });
 
 // ৩. প্রয়োজনীয় মিডলওয়্যারসমূহ

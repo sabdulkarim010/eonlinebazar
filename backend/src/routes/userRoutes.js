@@ -12,6 +12,7 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const userProfileController = require('../controllers/userProfileController');
 const userWishlistController = require('../controllers/userWishlistController');
+const referralController = require('../controllers/referralController');
 
 // সিকিউরিটির জন্য মিডলওয়্যার ইমপোর্ট করা হলো
 const { verifyUser } = require('../middlewares/authMiddleware'); 
@@ -52,6 +53,9 @@ router.delete('/addresses/:addressId', verifyUser, userProfileController.deleteA
 
 // ================== ওয়ালেট ও পয়েন্ট (Wallet & Loyalty Points) ==================
 router.post('/convert-points', verifyUser, userProfileController.convertPoints);
+
+// ================== রেফারেল প্রোগ্রাম (Referral Program) ==================
+router.get('/referral', verifyUser, referralController.getReferralInfo);
 
 router.delete('/account', verifyUser, authController.deleteAccount);
 

@@ -7,4 +7,5 @@ import './admin-core.js';
 import './modules/customers-table.js';
 import './modules/customers-modals.js';
 import './modules/messages-inbox.js';
+import './modules/crm-abandoned.js';
 

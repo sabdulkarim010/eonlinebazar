@@ -26,6 +26,7 @@ import EditProfileScreen from './src/screens/EditProfileScreen';
 import SecuritySettingsScreen from './src/screens/SecuritySettingsScreen';
 import WalletScreen from './src/screens/WalletScreen';
 import LoyaltyPointsScreen from './src/screens/LoyaltyPointsScreen';
+import ReferralScreen from './src/screens/ReferralScreen';
 import NotebookScreen from './src/screens/NotebookScreen';
 import LiveSupportScreen from './src/screens/LiveSupportScreen';
 import ToastBanner from './src/components/ToastBanner';
@@ -100,6 +101,7 @@ function useLocalizedStackTitles() {
       SecuritySettings: t('screen.security_settings'),
       Wallet: t('screen.wallet'),
       LoyaltyPoints: t('screen.loyalty_points'),
+      Referral: t('screen.referral'),
       Notebook: t('screen.notebook'),
       LiveSupport: t('screen.live_support'),
     },
@@ -154,6 +156,7 @@ function RootNavigation() {
         <Stack.Screen name="SecuritySettings" component={SecuritySettingsScreen} options={{ title: titles.SecuritySettings }} />
         <Stack.Screen name="Wallet" component={WalletScreen} options={{ title: titles.Wallet }} />
         <Stack.Screen name="LoyaltyPoints" component={LoyaltyPointsScreen} options={{ title: titles.LoyaltyPoints }} />
+        <Stack.Screen name="Referral" component={ReferralScreen} options={{ title: titles.Referral }} />
         <Stack.Screen name="Notebook" component={NotebookScreen} options={{ title: titles.Notebook }} />
         <Stack.Screen name="LiveSupport" component={LiveSupportScreen} options={{ title: titles.LiveSupport }} />
       </Stack.Navigator>

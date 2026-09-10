@@ -137,6 +137,19 @@ exports.registerUser = async (req, res) => {
         const inSandbox = await isSandboxMode();
         if (inSandbox) userPayload.isSandbox = true;
 
+        // 🤝 Referral linkage — the inviter's 8-char code may arrive as a query
+        // param (?referralCode=) from a shared link or in the request body from
+        // the mobile app. An invalid/unknown code is ignored silently.
+        const referralCodeInput = String(
+            req.query.referralCode || req.query.ref || req.body.referralCode || ''
+        ).trim().toUpperCase();
+        if (referralCodeInput) {
+            const referrer = await User.findOne({ referralCode: referralCodeInput }).select('_id');
+            if (referrer) {
+                userPayload.referredBy = referrer._id;
+            }
+        }
+
         const newUser = new User(userPayload);
         await newUser.save();
 

@@ -536,6 +536,7 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-master-settings': fetchMasterSettings,
         'view-banners': () => window.loadBanners && window.loadBanners(),
         'view-messages': fetchAdminMessages,
+        'view-crm-abandoned': () => window.loadAbandonedCartStats && window.loadAbandonedCartStats(),
         'view-chat': () => window.initChatModule && window.initChatModule(),
         'view-chat-analytics': () => window.loadChatAnalytics && window.loadChatAnalytics('7d'),
         'view-canned-responses': () => window.loadCannedResponsesUI && window.loadCannedResponsesUI(),

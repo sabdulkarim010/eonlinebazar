@@ -22,6 +22,7 @@ const VIEW_PARTIALS = [
     'view-master-settings',
     'view-banners',
     'view-messages',
+    'view-crm-abandoned',
     'view-chat',
     'view-chat-analytics',
     'view-canned-responses',

@@ -45,23 +45,47 @@ function formatMessageListTime(value) {
     }
 }
 
+const TICKET_STATUS_LABELS = {
+    open: 'Open',
+    in_progress: 'In Progress',
+    resolved: 'Resolved',
+    closed: 'Closed'
+};
+const TICKET_PRIORITY_LABELS = {
+    low: 'Low',
+    normal: 'Normal',
+    high: 'High',
+    urgent: 'Urgent'
+};
+
 function resolveMessageStatus(msg) {
-    if (msg.status === 'replied' || msg.status === 'read' || msg.status === 'unread') {
+    if (TICKET_STATUS_LABELS[msg.status]) {
         return msg.status;
     }
-    return msg.isRead ? 'read' : 'unread';
+    // Legacy fallback for any un-migrated documents.
+    if (msg.status === 'replied') return 'resolved';
+    return 'open';
+}
+
+function resolveMessagePriority(msg) {
+    return TICKET_PRIORITY_LABELS[msg.priority] ? msg.priority : 'normal';
 }
 
 function getMessageStatusBadge(status, uppercase = false) {
-    const labels = { unread: 'Unread', read: 'Read', replied: 'Replied' };
     const classes = {
-        unread: 'support-status-pill--unread',
-        read: 'support-status-pill--read',
-        replied: 'support-status-pill--replied'
+        open: 'support-status-pill--unread',
+        in_progress: 'support-status-pill--read',
+        resolved: 'support-status-pill--replied',
+        closed: 'support-status-pill--closed'
     };
-    const safeStatus = labels[status] ? status : 'unread';
-    const label = uppercase ? labels[safeStatus].toUpperCase() : labels[safeStatus];
+    const safeStatus = TICKET_STATUS_LABELS[status] ? status : 'open';
+    const label = uppercase ? TICKET_STATUS_LABELS[safeStatus].toUpperCase() : TICKET_STATUS_LABELS[safeStatus];
     return `<span class="support-status-pill ${classes[safeStatus]}">${label}</span>`;
+}
+
+function getPriorityBadge(priority) {
+    const safe = TICKET_PRIORITY_LABELS[priority] ? priority : 'normal';
+    return `<span class="ticket-priority-pill ticket-priority-pill--${safe}">${TICKET_PRIORITY_LABELS[safe]}</span>`;
 }
 
 function getCustomerInitial(name) {
@@ -96,10 +120,11 @@ function getMessageSnippet(text, maxLen = 90) {
 function getFilteredMessages() {
     let list = adminMessagesCache.slice();
 
-    if (messagesFilterTab === 'unread') {
-        list = list.filter((m) => resolveMessageStatus(m) === 'unread');
-    } else if (messagesFilterTab === 'replied') {
-        list = list.filter((m) => resolveMessageStatus(m) === 'replied');
+    // The active tab filters by ticket lifecycle status ('all' shows everything).
+    if (TICKET_STATUS_LABELS[messagesFilterTab]) {
+        list = list.filter((m) => resolveMessageStatus(m) === messagesFilterTab);
+    } else if (messagesFilterTab === 'unread') {
+        list = list.filter((m) => m.isRead !== true);
     }
 
     const q = messagesSearchQuery.trim().toLowerCase();
@@ -108,7 +133,8 @@ function getFilteredMessages() {
             const name = String(m.name || '').toLowerCase();
             const email = String(m.email || '').toLowerCase();
             const subject = String(m.subject || '').toLowerCase();
-            return name.includes(q) || email.includes(q) || subject.includes(q);
+            const ticket = String(m.ticketNumber || '').toLowerCase();
+            return name.includes(q) || email.includes(q) || subject.includes(q) || ticket.includes(q);
         });
     }
 
@@ -116,17 +142,21 @@ function getFilteredMessages() {
 }
 
 function updateMessagesStats() {
-    const all = adminMessagesCache.length;
-    const unread = adminMessagesCache.filter((m) => resolveMessageStatus(m) === 'unread').length;
-    const replied = adminMessagesCache.filter((m) => resolveMessageStatus(m) === 'replied').length;
+    const counts = { open: 0, in_progress: 0, resolved: 0, closed: 0 };
+    adminMessagesCache.forEach((m) => {
+        counts[resolveMessageStatus(m)] += 1;
+    });
 
-    const allEl = document.getElementById('supportTabCountAll');
-    const unreadEl = document.getElementById('supportTabCountUnread');
-    const repliedEl = document.getElementById('supportTabCountReplied');
+    const setCount = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(value);
+    };
 
-    if (allEl) allEl.textContent = String(all);
-    if (unreadEl) unreadEl.textContent = String(unread);
-    if (repliedEl) repliedEl.textContent = String(replied);
+    setCount('supportTabCountAll', adminMessagesCache.length);
+    setCount('supportTabCountOpen', counts.open);
+    setCount('supportTabCountProgress', counts.in_progress);
+    setCount('supportTabCountResolved', counts.resolved);
+    setCount('supportTabCountClosed', counts.closed);
 }
 
 function showInquiryDetailEmpty() {
@@ -145,6 +175,7 @@ function populateInquiryDetailPane(msg) {
     }
 
     const status = resolveMessageStatus(msg);
+    const priority = resolveMessagePriority(msg);
     const phone = formatPhoneDisplay(msg.phone);
     const id = String(msg.id || msg._id);
 
@@ -153,6 +184,10 @@ function populateInquiryDetailPane(msg) {
 
     const subjectEl = document.getElementById('inquiryDetailSubjectLine');
     const statusEl = document.getElementById('inquiryDetailStatusBadge');
+    const ticketNumberEl = document.getElementById('inquiryDetailTicketNumber');
+    const statusSelectEl = document.getElementById('inquiryDetailStatusSelect');
+    const prioritySelectEl = document.getElementById('inquiryDetailPrioritySelect');
+    const assigneeInputEl = document.getElementById('inquiryDetailAssignee');
     const avatarEl = document.getElementById('inquiryDetailSenderAvatar');
     const nameEl = document.getElementById('inquiryDetailSenderName');
     const emailEl = document.getElementById('inquiryDetailEmail');
@@ -169,7 +204,11 @@ function populateInquiryDetailPane(msg) {
     const markReadBtn = document.getElementById('inquiryDetailMarkReadBtn');
 
     if (subjectEl) subjectEl.textContent = msg.subject || '(No subject)';
-    if (statusEl) statusEl.innerHTML = getMessageStatusBadge(status, true);
+    if (statusEl) statusEl.innerHTML = `${getMessageStatusBadge(status, true)} ${getPriorityBadge(priority)}`;
+    if (ticketNumberEl) ticketNumberEl.textContent = msg.ticketNumber || '';
+    if (statusSelectEl) statusSelectEl.value = status;
+    if (prioritySelectEl) prioritySelectEl.value = priority;
+    if (assigneeInputEl) assigneeInputEl.value = msg.assignedTo || '';
 
     if (avatarEl) {
         avatarEl.textContent = getCustomerInitial(msg.name);
@@ -209,10 +248,10 @@ function populateInquiryDetailPane(msg) {
     if (messageEl) messageEl.textContent = msg.message || '—';
 
     if (sentReplyEl && sentReplyTextEl && sentReplyAtEl) {
-        if (status === 'replied' && msg.replyMessage) {
+        if (msg.repliedAt && msg.replyMessage) {
             sentReplyEl.style.display = '';
             sentReplyTextEl.textContent = msg.replyMessage;
-            sentReplyAtEl.textContent = msg.repliedAt ? `Sent ${formatMessageDate(msg.repliedAt)}` : '';
+            sentReplyAtEl.textContent = `Sent ${formatMessageDate(msg.repliedAt)}`;
         } else {
             sentReplyEl.style.display = 'none';
             sentReplyTextEl.textContent = '';
@@ -222,21 +261,18 @@ function populateInquiryDetailPane(msg) {
 
     if (replyTextEl) {
         replyTextEl.value = '';
-        replyTextEl.disabled = status === 'replied';
+        replyTextEl.disabled = status === 'closed';
     }
     if (charCountEl) charCountEl.textContent = '0';
 
+    // Read/unread is now independent of the ticket lifecycle status.
     if (markReadBtn) {
-        if (status === 'replied') {
-            markReadBtn.style.display = 'none';
-        } else {
-            markReadBtn.style.display = '';
-            const isUnread = status === 'unread';
-            markReadBtn.innerHTML = isUnread
-                ? '<i class="fa-solid fa-envelope-open"></i><span>Mark Read</span>'
-                : '<i class="fa-solid fa-envelope"></i><span>Mark Unread</span>';
-            markReadBtn.title = isUnread ? 'Mark as read' : 'Mark as unread';
-        }
+        markReadBtn.style.display = '';
+        const isUnread = msg.isRead !== true;
+        markReadBtn.innerHTML = isUnread
+            ? '<i class="fa-solid fa-envelope-open"></i><span>Mark Read</span>'
+            : '<i class="fa-solid fa-envelope"></i><span>Mark Unread</span>';
+        markReadBtn.title = isUnread ? 'Mark as read' : 'Mark as unread';
     }
 
     paneEl.dataset.activeId = id;
@@ -256,7 +292,7 @@ function selectInquiry(id, options = {}) {
     populateInquiryDetailPane(msg);
     renderMessagesInbox(adminMessagesCache);
 
-    if (options.markRead && resolveMessageStatus(msg) === 'unread') {
+    if (options.markRead && msg.isRead !== true) {
         markMessageRead(sid, true).catch((err) => showToast(err.message, 'error'));
     }
 }
@@ -374,13 +410,20 @@ function renderMessagesInbox(messages = adminMessagesCache, page, limit) {
         const id = escapeHtml(msg.id || msg._id);
         const sid = String(msg.id || msg._id);
         const status = resolveMessageStatus(msg);
+        const priority = resolveMessagePriority(msg);
         const isActive = inquiryDetailActiveId === sid;
         const isChecked = selectedMessageIds.has(sid);
+        const isUnread = msg.isRead !== true;
         const initial = escapeHtml(getCustomerInitial(msg.name));
         const avatarColor = getAvatarColor(msg.name);
         const snippet = escapeHtml(getMessageSnippet(msg.message));
         const subject = escapeHtml(msg.subject || '(No subject)');
         const time = escapeHtml(formatMessageListTime(msg.createdAt));
+        const ticketNumber = escapeHtml(msg.ticketNumber || '');
+        const assignedTo = escapeHtml(msg.assignedTo || '');
+        const assigneeChip = assignedTo
+            ? `<span class="ticket-assignee-chip"><i class="fa-solid fa-user-check"></i> ${assignedTo}</span>`
+            : '';
 
         return `
             <div class="support-inbox-list-row ${isActive ? 'is-active-row' : ''}">
@@ -389,7 +432,7 @@ function renderMessagesInbox(messages = adminMessagesCache, page, limit) {
                     onclick="event.stopPropagation(); toggleMessageSelection('${sid}', this.checked)"
                     aria-label="Select message">
                 <button type="button"
-                    class="support-inbox-list-item ${isActive ? 'is-active border-l-4 border-blue-600 bg-blue-50/60 dark:bg-slate-800' : ''} ${status === 'unread' ? 'is-unread' : ''}"
+                    class="support-inbox-list-item ${isActive ? 'is-active border-l-4 border-blue-600 bg-blue-50/60 dark:bg-slate-800' : ''} ${isUnread ? 'is-unread' : ''}"
                     data-id="${id}"
                     role="option"
                     aria-selected="${isActive ? 'true' : 'false'}">
@@ -401,6 +444,12 @@ function renderMessagesInbox(messages = adminMessagesCache, page, limit) {
                         </span>
                         <span class="support-inbox-list-subject">${subject}</span>
                         <span class="support-inbox-list-snippet">${snippet}</span>
+                        <span class="support-inbox-list-meta">
+                            ${ticketNumber ? `<span class="ticket-number-chip">${ticketNumber}</span>` : ''}
+                            ${getMessageStatusBadge(status)}
+                            ${getPriorityBadge(priority)}
+                            ${assigneeChip}
+                        </span>
                     </span>
                 </button>
             </div>`;
@@ -486,11 +535,8 @@ async function toggleDetailReadStatus() {
     const msg = findCachedMessage(inquiryDetailActiveId);
     if (!msg) return;
 
-    const status = resolveMessageStatus(msg);
-    if (status === 'replied') return;
-
     try {
-        if (status === 'unread') {
+        if (msg.isRead !== true) {
             await markMessageRead(inquiryDetailActiveId);
         } else {
             await markMessageUnread(inquiryDetailActiveId);
@@ -565,6 +611,63 @@ async function sendInquiryReply() {
     }
 }
 
+function applyCachedTicketUpdate(id, updatedDoc) {
+    const idx = adminMessagesCache.findIndex((m) => String(m.id || m._id) === String(id));
+    if (idx >= 0 && updatedDoc) {
+        adminMessagesCache[idx] = updatedDoc;
+        if (inquiryDetailActiveId === String(id)) populateInquiryDetailPane(updatedDoc);
+        renderMessagesInbox(adminMessagesCache);
+    } else {
+        fetchAdminMessages();
+    }
+}
+
+async function updateTicketStatus() {
+    const id = inquiryDetailActiveId;
+    if (!id) return;
+    const statusSelect = document.getElementById('inquiryDetailStatusSelect');
+    const prioritySelect = document.getElementById('inquiryDetailPrioritySelect');
+    if (!statusSelect) return;
+
+    const payload = { status: statusSelect.value };
+    if (prioritySelect) payload.priority = prioritySelect.value;
+
+    try {
+        const res = await fetch(`/api/admin/tickets/${id}/status`, {
+            method: 'PATCH',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'Failed to update ticket.');
+        applyCachedTicketUpdate(id, result.data);
+        showToast(result.message || 'Ticket updated.', 'success');
+    } catch (err) {
+        showToast(err.message || 'Failed to update ticket.', 'error');
+    }
+}
+
+async function saveTicketAssignee() {
+    const id = inquiryDetailActiveId;
+    if (!id) return;
+    const assigneeInput = document.getElementById('inquiryDetailAssignee');
+    if (!assigneeInput) return;
+
+    try {
+        const res = await fetch(`/api/admin/tickets/${id}/assign`, {
+            method: 'PATCH',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assignedTo: assigneeInput.value.trim() })
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'Failed to assign ticket.');
+        applyCachedTicketUpdate(id, result.data);
+        showToast(result.message || 'Ticket assigned.', 'success');
+    } catch (err) {
+        showToast(err.message || 'Failed to assign ticket.', 'error');
+    }
+}
+
 function setMessagesFilterTab(tab) {
     messagesFilterTab = tab;
     document.querySelectorAll('.support-inbox-tab').forEach((btn) => {
@@ -619,6 +722,17 @@ function setupMessagesInbox() {
         sendInquiryReply();
     });
 
+    // Ticket lifecycle controls (status + priority + assignment).
+    document.getElementById('inquiryDetailStatusSelect')?.addEventListener('change', () => {
+        updateTicketStatus();
+    });
+    document.getElementById('inquiryDetailPrioritySelect')?.addEventListener('change', () => {
+        updateTicketStatus();
+    });
+    document.getElementById('inquiryDetailAssignBtn')?.addEventListener('click', () => {
+        saveTicketAssignee();
+    });
+
     document.getElementById('inquiryDetailCopyEmail')?.addEventListener('click', (e) => {
         copyCustomerField(e.currentTarget);
     });
@@ -646,14 +760,18 @@ Object.assign(window, {
     getFilteredMessages,
     getMessageSnippet,
     getMessageStatusBadge,
+    getPriorityBadge,
     markMessageRead,
     markMessageUnread,
     populateInquiryDetailPane,
     renderMessagesInbox,
     renderMessagesPage,
     resolveMessageStatus,
+    resolveMessagePriority,
     selectInquiry,
     sendInquiryReply,
+    updateTicketStatus,
+    saveTicketAssignee,
     setMessagesFilterTab,
     setupMessagesInbox,
     showInquiryDetailEmpty,

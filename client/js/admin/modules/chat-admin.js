@@ -1,8 +1,15 @@
 /**
- * EonlineBazar Admin — Live Chat Module
- * Connects legacy store admin to ecommerce-chat microservice.
+ * EonlineBazar Admin — Live Chat Module (DEPRECATED)
+ * The in-panel live chat workspace has been retired in favour of the standalone
+ * /chat-admin dashboard. This module is kept only so the legacy view-chat route
+ * stays registered; new work should target the /chat-admin dashboard.
  */
 import '../admin-core.js';
+
+console.warn(
+    '[EonlineBazar] The in-panel Live Chat (view-chat) is deprecated. ' +
+    'Please use the standalone Chat Admin dashboard at /chat-admin.'
+);
 
 const CHAT_API = '/api/chat-admin';
 const CHAT_TOKEN_KEY = 'chat_admin_token';

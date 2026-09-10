@@ -149,6 +149,28 @@ const userSchema = new mongoose.Schema({
     // 🟢 নতুন: উইশলিস্ট (My Wishlist - persists until removed)
     wishlist: [wishlistItemSchema],
 
+    // 🤝 রেফারেল সিস্টেম (Referral Program — CRM automation)
+    // referralCode প্রতিটি ইউজারের জন্য অটো-জেনারেটেড ৮-অক্ষরের কোড; নতুন
+    // ইউজার এই কোড দিয়ে রেজিস্টার করলে referredBy সেট হয় এবং প্রথম অর্ডারে
+    // referralEarnings-এ রিওয়ার্ড জমা হয় (ওয়ালেটে ক্রেডিটসহ)।
+    referralCode: {
+        type: String,
+        unique: true,
+        sparse: true,
+        uppercase: true,
+        trim: true,
+        default: null
+    },
+    referredBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
+    },
+    referralEarnings: {
+        type: Number,
+        default: 0
+    },
+
     // নোট: অ্যাক্টিভ লগইন সেশন এখন আলাদা UserSession কালেকশনে রাখা হয়
     // (models/userSession.js) — পুরোনো এম্বেডেড sessions অ্যারে সরিয়ে ফেলা হয়েছে।
 
@@ -239,5 +261,35 @@ userSchema.set('toObject', { virtuals: true });
 // Auth & lookup — email unique index comes from field `unique: true`; mobile for phone lookups.
 userSchema.index({ mobile: 1 });
 userSchema.index({ googleId: 1 }, { sparse: true });
+
+// Referral codes intentionally exclude ambiguous characters (0/O, 1/I) so they
+// can be read aloud or shared over the phone without confusion.
+const REFERRAL_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+userSchema.statics.generateReferralCode = function generateReferralCode(length = 8) {
+    let code = '';
+    for (let i = 0; i < length; i += 1) {
+        code += REFERRAL_CODE_ALPHABET[Math.floor(Math.random() * REFERRAL_CODE_ALPHABET.length)];
+    }
+    return code;
+};
+
+// Every user gets a referral code on first save. The unique+sparse index is the
+// real guard; the retry loop just avoids a save error on the rare collision.
+userSchema.pre('save', async function ensureReferralCode() {
+    if (this.referralCode) return;
+    let attempts = 0;
+    // eslint-disable-next-line no-await-in-loop
+    while (attempts < 6) {
+        const candidate = this.constructor.generateReferralCode();
+        // eslint-disable-next-line no-await-in-loop
+        const clash = await this.constructor.exists({ referralCode: candidate });
+        if (!clash) {
+            this.referralCode = candidate;
+            return;
+        }
+        attempts += 1;
+    }
+});
 
 module.exports = mongoose.model('User', userSchema);
