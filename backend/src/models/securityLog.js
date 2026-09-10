@@ -9,7 +9,11 @@ const RESOURCE_TYPES = [
     'coupon',
     'banner',
     'category',
-    'review'
+    'review',
+    // ERP (Phase 2)
+    'supplier',
+    'warehouse',
+    'purchase_order'
 ];
 
 const securityLogSchema = new mongoose.Schema({

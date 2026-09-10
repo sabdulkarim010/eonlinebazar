@@ -279,7 +279,74 @@ function initAddProductFormUI() {
     setupCharCounters();
     updateSeoPreview();
     updatePricePreview();
+    loadErpProductDropdowns();
 }
+
+/* ==========================================================================
+   🏭 ERP: SUPPLIER & WAREHOUSE DROPDOWNS (প্রোডাক্ট ফর্মের ভেন্ডর ও লোকেশন)
+   ========================================================================== */
+
+/* shared state: cached so switching sections does not refetch every time */
+let erpSupplierOptions = null;
+let erpWarehouseOptions = null;
+
+/**
+ * Fill a <select> with options, preserving the current selection when the
+ * value still exists in the new list.
+ */
+function fillErpSelect(selectId, placeholder, rows) {
+    const el = document.getElementById(selectId);
+    if (!el) return;
+
+    const current = el.value;
+    el.innerHTML = `<option value="">${placeholder}</option>` +
+        rows.map((row) => {
+            const label = row.location ? `${row.name} — ${row.location}` : row.name;
+            const suffix = row.isDefault ? ' (default)' : '';
+            return `<option value="${row._id}">${escHtml(label)}${suffix}</option>`;
+        }).join('');
+
+    if (current && rows.some((row) => String(row._id) === String(current))) {
+        el.value = current;
+    }
+}
+
+/**
+ * Load active suppliers and warehouses into both the add and edit product
+ * forms. Failures are non-fatal — the selects simply stay on their
+ * placeholder so a product can still be saved without ERP links.
+ */
+async function loadErpProductDropdowns(force = false) {
+    const authHeader = { Authorization: `Bearer ${token}` };
+
+    try {
+        if (force || !erpSupplierOptions) {
+            const res = await fetch('/api/admin/suppliers?all=true&status=active', { headers: authHeader });
+            const data = await res.json();
+            erpSupplierOptions = data.success ? (data.data || []) : [];
+        }
+    } catch (err) {
+        console.warn('Supplier dropdown error:', err);
+        erpSupplierOptions = erpSupplierOptions || [];
+    }
+
+    try {
+        if (force || !erpWarehouseOptions) {
+            const res = await fetch('/api/admin/warehouses?all=true&status=active', { headers: authHeader });
+            const data = await res.json();
+            erpWarehouseOptions = data.success ? (data.data || []) : [];
+        }
+    } catch (err) {
+        console.warn('Warehouse dropdown error:', err);
+        erpWarehouseOptions = erpWarehouseOptions || [];
+    }
+
+    fillErpSelect('prodSupplier', 'No Supplier', erpSupplierOptions);
+    fillErpSelect('editProdSupplier', 'No Supplier', erpSupplierOptions);
+    fillErpSelect('prodWarehouse', 'Default Warehouse', erpWarehouseOptions);
+    fillErpSelect('editProdWarehouse', 'Default Warehouse', erpWarehouseOptions);
+}
+window.loadErpProductDropdowns = loadErpProductDropdowns;
 
 /**
  * ৮.৪: প্রিভিউ থেকে নির্দিষ্ট কোনো ছবি বাদ দেওয়ার (ক্রস বাটন) ফাংশন
@@ -355,6 +422,12 @@ window.uploadProduct = async function() {
     formData.append('highlights', JSON.stringify(highlightsArray));
     const lowStockField = document.getElementById('prodLowStockThreshold');
     formData.append('lowStockThreshold', lowStockField ? (lowStockField.value || 10) : 10);
+
+    // 🏭 ERP links — blank means "no supplier" / "default warehouse"
+    formData.append('supplierId', document.getElementById('prodSupplier')?.value || '');
+    formData.append('warehouseId', document.getElementById('prodWarehouse')?.value || '');
+    const reorderPointField = document.getElementById('prodReorderPoint');
+    formData.append('reorderPoint', reorderPointField ? (reorderPointField.value || 5) : 5);
     
     // একাধিক ছবি থাকলে সবগুলোকে ব্যাকএন্ড রাউটের 'productImages' কী-তে অ্যাপেন্ড করা
     if (files.length > 0) {
@@ -454,6 +527,22 @@ window.editProduct = async function(id) {
     const lowStockEl = document.getElementById('editProdLowStockThreshold');
     if (lowStockEl) {
         lowStockEl.value = product.lowStockThreshold ?? 10;
+    }
+
+    // 🏭 ERP: ভেন্ডর/লোকেশন ড্রপডাউন লোড করে বর্তমান লিঙ্ক প্রি-সিলেক্ট করা।
+    // populate করা অবজেক্ট বা raw ObjectId — দুই ফরম্যাটই হ্যান্ডল হয়।
+    await loadErpProductDropdowns();
+    const supplierSelect = document.getElementById('editProdSupplier');
+    if (supplierSelect) {
+        supplierSelect.value = (product.supplierId?._id || product.supplierId || '');
+    }
+    const warehouseSelect = document.getElementById('editProdWarehouse');
+    if (warehouseSelect) {
+        warehouseSelect.value = (product.warehouseId?._id || product.warehouseId || '');
+    }
+    const reorderPointEl = document.getElementById('editProdReorderPoint');
+    if (reorderPointEl) {
+        reorderPointEl.value = product.reorderPoint ?? 5;
     }
     
     if (document.getElementById('editProdEmoji')) document.getElementById('editProdEmoji').value = product.icon || '📦';
@@ -620,6 +709,12 @@ window.updateProductDetails = async function() {
     formData.append('description', desc);
     formData.append('detailedDescription', detailedDesc);
     formData.append('highlights', JSON.stringify(highlightsArray)); 
+
+    // 🏭 ERP links — blank means "no supplier" / "default warehouse"
+    formData.append('supplierId', document.getElementById('editProdSupplier')?.value || '');
+    formData.append('warehouseId', document.getElementById('editProdWarehouse')?.value || '');
+    const editReorderPointField = document.getElementById('editProdReorderPoint');
+    formData.append('reorderPoint', editReorderPointField ? (editReorderPointField.value || 5) : 5);
     
     if (files && files.length > 0) {
         for (let i = 0; i < files.length; i++) {

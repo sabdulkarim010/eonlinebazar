@@ -53,6 +53,7 @@ const crmController = require('../controllers/admin/crmController');
 const supplierController = require('../controllers/admin/supplierController');
 const warehouseController = require('../controllers/admin/warehouseController');
 const purchaseOrderController = require('../controllers/admin/purchaseOrderController');
+const productController = require('../controllers/productController');
 const enterpriseSummaryController = require('../controllers/admin/enterpriseSummaryController');
 const upload = require('../middlewares/uploadMiddleware');
 const { brandingUpload, paymentMethodLogoUpload, footerIconUpload, importFileUpload } = upload;
@@ -452,8 +453,17 @@ router.post('/warehouses', verifyAdmin, checkPermission('manage_inventory'), war
 router.put('/warehouses/:id', verifyAdmin, checkPermission('manage_inventory'), warehouseController.updateWarehouse);
 router.delete('/warehouses/:id', verifyAdmin, checkPermission('manage_inventory'), warehouseController.deleteWarehouse);
 
-router.get('/purchase-orders', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.getAllPurchaseOrders);
-router.get('/purchase-orders/:id', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.getPurchaseOrderById);
+// Product detail with supplier/warehouse populated — admin-only because the
+// public product endpoint must not expose vendor names or phone numbers.
+router.get('/products/:id', verifyAdmin, checkPermission('manage_inventory'), productController.getAdminProductById);
+
+router.get('/purchase-orders', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.getAllPOs);
+router.post('/purchase-orders', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.createPO);
+// Action routes are declared before /:id so "receive"/"cancel" are not read as ids.
+router.post('/purchase-orders/:id/receive', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.receivePO);
+router.post('/purchase-orders/:id/cancel', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.cancelPO);
+router.get('/purchase-orders/:id', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.getPOById);
+router.put('/purchase-orders/:id', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.updatePO);
 
 /********************************************************************
  # ৫ছ. 📧 NEWSLETTER & EMAIL CAMPAIGNS

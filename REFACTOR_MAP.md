@@ -1,6 +1,34 @@
 # EOnlineBazar Refactoring Map
 # Completed: 2026-08-25
 # Phase 1 HRM/RBAC: 2026-09-10
+#
+# Phase 2 ERP Core (completion pass): 2026-09-10
+# Models
+backend/src/models/supplier.js [NEW] vendor directory (contact, suppliedProducts, status)
+backend/src/models/warehouse.js [NEW] stock locations with a single isDefault flag
+backend/src/models/purchaseOrder.js [NEW] PO schema + generatePoNumber/deriveReceivingStatus/computeTotalCost
+backend/src/models/product.js [DONE] slug (sparse unique), supplierId, warehouseId, reorderPoint, costHistory[]
+backend/src/models/order.js [DONE] status enum (10 values incl. Return Requested) + Order.STATUSES
+backend/src/models/securityLog.js [DONE] supplier/warehouse/purchase_order resourceTypes
+# Controllers
+backend/src/controllers/admin/supplierController.js [NEW] full CRUD; delete blocked by open POs, unlinks products
+backend/src/controllers/admin/warehouseController.js [NEW] full CRUD; default-warehouse promotion/protection
+backend/src/controllers/admin/purchaseOrderController.js [DONE] createPO/getAllPOs/getPOById/updatePO/receivePO/cancelPO
+backend/src/controllers/productController.js [DONE] slug auto-gen + de-dup, ERP field writes, getAdminProductById
+backend/src/controllers/orderAdminController.js [DONE] status enum validation on updateOrderStatus (findByIdAndUpdate skips validators)
+# Services / routes / bootstrap
+backend/src/services/warehouseService.js [NEW] seedDefaultWarehouse + getDefaultWarehouseId
+backend/src/routes/adminRoutes.js [DONE] PO write routes + admin product detail (ERP routes live in this barrel, not new files)
+backend/src/server.js [DONE] seedDefaultWarehouse in the DB bootstrap chain
+backend/src/config/permissions.js [DONE] view-finance gated to manage_settings (owner-only)
+# Frontend
+client/admin/partials/view-products.html [DONE] supplier + warehouse + reorderPoint fields on add form
+client/admin/partials/modals-products.html [DONE] supplier + warehouse + reorderPoint fields on edit modal
+client/admin/partials/sidebar.html [DONE] view-finance marked data-superadmin-only
+client/js/admin/modules/products-form.js [DONE] loadErpProductDropdowns + ERP fields in both payloads
+# Scripts / tests
+scripts/migrateOrderStatus.js [NEW] legacy status normalizer (--dry-run); run 2026-09-10, 28 orders all valid
+tests/erp.test.js [NEW] 31 tests — supplier/warehouse CRUD, PO receive workflow, slug, enum, audit log
 backend/src/controllers/admin/staffAuditController.js [NEW] staff activity audit grouped by admin actor
 backend/src/config/permissions.js [DONE] manage_marketing permission + section gating
 backend/src/models/securityLog.js [DONE] resourceType + resourceId audit fields
@@ -51,7 +79,7 @@ client/js/admin/admin-dashboard.js [DONE] fetchEnterpriseSummary + widget render
 client/css/admin/_layout.css [DONE] breadcrumb, enterprise widgets, nav accordion styles
 client/css/admin/_responsive.css [DONE] mobile sidebar drawer + enterprise widget stack
 backend/src/controllers/admin/enterpriseSummaryController.js [NEW] GET /api/admin/enterprise-summary
-backend/src/controllers/admin/purchaseOrderController.js [NEW] PO list/detail endpoints
+backend/src/controllers/admin/purchaseOrderController.js [NEW] PO list/detail endpoints (workflow completed in the Phase 2 pass above)
 backend/src/controllers/admin/customerAdminController.js [DONE] cursor pagination {cursor,limit,nextCursor,hasMore}
 backend/src/controllers/productController.js [DONE] cursor pagination on searchProducts
 backend/src/controllers/settingsController.js [DONE] GET /api/admin/all-settings unified merge

@@ -135,6 +135,24 @@
                     </select>
                 </div>
 
+                <!-- 🏭 ERP: vendor + stock location links -->
+                <div class="form-group edit-modal-field">
+                    <label for="editProdSupplier">Supplier</label>
+                    <select id="editProdSupplier">
+                        <option value="">No Supplier</option>
+                    </select>
+                </div>
+                <div class="form-group edit-modal-field">
+                    <label for="editProdWarehouse">Warehouse</label>
+                    <select id="editProdWarehouse">
+                        <option value="">Default Warehouse</option>
+                    </select>
+                </div>
+                <div class="form-group edit-modal-field">
+                    <label for="editProdReorderPoint">Reorder Point</label>
+                    <input type="number" id="editProdReorderPoint" placeholder="e.g. 5" min="0" value="5">
+                </div>
+
                 <div class="form-group edit-modal-field edit-modal-field--full">
                     <label for="editProdDesc">Description</label>
                     <textarea id="editProdDesc" rows="3" placeholder="Write description..."></textarea>

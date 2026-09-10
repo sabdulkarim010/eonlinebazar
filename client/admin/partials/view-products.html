@@ -68,10 +68,33 @@
                             </div>
                         </div>
 
-                        <div class="pf-group">
-                            <label class="pf-label" for="prodLowStockThreshold">Low Stock Alert Threshold</label>
-                            <input type="number" id="prodLowStockThreshold" class="pf-input" placeholder="10" min="0" value="10">
-                            <div class="pf-field-hint">Alert when stock falls below this level</div>
+                        <div class="pf-grid-2">
+                            <div class="pf-group">
+                                <label class="pf-label" for="prodLowStockThreshold">Low Stock Alert Threshold</label>
+                                <input type="number" id="prodLowStockThreshold" class="pf-input" placeholder="10" min="0" value="10">
+                                <div class="pf-field-hint">Alert when stock falls below this level</div>
+                            </div>
+                            <div class="pf-group">
+                                <label class="pf-label" for="prodReorderPoint">Reorder Point</label>
+                                <input type="number" id="prodReorderPoint" class="pf-input" placeholder="5" min="0" value="5">
+                                <div class="pf-field-hint">Raise a purchase order at this level</div>
+                            </div>
+                        </div>
+
+                        <!-- 🏭 ERP: vendor + stock location links -->
+                        <div class="pf-grid-2">
+                            <div class="pf-group">
+                                <label class="pf-label" for="prodSupplier">Supplier (Optional)</label>
+                                <select id="prodSupplier" class="pf-input">
+                                    <option value="">No Supplier</option>
+                                </select>
+                            </div>
+                            <div class="pf-group">
+                                <label class="pf-label" for="prodWarehouse">Warehouse (Optional)</label>
+                                <select id="prodWarehouse" class="pf-input">
+                                    <option value="">Default Warehouse</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div class="price-preview-card" id="pricePreviewCard" style="display:none">

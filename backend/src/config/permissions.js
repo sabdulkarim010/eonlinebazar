@@ -134,7 +134,9 @@ const SECTION_PERMISSIONS = Object.freeze({
     'view-suppliers': 'manage_inventory',
     'view-warehouses': 'manage_inventory',
     'view-purchase-orders': 'manage_inventory',
-    'view-finance': 'view_analytics',
+    // Financial reports stay owner-only; the sidebar item also carries
+    // data-superadmin-only so staff never see the entry.
+    'view-finance': 'manage_settings',
     'view-banners': 'manage_catalog',
     'settings-2fa': null
 });

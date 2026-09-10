@@ -87,6 +87,15 @@ connectDB().then(async () => {
         console.error('Payment method bootstrap error:', err.message);
     }
 
+    // 🏭 ERP বুটস্ট্র্যাপ — প্রোডাক্টে warehouseId ঐচ্ছিক হলেও অন্তত একটি
+    // লোকেশন থাকা দরকার যাতে অ্যাডমিন ড্রপডাউন ও PO রিসিভিং কাজ করে।
+    try {
+        const { seedDefaultWarehouse } = require('./services/warehouseService');
+        await seedDefaultWarehouse();
+    } catch (err) {
+        console.error('Warehouse bootstrap error:', err.message);
+    }
+
     // Start background stock alert cron job
     try {
         const { startStockAlertCron } = require('./services/stockAlertService');

@@ -103,6 +103,46 @@ function escapeRegex(str) {
     return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/**
+ * 🌟 নাম থেকে URL-বান্ধব slug (brand.js/attribute.js-এর মতো একই নিয়ম,
+ * বাংলা ইউনিকোড রেঞ্জসহ)। e.g. "Premium Cotton T-Shirt" → "premium-cotton-t-shirt"
+ */
+function slugify(text) {
+    return String(text || '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\u0980-\u09FF]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Product.slug ইউনিক — একই নামের দ্বিতীয় প্রোডাক্ট এলে -2, -3 … সাফিক্স
+ * বসিয়ে সংঘর্ষ এড়ায়। excludeId দিলে নিজের ডকুমেন্টকে সংঘর্ষ ধরা হয় না।
+ */
+async function resolveUniqueSlug(source, excludeId = null) {
+    const base = slugify(source);
+    if (!base) return undefined;
+
+    for (let suffix = 0; suffix < 50; suffix += 1) {
+        const candidate = suffix === 0 ? base : `${base}-${suffix + 1}`;
+        const query = { slug: candidate };
+        if (excludeId) query._id = { $ne: excludeId };
+
+        const taken = await Product.exists(query);
+        if (!taken) return candidate;
+    }
+
+    // Extremely unlikely — fall back to a timestamped slug rather than fail.
+    return `${base}-${Date.now()}`;
+}
+
+/** ObjectId রেফারেন্স ফিল্ড (supplierId/warehouseId) পার্স করা — খালি হলে null। */
+function parseObjectIdField(raw) {
+    const value = String(raw ?? '').trim();
+    if (!value || value === 'null' || value === 'undefined') return null;
+    return mongoose.Types.ObjectId.isValid(value) ? value : null;
+}
+
 async function resolveBrand(brandInput) {
     if (!brandInput || brandInput === 'null' || brandInput === 'undefined') {
         return { brand: null, brandName: '' };
@@ -473,7 +513,7 @@ const createProduct = async (req, res) => {
         console.log("Request Body:", req.body); 
         console.log("Files received:", req.files ? req.files.length : 0);
 
-        const { id, name, price, buyingPrice, stock, stockQuantity, lowStockThreshold, category, brand, variants, hasVariants, icon, description, detailedDescription, highlights, tags } = req.body;
+        const { id, name, price, buyingPrice, stock, stockQuantity, lowStockThreshold, category, brand, variants, hasVariants, icon, description, detailedDescription, highlights, tags, supplierId, warehouseId, reorderPoint } = req.body;
         
         const parsedHighlights = parseStringArray(highlights);
         const parsedTags = parseStringArray(tags);
@@ -482,9 +522,18 @@ const createProduct = async (req, res) => {
         const parsedVariants = parseVariants(variants);
         const explicitHasVariants = parseHasVariants(hasVariants);
 
+        const resolvedName = name || description || 'Unnamed Product';
+        // slug না পাঠালে নাম থেকে অটো-জেনারেট — এতে product.js-এর
+        // sparse unique ইনডেক্সটি আর ডেড থাকে না।
+        const slug = await resolveUniqueSlug(req.body.slug || resolvedName);
+
         let newProductData = applyProductStockFields({
             productId: id || `PROD-${Date.now()}`, 
-            name: name || description || 'Unnamed Product',
+            name: resolvedName,
+            slug,
+            supplierId: parseObjectIdField(supplierId),
+            warehouseId: parseObjectIdField(warehouseId),
+            reorderPoint: Number.isFinite(Number(reorderPoint)) ? Number(reorderPoint) : 5,
             price: Number(price) || 0,
             buyingPrice: Number(buyingPrice) || 0,
             hasVariants: explicitHasVariants !== undefined ? explicitHasVariants : parsedVariants.length > 0,
@@ -551,7 +600,7 @@ const createProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
     try {
         const productIdParam = req.params.id;
-        const { name, price, buyingPrice, stock, stockQuantity, lowStockThreshold, category, brand, variants, hasVariants, icon, description, detailedDescription, highlights, tags } = req.body;
+        const { name, price, buyingPrice, stock, stockQuantity, lowStockThreshold, category, brand, variants, hasVariants, icon, description, detailedDescription, highlights, tags, supplierId, warehouseId, reorderPoint } = req.body;
 
         let updateFields = {};
         if (name) updateFields.name = name;
@@ -559,6 +608,13 @@ const updateProduct = async (req, res) => {
         if (icon) updateFields.icon = icon.trim();
         if (lowStockThreshold !== undefined && lowStockThreshold !== '') {
             updateFields.lowStockThreshold = Number(lowStockThreshold) || 10;
+        }
+
+        if (supplierId !== undefined) updateFields.supplierId = parseObjectIdField(supplierId);
+        if (warehouseId !== undefined) updateFields.warehouseId = parseObjectIdField(warehouseId);
+        if (reorderPoint !== undefined && reorderPoint !== '') {
+            const parsedReorderPoint = Number(reorderPoint);
+            updateFields.reorderPoint = Number.isFinite(parsedReorderPoint) ? parsedReorderPoint : 5;
         }
 
         if (brand !== undefined) {
@@ -624,6 +680,20 @@ const updateProduct = async (req, res) => {
         }
 
         let query = mongoose.Types.ObjectId.isValid(productIdParam) ? { _id: productIdParam } : { productId: String(productIdParam) }; 
+
+        // slug রিফ্রেশ: ক্লায়েন্ট slug পাঠালে, নাম বদলালে, অথবা পুরোনো
+        // প্রোডাক্টে slug না থাকলে (এডিটের সময় ব্যাকফিল) নতুন slug বসে।
+        const existingForSlug = await Product.findOne(query).select('_id name slug').lean();
+        if (existingForSlug) {
+            const explicitSlug = String(req.body.slug || '').trim();
+            const nameChanged = Boolean(name) && name !== existingForSlug.name;
+
+            if (explicitSlug || nameChanged || !existingForSlug.slug) {
+                const source = explicitSlug || name || existingForSlug.name;
+                const nextSlug = await resolveUniqueSlug(source, existingForSlug._id);
+                if (nextSlug) updateFields.slug = nextSlug;
+            }
+        }
 
         let oldCategoryName = null;
         if (category !== undefined) {
@@ -766,6 +836,35 @@ const getProductById = async (req, res) => {
     }
 };
 
+/**
+ * 🏭 ERP: প্রোডাক্টের অ্যাডমিন ভিউ — supplier ও warehouse রেফারেন্স
+ * populate করা থাকে। এটি আলাদা অ্যাডমিন-অনলি এন্ডপয়েন্ট, কারণ পাবলিক
+ * GET /api/products/:id ক্যাশড এবং ভেন্ডরের নাম/ফোন কাস্টমারকে দেখানো যাবে না।
+ * URL: GET /api/admin/products/:id
+ */
+const getAdminProductById = async (req, res) => {
+    try {
+        const productIdParam = req.params.id;
+        const query = mongoose.Types.ObjectId.isValid(productIdParam)
+            ? { _id: productIdParam }
+            : { productId: String(productIdParam) };
+
+        const product = await Product.findOne(query)
+            .populate('supplierId', 'name contactPerson phone email status')
+            .populate('warehouseId', 'name location address')
+            .lean();
+
+        if (!product) {
+            return res.status(404).json({ success: false, message: 'Product not found!' });
+        }
+
+        res.json({ success: true, data: product });
+    } catch (err) {
+        console.error('Admin product fetch error:', err);
+        res.status(500).json({ success: false, message: 'Internal Server Error' });
+    }
+};
+
 
 module.exports = { 
     getProducts, 
@@ -774,6 +873,7 @@ module.exports = {
     updateProduct, 
     deleteProduct, 
     getProductById,
+    getAdminProductById,
 };
 
 
