@@ -152,6 +152,21 @@ mobile/src/screens/ProfileScreen.js [DONE] referral menu item rendered via profi
 mobile/src/screens/RegisterScreen.js [DONE] optional referralCode input
 mobile/src/store/useAuthStore.js [DONE] forwards referralCode on register
 mobile/package.json [DONE] expo-clipboard dependency
+# Phase 2 Audit — ERP + CRM admin UI completion: 2026-09-10
+client/admin/partials/view-suppliers.html [DONE] Add Supplier modal + table actions column
+client/admin/partials/view-warehouses.html [DONE] Add Warehouse modal + default badge + Set Default action
+client/admin/partials/view-purchase-orders.html [DONE] Create PO + Receive PO modals + status badges + actions
+client/admin/partials/view-crm-abandoned.html [DONE] filter tabs + abandoned cart list table + recovery actions
+client/js/admin/modules/erp-suppliers.js [DONE] full CRUD — openAdd/Edit, save, delete, loadSuppliers
+client/js/admin/modules/erp-warehouses.js [DONE] full CRUD + setDefaultWarehouse
+client/js/admin/modules/erp-purchase-orders.js [DONE] create/receive/cancel PO workflow + line items
+client/js/admin/modules/crm-abandoned-carts.js [NEW] loadAbandonedCarts, renderCartsTable, sendRecoveryNotification
+client/js/admin/modules/crm-abandoned.js [DONE] thin re-export → crm-abandoned-carts.js
+client/js/admin/admin-customers.js [DONE] imports crm-abandoned-carts.js
+client/js/admin/modules/core-nav.js [DONE] view-crm-abandoned → loadAbandonedCarts('all')
+backend/src/controllers/admin/crmController.js [DONE] cart list in GET + notifyAbandonedCart POST handler
+backend/src/routes/adminRoutes.js [DONE] POST /crm/abandoned-carts/:userId/notify
+#
 # Refactoring complete — all listed files are [DONE]
 #
 # RULE: Every time you modify a file during refactoring,

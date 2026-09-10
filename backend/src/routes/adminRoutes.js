@@ -436,6 +436,7 @@ router.patch('/tickets/:id/status', verifyAdmin, checkPermission('manage_setting
  # URL: /api/admin/crm/*
  ********************************************************************/
 router.get('/crm/abandoned-carts', verifyAdmin, checkPermission('manage_marketing'), crmController.getAbandonedCartStats);
+router.post('/crm/abandoned-carts/:userId/notify', verifyAdmin, checkPermission('manage_marketing'), crmController.notifyAbandonedCart);
 
 /********************************************************************
  # ERP — Suppliers, Warehouses, Purchase Orders

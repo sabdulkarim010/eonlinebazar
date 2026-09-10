@@ -1,8 +1,8 @@
 <!-- ============================================================
      🛒 CRM → ABANDONED CART RECOVERY
-     Stats populated by js/admin/modules/crm-abandoned.js
-     (GET /api/admin/crm/abandoned-carts). A daily cron
-     (jobs/abandonedCartJob.js) sends recovery email + SMS.
+     Populated by js/admin/modules/crm-abandoned-carts.js
+     GET /api/admin/crm/abandoned-carts
+     POST /api/admin/crm/abandoned-carts/:userId/notify
      ============================================================ -->
 <section id="view-crm-abandoned" class="admin-section" style="display: none;">
     <div class="dashboard-section-label" style="display:flex;align-items:center;justify-content:space-between;">
@@ -12,7 +12,7 @@
         </button>
     </div>
     <p class="section-subtitle" style="margin:0 0 18px;">
-        Carts left idle for 24h+ that still hold items. A daily job emails and SMS-es customers a recovery reminder.
+        Carts left idle for 24h+ that still hold items. Send manual recovery emails or SMS, or let the daily job handle it.
     </p>
 
     <div class="metrics-grid sales-metrics-grid">
@@ -43,5 +43,30 @@
                 </span>
             </div>
         </div>
+    </div>
+
+    <div class="table-container" style="margin-top:24px;">
+        <div class="table-header customers-table-header">
+            <h3>Abandoned Cart List</h3>
+            <div class="customer-segment-tabs" id="abandonedCartFilterTabs">
+                <button type="button" class="segment-tab active" data-filter="all" onclick="setAbandonedCartFilter('all')">All</button>
+                <button type="button" class="segment-tab" data-filter="not_notified" onclick="setAbandonedCartFilter('not_notified')">Not Notified</button>
+                <button type="button" class="segment-tab" data-filter="notified" onclick="setAbandonedCartFilter('notified')">Notified</button>
+            </div>
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Customer</th>
+                    <th>Items / Value</th>
+                    <th>Last Activity</th>
+                    <th>Notified?</th>
+                    <th class="customers-th--actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="abandonedCartsTableBody">
+                <tr><td colspan="5" class="loading-container"><div class="spinner"></div><p>Loading abandoned carts…</p></td></tr>
+            </tbody>
+        </table>
     </div>
 </section>

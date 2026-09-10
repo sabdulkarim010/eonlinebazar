@@ -4,9 +4,14 @@
             <h3><i class="fa-solid fa-warehouse"></i> Warehouses</h3>
             <p class="section-subtitle">Multi-location inventory and goods receiving destinations.</p>
         </div>
-        <button type="button" class="btn-primary" id="warehousesRefreshBtn">
-            <i class="fa-solid fa-rotate"></i> Refresh
-        </button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn-secondary" id="warehousesRefreshBtn">
+                <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+            <button type="button" class="btn-primary" onclick="openAddWarehouseModal()">
+                <i class="fa-solid fa-plus"></i> Add Warehouse
+            </button>
+        </div>
     </div>
     <div class="table-container">
         <table class="data-table">
@@ -14,14 +19,73 @@
                 <tr>
                     <th>Code</th>
                     <th>Name</th>
-                    <th>Address</th>
+                    <th>Location</th>
+                    <th>Manager</th>
                     <th>Default</th>
                     <th>Status</th>
+                    <th class="customers-th--actions">Actions</th>
                 </tr>
             </thead>
             <tbody id="warehousesTableBody">
-                <tr><td colspan="5" class="loading-container"><div class="spinner"></div><p>Loading warehouses…</p></td></tr>
+                <tr><td colspan="7" class="loading-container"><div class="spinner"></div><p>Loading warehouses…</p></td></tr>
             </tbody>
         </table>
     </div>
 </section>
+
+<!-- Warehouse create / edit modal -->
+<div id="warehouseModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeWarehouseModal()">
+    <div class="custom-modal-box" style="max-width:560px;">
+        <div class="modal-header">
+            <div>
+                <h3 id="warehouseModalTitle"><i class="fa-solid fa-warehouse"></i> Add Warehouse</h3>
+                <p class="edit-modal-subtitle">Stock location for receiving and fulfillment</p>
+            </div>
+            <button type="button" class="close-icon-btn" onclick="closeWarehouseModal()" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="warehouseForm" onsubmit="event.preventDefault(); saveWarehouse();">
+            <input type="hidden" id="warehouseEditId" value="">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="warehouseName">Name *</label>
+                    <input type="text" id="warehouseName" required placeholder="Main warehouse">
+                </div>
+                <div class="form-group">
+                    <label for="warehouseLocation">Location</label>
+                    <input type="text" id="warehouseLocation" placeholder="City / district">
+                </div>
+                <div class="form-group">
+                    <label for="warehouseAddress">Address</label>
+                    <textarea id="warehouseAddress" rows="2" placeholder="Full street address"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="warehouseManagerName">Manager Name</label>
+                    <input type="text" id="warehouseManagerName" placeholder="On-site manager">
+                </div>
+                <div class="form-group">
+                    <label for="warehousePhone">Phone</label>
+                    <input type="tel" id="warehousePhone" placeholder="01XXXXXXXXX">
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label" style="display:flex;align-items:center;gap:8px;">
+                        <input type="checkbox" id="warehouseIsDefault">
+                        Set as default warehouse
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="warehouseStatus">Status</label>
+                    <select id="warehouseStatus">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeWarehouseModal()">Cancel</button>
+                <button type="submit" class="btn-primary" id="warehouseSaveBtn">Save Warehouse</button>
+            </div>
+        </form>
+    </div>
+</div>
