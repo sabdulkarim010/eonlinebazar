@@ -247,36 +247,42 @@
 }
 
 .cw-msg-avatar-slot {
-  width: 32px !important;
-  height: 32px !important;
+  width: 28px !important;
+  height: 28px !important;
   flex-shrink: 0 !important;
   align-self: flex-end !important;
+  position: relative !important;
 }
 
 .cw-msg-avatar-img {
-  width: 32px !important;
-  height: 32px !important;
+  width: 28px !important;
+  height: 28px !important;
   border-radius: 50% !important;
   object-fit: cover !important;
   display: block !important;
 }
 
 .cw-msg-avatar-fallback {
-  width: 32px !important;
-  height: 32px !important;
+  width: 28px !important;
+  height: 28px !important;
   border-radius: 50% !important;
   background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
   color: white !important;
-  font-size: 13px !important;
+  font-size: 11px !important;
   font-weight: 600 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+.cw-msg-avatar-fallback[hidden] {
+  display: none !important;
 }
 
 .cw-msg-avatar-slot.cw-avatar-spacer {
-  width: 32px !important;
-  height: 32px !important;
+  width: 28px !important;
+  height: 28px !important;
   flex-shrink: 0 !important;
 }
 
@@ -344,13 +350,15 @@
 
 /* Messages area */
 #cw-messages {
-  flex: 1 !important;
-  overflow-y: auto !important;
-  padding: 16px !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 10px !important;
+  gap: 4px !important;
+  padding: 12px 8px !important;
+  overflow-y: auto !important;
+  flex: 1 !important;
   background: #F8F9FE !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
   scroll-behavior: smooth !important;
   min-height: 0 !important;
 }
@@ -367,6 +375,13 @@
 }
 
 /* Message bubbles */
+.cw-msg,
+.cw-msg-row-agent,
+.cw-msg-row-customer {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
 .cw-msg {
   display: flex !important;
   flex-direction: column !important;
@@ -486,36 +501,28 @@
 .cw-quick-replies {
   display: flex !important;
   flex-wrap: wrap !important;
-  gap: 6px !important;
-  padding: 8px 12px 4px !important;
+  gap: 8px !important;
+  padding: 4px 8px 8px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .cw-qr-btn {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 5px !important;
-  padding: 7px 14px !important;
+  padding: 8px 16px !important;
   background: #F0F2F5 !important;
-  color: #050505 !important;
   border: 1px solid #E4E6EB !important;
   border-radius: 18px !important;
   font-size: 13px !important;
   font-weight: 500 !important;
+  color: #050505 !important;
   cursor: pointer !important;
-  transition: background 0.15s, border-color 0.15s !important;
   white-space: nowrap !important;
-  line-height: 1.2 !important;
+  transition: background 0.15s !important;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif !important;
 }
 
 .cw-qr-btn:hover {
   background: #E4E6EB !important;
-  border-color: #CDD0D4 !important;
-}
-
-.cw-qr-btn:active {
-  transform: scale(0.97) !important;
-  background: #D8DADF !important;
 }
 
 /* Typing indicator */
@@ -752,37 +759,63 @@
   #cw-container {
     position: fixed !important;
     bottom: 0 !important;
-    left: 0 !important;
     right: 0 !important;
+    left: 0 !important;
     width: 100% !important;
     height: 85vh !important;
-    max-height: 85vh !important;
     border-radius: 20px 20px 0 0 !important;
-    display: none !important;
-    flex-direction: column !important;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.15) !important;
   }
 
-  #cw-container.cw-open {
-    display: flex !important;
+  #cw-header {
+    border-radius: 20px 20px 0 0 !important;
+    padding: 14px 16px !important;
   }
 
   #cw-messages {
-    flex: 1 !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
+    padding: 12px 10px !important;
+  }
+
+  .cw-bubble-agent {
+    font-size: 14px !important;
+    max-width: 80% !important;
+  }
+
+  .cw-bubble-customer {
+    font-size: 14px !important;
+    max-width: 80% !important;
+  }
+
+  .cw-qr-btn {
+    font-size: 13px !important;
+    padding: 8px 14px !important;
   }
 
   #cw-footer {
-    position: sticky !important;
-    bottom: 0 !important;
-    background: white !important;
-    padding-bottom: env(safe-area-inset-bottom, 10px) !important;
+    padding: 8px 12px !important;
+    padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
   }
 
-  #cw-bubble {
-    bottom: 16px !important;
-    right: 16px !important;
-    z-index: 2147483647 !important;
+  #cw-input {
+    font-size: 16px !important;
+  }
+
+  .cw-msg-avatar-img,
+  .cw-msg-avatar-fallback {
+    width: 28px !important;
+    height: 28px !important;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 360px) {
+  #cw-container {
+    height: 90vh !important;
+  }
+
+  .cw-bubble-agent,
+  .cw-bubble-customer {
+    font-size: 13px !important;
   }
 }
 

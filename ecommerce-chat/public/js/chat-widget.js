@@ -1060,22 +1060,32 @@
 
       if (isLast) {
         avatarSlot.className = 'cw-msg-avatar-slot';
-        var fallback = document.createElement('div');
-        fallback.className = 'cw-msg-avatar-fallback';
-        fallback.textContent = (agentName || 'A').charAt(0).toUpperCase();
+
         if (agentAvatarResolved) {
           var img = document.createElement('img');
           img.className = 'cw-msg-avatar-img';
           img.src = agentAvatarResolved;
-          img.alt = '';
+          img.alt = agentName || 'Agent';
+
+          var fallback = document.createElement('div');
+          fallback.className = 'cw-msg-avatar-fallback';
+          fallback.textContent = (agentName || 'A').charAt(0).toUpperCase();
+          fallback.hidden = true;
+
           img.addEventListener('error', function () {
             img.style.display = 'none';
-            fallback.style.display = 'flex';
+            fallback.hidden = false;
           });
-          fallback.style.display = 'none';
+
           avatarSlot.appendChild(img);
+          avatarSlot.appendChild(fallback);
+        } else {
+          var fbOnly = document.createElement('div');
+          fbOnly.className = 'cw-msg-avatar-fallback';
+          fbOnly.textContent = (agentName || 'A').charAt(0).toUpperCase();
+          fbOnly.style.display = 'flex';
+          avatarSlot.appendChild(fbOnly);
         }
-        avatarSlot.appendChild(fallback);
       } else {
         avatarSlot.className = 'cw-msg-avatar-slot cw-avatar-spacer';
       }
@@ -1176,24 +1186,28 @@
       box.appendChild(wrap);
     }
 
-    var quick = msg && (msg.quick_replies || msg.quickReplies);
-    if (quick && Array.isArray(quick) && quick.length && type === 'BOT') {
-      var qr = document.createElement('div');
-      qr.className = 'cw-quick-replies';
-      quick.forEach(function (item) {
-        var text = typeof item === 'string' ? item : (item.label || item.text || item.value || '');
-        if (!text) return;
+    var quickReplies = msg && (msg.quick_replies || msg.quickReplies);
+    if (quickReplies && quickReplies.length && type === 'BOT') {
+      var qrWrap = document.createElement('div');
+      qrWrap.className = 'cw-quick-replies';
+      quickReplies.forEach(function (qr) {
+        var label = typeof qr === 'string' ? qr : (qr.label || qr.text || qr.value || '');
+        if (!label) return;
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'cw-qr-btn';
-        btn.textContent = text;
+        btn.textContent = label;
         btn.addEventListener('click', function () {
-          qr.remove();
-          sendText(text);
+          qrWrap.remove();
+          sendText(label);
         });
-        qr.appendChild(btn);
+        qrWrap.appendChild(btn);
       });
-      wrap.appendChild(qr);
+      if (typingEl && typingEl.parentNode === box) {
+        box.insertBefore(qrWrap, typingEl);
+      } else {
+        box.appendChild(qrWrap);
+      }
     }
 
     if (type === 'AGENT') {
@@ -1741,7 +1755,24 @@
     });
 
     s.on('agent_joined', function (data) {
-      clearSystemPills();
+      var allPills = document.querySelectorAll('.cw-msg.cw-system');
+      allPills.forEach(function (el) {
+        var textEl = el.querySelector('.cw-bubble-text');
+        var text = textEl ? (textEl.textContent || '') : '';
+
+        var isWaiting =
+          text.indexOf('প্রতিনিধি') !== -1 ||
+          text.indexOf('শীঘ্রই') !== -1 ||
+          text.indexOf('অপেক্ষা') !== -1;
+
+        if (isWaiting) {
+          el.style.transition = 'opacity 0.4s';
+          el.style.opacity = '0';
+          setTimeout(function () {
+            if (el.parentNode) el.remove();
+          }, 400);
+        }
+      });
 
       var name = (data && (data.agent_name || data.name || data.agentName)) || 'Agent';
       state.agentName = name;
