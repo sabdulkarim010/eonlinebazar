@@ -700,3 +700,15 @@ client/js/product-details.js             [DONE] wires setupOrderWhatsAppButton o
 client/login.html                        [DONE] Guest auth — Need Help? Chat on WhatsApp support card
 client/register.html                     [DONE] Guest auth — Need Help? Chat on WhatsApp support card
 client/css/auth.css                      [DONE] .auth-whatsapp-support card styles
+#
+# Phase 2 Audit fixes — mobile env + finance embed: 2026-09-10
+mobile/.env.example [NEW] EXPO_PUBLIC_API_URL, EXPO_PUBLIC_CHAT_URL, EXPO_PUBLIC_APP_ENV (renamed from env.example)
+mobile/.gitignore [DONE] .env gitignored for local secrets
+mobile/src/services/api.js [DONE] BASE_URL from EXPO_PUBLIC_API_URL with production fallback
+mobile/src/config/chatConfig.js [DONE] CHAT_URL from EXPO_PUBLIC_CHAT_URL with production fallback
+client/admin/partials/view-finance.html [DONE] Open Finance Dashboard CTA + iframe embed
+client/js/admin/modules/view-finance.js [NEW] iframe load spinner + auth fallback
+client/js/admin/modules/core-nav.js [DONE] view-finance calls initFinanceEmbed
+client/admin/partials/scripts.html [DONE] loads view-finance.js module
+client/css/admin/_layout.css [DONE] finance iframe wrap, spinner, fallback styles
+ARCHITECTURE.md [DONE] mobile .env gitignore note

@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-const DEFAULT_API_URL = 'https://eonlinebazar.com/api';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://eonlinebazar.com/api';
 const TOKEN_KEY = 'eonlinebazar_token';
 const SECURE_STORE_TIMEOUT_MS = 2000;
 
@@ -18,15 +18,8 @@ function withTimeout(promise, ms, label) {
   });
 }
 
-function toApiBaseUrl(value) {
-  const trimmed = String(value || '').trim().replace(/\/+$/, '');
-  if (!trimmed) return DEFAULT_API_URL;
-  if (/\/api$/i.test(trimmed)) return trimmed;
-  return `${trimmed}/api`;
-}
-
-export const API_BASE_URL = toApiBaseUrl(process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_URL);
-export const API_ORIGIN = API_BASE_URL.replace(/\/api$/i, '');
+export const API_BASE_URL = BASE_URL;
+export const API_ORIGIN = BASE_URL.replace(/\/api$/i, '');
 
 export function resolveApiOrigin() {
   return API_ORIGIN;
@@ -165,7 +158,7 @@ function shouldSkip401Logout(error) {
 }
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: BASE_URL,
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',

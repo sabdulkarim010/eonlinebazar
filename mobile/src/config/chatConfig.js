@@ -1,5 +1,7 @@
 import { API_ORIGIN } from '../services/api';
 
+const CHAT_URL = process.env.EXPO_PUBLIC_CHAT_URL || 'https://eonlinebazar.com';
+
 export const CHAT_SOCKET_PATH = '/chat-socket/socket.io';
 export const CHAT_SESSION_KEY = 'cw_guest_session_id';
 export const CHAT_ROOM_KEY_PREFIX = 'cw_room_id_';
@@ -20,15 +22,13 @@ function stripSlash(url = '') {
 }
 
 export function resolveChatApiUrl() {
-  const env = process.env.EXPO_PUBLIC_CHAT_API_URL
-    || process.env.EXPO_PUBLIC_CHAT_URL;
+  const env = process.env.EXPO_PUBLIC_CHAT_API_URL || CHAT_URL;
   if (env) return stripSlash(env);
   return `${stripSlash(API_ORIGIN)}/chat-api`;
 }
 
 export function resolveChatSocketUrl() {
-  const env = process.env.EXPO_PUBLIC_CHAT_SOCKET_URL
-    || process.env.EXPO_PUBLIC_CHAT_URL;
+  const env = process.env.EXPO_PUBLIC_CHAT_SOCKET_URL || CHAT_URL;
   if (env) return stripSlash(env);
   return stripSlash(API_ORIGIN);
 }

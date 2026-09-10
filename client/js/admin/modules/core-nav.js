@@ -639,7 +639,7 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-suppliers': () => window.loadSuppliersSection && window.loadSuppliersSection(),
         'view-warehouses': () => window.loadWarehousesSection && window.loadWarehousesSection(),
         'view-purchase-orders': () => window.loadPurchaseOrdersSection && window.loadPurchaseOrdersSection(),
-        'view-finance': () => {},
+        'view-finance': () => window.initFinanceEmbed && window.initFinanceEmbed(),
         'view-overview': fetchDashboardData,
         'manage-category': loadCategories,
         'manage-brands': fetchBrands,

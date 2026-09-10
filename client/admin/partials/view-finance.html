@@ -7,8 +7,23 @@
     </div>
     <div class="enterprise-finance-embed">
         <p>Open the finance dashboard for detailed P&amp;L, revenue trends, and margin analysis.</p>
-        <a href="/finance-analytics" class="btn-primary finance-embed-cta" target="_blank" rel="noopener">
-            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Finance &amp; Analytics
+        <a href="/finance-analytics" class="btn-primary finance-embed-cta finance-dashboard-btn" target="_blank" rel="noopener">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Finance Dashboard
         </a>
+    </div>
+    <div class="finance-iframe-wrap">
+        <div id="financeEmbedSpinner" class="finance-iframe-spinner loading-container">
+            <div class="spinner"></div>
+            <p>Loading finance dashboard…</p>
+        </div>
+        <p id="financeEmbedFallback" class="finance-embed-fallback" hidden>
+            Sign in to Finance Dashboard to view full reports
+        </p>
+        <iframe
+            id="financeAnalyticsIframe"
+            src="/finance-analytics"
+            title="Finance Analytics Dashboard"
+            style="width:100%;height:600px;border:none;"
+        ></iframe>
     </div>
 </section>
