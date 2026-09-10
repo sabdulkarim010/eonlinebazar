@@ -938,6 +938,17 @@
       state.renderedIds[msgId] = true;
     }
 
+    var quickReplies = msg && (msg.quick_replies || msg.quickReplies);
+    // Dedup quick replies by message ID
+    if (quickReplies && quickReplies.length && msgId) {
+      if (state.renderedQR && state.renderedQR[msgId]) {
+        quickReplies = null; // skip QR if already shown
+      } else {
+        if (!state.renderedQR) state.renderedQR = {};
+        state.renderedQR[msgId] = true;
+      }
+    }
+
     var box = $('cw-messages');
     var type = String((msg.sender_type || msg.senderType || msg.sender || msg.type) || 'BOT').toUpperCase();
     if (type === 'CUSTOMER' || type === 'GUEST') type = 'USER';
@@ -1186,7 +1197,6 @@
       box.appendChild(wrap);
     }
 
-    var quickReplies = msg && (msg.quick_replies || msg.quickReplies);
     if (quickReplies && quickReplies.length && type === 'BOT') {
       var qrWrap = document.createElement('div');
       qrWrap.className = 'cw-quick-replies';
@@ -1817,6 +1827,13 @@
     });
 
     s.on('chat_history', function (payload) {
+      // Clear existing quick replies to prevent duplicates
+      var existingQR = document.querySelectorAll('.cw-quick-replies');
+      existingQR.forEach(function (el) { el.remove(); });
+
+      // Reset QR tracking for fresh history load
+      state.renderedQR = {};
+
       var messages = Array.isArray(payload)
         ? payload
         : (payload && (payload.messages || payload.history)) || [];
