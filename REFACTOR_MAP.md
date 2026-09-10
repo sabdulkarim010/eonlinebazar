@@ -101,6 +101,19 @@ SYSTEM_ENTERPRISE_AUDIT.md [DONE] Section 2 Phase 1–4 items marked complete
 client/admin/partials/view-master-settings.html [DONE] #rewards-section scroll anchor for Loyalty Program deep link
 client/js/admin/modules/core-nav.js [DONE] data-scroll-target delayed scroll + link label title; data-settings-tab tab activation
 #
+# Settings section split — 2026-09-10
+client/admin/partials/view-shipping-payments.html [NEW] Shipping, SMS, courier, WhatsApp, payment methods
+client/admin/partials/view-loyalty-program.html [NEW] VIP segmentation + rewards/refund engine
+client/admin/partials/view-store-config.html [NEW] Catalog pagination, flash sale, footer, CMS pages
+client/admin/partials/view-master-settings.html [DELETED] split into 3 focused sections above
+client/admin/partials/sidebar.html [DONE] Loyalty → view-loyalty-program; Shipping → view-shipping-payments; Store Configuration link added
+backend/src/utils/adminPageBuilder.js [DONE] register 3 new partials, remove view-master-settings
+backend/src/config/permissions.js [DONE] view-shipping-payments, view-loyalty-program, view-store-config
+client/js/admin/modules/core-nav.js [DONE] remove scroll-target logic; link-title headers; tryActivateTab; lastClickedNavItem accordion fix
+client/js/admin/modules/core-state.js [DONE] ADMIN_PAGE_META for 3 new sections
+client/js/admin/modules/core-breadcrumb.js [DONE] BREADCRUMB_MAP for 3 new sections
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] SETTINGS ROUTING AUDIT marked resolved
+#
 # Phase 3 CRM & Automation: 2026-09-10
 # --- Task 1: Abandoned cart tracking ---
 backend/src/models/cart.js [DONE] lastActivityAt + abandonedNotifiedAt fields, re-arm pre-save hook, {userId:1,updatedAt:-1} index
@@ -435,7 +448,9 @@ client/admin/partials/
   view-catalog.html
   view-products.html
   view-security.html
-  view-master-settings.html
+  view-shipping-payments.html
+  view-loyalty-program.html
+  view-store-config.html
   view-banners.html
   view-messages.html
   view-file-manager.html

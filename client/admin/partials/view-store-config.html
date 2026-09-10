@@ -1,0 +1,217 @@
+<section id="view-store-config" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <h3>Store Configuration</h3>
+        <p class="section-subtitle">Catalog pagination, flash sale engine, footer, and CMS pages.</p>
+    </div>
+
+    <div class="system-settings-stack">
+
+        <form id="form-system-catalog" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--slate">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--slate" aria-hidden="true">
+                        <i class="fa-solid fa-table-list"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>Catalog Pagination</h4>
+                        <p class="settings-card-sub">Default page size for storefront product lists and search. Clients can still override with <code>?limit=</code> on the API.</p>
+                    </div>
+                </div>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label for="defaultProductsPerPage">Default Products Per Page</label>
+                        <input type="number" id="defaultProductsPerPage" min="1" max="100" step="1" placeholder="24">
+                        <small class="field-hint">Used when <code>page</code>/<code>limit</code> are omitted. Allowed range: 1–100 (default 24).</small>
+                    </div>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Catalog Pagination
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <form id="form-system-flash-sale" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--orange">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--orange" aria-hidden="true">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>Flash Sale Engine</h4>
+                        <p class="settings-card-sub">Schedule a homepage flash sale with a live countdown and automatic discounted pricing on selected products.</p>
+                    </div>
+                </div>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label class="checkbox-label" for="flashSaleEnabled">
+                            <input type="checkbox" id="flashSaleEnabled">
+                            Enable Flash Sale
+                        </label>
+                        <small class="field-hint">When enabled and before the end date, featured products show discounted prices on the storefront.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="flashSaleTitle">Sale Title</label>
+                        <input type="text" id="flashSaleTitle" placeholder="⚡ Mega Flash Sale">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="flashSaleEndDate">End Date</label>
+                        <input type="date" id="flashSaleEndDate">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="flashSaleEndTime">End Time</label>
+                        <input type="time" id="flashSaleEndTime" value="23:59">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="flashSaleDiscountPercent">Discount Percentage (%)</label>
+                        <input type="number" id="flashSaleDiscountPercent" min="0" max="100" step="1" placeholder="20">
+                    </div>
+
+                    <div class="form-group form-group-full">
+                        <label for="flashSaleProductIds">Featured Product IDs</label>
+                        <textarea id="flashSaleProductIds" rows="3" placeholder="Comma-separated product IDs or MongoDB _id values"></textarea>
+                        <small class="field-hint">Paste product <code>productId</code> or <code>_id</code> values separated by commas. Only these products receive the flash discount.</small>
+                    </div>
+                </div>
+
+                <div class="master-settings-preview" id="flashSaleSettingsPreview">
+                    <strong>Storefront:</strong>
+                    <span id="flashSaleSettingsPreviewText">Flash sale is currently inactive.</span>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Flash Sale
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <section id="footerSettingsManager" class="system-settings-form" aria-labelledby="footerSettingsHeading">
+            <div class="system-settings-card system-settings-card--slate">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--slate" aria-hidden="true">
+                        <i class="fa-solid fa-shoe-prints"></i>
+                    </div>
+                    <div class="system-settings-card-heading flex-1 min-w-0">
+                        <h4 id="footerSettingsHeading">Footer Settings</h4>
+                        <p class="settings-card-sub">Manage footer columns, social links, copyright, and payment badges. Pick a CMS page from the dropdown (or type its title) to auto-fill routes like <code>/privacy-policy</code>. New internal links also auto-create editable pages in Page Content Manager.</p>
+                    </div>
+                </div>
+
+                <div class="footer-settings-body">
+                    <div class="form-group form-group-full">
+                        <label for="footerCopyrightText">Copyright Text</label>
+                        <input type="text" id="footerCopyrightText" maxlength="300" placeholder="© 2026 EonlineBazar. All rights reserved. Designed by Abdul Karim Sheikh">
+                    </div>
+
+                    <div class="footer-settings-section">
+                        <div class="footer-settings-section-head">
+                            <h5><i class="fa-solid fa-table-columns"></i> Footer Columns &amp; Links</h5>
+                            <button type="button" id="footerAddColumnBtn" class="footer-settings-add-btn">
+                                <i class="fa-solid fa-plus"></i> Add Column
+                            </button>
+                        </div>
+                        <div id="footerColumnsEditor" class="footer-columns-editor"></div>
+                    </div>
+
+                    <div class="footer-settings-section">
+                        <div class="footer-settings-section-head">
+                            <h5><i class="fa-solid fa-share-nodes"></i> Social Media Links</h5>
+                            <button type="button" id="footerAddSocialBtn" class="footer-settings-add-btn">
+                                <i class="fa-solid fa-plus"></i> Add Social Link
+                            </button>
+                        </div>
+                        <div id="footerSocialEditor" class="footer-social-editor"></div>
+                    </div>
+
+                    <div class="footer-section-card footer-settings-section" id="footerPaymentBadgesCard">
+                        <div class="footer-section-header footer-settings-section-head">
+                            <div class="footer-payment-header-copy min-w-0">
+                                <h5><i class="fa-solid fa-wallet"></i> Payment Method Badges</h5>
+                                <p>Footer bottom-bar logos (bKash, Nagad, Visa, etc.). Upload custom icons or use presets.</p>
+                            </div>
+                            <div class="footer-payment-header-actions">
+                                <button type="button" id="footerTogglePaymentFormBtn" class="btn-toggle-payment-form" title="Hide or show the entire payment badges section on the storefront">
+                                    <i class="fa-solid fa-eye-slash"></i>
+                                    <span>Hide Payment Form</span>
+                                </button>
+                                <button type="button" id="footerClearPaymentBadgesBtn" class="btn-clear-payment-form" title="Remove all payment badges">
+                                    <i class="fa-solid fa-trash"></i>
+                                    <span>Clear All</span>
+                                </button>
+                                <button type="button" id="footerAddPaymentBtn" class="footer-settings-add-btn">
+                                    <i class="fa-solid fa-plus"></i> Add Badge
+                                </button>
+                            </div>
+                        </div>
+                        <div id="footerPaymentFormBody" class="footer-payment-form-body">
+                            <div id="footerPaymentEditor" class="footer-payment-editor"></div>
+                        </div>
+                    </div>
+
+                    <div class="master-settings-preview footer-settings-preview" id="footerSettingsPreview">
+                        <strong>Live preview:</strong>
+                        <p class="footer-preview-hint">Uses the same footer renderer as the storefront — updates instantly as you edit.</p>
+                        <div id="footerSettingsPreviewContent" class="footer-live-preview-wrap">
+                            <footer class="site-footer" aria-label="Footer preview">
+                                <div class="footer-container" id="footerLivePreviewInner"></div>
+                            </footer>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="button" id="footerSettingsSaveBtn" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Footer Settings
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="pageContentManager" class="system-settings-form" aria-labelledby="pageContentHeading">
+            <div class="system-settings-card system-settings-card--cyan">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--cyan" aria-hidden="true">
+                        <i class="fa-solid fa-file-lines"></i>
+                    </div>
+                    <div class="system-settings-card-heading flex-1 min-w-0">
+                        <h4 id="pageContentHeading">Page Content Manager</h4>
+                        <p class="settings-card-sub">Fully dynamic CMS — tabs come only from the database. Create pages here, or save internal Footer Column links (e.g. <code>/return-policy</code>) to auto-generate editable pages. Toggle publish to control footer links and public access.</p>
+                    </div>
+                    <button type="button" id="pageContentCreateBtn" class="page-content-create-btn">
+                        <i class="fa-solid fa-plus"></i> Create New Page
+                    </button>
+                </div>
+
+                <div class="page-content-body">
+                    <div class="page-content-tabs-row">
+                        <div class="page-content-tabs" id="pageContentTabs" role="tablist"></div>
+                    </div>
+
+                    <div class="page-content-editor" id="pageContentEditor">
+                        <p class="page-content-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading pages...</p>
+                    </div>
+                </div>
+
+                <div class="system-settings-card-footer page-content-footer-actions">
+                    <button type="button" id="pageContentAddToFooterBtn" class="btn-secondary page-content-footer-link-btn" style="display:none;">
+                        <i class="fa-solid fa-link"></i> Add to Footer
+                    </button>
+                    <button type="button" id="pageContentSaveBtn" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Page Content
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </div>
+</section>

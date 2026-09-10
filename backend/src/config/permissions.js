@@ -122,7 +122,9 @@ const SECTION_PERMISSIONS = Object.freeze({
     'view-security': 'manage_security',
     'view-sessions': null, // every admin may review their own devices
     'view-audit': 'manage_security',
-    'view-master-settings': 'manage_settings',
+    'view-shipping-payments': 'manage_settings',
+    'view-loyalty-program': 'manage_settings',
+    'view-store-config': 'manage_settings',
     'view-messages': 'manage_settings',
     'view-settings': null, // own profile / 2FA — platform fields are guarded server-side
     'view-staff': 'manage_staff',

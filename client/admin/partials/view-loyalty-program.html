@@ -1,0 +1,96 @@
+<section id="view-loyalty-program" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <h3>Loyalty Program</h3>
+        <p class="section-subtitle">Configure VIP tiers, cashback, points, and refund rules.</p>
+    </div>
+
+    <div class="system-settings-stack">
+
+        <form id="form-system-vip" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--indigo">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--indigo" aria-hidden="true">
+                        <i class="fa-solid fa-crown"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>VIP Customer Segmentation</h4>
+                        <p class="settings-card-sub">Thresholds power the All Customers filter tabs and VIP badges in the admin customer table.</p>
+                    </div>
+                </div>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label for="vipMinTotalSpent">VIP Minimum Total Spent (৳)</label>
+                        <input type="number" id="vipMinTotalSpent" min="0" step="1" placeholder="10000">
+                    </div>
+                    <div class="form-group">
+                        <label for="vipMinOrderCount">VIP Minimum Order Count</label>
+                        <input type="number" id="vipMinOrderCount" min="0" step="1" placeholder="5">
+                    </div>
+                    <div class="form-group">
+                        <label for="frequentBuyerMinOrders">Frequent Buyer Minimum Orders</label>
+                        <input type="number" id="frequentBuyerMinOrders" min="0" step="1" placeholder="3">
+                    </div>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save VIP Segmentation
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <form id="form-system-rewards" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--purple">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--purple" aria-hidden="true">
+                        <i class="fa-solid fa-coins"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>Rewards &amp; Refund Engine</h4>
+                        <p class="settings-card-sub">These values replace hardcoded cashback and points logic across checkout, orders, and wallet flows.</p>
+                    </div>
+                </div>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label for="masterCashbackPercentage">Order Cashback Percentage (%)</label>
+                        <input type="number" id="masterCashbackPercentage" min="0" max="100" step="0.01" placeholder="1" required>
+                        <small class="field-hint">Percentage of order total credited to the customer wallet after delivery. Set to 0 to disable cashback.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="masterTakaToPointsRatio">Points Earned per Taka Spent</label>
+                        <input type="number" id="masterTakaToPointsRatio" min="0" step="1" placeholder="100" required>
+                        <small class="field-hint">How many taka a customer must spend to earn 1 loyalty point (e.g. 100 = 1 point per ৳100). Set to 0 to disable points earning.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="masterPointsConversionRate">Points Conversion Rate (100 Points = X Taka)</label>
+                        <input type="number" id="masterPointsConversionRate" min="0" step="0.01" placeholder="10" required>
+                        <small class="field-hint">Wallet taka value when a customer converts 100 loyalty points.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="masterRefundUndoWindow">Refund Undo Window (Hours)</label>
+                        <input type="number" id="masterRefundUndoWindow" min="0" step="1" placeholder="72" required>
+                        <small class="field-hint">How long admins can reverse an approved refund after wallet credit (0 = disabled).</small>
+                    </div>
+                </div>
+
+                <div class="master-settings-preview" id="masterSettingsPreview">
+                    <strong>Live preview:</strong>
+                    <span id="masterSettingsPreviewText">Loading current rules...</span>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Rewards &amp; Refunds
+                    </button>
+                </div>
+            </div>
+        </form>
+
+    </div>
+</section>

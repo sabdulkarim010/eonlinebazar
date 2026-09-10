@@ -32,7 +32,9 @@ const BREADCRUMB_MAP = {
     'manage-navbar-links': { group: 'Settings', label: 'Catalog — Navbar Links' },
     'manage-coupons': { group: 'Settings', label: 'Coupons' },
     'view-banners': { group: 'Settings', label: 'Hero Banners' },
-    'view-master-settings': { group: 'Settings', label: 'Shipping & Payments' },
+    'view-shipping-payments': { group: 'Settings', label: 'Shipping & Payments' },
+    'view-loyalty-program': { group: 'CRM', label: 'Loyalty Program' },
+    'view-store-config': { group: 'Settings', label: 'Store Configuration' },
     'view-file-manager': { group: 'Settings', label: 'System Tools' }
 };
 

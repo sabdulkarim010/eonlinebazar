@@ -8,6 +8,7 @@
    ========================================================================== */
 
 /* shared state: ADMIN_PAGE_META lives on window (admin-core) */
+let lastClickedNavItem = null;
 
 function updateAdminPageHeader(sectionId, fallbackLabel) {
     const meta = ADMIN_PAGE_META[sectionId];
@@ -588,6 +589,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function navigateAdminSection(targetId, clickedItem) {
     if (!targetId) return;
 
+    if (clickedItem) lastClickedNavItem = clickedItem;
+
     const menuItems = document.querySelectorAll('.sidebar-menu li[data-target]');
     const menuGroups = document.querySelectorAll('.sidebar-menu li.menu-group');
     const sections = document.querySelectorAll('.admin-section');
@@ -612,14 +615,15 @@ function navigateAdminSection(targetId, clickedItem) {
     }
 
     const label = clickedItem ? clickedItem.textContent.trim() : '';
-    const scrollTarget = clickedItem?.getAttribute?.('data-scroll-target');
+    const linkTitle = clickedItem?.getAttribute?.('data-breadcrumb') || clickedItem?.getAttribute?.('data-title') || label;
     const settingsTab = clickedItem?.getAttribute?.('data-settings-tab');
 
-    if (scrollTarget && label) {
-        const mainTitle = document.getElementById('page-main-title');
-        const subTitle = document.getElementById('page-sub-title');
-        if (mainTitle) mainTitle.textContent = label;
-        if (subTitle) subTitle.textContent = '';
+    const mainTitle = document.getElementById('page-main-title');
+    const subTitle = document.getElementById('page-sub-title');
+    if (linkTitle && mainTitle) {
+        mainTitle.textContent = linkTitle;
+        const meta = ADMIN_PAGE_META[targetId];
+        if (subTitle) subTitle.textContent = meta?.subtitle || '';
     } else {
         updateAdminPageHeader(targetId, label);
     }
@@ -627,7 +631,7 @@ function navigateAdminSection(targetId, clickedItem) {
     if (typeof renderAdminBreadcrumb === 'function') {
         renderAdminBreadcrumb(targetId, clickedItem);
     }
-    syncNavAccordionState(targetId);
+    syncNavAccordionState(targetId, clickedItem);
 
     const refreshMap = {
         'view-orders': fetchLiveOrders,
@@ -653,7 +657,9 @@ function navigateAdminSection(targetId, clickedItem) {
             initAdminPaginationInstances();
             if (typeof fetchStaffAuditSummary === 'function') fetchStaffAuditSummary();
         },
-        'view-master-settings': fetchMasterSettings,
+        'view-shipping-payments': fetchMasterSettings,
+        'view-loyalty-program': fetchMasterSettings,
+        'view-store-config': fetchMasterSettings,
         'view-banners': () => window.loadBanners && window.loadBanners(),
         'view-messages': fetchAdminMessages,
         'view-crm-abandoned': () => window.loadAbandonedCarts && window.loadAbandonedCarts('all'),
@@ -679,29 +685,34 @@ function navigateAdminSection(targetId, clickedItem) {
         loadCategoryDropdownForProduct('prodCategory');
     }
 
-    if (scrollTarget || settingsTab) {
-        setTimeout(() => {
-            if (settingsTab) {
-                activateAdminSettingsTab(settingsTab);
+    if (settingsTab) {
+        const tabTarget = settingsTab;
+        const tryActivateTab = (attempts = 0) => {
+            const resolvedTab = ADMIN_SETTINGS_TAB_ALIASES[tabTarget] || tabTarget;
+            const tabEl = document.querySelector(
+                `[data-tab="${tabTarget}"], #tab-${tabTarget}, [href="#${tabTarget}"]`
+            ) || document.querySelector(`.admin-settings-tab[data-tab="${resolvedTab}"]`);
+
+            if (tabEl) {
+                tabEl.click();
+            } else if (attempts < 10) {
+                setTimeout(() => tryActivateTab(attempts + 1), 150);
             }
-            if (scrollTarget) {
-                const el = document.getElementById(scrollTarget) || document.querySelector(`[data-section="${scrollTarget}"]`);
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        }, 100);
+        };
+        tryActivateTab();
     }
 }
 window.navigateAdminSection = navigateAdminSection;
 
-function sectionNavGroup(sectionId) {
-    const item = document.querySelector(`.sidebar-menu li[data-target="${sectionId}"]`);
+function sectionNavGroup(sectionId, clickedItem) {
+    const item = clickedItem || lastClickedNavItem || document.querySelector(`.sidebar-menu li[data-target="${sectionId}"]`);
     if (!item) return null;
     const group = item.closest('.menu-group[data-nav-section]');
     return group?.getAttribute('data-nav-section') || null;
 }
 
-function syncNavAccordionState(activeSectionId) {
-    const activeGroup = sectionNavGroup(activeSectionId) || 'dashboard';
+function syncNavAccordionState(activeSectionId, clickedItem) {
+    const activeGroup = sectionNavGroup(activeSectionId, clickedItem) || 'dashboard';
     document.querySelectorAll('.sidebar-menu li.menu-group[data-nav-section]').forEach((group) => {
         const section = group.getAttribute('data-nav-section');
         const isActive = section === activeGroup;
