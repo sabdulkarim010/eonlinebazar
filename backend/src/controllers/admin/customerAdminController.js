@@ -9,6 +9,7 @@
  * 3. Add route in routes/[file].routes.js
  */
 
+const mongoose = require('mongoose');
 const User = require('../../models/user');
 const Order = require('../../models/order');
 const UserSession = require('../../models/userSession');
@@ -128,12 +129,39 @@ function serializeCustomerAvatarResponse(user) {
 // ==============================================================
 const getAllCustomers = async (req, res) => {
     try {
-        const [customers, orderStats, masterSettings] = await Promise.all([
-            User.find({}).select('-password').sort({ createdAt: -1 }).lean(),
-            Order.aggregate([
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
+        const cursor = String(req.query.cursor || '').trim();
+        const useCursor = cursor.length > 0 || req.query.cursor === '';
+
+        const listFilter = {};
+        if (cursor && mongoose.Types.ObjectId.isValid(cursor)) {
+            const cursorDoc = await User.findById(cursor).select('createdAt').lean();
+            if (cursorDoc) {
+                listFilter.$or = [
+                    { createdAt: { $lt: cursorDoc.createdAt } },
+                    { createdAt: cursorDoc.createdAt, _id: { $lt: cursor } }
+                ];
+            }
+        }
+
+        const [customerRows, masterSettings] = await Promise.all([
+            User.find(listFilter)
+                .select('-password')
+                .sort({ createdAt: -1, _id: -1 })
+                .limit(limit + 1)
+                .lean(),
+            Setting.getOrCreate()
+        ]);
+
+        const hasMore = customerRows.length > limit;
+        const pageCustomers = hasMore ? customerRows.slice(0, limit) : customerRows;
+        const customerIds = pageCustomers.map((c) => c._id);
+
+        const orderStats = customerIds.length
+            ? await Order.aggregate([
                 {
                     $match: {
-                        user: { $ne: null },
+                        user: { $in: customerIds },
                         status: { $nin: ['Cancelled', 'Canceled'] }
                     }
                 },
@@ -151,9 +179,8 @@ const getAllCustomers = async (req, res) => {
                         }
                     }
                 }
-            ]),
-            Setting.getOrCreate()
-        ]);
+            ])
+            : [];
 
         const statsMap = new Map(
             orderStats.map((row) => [String(row._id), {
@@ -168,7 +195,7 @@ const getAllCustomers = async (req, res) => {
             frequentBuyerMinOrders: masterSettings.frequentBuyerMinOrders
         };
 
-        const enriched = customers.map((customer) => {
+        const enriched = pageCustomers.map((customer) => {
             const stats = statsMap.get(String(customer._id)) || { orderCount: 0, totalSpent: 0 };
             const segmentMeta = resolveCustomerSegment(stats, thresholds);
             return {
@@ -183,10 +210,17 @@ const getAllCustomers = async (req, res) => {
             };
         });
 
+        const nextCursor = hasMore && enriched.length
+            ? String(enriched[enriched.length - 1]._id)
+            : null;
+
         res.status(200).json({
             success: true,
             customers: enriched,
-            segmentThresholds: thresholds
+            nextCursor,
+            hasMore,
+            segmentThresholds: thresholds,
+            pagination: useCursor ? { limit, nextCursor, hasMore } : undefined
         });
     } catch (error) {
         console.error("🔴 কাস্টমার ডাটা ফেচ করতে এরর:", error);

@@ -837,9 +837,26 @@ async function sendOrderStatusNotification(order, newStatus, customer) {
 
 const updateOrderStatus = async (req, res) => {
     try {
-        const { status } = req.body;
-        if (!status) {
+        const requestedStatus = req.body.status;
+        if (!requestedStatus) {
             return res.status(400).json({ success: false, message: "Status is required" });
+        }
+
+        // findByIdAndUpdate skips schema validators, so the Order enum is
+        // enforced here — case-insensitively, since older admin clients and
+        // the mobile app send lowercase variants like "delivered". The
+        // single-L "canceled" spelling is accepted for legacy clients.
+        const requestedKey = String(requestedStatus).trim().toLowerCase();
+        const normalizedKey = requestedKey === 'canceled' ? 'cancelled' : requestedKey;
+        const status = Order.STATUSES.find(
+            (allowed) => allowed.toLowerCase() === normalizedKey
+        );
+        if (!status) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid order status "${requestedStatus}".`,
+                allowedStatuses: Order.STATUSES
+            });
         }
 
         const isDelivered = status.toLowerCase() === 'delivered';

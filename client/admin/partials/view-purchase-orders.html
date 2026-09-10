@@ -1,0 +1,28 @@
+<section id="view-purchase-orders" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <div>
+            <h3><i class="fa-solid fa-file-invoice"></i> Purchase Orders</h3>
+            <p class="section-subtitle">Vendor PO workflow — draft, sent, partial, and received.</p>
+        </div>
+        <button type="button" class="btn-primary" id="purchaseOrdersRefreshBtn">
+            <i class="fa-solid fa-rotate"></i> Refresh
+        </button>
+    </div>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>PO #</th>
+                    <th>Supplier</th>
+                    <th>Warehouse</th>
+                    <th>Status</th>
+                    <th>Total</th>
+                    <th>Expected</th>
+                </tr>
+            </thead>
+            <tbody id="purchaseOrdersTableBody">
+                <tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading purchase orders…</p></td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>

@@ -20,13 +20,15 @@ function stripSlash(url = '') {
 }
 
 export function resolveChatApiUrl() {
-  const env = process.env.EXPO_PUBLIC_CHAT_API_URL;
+  const env = process.env.EXPO_PUBLIC_CHAT_API_URL
+    || process.env.EXPO_PUBLIC_CHAT_URL;
   if (env) return stripSlash(env);
   return `${stripSlash(API_ORIGIN)}/chat-api`;
 }
 
 export function resolveChatSocketUrl() {
-  const env = process.env.EXPO_PUBLIC_CHAT_SOCKET_URL;
+  const env = process.env.EXPO_PUBLIC_CHAT_SOCKET_URL
+    || process.env.EXPO_PUBLIC_CHAT_URL;
   if (env) return stripSlash(env);
   return stripSlash(API_ORIGIN);
 }

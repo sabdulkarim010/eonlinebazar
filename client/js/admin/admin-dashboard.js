@@ -78,57 +78,71 @@ function setupHeaderDatePicker() {
  * ৫.২: সার্ভার থেকে ড্যাশবোর্ডের প্রাথমিক ডাটা (কাস্টমার ও স্ট্যাটস) নিয়ে আসা
  * Overview পেজ এবং All Customers পেজ উভয়ের জন্যই এই ফাংশনটি কাজ করবে
  */
-async function fetchDashboardData() {
+async function fetchEnterpriseSummary() {
     try {
-        // 🛡️ রিকোয়েস্টে অ্যাডমিন সিকিউরিটি টোকেন পাঠানো হচ্ছে
-        const response = await fetch('/api/admin/customers', {
+        const response = await fetch('/api/admin/enterprise-summary', {
             method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` }
         });
 
-        if (response.status === 429) {
-            if (trackAdminPollError('dashboard', response)) return;
-            showCustomerError('Too many requests. Please wait a moment and try again.');
-            return;
-        }
-        if (response.status === 401) {
-            handleAdminApiAuthResponse(response, {});
-            return;
-        }
-        if (response.status === 403) {
-            handleAdminApiAuthResponse(response, {});
-            return;
-        }
+        if (!response.ok) return;
+        const payload = await response.json();
+        if (!payload.success || !payload.data) return;
 
-        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-        
-        const data = await response.json();
-        resetAdminPollErrors('dashboard');
-        
-        // ব্যাকএন্ড রেসপন্সের বিভিন্ন ফরম্যাট হ্যান্ডেল করা
-        if (data && data.success) {
-            allCustomers = data.customers || data.data || [];
-            customerSegmentThresholds = data.segmentThresholds || customerSegmentThresholds;
-        } else if (Array.isArray(data)) {
-            allCustomers = data;
-        } else {
-            allCustomers = [];
-            showCustomerError("Failed to fetch data.");
-        }
+        const { erp, crm, hrm } = payload.data;
+        const set = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value ?? 0;
+        };
 
-        // ডাটা পাওয়ার পর ড্যাশবোর্ডের কার্ড, চার্ট ও টেবিল আপডেট করা
-        updateMetricsCards(allCustomers);
-        const customersVisible = document.getElementById('view-customers')?.style.display !== 'none';
-        if (customersVisible) {
-            if (customerPg) customerPg.stayOnPage();
-            else fetchCustomers(1, 10);
-        }
-        renderGrowthChart(allCustomers);
-        await fetchDashboardAnalytics();
-
+        set('erp-stat-orders-today', erp?.ordersToday);
+        set('erp-stat-low-stock', erp?.lowStockCount);
+        set('erp-stat-pending-pos', erp?.pendingPoCount);
+        set('crm-stat-abandoned', crm?.abandonedCartCount);
+        set('crm-stat-tickets', crm?.openTicketCount);
+        set('crm-stat-new-customers', crm?.newCustomersToday);
+        set('hrm-stat-staff', hrm?.staffCount);
+        set('hrm-stat-security', hrm?.recentSecurityEvents);
     } catch (error) {
-        console.error("Dashboard Fetch Error:", error);
-        showCustomerError("Server connection error.");
+        console.error('Enterprise Summary Fetch Error:', error);
+    }
+}
+
+async function fetchDashboardData() {
+    try {
+        const customersVisible = document.getElementById('view-customers')?.classList.contains('active')
+            || document.getElementById('view-customers')?.style.display === 'block';
+
+        if (customersVisible && typeof fetchCustomers === 'function') {
+            await fetchCustomers(true);
+        } else {
+            const response = await fetch('/api/admin/customers?limit=50', {
+                method: 'GET',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data?.success) {
+                    allCustomers = data.customers || [];
+                    customerSegmentThresholds = data.segmentThresholds || customerSegmentThresholds;
+                    renderGrowthChart(allCustomers);
+                    updateMetricsCards(allCustomers, dashboardAnalytics?.totalCustomers);
+                }
+            }
+        }
+
+        await Promise.all([
+            fetchDashboardAnalytics(),
+            fetchEnterpriseSummary()
+        ]);
+
+        if (dashboardAnalytics?.totalCustomers != null) {
+            updateMetricsCards(allCustomers, dashboardAnalytics.totalCustomers);
+        }
+    } catch (error) {
+        console.error('Dashboard Fetch Error:', error);
+        showCustomerError('Server connection error.');
     }
 }
 
@@ -479,10 +493,10 @@ function setupAnalyticsChartToggles() {
  * ৫.৩: টপ অ্যানালিটিক্স কার্ডগুলো (Total Users, Verified, Pending) আপডেট করা
  * @param {Array} customers - ডাটাবেজ থেকে পাওয়া কাস্টমার অ্যারে
  */
-function updateMetricsCards(customers) {
-    const totalUsers = customers.length;
+function updateMetricsCards(customers, totalOverride) {
+    const totalUsers = totalOverride != null ? totalOverride : customers.length;
     const verifiedUsers = customers.filter(user => user.isVerified === true).length;
-    const pendingUsers = totalUsers - verifiedUsers;
+    const pendingUsers = Math.max(0, totalUsers - verifiedUsers);
     const spamAlerts = customers.filter(user => user.accountStatus === 'blocked').length;
 
     // DOM এলিমেন্ট আপডেট করা
@@ -583,6 +597,7 @@ function renderGrowthChart(customers) {
 Object.assign(window, {
     buildMonthlyRegistrationSeries,
     fetchDashboardAnalytics,
+    fetchEnterpriseSummary,
     fetchDashboardData,
     renderGrowthChart,
     renderInventoryAlerts,

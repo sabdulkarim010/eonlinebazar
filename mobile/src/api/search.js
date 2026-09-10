@@ -3,12 +3,17 @@ import { extractProductList, normalizeProduct } from '../utils/normalizeProduct'
 
 export function extractSearchPagination(payload) {
   const pagination = payload?.pagination || payload?.data?.pagination || {};
+  const nextCursor = payload?.nextCursor || pagination?.nextCursor || null;
+  const hasMore = payload?.hasMore === true
+    || pagination?.hasMore === true
+    || Boolean(nextCursor)
+    || (Number(pagination.currentPage || pagination.page || 1)
+      < Number(pagination.totalPages || 0));
   return {
     currentPage: Number(pagination.currentPage || pagination.page || 1) || 1,
     totalPages: Number(pagination.totalPages || 0) || 0,
-    hasMore: pagination.hasMore === true
-      || (Number(pagination.currentPage || pagination.page || 1)
-        < Number(pagination.totalPages || 0)),
+    nextCursor,
+    hasMore,
     limit: Number(pagination.limit || 0) || 0,
     totalProducts: Number(pagination.totalProducts || pagination.total || 0) || 0,
   };

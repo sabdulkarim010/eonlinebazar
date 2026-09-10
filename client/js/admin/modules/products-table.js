@@ -19,30 +19,68 @@ import '../admin-core.js';
 /**
  * ১০.১: ক্লাউড ডাটাবেজ থেকে সকল প্রোডাক্ট ডাটা লাইভ সিঙ্ক করা
  */
-window.fetchLiveProducts = async function() {
+window.productNextCursor = null;
+window.productHasMore = false;
+window.productListLoading = false;
+
+async function fetchProductBatch(reset = false) {
+    if (productListLoading) return;
+    productListLoading = true;
+
     const tbody = getProdTableBody();
-    if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="8" class="loading-cell"><div class="custom-spinner"></div><p>Syncing secure cloud server database...</p></td></tr>`;
-    
+    const loadMoreBtn = document.getElementById('productsLoadMoreBtn');
+    const infoEl = document.getElementById('product-pg-info');
+    if (loadMoreBtn) loadMoreBtn.disabled = true;
+
+    if (reset && tbody) {
+        tbody.innerHTML = `<tr><td colspan="9" class="loading-cell"><div class="custom-spinner"></div><p>Syncing secure cloud server database...</p></td></tr>`;
+        globalProducts = [];
+        productNextCursor = null;
+        productHasMore = false;
+    }
+
     try {
         const authToken = localStorage.getItem('adminToken') || token || '';
-        const res = await fetch('/api/products?limit=500', {
+        const qs = new URLSearchParams({ limit: '50', sort: 'newest' });
+        if (productNextCursor) qs.set('cursor', productNextCursor);
+
+        const res = await fetch(`/api/products/search?${qs}`, {
             method: 'GET',
-            headers: { 'Authorization': `Bearer ${authToken}` }
+            headers: { Authorization: `Bearer ${authToken}` }
         });
         const data = await res.json();
-        globalProducts = Array.isArray(data) ? data : (data.products || data.data || []);
-        
+        const batch = Array.isArray(data) ? data : (data.products || data.data?.products || []);
+
+        productNextCursor = data.nextCursor || data.pagination?.nextCursor || null;
+        productHasMore = data.hasMore === true || data.pagination?.hasMore === true;
+
+        globalProducts = reset ? batch : [...globalProducts, ...batch];
+
         const totalBadge = document.getElementById('total-products-badge');
-        if (totalBadge) totalBadge.innerText = `Total: ${globalProducts.length}`;
-        
+        if (totalBadge) totalBadge.innerText = `Loaded: ${globalProducts.length}`;
+
         loadCategoryFilter();
         readProductListSessionState();
-        filterAndRenderProducts(false); 
+        filterAndRenderProducts(false);
+
+        if (infoEl) {
+            infoEl.textContent = `Showing ${currentFilteredProducts.length} loaded product${currentFilteredProducts.length !== 1 ? 's' : ''}${productHasMore ? ' — more available' : ''}`;
+        }
+        if (loadMoreBtn) {
+            loadMoreBtn.hidden = !productHasMore;
+            loadMoreBtn.disabled = false;
+        }
     } catch (e) {
         console.error('fetchLiveProducts error:', e);
-        tbody.innerHTML = `<tr><td colspan="8" class="table-status-error">Failed to load products.</td></tr>`; 
+        if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-status-error">Failed to load products.</td></tr>`;
+        if (loadMoreBtn) loadMoreBtn.disabled = false;
+    } finally {
+        productListLoading = false;
     }
+}
+
+window.fetchLiveProducts = function(reset = true) {
+    return fetchProductBatch(reset !== false);
 };
 
 /**
@@ -171,18 +209,7 @@ window.renderProductTable = function() {
     const tbody = getProdTableBody();
     if (!tbody) return;
 
-    initAdminPaginationInstances();
-    const limit = productPg?.currentLimit ?? parseInt(document.getElementById('product-pg-limit')?.value || '10', 10);
-    currentPage = productPg?.currentPage ?? currentPage;
-    const totalItems = currentFilteredProducts.length;
-    const totalPages = Math.ceil(totalItems / limit) || 1;
-    
-    if (currentPage > totalPages) {
-        currentPage = totalPages;
-        if (productPg) productPg.currentPage = currentPage;
-    }
-    const startIdx = (currentPage - 1) * limit;
-    const paginated = currentFilteredProducts.slice(startIdx, startIdx + limit);
+    const paginated = currentFilteredProducts;
 
     tbody.innerHTML = paginated.length === 0 ? `<tr><td colspan="9" class="loading-cell">No matching products found.</td></tr>` : '';
 
@@ -237,11 +264,13 @@ window.renderProductTable = function() {
         `;
     });
 
-    if (productPg) {
-        productPg.currentPage = currentPage;
-        productPg.currentLimit = limit;
-        productPg.setTotal(totalItems);
+    const infoEl = document.getElementById('product-pg-info');
+    if (infoEl) {
+        infoEl.textContent = `Showing ${paginated.length} loaded product${paginated.length !== 1 ? 's' : ''}${productHasMore ? ' — more available' : ''}`;
     }
+    const loadMoreBtn = document.getElementById('productsLoadMoreBtn');
+    if (loadMoreBtn) loadMoreBtn.hidden = !productHasMore;
+
     persistProductListSessionState();
     
     const selectAllCheckbox = document.getElementById('selectAllProducts');
@@ -266,6 +295,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', window.filterAndRenderProducts);
     });
+
+    const loadMoreBtn = document.getElementById('productsLoadMoreBtn');
+    if (loadMoreBtn && !loadMoreBtn.dataset.bound) {
+        loadMoreBtn.dataset.bound = '1';
+        loadMoreBtn.addEventListener('click', () => fetchProductBatch(false));
+    }
 });
 
 /* Expose module functions for HTML onclick + cross-module calls */

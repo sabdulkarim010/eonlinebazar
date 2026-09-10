@@ -128,7 +128,15 @@ const SECTION_PERMISSIONS = Object.freeze({
     'view-staff': 'manage_staff',
     'view-staff-audit': 'manage_security',
     'view-newsletter-subscribers': 'manage_marketing',
-    'view-newsletter-campaigns': 'manage_marketing'
+    'view-newsletter-campaigns': 'manage_marketing',
+    'view-crm-abandoned': 'manage_marketing',
+    'view-reviews': 'manage_orders',
+    'view-suppliers': 'manage_inventory',
+    'view-warehouses': 'manage_inventory',
+    'view-purchase-orders': 'manage_inventory',
+    'view-finance': 'view_analytics',
+    'view-banners': 'manage_catalog',
+    'settings-2fa': null
 });
 
 function isValidPermission(key) {

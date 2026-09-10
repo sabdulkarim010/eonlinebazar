@@ -15,3 +15,6 @@ import './modules/catalog-brands.js';
 import './modules/catalog-navbar.js';
 import './modules/catalog-coupons.js';
 import './modules/catalog-attributes.js';
+import './modules/erp-suppliers.js';
+import './modules/erp-warehouses.js';
+import './modules/erp-purchase-orders.js';

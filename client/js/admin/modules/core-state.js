@@ -43,7 +43,14 @@ window.ADMIN_PAGE_META = {
     'view-newsletter-campaigns':   { title: 'Email Campaigns',        subtitle: 'Create, test, and send newsletter email campaigns.' },
     'view-staff':           { title: 'Staff Management',         subtitle: 'Create staff accounts, assign permissions, and control access instantly.' },
     'view-file-manager':    { title: 'File Manager',             subtitle: 'Browse, search, and edit project files securely from the admin panel.' },
-    'view-settings':        { title: 'Admin Settings',          subtitle: 'Manage your profile, store preferences, shipping rules, and branding.' }
+    'view-settings':        { title: 'Admin Settings',          subtitle: 'Manage your profile, store preferences, shipping rules, and branding.' },
+    'view-crm-abandoned':   { title: 'Abandoned Carts',         subtitle: 'Recovery KPIs for idle carts with merchandise value.' },
+    'view-staff-audit':     { title: 'Staff Activity Audit',    subtitle: 'Who changed what — grouped by admin actor.' },
+    'view-reviews':         { title: 'Reviews & Feedback',      subtitle: 'Moderate product reviews and verified purchases.' },
+    'view-suppliers':       { title: 'Suppliers',               subtitle: 'Vendor directory for purchase orders and sourcing.' },
+    'view-warehouses':      { title: 'Warehouses',              subtitle: 'Multi-location inventory and receiving destinations.' },
+    'view-purchase-orders': { title: 'Purchase Orders',         subtitle: 'Vendor PO workflow from draft through received.' },
+    'view-finance':         { title: 'Financial Reports',       subtitle: 'Profit, revenue, and margin analytics.' }
 };
 window.allOrders = {};
 window.allProducts = {};

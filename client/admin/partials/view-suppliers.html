@@ -1,0 +1,33 @@
+<section id="view-suppliers" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <div>
+            <h3><i class="fa-solid fa-truck-field"></i> Suppliers</h3>
+            <p class="section-subtitle">Vendor directory for purchase orders and product sourcing.</p>
+        </div>
+        <button type="button" class="btn-primary" id="suppliersRefreshBtn">
+            <i class="fa-solid fa-rotate"></i> Refresh
+        </button>
+    </div>
+    <div class="table-container">
+        <div class="table-header">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="search" id="suppliersSearchInput" placeholder="Search suppliers…" autocomplete="off">
+            </div>
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Contact</th>
+                    <th>Phone</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="suppliersTableBody">
+                <tr><td colspan="5" class="loading-container"><div class="spinner"></div><p>Loading suppliers…</p></td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>

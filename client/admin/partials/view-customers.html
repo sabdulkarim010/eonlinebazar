@@ -41,29 +41,11 @@
                     <div class="customers-bulk-toolbar" id="customers-bulk-toolbar" style="display:none">
                         <span id="customers-selected-count">0 selected</span>
                     </div>
-                    <div class="apg-wrapper no-print">
-                        <div class="apg-left">
-                            Show
-                            <select class="apg-limit-select" id="customer-pg-limit"
-                                    onchange="customerPg.changeLimit(this.value)">
-                                <option value="10">10</option>
-                                <option value="25">25</option>
-                                <option value="50">50</option>
-                            </select>
-                            entries &nbsp;|&nbsp;
-                            <span class="apg-info" id="customer-pg-info"></span>
-                        </div>
-                        <div class="apg-center" id="customer-pg-btns"></div>
-                        <div class="apg-right">
-                            Go to:
-                            <input type="number" class="apg-jump-input" id="customer-pg-jump" min="1"
-                                   onkeydown="if(event.key==='Enter') customerPg.goTo(+this.value)">
-                            <button type="button" class="apg-btn"
-                                    onclick="customerPg.goTo(+document.getElementById('customer-pg-jump').value)">
-                                Go
-                            </button>
-                            <span class="apg-info">Total: <strong id="customer-total-count">0</strong></span>
-                        </div>
+                    <div class="cursor-load-more-bar no-print">
+                        <span class="apg-info" id="customer-pg-info">Showing loaded customers</span>
+                        <button type="button" class="btn-secondary" id="customersLoadMoreBtn" hidden>
+                            <i class="fa-solid fa-arrow-down"></i> Load more
+                        </button>
                     </div>
                 </div>
             </section>

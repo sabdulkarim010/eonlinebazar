@@ -423,30 +423,11 @@
     </div>
     </div><!-- /products-print-area -->
 
-    <div class="apg-wrapper no-print">
-        <div class="apg-left">
-            Show
-            <select class="apg-limit-select" id="product-pg-limit"
-                    onchange="productPg.changeLimit(this.value)">
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
-            entries &nbsp;|&nbsp;
-            <span class="apg-info" id="product-pg-info"></span>
-        </div>
-        <div class="apg-center" id="product-pg-btns"></div>
-        <div class="apg-right">
-            Go to:
-            <input type="number" class="apg-jump-input" id="product-pg-jump" min="1"
-                   onkeydown="if(event.key==='Enter') productPg.goTo(+this.value)">
-            <button type="button" class="apg-btn"
-                    onclick="productPg.goTo(+document.getElementById('product-pg-jump').value)">
-                Go
-            </button>
-            <span class="apg-info">Total: <strong id="product-total-count">0</strong></span>
-        </div>
+    <div class="cursor-load-more-bar no-print">
+        <span class="apg-info" id="product-pg-info">Showing loaded products</span>
+        <button type="button" class="btn-secondary" id="productsLoadMoreBtn" hidden>
+            <i class="fa-solid fa-arrow-down"></i> Load more
+        </button>
     </div>
 
 </section>

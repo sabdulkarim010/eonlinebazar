@@ -1,0 +1,27 @@
+<section id="view-warehouses" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <div>
+            <h3><i class="fa-solid fa-warehouse"></i> Warehouses</h3>
+            <p class="section-subtitle">Multi-location inventory and goods receiving destinations.</p>
+        </div>
+        <button type="button" class="btn-primary" id="warehousesRefreshBtn">
+            <i class="fa-solid fa-rotate"></i> Refresh
+        </button>
+    </div>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Address</th>
+                    <th>Default</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="warehousesTableBody">
+                <tr><td colspan="5" class="loading-container"><div class="spinner"></div><p>Loading warehouses…</p></td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>

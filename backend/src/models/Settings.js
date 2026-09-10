@@ -5,6 +5,9 @@
  * Author: Abdul Karim Sheikh
  * Description: Singleton system settings — delivery charges and
  * free-shipping thresholds controlled from the Admin Panel.
+ *
+ * @deprecated Read path — prefer GET /api/admin/all-settings (merged with
+ * Setting.js master rewards). Writes still use PUT /api/admin/settings.
  ********************************************************************/
 
 const mongoose = require('mongoose');

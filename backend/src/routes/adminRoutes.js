@@ -50,6 +50,10 @@ const pageContentController = require('../controllers/pageContentController');
 const contactController = require('../controllers/contactController');
 const newsletterAdminController = require('../controllers/newsletterAdminController');
 const crmController = require('../controllers/admin/crmController');
+const supplierController = require('../controllers/admin/supplierController');
+const warehouseController = require('../controllers/admin/warehouseController');
+const purchaseOrderController = require('../controllers/admin/purchaseOrderController');
+const enterpriseSummaryController = require('../controllers/admin/enterpriseSummaryController');
 const upload = require('../middlewares/uploadMiddleware');
 const { brandingUpload, paymentMethodLogoUpload, footerIconUpload, importFileUpload } = upload;
 const staffController = require('../controllers/staffController');
@@ -139,6 +143,9 @@ router.put('/me/avatar', verifyAdmin, async (req, res) => {
 
 // ১. কাস্টমারদের ডাটা পাওয়ার রাস্তা (GET)
 router.get('/customers', verifyAdmin, checkPermission('manage_customers'), adminController.getAllCustomers);
+
+// Enterprise ERP + CRM + HRM summary widgets (GET)
+router.get('/enterprise-summary', verifyAdmin, checkPermission('view_analytics'), enterpriseSummaryController.getEnterpriseSummary);
 
 // ১গ. Sales & Order Analytics Dashboard (GET)
 router.get('/dashboard-analytics', verifyAdmin, checkPermission('view_analytics'), getDashboardAnalytics);
@@ -325,6 +332,7 @@ router.get('/logs', verifyAdmin, checkPermission('manage_security'), adminContro
 
 // ৫. সিস্টেম ডেলিভারি সেটিংস (GET / PUT / POST)
 // পড়া সবার জন্য খোলা (অর্ডার/চেকআউট ভিউ এই ভ্যালুগুলো দেখায়), লেখা কেবল manage_settings-এ
+router.get('/all-settings', verifyAdmin, settingsController.getAllSettings);
 router.get('/settings', verifyAdmin, settingsController.getSettings);
 router.put('/settings', verifyAdmin, checkPermission('manage_settings'), settingsController.updateSettings);
 router.post('/settings', verifyAdmin, checkPermission('manage_settings'), settingsController.updateSettings);
@@ -427,6 +435,25 @@ router.patch('/tickets/:id/status', verifyAdmin, checkPermission('manage_setting
  # URL: /api/admin/crm/*
  ********************************************************************/
 router.get('/crm/abandoned-carts', verifyAdmin, checkPermission('manage_marketing'), crmController.getAbandonedCartStats);
+
+/********************************************************************
+ # ERP — Suppliers, Warehouses, Purchase Orders
+ # URL: /api/admin/suppliers | /warehouses | /purchase-orders
+ ********************************************************************/
+router.get('/suppliers', verifyAdmin, checkPermission('manage_inventory'), supplierController.getAllSuppliers);
+router.get('/suppliers/:id', verifyAdmin, checkPermission('manage_inventory'), supplierController.getSupplierById);
+router.post('/suppliers', verifyAdmin, checkPermission('manage_inventory'), supplierController.createSupplier);
+router.put('/suppliers/:id', verifyAdmin, checkPermission('manage_inventory'), supplierController.updateSupplier);
+router.delete('/suppliers/:id', verifyAdmin, checkPermission('manage_inventory'), supplierController.deleteSupplier);
+
+router.get('/warehouses', verifyAdmin, checkPermission('manage_inventory'), warehouseController.getAllWarehouses);
+router.get('/warehouses/:id', verifyAdmin, checkPermission('manage_inventory'), warehouseController.getWarehouseById);
+router.post('/warehouses', verifyAdmin, checkPermission('manage_inventory'), warehouseController.createWarehouse);
+router.put('/warehouses/:id', verifyAdmin, checkPermission('manage_inventory'), warehouseController.updateWarehouse);
+router.delete('/warehouses/:id', verifyAdmin, checkPermission('manage_inventory'), warehouseController.deleteWarehouse);
+
+router.get('/purchase-orders', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.getAllPurchaseOrders);
+router.get('/purchase-orders/:id', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.getPurchaseOrderById);
 
 /********************************************************************
  # ৫ছ. 📧 NEWSLETTER & EMAIL CAMPAIGNS

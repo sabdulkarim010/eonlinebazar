@@ -10,6 +10,26 @@
 const mongoose = require('mongoose');
 
 /*
+ * অর্ডারের বৈধ লাইফসাইকেল স্ট্যাটাস। আগে এটি ফ্রি-স্ট্রিং ছিল, তাই টাইপো
+ * বা পুরোনো ক্লায়েন্ট যেকোনো মান লিখে ফেলতে পারত। 'Return Requested' হলো
+ * রিটার্ন ফ্লো-এর সক্রিয় স্ট্যাটাস (কাস্টমার রিটার্ন চাইলে সেট হয়), আর
+ * 'Refund Pending' রিফান্ড অনুমোদনের অপেক্ষায় থাকা অর্ডারের জন্য সংরক্ষিত।
+ * পুরোনো ডাটা নরমালাইজ করতে: node scripts/migrateOrderStatus.js
+ */
+const ORDER_STATUSES = [
+    'Pending',
+    'Processing',
+    'Shipped',
+    'Out for Delivery',
+    'Delivered',
+    'Cancelled',
+    'Return Requested',
+    'Returned',
+    'Refund Pending',
+    'Refunded'
+];
+
+/*
  * অর্ডার আইটেম সাব-স্কিমা।
  * strict: false রাখা হয়েছে যাতে কার্ট থেকে আসা অন্যান্য যেকোনো ফিল্ড
  * (যেমন image, icon, slug ইত্যাদি) আগের মতোই সংরক্ষিত থাকে এবং পুরোনো
@@ -160,7 +180,11 @@ const orderSchema = new mongoose.Schema({
     processingFee: { type: Number, default: 0, min: 0 },
     payment: { type: orderPaymentSchema, default: () => ({}) },
     paymentProof: { type: paymentProofSchema, default: () => ({}) },
-    status: { type: String, default: 'Pending' },
+    status: {
+        type: String,
+        enum: ORDER_STATUSES,
+        default: 'Pending'
+    },
     isDelivered: { type: Boolean, default: false },
     deliveredAt: { type: Date, default: null },
     cancelReason: { type: String, default: '', trim: true },
@@ -225,6 +249,8 @@ orderSchema.index({ user: 1 });
 orderSchema.index({ status: 1 });
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ 'paymentProof.status': 1, 'paymentProof.submittedAt': -1 });
+
+orderSchema.statics.STATUSES = ORDER_STATUSES;
 
 module.exports = mongoose.model('Order', orderSchema);
 

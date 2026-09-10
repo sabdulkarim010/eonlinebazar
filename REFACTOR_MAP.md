@@ -28,6 +28,47 @@ client/css/admin/_orders.css [DONE] order-assign-staff-select styles
 client/css/admin/_settings-security.css [DONE] staff audit panel styles
 backend/src/utils/adminPageBuilder.js [DONE] registers settings-staff-audit partial
 #
+# Phase 4 UI Restructure & Polish: 2026-09-10
+client/admin/partials/sidebar.html [DONE] ERP/CRM/HRM/Settings accordion nav + mobile drawer markup
+client/admin/partials/header.html [DONE] breadcrumb container + mobile sidebar toggle
+client/admin/partials/view-overview.html [DONE] enterprise ERP/CRM/HRM summary widgets
+client/admin/partials/view-suppliers.html [NEW] supplier directory section
+client/admin/partials/view-warehouses.html [NEW] warehouse list section
+client/admin/partials/view-purchase-orders.html [NEW] purchase order list section
+client/admin/partials/view-finance.html [NEW] finance analytics embed CTA
+client/admin/partials/view-customers.html [DONE] cursor load-more bar (replaces page numbers)
+client/admin/partials/view-products.html [DONE] cursor load-more bar (replaces page numbers)
+client/js/admin/modules/core-breadcrumb.js [NEW] Dashboard > Group > Section breadcrumb
+client/js/admin/modules/core-nav.js [DONE] accordion groups, mobile drawer, cursor customers
+client/js/admin/modules/core-state.js [DONE] ADMIN_PAGE_META for ERP/CRM sections
+client/js/admin/modules/erp-suppliers.js [NEW] supplier table loader
+client/js/admin/modules/erp-warehouses.js [NEW] warehouse table loader
+client/js/admin/modules/erp-purchase-orders.js [NEW] PO table loader
+client/js/admin/modules/products-table.js [DONE] cursor pagination via /api/products/search
+client/js/admin/admin-core.js [DONE] imports core-breadcrumb.js
+client/js/admin/admin-products.js [DONE] imports erp-*.js modules
+client/js/admin/admin-dashboard.js [DONE] fetchEnterpriseSummary + widget render
+client/css/admin/_layout.css [DONE] breadcrumb, enterprise widgets, nav accordion styles
+client/css/admin/_responsive.css [DONE] mobile sidebar drawer + enterprise widget stack
+backend/src/controllers/admin/enterpriseSummaryController.js [NEW] GET /api/admin/enterprise-summary
+backend/src/controllers/admin/purchaseOrderController.js [NEW] PO list/detail endpoints
+backend/src/controllers/admin/customerAdminController.js [DONE] cursor pagination {cursor,limit,nextCursor,hasMore}
+backend/src/controllers/productController.js [DONE] cursor pagination on searchProducts
+backend/src/controllers/settingsController.js [DONE] GET /api/admin/all-settings unified merge
+backend/src/models/Setting.js [DONE] deprecation note → all-settings endpoint
+backend/src/models/Settings.js [DONE] deprecation note → all-settings endpoint
+backend/src/config/permissions.js [DONE] SECTION_PERMISSIONS for ERP/CRM Phase 4 sections
+backend/src/routes/adminRoutes.js [DONE] enterprise-summary, all-settings, suppliers, warehouses, POs
+backend/src/utils/adminPageBuilder.js [DONE] registers ERP view partials
+scripts/addEnterpriseIndexes.js [NEW] npm run migrate:indexes
+package.json [DONE] migrate:indexes script
+mobile/.env.example [NEW] EXPO_PUBLIC_API_URL, EXPO_PUBLIC_CHAT_URL, EXPO_PUBLIC_APP_ENV
+mobile/src/config/chatConfig.js [DONE] EXPO_PUBLIC_CHAT_URL fallback
+mobile/src/api/search.js [DONE] nextCursor in extractSearchPagination
+mobile/src/components/ProductGrid.js [DONE] cursor-based load more
+ARCHITECTURE.md [DONE] enterprise models, nav groups, mobile env, feature matrix
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Section 2 Phase 1–4 items marked complete
+#
 # Phase 3 CRM & Automation: 2026-09-10
 # --- Task 1: Abandoned cart tracking ---
 backend/src/models/cart.js [DONE] lastActivityAt + abandonedNotifiedAt fields, re-arm pre-save hook, {userId:1,updatedAt:-1} index

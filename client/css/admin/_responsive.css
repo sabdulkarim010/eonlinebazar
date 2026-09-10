@@ -86,9 +86,18 @@
 }
 
 @media (max-width: 768px) {
-    .sidebar { transform: translateX(-100%); }
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.28s ease;
+        z-index: 200;
+    }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-mobile-toggle { display: inline-flex; align-items: center; justify-content: center; }
     .main-content { margin-left: 0; }
-    .header-search { width: 200px; }
+    .top-header { gap: 10px; }
+    .header-search { width: 200px; flex: 1; min-width: 0; }
+    .enterprise-widgets-grid { grid-template-columns: 1fr; }
+    .admin-breadcrumb { padding: 0 16px 8px; }
     .metrics-grid { grid-template-columns: 1fr; }
     .header-actions { gap: 10px; }
     .header-datetime { align-items: center; }

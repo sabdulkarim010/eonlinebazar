@@ -10,6 +10,7 @@
     "dev:store": "nodemon backend/src/server.js",
     "test": "jest --runInBand --forceExit",
     "seed:products": "node scripts/seedDemoProducts.js",
+    "migrate:indexes": "node scripts/addEnterpriseIndexes.js",
     "kill-port": "npx kill-port 5000"
   },
   "jest": {

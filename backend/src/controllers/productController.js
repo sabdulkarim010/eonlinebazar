@@ -291,7 +291,16 @@ const searchProducts = async (req, res) => {
         const inStock = String(req.query.inStock || '').toLowerCase();
         const sort = String(req.query.sort || 'newest').toLowerCase();
 
-        const { page, limit, skip } = await parseProductPagination(req);
+        const cursor = String(req.query.cursor || '').trim();
+        const rawLimit = parseInt(req.query.limit, 10);
+        const defaultLimit = await resolveDefaultProductsPerPage();
+        const limit = Math.min(
+            MAX_PRODUCTS_PER_PAGE,
+            Math.max(1, Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : defaultLimit)
+        );
+
+        let page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        let skip = (page - 1) * limit;
 
         const filter = {};
 
@@ -329,16 +338,30 @@ const searchProducts = async (req, res) => {
 
         const sortOption = buildSortOption(sort);
 
+        if (cursor && mongoose.Types.ObjectId.isValid(cursor)) {
+            const cursorDoc = await Product.findById(cursor).select('createdAt').lean();
+            if (cursorDoc) {
+                filter.$or = [
+                    { createdAt: { $lt: cursorDoc.createdAt } },
+                    { createdAt: cursorDoc.createdAt, _id: { $lt: cursor } }
+                ];
+            }
+            skip = 0;
+            page = 1;
+        }
+
+        const fetchLimit = cursor ? limit + 1 : limit;
+
         const [
             total,
-            products,
+            productsRaw,
             flashSettings,
             priceStats,
             brandAgg,
             categoryList
         ] = await Promise.all([
             Product.countDocuments(filter),
-            Product.find(filter).sort(sortOption).skip(skip).limit(limit),
+            Product.find(filter).sort(sortOption).skip(skip).limit(fetchLimit),
             loadFlashSaleSettings(),
             Product.aggregate([
                 { $group: { _id: null, min: { $min: '$price' }, max: { $max: '$price' } } }
@@ -350,6 +373,18 @@ const searchProducts = async (req, res) => {
             ]),
             Product.distinct('category')
         ]);
+
+        let hasMore = false;
+        let nextCursor = null;
+        let products = productsRaw;
+
+        if (cursor) {
+            hasMore = productsRaw.length > limit;
+            products = hasMore ? productsRaw.slice(0, limit) : productsRaw;
+            nextCursor = hasMore && products.length
+                ? String(products[products.length - 1]._id)
+                : null;
+        }
 
         const enrichedProducts = applyFlashSaleToProducts(products, flashSettings);
 
@@ -382,16 +417,28 @@ const searchProducts = async (req, res) => {
             ? { min: priceStats[0].min || 0, max: priceStats[0].max || 0 }
             : { min: 0, max: 0 };
 
-        const pagination = buildPaginationMeta(total, page, limit);
+        const pagination = cursor
+            ? {
+                ...buildPaginationMeta(total, page, limit),
+                nextCursor,
+                hasMore,
+                limit
+            }
+            : buildPaginationMeta(total, page, limit);
 
         return res.json({
             success: true,
             products: enrichedProducts,
+            nextCursor,
+            hasMore: cursor ? hasMore : pagination.hasMore,
             pagination,
             data: {
                 products: enrichedProducts,
+                nextCursor,
+                hasMore: cursor ? hasMore : pagination.hasMore,
                 pagination: {
                     ...pagination,
+                    nextCursor,
                     // Legacy aliases for older storefront clients
                     page: pagination.currentPage,
                     total: pagination.totalProducts

@@ -406,7 +406,7 @@ function ProductGrid({
   const [sortSheetOpen, setSortSheetOpen] = useState(false);
   const [results, setResults] = useState([]);
   const [totalProducts, setTotalProducts] = useState(0);
-  const [page, setPage] = useState(1);
+  const [nextCursor, setNextCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [searching, setSearching] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -433,11 +433,11 @@ function ProductGrid({
       .catch(() => {});
   }, []);
 
-  const performSearch = useCallback(async (term, nextPage = 1, { silent = false } = {}) => {
+  const performSearch = useCallback(async (term, { append = false, cursor = null, silent = false } = {}) => {
     const q = String(term ?? queryRef.current).trim();
     const seq = ++requestSeq.current;
     const limit = maxItems || PAGE_SIZE;
-    if (nextPage === 1) {
+    if (!append) {
       if (!silent) setSearching(true);
       setError('');
     } else {
@@ -448,6 +448,7 @@ function ProductGrid({
       let products = [];
       let more = false;
       let resultTotal = 0;
+      let newCursor = null;
 
       if (flashOnly) {
         const { products: flashProducts } = await loadFlashSaleCatalog(20);
@@ -460,10 +461,10 @@ function ProductGrid({
       } else {
         const params = {
           q,
-          page: nextPage,
           limit,
           sort: sortBy,
         };
+        if (cursor) params.cursor = cursor;
         if (selectedCategory) params.category = selectedCategory;
         const { data } = await searchAPI.search(params);
         if (data?.success === false) {
@@ -471,26 +472,28 @@ function ProductGrid({
         }
         products = mapSearchProducts(data);
         const pagination = extractSearchPagination(data);
+        newCursor = pagination.nextCursor;
         more = maxItems ? false : pagination.hasMore && products.length > 0;
         resultTotal = pagination.totalProducts || products.length;
       }
 
       if (seq !== requestSeq.current) return;
 
-      setResults((current) => (nextPage === 1 ? products : [...current, ...products]));
-      setPage(nextPage);
+      setResults((current) => (append ? [...current, ...products] : products));
+      setNextCursor(newCursor);
       setHasMore(more);
-      if (nextPage === 1) {
+      if (!append) {
         setTotalProducts(resultTotal);
       }
     } catch (err) {
       if (seq !== requestSeq.current) return;
       const message = err.response?.data?.message || err.message || 'Search failed.';
-      if (nextPage === 1) {
+      if (!append) {
         setResults([]);
         setError(message);
       }
       setHasMore(false);
+      setNextCursor(null);
     } finally {
       if (seq === requestSeq.current) {
         setSearching(false);
@@ -504,7 +507,7 @@ function ProductGrid({
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
       debounceTimerRef.current = null;
-      performSearch(term, 1);
+      performSearch(term, { append: false, cursor: null });
     }, SEARCH_DEBOUNCE_MS);
   }, [performSearch]);
 
@@ -513,7 +516,7 @@ function ProductGrid({
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
-    performSearch(term ?? queryRef.current, 1);
+    performSearch(term ?? queryRef.current, { append: false, cursor: null });
   }, [performSearch]);
 
   const clearSearch = useCallback(() => {
@@ -535,7 +538,7 @@ function ProductGrid({
   }, [flushSearch]);
 
   useEffect(() => {
-    performSearch(queryRef.current, 1);
+    performSearch(queryRef.current, { append: false, cursor: null });
   }, [performSearch]);
 
   const handleAddToCart = useCallback(
@@ -574,15 +577,16 @@ function ProductGrid({
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
-      performSearch(queryRef.current, 1, { silent: true }),
+      performSearch(queryRef.current, { append: false, cursor: null, silent: true }),
       Promise.resolve(onRefreshExtra?.()),
     ]);
   }, [onRefreshExtra, performSearch]);
 
   const loadMore = useCallback(() => {
     if (!hasMore || searching || loadingMore || flashOnly || maxItems) return;
-    performSearch(queryRef.current, page + 1);
-  }, [flashOnly, hasMore, loadingMore, maxItems, page, performSearch, searching]);
+    if (!nextCursor) return;
+    performSearch(queryRef.current, { append: true, cursor: nextCursor });
+  }, [flashOnly, hasMore, loadingMore, maxItems, nextCursor, performSearch, searching]);
 
   const renderItem = useCallback(
     ({ item }) => (

@@ -30,7 +30,11 @@ const VIEW_PARTIALS = [
     'view-staff',
     'settings-staff-audit',
     'view-settings',
-    'view-reviews'
+    'view-reviews',
+    'view-suppliers',
+    'view-warehouses',
+    'view-purchase-orders',
+    'view-finance'
 ];
 
 const MODAL_PARTIALS = [

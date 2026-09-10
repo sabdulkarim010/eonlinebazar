@@ -1,4 +1,7 @@
             <header class="top-header">
+                <button type="button" class="sidebar-mobile-toggle" id="sidebarMobileToggle" aria-label="Open navigation menu">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
                 <div class="header-search">
                     <i class="fa-solid fa-magnifying-glass"></i>
                     <input type="text" id="adminSearchInput" placeholder="Search customers, orders, or products...">
@@ -60,7 +63,11 @@
                 </div>
             </header>
 
-<div class="page-title-block">
+<nav class="admin-breadcrumb" id="admin-breadcrumb" aria-label="Breadcrumb" data-active-section="view-overview">
+                <a href="#" class="admin-breadcrumb-link" data-breadcrumb-nav="view-overview">Dashboard</a>
+            </nav>
+
+            <div class="page-title-block">
                 <h1 id="page-main-title">Dashboard Overview</h1>
                 <p id="page-sub-title">Real-time monitoring engine for EonlineBazar platform.</p>
             </div>

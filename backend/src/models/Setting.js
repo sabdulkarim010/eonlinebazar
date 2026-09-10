@@ -5,6 +5,10 @@
  * Description: Singleton master settings — cashback, loyalty points,
  * conversion rates, refund windows, free-shipping threshold, and the
  * storefront announcement, all controlled from the Admin Panel.
+ *
+ * @deprecated Read path — prefer GET /api/admin/all-settings (merged with
+ * Settings.js). Writes still use PUT /api/admin/master-settings until a
+ * full data migration consolidates both models.
  ********************************************************************/
 
 const mongoose = require('mongoose');

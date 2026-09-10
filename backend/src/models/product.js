@@ -46,6 +46,14 @@ const productSchema = new mongoose.Schema({
         type: String, 
        // required: true 
     },
+    /** URL-friendly identifier — auto-generated from name by productController. */
+    slug: {
+        type: String,
+        unique: true,
+        sparse: true,
+        trim: true,
+        lowercase: true
+    },
     price: { 
         type: Number, 
         required: true 
@@ -85,6 +93,40 @@ const productSchema = new mongoose.Schema({
         type: Number,
         default: 10
     },
+
+    /** ERP: vendor this product is normally purchased from. */
+    supplierId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Supplier',
+        default: null
+    },
+
+    /** ERP: stock location. Null means the store's default warehouse. */
+    warehouseId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Warehouse',
+        default: null
+    },
+
+    /** ERP: stock level at which a new purchase order should be raised. */
+    reorderPoint: {
+        type: Number,
+        default: 5
+    },
+
+    /**
+     * ERP: append-only trail of buying prices, written by purchase order
+     * receiving. Keeps margin reports accurate after a vendor price change.
+     */
+    costHistory: [{
+        cost: { type: Number, default: 0, min: 0 },
+        date: { type: Date, default: Date.now },
+        supplierId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Supplier',
+            default: null
+        }
+    }],
 
     /** Total available stock — equals stockQuantity for simple products, or sum of variant stocks. */
     stock: { 
@@ -201,7 +243,8 @@ productSchema.index(
 );
 
 productSchema.index({ category: 1 });
-productSchema.index({ slug: 1 }, { sparse: true });
+// slug index is declared on the path itself (unique + sparse) — a second
+// declaration here would trip Mongoose's duplicate-index warning.
 
 // Search performance compound indexes
 // Note: Product has no status/averageRating/salesCount fields;

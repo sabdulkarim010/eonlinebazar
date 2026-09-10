@@ -10,6 +10,7 @@ const Settings = require('../models/Settings');
 const Setting = require('../models/Setting');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { toPublicSettings, resolveDistrictLabel } = require('../services/deliveryChargeService');
+const { normalizeRewardSettings } = require('../utils/rewardSettings');
 const { isValidDistrict, BANGLADESH_DISTRICTS } = require('../utils/bangladeshDistricts');
 const {
     invalidateRateLimitCache,
@@ -133,8 +134,39 @@ const updateCacheSettings = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/admin/all-settings
+ * Unified read layer — merges Settings (global) + Setting (master) without
+ * migrating stored data. Prefer this for new admin clients.
+ */
+const getAllSettings = async (req, res) => {
+    try {
+        const [globalDoc, masterDoc] = await Promise.all([
+            Settings.getOrCreate(),
+            Setting.getOrCreate()
+        ]);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                global: toPublicSettings(globalDoc),
+                master: normalizeRewardSettings(masterDoc)
+            },
+            meta: {
+                globalKeys: 'Settings.js — delivery, SMS, courier, rate limits, payment gateways',
+                masterKeys: 'Setting.js — loyalty, cashback, VIP thresholds, flash sale, referral',
+                deprecation: 'Legacy GET /api/admin/settings and /api/admin/master-settings remain; use this endpoint for reads.'
+            }
+        });
+    } catch (error) {
+        console.error('Get All Settings Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load unified settings.' });
+    }
+};
+
 module.exports = {
     getSettings,
+    getAllSettings,
     updateSettings,
     updateCacheSettings,
     getDistrictOptions: (req, res) => {

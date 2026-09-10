@@ -205,37 +205,85 @@ function initAdminPaginationInstances() {
     }
 }
 
-window.fetchCustomers = function fetchCustomers(page, limit) {
-    initAdminPaginationInstances();
-    const pg = customerPg;
-    const effectivePage = page ?? pg?.currentPage ?? 1;
-    const effectiveLimit = limit ?? pg?.currentLimit ?? 10;
+window.customerNextCursor = null;
+window.customerHasMore = false;
+window.customerListLoading = false;
 
-    if (pg) {
-        pg.currentPage = effectivePage;
-        pg.currentLimit = effectiveLimit;
+window.fetchCustomers = async function fetchCustomers(reset = false) {
+    if (customerListLoading) return;
+    customerListLoading = true;
+
+    const loadMoreBtn = document.getElementById('customersLoadMoreBtn');
+    const infoEl = document.getElementById('customer-pg-info');
+    if (loadMoreBtn) loadMoreBtn.disabled = true;
+
+    if (reset) {
+        allCustomers = [];
+        customerNextCursor = null;
+        customerHasMore = false;
     }
 
-    const filtered = filterCustomersBySegment(allCustomers, customerSegmentFilter)
-        .filter((user) => {
-            const q = customerSearchQuery.trim().toLowerCase();
-            if (!q) return true;
-            const haystack = [
-                user.name,
-                user.firstName,
-                user.lastName,
-                user.email,
-                user.mobile,
-                user.phone,
-                user._id
-            ].map((v) => String(v || '').toLowerCase()).join(' ');
-            return haystack.includes(q);
-        });
-    const start = (effectivePage - 1) * effectiveLimit;
-    const slice = filtered.slice(start, start + effectiveLimit);
+    try {
+        const qs = new URLSearchParams({ limit: '50' });
+        if (customerNextCursor) qs.set('cursor', customerNextCursor);
 
-    renderCustomerTable(slice, filtered.length);
-    if (pg) pg.setTotal(filtered.length);
+        const response = await fetch(`/api/admin/customers?${qs}`, {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (response.status === 429) {
+            if (trackAdminPollError('customers', response)) return;
+            showCustomerError('Too many requests. Please wait and try again.');
+            return;
+        }
+        if (!response.ok) {
+            handleAdminApiAuthResponse(response, {});
+            throw new Error(`HTTP error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        resetAdminPollErrors('customers');
+
+        const batch = data.customers || data.data || [];
+        customerSegmentThresholds = data.segmentThresholds || customerSegmentThresholds;
+        customerNextCursor = data.nextCursor || null;
+        customerHasMore = data.hasMore === true;
+
+        allCustomers = reset ? batch : [...allCustomers, ...batch];
+
+        const filtered = filterCustomersBySegment(allCustomers, customerSegmentFilter)
+            .filter((user) => {
+                const q = customerSearchQuery.trim().toLowerCase();
+                if (!q) return true;
+                const haystack = [
+                    user.name,
+                    user.firstName,
+                    user.lastName,
+                    user.email,
+                    user.mobile,
+                    user.phone,
+                    user._id
+                ].map((v) => String(v || '').toLowerCase()).join(' ');
+                return haystack.includes(q);
+            });
+
+        renderCustomerTable(filtered, filtered.length);
+
+        if (infoEl) {
+            infoEl.textContent = `Showing ${filtered.length} loaded customer${filtered.length !== 1 ? 's' : ''}${customerHasMore ? ' — more available' : ''}`;
+        }
+        if (loadMoreBtn) {
+            loadMoreBtn.hidden = !customerHasMore;
+            loadMoreBtn.disabled = false;
+        }
+    } catch (error) {
+        console.error('fetchCustomers error:', error);
+        showCustomerError('Server connection error.');
+        if (loadMoreBtn) loadMoreBtn.disabled = false;
+    } finally {
+        customerListLoading = false;
+    }
 };
 
 function filterCustomersBySegment(customers, segment = customerSegmentFilter) {
@@ -256,8 +304,8 @@ function setupCustomerSegmentTabs() {
             tabs.forEach((btn) => btn.classList.toggle('active', btn === tab));
             selectedCustomerIds.clear();
             updateCustomersBulkToolbar();
-            if (customerPg) customerPg.resetPage();
-            fetchCustomers(1, customerPg?.currentLimit);
+            const filtered = filterCustomersBySegment(allCustomers, customerSegmentFilter);
+            renderCustomerTable(filtered, filtered.length);
         });
     });
 
@@ -269,10 +317,25 @@ function setupCustomerSegmentTabs() {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
                 customerSearchQuery = searchInput.value;
-                if (customerPg) customerPg.resetPage();
-                fetchCustomers(1, customerPg?.currentLimit);
+                const filtered = filterCustomersBySegment(allCustomers, customerSegmentFilter)
+                    .filter((user) => {
+                        const q = customerSearchQuery.trim().toLowerCase();
+                        if (!q) return true;
+                        const haystack = [
+                            user.name, user.firstName, user.lastName,
+                            user.email, user.mobile, user.phone, user._id
+                        ].map((v) => String(v || '').toLowerCase()).join(' ');
+                        return haystack.includes(q);
+                    });
+                renderCustomerTable(filtered, filtered.length);
             }, 300);
         });
+    }
+
+    const loadMoreBtn = document.getElementById('customersLoadMoreBtn');
+    if (loadMoreBtn && !loadMoreBtn.dataset.bound) {
+        loadMoreBtn.dataset.bound = '1';
+        loadMoreBtn.addEventListener('click', () => fetchCustomers(false));
     }
 }
 
@@ -509,6 +572,18 @@ function navigateAdminSection(targetId, clickedItem) {
 
     const label = clickedItem ? clickedItem.textContent.trim() : '';
     updateAdminPageHeader(targetId, label);
+    if (typeof renderAdminBreadcrumb === 'function') {
+        renderAdminBreadcrumb(targetId, clickedItem);
+    }
+    syncNavAccordionState(targetId);
+
+    const scrollTarget = clickedItem?.getAttribute?.('data-scroll-target');
+    if (scrollTarget) {
+        requestAnimationFrame(() => {
+            const el = document.getElementById(scrollTarget) || document.querySelector(`[data-section="${scrollTarget}"]`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }
 
     const refreshMap = {
         'view-orders': fetchLiveOrders,
@@ -516,10 +591,11 @@ function navigateAdminSection(targetId, clickedItem) {
             loadCategoryFilter();
             fetchLiveProducts();
         },
-        'view-customers': () => {
-            initAdminPaginationInstances();
-            fetchDashboardData();
-        },
+        'view-customers': () => fetchCustomers(true),
+        'view-suppliers': () => window.loadSuppliersSection && window.loadSuppliersSection(),
+        'view-warehouses': () => window.loadWarehousesSection && window.loadWarehousesSection(),
+        'view-purchase-orders': () => window.loadPurchaseOrdersSection && window.loadPurchaseOrdersSection(),
+        'view-finance': () => {},
         'view-overview': fetchDashboardData,
         'manage-category': loadCategories,
         'manage-brands': fetchBrands,
@@ -561,17 +637,93 @@ function navigateAdminSection(targetId, clickedItem) {
 }
 window.navigateAdminSection = navigateAdminSection;
 
+function sectionNavGroup(sectionId) {
+    const item = document.querySelector(`.sidebar-menu li[data-target="${sectionId}"]`);
+    if (!item) return null;
+    const group = item.closest('.menu-group[data-nav-section]');
+    return group?.getAttribute('data-nav-section') || null;
+}
+
+function syncNavAccordionState(activeSectionId) {
+    const activeGroup = sectionNavGroup(activeSectionId) || 'dashboard';
+    document.querySelectorAll('.sidebar-menu li.menu-group[data-nav-section]').forEach((group) => {
+        const section = group.getAttribute('data-nav-section');
+        const isActive = section === activeGroup;
+        group.classList.toggle('open', isActive);
+        group.classList.toggle('nav-group-active', isActive);
+    });
+}
+
+function setupMobileSidebar() {
+    const sidebar = document.getElementById('adminSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const toggle = document.getElementById('sidebarMobileToggle');
+    if (!sidebar || !toggle) return;
+
+    const closeDrawer = () => {
+        sidebar.classList.remove('open');
+        if (overlay) {
+            overlay.hidden = true;
+            overlay.classList.remove('visible');
+        }
+        document.body.classList.remove('sidebar-drawer-open');
+    };
+
+    const openDrawer = () => {
+        sidebar.classList.add('open');
+        if (overlay) {
+            overlay.hidden = false;
+            overlay.classList.add('visible');
+        }
+        document.body.classList.add('sidebar-drawer-open');
+    };
+
+    if (!toggle.dataset.bound) {
+        toggle.dataset.bound = '1';
+        toggle.addEventListener('click', () => {
+            if (sidebar.classList.contains('open')) closeDrawer();
+            else openDrawer();
+        });
+    }
+
+    if (overlay && !overlay.dataset.bound) {
+        overlay.dataset.bound = '1';
+        overlay.addEventListener('click', closeDrawer);
+    }
+
+    if (!sidebar.dataset.mobileNavBound) {
+        sidebar.dataset.mobileNavBound = '1';
+        sidebar.addEventListener('click', (e) => {
+            const item = e.target.closest('li[data-target]');
+            if (item && window.matchMedia('(max-width: 768px)').matches) {
+                closeDrawer();
+            }
+        });
+    }
+}
+
 function setupSidebarNavigation() {
     const nav = document.querySelector('.sidebar-menu');
     if (!nav) return;
 
+    setupMobileSidebar();
+    syncNavAccordionState('view-overview');
+
     nav.addEventListener('click', (e) => {
-        const toggle = e.target.closest('.catalog-toggle');
+        const toggle = e.target.closest('.catalog-toggle, .nav-group-toggle');
         if (toggle) {
             e.preventDefault();
             e.stopPropagation();
             const group = toggle.closest('.menu-group');
-            if (group) group.classList.toggle('open');
+            if (!group) return;
+
+            const section = group.getAttribute('data-nav-section');
+            document.querySelectorAll('.sidebar-menu li.menu-group[data-nav-section]').forEach((g) => {
+                if (g !== group) g.classList.remove('open', 'nav-group-active');
+            });
+            group.classList.toggle('open');
+            group.classList.toggle('nav-group-active', group.classList.contains('open'));
+            if (section) group.dataset.lastOpened = section;
             return;
         }
 
@@ -623,8 +775,7 @@ function setupGlobalSearch() {
                 if (customerSearch) {
                     customerSearch.value = query;
                     customerSearchQuery = query;
-                    if (customerPg) customerPg.resetPage();
-                    if (typeof fetchCustomers === 'function') fetchCustomers(1, customerPg?.currentLimit);
+                    if (typeof fetchCustomers === 'function') fetchCustomers(false);
                 }
             }
         });
@@ -644,5 +795,7 @@ Object.assign(window, {
     initDashboard,
     navigateAdminSection,
     setupSidebarNavigation,
+    setupMobileSidebar,
+    syncNavAccordionState,
     setupGlobalSearch
 });
