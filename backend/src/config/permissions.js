@@ -78,6 +78,13 @@ const PERMISSIONS = Object.freeze([
         group: 'Administration'
     },
     {
+        key: 'manage_marketing',
+        label: 'Manage Marketing',
+        description: 'Newsletter subscribers, email campaigns, and promotional outreach.',
+        icon: 'fa-envelope-circle-check',
+        group: 'Administration'
+    },
+    {
         key: 'manage_security',
         label: 'Security & Audit',
         description: 'Security logs, login history, and the IP blacklist firewall.',
@@ -118,7 +125,10 @@ const SECTION_PERMISSIONS = Object.freeze({
     'view-master-settings': 'manage_settings',
     'view-messages': 'manage_settings',
     'view-settings': null, // own profile / 2FA — platform fields are guarded server-side
-    'view-staff': 'manage_staff'
+    'view-staff': 'manage_staff',
+    'view-staff-audit': 'manage_security',
+    'view-newsletter-subscribers': 'manage_marketing',
+    'view-newsletter-campaigns': 'manage_marketing'
 });
 
 function isValidPermission(key) {

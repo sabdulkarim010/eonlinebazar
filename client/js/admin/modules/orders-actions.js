@@ -883,12 +883,85 @@ window.deleteOrder = function(orderId) {
     }, "danger");
 };
 
+/* ==========================================================================
+   STAFF ORDER ASSIGNMENT
+   ========================================================================== */
+
+let assignableStaffRoster = null;
+
+async function loadAssignableStaffRoster() {
+    if (assignableStaffRoster) return assignableStaffRoster;
+    try {
+        const res = await fetch('/api/admin/staff/roster', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        assignableStaffRoster = data.success && Array.isArray(data.data) ? data.data : [];
+    } catch (err) {
+        console.warn('[Orders] staff roster fetch failed:', err.message);
+        assignableStaffRoster = [];
+    }
+    return assignableStaffRoster;
+}
+
+function buildAssignStaffHtml(order) {
+    const orderId = order._id;
+    const assigned = order.assignedStaffId ? String(order.assignedStaffId) : '';
+    const roster = assignableStaffRoster || [];
+    const options = ['<option value="">Unassigned</option>'].concat(
+        roster.map((member) => {
+            const id = String(member.id);
+            const label = member.name || member.username;
+            const selected = assigned === id ? ' selected' : '';
+            return `<option value="${escHtml(id)}"${selected}>${escHtml(label)}</option>`;
+        })
+    ).join('');
+
+    return `
+        <select class="order-assign-staff-select" title="Assign staff"
+            onchange="assignOrderToStaff('${orderId}', this.value)" onclick="event.stopPropagation()">
+            ${options}
+        </select>`;
+}
+
+window.assignOrderToStaff = async function(orderId, staffId) {
+    try {
+        const response = await fetch(`/api/admin/orders/${orderId}/assign`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ staffId: staffId || null })
+        });
+        const result = await response.json();
+        if (response.ok && result.success) {
+            const idx = globalOrders.findIndex((o) => String(o._id) === String(orderId));
+            if (idx !== -1 && result.data) {
+                globalOrders[idx] = { ...globalOrders[idx], ...result.data };
+            }
+            showToast(result.message || 'Assignment updated.', 'success');
+            return;
+        }
+        showToast(result.message || 'Failed to assign staff.', 'error');
+    } catch (err) {
+        console.error('assignOrderToStaff error:', err);
+        showToast('Server connection error.', 'error');
+    }
+};
+
+async function ensureOrderStaffRosterLoaded() {
+    await loadAssignableStaffRoster();
+}
+
 /* Expose module functions for HTML onclick + cross-module calls */
 Object.assign(window, {
     buildAdminOrderStatusCell,
     buildAdminPaymentProofPendingBadge,
+    buildAssignStaffHtml,
     buildCourierActionHtml,
     cacheAdminCourierSettings,
+    ensureOrderStaffRosterLoaded,
     fetchPendingWhatsAppAlerts,
     getCourierTrackingUrl,
     normalizeAdminCourierSlug,

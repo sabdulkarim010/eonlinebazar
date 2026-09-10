@@ -165,3 +165,19 @@
     height: 18px;
     accent-color: #2563eb;
 }
+
+.staff-audit-breakdown-cell {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.staff-audit-resource-tag {
+    font-size: 11px;
+}
+
+.staff-audit-detail-panel {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #e2e8f0;
+}

@@ -206,9 +206,94 @@ function toAgentAuthPayload(agent) {
   };
 }
 
+function getInternalApiKey() {
+  return String(process.env.INTERNAL_API_KEY || '').trim();
+}
+
+/**
+ * Fetch store admin profile by Mongo id via internal API (INTERNAL_API_KEY).
+ * @param {string} adminId
+ */
+async function resolveAgent(adminId) {
+  const baseUrl = getStoreBaseUrl();
+  const apiKey = getInternalApiKey();
+  const id = String(adminId || '').trim();
+  if (!baseUrl || !apiKey || !id) return null;
+
+  try {
+    const response = await fetch(`${baseUrl}/api/internal/admin-profile/${encodeURIComponent(id)}`, {
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'X-Internal-Api-Key': apiKey,
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) return null;
+    return payload?.admin || payload?.data || null;
+  } catch (err) {
+    console.warn('[agentResolver] resolveAgent failed:', err.message);
+    return null;
+  }
+}
+
+/**
+ * Upsert chat Agent from store admin profile snapshot.
+ * @param {object} adminData
+ */
+async function syncAgentFromAdmin(adminData) {
+  if (!adminData) return null;
+
+  const adminId = adminData.id || adminData._id || null;
+  const username = String(adminData.username || adminData.storeAdminUsername || '').trim();
+  const emailRaw =
+    adminData.email ||
+    (username ? `${username}@staff.eonlinebazar.local` : '');
+  const email = String(emailRaw).trim().toLowerCase();
+  if (!email && !adminId) return null;
+
+  const query = adminId
+    ? { $or: [{ adminId: String(adminId) }, ...(username ? [{ storeAdminUsername: username }] : []), ...(email ? [{ email }] : [])] }
+    : username
+      ? { $or: [{ storeAdminUsername: username }, ...(email ? [{ email }] : [])] }
+      : email
+        ? { email }
+        : null;
+
+  if (!query) return null;
+
+  const existing = await Agent.findOne(query).select('-password');
+  const payload = {
+    adminId: adminId ? String(adminId) : existing?.adminId || null,
+    storeAdminUsername: username || existing?.storeAdminUsername || null,
+    name:
+      adminData.displayName ||
+      adminData.name ||
+      existing?.name ||
+      username ||
+      'Support Agent',
+    avatar: adminData.image || adminData.avatar || existing?.avatar || null,
+    role: mapStoreRoleToAgentRole(adminData.role || existing?.role),
+  };
+
+  if (existing) {
+    return Agent.findByIdAndUpdate(existing._id, payload, { new: true }).select('-password');
+  }
+
+  const randomPassword = crypto.randomBytes(24).toString('hex');
+  return Agent.create({
+    ...payload,
+    email: email || `${String(adminId)}@staff.eonlinebazar.local`,
+    password: randomPassword,
+    is_online: false,
+  }).then((agent) => agent.select('-password'));
+}
+
 module.exports = {
   resolveAgentFromRequest,
   resolveAgentFromToken,
+  resolveAgent,
+  syncAgentFromAdmin,
   toAgentAuthPayload,
   isStoreAdminToken,
   fetchStoreAdminProfile,

@@ -120,7 +120,9 @@ const updateAdminSettings = async (req, res) => {
             actor: admin.username,
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: 'Profile or platform preferences saved'
+            details: 'Profile or platform preferences saved',
+            resourceType: 'setting',
+            resourceId: 'platform'
         });
 
         const safe = admin.toObject();
@@ -206,7 +208,9 @@ const uploadStoreBranding = async (req, res) => {
             details: [
                 logoFile ? 'logo uploaded' : null,
                 faviconFile ? 'favicon uploaded' : null
-            ].filter(Boolean).join(', ')
+            ].filter(Boolean).join(', '),
+            resourceType: 'setting',
+            resourceId: 'branding'
         });
 
         res.status(200).json(response);

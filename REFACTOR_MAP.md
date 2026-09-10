@@ -1,5 +1,32 @@
 # EOnlineBazar Refactoring Map
 # Completed: 2026-08-25
+# Phase 1 HRM/RBAC: 2026-09-10
+backend/src/controllers/admin/staffAuditController.js [NEW] staff activity audit grouped by admin actor
+backend/src/config/permissions.js [DONE] manage_marketing permission + section gating
+backend/src/models/securityLog.js [DONE] resourceType + resourceId audit fields
+backend/src/utils/securityLogger.js [DONE] logSecurityEvent accepts resourceType/resourceId
+backend/src/routes/categoryRoutes.js [DONE] checkPermission('manage_catalog') on admin writes
+backend/src/routes/bannerRoutes.js [DONE] checkPermission('manage_catalog') on admin writes
+backend/src/routes/adminRoutes.js [DONE] staff-audit, order assign, manage_marketing newsletter, staff roster
+backend/src/routes/internalRoutes.js [DONE] GET /api/internal/admin-profile/:adminId
+backend/src/controllers/staffController.js [DONE] getAdminProfileForChat, getStaffRoster, staff audit logging
+backend/src/controllers/orderAdminController.js [DONE] assignOrderToStaff + order resource logging
+backend/src/models/order.js [DONE] assignedStaffId, assignedAt
+backend/src/models/admin.js [DONE] manage_marketing backfill on staff with manage_settings
+ecommerce-chat/services/agentResolver.service.js [DONE] resolveAgent + syncAgentFromAdmin (internal API SSO)
+client/admin/partials/settings-staff-audit.html [NEW] Staff Activity Audit section
+client/js/admin/modules/settings-staff-audit.js [NEW] staff audit dashboard UI
+client/js/admin/admin-settings.js [DONE] imports settings-staff-audit.js
+client/js/admin/modules/orders-actions.js [DONE] assign staff dropdown + PATCH assign API
+client/js/admin/modules/orders-table.js [DONE] staff assign select in action row
+client/js/admin/modules/core-nav.js [DONE] view-staff-audit nav + pagination
+client/js/admin-staff.js [DONE] marketingManager preset + manage_marketing catalog
+client/admin/partials/sidebar.html [DONE] Staff Activity nav item
+client/admin/partials/view-staff.html [DONE] Marketing permission preset button
+client/admin/partials/modals-invoice.html [DONE] Marketing permission preset (edit staff)
+client/css/admin/_orders.css [DONE] order-assign-staff-select styles
+client/css/admin/_settings-security.css [DONE] staff audit panel styles
+backend/src/utils/adminPageBuilder.js [DONE] registers settings-staff-audit partial
 # Refactoring complete — all listed files are [DONE]
 #
 # RULE: Every time you modify a file during refactoring,

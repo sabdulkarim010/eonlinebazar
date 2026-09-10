@@ -224,7 +224,7 @@ adminSchema.methods.toSafeObject = function toSafeObject() {
  * predictably. Safe to run on every boot — it only touches missing fields.
  */
 adminSchema.statics.ensureRbacDefaults = async function ensureRbacDefaults() {
-    const [roleResult, statusResult] = await Promise.all([
+    const [roleResult, statusResult, marketingResult] = await Promise.all([
         this.updateMany(
             { role: { $exists: false } },
             { $set: { role: ROLES.SUPER_ADMIN, permissions: [] } }
@@ -232,12 +232,17 @@ adminSchema.statics.ensureRbacDefaults = async function ensureRbacDefaults() {
         this.updateMany(
             { status: { $exists: false } },
             { $set: { status: ACCOUNT_STATUS.ACTIVE } }
+        ),
+        this.updateMany(
+            { role: ROLES.STAFF, permissions: 'manage_settings' },
+            { $addToSet: { permissions: 'manage_marketing' } }
         )
     ]);
 
     return {
         rolesBackfilled: roleResult.modifiedCount || 0,
-        statusBackfilled: statusResult.modifiedCount || 0
+        statusBackfilled: statusResult.modifiedCount || 0,
+        marketingBackfilled: marketingResult.modifiedCount || 0
     };
 };
 

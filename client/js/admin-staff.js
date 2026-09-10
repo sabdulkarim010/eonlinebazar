@@ -131,6 +131,7 @@ const ROLE_PRESETS = {
     fullAdmin: null,
     inventoryManager: ['manage_inventory', 'manage_catalog'],
     customerSupport: ['manage_orders', 'manage_customers'],
+    marketingManager: ['manage_marketing', 'manage_settings'],
     clear: []
 };
 

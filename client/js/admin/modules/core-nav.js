@@ -169,6 +169,17 @@ function initAdminPaginationInstances() {
         window.auditPg = auditPg;
     }
 
+    if (!window.staffAuditPg && document.getElementById('staff-audit-pg-btns')) {
+        window.staffAuditPg = new AdminPagination({
+            containerId: 'staff-audit-pg-btns',
+            infoId: 'staff-audit-pg-info',
+            countId: 'staff-audit-total-count',
+            limitSelectId: 'staff-audit-pg-limit',
+            defaultLimit: 25,
+            onPageChange: (page, limit) => fetchStaffAuditSummary(page, limit)
+        });
+    }
+
     if (!messagePg && document.getElementById('message-pg-btns')) {
         messagePg = new AdminPagination({
             containerId: 'message-pg-btns',
@@ -518,6 +529,10 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-security': fetchSecurityLogs,
         'view-sessions': fetchAdminSessions,
         'view-audit': initAuditView,
+        'view-staff-audit': () => {
+            initAdminPaginationInstances();
+            if (typeof fetchStaffAuditSummary === 'function') fetchStaffAuditSummary();
+        },
         'view-master-settings': fetchMasterSettings,
         'view-banners': () => window.loadBanners && window.loadBanners(),
         'view-messages': fetchAdminMessages,

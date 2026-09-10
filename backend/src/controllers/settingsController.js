@@ -86,7 +86,9 @@ const updateSettings = async (req, res) => {
             actor: req.admin?.username || 'admin',
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: `Home city: ${shopHomeCity}, Inside: ${inside.value}, Outside: ${outside.value}, Free shipping min: ${freeShipping.value}`
+            details: `Home city: ${shopHomeCity}, Inside: ${inside.value}, Outside: ${outside.value}, Free shipping min: ${freeShipping.value}`,
+            resourceType: 'setting',
+            resourceId: 'delivery'
         });
 
         res.status(200).json({
@@ -119,7 +121,9 @@ const updateCacheSettings = async (req, res) => {
             actor: req.admin?.username || 'admin',
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: `Service worker cache ${settings.serviceWorkerEnabled ? 'enabled' : 'disabled'}`
+            details: `Service worker cache ${settings.serviceWorkerEnabled ? 'enabled' : 'disabled'}`,
+            resourceType: 'setting',
+            resourceId: 'cache'
         });
 
         res.status(200).json({ success: true });
@@ -185,7 +189,9 @@ module.exports = {
                 actor: req.admin?.username || 'admin',
                 actorType: 'admin',
                 ipAddress: getClientIp(req),
-                details: `Enabled: ${settings.rateLimitEnabled}, Max: ${settings.rateLimitMaxRequests}/${settings.rateLimitWindowMs}ms, Bypass admin/localhost: ${settings.bypassAdminAndLocalhost}`
+                details: `Enabled: ${settings.rateLimitEnabled}, Max: ${settings.rateLimitMaxRequests}/${settings.rateLimitWindowMs}ms, Bypass admin/localhost: ${settings.bypassAdminAndLocalhost}`,
+                resourceType: 'setting',
+                resourceId: 'rate-limit'
             });
 
             res.status(200).json({

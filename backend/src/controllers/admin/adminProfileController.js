@@ -132,6 +132,8 @@ const getSecurityLogs = async (req, res) => {
             actorType: log.actorType,
             ipAddress: log.ipAddress,
             details: log.details,
+            resourceType: log.resourceType || null,
+            resourceId: log.resourceId || null,
             timestamp: log.createdAt
         }));
 

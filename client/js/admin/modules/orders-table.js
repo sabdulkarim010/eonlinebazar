@@ -30,6 +30,10 @@ async function fetchLiveOrders() {
     tableBody.innerHTML = `<tr><td colspan="${LIVE_ORDERS_TABLE_COLS}" class="loading-cell">Syncing live orders...</td></tr>`; 
     
     try {
+        const rosterPromise = typeof ensureOrderStaffRosterLoaded === 'function'
+            ? ensureOrderStaffRosterLoaded()
+            : Promise.resolve();
+
         const [response, settingsRes] = await Promise.all([
             fetch('/api/orders', {
                 method: 'GET',
@@ -38,7 +42,8 @@ async function fetchLiveOrders() {
             fetch('/api/admin/master-settings', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}` }
-            })
+            }),
+            rosterPromise
         ]);
 
         if (response.status === 429) {
@@ -309,6 +314,7 @@ window.renderOrderTable = function() {
             <td class="order-courier-cell">${courierActionHtml}</td>
             <td class="order-actions-cell">
                 <div class="order-actions-toolbar">
+                    ${typeof buildAssignStaffHtml === 'function' ? buildAssignStaffHtml(order) : ''}
                     <button type="button" class="action-icon edit" onclick="event.stopPropagation(); openEditOrderShippingModal('${orderId}')" title="Edit Order Details" aria-label="Edit">✏️</button>
                     <button type="button" class="action-icon view" onclick="event.stopPropagation(); viewInvoice('${orderId}')" title="View Invoice" aria-label="View">👁️</button>
                     <button type="button" class="action-icon delete" onclick="event.stopPropagation(); deleteOrder('${orderId}')" title="Delete Order" aria-label="Delete">🗑️</button>

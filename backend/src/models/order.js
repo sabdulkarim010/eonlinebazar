@@ -204,6 +204,8 @@ const orderSchema = new mongoose.Schema({
         default: 'online'
     },
     createdByAdmin: { type: String, default: '', trim: true },
+    assignedStaffId: { type: String, default: null, trim: true },
+    assignedAt: { type: Date, default: null },
     isSandbox: {
         type: Boolean,
         default: false,

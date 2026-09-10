@@ -70,9 +70,9 @@ logChatProxyConfig();
 connectDB().then(async () => {
     try {
         const Admin = require('./models/admin');
-        const { rolesBackfilled, statusBackfilled } = await Admin.ensureRbacDefaults();
-        if (rolesBackfilled || statusBackfilled) {
-            console.log(`🛡️  RBAC backfill: ${rolesBackfilled} role(s), ${statusBackfilled} status field(s) normalized.`);
+        const { rolesBackfilled, statusBackfilled, marketingBackfilled } = await Admin.ensureRbacDefaults();
+        if (rolesBackfilled || statusBackfilled || marketingBackfilled) {
+            console.log(`🛡️  RBAC backfill: ${rolesBackfilled} role(s), ${statusBackfilled} status field(s), ${marketingBackfilled || 0} marketing permission(s).`);
         }
     } catch (err) {
         console.error('RBAC bootstrap error:', err.message);

@@ -181,7 +181,9 @@ exports.createStaff = async (req, res) => {
             actor: req.adminAccount.username,
             actorType: 'admin',
             ipAddress: clientIp(req),
-            details: `Created staff "${username}" with permissions: ${permissions.join(', ')}`
+            details: `Created staff "${username}" with permissions: ${permissions.join(', ')}`,
+            resourceType: 'staff',
+            resourceId: String(staff._id)
         });
 
         res.status(201).json({
@@ -259,7 +261,9 @@ exports.updateStaff = async (req, res) => {
             actor: req.adminAccount.username,
             actorType: 'admin',
             ipAddress: clientIp(req),
-            details: `Updated staff "${staff.username}" — ${changes.length ? changes.join(' · ') : 'no field changes'}`
+            details: `Updated staff "${staff.username}" — ${changes.length ? changes.join(' · ') : 'no field changes'}`,
+            resourceType: 'staff',
+            resourceId: String(staff._id)
         });
 
         res.status(200).json({
@@ -308,7 +312,9 @@ exports.updateStaffStatus = async (req, res) => {
             ipAddress: clientIp(req),
             details: nextStatus === ACCOUNT_STATUS.BLOCKED
                 ? `Suspended "${staff.username}" and signed out ${revoked} device(s)`
-                : `Restored access for "${staff.username}"`
+                : `Restored access for "${staff.username}"`,
+            resourceType: 'staff',
+            resourceId: String(staff._id)
         });
 
         res.status(200).json({
@@ -356,7 +362,9 @@ exports.resetStaffPassword = async (req, res) => {
             actor: req.adminAccount.username,
             actorType: 'admin',
             ipAddress: clientIp(req),
-            details: `Reset password for "${staff.username}" and signed out ${revoked} device(s)`
+            details: `Reset password for "${staff.username}" and signed out ${revoked} device(s)`,
+            resourceType: 'staff',
+            resourceId: String(staff._id)
         });
 
         res.status(200).json({
@@ -375,6 +383,68 @@ exports.resetStaffPassword = async (req, res) => {
 /* ==================================================================
    DELETE /api/admin/staff/:id — remove the record and all access
    ================================================================== */
+/**
+ * GET /api/internal/admin-profile/:adminId — chat microservice SSO lookup.
+ * Protected by INTERNAL_API_KEY (see routes/internalRoutes.js).
+ */
+exports.getAdminProfileForChat = async (req, res) => {
+    try {
+        const adminId = String(req.params.adminId || '').trim();
+        if (!mongoose.Types.ObjectId.isValid(adminId)) {
+            return res.status(400).json({ success: false, message: 'Invalid admin id.' });
+        }
+
+        const account = await Admin.findById(adminId).select('-password');
+        if (!account) {
+            return res.status(404).json({ success: false, message: 'Admin account not found.' });
+        }
+
+        res.status(200).json({
+            success: true,
+            admin: {
+                id: account._id,
+                _id: account._id,
+                username: account.username,
+                name: account.name || account.displayName || account.username,
+                displayName: account.displayName || account.name || account.username,
+                email: account.email || '',
+                image: account.image || null,
+                avatar: account.image || null,
+                role: account.role
+            }
+        });
+    } catch (error) {
+        console.error('getAdminProfileForChat Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load admin profile.' });
+    }
+};
+
+/* ==================================================================
+   GET /api/admin/staff/roster — minimal staff list for order assignment
+   ================================================================== */
+exports.getStaffRoster = async (req, res) => {
+    try {
+        const accounts = await Admin.find({
+            status: ACCOUNT_STATUS.ACTIVE
+        })
+            .select('username name displayName role')
+            .sort({ username: 1 })
+            .lean();
+
+        const data = accounts.map((account) => ({
+            id: String(account._id),
+            username: account.username,
+            name: account.name || account.displayName || account.username,
+            role: account.role
+        }));
+
+        res.status(200).json({ success: true, data });
+    } catch (error) {
+        console.error('getStaffRoster Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load staff roster.' });
+    }
+};
+
 exports.deleteStaff = async (req, res) => {
     try {
         const staff = await findStaffById(req.params.id);
@@ -391,7 +461,9 @@ exports.deleteStaff = async (req, res) => {
             actor: req.adminAccount.username,
             actorType: 'admin',
             ipAddress: clientIp(req),
-            details: `Permanently deleted staff "${username}" and revoked ${revoked} session(s)`
+            details: `Permanently deleted staff "${username}" and revoked ${revoked} session(s)`,
+            resourceType: 'staff',
+            resourceId: String(staff._id)
         });
 
         res.status(200).json({

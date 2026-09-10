@@ -17,6 +17,7 @@ const mongoose = require('mongoose');
 const { parseVariants, applyProductStockFields, computeMinVariantPrice, applyPrimaryImageToVariants } = require('../utils/variantHelpers');
 const { loadFlashSaleSettings, applyFlashSaleToProducts } = require('../services/flashSaleService');
 const { getOrSet, invalidateProductCaches, CACHE_KEYS } = require('../services/cacheService');
+const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 
 const FALLBACK_PRODUCTS_PER_PAGE = 24;
 /** Hard cap on ?limit= (default page size from settings stays ≤ 100). */
@@ -474,6 +475,17 @@ const createProduct = async (req, res) => {
         await newProduct.save();
         await syncCategoryProductCount(newProduct.category);
         await invalidateProductCaches();
+
+        await logSecurityEvent({
+            action: 'Product Created',
+            actor: req.admin?.username || 'admin',
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `${newProduct.name} (${newProduct.productId || newProduct._id})`,
+            resourceType: 'product',
+            resourceId: String(newProduct._id)
+        });
+
         res.status(201).json({ success: true, message: "Product added successfully!", data: newProduct });
     } catch (err) {
         console.error("Product Add Error:", err);
@@ -624,6 +636,16 @@ const updateProduct = async (req, res) => {
 
         await invalidateProductCaches(productIdParam);
 
+        await logSecurityEvent({
+            action: 'Product Updated',
+            actor: req.admin?.username || 'admin',
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `${updatedProduct.name} (${updatedProduct.productId || updatedProduct._id})`,
+            resourceType: 'product',
+            resourceId: String(updatedProduct._id)
+        });
+
         res.json({ success: true, message: "Product updated successfully!", data: updatedProduct });
     } catch (err) {
         console.error("Product Update Error:", err);
@@ -661,6 +683,17 @@ const deleteProduct = async (req, res) => {
         await Product.findOneAndDelete(query);
         await syncCategoryProductCount(productToDelete.category);
         await invalidateProductCaches(productIdParam);
+
+        await logSecurityEvent({
+            action: 'Product Deleted',
+            actor: req.admin?.username || 'admin',
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `${productToDelete.name} (${productToDelete.productId || productToDelete._id})`,
+            resourceType: 'product',
+            resourceId: String(productToDelete._id)
+        });
+
         res.json({ success: true, message: "Product and its images deleted successfully!" });
     } catch (err) {
         console.error("Product Delete Error:", err);

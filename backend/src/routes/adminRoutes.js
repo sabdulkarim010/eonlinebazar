@@ -20,8 +20,10 @@ const {
     createManualOrder,
     updateOrderShippingAddress,
     masterUpdateOrder,
-    bulkDeleteOrders
+    bulkDeleteOrders,
+    assignOrderToStaff
 } = require('../controllers/orderAdminController');
+const staffAuditController = require('../controllers/admin/staffAuditController');
 const { adjustCustomerWallet } = require('../controllers/admin/walletAdminController');
 const {
     getAllReviews,
@@ -64,9 +66,16 @@ const {
 const cacheController = require('../controllers/cacheController');
 const sandboxController = require('../controllers/sandboxController');
 
+// Minimal staff roster for order assignment dropdowns (before /staff mount)
+router.get('/staff/roster', verifyAdmin, checkPermission('manage_orders'), staffController.getStaffRoster);
+
 // 🛡️ Super Admin staff management — own gate chain, see routes/staffRoutes.js
 // URL: /api/admin/staff
 router.use('/staff', staffRoutes);
+
+// Staff activity audit — who changed what (SecurityLog grouped by admin actor)
+router.get('/staff-audit', verifyAdmin, checkPermission('manage_security'), staffAuditController.getStaffActivity);
+router.get('/staff-audit/:username', verifyAdmin, checkPermission('manage_security'), staffAuditController.getStaffActivityDetail);
 
 // 🛡️ Super Admin file manager — browse / read / write / create / delete (project root only)
 // URL: /api/admin/files
@@ -207,6 +216,9 @@ router.put('/orders/:id/address', verifyAdmin, checkPermission('manage_orders'),
 
 // URL: PUT /api/admin/orders/:id/master-update — shipping + items with live total recalc
 router.put('/orders/:id/master-update', verifyAdmin, checkPermission('manage_orders'), masterUpdateOrder);
+
+// URL: PATCH /api/admin/orders/:orderId/assign — assign order to a staff member
+router.patch('/orders/:orderId/assign', verifyAdmin, checkPermission('manage_orders'), assignOrderToStaff);
 
 // URL: GET /api/admin/whatsapp-alerts/pending — wa.me fallback queue for undelivered alerts
 router.get('/whatsapp-alerts/pending', verifyAdmin, checkPermission('manage_orders'), whatsappAlertsController.getPendingWhatsAppAlertsHandler);
@@ -407,10 +419,10 @@ router.delete('/messages/:id', verifyAdmin, checkPermission('manage_settings'), 
  ********************************************************************/
 router.get('/newsletter/subscribers', verifyAdmin, newsletterAdminController.listSubscribers);
 router.delete('/newsletter/subscribers/:id', verifyAdmin, newsletterAdminController.deleteSubscriber);
-router.post('/newsletter/campaigns', verifyAdmin, newsletterAdminController.createCampaign);
-router.get('/newsletter/campaigns', verifyAdmin, newsletterAdminController.listCampaigns);
-router.post('/newsletter/campaigns/:id/send', verifyAdmin, newsletterAdminController.sendCampaign);
-router.post('/newsletter/campaigns/:id/test', verifyAdmin, newsletterAdminController.testCampaign);
+router.post('/newsletter/campaigns', verifyAdmin, checkPermission('manage_marketing'), newsletterAdminController.createCampaign);
+router.get('/newsletter/campaigns', verifyAdmin, checkPermission('manage_marketing'), newsletterAdminController.listCampaigns);
+router.post('/newsletter/campaigns/:id/send', verifyAdmin, checkPermission('manage_marketing'), newsletterAdminController.sendCampaign);
+router.post('/newsletter/campaigns/:id/test', verifyAdmin, checkPermission('manage_marketing'), newsletterAdminController.testCampaign);
 
 // URL: GET|POST /api/admin/announcement-settings (legacy announcement-only save)
 router.get('/announcement-settings', verifyAdmin, masterSettingsController.getAnnouncementSettings);

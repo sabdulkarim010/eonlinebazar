@@ -1,0 +1,71 @@
+<section id="view-staff-audit" class="admin-section" style="display: none;">
+    <div class="section-header-box security-header-box">
+        <div>
+            <h3>Staff Activity Audit</h3>
+            <p class="section-subtitle">Track what each admin changed — grouped by staff member with resource breakdown.</p>
+        </div>
+        <button type="button" class="btn-secondary no-print" onclick="fetchStaffAuditSummary()">
+            <i class="fa-solid fa-rotate"></i> Refresh
+        </button>
+    </div>
+
+    <div class="table-container security-logs-table-wrap">
+        <table class="data-table security-logs-table staff-audit-table">
+            <thead>
+                <tr>
+                    <th>STAFF USER</th>
+                    <th>TOTAL ACTIONS</th>
+                    <th>LAST ACTIVITY</th>
+                    <th>RESOURCE BREAKDOWN</th>
+                    <th>ACTIONS</th>
+                </tr>
+            </thead>
+            <tbody id="staffAuditBody">
+                <tr><td colspan="5" class="loading-container"><div class="spinner"></div><p>Loading staff activity...</p></td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="apg-wrapper no-print">
+        <div class="apg-left">
+            Show
+            <select class="apg-limit-select" id="staff-audit-pg-limit"
+                    onchange="staffAuditPg.changeLimit(this.value)">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+            </select>
+            entries &nbsp;|&nbsp;
+            <span class="apg-info" id="staff-audit-pg-info"></span>
+        </div>
+        <div class="apg-center" id="staff-audit-pg-btns"></div>
+        <div class="apg-right">
+            Total staff: <strong id="staff-audit-total-count">0</strong>
+        </div>
+    </div>
+
+    <div id="staffAuditDetailPanel" class="staff-audit-detail-panel" style="display: none;">
+        <div class="section-header-box">
+            <div>
+                <h4 id="staffAuditDetailTitle">Activity Detail</h4>
+                <p class="section-subtitle" id="staffAuditDetailSubtitle"></p>
+            </div>
+            <button type="button" class="btn-secondary" onclick="closeStaffAuditDetail()">
+                <i class="fa-solid fa-xmark"></i> Close
+            </button>
+        </div>
+        <div class="table-container">
+            <table class="data-table security-logs-table">
+                <thead>
+                    <tr>
+                        <th>TIMESTAMP</th>
+                        <th>ACTION</th>
+                        <th>RESOURCE</th>
+                        <th>IP</th>
+                        <th>DETAILS</th>
+                    </tr>
+                </thead>
+                <tbody id="staffAuditDetailBody"></tbody>
+            </table>
+        </div>
+    </div>
+</section>

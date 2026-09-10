@@ -6,6 +6,7 @@ const {
     getInternalOrderById,
     updateInternalAdminImage,
 } = require('../controllers/internalChatController');
+const { getAdminProfileForChat } = require('../controllers/staffController');
 
 const router = express.Router();
 
@@ -22,5 +23,8 @@ router.get('/orders/:id', getInternalOrderById);
 
 /** PUT /api/internal/admins/:id/image — chat agent avatar → store Admin.image */
 router.put('/admins/:id/image', updateInternalAdminImage);
+
+/** GET /api/internal/admin-profile/:adminId — chat SSO admin lookup */
+router.get('/admin-profile/:adminId', getAdminProfileForChat);
 
 module.exports = router;

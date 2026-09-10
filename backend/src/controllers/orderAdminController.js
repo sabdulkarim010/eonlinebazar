@@ -422,7 +422,9 @@ const createManualOrder = async (req, res) => {
             actor: req.admin?.username || 'admin',
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: `${orderId} · ${customerName} · ৳${grandTotal} · ${normalizedItems.length} item(s) · ${paymentMethod}`
+            details: `${orderId} · ${customerName} · ৳${grandTotal} · ${normalizedItems.length} item(s) · ${paymentMethod}`,
+            resourceType: 'order',
+            resourceId: String(newOrder._id)
         });
 
         await invalidate(CACHE_KEYS.POPULAR_PRODUCTS);
@@ -485,7 +487,9 @@ const updateOrderShippingAddress = async (req, res) => {
             actor: req.admin?.username || 'admin',
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: `${order.orderId || order._id} shipping details edited by admin`
+            details: `${order.orderId || order._id} shipping details edited by admin`,
+            resourceType: 'order',
+            resourceId: String(order._id)
         });
 
         return res.status(200).json({
@@ -707,7 +711,9 @@ const masterUpdateOrder = async (req, res) => {
             actor: req.admin?.username || 'admin',
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: `${order.orderId || order._id} master update (${changed})`
+            details: `${order.orderId || order._id} master update (${changed})`,
+            resourceType: 'order',
+            resourceId: String(order._id)
         });
 
         return res.status(200).json({
@@ -1406,6 +1412,53 @@ const processRefund = async (req, res) => {
     }
 };
 
+/**
+ * PATCH /api/admin/orders/:orderId/assign
+ * Assign or unassign an order to a staff member.
+ */
+const assignOrderToStaff = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found.' });
+        }
+
+        const staffId = req.body.staffId != null ? String(req.body.staffId).trim() : '';
+        const previousStaffId = order.assignedStaffId || null;
+
+        if (!staffId) {
+            order.assignedStaffId = null;
+            order.assignedAt = null;
+        } else {
+            order.assignedStaffId = staffId;
+            order.assignedAt = new Date();
+        }
+
+        await order.save();
+
+        await logSecurityEvent({
+            action: staffId ? 'Order Assigned to Staff' : 'Order Staff Assignment Cleared',
+            actor: req.admin?.username || 'admin',
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: staffId
+                ? `${order.orderId || order._id} assigned to staff ${staffId}`
+                : `${order.orderId || order._id} assignment cleared (was ${previousStaffId || 'none'})`,
+            resourceType: 'order',
+            resourceId: String(order._id)
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: staffId ? 'Order assigned to staff.' : 'Staff assignment cleared.',
+            data: order
+        });
+    } catch (err) {
+        console.error('assignOrderToStaff error:', err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
 module.exports = {
     createManualOrder,
     getOrders,
@@ -1417,6 +1470,7 @@ module.exports = {
     approveOrderReturn,
     undoOrderRefund,
     rejectOrderReturn,
-    processRefund
+    processRefund,
+    assignOrderToStaff
 };
 

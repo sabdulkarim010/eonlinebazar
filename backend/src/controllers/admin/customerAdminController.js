@@ -304,7 +304,9 @@ const updateCustomer = async (req, res) => {
             actor: req.admin?.username || 'admin',
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: `Customer ${updated.email || updated._id} profile edited by admin`
+            details: `Customer ${updated.email || updated._id} profile edited by admin`,
+            resourceType: 'customer',
+            resourceId: String(updated._id)
         });
 
         res.status(200).json({ success: true, message: 'Customer updated successfully.', data: updated });
@@ -356,7 +358,9 @@ const updateCustomerAvatar = async (req, res) => {
             actor: req.admin?.username || 'admin',
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: `Customer ${customer.email || customer._id} avatar replaced by admin`
+            details: `Customer ${customer.email || customer._id} avatar replaced by admin`,
+            resourceType: 'customer',
+            resourceId: String(customer._id)
         });
 
         return res.status(200).json({
@@ -392,7 +396,9 @@ async function clearCustomerAvatarRecord(req, res, existingCustomer) {
         actor: req.admin?.username || 'admin',
         actorType: 'admin',
         ipAddress: getClientIp(req),
-        details: `Customer ${customer.email || customer._id} avatar removed by admin`
+        details: `Customer ${customer.email || customer._id} avatar removed by admin`,
+        resourceType: 'customer',
+        resourceId: String(customer._id)
     });
 
     return res.status(200).json({
@@ -439,7 +445,9 @@ const updateCustomerStatus = async (req, res) => {
             actor: req.admin?.username || 'admin',
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: `Customer ${updated.email || updated._id} set to ${status}`
+            details: `Customer ${updated.email || updated._id} set to ${status}`,
+            resourceType: 'customer',
+            resourceId: String(updated._id)
         });
         res.status(200).json({
             success: true,
@@ -474,7 +482,9 @@ const deleteCustomer = async (req, res) => {
             actor: req.admin?.username || 'admin',
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: `Permanently deleted customer ${email || customer._id} (${displayName})${mobile ? `, mobile ${mobile}` : ''}`
+            details: `Permanently deleted customer ${email || customer._id} (${displayName})${mobile ? `, mobile ${mobile}` : ''}`,
+            resourceType: 'customer',
+            resourceId: String(customer._id)
         });
 
         res.status(200).json({

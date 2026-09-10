@@ -27,6 +27,7 @@ const VIEW_PARTIALS = [
     'view-canned-responses',
     'view-file-manager',
     'view-staff',
+    'settings-staff-audit',
     'view-settings',
     'view-reviews'
 ];
