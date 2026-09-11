@@ -186,7 +186,7 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 | Admin sessions | ✅ | `adminSession.js`, `sessionController.js`, `view-sessions.html` | |
 | Bulk product import | ✅ | `bulkImportController.js`, `products-bulk.js` | CSV/Excel |
 | AI product assist | ✅ | `adminController.aiProductAssist` | OpenAI integration |
-| Manual POS orders | ✅ | `orderAdminController.createManualOrder`, `orders-pos.html`, `orders-pos.js` | Walk-in/phone orders; debounced barcode/SKU/name search dropdown, popular quick-grid + Refresh, auto-open POS receipt (print + PDF) |
+| Manual POS orders | ✅ | `orderAdminController.createManualOrder`, `orders-pos.html`, `orders-pos.js`, `sidebar.html` | Walk-in/phone orders; ERP sidebar POS launch; barcode/SKU search + quick grid; customer phone lookup + quick-add (`GET /api/admin/customers?search=`, `POST /api/admin/customers/quick`); item/order discounts; split payment (Cash/bKash/Card/Split); receipt with discount + payment breakdown |
 | Invoice generation (PDF) | ✅ | `orderCustomerController.downloadOrderInvoice`, `orders-invoice.js` | PDFKit |
 | Courier integration | ✅ | `admin/courierController.js`, `courierService.js`, `courierSyncService.js`, `courierSyncJob.js`, `orders-actions.js` | Steadfast, Pathao, RedX; Book & Sync + 3h auto-poll cron + ↻ Refresh UI; Pathao/RedX status APIs wired |
 | Returns & refunds | ✅ | `orderAdminController.js`, `orderCustomerController.js` | Per-item returns, wallet/bKash refund |
@@ -275,7 +275,7 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 |------------|--------|----------|
 | Inventory & stock management | ✅ COMPLETE | `product.js`: `stockQuantity`, `stock`, `lowStockThreshold`, variant `sku`/`stock`; bulk import; stock alert cron |
 | Order lifecycle management | ✅ COMPLETE | Status: Pending → Processing → Shipped → Out for Delivery → Delivered; Cancel/Return/Refund flows; `notificationsSent` flags |
-| POS (walk-in / phone orders) | ✅ COMPLETE | `orders-pos.html` + `orders-pos.js` — debounced barcode/SKU search, quick product grid, auto-open receipt (print + PDF); `GET /api/products?search=` |
+| POS (walk-in / phone orders) | ✅ COMPLETE | `orders-pos.html` + `orders-pos.js` + ERP sidebar link — barcode/SKU search, quick grid, customer lookup/quick-add, item & order discounts (flat/%), split payment + change, receipt breakdown; `GET /api/products?search=`, `GET /api/admin/customers?search=`, `POST /api/admin/customers/quick` |
 | Courier & logistics integration | ✅ COMPLETE | `courierService.js` + `courierSyncService.js` + `admin/courierController.js` — Steadfast/Pathao/RedX Book & Sync, 3h auto-poll cron, status map + wallet cashback on delivery, SMS + WhatsApp; `orders-actions.js` Book & Sync + ↻ Refresh |
 | Invoice generation | ✅ COMPLETE | `GET /api/orders/:id/invoice` — PDFKit; POS receipt modal (`showPOSInvoiceModal`, `printPOSInvoice`, `downloadPOSInvoice`) |
 | Financial reports (Advanced P&L) | ✅ COMPLETE | `profitLossController.js` — Delivered revenue, returns, COGS, courier from Expense ledger, expenses-by-category, cashback/discounts/return loss, net margin, trend series, top/worst products; Chart.js UI in `erp-profit-loss.js` + `view-finance.html`; PDF/CSV via `exportController.js` (superadmin) |
@@ -1360,7 +1360,10 @@ The prior fix (visible in current code) added:
 | `/api/admin/finance/profit-loss` route | ✅ EXISTS & COMPLETE | Superadmin + export-pdf/csv |
 | `/api/admin/orders/:id/book-courier` route | ✅ EXISTS & COMPLETE | PATCH with `manage_orders` |
 | Barcode/SKU search input (POS) | ✅ EXISTS & COMPLETE | `#manualBarcodeInput` + `#posBarcodeDropdown` in `orders-pos.html`; `initBarcodeSearch` / `searchProductByBarcode` / `addProductFromBarcode` in `orders-pos.js` (`GET /api/products?search=&limit=5`) |
-| Print invoice modal (POS) | ✅ EXISTS & COMPLETE | `#posInvoiceModal` in `orders-pos.html` — `showPOSInvoiceModal`, `printPOSInvoice`, `downloadPOSInvoice` in `orders-pos.js` |
+| Print invoice modal (POS) | ✅ EXISTS & COMPLETE | `#posInvoiceModal` in `orders-pos.html` — discount breakdown + split payment summary on receipt |
+| POS sidebar launch | ✅ EXISTS & COMPLETE | `sidebar.html` ERP — `openPOSModal()` instant counter access |
+| POS customer lookup / quick-add | ✅ EXISTS & COMPLETE | Debounced phone lookup; inline quick-add panel; `POST /api/admin/customers/quick` |
+| POS discounts & split payment | ✅ EXISTS & COMPLETE | Per-line discount/override; order discount flat/%; Cash/bKash/Card/Split + change calc |
 
 **Resolved 2026-09-11:** Redundant `/finance-analytics` iframe removed; header-only secondary link retained.
 

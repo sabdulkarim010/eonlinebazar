@@ -182,11 +182,17 @@ backend/src/routes/adminRoutes.js [DONE] POST /crm/abandoned-carts/:userId/notif
 #
 # ERP Upgrade Part 1 — POS Enhancement: 2026-09-11
 # --- Task 1: POS Enhancement ---
-client/admin/partials/orders-pos.html [NEW] manual POS modal — debounced barcode/SKU search dropdown, quick popular grid + Refresh, posInvoiceModal receipt
+client/admin/partials/orders-pos.html [DONE] manual POS modal — barcode/SKU search, quick grid, customer phone lookup + quick-add, item/order discounts, split payment, posInvoiceModal receipt
+client/admin/partials/sidebar.html [DONE] ERP sidebar — dedicated POS System launch item (`openPOSModal`)
 client/admin/partials/modals-orders.html [DONE] placeholder — POS markup moved to orders-pos.html
 backend/src/utils/adminPageBuilder.js [DONE] MODAL_PARTIALS includes orders-pos
 backend/src/controllers/productController.js [DONE] GET /api/products ?search= & ?sort=sales|popular on list endpoint; buildProductListSearchFilter (name/sku/variants.sku)
-client/js/admin/modules/orders-pos.js [DONE] initBarcodeSearch, searchProductByBarcode, addProductFromBarcode; loadPosQuickGrid (sort=sales); showPOSInvoiceModal, printPOSInvoice, downloadPOSInvoice; shared addProductToCart
+client/js/admin/modules/orders-pos.js [DONE] openPOSModal alias; initBarcodeSearch; customer phone lookup + quick-add; item discount/price override; order discount flat/%; split payment + change; invoice discount/payment breakdown
+client/css/admin/_orders.css [DONE] POS customer lookup, quick-add, line inputs, split payment, change amount styles
+client/css/admin/_layout.css [DONE] sidebar-pos-launch highlight
+backend/src/controllers/admin/customerAdminController.js [DONE] GET /customers?search=; POST createQuickCustomer (POS walk-in)
+backend/src/controllers/orderAdminController.js [DONE] createManualOrder — lineDiscount/priceOverride, percent discount, paymentType, customerUserId link
+backend/src/routes/adminRoutes.js [DONE] POST /api/admin/customers/quick
 client/css/admin/_orders.css [DONE] .pos-barcode-dropdown-*, .pos-quick-grid-refresh, .pos-quick-stock-badge, .pos-invoice-*
 client/css/admin/_print.css [DONE] body.printing-pos-invoice print-only receipt rules
 # --- Task 2: Courier deep integration (Part 2 ERP Upgrade) ---

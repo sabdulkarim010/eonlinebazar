@@ -13,32 +13,59 @@
 
         <form id="manualOrderForm" class="manual-order-form" novalidate>
             <div class="modal-body manual-order-body">
-                <div class="manual-order-grid">
-                    <div class="form-group">
-                        <label for="manualCustomerName">Customer Name</label>
-                        <input type="text" id="manualCustomerName" required placeholder="Full name">
+                <!-- Customer lookup -->
+                <div class="pos-customer-section">
+                    <div class="pos-customer-section-head">
+                        <h4><i class="fa-solid fa-user"></i> Customer</h4>
+                        <span id="posCustomerOrdersBadge" class="pos-customer-orders-badge" hidden></span>
                     </div>
-                    <div class="form-group">
-                        <label for="manualCustomerPhone">Phone Number</label>
-                        <input type="tel" id="manualCustomerPhone" required placeholder="01XXXXXXXXX">
+                    <div class="manual-order-grid">
+                        <div class="form-group">
+                            <label for="manualCustomerPhone">Phone Number <span class="pos-lookup-hint">(auto lookup)</span></label>
+                            <input type="tel" id="manualCustomerPhone" required placeholder="01XXXXXXXXX" autocomplete="off" inputmode="tel">
+                            <div id="posCustomerLookupStatus" class="pos-customer-lookup-status" hidden></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="manualCustomerName">Customer Name</label>
+                            <input type="text" id="manualCustomerName" required placeholder="Full name">
+                        </div>
+                        <div class="form-group form-group-full">
+                            <label for="manualCustomerAddress">Delivery Address</label>
+                            <textarea id="manualCustomerAddress" rows="2" required placeholder="House, road, area, city"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="manualDeliveryArea">Delivery Area</label>
+                            <select id="manualDeliveryArea">
+                                <option value="inside">Inside Dhaka</option>
+                                <option value="outside">Outside Dhaka</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="form-group form-group-full">
-                        <label for="manualCustomerAddress">Delivery Address</label>
-                        <textarea id="manualCustomerAddress" rows="2" required placeholder="House, road, area, city"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="manualDeliveryArea">Delivery Area</label>
-                        <select id="manualDeliveryArea">
-                            <option value="inside">Inside Dhaka</option>
-                            <option value="outside">Outside Dhaka</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="manualPaymentStatus">Payment Status</label>
-                        <select id="manualPaymentStatus">
-                            <option value="COD">COD (Cash on Delivery)</option>
-                            <option value="Paid">Paid</option>
-                        </select>
+
+                    <!-- Quick Add Customer (shown when phone not found) -->
+                    <div id="posQuickAddCustomerPanel" class="pos-quick-add-customer" hidden>
+                        <p class="pos-quick-add-title"><i class="fa-solid fa-user-plus"></i> Quick Add Customer</p>
+                        <p class="pos-quick-add-hint">No account found for this phone — create one without leaving POS.</p>
+                        <div class="pos-quick-add-grid">
+                            <div class="form-group">
+                                <label for="posQuickAddName">Name</label>
+                                <input type="text" id="posQuickAddName" placeholder="Customer name">
+                            </div>
+                            <div class="form-group">
+                                <label for="posQuickAddPhone">Phone</label>
+                                <input type="tel" id="posQuickAddPhone" placeholder="01XXXXXXXXX" readonly>
+                            </div>
+                            <div class="form-group form-group-full">
+                                <label for="posQuickAddAddress">Address</label>
+                                <textarea id="posQuickAddAddress" rows="2" placeholder="Delivery address"></textarea>
+                            </div>
+                        </div>
+                        <div class="pos-quick-add-actions">
+                            <button type="button" class="btn-secondary btn-sm" onclick="hidePosQuickAddCustomer()">Cancel</button>
+                            <button type="button" class="btn-primary btn-sm" id="posQuickAddSaveBtn" onclick="savePosQuickAddCustomer()">
+                                <i class="fa-solid fa-check"></i> Save Customer
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -113,6 +140,8 @@
                                 <th>Product</th>
                                 <th>Variant</th>
                                 <th>Unit Price</th>
+                                <th>Item Disc. (৳)</th>
+                                <th>Override (৳)</th>
                                 <th>Qty</th>
                                 <th>Line Total</th>
                                 <th></th>
@@ -120,7 +149,7 @@
                         </thead>
                         <tbody id="manualOrderLinesBody">
                             <tr class="manual-order-empty-row">
-                                <td colspan="6">No items added yet.</td>
+                                <td colspan="8">No items added yet.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -128,12 +157,50 @@
 
                 <div class="manual-order-pricing-grid">
                     <div class="form-group">
-                        <label for="manualDiscountAmount">Manual Discount (৳)</label>
+                        <label for="manualDiscountType">Order Discount Type</label>
+                        <select id="manualDiscountType" onchange="togglePosOrderDiscountFields()">
+                            <option value="flat">Flat ৳</option>
+                            <option value="percent">Percentage %</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="manualDiscountFlatWrap">
+                        <label for="manualDiscountAmount">Order Discount (৳)</label>
                         <input type="number" id="manualDiscountAmount" min="0" step="1" value="0">
+                    </div>
+                    <div class="form-group" id="manualDiscountPercentWrap" hidden>
+                        <label for="manualDiscountPercent">Order Discount (%)</label>
+                        <input type="number" id="manualDiscountPercent" min="0" max="100" step="0.5" value="0">
                     </div>
                     <div class="form-group">
                         <label for="manualShippingFee">Shipping Fee (৳)</label>
                         <input type="number" id="manualShippingFee" min="0" step="1" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="posPaymentType">Payment Type</label>
+                        <select id="posPaymentType" onchange="updatePosPaymentUI()">
+                            <option value="Cash">Cash</option>
+                            <option value="bKash">bKash / Nagad</option>
+                            <option value="Card">Card</option>
+                            <option value="Split">Split Payment</option>
+                            <option value="COD">COD (Delivery)</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group-full pos-split-payment-grid" id="posSplitPaymentFields" hidden>
+                        <div class="form-group">
+                            <label for="posSplitCashAmount">Cash Amount (৳)</label>
+                            <input type="number" id="posSplitCashAmount" min="0" step="1" value="0" oninput="updatePosPaymentUI()">
+                        </div>
+                        <div class="form-group">
+                            <label for="posSplitDigitalAmount">Digital / bKash (৳)</label>
+                            <input type="number" id="posSplitDigitalAmount" min="0" step="1" value="0" oninput="updatePosPaymentUI()">
+                        </div>
+                    </div>
+                    <div class="form-group" id="posCashTenderedWrap" hidden>
+                        <label for="posCashTendered">Cash Tendered (৳)</label>
+                        <input type="number" id="posCashTendered" min="0" step="1" value="0" oninput="updatePosPaymentUI()">
+                    </div>
+                    <div class="form-group form-group-full" id="posChangeAmountWrap" hidden>
+                        <div id="posChangeAmount" class="pos-change-amount"></div>
                     </div>
                     <div class="form-group form-group-full">
                         <label for="manualOrderNote">Internal Note (optional)</label>
@@ -142,7 +209,7 @@
                 </div>
 
                 <div class="manual-order-totals" id="manualOrderTotalsPreview">
-                    Subtotal: ৳0 · Discount: ৳0 · Shipping: ৳0 · <strong>Grand Total: ৳0</strong>
+                    Subtotal: ৳0 · Item discounts: ৳0 · Order discount: ৳0 · Shipping: ৳0 · <strong>Grand Total: ৳0</strong>
                 </div>
             </div>
 

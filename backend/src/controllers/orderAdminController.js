@@ -214,9 +214,13 @@ const createManualOrder = async (req, res) => {
         ).trim();
         const items = req.body.items || req.body.orderItems || [];
         const note = String(req.body.note || req.body.notes || '').trim();
-        const manualDiscount = roundMoney(Number(req.body.manualDiscount ?? req.body.discountAmount) || 0);
+        const manualDiscountRaw = roundMoney(Number(req.body.manualDiscount ?? req.body.discountAmount) || 0);
+        const manualDiscountType = String(req.body.manualDiscountType || 'flat').trim().toLowerCase();
+        const manualDiscountPercent = Math.min(100, Math.max(0, Number(req.body.manualDiscountPercent) || 0));
         const shippingFee = roundMoney(Number(req.body.shippingFee ?? req.body.deliveryCharge) || 0);
-        const paymentStatus = String(req.body.paymentStatus || req.body.paymentMethod || 'COD').trim();
+        const paymentType = String(req.body.paymentType || req.body.paymentStatus || req.body.paymentMethod || 'COD').trim();
+        const paymentStatus = paymentType.toLowerCase() === 'cod' ? 'COD' : 'Paid';
+        const customerUserId = req.body.customerUserId || req.body.userId || null;
         const deliveryAreaRaw = String(
             req.body.deliveryArea || req.body.shippingLocationType || req.body.deliveryLocationType || 'inside'
         ).trim().toLowerCase();
@@ -298,7 +302,19 @@ const createManualOrder = async (req, res) => {
                 });
             }
 
-            item.price = verifiedPrice;
+            let finalPrice = verifiedPrice;
+            const priceOverride = Number(item.priceOverride);
+            if (Number.isFinite(priceOverride) && priceOverride >= 0) {
+                finalPrice = roundMoney(priceOverride);
+            } else {
+                const lineDiscount = roundMoney(Number(item.lineDiscount) || 0);
+                if (lineDiscount > 0) {
+                    finalPrice = roundMoney(Math.max(0, verifiedPrice - lineDiscount));
+                }
+            }
+
+            item.price = finalPrice;
+            item.catalogPrice = verifiedPrice;
             item.quantity = quantity;
             item.name = prod.name;
             item.productId = prod.productId || String(prod._id);
@@ -329,12 +345,17 @@ const createManualOrder = async (req, res) => {
                 item.icon = snapshotEmoji;
             }
 
-            subtotal += verifiedPrice * quantity;
+            subtotal += finalPrice * quantity;
             totalBuyingPrice += buyingPrice * quantity;
             normalizedItems.push(item);
         }
 
         subtotal = roundMoney(subtotal);
+
+        let manualDiscount = manualDiscountRaw;
+        if (manualDiscountType === 'percent' || manualDiscountType === 'percentage') {
+            manualDiscount = roundMoney(subtotal * (manualDiscountPercent / 100));
+        }
 
         if (manualDiscount > subtotal) {
             return res.status(400).json({
@@ -358,8 +379,13 @@ const createManualOrder = async (req, res) => {
         } = lockedTotals;
 
         const isPaid = paymentStatus.toLowerCase() === 'paid';
-        const paymentMethod = isPaid ? 'Paid' : 'COD';
+        const paymentMethod = isPaid ? (paymentType !== 'Paid' ? paymentType : 'Paid') : 'COD';
         const status = isPaid ? 'Processing' : 'Pending';
+
+        let linkedUser = null;
+        if (customerUserId && mongoose.Types.ObjectId.isValid(customerUserId)) {
+            linkedUser = customerUserId;
+        }
 
         // POS অর্ডারেও একই পেমেন্ট স্ন্যাপশট রাখা হয় (paymentMethodId পাঠানো
         // হলে), যাতে অনলাইন ও কাউন্টার — দুই চ্যানেলের লেজার একই কাঠামোয় থাকে।
@@ -377,7 +403,7 @@ const createManualOrder = async (req, res) => {
 
         const newOrder = new Order({
             orderId,
-            user: null,
+            user: linkedUser,
             customerName,
             customerPhone,
             customerAddress,

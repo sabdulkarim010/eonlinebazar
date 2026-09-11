@@ -4,7 +4,7 @@
  * Description: Manual POS / walk-in / phone order entry.
  */
 /* Dependencies: token, manualOrderCatalog, manualOrderLines, showToast, showAdminSuccess, fetchLiveOrders (window) */
-/* Exposes: window.addManualOrderLine, window.addProductFromBarcode, window.buildManualLinePayload, window.closeManualOrderModal, window.downloadPOSInvoice, window.formatManualMoney, window.getManualOrderProductId, window.getSelectedManualProduct, window.initBarcodeSearch, window.loadManualOrderCatalog, window.loadPosQuickGrid, window.openManualOrderModal, window.populateManualProductSelect, window.populateManualVariantSelect, window.posQuickAdd, window.printPOSInvoice, window.removeManualOrderLine, window.renderManualOrderLines, window.resetManualOrderForm, window.searchProductByBarcode, window.setupManualOrderEngine, window.showPOSInvoiceModal, window.submitManualOrder, window.updateManualOrderTotals, window.updateManualVariantStockHint */
+/* Exposes: window.addManualOrderLine, window.addProductFromBarcode, window.applyPosLineDiscount, window.applyPosLinePriceOverride, window.buildManualLinePayload, window.closeManualOrderModal, window.downloadPOSInvoice, window.formatManualMoney, window.getManualOrderProductId, window.getSelectedManualProduct, window.hidePosQuickAddCustomer, window.initBarcodeSearch, window.loadManualOrderCatalog, window.loadPosQuickGrid, window.openManualOrderModal, window.openPOSModal, window.populateManualProductSelect, window.populateManualVariantSelect, window.posQuickAdd, window.printPOSInvoice, window.removeManualOrderLine, window.renderManualOrderLines, window.resetManualOrderForm, window.savePosQuickAddCustomer, window.searchProductByBarcode, window.setupManualOrderEngine, window.showPOSInvoiceModal, window.submitManualOrder, window.togglePosOrderDiscountFields, window.updateManualOrderTotals, window.updateManualVariantStockHint, window.updatePosPaymentUI */
 
 import '../admin-core.js';
 
@@ -23,6 +23,9 @@ const COURIER_BLOCKED_STATUSES = window.COURIER_BLOCKED_STATUSES;
 
 /* shared state: manualOrderLines lives on window (admin-core) */
 
+let posLinkedCustomerId = null;
+let posCustomerLookupTimer = null;
+
 function getManualOrderProductId(product) {
     return String(product?._id || product?.productId || product?.id || '');
 }
@@ -33,12 +36,26 @@ function formatManualMoney(value) {
 
 function resetManualOrderForm() {
     manualOrderLines = [];
+    posLinkedCustomerId = null;
     const form = document.getElementById('manualOrderForm');
     if (form) form.reset();
     document.getElementById('manualItemQuantity').value = '1';
     document.getElementById('manualDiscountAmount').value = '0';
+    document.getElementById('manualDiscountPercent').value = '0';
     document.getElementById('manualShippingFee').value = '0';
     document.getElementById('manualProductSearch').value = '';
+    const discountType = document.getElementById('manualDiscountType');
+    if (discountType) discountType.value = 'flat';
+    const paymentType = document.getElementById('posPaymentType');
+    if (paymentType) paymentType.value = 'Cash';
+    ['posSplitCashAmount', 'posSplitDigitalAmount', 'posCashTendered'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = '0';
+    });
+    hidePosQuickAddCustomer();
+    hidePosCustomerLookupUi();
+    togglePosOrderDiscountFields();
+    updatePosPaymentUI();
     populateManualProductSelect('');
     renderManualOrderLines();
     updateManualOrderTotals();
@@ -46,7 +63,56 @@ function resetManualOrderForm() {
     hidePosBarcodeDropdown();
 }
 
-window.openManualOrderModal = async function openManualOrderModal() {
+/** Effective unit price after item discount or price override. */
+function getLineEffectivePrice(line) {
+    const catalogPrice = Number(line.price) || 0;
+    const overrideRaw = line.priceOverride;
+    const hasOverride = overrideRaw !== null && overrideRaw !== undefined && overrideRaw !== '';
+    if (hasOverride) {
+        return Math.max(0, Number(overrideRaw) || 0);
+    }
+    const lineDisc = Math.max(0, Number(line.lineDiscount) || 0);
+    return Math.max(0, catalogPrice - lineDisc);
+}
+
+function getLineEffectiveTotal(line) {
+    return getLineEffectivePrice(line) * (Number(line.quantity) || 0);
+}
+
+function computePosSubtotals() {
+    const catalogSubtotal = manualOrderLines.reduce(
+        (sum, line) => sum + ((Number(line.price) || 0) * (Number(line.quantity) || 0)),
+        0
+    );
+    const effectiveSubtotal = manualOrderLines.reduce(
+        (sum, line) => sum + getLineEffectiveTotal(line),
+        0
+    );
+    const itemDiscountTotal = Math.max(0, catalogSubtotal - effectiveSubtotal);
+    return { catalogSubtotal, effectiveSubtotal, itemDiscountTotal };
+}
+
+function computeOrderDiscountAmount(effectiveSubtotal) {
+    const discountType = document.getElementById('manualDiscountType')?.value || 'flat';
+    if (discountType === 'percent') {
+        const pct = Math.min(100, Math.max(0, Number(document.getElementById('manualDiscountPercent')?.value) || 0));
+        return Math.round(effectiveSubtotal * (pct / 100));
+    }
+    return Math.max(0, Number(document.getElementById('manualDiscountAmount')?.value) || 0);
+}
+
+function togglePosOrderDiscountFields() {
+    const discountType = document.getElementById('manualDiscountType')?.value || 'flat';
+    const flatWrap = document.getElementById('manualDiscountFlatWrap');
+    const pctWrap = document.getElementById('manualDiscountPercentWrap');
+    if (flatWrap) flatWrap.hidden = discountType !== 'flat';
+    if (pctWrap) pctWrap.hidden = discountType !== 'percent';
+    updateManualOrderTotals();
+}
+
+window.togglePosOrderDiscountFields = togglePosOrderDiscountFields;
+
+window.openPOSModal = window.openManualOrderModal = async function openManualOrderModal() {
     const modal = document.getElementById('manualOrderModal');
     if (!modal) return;
 
@@ -223,6 +289,9 @@ function buildManualLinePayload(product, variantIndex, quantity) {
         payload.price = Number(product.price) || 0;
     }
 
+    payload.lineDiscount = 0;
+    payload.priceOverride = null;
+
     return payload;
 }
 
@@ -231,22 +300,51 @@ function renderManualOrderLines() {
     if (!tbody) return;
 
     if (!manualOrderLines.length) {
-        tbody.innerHTML = '<tr class="manual-order-empty-row"><td colspan="6">No items added yet.</td></tr>';
+        tbody.innerHTML = '<tr class="manual-order-empty-row"><td colspan="8">No items added yet.</td></tr>';
         return;
     }
 
     tbody.innerHTML = manualOrderLines.map((line, index) => {
-        const lineTotal = (Number(line.price) || 0) * (Number(line.quantity) || 0);
+        const lineTotal = getLineEffectiveTotal(line);
+        const lineDiscVal = Number(line.lineDiscount) || 0;
+        const overrideVal = line.priceOverride !== null && line.priceOverride !== undefined && line.priceOverride !== ''
+            ? Number(line.priceOverride) || 0
+            : '';
         return `<tr>
             <td>${escHtml(line.name || 'Product')}</td>
             <td>${escHtml(line.variantLabel || 'Default')}</td>
             <td>${formatManualMoney(line.price)}</td>
+            <td><input type="number" class="pos-line-input" min="0" step="1" value="${lineDiscVal}" onchange="applyPosLineDiscount(${index}, this.value)" title="Item discount"></td>
+            <td><input type="number" class="pos-line-input" min="0" step="1" value="${overrideVal}" placeholder="—" onchange="applyPosLinePriceOverride(${index}, this.value)" title="Price override"></td>
             <td>${line.quantity}</td>
             <td>${formatManualMoney(lineTotal)}</td>
             <td><button type="button" class="manual-order-remove-btn" onclick="removeManualOrderLine(${index})" title="Remove line"><i class="fa-solid fa-trash-can"></i></button></td>
         </tr>`;
     }).join('');
 }
+
+window.applyPosLineDiscount = function applyPosLineDiscount(index, value) {
+    const line = manualOrderLines[index];
+    if (!line) return;
+    line.lineDiscount = Math.max(0, Number(value) || 0);
+    if (line.lineDiscount > 0) line.priceOverride = null;
+    renderManualOrderLines();
+    updateManualOrderTotals();
+};
+
+window.applyPosLinePriceOverride = function applyPosLinePriceOverride(index, value) {
+    const line = manualOrderLines[index];
+    if (!line) return;
+    const trimmed = String(value ?? '').trim();
+    if (!trimmed) {
+        line.priceOverride = null;
+    } else {
+        line.priceOverride = Math.max(0, Number(trimmed) || 0);
+        line.lineDiscount = 0;
+    }
+    renderManualOrderLines();
+    updateManualOrderTotals();
+};
 
 window.removeManualOrderLine = function removeManualOrderLine(index) {
     manualOrderLines.splice(index, 1);
@@ -258,15 +356,14 @@ function updateManualOrderTotals() {
     const preview = document.getElementById('manualOrderTotalsPreview');
     if (!preview) return;
 
-    const subtotal = manualOrderLines.reduce(
-        (sum, line) => sum + ((Number(line.price) || 0) * (Number(line.quantity) || 0)),
-        0
-    );
-    const discount = Math.max(0, Number(document.getElementById('manualDiscountAmount')?.value) || 0);
+    const { effectiveSubtotal, itemDiscountTotal } = computePosSubtotals();
+    const orderDiscount = computeOrderDiscountAmount(effectiveSubtotal);
     const shipping = Math.max(0, Number(document.getElementById('manualShippingFee')?.value) || 0);
-    const grandTotal = Math.max(0, subtotal - discount + shipping);
+    const grandTotal = Math.max(0, effectiveSubtotal - orderDiscount + shipping);
 
-    preview.innerHTML = `Subtotal: ${formatManualMoney(subtotal)} · Discount: ${formatManualMoney(discount)} · Shipping: ${formatManualMoney(shipping)} · <strong>Grand Total: ${formatManualMoney(grandTotal)}</strong>`;
+    preview.innerHTML = `Subtotal: ${formatManualMoney(effectiveSubtotal)} · Item discounts: ${formatManualMoney(itemDiscountTotal)} · Order discount: ${formatManualMoney(orderDiscount)} · Shipping: ${formatManualMoney(shipping)} · <strong>Grand Total: ${formatManualMoney(grandTotal)}</strong>`;
+
+    updatePosPaymentUI(grandTotal);
 }
 
 /**
@@ -774,6 +871,237 @@ window.posQuickAdd = function posQuickAdd(productId) {
     showToast(result.message, result.level || (result.ok ? 'success' : 'warning'));
 };
 
+/* ==========================================================================
+   POS · CUSTOMER PHONE LOOKUP & QUICK ADD
+   ========================================================================== */
+
+function hidePosCustomerLookupUi() {
+    const status = document.getElementById('posCustomerLookupStatus');
+    const badge = document.getElementById('posCustomerOrdersBadge');
+    if (status) { status.hidden = true; status.textContent = ''; }
+    if (badge) { badge.hidden = true; badge.textContent = ''; }
+}
+
+function showPosCustomerLookupStatus(message, level = 'info') {
+    const status = document.getElementById('posCustomerLookupStatus');
+    if (!status) return;
+    status.textContent = message;
+    status.dataset.level = level;
+    status.hidden = !message;
+}
+
+function fillPosCustomerFromRecord(customer) {
+    if (!customer) return;
+    const nameEl = document.getElementById('manualCustomerName');
+    const addrEl = document.getElementById('manualCustomerAddress');
+    const badge = document.getElementById('posCustomerOrdersBadge');
+
+    if (nameEl) nameEl.value = customer.name || [customer.firstName, customer.lastName].filter(Boolean).join(' ').trim();
+    const address = customer.fullAddress
+        || customer.address
+        || (Array.isArray(customer.addresses) && customer.addresses[0]?.fullAddress)
+        || '';
+    if (addrEl && address) addrEl.value = address;
+
+    posLinkedCustomerId = customer._id || customer.id || null;
+
+    const orderCount = Number(customer.orderCount) || 0;
+    if (badge) {
+        badge.textContent = `${orderCount} previous order${orderCount !== 1 ? 's' : ''}`;
+        badge.hidden = false;
+    }
+    showPosCustomerLookupStatus('Customer found — details auto-filled.', 'success');
+    hidePosQuickAddCustomer();
+}
+
+async function lookupPosCustomerByPhone(phone) {
+    const trimmed = String(phone || '').trim();
+    if (trimmed.length < 6) {
+        hidePosCustomerLookupUi();
+        hidePosQuickAddCustomer();
+        posLinkedCustomerId = null;
+        return;
+    }
+
+    showPosCustomerLookupStatus('Looking up customer…', 'info');
+
+    try {
+        const res = await fetch(`/api/admin/customers?search=${encodeURIComponent(trimmed)}&limit=5`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const customers = data.customers || data.data || [];
+        const normalized = trimmed.replace(/\D/g, '');
+        const match = customers.find((c) => {
+            const mobile = String(c.mobile || c.phone || '').replace(/\D/g, '');
+            return mobile === normalized || mobile.endsWith(normalized) || normalized.endsWith(mobile);
+        });
+
+        if (match) {
+            fillPosCustomerFromRecord(match);
+            return;
+        }
+
+        posLinkedCustomerId = null;
+        const badge = document.getElementById('posCustomerOrdersBadge');
+        if (badge) badge.hidden = true;
+        showPosCustomerLookupStatus('No customer found for this phone.', 'warning');
+        showPosQuickAddCustomer(trimmed);
+    } catch (err) {
+        console.error('POS customer lookup failed:', err);
+        showPosCustomerLookupStatus('Customer lookup failed.', 'error');
+    }
+}
+
+function initPosCustomerLookup() {
+    const phoneInput = document.getElementById('manualCustomerPhone');
+    if (!phoneInput || phoneInput.dataset.posLookupBound === '1') return;
+    phoneInput.dataset.posLookupBound = '1';
+
+    phoneInput.addEventListener('input', () => {
+        clearTimeout(posCustomerLookupTimer);
+        const value = phoneInput.value.trim();
+        posCustomerLookupTimer = setTimeout(() => lookupPosCustomerByPhone(value), 400);
+    });
+}
+
+function showPosQuickAddCustomer(phone = '') {
+    const panel = document.getElementById('posQuickAddCustomerPanel');
+    if (!panel) return;
+    panel.hidden = false;
+    const phoneEl = document.getElementById('posQuickAddPhone');
+    if (phoneEl) phoneEl.value = phone || document.getElementById('manualCustomerPhone')?.value || '';
+    const nameEl = document.getElementById('posQuickAddName');
+    if (nameEl && !nameEl.value) nameEl.value = document.getElementById('manualCustomerName')?.value || '';
+    const addrEl = document.getElementById('posQuickAddAddress');
+    if (addrEl && !addrEl.value) addrEl.value = document.getElementById('manualCustomerAddress')?.value || '';
+}
+
+window.hidePosQuickAddCustomer = function hidePosQuickAddCustomer() {
+    const panel = document.getElementById('posQuickAddCustomerPanel');
+    if (panel) panel.hidden = true;
+};
+
+window.savePosQuickAddCustomer = async function savePosQuickAddCustomer() {
+    const name = document.getElementById('posQuickAddName')?.value?.trim();
+    const phone = document.getElementById('posQuickAddPhone')?.value?.trim();
+    const address = document.getElementById('posQuickAddAddress')?.value?.trim();
+
+    if (!name || !phone || !address) {
+        return showToast('Name, phone, and address are required.', 'warning');
+    }
+
+    const saveBtn = document.getElementById('posQuickAddSaveBtn');
+    const restore = setButtonLoading(saveBtn, 'Saving…');
+
+    try {
+        const res = await fetch('/api/admin/customers/quick', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ name, phone, address })
+        });
+        const result = await res.json();
+
+        if (!result.success) {
+            return showToast(result.message || 'Could not create customer.', 'error');
+        }
+
+        fillPosCustomerFromRecord(result.data || result.customer);
+        document.getElementById('manualCustomerPhone').value = phone;
+        document.getElementById('manualCustomerName').value = name;
+        document.getElementById('manualCustomerAddress').value = address;
+        hidePosQuickAddCustomer();
+        showToast('Customer created and linked to this order.', 'success');
+    } catch (err) {
+        console.error('POS quick add customer error:', err);
+        showToast('Could not reach the server.', 'error');
+    } finally {
+        restore();
+    }
+};
+
+/* ==========================================================================
+   POS · PAYMENT TYPE / SPLIT / CHANGE
+   ========================================================================== */
+
+function buildPosPaymentDetails(grandTotal) {
+    const paymentType = document.getElementById('posPaymentType')?.value || 'Cash';
+    const total = Number(grandTotal) || 0;
+    const details = { type: paymentType, grandTotal: total };
+
+    if (paymentType === 'Split') {
+        details.cashAmount = Math.max(0, Number(document.getElementById('posSplitCashAmount')?.value) || 0);
+        details.digitalAmount = Math.max(0, Number(document.getElementById('posSplitDigitalAmount')?.value) || 0);
+        details.totalPaid = details.cashAmount + details.digitalAmount;
+    } else if (paymentType === 'Cash') {
+        details.tendered = Math.max(0, Number(document.getElementById('posCashTendered')?.value) || 0);
+        details.change = Math.max(0, details.tendered - total);
+    }
+
+    return details;
+}
+
+function formatPosPaymentNote(details) {
+    if (!details) return '';
+    const parts = [`Payment: ${details.type}`];
+
+    if (details.type === 'Split') {
+        parts.push(`Cash ${formatManualMoney(details.cashAmount || 0)} + Digital ${formatManualMoney(details.digitalAmount || 0)}`);
+        if (details.totalPaid !== details.grandTotal) {
+            parts.push(`Paid ${formatManualMoney(details.totalPaid)} / Due ${formatManualMoney(details.grandTotal)}`);
+        }
+    } else if (details.type === 'Cash' && details.tendered > 0) {
+        parts.push(`Tendered ${formatManualMoney(details.tendered)}`);
+        if (details.change > 0) parts.push(`Change ${formatManualMoney(details.change)}`);
+    }
+
+    return `[${parts.join(' · ')}]`;
+}
+
+window.updatePosPaymentUI = function updatePosPaymentUI(grandTotalOverride) {
+    const paymentType = document.getElementById('posPaymentType')?.value || 'Cash';
+    const splitFields = document.getElementById('posSplitPaymentFields');
+    const cashWrap = document.getElementById('posCashTenderedWrap');
+    const changeWrap = document.getElementById('posChangeAmountWrap');
+    const changeEl = document.getElementById('posChangeAmount');
+
+    if (splitFields) splitFields.hidden = paymentType !== 'Split';
+    if (cashWrap) cashWrap.hidden = paymentType !== 'Cash';
+
+    const { effectiveSubtotal } = computePosSubtotals();
+    const orderDiscount = computeOrderDiscountAmount(effectiveSubtotal);
+    const shipping = Math.max(0, Number(document.getElementById('manualShippingFee')?.value) || 0);
+    const grandTotal = Number.isFinite(grandTotalOverride)
+        ? grandTotalOverride
+        : Math.max(0, effectiveSubtotal - orderDiscount + shipping);
+
+    const details = buildPosPaymentDetails(grandTotal);
+    const showChange = paymentType === 'Cash' || paymentType === 'Split';
+
+    if (changeWrap && changeEl) {
+        if (showChange && paymentType === 'Cash' && details.tendered > 0) {
+            changeWrap.hidden = false;
+            changeEl.textContent = details.change > 0
+                ? `Change due: ${formatManualMoney(details.change)}`
+                : 'Exact amount — no change';
+            changeEl.dataset.level = details.change > 0 ? 'success' : 'info';
+        } else if (showChange && paymentType === 'Split') {
+            const diff = (details.totalPaid || 0) - grandTotal;
+            changeWrap.hidden = false;
+            changeEl.textContent = diff >= 0
+                ? `Split total: ${formatManualMoney(details.totalPaid)} (${diff > 0 ? `over by ${formatManualMoney(diff)}` : 'balanced'})`
+                : `Split total ${formatManualMoney(details.totalPaid || 0)} — ${formatManualMoney(Math.abs(diff))} remaining`;
+            changeEl.dataset.level = diff >= 0 ? 'success' : 'warning';
+        } else {
+            changeWrap.hidden = true;
+            changeEl.textContent = '';
+        }
+    }
+};
+
 async function submitManualOrder(event) {
     event.preventDefault();
 
@@ -781,15 +1109,41 @@ async function submitManualOrder(event) {
         return showToast('Add at least one product line.', 'warning');
     }
 
+    const { effectiveSubtotal } = computePosSubtotals();
+    const orderDiscount = computeOrderDiscountAmount(effectiveSubtotal);
+    const shipping = Math.max(0, Number(document.getElementById('manualShippingFee')?.value) || 0);
+    const grandTotal = Math.max(0, effectiveSubtotal - orderDiscount + shipping);
+    const paymentType = document.getElementById('posPaymentType')?.value || 'Cash';
+    const isCod = paymentType === 'COD';
+    const posPaymentDetails = buildPosPaymentDetails(grandTotal);
+
+    if (paymentType === 'Split') {
+        const paid = (posPaymentDetails.cashAmount || 0) + (posPaymentDetails.digitalAmount || 0);
+        if (paid < grandTotal) {
+            return showToast(`Split payment total (${formatManualMoney(paid)}) is less than grand total (${formatManualMoney(grandTotal)}).`, 'warning');
+        }
+    }
+
+    const staffNote = document.getElementById('manualOrderNote')?.value?.trim() || '';
+    const paymentNote = formatPosPaymentNote(posPaymentDetails);
+    const combinedNote = [staffNote, paymentNote].filter(Boolean).join(' ');
+
+    const discountType = document.getElementById('manualDiscountType')?.value || 'flat';
+
     const payload = {
         customerName: document.getElementById('manualCustomerName')?.value?.trim(),
         customerPhone: document.getElementById('manualCustomerPhone')?.value?.trim(),
         customerAddress: document.getElementById('manualCustomerAddress')?.value?.trim(),
+        customerUserId: posLinkedCustomerId || undefined,
         deliveryArea: document.getElementById('manualDeliveryArea')?.value || 'inside',
-        paymentStatus: document.getElementById('manualPaymentStatus')?.value || 'COD',
-        manualDiscount: document.getElementById('manualDiscountAmount')?.value || 0,
-        shippingFee: document.getElementById('manualShippingFee')?.value || 0,
-        note: document.getElementById('manualOrderNote')?.value?.trim() || '',
+        paymentStatus: isCod ? 'COD' : 'Paid',
+        paymentType,
+        posPaymentDetails,
+        manualDiscount: orderDiscount,
+        manualDiscountType: discountType,
+        manualDiscountPercent: document.getElementById('manualDiscountPercent')?.value || 0,
+        shippingFee: shipping,
+        note: combinedNote,
         items: manualOrderLines.map((line) => ({
             productId: line.productId,
             id: line.productId,
@@ -798,7 +1152,11 @@ async function submitManualOrder(event) {
             variantId: line.variantId || '',
             variantAttribute: line.variantAttribute || '',
             variantValue: line.variantValue || '',
-            variantLabel: line.variantLabel || ''
+            variantLabel: line.variantLabel || '',
+            lineDiscount: Number(line.lineDiscount) || 0,
+            priceOverride: line.priceOverride !== null && line.priceOverride !== undefined && line.priceOverride !== ''
+                ? Number(line.priceOverride)
+                : undefined
         }))
     };
 
@@ -861,18 +1219,28 @@ function getPosStoreLogo() {
 
 /** Build a plain snapshot of the just-created order for the receipt. */
 function buildPosInvoiceSnapshot(payload, resultData) {
-    const items = manualOrderLines.map((line) => ({
-        name: line.name || 'Product',
-        variantLabel: line.variantLabel || '',
-        price: Number(line.price) || 0,
-        quantity: Number(line.quantity) || 0,
-        lineTotal: (Number(line.price) || 0) * (Number(line.quantity) || 0)
-    }));
+    const items = manualOrderLines.map((line) => {
+        const unitPrice = getLineEffectivePrice(line);
+        return {
+            name: line.name || 'Product',
+            variantLabel: line.variantLabel || '',
+            catalogPrice: Number(line.price) || 0,
+            unitPrice,
+            lineDiscount: Number(line.lineDiscount) || 0,
+            priceOverride: line.priceOverride,
+            quantity: Number(line.quantity) || 0,
+            lineTotal: unitPrice * (Number(line.quantity) || 0)
+        };
+    });
 
     const subtotal = items.reduce((sum, it) => sum + it.lineTotal, 0);
-    const discount = Math.max(0, Number(payload.manualDiscount) || 0);
+    const itemDiscountTotal = items.reduce((sum, it) => {
+        const catalogLine = (Number(it.catalogPrice) || 0) * (Number(it.quantity) || 0);
+        return sum + Math.max(0, catalogLine - it.lineTotal);
+    }, 0);
+    const orderDiscount = Math.max(0, Number(payload.manualDiscount) || 0);
     const shipping = Math.max(0, Number(payload.shippingFee) || 0);
-    const grandTotal = Math.max(0, subtotal - discount + shipping);
+    const grandTotal = Math.max(0, subtotal - orderDiscount + shipping);
 
     return {
         orderId: resultData?.orderId || '',
@@ -881,9 +1249,14 @@ function buildPosInvoiceSnapshot(payload, resultData) {
         customerName: payload.customerName || 'Walk-in Customer',
         customerPhone: payload.customerPhone || '',
         paymentStatus: payload.paymentStatus || 'COD',
+        paymentType: payload.paymentType || payload.paymentStatus || 'COD',
+        posPaymentDetails: payload.posPaymentDetails || null,
+        paymentNote: formatPosPaymentNote(payload.posPaymentDetails),
         items,
         subtotal,
-        discount,
+        itemDiscountTotal,
+        orderDiscount,
+        discount: orderDiscount,
         shipping,
         grandTotal
     };
@@ -903,13 +1276,26 @@ function renderPosInvoice(data) {
         day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
     });
 
-    const rows = data.items.map((it) => `
+    const rows = data.items.map((it) => {
+        const unit = it.unitPrice ?? it.price ?? 0;
+        const discHint = (Number(it.lineDiscount) || 0) > 0
+            ? `<br><small>Disc. -${formatManualMoney(it.lineDiscount)}</small>`
+            : (it.priceOverride !== null && it.priceOverride !== undefined && it.priceOverride !== ''
+                ? '<br><small>Custom price</small>'
+                : '');
+        return `
         <tr>
-            <td>${escHtml(it.name)}${it.variantLabel ? `<br><small>${escHtml(it.variantLabel)}</small>` : ''}</td>
+            <td>${escHtml(it.name)}${it.variantLabel ? `<br><small>${escHtml(it.variantLabel)}</small>` : ''}${discHint}</td>
             <td class="pos-inv-num">${it.quantity}</td>
-            <td class="pos-inv-num">${formatManualMoney(it.price)}</td>
+            <td class="pos-inv-num">${formatManualMoney(unit)}</td>
             <td class="pos-inv-num">${formatManualMoney(it.lineTotal)}</td>
-        </tr>`).join('');
+        </tr>`;
+    }).join('');
+
+    const paymentLabel = data.paymentType || data.paymentStatus || '—';
+    const paymentSummary = data.paymentNote
+        ? `<p><strong>Payment details:</strong> ${escHtml(data.paymentNote.replace(/^\[|\]$/g, ''))}</p>`
+        : '';
 
     printable.innerHTML = `
         <div class="pos-invoice-head">
@@ -923,7 +1309,8 @@ function renderPosInvoice(data) {
         <div class="pos-invoice-customer">
             <p><strong>Billed to:</strong> ${escHtml(data.customerName)}</p>
             ${data.customerPhone ? `<p><strong>Phone:</strong> ${escHtml(data.customerPhone)}</p>` : ''}
-            <p><strong>Payment:</strong> ${escHtml(data.paymentStatus)}</p>
+            <p><strong>Payment:</strong> ${escHtml(paymentLabel)} (${escHtml(data.paymentStatus || '')})</p>
+            ${paymentSummary}
         </div>
         <table class="pos-invoice-table">
             <thead>
@@ -938,7 +1325,8 @@ function renderPosInvoice(data) {
         </table>
         <div class="pos-invoice-totals">
             <div><span>Subtotal</span><span>${formatManualMoney(data.subtotal)}</span></div>
-            <div><span>Discount</span><span>- ${formatManualMoney(data.discount)}</span></div>
+            ${(data.itemDiscountTotal || 0) > 0 ? `<div><span>Item discounts</span><span>- ${formatManualMoney(data.itemDiscountTotal)}</span></div>` : ''}
+            <div><span>Order discount</span><span>- ${formatManualMoney(data.orderDiscount ?? data.discount ?? 0)}</span></div>
             <div><span>Shipping</span><span>${formatManualMoney(data.shipping)}</span></div>
             <div class="pos-invoice-grand"><span>Grand Total</span><span>${formatManualMoney(data.grandTotal)}</span></div>
         </div>
@@ -1038,6 +1426,7 @@ function setupManualOrderEngine() {
     }
 
     initBarcodeSearch();
+    initPosCustomerLookup();
 
     const searchInput = document.getElementById('manualProductSearch');
     if (searchInput) {
@@ -1057,10 +1446,16 @@ function setupManualOrderEngine() {
     const addBtn = document.getElementById('manualAddLineBtn');
     if (addBtn) addBtn.addEventListener('click', addManualOrderLine);
 
-    ['manualDiscountAmount', 'manualShippingFee'].forEach((id) => {
+    ['manualDiscountAmount', 'manualDiscountPercent', 'manualShippingFee'].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('input', updateManualOrderTotals);
     });
+
+    const discountTypeEl = document.getElementById('manualDiscountType');
+    if (discountTypeEl) discountTypeEl.addEventListener('change', togglePosOrderDiscountFields);
+
+    const paymentTypeEl = document.getElementById('posPaymentType');
+    if (paymentTypeEl) paymentTypeEl.addEventListener('change', () => updatePosPaymentUI());
 
     const form = document.getElementById('manualOrderForm');
     if (form) form.addEventListener('submit', submitManualOrder);
@@ -1071,6 +1466,8 @@ Object.assign(window, {
     addManualOrderLine,
     addProductFromBarcode,
     addProductToCart,
+    applyPosLineDiscount,
+    applyPosLinePriceOverride,
     buildManualLinePayload,
     downloadPOSInvoice,
     findProductByCode,
@@ -1078,20 +1475,25 @@ Object.assign(window, {
     getManualOrderProductId,
     getSelectedManualProduct,
     handleBarcodeScan,
+    hidePosQuickAddCustomer,
     initBarcodeSearch,
     loadManualOrderCatalog,
     loadPosQuickGrid,
+    openPOSModal,
     populateManualProductSelect,
     populateManualVariantSelect,
     printPOSInvoice,
     renderManualOrderLines,
     renderPosQuickGrid,
     resetManualOrderForm,
+    savePosQuickAddCustomer,
     searchProductByBarcode,
     setupManualOrderEngine,
     showPOSInvoiceModal,
     submitManualOrder,
+    togglePosOrderDiscountFields,
     updateManualOrderTotals,
-    updateManualVariantStockHint
+    updateManualVariantStockHint,
+    updatePosPaymentUI
 });
 

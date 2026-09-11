@@ -10,7 +10,10 @@
  */
 
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const User = require('../../models/user');
+const { normalizeMobile, BD_MOBILE_RE } = require('../auth/authHelpers');
 const Order = require('../../models/order');
 const UserSession = require('../../models/userSession');
 const Setting = require('../../models/Setting');
@@ -136,7 +139,22 @@ const getAllCustomers = async (req, res) => {
         const tierFilter = String(req.query.tier || '').trim().toLowerCase();
         const validTiers = ['none', 'silver', 'gold', 'platinum'];
 
+        const search = String(req.query.search || '').trim();
         const listFilter = {};
+        if (search) {
+            const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const phoneDigits = search.replace(/\D/g, '');
+            const orClauses = [
+                { email: { $regex: escaped, $options: 'i' } },
+                { firstName: { $regex: escaped, $options: 'i' } },
+                { lastName: { $regex: escaped, $options: 'i' } },
+                { mobile: { $regex: escaped, $options: 'i' } }
+            ];
+            if (phoneDigits.length >= 6) {
+                orClauses.push({ mobile: { $regex: phoneDigits, $options: 'i' } });
+            }
+            listFilter.$or = orClauses;
+        }
         if (tierFilter && validTiers.includes(tierFilter)) {
             listFilter.loyaltyTier = tierFilter;
         }
@@ -568,6 +586,99 @@ const deleteCustomer = async (req, res) => {
 // ==============================================================
 // ৮. কাস্টমারের অর্ডার হিস্ট্রি (অ্যাডমিন)
 // ==============================================================
+/**
+ * POS quick-add — minimal customer record (name, phone, address) without leaving counter.
+ * POST /api/admin/customers/quick
+ */
+const createQuickCustomer = async (req, res) => {
+    try {
+        const name = String(req.body.name || '').trim();
+        const phone = normalizeMobile(req.body.phone || req.body.mobile || '');
+        const address = String(req.body.address || req.body.fullAddress || '').trim();
+
+        if (!name || !phone || !address) {
+            return res.status(400).json({
+                success: false,
+                message: 'Name, phone, and address are required.'
+            });
+        }
+
+        if (!BD_MOBILE_RE.test(phone)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please enter a valid Bangladesh mobile number (01XXXXXXXXX).'
+            });
+        }
+
+        const existing = await User.findOne({ mobile: phone }).select('-password').lean();
+        if (existing) {
+            const [orderCount] = await Promise.all([
+                Order.countDocuments({ user: existing._id })
+            ]);
+            return res.status(200).json({
+                success: true,
+                message: 'Customer already exists — linked to POS.',
+                data: {
+                    ...existing,
+                    name: hydrateCustomerName(existing),
+                    orderCount
+                }
+            });
+        }
+
+        const parts = name.split(/\s+/).filter(Boolean);
+        const firstName = parts[0] || name;
+        const lastName = parts.length > 1 ? parts.slice(1).join(' ') : name;
+        const email = `pos+${phone}@walkin.eonlinebazar.local`;
+        const passwordHash = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10);
+
+        const user = await User.create({
+            firstName,
+            lastName,
+            email,
+            mobile: phone,
+            password: passwordHash,
+            isVerified: true,
+            accountStatus: 'active',
+            addresses: [{
+                label: 'Default',
+                fullAddress: address,
+                phone,
+                isDefault: true
+            }]
+        });
+
+        const created = user.toObject();
+        delete created.password;
+
+        await logSecurityEvent({
+            action: 'POS Quick Customer Created',
+            actor: req.admin?.username || 'admin',
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `${hydrateCustomerName(created)} · ${phone}`,
+            resourceType: 'customer',
+            resourceId: String(user._id)
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'Customer created successfully.',
+            data: {
+                ...created,
+                name: hydrateCustomerName(created),
+                orderCount: 0
+            }
+        });
+    } catch (error) {
+        console.error('Create quick customer error:', error);
+        if (error.code === 11000) {
+            return res.status(409).json({ success: false, message: 'A customer with this phone or email already exists.' });
+        }
+        res.status(500).json({ success: false, message: 'Failed to create customer.' });
+    }
+};
+
 const getCustomerOrders = async (req, res) => {
     try {
         const customer = await User.findById(req.params.id).select('firstName lastName email mobile');
@@ -595,6 +706,7 @@ const getCustomerOrders = async (req, res) => {
 
 module.exports = {
     getAllCustomers,
+    createQuickCustomer,
     getCustomerById,
     updateCustomer,
     updateCustomerAvatar,

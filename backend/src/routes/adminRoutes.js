@@ -154,6 +154,9 @@ router.put('/me/avatar', verifyAdmin, async (req, res) => {
 // ১. কাস্টমারদের ডাটা পাওয়ার রাস্তা (GET)
 router.get('/customers', verifyAdmin, checkPermission('manage_customers'), adminController.getAllCustomers);
 
+// POS quick-add customer (must be before /customers/:id)
+router.post('/customers/quick', verifyAdmin, checkPermission('manage_customers'), adminController.createQuickCustomer);
+
 // Enterprise ERP + CRM + HRM summary widgets (GET)
 router.get('/enterprise-summary', verifyAdmin, checkPermission('view_analytics'), enterpriseSummaryController.getEnterpriseSummary);
 
