@@ -229,6 +229,21 @@ client/css/admin/_finance.css [DONE] P&L chart canvas + wide trend card styles
 backend/src/routes/adminRoutes.js [DONE] GET /finance/profit-loss + /export-pdf + /export-csv (verifyAdmin + requireSuperAdmin)
 # ERP Upgrade complete (Parts 1–4): POS · Courier sync · Expense tracking · Advanced P&L
 #
+# POS full-page view — 2026-09-11
+client/admin/partials/view-pos.html [NEW] full-page POS — left: barcode, category chips, product grid; right: customer, cart, discounts, split payment, checkout
+client/admin/partials/orders-pos.html [DONE] invoice receipt modal only; manual order form moved to view-pos
+client/admin/partials/sidebar.html [DONE] POS System → data-target view-pos (dedicated page nav)
+client/js/admin/modules/orders-pos.js [DONE] initPosSection, overlay fallback from Orders, category filters, #pos hash route
+client/js/admin/modules/core-nav.js [DONE] refreshMap view-pos → initPosSection
+client/js/admin/modules/core-state.js [DONE] ADMIN_PAGE_META view-pos
+client/js/admin/modules/core-breadcrumb.js [DONE] view-pos breadcrumb
+client/css/admin/_pos.css [NEW] two-column POS page + overlay fallback styles
+client/css/admin.css [DONE] import _pos.css
+client/css/admin/_layout.css [DONE] sidebar-pos-nav highlight (alias sidebar-pos-launch)
+client/css/admin/_responsive.css [DONE] POS page stack on mobile
+backend/src/utils/adminPageBuilder.js [DONE] registers view-pos partial
+backend/src/config/permissions.js [DONE] view-pos → manage_orders
+#
 # Refactoring complete — all listed files are [DONE]
 #
 # RULE: Every time you modify a file during refactoring,

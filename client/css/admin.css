@@ -9,6 +9,7 @@
 @import './admin/_modals.css';
 @import './admin/_products.css';
 @import './admin/_orders.css';
+@import './admin/_pos.css';
 @import './admin/_customers.css';
 @import './admin/_finance.css';
 @import './admin/_erp-expenses.css';

@@ -23,6 +23,7 @@ window.ADMIN_PAGE_META = {
     'view-overview':        { title: 'Dashboard Overview',      subtitle: 'Real-time monitoring engine for EonlineBazar platform.' },
     'view-customers':       { title: 'All Customers',           subtitle: 'Manage registered users, account status, and order history.' },
     'view-orders':          { title: 'Live Orders',             subtitle: 'Real-time monitoring engine for order processing.' },
+    'view-pos':             { title: 'POS System',              subtitle: 'Walk-in counter sales with barcode scan, split payment, and instant invoice.' },
     'view-add-product':     { title: 'Add New Product',         subtitle: 'Launch a new product with pricing, media, and inventory details.' },
     'view-manage-products': { title: 'Manage Products',         subtitle: 'Search, filter, export, and maintain your product catalog.' },
     'manage-category':      { title: 'Manage Categories',       subtitle: 'Organize products with dynamic category labels.' },

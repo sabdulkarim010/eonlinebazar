@@ -1,0 +1,249 @@
+<section id="view-pos" class="admin-section admin-section--pos" style="display: none;">
+    <div class="section-header-box pos-page-header">
+        <div>
+            <h3><i class="fa-solid fa-calculator"></i> POS System</h3>
+            <p class="section-subtitle">Walk-in counter sales with barcode scan, quick add, split payment, and instant invoice.</p>
+        </div>
+        <div class="pos-page-header-actions">
+            <button type="button" class="btn-secondary pos-overlay-close" id="posOverlayCloseBtn" onclick="closeManualOrderModal()" hidden aria-label="Close POS overlay">
+                <i class="fa-solid fa-xmark"></i> Close
+            </button>
+            <button type="button" class="btn-secondary" onclick="resetManualOrderForm()" title="Clear cart and customer fields">
+                <i class="fa-solid fa-rotate-left"></i> Reset
+            </button>
+        </div>
+    </div>
+
+    <form id="manualOrderForm" class="pos-page-form manual-order-form" novalidate>
+        <div class="pos-page-layout">
+            <!-- LEFT: Product discovery -->
+            <div class="pos-page-left">
+                <div class="pos-page-card">
+                    <div class="pos-barcode-search-wrap">
+                        <label for="manualBarcodeInput"><i class="fa-solid fa-barcode"></i> Scan or Search Product</label>
+                        <input
+                            type="search"
+                            id="manualBarcodeInput"
+                            class="pos-barcode-input-lg"
+                            placeholder="Scan barcode or type SKU / product name"
+                            autocomplete="off"
+                            inputmode="text"
+                            aria-autocomplete="list"
+                            aria-controls="posBarcodeDropdown"
+                            aria-expanded="false">
+                        <div id="posBarcodeDropdown" class="pos-barcode-dropdown" hidden role="listbox" aria-label="Product search results"></div>
+                    </div>
+                    <div class="pos-barcode-feedback" id="manualBarcodeFeedback" hidden></div>
+                </div>
+
+                <div class="pos-page-card">
+                    <div class="pos-category-filters-wrap">
+                        <div class="pos-category-filters-head">
+                            <p class="pos-category-filters-title"><i class="fa-solid fa-tags"></i> Quick Categories</p>
+                        </div>
+                        <div class="pos-category-filters" id="posCategoryFilters" role="tablist" aria-label="Product category filters">
+                            <button type="button" class="pos-category-chip is-active" data-category="" onclick="setPosCategoryFilter('')">All</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pos-page-card pos-page-card--grid">
+                    <div class="pos-quick-grid-wrap">
+                        <div class="pos-quick-grid-header">
+                            <p class="pos-quick-grid-title"><i class="fa-solid fa-bolt"></i> Product Grid</p>
+                            <button type="button" class="pos-quick-grid-refresh" id="posQuickGridRefreshBtn" onclick="loadPosQuickGrid()" title="Refresh product grid">
+                                <i class="fa-solid fa-rotate"></i> Refresh
+                            </button>
+                        </div>
+                        <div class="pos-quick-grid pos-quick-grid--page" id="manualQuickGrid">
+                            <p class="pos-quick-grid-empty">Loading products…</p>
+                        </div>
+                    </div>
+                </div>
+
+                <details class="pos-page-card pos-advanced-picker">
+                    <summary><i class="fa-solid fa-sliders"></i> Advanced product picker</summary>
+                    <div class="manual-order-picker-row">
+                        <div class="form-group manual-order-search-group">
+                            <label for="manualProductSearch">Search Product</label>
+                            <input type="search" id="manualProductSearch" placeholder="Type product name…" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="manualProductSelect">Product</label>
+                            <select id="manualProductSelect">
+                                <option value="">— Select product —</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="manualVariantSelect">Size / Color Variant</label>
+                            <select id="manualVariantSelect" disabled>
+                                <option value="">— Default (no variant) —</option>
+                            </select>
+                        </div>
+                        <div class="form-group manual-order-qty-group">
+                            <label for="manualItemQuantity">Qty</label>
+                            <input type="number" id="manualItemQuantity" min="1" value="1">
+                        </div>
+                        <div class="form-group manual-order-add-group">
+                            <label class="manual-order-hidden-label">&nbsp;</label>
+                            <button type="button" class="btn-secondary" id="manualAddLineBtn">
+                                <i class="fa-solid fa-plus"></i> Add Line
+                            </button>
+                        </div>
+                    </div>
+                    <p class="manual-order-stock-hint" id="manualVariantStockHint">Select a product to see price and stock.</p>
+                </details>
+            </div>
+
+            <!-- RIGHT: Customer + cart + checkout -->
+            <div class="pos-page-right">
+                <div class="pos-page-card pos-customer-section">
+                    <div class="pos-customer-section-head">
+                        <h4><i class="fa-solid fa-user"></i> Customer</h4>
+                        <span id="posCustomerOrdersBadge" class="pos-customer-orders-badge" hidden></span>
+                    </div>
+                    <div class="manual-order-grid">
+                        <div class="form-group">
+                            <label for="manualCustomerPhone">Phone Number <span class="pos-lookup-hint">(auto lookup)</span></label>
+                            <input type="tel" id="manualCustomerPhone" required placeholder="01XXXXXXXXX" autocomplete="off" inputmode="tel">
+                            <div id="posCustomerLookupStatus" class="pos-customer-lookup-status" hidden></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="manualCustomerName">Customer Name</label>
+                            <input type="text" id="manualCustomerName" required placeholder="Full name">
+                        </div>
+                        <div class="form-group form-group-full">
+                            <label for="manualCustomerAddress">Delivery Address</label>
+                            <textarea id="manualCustomerAddress" rows="2" required placeholder="House, road, area, city"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="manualDeliveryArea">Delivery Area</label>
+                            <select id="manualDeliveryArea">
+                                <option value="inside">Inside Dhaka</option>
+                                <option value="outside">Outside Dhaka</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="posQuickAddCustomerPanel" class="pos-quick-add-customer" hidden>
+                        <p class="pos-quick-add-title"><i class="fa-solid fa-user-plus"></i> Quick Add Customer</p>
+                        <p class="pos-quick-add-hint">No account found for this phone — create one without leaving POS.</p>
+                        <div class="pos-quick-add-grid">
+                            <div class="form-group">
+                                <label for="posQuickAddName">Name</label>
+                                <input type="text" id="posQuickAddName" placeholder="Customer name">
+                            </div>
+                            <div class="form-group">
+                                <label for="posQuickAddPhone">Phone</label>
+                                <input type="tel" id="posQuickAddPhone" placeholder="01XXXXXXXXX" readonly>
+                            </div>
+                            <div class="form-group form-group-full">
+                                <label for="posQuickAddAddress">Address</label>
+                                <textarea id="posQuickAddAddress" rows="2" placeholder="Delivery address"></textarea>
+                            </div>
+                        </div>
+                        <div class="pos-quick-add-actions">
+                            <button type="button" class="btn-secondary btn-sm" onclick="hidePosQuickAddCustomer()">Cancel</button>
+                            <button type="button" class="btn-primary btn-sm" id="posQuickAddSaveBtn" onclick="savePosQuickAddCustomer()">
+                                <i class="fa-solid fa-check"></i> Save Customer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pos-page-card pos-cart-card">
+                    <div class="pos-cart-head">
+                        <h4><i class="fa-solid fa-cart-shopping"></i> Active Cart</h4>
+                        <span class="pos-cart-count" id="posCartLineCount">0 items</span>
+                    </div>
+                    <div class="manual-order-lines-wrap">
+                        <table class="catalog-table manual-order-lines-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Variant</th>
+                                    <th>Unit</th>
+                                    <th>Disc. (৳)</th>
+                                    <th>Override</th>
+                                    <th>Qty</th>
+                                    <th>Total</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="manualOrderLinesBody">
+                                <tr class="manual-order-empty-row">
+                                    <td colspan="8">No items added yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="pos-page-card pos-checkout-card">
+                    <div class="manual-order-pricing-grid">
+                        <div class="form-group">
+                            <label for="manualDiscountType">Order Discount Type</label>
+                            <select id="manualDiscountType" onchange="togglePosOrderDiscountFields()">
+                                <option value="flat">Flat ৳</option>
+                                <option value="percent">Percentage %</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="manualDiscountFlatWrap">
+                            <label for="manualDiscountAmount">Order Discount (৳)</label>
+                            <input type="number" id="manualDiscountAmount" min="0" step="1" value="0">
+                        </div>
+                        <div class="form-group" id="manualDiscountPercentWrap" hidden>
+                            <label for="manualDiscountPercent">Order Discount (%)</label>
+                            <input type="number" id="manualDiscountPercent" min="0" max="100" step="0.5" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="manualShippingFee">Shipping Fee (৳)</label>
+                            <input type="number" id="manualShippingFee" min="0" step="1" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="posPaymentType">Payment Type</label>
+                            <select id="posPaymentType" onchange="updatePosPaymentUI()">
+                                <option value="Cash">Cash</option>
+                                <option value="bKash">bKash / Nagad</option>
+                                <option value="Card">Card</option>
+                                <option value="Split">Split Payment</option>
+                                <option value="COD">COD (Delivery)</option>
+                            </select>
+                        </div>
+                        <div class="form-group form-group-full pos-split-payment-grid" id="posSplitPaymentFields" hidden>
+                            <div class="form-group">
+                                <label for="posSplitCashAmount">Cash Amount (৳)</label>
+                                <input type="number" id="posSplitCashAmount" min="0" step="1" value="0" oninput="updatePosPaymentUI()">
+                            </div>
+                            <div class="form-group">
+                                <label for="posSplitDigitalAmount">Digital / bKash (৳)</label>
+                                <input type="number" id="posSplitDigitalAmount" min="0" step="1" value="0" oninput="updatePosPaymentUI()">
+                            </div>
+                        </div>
+                        <div class="form-group" id="posCashTenderedWrap" hidden>
+                            <label for="posCashTendered">Cash Tendered (৳)</label>
+                            <input type="number" id="posCashTendered" min="0" step="1" value="0" oninput="updatePosPaymentUI()">
+                        </div>
+                        <div class="form-group form-group-full" id="posChangeAmountWrap" hidden>
+                            <div id="posChangeAmount" class="pos-change-amount"></div>
+                        </div>
+                        <div class="form-group form-group-full">
+                            <label for="manualOrderNote">Internal Note (optional)</label>
+                            <input type="text" id="manualOrderNote" placeholder="Counter note, phone order ref, etc.">
+                        </div>
+                    </div>
+
+                    <div class="manual-order-totals" id="manualOrderTotalsPreview">
+                        Subtotal: ৳0 · Item discounts: ৳0 · Order discount: ৳0 · Shipping: ৳0 · <strong>Grand Total: ৳0</strong>
+                    </div>
+
+                    <div class="pos-checkout-actions">
+                        <button type="submit" class="btn-primary pos-checkout-btn" id="manualOrderSubmitBtn">
+                            <i class="fa-solid fa-print"></i> Checkout &amp; Print Invoice
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</section>

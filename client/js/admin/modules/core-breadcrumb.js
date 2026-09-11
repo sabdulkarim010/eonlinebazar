@@ -10,6 +10,7 @@ const BREADCRUMB_MAP = {
     'view-manage-products': { group: 'ERP', label: 'Inventory Management' },
     'view-add-product': { group: 'ERP', label: 'Add Product' },
     'view-orders': { group: 'ERP', label: 'Orders & Fulfillment' },
+    'view-pos': { group: 'ERP', label: 'POS System' },
     'view-purchase-orders': { group: 'ERP', label: 'Purchase Orders' },
     'view-suppliers': { group: 'ERP', label: 'Suppliers' },
     'view-warehouses': { group: 'ERP', label: 'Warehouses' },

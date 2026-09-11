@@ -16,6 +16,7 @@ const VIEW_PARTIALS = [
     'view-overview',
     'view-customers',
     'view-orders',
+    'view-pos',
     'view-catalog',
     'view-products',
     'view-security',

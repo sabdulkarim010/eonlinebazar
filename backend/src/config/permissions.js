@@ -112,6 +112,7 @@ const SECTION_PERMISSIONS = Object.freeze({
     'view-overview': 'view_analytics',
     'view-customers': 'manage_customers',
     'view-orders': 'manage_orders',
+    'view-pos': 'manage_orders',
     'view-add-product': 'manage_inventory',
     'view-manage-products': 'manage_inventory',
     'manage-category': 'manage_catalog',

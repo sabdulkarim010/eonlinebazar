@@ -4,7 +4,7 @@
  * Description: Manual POS / walk-in / phone order entry.
  */
 /* Dependencies: token, manualOrderCatalog, manualOrderLines, showToast, showAdminSuccess, fetchLiveOrders (window) */
-/* Exposes: window.addManualOrderLine, window.addProductFromBarcode, window.applyPosLineDiscount, window.applyPosLinePriceOverride, window.buildManualLinePayload, window.closeManualOrderModal, window.downloadPOSInvoice, window.formatManualMoney, window.getManualOrderProductId, window.getSelectedManualProduct, window.hidePosQuickAddCustomer, window.initBarcodeSearch, window.loadManualOrderCatalog, window.loadPosQuickGrid, window.openManualOrderModal, window.openPOSModal, window.populateManualProductSelect, window.populateManualVariantSelect, window.posQuickAdd, window.printPOSInvoice, window.removeManualOrderLine, window.renderManualOrderLines, window.resetManualOrderForm, window.savePosQuickAddCustomer, window.searchProductByBarcode, window.setupManualOrderEngine, window.showPOSInvoiceModal, window.submitManualOrder, window.togglePosOrderDiscountFields, window.updateManualOrderTotals, window.updateManualVariantStockHint, window.updatePosPaymentUI */
+/* Exposes: window.addManualOrderLine, window.addProductFromBarcode, window.applyPosLineDiscount, window.applyPosLinePriceOverride, window.buildManualLinePayload, window.closeManualOrderModal, window.downloadPOSInvoice, window.formatManualMoney, window.getManualOrderProductId, window.getSelectedManualProduct, window.hidePosQuickAddCustomer, window.initBarcodeSearch, window.initPosSection, window.loadManualOrderCatalog, window.loadPosCategoryFilters, window.loadPosQuickGrid, window.openManualOrderModal, window.openPOSModal, window.populateManualProductSelect, window.populateManualVariantSelect, window.posQuickAdd, window.printPOSInvoice, window.removeManualOrderLine, window.renderManualOrderLines, window.resetManualOrderForm, window.savePosQuickAddCustomer, window.searchProductByBarcode, window.setPosCategoryFilter, window.setupManualOrderEngine, window.showPOSInvoiceModal, window.submitManualOrder, window.togglePosOrderDiscountFields, window.updateManualOrderTotals, window.updateManualVariantStockHint, window.updatePosPaymentUI */
 
 import '../admin-core.js';
 
@@ -25,6 +25,8 @@ const COURIER_BLOCKED_STATUSES = window.COURIER_BLOCKED_STATUSES;
 
 let posLinkedCustomerId = null;
 let posCustomerLookupTimer = null;
+let posActiveCategory = '';
+let posCategoryOptions = [];
 
 function getManualOrderProductId(product) {
     return String(product?._id || product?.productId || product?.id || '');
@@ -112,28 +114,79 @@ function togglePosOrderDiscountFields() {
 
 window.togglePosOrderDiscountFields = togglePosOrderDiscountFields;
 
-window.openPOSModal = window.openManualOrderModal = async function openManualOrderModal() {
-    const modal = document.getElementById('manualOrderModal');
-    if (!modal) return;
+function setPosOverlayMode(active) {
+    const posSection = document.getElementById('view-pos');
+    const closeBtn = document.getElementById('posOverlayCloseBtn');
+    if (posSection) posSection.classList.toggle('pos-overlay-active', active);
+    if (closeBtn) closeBtn.hidden = !active;
+}
 
-    resetManualOrderForm();
-    modal.style.display = 'flex';
+function isPosOverlayActive() {
+    return document.getElementById('view-pos')?.classList.contains('pos-overlay-active') || false;
+}
 
+function updatePosCartLineCount() {
+    const badge = document.getElementById('posCartLineCount');
+    if (!badge) return;
+    const count = manualOrderLines.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0);
+    badge.textContent = `${count} item${count === 1 ? '' : 's'}`;
+}
+
+async function initPosSession() {
     if (manualOrderCatalog.length === 0) {
         await loadManualOrderCatalog();
     } else {
         populateManualProductSelect('');
     }
 
+    await loadPosCategoryFilters();
     loadPosQuickGrid();
 
     const barcodeInput = document.getElementById('manualBarcodeInput');
     if (barcodeInput) barcodeInput.focus();
+}
+
+window.initPosSection = async function initPosSection() {
+    setPosOverlayMode(false);
+    resetManualOrderForm();
+    await initPosSession();
+};
+
+/** Sidebar / hash route — open the dedicated POS page. */
+window.openPOSModal = async function openPOSModal() {
+    const nav = document.querySelector('[data-target="view-pos"]');
+    if (typeof navigateAdminSection === 'function') {
+        navigateAdminSection('view-pos', nav);
+        return;
+    }
+    await initPosSection();
+};
+
+/** Orders page fallback — overlay POS without leaving fulfillment view. */
+window.openManualOrderModal = async function openManualOrderModal() {
+    const posSection = document.getElementById('view-pos');
+    const ordersSection = document.getElementById('view-orders');
+    const onOrdersPage = ordersSection
+        && (ordersSection.classList.contains('active') || ordersSection.style.display === 'block');
+
+    resetManualOrderForm();
+
+    if (onOrdersPage && posSection) {
+        setPosOverlayMode(true);
+        posSection.style.display = 'block';
+        await initPosSession();
+        return;
+    }
+
+    await openPOSModal();
 };
 
 window.closeManualOrderModal = function closeManualOrderModal() {
-    const modal = document.getElementById('manualOrderModal');
-    if (modal) modal.style.display = 'none';
+    const posSection = document.getElementById('view-pos');
+    if (isPosOverlayActive() && posSection) {
+        setPosOverlayMode(false);
+        posSection.style.display = 'none';
+    }
 };
 
 async function loadManualOrderCatalog() {
@@ -298,6 +351,8 @@ function buildManualLinePayload(product, variantIndex, quantity) {
 function renderManualOrderLines() {
     const tbody = document.getElementById('manualOrderLinesBody');
     if (!tbody) return;
+
+    updatePosCartLineCount();
 
     if (!manualOrderLines.length) {
         tbody.innerHTML = '<tr class="manual-order-empty-row"><td colspan="8">No items added yet.</td></tr>';
@@ -776,6 +831,59 @@ async function handleBarcodeScan() {
 
 let posQuickGridProducts = [];
 
+function getPosFilteredQuickGridProducts() {
+    if (!posActiveCategory) return posQuickGridProducts;
+    const needle = String(posActiveCategory).trim().toLowerCase();
+    return posQuickGridProducts.filter((product) => {
+        const category = String(product.category || product.categoryName || '').trim().toLowerCase();
+        return category === needle;
+    });
+}
+
+async function loadPosCategoryFilters() {
+    const wrap = document.getElementById('posCategoryFilters');
+    if (!wrap) return;
+
+    try {
+        const res = await fetch('/api/categories/admin/all', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const rows = Array.isArray(data) ? data
+            : (Array.isArray(data?.categories) ? data.categories
+                : (Array.isArray(data?.data) ? data.data : []));
+        posCategoryOptions = rows
+            .map((row) => String(row.name || row.title || '').trim())
+            .filter(Boolean);
+    } catch (err) {
+        console.error('POS category filter load failed:', err);
+        posCategoryOptions = [...new Set(
+            posQuickGridProducts.map((p) => String(p.category || '').trim()).filter(Boolean)
+        )];
+    }
+
+    const chips = ['<button type="button" class="pos-category-chip is-active" data-category="">All</button>'];
+    posCategoryOptions.slice(0, 12).forEach((name) => {
+        const safe = escHtml(name);
+        chips.push(`<button type="button" class="pos-category-chip" data-category="${safe}">${safe}</button>`);
+    });
+    wrap.innerHTML = chips.join('');
+    wrap.querySelectorAll('.pos-category-chip').forEach((chip) => {
+        chip.addEventListener('click', () => setPosCategoryFilter(chip.getAttribute('data-category') || ''));
+    });
+}
+
+window.setPosCategoryFilter = function setPosCategoryFilter(category) {
+    posActiveCategory = String(category || '').trim();
+    document.querySelectorAll('#posCategoryFilters .pos-category-chip').forEach((chip) => {
+        const chipCat = chip.getAttribute('data-category') || '';
+        chip.classList.toggle('is-active', chipCat === posActiveCategory);
+    });
+    renderPosQuickGrid(getPosFilteredQuickGridProducts());
+};
+
+window.loadPosCategoryFilters = loadPosCategoryFilters;
+
 async function loadPosQuickGrid() {
     const grid = document.getElementById('manualQuickGrid');
     if (!grid) return;
@@ -783,14 +891,22 @@ async function loadPosQuickGrid() {
     grid.innerHTML = '<p class="pos-quick-grid-empty">Loading popular products…</p>';
 
     try {
-        const res = await fetch('/api/products?limit=20&sort=sales', {
+        const res = await fetch('/api/products?limit=40&sort=sales', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
         posQuickGridProducts = Array.isArray(data) ? data
             : (Array.isArray(data?.products) ? data.products
                 : (Array.isArray(data?.data) ? data.data : []));
-        renderPosQuickGrid(posQuickGridProducts);
+
+        if (!posCategoryOptions.length) {
+            posCategoryOptions = [...new Set(
+                posQuickGridProducts.map((p) => String(p.category || '').trim()).filter(Boolean)
+            )];
+            await loadPosCategoryFilters();
+        }
+
+        renderPosQuickGrid(getPosFilteredQuickGridProducts());
     } catch (err) {
         console.error('POS quick grid load failed:', err);
         grid.innerHTML = '<p class="pos-quick-grid-empty">Could not load popular products.</p>';
@@ -1180,7 +1296,11 @@ async function submitManualOrder(event) {
             // Snapshot everything the receipt needs before the form is reset.
             const invoiceSnapshot = buildPosInvoiceSnapshot(payload, result.data);
 
-            closeManualOrderModal();
+            if (isPosOverlayActive()) {
+                closeManualOrderModal();
+            } else {
+                resetManualOrderForm();
+            }
             fetchLiveOrders();
             fetchPendingWhatsAppAlerts();
             if (typeof fetchDashboardAnalytics === 'function') fetchDashboardAnalytics();
@@ -1419,14 +1539,22 @@ window.downloadPOSInvoice = function downloadPOSInvoice(orderId) {
     return downloadPosInvoicePdf(orderId);
 };
 
+function handlePosHashRoute() {
+    const hash = String(window.location.hash || '').replace('#', '').trim().toLowerCase();
+    if (hash === 'pos') openPOSModal();
+}
+
 function setupManualOrderEngine() {
     const openBtn = document.getElementById('openManualOrderModalBtn');
-    if (openBtn) {
+    if (openBtn && !openBtn.dataset.posBound) {
+        openBtn.dataset.posBound = '1';
         openBtn.addEventListener('click', () => openManualOrderModal());
     }
 
     initBarcodeSearch();
     initPosCustomerLookup();
+    handlePosHashRoute();
+    window.addEventListener('hashchange', handlePosHashRoute);
 
     const searchInput = document.getElementById('manualProductSearch');
     if (searchInput) {
@@ -1478,8 +1606,11 @@ Object.assign(window, {
     hidePosQuickAddCustomer,
     initBarcodeSearch,
     loadManualOrderCatalog,
+    initPosSection,
+    loadPosCategoryFilters,
     loadPosQuickGrid,
     openPOSModal,
+    setPosCategoryFilter,
     populateManualProductSelect,
     populateManualVariantSelect,
     printPOSInvoice,

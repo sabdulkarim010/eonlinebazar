@@ -634,5 +634,21 @@
     width: 100vw;
     right: -100vw;
   }
+
+  .pos-page-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .pos-checkout-card {
+    position: static;
+  }
+
+  .pos-quick-grid--page {
+    max-height: 360px;
+  }
+
+  #view-pos.pos-overlay-active {
+    padding: 12px 12px 24px;
+  }
 }
 

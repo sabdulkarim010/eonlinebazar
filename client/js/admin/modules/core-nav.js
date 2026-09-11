@@ -645,6 +645,7 @@ function navigateAdminSection(targetId, clickedItem) {
 
     const refreshMap = {
         'view-orders': fetchLiveOrders,
+        'view-pos': () => window.initPosSection && window.initPosSection(),
         'view-manage-products': () => {
             loadCategoryFilter();
             fetchLiveProducts();
