@@ -35,11 +35,32 @@ function buildUniqueFooterIconFilename(key, originalName = '') {
     return `${safeKey}-${Date.now()}-${unique}${ext}`;
 }
 
+function isLocalFooterIconUrl(publicUrl) {
+    if (!publicUrl || typeof publicUrl !== 'string') return false;
+    if (publicUrl.startsWith('http://') || publicUrl.startsWith('https://')) return false;
+    return publicUrl.startsWith(`${FOOTER_ICONS_PUBLIC_PREFIX}/`);
+}
+
+function footerIconExistsOnDisk(publicUrl) {
+    const diskPath = resolveFooterIconDiskPath(publicUrl);
+    return Boolean(diskPath && fs.existsSync(diskPath));
+}
+
+/** Drop local footer icon URLs when the file is missing (prevents storefront 404s). */
+function sanitizeFooterIconUrl(publicUrl) {
+    if (!publicUrl || typeof publicUrl !== 'string') return '';
+    if (!isLocalFooterIconUrl(publicUrl)) return publicUrl;
+    return footerIconExistsOnDisk(publicUrl) ? publicUrl : '';
+}
+
 module.exports = {
     FOOTER_ICONS_PUBLIC_PREFIX,
     FOOTER_ICONS_DIR,
     footerIconPublicPath,
     resolveFooterIconDiskPath,
     deleteLocalFooterIcon,
-    buildUniqueFooterIconFilename
+    buildUniqueFooterIconFilename,
+    isLocalFooterIconUrl,
+    footerIconExistsOnDisk,
+    sanitizeFooterIconUrl
 };

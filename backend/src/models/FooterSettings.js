@@ -8,6 +8,7 @@
  ********************************************************************/
 
 const mongoose = require('mongoose');
+const { sanitizeFooterIconUrl } = require('../utils/footerIconPaths');
 
 const FOOTER_SETTINGS_KEY = 'global';
 
@@ -127,7 +128,7 @@ footerSettingsSchema.methods.getActivePaymentGateways = function getActivePaymen
         .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0))
         .map((item) => ({
             name: String(item.name).trim(),
-            iconUrl: item.iconUrl || '',
+            iconUrl: sanitizeFooterIconUrl(item.iconUrl || ''),
             iconName: item.iconName || String(item.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '')
         }))
         .filter((item) => item.name);
@@ -245,7 +246,7 @@ footerSettingsSchema.methods.toPublicObject = function toPublicObject() {
         .map((item) => ({
             platform: item.platform,
             iconName: item.iconName || '',
-            iconUrl: item.iconUrl || '',
+            iconUrl: sanitizeFooterIconUrl(item.iconUrl || ''),
             linkUrl: item.linkUrl
         }));
 
@@ -282,7 +283,7 @@ footerSettingsSchema.methods.toAdminObject = function toAdminObject() {
             id: String(item._id),
             platform: item.platform,
             iconName: item.iconName || '',
-            iconUrl: item.iconUrl || '',
+            iconUrl: sanitizeFooterIconUrl(item.iconUrl || ''),
             linkUrl: item.linkUrl || '#',
             isActive: item.isActive !== false,
             sortOrder: Number(item.sortOrder) || 0
@@ -292,7 +293,7 @@ footerSettingsSchema.methods.toAdminObject = function toAdminObject() {
         paymentGateways: (this.paymentGateways || []).map((item) => ({
             id: String(item._id),
             name: item.name,
-            iconUrl: item.iconUrl || '',
+            iconUrl: sanitizeFooterIconUrl(item.iconUrl || ''),
             iconName: item.iconName || '',
             isActive: item.isActive !== false,
             sortOrder: Number(item.sortOrder) || 0

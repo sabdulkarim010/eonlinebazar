@@ -108,11 +108,11 @@
                                         </div>
                                         <div class="form-group">
                                             <label for="settingsCurrentPassword">Current Password <span class="req-star">*</span></label>
-                                            <input type="password" id="settingsCurrentPassword" placeholder="Required to save profile changes" required>
+                                            <input type="password" id="settingsCurrentPassword" placeholder="Required to save profile changes" required autocomplete="current-password">
                                         </div>
                                         <div class="form-group">
                                             <label for="settingsNewPassword">New Password (Optional)</label>
-                                            <input type="password" id="settingsNewPassword" placeholder="Leave blank to keep current password">
+                                            <input type="password" id="settingsNewPassword" placeholder="Leave blank to keep current password" autocomplete="new-password">
                                         </div>
                                     </div>
                                     <div class="saas-settings-card-footer">
@@ -243,10 +243,12 @@
                                     <div class="sandbox-action-card real">
                                         <h4>⚠️ Reset Real Data</h4>
                                         <p>Delete real orders. Requires confirmation key. Use only when starting fresh before launch.</p>
-                                        <div class="reset-real-row">
-                                            <input type="password" id="real-reset-key" placeholder="Enter confirmation key...">
-                                            <button type="button" class="btn-reset-real" onclick="resetRealData()">Reset Real Orders</button>
-                                        </div>
+                                        <form id="realResetForm" class="reset-real-form" onsubmit="return false;" aria-label="Reset real orders confirmation">
+                                            <div class="reset-real-row">
+                                                <input type="password" id="real-reset-key" placeholder="Enter confirmation key..." autocomplete="off">
+                                                <button type="button" class="btn-reset-real" onclick="resetRealData()">Reset Real Orders</button>
+                                            </div>
+                                        </form>
                                     </div>
                                 </div>
                             </div>
@@ -294,7 +296,7 @@
                                         </div>
                                         <div class="form-group">
                                             <label for="platformCurrentPassword">Current Password <span class="req-star">*</span></label>
-                                            <input type="password" id="platformCurrentPassword" placeholder="Required to save store preferences" required>
+                                            <input type="password" id="platformCurrentPassword" placeholder="Required to save store preferences" required autocomplete="current-password">
                                         </div>
                                     </div>
                                     <div class="saas-settings-card-footer">

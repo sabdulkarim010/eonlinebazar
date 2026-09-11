@@ -158,6 +158,8 @@ Test Suites: 11 passed, 11 total
 Tests:       126 passed, 126 total
 ```
 
+**Console hygiene (2026-09-11):** Footer settings API responses omit local `iconUrl` values when upload files are missing (prevents `footer-icon-*` 404s). Admin settings password fields now declare proper `autocomplete` attributes, and the sandbox real-data reset key sits inside `#realResetForm`.
+
 ---
 
 ## Local Setup & Environment Guide

@@ -92,7 +92,7 @@
         const name = resolvePaymentLabel(gateway);
 
         if (gateway.iconUrl) {
-            return `<img class="footer-payment-badge footer-payment-badge--img footer-payment-badge--${slug}" src="${escapeFooterHtml(gateway.iconUrl)}" alt="${escapeFooterHtml(name)}" loading="lazy">`;
+            return `<img class="footer-payment-badge footer-payment-badge--img footer-payment-badge--${slug}" src="${escapeFooterHtml(gateway.iconUrl)}" alt="${escapeFooterHtml(name)}" loading="lazy" onerror="this.onerror=null;this.style.display='none'">`;
         }
 
         return `<span class="footer-payment-badge">${escapeFooterHtml(name)}</span>`;

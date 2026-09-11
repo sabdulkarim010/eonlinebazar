@@ -150,7 +150,7 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 | Reviews & ratings | ✅ | `review.js`, `reviewController.js`, `view-reviews.html`, mobile `ReviewsSection.js` | Moderation, verified purchase |
 | Banners / flash sale | ✅ | `banner.js`, `bannerController.js`, `view-banners.html` | Carousel + flash sale settings |
 | CMS pages | ✅ | `PageContent.js`, `pageContentController.js`, `settings-cms.js` | Markdown/HTML pages |
-| Footer settings | ✅ | `FooterSettings.js`, `footerSettingsController.js`, `settings-footer.js` | |
+| Footer settings | ✅ | `FooterSettings.js`, `footerSettingsController.js`, `settings-footer.js` | Missing local icon URLs sanitized on read (`sanitizeFooterIconUrl` in `footerIconPaths.js`) so deleted upload files no longer 404 in the browser |
 | Navbar links | ✅ | `NavbarLink.js`, `navbarLinkController.js`, `catalog-navbar.js` | |
 | Store branding | ✅ | `storeController.js`, `settings-platform.js` | Logo, favicon, WhatsApp |
 | PWA | ✅ | `public/manifest.json`, `_pwa.css` | Service worker toggle in settings |
@@ -1296,6 +1296,16 @@ The prior fix (visible in current code) added:
 ---
 
 *End of settings routing audit.*
+
+---
+
+## Console hygiene fixes (2026-09-11)
+
+| Issue | Fix | Files |
+|-------|-----|-------|
+| Footer payment/social icon 404 (`footer-icon-*` missing from `public/uploads/footer/`) | API responses strip local `iconUrl` values when the file is absent; payment badge `<img>` tags include `onerror` hide fallback | `backend/src/utils/footerIconPaths.js`, `backend/src/models/FooterSettings.js`, `client/js/footerRenderer.js` |
+| Password inputs missing `autocomplete` (DOM warnings) | `current-password` / `new-password` on admin profile & store forms; `off` on sandbox reset key | `client/admin/partials/view-settings.html` |
+| `#real-reset-key` outside `<form>` | Wrapped in `#realResetForm` with `onsubmit="return false;"` (button remains `type="button"`) | `client/admin/partials/view-settings.html` |
 
 
 
