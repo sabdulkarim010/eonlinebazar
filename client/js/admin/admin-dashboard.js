@@ -102,6 +102,9 @@ async function fetchEnterpriseSummary() {
         set('crm-stat-tickets', crm?.openTicketCount);
         set('crm-stat-new-customers', crm?.newCustomersToday);
         set('hrm-stat-staff', hrm?.staffCount);
+        set('hrm-stat-attendance', `${hrm?.presentToday ?? 0} present / ${hrm?.absentToday ?? 0} absent / ${hrm?.lateToday ?? 0} late`);
+        set('hrm-stat-pending-leaves', hrm?.pendingLeaveCount);
+        set('hrm-stat-payroll', `${hrm?.payrollPaidThisMonth ?? 0} paid / ${hrm?.payrollPendingThisMonth ?? 0} pending`);
         set('hrm-stat-security', hrm?.recentSecurityEvents);
     } catch (error) {
         console.error('Enterprise Summary Fetch Error:', error);

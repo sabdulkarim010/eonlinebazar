@@ -53,6 +53,9 @@ const crmController = require('../controllers/admin/crmController');
 const supplierController = require('../controllers/admin/supplierController');
 const warehouseController = require('../controllers/admin/warehouseController');
 const purchaseOrderController = require('../controllers/admin/purchaseOrderController');
+const attendanceController = require('../controllers/admin/attendanceController');
+const payrollController = require('../controllers/admin/payrollController');
+const leaveController = require('../controllers/admin/leaveController');
 const productController = require('../controllers/productController');
 const enterpriseSummaryController = require('../controllers/admin/enterpriseSummaryController');
 const upload = require('../middlewares/uploadMiddleware');
@@ -465,6 +468,47 @@ router.post('/purchase-orders/:id/receive', verifyAdmin, checkPermission('manage
 router.post('/purchase-orders/:id/cancel', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.cancelPO);
 router.get('/purchase-orders/:id', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.getPOById);
 router.put('/purchase-orders/:id', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.updatePO);
+
+/********************************************************************
+ # 👥 HRM — Attendance & Shifts, Payroll, Leave
+ # URL: /api/admin/hrm/*
+ ********************************************************************/
+// Staff roster for the HRM dropdowns. The order-assignment roster at
+// /staff/roster needs manage_orders, and /staff needs superadmin — an HRM
+// manager holds neither, so the same controller is exposed under manage_staff.
+router.get('/hrm/staff', verifyAdmin, checkPermission('manage_staff'), staffController.getStaffRoster);
+
+// — Attendance —
+// Named sub-paths are declared before any /:id route so "summary" and
+// "late-report" are never read as record ids.
+router.get('/hrm/attendance', verifyAdmin, checkPermission('manage_staff'), attendanceController.getAttendanceList);
+router.get('/hrm/attendance/summary', verifyAdmin, checkPermission('manage_staff'), attendanceController.getAttendanceSummary);
+router.get('/hrm/attendance/late-report', verifyAdmin, checkPermission('manage_staff'), attendanceController.getLateReport);
+router.post('/hrm/attendance/mark', verifyAdmin, checkPermission('manage_staff'), attendanceController.markAttendance);
+router.post('/hrm/attendance/clock-in', verifyAdmin, checkPermission('manage_staff'), attendanceController.clockIn);
+router.post('/hrm/attendance/clock-out', verifyAdmin, checkPermission('manage_staff'), attendanceController.clockOut);
+
+// — Shifts —
+router.get('/hrm/shifts', verifyAdmin, checkPermission('manage_staff'), attendanceController.getShifts);
+router.post('/hrm/shifts', verifyAdmin, checkPermission('manage_staff'), attendanceController.createShift);
+router.patch('/hrm/shifts/:id', verifyAdmin, checkPermission('manage_staff'), attendanceController.updateShift);
+router.delete('/hrm/shifts/:id', verifyAdmin, checkPermission('manage_staff'), attendanceController.deleteShift);
+
+// — Payroll —
+router.get('/hrm/payroll', verifyAdmin, checkPermission('manage_staff'), payrollController.getAllPayrolls);
+router.post('/hrm/payroll/generate', verifyAdmin, checkPermission('manage_staff'), payrollController.generatePayroll);
+router.post('/hrm/payroll/salary-config', verifyAdmin, checkPermission('manage_staff'), payrollController.updateSalaryConfig);
+router.get('/hrm/payroll/:id/payslip', verifyAdmin, checkPermission('manage_staff'), payrollController.generatePaySlip);
+router.patch('/hrm/payroll/:id/approve', verifyAdmin, checkPermission('manage_staff'), payrollController.approvePayroll);
+router.patch('/hrm/payroll/:id/paid', verifyAdmin, checkPermission('manage_staff'), payrollController.markPaid);
+
+// — Leave —
+router.get('/hrm/leaves', verifyAdmin, checkPermission('manage_staff'), leaveController.getAllLeaves);
+router.get('/hrm/leaves/balance', verifyAdmin, checkPermission('manage_staff'), leaveController.getLeaveBalance);
+router.get('/hrm/leaves/calendar', verifyAdmin, checkPermission('manage_staff'), leaveController.getLeaveCalendar);
+router.post('/hrm/leaves/apply', verifyAdmin, checkPermission('manage_staff'), leaveController.applyLeave);
+router.patch('/hrm/leaves/:id/approve', verifyAdmin, checkPermission('manage_staff'), leaveController.approveLeave);
+router.patch('/hrm/leaves/:id/reject', verifyAdmin, checkPermission('manage_staff'), leaveController.rejectLeave);
 
 /********************************************************************
  # ৫ছ. 📧 NEWSLETTER & EMAIL CAMPAIGNS

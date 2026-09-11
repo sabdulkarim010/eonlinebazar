@@ -657,6 +657,9 @@ function navigateAdminSection(targetId, clickedItem) {
             initAdminPaginationInstances();
             if (typeof fetchStaffAuditSummary === 'function') fetchStaffAuditSummary();
         },
+        'view-hrm-attendance': () => window.loadHrmAttendanceSection && window.loadHrmAttendanceSection(),
+        'view-hrm-payroll': () => window.loadHrmPayrollSection && window.loadHrmPayrollSection(),
+        'view-hrm-leaves': () => window.loadHrmLeavesSection && window.loadHrmLeavesSection(),
         'view-shipping-payments': fetchMasterSettings,
         'view-loyalty-program': fetchMasterSettings,
         'view-store-config': fetchMasterSettings,

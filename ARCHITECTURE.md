@@ -114,7 +114,7 @@ The admin sidebar is grouped into **Dashboard**, **ERP**, **CRM**, **HRM**, and 
 
 | CRM | Customers, Newsletter, Abandoned Carts, Tickets, Live Chat, Reviews, Loyalty |
 
-| HRM | Staff, Staff Audit, Security Logs, Sessions |
+| HRM | Staff, Staff Audit, Attendance & Shifts, Payroll & Salary, Leave Management, Security Logs, Sessions |
 
 | Settings | Branding, Catalog, Coupons, Banners, Shipping, 2FA, System Tools |
 
@@ -131,6 +131,40 @@ The admin sidebar is grouped into **Dashboard**, **ERP**, **CRM**, **HRM**, and 
 | PurchaseOrder | `backend/src/models/purchaseOrder.js` | PO receiving workflow |
 
 | Warehouse | `backend/src/models/warehouse.js` | Multi-location inventory |
+
+| Attendance | `backend/src/models/attendance.js` | One row per staff per day (clock in/out, late, shift) |
+
+| Shift | `backend/src/models/shift.js` | Named working windows + late grace period |
+
+| Payroll | `backend/src/models/payroll.js` | Monthly salary run, draft → approved → paid |
+
+| Leave | `backend/src/models/leave.js` | Leave applications, approvals, balances |
+
+
+
+## HRM Module (Phase 5)
+
+`/api/admin/hrm/*` — all routes require `verifyAdmin` + `checkPermission('manage_staff')`.
+
+
+
+| Area | Endpoints | Notes |
+
+|------|-----------|-------|
+
+| Attendance | `GET /attendance`, `POST /attendance/mark`, `POST /attendance/clock-in`, `POST /attendance/clock-out`, `GET /attendance/summary`, `GET /attendance/late-report` | `date` is normalized to local midnight, so one staff member has at most one row per day |
+
+| Shifts | `GET /shifts`, `POST /shifts`, `PATCH /shifts/:id`, `DELETE /shifts/:id` | Exactly one `isDefault` shift; it cannot be deleted |
+
+| Payroll | `GET /payroll`, `POST /payroll/generate`, `PATCH /payroll/:id/approve`, `PATCH /payroll/:id/paid`, `GET /payroll/:id/payslip`, `POST /payroll/salary-config` | Generation reads attendance; only drafts can be regenerated |
+
+| Leave | `GET /leaves`, `POST /leaves/apply`, `PATCH /leaves/:id/approve`, `PATCH /leaves/:id/reject`, `GET /leaves/balance`, `GET /leaves/calendar` | Approving a leave writes `holiday` attendance rows across the span |
+
+| Staff roster | `GET /hrm/staff` | Dropdown roster; includes the employment record for `manage_staff` holders |
+
+
+
+**Payroll formula:** `baseSalary × min(presentDays / workingDays, 1) + (overtime × overtimeRate) + bonus − deductions`. Base salary lives on the `Admin` document (`baseSalary`), so there is no separate salary-config collection.
 
 
 
@@ -235,6 +269,8 @@ Restart Expo after changing env vars (`npx expo start -c`).
 | CRM — customers, campaigns, abandoned carts, tickets, chat, reviews, loyalty | ✅ |
 
 | HRM — staff, RBAC, audit, security logs, sessions | ✅ |
+
+| HRM — attendance, shifts, payroll, leave (Phase 5) | ✅ |
 
 | Admin grouped nav + breadcrumbs + mobile drawer | ✅ |
 

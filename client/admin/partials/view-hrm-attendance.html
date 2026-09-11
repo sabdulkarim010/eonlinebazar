@@ -1,0 +1,290 @@
+<section id="view-hrm-attendance" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <div>
+            <h3><i class="fa-solid fa-user-clock"></i> Attendance &amp; Shifts</h3>
+            <p class="section-subtitle">Daily attendance register, shift roster, and late arrival reporting.</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn-secondary" id="attendanceRefreshBtn">
+                <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+            <button type="button" class="btn-primary" onclick="openMarkAttendanceModal()">
+                <i class="fa-solid fa-check-to-slot"></i> Mark Attendance
+            </button>
+        </div>
+    </div>
+
+    <div class="metrics-grid hrm-stats-grid">
+        <div class="metric-card success">
+            <div class="icon"><i class="fa-solid fa-user-check"></i></div>
+            <div class="data">
+                <p>TODAY PRESENT</p>
+                <h3 id="hrmAttendancePresent">0</h3>
+            </div>
+        </div>
+        <div class="metric-card danger">
+            <div class="icon"><i class="fa-solid fa-user-xmark"></i></div>
+            <div class="data">
+                <p>TODAY ABSENT</p>
+                <h3 id="hrmAttendanceAbsent">0</h3>
+            </div>
+        </div>
+        <div class="metric-card warning">
+            <div class="icon"><i class="fa-solid fa-clock"></i></div>
+            <div class="data">
+                <p>TODAY LATE</p>
+                <h3 id="hrmAttendanceLate">0</h3>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="icon"><i class="fa-solid fa-business-time"></i></div>
+            <div class="data">
+                <p>ACTIVE SHIFTS</p>
+                <h3 id="hrmAttendanceShiftCount">0</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="hrm-tabs" id="hrmAttendanceTabs">
+        <button type="button" class="hrm-tab active" data-hrm-tab="hrm-tab-register">
+            <i class="fa-solid fa-list-check"></i> Attendance Register
+        </button>
+        <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-shifts">
+            <i class="fa-solid fa-business-time"></i> Shifts
+        </button>
+        <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-late">
+            <i class="fa-solid fa-clock"></i> Late Report
+        </button>
+    </div>
+
+    <!-- TAB 1: Attendance register -->
+    <div id="hrm-tab-register" class="hrm-panel">
+        <div class="hrm-filter-bar">
+            <div class="form-group">
+                <label for="hrmAttendanceDateFilter">Date</label>
+                <input type="date" id="hrmAttendanceDateFilter">
+            </div>
+            <div class="form-group">
+                <label for="hrmAttendanceStaffFilter">Staff</label>
+                <select id="hrmAttendanceStaffFilter">
+                    <option value="">All staff</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="hrmAttendanceStatusFilter">Status</label>
+                <select id="hrmAttendanceStatusFilter">
+                    <option value="">All statuses</option>
+                    <option value="present">Present</option>
+                    <option value="absent">Absent</option>
+                    <option value="late">Late</option>
+                    <option value="half-day">Half day</option>
+                    <option value="holiday">Holiday</option>
+                </select>
+            </div>
+            <div class="form-group hrm-filter-actions">
+                <button type="button" class="btn-primary" onclick="loadAttendanceList()">
+                    <i class="fa-solid fa-filter"></i> Apply
+                </button>
+                <button type="button" class="btn-secondary" onclick="resetAttendanceFilters()">
+                    <i class="fa-solid fa-xmark"></i> Clear
+                </button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Staff</th>
+                        <th>Date</th>
+                        <th>Clock In</th>
+                        <th>Clock Out</th>
+                        <th>Hours</th>
+                        <th>Status</th>
+                        <th>Late</th>
+                    </tr>
+                </thead>
+                <tbody id="hrmAttendanceTableBody">
+                    <tr><td colspan="7" class="loading-container"><div class="spinner"></div><p>Loading attendance…</p></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 2: Shifts -->
+    <div id="hrm-tab-shifts" class="hrm-panel" style="display:none;">
+        <div class="section-header-box">
+            <div>
+                <h3><i class="fa-solid fa-business-time"></i> Shift Roster</h3>
+                <p class="section-subtitle">Working windows and their grace period for late detection.</p>
+            </div>
+            <button type="button" class="btn-primary" onclick="openAddShiftModal()">
+                <i class="fa-solid fa-plus"></i> Add Shift
+            </button>
+        </div>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th>Grace (min)</th>
+                        <th>Assigned Staff</th>
+                        <th>Default</th>
+                        <th class="customers-th--actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="hrmShiftsTableBody">
+                    <tr><td colspan="7" class="loading-container"><div class="spinner"></div><p>Loading shifts…</p></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 3: Late report -->
+    <div id="hrm-tab-late" class="hrm-panel" style="display:none;">
+        <div class="hrm-filter-bar">
+            <div class="form-group">
+                <label for="hrmLateMonth">Month</label>
+                <select id="hrmLateMonth"></select>
+            </div>
+            <div class="form-group">
+                <label for="hrmLateYear">Year</label>
+                <input type="number" id="hrmLateYear" min="2020" max="2100">
+            </div>
+            <div class="form-group hrm-filter-actions">
+                <button type="button" class="btn-primary" onclick="loadLateReport()">
+                    <i class="fa-solid fa-filter"></i> Apply
+                </button>
+            </div>
+        </div>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Staff</th>
+                        <th>Late Arrivals</th>
+                        <th>Total Late Minutes</th>
+                        <th>Average Late</th>
+                        <th>Last Late On</th>
+                    </tr>
+                </thead>
+                <tbody id="hrmLateReportTableBody">
+                    <tr><td colspan="5" class="table-status-empty">Apply a month to see the late report.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- Mark attendance modal -->
+<div id="markAttendanceModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeMarkAttendanceModal()">
+    <div class="custom-modal-box" style="max-width:560px;">
+        <div class="modal-header">
+            <div>
+                <h3><i class="fa-solid fa-check-to-slot"></i> Mark Attendance</h3>
+                <p class="edit-modal-subtitle">Record attendance for a staff member on a given day</p>
+            </div>
+            <button type="button" class="close-icon-btn" onclick="closeMarkAttendanceModal()" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="markAttendanceForm" onsubmit="event.preventDefault(); saveAttendance();">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="markAttendanceStaff">Staff *</label>
+                    <select id="markAttendanceStaff" required>
+                        <option value="">Select staff member</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="markAttendanceDate">Date *</label>
+                    <input type="date" id="markAttendanceDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="markAttendanceStatus">Status *</label>
+                    <select id="markAttendanceStatus" required>
+                        <option value="present">Present</option>
+                        <option value="absent">Absent</option>
+                        <option value="late">Late</option>
+                        <option value="half-day">Half day</option>
+                        <option value="holiday">Holiday</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="markAttendanceShift">Shift</label>
+                    <select id="markAttendanceShift">
+                        <option value="morning">Morning</option>
+                        <option value="evening">Evening</option>
+                        <option value="night">Night</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="markAttendanceLateMinutes">Late Minutes</label>
+                    <input type="number" id="markAttendanceLateMinutes" min="0" value="0">
+                </div>
+                <div class="form-group">
+                    <label for="markAttendanceNotes">Notes</label>
+                    <textarea id="markAttendanceNotes" rows="2" placeholder="Optional note for this record"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeMarkAttendanceModal()">Cancel</button>
+                <button type="submit" class="btn-primary" id="markAttendanceSaveBtn">Save Attendance</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Shift create / edit modal -->
+<div id="shiftModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeShiftModal()">
+    <div class="custom-modal-box" style="max-width:560px;">
+        <div class="modal-header">
+            <div>
+                <h3 id="shiftModalTitle"><i class="fa-solid fa-business-time"></i> Add Shift</h3>
+                <p class="edit-modal-subtitle">Working window and late-arrival grace period</p>
+            </div>
+            <button type="button" class="close-icon-btn" onclick="closeShiftModal()" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="shiftForm" onsubmit="event.preventDefault(); saveShift();">
+            <input type="hidden" id="shiftEditId" value="">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="shiftName">Name *</label>
+                    <input type="text" id="shiftName" required placeholder="Morning Shift">
+                </div>
+                <div class="form-group">
+                    <label for="shiftStartTime">Start Time *</label>
+                    <input type="time" id="shiftStartTime" value="09:00" required>
+                </div>
+                <div class="form-group">
+                    <label for="shiftEndTime">End Time *</label>
+                    <input type="time" id="shiftEndTime" value="18:00" required>
+                </div>
+                <div class="form-group">
+                    <label for="shiftGracePeriod">Grace Period (minutes)</label>
+                    <input type="number" id="shiftGracePeriod" min="0" value="15">
+                </div>
+                <div class="form-group">
+                    <label for="shiftAssignedStaff">Assigned Staff</label>
+                    <select id="shiftAssignedStaff" multiple size="5"></select>
+                    <small class="form-hint">Hold Ctrl / Cmd to select multiple staff members.</small>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label" style="display:flex;align-items:center;gap:8px;">
+                        <input type="checkbox" id="shiftIsDefault">
+                        Use as the default shift
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeShiftModal()">Cancel</button>
+                <button type="submit" class="btn-primary" id="shiftSaveBtn">Save Shift</button>
+            </div>
+        </form>
+    </div>
+</div>

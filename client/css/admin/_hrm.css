@@ -1,0 +1,213 @@
+/*
+ * EonlineBazar Admin — HRM module styles
+ * Attendance & shifts, payroll, leave management.
+ * @media queries for this group live in _responsive.css.
+ */
+
+/* ── Tabs ─────────────────────────────────────────────── */
+.hrm-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 18px 0 14px;
+    border-bottom: 1px solid var(--border-color, #2d3748);
+    padding-bottom: 10px;
+}
+
+.hrm-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border: 1px solid var(--border-color, #2d3748);
+    border-radius: 8px;
+    background: var(--card-bg, #161b27);
+    color: var(--text-muted, #94a3b8);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.hrm-tab:hover {
+    color: var(--text-primary, #f1f5f9);
+    border-color: #3b82f6;
+}
+
+.hrm-tab.active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+}
+
+.hrm-panel {
+    animation: hrmPanelFade 0.18s ease-in;
+}
+
+@keyframes hrmPanelFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ── Stats + filter bar ───────────────────────────────── */
+.hrm-stats-grid {
+    margin-bottom: 4px;
+}
+
+.hrm-filter-bar {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    background: var(--card-bg, #161b27);
+    border: 1px solid var(--border-color, #2d3748);
+    border-radius: 10px;
+}
+
+.hrm-filter-bar .form-group {
+    margin-bottom: 0;
+    min-width: 160px;
+}
+
+.hrm-filter-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.hrm-modal-hint {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--text-muted, #94a3b8);
+}
+
+/* Secondary line under a table cell's primary value (username under a name). */
+.table-subtext {
+    margin-top: 2px;
+    font-size: 11.5px;
+    color: var(--text-muted, #94a3b8);
+}
+
+/* ── Leave balance cards ──────────────────────────────── */
+.hrm-balance-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+.hrm-balance-card {
+    padding: 14px 16px;
+    background: var(--card-bg, #161b27);
+    border: 1px solid var(--border-color, #2d3748);
+    border-radius: 10px;
+}
+
+.hrm-balance-card h4 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    color: var(--text-primary, #f1f5f9);
+}
+
+.hrm-balance-card ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.hrm-balance-card li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--text-muted, #94a3b8);
+    text-transform: capitalize;
+}
+
+.hrm-balance-card li strong {
+    color: var(--text-primary, #f1f5f9);
+    font-weight: 600;
+}
+
+.hrm-balance-card li em {
+    font-style: normal;
+    font-size: 11px;
+    color: #f59e0b;
+}
+
+/* ── Leave calendar ───────────────────────────────────── */
+.hrm-calendar-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary, #f1f5f9);
+    margin-bottom: 12px;
+}
+
+.hrm-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.hrm-calendar-head {
+    padding: 8px 4px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-muted, #94a3b8);
+}
+
+.hrm-calendar-cell {
+    min-height: 84px;
+    padding: 6px;
+    background: var(--card-bg, #161b27);
+    border: 1px solid var(--border-color, #2d3748);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.hrm-calendar-cell.is-blank {
+    background: transparent;
+    border-color: transparent;
+    min-height: 0;
+}
+
+.hrm-calendar-cell.has-leave {
+    border-color: #2563eb;
+}
+
+.hrm-calendar-day {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted, #94a3b8);
+}
+
+.hrm-calendar-chip {
+    display: block;
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-size: 10.5px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hrm-calendar-chip--approved {
+    background: rgba(16, 185, 129, 0.18);
+    color: #10b981;
+}
+
+.hrm-calendar-chip--pending {
+    background: rgba(245, 158, 11, 0.18);
+    color: #f59e0b;
+}

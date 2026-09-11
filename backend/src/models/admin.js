@@ -128,7 +128,18 @@ const adminSchema = new mongoose.Schema({
     currencySymbol: { type: String, default: '৳', trim: true },
     timezone: { type: String, default: 'Asia/Dhaka', trim: true },
     logoUrl: { type: String, default: '' },
-    faviconUrl: { type: String, default: '' }
+    faviconUrl: { type: String, default: '' },
+
+    // ============================================================
+    // 👥 HRM — EMPLOYMENT RECORD
+    // ============================================================
+    // Payroll reads baseSalary straight off the staff account, so no
+    // separate salary-config collection is needed. A salary of 0 means
+    // the account is not on payroll yet.
+    baseSalary: { type: Number, default: 0 },
+    department: { type: String, default: '', trim: true },
+    joiningDate: { type: Date, default: null },
+    employeeId: { type: String, default: '', trim: true }
 }, { timestamps: true }); // এটি অটোমেটিক অ্যাকাউন্ট তৈরি ও আপডেটের সময় রেকর্ড রাখবে
 
 // ============================================================
@@ -213,6 +224,10 @@ adminSchema.methods.toSafeObject = function toSafeObject() {
         twoFactorMethod: this.twoFactorMethod || 'email',
         createdBy: this.createdBy || '',
         lastLoginAt: this.lastLoginAt || null,
+        baseSalary: Number(this.baseSalary) || 0,
+        department: this.department || '',
+        joiningDate: this.joiningDate || null,
+        employeeId: this.employeeId || '',
         createdAt: this.createdAt,
         updatedAt: this.updatedAt
     };

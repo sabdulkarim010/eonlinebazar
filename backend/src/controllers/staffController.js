@@ -421,22 +421,38 @@ exports.getAdminProfileForChat = async (req, res) => {
 
 /* ==================================================================
    GET /api/admin/staff/roster — minimal staff list for order assignment
+   Also serves the HRM dropdowns at /api/admin/hrm/staff. The employment
+   record (salary, department) rides along only for accounts holding
+   manage_staff, so the order-assignment dropdown never leaks salaries.
    ================================================================== */
 exports.getStaffRoster = async (req, res) => {
     try {
         const accounts = await Admin.find({
             status: ACCOUNT_STATUS.ACTIVE
         })
-            .select('username name displayName role')
+            .select('username name displayName role baseSalary department joiningDate employeeId')
             .sort({ username: 1 })
             .lean();
 
-        const data = accounts.map((account) => ({
-            id: String(account._id),
-            username: account.username,
-            name: account.name || account.displayName || account.username,
-            role: account.role
-        }));
+        const includeEmployment = Boolean(req.adminAccount?.hasPermission?.('manage_staff'));
+
+        const data = accounts.map((account) => {
+            const entry = {
+                id: String(account._id),
+                username: account.username,
+                name: account.name || account.displayName || account.username,
+                role: account.role
+            };
+
+            if (includeEmployment) {
+                entry.baseSalary = Number(account.baseSalary) || 0;
+                entry.department = account.department || '';
+                entry.joiningDate = account.joiningDate || null;
+                entry.employeeId = account.employeeId || '';
+            }
+
+            return entry;
+        });
 
         res.status(200).json({ success: true, data });
     } catch (error) {

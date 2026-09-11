@@ -727,3 +727,43 @@ client/js/admin/modules/core-nav.js [DONE] view-finance calls initFinanceEmbed
 client/admin/partials/scripts.html [DONE] loads view-finance.js module
 client/css/admin/_layout.css [DONE] finance iframe wrap, spinner, fallback styles
 ARCHITECTURE.md [DONE] mobile .env gitignore note
+#
+# Phase 5 HRM — Attendance, Payroll, Leave: 2026-09-11
+# Models
+backend/src/models/attendance.js [NEW] one row per staff per day; normalizeDate/parseShiftMinutes statics, hoursWorked hook
+backend/src/models/shift.js [NEW] named working windows + grace period + assignedStaff usernames
+backend/src/models/payroll.js [NEW] monthly salary run; unique {staffId,year,month}; computeTotalSalary pro-rating hook
+backend/src/models/leave.js [NEW] leave applications + LEAVE_ALLOWANCES + countLeaveDays hook
+backend/src/models/admin.js [DONE] baseSalary, department, joiningDate, employeeId (+ toSafeObject)
+backend/src/models/securityLog.js [DONE] attendance/shift/payroll/leave resourceTypes
+# Controllers / utils
+backend/src/controllers/admin/attendanceController.js [NEW] register, mark, clock-in/out, summary, late report, shift CRUD
+backend/src/controllers/admin/payrollController.js [NEW] generate from attendance, list+rollup, approve, markPaid, payslip, salary-config
+backend/src/controllers/admin/leaveController.js [NEW] apply, list, approve (stamps holiday attendance), reject, balance, calendar
+backend/src/utils/paySlipPdf.js [NEW] PDFKit pay slip buffer (invoicePdf.js layout language)
+backend/src/controllers/admin/enterpriseSummaryController.js [DONE] HRM attendance/leave/payroll KPIs
+backend/src/controllers/staffController.js [DONE] getStaffRoster returns employment record for manage_staff holders
+# Routes / config
+backend/src/routes/adminRoutes.js [DONE] /api/admin/hrm/* attendance, shifts, payroll, leaves, staff roster
+backend/src/config/permissions.js [DONE] view-hrm-attendance/payroll/leaves → manage_staff
+backend/src/utils/adminPageBuilder.js [DONE] registers the 3 HRM view partials
+# Frontend
+client/admin/partials/view-hrm-attendance.html [NEW] KPI row, register/shifts/late tabs, mark + shift modals
+client/admin/partials/view-hrm-payroll.html [NEW] payroll ledger, generate + salary config modals, payable summary
+client/admin/partials/view-hrm-leaves.html [NEW] pending/all/calendar tabs, balances, apply leave modal
+client/js/admin/modules/hrm-attendance.js [NEW] register + shift CRUD + late report; owns the shared window.hrm* helpers
+client/js/admin/modules/hrm-payroll.js [NEW] ledger, generate, approve/pay, blob PDF pay slip, salary config
+client/js/admin/modules/hrm-leaves.js [NEW] approvals, history, balances, month calendar render
+client/js/admin/admin-settings.js [DONE] imports the 3 hrm-*.js modules
+client/js/admin/modules/core-nav.js [DONE] view-hrm-* section loaders
+client/js/admin/modules/core-state.js [DONE] ADMIN_PAGE_META for the 3 HRM sections
+client/js/admin/modules/core-breadcrumb.js [DONE] BREADCRUMB_MAP HRM entries
+client/js/admin/admin-dashboard.js [DONE] HRM widget attendance/leave/payroll lines
+client/admin/partials/sidebar.html [DONE] HRM accordion — Attendance & Shifts, Payroll & Salary, Leave Management
+client/admin/partials/view-overview.html [DONE] HRM widget rows for attendance, leaves, payroll
+client/css/admin/_hrm.css [NEW] HRM tabs, filter bar, balance cards, leave calendar grid
+client/css/admin.css [DONE] imports _hrm.css
+# Tests / docs
+tests/hrm.test.js [NEW] 26 tests — attendance, clock-in/out, shifts, payroll workflow + PDF, leave workflow, summary
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] HRM attendance + payroll marked complete
+ARCHITECTURE.md [DONE] HRM models, nav group, feature matrix

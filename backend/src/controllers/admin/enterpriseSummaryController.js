@@ -14,6 +14,9 @@ const ContactMessage = require('../../models/ContactMessage');
 const User = require('../../models/user');
 const Admin = require('../../models/admin');
 const SecurityLog = require('../../models/securityLog');
+const Attendance = require('../../models/attendance');
+const Payroll = require('../../models/payroll');
+const Leave = require('../../models/leave');
 const { ABANDON_THRESHOLD_MS } = require('../../jobs/abandonedCartJob');
 
 const OPEN_PO_STATUSES = ['draft', 'sent', 'partial'];
@@ -35,6 +38,10 @@ exports.getEnterpriseSummary = async (req, res) => {
         const abandonCutoff = new Date(Date.now() - ABANDON_THRESHOLD_MS);
         const securitySince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
+        const now = new Date();
+        const currentMonth = now.getMonth() + 1;
+        const currentYear = now.getFullYear();
+
         const [
             ordersToday,
             lowStockCount,
@@ -43,7 +50,13 @@ exports.getEnterpriseSummary = async (req, res) => {
             openTicketCount,
             newCustomersToday,
             staffCount,
-            recentSecurityEvents
+            recentSecurityEvents,
+            presentToday,
+            absentToday,
+            lateToday,
+            pendingLeaveCount,
+            payrollPaidThisMonth,
+            payrollPendingThisMonth
         ] = await Promise.all([
             Order.countDocuments({ createdAt: { $gte: todayStart } }),
             Product.countDocuments({
@@ -67,7 +80,13 @@ exports.getEnterpriseSummary = async (req, res) => {
             ContactMessage.countDocuments({ status: { $in: OPEN_TICKET_STATUSES } }),
             User.countDocuments({ createdAt: { $gte: todayStart } }),
             Admin.countDocuments({ role: { $in: ['staff', 'superadmin'] }, status: { $ne: 'blocked' } }),
-            SecurityLog.countDocuments({ createdAt: { $gte: securitySince } })
+            SecurityLog.countDocuments({ createdAt: { $gte: securitySince } }),
+            Attendance.countDocuments({ date: todayStart, status: { $in: ['present', 'half-day'] } }),
+            Attendance.countDocuments({ date: todayStart, status: 'absent' }),
+            Attendance.countDocuments({ date: todayStart, isLate: true }),
+            Leave.countDocuments({ status: 'pending' }),
+            Payroll.countDocuments({ month: currentMonth, year: currentYear, status: 'paid' }),
+            Payroll.countDocuments({ month: currentMonth, year: currentYear, status: { $ne: 'paid' } })
         ]);
 
         res.status(200).json({
@@ -85,7 +104,13 @@ exports.getEnterpriseSummary = async (req, res) => {
                 },
                 hrm: {
                     staffCount,
-                    recentSecurityEvents
+                    recentSecurityEvents,
+                    presentToday,
+                    absentToday,
+                    lateToday,
+                    pendingLeaveCount,
+                    payrollPaidThisMonth,
+                    payrollPendingThisMonth
                 }
             }
         });

@@ -1,0 +1,184 @@
+<section id="view-hrm-leaves" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <div>
+            <h3><i class="fa-solid fa-plane-departure"></i> Leave Management</h3>
+            <p class="section-subtitle">Approvals, leave history, balances, and a month calendar of who is away.</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn-secondary" id="leavesRefreshBtn">
+                <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+            <button type="button" class="btn-primary" onclick="openApplyLeaveModal()">
+                <i class="fa-solid fa-plus"></i> Apply Leave
+            </button>
+        </div>
+    </div>
+
+    <div class="hrm-tabs" id="hrmLeaveTabs">
+        <button type="button" class="hrm-tab active" data-hrm-tab="hrm-tab-leaves-pending">
+            <i class="fa-solid fa-hourglass-half"></i> Pending Approvals
+            <span id="hrmLeavePendingBadge" class="sidebar-nav-badge" hidden>0</span>
+        </button>
+        <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-leaves-all">
+            <i class="fa-solid fa-list"></i> All Leaves
+        </button>
+        <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-leaves-calendar">
+            <i class="fa-solid fa-calendar-days"></i> Leave Calendar
+        </button>
+    </div>
+
+    <!-- TAB 1: Pending approvals -->
+    <div id="hrm-tab-leaves-pending" class="hrm-panel">
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Staff</th>
+                        <th>Type</th>
+                        <th>Dates</th>
+                        <th>Days</th>
+                        <th>Reason</th>
+                        <th class="customers-th--actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="hrmLeavePendingTableBody">
+                    <tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading pending leaves…</p></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section-header-box">
+            <div>
+                <h3><i class="fa-solid fa-chart-simple"></i> Leave Balance</h3>
+                <p class="section-subtitle">Approved days used against the annual allowance per staff member.</p>
+            </div>
+        </div>
+        <div class="hrm-balance-grid" id="hrmLeaveBalanceGrid">
+            <p class="table-status-empty">Loading leave balances…</p>
+        </div>
+    </div>
+
+    <!-- TAB 2: All leaves -->
+    <div id="hrm-tab-leaves-all" class="hrm-panel" style="display:none;">
+        <div class="hrm-filter-bar">
+            <div class="form-group">
+                <label for="hrmLeaveStatusFilter">Status</label>
+                <select id="hrmLeaveStatusFilter">
+                    <option value="">All statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="hrmLeaveTypeFilter">Type</label>
+                <select id="hrmLeaveTypeFilter">
+                    <option value="">All types</option>
+                    <option value="casual">Casual</option>
+                    <option value="sick">Sick</option>
+                    <option value="annual">Annual</option>
+                    <option value="unpaid">Unpaid</option>
+                </select>
+            </div>
+            <div class="form-group hrm-filter-actions">
+                <button type="button" class="btn-primary" onclick="loadAllLeaves()">
+                    <i class="fa-solid fa-filter"></i> Apply
+                </button>
+            </div>
+        </div>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Staff</th>
+                        <th>Type</th>
+                        <th>Dates</th>
+                        <th>Days</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th>Approved By</th>
+                    </tr>
+                </thead>
+                <tbody id="hrmLeaveAllTableBody">
+                    <tr><td colspan="7" class="table-status-empty">Apply a filter to list leave applications.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 3: Leave calendar -->
+    <div id="hrm-tab-leaves-calendar" class="hrm-panel" style="display:none;">
+        <div class="hrm-filter-bar">
+            <div class="form-group">
+                <label for="hrmLeaveCalendarMonth">Month</label>
+                <select id="hrmLeaveCalendarMonth"></select>
+            </div>
+            <div class="form-group">
+                <label for="hrmLeaveCalendarYear">Year</label>
+                <input type="number" id="hrmLeaveCalendarYear" min="2020" max="2100">
+            </div>
+            <div class="form-group hrm-filter-actions">
+                <button type="button" class="btn-primary" onclick="loadLeaveCalendar()">
+                    <i class="fa-solid fa-calendar-check"></i> Show Month
+                </button>
+            </div>
+        </div>
+        <div class="hrm-calendar" id="hrmLeaveCalendarGrid">
+            <p class="table-status-empty">Pick a month to see who is on leave.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Apply leave modal -->
+<div id="applyLeaveModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeApplyLeaveModal()">
+    <div class="custom-modal-box" style="max-width:560px;">
+        <div class="modal-header">
+            <div>
+                <h3><i class="fa-solid fa-plane-departure"></i> Apply Leave</h3>
+                <p class="edit-modal-subtitle">Submit a leave application on behalf of a staff member</p>
+            </div>
+            <button type="button" class="close-icon-btn" onclick="closeApplyLeaveModal()" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="applyLeaveForm" onsubmit="event.preventDefault(); submitLeaveApplication();">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="applyLeaveStaff">Staff *</label>
+                    <select id="applyLeaveStaff" required>
+                        <option value="">Select staff member</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="applyLeaveType">Leave Type *</label>
+                    <select id="applyLeaveType" required>
+                        <option value="casual">Casual</option>
+                        <option value="sick">Sick</option>
+                        <option value="annual">Annual</option>
+                        <option value="unpaid">Unpaid</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="applyLeaveStartDate">Start Date *</label>
+                    <input type="date" id="applyLeaveStartDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="applyLeaveEndDate">End Date *</label>
+                    <input type="date" id="applyLeaveEndDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="applyLeaveReason">Reason</label>
+                    <textarea id="applyLeaveReason" rows="2" placeholder="Why is the leave needed?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="applyLeaveAttachment">Attachment URL</label>
+                    <input type="url" id="applyLeaveAttachment" placeholder="Medical certificate link (sick leave)">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeApplyLeaveModal()">Cancel</button>
+                <button type="submit" class="btn-primary" id="applyLeaveSaveBtn">Submit Application</button>
+            </div>
+        </form>
+    </div>
+</div>

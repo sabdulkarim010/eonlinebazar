@@ -241,12 +241,26 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 | DB index migration (Phase 4) | ✅ | `scripts/addEnterpriseIndexes.js` | `npm run migrate:indexes` |
 | Legacy chat admin deprecation (Phase 3) | ✅ | `view-chat.html` redirect notice | Primary UI at `/chat-admin` |
 
+### Phase 5 HRM Module (completed 2026-09-11)
+
+| Feature | Status | Files | Notes |
+|---------|--------|-------|-------|
+| Attendance register + marking | ✅ | `attendance.js`, `attendanceController.js`, `view-hrm-attendance.html` | One row per staff per day; re-marking updates |
+| Staff self clock-in / clock-out | ✅ | `attendanceController.clockIn/clockOut` | Optional mobile GPS; hours auto-calculated |
+| Shift roster + late detection | ✅ | `shift.js`, `view-hrm-attendance.html` (Shifts tab) | Grace period policy; one protected default shift |
+| Attendance summary + late report | ✅ | `attendanceController.getAttendanceSummary/getLateReport` | Monthly aggregate per staff |
+| Payroll generation from attendance | ✅ | `payroll.js`, `payrollController.js`, `view-hrm-payroll.html` | Pro-rated base + overtime + bonus − deductions |
+| Payroll approval workflow | ✅ | `approvePayroll`, `markPaid` | draft → approved → paid, each step one-way |
+| PDF pay slip | ✅ | `paySlipPdf.js` | PDFKit, same layout language as order invoice |
+| Salary configuration | ✅ | `admin.js` employment fields, `updateSalaryConfig` | No separate salary-config collection |
+| Leave applications + approval | ✅ | `leave.js`, `leaveController.js`, `view-hrm-leaves.html` | Approval stamps holiday attendance rows |
+| Leave balances + calendar | ✅ | `getLeaveBalance`, `getLeaveCalendar` | Annual allowance per type; month grid view |
+| HRM dashboard widget | ✅ | `enterpriseSummaryController.js`, `view-overview.html` | Attendance today, pending leaves, payroll status |
+
 ### Remaining / Out of Scope
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Attendance tracking | ❌ | No HRM attendance module |
-| Payroll / salary | ❌ | No payroll module |
 | Product `slug` field | 🔶 | Index exists but no schema field |
 
 ---
@@ -288,9 +302,10 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 | Granular permissions | ✅ COMPLETE | `view_analytics`, `manage_orders`, `manage_inventory`, `manage_catalog`, `manage_coupons`, `manage_customers`, `manage_settings`, `manage_security`, `manage_staff` |
 | Staff audit logs | ✅ COMPLETE | `SecurityLog`, `LoginAttempt`; admin security suite |
 | Task & order assignment to staff | 🔶 PARTIAL | Chat room assign to agent; no general task/order assignment to warehouse staff |
-| Attendance tracking | ❌ MISSING | |
-| Performance metrics | 🔶 PARTIAL | Chat analytics (response time, resolution); no staff KPI dashboard |
-| Payroll or salary management | ❌ MISSING | |
+| Attendance tracking | ✅ COMPLETE | `attendance.js`, `shift.js`, `attendanceController.js`; admin marking + staff clock-in/out with GPS, shift grace-period late detection, monthly summary and late report |
+| Performance metrics | 🔶 PARTIAL | Chat analytics (response time, resolution); attendance/late reports per staff; no unified staff KPI dashboard |
+| Payroll or salary management | ✅ COMPLETE | `payroll.js`, `payrollController.js`, `paySlipPdf.js`; attendance-driven generation, draft→approved→paid workflow, PDF pay slips, base salary on the Admin record |
+| Leave management | ✅ COMPLETE | `leave.js`, `leaveController.js`; apply/approve/reject, annual balances per type, month calendar, approved leave stamped as holiday attendance |
 
 **Current RBAC roles:**
 
@@ -309,7 +324,11 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 
 | Model | Path | Key Fields | Indexes | Issues | Suggested Additions |
 |-------|------|------------|---------|--------|---------------------|
-| **Admin** | `admin.js` | username, password, role, permissions[], status, 2FA fields, branding | role, status, username unique | — | `department`, `assignedRegions` for HRM |
+| **Admin** | `admin.js` | username, password, role, permissions[], status, 2FA fields, branding, HRM employment record (`baseSalary`, `department`, `joiningDate`, `employeeId`) | role, status, username unique | — | `assignedRegions` for HRM |
+| **Attendance** | `attendance.js` | staffId, date, clockIn/Out, hoursWorked, status, isLate, shift, gpsLocation | `{staffId,date}`, `{date,status}` | — | — |
+| **Shift** | `shift.js` | name, startTime, endTime, gracePeriodMinutes, assignedStaff[], isDefault | isDefault, assignedStaff | — | — |
+| **Payroll** | `payroll.js` | staffId, month, year, baseSalary, bonus, overtime, deductions, totalSalary, status | `{staffId,year,month}` unique, `{year,month,status}` | — | — |
+| **Leave** | `leave.js` | staffId, leaveType, startDate, endDate, totalDays, status, approvedBy | `{staffId,startDate}`, `{status,startDate}`, `{startDate,endDate}` | — | — |
 | **AdminSession** | `adminSession.js` | sessionId, adminUsername, device, status | sessionId, adminUsername, status | — | — |
 | **User** | `user.js` | email, mobile, wallet, loyaltyPoints, addresses[], wishlist[] | email unique, mobile, googleId sparse, isDeleted | Legacy name migration hook | `referralCode`, `referredBy`, `customerTags[]`, `lifetimeValue` |
 | **UserSession** | `userSession.js` | sessionId, userId, device, ip | sessionId, userId | — | — |

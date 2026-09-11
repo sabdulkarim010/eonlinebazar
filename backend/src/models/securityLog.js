@@ -13,7 +13,12 @@ const RESOURCE_TYPES = [
     // ERP (Phase 2)
     'supplier',
     'warehouse',
-    'purchase_order'
+    'purchase_order',
+    // HRM
+    'attendance',
+    'shift',
+    'payroll',
+    'leave'
 ];
 
 const securityLogSchema = new mongoose.Schema({

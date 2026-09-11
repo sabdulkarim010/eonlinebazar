@@ -12,3 +12,6 @@ import './modules/settings-cms.js';
 import './modules/settings-2fa.js';
 import './modules/settings-reviews.js';
 import './modules/settings-staff-audit.js';
+import './modules/hrm-attendance.js';
+import './modules/hrm-payroll.js';
+import './modules/hrm-leaves.js';
