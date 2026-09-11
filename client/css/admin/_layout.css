@@ -73,25 +73,6 @@
     color: #fff;
 }
 
-.sidebar-menu li.sidebar-pos-nav,
-.sidebar-menu li.sidebar-pos-launch {
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(14, 165, 233, 0.12));
-    border: 1px solid rgba(56, 189, 248, 0.35);
-    color: #e0f2fe;
-    font-weight: 700;
-}
-
-.sidebar-menu li.sidebar-pos-nav:hover,
-.sidebar-menu li.sidebar-pos-launch:hover {
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.32), rgba(14, 165, 233, 0.22));
-    color: #fff;
-}
-
-.sidebar-menu li.sidebar-pos-nav i,
-.sidebar-menu li.sidebar-pos-launch i {
-    color: #38bdf8;
-}
-
 .admin-profile {
     padding: 20px;
     border-top: 1px solid rgba(255,255,255,0.05);

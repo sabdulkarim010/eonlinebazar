@@ -599,7 +599,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function navigateAdminSection(targetId, clickedItem) {
     if (!targetId) return;
 
-    if (clickedItem) lastClickedNavItem = clickedItem;
+    const resolvedItem = clickedItem
+        || document.querySelector(`.sidebar-menu li[data-target="${targetId}"]`);
+    if (resolvedItem) lastClickedNavItem = resolvedItem;
 
     const menuItems = document.querySelectorAll('.sidebar-menu li[data-target]');
     const menuGroups = document.querySelectorAll('.sidebar-menu li.menu-group');
@@ -608,9 +610,9 @@ function navigateAdminSection(targetId, clickedItem) {
     menuItems.forEach(item => item.classList.remove('active'));
     menuGroups.forEach(g => g.classList.remove('child-active'));
 
-    if (clickedItem) clickedItem.classList.add('active');
+    if (resolvedItem) resolvedItem.classList.add('active');
 
-    const parentGroup = clickedItem ? clickedItem.closest('.menu-group') : null;
+    const parentGroup = resolvedItem ? resolvedItem.closest('.menu-group') : null;
     if (parentGroup) parentGroup.classList.add('open', 'child-active');
 
     sections.forEach(section => {
@@ -624,9 +626,9 @@ function navigateAdminSection(targetId, clickedItem) {
         targetSection.classList.add('active');
     }
 
-    const label = clickedItem ? clickedItem.textContent.trim() : '';
-    const linkTitle = clickedItem?.getAttribute?.('data-breadcrumb') || clickedItem?.getAttribute?.('data-title') || label;
-    const settingsTab = clickedItem?.getAttribute?.('data-settings-tab');
+    const label = resolvedItem ? resolvedItem.textContent.trim() : '';
+    const linkTitle = resolvedItem?.getAttribute?.('data-breadcrumb') || resolvedItem?.getAttribute?.('data-title') || label;
+    const settingsTab = resolvedItem?.getAttribute?.('data-settings-tab');
 
     const mainTitle = document.getElementById('page-main-title');
     const subTitle = document.getElementById('page-sub-title');
@@ -639,9 +641,9 @@ function navigateAdminSection(targetId, clickedItem) {
     }
 
     if (typeof renderAdminBreadcrumb === 'function') {
-        renderAdminBreadcrumb(targetId, clickedItem);
+        renderAdminBreadcrumb(targetId, resolvedItem);
     }
-    syncNavAccordionState(targetId, clickedItem);
+    syncNavAccordionState(targetId, resolvedItem);
 
     const refreshMap = {
         'view-orders': fetchLiveOrders,

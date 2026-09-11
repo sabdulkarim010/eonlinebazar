@@ -239,7 +239,9 @@ client/js/admin/modules/core-state.js [DONE] ADMIN_PAGE_META view-pos
 client/js/admin/modules/core-breadcrumb.js [DONE] view-pos breadcrumb
 client/css/admin/_pos.css [NEW] two-column POS page + overlay fallback styles
 client/css/admin.css [DONE] import _pos.css
-client/css/admin/_layout.css [DONE] sidebar-pos-nav highlight (alias sidebar-pos-launch)
+client/css/admin/_layout.css [DONE] removed permanent sidebar-pos-nav highlight; uses standard li.active only
+client/admin/partials/sidebar.html [DONE] POS System — no static sidebar-pos-nav class
+client/js/admin/modules/core-nav.js [DONE] navigateAdminSection resolves active item from data-target (view-pos hash/deep links)
 client/css/admin/_responsive.css [DONE] POS page stack on mobile
 backend/src/utils/adminPageBuilder.js [DONE] registers view-pos partial
 backend/src/config/permissions.js [DONE] view-pos → manage_orders
