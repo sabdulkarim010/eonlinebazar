@@ -13,6 +13,7 @@ function getTransporter() {
     service: process.env.SMTP_SERVICE || 'gmail',
     host: process.env.SMTP_HOST || undefined,
     port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined,
+    family: 4, // Force IPv4 to avoid ENETUNREACH on IPv6-blocked hosts
     auth: { user, pass },
   });
 }

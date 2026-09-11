@@ -45,6 +45,7 @@ function buildTransportForPort(port) {
     return nodemailer.createTransport({
         host: SMTP_HOST,
         port,
+        family: 4, // Force IPv4 to avoid ENETUNREACH on IPv6-blocked hosts
         secure,
         auth: { user: SMTP_USER, pass: SMTP_PASS },
 

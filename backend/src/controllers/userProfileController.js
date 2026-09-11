@@ -67,6 +67,7 @@ function clearProfileUpdateOtpFields() {
 // ইমেইল পাঠানোর কনফিগারেশন
 const transporter = nodemailer.createTransport({
     service: 'gmail',
+    family: 4, // Force IPv4 to avoid ENETUNREACH on IPv6-blocked hosts
     auth: {
         user: process.env.EMAIL_USER, 
         pass: process.env.EMAIL_PASS  
