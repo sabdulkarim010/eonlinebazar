@@ -139,7 +139,9 @@ const adminSchema = new mongoose.Schema({
     baseSalary: { type: Number, default: 0 },
     department: { type: String, default: '', trim: true },
     joiningDate: { type: Date, default: null },
-    employeeId: { type: String, default: '', trim: true }
+    employeeId: { type: String, default: '', trim: true },
+    /** Employee record _id when this admin was provisioned from HRM. */
+    employeeRef: { type: String, default: null }
 }, { timestamps: true }); // এটি অটোমেটিক অ্যাকাউন্ট তৈরি ও আপডেটের সময় রেকর্ড রাখবে
 
 // ============================================================

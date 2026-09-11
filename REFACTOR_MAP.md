@@ -928,3 +928,14 @@ README.md [DONE] test counts + HRM employee module notes
 #
 # Sidebar restructure — staff & security nav: 2026-09-11
 client/admin/partials/sidebar.html [DONE] HRM trimmed to Employees/Attendance/Payroll/Leave; Admin Access & Roles + Staff Audit + Security Logs + Admin Sessions moved to Settings & Security accordion (renamed from Settings)
+#
+# 1-click system access provisioning — 2026-09-11
+backend/src/models/employee.js [DONE] linkedAdminId field
+backend/src/models/admin.js [DONE] employeeRef field
+backend/src/controllers/admin/employeeController.js [DONE] grantSystemAccess, revokeSystemAccess, getAccessStatus; auto-suspend linked admin on terminate/update
+backend/src/routes/adminRoutes.js [DONE] grant-access, revoke-access, access-status routes (manage_staff)
+client/admin/partials/view-hrm-employees.html [DONE] Grant Access + Manage Access modals; table action buttons
+client/js/admin/modules/hrm-employees.js [DONE] openGrantAccessModal, submitGrantAccess, applyPermissionPreset, openManageAccessModal, revokeAccess
+client/css/admin/_hrm.css [DONE] grant-access permission grid + manage access summary styles
+tests/hrm.test.js [DONE] grant/revoke/access-status + terminate auto-suspend test
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] 1-click access marked complete

@@ -528,6 +528,9 @@ router.delete('/hrm/designations/:id', verifyAdmin, checkPermission('manage_staf
 router.get('/hrm/employees/stats', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeStats);
 router.get('/hrm/employees', verifyAdmin, checkPermission('manage_staff'), employeeController.getAllEmployees);
 router.get('/hrm/employees/:id/profile', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeProfile);
+router.get('/hrm/employees/:id/access-status', verifyAdmin, checkPermission('manage_staff'), employeeController.getAccessStatus);
+router.post('/hrm/employees/:id/grant-access', verifyAdmin, checkPermission('manage_staff'), employeeController.grantSystemAccess);
+router.post('/hrm/employees/:id/revoke-access', verifyAdmin, checkPermission('manage_staff'), employeeController.revokeSystemAccess);
 router.get('/hrm/employees/:id', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeById);
 router.post('/hrm/employees', verifyAdmin, checkPermission('manage_staff'), employeeController.createEmployee);
 router.post('/hrm/employees/:id/photo', verifyAdmin, checkPermission('manage_staff'), employeePhotoUpload, employeeController.uploadEmployeePhoto);

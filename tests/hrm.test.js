@@ -860,6 +860,93 @@ describe('HRM — Attendance, Payroll, Leave', () => {
             expect(Array.isArray(profile.body.data.leaveBalance)).toBe(true);
         });
 
+        test('grants, inspects, revokes, and auto-suspends linked system access', async () => {
+            const token = await adminToken();
+
+            const created = await request(app)
+                .post('/api/admin/hrm/employees')
+                .set(auth(token))
+                .send({
+                    fullName: 'Access Test User',
+                    phone: '01700000005',
+                    email: 'access.test@example.com',
+                    designation: 'Warehouse Staff'
+                });
+
+            expect(created.status).toBe(201);
+            const employeeId = created.body.data._id;
+
+            const noAccess = await request(app)
+                .get(`/api/admin/hrm/employees/${employeeId}/access-status`)
+                .set(auth(token));
+
+            expect(noAccess.status).toBe(200);
+            expect(noAccess.body.hasAccess).toBe(false);
+
+            const granted = await request(app)
+                .post(`/api/admin/hrm/employees/${employeeId}/grant-access`)
+                .set(auth(token))
+                .send({
+                    username: 'access.test.user',
+                    password: 'AccessPass123!',
+                    permissions: ['manage_orders', 'manage_inventory']
+                });
+
+            expect(granted.status).toBe(200);
+            expect(granted.body.success).toBe(true);
+            expect(granted.body.username).toBe('access.test.user');
+
+            const employee = await Employee.findById(employeeId);
+            expect(employee.linkedAdminId).toBeTruthy();
+
+            const linkedAdmin = await Admin.findById(employee.linkedAdminId);
+            expect(linkedAdmin.username).toBe('access.test.user');
+            expect(linkedAdmin.employeeRef).toBe(String(employeeId));
+            expect(linkedAdmin.permissions).toEqual(expect.arrayContaining(['manage_orders', 'manage_inventory']));
+
+            const duplicate = await request(app)
+                .post(`/api/admin/hrm/employees/${employeeId}/grant-access`)
+                .set(auth(token))
+                .send({
+                    username: 'another.user',
+                    password: 'AccessPass123!',
+                    permissions: ['manage_orders']
+                });
+
+            expect(duplicate.status).toBe(400);
+            expect(duplicate.body.error).toMatch(/already granted/i);
+
+            const status = await request(app)
+                .get(`/api/admin/hrm/employees/${employeeId}/access-status`)
+                .set(auth(token));
+
+            expect(status.status).toBe(200);
+            expect(status.body.hasAccess).toBe(true);
+            expect(status.body.admin.username).toBe('access.test.user');
+            expect(status.body.admin.status).toBe('active');
+
+            const revoked = await request(app)
+                .post(`/api/admin/hrm/employees/${employeeId}/revoke-access`)
+                .set(auth(token));
+
+            expect(revoked.status).toBe(200);
+            expect(revoked.body.success).toBe(true);
+
+            const blockedAdmin = await Admin.findById(employee.linkedAdminId);
+            expect(blockedAdmin.status).toBe('blocked');
+
+            await Admin.findByIdAndUpdate(employee.linkedAdminId, { status: 'active' });
+
+            const terminated = await request(app)
+                .delete(`/api/admin/hrm/employees/${employeeId}`)
+                .set(auth(token));
+
+            expect(terminated.status).toBe(200);
+
+            const suspendedAfterTerminate = await Admin.findById(employee.linkedAdminId);
+            expect(suspendedAfterTerminate.status).toBe('blocked');
+        });
+
         test('uploads employee photo via multipart endpoint', async () => {
             const token = await adminToken();
 

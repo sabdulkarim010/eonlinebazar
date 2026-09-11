@@ -131,6 +131,14 @@ function renderEmployeeTable(rows) {
                     <button type="button" class="catalog-action-btn delete" onclick="terminateEmployee('${e._id}')" title="Terminate">
                         <i class="fa-solid fa-user-slash"></i>
                     </button>` : ''}
+                    ${!e.linkedAdminId ? `
+                    <button type="button" class="catalog-action-btn grant-access-btn" onclick='openGrantAccessModal(${JSON.stringify(e._id)}, ${JSON.stringify(e.fullName)}, ${JSON.stringify(e.email || '')}, ${JSON.stringify(e.phone || '')})' title="Grant Access">
+                        🔐 Grant Access
+                    </button>` : `
+                    <span class="status-badge status-verified employee-system-user-badge" title="System User">✅ System User</span>
+                    <button type="button" class="catalog-action-btn" onclick="openManageAccessModal('${e._id}')" title="Manage Access">
+                        ⚙️ Manage
+                    </button>`}
                 </div>
             </td>
         </tr>
@@ -1119,3 +1127,135 @@ window.submitQuickDesignation = submitQuickDesignation;
 window.terminateEmployee = terminateEmployee;
 window.markEmployeeAttendance = markEmployeeAttendance;
 window.loadHrmEmployeesSection = loadHrmEmployeesSection;
+
+function closeGrantAccessModal() {
+    const modal = document.getElementById('grantAccessModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function closeManageAccessModal() {
+    const modal = document.getElementById('manageAccessModal');
+    if (modal) modal.style.display = 'none';
+}
+
+window.openGrantAccessModal = function openGrantAccessModal(employeeId, name, email, phone) {
+    document.getElementById('grantEmpId').value = employeeId;
+    document.getElementById('grantEmpName').value = name;
+    document.getElementById('grantEmpEmail').value = email || '';
+    document.getElementById('grantEmpPhone').value = phone || '';
+    document.getElementById('grantPassword').value = '';
+    document.getElementById('grantConfirmPassword').value = '';
+    document.querySelectorAll('#grantAccessModal input[type=checkbox]').forEach((cb) => { cb.checked = false; });
+    const suggested = String(name || '').toLowerCase().replace(/\s+/g, '.').replace(/[^a-z.]/g, '');
+    document.getElementById('grantUsername').value = suggested;
+    document.getElementById('grantAccessModal').style.display = 'flex';
+};
+
+window.submitGrantAccess = async function submitGrantAccess() {
+    const id = document.getElementById('grantEmpId').value;
+    const username = document.getElementById('grantUsername').value.trim();
+    const password = document.getElementById('grantPassword').value;
+    const confirm = document.getElementById('grantConfirmPassword').value;
+    if (!username || !password) {
+        alert('Username and password required');
+        return;
+    }
+    if (password !== confirm) {
+        alert('Passwords do not match');
+        return;
+    }
+    const permissions = Array.from(
+        document.querySelectorAll('#grantAccessModal input[type=checkbox]:checked')
+    ).map((cb) => cb.value);
+    if (permissions.length === 0) {
+        alert('Select at least one permission');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/admin/hrm/employees/${id}/grant-access`, {
+            method: 'POST',
+            headers: { ...employeeAuthHeaders(true) },
+            body: JSON.stringify({ username, password, permissions })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(`System access granted to ${data.username}`);
+            closeGrantAccessModal();
+            await loadEmployees();
+        } else {
+            alert(data.error || 'Failed to grant access');
+        }
+    } catch (err) {
+        console.error('submitGrantAccess:', err);
+        alert('Failed to grant access');
+    }
+};
+
+window.applyPermissionPreset = function applyPermissionPreset(preset) {
+    const presets = {
+        full: ['manage_orders', 'manage_inventory', 'manage_catalog', 'manage_customers',
+            'manage_settings', 'manage_marketing', 'manage_security', 'manage_staff'],
+        inventory: ['manage_inventory', 'manage_catalog'],
+        orders: ['manage_orders', 'manage_customers'],
+        pos: ['manage_orders', 'manage_inventory'],
+        hr: ['manage_staff']
+    };
+    const perms = presets[preset] || [];
+    document.querySelectorAll('#grantAccessModal input[type=checkbox]').forEach((cb) => {
+        cb.checked = perms.includes(cb.value);
+    });
+};
+
+window.openManageAccessModal = async function openManageAccessModal(employeeId) {
+    try {
+        const res = await fetch(`/api/admin/hrm/employees/${employeeId}/access-status`, {
+            headers: employeeAuthHeaders()
+        });
+        const data = await res.json();
+        if (!data.hasAccess) {
+            alert('No system access found');
+            return;
+        }
+
+        document.getElementById('manageAccessUsername').textContent = data.admin.username;
+        const statusEl = document.getElementById('manageAccessStatus');
+        statusEl.textContent = data.admin.status;
+        statusEl.className = `status-badge ${data.admin.status === 'active' ? 'status-verified' : 'status-blocked'}`;
+        document.getElementById('manageAccessLastLogin').textContent = data.admin.lastLoginAt
+            ? formatDate(data.admin.lastLoginAt)
+            : 'Never';
+        document.getElementById('manageAccessPermissions').textContent = (data.admin.permissions || []).join(', ') || '—';
+        document.getElementById('manageAccessEmpId').value = employeeId;
+        document.getElementById('manageAccessModal').style.display = 'flex';
+    } catch (err) {
+        console.error('openManageAccessModal:', err);
+        alert('Failed to load access status');
+    }
+};
+
+window.revokeAccess = async function revokeAccess() {
+    const id = document.getElementById('manageAccessEmpId').value;
+    if (!confirm('Suspend this employee login? They will not be able to log in.')) return;
+
+    try {
+        const res = await fetch(`/api/admin/hrm/employees/${id}/revoke-access`, {
+            method: 'POST',
+            headers: employeeAuthHeaders(true)
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert('Access suspended.');
+            closeManageAccessModal();
+            await loadEmployees();
+        } else {
+            alert(data.error || 'Failed to suspend access');
+        }
+    } catch (err) {
+        console.error('revokeAccess:', err);
+        alert('Failed to suspend access');
+    }
+};
+
+window.closeGrantAccessModal = closeGrantAccessModal;
+window.closeManageAccessModal = closeManageAccessModal;

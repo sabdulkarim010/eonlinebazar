@@ -258,6 +258,7 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 | Leave applications + approval | ✅ | `leave.js`, `leaveController.js`, `view-hrm-leaves.html` | Approval stamps holiday attendance rows |
 | Leave balances + calendar | ✅ | `getLeaveBalance`, `getLeaveCalendar` | Annual allowance per type; month grid view |
 | HRM dashboard widget | ✅ | `enterpriseSummaryController.js`, `view-overview.html` | Attendance today, pending leaves, payroll status |
+| 1-click system access provisioning | ✅ | `employee.js` (`linkedAdminId`), `admin.js` (`employeeRef`), `employeeController.grantSystemAccess/revokeSystemAccess/getAccessStatus`, `view-hrm-employees.html`, `hrm-employees.js` | Grant Access modal from employee table; auto-suspend linked admin on terminate/revoke |
 
 ### Remaining / Out of Scope
 
@@ -302,7 +303,7 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 
 | Capability | Status | Evidence |
 |------------|--------|----------|
-| Staff/employee accounts | ✅ COMPLETE | `admin.js` staff role; `staffController.js`; chat `Agent.model.js` (separate system) |
+| Staff/employee accounts | ✅ COMPLETE | `admin.js` staff role; `staffController.js`; 1-click HRM grant-access links `Employee.linkedAdminId` ↔ `Admin.employeeRef`; chat `Agent.model.js` (separate system) |
 | Role-Based Access Control | ✅ COMPLETE | Roles: **`superadmin`**, **`staff`**; 9 permissions (see below) |
 | Granular permissions | ✅ COMPLETE | `view_analytics`, `manage_orders`, `manage_inventory`, `manage_catalog`, `manage_coupons`, `manage_customers`, `manage_settings`, `manage_security`, `manage_staff` |
 | Staff audit logs | ✅ COMPLETE | `SecurityLog`, `LoginAttempt`; admin security suite |

@@ -83,6 +83,10 @@ const employeeSchema = new mongoose.Schema({
     documents: { type: [documentSchema], default: [] },
     references: { type: [referenceSchema], default: [] },
 
+    // ── System access link ────────────────────────────────
+    /** Admin account _id when this employee has been granted panel login. */
+    linkedAdminId: { type: String, default: null },
+
     // ── Meta ──────────────────────────────────────────────
     status: { type: String, enum: EMPLOYEE_STATUSES, default: 'active' },
     notes: { type: String, default: '', trim: true },

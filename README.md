@@ -104,7 +104,7 @@ Staff identity, time tracking, compensation, and leave — gated by `manage_staf
 | **Attendance & Shift Management** | Clock-in / clock-out with optional **GPS tagging**, one attendance row per staff per day, named shifts with a protected default, grace-period **late penalties**, plus monthly summary and late reports. |
 | **Payroll Engine & Automated Pay Slips** | Attendance-driven runs: `baseSalary × min(presentDays / workingDays, 1) + overtime + bonus − deductions`. Workflow is draft → approved → paid. Each slip is a **PDFKit** pay slip with pro-rated working-day calculation. |
 | **Leave Management** | **Casual**, **Sick**, and **Annual** leave (plus unpaid) with balances, a month **calendar** view, and automatic attendance sync — approving leave stamps `holiday` rows across the span. |
-| **Operational Employees & Designations** | Non-login staff roster with tabbed profiles (personal, contact, employment, salary/bank, references), **designation catalog** (seeded defaults), Cloudinary **photo + document** uploads, read-only **profile modal** (attendance, payroll, leave tabs), and `employeeCount` on the enterprise dashboard. |
+| **Operational Employees & Designations** | Non-login staff roster with tabbed profiles (personal, contact, employment, salary/bank, references), **designation catalog** (seeded defaults), Cloudinary **photo + document** uploads, read-only **profile modal** (attendance, payroll, leave tabs), **1-click system access provisioning** (Grant Access modal → linked `Admin` account), and `employeeCount` on the enterprise dashboard. |
 
 ---
 
@@ -133,7 +133,7 @@ Read these documents before making changes. Operational notes belong in the exis
 
 ## Quality Assurance & Testing
 
-The repository ships with **100% passing automated coverage: 132 / 132 tests** across **11 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
+The repository ships with **100% passing automated coverage: 133 / 133 tests** across **11 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
 
 ```bash
 npm test
@@ -150,7 +150,7 @@ npm test
 | Product seed | `tests/product-seed.test.js` | 3 | Demo catalog upsert |
 | Chat session | `tests/chat-end-session.test.js` | 8 | Guest / agent / admin end-session ownership |
 | ERP | `tests/erp.test.js` | 31 | Suppliers, warehouses, `receivePO`, slugs, audit, status enum |
-| HRM | `tests/hrm.test.js` | 32 | Attendance, shifts, payroll, leave, designations, employee profile/docs/photo |
+| HRM | `tests/hrm.test.js` | 33 | Attendance, shifts, payroll, leave, designations, employee profile/docs/photo, grant/revoke system access |
 | Loyalty | `tests/loyalty-tier.test.js` | 6 | Silver / Gold / Platinum thresholds and cashback |
 | **Total** | | **132** | All suites green |
 
@@ -158,7 +158,7 @@ Expected Jest summary:
 
 ```text
 Test Suites: 11 passed, 11 total
-Tests:       132 passed, 132 total
+Tests:       133 passed, 133 total
 ```
 
 **Console hygiene (2026-09-11):** Footer settings API responses omit local `iconUrl` values when upload files are missing (prevents `footer-icon-*` 404s). Admin settings password fields now declare proper `autocomplete` attributes, and the sandbox real-data reset key sits inside `#realResetForm`.
@@ -301,7 +301,7 @@ eonlinebazar-fullstack/
 ├── ecommerce-chat/              # Live-chat microservice (port 5001)
 ├── admin-dashboard/             # Vite React chat-admin SPA → /chat-admin
 ├── devops/                      # Nginx, droplet first-time setup
-├── tests/                       # 11 Jest suites / 132 tests
+├── tests/                       # 11 Jest suites / 133 tests
 ├── scripts/                     # Seed and index migration
 ├── ARCHITECTURE.md
 ├── REFACTOR_MAP.md

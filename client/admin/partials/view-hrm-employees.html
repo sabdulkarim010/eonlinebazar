@@ -533,6 +533,116 @@
     </div>
 </div>
 
+<!-- Grant system access -->
+<div id="grantAccessModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeGrantAccessModal()">
+    <div class="custom-modal-box employee-modal-wide">
+        <div class="modal-header">
+            <div>
+                <h3><i class="fa-solid fa-lock"></i> Grant System Access</h3>
+                <p class="edit-modal-subtitle">Create an admin login linked to this employee record</p>
+            </div>
+            <button type="button" class="close-icon-btn" onclick="closeGrantAccessModal()" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form onsubmit="event.preventDefault(); submitGrantAccess();">
+            <input type="hidden" id="grantEmpId">
+            <div class="modal-body">
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="grantEmpName">Employee Name</label>
+                        <input type="text" id="grantEmpName" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label for="grantEmpEmail">Email</label>
+                        <input type="email" id="grantEmpEmail" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label for="grantEmpPhone">Phone</label>
+                        <input type="text" id="grantEmpPhone" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label for="grantUsername">Username *</label>
+                        <input type="text" id="grantUsername" required autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="grantPassword">Password *</label>
+                        <input type="password" id="grantPassword" required autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label for="grantConfirmPassword">Confirm Password *</label>
+                        <input type="password" id="grantConfirmPassword" required autocomplete="new-password">
+                    </div>
+                </div>
+
+                <div class="staff-enterprise-card" style="margin-top:16px;">
+                    <div class="staff-enterprise-card-head">
+                        <span class="staff-enterprise-card-icon"><i class="fa-solid fa-shield-halved"></i></span>
+                        <div>
+                            <h5>Permissions *</h5>
+                            <p>Select capabilities or apply a quick preset</p>
+                        </div>
+                    </div>
+                    <div class="staff-enterprise-card-body">
+                        <div class="staff-presets-bar">
+                            <span class="staff-presets-label">Quick Presets</span>
+                            <div class="staff-presets-actions">
+                                <button type="button" class="staff-preset-btn" onclick="applyPermissionPreset('full')">Full Admin</button>
+                                <button type="button" class="staff-preset-btn" onclick="applyPermissionPreset('inventory')">Inventory Manager</button>
+                                <button type="button" class="staff-preset-btn" onclick="applyPermissionPreset('orders')">Order Manager</button>
+                                <button type="button" class="staff-preset-btn" onclick="applyPermissionPreset('pos')">POS Operator</button>
+                                <button type="button" class="staff-preset-btn" onclick="applyPermissionPreset('hr')">HR Manager</button>
+                            </div>
+                        </div>
+                        <div class="grant-access-permissions">
+                            <label class="grant-perm-item"><input type="checkbox" value="manage_orders"> Manage Orders</label>
+                            <label class="grant-perm-item"><input type="checkbox" value="manage_inventory"> Manage Inventory</label>
+                            <label class="grant-perm-item"><input type="checkbox" value="manage_catalog"> Manage Catalog</label>
+                            <label class="grant-perm-item"><input type="checkbox" value="manage_customers"> Manage Customers</label>
+                            <label class="grant-perm-item"><input type="checkbox" value="manage_settings"> Manage Settings</label>
+                            <label class="grant-perm-item"><input type="checkbox" value="manage_marketing"> Manage Marketing</label>
+                            <label class="grant-perm-item"><input type="checkbox" value="manage_security"> Security &amp; Audit</label>
+                            <label class="grant-perm-item"><input type="checkbox" value="manage_staff"> Manage Staff</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeGrantAccessModal()">Cancel</button>
+                <button type="submit" class="btn-primary"><i class="fa-solid fa-lock"></i> Grant Access</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Manage system access -->
+<div id="manageAccessModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeManageAccessModal()">
+    <div class="custom-modal-box" style="max-width:520px;">
+        <div class="modal-header">
+            <div>
+                <h3><i class="fa-solid fa-user-shield"></i> Manage System Access</h3>
+                <p class="edit-modal-subtitle">Linked admin account for this employee</p>
+            </div>
+            <button type="button" class="close-icon-btn" onclick="closeManageAccessModal()" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="manageAccessEmpId">
+            <dl class="employee-access-summary">
+                <div><dt>Username</dt><dd id="manageAccessUsername">—</dd></div>
+                <div><dt>Status</dt><dd><span id="manageAccessStatus" class="status-badge status-pending">—</span></dd></div>
+                <div><dt>Last Login</dt><dd id="manageAccessLastLogin">—</dd></div>
+                <div><dt>Permissions</dt><dd id="manageAccessPermissions">—</dd></div>
+            </dl>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-danger" onclick="revokeAccess()"><i class="fa-solid fa-ban"></i> Suspend Access</button>
+            <button type="button" class="btn-secondary" onclick="closeManageAccessModal()">Close</button>
+        </div>
+    </div>
+</div>
+
 <!-- Quick add designation (inline from employee form) -->
 <div id="quickDesignationModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeQuickAddDesignation()">
     <div class="custom-modal-box" style="max-width:420px;">

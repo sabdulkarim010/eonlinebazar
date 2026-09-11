@@ -408,3 +408,55 @@
     padding: 6px 12px;
     font-size: 12px;
 }
+
+.grant-access-permissions {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px 16px;
+    margin-top: 12px;
+}
+
+.grant-perm-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.catalog-actions .grant-access-btn {
+    font-size: 11px;
+    white-space: nowrap;
+    padding: 4px 8px;
+}
+
+.employee-system-user-badge {
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.employee-access-summary {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+}
+
+.employee-access-summary > div {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 8px;
+    align-items: start;
+}
+
+.employee-access-summary dt {
+    margin: 0;
+    font-weight: 600;
+    color: var(--text-muted, #94a3b8);
+    font-size: 13px;
+}
+
+.employee-access-summary dd {
+    margin: 0;
+    font-size: 14px;
+    word-break: break-word;
+}

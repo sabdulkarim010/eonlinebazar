@@ -7,7 +7,9 @@
  ********************************************************************/
 
 const mongoose = require('mongoose');
+const Admin = require('../../models/admin');
 const Employee = require('../../models/employee');
+const { ROLES, ACCOUNT_STATUS, sanitizePermissions } = require('../../config/permissions');
 const Attendance = require('../../models/attendance');
 const Payroll = require('../../models/payroll');
 const Leave = require('../../models/leave');
@@ -152,6 +154,13 @@ async function uploadBufferToCloudinary(file, folder) {
 }
 
 const { findEmployeeRecord } = require('../../utils/hrmStaffResolver');
+
+const MIN_ACCESS_PASSWORD_LENGTH = 8;
+
+async function suspendLinkedAdminAccess(employee) {
+    if (!employee?.linkedAdminId) return;
+    await Admin.findByIdAndUpdate(employee.linkedAdminId, { status: ACCOUNT_STATUS.BLOCKED });
+}
 
 /**
  * GET /api/admin/hrm/employees
@@ -372,6 +381,10 @@ exports.updateEmployee = async (req, res) => {
         Object.assign(employee, fields);
         await employee.save();
 
+        if (employee.status === 'terminated') {
+            await suspendLinkedAdminAccess(employee);
+        }
+
         await logSecurityEvent({
             action: 'Employee Updated',
             actor: actorName(req),
@@ -402,6 +415,7 @@ exports.deleteEmployee = async (req, res) => {
 
         employee.status = 'terminated';
         await employee.save();
+        await suspendLinkedAdminAccess(employee);
 
         await logSecurityEvent({
             action: 'Employee Terminated',
@@ -616,5 +630,135 @@ exports.getEmployeeProfile = async (req, res) => {
     } catch (error) {
         console.error('getEmployeeProfile Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load employee profile.' });
+    }
+};
+
+/**
+ * POST /api/admin/hrm/employees/:id/grant-access
+ * Provisions a staff Admin account linked to this employee record.
+ */
+exports.grantSystemAccess = async (req, res) => {
+    try {
+        const { username, password, permissions } = req.body || {};
+        const employee = await findEmployeeRecord(req.params.id);
+        if (!employee) {
+            return res.status(404).json({ error: 'Employee not found' });
+        }
+        if (employee.linkedAdminId) {
+            return res.status(400).json({ error: 'Access already granted' });
+        }
+
+        const normalizedUsername = String(username || '').trim().toLowerCase();
+        if (!normalizedUsername) {
+            return res.status(400).json({ error: 'Username is required' });
+        }
+        if (String(password || '').length < MIN_ACCESS_PASSWORD_LENGTH) {
+            return res.status(400).json({ error: `Password must be at least ${MIN_ACCESS_PASSWORD_LENGTH} characters` });
+        }
+
+        const existing = await Admin.findOne({ username: new RegExp(`^${normalizedUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') });
+        if (existing) {
+            return res.status(400).json({ error: 'Username already taken' });
+        }
+
+        const sanitized = sanitizePermissions(permissions);
+        if (!sanitized.length) {
+            return res.status(400).json({ error: 'Select at least one permission' });
+        }
+
+        const newAdmin = await Admin.create({
+            username: normalizedUsername,
+            password: String(password),
+            name: employee.fullName,
+            displayName: employee.fullName,
+            email: employee.email || '',
+            phone: employee.phone || '',
+            role: ROLES.STAFF,
+            permissions: sanitized,
+            status: ACCOUNT_STATUS.ACTIVE,
+            employeeRef: String(employee._id),
+            createdBy: actorName(req),
+            twoFactorEnabled: false
+        });
+
+        employee.linkedAdminId = String(newAdmin._id);
+        await employee.save();
+
+        await logSecurityEvent({
+            action: 'Employee System Access Granted',
+            actor: actorName(req),
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `${employee.employeeId} → ${newAdmin.username}`,
+            resourceType: 'employee',
+            resourceId: String(employee._id)
+        });
+
+        res.json({ success: true, username: newAdmin.username });
+    } catch (error) {
+        console.error('grantSystemAccess Error:', error);
+        res.status(500).json({ error: 'Failed to grant system access.' });
+    }
+};
+
+/**
+ * POST /api/admin/hrm/employees/:id/revoke-access
+ * Suspends the linked admin login (employee link is preserved).
+ */
+exports.revokeSystemAccess = async (req, res) => {
+    try {
+        const employee = await findEmployeeRecord(req.params.id);
+        if (!employee || !employee.linkedAdminId) {
+            return res.status(400).json({ error: 'No access to revoke' });
+        }
+
+        await Admin.findByIdAndUpdate(employee.linkedAdminId, { status: ACCOUNT_STATUS.BLOCKED });
+
+        await logSecurityEvent({
+            action: 'Employee System Access Revoked',
+            actor: actorName(req),
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `${employee.employeeId} — admin ${employee.linkedAdminId} suspended`,
+            resourceType: 'employee',
+            resourceId: String(employee._id)
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('revokeSystemAccess Error:', error);
+        res.status(500).json({ error: 'Failed to revoke system access.' });
+    }
+};
+
+/**
+ * GET /api/admin/hrm/employees/:id/access-status
+ * Returns whether the employee has a linked admin account and its summary.
+ */
+exports.getAccessStatus = async (req, res) => {
+    try {
+        const employee = await findEmployeeRecord(req.params.id);
+        if (!employee || !employee.linkedAdminId) {
+            return res.json({ hasAccess: false });
+        }
+
+        const admin = await Admin.findById(employee.linkedAdminId)
+            .select('username status permissions lastLoginAt');
+        if (!admin) {
+            return res.json({ hasAccess: false });
+        }
+
+        res.json({
+            hasAccess: true,
+            admin: {
+                username: admin.username,
+                status: admin.status,
+                permissions: Array.isArray(admin.permissions) ? admin.permissions : [],
+                lastLoginAt: admin.lastLoginAt || null
+            }
+        });
+    } catch (error) {
+        console.error('getAccessStatus Error:', error);
+        res.status(500).json({ error: 'Failed to load access status.' });
     }
 };
