@@ -749,6 +749,42 @@ async function sendOrderShippedEmail({
     }
 }
 
+async function sendTierUpgradeEmail({ to, customerName, tierLabel, message }) {
+    if (!to) return { delivered: false, reason: 'missing_recipient' };
+
+    const safeName = escapeHtml(customerName || 'Valued Customer');
+    const safeTier = escapeHtml(tierLabel || 'Member');
+    const safeMessage = escapeHtml(message || `You've been upgraded to ${tierLabel || 'a new tier'}!`);
+
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to,
+        subject: `Congratulations! You're now a ${tierLabel || 'loyalty member'}`,
+        html: `
+            <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
+                <h2 style="color:#7c3aed;margin:0 0 12px;">🏅 Loyalty Tier Upgrade</h2>
+                <p>Hi ${safeName},</p>
+                <p>${safeMessage}</p>
+                <p style="margin:20px 0;padding:14px 16px;background:#f5f3ff;border-radius:10px;">
+                    <strong>Your new tier:</strong> ${safeTier}
+                </p>
+                <p style="color:#64748b;font-size:13px;">Thank you for shopping with EonlineBazar.</p>
+            </div>`
+    };
+
+    try {
+        const portUsed = await withTimeout(
+            sendWithFailover(mailOptions),
+            OVERALL_SEND_DEADLINE_MS,
+            'Tier upgrade email'
+        );
+        return { delivered: true, port: portUsed };
+    } catch (err) {
+        console.error('Tier upgrade email error:', err.message || err);
+        return { delivered: false, reason: err.message };
+    }
+}
+
 module.exports = {
     sendAdminOtpEmail,
     sendOrderConfirmationEmail,
@@ -760,6 +796,7 @@ module.exports = {
     sendNewsletterWelcomeEmail,
     sendNewsletterCampaignEmail,
     sendAbandonedCartEmail,
+    sendTierUpgradeEmail,
     buildOrderConfirmationHtml,
     buildInquiryReplyHtml,
     buildNewsletterWelcomeHtml,

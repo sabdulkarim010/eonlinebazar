@@ -22,6 +22,20 @@ function getCustomerDisplayName(user = {}) {
     return stored || fromParts || 'N/A';
 }
 
+function getCustomerTierBadge(user = {}) {
+    const tier = String(user.loyaltyTier || 'none').toLowerCase();
+    if (tier === 'silver') {
+        return '<span class="tier-badge tier-badge--silver">Silver</span>';
+    }
+    if (tier === 'gold') {
+        return '<span class="tier-badge tier-badge--gold">Gold</span>';
+    }
+    if (tier === 'platinum') {
+        return '<span class="tier-badge tier-badge--platinum">Platinum</span>';
+    }
+    return '<span class="tier-badge tier-badge--none">None</span>';
+}
+
 function getCustomerStatusHtml(user) {
     const accountStatus = user.accountStatus || 'active';
     if (accountStatus === 'blocked') {
@@ -268,7 +282,7 @@ function renderCustomerTable(customers, totalFiltered) {
     if (!tbody) return;
 
     if (customers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="loading-container">No records found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" class="loading-container">No records found.</td></tr>`;
         updateCustomersBulkToolbar();
         return;
     }
@@ -309,6 +323,7 @@ function renderCustomerTable(customers, totalFiltered) {
                 <td class="customers-td customers-td--mobile">${mobileDisplay !== 'N/A' ? buildCustomerCopyCell(escapeHtml(mobileDisplay), mobileDisplay) : 'N/A'}</td>
                 <td class="customers-td customers-td--num">${getOrderCountBadge(user.orderCount)}</td>
                 <td class="customers-td customers-td--num"><span class="spent-badge">${formatAdminPrice(totalSpent)}</span></td>
+                <td class="customers-td customers-td--tier">${getCustomerTierBadge(user)}</td>
                 <td class="customers-td customers-td--segment">${getCustomerSegmentBadge(user)}</td>
                 <td class="customers-td customers-td--status">${getCustomerStatusHtml(user)}</td>
                 <td class="col-actions customers-td customers-td--actions">
@@ -365,7 +380,7 @@ function updateCustomersBulkToolbar() {
  */
 function showCustomerError(msg) {
     const tbody = document.getElementById('customerTableBody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="table-status-error">${msg}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="11" class="table-status-error">${msg}</td></tr>`;
 }
 
 /**
@@ -379,6 +394,7 @@ Object.assign(window, {
     buildOrderExpandedPanel,
     buildOrderProductsSummary,
     getCustomerDisplayName,
+    getCustomerTierBadge,
     getCustomerStatusHtml,
     getOrderSearchInputEl,
     getStatusSelectClass,

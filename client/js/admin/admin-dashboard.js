@@ -101,6 +101,9 @@ async function fetchEnterpriseSummary() {
         set('crm-stat-abandoned', crm?.abandonedCartCount);
         set('crm-stat-tickets', crm?.openTicketCount);
         set('crm-stat-new-customers', crm?.newCustomersToday);
+        set('crm-stat-silver', crm?.silverCount);
+        set('crm-stat-gold', crm?.goldCount);
+        set('crm-stat-platinum', crm?.platinumCount);
         set('hrm-stat-staff', hrm?.staffCount);
         set('hrm-stat-attendance', `${hrm?.presentToday ?? 0} present / ${hrm?.absentToday ?? 0} absent / ${hrm?.lateToday ?? 0} late`);
         set('hrm-stat-pending-leaves', hrm?.pendingLeaveCount);

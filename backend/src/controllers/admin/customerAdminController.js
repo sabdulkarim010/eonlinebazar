@@ -133,7 +133,13 @@ const getAllCustomers = async (req, res) => {
         const cursor = String(req.query.cursor || '').trim();
         const useCursor = cursor.length > 0 || req.query.cursor === '';
 
+        const tierFilter = String(req.query.tier || '').trim().toLowerCase();
+        const validTiers = ['none', 'silver', 'gold', 'platinum'];
+
         const listFilter = {};
+        if (tierFilter && validTiers.includes(tierFilter)) {
+            listFilter.loyaltyTier = tierFilter;
+        }
         if (cursor && mongoose.Types.ObjectId.isValid(cursor)) {
             const cursorDoc = await User.findById(cursor).select('createdAt').lean();
             if (cursorDoc) {
@@ -237,13 +243,41 @@ const getCustomerById = async (req, res) => {
         if (!customer) {
             return res.status(404).json({ success: false, message: 'Customer not found.' });
         }
-        const orderCount = await Order.countDocuments({ user: customer._id });
+        const [orderCount, spendRow] = await Promise.all([
+            Order.countDocuments({ user: customer._id }),
+            Order.aggregate([
+                {
+                    $match: {
+                        user: customer._id,
+                        $or: [{ status: 'Delivered' }, { isDelivered: true }]
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        total: {
+                            $sum: {
+                                $add: [
+                                    { $ifNull: ['$grandTotal', 0] },
+                                    { $ifNull: ['$walletApplied', 0] }
+                                ]
+                            }
+                        }
+                    }
+                }
+            ])
+        ]);
+
         res.status(200).json({
             success: true,
             data: {
                 ...customer,
                 name: hydrateCustomerName(customer),
-                orderCount
+                orderCount,
+                lifetimeSpend: Number(customer.lifetimeSpend ?? spendRow[0]?.total) || 0,
+                loyaltyTier: customer.loyaltyTier || 'none',
+                tierCashbackRate: Number(customer.tierCashbackRate) || 0,
+                tierUpgradedAt: customer.tierUpgradedAt || null
             }
         });
     } catch (error) {

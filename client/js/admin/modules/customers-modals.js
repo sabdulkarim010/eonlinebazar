@@ -324,6 +324,17 @@ window.viewCustomerDetails = async function(userId) {
         set('cvAccountStatus', (u.accountStatus || 'active').charAt(0).toUpperCase() + (u.accountStatus || 'active').slice(1));
         set('cvWallet', formatAdminPrice(u.walletBalance || 0));
         set('cvPoints', Number(u.loyaltyPoints || 0).toLocaleString());
+        const tierEl = document.getElementById('cvTier');
+        if (tierEl) {
+            tierEl.innerHTML = typeof getCustomerTierBadge === 'function'
+                ? getCustomerTierBadge(u)
+                : (u.loyaltyTier || 'none');
+        }
+        set('cvLifetimeSpend', formatAdminPrice(Number(u.lifetimeSpend) || 0));
+        set('cvTierCashback', `${Number(u.tierCashbackRate || 0).toFixed(1)}%`);
+        set('cvTierUpgraded', u.tierUpgradedAt
+            ? new Date(u.tierUpgradedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+            : '—');
         set('cvOrderCount', `${Number(u.orderCount || 0).toLocaleString()} order${Number(u.orderCount || 0) !== 1 ? 's' : ''}`);
         set('cvAddress', u.address || 'Not provided');
         set('cvJoined', u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—');

@@ -6,6 +6,7 @@
  ********************************************************************/
 
 const Setting = require('../models/Setting');
+const { resolveOrderCashbackRate } = require('../services/walletService');
 
 const POINTS_CONVERSION_UNIT = 100;
 
@@ -122,6 +123,12 @@ async function creditOrderDeliveryRewards(order) {
     }
 
     const rewardSettings = await loadRewardSettings();
+    const effectiveCashbackRate = await resolveOrderCashbackRate(order.user, rewardSettings);
+    const tierAwareSettings = {
+        ...rewardSettings,
+        cashbackPercentage: effectiveCashbackRate
+    };
+
     const grandTotal = Number(order.grandTotal ?? order.totalAmount) || 0;
     const earnedPoints = isPointsEarningEnabled(rewardSettings)
         ? calculateEarnedPoints(grandTotal, rewardSettings)
@@ -132,7 +139,7 @@ async function creditOrderDeliveryRewards(order) {
     if (orderItems.length > 0) {
         const categoryNames = orderItems.map((item) => item.category || 'General');
         const categoryCashbackMap = await loadCategoryCashbackMap(categoryNames);
-        cashback = calculateOrderCashbackFromItems(orderItems, categoryCashbackMap, rewardSettings);
+        cashback = calculateOrderCashbackFromItems(orderItems, categoryCashbackMap, tierAwareSettings);
     }
 
     if (earnedPoints <= 0 && cashback <= 0) {

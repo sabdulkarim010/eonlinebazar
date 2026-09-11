@@ -505,6 +505,10 @@ function applyMasterSettingsToUI(settings) {
     setVal('frequentBuyerMinOrders', settings.frequentBuyerMinOrders);
     setVal('defaultProductsPerPage', settings.defaultProductsPerPage ?? settings.productsPerPage ?? 24);
 
+    if (typeof window.applyTierSettingsToUI === 'function') {
+        window.applyTierSettingsToUI(settings);
+    }
+
     applyFlashSaleSettingsToUI(settings);
     applyAnnouncementSettingsToUI(settings);
     applySmsSettingsToUI(settings);

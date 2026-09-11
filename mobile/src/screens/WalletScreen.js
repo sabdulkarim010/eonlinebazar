@@ -124,6 +124,17 @@ export default function WalletScreen({ navigation }) {
               <Text style={[styles.balanceHint, { color: colors.muted }]}>
                 {unit} points = {formatBdt(takaRate)} wallet balance
               </Text>
+              {(() => {
+                const tier = String(user?.loyaltyTier || 'none').toLowerCase();
+                const rate = Number(user?.tierCashbackRate) || Number(rewardSettings.cashbackPercentage) || 0;
+                if (tier === 'none' || rate <= 0) return null;
+                const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
+                return (
+                  <Text style={[styles.tierCashbackHint, { color: colors.accent }]}>
+                    Your cashback rate: {rate.toFixed(1)}% ({tierLabel} Member)
+                  </Text>
+                );
+              })()}
             </View>
 
             <View style={[styles.convertCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -190,6 +201,7 @@ const styles = StyleSheet.create({
   balanceLabel: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
   balanceValue: { fontSize: 32, fontWeight: '800', marginTop: 6 },
   balanceHint: { fontSize: 13, marginTop: 6 },
+  tierCashbackHint: { fontSize: 13, marginTop: 8, fontWeight: '700' },
   convertCard: {
     borderWidth: 1,
     borderRadius: 16,

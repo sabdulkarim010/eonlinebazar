@@ -131,6 +131,14 @@ connectDB().then(async () => {
     } catch (err) {
         console.error('Courier sync cron bootstrap error:', err.message);
     }
+
+    // Monthly loyalty tier recalculation (1st of month, 3am)
+    try {
+        const { startLoyaltyTierCron } = require('./jobs/loyaltyTierJob');
+        startLoyaltyTierCron();
+    } catch (err) {
+        console.error('Loyalty tier cron bootstrap error:', err.message);
+    }
 });
 
 // ৩. প্রয়োজনীয় মিডলওয়্যারসমূহ

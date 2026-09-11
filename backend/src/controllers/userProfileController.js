@@ -20,6 +20,7 @@ const {
     calculatePointsCashValue,
     POINTS_CONVERSION_UNIT
 } = require('../utils/rewardSettings');
+const { loadTierSettings } = require('../services/loyaltyTierService');
 const { toPublicAnnouncementPayload } = require('../utils/announcementSettings');
 const { getDeliverySettings } = require('../services/deliveryChargeService');
 const { sendAdminOtpSms } = require('../utils/smsSender');
@@ -90,14 +91,20 @@ exports.getUserProfile = async (req, res) => {
             return res.status(404).json({ success: false, message: "User not found." });
         }
 
-        const [rewardSettings, masterSettings, deliverySettings] = await Promise.all([
+        const [rewardSettings, masterSettings, deliverySettings, tierSettings] = await Promise.all([
             loadRewardSettings(),
             Setting.getOrCreate(),
-            getDeliverySettings()
+            getDeliverySettings(),
+            loadTierSettings()
         ]);
 
         const profile = user.toObject();
+        profile.loyaltyTier = user.loyaltyTier || 'none';
+        profile.lifetimeSpend = Number(user.lifetimeSpend) || 0;
+        profile.tierCashbackRate = Number(user.tierCashbackRate) || 0;
+        profile.tierUpgradedAt = user.tierUpgradedAt || null;
         profile.rewardSettings = rewardSettings;
+        profile.tierSettings = tierSettings;
         profile.deliverySettings = deliverySettings;
         profile.announcement = toPublicAnnouncementPayload(
             { ...masterSettings.toObject(), freeShippingThreshold: deliverySettings.freeShippingThreshold },

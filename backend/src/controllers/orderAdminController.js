@@ -32,6 +32,7 @@ const { sendReturnStatusEmail, sendOrderShippedEmail } = require('../services/ma
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { findVariantIndex } = require('../utils/variantHelpers');
 const { creditWalletForUser, reverseWalletCredit } = require('../services/walletService');
+const { upgradeTierIfNeeded } = require('../services/loyaltyTierService');
 const { loadFlashSaleSettings } = require('../services/flashSaleService');
 const { invalidate, CACHE_KEYS } = require('../services/cacheService');
 const { emitToAdmins } = require('../services/socketService');
@@ -907,6 +908,11 @@ const updateOrderStatus = async (req, res) => {
                 await creditOrderDeliveryRewards(updatedOrder);
             } catch (rewardErr) {
                 console.error('⚠️ Reward credit error on delivery:', rewardErr.message);
+            }
+            try {
+                await upgradeTierIfNeeded(updatedOrder.user);
+            } catch (tierErr) {
+                console.error('⚠️ Loyalty tier upgrade error on delivery:', tierErr.message);
             }
         }
 

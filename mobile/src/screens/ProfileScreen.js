@@ -390,6 +390,29 @@ function ProfileScreen({ navigation }) {
   const walletLabel = `৳${Number(user?.walletBalance || 0).toLocaleString('en-US')}`;
   const contactLine = heroContactLine(user);
   const contactIsPhone = heroContactIsPhone(user);
+  const loyaltyTier = String(user?.loyaltyTier || 'none').toLowerCase();
+  const tierSettings = user?.tierSettings || {};
+  const lifetimeSpend = Number(user?.lifetimeSpend) || 0;
+  const tierMeta = {
+    silver: { label: '🥈 Silver Member', bg: '#f1f5f9', text: '#475569' },
+    gold: { label: '🥇 Gold Member', bg: '#fef3c7', text: '#b45309' },
+    platinum: { label: '💎 Platinum Member', bg: '#f3e8ff', text: '#7e22ce' },
+  }[loyaltyTier] || null;
+
+  let tierProgressText = null;
+  if (tierSettings.enableTieredLoyalty) {
+    const silverThreshold = Number(tierSettings.silverThreshold) || 0;
+    const goldThreshold = Number(tierSettings.goldThreshold) || 0;
+    const platinumThreshold = Number(tierSettings.platinumThreshold) || 0;
+
+    if (loyaltyTier === 'none' && silverThreshold > lifetimeSpend) {
+      tierProgressText = `Spend ৳${(silverThreshold - lifetimeSpend).toLocaleString('en-US')} more to reach Silver`;
+    } else if (loyaltyTier === 'silver' && goldThreshold > lifetimeSpend) {
+      tierProgressText = `Spend ৳${(goldThreshold - lifetimeSpend).toLocaleString('en-US')} more to reach Gold`;
+    } else if (loyaltyTier === 'gold' && platinumThreshold > lifetimeSpend) {
+      tierProgressText = `Spend ৳${(platinumThreshold - lifetimeSpend).toLocaleString('en-US')} more to reach Platinum`;
+    }
+  }
 
   return (
     <View style={[styles.root, { backgroundColor: T.bg }]}>
@@ -442,6 +465,18 @@ function ProfileScreen({ navigation }) {
               <Text style={[styles.heroName, { color: T.text }]} numberOfLines={1}>
                 {user?.name || t('profile.my_account')}
               </Text>
+              {tierMeta ? (
+                <View style={[styles.tierBadge, { backgroundColor: tierMeta.bg }]}>
+                  <Text style={[styles.tierBadgeText, { color: tierMeta.text }]}>
+                    {tierMeta.label}
+                  </Text>
+                </View>
+              ) : null}
+              {tierProgressText ? (
+                <Text style={[styles.tierProgress, { color: T.sub }]} numberOfLines={2}>
+                  {tierProgressText}
+                </Text>
+              ) : null}
               {contactLine ? (
                 <View style={styles.contactRow}>
                   {contactIsPhone ? (
@@ -691,6 +726,15 @@ const styles = StyleSheet.create({
   memberText: { fontSize: 10, fontWeight: '700' },
   heroInfo: { flex: 1, gap: 4, paddingTop: 4 },
   heroName: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
+  tierBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  tierBadgeText: { fontSize: 12, fontWeight: '700' },
+  tierProgress: { fontSize: 12, marginTop: 2, lineHeight: 16 },
   contactRow: {
     flexDirection: 'row',
     alignItems: 'center',

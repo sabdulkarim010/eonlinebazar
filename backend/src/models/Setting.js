@@ -118,6 +118,44 @@ const settingSchema = new mongoose.Schema({
         default: 100,
         min: 0
     },
+    // 🏅 Customer loyalty tiers — lifetime spend thresholds + tier cashback rates
+    enableTieredLoyalty: {
+        type: Boolean,
+        default: false
+    },
+    silverThreshold: {
+        type: Number,
+        default: 5000,
+        min: 0
+    },
+    goldThreshold: {
+        type: Number,
+        default: 15000,
+        min: 0
+    },
+    platinumThreshold: {
+        type: Number,
+        default: 50000,
+        min: 0
+    },
+    silverCashback: {
+        type: Number,
+        default: 1.5,
+        min: 0,
+        max: 100
+    },
+    goldCashback: {
+        type: Number,
+        default: 2.5,
+        min: 0,
+        max: 100
+    },
+    platinumCashback: {
+        type: Number,
+        default: 4.0,
+        min: 0,
+        max: 100
+    },
     // Storefront catalog / search default page size (overridable via ?limit=)
     defaultProductsPerPage: {
         type: Number,

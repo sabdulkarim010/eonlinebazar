@@ -4,6 +4,7 @@
 
 const User = require('../models/user');
 const { roundMoney } = require('./deliveryChargeService');
+const { resolveEffectiveCashbackRate } = require('./loyaltyTierService');
 
 function normalizeWalletType(type) {
     return String(type || '').trim().toUpperCase();
@@ -107,11 +108,20 @@ async function debitWalletForAdmin(userId, amount, note = 'Admin adjustment') {
     return deductWalletForOrder(userId, amount, '', note);
 }
 
+/**
+ * Tier-aware cashback % for order delivery rewards.
+ * Uses loyalty tier rate when enabled; otherwise the default from master settings.
+ */
+async function resolveOrderCashbackRate(userId, rewardSettings) {
+    return resolveEffectiveCashbackRate(userId, rewardSettings);
+}
+
 module.exports = {
     buildWalletHistoryEntry,
     deductWalletForOrder,
     debitWalletForAdmin,
     creditWalletForUser,
     reverseWalletCredit,
-    normalizeWalletType
+    normalizeWalletType,
+    resolveOrderCashbackRate
 };

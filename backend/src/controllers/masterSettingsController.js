@@ -69,7 +69,13 @@ const FIELD_ALIASES = {
     vipMinOrderCount: ['vipMinOrderCount'],
     frequentBuyerMinOrders: ['frequentBuyerMinOrders'],
     referralRewardAmount: ['referralRewardAmount', 'referralReward'],
-    defaultProductsPerPage: ['defaultProductsPerPage', 'productsPerPage']
+    defaultProductsPerPage: ['defaultProductsPerPage', 'productsPerPage'],
+    silverThreshold: ['silverThreshold'],
+    goldThreshold: ['goldThreshold'],
+    platinumThreshold: ['platinumThreshold'],
+    silverCashback: ['silverCashback'],
+    goldCashback: ['goldCashback'],
+    platinumCashback: ['platinumCashback']
 };
 
 const NUMERIC_FIELD_RULES = {
@@ -82,7 +88,13 @@ const NUMERIC_FIELD_RULES = {
     vipMinOrderCount: { label: 'VIP minimum order count', min: 0 },
     frequentBuyerMinOrders: { label: 'Frequent buyer minimum orders', min: 0 },
     referralRewardAmount: { label: 'Referral reward amount', min: 0 },
-    defaultProductsPerPage: { label: 'Default products per page', min: 1, max: 100 }
+    defaultProductsPerPage: { label: 'Default products per page', min: 1, max: 100 },
+    silverThreshold: { label: 'Silver tier spend threshold', min: 0 },
+    goldThreshold: { label: 'Gold tier spend threshold', min: 0 },
+    platinumThreshold: { label: 'Platinum tier spend threshold', min: 0 },
+    silverCashback: { label: 'Silver tier cashback', min: 0, max: 100 },
+    goldCashback: { label: 'Gold tier cashback', min: 0, max: 100 },
+    platinumCashback: { label: 'Platinum tier cashback', min: 0, max: 100 }
 };
 
 /**
@@ -171,6 +183,13 @@ const buildUnifiedPayload = async (settingsDoc) => {
         productsPerPage: Number(settingsDoc.defaultProductsPerPage) > 0
             ? Number(settingsDoc.defaultProductsPerPage)
             : 24,
+        enableTieredLoyalty: settingsDoc.enableTieredLoyalty === true,
+        silverThreshold: Number(settingsDoc.silverThreshold ?? 5000),
+        goldThreshold: Number(settingsDoc.goldThreshold ?? 15000),
+        platinumThreshold: Number(settingsDoc.platinumThreshold ?? 50000),
+        silverCashback: Number(settingsDoc.silverCashback ?? 1.5),
+        goldCashback: Number(settingsDoc.goldCashback ?? 2.5),
+        platinumCashback: Number(settingsDoc.platinumCashback ?? 4.0),
         deliveryInsideCity: deliverySettings.deliveryInsideCity,
         deliveryOutsideCity: deliverySettings.deliveryOutsideCity,
         freeShippingMinAmount: announcement.freeShippingThreshold,
@@ -242,6 +261,11 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
     if (body.enableSmsNotifications !== undefined) {
         settings.enableSmsNotifications = parseBoolean(body.enableSmsNotifications, false);
         changes.push(`SMS notifications: ${settings.enableSmsNotifications}`);
+    }
+
+    if (body.enableTieredLoyalty !== undefined) {
+        settings.enableTieredLoyalty = parseBoolean(body.enableTieredLoyalty, false);
+        changes.push(`Tiered loyalty: ${settings.enableTieredLoyalty ? 'enabled' : 'disabled'}`);
     }
 
     if (body.flashSaleEnabled !== undefined) {

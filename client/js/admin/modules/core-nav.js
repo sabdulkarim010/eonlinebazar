@@ -268,6 +268,7 @@ window.fetchCustomers = async function fetchCustomers(reset = false) {
     try {
         const qs = new URLSearchParams({ limit: '50' });
         if (customerNextCursor) qs.set('cursor', customerNextCursor);
+        if (customerTierFilter) qs.set('tier', customerTierFilter);
 
         const response = await fetch(`/api/admin/customers?${qs}`, {
             method: 'GET',
@@ -371,6 +372,15 @@ function setupCustomerSegmentTabs() {
                     });
                 renderCustomerTable(filtered, filtered.length);
             }, 300);
+        });
+    }
+
+    const tierFilter = document.getElementById('customerTierFilter');
+    if (tierFilter && !tierFilter.dataset.bound) {
+        tierFilter.dataset.bound = '1';
+        tierFilter.addEventListener('change', () => {
+            customerTierFilter = tierFilter.value || '';
+            fetchCustomers(true);
         });
     }
 

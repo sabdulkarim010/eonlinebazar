@@ -25,6 +25,7 @@ const {
 const { sendSms, isCustomerSmsEnabled } = require('./smsService');
 const { sendAdminCustomAlert } = require('./whatsappService');
 const { creditOrderDeliveryRewards } = require('../utils/rewardSettings');
+const { upgradeTierIfNeeded } = require('./loyaltyTierService');
 const { logSecurityEvent } = require('../utils/securityLogger');
 
 const REQUEST_TIMEOUT_MS = Number(process.env.COURIER_API_TIMEOUT_MS || 20000);
@@ -297,6 +298,13 @@ async function autoSyncCourierStatus(orderId) {
                 await creditOrderDeliveryRewards(order);
             } catch (rewardErr) {
                 console.warn('[CourierSync] Reward credit on delivery failed:', rewardErr.message);
+            }
+            if (order.user) {
+                try {
+                    await upgradeTierIfNeeded(order.user);
+                } catch (tierErr) {
+                    console.warn('[CourierSync] Tier upgrade on delivery failed:', tierErr.message);
+                }
             }
         }
 

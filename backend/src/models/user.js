@@ -171,6 +171,25 @@ const userSchema = new mongoose.Schema({
         default: 0
     },
 
+    // 🏅 Customer loyalty tier (Silver / Gold / Platinum — lifetime spend based)
+    loyaltyTier: {
+        type: String,
+        enum: ['none', 'silver', 'gold', 'platinum'],
+        default: 'none'
+    },
+    tierUpgradedAt: {
+        type: Date,
+        default: null
+    },
+    lifetimeSpend: {
+        type: Number,
+        default: 0
+    },
+    tierCashbackRate: {
+        type: Number,
+        default: 0
+    },
+
     // নোট: অ্যাক্টিভ লগইন সেশন এখন আলাদা UserSession কালেকশনে রাখা হয়
     // (models/userSession.js) — পুরোনো এম্বেডেড sessions অ্যারে সরিয়ে ফেলা হয়েছে।
 
@@ -261,6 +280,7 @@ userSchema.set('toObject', { virtuals: true });
 // Auth & lookup — email unique index comes from field `unique: true`; mobile for phone lookups.
 userSchema.index({ mobile: 1 });
 userSchema.index({ googleId: 1 }, { sparse: true });
+userSchema.index({ loyaltyTier: 1 });
 
 // Referral codes intentionally exclude ambiguous characters (0/O, 1/I) so they
 // can be read aloud or shared over the phone without confusion.

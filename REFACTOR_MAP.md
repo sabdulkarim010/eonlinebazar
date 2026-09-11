@@ -797,3 +797,37 @@ client/css/admin.css [DONE] imports _hrm.css
 tests/hrm.test.js [NEW] 26 tests — attendance, clock-in/out, shifts, payroll workflow + PDF, leave workflow, summary
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] HRM attendance + payroll marked complete
 ARCHITECTURE.md [DONE] HRM models, nav group, feature matrix
+#
+# Phase CRM — Customer Loyalty Tier system: 2026-09-11
+backend/src/models/user.js [DONE] loyaltyTier, tierUpgradedAt, lifetimeSpend, tierCashbackRate
+backend/src/models/Setting.js [DONE] enableTieredLoyalty + silver/gold/platinum thresholds and cashback rates
+backend/src/services/loyaltyTierService.js [NEW] calculateTier, upgradeTierIfNeeded, getTierCashbackRate
+backend/src/services/walletService.js [DONE] resolveOrderCashbackRate for tier-aware delivery cashback
+backend/src/utils/rewardSettings.js [DONE] creditOrderDeliveryRewards uses tier cashback rate
+backend/src/jobs/loyaltyTierJob.js [NEW] monthly tier recalculation cron (1st @ 3am)
+backend/src/server.js [DONE] bootstrap loyaltyTierJob
+backend/src/controllers/orderAdminController.js [DONE] upgradeTierIfNeeded after delivery
+backend/src/services/courierSyncService.js [DONE] upgradeTierIfNeeded on courier-delivered orders
+backend/src/controllers/masterSettingsController.js [DONE] tier settings read/write in unified payload
+backend/src/controllers/admin/enterpriseSummaryController.js [DONE] silverCount, goldCount, platinumCount
+backend/src/controllers/admin/customerAdminController.js [DONE] tier filter + tier detail fields
+backend/src/controllers/userProfileController.js [DONE] loyaltyTier, lifetimeSpend, tierCashbackRate, tierSettings in profile
+backend/src/services/mailer.js [DONE] sendTierUpgradeEmail
+client/admin/partials/view-loyalty-program.html [DONE] Customer Loyalty Tiers card + preview table
+client/js/admin/modules/settings-loyalty.js [NEW] loadTierSettings, saveTierSettings, tier preview
+client/js/admin/admin-settings.js [DONE] imports settings-loyalty.js
+client/js/admin/modules/settings-platform.js [DONE] applyTierSettingsToUI hook
+client/admin/partials/view-customers.html [DONE] Tier column + tier filter dropdown
+client/admin/partials/modals-customers.html [DONE] tier info in customer detail modal
+client/js/admin/modules/customers-table.js [DONE] tier badge column render
+client/js/admin/modules/customers-modals.js [DONE] tier fields in viewCustomerDetails
+client/js/admin/modules/core-nav.js [DONE] customerTierFilter query + change handler
+client/js/admin/modules/core-state.js [DONE] customerTierFilter shared state
+client/admin/partials/view-overview.html [DONE] CRM widget silver/gold/platinum counts
+client/js/admin/admin-dashboard.js [DONE] enterprise summary tier stats render
+client/css/admin/_settings-system.css [DONE] tier preview table + badge styles
+client/css/admin/_modals.css [DONE] customers-tier-filter + tier badge reuse
+mobile/src/screens/ProfileScreen.js [DONE] tier badge + progress to next tier
+mobile/src/screens/WalletScreen.js [DONE] tier cashback rate display
+tests/loyalty-tier.test.js [NEW] tier calculation unit tests
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] CRM loyalty tiers + segmentation marked complete

@@ -90,6 +90,7 @@ window.sidebarOrdersCount = 0;
 window.sidebarMessagesCount = 0;
 window._catalogQuickEditSaveHandler = null;
 window.customerSegmentFilter = 'all';
+window.customerTierFilter = '';
 window.customerSegmentThresholds = null;
 window.selectedCustomerIds = new Set();
 window.customerPg = null;

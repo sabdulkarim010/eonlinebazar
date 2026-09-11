@@ -7,6 +7,13 @@
                                 <span class="search-icon" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>
                                 <input type="search" id="customerSearchInput" placeholder="Search by name, email, phone, or ID..." autocomplete="off" aria-label="Search customers">
                             </div>
+                            <select id="customerTierFilter" class="customers-tier-filter" aria-label="Filter by loyalty tier">
+                                <option value="">All tiers</option>
+                                <option value="silver">Silver</option>
+                                <option value="gold">Gold</option>
+                                <option value="platinum">Platinum</option>
+                                <option value="none">None</option>
+                            </select>
                         </div>
                         <div class="customer-segment-tabs" id="customerSegmentTabs">
                             <button type="button" class="segment-tab active" data-segment="all">All Customers</button>
@@ -28,13 +35,14 @@
                                     <th class="customers-th">Mobile Contact</th>
                                     <th class="customers-th customers-th--num">Orders</th>
                                     <th class="customers-th customers-th--num">Total Spent</th>
+                                    <th class="customers-th">Tier</th>
                                     <th class="customers-th">Segment</th>
                                     <th class="customers-th">Account Status</th>
                                     <th class="customers-th customers-th--actions">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="customerTableBody" class="customers-table-body">
-                                <tr><td colspan="10" class="loading-container"><div class="spinner"></div><p>Loading customers...</p></td></tr>
+                                <tr><td colspan="11" class="loading-container"><div class="spinner"></div><p>Loading customers...</p></td></tr>
                             </tbody>
                         </table>
                     </div>

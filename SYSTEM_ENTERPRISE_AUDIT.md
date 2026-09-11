@@ -288,8 +288,9 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 | Capability | Status | Evidence |
 |------------|--------|----------|
 | Customer database with purchase history | ✅ COMPLETE | `user.js` + admin customer detail with orders; chat CRM panel |
-| Customer segmentation/analytics | 🔶 PARTIAL | VIP / Frequent / Inactive segments in admin; thresholds in `Setting.js`; no RFM scoring or campaigns by segment |
+| Customer segmentation/analytics | ✅ COMPLETE | VIP / Frequent / Inactive segments + Silver/Gold/Platinum loyalty tiers; thresholds in `Setting.js`; tier counts on enterprise dashboard |
 | Loyalty points / rewards | ✅ COMPLETE | `loyaltyPoints`, `walletBalance`, cashback on delivery, convert points API |
+| Customer loyalty tiers (Silver/Gold/Platinum) | ✅ COMPLETE | `loyaltyTierService.js`, `loyaltyTierJob.js`, tier settings in `view-loyalty-program.html`, tier-aware cashback, admin + mobile display |
 | SMS / Email / WhatsApp marketing | 🔶 PARTIAL | Newsletter campaigns (`EmailCampaign`); order SMS; review reminder cron; no WhatsApp broadcast campaigns |
 | Live chat or support ticket system | ✅ COMPLETE (chat) | Full live chat stack; ❌ no formal ticket queue outside chat |
 | Reviews & ratings system | ✅ COMPLETE | Product reviews, moderation, verified purchase, review reminders |

@@ -41,6 +41,75 @@
             </div>
         </form>
 
+        <form id="form-system-tiers" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--amber">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--amber" aria-hidden="true">
+                        <i class="fa-solid fa-medal"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>Customer Loyalty Tiers</h4>
+                        <p class="settings-card-sub">Reward repeat buyers with higher cashback as they reach Silver, Gold, and Platinum lifetime spend milestones.</p>
+                    </div>
+                </div>
+
+                <div class="form-group tier-toggle-row">
+                    <label class="toggle-label" for="enableTieredLoyalty">
+                        <input type="checkbox" id="enableTieredLoyalty">
+                        Enable tiered loyalty
+                    </label>
+                </div>
+
+                <div class="master-settings-grid tier-settings-grid">
+                    <div class="form-group">
+                        <label for="silverThreshold">Silver — spend threshold (৳)</label>
+                        <input type="number" id="silverThreshold" min="0" step="1" placeholder="5000">
+                    </div>
+                    <div class="form-group">
+                        <label for="silverCashback">Silver — cashback (%)</label>
+                        <input type="number" id="silverCashback" min="0" max="100" step="0.1" placeholder="1.5">
+                    </div>
+                    <div class="form-group">
+                        <label for="goldThreshold">Gold — spend threshold (৳)</label>
+                        <input type="number" id="goldThreshold" min="0" step="1" placeholder="15000">
+                    </div>
+                    <div class="form-group">
+                        <label for="goldCashback">Gold — cashback (%)</label>
+                        <input type="number" id="goldCashback" min="0" max="100" step="0.1" placeholder="2.5">
+                    </div>
+                    <div class="form-group">
+                        <label for="platinumThreshold">Platinum — spend threshold (৳)</label>
+                        <input type="number" id="platinumThreshold" min="0" step="1" placeholder="50000">
+                    </div>
+                    <div class="form-group">
+                        <label for="platinumCashback">Platinum — cashback (%)</label>
+                        <input type="number" id="platinumCashback" min="0" max="100" step="0.1" placeholder="4.0">
+                    </div>
+                </div>
+
+                <div class="tier-preview-wrap">
+                    <table class="tier-preview-table" id="tierPreviewTable">
+                        <thead>
+                            <tr>
+                                <th>Tier</th>
+                                <th>Min. lifetime spend</th>
+                                <th>Cashback rate</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tierPreviewBody">
+                            <tr><td colspan="3">Configure thresholds above to preview benefits.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Tier Settings
+                    </button>
+                </div>
+            </div>
+        </form>
+
         <form id="form-system-rewards" class="system-settings-form" novalidate>
             <div class="system-settings-card system-settings-card--purple">
                 <div class="system-settings-card-header">

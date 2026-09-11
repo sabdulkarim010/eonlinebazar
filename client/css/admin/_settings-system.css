@@ -390,3 +390,71 @@
 .admin-confirm-swal-confirm.swal2-confirm:hover {
     background: #dc2626;
 }
+
+.tier-toggle-row {
+    margin-bottom: 16px;
+}
+
+.tier-settings-grid {
+    margin-top: 8px;
+}
+
+.tier-preview-wrap {
+    margin-top: 18px;
+    overflow-x: auto;
+}
+
+.tier-preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.tier-preview-table th,
+.tier-preview-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+}
+
+.tier-preview-table th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+    background: #f8fafc;
+}
+
+.tier-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid transparent;
+}
+
+.tier-badge--silver {
+    background: rgba(148, 163, 184, 0.14);
+    color: #475569;
+    border-color: rgba(148, 163, 184, 0.24);
+}
+
+.tier-badge--gold {
+    background: rgba(245, 158, 11, 0.14);
+    color: #b45309;
+    border-color: rgba(245, 158, 11, 0.24);
+}
+
+.tier-badge--platinum {
+    background: rgba(168, 85, 247, 0.14);
+    color: #7e22ce;
+    border-color: rgba(168, 85, 247, 0.24);
+}
+
+.tier-badge--none {
+    background: rgba(226, 232, 240, 0.5);
+    color: #64748b;
+    border-color: rgba(226, 232, 240, 0.8);
+}

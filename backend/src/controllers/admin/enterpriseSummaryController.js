@@ -56,7 +56,10 @@ exports.getEnterpriseSummary = async (req, res) => {
             lateToday,
             pendingLeaveCount,
             payrollPaidThisMonth,
-            payrollPendingThisMonth
+            payrollPendingThisMonth,
+            silverCount,
+            goldCount,
+            platinumCount
         ] = await Promise.all([
             Order.countDocuments({ createdAt: { $gte: todayStart } }),
             Product.countDocuments({
@@ -86,7 +89,10 @@ exports.getEnterpriseSummary = async (req, res) => {
             Attendance.countDocuments({ date: todayStart, isLate: true }),
             Leave.countDocuments({ status: 'pending' }),
             Payroll.countDocuments({ month: currentMonth, year: currentYear, status: 'paid' }),
-            Payroll.countDocuments({ month: currentMonth, year: currentYear, status: { $ne: 'paid' } })
+            Payroll.countDocuments({ month: currentMonth, year: currentYear, status: { $ne: 'paid' } }),
+            User.countDocuments({ loyaltyTier: 'silver', isDeleted: { $ne: true } }),
+            User.countDocuments({ loyaltyTier: 'gold', isDeleted: { $ne: true } }),
+            User.countDocuments({ loyaltyTier: 'platinum', isDeleted: { $ne: true } })
         ]);
 
         res.status(200).json({
@@ -100,7 +106,10 @@ exports.getEnterpriseSummary = async (req, res) => {
                 crm: {
                     abandonedCartCount,
                     openTicketCount,
-                    newCustomersToday
+                    newCustomersToday,
+                    silverCount,
+                    goldCount,
+                    platinumCount
                 },
                 hrm: {
                     staffCount,
