@@ -1,9 +1,30 @@
 # EonlineBazar Cursor Rules
-# Cursor AI must follow these when working on this project
+# Mandatory guidelines for all Cursor Agent prompts
 
-1. Always read REFACTOR_MAP.md and ARCHITECTURE.md first
-2. Never add styles to admin.css, profile.css, or style.css directly — use css/admin/*.css, css/profile/*.css, or css/global/*.css
-3. Never add code to admin-core.js directly — use js/admin/modules/*.js
-4. Never change function names or IDs without searching all files first
-5. Backend routes in routes/*.js are sacred — never restructure
-6. After any change, list which files were modified
+## Before any code changes
+
+1. ALWAYS read ARCHITECTURE.md and REFACTOR_MAP.md before starting any code changes.
+
+## Code placement
+
+2. NEVER add code directly to barrel files (admin.css, admin-core.js, admin-products.js, admin-settings.js, profile.js, style.css, etc.) — always modify or add to the relevant module file. **Exception:** one-line `import` additions to barrels are allowed when wiring a new module.
+3. Never add styles to admin.css, profile.css, or style.css directly — use css/admin/*.css, css/profile/*.css, or css/global/*.css.
+4. Backend routes in routes/*.js are sacred — never restructure.
+
+## HTML / JS interop
+
+5. Ensure all onclick/interactive HTML functions are correctly exposed via `window.functionName = fn`.
+6. Never change function names or IDs without searching all files first.
+
+## Testing
+
+7. Always run `npm test` after implementing changes and ensure 100% tests pass.
+
+## Documentation
+
+8. Do not create unnecessary new audit files; update existing system docs like SYSTEM_ENTERPRISE_AUDIT.md and REFACTOR_MAP.md.
+9. Operational and env notes belong in ARCHITECTURE.md (Local Development Quick Reference) — ADMIN_NOTES.md is intentionally blank.
+
+## After changes
+
+10. After any change, list which files were modified.

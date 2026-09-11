@@ -284,18 +284,55 @@ Restart Expo after changing env vars (`npx expo start -c`).
 
 
 
-## Rules for new developers:
+## Local Development Quick Reference
+
+### Dev servers
+
+| Service | Command | URL |
+|---------|---------|-----|
+| Store gateway | `npm run dev:store` | `http://localhost:5000` |
+| Chat microservice | `npm run dev:chat` | port **5001** |
+| Admin dashboard (Vite) | `cd admin-dashboard && npm run dev` | `:5173` (or `:3000` depending on Vite config) |
+| Built chat-admin SPA | served by store gateway | `http://localhost:5000/chat-admin` |
+
+### Important reminders
+
+- Shared secrets (`JWT_SECRET`, `INTERNAL_API_KEY`, Cloudinary) belong in **repo-root `.env`** only.
+- Rebuild chat-admin after env changes: `cd admin-dashboard && npm run build`, then copy `dist/` → `backend/public/chat-admin/`.
+
+### Chat environment variables
+
+| Variable | Where |
+|----------|-------|
+| `CHAT_SERVICE_URL` / `CHAT_SERVICE_PORT` | repo-root `.env` |
+| `INTERNAL_API_KEY` | repo-root `.env` (same value chat service reads via loadEnv) |
+| `MAIN_STORE_API_URL`, `SOCKET_CORS_ORIGIN` | `ecommerce-chat/.env` |
+| `VITE_API_URL`, `VITE_SOCKET_URL` | `admin-dashboard/.env` (use `:5000` for gateway) |
+
+See also: `docs/SETUP.md`, `ecommerce-chat/docs/SETUP.md`, `devops/first-time-server-setup.md`.
+
+## Documentation Index
+
+| Document | Purpose |
+|----------|---------|
+| `ARCHITECTURE.md` | **Read first** — folder layout, barrels, nav groups, env setup, dev rules |
+| `REFACTOR_MAP.md` | **Read first** — file-by-file refactor status and change log |
+| `SYSTEM_ENTERPRISE_AUDIT.md` | Full-stack enterprise audit (ERP/CRM/HRM, chat, mobile, settings) |
+| `CHAT_AUDIT.md` | Live chat close/session teardown audit |
+| `AUDIT_REPORT.md` | Mobile app feature parity audit |
+| `PROFILE_AUDIT.md` | Profile module split diagnostics |
+| `README.md` | Quick start, env vars, deployment |
+| `docs/SETUP.md` | Chat microservice setup (Bengali) |
+| `devops/first-time-server-setup.md` | Production VPS first-time setup |
+
+When adding audit findings or operational notes, **update the relevant existing doc above** — do not create new standalone audit files unless the scope is genuinely new.
+
+## Rules for new developers
 
 1. NEVER add code to barrel files (admin.css, admin-core.js, admin-products.js, admin-settings.js, profile.js, etc.) — **exception:** one-line `import` additions to barrels are allowed when wiring a new module.
-
-2. ALWAYS add to the relevant module file
-
-3. ALWAYS update REFACTOR_MAP.md when creating new files
-
-4. CSS @media queries go in _responsive.css of that module group
-
-5. window.functionName = fn for any function used in HTML onclick=""
-
-6. Run tests after every change: npm test
-
+2. ALWAYS add to the relevant module file.
+3. ALWAYS update REFACTOR_MAP.md when creating new files.
+4. CSS @media queries go in `_responsive.css` of that module group.
+5. `window.functionName = fn` for any function used in HTML `onclick=""`.
+6. Run tests after every change: `npm test` (all tests must pass).
 

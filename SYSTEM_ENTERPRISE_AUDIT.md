@@ -805,7 +805,7 @@ This audit scanned (non-exhaustive list of top-level areas):
 - `ecommerce-chat/` — models, routes, socket, services
 - `admin-dashboard/src/` — pages, components, services
 - Root config — `package.json`, `docker-compose.yml`, `Dockerfile`, `devops/nginx.conf`
-- Documentation — `ARCHITECTURE.md`, `REFACTOR_MAP.md`, `ADMIN_NOTES.md`
+- Documentation — `ARCHITECTURE.md`, `REFACTOR_MAP.md`, `SYSTEM_ENTERPRISE_AUDIT.md`, `CHAT_AUDIT.md`, `AUDIT_REPORT.md`, `PROFILE_AUDIT.md`
 
 **Folders confirmed present:** `backend/`, `client/`, `mobile/`, `ecommerce-chat/`, `admin-dashboard/`, `devops/`, `public/`, `scripts/`, `tests/`
 

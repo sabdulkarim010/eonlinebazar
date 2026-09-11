@@ -222,7 +222,9 @@ backend/src/routes/adminRoutes.js [DONE] GET /finance/profit-loss + /export-pdf 
 
 ## Docs (audit / notes)
 CHAT_AUDIT.md                        [DONE] live-chat audit §1–16 + P0 CRM enrichment §17 (2026-09-07)
-ADMIN_NOTES.md                       [DONE] chat env quick reference; scratch content removed (2026-09-08)
+ADMIN_NOTES.md                       [DONE] cleared; dev/env notes moved to ARCHITECTURE.md (2026-09-11)
+ARCHITECTURE.md                      [DONE] Local Development Quick Reference + Documentation Index (2026-09-11)
+.cursorrules                         [NEW] mandatory Cursor Agent guidelines (2026-09-11)
 .env.example                         [DONE] CHAT_SERVICE_PORT/URL + INTERNAL_API_KEY chat section (2026-09-08)
 ecommerce-chat/.env.example          [DONE] chat-only vars; JWT/Cloudinary from repo-root (2026-09-08)
 admin-dashboard/.env.example         [DONE] gateway :5000 for VITE_API_URL + VITE_SOCKET_URL (2026-09-08)

@@ -351,6 +351,21 @@ Remaining: API keys configuration + branded assets + go-live testing
 
 ---
 
+## 📚 Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Folder layout, barrels, dev setup, contributor rules |
+| [REFACTOR_MAP.md](REFACTOR_MAP.md) | Refactor status and change log |
+| [SYSTEM_ENTERPRISE_AUDIT.md](SYSTEM_ENTERPRISE_AUDIT.md) | Full-stack enterprise audit |
+| [CHAT_AUDIT.md](CHAT_AUDIT.md) | Live chat session audit |
+| [AUDIT_REPORT.md](AUDIT_REPORT.md) | Mobile app parity audit |
+| [PROFILE_AUDIT.md](PROFILE_AUDIT.md) | Profile module diagnostics |
+
+See [ARCHITECTURE.md § Documentation Index](ARCHITECTURE.md#documentation-index) for the complete list.
+
+---
+
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
