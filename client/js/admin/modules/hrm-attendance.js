@@ -22,6 +22,7 @@ const ATTENDANCE_STATUS_CLASSES = {
 
 /** Staff roster is read by all three HRM sections — fetched once per page load. */
 let hrmStaffCache = [];
+let hrmEmployeeCache = [];
 
 function hrmEscape(value) {
     return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
@@ -76,36 +77,75 @@ function hrmFillYearInput(inputId, year) {
     if (input && !input.value) input.value = year || new Date().getFullYear();
 }
 
-/** Load the staff roster once and populate every given <select> with it. */
-async function hrmLoadStaffOptions(selectIds = [], { placeholder = 'All staff' } = {}) {
+function hrmParseStaffSelect(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return {};
+    if (raw.includes(':')) {
+        const [staffType, id] = raw.split(':');
+        if (staffType === 'employee') {
+            return { staffType: 'employee', staffId: id, employeeId: id };
+        }
+        return { staffType: 'admin', staffUsername: id, staffId: id };
+    }
+    return { staffType: 'admin', staffUsername: raw };
+}
+
+function hrmInvalidateEmployeeCache() {
+    hrmEmployeeCache = [];
+}
+
+/** Load admin staff + operational employees into grouped optgroups. */
+async function hrmLoadStaffOptions(selectIds = [], { placeholder = 'All staff', includeEmployees = true } = {}) {
     if (!hrmStaffCache.length) {
         try {
             const res = await fetch('/api/admin/hrm/staff', { headers: hrmAuthHeaders() });
             const result = await res.json();
             hrmStaffCache = Array.isArray(result.data) ? result.data : [];
         } catch (err) {
-            console.error('hrmLoadStaffOptions:', err);
+            console.error('hrmLoadStaffOptions (staff):', err);
             hrmStaffCache = [];
         }
     }
 
-    selectIds.forEach((id) => {
-        const select = document.getElementById(id);
+    if (includeEmployees && !hrmEmployeeCache.length) {
+        try {
+            const res = await fetch('/api/admin/hrm/employees?all=true', { headers: hrmAuthHeaders() });
+            const result = await res.json();
+            hrmEmployeeCache = Array.isArray(result.data) ? result.data : [];
+        } catch (err) {
+            console.error('hrmLoadStaffOptions (employees):', err);
+            hrmEmployeeCache = [];
+        }
+    }
+
+    selectIds.forEach((selectId) => {
+        const select = document.getElementById(selectId);
         if (!select) return;
 
         const previous = select.value;
-        const options = hrmStaffCache
-            .map((s) => `<option value="${hrmEscape(s.username)}">${hrmEscape(s.name)} (${hrmEscape(s.username)})</option>`)
-            .join('');
+        let html = select.multiple ? '' : `<option value="">${hrmEscape(placeholder)}</option>`;
 
-        select.innerHTML = select.multiple
-            ? options
-            : `<option value="">${hrmEscape(placeholder)}</option>${options}`;
+        if (hrmStaffCache.length) {
+            html += `<optgroup label="System Staff">`;
+            html += hrmStaffCache
+                .map((s) => `<option value="admin:${hrmEscape(s.username)}">${hrmEscape(s.name || s.username)} (${hrmEscape(s.username)})</option>`)
+                .join('');
+            html += `</optgroup>`;
+        }
 
+        if (includeEmployees && hrmEmployeeCache.length) {
+            html += `<optgroup label="Operational Employees">`;
+            html += hrmEmployeeCache
+                .map((e) => `<option value="employee:${hrmEscape(e.employeeId)}">${hrmEscape(e.fullName)} (${hrmEscape(e.employeeId)})</option>`)
+                .join('');
+            html += `</optgroup>`;
+        }
+
+        select.innerHTML = html;
         if (previous) select.value = previous;
     });
 
-    return hrmStaffCache;
+    return { staff: hrmStaffCache, employees: hrmEmployeeCache };
 }
 
 function hrmFindStaff(username) {
@@ -229,8 +269,9 @@ async function openMarkAttendanceModal() {
 }
 
 async function saveAttendance() {
+    const staffValue = document.getElementById('markAttendanceStaff')?.value;
     const payload = {
-        staffUsername: document.getElementById('markAttendanceStaff')?.value,
+        ...hrmParseStaffSelect(staffValue),
         date: document.getElementById('markAttendanceDate')?.value,
         status: document.getElementById('markAttendanceStatus')?.value,
         shift: document.getElementById('markAttendanceShift')?.value,
@@ -238,7 +279,7 @@ async function saveAttendance() {
         notes: document.getElementById('markAttendanceNotes')?.value?.trim() || ''
     };
 
-    if (!payload.staffUsername || !payload.date || !payload.status) {
+    if (!staffValue || !payload.date || !payload.status) {
         showToast('Staff, date, and status are required.', 'warning');
         return;
     }
@@ -494,6 +535,19 @@ async function loadHrmAttendanceSection() {
     hrmFillYearInput('hrmLateYear', now.getFullYear());
 
     await hrmLoadStaffOptions(['hrmAttendanceStaffFilter']);
+
+    const pendingStaff = window.hrmPendingAttendanceStaff;
+    if (pendingStaff) {
+        delete window.hrmPendingAttendanceStaff;
+        const filter = document.getElementById('hrmAttendanceStaffFilter');
+        if (filter) filter.value = pendingStaff;
+        await loadAttendanceList();
+        await openMarkAttendanceModal();
+        const markSelect = document.getElementById('markAttendanceStaff');
+        if (markSelect) markSelect.value = pendingStaff;
+        return;
+    }
+
     await loadAttendanceList();
 }
 
@@ -524,6 +578,8 @@ Object.assign(window, {
     hrmFillMonthSelect,
     hrmFillYearInput,
     hrmLoadStaffOptions,
+    hrmParseStaffSelect,
+    hrmInvalidateEmployeeCache,
     hrmFindStaff,
     hrmSetupTabs,
     HRM_MONTHS

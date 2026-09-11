@@ -14,8 +14,9 @@ const ATTENDANCE_STATUSES = ['present', 'absent', 'late', 'half-day', 'holiday']
 const SHIFT_TYPES = ['morning', 'evening', 'night', 'custom'];
 
 const attendanceSchema = new mongoose.Schema({
-    /** String form of the Admin _id — staff identity is username-driven across HRM. */
-    staffId: { type: String, ref: 'Admin', required: true },
+    /** Admin _id or Employee _id as a string — see staffType for which collection. */
+    staffId: { type: String, required: true },
+    staffType: { type: String, enum: ['admin', 'employee'], default: 'admin' },
     staffUsername: { type: String, default: '', trim: true },
     date: { type: Date, required: true },
     clockIn: { type: Date, default: null },

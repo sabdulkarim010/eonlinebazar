@@ -132,6 +132,7 @@ The admin sidebar is grouped into **Dashboard**, **ERP**, **CRM**, **HRM**, and 
 
 | Warehouse | `backend/src/models/warehouse.js` | Multi-location inventory |
 
+| Employee | `backend/src/models/employee.js` | Non-login operational staff (delivery, labour, cleaners) |
 | Attendance | `backend/src/models/attendance.js` | One row per staff per day (clock in/out, late, shift) |
 
 | Shift | `backend/src/models/shift.js` | Named working windows + late grace period |
@@ -161,6 +162,7 @@ The admin sidebar is grouped into **Dashboard**, **ERP**, **CRM**, **HRM**, and 
 | Leave | `GET /leaves`, `POST /leaves/apply`, `PATCH /leaves/:id/approve`, `PATCH /leaves/:id/reject`, `GET /leaves/balance`, `GET /leaves/calendar` | Approving a leave writes `holiday` attendance rows across the span |
 
 | Staff roster | `GET /hrm/staff` | Dropdown roster; includes the employment record for `manage_staff` holders |
+| Employees | `GET/POST/PATCH/DELETE /hrm/employees` | Non-login operational staff CRUD; auto `EMP-001` ids |
 
 
 
@@ -227,6 +229,13 @@ mobile/
 ├── eas.json                   ← preview = internal APK; production AAB
 
 
+
+### Local Development Setup (Mobile)
+
+Copy `mobile/.env.example` to `mobile/.env`.
+Use your machine's LAN IP address (not localhost) when testing
+on a physical device. Run ipconfig (Windows) or ifconfig (Mac/Linux)
+to find your IP. Expo DevTools also shows the correct URL.
 
 ### Mobile environment setup
 

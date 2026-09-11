@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
   <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
   <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
-  <img src="https://img.shields.io/badge/tests-126%2F126-brightgreen" alt="126/126 Tests Passing">
+  <img src="https://img.shields.io/badge/tests-128%2F128-brightgreen" alt="128/128 Tests Passing">
   <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
   <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
   <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">
@@ -130,7 +130,7 @@ Read these documents before making changes. Operational notes belong in the exis
 
 ## Quality Assurance & Testing
 
-The repository ships with **100% passing automated coverage: 126 / 126 tests** across **11 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
+The repository ships with **100% passing automated coverage: 128 / 128 tests** across **11 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
 
 ```bash
 npm test
@@ -147,7 +147,7 @@ npm test
 | Product seed | `tests/product-seed.test.js` | 3 | Demo catalog upsert |
 | Chat session | `tests/chat-end-session.test.js` | 8 | Guest / agent / admin end-session ownership |
 | ERP | `tests/erp.test.js` | 31 | Suppliers, warehouses, `receivePO`, slugs, audit, status enum |
-| HRM | `tests/hrm.test.js` | 26 | Attendance, shifts, payroll pro-rating, PDF slips, leave calendar |
+| HRM | `tests/hrm.test.js` | 28 | Attendance, shifts, payroll pro-rating, PDF slips, leave calendar, employee CRUD |
 | Loyalty | `tests/loyalty-tier.test.js` | 6 | Silver / Gold / Platinum thresholds and cashback |
 | **Total** | | **126** | All suites green |
 
@@ -252,7 +252,7 @@ npm start
 npm test
 ```
 
-All **126** tests must pass before merging changes.
+All **128** tests must pass before merging changes.
 
 ### Mobile (Expo)
 
@@ -298,7 +298,7 @@ eonlinebazar-fullstack/
 ├── ecommerce-chat/              # Live-chat microservice (port 5001)
 ├── admin-dashboard/             # Vite React chat-admin SPA → /chat-admin
 ├── devops/                      # Nginx, droplet first-time setup
-├── tests/                       # 11 Jest suites / 126 tests
+├── tests/                       # 11 Jest suites / 128 tests
 ├── scripts/                     # Seed and index migration
 ├── ARCHITECTURE.md
 ├── REFACTOR_MAP.md

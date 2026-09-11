@@ -130,8 +130,9 @@ async function openGeneratePayrollModal() {
 }
 
 async function submitGeneratePayroll() {
+    const staffValue = document.getElementById('generatePayrollStaff')?.value;
     const payload = {
-        staffUsername: document.getElementById('generatePayrollStaff')?.value,
+        ...(window.hrmParseStaffSelect ? window.hrmParseStaffSelect(staffValue) : { staffUsername: staffValue }),
         month: Number(document.getElementById('generatePayrollMonth')?.value),
         year: Number(document.getElementById('generatePayrollYear')?.value),
         bonus: Number(document.getElementById('generatePayrollBonus')?.value) || 0,
@@ -140,7 +141,7 @@ async function submitGeneratePayroll() {
         notes: document.getElementById('generatePayrollNotes')?.value?.trim() || ''
     };
 
-    if (!payload.staffUsername || !payload.month || !payload.year) {
+    if (!staffValue || !payload.month || !payload.year) {
         showToast('Staff, month, and year are required.', 'warning');
         return;
     }

@@ -129,6 +129,7 @@ const SECTION_PERMISSIONS = Object.freeze({
     'view-settings': null, // own profile / 2FA — platform fields are guarded server-side
     'view-staff': 'manage_staff',
     'view-staff-audit': 'manage_security',
+    'view-hrm-employees': 'manage_staff',
     'view-hrm-attendance': 'manage_staff',
     'view-hrm-payroll': 'manage_staff',
     'view-hrm-leaves': 'manage_staff',

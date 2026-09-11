@@ -12,6 +12,7 @@ const Attendance = require('../backend/src/models/attendance');
 const Shift = require('../backend/src/models/shift');
 const Payroll = require('../backend/src/models/payroll');
 const Leave = require('../backend/src/models/leave');
+const Employee = require('../backend/src/models/employee');
 const { countWorkingDays } = require('../backend/src/controllers/admin/payrollController');
 const { getApp, createTestAdmin } = require('./setup');
 
@@ -704,6 +705,74 @@ describe('HRM — Attendance, Payroll, Leave', () => {
                 leaveType: 'casual',
                 status: 'approved'
             });
+        });
+    });
+
+    /* ---------------------------------------------------------------- */
+
+    describe('Employees (non-login staff)', () => {
+        test('creates employee with auto-generated EMP id and marks attendance', async () => {
+            const token = await adminToken();
+            const today = new Date().toISOString().slice(0, 10);
+
+            const created = await request(app)
+                .post('/api/admin/hrm/employees')
+                .set(auth(token))
+                .send({
+                    fullName: 'Karim Delivery',
+                    phone: '01700000001',
+                    role: 'Delivery Man',
+                    department: 'Operations',
+                    baseSalary: 15000
+                });
+
+            expect(created.status).toBe(201);
+            expect(created.body.data.employeeId).toMatch(/^EMP-\d{3}$/);
+            expect(created.body.data.fullName).toBe('Karim Delivery');
+
+            const marked = await request(app)
+                .post('/api/admin/hrm/attendance/mark')
+                .set(auth(token))
+                .send({
+                    staffType: 'employee',
+                    staffId: created.body.data.employeeId,
+                    date: today,
+                    status: 'present'
+                });
+
+            expect(marked.status).toBe(200);
+            expect(marked.body.data.staffType).toBe('employee');
+            expect(marked.body.data.staffUsername).toBe(created.body.data.employeeId);
+
+            const stats = await request(app)
+                .get('/api/admin/hrm/employees/stats')
+                .set(auth(token));
+
+            expect(stats.status).toBe(200);
+            expect(stats.body.data.totalActive).toBeGreaterThanOrEqual(1);
+        });
+
+        test('soft-deletes employee by setting status to terminated', async () => {
+            const token = await adminToken();
+
+            const created = await request(app)
+                .post('/api/admin/hrm/employees')
+                .set(auth(token))
+                .send({
+                    fullName: 'Temp Labour',
+                    phone: '01700000002',
+                    role: 'Labour'
+                });
+
+            const deleted = await request(app)
+                .delete(`/api/admin/hrm/employees/${created.body.data._id}`)
+                .set(auth(token));
+
+            expect(deleted.status).toBe(200);
+            expect(deleted.body.data.status).toBe('terminated');
+
+            const fetched = await Employee.findById(created.body.data._id);
+            expect(fetched.status).toBe('terminated');
         });
     });
 

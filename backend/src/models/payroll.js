@@ -13,7 +13,8 @@ const mongoose = require('mongoose');
 const PAYROLL_STATUSES = ['draft', 'approved', 'paid'];
 
 const payrollSchema = new mongoose.Schema({
-    staffId: { type: String, ref: 'Admin', required: true },
+    staffId: { type: String, required: true },
+    staffType: { type: String, enum: ['admin', 'employee'], default: 'admin' },
     staffUsername: { type: String, default: '', trim: true },
     staffName: { type: String, default: '', trim: true },
     /** 1–12 calendar month (not zero-based, unlike Date#getMonth). */

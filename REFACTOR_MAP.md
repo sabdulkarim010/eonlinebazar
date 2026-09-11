@@ -836,3 +836,31 @@ mobile/src/screens/ProfileScreen.js [DONE] tier badge + progress to next tier
 mobile/src/screens/WalletScreen.js [DONE] tier cashback rate display
 tests/loyalty-tier.test.js [NEW] tier calculation unit tests
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] CRM loyalty tiers + segmentation marked complete
+#
+# Final System Audit fixes — 2026-09-11
+backend/src/models/employee.js [NEW] non-login operational staff (EMP-001 auto ids)
+backend/src/models/attendance.js [DONE] staffType enum admin|employee
+backend/src/models/payroll.js [DONE] staffType enum admin|employee
+backend/src/models/leave.js [DONE] staffType enum admin|employee
+backend/src/utils/hrmStaffResolver.js [NEW] unified Admin + Employee resolver for HRM
+backend/src/controllers/admin/employeeController.js [NEW] CRUD + stats for /api/admin/hrm/employees
+backend/src/routes/adminRoutes.js [DONE] employee routes under /hrm/employees
+backend/src/routes/categoryRoutes.js [DONE] manage_catalog on admin GET list/detail
+backend/src/routes/bannerRoutes.js [DONE] manage_catalog on admin GET list
+backend/src/controllers/admin/attendanceController.js [DONE] employee attendance via staffType
+backend/src/controllers/admin/payrollController.js [DONE] employee payroll via staffType
+backend/src/utils/adminPageBuilder.js [DONE] view-hrm-employees partial
+backend/src/config/permissions.js [DONE] view-hrm-employees → manage_staff
+client/admin/partials/view-hrm-employees.html [NEW] employee roster + modals
+client/admin/partials/view-finance.html [DONE] removed duplicate finance iframe embed
+client/admin/partials/sidebar.html [DONE] Employees link above Attendance & Shifts
+client/js/admin/modules/hrm-employees.js [NEW] employee CRUD UI + attendance shortcut
+client/js/admin/modules/hrm-attendance.js [DONE] grouped staff/employee optgroups
+client/js/admin/modules/hrm-payroll.js [DONE] grouped staff selector for generate payroll
+client/js/admin/admin-settings.js [DONE] imports hrm-employees.js
+client/js/admin/modules/core-nav.js [DONE] view-hrm-employees refreshMap
+client/js/admin/modules/core-state.js [DONE] ADMIN_PAGE_META for Employees
+mobile/.env.example [DONE] LAN IP dev comments
+ARCHITECTURE.md [DONE] Employee model + Local Development Setup (Mobile)
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Final audit priority fixes marked complete
+tests/hrm.test.js [DONE] +2 employee CRUD + attendance tests

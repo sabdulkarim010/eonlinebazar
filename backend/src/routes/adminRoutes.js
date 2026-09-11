@@ -56,6 +56,7 @@ const purchaseOrderController = require('../controllers/admin/purchaseOrderContr
 const attendanceController = require('../controllers/admin/attendanceController');
 const payrollController = require('../controllers/admin/payrollController');
 const leaveController = require('../controllers/admin/leaveController');
+const employeeController = require('../controllers/admin/employeeController');
 const expenseController = require('../controllers/admin/expenseController');
 const profitLossController = require('../controllers/admin/profitLossController');
 const exportController = require('../controllers/admin/exportController');
@@ -508,6 +509,14 @@ router.put('/purchase-orders/:id', verifyAdmin, checkPermission('manage_inventor
 // /staff/roster needs manage_orders, and /staff needs superadmin — an HRM
 // manager holds neither, so the same controller is exposed under manage_staff.
 router.get('/hrm/staff', verifyAdmin, checkPermission('manage_staff'), staffController.getStaffRoster);
+
+// — Operational employees (non-login staff) —
+router.get('/hrm/employees/stats', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeStats);
+router.get('/hrm/employees', verifyAdmin, checkPermission('manage_staff'), employeeController.getAllEmployees);
+router.get('/hrm/employees/:id', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeById);
+router.post('/hrm/employees', verifyAdmin, checkPermission('manage_staff'), employeeController.createEmployee);
+router.patch('/hrm/employees/:id', verifyAdmin, checkPermission('manage_staff'), employeeController.updateEmployee);
+router.delete('/hrm/employees/:id', verifyAdmin, checkPermission('manage_staff'), employeeController.deleteEmployee);
 
 // — Attendance —
 // Named sub-paths are declared before any /:id route so "summary" and

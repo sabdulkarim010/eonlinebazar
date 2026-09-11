@@ -8,7 +8,7 @@ const { checkPermission } = require('../middlewares/rbac');
 router.get('/store/banners', ctrl.getActiveBanners);
 
 // Admin
-router.get('/admin/banners', verifyAdmin, ctrl.getAllBanners);
+router.get('/admin/banners', verifyAdmin, checkPermission('manage_catalog'), ctrl.getAllBanners);
 router.post('/admin/banners', verifyAdmin, checkPermission('manage_catalog'),
   ctrl.uploadMiddleware, ctrl.createBanner);
 router.patch('/admin/banners/reorder', verifyAdmin, checkPermission('manage_catalog'), ctrl.reorderBanners);

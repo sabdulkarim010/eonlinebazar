@@ -15,6 +15,7 @@ const Payroll = require('../../models/payroll');
 const Admin = require('../../models/admin');
 const { generatePaySlipPdf } = require('../../utils/paySlipPdf');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { findAdmin, parseStaffSelector, resolveHrmSubject } = require('../../utils/hrmStaffResolver');
 
 /** Bangladesh weekend — Friday (Date#getDay() === 5) is not a working day. */
 const WEEKEND_DAY = 5;
@@ -33,15 +34,7 @@ function actorName(req) {
 }
 
 async function findStaff(identifier) {
-    const value = String(identifier || '').trim();
-    if (!value) return null;
-
-    if (mongoose.Types.ObjectId.isValid(value)) {
-        const byId = await Admin.findById(value);
-        if (byId) return byId;
-    }
-
-    return Admin.findOne({ username: value });
+    return findAdmin(identifier);
 }
 
 /** Calendar working days in a month, excluding the weekly day off. */
@@ -106,15 +99,15 @@ exports.generatePayroll = async (req, res) => {
         const body = req.body || {};
         const now = new Date();
 
-        const account = await findStaff(body.staffId || body.staffUsername);
-        if (!account) {
+        const subject = await resolveHrmSubject(body);
+        if (!subject) {
             return res.status(404).json({ success: false, message: 'Staff member not found.' });
         }
 
         const month = Math.min(Math.max(parseInt(body.month, 10) || now.getMonth() + 1, 1), 12);
         const year = parseInt(body.year, 10) || now.getFullYear();
 
-        const existing = await Payroll.findOne({ staffId: String(account._id), month, year });
+        const existing = await Payroll.findOne({ staffId: subject.staffId, month, year });
         if (existing && existing.status !== 'draft') {
             return res.status(409).json({
                 success: false,
@@ -126,7 +119,7 @@ exports.generatePayroll = async (req, res) => {
         const end = new Date(year, month, 0, 0, 0, 0, 0);
 
         const records = await Attendance.find({
-            staffId: String(account._id),
+            staffId: subject.staffId,
             date: { $gte: start, $lte: end }
         }).lean();
 
@@ -141,7 +134,7 @@ exports.generatePayroll = async (req, res) => {
 
         const baseSalary = body.baseSalary !== undefined
             ? Math.max(0, Number(body.baseSalary) || 0)
-            : Number(account.baseSalary) || 0;
+            : subject.baseSalary;
 
         const hourlyRate = workingDays > 0
             ? baseSalary / (workingDays * STANDARD_SHIFT_HOURS)
@@ -150,10 +143,11 @@ exports.generatePayroll = async (req, res) => {
             ? Math.max(0, Number(body.overtimeRate) || 0)
             : Math.round(hourlyRate * 100) / 100;
 
-        const record = existing || new Payroll({ staffId: String(account._id), month, year });
+        const record = existing || new Payroll({ staffId: subject.staffId, month, year });
 
-        record.staffUsername = account.username;
-        record.staffName = account.name || account.displayName || account.username;
+        record.staffType = subject.staffType;
+        record.staffUsername = subject.staffUsername;
+        record.staffName = subject.staffName;
         record.baseSalary = baseSalary;
         record.bonus = Math.max(0, Number(body.bonus) || 0);
         record.overtime = body.overtime !== undefined
@@ -177,7 +171,7 @@ exports.generatePayroll = async (req, res) => {
             actor: actorName(req),
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: `${account.username} — ${month}/${year}, net ${record.totalSalary}`,
+            details: `${subject.staffUsername} — ${month}/${year}, net ${record.totalSalary}`,
             resourceType: 'payroll',
             resourceId: String(record._id)
         });
@@ -214,8 +208,8 @@ exports.getAllPayrolls = async (req, res) => {
 
         const staff = String(req.query.staff || '').trim();
         if (staff) {
-            const account = await findStaff(staff);
-            filter.staffId = account ? String(account._id) : '__no_match__';
+            const subject = await resolveHrmSubject(parseStaffSelector(staff));
+            filter.staffId = subject ? subject.staffId : '__no_match__';
         }
 
         const { page, limit, skip } = parsePagination(req.query);

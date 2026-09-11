@@ -1307,5 +1307,173 @@ The prior fix (visible in current code) added:
 | Password inputs missing `autocomplete` (DOM warnings) | `current-password` / `new-password` on admin profile & store forms; `off` on sandbox reset key | `client/admin/partials/view-settings.html` |
 | `#real-reset-key` outside `<form>` | Wrapped in `#realResetForm` with `onsubmit="return false;"` (button remains `type="button"`) | `client/admin/partials/view-settings.html` |
 
+---
+
+## FINAL SYSTEM AUDIT — 2026-09-11
+
+**Scope:** Read-only verification of every checklist item against live code. No source files were modified during this audit (only this document updated).
+
+**Method:** File existence, non-empty size checks, route grep in `adminRoutes.js`, model field inspection, and HTML/JS UI verification (tables, modals, sidebar targets).
+
+---
+
+### 1. HRM MODULE (Phase A)
+
+| Check | Status | Note |
+|-------|--------|------|
+| `backend/src/models/attendance.js` | ✅ EXISTS & COMPLETE | 3.7 KB — schema + indexes |
+| `backend/src/models/shift.js` | ✅ EXISTS & COMPLETE | 1.4 KB |
+| `backend/src/models/payroll.js` | ✅ EXISTS & COMPLETE | 3.6 KB |
+| `backend/src/models/leave.js` | ✅ EXISTS & COMPLETE | 2.8 KB |
+| `backend/src/controllers/admin/attendanceController.js` | ✅ EXISTS & COMPLETE | 23 KB — mark, clock-in/out, shifts, summary, late report |
+| `backend/src/controllers/admin/payrollController.js` | ✅ EXISTS & COMPLETE | 17.5 KB — generate, approve, paid, payslip PDF |
+| `backend/src/controllers/admin/leaveController.js` | ✅ EXISTS & COMPLETE | 15.6 KB — apply, approve/reject, balance, calendar |
+| `client/admin/partials/view-hrm-attendance.html` | ✅ EXISTS & COMPLETE | KPI cards, register + shifts tabs, mark-attendance modal |
+| `client/admin/partials/view-hrm-payroll.html` | ✅ EXISTS & COMPLETE | Generate payroll, salary config, approval table |
+| `client/admin/partials/view-hrm-leaves.html` | ✅ EXISTS & COMPLETE | Pending/all/calendar tabs, apply-leave modal |
+| `client/js/admin/modules/hrm-attendance.js` | ✅ EXISTS & COMPLETE | 21 KB — wired in `admin-settings.js` + `core-nav.js` refreshMap |
+| `client/js/admin/modules/hrm-payroll.js` | ✅ EXISTS & COMPLETE | 15 KB |
+| `client/js/admin/modules/hrm-leaves.js` | ✅ EXISTS & COMPLETE | 16 KB |
+| `/api/admin/hrm/attendance` routes | ✅ EXISTS & COMPLETE | GET list/summary/late-report, POST mark/clock-in/clock-out |
+| `/api/admin/hrm/payroll` routes | ✅ EXISTS & COMPLETE | GET list, POST generate/salary-config, PATCH approve/paid, GET payslip |
+| `/api/admin/hrm/leaves` routes | ✅ EXISTS & COMPLETE | GET list/balance/calendar, POST apply, PATCH approve/reject |
+| Bonus: `/api/admin/hrm/shifts` routes | ✅ EXISTS & COMPLETE | Full CRUD on shifts via `attendanceController` |
+| `admin.js`: `baseSalary`, `department`, `joiningDate`, `employeeId` | ✅ EXISTS & COMPLETE | Lines 139–142 in `backend/src/models/admin.js` |
+
+---
+
+### 2. ERP MODULE (Phase B)
+
+| Check | Status | Note |
+|-------|--------|------|
+| `backend/src/models/expense.js` | ✅ EXISTS & COMPLETE | 8-category expense ledger schema |
+| `backend/src/services/courierSyncService.js` | ✅ EXISTS & COMPLETE | 13.5 KB — Steadfast/Pathao/RedX sync |
+| `backend/src/jobs/courierSyncJob.js` | ✅ EXISTS & COMPLETE | 3.8 KB — cron status poll |
+| `backend/src/controllers/admin/profitLossController.js` | ✅ EXISTS & COMPLETE | Advanced P&L engine |
+| `backend/src/controllers/admin/expenseController.js` | ✅ EXISTS & COMPLETE | CRUD + summary |
+| `client/admin/partials/view-finance.html` — P&L section | ✅ EXISTS & COMPLETE | Full `#plReport` SPA: date range, cards, SVG charts, tables, PDF/CSV export |
+| `client/js/admin/modules/erp-profit-loss.js` | ✅ EXISTS & COMPLETE | 400+ lines; calls `/api/admin/finance/profit-loss` |
+| `/api/admin/expenses` routes | ✅ EXISTS & COMPLETE | GET/POST/PATCH/DELETE + summary (`manage_settings`) |
+| `/api/admin/finance/profit-loss` route | ✅ EXISTS & COMPLETE | Superadmin + export-pdf/csv |
+| `/api/admin/orders/:id/book-courier` route | ✅ EXISTS & COMPLETE | PATCH with `manage_orders` |
+| Barcode/SKU search input (POS) | ✅ EXISTS & COMPLETE | `#manualBarcodeInput` in `modals-orders.html`; scan handler in `orders-pos.js` |
+| Print invoice modal (POS) | ✅ EXISTS & COMPLETE | `#posInvoiceModal` — print + PDF download in `orders-pos.js` |
+
+**Resolved 2026-09-11:** Redundant `/finance-analytics` iframe removed; header-only secondary link retained.
+
+---
+
+### 3. CRM TIERS (Phase C)
+
+| Check | Status | Note |
+|-------|--------|------|
+| `user.js`: `loyaltyTier` enum | ✅ EXISTS & COMPLETE | `enum: ['none', 'silver', 'gold', 'platinum']` |
+| `user.js`: `lifetimeSpend` | ✅ EXISTS & COMPLETE | Number, default 0 |
+| `user.js`: `tierCashbackRate` | ✅ EXISTS & COMPLETE | Number, default 0 |
+| `backend/src/services/loyaltyTierService.js` | ✅ EXISTS & COMPLETE | 7.4 KB — tier evaluation + cashback |
+| `backend/src/jobs/loyaltyTierJob.js` | ✅ EXISTS & COMPLETE | 3.6 KB — nightly tier recalc cron |
+| `view-loyalty-program.html` tier settings card | ✅ EXISTS & COMPLETE | `#form-system-tiers` with Silver/Gold/Platinum thresholds + preview table |
+| `ProfileScreen.js` tier badge | ✅ EXISTS & COMPLETE | Tier badge + progress text toward next tier |
+
+---
+
+### 4. SETTINGS ROUTING FIX
+
+| Check | Status | Note |
+|-------|--------|------|
+| `view-shipping-payments.html` | ✅ EXISTS & COMPLETE | Registered in `adminPageBuilder.js` |
+| `view-loyalty-program.html` | ✅ EXISTS & COMPLETE | Dedicated loyalty/VIP partial |
+| `view-store-config.html` | ✅ EXISTS & COMPLETE | Catalog/flash-sale/footer/CMS cards |
+| `view-master-settings.html` deleted | ✅ EXISTS & COMPLETE | File not found; removed from `adminPageBuilder.js` |
+| Sidebar → Loyalty Program | ✅ EXISTS & COMPLETE | `data-target="view-loyalty-program"` |
+| Sidebar → Shipping & Payments | ✅ EXISTS & COMPLETE | `data-target="view-shipping-payments"` |
+
+---
+
+### 5. EMPTY PAGES UI (Fix 2)
+
+| Check | Status | Note |
+|-------|--------|------|
+| `view-suppliers.html` | ✅ EXISTS & COMPLETE | Add Supplier button + table + `#supplierModal`; CRUD in `erp-suppliers.js` |
+| `view-warehouses.html` | ✅ EXISTS & COMPLETE | Add Warehouse button + table + `#warehouseModal`; CRUD in `erp-warehouses.js` |
+| `view-purchase-orders.html` | ✅ EXISTS & COMPLETE | Create PO modal + Receive workflow modal; full JS in `erp-purchase-orders.js` |
+| `view-crm-abandoned.html` | ✅ EXISTS & COMPLETE | KPI cards **and** abandoned cart list table with filter tabs + notify actions (`crm-abandoned-carts.js`) |
+
+*Previous Phase 2 audit (2026-09-10) flagged these as read-only/KPI-only — all four now have full CRUD or list+action UI.*
+
+---
+
+### 6. EMPLOYEE MODEL (non-system staff)
+
+| Check | Status | Note |
+|-------|--------|------|
+| `backend/src/models/employee.js` | ✅ EXISTS & COMPLETE | Non-login operational staff with auto `EMP-001` ids; linked to attendance/payroll via `staffType` |
+
+---
+
+### 7. MOBILE APP
+
+| Check | Status | Note |
+|-------|--------|------|
+| `mobile/.env.example` exists | ✅ EXISTS & COMPLETE | Present in `mobile/` directory (not `mobile/env.example`) |
+| `api.js` uses `EXPO_PUBLIC_API_URL` | ✅ EXISTS & COMPLETE | `process.env.EXPO_PUBLIC_API_URL \|\| 'https://eonlinebazar.com/api'` |
+| `ReferralScreen.js` | ✅ EXISTS & COMPLETE | Registered in `App.js` stack as `Referral` |
+| `ProfileScreen.js` loyalty tier badge | ✅ EXISTS & COMPLETE | Silver/Gold/Platinum badges + spend-to-next-tier text |
+
+**Minor note:** Production API URL remains the fallback when env is unset — intentional for store builds; local dev should set `EXPO_PUBLIC_API_URL`.
+
+---
+
+### 8. PHASE 1 RBAC VERIFICATION
+
+| Check | Status | Note |
+|-------|--------|------|
+| `categoryRoutes.js`: `checkPermission('manage_catalog')` on writes | ✅ EXISTS & COMPLETE | POST/PATCH/PUT/DELETE admin routes guarded |
+| `bannerRoutes.js`: `checkPermission('manage_catalog')` on writes | ✅ EXISTS & COMPLETE | POST/PATCH/PUT/DELETE admin routes guarded |
+| `permissions.js`: `manage_marketing` in PERMISSIONS array | ✅ EXISTS & COMPLETE | Key at line 81; mapped to newsletter + abandoned-cart sections |
+| `order.js`: `assignedStaffId` | ✅ EXISTS & COMPLETE | Line 236 |
+| `securityLog.js`: `resourceType` | ✅ EXISTS & COMPLETE | Field + compound index with `resourceId` |
+| `staffAuditController.js` | ✅ EXISTS & COMPLETE | `/api/admin/staff-audit` routes with `manage_security` |
+
+---
+
+### 100% COMPLETE
+
+All checklist items in sections **1–5, 7–8** are implemented and verified in code:
+
+- **HRM (Phase A):** Models, controllers, admin partials, JS modules, API routes, and Admin employment fields — full attendance/shift/payroll/leave stack.
+- **ERP (Phase B):** Expense ledger, courier sync service + cron, P&L controller + embedded SPA UI, expense routes, book-courier, POS barcode scan, POS invoice modal.
+- **CRM Tiers (Phase C):** User tier fields, loyalty tier service + cron, admin tier settings, mobile tier badge.
+- **Settings routing:** Split into three dedicated partials; legacy `view-master-settings.html` removed; sidebar targets correct.
+- **Empty pages fix:** Suppliers, warehouses, purchase orders, and abandoned carts all have real table + modal/workflow UI.
+- **Mobile:** `.env.example`, env-based API URL, ReferralScreen, ProfileScreen tier display.
+- **Phase 1 RBAC:** Catalog/banner write guards, `manage_marketing`, order assignment field, security log resourceType, staff audit controller.
+
+---
+
+### PRIORITY FIX LIST — ✅ ALL 4 COMPLETED (2026-09-11)
+
+| # | Fix | Status | Evidence |
+|---|-----|--------|----------|
+| 1 | **Employee model + HRM linkage** | ✅ | `employee.js`, `employeeController.js`, `view-hrm-employees.html`, `hrm-employees.js`; `staffType` on attendance/payroll/leave; grouped staff dropdowns |
+| 2 | **Remove redundant finance embed** | ✅ | Duplicate iframe removed from `view-finance.html`; header-only "Open Finance Dashboard" link retained |
+| 3 | **Tighten RBAC on read routes** | ✅ | `manage_catalog` on category/banner admin GET; newsletter `send-campaign` already has `manage_marketing` |
+| 4 | **Document mobile local dev env** | ✅ | `mobile/.env.example` comments + `ARCHITECTURE.md` Local Development Setup (Mobile) section |
+
+---
+
+### REMAINING (outside this fix batch)
+
+| Item | Notes |
+|------|-------|
+| **Mobile API fallback** | Production URL remains intentional default when env unset |
+| **Dual staff identity** | Store `Admin` vs chat `Agent` — partial SSO via `agentResolver.service.js` |
+| **Legacy chat partials** | `view-chat*` remain in page builder; sidebar points to `/chat-admin` |
+| **Push notifications (FCM)** | Future CRM retention feature |
+
+---
+
+*End of Final System Audit — 2026-09-11. Files scanned: `backend/src/models/`, `backend/src/controllers/admin/`, `backend/src/routes/adminRoutes.js`, `backend/src/services/`, `backend/src/jobs/`, `client/admin/partials/`, `client/js/admin/modules/`, `mobile/src/`.*
+
 
 

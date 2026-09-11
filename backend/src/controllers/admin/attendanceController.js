@@ -14,6 +14,7 @@ const Attendance = require('../../models/attendance');
 const Shift = require('../../models/shift');
 const Admin = require('../../models/admin');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { findAdmin, parseStaffSelector, resolveHrmSubject } = require('../../utils/hrmStaffResolver');
 
 const { ATTENDANCE_STATUSES, SHIFT_TYPES } = Attendance;
 
@@ -27,17 +28,9 @@ function actorName(req) {
     return req.adminAccount?.username || req.admin?.username || 'admin';
 }
 
-/** Resolve a staff member by Admin _id or username. */
+/** Resolve a login Admin by _id or username (clock-in/out paths). */
 async function findStaff(identifier) {
-    const value = String(identifier || '').trim();
-    if (!value) return null;
-
-    if (mongoose.Types.ObjectId.isValid(value)) {
-        const byId = await Admin.findById(value);
-        if (byId) return byId;
-    }
-
-    return Admin.findOne({ username: value });
+    return findAdmin(identifier);
 }
 
 /**
@@ -83,9 +76,9 @@ exports.getAttendanceList = async (req, res) => {
 
         const staff = String(req.query.staff || '').trim();
         if (staff) {
-            const account = await findStaff(staff);
+            const subject = await resolveHrmSubject(parseStaffSelector(staff));
             // An unknown staff filter must return nothing, not everything.
-            filter.staffId = account ? String(account._id) : '__no_match__';
+            filter.staffId = subject ? subject.staffId : '__no_match__';
         }
 
         const status = String(req.query.status || '').trim().toLowerCase();
@@ -155,8 +148,8 @@ exports.markAttendance = async (req, res) => {
     try {
         const body = req.body || {};
 
-        const account = await findStaff(body.staffId || body.staffUsername);
-        if (!account) {
+        const subject = await resolveHrmSubject(body);
+        if (!subject) {
             return res.status(404).json({ success: false, message: 'Staff member not found.' });
         }
 
@@ -173,15 +166,16 @@ exports.markAttendance = async (req, res) => {
             });
         }
 
-        const shiftWindow = await resolveShiftFor(account.username);
+        const shiftWindow = await resolveShiftFor(subject.shiftKey);
         const shiftType = SHIFT_TYPES.includes(String(body.shift || '').toLowerCase())
             ? String(body.shift).toLowerCase()
             : 'morning';
 
-        const record = await Attendance.findOne({ staffId: String(account._id), date })
-            || new Attendance({ staffId: String(account._id), date });
+        const record = await Attendance.findOne({ staffId: subject.staffId, date })
+            || new Attendance({ staffId: subject.staffId, date });
 
-        record.staffUsername = account.username;
+        record.staffType = subject.staffType;
+        record.staffUsername = subject.staffUsername;
         record.status = status;
         record.shift = shiftType;
         record.shiftStart = String(body.shiftStart || shiftWindow.startTime).trim();
@@ -205,7 +199,7 @@ exports.markAttendance = async (req, res) => {
             actor: actorName(req),
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: `${account.username} — ${status} on ${date.toISOString().slice(0, 10)}`,
+            details: `${subject.staffUsername} — ${status} on ${date.toISOString().slice(0, 10)}`,
             resourceType: 'attendance',
             resourceId: String(record._id)
         });

@@ -20,9 +20,9 @@ router.get('/navbar', ctrl.getNavbarCategories);
 router.get('/homepage', ctrl.getHomepageCategories);
 
 // Admin (registered before /:slug so "admin" is not captured as a slug)
-router.get('/admin/all', verifyAdmin, ctrl.adminGetCategories);
+router.get('/admin/all', verifyAdmin, checkPermission('manage_catalog'), ctrl.adminGetCategories);
 router.post('/admin/sync-counts', verifyAdmin, checkPermission('manage_catalog'), ctrl.adminSyncProductCounts);
-router.get('/admin/:id', verifyAdmin, ctrl.getCategoryById);
+router.get('/admin/:id', verifyAdmin, checkPermission('manage_catalog'), ctrl.getCategoryById);
 router.post('/admin', verifyAdmin, checkPermission('manage_catalog'),
   ctrl.uploadCategoryImage, ctrl.adminCreateCategory);
 router.patch('/admin/reorder', verifyAdmin, checkPermission('manage_catalog'), ctrl.adminReorder);

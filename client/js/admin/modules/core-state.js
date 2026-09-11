@@ -48,6 +48,7 @@ window.ADMIN_PAGE_META = {
     'view-settings':        { title: 'Admin Settings',          subtitle: 'Manage your profile, store preferences, shipping rules, and branding.' },
     'view-crm-abandoned':   { title: 'Abandoned Carts',         subtitle: 'Recovery KPIs for idle carts with merchandise value.' },
     'view-staff-audit':     { title: 'Staff Activity Audit',    subtitle: 'Who changed what — grouped by admin actor.' },
+    'view-hrm-employees':   { title: 'Employees',               subtitle: 'Non-system operational staff — delivery, labour, cleaners etc.' },
     'view-hrm-attendance':  { title: 'Attendance & Shifts',     subtitle: 'Daily attendance register, shift roster, and late arrival reporting.' },
     'view-hrm-payroll':     { title: 'Payroll & Salary',        subtitle: 'Attendance-driven monthly salary runs, approvals, and pay slips.' },
     'view-hrm-leaves':      { title: 'Leave Management',        subtitle: 'Leave approvals, balances, and a month calendar of who is away.' },
