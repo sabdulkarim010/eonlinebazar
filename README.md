@@ -1,388 +1,333 @@
-# EOnlineBazar 🛒
-### Bangladesh's Full-Stack E-Commerce Platform
+# EOnlineBazar
 
-![Version](https://img.shields.io/badge/version-5.0.0-blue)
-![Node](https://img.shields.io/badge/node-20+-green)
-![License](https://img.shields.io/badge/license-MIT-yellow)
-![Tests](https://img.shields.io/badge/tests-19%20passed-brightgreen)
-![Status](https://img.shields.io/badge/status-production--ready-success)
+### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 
-A feature-complete, production-ready e-commerce platform built specifically for the Bangladesh market. Supports manual wallets (bKash, Nagad), local courier APIs (Pathao, RedX, Steadfast), local payment gateways (SSLCommerz, AamarPay, ShurjoPay), and a Bangladesh-specific address system (district / upazila).
+<p align="center">
+  <img src="https://img.shields.io/badge/status-production--ready-success" alt="Production Ready">
+  <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
+  <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
+  <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
+  <img src="https://img.shields.io/badge/tests-126%2F126-brightgreen" alt="126/126 Tests Passing">
+  <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
+  <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
+  <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">
+  <img src="https://img.shields.io/badge/mobile-React%20Native%20%2B%20Expo-61DAFB" alt="React Native + Expo">
+</p>
 
----
+**EOnlineBazar** is a full-stack, production-grade commerce operating system built for the Bangladesh market. It unifies a live storefront, a modular admin console, and a React Native mobile app behind three completed enterprise pillars:
 
-## ✨ Features
+| Pillar | Scope |
+|--------|-------|
+| **ERP** | Inventory, purchasing, POS, couriers, and financials |
+| **CRM** | Recovery, referrals, support, marketing, and loyalty |
+| **HRM** | RBAC, attendance, payroll, and leave management |
 
-### 🏗️ Architecture
-
-| Area | Details |
-|------|---------|
-| **Stack** | Node.js 20, Express 5, MongoDB 7, Vanilla JS |
-| **Pattern** | MVC — 25 models, 30 controllers, 20 route modules |
-| **Auth** | JWT + session tracking + Google OAuth 2.0 |
-| **Cache** | Redis (ioredis) with graceful degradation |
-| **Real-time** | Socket.IO WebSocket notifications |
-| **Storage** | Cloudinary (images, avatars, payment proofs) |
-| **Testing** | Jest + Supertest + mongodb-memory-server (19 tests) |
-| **DevOps** | Docker + Docker Compose + health endpoint |
-
-### 🛡️ Phase 1 — Security & Foundation
-
-- Boot-time environment validation (fails fast on missing secrets)
-- Helmet + CORS + rate limiting + NoSQL injection protection
-- JWT hardening (no fallback secrets, session-aware)
-- Email verification with token expiry (48h)
-- SSLCommerz, AamarPay, ShurjoPay gateway integration with IPN
-- 19 smoke tests covering auth, cart, order, payment, and admin flows
-- Docker + docker-compose + `/api/store/health` endpoint
-
-### 🚀 Phase 2 — Operational Reliability
-
-- Live courier booking: Pathao (OAuth2), RedX (Bearer), Steadfast
-- Customer payment proof upload (TRX ID + screenshot → Cloudinary)
-- Admin proof review: approve / reject with notes
-- Low-stock cron alerts via Email + SMS + WhatsApp
-- Payment Reconciliation Dashboard (gateway vs manual vs COD)
-- Manual payment override (mark-as-paid with audit trail)
-- Proper 404 page (Bengali) + global error handler
-
-### 📈 Phase 3 — Growth Features
-
-- Advanced search: price range, brand, rating, sort, inStock filter
-- URL-shareable filters with browser history `pushState`
-- Bulk product import via CSV / Excel (xlsx + csv-parser)
-- Redis caching for settings, categories, brands, products (5 layers)
-- Admin cache management (stats, flush, pattern delete)
-- Google OAuth 2.0 sign-in (Passport.js)
-- SEO: meta tags, Open Graph, Twitter Cards, JSON-LD structured data
-- Dynamic `sitemap.xml` + `robots.txt`
-
-### 🌟 Phase 4 — Scale & Polish
-
-- Socket.IO real-time admin notifications (new order, payment, stock)
-- Admin notification bell with dropdown (last 10, unread badge)
-- PWA: Web App Manifest + Service Worker + offline cache
-- Bengali / English language toggle (localStorage, 100+ keys)
-- Newsletter subscription with unsubscribe token
-- Email campaign system (draft → test → batch send)
-- Admin newsletter management dashboard
-
-### 🏪 Core E-Commerce (Verified Working)
-
-- Full checkout: price re-validation, coupon, wallet, cashback / points
-- Guest cart + checkout + merge on login
-- Complete order lifecycle with status tracking
-- Customer cancel / return request workflow
-- PDF invoice download (PDFKit)
-- Admin RBAC (9 permissions, 3 role presets)
-- Admin 2FA: Email OTP, Google Authenticator (TOTP), SMS OTP
-- Geo-fencing + brute-force protection + IP blacklist
-- Finance analytics dashboard (P&L, Chart.js, date filtering)
-- Wishlist + verified-purchase reviews (with Cloudinary photos)
-- Flash sale countdown + WhatsApp order alerts
+The web client uses vanilla JavaScript with a modular ES architecture. The API runs on Node.js and Express with MongoDB Atlas, Redis caching, PDFKit document generation, and scheduled cron jobs. Production is hosted on an Ubuntu DigitalOcean droplet behind Nginx, supervised by PM2, with media stored on Cloudinary.
 
 ---
 
-## 🧰 Tech Stack
+## Table of Contents
 
-| Layer | Technology |
-|-------|------------|
-| **Runtime** | Node.js 20+ |
-| **Framework** | Express 5 |
-| **Database** | MongoDB 7 (Mongoose) |
-| **Cache** | Redis 7 (ioredis) |
-| **Real-time** | Socket.IO 4 |
-| **Media** | Cloudinary |
-| **Auth** | JWT, Passport.js, bcrypt |
-| **Email** | Nodemailer (Gmail / SMTP) |
-| **SMS** | Greenweb BD, BulkSMS BD, AlphaSMS |
-| **WhatsApp** | UltraMsg, Green API, CallMeBot |
-| **Payments** | SSLCommerz, AamarPay, ShurjoPay |
-| **Couriers** | Steadfast, Pathao, RedX |
-| **PDF** | PDFKit |
-| **Testing** | Jest, Supertest, mongodb-memory-server |
-| **DevOps** | Docker, Docker Compose |
+- [Tech Stack & Infrastructure](#tech-stack--infrastructure)
+- [Core Pillars & Enterprise Modules](#core-pillars--enterprise-modules)
+- [Documentation Directory Index](#documentation-directory-index)
+- [Quality Assurance & Testing](#quality-assurance--testing)
+- [Local Setup & Environment Guide](#local-setup--environment-guide)
+- [Project Layout](#project-layout)
+- [Production Deployment](#production-deployment)
+- [License](#license)
 
 ---
 
-## 🚀 Quick Start
+## Tech Stack & Infrastructure
+
+| Layer | Technology | Role |
+|-------|------------|------|
+| **Backend** | Node.js · Express.js · MongoDB Atlas (Mongoose) | REST API, HTML page assembly, and business logic |
+| **Cache** | Redis (ioredis) | Settings, catalog, sitemap, and rate-limit caching with graceful degradation |
+| **Documents** | PDFKit | Order invoices, POS receipts, payroll pay slips, and financial exports |
+| **Jobs** | node-cron | Abandoned-cart recovery, courier status polling, loyalty upgrades, stock alerts |
+| **Frontend** | Vanilla JavaScript (Modular ES Architecture) · HTML5 · CSS3 | Storefront + admin SPA; chart-less SVG visualization |
+| **Mobile** | React Native · Expo SDK / Expo Go | Customer app — cart, checkout, wallet, referrals, live support |
+| **Realtime** | Socket.IO | Store notifications and the `ecommerce-chat` microservice (port `5001`) |
+| **Media** | Cloudinary | Product images, avatars, banners, and payment proofs |
+| **DevOps** | Ubuntu Droplet (DigitalOcean) · PM2 · Nginx | SSL termination, reverse proxy, and process supervision |
+
+### Supporting Integrations
+
+| Domain | Providers |
+|--------|-----------|
+| **Payments** | SSLCommerz · AamarPay · ShurjoPay · manual bKash / Nagad · Cash on Delivery |
+| **Couriers** | Steadfast · Pathao · RedX |
+| **Messaging** | SMTP / Resend · Greenweb · BulkSMS · AlphaSMS · WhatsApp gateways |
+| **Auth** | JWT sessions · Google OAuth 2.0 · Admin 2FA (TOTP / Email OTP / SMS) |
+
+---
+
+## Core Pillars & Enterprise Modules
+
+All modules below are **100% completed** and wired into the admin accordion navigation (**Dashboard · ERP · CRM · HRM · Settings**).
+
+### 1. ERP Pillar — Enterprise Resource Planning
+
+Inventory, purchasing, in-store selling, last-mile logistics, and financial reporting in one operating loop.
+
+| Module | Description |
+|--------|-------------|
+| **Supplier & Warehouse Management** | Full CRUD for vendors and stock locations. One default warehouse is seeded and protected. Supplier deletion is blocked while open purchase orders exist; products are unlinked on successful removal. |
+| **Purchase Order Lifecycle & Receiving** | Draft → sent → partial / received → cancelled. `receivePO` posts inbound quantities, appends product cost history, and closes the PO when receipt is complete. Sequential PO numbers and computed totals are generated on create. |
+| **Advanced POS Dashboard** | Walk-in and phone orders with barcode / SKU scan-to-cart, a popular-product quick-grid, and a printable receipt modal (print + PDF). |
+| **Courier Deep Auto-Sync** | One-click Book & Sync for **Steadfast**, **Pathao**, and **RedX**. A cron job (`0 */2 * * *`) polls in-flight parcels every **two hours**, reconciles order status, and records each run in the security audit log. |
+| **Expense Tracking & Financials** | Eight expense categories (`office_rent`, `utilities`, `staff_salary`, `marketing`, `courier_charges`, `packaging`, `equipment`, `other`) feed the P&L engine (revenue, COGS, courier, returns, cashback, margin). Exports are available as **PDF** and **CSV**. Visualization uses chart-less SVG (donut / bar). |
+
+### 2. CRM Pillar — Customer Relationship Management
+
+Acquisition, retention, support, and lifetime-value automation across every customer touchpoint.
+
+| Module | Description |
+|--------|-------------|
+| **Abandoned Cart Recovery** | Daily job finds carts idle for **24 hours+**, sends email and SMS recovery messages, and stamps `abandonedNotifiedAt` so customers are never spammed. Admin CRM shows KPIs and per-cart notify actions. |
+| **Customer Referral & Rewards** | Unique invite codes on signup. First qualifying order credits **wallet points** to referrer and referee. Exposed on the web profile and the mobile `ReferralScreen`. |
+| **Customer Support Ticket Lifecycle** | Contact inquiries become tickets (`TKT-YYYY-XXXX`) with status flow (`open` → `in_progress` → `resolved` → `closed`), priority, assignment, and reply history. |
+| **Multi-Channel Segmented Marketing** | Broadcast campaigns over **Email**, **SMS**, and **WhatsApp** with audience segments (VIP / frequent / inactive and loyalty tiers). |
+| **Customer Loyalty Tier System** | **Silver**, **Gold**, and **Platinum** tiers with automatic upgrades from lifetime spend and **dynamic cashback rates** per tier. A monthly cron plus checkout-time recalculation keep tiers current. |
+
+### 3. HRM Pillar — Human Resource Management
+
+Staff identity, time tracking, compensation, and leave — gated by `manage_staff` and a granular RBAC matrix.
+
+| Module | Description |
+|--------|-------------|
+| **Granular RBAC & Staff Activity Audit** | Super-admin vs staff with explicit permissions (`view_analytics`, `manage_orders`, `manage_inventory`, `manage_catalog`, `manage_coupons`, `manage_customers`, `manage_settings`, `manage_security`, `manage_staff`, `manage_marketing`). Every sensitive action writes a **staff activity audit** entry (`resourceType` + `resourceId`). |
+| **Attendance & Shift Management** | Clock-in / clock-out with optional **GPS tagging**, one attendance row per staff per day, named shifts with a protected default, grace-period **late penalties**, plus monthly summary and late reports. |
+| **Payroll Engine & Automated Pay Slips** | Attendance-driven runs: `baseSalary × min(presentDays / workingDays, 1) + overtime + bonus − deductions`. Workflow is draft → approved → paid. Each slip is a **PDFKit** pay slip with pro-rated working-day calculation. |
+| **Leave Management** | **Casual**, **Sick**, and **Annual** leave (plus unpaid) with balances, a month **calendar** view, and automatic attendance sync — approving leave stamps `holiday` rows across the span. |
+
+---
+
+## Documentation Directory Index
+
+Read these documents before making changes. Operational notes belong in the existing files — do not add new standalone audit documents unless the scope is genuinely new.
+
+| Document | Summary |
+|----------|---------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | **Read first.** Folder layout, CSS/JS barrels, admin ERP/CRM/HRM nav groups, enterprise models, local dev ports, and contributor rules. |
+| [REFACTOR_MAP.md](REFACTOR_MAP.md) | **Read first.** File-by-file completion log for ERP, CRM, HRM, UI restructure, and follow-on phases. |
+| [SYSTEM_ENTERPRISE_AUDIT.md](SYSTEM_ENTERPRISE_AUDIT.md) | Full-stack enterprise audit: feature inventory, ERP/CRM/HRM matrix, models, APIs, mobile parity, and remaining findings. |
+| [.cursorrules](.cursorrules) | Cursor agent contract: never edit barrel CSS/JS directly, never restructure `routes/*.js`, search before renaming IDs, run `npm test` after changes. |
+
+### Additional References
+
+| Document | Summary |
+|----------|---------|
+| [docs/SETUP.md](docs/SETUP.md) | Chat microservice local and production setup |
+| [devops/first-time-server-setup.md](devops/first-time-server-setup.md) | Ubuntu DigitalOcean droplet bootstrap (Node, PM2, Nginx) |
+| [CHAT_AUDIT.md](CHAT_AUDIT.md) | Live-chat session close and teardown audit |
+| [AUDIT_REPORT.md](AUDIT_REPORT.md) | Mobile app feature-parity audit |
+| [PROFILE_AUDIT.md](PROFILE_AUDIT.md) | Customer profile module split diagnostics |
+
+---
+
+## Quality Assurance & Testing
+
+The repository ships with **100% passing automated coverage: 126 / 126 tests** across **11 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
+
+```bash
+npm test
+```
+
+| Suite | File | Tests | Focus |
+|-------|------|------:|-------|
+| Auth | `tests/auth.test.js` | 14 | Register, login, verification, account deletion |
+| Cart | `tests/cart.test.js` | 6 | Add, hydrate images, clear |
+| Order | `tests/order.test.js` | 9 | COD create, track, cancel, line-item shape |
+| Payment | `tests/payment.test.js` | 3 | Gateway adapter, COD IPN, admin payment update |
+| Admin | `tests/admin.test.js` | 13 | Login, orders, customer identity, master editor |
+| Notes | `tests/note.test.js` | 7 | Owner-scoped notebook and expense validation |
+| Product seed | `tests/product-seed.test.js` | 3 | Demo catalog upsert |
+| Chat session | `tests/chat-end-session.test.js` | 8 | Guest / agent / admin end-session ownership |
+| ERP | `tests/erp.test.js` | 31 | Suppliers, warehouses, `receivePO`, slugs, audit, status enum |
+| HRM | `tests/hrm.test.js` | 26 | Attendance, shifts, payroll pro-rating, PDF slips, leave calendar |
+| Loyalty | `tests/loyalty-tier.test.js` | 6 | Silver / Gold / Platinum thresholds and cashback |
+| **Total** | | **126** | All suites green |
+
+Expected Jest summary:
+
+```text
+Test Suites: 11 passed, 11 total
+Tests:       126 passed, 126 total
+```
+
+---
+
+## Local Setup & Environment Guide
 
 ### Prerequisites
 
-- Node.js 20+
-- MongoDB Atlas account (or local MongoDB)
-- Cloudinary account
-- Gmail with App Password enabled
+| Requirement | Notes |
+|-------------|-------|
+| **Node.js 20+** | Required for backend and test runner |
+| **MongoDB Atlas** | Connection string, or local MongoDB 7 |
+| **Redis** | Optional — cache degrades gracefully if unavailable |
+| **Cloudinary** | Cloud name, API key, and secret |
+| **SMTP** | Gmail App Password or equivalent mail provider |
 
-### Local Setup
+### 1. Install Dependencies
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/your-org/eonlinebazar-fullstack.git
+git clone https://github.com/sabdulkarim010/eonlinebazar.git
 cd eonlinebazar-fullstack
-
-# 2. Copy environment template
-cp .env.example .env
-
-# 3. Fill in required values (see Environment Variables section)
-# 4. Install dependencies
 npm install
-
-# 5. Start the server
-npm start
-# or: node backend/src/server.js
-
-# 6. Open in browser
-# http://localhost:5000
 ```
 
-### Docker Setup
+### 2. Configure Environment
+
+Copy the environment template and fill every required value. The server **refuses to boot** if any required secret is missing (`backend/src/utils/validateEnv.js`).
 
 ```bash
-docker-compose up --build
+cp .env.example .env
 ```
 
-Includes MongoDB 7 and Redis 7 automatically. The app reads configuration from `.env`.
-
-### Run Tests
-
-```bash
-npm test
-```
-
-**Expected output:** 19 passed, 5 suites
-
-### Health Check
-
-```http
-GET http://localhost:5000/api/store/health
-```
-
----
-
-## 🔑 Environment Variables
-
-Copy `.env.example` and fill in your values. See `.env.example` for full documentation with inline comments.
-
-### Required (app won't start without these)
+#### Required (Boot-Time)
 
 | Variable | Description |
 |----------|-------------|
-| `MONGODB_URI` | MongoDB connection string |
-| `JWT_SECRET` | 64-character random signing secret |
+| `MONGODB_URI` | MongoDB Atlas (or local) connection string |
+| `JWT_SECRET` | Long random signing secret (never use the insecure default) |
 | `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name |
 | `CLOUDINARY_API_KEY` | Cloudinary API key |
 | `CLOUDINARY_API_SECRET` | Cloudinary API secret |
-| `SMTP_HOST` | SMTP server hostname |
+| `SMTP_HOST` | SMTP hostname |
 | `SMTP_USER` | SMTP username |
 | `SMTP_PASS` | SMTP password / app password |
-| `PORT` | Server port (default `5000`) |
+| `PORT` | HTTP port — use `5000` to match the documented store gateway |
 
-### Payment Gateways (fill when going live)
-
-| Variable | Gateway |
-|----------|---------|
-| `SSLCOMMERZ_STORE_ID`, `SSLCOMMERZ_STORE_PASSWORD` | SSLCommerz |
-| `AAMARPAY_STORE_ID`, `AAMARPAY_SIGNATURE_KEY` | AamarPay |
-| `SHURJOPAY_USERNAME`, `SHURJOPAY_PASSWORD` | ShurjoPay |
-
-Set `*_IS_LIVE=true` for each gateway when switching to production.
-
-### Courier APIs
-
-| Variable | Courier |
-|----------|---------|
-| `STEADFAST_API_KEY`, `STEADFAST_API_SECRET` | Steadfast |
-| `PATHAO_CLIENT_ID`, `PATHAO_CLIENT_SECRET`, `PATHAO_STORE_ID` | Pathao |
-| `REDX_API_TOKEN` | RedX |
-
-### Optional but Recommended
+#### Common Optional Variables
 
 | Variable | Purpose |
 |----------|---------|
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth login |
-| `RESEND_API_KEY`, `RESEND_FROM` | **Required** for admin login Email OTP (Resend HTTPS only; no SMTP) |
-| `SESSION_SECRET` | Required if using Google OAuth |
-| `PAYMENT_CREDENTIAL_ENCRYPTION_KEY` | AES-256-GCM for stored payment credentials |
-| `LOW_STOCK_ALERT_ENABLED` | Enable automated low-stock cron alerts |
+| `REDIS_URL` | Redis cache connection |
+| `FRONTEND_URL` / `STORE_PUBLIC_URL` | Public storefront origin (cart recovery links, CORS) |
+| `STEADFAST_API_KEY` / `STEADFAST_API_SECRET` | Steadfast courier integration |
+| `PATHAO_CLIENT_ID` / `PATHAO_CLIENT_SECRET` / `PATHAO_STORE_ID` | Pathao courier integration |
+| `REDX_API_TOKEN` | RedX courier integration |
+| `SSLCOMMERZ_*` / `AAMARPAY_*` / `SHURJOPAY_*` | Payment gateways (`*_IS_LIVE=true` in production) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth |
+| `INTERNAL_API_KEY` | Store ↔ chat microservice authentication |
+| `CHAT_SERVICE_URL` | Chat service origin (default port `5001`) |
+| `COURIER_SYNC_CRON` | Override default 2-hour courier poll (`0 */2 * * *`) |
+| `ABANDONED_CART_CRON` | Override daily 24h cart recovery schedule |
 
----
+> Shared secrets (`JWT_SECRET`, `INTERNAL_API_KEY`, Cloudinary credentials) belong in the **repo-root `.env` only**.
 
-## 📁 Project Structure
+### 3. Start the Development Server
 
-```
-eonlinebazar-fullstack/
-├── backend/
-│   └── src/
-│       ├── config/              # db, passport, permissions, cloudinary
-│       ├── controllers/         # Route handlers (MVC)
-│       ├── middlewares/         # Auth, RBAC, rate limits, uploads
-│       ├── models/              # Mongoose schemas
-│       ├── routes/              # Express route modules
-│       ├── services/            # Domain services & integrations
-│       ├── utils/               # Pure helpers (validateEnv, cryptoVault, …)
-│       └── server.js            # Canonical Express entry
-├── client/                      # Storefront & admin UI (HTML / CSS / Vanilla JS)
-│   ├── css/                     # Page stylesheets
-│   ├── js/                      # Frontend logic (cart, checkout, admin, PWA, i18n)
-│   ├── images/                  # Product placeholders, payment logos, branding
-│   ├── partials/                # Reusable HTML fragments
-│   ├── products/                # Static product assets
-│   └── uploads/                 # Local branding uploads
-├── public/                      # Static files served at root
-│   ├── images/                  # PWA icons, OG image, payment logos
-│   ├── js/                      # Shared i18n bundle
-│   ├── uploads/                 # Public upload directory
-│   ├── 404.html                 # Bengali 404 page
-│   └── service-worker.js        # PWA offline cache
-├── scripts/
-│   ├── generate-pwa-icons.js
-│   └── generate-payment-pngs.js
-├── tests/                       # Jest smoke tests (5 suites, 19 tests)
-│   ├── app.js                   # Test Express app (no listen)
-│   ├── setup.js                 # In-memory MongoDB helpers
-│   ├── auth.test.js
-│   ├── cart.test.js
-│   ├── order.test.js
-│   ├── payment.test.js
-│   └── admin.test.js
-├── docker-compose.yml           # App + MongoDB + Redis
-├── docker-compose.prod.yml      # Production overrides
-├── Dockerfile
-├── server.js                    # Compatibility shim → backend/src/server.js
-├── seed.js                      # Database seeder (legacy products.json wipe)
-├── scripts/seedDemoProducts.js  # Upsert DEMO-* products (`npm run seed:products`)
-└── package.json
+```bash
+npm run dev
 ```
 
----
+This runs `nodemon backend/src/server.js`. Open `http://localhost:5000` (or the `PORT` you set).
 
-## 🔒 Security Features
+| Service | Command | URL |
+|---------|---------|-----|
+| Store API + admin + storefront | `npm run dev` or `npm run dev:store` | `http://localhost:5000` |
+| Chat microservice | `npm run dev:chat` | `http://localhost:5001` |
+| Health check | — | `GET /api/store/health` |
+| Admin panel | — | `/admin` |
+| Chat agent inbox | — | `/chat-admin` |
 
-- **Boot-time validation** — server refuses to start if required secrets are missing (`backend/src/utils/validateEnv.js`)
-- **JWT with embedded session ID** — remote logout works across devices
-- **Admin 2FA** — TOTP (Google Authenticator) + Email OTP + SMS OTP
-- **Geo-fencing** — restrict admin login by country (BD default)
-- **Brute-force protection** — 5 failed attempts → 24h IP ban
-- **Manual IP blacklist manager**
-- **AES-256-GCM encryption** for stored payment credentials
-- **NoSQL injection protection** (express-mongo-sanitize)
-- **XSS protection** (custom sanitizer, Express 5 compatible)
-- **HTTP parameter pollution protection** (hpp)
-- **Rate limiting**
-  - General API: 200 requests / 15 min
-  - Auth: 10 requests / 15 min
-  - Coupon: 5 requests / min
-  - Order creation: 3 requests / min
+```bash
+# Optional demo catalog
+npm run seed:products
 
----
+# Production-style start (no nodemon)
+npm start
+```
 
-## 🧪 Test Coverage
-
-19 smoke tests across 5 suites — all use in-memory MongoDB (`mongodb-memory-server`). No real database, email, or Cloudinary calls during tests.
-
-| Suite | File | Tests | Coverage |
-|-------|------|-------|----------|
-| Auth | `tests/auth.test.js` | 6 | Register, login, email verify |
-| Cart | `tests/cart.test.js` | 3 | Add, get, clear cart |
-| Order | `tests/order.test.js` | 4 | Create, get, track, cancel |
-| Payment | `tests/payment.test.js` | 3 | Gateway config, IPN, admin update |
-| Admin | `tests/admin.test.js` | 3 | Login, orders list, status update |
+### 4. Run the Test Suite
 
 ```bash
 npm test
-# Test Suites: 5 passed, 5 total
-# Tests:       19 passed, 19 total
 ```
 
----
+All **126** tests must pass before merging changes.
 
-## 🚢 Deployment (Render)
+### Mobile (Expo)
 
-1. Push your repository to GitHub
-2. Create a new **Web Service** on [Render](https://render.com)
-3. **Build Command:** `npm install`
-4. **Start Command:** `node backend/src/server.js`
-5. Add all environment variables from `.env.example`
-6. Deploy
+```bash
+cd mobile
+cp .env.example .env
+# Set EXPO_PUBLIC_API_URL and EXPO_PUBLIC_CHAT_URL
+npm install
+npx expo start
+```
 
-For containerized deployment, use the included `Dockerfile` and `docker-compose.prod.yml`.
-
----
-
-## ✅ Pre-Launch Checklist
-
-- [ ] Fill all `.env` values with production credentials
-- [ ] Set `NODE_ENV=production`
-- [ ] Set `*_IS_LIVE=true` for payment gateways
-- [ ] Replace `public/images/icons/` with branded PWA icons (512×512)
-- [ ] Replace `public/images/og-default.jpg` with branded 1200×630 image
-- [ ] Set up Google OAuth credentials in Google Cloud Console
-- [ ] Configure `FRONTEND_URL` to your production domain
-- [ ] Test a complete order flow end-to-end
-- [ ] Enable `LOW_STOCK_ALERT_ENABLED=true`
-- [ ] Set `REQUIRE_EMAIL_VERIFICATION=true`
+Scan the QR code with **Expo Go**, or press `a` / `i` for an Android / iOS emulator.
 
 ---
 
-## 📊 Project Status
+## Project Layout
 
-| Phase | Description | Status |
-|-------|-------------|--------|
-| **Phase 1** | Security, JWT, email verify, payment gateways, tests | ✅ Complete |
-| **Phase 2** | Courier APIs, payment proof, stock alerts, 404 page | ✅ Complete |
-| **Phase 3** | Search filters, bulk import, Redis, OAuth, SEO | ✅ Complete |
-| **Phase 4** | WebSocket, PWA, i18n, newsletter system | ✅ Complete |
+```text
+eonlinebazar-fullstack/
+├── backend/src/                 # Express API (MVC)
+│   ├── config/                  # DB, Passport, RBAC permissions
+│   ├── controllers/             # Store + admin/ (ERP, CRM, HRM)
+│   ├── jobs/                    # Cron: cart recovery, courier sync, loyalty, stock
+│   ├── middlewares/             # Auth, RBAC, rate limits, uploads
+│   ├── models/                  # Mongoose schemas
+│   ├── routes/                  # Sacred route barrels — do not restructure
+│   ├── services/                # Couriers, wallet, P&L, loyalty, mail, SMS
+│   ├── utils/                   # Page builders, validateEnv, PDF helpers
+│   └── server.js                # Canonical entry point
+├── client/                      # Storefront + admin (HTML / CSS / modular JS)
+│   ├── admin/partials/          # Admin sections assembled server-side
+│   ├── css/admin|profile|global # Feature CSS — never edit barrel files
+│   └── js/admin/modules/        # Feature JS — never edit admin-core.js directly
+├── mobile/                      # React Native + Expo customer app
+├── ecommerce-chat/              # Live-chat microservice (port 5001)
+├── admin-dashboard/             # Vite React chat-admin SPA → /chat-admin
+├── devops/                      # Nginx, droplet first-time setup
+├── tests/                       # 11 Jest suites / 126 tests
+├── scripts/                     # Seed and index migration
+├── ARCHITECTURE.md
+├── REFACTOR_MAP.md
+├── SYSTEM_ENTERPRISE_AUDIT.md
+└── .cursorrules
+```
 
-**Overall: ~98% production-ready**
+### Contributor Contract
 
-Remaining: API keys configuration + branded assets + go-live testing
+1. Never add styles to `admin.css`, `profile.css`, or `style.css` — use `css/admin/*.css`, `css/profile/*.css`, or `css/global/*.css`.
+2. Never add logic to `admin-core.js` — use `js/admin/modules/*.js`.
+3. Never restructure files under `backend/src/routes/`.
+4. Never rename functions or IDs without searching the whole repo first.
+
+See [.cursorrules](.cursorrules) and [ARCHITECTURE.md](ARCHITECTURE.md) for full guidelines.
 
 ---
 
-## 👤 Admin Access
+## Production Deployment
 
-| Page | URL |
-|------|-----|
-| Admin Panel | `/admin` |
-| Finance Dashboard | `/finance-analytics` |
-| Payment Reconciliation | `/admin/payment-reconciliation` |
-| Health Check | `/api/store/health` |
+| Item | Value |
+|------|--------|
+| **Host** | Ubuntu droplet on **DigitalOcean** (`eonlinebazar.com`) |
+| **Process manager** | **PM2** (`npm start` → `backend/src/server.js`; chat via `ecommerce-chat/ecosystem.config.js`) |
+| **Reverse proxy** | **Nginx** — SSL, store `:5000`, chat `:5001`, static `/chat-admin/` |
+| **Database** | **MongoDB Atlas** |
+| **Media** | **Cloudinary** |
+| **Health** | `GET /api/store/health` |
 
----
-
-## 📚 Documentation
-
-| Document | Purpose |
-|----------|---------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Folder layout, barrels, dev setup, contributor rules |
-| [REFACTOR_MAP.md](REFACTOR_MAP.md) | Refactor status and change log |
-| [SYSTEM_ENTERPRISE_AUDIT.md](SYSTEM_ENTERPRISE_AUDIT.md) | Full-stack enterprise audit |
-| [CHAT_AUDIT.md](CHAT_AUDIT.md) | Live chat session audit |
-| [AUDIT_REPORT.md](AUDIT_REPORT.md) | Mobile app parity audit |
-| [PROFILE_AUDIT.md](PROFILE_AUDIT.md) | Profile module diagnostics |
-
-See [ARCHITECTURE.md § Documentation Index](ARCHITECTURE.md#documentation-index) for the complete list.
+First-time VPS steps are documented in [devops/first-time-server-setup.md](devops/first-time-server-setup.md). Set `NODE_ENV=production`, fill production secrets, and flip `*_IS_LIVE=true` on payment gateways only after end-to-end order testing.
 
 ---
 
-## 📄 License
+## License
 
-This project is licensed under the [MIT License](LICENSE).
+ISC — Abdul Karim Sheikh. See `package.json`.
 
 ---
 
 <p align="center">
-  Built for Bangladesh 🇧🇩 · EOnlineBazar © 2026
+  <strong>EOnlineBazar</strong> · Enterprise ERP · CRM · HRM · Bangladesh 🇧🇩 · © 2026
 </p>
-
-
-
-
-
-
-
-
-
-
-
