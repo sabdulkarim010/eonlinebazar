@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -8,21 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { resolveMediaUrl } from '../../utils/normalizeProduct';
-
-function pickAvatarUri(user) {
-  const candidates = [
-    user?.avatar,
-    user?.avatarUrl,
-    user?.profilePicture,
-    user?.image,
-  ];
-  for (const candidate of candidates) {
-    const raw = String(candidate ?? '').trim();
-    if (raw) return resolveMediaUrl(raw);
-  }
-  return '';
-}
+import { BASE_URL } from '../../api/endpoints';
 
 export default function ProfileAvatar({
   user,
@@ -34,13 +20,19 @@ export default function ProfileAvatar({
   onPress,
   accentColor = '#f97316',
 }) {
-  const [imgFailed, setImgFailed] = useState(false);
-  const avatarUri = pickAvatarUri(user);
-  const showImage = Boolean(avatarUri) && !imgFailed;
+  const [imgError, setImgError] = useState(false);
+
+  const avatarUrl = user?.avatar
+    ? (user.avatar.startsWith('http')
+        ? user.avatar
+        : BASE_URL + user.avatar)
+    : null;
+
+  const showImage = Boolean(avatarUrl) && !imgError;
 
   useEffect(() => {
-    setImgFailed(false);
-  }, [avatarUri]);
+    setImgError(false);
+  }, [avatarUrl]);
 
   const initials = (() => {
     const n = user?.name || user?.firstName || '';
@@ -72,10 +64,10 @@ export default function ProfileAvatar({
     >
       {showImage ? (
         <Image
-          source={{ uri: avatarUri }}
+          source={{ uri: avatarUrl }}
           style={[styles.img, { borderRadius: size / 2 }]}
           resizeMode="cover"
-          onError={() => setImgFailed(true)}
+          onError={() => setImgError(true)}
         />
       ) : (
         <View

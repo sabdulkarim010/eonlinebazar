@@ -264,7 +264,13 @@ npx expo start
 
 Scan the QR code with **Expo Go**, or press `a` / `i` for an Android / iOS emulator.
 
-**Edit Profile screen** (`EditProfileScreen.js`) uses a scrollable form layout: centered avatar block, personal info (name, gender, custom day/month/year date-of-birth picker), shipping & location via `DistrictUpazilaPicker`, field badges (read-only email, security phone, auto-fill district), and a sticky **Update Profile** footer. Profile fields sync through `useAuthStore.updateProfile()` (`gender`, `dateOfBirth`, `district`, `upazila`, `thana`, `fullAddress`).
+**Edit Profile screen** (`EditProfileScreen.js`) uses a scrollable form layout: centered avatar block, personal info (name, gender radio modal, custom day/month/year date-of-birth picker), shipping & location via `DistrictUpazilaPicker`, field badges (read-only email, security phone, auto-fill district), and a sticky **Update Profile** footer. Profile fields sync through `useAuthStore.updateProfile()` (`gender`, `dateOfBirth`, `district`, `upazila`, `thana`, `fullAddress`).
+
+**Profile menu** — Account & Security lists Personal Info, Security Settings, and Delete Account only; Change Password lives inside Security Settings (not duplicated on the main profile menu).
+
+**Profile avatars** — `useAuthStore.toPublicUser()` maps `avatar` from `avatar`, `profileImage`, or `photo`. `ProfileAvatar` and the Profile tab icon resolve relative paths via `BASE_URL` (`API_ORIGIN` from `endpoints.js`) with an image `onError` fallback to initials.
+
+**Security settings** (`SecuritySettingsScreen.js`) includes inline email & phone OTP verification (reuses `useAuthStore.requestContactOtp` / `verifyContactOtp` from the ProfileEditSheet flow) below Change Password and above Active Sessions.
 
 ---
 

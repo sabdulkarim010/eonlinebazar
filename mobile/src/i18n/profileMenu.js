@@ -47,13 +47,6 @@ export function getProfileMenuSections(t) {
           paletteKey: 'security',
         },
         {
-          key: 'password',
-          icon: 'lock-closed-outline',
-          label: t('profile.change_password'),
-          screen: 'ChangePassword',
-          paletteKey: 'password',
-        },
-        {
           key: 'delete',
           icon: 'trash-outline',
           label: t('profile.delete_account'),

@@ -28,7 +28,7 @@ import { useProfileModuleTokens } from '../theme/profileModuleTokens';
 import { useTheme } from '../theme/tokens';
 import { maskEmail, maskPhone } from '../utils/maskContact';
 
-const GENDER_OPTIONS = ['Male', 'Female', 'Other'];
+const GENDER_MODAL_OPTIONS = ['Select Gender', 'Male', 'Female', 'Other'];
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -136,6 +136,50 @@ function FormFieldLabel({ label, badge, T }) {
       </Text>
       {badge}
     </View>
+  );
+}
+
+function RadioCircle({ selected, accentColor }) {
+  return (
+    <View style={styles.radioOuter}>
+      {selected ? (
+        <View style={[styles.radioInner, { backgroundColor: accentColor }]} />
+      ) : null}
+    </View>
+  );
+}
+
+function GenderPickerModal({ visible, selected, accentColor, onSelect, onClose }) {
+  const modalSelected = selected || 'Select Gender';
+
+  const handleSelect = (option) => {
+    onSelect(option === 'Select Gender' ? '' : option);
+    onClose();
+  };
+
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.genderOverlay}>
+        <Pressable style={styles.genderBackdrop} onPress={onClose} />
+        <View style={styles.genderModalCard}>
+          <Text style={styles.genderModalTitle}>Select Gender</Text>
+          {GENDER_MODAL_OPTIONS.map((option, index) => (
+            <View key={option}>
+              <Pressable
+                onPress={() => handleSelect(option)}
+                style={styles.genderOptionRow}
+              >
+                <Text style={styles.genderOptionText}>{option}</Text>
+                <RadioCircle selected={modalSelected === option} accentColor={accentColor} />
+              </Pressable>
+              {index < GENDER_MODAL_OPTIONS.length - 1 ? (
+                <View style={styles.genderOptionDivider} />
+              ) : null}
+            </View>
+          ))}
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -288,6 +332,7 @@ export default function EditProfileScreen({ navigation }) {
 
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showGenderPicker, setShowGenderPicker] = useState(false);
   const [showDobPicker, setShowDobPicker] = useState(false);
   const [showLogout, setShowLogout] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -369,20 +414,6 @@ export default function EditProfileScreen({ navigation }) {
       { text: 'Camera', onPress: pickFromCamera },
       { text: 'Cancel', style: 'cancel' },
     ]);
-  };
-
-  const handleGenderPress = () => {
-    Alert.alert(
-      'Select Gender',
-      '',
-      [
-        ...GENDER_OPTIONS.map((option) => ({
-          text: option,
-          onPress: () => setGender(option),
-        })),
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
   };
 
   const handleDistrictChange = (value) => {
@@ -557,7 +588,7 @@ export default function EditProfileScreen({ navigation }) {
             <View style={styles.formField}>
               <FormFieldLabel label="Gender" T={T} />
               <Pressable
-                onPress={handleGenderPress}
+                onPress={() => setShowGenderPicker(true)}
                 style={[styles.pickerField, { backgroundColor: '#ffffff', borderColor: '#E5E7EB' }]}
               >
                 <Text style={{ color: gender ? T.text : T.muted, fontSize: 16, flex: 1 }}>
@@ -682,6 +713,14 @@ export default function EditProfileScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <GenderPickerModal
+        visible={showGenderPicker}
+        selected={gender}
+        accentColor={T.accent}
+        onSelect={setGender}
+        onClose={() => setShowGenderPicker(false)}
+      />
 
       <DateOfBirthModal
         visible={showDobPicker}
@@ -839,6 +878,66 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  genderOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  genderBackdrop: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  genderModalCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    marginHorizontal: 24,
+    width: '100%',
+    maxWidth: 360,
+    overflow: 'hidden',
+  },
+  genderModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    padding: 20,
+    paddingBottom: 16,
+    color: '#0f172a',
+  },
+  genderOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 56,
+    paddingHorizontal: 20,
+  },
+  genderOptionText: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#0f172a',
+    flex: 1,
+  },
+  genderOptionDivider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginHorizontal: 20,
+  },
+  radioOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   pickerField: {
     flexDirection: 'row',

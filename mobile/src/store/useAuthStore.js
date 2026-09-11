@@ -39,20 +39,6 @@ function apiErrorMessage(error, fallback) {
   return error?.response?.data?.message || error?.message || fallback;
 }
 
-function pickAvatarSource(user) {
-  const candidates = [
-    user?.avatar,
-    user?.avatarUrl,
-    user?.profilePicture,
-    user?.image,
-  ];
-  for (const candidate of candidates) {
-    const raw = String(candidate ?? '').trim();
-    if (raw) return raw;
-  }
-  return '';
-}
-
 function toPublicUser(user) {
   if (!user) return null;
   const isVerified = Boolean(
@@ -61,7 +47,6 @@ function toPublicUser(user) {
     || user.isEmailVerified
     || user.verified
   );
-  const avatarRaw = pickAvatarSource(user);
   const wishlistCount = Number(
     user?.wishlistCount
     || (Array.isArray(user?.wishlist) ? user.wishlist.length : 0)
@@ -76,7 +61,7 @@ function toPublicUser(user) {
     mobile: user.mobile || user.phone || '',
     address: user.address || user.fullAddress || user.deliveryAddress || '',
     isVerified,
-    avatar: avatarRaw ? resolveMediaUrl(avatarRaw) : '',
+    avatar: user.avatar ?? user.profileImage ?? user.photo ?? null,
     loyaltyPoints: Number(user?.loyaltyPoints || user?.points || 0),
     walletBalance: Number(user?.walletBalance || user?.wallet || 0),
     ordersCount: Number(user?.ordersCount || 0),

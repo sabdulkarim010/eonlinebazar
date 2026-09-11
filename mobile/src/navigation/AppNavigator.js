@@ -12,7 +12,7 @@ import useCartStore from '../store/useCartStore';
 import { useTranslation } from '../store/useLanguageStore';
 import { useAppTheme } from '../store/useThemeStore';
 import { palettes } from '../theme/palettes';
-import { resolveMediaUrl } from '../utils/normalizeProduct';
+import { BASE_URL } from '../api/endpoints';
 
 const Tab = createBottomTabNavigator();
 
@@ -24,15 +24,6 @@ const TAB_ICONS = {
   Cart: { focused: 'cart', default: 'cart-outline' },
   Orders: { focused: 'receipt', default: 'receipt-outline' },
 };
-
-function pickAvatarUri(user) {
-  const candidates = [user?.avatar, user?.avatarUrl, user?.profilePicture, user?.image];
-  for (const candidate of candidates) {
-    const raw = String(candidate ?? '').trim();
-    if (raw) return resolveMediaUrl(raw);
-  }
-  return '';
-}
 
 function profileInitials(user) {
   const n = user?.name || user?.firstName || '';
@@ -53,15 +44,19 @@ function profileTabLabel(user, fallback) {
 
 function ProfileTabIcon({ focused, color, accentColor, user }) {
   const [imgFailed, setImgFailed] = useState(false);
-  const avatarUri = pickAvatarUri(user);
-  const showImage = Boolean(avatarUri) && !imgFailed;
+  const avatarUrl = user?.avatar
+    ? (user.avatar.startsWith('http')
+        ? user.avatar
+        : BASE_URL + user.avatar)
+    : null;
+  const showImage = Boolean(avatarUrl) && !imgFailed;
   const size = 24;
   const iconColor = color || accentColor || '#666666';
   const ringColor = accentColor || iconColor;
 
   useEffect(() => {
     setImgFailed(false);
-  }, [avatarUri]);
+  }, [avatarUrl]);
 
   if (!user) {
     const icons = { focused: 'person', default: 'person-outline' };
@@ -83,7 +78,7 @@ function ProfileTabIcon({ focused, color, accentColor, user }) {
     >
       {showImage ? (
         <Image
-          source={{ uri: avatarUri }}
+          source={{ uri: avatarUrl }}
           style={tabIconStyles.avatarImage}
           resizeMode="cover"
           onError={() => setImgFailed(true)}

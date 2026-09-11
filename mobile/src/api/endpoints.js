@@ -1,3 +1,5 @@
+export { API_ORIGIN as BASE_URL } from '../services/api';
+
 export const endpoints = {
   products: '/products',
   productSearch: '/products/search',

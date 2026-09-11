@@ -632,7 +632,8 @@ mobile/src/screens/CartScreen.js         [DONE] Clickable images + variant displ
 mobile/src/screens/OrdersScreen.js       [DONE] silent refetch on refocus; memo OrderCard; one list tree
 mobile/src/screens/OrderDetailsScreen.js [DONE] Clickable images
 mobile/src/screens/ProfileScreen.js      [DONE] Full mobile + phone badge; avatar upload; premium menu hub
-mobile/src/screens/EditProfileScreen.js  [DONE] Scrollable edit form — centered avatar, personal/shipping sections, FieldBadge pills, custom DOB modal, sticky Update Profile footer
+mobile/src/screens/EditProfileScreen.js  [DONE] Scrollable edit form — gender radio modal, FieldBadge pills, custom DOB modal, sticky Update Profile footer
+mobile/src/screens/SecuritySettingsScreen.js [DONE] Email & phone OTP verification card (store OTP flow) before active sessions list
 mobile/src/components/profile/ProfileAvatar.js [DONE] centerWrap alignSelf center for avatar block
 mobile/src/store/useAuthStore.js         [DONE] toPublicUser + updateProfile gender/dateOfBirth/district/upazila/thana/fullAddress
 mobile/src/components/profile/ProfileEditSheet.js [NEW] Spring bottom sheet — name save + email/phone OTP verify in-sheet
