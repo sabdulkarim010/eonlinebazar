@@ -204,8 +204,63 @@ function importFileUploadSafe(req, res, next) {
     });
 }
 
+/********************************************************************
+ * HRM — Employee photo & document uploads (memory → Cloudinary).
+ * Photos are images only; documents also allow PDFs (NID scans,
+ * contracts). Both buffer in memory so the controller can stream them
+ * straight to Cloudinary, matching the product image upload pipeline.
+ ********************************************************************/
+const EMPLOYEE_DOC_MIMES = new Set([
+    'image/png',
+    'image/jpeg',
+    'image/jpg',
+    'image/webp',
+    'application/pdf'
+]);
+
+const employeePhotoUpload = multer({
+    storage: multer.memoryStorage(),
+    fileFilter,
+    limits: { fileSize: 5 * 1024 * 1024 }
+}).single('photo');
+
+function employeePhotoUploadSafe(req, res, next) {
+    employeePhotoUpload(req, res, (err) => {
+        if (!err) return next();
+        const message = err.code === 'LIMIT_FILE_SIZE'
+            ? 'Photo must be 5 MB or smaller.'
+            : (err.message || 'Photo upload failed.');
+        return res.status(400).json({ success: false, message });
+    });
+}
+
+const employeeDocumentUpload = multer({
+    storage: multer.memoryStorage(),
+    fileFilter: (req, file, cb) => {
+        const mime = String(file.mimetype || '').toLowerCase();
+        if (EMPLOYEE_DOC_MIMES.has(mime)) {
+            cb(null, true);
+            return;
+        }
+        cb(new Error('Invalid file type. Allowed: PNG, JPEG, WebP, and PDF.'), false);
+    },
+    limits: { fileSize: 10 * 1024 * 1024 }
+}).single('document');
+
+function employeeDocumentUploadSafe(req, res, next) {
+    employeeDocumentUpload(req, res, (err) => {
+        if (!err) return next();
+        const message = err.code === 'LIMIT_FILE_SIZE'
+            ? 'Document must be 10 MB or smaller.'
+            : (err.message || 'Document upload failed.');
+        return res.status(400).json({ success: false, message });
+    });
+}
+
 module.exports = upload;
 module.exports.brandingUpload = brandingUpload;
+module.exports.employeePhotoUpload = employeePhotoUploadSafe;
+module.exports.employeeDocumentUpload = employeeDocumentUploadSafe;
 module.exports.paymentMethodLogoUpload = paymentMethodLogoUploadSafe;
 module.exports.footerIconUpload = footerIconUploadSafe;
 module.exports.importFileUpload = importFileUploadSafe;

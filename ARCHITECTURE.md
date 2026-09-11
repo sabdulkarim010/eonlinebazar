@@ -132,7 +132,8 @@ The admin sidebar is grouped into **Dashboard**, **ERP**, **CRM**, **HRM**, and 
 
 | Warehouse | `backend/src/models/warehouse.js` | Multi-location inventory |
 
-| Employee | `backend/src/models/employee.js` | Non-login operational staff (delivery, labour, cleaners) |
+| Employee | `backend/src/models/employee.js` | Non-login operational staff — full profile, documents, references |
+| Designation | `backend/src/models/designation.js` | Job title catalog (Manager, Delivery Man, …) seeded on bootstrap |
 | Attendance | `backend/src/models/attendance.js` | One row per staff per day (clock in/out, late, shift) |
 
 | Shift | `backend/src/models/shift.js` | Named working windows + late grace period |
@@ -162,7 +163,10 @@ The admin sidebar is grouped into **Dashboard**, **ERP**, **CRM**, **HRM**, and 
 | Leave | `GET /leaves`, `POST /leaves/apply`, `PATCH /leaves/:id/approve`, `PATCH /leaves/:id/reject`, `GET /leaves/balance`, `GET /leaves/calendar` | Approving a leave writes `holiday` attendance rows across the span |
 
 | Staff roster | `GET /hrm/staff` | Dropdown roster; includes the employment record for `manage_staff` holders |
+| Designations | `GET/POST/PATCH/DELETE /hrm/designations` | Job title catalog; delete blocked while employees use the name |
 | Employees | `GET/POST/PATCH/DELETE /hrm/employees` | Non-login operational staff CRUD; auto `EMP-001` ids |
+| Employee profile | `GET /hrm/employees/:id/profile` | Full record + attendance summary + payroll history + leave balance |
+| Employee media | `POST /hrm/employees/:id/photo`, `POST/DELETE …/documents/:docId` | Cloudinary photo + document attachments |
 
 
 

@@ -864,3 +864,28 @@ mobile/.env.example [DONE] LAN IP dev comments
 ARCHITECTURE.md [DONE] Employee model + Local Development Setup (Mobile)
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Final audit priority fixes marked complete
 tests/hrm.test.js [DONE] +2 employee CRUD + attendance tests
+#
+# Ultra-dynamic Employee module — 2026-09-11
+backend/src/models/designation.js [NEW] job title catalog (name, department, isActive)
+backend/src/models/employee.js [DONE] identity, contact, employment, salary/bank, documents[], references[], designation sync
+backend/src/models/securityLog.js [DONE] employee + designation resourceTypes
+backend/src/services/designationService.js [NEW] seedDefaultDesignations (8 starter titles)
+backend/src/controllers/admin/designationController.js [NEW] CRUD + employee-count guard on delete
+backend/src/controllers/admin/employeeController.js [DONE] photo/doc upload, getEmployeeProfile, enhanced stats/filters
+backend/src/controllers/admin/enterpriseSummaryController.js [DONE] hrm.employeeCount
+backend/src/controllers/admin/payrollController.js [DONE] designation column on payroll list for employees
+backend/src/middlewares/uploadMiddleware.js [DONE] employeePhotoUpload + employeeDocumentUpload (image/PDF)
+backend/src/routes/adminRoutes.js [DONE] /hrm/designations + employee photo/documents/profile routes
+backend/src/server.js [DONE] seedDefaultDesignations bootstrap
+client/admin/partials/view-hrm-employees.html [DONE] stats, filters, tabbed add/edit, profile, docs, designation manager
+client/admin/partials/view-hrm-payroll.html [DONE] designation column in payroll table
+client/admin/partials/view-overview.html [DONE] HRM widget employees count row
+client/js/admin/modules/hrm-employees.js [DONE] full ultra-dynamic UI — profile tabs, designation CRUD, doc upload
+client/js/admin/modules/hrm-attendance.js [DONE] designation label in operational employee dropdown
+client/js/admin/modules/hrm-payroll.js [DONE] designation column render
+client/js/admin/admin-dashboard.js [DONE] hrm-stat-employees widget
+client/css/admin/_hrm.css [DONE] employee modal, profile grid, doc cards, designation manager styles
+tests/hrm.test.js [DONE] +4 designation CRUD, profile, photo upload, employeeCount in summary (32 tests in suite)
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] ultra-dynamic employee + designation section
+ARCHITECTURE.md [DONE] Designation model + employee profile endpoints
+README.md [DONE] test counts + HRM employee module notes

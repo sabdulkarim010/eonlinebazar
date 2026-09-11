@@ -96,6 +96,15 @@ connectDB().then(async () => {
         console.error('Warehouse bootstrap error:', err.message);
     }
 
+    // 👥 HRM বুটস্ট্র্যাপ — কর্মীদের জন্য ডিফল্ট ডেজিগনেশন ক্যাটালগ সীড হয়
+    // যাতে "Add Employee" ফর্মে ম্যানেজার/ডেলিভারি ম্যান ইত্যাদি অপশন থাকে।
+    try {
+        const { seedDefaultDesignations } = require('./services/designationService');
+        await seedDefaultDesignations();
+    } catch (err) {
+        console.error('Designation bootstrap error:', err.message);
+    }
+
     // Start background stock alert cron job
     try {
         const { startStockAlertCron } = require('./services/stockAlertService');

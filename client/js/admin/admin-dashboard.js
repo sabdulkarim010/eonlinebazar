@@ -105,6 +105,7 @@ async function fetchEnterpriseSummary() {
         set('crm-stat-gold', crm?.goldCount);
         set('crm-stat-platinum', crm?.platinumCount);
         set('hrm-stat-staff', hrm?.staffCount);
+        set('hrm-stat-employees', hrm?.employeeCount);
         set('hrm-stat-attendance', `${hrm?.presentToday ?? 0} present / ${hrm?.absentToday ?? 0} absent / ${hrm?.lateToday ?? 0} late`);
         set('hrm-stat-pending-leaves', hrm?.pendingLeaveCount);
         set('hrm-stat-payroll', `${hrm?.payrollPaidThisMonth ?? 0} paid / ${hrm?.payrollPendingThisMonth ?? 0} pending`);

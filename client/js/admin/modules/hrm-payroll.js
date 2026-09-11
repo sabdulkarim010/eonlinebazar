@@ -63,7 +63,7 @@ async function loadPayrollList() {
     const tbody = document.getElementById('hrmPayrollTableBody');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="9" class="loading-container"><div class="spinner"></div><p>Loading payroll…</p></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="loading-container"><div class="spinner"></div><p>Loading payroll…</p></td></tr>';
 
     const params = new URLSearchParams({ limit: '100' });
     const month = document.getElementById('hrmPayrollMonth')?.value;
@@ -83,7 +83,7 @@ async function loadPayrollList() {
 
         const rows = result.data || [];
         if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="9" class="table-status-empty">No payroll runs for this period.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="table-status-empty">No payroll runs for this period.</td></tr>';
             return;
         }
 
@@ -93,6 +93,7 @@ async function loadPayrollList() {
                     <strong>${window.hrmEscape(row.staffName || row.staffUsername || '—')}</strong>
                     <div class="table-subtext">${window.hrmEscape(row.staffUsername || '')}</div>
                 </td>
+                <td>${row.designation ? window.hrmEscape(row.designation) : '<span class="table-status-empty">—</span>'}</td>
                 <td>${window.hrmEscape(window.HRM_MONTHS[row.month - 1] || row.month)} ${row.year}</td>
                 <td>${window.hrmFormatMoney(row.baseSalary)}</td>
                 <td>${window.hrmFormatMoney(row.bonus)}</td>
@@ -105,7 +106,7 @@ async function loadPayrollList() {
         `).join('');
     } catch (err) {
         console.error('loadPayrollList:', err);
-        tbody.innerHTML = '<tr><td colspan="9" class="table-status-error">Failed to load payroll.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="table-status-error">Failed to load payroll.</td></tr>';
     }
 }
 

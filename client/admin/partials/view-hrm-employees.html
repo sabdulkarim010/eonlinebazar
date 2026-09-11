@@ -2,11 +2,14 @@
     <div class="section-header-box">
         <div>
             <h3><i class="fa-solid fa-people-carry-box"></i> Employees</h3>
-            <p class="section-subtitle">Non-system operational staff — delivery, labour, cleaners etc.</p>
+            <p class="section-subtitle">Operational staff roster — designations, documents, attendance &amp; payroll linked.</p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button type="button" class="btn-secondary" id="employeesRefreshBtn">
                 <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+            <button type="button" class="btn-secondary" onclick="openDesignationManager()">
+                <i class="fa-solid fa-briefcase"></i> Manage Designations
             </button>
             <button type="button" class="btn-primary" onclick="openAddEmployeeModal()">
                 <i class="fa-solid fa-plus"></i> Add Employee
@@ -22,20 +25,47 @@
                 <h3 id="employeeStatActive">0</h3>
             </div>
         </div>
-        <div class="metric-card">
-            <div class="icon"><i class="fa-solid fa-building"></i></div>
+        <div class="metric-card warning">
+            <div class="icon"><i class="fa-solid fa-user-slash"></i></div>
             <div class="data">
-                <p>BY DEPARTMENT</p>
-                <h3 id="employeeStatDepartments">—</h3>
+                <p>TOTAL INACTIVE</p>
+                <h3 id="employeeStatInactive">0</h3>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="icon"><i class="fa-solid fa-id-badge"></i></div>
+            <div class="data">
+                <p>BY DESIGNATION</p>
+                <h3 id="employeeStatDesignations" class="hrm-stat-breakdown">—</h3>
             </div>
         </div>
     </div>
 
     <div class="hrm-filter-bar">
         <div class="form-group">
+            <label for="employeeSearchInput">Search</label>
+            <input type="search" id="employeeSearchInput" placeholder="Name, phone, or EMP-ID" autocomplete="off">
+        </div>
+        <div class="form-group">
             <label for="employeeDepartmentFilter">Department</label>
             <select id="employeeDepartmentFilter">
                 <option value="">All departments</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="employeeDesignationFilter">Designation</label>
+            <select id="employeeDesignationFilter">
+                <option value="">All designations</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="employeeTypeFilter">Employee Type</label>
+            <select id="employeeTypeFilter">
+                <option value="">All types</option>
+                <option value="permanent">Permanent</option>
+                <option value="contractual">Contractual</option>
+                <option value="part-time">Part-time</option>
+                <option value="intern">Intern</option>
             </select>
         </div>
         <div class="form-group">
@@ -46,10 +76,6 @@
                 <option value="inactive">Inactive</option>
                 <option value="terminated">Terminated</option>
             </select>
-        </div>
-        <div class="form-group">
-            <label for="employeeSearchInput">Search</label>
-            <input type="search" id="employeeSearchInput" placeholder="Name, phone, or EMP-ID" autocomplete="off">
         </div>
         <div class="form-group hrm-filter-actions">
             <button type="button" class="btn-primary" onclick="loadEmployees()">
@@ -64,29 +90,30 @@
                 <tr>
                     <th>Photo</th>
                     <th>EMP-ID</th>
-                    <th>Name</th>
-                    <th>Role</th>
-                    <th>Department</th>
+                    <th>Full Name</th>
+                    <th>Designation</th>
+                    <th>Dept</th>
                     <th>Phone</th>
+                    <th>Type</th>
                     <th>Salary</th>
                     <th>Status</th>
                     <th class="customers-th--actions">Actions</th>
                 </tr>
             </thead>
             <tbody id="employeeTableBody">
-                <tr><td colspan="9" class="loading-container"><div class="spinner"></div><p>Loading employees…</p></td></tr>
+                <tr><td colspan="10" class="loading-container"><div class="spinner"></div><p>Loading employees…</p></td></tr>
             </tbody>
         </table>
     </div>
 </section>
 
-<!-- Employee create / edit modal -->
+<!-- Add / Edit Employee — tabbed modal -->
 <div id="employeeModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeEmployeeModal()">
-    <div class="custom-modal-box" style="max-width:640px;">
+    <div class="custom-modal-box employee-modal-wide">
         <div class="modal-header">
             <div>
                 <h3 id="employeeModalTitle"><i class="fa-solid fa-user-plus"></i> Add Employee</h3>
-                <p class="edit-modal-subtitle">Operational staff who do not need admin login</p>
+                <p class="edit-modal-subtitle">Complete profile for operational staff (no admin login)</p>
             </div>
             <button type="button" class="close-icon-btn" onclick="closeEmployeeModal()" aria-label="Close">
                 <i class="fa-solid fa-xmark"></i>
@@ -94,65 +121,256 @@
         </div>
         <form id="employeeForm" onsubmit="event.preventDefault(); saveEmployee();">
             <input type="hidden" id="employeeEditId" value="">
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="employeeFullName">Full Name *</label>
-                    <input type="text" id="employeeFullName" required placeholder="Full legal name">
-                </div>
-                <div class="form-group">
-                    <label for="employeePhone">Phone *</label>
-                    <input type="tel" id="employeePhone" required placeholder="01XXXXXXXXX">
-                </div>
-                <div class="form-group">
-                    <label for="employeeRole">Role *</label>
-                    <input type="text" id="employeeRole" required placeholder="Delivery Man, Labour, Cleaner…">
-                </div>
-                <div class="form-group">
-                    <label for="employeeDepartment">Department</label>
-                    <input type="text" id="employeeDepartment" value="Operations" placeholder="Operations">
-                </div>
-                <div class="form-group">
-                    <label for="employeeBaseSalary">Base Salary</label>
-                    <input type="number" id="employeeBaseSalary" min="0" step="1" value="0">
-                </div>
-                <div class="form-group">
-                    <label for="employeeJoiningDate">Joining Date</label>
-                    <input type="date" id="employeeJoiningDate">
-                </div>
-                <div class="form-group">
-                    <label for="employeeNationalId">National ID</label>
-                    <input type="text" id="employeeNationalId" placeholder="NID number">
-                </div>
-                <div class="form-group">
-                    <label for="employeeAddress">Address</label>
-                    <textarea id="employeeAddress" rows="2" placeholder="Home address"></textarea>
-                </div>
-                <fieldset class="form-group" style="border:1px solid var(--border-color,#e2e8f0);border-radius:8px;padding:12px;">
-                    <legend style="padding:0 6px;font-size:0.85rem;">Emergency Contact</legend>
-                    <div class="form-group">
-                        <label for="employeeEmergencyName">Name</label>
-                        <input type="text" id="employeeEmergencyName" placeholder="Contact name">
+            <div class="hrm-tabs employee-form-tabs" id="employeeFormTabs">
+                <button type="button" class="hrm-tab active" data-employee-tab="emp-tab-personal" onclick="switchEmployeeFormTab('emp-tab-personal')">Personal</button>
+                <button type="button" class="hrm-tab" data-employee-tab="emp-tab-contact" onclick="switchEmployeeFormTab('emp-tab-contact')">Contact</button>
+                <button type="button" class="hrm-tab" data-employee-tab="emp-tab-employment" onclick="switchEmployeeFormTab('emp-tab-employment')">Employment</button>
+                <button type="button" class="hrm-tab" data-employee-tab="emp-tab-salary" onclick="switchEmployeeFormTab('emp-tab-salary')">Salary &amp; Bank</button>
+                <button type="button" class="hrm-tab" data-employee-tab="emp-tab-refs" onclick="switchEmployeeFormTab('emp-tab-refs')">References</button>
+            </div>
+            <div class="modal-body employee-form-body">
+                <!-- Tab 1: Personal -->
+                <div id="emp-tab-personal" class="employee-form-panel">
+                    <div class="employee-photo-upload" onclick="document.getElementById('employeePhotoInput').click()">
+                        <img id="employeePhotoPreview" src="" alt="" class="employee-photo-preview" style="display:none;">
+                        <div id="employeePhotoPlaceholder" class="employee-photo-placeholder"><i class="fa-solid fa-camera"></i><span>Upload photo</span></div>
+                        <input type="file" id="employeePhotoInput" accept="image/*" style="display:none" onchange="handleEmployeePhotoPick(event)">
                     </div>
                     <div class="form-group">
-                        <label for="employeeEmergencyPhone">Phone</label>
-                        <input type="tel" id="employeeEmergencyPhone" placeholder="01XXXXXXXXX">
+                        <label for="employeeFullName">Full Name *</label>
+                        <input type="text" id="employeeFullName" required placeholder="Full legal name">
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="employeeDateOfBirth">Date of Birth</label>
+                            <input type="date" id="employeeDateOfBirth">
+                        </div>
+                        <div class="form-group">
+                            <label for="employeeGender">Gender</label>
+                            <select id="employeeGender">
+                                <option value="">—</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="employeeBloodGroup">Blood Group</label>
+                            <select id="employeeBloodGroup">
+                                <option value="">—</option>
+                                <option value="A+">A+</option><option value="A-">A-</option>
+                                <option value="B+">B+</option><option value="B-">B-</option>
+                                <option value="O+">O+</option><option value="O-">O-</option>
+                                <option value="AB+">AB+</option><option value="AB-">AB-</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="employeeMaritalStatus">Marital Status</label>
+                            <select id="employeeMaritalStatus">
+                                <option value="">—</option>
+                                <option value="single">Single</option>
+                                <option value="married">Married</option>
+                                <option value="divorced">Divorced</option>
+                                <option value="widowed">Widowed</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label for="employeeEmergencyRelation">Relation</label>
-                        <input type="text" id="employeeEmergencyRelation" placeholder="Spouse, parent, etc.">
+                        <label for="employeeReligion">Religion</label>
+                        <input type="text" id="employeeReligion" placeholder="Optional">
                     </div>
-                </fieldset>
-                <div class="form-group">
-                    <label for="employeeNotes">Notes</label>
-                    <textarea id="employeeNotes" rows="2" placeholder="Optional notes"></textarea>
                 </div>
-                <div class="form-group">
-                    <label for="employeeStatus">Status</label>
-                    <select id="employeeStatus">
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                        <option value="terminated">Terminated</option>
-                    </select>
+
+                <!-- Tab 2: Contact -->
+                <div id="emp-tab-contact" class="employee-form-panel" style="display:none;">
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="employeePhone">Phone *</label>
+                            <input type="tel" id="employeePhone" required placeholder="01XXXXXXXXX">
+                        </div>
+                        <div class="form-group">
+                            <label for="employeeAlternatePhone">Alternate Phone</label>
+                            <input type="tel" id="employeeAlternatePhone" placeholder="01XXXXXXXXX">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="employeeEmail">Email</label>
+                        <input type="email" id="employeeEmail" placeholder="email@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="employeePresentAddress">Present Address</label>
+                        <textarea id="employeePresentAddress" rows="2" placeholder="Current address"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-inline">
+                            <input type="checkbox" id="employeeSameAsPresent" onchange="copyPresentToPermanent()"> Same as present address
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="employeePermanentAddress">Permanent Address</label>
+                        <textarea id="employeePermanentAddress" rows="2" placeholder="Permanent address"></textarea>
+                    </div>
+                    <fieldset class="form-group employee-fieldset">
+                        <legend>Emergency Contact</legend>
+                        <div class="form-group">
+                            <label for="employeeEmergencyName">Name</label>
+                            <input type="text" id="employeeEmergencyName" placeholder="Contact name">
+                        </div>
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label for="employeeEmergencyPhone">Phone</label>
+                                <input type="tel" id="employeeEmergencyPhone" placeholder="01XXXXXXXXX">
+                            </div>
+                            <div class="form-group">
+                                <label for="employeeEmergencyRelation">Relation</label>
+                                <input type="text" id="employeeEmergencyRelation" placeholder="Spouse, parent, etc.">
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+
+                <!-- Tab 3: Employment -->
+                <div id="emp-tab-employment" class="employee-form-panel" style="display:none;">
+                    <div class="form-group">
+                        <label for="employeeDisplayId">Employee ID</label>
+                        <input type="text" id="employeeDisplayId" readonly placeholder="Auto-generated on save">
+                    </div>
+                    <div class="form-group designation-select-row">
+                        <label for="employeeDesignation">Designation *</label>
+                        <div class="designation-select-wrap">
+                            <select id="employeeDesignation" required>
+                                <option value="">Select designation</option>
+                            </select>
+                            <button type="button" class="btn-secondary btn-icon" onclick="openQuickAddDesignation()" title="Add designation">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="employeeDepartment">Department</label>
+                            <input type="text" id="employeeDepartment" value="Operations" placeholder="Operations">
+                        </div>
+                        <div class="form-group">
+                            <label for="employeeType">Employee Type</label>
+                            <select id="employeeType">
+                                <option value="permanent">Permanent</option>
+                                <option value="contractual">Contractual</option>
+                                <option value="part-time">Part-time</option>
+                                <option value="intern">Intern</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="employeeShift">Shift</label>
+                            <select id="employeeShift">
+                                <option value="">No shift assigned</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="employeeJoiningDate">Joining Date</label>
+                            <input type="date" id="employeeJoiningDate">
+                        </div>
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="employeeNationalId">National ID</label>
+                            <input type="text" id="employeeNationalId" placeholder="NID number">
+                        </div>
+                        <div class="form-group">
+                            <label for="employeeStatus">Status</label>
+                            <select id="employeeStatus">
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="terminated">Terminated</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Salary & Bank -->
+                <div id="emp-tab-salary" class="employee-form-panel" style="display:none;">
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="employeeBaseSalary">Base Salary</label>
+                            <input type="number" id="employeeBaseSalary" min="0" step="1" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="employeeSalaryType">Salary Type</label>
+                            <select id="employeeSalaryType">
+                                <option value="monthly">Monthly</option>
+                                <option value="daily">Daily</option>
+                                <option value="hourly">Hourly</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="employeeBankName">Bank Name</label>
+                        <input type="text" id="employeeBankName" placeholder="Bank name">
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="employeeBankAccount">Bank Account Number</label>
+                            <input type="text" id="employeeBankAccount" placeholder="Account number">
+                        </div>
+                        <div class="form-group">
+                            <label for="employeeBkash">bKash Number</label>
+                            <input type="tel" id="employeeBkash" placeholder="01XXXXXXXXX">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 5: References & Notes -->
+                <div id="emp-tab-refs" class="employee-form-panel" style="display:none;">
+                    <fieldset class="form-group employee-fieldset">
+                        <legend>Reference 1</legend>
+                        <div class="form-group">
+                            <label for="employeeRef1Name">Name</label>
+                            <input type="text" id="employeeRef1Name" placeholder="Reference name">
+                        </div>
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label for="employeeRef1Phone">Phone</label>
+                                <input type="tel" id="employeeRef1Phone" placeholder="01XXXXXXXXX">
+                            </div>
+                            <div class="form-group">
+                                <label for="employeeRef1Relation">Relation</label>
+                                <input type="text" id="employeeRef1Relation" placeholder="Former employer, etc.">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="employeeRef1Address">Address</label>
+                            <input type="text" id="employeeRef1Address" placeholder="Address">
+                        </div>
+                    </fieldset>
+                    <fieldset class="form-group employee-fieldset">
+                        <legend>Reference 2 (optional)</legend>
+                        <div class="form-group">
+                            <label for="employeeRef2Name">Name</label>
+                            <input type="text" id="employeeRef2Name" placeholder="Reference name">
+                        </div>
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label for="employeeRef2Phone">Phone</label>
+                                <input type="tel" id="employeeRef2Phone" placeholder="01XXXXXXXXX">
+                            </div>
+                            <div class="form-group">
+                                <label for="employeeRef2Relation">Relation</label>
+                                <input type="text" id="employeeRef2Relation" placeholder="Relation">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="employeeRef2Address">Address</label>
+                            <input type="text" id="employeeRef2Address" placeholder="Address">
+                        </div>
+                    </fieldset>
+                    <div class="form-group">
+                        <label for="employeeNotes">Notes</label>
+                        <textarea id="employeeNotes" rows="3" placeholder="Optional internal notes"></textarea>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -163,21 +381,180 @@
     </div>
 </div>
 
-<!-- Employee details modal -->
-<div id="employeeDetailsModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeEmployeeDetailsModal()">
-    <div class="custom-modal-box" style="max-width:560px;">
-        <div class="modal-header">
-            <div>
-                <h3><i class="fa-solid fa-id-card"></i> Employee Details</h3>
-                <p class="edit-modal-subtitle" id="employeeDetailsSubtitle"></p>
+<!-- Employee profile modal (read-only, tabbed) -->
+<div id="employeeProfileModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeEmployeeProfileModal()">
+    <div class="custom-modal-box employee-modal-wide">
+        <div class="modal-header employee-profile-header">
+            <div class="employee-profile-head">
+                <img id="profileHeaderPhoto" src="" alt="" class="employee-profile-photo">
+                <div>
+                    <h3 id="profileHeaderName">Employee Profile</h3>
+                    <p class="edit-modal-subtitle" id="profileHeaderMeta"></p>
+                    <div class="employee-profile-badges">
+                        <span id="profileDesignationBadge" class="status-badge status-verified"></span>
+                        <span id="profileStatusBadge" class="status-badge status-pending"></span>
+                    </div>
+                </div>
             </div>
-            <button type="button" class="close-icon-btn" onclick="closeEmployeeDetailsModal()" aria-label="Close">
+            <button type="button" class="close-icon-btn" onclick="closeEmployeeProfileModal()" aria-label="Close">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        <div class="modal-body" id="employeeDetailsBody"></div>
-        <div class="modal-footer">
-            <button type="button" class="btn-secondary" onclick="closeEmployeeDetailsModal()">Close</button>
+        <div class="hrm-tabs" id="employeeProfileTabs">
+            <button type="button" class="hrm-tab active" data-profile-tab="profile-tab-overview" onclick="switchProfileTab('profile-tab-overview')">Overview</button>
+            <button type="button" class="hrm-tab" data-profile-tab="profile-tab-documents" onclick="switchProfileTab('profile-tab-documents')">Documents</button>
+            <button type="button" class="hrm-tab" data-profile-tab="profile-tab-attendance" onclick="switchProfileTab('profile-tab-attendance')">Attendance</button>
+            <button type="button" class="hrm-tab" data-profile-tab="profile-tab-payroll" onclick="switchProfileTab('profile-tab-payroll')">Payroll</button>
+            <button type="button" class="hrm-tab" data-profile-tab="profile-tab-leave" onclick="switchProfileTab('profile-tab-leave')">Leave</button>
         </div>
+        <div class="modal-body">
+            <div id="profile-tab-overview" class="employee-profile-panel"></div>
+            <div id="profile-tab-documents" class="employee-profile-panel" style="display:none;">
+                <div class="employee-docs-toolbar">
+                    <button type="button" class="btn-primary btn-sm" onclick="openDocumentUpload()">
+                        <i class="fa-solid fa-file-arrow-up"></i> Upload Document
+                    </button>
+                </div>
+                <div id="profileDocumentsList" class="employee-docs-list"></div>
+            </div>
+            <div id="profile-tab-attendance" class="employee-profile-panel" style="display:none;">
+                <div id="profileAttendanceSummary" class="hrm-balance-grid"></div>
+                <div id="profileAttendanceCalendar" class="employee-attendance-calendar"></div>
+            </div>
+            <div id="profile-tab-payroll" class="employee-profile-panel" style="display:none;">
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Month</th>
+                                <th>Base</th>
+                                <th>Bonus</th>
+                                <th>Deductions</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th>Pay Slip</th>
+                            </tr>
+                        </thead>
+                        <tbody id="profilePayrollBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="profile-tab-leave" class="employee-profile-panel" style="display:none;">
+                <div id="profileLeaveBalance" class="hrm-balance-grid"></div>
+                <h4 class="employee-section-title">Recent Leave Applications</h4>
+                <div id="profileLeaveRecent"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeEmployeeProfileModal()">Close</button>
+            <button type="button" class="btn-primary" id="profileEditBtn" onclick="openEditEmployeeModal(window._activeProfileEmployeeId)">
+                <i class="fa-solid fa-pen-to-square"></i> Edit Employee
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Document upload modal -->
+<div id="employeeDocumentModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeDocumentUploadModal()">
+    <div class="custom-modal-box" style="max-width:480px;">
+        <div class="modal-header">
+            <div>
+                <h3><i class="fa-solid fa-file-arrow-up"></i> Upload Document</h3>
+                <p class="edit-modal-subtitle">NID, contract, certificate (image or PDF)</p>
+            </div>
+            <button type="button" class="close-icon-btn" onclick="closeDocumentUploadModal()" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form onsubmit="event.preventDefault(); submitEmployeeDocument();">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="employeeDocTitle">Document Title *</label>
+                    <input type="text" id="employeeDocTitle" required placeholder="NID Card, Job Contract…">
+                </div>
+                <div class="form-group">
+                    <label for="employeeDocFile">File *</label>
+                    <input type="file" id="employeeDocFile" accept="image/*,.pdf,application/pdf" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeDocumentUploadModal()">Cancel</button>
+                <button type="submit" class="btn-primary" id="employeeDocSaveBtn">Upload</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Designation manager modal -->
+<div id="designationManagerModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeDesignationManager()">
+    <div class="custom-modal-box employee-modal-wide">
+        <div class="modal-header">
+            <div>
+                <h3><i class="fa-solid fa-briefcase"></i> Manage Designations</h3>
+                <p class="edit-modal-subtitle">Job titles used across the employee roster</p>
+            </div>
+            <button type="button" class="close-icon-btn" onclick="closeDesignationManager()" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="designation-add-row">
+                <div class="form-group">
+                    <label for="newDesignationName">Name *</label>
+                    <input type="text" id="newDesignationName" placeholder="Delivery Man">
+                </div>
+                <div class="form-group">
+                    <label for="newDesignationDept">Department</label>
+                    <input type="text" id="newDesignationDept" placeholder="Operations" value="Operations">
+                </div>
+                <button type="button" class="btn-primary" onclick="addDesignation()">
+                    <i class="fa-solid fa-plus"></i> Add
+                </button>
+            </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Department</th>
+                            <th>Active Staff</th>
+                            <th class="customers-th--actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="designationTableBody">
+                        <tr><td colspan="4" class="loading-container"><div class="spinner"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeDesignationManager()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Quick add designation (inline from employee form) -->
+<div id="quickDesignationModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeQuickAddDesignation()">
+    <div class="custom-modal-box" style="max-width:420px;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-plus"></i> Quick Add Designation</h3>
+            <button type="button" class="close-icon-btn" onclick="closeQuickAddDesignation()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form onsubmit="event.preventDefault(); submitQuickDesignation();">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="quickDesignationName">Name *</label>
+                    <input type="text" id="quickDesignationName" required>
+                </div>
+                <div class="form-group">
+                    <label for="quickDesignationDept">Department</label>
+                    <input type="text" id="quickDesignationDept" value="Operations">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeQuickAddDesignation()">Cancel</button>
+                <button type="submit" class="btn-primary">Save</button>
+            </div>
+        </form>
     </div>
 </div>

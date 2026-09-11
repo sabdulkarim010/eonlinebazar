@@ -211,3 +211,200 @@
     background: rgba(245, 158, 11, 0.18);
     color: #f59e0b;
 }
+
+/* ── Employees module (ultra-dynamic roster) ──────────── */
+.employee-modal-wide {
+    max-width: 780px;
+    width: 95vw;
+}
+
+.employee-form-body {
+    max-height: 55vh;
+    overflow-y: auto;
+}
+
+.employee-form-tabs {
+    margin: 0 0 12px;
+    padding: 0 16px;
+}
+
+.form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.employee-fieldset {
+    border: 1px solid var(--border-color, #2d3748);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.employee-fieldset legend {
+    padding: 0 6px;
+    font-size: 0.85rem;
+}
+
+.checkbox-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.employee-photo-upload {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+    cursor: pointer;
+}
+
+.employee-photo-preview,
+.employee-photo-placeholder {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px dashed var(--border-color, #475569);
+}
+
+.employee-photo-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    color: var(--text-muted, #94a3b8);
+    font-size: 11px;
+}
+
+.employee-avatar-sm {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.hrm-stat-breakdown {
+    font-size: 0.85rem;
+    line-height: 1.35;
+    font-weight: 600;
+}
+
+.designation-select-row .designation-select-wrap {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.designation-select-wrap select {
+    flex: 1;
+}
+
+.btn-icon {
+    padding: 8px 12px;
+    min-width: 44px;
+}
+
+.designation-add-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+    margin-bottom: 16px;
+}
+
+.designation-add-row .form-group {
+    flex: 1;
+    min-width: 140px;
+    margin-bottom: 0;
+}
+
+.employee-profile-header .employee-profile-head {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.employee-profile-photo {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--border-color, #334155);
+}
+
+.employee-profile-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.employee-profile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+}
+
+.employee-profile-grid h4,
+.employee-section-title {
+    margin: 0 0 8px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted, #94a3b8);
+}
+
+.employee-docs-toolbar {
+    margin-bottom: 12px;
+}
+
+.employee-docs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.employee-doc-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--card-bg, #161b27);
+    border: 1px solid var(--border-color, #2d3748);
+    border-radius: 8px;
+}
+
+.employee-doc-icon {
+    font-size: 1.5rem;
+    color: #2563eb;
+    width: 36px;
+    text-align: center;
+}
+
+.employee-doc-meta {
+    flex: 1;
+    min-width: 0;
+}
+
+.employee-profile-refs {
+    margin-top: 16px;
+}
+
+.desig-edit-name,
+.desig-edit-dept {
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color, #334155);
+    background: var(--input-bg, #0f172a);
+    color: inherit;
+    font-size: 13px;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+}

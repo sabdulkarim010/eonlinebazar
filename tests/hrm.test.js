@@ -13,6 +13,7 @@ const Shift = require('../backend/src/models/shift');
 const Payroll = require('../backend/src/models/payroll');
 const Leave = require('../backend/src/models/leave');
 const Employee = require('../backend/src/models/employee');
+const Designation = require('../backend/src/models/designation');
 const { countWorkingDays } = require('../backend/src/controllers/admin/payrollController');
 const { getApp, createTestAdmin } = require('./setup');
 
@@ -710,6 +711,60 @@ describe('HRM — Attendance, Payroll, Leave', () => {
 
     /* ---------------------------------------------------------------- */
 
+    describe('Designations', () => {
+        test('creates, lists, updates, and deletes a designation', async () => {
+            const token = await adminToken();
+
+            const created = await request(app)
+                .post('/api/admin/hrm/designations')
+                .set(auth(token))
+                .send({ name: 'Test Driver', department: 'Operations' });
+
+            expect(created.status).toBe(201);
+            expect(created.body.data.name).toBe('Test Driver');
+
+            const list = await request(app)
+                .get('/api/admin/hrm/designations')
+                .set(auth(token));
+
+            expect(list.status).toBe(200);
+            expect(list.body.data.some((d) => d.name === 'Test Driver')).toBe(true);
+
+            const updated = await request(app)
+                .patch(`/api/admin/hrm/designations/${created.body.data._id}`)
+                .set(auth(token))
+                .send({ name: 'Senior Driver', department: 'Logistics' });
+
+            expect(updated.status).toBe(200);
+            expect(updated.body.data.name).toBe('Senior Driver');
+
+            const removed = await request(app)
+                .delete(`/api/admin/hrm/designations/${created.body.data._id}`)
+                .set(auth(token));
+
+            expect(removed.status).toBe(200);
+        });
+
+        test('blocks deletion when employees use the designation', async () => {
+            const token = await adminToken();
+
+            const desig = await Designation.create({ name: 'Blocked Role', department: 'Ops', createdBy: 'test' });
+            await Employee.create({
+                fullName: 'Blocked Test',
+                phone: '01700000099',
+                designation: 'Blocked Role',
+                role: 'Blocked Role'
+            });
+
+            const res = await request(app)
+                .delete(`/api/admin/hrm/designations/${desig._id}`)
+                .set(auth(token));
+
+            expect(res.status).toBe(409);
+            expect(res.body.employeeCount).toBeGreaterThanOrEqual(1);
+        });
+    });
+
     describe('Employees (non-login staff)', () => {
         test('creates employee with auto-generated EMP id and marks attendance', async () => {
             const token = await adminToken();
@@ -774,6 +829,57 @@ describe('HRM — Attendance, Payroll, Leave', () => {
             const fetched = await Employee.findById(created.body.data._id);
             expect(fetched.status).toBe('terminated');
         });
+
+        test('returns full profile with attendance, payroll, and leave snapshot', async () => {
+            const token = await adminToken();
+
+            const created = await request(app)
+                .post('/api/admin/hrm/employees')
+                .set(auth(token))
+                .send({
+                    fullName: 'Profile Test',
+                    phone: '01700000003',
+                    designation: 'Warehouse Staff',
+                    department: 'Operations',
+                    baseSalary: 18000,
+                    employeeType: 'permanent',
+                    salaryType: 'monthly'
+                });
+
+            expect(created.status).toBe(201);
+
+            const profile = await request(app)
+                .get(`/api/admin/hrm/employees/${created.body.data._id}/profile`)
+                .set(auth(token));
+
+            expect(profile.status).toBe(200);
+            expect(profile.body.data.employee.fullName).toBe('Profile Test');
+            expect(profile.body.data.employee.designation).toBe('Warehouse Staff');
+            expect(profile.body.data.attendanceSummary).toBeDefined();
+            expect(Array.isArray(profile.body.data.payrollHistory)).toBe(true);
+            expect(Array.isArray(profile.body.data.leaveBalance)).toBe(true);
+        });
+
+        test('uploads employee photo via multipart endpoint', async () => {
+            const token = await adminToken();
+
+            const created = await request(app)
+                .post('/api/admin/hrm/employees')
+                .set(auth(token))
+                .send({
+                    fullName: 'Photo Test',
+                    phone: '01700000004',
+                    designation: 'Cleaner'
+                });
+
+            const res = await request(app)
+                .post(`/api/admin/hrm/employees/${created.body.data._id}/photo`)
+                .set(auth(token))
+                .attach('photo', Buffer.from('fake-image'), 'photo.jpg');
+
+            expect(res.status).toBe(200);
+            expect(res.body.data.photo).toContain('cloudinary');
+        });
     });
 
     /* ---------------------------------------------------------------- */
@@ -809,6 +915,7 @@ describe('HRM — Attendance, Payroll, Leave', () => {
                 absentToday: 0,
                 pendingLeaveCount: 1
             });
+            expect(typeof res.body.data.hrm.employeeCount).toBe('number');
         });
     });
 });

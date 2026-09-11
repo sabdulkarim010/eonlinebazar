@@ -1407,7 +1407,8 @@ The prior fix (visible in current code) added:
 
 | Check | Status | Note |
 |-------|--------|------|
-| `backend/src/models/employee.js` | ✅ EXISTS & COMPLETE | Non-login operational staff with auto `EMP-001` ids; linked to attendance/payroll via `staffType` |
+| `backend/src/models/employee.js` | ✅ EXISTS & COMPLETE | Ultra-dynamic operational staff: identity (DOB, gender, blood group), contact (email, dual addresses), employment (designation, type, shift), salary/bank (monthly/daily/hourly, bKash), Cloudinary documents[], references[], photo upload; auto `EMP-001` ids; linked to attendance/payroll/leave via `staffType` |
+| `backend/src/models/designation.js` | ✅ EXISTS & COMPLETE | Job title catalog (Manager, Delivery Man, etc.) with department, active flag, employee-count guard on delete; seeded on bootstrap |
 
 ---
 
@@ -1455,7 +1456,7 @@ All checklist items in sections **1–5, 7–8** are implemented and verified in
 
 | # | Fix | Status | Evidence |
 |---|-----|--------|----------|
-| 1 | **Employee model + HRM linkage** | ✅ | `employee.js`, `employeeController.js`, `view-hrm-employees.html`, `hrm-employees.js`; `staffType` on attendance/payroll/leave; grouped staff dropdowns |
+| 1 | **Ultra-dynamic Employee module** | ✅ | `employee.js` (full profile fields + docs), `designation.js`, `designationController.js`, `employeeController.js` (photo/doc/profile APIs), `view-hrm-employees.html` (tabbed form + profile modal + designation manager), `hrm-employees.js`; designation in attendance/payroll dropdowns; `employeeCount` on enterprise dashboard |
 | 2 | **Remove redundant finance embed** | ✅ | Duplicate iframe removed from `view-finance.html`; header-only "Open Finance Dashboard" link retained |
 | 3 | **Tighten RBAC on read routes** | ✅ | `manage_catalog` on category/banner admin GET; newsletter `send-campaign` already has `manage_marketing` |
 | 4 | **Document mobile local dev env** | ✅ | `mobile/.env.example` comments + `ARCHITECTURE.md` Local Development Setup (Mobile) section |

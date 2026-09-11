@@ -13,6 +13,7 @@ const mongoose = require('mongoose');
 const Attendance = require('../../models/attendance');
 const Payroll = require('../../models/payroll');
 const Admin = require('../../models/admin');
+const Employee = require('../../models/employee');
 const { generatePaySlipPdf } = require('../../utils/paySlipPdf');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 const { findAdmin, parseStaffSelector, resolveHrmSubject } = require('../../utils/hrmStaffResolver');
@@ -232,9 +233,34 @@ exports.getAllPayrolls = async (req, res) => {
 
         const rollup = totals[0] || { totalAmount: 0, paidCount: 0, pendingCount: 0 };
 
+        // Attach a designation label so the ledger can show what each person
+        // does. Employees carry their own designation; admins fall back to
+        // their department (their "role" is an RBAC role, not a job title).
+        const employeeIds = records
+            .filter((r) => r.staffType === 'employee')
+            .map((r) => r.staffId)
+            .filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+        let designationMap = {};
+        if (employeeIds.length) {
+            const employees = await Employee.find({ _id: { $in: employeeIds } })
+                .select('_id designation department')
+                .lean();
+            employees.forEach((e) => {
+                designationMap[String(e._id)] = e.designation || e.department || '';
+            });
+        }
+
+        const decorated = records.map((r) => ({
+            ...r,
+            designation: r.staffType === 'employee'
+                ? (designationMap[String(r.staffId)] || '')
+                : ''
+        }));
+
         res.status(200).json({
             success: true,
-            data: records,
+            data: decorated,
             summary: {
                 totalAmount: Math.round((rollup.totalAmount || 0) * 100) / 100,
                 paidCount: rollup.paidCount || 0,

@@ -136,7 +136,10 @@ async function hrmLoadStaffOptions(selectIds = [], { placeholder = 'All staff', 
         if (includeEmployees && hrmEmployeeCache.length) {
             html += `<optgroup label="Operational Employees">`;
             html += hrmEmployeeCache
-                .map((e) => `<option value="employee:${hrmEscape(e.employeeId)}">${hrmEscape(e.fullName)} (${hrmEscape(e.employeeId)})</option>`)
+                .map((e) => {
+                    const label = e.designation || e.role || e.employeeId;
+                    return `<option value="employee:${hrmEscape(e.employeeId)}">${hrmEscape(e.fullName)} (${hrmEscape(label)})</option>`;
+                })
                 .join('');
             html += `</optgroup>`;
         }

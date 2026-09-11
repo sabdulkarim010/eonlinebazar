@@ -57,13 +57,14 @@ const attendanceController = require('../controllers/admin/attendanceController'
 const payrollController = require('../controllers/admin/payrollController');
 const leaveController = require('../controllers/admin/leaveController');
 const employeeController = require('../controllers/admin/employeeController');
+const designationController = require('../controllers/admin/designationController');
 const expenseController = require('../controllers/admin/expenseController');
 const profitLossController = require('../controllers/admin/profitLossController');
 const exportController = require('../controllers/admin/exportController');
 const productController = require('../controllers/productController');
 const enterpriseSummaryController = require('../controllers/admin/enterpriseSummaryController');
 const upload = require('../middlewares/uploadMiddleware');
-const { brandingUpload, paymentMethodLogoUpload, footerIconUpload, importFileUpload } = upload;
+const { brandingUpload, paymentMethodLogoUpload, footerIconUpload, importFileUpload, employeePhotoUpload, employeeDocumentUpload } = upload;
 const staffController = require('../controllers/staffController');
 const staffRoutes = require('./staffRoutes');
 const fileManagerRoutes = require('./fileManagerRoutes');
@@ -510,11 +511,23 @@ router.put('/purchase-orders/:id', verifyAdmin, checkPermission('manage_inventor
 // manager holds neither, so the same controller is exposed under manage_staff.
 router.get('/hrm/staff', verifyAdmin, checkPermission('manage_staff'), staffController.getStaffRoster);
 
+// — Designations (job titles for operational employees) —
+router.get('/hrm/designations', verifyAdmin, checkPermission('manage_staff'), designationController.getAllDesignations);
+router.post('/hrm/designations', verifyAdmin, checkPermission('manage_staff'), designationController.createDesignation);
+router.patch('/hrm/designations/:id', verifyAdmin, checkPermission('manage_staff'), designationController.updateDesignation);
+router.delete('/hrm/designations/:id', verifyAdmin, checkPermission('manage_staff'), designationController.deleteDesignation);
+
 // — Operational employees (non-login staff) —
+// Named + nested sub-paths (stats, profile, photo, documents) are declared
+// before the bare /:id routes so they are never read as a record id.
 router.get('/hrm/employees/stats', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeStats);
 router.get('/hrm/employees', verifyAdmin, checkPermission('manage_staff'), employeeController.getAllEmployees);
+router.get('/hrm/employees/:id/profile', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeProfile);
 router.get('/hrm/employees/:id', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeById);
 router.post('/hrm/employees', verifyAdmin, checkPermission('manage_staff'), employeeController.createEmployee);
+router.post('/hrm/employees/:id/photo', verifyAdmin, checkPermission('manage_staff'), employeePhotoUpload, employeeController.uploadEmployeePhoto);
+router.post('/hrm/employees/:id/documents', verifyAdmin, checkPermission('manage_staff'), employeeDocumentUpload, employeeController.uploadEmployeeDocument);
+router.delete('/hrm/employees/:id/documents/:docId', verifyAdmin, checkPermission('manage_staff'), employeeController.deleteEmployeeDocument);
 router.patch('/hrm/employees/:id', verifyAdmin, checkPermission('manage_staff'), employeeController.updateEmployee);
 router.delete('/hrm/employees/:id', verifyAdmin, checkPermission('manage_staff'), employeeController.deleteEmployee);
 

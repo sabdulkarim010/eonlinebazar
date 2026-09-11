@@ -20,7 +20,9 @@ const RESOURCE_TYPES = [
     'attendance',
     'shift',
     'payroll',
-    'leave'
+    'leave',
+    'employee',
+    'designation'
 ];
 
 const securityLogSchema = new mongoose.Schema({
