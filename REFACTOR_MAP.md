@@ -925,3 +925,6 @@ tests/hrm.test.js [DONE] +4 designation CRUD, profile, photo upload, employeeCou
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] ultra-dynamic employee + designation section
 ARCHITECTURE.md [DONE] Designation model + employee profile endpoints
 README.md [DONE] test counts + HRM employee module notes
+#
+# Sidebar restructure — staff & security nav: 2026-09-11
+client/admin/partials/sidebar.html [DONE] HRM trimmed to Employees/Attendance/Payroll/Leave; Admin Access & Roles + Staff Audit + Security Logs + Admin Sessions moved to Settings & Security accordion (renamed from Settings)
