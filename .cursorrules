@@ -18,13 +18,16 @@
 
 ## Testing
 
-7. Always run `npm test` after implementing changes and ensure 100% tests pass.
+7. Always run `npm test` after code or documentation updates and ensure 100% tests pass before finishing a task.
 
 ## Documentation
 
-8. Do not create unnecessary new audit files; update existing system docs like SYSTEM_ENTERPRISE_AUDIT.md and REFACTOR_MAP.md.
-9. Operational and env notes belong in ARCHITECTURE.md (Local Development Quick Reference) — ADMIN_NOTES.md is intentionally blank.
+8. **Documentation Autonomy:** When implementing any new feature, fix, or refactor, you are fully authorized and required to create new `.md` files or update existing ones (`README.md`, `SYSTEM_ENTERPRISE_AUDIT.md`, `REFACTOR_MAP.md`, etc.) as needed to keep project documentation 100% up-to-date.
+9. **Automated README Maintenance:** After completing any coding task (100% completion), automatically update the root `README.md` file in the same flow to reflect the new changes, feature additions, or test suite counts. Do NOT wait for a separate prompt to update `README.md`.
+10. **No Source Code Disturbance on Doc Tasks:** When the user asks for documentation-only work, strictly isolate documentation updates from source code edits (`.js`, `.html`, `.css`) unless the user explicitly asks for code implementation.
+11. Do not create unnecessary new audit files; update existing system docs like SYSTEM_ENTERPRISE_AUDIT.md and REFACTOR_MAP.md.
+12. Operational and env notes belong in ARCHITECTURE.md (Local Development Quick Reference) — ADMIN_NOTES.md is intentionally blank.
 
 ## After changes
 
-10. After any change, list which files were modified.
+13. After any change, list which files were modified.
