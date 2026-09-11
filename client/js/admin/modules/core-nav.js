@@ -643,7 +643,10 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-suppliers': () => window.loadSuppliersSection && window.loadSuppliersSection(),
         'view-warehouses': () => window.loadWarehousesSection && window.loadWarehousesSection(),
         'view-purchase-orders': () => window.loadPurchaseOrdersSection && window.loadPurchaseOrdersSection(),
-        'view-finance': () => window.initFinanceEmbed && window.initFinanceEmbed(),
+        'view-finance': () => {
+            if (window.initFinanceEmbed) window.initFinanceEmbed();
+            if (window.initProfitLossReport) window.initProfitLossReport();
+        },
         'view-overview': fetchDashboardData,
         'manage-category': loadCategories,
         'manage-brands': fetchBrands,

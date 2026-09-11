@@ -180,6 +180,36 @@ client/js/admin/modules/core-nav.js [DONE] view-crm-abandoned → loadAbandonedC
 backend/src/controllers/admin/crmController.js [DONE] cart list in GET + notifyAbandonedCart POST handler
 backend/src/routes/adminRoutes.js [DONE] POST /crm/abandoned-carts/:userId/notify
 #
+# ERP Advanced — POS dashboard, courier deep integration, advanced P&L: 2026-09-11
+# --- Task 1: Advanced POS dashboard ---
+client/js/admin/modules/orders-pos.js [DONE] barcode/SKU scan-to-cart (findProductByCode, handleBarcodeScan), quick popular-product grid (loadPosQuickGrid/renderPosQuickGrid/posQuickAdd), shared addProductToCart, POS invoice/receipt modal (renderPosInvoice/printPosInvoice/downloadPosInvoicePdf)
+client/admin/partials/modals-orders.html [DONE] barcode row + qty, quick-add grid, posInvoiceModal receipt modal
+client/css/admin/_orders.css [DONE] .pos-barcode-*, .pos-quick-*, .pos-invoice-* styles + .courier-cell-booked/.refresh-courier-btn
+client/css/admin/_print.css [DONE] body.printing-pos-invoice print-only receipt rules
+# --- Task 2: Courier deep integration ---
+backend/src/models/order.js [DONE] courierName + courierSyncedAt fields
+backend/src/services/courierSyncService.js [NEW] syncOrderWithCourier (book+SMS+WhatsApp+Shipped), autoSyncCourierStatus (poll+map+cashback), STATUS_MAP steadfast/pathao/redx
+backend/src/jobs/courierSyncJob.js [NEW] every-2h cron — poll in-flight parcels, reconcile status, SecurityLog summary
+backend/src/server.js [DONE] startCourierSyncCron() bootstrap
+backend/src/controllers/courierController.js [DONE] bookAndSyncCourier (PATCH), getCourierStatus (GET)
+client/js/admin/modules/orders-actions.js [DONE] Book & Sync button + Refresh Status button (bookAndSyncCourier/refreshCourierStatus)
+backend/src/routes/adminRoutes.js [DONE] PATCH /orders/:id/book-courier, GET /orders/:id/courier-status
+# --- Task 3: Expense tracking ---
+backend/src/models/expense.js [NEW] category enum + amount/date/reference/recordedBy/attachmentUrl, indexes {date:-1},{category:1,date:-1}
+backend/src/controllers/admin/expenseController.js [NEW] create/getAll/update/delete/getExpenseSummary (SecurityLog resourceType:'expense')
+backend/src/models/securityLog.js [DONE] added 'expense' to RESOURCE_TYPES enum
+backend/src/routes/adminRoutes.js [DONE] GET/POST /expenses, PATCH/DELETE /expenses/:id, GET /expenses/summary (checkPermission manage_settings)
+# --- Task 4: Advanced Profit & Loss ---
+backend/src/controllers/admin/profitLossController.js [NEW] computeProfitLoss + getProfitLossReport (revenue/costs/profit/top+worst products/series)
+backend/src/controllers/admin/exportController.js [NEW] exportPLtoPDF (PDFKit), exportPLtoCSV
+client/admin/partials/view-finance.html [DONE] P&L section — date range, summary cards, SVG donut + bar, product/expense tables, export buttons
+client/js/admin/modules/erp-profit-loss.js [NEW] loadPLReport, inline-SVG renderCharts, exportPDF/exportCSV, initProfitLossReport
+client/js/admin/admin-products.js [DONE] imports erp-profit-loss.js
+client/css/admin/_finance.css [NEW] P&L controls/cards/charts/tables styles
+client/css/admin.css [DONE] @import _finance.css
+client/js/admin/modules/core-nav.js [DONE] view-finance handler also calls initProfitLossReport
+backend/src/routes/adminRoutes.js [DONE] GET /finance/profit-loss + /export-pdf + /export-csv (verifyAdmin + requireSuperAdmin)
+#
 # Refactoring complete — all listed files are [DONE]
 #
 # RULE: Every time you modify a file during refactoring,

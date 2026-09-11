@@ -216,10 +216,15 @@ const orderSchema = new mongoose.Schema({
     // ফেরত আসা ট্র্যাকিং কোড ও কনসাইনমেন্ট আইডি এখানে জমা থাকে, যাতে অ্যাডমিন
     // প্যানেল থেকে সরাসরি ট্র্যাক করা যায় এবং একই অর্ডার দুইবার বুক না হয়।
     courierProvider: { type: String, default: '', trim: true },
+    // Human-readable courier label (e.g. "Steadfast Courier") saved alongside
+    // the provider slug by the auto-sync engine for display in tables/invoices.
+    courierName: { type: String, default: '', trim: true },
     courierTrackingId: { type: String, default: '', trim: true },
     courierConsignmentId: { type: String, default: '', trim: true },
     courierStatus: { type: String, default: 'unbooked', trim: true },
     courierBookedAt: { type: Date, default: null },
+    // Last time the auto-sync job pulled the courier delivery status.
+    courierSyncedAt: { type: Date, default: null },
     note: { type: String, default: "" },
     estimatedDelivery: { type: String, default: '' },
     orderSource: {

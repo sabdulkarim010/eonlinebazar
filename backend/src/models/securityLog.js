@@ -14,6 +14,8 @@ const RESOURCE_TYPES = [
     'supplier',
     'warehouse',
     'purchase_order',
+    // ERP Finance
+    'expense',
     // HRM
     'attendance',
     'shift',

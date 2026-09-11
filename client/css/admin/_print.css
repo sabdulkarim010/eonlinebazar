@@ -11,6 +11,19 @@
         background: white; padding: 0; box-shadow: none;
     }
 
+    /* ---- POS invoice / receipt print ---- */
+    body.printing-pos-invoice * { visibility: hidden; }
+    body.printing-pos-invoice #posInvoiceModal,
+    body.printing-pos-invoice #posInvoiceModal * { visibility: visible; }
+    body.printing-pos-invoice #posInvoiceModal {
+        position: absolute; left: 0; top: 0; width: 100%; height: auto;
+        display: block !important; background: #fff; padding: 0; box-shadow: none;
+    }
+    body.printing-pos-invoice #posInvoiceModal .custom-modal-box {
+        max-width: 100%; box-shadow: none; border: none;
+    }
+    body.printing-pos-invoice .pos-invoice-table th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
     /* ---- Products table print ---- */
     body.printing-products * { visibility: hidden; }
     body.printing-products #products-print-area,

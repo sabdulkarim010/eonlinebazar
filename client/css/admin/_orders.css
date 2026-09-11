@@ -712,6 +712,38 @@
     word-break: break-word;
 }
 
+/* Book & Sync + manual status refresh (courier deep integration) */
+#view-orders .courier-cell-booked {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+#view-orders .refresh-courier-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid #bfdbfe;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 0.7rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+#view-orders .refresh-courier-btn:hover:not(:disabled) {
+    background: #dbeafe;
+}
+
+#view-orders .refresh-courier-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 #view-orders .order-action-pill.approve-return-btn {
     display: inline-flex;
     align-items: center;
@@ -1287,6 +1319,125 @@ td.col-actions button:last-child {
     gap: 8px;
 }
 
+/* POS · barcode scan-to-cart */
+.pos-barcode-row {
+    display: grid;
+    grid-template-columns: 1fr 0.5fr auto;
+    gap: 12px;
+    align-items: end;
+    margin-bottom: 8px;
+}
+
+.pos-barcode-group label i { color: #2563eb; }
+.pos-barcode-qty-group input { width: 100%; }
+
+.pos-barcode-feedback {
+    margin: 0 0 12px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+.pos-barcode-feedback[data-level="success"] { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.pos-barcode-feedback[data-level="error"] { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+.pos-barcode-feedback[data-level="warning"] { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+
+/* POS · quick-add popular grid */
+.pos-quick-grid-wrap { margin: 8px 0 14px; }
+
+.pos-quick-grid-title {
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #334155;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.pos-quick-grid-title i { color: #f59e0b; }
+
+.pos-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 2px;
+}
+
+.pos-quick-grid-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+    padding: 16px 0;
+}
+
+.pos-quick-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    background: #fff;
+    text-align: center;
+}
+.pos-quick-card--out { opacity: 0.6; }
+
+.pos-quick-card-img {
+    width: 100%;
+    height: 74px;
+    object-fit: contain;
+    border-radius: 6px;
+    background: #f8fafc;
+}
+
+.pos-quick-card-noimg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 74px;
+    border-radius: 6px;
+    background: #f1f5f9;
+    color: #cbd5e1;
+    font-size: 26px;
+}
+
+.pos-quick-card-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #1e293b;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.pos-quick-card-meta {
+    font-size: 11.5px;
+    color: #64748b;
+}
+
+.pos-quick-card-add {
+    margin-top: auto;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 8px;
+    background: #2563eb;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.pos-quick-card-add:hover:not(:disabled) { background: #1d4ed8; }
+.pos-quick-card-add:disabled { background: #94a3b8; cursor: not-allowed; }
+
 .manual-order-picker-row {
     display: grid;
     grid-template-columns: 1.2fr 1.4fr 1.4fr 0.5fr auto;
@@ -1335,6 +1486,84 @@ td.col-actions button:last-child {
     padding: 12px 14px;
     font-size: 14px;
     color: #065f46;
+}
+
+/* ==========================================================================
+   POS INVOICE / RECEIPT
+   ========================================================================== */
+.pos-invoice-modal-box { max-width: 560px; }
+
+.pos-invoice-printable {
+    background: #fff;
+    color: #0f172a;
+    padding: 8px 4px;
+}
+
+.pos-invoice-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid #1e293b;
+    margin-bottom: 14px;
+}
+
+.pos-invoice-logo { max-height: 48px; max-width: 160px; object-fit: contain; }
+.pos-invoice-logo-text { font-size: 20px; font-weight: 800; color: #2563eb; }
+
+.pos-invoice-meta { text-align: right; font-size: 12.5px; line-height: 1.5; }
+.pos-invoice-meta p { margin: 0; }
+.pos-invoice-title { font-size: 16px; font-weight: 800; letter-spacing: 0.06em; color: #1e293b; }
+
+.pos-invoice-customer {
+    font-size: 12.5px;
+    line-height: 1.5;
+    margin-bottom: 14px;
+}
+.pos-invoice-customer p { margin: 0; }
+
+.pos-invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    margin-bottom: 14px;
+}
+.pos-invoice-table th,
+.pos-invoice-table td {
+    padding: 7px 8px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+    vertical-align: top;
+}
+.pos-invoice-table th { background: #f1f5f9; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: #475569; }
+.pos-invoice-table td small { color: #64748b; }
+.pos-inv-num { text-align: right; white-space: nowrap; }
+
+.pos-invoice-totals {
+    margin-left: auto;
+    width: 240px;
+    font-size: 13px;
+}
+.pos-invoice-totals > div {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+}
+.pos-invoice-grand {
+    border-top: 2px solid #1e293b;
+    margin-top: 4px;
+    padding-top: 8px !important;
+    font-size: 15px;
+    font-weight: 800;
+    color: #047857;
+}
+
+.pos-invoice-footer {
+    text-align: center;
+    margin-top: 18px;
+    font-size: 12px;
+    color: #64748b;
 }
 
 /* ==========================================================================

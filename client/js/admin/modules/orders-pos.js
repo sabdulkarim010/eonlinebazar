@@ -57,6 +57,11 @@ window.openManualOrderModal = async function openManualOrderModal() {
     } else {
         populateManualProductSelect('');
     }
+
+    loadPosQuickGrid();
+
+    const barcodeInput = document.getElementById('manualBarcodeInput');
+    if (barcodeInput) barcodeInput.focus();
 };
 
 window.closeManualOrderModal = function closeManualOrderModal() {
@@ -263,6 +268,47 @@ function updateManualOrderTotals() {
     preview.innerHTML = `Subtotal: ${formatManualMoney(subtotal)} · Discount: ${formatManualMoney(discount)} · Shipping: ${formatManualMoney(shipping)} · <strong>Grand Total: ${formatManualMoney(grandTotal)}</strong>`;
 }
 
+/**
+ * Shared cart-add core used by the manual picker, the barcode scanner, and the
+ * quick-add grid. Runs the stock guard, merges into an existing line's variant,
+ * and re-renders. Returns a result object instead of toasting so each caller can
+ * decide how to surface the outcome.
+ * @returns {{ ok: boolean, message?: string, level?: string }}
+ */
+function addProductToCart(product, variantIndex, quantity) {
+    if (!product) return { ok: false, message: 'Product not found.', level: 'warning' };
+
+    const qty = Math.max(1, Number(quantity) || 1);
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+    const idx = variants.length > 0 ? Number(variantIndex) : -1;
+
+    if (variants.length > 0 && (Number.isNaN(idx) || idx < 0)) {
+        return { ok: false, message: 'This product has variants — pick Size/Color before adding.', level: 'warning' };
+    }
+
+    let availableStock = Number(product.stockQuantity ?? product.stock) || 0;
+    if (idx >= 0 && variants[idx]) {
+        availableStock = Number(variants[idx].stock) || 0;
+    }
+
+    const existingQty = manualOrderLines
+        .filter((line) => line.productId === getManualOrderProductId(product)
+            && String(line.variantIndex) === String(idx))
+        .reduce((sum, line) => sum + (Number(line.quantity) || 0), 0);
+
+    if (existingQty + qty > availableStock) {
+        return { ok: false, message: `Insufficient stock. Available: ${availableStock}, already in cart: ${existingQty}.`, level: 'error' };
+    }
+
+    const linePayload = buildManualLinePayload(product, idx, qty);
+    linePayload.variantIndex = idx;
+    manualOrderLines.push(linePayload);
+
+    renderManualOrderLines();
+    updateManualOrderTotals();
+    return { ok: true, message: `${product.name} × ${qty} added.`, level: 'success' };
+}
+
 function addManualOrderLine() {
     const product = getSelectedManualProduct();
     const quantity = Math.max(1, Number(document.getElementById('manualItemQuantity')?.value) || 1);
@@ -275,32 +321,233 @@ function addManualOrderLine() {
     const variantSelect = document.getElementById('manualVariantSelect');
     const variantIndex = variants.length > 0 ? Number(variantSelect?.value) : -1;
 
-    if (variants.length > 0 && (Number.isNaN(variantIndex) || variantIndex < 0)) {
-        return showToast('Select a Size/Color variant for this product.', 'warning');
+    const result = addProductToCart(product, variantIndex, quantity);
+    if (!result.ok) {
+        return showToast(result.message, result.level || 'warning');
     }
-
-    let availableStock = Number(product.stockQuantity ?? product.stock) || 0;
-    if (variantIndex >= 0 && variants[variantIndex]) {
-        availableStock = Number(variants[variantIndex].stock) || 0;
-    }
-
-    const existingQty = manualOrderLines
-        .filter((line) => line.productId === getManualOrderProductId(product)
-            && String(line.variantIndex) === String(variantIndex))
-        .reduce((sum, line) => sum + (Number(line.quantity) || 0), 0);
-
-    if (existingQty + quantity > availableStock) {
-        return showToast(`Insufficient stock. Available: ${availableStock}, already in cart: ${existingQty}.`, 'error');
-    }
-
-    const linePayload = buildManualLinePayload(product, variantIndex, quantity);
-    linePayload.variantIndex = variantIndex;
-    manualOrderLines.push(linePayload);
 
     document.getElementById('manualItemQuantity').value = '1';
-    renderManualOrderLines();
-    updateManualOrderTotals();
 }
+
+/* ==========================================================================
+   POS · BARCODE / SKU SCAN-TO-CART
+   ========================================================================== */
+
+/**
+ * Resolve a scanned code to a product + variant in the loaded catalog.
+ * Matches product _id, product-level sku, any variant sku, then exact name.
+ * @param {string} code
+ * @returns {{ product: object, variantIndex: number } | null}
+ */
+function findProductByCode(code) {
+    const needle = String(code || '').trim().toLowerCase();
+    if (!needle) return null;
+
+    for (const product of manualOrderCatalog) {
+        const pid = getManualOrderProductId(product).toLowerCase();
+        const psku = String(product.sku || '').toLowerCase();
+        if (pid === needle || (psku && psku === needle)) {
+            return { product, variantIndex: -1 };
+        }
+
+        const variants = Array.isArray(product.variants) ? product.variants : [];
+        const vIdx = variants.findIndex((v) => String(v.sku || '').toLowerCase() === needle && needle);
+        if (vIdx !== -1) {
+            return { product, variantIndex: vIdx };
+        }
+    }
+
+    // Fall back to an exact name match (last resort for typed lookups).
+    const byName = manualOrderCatalog.find((p) => String(p.name || '').trim().toLowerCase() === needle);
+    return byName ? { product: byName, variantIndex: -1 } : null;
+}
+
+function showBarcodeFeedback(message, level = 'info') {
+    const el = document.getElementById('manualBarcodeFeedback');
+    if (!el) return;
+    el.textContent = message;
+    el.dataset.level = level;
+    el.hidden = false;
+}
+
+async function handleBarcodeScan() {
+    const input = document.getElementById('manualBarcodeInput');
+    const qtyInput = document.getElementById('manualBarcodeQty');
+    if (!input) return;
+
+    const code = input.value.trim();
+    if (!code) return;
+
+    const quantity = Math.max(1, Number(qtyInput?.value) || 1);
+
+    // Make sure the catalog is loaded before resolving the code.
+    if (!manualOrderCatalog.length) {
+        await loadManualOrderCatalog();
+    }
+
+    let match = findProductByCode(code);
+
+    // If nothing local matched, try the products API as a fallback lookup.
+    if (!match) {
+        try {
+            const res = await fetch(`/api/products?limit=5&q=${encodeURIComponent(code)}&search=${encodeURIComponent(code)}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            const rows = Array.isArray(data) ? data
+                : (Array.isArray(data?.products) ? data.products
+                    : (Array.isArray(data?.data) ? data.data : []));
+            if (rows.length) {
+                // Cache newly found products so variant/stock data is available.
+                rows.forEach((p) => {
+                    if (!manualOrderCatalog.some((c) => getManualOrderProductId(c) === getManualOrderProductId(p))) {
+                        manualOrderCatalog.push(p);
+                    }
+                });
+                match = findProductByCode(code) || { product: rows[0], variantIndex: -1 };
+            }
+        } catch (err) {
+            console.error('Barcode API lookup failed:', err);
+        }
+    }
+
+    if (!match) {
+        showBarcodeFeedback(`No product found for "${code}".`, 'error');
+        showToast(`No product found for "${code}".`, 'error');
+        input.select();
+        return;
+    }
+
+    const { product } = match;
+    let { variantIndex } = match;
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+
+    // If the product has variants but the code didn't identify one, guide the
+    // operator to the manual picker rather than guessing.
+    if (variants.length > 0 && variantIndex < 0) {
+        const productId = getManualOrderProductId(product);
+        const productSelect = document.getElementById('manualProductSelect');
+        if (productSelect) {
+            populateManualProductSelect('');
+            productSelect.value = productId;
+            populateManualVariantSelect();
+        }
+        showBarcodeFeedback(`${product.name} has variants — pick Size/Color, then Add.`, 'warning');
+        showToast(`${product.name} has variants — select one below.`, 'warning');
+        input.value = '';
+        input.focus();
+        return;
+    }
+
+    const result = addProductToCart(product, variantIndex, quantity);
+    if (result.ok) {
+        showBarcodeFeedback(result.message, 'success');
+    } else {
+        showBarcodeFeedback(result.message, result.level || 'warning');
+        showToast(result.message, result.level || 'warning');
+    }
+
+    input.value = '';
+    if (qtyInput) qtyInput.value = '1';
+    input.focus();
+}
+
+/* ==========================================================================
+   POS · QUICK-ADD POPULAR PRODUCT GRID
+   ========================================================================== */
+
+let posQuickGridProducts = [];
+
+async function loadPosQuickGrid() {
+    const grid = document.getElementById('manualQuickGrid');
+    if (!grid) return;
+
+    grid.innerHTML = '<p class="pos-quick-grid-empty">Loading popular products…</p>';
+
+    try {
+        const res = await fetch('/api/products?limit=20&sort=popular', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        posQuickGridProducts = Array.isArray(data) ? data
+            : (Array.isArray(data?.products) ? data.products
+                : (Array.isArray(data?.data) ? data.data : []));
+        renderPosQuickGrid(posQuickGridProducts);
+    } catch (err) {
+        console.error('POS quick grid load failed:', err);
+        grid.innerHTML = '<p class="pos-quick-grid-empty">Could not load popular products.</p>';
+    }
+}
+
+function resolvePosProductImage(product) {
+    const img = product.image
+        || (Array.isArray(product.images) ? product.images[0] : '')
+        || product.thumbnail
+        || '';
+    return img || '';
+}
+
+function renderPosQuickGrid(products) {
+    const grid = document.getElementById('manualQuickGrid');
+    if (!grid) return;
+
+    if (!Array.isArray(products) || !products.length) {
+        grid.innerHTML = '<p class="pos-quick-grid-empty">No popular products to show.</p>';
+        return;
+    }
+
+    grid.innerHTML = products.map((product) => {
+        const pid = getManualOrderProductId(product);
+        const name = escHtml(product.name || 'Product');
+        const price = formatManualMoney(product.price);
+        const stock = Number(product.stockQuantity ?? product.stock ?? product.totalStock) || 0;
+        const image = resolvePosProductImage(product);
+        const imgHtml = image
+            ? `<img src="${escHtml(image)}" alt="${name}" class="pos-quick-card-img" loading="lazy" onerror="this.style.display='none'">`
+            : '<span class="pos-quick-card-noimg"><i class="fa-solid fa-box"></i></span>';
+        const outOfStock = stock <= 0;
+        return `
+            <div class="pos-quick-card ${outOfStock ? 'pos-quick-card--out' : ''}" data-product-id="${escHtml(pid)}">
+                ${imgHtml}
+                <span class="pos-quick-card-name" title="${name}">${name}</span>
+                <span class="pos-quick-card-meta">${price} · Stock ${stock}</span>
+                <button type="button" class="pos-quick-card-add" onclick="posQuickAdd('${escHtml(pid)}')" ${outOfStock ? 'disabled' : ''}>
+                    <i class="fa-solid fa-cart-plus"></i> ${outOfStock ? 'Out of stock' : 'Add'}
+                </button>
+            </div>`;
+    }).join('');
+}
+
+/**
+ * Add a quick-grid product to the cart. Products with variants are routed to
+ * the manual picker so the operator can choose Size/Color.
+ * @param {string} productId
+ */
+window.posQuickAdd = function posQuickAdd(productId) {
+    let product = manualOrderCatalog.find((p) => getManualOrderProductId(p) === productId)
+        || posQuickGridProducts.find((p) => getManualOrderProductId(p) === productId);
+
+    if (!product) return showToast('Product not found.', 'warning');
+
+    // Cache the quick-grid product into the catalog for variant/stock lookups.
+    if (!manualOrderCatalog.some((p) => getManualOrderProductId(p) === productId)) {
+        manualOrderCatalog.push(product);
+    }
+
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+    if (variants.length > 0) {
+        const productSelect = document.getElementById('manualProductSelect');
+        if (productSelect) {
+            populateManualProductSelect('');
+            productSelect.value = productId;
+            populateManualVariantSelect();
+        }
+        return showToast(`${product.name} has variants — pick Size/Color, then Add Line.`, 'info');
+    }
+
+    const result = addProductToCart(product, -1, 1);
+    showToast(result.message, result.level || (result.ok ? 'success' : 'warning'));
+};
 
 async function submitManualOrder(event) {
     event.preventDefault();
@@ -346,10 +593,16 @@ async function submitManualOrder(event) {
 
         if (result.success) {
             showToast(`Manual order ${result.data?.orderId || ''} created successfully!`, 'success');
+
+            // Snapshot everything the receipt needs before the form is reset.
+            const invoiceSnapshot = buildPosInvoiceSnapshot(payload, result.data);
+
             closeManualOrderModal();
             fetchLiveOrders();
             fetchPendingWhatsAppAlerts();
             if (typeof fetchDashboardAnalytics === 'function') fetchDashboardAnalytics();
+
+            openPosInvoiceModal(invoiceSnapshot);
         } else {
             showToast(result.message || 'Failed to create manual order.', 'error');
         }
@@ -361,11 +614,195 @@ async function submitManualOrder(event) {
     }
 }
 
+/* ==========================================================================
+   POS · INVOICE / RECEIPT (print + PDF download)
+   ========================================================================== */
+
+let posInvoiceContext = null; // { orderId, mongoId }
+
+function getPosStoreName() {
+    return window.STORE_NAME
+        || window.adminStoreConfig?.storeName
+        || document.querySelector('.admin-brand-name')?.textContent?.trim()
+        || 'EonlineBazar';
+}
+
+function getPosStoreLogo() {
+    return window.STORE_LOGO
+        || window.adminStoreConfig?.logoUrl
+        || document.querySelector('.admin-brand-logo img, img.admin-logo')?.getAttribute('src')
+        || '';
+}
+
+/** Build a plain snapshot of the just-created order for the receipt. */
+function buildPosInvoiceSnapshot(payload, resultData) {
+    const items = manualOrderLines.map((line) => ({
+        name: line.name || 'Product',
+        variantLabel: line.variantLabel || '',
+        price: Number(line.price) || 0,
+        quantity: Number(line.quantity) || 0,
+        lineTotal: (Number(line.price) || 0) * (Number(line.quantity) || 0)
+    }));
+
+    const subtotal = items.reduce((sum, it) => sum + it.lineTotal, 0);
+    const discount = Math.max(0, Number(payload.manualDiscount) || 0);
+    const shipping = Math.max(0, Number(payload.shippingFee) || 0);
+    const grandTotal = Math.max(0, subtotal - discount + shipping);
+
+    return {
+        orderId: resultData?.orderId || '',
+        mongoId: resultData?._id || resultData?.id || resultData?.orderMongoId || '',
+        date: new Date(),
+        customerName: payload.customerName || 'Walk-in Customer',
+        customerPhone: payload.customerPhone || '',
+        paymentStatus: payload.paymentStatus || 'COD',
+        items,
+        subtotal,
+        discount,
+        shipping,
+        grandTotal
+    };
+}
+
+function renderPosInvoice(data) {
+    const printable = document.getElementById('posInvoicePrintable');
+    if (!printable) return;
+
+    const storeName = escHtml(getPosStoreName());
+    const logo = getPosStoreLogo();
+    const logoHtml = logo
+        ? `<img src="${escHtml(logo)}" alt="${storeName}" class="pos-invoice-logo">`
+        : `<span class="pos-invoice-logo-text">${storeName}</span>`;
+
+    const dateStr = data.date.toLocaleString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+
+    const rows = data.items.map((it) => `
+        <tr>
+            <td>${escHtml(it.name)}${it.variantLabel ? `<br><small>${escHtml(it.variantLabel)}</small>` : ''}</td>
+            <td class="pos-inv-num">${formatManualMoney(it.price)}</td>
+            <td class="pos-inv-num">${it.quantity}</td>
+            <td class="pos-inv-num">${formatManualMoney(it.lineTotal)}</td>
+        </tr>`).join('');
+
+    printable.innerHTML = `
+        <div class="pos-invoice-head">
+            ${logoHtml}
+            <div class="pos-invoice-meta">
+                <p class="pos-invoice-title">INVOICE</p>
+                <p><strong>Order:</strong> ${escHtml(data.orderId || '—')}</p>
+                <p><strong>Date:</strong> ${escHtml(dateStr)}</p>
+            </div>
+        </div>
+        <div class="pos-invoice-customer">
+            <p><strong>Billed to:</strong> ${escHtml(data.customerName)}</p>
+            ${data.customerPhone ? `<p><strong>Phone:</strong> ${escHtml(data.customerPhone)}</p>` : ''}
+            <p><strong>Payment:</strong> ${escHtml(data.paymentStatus)}</p>
+        </div>
+        <table class="pos-invoice-table">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th class="pos-inv-num">Price</th>
+                    <th class="pos-inv-num">Qty</th>
+                    <th class="pos-inv-num">Total</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+        <div class="pos-invoice-totals">
+            <div><span>Subtotal</span><span>${formatManualMoney(data.subtotal)}</span></div>
+            <div><span>Discount</span><span>- ${formatManualMoney(data.discount)}</span></div>
+            <div><span>Shipping</span><span>${formatManualMoney(data.shipping)}</span></div>
+            <div class="pos-invoice-grand"><span>Grand Total</span><span>${formatManualMoney(data.grandTotal)}</span></div>
+        </div>
+        <p class="pos-invoice-footer">Thank you for shopping with ${storeName}!</p>`;
+}
+
+function openPosInvoiceModal(data) {
+    if (!data) return;
+    posInvoiceContext = { orderId: data.orderId, mongoId: data.mongoId };
+    renderPosInvoice(data);
+
+    const downloadBtn = document.getElementById('posInvoiceDownloadBtn');
+    if (downloadBtn) downloadBtn.disabled = !data.mongoId;
+
+    const modal = document.getElementById('posInvoiceModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+window.closePosInvoiceModal = function closePosInvoiceModal() {
+    const modal = document.getElementById('posInvoiceModal');
+    if (modal) modal.style.display = 'none';
+    document.body.classList.remove('printing-pos-invoice');
+};
+
+window.printPosInvoice = function printPosInvoice() {
+    document.body.classList.add('printing-pos-invoice');
+    const cleanup = () => document.body.classList.remove('printing-pos-invoice');
+    window.addEventListener('afterprint', cleanup, { once: true });
+    // Fallback in case afterprint never fires.
+    setTimeout(cleanup, 2000);
+    window.print();
+};
+
+async function downloadPosInvoicePdf() {
+    if (!posInvoiceContext?.mongoId) {
+        return showToast('Invoice PDF is not available for this order.', 'warning');
+    }
+
+    const btn = document.getElementById('posInvoiceDownloadBtn');
+    const original = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Preparing…'; }
+
+    try {
+        const res = await fetch(`/api/orders/${posInvoiceContext.mongoId}/invoice`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) {
+            let message = `Could not download invoice (${res.status}).`;
+            try { const j = await res.json(); message = j.message || message; } catch { /* binary */ }
+            throw new Error(message);
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Invoice-${posInvoiceContext.orderId || posInvoiceContext.mongoId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        console.error('POS invoice download error:', err);
+        showToast(err.message || 'Invoice download failed. Use Print instead.', 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = original; }
+    }
+}
+
 function setupManualOrderEngine() {
     const openBtn = document.getElementById('openManualOrderModalBtn');
     if (openBtn) {
         openBtn.addEventListener('click', () => openManualOrderModal());
     }
+
+    const barcodeInput = document.getElementById('manualBarcodeInput');
+    if (barcodeInput) {
+        barcodeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleBarcodeScan();
+            }
+        });
+    }
+
+    const barcodeAddBtn = document.getElementById('manualBarcodeAddBtn');
+    if (barcodeAddBtn) barcodeAddBtn.addEventListener('click', handleBarcodeScan);
+
+    const invoiceDownloadBtn = document.getElementById('posInvoiceDownloadBtn');
+    if (invoiceDownloadBtn) invoiceDownloadBtn.addEventListener('click', downloadPosInvoicePdf);
 
     const searchInput = document.getElementById('manualProductSearch');
     if (searchInput) {
@@ -397,14 +834,19 @@ function setupManualOrderEngine() {
 /* Expose module functions for HTML onclick + cross-module calls */
 Object.assign(window, {
     addManualOrderLine,
+    addProductToCart,
     buildManualLinePayload,
+    findProductByCode,
     formatManualMoney,
     getManualOrderProductId,
     getSelectedManualProduct,
+    handleBarcodeScan,
     loadManualOrderCatalog,
+    loadPosQuickGrid,
     populateManualProductSelect,
     populateManualVariantSelect,
     renderManualOrderLines,
+    renderPosQuickGrid,
     resetManualOrderForm,
     setupManualOrderEngine,
     submitManualOrder,

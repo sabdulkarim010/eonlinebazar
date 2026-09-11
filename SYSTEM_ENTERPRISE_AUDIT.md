@@ -176,6 +176,8 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 |---------|--------|-------|-------|
 | Admin dashboard analytics | ✅ | `analyticsController.js`, `view-overview.html`, `admin-dashboard.js` | KPIs, charts |
 | Finance analytics | ✅ | `financeAnalyticsController.js`, `finance-analytics.html` | Profit/margin — separate login |
+| Advanced P&L report | ✅ | `profitLossController.js`, `exportController.js`, `erp-profit-loss.js`, `view-finance.html` | Embedded SPA — revenue/COGS/courier/expenses/margin, SVG charts, PDF/CSV export (superadmin) |
+| Expense ledger | ✅ | `expense.js`, `expenseController.js` | Category CRUD + summary; feeds P&L |
 | Customer management | ✅ | `customerAdminController.js`, `view-customers.html`, `customers-*.js` | VIP segmentation |
 | Staff management | ✅ | `staffController.js`, `view-staff.html`, `admin-staff.js` | Super-admin only |
 | RBAC permissions | ✅ | `rbac.js`, `permissions.js`, `admin.js` | 9 granular permissions |
@@ -184,9 +186,9 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 | Admin sessions | ✅ | `adminSession.js`, `sessionController.js`, `view-sessions.html` | |
 | Bulk product import | ✅ | `bulkImportController.js`, `products-bulk.js` | CSV/Excel |
 | AI product assist | ✅ | `adminController.aiProductAssist` | OpenAI integration |
-| Manual POS orders | ✅ | `orderAdminController.createManualOrder`, `orders-pos.js` | Walk-in/phone orders |
+| Manual POS orders | ✅ | `orderAdminController.createManualOrder`, `orders-pos.js` | Walk-in/phone orders; barcode/SKU scan-to-cart, quick popular grid, POS receipt (print + PDF) |
 | Invoice generation (PDF) | ✅ | `orderCustomerController.downloadOrderInvoice`, `orders-invoice.js` | PDFKit |
-| Courier integration | ✅ | `courierController.js`, `courierService.js`, `orders-actions.js` | Steadfast, Pathao, RedX |
+| Courier integration | ✅ | `courierController.js`, `courierService.js`, `courierSyncService.js`, `courierSyncJob.js`, `orders-actions.js` | Steadfast, Pathao, RedX; Book & Sync + auto status-poll cron + Refresh Status UI |
 | Returns & refunds | ✅ | `orderAdminController.js`, `orderCustomerController.js` | Per-item returns, wallet/bKash refund |
 | Stock alerts | ✅ | `stockAlertService.js`, `stockAlert.js` | Cron + email/SMS/WhatsApp |
 | WhatsApp order alerts | ✅ | `whatsappService.js`, `whatsappAlertsController.js` | Admin pending alerts |
@@ -273,9 +275,10 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 |------------|--------|----------|
 | Inventory & stock management | ✅ COMPLETE | `product.js`: `stockQuantity`, `stock`, `lowStockThreshold`, variant `sku`/`stock`; bulk import; stock alert cron |
 | Order lifecycle management | ✅ COMPLETE | Status: Pending → Processing → Shipped → Out for Delivery → Delivered; Cancel/Return/Refund flows; `notificationsSent` flags |
-| Courier & logistics integration | ✅ COMPLETE | `courierService.js` — Steadfast, Pathao, RedX; tracking IDs on order; admin book + customer track URLs |
-| Invoice generation | ✅ COMPLETE | `GET /api/orders/:id/invoice` — PDFKit; admin print modal |
-| Financial reports | 🔶 PARTIAL | `finance-analytics.html` + `/api/finance/*` — profit/revenue/margin; no full P&L, expenses, or vendor costs |
+| Courier & logistics integration | ✅ COMPLETE | `courierService.js` + `courierSyncService.js` — Steadfast/Pathao/RedX book & sync, auto-poll cron (`courierSyncJob.js`) reconciles status + cashback on delivery, customer SMS + admin WhatsApp; `Book & Sync`/`Refresh Status` UI in `orders-actions.js` |
+| Invoice generation | ✅ COMPLETE | `GET /api/orders/:id/invoice` — PDFKit; admin print modal + POS receipt modal (`orders-pos.js`) with print + PDF download |
+| Financial reports | ✅ COMPLETE | Advanced P&L engine `profitLossController.js` (`GET /api/admin/finance/profit-loss`, superadmin) — gross/net revenue, COGS, courier, return loss, expenses-by-category, cashback, discounts, margin %, top/worst products, time series; embedded SPA UI `erp-profit-loss.js` + `view-finance.html` (SVG donut/bar, tables); PDF/CSV export `exportController.js`; expense ledger `expense.js`/`expenseController.js`. Legacy `finance-analytics.html` retained |
+| Operating expense tracking | ✅ COMPLETE | `expense.js` (8 category enum), `expenseController.js` CRUD + summary, `GET/POST/PATCH/DELETE /api/admin/expenses` (manage_settings); feeds P&L cost breakdown |
 | Vendor/supplier management | ✅ COMPLETE | `supplier.js`, `supplierController.js`, admin ERP UI |
 | Purchase orders | ✅ COMPLETE | `purchaseOrder.js`, `purchaseOrderController.js`, PO workflow |
 | Warehouse/location management | ✅ COMPLETE | `warehouse.js`, `warehouseController.js`, multi-location stock |
@@ -713,7 +716,7 @@ Admin Panel
 
 | Category | ✅ Complete | 🔶 Partial | ❌ Missing | Total |
 |----------|------------|-----------|-----------|-------|
-| **ERP Features** | 4 | 1 | 3 | **8** |
+| **ERP Features** | 8 | 0 | 0 | **8** |
 | **CRM Features** | 4 | 2 | 2 | **8** |
 | **HRM Features** | 4 | 2 | 2 | **8** |
 | **API Endpoints** | ~200 | ~20 (RBAC gaps) | ~15 (enterprise gaps) | **~235** |
@@ -866,7 +869,7 @@ This audit scanned (non-exhaustive list of top-level areas):
 | **Warehouses** | ✅ `view-warehouses.html` | ✅ `erp-warehouses.js` | ✅ `warehouseController.js` | ✅ `/api/admin/warehouses` | ⚠️ **Read-only table** | Same as suppliers — list only, no CRUD modals. |
 | **Purchase Orders** | ✅ `view-purchase-orders.html` | ✅ `erp-purchase-orders.js` | ✅ `purchaseOrderController.js` | ✅ `/api/admin/purchase-orders` | ⚠️ **Read-only table** | List only; no Create PO / Receive workflow UI despite full backend workflow. |
 | **Abandoned Carts** | ✅ `view-crm-abandoned.html` | ✅ `crm-abandoned.js` (barrel: `admin-customers.js`) | ✅ `crmController.js` | ✅ `/api/admin/crm/abandoned-carts` | ⚠️ **KPI cards only** — no cart list table | Shows 3 metric cards; **no per-cart table**, no manual recovery actions. |
-| **Financial Reports** | ✅ `view-finance.html` | ❌ No dedicated module | ✅ `financeAnalyticsController.js` | ✅ `/api/finance/*` (separate JWT) | ❌ **Placeholder only** | Section is a single CTA linking to external `/finance-analytics`; no embedded charts in SPA. `refreshMap` entry is `{}` (no-op). |
+| **Financial Reports** | ✅ `view-finance.html` | ✅ `erp-profit-loss.js` (barrel: `admin-products.js`) | ✅ `profitLossController.js` + `exportController.js` | ✅ `/api/admin/finance/profit-loss` (+ `/export-pdf`, `/export-csv`) | ✅ **REAL — embedded P&L** | Advanced P&L in SPA: date range, summary cards, inline-SVG donut + bar, top/worst product + expense tables, PDF/CSV export. `refreshMap` → `initProfitLossReport()`. Legacy iframe embed retained below. |
 
 **Additional note:** If sections appear completely blank (not even headers), verify production cache: `adminPageBuilder.js` caches assembled HTML when `NODE_ENV=production` (lines 94–99). A stale cache would omit newly added partials until server restart.
 
@@ -929,7 +932,7 @@ This audit scanned (non-exhaustive list of top-level areas):
 | `view-suppliers` | ✅ | ✅ `erp-suppliers.js` | ✅ `supplierController` | ✅ `/api/admin/suppliers` | ⚠️ List only | ✅ |
 | `view-warehouses` | ✅ | ✅ `erp-warehouses.js` | ✅ `warehouseController` | ✅ `/api/admin/warehouses` | ⚠️ List only | ✅ |
 | `view-purchase-orders` | ✅ | ✅ `erp-purchase-orders.js` | ✅ `purchaseOrderController` | ✅ `/api/admin/purchase-orders` | ⚠️ List only | ✅ |
-| `view-finance` | ✅ | ❌ none | ✅ `financeAnalyticsController` | ✅ `/api/finance/*` (external app) | ❌ Placeholder CTA | ✅ |
+| `view-finance` | ✅ | ✅ `erp-profit-loss.js` | ✅ `profitLossController` + `exportController` | ✅ `/api/admin/finance/profit-loss` (+ export-pdf/csv) | ✅ REAL embedded P&L | ✅ |
 | `view-crm-abandoned` | ✅ | ✅ `crm-abandoned.js` | ✅ `crmController` | ✅ `/api/admin/crm/abandoned-carts` | ⚠️ KPIs only | ✅ |
 | `view-messages` | ✅ | ✅ `messages-inbox.js` | ✅ `contactController` | ✅ `/api/admin/messages`, `/tickets/*` | ✅ REAL | ✅ |
 | `view-reviews` | ✅ | ✅ `settings-reviews.js` | ✅ `reviewAdminController` | ✅ `/api/admin/reviews` | ✅ REAL | ✅ |

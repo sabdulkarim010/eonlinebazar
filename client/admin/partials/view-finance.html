@@ -5,6 +5,120 @@
             <p class="section-subtitle">Profit, revenue, and margin analytics dashboard.</p>
         </div>
     </div>
+    <!-- ============================================================
+         ERP · Advanced Profit & Loss Report (superadmin only)
+         Rendered by js/admin/modules/erp-profit-loss.js
+    ============================================================= -->
+    <div class="pl-report" id="plReport">
+        <div class="pl-controls">
+            <div class="pl-field">
+                <label for="plStartDate">From</label>
+                <input type="date" id="plStartDate" class="pl-input">
+            </div>
+            <div class="pl-field">
+                <label for="plEndDate">To</label>
+                <input type="date" id="plEndDate" class="pl-input">
+            </div>
+            <div class="pl-field">
+                <label for="plGroupBy">Group by</label>
+                <select id="plGroupBy" class="pl-input">
+                    <option value="day">Day</option>
+                    <option value="week">Week</option>
+                    <option value="month" selected>Month</option>
+                </select>
+            </div>
+            <div class="pl-controls-actions">
+                <button type="button" id="plGenerateBtn" class="btn-primary pl-generate-btn">
+                    <i class="fa-solid fa-chart-column"></i> Generate
+                </button>
+                <button type="button" id="plExportPdfBtn" class="pl-export-btn" disabled>
+                    <i class="fa-solid fa-file-pdf"></i> Export PDF
+                </button>
+                <button type="button" id="plExportCsvBtn" class="pl-export-btn" disabled>
+                    <i class="fa-solid fa-file-csv"></i> Export CSV
+                </button>
+            </div>
+        </div>
+
+        <div id="plSpinner" class="pl-spinner loading-container" hidden>
+            <div class="spinner"></div>
+            <p>Crunching the numbers…</p>
+        </div>
+
+        <p id="plError" class="pl-error" hidden></p>
+
+        <div id="plResult" class="pl-result" hidden>
+            <p class="pl-period" id="plPeriodLabel"></p>
+
+            <div class="pl-cards" id="plSummaryCards"></div>
+
+            <div class="pl-charts">
+                <div class="pl-chart-card">
+                    <h4><i class="fa-solid fa-chart-pie"></i> Cost Breakdown</h4>
+                    <div class="pl-donut-wrap" id="plCostsDonut"></div>
+                </div>
+                <div class="pl-chart-card">
+                    <h4><i class="fa-solid fa-chart-column"></i> Revenue vs Cost</h4>
+                    <div class="pl-bar-wrap" id="plRevenueCostBar"></div>
+                </div>
+            </div>
+
+            <div class="pl-tables">
+                <div class="pl-table-card">
+                    <h4><i class="fa-solid fa-trophy"></i> Top Products by Profit</h4>
+                    <div class="table-responsive">
+                        <table class="pl-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th class="pl-num">Qty</th>
+                                    <th class="pl-num">Revenue</th>
+                                    <th class="pl-num">Profit</th>
+                                    <th class="pl-num">Margin</th>
+                                </tr>
+                            </thead>
+                            <tbody id="plTopProductsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="pl-table-card">
+                    <h4><i class="fa-solid fa-triangle-exclamation"></i> Worst Products by Profit</h4>
+                    <div class="table-responsive">
+                        <table class="pl-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th class="pl-num">Qty</th>
+                                    <th class="pl-num">Revenue</th>
+                                    <th class="pl-num">Profit</th>
+                                    <th class="pl-num">Margin</th>
+                                </tr>
+                            </thead>
+                            <tbody id="plWorstProductsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="pl-table-card">
+                    <h4><i class="fa-solid fa-receipt"></i> Expense Breakdown</h4>
+                    <div class="table-responsive">
+                        <table class="pl-table">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th class="pl-num">Amount</th>
+                                    <th class="pl-num">Share</th>
+                                </tr>
+                            </thead>
+                            <tbody id="plExpenseBreakdownBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="enterprise-finance-embed">
         <p>Open the finance dashboard for detailed P&amp;L, revenue trends, and margin analysis.</p>
         <a href="/finance-analytics" class="btn-primary finance-embed-cta finance-dashboard-btn" target="_blank" rel="noopener">

@@ -18,3 +18,4 @@ import './modules/catalog-attributes.js';
 import './modules/erp-suppliers.js';
 import './modules/erp-warehouses.js';
 import './modules/erp-purchase-orders.js';
+import './modules/erp-profit-loss.js';

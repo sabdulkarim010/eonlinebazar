@@ -56,6 +56,9 @@ const purchaseOrderController = require('../controllers/admin/purchaseOrderContr
 const attendanceController = require('../controllers/admin/attendanceController');
 const payrollController = require('../controllers/admin/payrollController');
 const leaveController = require('../controllers/admin/leaveController');
+const expenseController = require('../controllers/admin/expenseController');
+const profitLossController = require('../controllers/admin/profitLossController');
+const exportController = require('../controllers/admin/exportController');
 const productController = require('../controllers/productController');
 const enterpriseSummaryController = require('../controllers/admin/enterpriseSummaryController');
 const upload = require('../middlewares/uploadMiddleware');
@@ -240,6 +243,14 @@ router.delete('/whatsapp-alerts/:id', verifyAdmin, checkPermission('manage_order
 // URL: POST /api/admin/orders/:id/send-courier
 router.post('/orders/:id/send-courier', verifyAdmin, checkPermission('manage_orders'), courierController.sendOrderToCourier);
 router.get('/courier/status', verifyAdmin, courierController.getCourierConfigStatus);
+
+// 🚚 One-click Book & Sync (create consignment + SMS/WhatsApp + Shipped)
+// URL: PATCH /api/admin/orders/:id/book-courier
+router.patch('/orders/:id/book-courier', verifyAdmin, checkPermission('manage_orders'), courierController.bookAndSyncCourier);
+
+// 🚚 Manual courier status refresh
+// URL: GET /api/admin/orders/:id/courier-status
+router.get('/orders/:id/courier-status', verifyAdmin, checkPermission('manage_orders'), courierController.getCourierStatus);
 
 // Manual stock alert trigger (admin testing)
 router.get('/stock/check-now', verifyAdmin, async (req, res) => {
@@ -440,6 +451,26 @@ router.patch('/tickets/:id/status', verifyAdmin, checkPermission('manage_setting
  ********************************************************************/
 router.get('/crm/abandoned-carts', verifyAdmin, checkPermission('manage_marketing'), crmController.getAbandonedCartStats);
 router.post('/crm/abandoned-carts/:userId/notify', verifyAdmin, checkPermission('manage_marketing'), crmController.notifyAbandonedCart);
+
+/********************************************************************
+ # ERP Finance — Expense Ledger (for advanced P&L)
+ # URL: /api/admin/expenses
+ # Permission: manage_settings (finance/settings owner)
+ # Named /summary is declared before /:id so it is never read as an id.
+ ********************************************************************/
+router.get('/expenses/summary', verifyAdmin, checkPermission('manage_settings'), expenseController.getExpenseSummary);
+router.get('/expenses', verifyAdmin, checkPermission('manage_settings'), expenseController.getAllExpenses);
+router.post('/expenses', verifyAdmin, checkPermission('manage_settings'), expenseController.createExpense);
+router.patch('/expenses/:id', verifyAdmin, checkPermission('manage_settings'), expenseController.updateExpense);
+router.delete('/expenses/:id', verifyAdmin, checkPermission('manage_settings'), expenseController.deleteExpense);
+
+/********************************************************************
+ # ERP Finance — Advanced Profit & Loss (superadmin only)
+ # URL: /api/admin/finance/profit-loss[/export-pdf|/export-csv]
+ ********************************************************************/
+router.get('/finance/profit-loss', verifyAdmin, requireSuperAdmin, profitLossController.getProfitLossReport);
+router.get('/finance/profit-loss/export-pdf', verifyAdmin, requireSuperAdmin, exportController.exportPLtoPDF);
+router.get('/finance/profit-loss/export-csv', verifyAdmin, requireSuperAdmin, exportController.exportPLtoCSV);
 
 /********************************************************************
  # ERP — Suppliers, Warehouses, Purchase Orders

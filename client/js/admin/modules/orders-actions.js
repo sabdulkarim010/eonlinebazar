@@ -201,25 +201,35 @@ function buildAdminPaymentProofPendingBadge(order) {
 function buildCourierActionHtml(order) {
     const trackingId = String(order.courierTrackingId || '').trim();
     const provider = normalizeAdminCourierSlug(order.courierProvider || adminCourierConfig.provider || 'steadfast');
-    const safeProvider = escapeToastText(COURIER_PROVIDER_LABELS[provider] || provider);
+    const safeProvider = escapeToastText(COURIER_PROVIDER_LABELS[provider] || order.courierName || provider);
 
     if (trackingId) {
         const safeTracking = escapeToastText(trackingId);
         const trackingUrl = getCourierTrackingUrl(provider, trackingId);
         const badgeLabel = `<span class="order-courier-sent-text">Sent ${safeTracking}</span>`;
-
-        return trackingUrl
+        const badge = trackingUrl
             ? `<a href="${trackingUrl}" target="_blank" rel="noopener noreferrer" class="${ORDER_COURIER_SENT_CLASSES} courier-tracking-badge" title="Track ${safeTracking} on ${safeProvider}">${badgeLabel}</a>`
             : `<span class="${ORDER_COURIER_SENT_CLASSES} courier-tracking-badge" title="${safeTracking} · ${safeProvider}">${badgeLabel}</span>`;
+
+        // Shipped / Out for Delivery parcels get a manual status-refresh button.
+        const statusLower = String(order.status || '').trim().toLowerCase();
+        const showRefresh = ['shipped', 'out for delivery'].includes(statusLower);
+        const refreshBtn = showRefresh
+            ? `<button type="button" class="refresh-courier-btn" onclick="refreshCourierStatus('${order._id}')" title="Refresh delivery status from ${safeProvider}">
+                    <i class="fa-solid fa-arrows-rotate"></i><span class="refresh-courier-label">Refresh Status</span>
+               </button>`
+            : '';
+
+        return `<div class="courier-cell-booked">${badge}${refreshBtn}</div>`;
     }
 
     if (COURIER_BLOCKED_STATUSES.includes(String(order.status || '').trim().toLowerCase())) {
         return '<span class="order-courier-empty" aria-hidden="true">—</span>';
     }
 
-    return `<button type="button" class="${ORDER_COURIER_SEND_CLASSES}" onclick="sendOrderToCourier('${order._id}')" title="Book this parcel with ${safeProvider}">
+    return `<button type="button" class="${ORDER_COURIER_SEND_CLASSES} book-sync-courier-btn" onclick="bookAndSyncCourier('${order._id}')" title="Book &amp; sync this parcel with ${safeProvider}">
                 <span class="send-courier-icon shrink-0" aria-hidden="true">🚚</span>
-                <span class="send-courier-label">Send to Courier</span>
+                <span class="send-courier-label">Book &amp; Sync</span>
             </button>`;
 }
 
@@ -295,6 +305,117 @@ window.sendOrderToCourier = function(orderId) {
             }
         }
     );
+};
+
+/**
+ * 🚚 One-click "Book & Sync" — books the parcel, marks Shipped, and triggers
+ * the customer SMS + admin WhatsApp notifications on the server.
+ * PATCH /api/admin/orders/:id/book-courier → bookAndSyncCourier
+ * @param {string} orderId
+ */
+window.bookAndSyncCourier = function(orderId) {
+    const order = globalOrders.find(o => String(o._id) === String(orderId));
+    const provider = normalizeAdminCourierSlug(order?.courierProvider || adminCourierConfig.provider || 'steadfast');
+    const providerLabel = COURIER_PROVIDER_LABELS[provider] || provider;
+    const displayId = order?.orderId || String(orderId).slice(-6).toUpperCase();
+    const isMockMode = adminCourierConfig.mockMode;
+
+    const confirmTitle = isMockMode ? `Book & Sync — ${providerLabel} (Mock)` : `Book & Sync — ${providerLabel}`;
+    const confirmBody = isMockMode
+        ? `No courier API credentials are configured. Order #${displayId} will get a mock tracking ID, be marked Shipped, and the customer (SMS) + admin (WhatsApp) will be notified.`
+        : `Book order #${displayId} with ${providerLabel}? This creates a real consignment, marks the order Shipped, and notifies the customer (SMS) and admin (WhatsApp).`;
+
+    showCustomConfirm(
+        confirmTitle,
+        confirmBody,
+        async () => {
+            const bookBtn = document.querySelector(`tr[data-order-id="${orderId}"] .book-sync-courier-btn`);
+            const restore = setButtonLoading(bookBtn, isMockMode ? 'Booking (Mock)...' : 'Booking & Syncing...');
+
+            try {
+                const response = await fetch(`/api/admin/orders/${orderId}/book-courier`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ courier: provider })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const trackingId = result.data?.trackingId || '';
+                    const trackingUrl = result.data?.trackingUrl || '';
+                    showToast(result.message || 'Parcel booked & synced!', 'success');
+                    if (trackingUrl) {
+                        showToast(`Tracking: ${trackingId} — ${trackingUrl}`, 'info');
+                    }
+                    const idx = globalOrders.findIndex(o => String(o._id) === String(orderId));
+                    const updated = result.data?.order;
+                    if (idx !== -1 && updated) {
+                        globalOrders[idx] = { ...globalOrders[idx], ...updated };
+                    } else if (idx !== -1) {
+                        globalOrders[idx] = {
+                            ...globalOrders[idx],
+                            status: 'Shipped',
+                            courierTrackingId: trackingId || globalOrders[idx].courierTrackingId,
+                            courierProvider: result.data?.courierProvider || provider,
+                            courierName: result.data?.courierName || globalOrders[idx].courierName
+                        };
+                    } else {
+                        fetchLiveOrders();
+                        return;
+                    }
+                    applyOrderFilters(false);
+                    return;
+                }
+
+                showToast(result.message || 'Courier booking failed.', 'error');
+                if (response.status === 409) fetchLiveOrders();
+            } catch (error) {
+                console.error('Book & Sync courier error:', error);
+                showToast('Server connection error! Parcel was not booked.', 'error');
+            } finally {
+                restore();
+            }
+        }
+    );
+};
+
+/**
+ * 🚚 Manual courier status refresh for a shipped order.
+ * GET /api/admin/orders/:id/courier-status → getCourierStatus
+ * @param {string} orderId
+ */
+window.refreshCourierStatus = async function(orderId) {
+    const refreshBtn = document.querySelector(`tr[data-order-id="${orderId}"] .refresh-courier-btn`);
+    const restore = setButtonLoading(refreshBtn, 'Refreshing...');
+
+    try {
+        const response = await fetch(`/api/admin/orders/${orderId}/courier-status`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(result.message || 'Courier status refreshed.', result.changed ? 'success' : 'info');
+            const idx = globalOrders.findIndex(o => String(o._id) === String(orderId));
+            const updated = result.data?.order;
+            if (idx !== -1 && updated) {
+                globalOrders[idx] = { ...globalOrders[idx], ...updated };
+                applyOrderFilters(false);
+            }
+        } else {
+            showToast(result.message || 'Could not refresh courier status.', 'error');
+        }
+    } catch (error) {
+        console.error('Refresh courier status error:', error);
+        showToast('Server connection error.', 'error');
+    } finally {
+        restore();
+    }
 };
 
 function buildAdminOrderStatusCell(order) {

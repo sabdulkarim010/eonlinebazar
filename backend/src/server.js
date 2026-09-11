@@ -123,6 +123,14 @@ connectDB().then(async () => {
     } catch (err) {
         console.error('Abandoned cart cron bootstrap error:', err.message);
     }
+
+    // Courier auto-sync — poll in-flight parcels every 2h and reconcile status
+    try {
+        const { startCourierSyncCron } = require('./jobs/courierSyncJob');
+        startCourierSyncCron();
+    } catch (err) {
+        console.error('Courier sync cron bootstrap error:', err.message);
+    }
 });
 
 // ৩. প্রয়োজনীয় মিডলওয়্যারসমূহ
