@@ -150,6 +150,20 @@
     margin-bottom: 22px;
 }
 
+.pl-chart-card--wide {
+    grid-column: 1 / -1;
+}
+
+.pl-chart-canvas-wrap {
+    position: relative;
+    height: 260px;
+    width: 100%;
+}
+
+.pl-trend-wrap {
+    height: 280px;
+}
+
 .pl-chart-card,
 .pl-table-card {
     background: var(--admin-card-bg, #fff);

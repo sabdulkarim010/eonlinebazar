@@ -186,9 +186,9 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 | Admin sessions | ✅ | `adminSession.js`, `sessionController.js`, `view-sessions.html` | |
 | Bulk product import | ✅ | `bulkImportController.js`, `products-bulk.js` | CSV/Excel |
 | AI product assist | ✅ | `adminController.aiProductAssist` | OpenAI integration |
-| Manual POS orders | ✅ | `orderAdminController.createManualOrder`, `orders-pos.js` | Walk-in/phone orders; barcode/SKU scan-to-cart, quick popular grid, POS receipt (print + PDF) |
+| Manual POS orders | ✅ | `orderAdminController.createManualOrder`, `orders-pos.html`, `orders-pos.js` | Walk-in/phone orders; debounced barcode/SKU/name search dropdown, popular quick-grid + Refresh, auto-open POS receipt (print + PDF) |
 | Invoice generation (PDF) | ✅ | `orderCustomerController.downloadOrderInvoice`, `orders-invoice.js` | PDFKit |
-| Courier integration | ✅ | `courierController.js`, `courierService.js`, `courierSyncService.js`, `courierSyncJob.js`, `orders-actions.js` | Steadfast, Pathao, RedX; Book & Sync + auto status-poll cron + Refresh Status UI |
+| Courier integration | ✅ | `admin/courierController.js`, `courierService.js`, `courierSyncService.js`, `courierSyncJob.js`, `orders-actions.js` | Steadfast, Pathao, RedX; Book & Sync + 3h auto-poll cron + ↻ Refresh UI; Pathao/RedX status APIs wired |
 | Returns & refunds | ✅ | `orderAdminController.js`, `orderCustomerController.js` | Per-item returns, wallet/bKash refund |
 | Stock alerts | ✅ | `stockAlertService.js`, `stockAlert.js` | Cron + email/SMS/WhatsApp |
 | WhatsApp order alerts | ✅ | `whatsappService.js`, `whatsappAlertsController.js` | Admin pending alerts |
@@ -275,10 +275,11 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 |------------|--------|----------|
 | Inventory & stock management | ✅ COMPLETE | `product.js`: `stockQuantity`, `stock`, `lowStockThreshold`, variant `sku`/`stock`; bulk import; stock alert cron |
 | Order lifecycle management | ✅ COMPLETE | Status: Pending → Processing → Shipped → Out for Delivery → Delivered; Cancel/Return/Refund flows; `notificationsSent` flags |
-| Courier & logistics integration | ✅ COMPLETE | `courierService.js` + `courierSyncService.js` — Steadfast/Pathao/RedX book & sync, auto-poll cron (`courierSyncJob.js`) reconciles status + cashback on delivery, customer SMS + admin WhatsApp; `Book & Sync`/`Refresh Status` UI in `orders-actions.js` |
-| Invoice generation | ✅ COMPLETE | `GET /api/orders/:id/invoice` — PDFKit; admin print modal + POS receipt modal (`orders-pos.js`) with print + PDF download |
-| Financial reports | ✅ COMPLETE | Advanced P&L engine `profitLossController.js` (`GET /api/admin/finance/profit-loss`, superadmin) — gross/net revenue, COGS, courier, return loss, expenses-by-category, cashback, discounts, margin %, top/worst products, time series; embedded SPA UI `erp-profit-loss.js` + `view-finance.html` (SVG donut/bar, tables); PDF/CSV export `exportController.js`; expense ledger `expense.js`/`expenseController.js`. Legacy `finance-analytics.html` retained |
-| Operating expense tracking | ✅ COMPLETE | `expense.js` (8 category enum), `expenseController.js` CRUD + summary, `GET/POST/PATCH/DELETE /api/admin/expenses` (manage_settings); feeds P&L cost breakdown |
+| POS (walk-in / phone orders) | ✅ COMPLETE | `orders-pos.html` + `orders-pos.js` — debounced barcode/SKU search, quick product grid, auto-open receipt (print + PDF); `GET /api/products?search=` |
+| Courier & logistics integration | ✅ COMPLETE | `courierService.js` + `courierSyncService.js` + `admin/courierController.js` — Steadfast/Pathao/RedX Book & Sync, 3h auto-poll cron, status map + wallet cashback on delivery, SMS + WhatsApp; `orders-actions.js` Book & Sync + ↻ Refresh |
+| Invoice generation | ✅ COMPLETE | `GET /api/orders/:id/invoice` — PDFKit; POS receipt modal (`showPOSInvoiceModal`, `printPOSInvoice`, `downloadPOSInvoice`) |
+| Financial reports (Advanced P&L) | ✅ COMPLETE | `profitLossController.js` — Delivered revenue, returns, COGS, courier from Expense ledger, expenses-by-category, cashback/discounts/return loss, net margin, trend series, top/worst products; Chart.js UI in `erp-profit-loss.js` + `view-finance.html`; PDF/CSV via `exportController.js` (superadmin) |
+| Operating expense tracking | ✅ COMPLETE | `expense.js`, `expenseController.js`, `view-erp-expenses.html`, `erp-expenses.js` — CRUD, receipt upload, category summary + monthly trend; feeds P&L |
 | Vendor/supplier management | ✅ COMPLETE | `supplier.js`, `supplierController.js`, admin ERP UI |
 | Purchase orders | ✅ COMPLETE | `purchaseOrder.js`, `purchaseOrderController.js`, PO workflow |
 | Warehouse/location management | ✅ COMPLETE | `warehouse.js`, `warehouseController.js`, multi-location stock |
@@ -1351,13 +1352,15 @@ The prior fix (visible in current code) added:
 | `backend/src/jobs/courierSyncJob.js` | ✅ EXISTS & COMPLETE | 3.8 KB — cron status poll |
 | `backend/src/controllers/admin/profitLossController.js` | ✅ EXISTS & COMPLETE | Advanced P&L engine |
 | `backend/src/controllers/admin/expenseController.js` | ✅ EXISTS & COMPLETE | CRUD + summary |
-| `client/admin/partials/view-finance.html` — P&L section | ✅ EXISTS & COMPLETE | Full `#plReport` SPA: date range, cards, SVG charts, tables, PDF/CSV export |
-| `client/js/admin/modules/erp-profit-loss.js` | ✅ EXISTS & COMPLETE | 400+ lines; calls `/api/admin/finance/profit-loss` |
+| `client/admin/partials/view-erp-expenses.html` | ✅ EXISTS & COMPLETE | Expense Tracking SPA — stats, filters, table, category sidebar, receipt upload |
+| `client/js/admin/modules/erp-expenses.js` | ✅ EXISTS & COMPLETE | Full CRUD + summary charts |
+| `client/admin/partials/view-finance.html` — P&L section | ✅ EXISTS & COMPLETE | Full `#plReport` SPA: date range, groupBy, summary cards, Chart.js donut/bar/trend, tables, PDF/CSV export |
+| `client/js/admin/modules/erp-profit-loss.js` | ✅ EXISTS & COMPLETE | loadPLReport, renderSummaryCards, renderCharts, renderTopProducts, exportPDF/exportCSV |
 | `/api/admin/expenses` routes | ✅ EXISTS & COMPLETE | GET/POST/PATCH/DELETE + summary (`manage_settings`) |
 | `/api/admin/finance/profit-loss` route | ✅ EXISTS & COMPLETE | Superadmin + export-pdf/csv |
 | `/api/admin/orders/:id/book-courier` route | ✅ EXISTS & COMPLETE | PATCH with `manage_orders` |
-| Barcode/SKU search input (POS) | ✅ EXISTS & COMPLETE | `#manualBarcodeInput` in `modals-orders.html`; scan handler in `orders-pos.js` |
-| Print invoice modal (POS) | ✅ EXISTS & COMPLETE | `#posInvoiceModal` — print + PDF download in `orders-pos.js` |
+| Barcode/SKU search input (POS) | ✅ EXISTS & COMPLETE | `#manualBarcodeInput` + `#posBarcodeDropdown` in `orders-pos.html`; `initBarcodeSearch` / `searchProductByBarcode` / `addProductFromBarcode` in `orders-pos.js` (`GET /api/products?search=&limit=5`) |
+| Print invoice modal (POS) | ✅ EXISTS & COMPLETE | `#posInvoiceModal` in `orders-pos.html` — `showPOSInvoiceModal`, `printPOSInvoice`, `downloadPOSInvoice` in `orders-pos.js` |
 
 **Resolved 2026-09-11:** Redundant `/finance-analytics` iframe removed; header-only secondary link retained.
 

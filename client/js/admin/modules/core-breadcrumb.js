@@ -14,6 +14,7 @@ const BREADCRUMB_MAP = {
     'view-suppliers': { group: 'ERP', label: 'Suppliers' },
     'view-warehouses': { group: 'ERP', label: 'Warehouses' },
     'view-finance': { group: 'ERP', label: 'Financial Reports' },
+    'view-erp-expenses': { group: 'ERP', label: 'Expense Tracking' },
     'view-customers': { group: 'CRM', label: 'Customer Database' },
     'view-newsletter-subscribers': { group: 'CRM', label: 'Newsletter Subscribers' },
     'view-newsletter-campaigns': { group: 'CRM', label: 'Marketing Campaigns' },

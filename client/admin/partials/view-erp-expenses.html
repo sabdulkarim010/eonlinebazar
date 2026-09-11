@@ -1,0 +1,136 @@
+<section id="view-erp-expenses" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <div>
+            <h3><i class="fa-solid fa-receipt"></i> Expense Tracking</h3>
+            <p class="section-subtitle">Record operating costs — rent, salaries, marketing, courier charges, and more.</p>
+        </div>
+        <div class="exp-header-actions">
+            <button type="button" class="btn-secondary" id="expensesRefreshBtn" onclick="loadExpensesSection()">
+                <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+            <button type="button" class="btn-primary" onclick="openAddExpenseModal()">
+                <i class="fa-solid fa-plus"></i> Add Expense
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="exp-stats-row">
+        <div class="exp-stat-card">
+            <span class="exp-stat-label">This Month Total</span>
+            <strong class="exp-stat-value" id="expStatThisMonth">৳0</strong>
+        </div>
+        <div class="exp-stat-card">
+            <span class="exp-stat-label">Top Category</span>
+            <strong class="exp-stat-value exp-stat-value-sm" id="expStatTopCategory">—</strong>
+        </div>
+        <div class="exp-stat-card">
+            <span class="exp-stat-label">vs Last Month</span>
+            <strong class="exp-stat-value" id="expStatVsLastMonth">—</strong>
+        </div>
+    </div>
+
+    <div class="exp-layout">
+        <div class="exp-main">
+            <!-- Filters -->
+            <div class="exp-filters">
+                <div class="exp-filter-field">
+                    <label for="expFilterStart">From</label>
+                    <input type="date" id="expFilterStart" class="exp-input">
+                </div>
+                <div class="exp-filter-field">
+                    <label for="expFilterEnd">To</label>
+                    <input type="date" id="expFilterEnd" class="exp-input">
+                </div>
+                <div class="exp-filter-field">
+                    <label for="expFilterCategory">Category</label>
+                    <select id="expFilterCategory" class="exp-input">
+                        <option value="">All categories</option>
+                    </select>
+                </div>
+                <button type="button" class="btn-secondary exp-filter-btn" onclick="applyExpenseFilters()">
+                    <i class="fa-solid fa-filter"></i> Apply
+                </button>
+            </div>
+
+            <!-- Expense table -->
+            <div class="table-container">
+                <table class="data-table exp-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Reference</th>
+                            <th class="exp-th-amount">Amount</th>
+                            <th class="customers-th--actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expensesTableBody">
+                        <tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading expenses…</p></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Category totals sidebar -->
+        <aside class="exp-sidebar">
+            <h4><i class="fa-solid fa-chart-pie"></i> Category Totals</h4>
+            <ul class="exp-category-list" id="expCategoryTotalsList">
+                <li class="exp-category-empty">Loading…</li>
+            </ul>
+            <h4 class="exp-trend-title"><i class="fa-solid fa-chart-column"></i> Monthly Trend</h4>
+            <div class="exp-trend-chart" id="expMonthlyTrendChart" aria-hidden="true"></div>
+        </aside>
+    </div>
+</section>
+
+<!-- Add / Edit expense modal -->
+<div id="expenseModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeExpenseModal()">
+    <div class="custom-modal-box exp-modal-box">
+        <div class="modal-header">
+            <div>
+                <h3 id="expenseModalTitle"><i class="fa-solid fa-receipt"></i> Add Expense</h3>
+                <p class="edit-modal-subtitle">Record an operating cost for the P&amp;L ledger</p>
+            </div>
+            <button type="button" class="close-icon-btn" onclick="closeExpenseModal()" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="expenseForm" onsubmit="event.preventDefault(); saveExpense();">
+            <input type="hidden" id="expenseEditId" value="">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="expenseCategory">Category *</label>
+                    <select id="expenseCategory" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="expenseAmount">Amount (৳) *</label>
+                    <input type="number" id="expenseAmount" min="0" step="1" required placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label for="expenseDate">Date *</label>
+                    <input type="date" id="expenseDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="expenseDescription">Description</label>
+                    <input type="text" id="expenseDescription" placeholder="What was this expense for?">
+                </div>
+                <div class="form-group">
+                    <label for="expenseReference">Reference</label>
+                    <input type="text" id="expenseReference" placeholder="Invoice or receipt number">
+                </div>
+                <div class="form-group">
+                    <label for="expenseReceiptFile">Receipt Upload</label>
+                    <input type="file" id="expenseReceiptFile" accept="image/*,.pdf">
+                    <input type="hidden" id="expenseAttachmentUrl" value="">
+                    <p class="exp-receipt-preview" id="expenseReceiptPreview" hidden></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeExpenseModal()">Cancel</button>
+                <button type="submit" class="btn-primary" id="expenseSaveBtn">Save Expense</button>
+            </div>
+        </form>
+    </div>
+</div>

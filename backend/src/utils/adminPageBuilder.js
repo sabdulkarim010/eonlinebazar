@@ -40,13 +40,15 @@ const VIEW_PARTIALS = [
     'view-suppliers',
     'view-warehouses',
     'view-purchase-orders',
-    'view-finance'
+    'view-finance',
+    'view-erp-expenses'
 ];
 
 const MODAL_PARTIALS = [
     'modals-products',
     'modals-customers',
     'modals-orders',
+    'orders-pos',
     'modals-catalog',
     'modals-cms',
     'modals-payments',

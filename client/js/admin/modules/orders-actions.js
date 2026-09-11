@@ -216,7 +216,7 @@ function buildCourierActionHtml(order) {
         const showRefresh = ['shipped', 'out for delivery'].includes(statusLower);
         const refreshBtn = showRefresh
             ? `<button type="button" class="refresh-courier-btn" onclick="refreshCourierStatus('${order._id}')" title="Refresh delivery status from ${safeProvider}">
-                    <i class="fa-solid fa-arrows-rotate"></i><span class="refresh-courier-label">Refresh Status</span>
+                    <span class="refresh-courier-label">↻ Refresh</span>
                </button>`
             : '';
 

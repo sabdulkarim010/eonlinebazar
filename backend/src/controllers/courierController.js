@@ -18,11 +18,8 @@ const {
     normalizeCourierSlug,
     COURIER_ERROR_CODES
 } = require('../services/courierService');
-const {
-    syncOrderWithCourier,
-    autoSyncCourierStatus
-} = require('../services/courierSyncService');
 const { notifyOrderStatusUpdated } = require('../services/smsService');
+const adminCourierController = require('./admin/courierController');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 
 const SHIPPED_STATUS = 'Shipped';
@@ -243,125 +240,9 @@ const getCourierConfigStatus = async (req, res) => {
     }
 };
 
-/**
- * PATCH /api/admin/orders/:id/book-courier
- * One-click "Book & Sync" — creates the consignment via courierSyncService,
- * saves tracking details, moves the order to Shipped, and fires the customer
- * SMS + admin WhatsApp notifications. Replaces the multi-step manual booking.
- */
-const bookAndSyncCourier = async (req, res) => {
-    const { id } = req.params;
-
-    try {
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(400).json({ success: false, message: 'Invalid order ID.' });
-        }
-
-        const requestedCourier = normalizeCourierSlug(req.body?.courier || '');
-        const result = await syncOrderWithCourier(id, requestedCourier || undefined);
-
-        if (!result.success) {
-            const status = result.message && /already booked/i.test(result.message) ? 409 : 422;
-            return res.status(status).json({
-                success: false,
-                message: result.message || 'Courier booking failed.',
-                data: result.trackingId
-                    ? { trackingId: result.trackingId, trackingUrl: result.trackingUrl }
-                    : undefined
-            });
-        }
-
-        await logSecurityEvent({
-            action: result.mockMode ? 'Courier Booked & Synced (Mock)' : 'Courier Booked & Synced',
-            actor: req.admin?.username || 'admin',
-            actorType: 'admin',
-            ipAddress: getClientIp(req),
-            details: `Order #${result.order?.orderId || id} → ${result.providerLabel || result.provider} · tracking ${result.trackingId}`,
-            resourceType: 'order',
-            resourceId: String(id)
-        });
-
-        return res.status(200).json({
-            success: true,
-            mockMode: Boolean(result.mockMode),
-            message: result.mockMode
-                ? `Mock parcel booked & synced. Tracking ID: ${result.trackingId}`
-                : `Parcel booked & synced! Tracking ID: ${result.trackingId}`,
-            data: {
-                trackingId: result.trackingId,
-                trackingUrl: result.trackingUrl,
-                courierProvider: result.provider,
-                courierName: result.providerLabel,
-                courierStatus: result.courierStatus,
-                codAmount: result.codAmount ?? 0,
-                order: result.order
-            }
-        });
-    } catch (error) {
-        console.error('Book & Sync Courier Error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to book and sync the courier parcel. Please try again.'
-        });
-    }
-};
-
-/**
- * GET /api/admin/orders/:id/courier-status
- * Manual refresh — poll the courier tracking status and reconcile the order.
- */
-const getCourierStatus = async (req, res) => {
-    const { id } = req.params;
-
-    try {
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(400).json({ success: false, message: 'Invalid order ID.' });
-        }
-
-        const result = await autoSyncCourierStatus(id);
-        if (!result.success) {
-            return res.status(400).json({ success: false, message: result.reason || 'Could not refresh courier status.' });
-        }
-
-        const order = await Order.findById(id);
-        if (!order) {
-            return res.status(404).json({ success: false, message: 'Order not found.' });
-        }
-
-        if (result.changed) {
-            await logSecurityEvent({
-                action: 'Courier Status Refreshed',
-                actor: req.admin?.username || 'admin',
-                actorType: 'admin',
-                ipAddress: getClientIp(req),
-                details: `Order #${order.orderId || id}: ${result.from} → ${result.to} (courier: ${result.rawStatus})`,
-                resourceType: 'order',
-                resourceId: String(id)
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            changed: result.changed,
-            message: result.changed
-                ? `Status updated: ${result.from} → ${result.to}`
-                : 'Courier status is up to date.',
-            data: {
-                ...toCourierPayload(order),
-                courierName: order.courierName || '',
-                rawStatus: result.rawStatus,
-                order
-            }
-        });
-    } catch (error) {
-        console.error('Get Courier Status Error:', error);
-        return res.status(500).json({ success: false, message: 'Failed to refresh courier status.' });
-    }
-};
-
 module.exports = {
     sendOrderToCourier,
     getCourierConfigStatus,
-    bookAndSyncCourier,
-    getCourierStatus
+    bookAndSyncCourier: adminCourierController.bookAndSyncCourier,
+    getCourierStatus: adminCourierController.getCourierStatus
 };

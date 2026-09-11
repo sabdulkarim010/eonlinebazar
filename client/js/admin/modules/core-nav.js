@@ -657,6 +657,7 @@ function navigateAdminSection(targetId, clickedItem) {
             if (window.initFinanceEmbed) window.initFinanceEmbed();
             if (window.initProfitLossReport) window.initProfitLossReport();
         },
+        'view-erp-expenses': () => window.loadExpensesSection && window.loadExpensesSection(),
         'view-overview': fetchDashboardData,
         'manage-category': loadCategories,
         'manage-brands': fetchBrands,

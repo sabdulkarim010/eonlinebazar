@@ -20,7 +20,10 @@ const {
     loadCourierConfig,
     normalizeCourierSlug,
     resolveCodAmount,
-    COURIER_PROVIDERS
+    COURIER_PROVIDERS,
+    fetchSteadfastOrderStatus,
+    fetchPathaoOrderStatus,
+    fetchRedxParcelStatus
 } = require('./courierService');
 const { sendSms, isCustomerSmsEnabled } = require('./smsService');
 const { sendAdminCustomAlert } = require('./whatsappService');
@@ -28,7 +31,6 @@ const { creditOrderDeliveryRewards } = require('../utils/rewardSettings');
 const { upgradeTierIfNeeded } = require('./loyaltyTierService');
 const { logSecurityEvent } = require('../utils/securityLogger');
 
-const REQUEST_TIMEOUT_MS = Number(process.env.COURIER_API_TIMEOUT_MS || 20000);
 const SHIPPED_STATUS = 'Shipped';
 
 // Order states that should never be (re)booked or downgraded by a sync.
@@ -54,10 +56,12 @@ const STATUS_MAP = Object.freeze({
         'in transit': 'Shipped',
         in_transit: 'Shipped',
         pickup: 'Shipped',
-        pending: 'Shipped'
+        pending: 'Shipped',
+        returned: 'Returned'
     },
     redx: {
         delivered: 'Delivered',
+        'in transit': 'Shipped',
         'delivery in progress': 'Out for Delivery',
         in_transit: 'Shipped',
         pending: 'Shipped'
@@ -109,40 +113,37 @@ async function fetchCourierDeliveryStatus(order) {
     }
 
     if (provider === 'steadfast') {
-        try {
-            const base = (COURIER_PROVIDERS.steadfast.createOrderUrl || '')
-                .replace(/\/create_order\/?$/, '');
-            const url = `${base}/status_by_cid/${encodeURIComponent(consignmentId)}`;
-            const res = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Api-Key': config.apiKey,
-                    'Secret-Key': config.secretKey,
-                    Accept: 'application/json'
-                },
-                signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
-            });
-            const text = await res.text();
-            let data = {};
-            try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
-            const raw = String(data.delivery_status || data.status || '').trim();
-            if (!res.ok || !raw) {
-                return { success: false, rawStatus: '', reason: `Steadfast status HTTP ${res.status}` };
-            }
-            return { success: true, rawStatus: raw };
-        } catch (err) {
-            return { success: false, rawStatus: '', reason: `Steadfast status fetch failed: ${err.message}` };
+        const steadfastResult = await fetchSteadfastOrderStatus(consignmentId, config);
+        if (!steadfastResult.success) {
+            return { success: false, rawStatus: '', reason: steadfastResult.reason };
         }
+        return { success: true, rawStatus: steadfastResult.rawStatus };
     }
 
-    // Pathao / RedX: no lightweight public status endpoint wired — keep current.
+    if (provider === 'pathao') {
+        const pathaoResult = await fetchPathaoOrderStatus(consignmentId);
+        if (!pathaoResult.success) {
+            return { success: false, rawStatus: '', reason: pathaoResult.reason };
+        }
+        return { success: true, rawStatus: pathaoResult.rawStatus };
+    }
+
+    if (provider === 'redx') {
+        const redxResult = await fetchRedxParcelStatus(trackingId);
+        if (!redxResult.success) {
+            return { success: false, rawStatus: '', reason: redxResult.reason };
+        }
+        return { success: true, rawStatus: redxResult.rawStatus };
+    }
+
     return { success: true, rawStatus: String(order.courierStatus || 'in_review') };
 }
 
-/** Build the customer "shipped" SMS body with the tracking code. */
-function buildShippedSms(order, trackingId) {
+/** Build the customer "shipped" SMS body with the tracking URL. */
+function buildShippedSms(order, trackingUrl) {
     const orderNo = order.orderId || String(order._id || '').slice(-8).toUpperCase();
-    return `[EonlineBazar] Your order #${orderNo} has been shipped! Track your parcel: ${trackingId}`;
+    const trackPart = trackingUrl || 'our store';
+    return `Your order #${orderNo} has been shipped. Track: ${trackPart}`;
 }
 
 /**
@@ -152,7 +153,7 @@ function buildShippedSms(order, trackingId) {
  */
 async function syncOrderWithCourier(orderId, courierCode) {
     try {
-        const order = await Order.findById(orderId);
+        const order = await Order.findById(orderId).populate('user', 'name phone email');
         if (!order) {
             return { success: false, message: 'Order not found.' };
         }
@@ -197,12 +198,12 @@ async function syncOrderWithCourier(orderId, courierCode) {
 
         await order.save();
 
-        // 6) Customer SMS with tracking code (respects Master Settings toggle).
+        // 6) Customer SMS with tracking URL (respects Master Settings toggle).
         try {
             if (order.customerPhone && await isCustomerSmsEnabled()) {
                 await sendSms({
                     to: order.customerPhone,
-                    body: buildShippedSms(order, trackingId),
+                    body: buildShippedSms(order, trackingUrl || trackingId),
                     context: 'COURIER SHIPPED'
                 });
             }
@@ -210,24 +211,29 @@ async function syncOrderWithCourier(orderId, courierCode) {
             console.warn('[CourierSync] Customer SMS failed:', smsErr.message);
         }
 
-        // 7) Admin WhatsApp notification (fire-and-forget, best effort).
+        // 7) Admin WhatsApp notification to private number (fire-and-forget).
         try {
             const orderNo = order.orderId || String(order._id).slice(-8).toUpperCase();
-            const codAmount = resolveCodAmount(order);
-            const waBody = [
-                '🚚 *Courier Booked - EOnlineBazar*',
-                '',
-                `• Order: #${orderNo}`,
-                `• Courier: ${order.courierName}`,
-                `• Tracking: ${trackingId}`,
-                `• COD: ৳${Number(codAmount || 0).toLocaleString('en-US')}`,
-                trackingUrl ? `• Track: ${trackingUrl}` : ''
-            ].filter(Boolean).join('\n');
+            const waBody = `Order #${orderNo} booked with ${order.courierName}. Tracking: ${trackingId}`;
             sendAdminCustomAlert(waBody).catch((waErr) => {
                 console.warn('[CourierSync] Admin WhatsApp alert failed:', waErr.message);
             });
         } catch (waErr) {
             console.warn('[CourierSync] Admin WhatsApp build failed:', waErr.message);
+        }
+
+        // 8) Security audit log for the booking event.
+        try {
+            await logSecurityEvent({
+                action: result.mockMode ? 'Courier Booked & Synced (Mock)' : 'Courier Booked & Synced',
+                actor: 'courier-sync',
+                actorType: 'system',
+                details: `Order #${order.orderId || orderId} booked with ${order.courierName}. Tracking: ${trackingId}`,
+                resourceType: 'order',
+                resourceId: String(orderId)
+            });
+        } catch (logErr) {
+            console.warn('[CourierSync] SecurityLog write failed:', logErr.message);
         }
 
         return {
@@ -315,6 +321,8 @@ async function autoSyncCourierStatus(orderId) {
             orderNumber: order.orderId || '',
             from: previousStatus,
             to: order.status,
+            oldStatus: previousStatus,
+            newStatus: order.status,
             rawStatus
         };
     } catch (err) {
@@ -328,6 +336,5 @@ module.exports = {
     mapCourierStatusToOrderStatus,
     fetchCourierDeliveryStatus,
     syncOrderWithCourier,
-    autoSyncCourierStatus,
-    logSecurityEvent // re-exported for convenience in the job
+    autoSyncCourierStatus
 };

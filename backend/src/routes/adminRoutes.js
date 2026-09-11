@@ -43,6 +43,7 @@ const twoFactorController = require('../controllers/twoFactorController');
 const settingsController = require('../controllers/settingsController');
 const masterSettingsController = require('../controllers/masterSettingsController');
 const courierController = require('../controllers/courierController');
+const adminCourierController = require('../controllers/admin/courierController');
 const whatsappAlertsController = require('../controllers/whatsappAlertsController');
 const paymentMethodController = require('../controllers/paymentMethodController');
 const footerSettingsController = require('../controllers/footerSettingsController');
@@ -248,11 +249,11 @@ router.get('/courier/status', verifyAdmin, courierController.getCourierConfigSta
 
 // 🚚 One-click Book & Sync (create consignment + SMS/WhatsApp + Shipped)
 // URL: PATCH /api/admin/orders/:id/book-courier
-router.patch('/orders/:id/book-courier', verifyAdmin, checkPermission('manage_orders'), courierController.bookAndSyncCourier);
+router.patch('/orders/:orderId/book-courier', verifyAdmin, checkPermission('manage_orders'), adminCourierController.bookAndSyncCourier);
 
 // 🚚 Manual courier status refresh
-// URL: GET /api/admin/orders/:id/courier-status
-router.get('/orders/:id/courier-status', verifyAdmin, checkPermission('manage_orders'), courierController.getCourierStatus);
+// URL: GET /api/admin/orders/:orderId/courier-status
+router.get('/orders/:orderId/courier-status', verifyAdmin, checkPermission('manage_orders'), adminCourierController.getCourierStatus);
 
 // Manual stock alert trigger (admin testing)
 router.get('/stock/check-now', verifyAdmin, async (req, res) => {
@@ -461,6 +462,7 @@ router.post('/crm/abandoned-carts/:userId/notify', verifyAdmin, checkPermission(
  # Named /summary is declared before /:id so it is never read as an id.
  ********************************************************************/
 router.get('/expenses/summary', verifyAdmin, checkPermission('manage_settings'), expenseController.getExpenseSummary);
+router.post('/expenses/upload-receipt', verifyAdmin, checkPermission('manage_settings'), expenseController.receiptUploadMiddleware, expenseController.uploadExpenseReceipt);
 router.get('/expenses', verifyAdmin, checkPermission('manage_settings'), expenseController.getAllExpenses);
 router.post('/expenses', verifyAdmin, checkPermission('manage_settings'), expenseController.createExpense);
 router.patch('/expenses/:id', verifyAdmin, checkPermission('manage_settings'), expenseController.updateExpense);

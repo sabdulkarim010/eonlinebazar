@@ -13,18 +13,10 @@
 
 const Order = require('../../models/order');
 const Expense = require('../../models/expense');
-const Setting = require('../../models/Setting');
-
 /** Delivered orders count as realized revenue. */
 const DELIVERED_STATUSES = ['delivered'];
 /** Returned/refunded orders are deducted from gross revenue. */
 const RETURNED_STATUSES = ['returned', 'refunded'];
-
-/** Fallback per-parcel courier cost when no order-level fee is tracked. */
-const DEFAULT_COURIER_COST_PER_ORDER = (() => {
-    const raw = parseFloat(process.env.COURIER_COST_PER_ORDER);
-    return Number.isFinite(raw) && raw >= 0 ? raw : 60;
-})();
 
 function toNumber(value, fallback = 0) {
     const n = Number(value);
@@ -130,13 +122,15 @@ function formatBucketLabel(key, groupBy) {
 
 /** Sum item-level buying cost for an order, falling back to the snapshot. */
 function resolveOrderBuyingCost(order) {
+    const snapshot = toNumber(order.totalBuyingPrice, 0);
+    if (snapshot > 0) return snapshot;
+
     const items = Array.isArray(order.items) ? order.items : [];
     let cogs = 0;
     for (const item of items) {
         const qty = Math.max(1, toNumber(item?.quantity, 1));
         cogs += toNumber(item?.buyingPrice, 0) * qty;
     }
-    if (cogs <= 0) cogs = toNumber(order.totalBuyingPrice, 0);
     return cogs;
 }
 
@@ -153,14 +147,6 @@ function resolveOrderRevenue(order) {
 async function computeProfitLoss(query = {}) {
     const { start, end } = parseRange(query);
     const groupBy = resolveGroupBy(query, start, end);
-
-    // Read the courier per-order cost from Setting when present.
-    let courierCostPerOrder = DEFAULT_COURIER_COST_PER_ORDER;
-    try {
-        const settings = await Setting.getOrCreate();
-        const configured = toNumber(settings?.courierCostPerOrder, NaN);
-        if (Number.isFinite(configured) && configured >= 0) courierCostPerOrder = configured;
-    } catch (_err) { /* keep default */ }
 
     const orders = await Order.find({
         createdAt: { $gte: start, $lte: end }
@@ -193,7 +179,6 @@ async function computeProfitLoss(query = {}) {
         if (DELIVERED_STATUSES.includes(status)) {
             const revenue = resolveOrderRevenue(order);
             const cogs = resolveOrderBuyingCost(order);
-            const orderCourier = courierCostPerOrder;
 
             grossRevenue += revenue;
             buyingCost += cogs;
@@ -220,8 +205,8 @@ async function computeProfitLoss(query = {}) {
             const bucket = ensureBucket(orderDate);
             if (bucket) {
                 bucket.revenue += revenue;
-                bucket.cost += cogs + orderCourier;
-                bucket.profit += (revenue - cogs - orderCourier);
+                bucket.cost += cogs;
+                bucket.profit += (revenue - cogs);
             }
         } else if (RETURNED_STATUSES.includes(status)) {
             const returnedRevenue = resolveOrderRevenue(order);
@@ -231,10 +216,7 @@ async function computeProfitLoss(query = {}) {
         }
     }
 
-    // Courier charges: per delivered parcel (no dedicated fee field on the order).
-    const courierCharges = roundMoney(deliveredCount * courierCostPerOrder);
-
-    // Operating expenses for the period, grouped by category.
+    // Operating expenses for the period, grouped by category (incl. courier_charges).
     const expenseRows = await Expense.aggregate([
         { $match: { date: { $gte: start, $lte: end } } },
         { $group: { _id: '$category', total: { $sum: '$amount' } } }
@@ -247,6 +229,7 @@ async function computeProfitLoss(query = {}) {
         expensesTotal += row.total;
     });
     expensesTotal = roundMoney(expensesTotal);
+    const courierCharges = roundMoney(expensesByCategory.courier_charges || 0);
 
     grossRevenue = roundMoney(grossRevenue);
     returnsAmount = roundMoney(returnsAmount);
@@ -257,11 +240,14 @@ async function computeProfitLoss(query = {}) {
 
     const netRevenue = roundMoney(grossRevenue - returnsAmount);
     const grossProfit = roundMoney(netRevenue - buyingCost);
-    const netProfit = roundMoney(grossProfit - courierCharges - expensesTotal - cashback);
+    // Courier is sourced from the expense ledger (courier_charges) and included in expensesTotal.
+    const netProfit = roundMoney(
+        grossProfit - expensesTotal - cashback - discounts - returnLoss
+    );
     const marginPercent = netRevenue > 0 ? roundMoney((netProfit / netRevenue) * 100) : 0;
 
     const totalCosts = roundMoney(
-        buyingCost + courierCharges + returnLoss + expensesTotal + cashback + discounts
+        buyingCost + returnLoss + expensesTotal + cashback + discounts
     );
 
     const rankedProducts = [...productStats.values()].map((p) => ({
@@ -297,6 +283,13 @@ async function computeProfitLoss(query = {}) {
             profit: roundMoney(b.profit)
         }));
 
+    const trend = series.map((b) => ({
+        period: b.label,
+        revenue: b.revenue,
+        cost: b.cost,
+        profit: b.profit
+    }));
+
     return {
         period: {
             start: start.toISOString(),
@@ -329,7 +322,8 @@ async function computeProfitLoss(query = {}) {
         },
         topProducts,
         worstProducts,
-        series
+        series,
+        trend
     };
 }
 

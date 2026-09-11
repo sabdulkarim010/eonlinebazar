@@ -155,14 +155,40 @@ async function resolveBrand(brandInput) {
     return { brand: brandDoc._id, brandName: brandDoc.name };
 }
 
-// ১. প্রোডাক্ট লিস্ট (পাবলিক) — ?page=1&limit=24
+/**
+ * Build a lightweight filter for ?search= / ?q= on GET /api/products (POS barcode lookup).
+ */
+function buildProductListSearchFilter(searchTerm) {
+    const trimmed = String(searchTerm || '').trim();
+    if (!trimmed) return null;
+
+    const phraseRegex = new RegExp(escapeRegex(trimmed), 'i');
+    const orConditions = [
+        { name: phraseRegex },
+        { sku: phraseRegex },
+        { 'variants.sku': phraseRegex },
+        { productId: phraseRegex }
+    ];
+
+    if (mongoose.Types.ObjectId.isValid(trimmed)) {
+        orConditions.push({ _id: trimmed });
+    }
+
+    return { $or: orConditions };
+}
+
+// ১. প্রোডাক্ট লিস্ট (পাবলিক) — ?page=1&limit=24&search=keyword&sort=popular
 const getProducts = async (req, res) => {
     try {
         const { page, limit, skip } = await parseProductPagination(req);
+        const searchTerm = String(req.query.search || req.query.q || '').trim();
+        const sortParam = String(req.query.sort || '').trim();
+        const filter = buildProductListSearchFilter(searchTerm) || {};
+        const sortOption = sortParam ? buildSortOption(sortParam) : { createdAt: -1 };
 
         const [totalProducts, products, flashSettings] = await Promise.all([
-            Product.countDocuments(),
-            Product.find().sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+            Product.countDocuments(filter),
+            Product.find(filter).sort(sortOption).skip(skip).limit(limit).lean(),
             loadFlashSaleSettings()
         ]);
 
@@ -306,7 +332,8 @@ function buildSortOption(sortParam) {
         case 'rating_desc':
         case 'rating':
         case 'top':         return { rating: -1, numOfReviews: -1 };
-        case 'popular':     return { numOfReviews: -1, rating: -1 };
+        case 'popular':
+        case 'sales':       return { numOfReviews: -1, rating: -1 };
         case 'relevance':   return { rating: -1, numOfReviews: -1, createdAt: -1 };
         case 'newest':
         default:            return { createdAt: -1 };

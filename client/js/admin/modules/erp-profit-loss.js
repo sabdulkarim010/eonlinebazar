@@ -7,8 +7,7 @@
  * tables. Talks to GET /api/admin/finance/profit-loss and the PDF/CSV
  * export endpoints (superadmin only).
  *
- * Chart.js is NOT loaded in the admin bundle, so all charts are hand-drawn
- * as inline SVG to avoid adding a dependency.
+ * Charts use Chart.js (loaded in admin/partials/head.html).
  */
 import '../admin-core.js';
 
@@ -33,6 +32,9 @@ const PL_EXPENSE_LABELS = {
 };
 
 let plLastReport = null;
+let plDonutChart = null;
+let plBarChart = null;
+let plTrendChart = null;
 
 function plFormatMoney(n) {
     return typeof formatAdminPrice === 'function'
@@ -69,6 +71,7 @@ function plGetEls() {
         cards: document.getElementById('plSummaryCards'),
         donut: document.getElementById('plCostsDonut'),
         bar: document.getElementById('plRevenueCostBar'),
+        trend: document.getElementById('plTrendChart'),
         topBody: document.getElementById('plTopProductsBody'),
         worstBody: document.getElementById('plWorstProductsBody'),
         expenseBody: document.getElementById('plExpenseBreakdownBody')
@@ -94,19 +97,19 @@ function plSetExportsEnabled(enabled) {
 /* Rendering                                                          */
 /* ------------------------------------------------------------------ */
 
-function plRenderCards(report) {
+function renderSummaryCards(report) {
     const els = plGetEls();
     if (!els.cards) return;
 
     const margin = report.profit.marginPercent;
-    const marginTone = report.profit.net >= 0 ? 'pl-card--good' : 'pl-card--bad';
+    const profitPositive = report.profit.net >= 0;
 
     const cards = [
-        { label: 'Net Revenue', value: plFormatMoney(report.revenue.net), sub: `Gross ${plFormatMoney(report.revenue.gross)}`, tone: '' },
-        { label: 'Total Cost', value: plFormatMoney(report.costs.total), sub: `COGS ${plFormatMoney(report.costs.buying)}`, tone: '' },
-        { label: 'Gross Profit', value: plFormatMoney(report.profit.gross), sub: 'Net revenue − COGS', tone: '' },
-        { label: 'Net Profit', value: plFormatMoney(report.profit.net), sub: `Margin ${margin}%`, tone: marginTone },
-        { label: 'Delivered Orders', value: String(report.orders.delivered), sub: `Returns ${plFormatMoney(report.revenue.returns)}`, tone: '' }
+        { label: 'Gross Revenue', value: plFormatMoney(report.revenue.gross), sub: `Returns ${plFormatMoney(report.revenue.returns)}`, tone: '' },
+        { label: 'Net Revenue', value: plFormatMoney(report.revenue.net), sub: 'After return deductions', tone: '' },
+        { label: 'Total Costs', value: plFormatMoney(report.costs.total), sub: `COGS ${plFormatMoney(report.costs.buying)}`, tone: '' },
+        { label: 'Net Profit', value: plFormatMoney(report.profit.net), sub: `Gross profit ${plFormatMoney(report.profit.gross)}`, tone: profitPositive ? 'pl-card--good' : 'pl-card--bad' },
+        { label: 'Margin %', value: `${margin}%`, sub: profitPositive ? 'Profitable period' : 'Loss period', tone: profitPositive ? 'pl-card--good' : 'pl-card--bad' }
     ];
 
     els.cards.innerHTML = cards.map((c) => `
@@ -118,107 +121,148 @@ function plRenderCards(report) {
     `).join('');
 }
 
-function plRenderDonut(report) {
-    const els = plGetEls();
-    if (!els.donut) return;
-
-    const slices = PL_COST_SLICES
-        .map((s) => ({ ...s, value: Number(report.costs[s.key] || 0) }))
-        .filter((s) => s.value > 0);
-
-    const total = slices.reduce((sum, s) => sum + s.value, 0);
-
-    if (total <= 0) {
-        els.donut.innerHTML = '<p class="pl-empty">No cost data for this period.</p>';
-        return;
-    }
-
-    const cx = 90;
-    const cy = 90;
-    const r = 70;
-    const strokeW = 34;
-    const circumference = 2 * Math.PI * r;
-    let offset = 0;
-
-    const segments = slices.map((s) => {
-        const fraction = s.value / total;
-        const dash = fraction * circumference;
-        const seg = `
-            <circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
-                stroke="${s.color}" stroke-width="${strokeW}"
-                stroke-dasharray="${dash.toFixed(2)} ${(circumference - dash).toFixed(2)}"
-                stroke-dashoffset="${(-offset).toFixed(2)}"
-                transform="rotate(-90 ${cx} ${cy})">
-                <title>${plEscape(s.label)}: ${plEscape(plFormatMoney(s.value))} (${(fraction * 100).toFixed(1)}%)</title>
-            </circle>`;
-        offset += dash;
-        return seg;
-    }).join('');
-
-    const legend = slices.map((s) => `
-        <li class="pl-legend-item">
-            <span class="pl-legend-dot" style="background:${s.color};"></span>
-            <span class="pl-legend-label">${plEscape(s.label)}</span>
-            <span class="pl-legend-value">${plEscape(plFormatMoney(s.value))}</span>
-        </li>
-    `).join('');
-
-    els.donut.innerHTML = `
-        <div class="pl-donut-chart">
-            <svg viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="Cost breakdown donut chart">
-                ${segments}
-                <text x="${cx}" y="${cy - 4}" text-anchor="middle" class="pl-donut-total-label">Total</text>
-                <text x="${cx}" y="${cy + 16}" text-anchor="middle" class="pl-donut-total-value">${plEscape(plFormatMoney(total))}</text>
-            </svg>
-            <ul class="pl-legend">${legend}</ul>
-        </div>`;
+function plDestroyCharts() {
+    if (plDonutChart) { plDonutChart.destroy(); plDonutChart = null; }
+    if (plBarChart) { plBarChart.destroy(); plBarChart = null; }
+    if (plTrendChart) { plTrendChart.destroy(); plTrendChart = null; }
 }
 
-function plRenderBar(report) {
+function renderCharts(report) {
+    if (typeof Chart === 'undefined') return;
     const els = plGetEls();
-    if (!els.bar) return;
+    plDestroyCharts();
 
-    const series = Array.isArray(report.series) ? report.series : [];
-    if (!series.length) {
-        els.bar.innerHTML = '<p class="pl-empty">No time-series data for this period.</p>';
-        return;
+    const expenseSlices = Object.entries(report.costs.expenses || {})
+        .map(([key, value]) => ({
+            label: PL_EXPENSE_LABELS[key] || key,
+            value: Number(value || 0),
+            color: {
+                office_rent: '#8b5cf6',
+                utilities: '#3b82f6',
+                staff_salary: '#ec4899',
+                marketing: '#f97316',
+                courier_charges: '#0ea5e9',
+                packaging: '#eab308',
+                equipment: '#64748b',
+                other: '#94a3b8'
+            }[key] || '#cbd5e1'
+        }))
+        .filter((s) => s.value > 0);
+
+    if (els.donut) {
+        const donutData = expenseSlices.length
+            ? expenseSlices
+            : PL_COST_SLICES
+                .map((s) => ({ label: s.label, value: Number(report.costs[s.key] || 0), color: s.color }))
+                .filter((s) => s.value > 0);
+
+        if (!donutData.length) {
+            plDonutChart = null;
+        } else {
+            plDonutChart = new Chart(els.donut, {
+                type: 'doughnut',
+                data: {
+                    labels: donutData.map((s) => s.label),
+                    datasets: [{
+                        data: donutData.map((s) => s.value),
+                        backgroundColor: donutData.map((s) => s.color),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
     }
 
-    const maxVal = Math.max(1, ...series.map((s) => Math.max(s.revenue, s.cost)));
-    const chartH = 200;
-    const chartW = Math.max(320, series.length * 70);
-    const barGroupW = chartW / series.length;
-    const barW = Math.min(20, barGroupW / 3);
-    const baseY = chartH - 24;
-    const usableH = baseY - 10;
+    const series = Array.isArray(report.trend) ? report.trend
+        : (Array.isArray(report.series) ? report.series.map((s) => ({
+            period: s.label,
+            revenue: s.revenue,
+            cost: s.cost,
+            profit: s.profit
+        })) : []);
 
-    const bars = series.map((s, i) => {
-        const groupX = i * barGroupW + barGroupW / 2;
-        const revH = (s.revenue / maxVal) * usableH;
-        const costH = (s.cost / maxVal) * usableH;
-        const revX = groupX - barW - 2;
-        const costX = groupX + 2;
-        return `
-            <rect x="${revX.toFixed(1)}" y="${(baseY - revH).toFixed(1)}" width="${barW}" height="${revH.toFixed(1)}" fill="#2563eb" rx="2">
-                <title>${plEscape(s.label)} revenue: ${plEscape(plFormatMoney(s.revenue))}</title>
-            </rect>
-            <rect x="${costX.toFixed(1)}" y="${(baseY - costH).toFixed(1)}" width="${barW}" height="${costH.toFixed(1)}" fill="#f59e0b" rx="2">
-                <title>${plEscape(s.label)} cost: ${plEscape(plFormatMoney(s.cost))}</title>
-            </rect>
-            <text x="${groupX.toFixed(1)}" y="${chartH - 6}" text-anchor="middle" class="pl-bar-label">${plEscape(s.label)}</text>`;
-    }).join('');
+    if (els.bar && series.length) {
+        plBarChart = new Chart(els.bar, {
+            type: 'bar',
+            data: {
+                labels: series.map((s) => s.period),
+                datasets: [
+                    {
+                        label: 'Revenue',
+                        data: series.map((s) => s.revenue),
+                        backgroundColor: '#2563eb',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Cost',
+                        data: series.map((s) => s.cost),
+                        backgroundColor: '#f59e0b',
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
 
-    els.bar.innerHTML = `
-        <div class="pl-bar-legend">
-            <span><i class="pl-legend-dot" style="background:#2563eb;"></i> Revenue</span>
-            <span><i class="pl-legend-dot" style="background:#f59e0b;"></i> Cost</span>
-        </div>
-        <div class="pl-bar-scroll">
-            <svg viewBox="0 0 ${chartW} ${chartH}" width="${chartW}" height="${chartH}" role="img" aria-label="Revenue versus cost bar chart">
-                <line x1="0" y1="${baseY}" x2="${chartW}" y2="${baseY}" stroke="#e2e8f0" stroke-width="1"/>
-                ${bars}
-            </svg>
-        </div>`;
+    if (els.trend && series.length) {
+        plTrendChart = new Chart(els.trend, {
+            type: 'line',
+            data: {
+                labels: series.map((s) => s.period),
+                datasets: [
+                    {
+                        label: 'Revenue',
+                        data: series.map((s) => s.revenue),
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        tension: 0.3,
+                        fill: false
+                    },
+                    {
+                        label: 'Cost',
+                        data: series.map((s) => s.cost),
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                        tension: 0.3,
+                        fill: false
+                    },
+                    {
+                        label: 'Profit',
+                        data: series.map((s) => s.profit),
+                        borderColor: '#16a34a',
+                        backgroundColor: 'rgba(22, 163, 74, 0.08)',
+                        tension: 0.3,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'bottom' } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+}
+
+function renderTopProducts(report) {
+    const els = plGetEls();
+    plRenderProductRows(report.topProducts, els.topBody);
+    plRenderProductRows(report.worstProducts, els.worstBody, { worst: true });
+    plRenderExpenses(report);
 }
 
 function plRenderProductRows(products, tbody, { worst = false } = {}) {
@@ -273,11 +317,6 @@ function plRenderExpenses(report) {
         </tr>`;
 }
 
-function plRenderCharts(report) {
-    plRenderDonut(report);
-    plRenderBar(report);
-}
-
 function plRenderReport(report) {
     const els = plGetEls();
     plLastReport = report;
@@ -288,11 +327,9 @@ function plRenderReport(report) {
         els.period.textContent = `Period: ${start} → ${end} · grouped by ${report.period.groupBy}`;
     }
 
-    plRenderCards(report);
-    plRenderCharts(report);
-    plRenderProductRows(report.topProducts, els.topBody);
-    plRenderProductRows(report.worstProducts, els.worstBody, { worst: true });
-    plRenderExpenses(report);
+    renderSummaryCards(report);
+    renderCharts(report);
+    renderTopProducts(report);
 
     if (els.result) els.result.hidden = false;
     plSetExportsEnabled(true);
@@ -302,8 +339,11 @@ function plRenderReport(report) {
 /* Data + exports                                                     */
 /* ------------------------------------------------------------------ */
 
-async function loadPLReport() {
+async function loadPLReport(startDate, endDate, groupBy) {
     const els = plGetEls();
+    if (startDate && els.start) els.start.value = startDate;
+    if (endDate && els.end) els.end.value = endDate;
+    if (groupBy && els.groupBy) els.groupBy.value = groupBy;
     if (!els.result) return;
 
     if (els.error) els.error.hidden = true;
@@ -402,5 +442,10 @@ function initProfitLossReport() {
 
 window.initProfitLossReport = initProfitLossReport;
 window.loadPLReport = loadPLReport;
+window.renderSummaryCards = renderSummaryCards;
+window.renderCharts = renderCharts;
+window.renderTopProducts = renderTopProducts;
+window.exportPDF = exportPDF;
+window.exportCSV = exportCSV;
 window.exportPLReportPDF = exportPDF;
 window.exportPLReportCSV = exportCSV;

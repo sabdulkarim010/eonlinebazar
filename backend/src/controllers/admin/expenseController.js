@@ -9,7 +9,9 @@
  ********************************************************************/
 
 const mongoose = require('mongoose');
+const cloudinary = require('../../config/cloudinary');
 const Expense = require('../../models/expense');
+const upload = require('../../middlewares/uploadMiddleware');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 
 const CATEGORIES = Expense.CATEGORIES;
@@ -41,6 +43,44 @@ function buildDateRangeFilter(query) {
 function normalizeCategory(value) {
     const cat = String(value || '').trim().toLowerCase();
     return CATEGORIES.includes(cat) ? cat : '';
+}
+
+function monthBounds(year, monthIndex) {
+    const start = new Date(year, monthIndex, 1);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+    return { start, end };
+}
+
+function formatMonthKey(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+}
+
+function formatMonthLabel(date) {
+    return date.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+}
+
+async function sumExpensesBetween(start, end) {
+    const rows = await Expense.aggregate([
+        { $match: { date: { $gte: start, $lte: end } } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    return rows[0]?.total || 0;
+}
+
+async function uploadBufferToCloudinary(file, folder) {
+    return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+            { folder, resource_type: 'auto' },
+            (err, result) => {
+                if (err) return reject(err);
+                resolve(result);
+            }
+        );
+        stream.end(file.buffer);
+    });
 }
 
 /**
@@ -229,8 +269,31 @@ exports.deleteExpense = async (req, res) => {
 };
 
 /**
+ * POST /api/admin/expenses/upload-receipt
+ * Upload a receipt image/PDF to Cloudinary; returns { url } for attachmentUrl.
+ */
+exports.uploadExpenseReceipt = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No receipt file supplied.' });
+        }
+
+        const result = await uploadBufferToCloudinary(req.file, 'erp/expenses');
+        return res.status(201).json({
+            success: true,
+            message: 'Receipt uploaded.',
+            data: { url: result.secure_url || result.url, publicId: result.public_id }
+        });
+    } catch (err) {
+        console.error('uploadExpenseReceipt error:', err);
+        return res.status(500).json({ success: false, message: 'Failed to upload receipt.' });
+    }
+};
+
+/**
  * GET /api/admin/expenses/summary
- * Totals by category for a date range (?startDate= ?endDate=).
+ * Totals by category for a date range (?startDate= ?endDate=) plus monthly trend
+ * and this-month vs last-month stats for the dashboard cards.
  */
 exports.getExpenseSummary = async (req, res) => {
     try {
@@ -238,20 +301,38 @@ exports.getExpenseSummary = async (req, res) => {
         const dateRange = buildDateRangeFilter(req.query);
         if (dateRange) filter.date = dateRange;
 
-        const rows = await Expense.aggregate([
-            { $match: filter },
-            {
-                $group: {
-                    _id: '$category',
-                    total: { $sum: '$amount' },
-                    count: { $sum: 1 }
-                }
-            },
-            { $sort: { total: -1 } }
+        const now = new Date();
+        const thisMonth = monthBounds(now.getFullYear(), now.getMonth());
+        const lastMonth = monthBounds(now.getFullYear(), now.getMonth() - 1);
+        const trendStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+        trendStart.setHours(0, 0, 0, 0);
+
+        const [rows, thisMonthTotal, lastMonthTotal, monthlyTrendRows] = await Promise.all([
+            Expense.aggregate([
+                { $match: filter },
+                {
+                    $group: {
+                        _id: '$category',
+                        total: { $sum: '$amount' },
+                        count: { $sum: 1 }
+                    }
+                },
+                { $sort: { total: -1 } }
+            ]),
+            sumExpensesBetween(thisMonth.start, thisMonth.end),
+            sumExpensesBetween(lastMonth.start, lastMonth.end),
+            Expense.aggregate([
+                { $match: { date: { $gte: trendStart, $lte: thisMonth.end } } },
+                {
+                    $group: {
+                        _id: { year: { $year: '$date' }, month: { $month: '$date' } },
+                        total: { $sum: '$amount' }
+                    }
+                },
+                { $sort: { '_id.year': 1, '_id.month': 1 } }
+            ])
         ]);
 
-        // Emit a stable, zero-filled bucket per category so the UI can render
-        // every row even when a category has no spend in the period.
         const byCategory = {};
         CATEGORIES.forEach((cat) => { byCategory[cat] = { total: 0, count: 0 }; });
         let grandTotal = 0;
@@ -259,6 +340,34 @@ exports.getExpenseSummary = async (req, res) => {
             byCategory[row._id] = { total: row.total, count: row.count };
             grandTotal += row.total;
         });
+
+        const thisMonthRows = await Expense.aggregate([
+            { $match: { date: { $gte: thisMonth.start, $lte: thisMonth.end } } },
+            { $group: { _id: '$category', total: { $sum: '$amount' } } },
+            { $sort: { total: -1 } },
+            { $limit: 1 }
+        ]);
+        const topCategory = thisMonthRows[0]?._id || null;
+        const topCategoryTotal = thisMonthRows[0]?.total || 0;
+
+        const vsLastMonth = lastMonthTotal > 0
+            ? Math.round(((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 1000) / 10
+            : (thisMonthTotal > 0 ? 100 : 0);
+
+        const monthlyTrend = [];
+        for (let i = 5; i >= 0; i -= 1) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const keyYear = d.getFullYear();
+            const keyMonth = d.getMonth() + 1;
+            const match = monthlyTrendRows.find(
+                (row) => row._id.year === keyYear && row._id.month === keyMonth
+            );
+            monthlyTrend.push({
+                month: formatMonthKey(d),
+                label: formatMonthLabel(d),
+                total: match?.total || 0
+            });
+        }
 
         return res.json({
             success: true,
@@ -269,7 +378,15 @@ exports.getExpenseSummary = async (req, res) => {
                     total: byCategory[cat].total,
                     count: byCategory[cat].count
                 })),
-                grandTotal
+                grandTotal,
+                stats: {
+                    thisMonthTotal,
+                    lastMonthTotal,
+                    vsLastMonth,
+                    topCategory,
+                    topCategoryTotal
+                },
+                monthlyTrend
             }
         });
     } catch (err) {
@@ -277,3 +394,6 @@ exports.getExpenseSummary = async (req, res) => {
         return res.status(500).json({ success: false, message: 'Failed to build expense summary.' });
     }
 };
+
+/** Multer middleware export for the upload-receipt route. */
+exports.receiptUploadMiddleware = upload.single('receipt');

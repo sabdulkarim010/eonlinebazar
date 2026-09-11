@@ -34,7 +34,7 @@
             </div>
             <div class="pl-controls-actions">
                 <button type="button" id="plGenerateBtn" class="btn-primary pl-generate-btn">
-                    <i class="fa-solid fa-chart-column"></i> Generate
+                    <i class="fa-solid fa-chart-column"></i> Generate Report
                 </button>
                 <button type="button" id="plExportPdfBtn" class="pl-export-btn" disabled>
                     <i class="fa-solid fa-file-pdf"></i> Export PDF
@@ -60,11 +60,21 @@
             <div class="pl-charts">
                 <div class="pl-chart-card">
                     <h4><i class="fa-solid fa-chart-pie"></i> Cost Breakdown</h4>
-                    <div class="pl-donut-wrap" id="plCostsDonut"></div>
+                    <div class="pl-chart-canvas-wrap pl-donut-wrap">
+                        <canvas id="plCostsDonut" aria-label="Cost breakdown donut chart"></canvas>
+                    </div>
                 </div>
                 <div class="pl-chart-card">
                     <h4><i class="fa-solid fa-chart-column"></i> Revenue vs Cost</h4>
-                    <div class="pl-bar-wrap" id="plRevenueCostBar"></div>
+                    <div class="pl-chart-canvas-wrap pl-bar-wrap">
+                        <canvas id="plRevenueCostBar" aria-label="Revenue versus cost bar chart"></canvas>
+                    </div>
+                </div>
+                <div class="pl-chart-card pl-chart-card--wide">
+                    <h4><i class="fa-solid fa-chart-line"></i> Profit Trend</h4>
+                    <div class="pl-chart-canvas-wrap pl-trend-wrap">
+                        <canvas id="plTrendChart" aria-label="Revenue cost profit trend line chart"></canvas>
+                    </div>
                 </div>
             </div>
 

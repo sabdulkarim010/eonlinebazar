@@ -833,6 +833,131 @@ async function bookParcelForOrder(order, options = {}) {
     };
 }
 
+/**
+ * Poll Pathao consignment status (GET order info). Never throws.
+ * @returns {Promise<{success: boolean, rawStatus?: string, reason?: string}>}
+ */
+async function fetchPathaoOrderStatus(consignmentId) {
+    const code = String(consignmentId || '').trim();
+    if (!code) {
+        return { success: false, reason: 'Pathao consignment id is missing.' };
+    }
+
+    const tokenResult = await getPathaoAccessToken();
+    if (!tokenResult.success) {
+        return { success: false, reason: tokenResult.reason || 'Pathao auth failed.' };
+    }
+
+    const baseUrl = getPathaoBaseUrl();
+    try {
+        const res = await fetch(`${baseUrl}/aladdin/api/v1/orders/${encodeURIComponent(code)}/info`, {
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${tokenResult.accessToken}`,
+                Accept: 'application/json'
+            },
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+        });
+        const text = await res.text();
+        let data = {};
+        try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
+        const raw = String(
+            data.order_status
+            || data.orderStatus
+            || data.data?.order_status
+            || data.data?.orderStatus
+            || data.status
+            || ''
+        ).trim();
+        if (!res.ok || !raw) {
+            return { success: false, reason: `Pathao status HTTP ${res.status}` };
+        }
+        return { success: true, rawStatus: raw };
+    } catch (err) {
+        return { success: false, reason: `Pathao status fetch failed: ${err.message}` };
+    }
+}
+
+/**
+ * Poll RedX parcel status. Never throws.
+ * @returns {Promise<{success: boolean, rawStatus?: string, reason?: string}>}
+ */
+async function fetchRedxParcelStatus(trackingId) {
+    const code = String(trackingId || '').trim();
+    const apiToken = String(process.env.REDX_API_TOKEN || '').trim();
+    if (!code) {
+        return { success: false, reason: 'RedX tracking id is missing.' };
+    }
+    if (!apiToken) {
+        return { success: false, reason: 'RedX credentials not configured.' };
+    }
+
+    const base = getRedxParcelUrl().replace(/\/parcel\/?$/, '');
+    try {
+        const res = await fetch(`${base}/parcel/info/${encodeURIComponent(code)}`, {
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${apiToken}`,
+                Accept: 'application/json'
+            },
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+        });
+        const text = await res.text();
+        let data = {};
+        try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
+        const raw = String(
+            data.delivery_status
+            || data.deliveryStatus
+            || data.status
+            || data.data?.delivery_status
+            || data.data?.status
+            || ''
+        ).trim();
+        if (!res.ok || !raw) {
+            return { success: false, reason: `RedX status HTTP ${res.status}` };
+        }
+        return { success: true, rawStatus: raw };
+    } catch (err) {
+        return { success: false, reason: `RedX status fetch failed: ${err.message}` };
+    }
+}
+
+/**
+ * Poll Steadfast consignment status by consignment id. Never throws.
+ * @returns {Promise<{success: boolean, rawStatus?: string, reason?: string}>}
+ */
+async function fetchSteadfastOrderStatus(consignmentId, config) {
+    const code = String(consignmentId || '').trim();
+    if (!code) {
+        return { success: false, reason: 'Steadfast consignment id is missing.' };
+    }
+
+    try {
+        const base = (config?.endpoint || COURIER_PROVIDERS.steadfast.createOrderUrl || '')
+            .replace(/\/create_order\/?$/, '');
+        const url = `${base}/status_by_cid/${encodeURIComponent(code)}`;
+        const res = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Api-Key': config.apiKey,
+                'Secret-Key': config.secretKey,
+                Accept: 'application/json'
+            },
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+        });
+        const text = await res.text();
+        let data = {};
+        try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
+        const raw = String(data.delivery_status || data.status || '').trim();
+        if (!res.ok || !raw) {
+            return { success: false, reason: `Steadfast status HTTP ${res.status}` };
+        }
+        return { success: true, rawStatus: raw };
+    } catch (err) {
+        return { success: false, reason: `Steadfast status fetch failed: ${err.message}` };
+    }
+}
+
 module.exports = {
     COURIER_PROVIDERS,
     VALID_COURIER_PROVIDERS,
@@ -852,5 +977,8 @@ module.exports = {
     bookSteadfastParcel,
     bookPathaoParcel,
     bookRedxParcel,
-    bookParcelForOrder
+    bookParcelForOrder,
+    fetchSteadfastOrderStatus,
+    fetchPathaoOrderStatus,
+    fetchRedxParcelStatus
 };

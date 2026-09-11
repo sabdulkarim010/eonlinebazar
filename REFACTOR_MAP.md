@@ -180,35 +180,48 @@ client/js/admin/modules/core-nav.js [DONE] view-crm-abandoned → loadAbandonedC
 backend/src/controllers/admin/crmController.js [DONE] cart list in GET + notifyAbandonedCart POST handler
 backend/src/routes/adminRoutes.js [DONE] POST /crm/abandoned-carts/:userId/notify
 #
-# ERP Advanced — POS dashboard, courier deep integration, advanced P&L: 2026-09-11
-# --- Task 1: Advanced POS dashboard ---
-client/js/admin/modules/orders-pos.js [DONE] barcode/SKU scan-to-cart (findProductByCode, handleBarcodeScan), quick popular-product grid (loadPosQuickGrid/renderPosQuickGrid/posQuickAdd), shared addProductToCart, POS invoice/receipt modal (renderPosInvoice/printPosInvoice/downloadPosInvoicePdf)
-client/admin/partials/modals-orders.html [DONE] barcode row + qty, quick-add grid, posInvoiceModal receipt modal
-client/css/admin/_orders.css [DONE] .pos-barcode-*, .pos-quick-*, .pos-invoice-* styles + .courier-cell-booked/.refresh-courier-btn
+# ERP Upgrade Part 1 — POS Enhancement: 2026-09-11
+# --- Task 1: POS Enhancement ---
+client/admin/partials/orders-pos.html [NEW] manual POS modal — debounced barcode/SKU search dropdown, quick popular grid + Refresh, posInvoiceModal receipt
+client/admin/partials/modals-orders.html [DONE] placeholder — POS markup moved to orders-pos.html
+backend/src/utils/adminPageBuilder.js [DONE] MODAL_PARTIALS includes orders-pos
+backend/src/controllers/productController.js [DONE] GET /api/products ?search= & ?sort=sales|popular on list endpoint; buildProductListSearchFilter (name/sku/variants.sku)
+client/js/admin/modules/orders-pos.js [DONE] initBarcodeSearch, searchProductByBarcode, addProductFromBarcode; loadPosQuickGrid (sort=sales); showPOSInvoiceModal, printPOSInvoice, downloadPOSInvoice; shared addProductToCart
+client/css/admin/_orders.css [DONE] .pos-barcode-dropdown-*, .pos-quick-grid-refresh, .pos-quick-stock-badge, .pos-invoice-*
 client/css/admin/_print.css [DONE] body.printing-pos-invoice print-only receipt rules
-# --- Task 2: Courier deep integration ---
+# --- Task 2: Courier deep integration (Part 2 ERP Upgrade) ---
 backend/src/models/order.js [DONE] courierName + courierSyncedAt fields
-backend/src/services/courierSyncService.js [NEW] syncOrderWithCourier (book+SMS+WhatsApp+Shipped), autoSyncCourierStatus (poll+map+cashback), STATUS_MAP steadfast/pathao/redx
-backend/src/jobs/courierSyncJob.js [NEW] every-2h cron — poll in-flight parcels, reconcile status, SecurityLog summary
+backend/src/services/courierService.js [DONE] fetchSteadfastOrderStatus, fetchPathaoOrderStatus, fetchRedxParcelStatus (status polling on top of booking)
+backend/src/services/courierSyncService.js [DONE] syncOrderWithCourier (book+SMS+WhatsApp+SecurityLog+Shipped), autoSyncCourierStatus (Steadfast/Pathao/RedX poll+map+cashback), STATUS_MAP steadfast/pathao/redx incl. Returned
+backend/src/jobs/courierSyncJob.js [DONE] every-3h cron (`0 */3 * * *`) — poll Shipped/Out for Delivery, log "X updated, Y unchanged, Z errors"
 backend/src/server.js [DONE] startCourierSyncCron() bootstrap
-backend/src/controllers/courierController.js [DONE] bookAndSyncCourier (PATCH), getCourierStatus (GET)
-client/js/admin/modules/orders-actions.js [DONE] Book & Sync button + Refresh Status button (bookAndSyncCourier/refreshCourierStatus)
-backend/src/routes/adminRoutes.js [DONE] PATCH /orders/:id/book-courier, GET /orders/:id/courier-status
-# --- Task 3: Expense tracking ---
-backend/src/models/expense.js [NEW] category enum + amount/date/reference/recordedBy/attachmentUrl, indexes {date:-1},{category:1,date:-1}
-backend/src/controllers/admin/expenseController.js [NEW] create/getAll/update/delete/getExpenseSummary (SecurityLog resourceType:'expense')
-backend/src/models/securityLog.js [DONE] added 'expense' to RESOURCE_TYPES enum
-backend/src/routes/adminRoutes.js [DONE] GET/POST /expenses, PATCH/DELETE /expenses/:id, GET /expenses/summary (checkPermission manage_settings)
-# --- Task 4: Advanced Profit & Loss ---
-backend/src/controllers/admin/profitLossController.js [NEW] computeProfitLoss + getProfitLossReport (revenue/costs/profit/top+worst products/series)
-backend/src/controllers/admin/exportController.js [NEW] exportPLtoPDF (PDFKit), exportPLtoCSV
-client/admin/partials/view-finance.html [DONE] P&L section — date range, summary cards, SVG donut + bar, product/expense tables, export buttons
-client/js/admin/modules/erp-profit-loss.js [NEW] loadPLReport, inline-SVG renderCharts, exportPDF/exportCSV, initProfitLossReport
-client/js/admin/admin-products.js [DONE] imports erp-profit-loss.js
-client/css/admin/_finance.css [NEW] P&L controls/cards/charts/tables styles
-client/css/admin.css [DONE] @import _finance.css
-client/js/admin/modules/core-nav.js [DONE] view-finance handler also calls initProfitLossReport
+backend/src/controllers/admin/courierController.js [NEW] bookAndSyncCourier (PATCH), getCourierStatus (GET)
+backend/src/controllers/courierController.js [DONE] send-courier + config status; re-exports admin book/sync handlers
+client/js/admin/modules/orders-actions.js [DONE] Book & Sync button + ↻ Refresh on shipped rows (bookAndSyncCourier/refreshCourierStatus)
+backend/src/routes/adminRoutes.js [DONE] PATCH /orders/:orderId/book-courier, GET /orders/:orderId/courier-status
+# --- Task 3: Expense tracking (Part 3 ERP Upgrade) ---
+backend/src/models/expense.js [DONE] 8-category enum + amount/date/reference/recordedBy/attachmentUrl, indexes {date:-1},{category:1,date:-1}
+backend/src/controllers/admin/expenseController.js [DONE] create/getAll/update/delete/getExpenseSummary (stats+monthlyTrend+vsLastMonth), uploadExpenseReceipt (Cloudinary)
+backend/src/models/securityLog.js [DONE] 'expense' in RESOURCE_TYPES enum
+backend/src/routes/adminRoutes.js [DONE] GET/POST /expenses, POST /expenses/upload-receipt, PATCH/DELETE /expenses/:id, GET /expenses/summary (manage_settings)
+client/admin/partials/view-erp-expenses.html [NEW] stats row, filters, table, category sidebar, monthly trend, add/edit modal + receipt upload
+client/js/admin/modules/erp-expenses.js [NEW] loadExpensesSection, openAddExpenseModal, saveExpense, deleteExpense, applyExpenseFilters, all window.* exports
+client/css/admin/_erp-expenses.css [NEW] expense tracking UI styles
+client/css/admin.css [DONE] one-line import _erp-expenses.css
+client/js/admin/admin-products.js [DONE] one-line import erp-expenses.js
+backend/src/utils/adminPageBuilder.js [DONE] view-erp-expenses partial
+client/admin/partials/sidebar.html [DONE] ERP → Expense Tracking nav item
+client/js/admin/modules/core-nav.js [DONE] refreshMap view-erp-expenses → loadExpensesSection
+client/js/admin/modules/core-breadcrumb.js [DONE] view-erp-expenses breadcrumb
+client/js/admin/modules/core-state.js [DONE] view-erp-expenses section title
+# --- Task 4: Advanced P&L Report (Part 4 ERP Upgrade — FINAL) ---
+backend/src/controllers/admin/profitLossController.js [DONE] getProfitLossReport — Delivered revenue, return deductions, COGS (totalBuyingPrice), courier from Expense courier_charges, expenses by category, cashback/discounts/returnLoss, net margin, trend + top/worst products
+backend/src/controllers/admin/exportController.js [DONE] exportPLtoPDF (PDFKit), exportPLtoCSV — shared computeProfitLoss engine
+client/admin/partials/view-finance.html [DONE] date range + groupBy, Generate Report, summary cards, Chart.js donut/bar/trend, product + expense tables, Export PDF/CSV
+client/js/admin/modules/erp-profit-loss.js [DONE] loadPLReport, renderSummaryCards, renderCharts (Chart.js), renderTopProducts, exportPDF/exportCSV — all window.*
+client/css/admin/_finance.css [DONE] P&L chart canvas + wide trend card styles
 backend/src/routes/adminRoutes.js [DONE] GET /finance/profit-loss + /export-pdf + /export-csv (verifyAdmin + requireSuperAdmin)
+# ERP Upgrade complete (Parts 1–4): POS · Courier sync · Expense tracking · Advanced P&L
 #
 # Refactoring complete — all listed files are [DONE]
 #
