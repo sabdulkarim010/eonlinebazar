@@ -34,9 +34,19 @@
 
 
 
+# Payment due
 
+১. OpenAI API Credit (AI Chatbot-এর জন্য)
+- কেন লাগবে: ওয়েবসাইটে এআই কাস্টমার সাপোর্ট/চ্যাট সার্ভিস চালুর জন্য।
+- বর্তমান অবস্থা: ব্যালেন্স শেষ হয়ে গেছে (Quota Exceeded Error)।
+- পেমেন্টের লিংক: https://platform.openai.com/settings/organization/billing
+- কাজ: নতুন করে Payment Credits যোগ করা।
 
-
+২. UltraMsg Subscription (WhatsApp API-এর জন্য)
+- কেন লাগবে: হোয়াটসঅ্যাপ নোটিফিকেশন সার্ভিস চালুর জন্য।
+- বর্তমান অবস্থা: বিল বাকি থাকায় সার্ভিস স্থগিত (Payment Stopped/Account Suspended)।
+- পেমেন্টের লিংক: https://ultramsg.com/
+- কাজ: ড্যাশবোর্ডে গিয়ে সাবস্ক্রিপশন ফি বা ইনভয়েস রিচার্জ/রিনিউ করা।
 
 
 

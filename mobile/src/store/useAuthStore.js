@@ -82,6 +82,12 @@ function toPublicUser(user) {
     ordersCount: Number(user?.ordersCount || 0),
     wishlistCount,
     memberSince: user?.createdAt || user?.memberSince || null,
+    gender: user.gender ?? '',
+    dateOfBirth: user.dateOfBirth ?? '',
+    district: user.district ?? '',
+    upazila: user.upazila ?? '',
+    thana: user.thana ?? '',
+    fullAddress: user.fullAddress ?? '',
     walletHistory: Array.isArray(user?.walletHistory) ? user.walletHistory : [],
     rewardSettings: user?.rewardSettings && typeof user.rewardSettings === 'object'
       ? user.rewardSettings
@@ -426,11 +432,28 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  updateProfile: async ({ name, mobile, address } = {}) => {
+  updateProfile: async ({
+    name,
+    mobile,
+    address,
+    gender,
+    dateOfBirth,
+    district,
+    upazila,
+    thana,
+    fullAddress,
+  } = {}) => {
     const current = get().user || {};
     const trimmedName = String(name ?? current.name ?? '').trim();
     const trimmedMobile = String(mobile ?? current.mobile ?? '').replace(/\D/g, '');
-    const trimmedAddress = String(address ?? current.address ?? '').trim();
+    const trimmedFullAddress = String(
+      fullAddress ?? address ?? current.fullAddress ?? current.address ?? ''
+    ).trim();
+    const trimmedGender = String(gender ?? current.gender ?? '').trim();
+    const trimmedDateOfBirth = String(dateOfBirth ?? current.dateOfBirth ?? '').trim();
+    const trimmedDistrict = String(district ?? current.district ?? '').trim();
+    const trimmedUpazila = String(upazila ?? current.upazila ?? '').trim();
+    const trimmedThana = String(thana ?? current.thana ?? trimmedUpazila ?? '').trim();
     const parts = trimmedName.split(/\s+/).filter(Boolean);
 
     const nextUser = {
@@ -439,7 +462,13 @@ const useAuthStore = create((set, get) => ({
       firstName: parts[0] || '',
       lastName: parts.length > 1 ? parts.slice(1).join(' ') : '',
       mobile: trimmedMobile,
-      address: trimmedAddress,
+      address: trimmedFullAddress,
+      fullAddress: trimmedFullAddress,
+      gender: trimmedGender,
+      dateOfBirth: trimmedDateOfBirth,
+      district: trimmedDistrict,
+      upazila: trimmedUpazila,
+      thana: trimmedThana,
     };
 
     const token = get().token;
@@ -448,8 +477,13 @@ const useAuthStore = create((set, get) => ({
         name: nextUser.name,
         firstName: nextUser.firstName,
         lastName: nextUser.lastName,
-        fullAddress: nextUser.address,
-        address: nextUser.address,
+        fullAddress: trimmedFullAddress,
+        address: trimmedFullAddress,
+        gender: trimmedGender,
+        dateOfBirth: trimmedDateOfBirth,
+        district: trimmedDistrict,
+        upazila: trimmedUpazila,
+        thana: trimmedThana,
       };
       if (trimmedMobile && trimmedMobile === String(current.mobile || '').replace(/\D/g, '')) {
         payload.mobile = trimmedMobile;
@@ -457,7 +491,13 @@ const useAuthStore = create((set, get) => ({
       try {
         const { data } = await api.put('/customer/update-profile', payload);
         if (data?.user) {
-          const merged = { ...nextUser, ...toPublicUser(data.user), address: nextUser.address, mobile: nextUser.mobile };
+          const merged = {
+            ...nextUser,
+            ...toPublicUser(data.user),
+            address: nextUser.address,
+            fullAddress: nextUser.fullAddress,
+            mobile: nextUser.mobile,
+          };
           await persistSession(token, merged);
           set({ user: merged });
           return { success: true, user: merged, message: data.message || 'Profile updated.' };

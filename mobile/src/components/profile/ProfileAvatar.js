@@ -120,18 +120,24 @@ export default function ProfileAvatar({
 
   if (editable && onPress) {
     return (
-      <Pressable onPress={onPress} disabled={uploading} style={styles.pressable}>
-        {avatarBody}
-      </Pressable>
+      <View style={styles.centerWrap}>
+        <Pressable onPress={onPress} disabled={uploading} style={styles.pressable}>
+          {avatarBody}
+        </Pressable>
+      </View>
     );
   }
 
-  return avatarBody;
+  return <View style={styles.centerWrap}>{avatarBody}</View>;
 }
 
 const styles = StyleSheet.create({
+  centerWrap: {
+    alignItems: 'center',
+    width: '100%',
+  },
   pressable: {
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
   },
   wrapper: {
     justifyContent: 'center',

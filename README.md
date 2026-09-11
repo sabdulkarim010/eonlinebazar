@@ -264,6 +264,8 @@ npx expo start
 
 Scan the QR code with **Expo Go**, or press `a` / `i` for an Android / iOS emulator.
 
+**Edit Profile screen** (`EditProfileScreen.js`) uses a scrollable form layout: centered avatar block, personal info (name, gender, custom day/month/year date-of-birth picker), shipping & location via `DistrictUpazilaPicker`, field badges (read-only email, security phone, auto-fill district), and a sticky **Update Profile** footer. Profile fields sync through `useAuthStore.updateProfile()` (`gender`, `dateOfBirth`, `district`, `upazila`, `thana`, `fullAddress`).
+
 ---
 
 ## Project Layout
