@@ -392,17 +392,28 @@ function setupAdminSPARouter() {
  * @param {string} sectionTitle - পেজের মূল টাইটেল টেক্সট
  */
 function switchDashboardView(sectionId, sectionTitle) {
+    const resolvedSectionId = ADMIN_SECTION_ID_ALIASES[sectionId] || sectionId;
+
     // সব সেকশন হাইড করা
     const allSections = document.querySelectorAll('.admin-section, .spa-section');
     allSections.forEach(sec => {
         sec.style.display = 'none';
+        sec.hidden = true;
+        sec.setAttribute('aria-hidden', 'true');
         sec.classList.remove('active');
     });
 
+    hideIsolatedAdminViews(resolvedSectionId);
+
     // টার্গেটেড সেকশনটি শো করা
-    const targetSection = document.getElementById(sectionId) || document.getElementById(`view-${sectionId}`);
+    const targetSection = document.getElementById(resolvedSectionId)
+        || document.getElementById(sectionId)
+        || document.getElementById(`view-${sectionId}`);
     if (targetSection) {
         targetSection.style.display = 'block';
+        targetSection.hidden = false;
+        targetSection.removeAttribute('hidden');
+        targetSection.setAttribute('aria-hidden', 'false');
         targetSection.classList.add('active');
     }
 
@@ -568,6 +579,21 @@ const ADMIN_SECTION_ID_ALIASES = {
     staff: 'view-staff'
 };
 
+/** Standalone admin views that must never leak when another route is active. */
+const ISOLATED_ADMIN_VIEWS = ['view-system-backup'];
+
+function hideIsolatedAdminViews(activeSectionId) {
+    ISOLATED_ADMIN_VIEWS.forEach((viewId) => {
+        if (viewId === activeSectionId) return;
+        const el = document.getElementById(viewId);
+        if (!el) return;
+        el.style.display = 'none';
+        el.hidden = true;
+        el.setAttribute('aria-hidden', 'true');
+        el.classList.remove('active');
+    });
+}
+
 function navigateAdminSection(targetId, clickedItem) {
     if (!targetId) return;
 
@@ -605,12 +631,19 @@ function navigateAdminSection(targetId, clickedItem) {
             return;
         }
         section.style.display = 'none';
+        section.hidden = true;
+        section.setAttribute('aria-hidden', 'true');
         section.classList.remove('active');
     });
+
+    hideIsolatedAdminViews(sectionId);
 
     const targetSection = document.getElementById(sectionId);
     if (targetSection) {
         targetSection.style.display = 'block';
+        targetSection.hidden = false;
+        targetSection.removeAttribute('hidden');
+        targetSection.setAttribute('aria-hidden', 'false');
         targetSection.classList.add('active');
     }
 

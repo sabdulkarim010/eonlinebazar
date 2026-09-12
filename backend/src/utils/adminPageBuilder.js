@@ -45,8 +45,12 @@ const VIEW_PARTIALS = [
     'view-accounts',
     'view-finance',
     'view-erp-expenses',
+    // Isolated SPA view — hidden by default in partial; core-nav toggles visibility.
     'view-system-backup'
 ];
+
+/** Partial ids that must stay hidden until core-nav activates them. */
+const ISOLATED_VIEW_PARTIALS = new Set(['view-system-backup']);
 
 const MODAL_PARTIALS = [
     'modals-products',
@@ -110,3 +114,5 @@ module.exports = function getAdminPage() {
     cache = buildAdminPage();
     return cache;
 };
+
+module.exports.ISOLATED_VIEW_PARTIALS = ISOLATED_VIEW_PARTIALS;

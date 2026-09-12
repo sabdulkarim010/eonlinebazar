@@ -162,6 +162,11 @@
 
 .admin-section { padding: 20px 30px; }
 
+/* SPA views: only the active section may render (overrides superadmin chrome rules) */
+.admin-section:not(.active) {
+    display: none !important;
+}
+
 
 /* --------------------------------------------------------------------------
    04. DASHBOARD METRICS & CHARTS (ড্যাশবোর্ড কার্ড এবং চার্ট)

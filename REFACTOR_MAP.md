@@ -1158,6 +1158,16 @@ tests/order.test.js [DONE] +1 additive VAT checkout test
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] BACKUP & TAX CONFIG — 2026-09-12
 README.md [DONE] 157 tests + backup UI / Tax/VAT note
 #
+# Backup UI view isolation fix — 2026-09-12
+client/css/admin/_settings-footer.css [DONE] exclude .admin-section from superadmin display:block rule
+client/css/admin/_layout.css [DONE] .admin-section:not(.active) display:none guard
+client/admin/partials/view-system-backup.html [DONE] default hidden; removed data-superadmin-only from section
+client/js/admin/modules/core-nav.js [DONE] hideIsolatedAdminViews + hidden/aria-hidden on view switch
+client/js/admin-staff.js [DONE] skip admin-section in applySuperAdminOnlyVisibility
+backend/src/utils/adminPageBuilder.js [DONE] ISOLATED_VIEW_PARTIALS export + comment
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Backup UI View Isolation Fix — 2026-09-12
+README.md [DONE] backup view isolation note
+#
 # Support SLA & security monitoring — 2026-09-12
 backend/src/models/ContactMessage.js [DONE] firstResponseAt field + toAdminObject
 backend/src/controllers/contactController.js [DONE] set firstResponseAt on first reply

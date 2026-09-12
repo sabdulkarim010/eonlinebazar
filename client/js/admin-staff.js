@@ -93,6 +93,9 @@ function applySuperAdminOnlyVisibility() {
     const show = isSuperAdmin();
 
     document.querySelectorAll('[data-superadmin-only="true"]').forEach((el) => {
+        // Full-page admin views are shown only via navigateAdminSection — not here.
+        if (el.classList.contains('admin-section')) return;
+
         el.classList.toggle('superadmin-visible', show);
         if (show) {
             el.removeAttribute('hidden');

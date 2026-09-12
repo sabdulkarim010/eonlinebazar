@@ -1850,5 +1850,18 @@ SweetAlert2 toasts on tab switch and master-settings saves. Enterprise features 
 | Security monitor UI | ✅ COMPLETE | `view-security.html` Security Monitor panel — rate-limit counter, top offender table with quick Blacklist action, blacklisted IPs table with Remove; `fetchSecurityMonitorStats()` + `quickBlacklistIp()` in `settings-security.js`. |
 | Tests | ✅ COMPLETE | `tests/admin.test.js` +3 — SLA report, security monitor stats, RBAC 403. **160 / 160 tests passing.** |
 
+---
+
+## Backup UI View Isolation Fix — 2026-09-12
+
+| Task | Status | Summary |
+|------|--------|---------|
+| Root cause | ✅ COMPLETE | `[data-superadmin-only].superadmin-visible { display: block !important }` in `_settings-footer.css` forced `#view-system-backup` visible on every admin page for superadmins after `applySuperAdminOnlyVisibility()`. |
+| CSS isolation | ✅ COMPLETE | `_settings-footer.css` excludes `.admin-section` from superadmin chrome display rules; `_layout.css` adds `.admin-section:not(.active) { display: none !important }` so only the SPA-active view renders. |
+| Navigation guards | ✅ COMPLETE | `core-nav.js` — `hideIsolatedAdminViews()` + `hidden` / `aria-hidden` toggles in `navigateAdminSection` and `switchDashboardView`; `admin-staff.js` skips full-page `.admin-section` elements in `applySuperAdminOnlyVisibility()`. |
+| Partial markup | ✅ COMPLETE | `view-system-backup.html` — default `hidden` + removed `data-superadmin-only` from the section (sidebar/hub links retain superadmin gating). |
+| Builder registry | ✅ COMPLETE | `adminPageBuilder.js` documents `ISOLATED_VIEW_PARTIALS` for client-side view isolation. |
+| Tests | ✅ COMPLETE | **160 / 160 tests passing** — no regression. |
+
 
 

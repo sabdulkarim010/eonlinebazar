@@ -448,7 +448,8 @@ li[data-superadmin-only="true"].superadmin-visible {
     display: list-item !important;
 }
 
-[data-superadmin-only="true"].superadmin-visible:not(li) {
+/* Full-page admin views are toggled by core-nav — never by superadmin chrome rules */
+[data-superadmin-only="true"].superadmin-visible:not(li):not(.admin-section) {
     display: block !important;
 }
 
