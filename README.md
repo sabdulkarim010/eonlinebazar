@@ -66,7 +66,7 @@ The web client uses vanilla JavaScript with a modular ES architecture. The API r
 
 ## Core Pillars & Enterprise Modules
 
-All modules below are **100% completed** and wired into the admin accordion navigation (**Dashboard · Catalog & Inventory · Sales & POS · CRM & Support · Marketing & Growth · Finance & Accounts · HRM · Settings & Security**). Admin Access & Roles and Staff Audit live under **Settings & Security** (not HRM).
+All modules below are **100% completed** and wired into the admin accordion navigation (**Dashboard · Catalog & Inventory · Sales & POS · CRM & Support · Marketing & Growth · Finance & Accounts · HRM · Settings & Security**). **Settings & Security** is one accordion with three labeled sub-groups — **Security & Access**, **Store & Catalog Setup**, and **System & Utilities** — all existing nav links preserved. Admin Access & Roles and Staff Audit live under **Settings & Security** (not HRM).
 
 ### 1. ERP Pillar — Enterprise Resource Planning
 

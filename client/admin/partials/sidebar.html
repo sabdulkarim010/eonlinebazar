@@ -170,6 +170,12 @@
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
                         </div>
                         <ul class="submenu">
+                            <li class="nav-subheader nav-subheader-first" aria-hidden="true">
+                                <span class="nav-subheader-label">
+                                    <span class="nav-emoji" aria-hidden="true">🔐</span>
+                                    Security &amp; Access
+                                </span>
+                            </li>
                             <li data-target="view-staff" data-superadmin-only="true" data-breadcrumb="Admin Access &amp; Roles">
                                 <i class="fa-solid fa-user-shield"></i> Admin Access &amp; Roles
                             </li>
@@ -185,8 +191,21 @@
                             <li data-target="view-audit" data-breadcrumb="Security &amp; Audit">
                                 <i class="fa-solid fa-user-shield"></i> Security &amp; Audit
                             </li>
+                            <li data-target="view-settings" data-breadcrumb="Security &amp; 2FA" data-settings-tab="security">
+                                <i class="fa-solid fa-lock"></i> Security &amp; 2FA
+                            </li>
+
+                            <li class="nav-subheader" aria-hidden="true">
+                                <span class="nav-subheader-label">
+                                    <span class="nav-emoji" aria-hidden="true">🛍️</span>
+                                    Store &amp; Catalog Setup
+                                </span>
+                            </li>
                             <li data-target="view-settings" data-breadcrumb="Store Branding">
                                 <i class="fa-solid fa-gear"></i> Store Branding
+                            </li>
+                            <li data-target="view-store-config" data-breadcrumb="Store Configuration">
+                                <i class="fa-solid fa-store"></i> Store Configuration
                             </li>
                             <li data-target="manage-category" data-breadcrumb="Categories">
                                 <i class="fa-solid fa-tags"></i> Manage Categories
@@ -200,20 +219,21 @@
                             <li data-target="manage-navbar-links" data-breadcrumb="Navbar Links">
                                 <i class="fa-solid fa-bars"></i> Navbar Menu Links
                             </li>
-                            <li data-target="manage-coupons" data-breadcrumb="Coupons">
-                                <i class="fa-solid fa-ticket"></i> Coupons
-                            </li>
                             <li data-target="view-banners" data-breadcrumb="Hero Banners">
                                 <i class="fa-solid fa-images"></i> Hero Banners
                             </li>
+
+                            <li class="nav-subheader" aria-hidden="true">
+                                <span class="nav-subheader-label">
+                                    <span class="nav-emoji" aria-hidden="true">⚙️</span>
+                                    System &amp; Utilities
+                                </span>
+                            </li>
+                            <li data-target="manage-coupons" data-breadcrumb="Coupons">
+                                <i class="fa-solid fa-ticket"></i> Coupons
+                            </li>
                             <li data-target="view-shipping-payments" data-breadcrumb="Shipping &amp; Payments">
                                 <i class="fa-solid fa-sliders"></i> Shipping &amp; Payments
-                            </li>
-                            <li data-target="view-store-config" data-breadcrumb="Store Configuration">
-                                <i class="fa-solid fa-store"></i> Store Configuration
-                            </li>
-                            <li data-target="view-settings" data-breadcrumb="Security &amp; 2FA" data-settings-tab="security">
-                                <i class="fa-solid fa-lock"></i> Security &amp; 2FA
                             </li>
                             <li data-target="view-file-manager" data-superadmin-only="true" data-breadcrumb="System Tools">
                                 <i class="fa-solid fa-folder-tree"></i> File Manager

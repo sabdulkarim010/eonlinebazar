@@ -937,6 +937,12 @@ ARCHITECTURE.md [DONE] Admin Navigation table updated for 8-category structure
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] SIDEBAR REORGANIZATION section
 README.md [DONE] admin nav accordion list updated
 #
+# Settings & Security sub-group labels — 2026-09-12
+client/admin/partials/sidebar.html [DONE] Settings & Security — 3 labeled sub-groups (Security & Access, Store & Catalog Setup, System & Utilities); all data-target / data-settings-tab values preserved
+client/css/admin/_layout.css [DONE] .nav-subheader styles for non-clickable submenu section labels
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] SIDEBAR REORGANIZATION — Settings & Security sub-groups note
+README.md [DONE] Settings & Security sub-group note
+#
 # 1-click system access provisioning — 2026-09-11
 backend/src/models/employee.js [DONE] linkedAdminId field
 backend/src/models/admin.js [DONE] employeeRef field

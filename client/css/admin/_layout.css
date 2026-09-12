@@ -546,6 +546,46 @@ html[data-theme="dark"] .enterprise-widget-stats strong { color: #f1f5f9; }
     border-left-color: var(--primary-color);
 }
 
+.sidebar-menu .submenu li.nav-subheader {
+    margin: 12px 0 4px 16px;
+    padding: 8px 16px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #64748b;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 0;
+    cursor: default;
+    pointer-events: none;
+    user-select: none;
+}
+
+.sidebar-menu .submenu li.nav-subheader-first {
+    margin-top: 4px;
+    border-top: none;
+    padding-top: 4px;
+}
+
+.sidebar-menu .submenu li.nav-subheader:hover,
+.sidebar-menu .submenu li.nav-subheader.active {
+    background-color: transparent;
+    color: #64748b;
+    border-left: none;
+}
+
+.nav-subheader-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nav-subheader-label .nav-emoji {
+    font-size: 14px;
+    line-height: 1;
+}
+
 /* ---- Header date picker + live clock (inline, balanced) ---- */
 .header-datetime {
     position: relative;
