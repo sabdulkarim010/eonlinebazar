@@ -1,0 +1,58 @@
+<section id="view-activity-feed" class="admin-section" style="display: none;">
+    <div class="activity-feed-header">
+        <div>
+            <p class="section-subtitle">Chronological timeline of admin actions across products, orders, staff, and settings.</p>
+        </div>
+        <button type="button" class="btn-secondary no-print" onclick="loadActivityFeed()">
+            <i class="fa-solid fa-rotate"></i> Refresh
+        </button>
+    </div>
+
+    <div class="activity-feed-filters saas-settings-card">
+        <div class="activity-feed-filter-row">
+            <label class="activity-feed-filter">
+                <span>Resource type</span>
+                <select id="activityFeedResourceType" onchange="loadActivityFeed(1)">
+                    <option value="">All types</option>
+                </select>
+            </label>
+            <label class="activity-feed-filter">
+                <span>Actor</span>
+                <select id="activityFeedActor" onchange="loadActivityFeed(1)">
+                    <option value="">All actors</option>
+                </select>
+            </label>
+            <label class="activity-feed-filter">
+                <span>From</span>
+                <input type="date" id="activityFeedDateFrom" onchange="loadActivityFeed(1)">
+            </label>
+            <label class="activity-feed-filter">
+                <span>To</span>
+                <input type="date" id="activityFeedDateTo" onchange="loadActivityFeed(1)">
+            </label>
+            <button type="button" class="btn-secondary btn-sm" onclick="clearActivityFeedFilters()">
+                Clear filters
+            </button>
+        </div>
+    </div>
+
+    <div id="activityFeedTimeline" class="activity-feed-timeline" aria-live="polite">
+        <div class="activity-feed-loading">
+            <div class="spinner"></div>
+            <p>Loading activity feed...</p>
+        </div>
+    </div>
+
+    <div class="admin-pagination activity-feed-pagination" id="activityFeedPagination" hidden>
+        <div class="apg-left">
+            <label for="activityFeedLimit">Per page</label>
+            <select class="apg-limit-select" id="activityFeedLimit" onchange="loadActivityFeed(1)">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+            <span class="apg-info" id="activityFeedPageInfo"></span>
+        </div>
+        <div class="apg-center" id="activityFeedPageBtns"></div>
+    </div>
+</section>

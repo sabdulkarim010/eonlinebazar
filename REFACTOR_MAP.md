@@ -1104,3 +1104,25 @@ client/css/admin/_notifications.css [DONE] unread dot, title, clickable item sty
 tests/admin.test.js [DONE] +5 notification + bulk export tests
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] NOTIFICATION CENTER & BULK EXPORT — 2026-09-12
 README.md [DONE] 151 tests + notification center / bulk export note
+#
+# Activity feed & role-based dashboard widgets — 2026-09-12
+backend/src/controllers/admin/activityFeedController.js [NEW] paginated unified SecurityLog feed
+backend/src/routes/adminRoutes.js [DONE] GET /api/admin/activity-feed (manage_security)
+backend/src/config/permissions.js [DONE] view-activity-feed → manage_security
+backend/src/utils/adminPageBuilder.js [DONE] registers view-activity-feed partial
+client/admin/partials/view-activity-feed.html [NEW] timeline UI with filter bar
+client/js/admin/modules/activity-feed.js [NEW] loadFeed, renderFeed, pagination
+client/js/admin/admin-settings.js [DONE] imports activity-feed.js
+client/css/admin/_activity-feed.css [NEW] timeline + filter styles
+client/css/admin/_settings.css [DONE] imports _activity-feed.css
+client/admin/partials/sidebar.html [DONE] Activity Feed under System Settings
+client/admin/partials/view-settings.html [DONE] Activity Feed hub link (Security tab)
+client/js/admin/modules/core-nav.js [DONE] view-activity-feed refresh hook
+client/js/admin/modules/core-state.js [DONE] view-activity-feed page meta
+client/js/admin/modules/core-breadcrumb.js [DONE] Activity Feed breadcrumb
+client/admin/partials/view-overview.html [DONE] data-dashboard-zone attributes on widget sections
+client/js/admin/admin-dashboard.js [DONE] applyDashboardWidgetPermissions role gating
+client/js/admin-staff.js [DONE] exposes window.hasAdminPermission; triggers dashboard gating after RBAC boot
+tests/admin.test.js [DONE] +2 activity feed API tests
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] ACTIVITY FEED & ROLE DASHBOARDS — 2026-09-12
+README.md [DONE] 153 tests + activity feed / role dashboard note

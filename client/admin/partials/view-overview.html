@@ -1,11 +1,11 @@
             <section id="view-overview" class="admin-section active">
 
-                <div class="dashboard-section-label">
+                <div class="dashboard-section-label" data-dashboard-zone="erp,crm,hrm">
                     <h2><i class="fa-solid fa-building"></i> Enterprise Summary</h2>
                 </div>
 
                 <div class="enterprise-widgets-grid">
-                    <div class="enterprise-widget-card enterprise-widget-card--erp">
+                    <div class="enterprise-widget-card enterprise-widget-card--erp" data-dashboard-zone="erp">
                         <div class="enterprise-widget-head">
                             <span class="enterprise-widget-icon" aria-hidden="true">🏭</span>
                             <h3>ERP</h3>
@@ -16,7 +16,7 @@
                             <li><span>Pending POs</span><strong id="erp-stat-pending-pos">0</strong></li>
                         </ul>
                     </div>
-                    <div class="enterprise-widget-card enterprise-widget-card--crm">
+                    <div class="enterprise-widget-card enterprise-widget-card--crm" data-dashboard-zone="crm">
                         <div class="enterprise-widget-head">
                             <span class="enterprise-widget-icon" aria-hidden="true">🤝</span>
                             <h3>CRM</h3>
@@ -30,7 +30,7 @@
                             <li><span>Platinum members</span><strong id="crm-stat-platinum">0</strong></li>
                         </ul>
                     </div>
-                    <div class="enterprise-widget-card enterprise-widget-card--hrm">
+                    <div class="enterprise-widget-card enterprise-widget-card--hrm" data-dashboard-zone="hrm">
                         <div class="enterprise-widget-head">
                             <span class="enterprise-widget-icon" aria-hidden="true">👥</span>
                             <h3>HRM</h3>
@@ -46,12 +46,12 @@
                     </div>
                 </div>
 
-                <div class="dashboard-section-label">
+                <div class="dashboard-section-label" data-dashboard-zone="erp,finance,crm">
                     <h2><i class="fa-solid fa-chart-line"></i> Sales &amp; Order Analytics</h2>
                 </div>
 
                 <div class="metrics-grid sales-metrics-grid">
-                    <div class="metric-card revenue">
+                    <div class="metric-card revenue" data-dashboard-zone="finance">
                         <div class="icon"><i class="fa-solid fa-sack-dollar"></i></div>
                         <div class="data">
                             <p>TOTAL REVENUE (ALL-TIME)</p>
@@ -59,21 +59,21 @@
                             <span class="metric-sub" id="stat-revenue-breakdown">Today: ৳ 0 · This Month: ৳ 0</span>
                         </div>
                     </div>
-                    <div class="metric-card warning">
+                    <div class="metric-card warning" data-dashboard-zone="erp">
                         <div class="icon"><i class="fa-solid fa-clock"></i></div>
                         <div class="data">
                             <p>PENDING ORDERS</p>
                             <h3 id="stat-pending-orders">0</h3>
                         </div>
                     </div>
-                    <div class="metric-card danger">
+                    <div class="metric-card danger" data-dashboard-zone="erp">
                         <div class="icon"><i class="fa-solid fa-rotate-left"></i></div>
                         <div class="data">
                             <p>RETURN REQUESTS</p>
                             <h3 id="stat-return-requests">0</h3>
                         </div>
                     </div>
-                    <div class="metric-card success">
+                    <div class="metric-card success" data-dashboard-zone="crm">
                         <div class="icon"><i class="fa-solid fa-users"></i></div>
                         <div class="data">
                             <p>TOTAL CUSTOMERS</p>
@@ -82,7 +82,7 @@
                     </div>
                 </div>
 
-                <div class="metrics-grid order-status-grid">
+                <div class="metrics-grid order-status-grid" data-dashboard-zone="erp">
                     <div class="metric-card mini">
                         <div class="icon"><i class="fa-solid fa-box"></i></div>
                         <div class="data">
@@ -106,7 +106,7 @@
                     </div>
                 </div>
 
-                <div class="dashboard-charts-grid">
+                <div class="dashboard-charts-grid" data-dashboard-zone="erp">
                     <div class="charts-section">
                         <div class="charts-section-head">
                             <h3>Sales Revenue Trend</h3>
@@ -134,7 +134,7 @@
                 </div>
 
                 <div class="dashboard-charts-grid">
-                    <div class="charts-section">
+                    <div class="charts-section" data-dashboard-zone="crm">
                         <div class="charts-section-head">
                             <h3>Customer Registration Growth</h3>
                             <span id="chartPeriodLabel" class="chart-period-label">Last 6 months</span>
@@ -144,7 +144,7 @@
                         </div>
                     </div>
 
-                    <div class="charts-section inventory-alerts-section">
+                    <div class="charts-section inventory-alerts-section" data-dashboard-zone="erp">
                         <div class="charts-section-head">
                             <h3><i class="fa-solid fa-triangle-exclamation"></i> Inventory Alerts</h3>
                             <span id="inventoryAlertCount" class="chart-period-label">0 alerts</span>
@@ -158,11 +158,11 @@
                     </div>
                 </div>
 
-                <div class="dashboard-section-label">
+                <div class="dashboard-section-label" data-dashboard-zone="crm">
                     <h2><i class="fa-solid fa-user-group"></i> Customer Insights</h2>
                 </div>
 
-                <div class="metrics-grid">
+                <div class="metrics-grid" data-dashboard-zone="crm">
                     <div class="metric-card">
                         <div class="icon"><i class="fa-solid fa-users"></i></div>
                         <div class="data">

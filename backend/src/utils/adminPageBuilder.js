@@ -32,6 +32,7 @@ const VIEW_PARTIALS = [
     'view-file-manager',
     'view-staff',
     'settings-staff-audit',
+    'view-activity-feed',
     'view-hrm-employees',
     'view-hrm-attendance',
     'view-hrm-payroll',

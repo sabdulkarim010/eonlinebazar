@@ -620,6 +620,7 @@ async function loadStaffSection() {
 window.loadStaffSection = loadStaffSection;
 window.applySuperAdminOnlyVisibility = applySuperAdminOnlyVisibility;
 window.isAdminSuperAdmin = isSuperAdmin;
+window.hasAdminPermission = hasPermission;
 
 /* ==========================================================================
    ASSIGN ACCESS (from HRM employees without linked admin)
@@ -910,6 +911,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     applyRoleToSidebar();
+    if (typeof window.applyDashboardWidgetPermissions === 'function') {
+        window.applyDashboardWidgetPermissions();
+    }
     setupAssignAccessPanel();
     setupEditStaffForm();
     setupStaffRefreshButton();

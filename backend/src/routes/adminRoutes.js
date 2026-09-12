@@ -24,6 +24,7 @@ const {
     assignOrderToStaff
 } = require('../controllers/orderAdminController');
 const staffAuditController = require('../controllers/admin/staffAuditController');
+const activityFeedController = require('../controllers/admin/activityFeedController');
 const { adjustCustomerWallet } = require('../controllers/admin/walletAdminController');
 const {
     getAllReviews,
@@ -93,6 +94,9 @@ router.use('/staff', staffRoutes);
 // Staff activity audit — who changed what (SecurityLog grouped by admin actor)
 router.get('/staff-audit', verifyAdmin, checkPermission('manage_security'), staffAuditController.getStaffActivity);
 router.get('/staff-audit/:username', verifyAdmin, checkPermission('manage_security'), staffAuditController.getStaffActivityDetail);
+
+// Unified activity feed — chronological SecurityLog timeline
+router.get('/activity-feed', verifyAdmin, checkPermission('manage_security'), activityFeedController.getActivityFeed);
 
 // 🛡️ Super Admin file manager — browse / read / write / create / delete (project root only)
 // URL: /api/admin/files

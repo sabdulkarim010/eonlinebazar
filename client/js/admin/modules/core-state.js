@@ -49,6 +49,7 @@ window.ADMIN_PAGE_META = {
     'view-settings':        { title: 'System Settings',         subtitle: 'Unified hub for branding, tax, shipping, security, and utilities.' },
     'view-crm-abandoned':   { title: 'Abandoned Carts',         subtitle: 'Recovery KPIs for idle carts with merchandise value.' },
     'view-staff-audit':     { title: 'Staff Activity Audit',    subtitle: 'Who changed what — grouped by admin actor.' },
+    'view-activity-feed':   { title: 'Activity Feed',           subtitle: 'Unified timeline of admin actions across products, orders, staff, and settings.' },
     'view-hrm-employees':   { title: 'Employees',               subtitle: 'Non-system operational staff — delivery, labour, cleaners etc.' },
     'view-hrm-attendance':  { title: 'Attendance & Shifts',     subtitle: 'Daily attendance register, shift roster, and late arrival reporting.' },
     'view-hrm-payroll':     { title: 'Payroll & Salary',        subtitle: 'Attendance-driven monthly salary runs, approvals, and pay slips.' },

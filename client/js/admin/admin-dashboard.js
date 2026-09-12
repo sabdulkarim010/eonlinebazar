@@ -10,6 +10,66 @@ import './admin-core.js';
    SECTION 5: OVERVIEW & ANALYTICS (ড্যাশবোর্ড ওভারভিউ এবং স্ট্যাটিস্টিকস)
    ========================================================================== */
 
+function dashboardCan(permission) {
+    if (typeof window.isAdminSuperAdmin === 'function' && window.isAdminSuperAdmin()) return true;
+    if (typeof window.hasAdminPermission === 'function') return window.hasAdminPermission(permission);
+    return true;
+}
+
+/**
+ * Show dashboard widgets only when the signed-in admin has the matching permission.
+ * Superadmin always sees everything (handled inside dashboardCan / hasAdminPermission).
+ */
+function applyDashboardWidgetPermissions() {
+    const overview = document.getElementById('view-overview');
+    if (!overview) return;
+
+    const zoneAccess = {
+        erp: dashboardCan('manage_orders') || dashboardCan('manage_inventory'),
+        crm: dashboardCan('manage_customers'),
+        finance: dashboardCan('manage_settings'),
+        hrm: dashboardCan('manage_staff')
+    };
+
+    overview.querySelectorAll('[data-dashboard-zone]').forEach((el) => {
+        const zones = String(el.dataset.dashboardZone || '')
+            .split(',')
+            .map((zone) => zone.trim())
+            .filter(Boolean);
+
+        const allowed = zones.some((zone) => zoneAccess[zone]);
+        el.style.display = allowed ? '' : 'none';
+    });
+
+    overview.querySelectorAll('.dashboard-section-label[data-dashboard-zone]').forEach((label) => {
+        const zones = String(label.dataset.dashboardZone || '')
+            .split(',')
+            .map((zone) => zone.trim())
+            .filter(Boolean);
+        const allowed = zones.some((zone) => zoneAccess[zone]);
+        label.style.display = allowed ? '' : 'none';
+    });
+
+    overview.querySelectorAll('.enterprise-widgets-grid').forEach((grid) => {
+        const visibleCards = [...grid.querySelectorAll('[data-dashboard-zone]')]
+            .filter((card) => card.style.display !== 'none');
+        grid.style.display = visibleCards.length ? '' : 'none';
+    });
+
+    overview.querySelectorAll('.dashboard-charts-grid').forEach((grid) => {
+        const visibleSections = [...grid.children].filter((child) => child.style.display !== 'none');
+        grid.style.display = visibleSections.length ? '' : 'none';
+    });
+
+    overview.querySelectorAll('.metrics-grid').forEach((grid) => {
+        const visibleCards = [...grid.querySelectorAll('.metric-card')]
+            .filter((card) => card.style.display !== 'none');
+        if (visibleCards.length === 0 && grid.dataset.dashboardZone) {
+            grid.style.display = 'none';
+        }
+    });
+}
+
 /**
  * ৫.১: ড্যাশবোর্ডে বর্তমান তারিখ প্রদর্শন
  */
@@ -117,6 +177,8 @@ async function fetchEnterpriseSummary() {
 
 async function fetchDashboardData() {
     try {
+        applyDashboardWidgetPermissions();
+
         const customersVisible = document.getElementById('view-customers')?.classList.contains('active')
             || document.getElementById('view-customers')?.style.display === 'block';
 
@@ -602,6 +664,7 @@ function renderGrowthChart(customers) {
 
 /* Expose module functions for HTML onclick + cross-module calls */
 Object.assign(window, {
+    applyDashboardWidgetPermissions,
     buildMonthlyRegistrationSeries,
     fetchDashboardAnalytics,
     fetchEnterpriseSummary,

@@ -4,6 +4,7 @@ const Order = require('../backend/src/models/order');
 const Product = require('../backend/src/models/product');
 const PaymentMethod = require('../backend/src/models/PaymentMethod');
 const User = require('../backend/src/models/user');
+const SecurityLog = require('../backend/src/models/securityLog');
 const { getApp, createTestAdmin, createTestUser } = require('./setup');
 
 describe('Admin API', () => {
@@ -492,5 +493,72 @@ describe('Admin API', () => {
         expect(res.status).toBe(200);
         expect(res.headers['content-type']).toMatch(/text\/csv/);
         expect(res.text).toContain('Order ID');
+    });
+
+    describe('Activity feed', () => {
+        async function seedActivityLogs() {
+            await SecurityLog.create([
+                {
+                    action: 'Product Updated',
+                    actor: 'john_admin',
+                    actorType: 'admin',
+                    details: 'Blue T-Shirt',
+                    resourceType: 'product',
+                    resourceId: 'prod-001'
+                },
+                {
+                    action: 'Attendance Marked',
+                    actor: 'karim_admin',
+                    actorType: 'admin',
+                    details: '5 employees',
+                    resourceType: 'attendance',
+                    resourceId: 'att-001'
+                }
+            ]);
+        }
+
+        test('GET /api/admin/activity-feed returns paginated normalized feed for superadmin', async () => {
+            await seedActivityLogs();
+            const token = await getAdminAuthToken();
+
+            const res = await request(app)
+                .get('/api/admin/activity-feed?resourceType=product')
+                .set('Authorization', `Bearer ${token}`);
+
+            expect(res.status).toBe(200);
+            expect(res.body.success).toBe(true);
+            expect(Array.isArray(res.body.data)).toBe(true);
+            expect(res.body.data.length).toBe(1);
+            expect(res.body.data[0]).toMatchObject({
+                actor: 'john_admin',
+                action: 'Product Updated',
+                resourceType: 'product',
+                resourceLabel: 'Blue T-Shirt'
+            });
+            expect(res.body.data[0].timestamp).toBeTruthy();
+            expect(res.body.pagination.total).toBe(1);
+            expect(res.body.filters.resourceTypes).toContain('product');
+            expect(res.body.filters.actors).toContain('john_admin');
+        });
+
+        test('GET /api/admin/activity-feed rejects staff without manage_security', async () => {
+            const { username } = await createTestAdmin({
+                role: 'staff',
+                permissions: ['manage_orders'],
+                twoFactorEnabled: false
+            });
+            const token = jwt.sign(
+                { username, role: 'staff' },
+                process.env.JWT_SECRET,
+                { expiresIn: '24h' }
+            );
+
+            const res = await request(app)
+                .get('/api/admin/activity-feed')
+                .set('Authorization', `Bearer ${token}`);
+
+            expect(res.status).toBe(403);
+            expect(res.body.success).toBe(false);
+        });
     });
 });

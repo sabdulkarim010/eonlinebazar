@@ -1809,5 +1809,17 @@ SweetAlert2 toasts on tab switch and master-settings saves. Enterprise features 
 | Bulk CSV export — Employees | ✅ COMPLETE | `GET /api/admin/hrm/employees/export`; respects search, department, designation, type, status; Export CSV on `view-hrm-employees.html`. |
 | Tests | ✅ COMPLETE | `tests/admin.test.js` +5 — notifications list/read + customers/products/orders CSV export. **151 / 151 tests passing.** |
 
+---
+
+## ACTIVITY FEED & ROLE DASHBOARDS — 2026-09-12
+
+| Task | Status | Summary |
+|------|--------|---------|
+| Unified activity feed API | ✅ COMPLETE | `backend/src/controllers/admin/activityFeedController.js` — `GET /api/admin/activity-feed` paginated, filterable by `resourceType`, `actor`, `dateFrom`/`dateTo`; returns normalized `{ actor, action, resourceType, resourceLabel, timestamp, details }`; gated by `verifyAdmin` + `manage_security` (superadmin bypass). |
+| Activity feed UI | ✅ COMPLETE | `client/admin/partials/view-activity-feed.html` + `client/js/admin/modules/activity-feed.js` — timeline grouped by Today/Yesterday/Earlier, actor avatars, plain-language descriptions, resource badges, filter bar; registered in `adminPageBuilder.js`, sidebar (System Settings), and Settings Hub security tab. |
+| Role-based dashboard widgets | ✅ COMPLETE | `client/js/admin/admin-dashboard.js` — `applyDashboardWidgetPermissions()` hides ERP (orders/inventory), CRM (customers), Finance (revenue), and HRM widgets based on `window.hasAdminPermission` / `window.isAdminSuperAdmin` from `admin-staff.js`; superadmin always sees all widgets. |
+| RBAC section map | ✅ COMPLETE | `view-activity-feed` → `manage_security` in `permissions.js`. |
+| Tests | ✅ COMPLETE | `tests/admin.test.js` +2 — activity feed success + staff 403 without `manage_security`. **153 / 153 tests passing.** |
+
 
 

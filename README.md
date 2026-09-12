@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
   <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
   <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
-  <img src="https://img.shields.io/badge/tests-151%2F151-brightgreen" alt="151/151 Tests Passing">
+  <img src="https://img.shields.io/badge/tests-153%2F153-brightgreen" alt="153/153 Tests Passing">
   <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
   <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
   <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">
@@ -102,7 +102,7 @@ Staff identity, time tracking, compensation, and leave — gated by `manage_staf
 
 | Module | Description |
 |--------|-------------|
-| **Granular RBAC & Staff Activity Audit** | Super-admin vs staff with explicit permissions (`view_analytics`, `manage_orders`, `manage_inventory`, `manage_catalog`, `manage_coupons`, `manage_customers`, `manage_settings`, `manage_security`, `manage_staff`, `manage_marketing`). Every sensitive action writes a **staff activity audit** entry (`resourceType` + `resourceId`). |
+| **Granular RBAC & Staff Activity Audit** | Super-admin vs staff with explicit permissions (`view_analytics`, `manage_orders`, `manage_inventory`, `manage_catalog`, `manage_coupons`, `manage_customers`, `manage_settings`, `manage_security`, `manage_staff`, `manage_marketing`). Every sensitive action writes a **staff activity audit** entry (`resourceType` + `resourceId`). **Unified Activity Feed** timeline (`GET /api/admin/activity-feed`) and **role-based dashboard widgets** (ERP/CRM/Finance/HRM sections gated by permission). |
 | **Attendance & Shift Management** | Clock-in / clock-out with optional **GPS tagging**, one attendance row per staff per day, named shifts with a protected default, grace-period **late penalties**, plus monthly summary and late reports. |
 | **Payroll Engine & Automated Pay Slips** | Attendance-driven runs: `baseSalary × min(presentDays / workingDays, 1) + overtime + bonus − deductions`. Workflow is draft → approved → paid. Each slip is a **PDFKit** pay slip with pro-rated working-day calculation. |
 | **Leave Management** | **Casual**, **Sick**, and **Annual** leave (plus unpaid) with balances, a month **calendar** view, and automatic attendance sync — approving leave stamps `holiday` rows across the span. |
@@ -135,7 +135,7 @@ Read these documents before making changes. Operational notes belong in the exis
 
 ## Quality Assurance & Testing
 
-The repository ships with **100% passing automated coverage: 151 / 151 tests** across **15 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
+The repository ships with **100% passing automated coverage: 153 / 153 tests** across **15 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
 
 ```bash
 npm test
@@ -147,7 +147,7 @@ npm test
 | Cart | `tests/cart.test.js` | 6 | Add, hydrate images, clear |
 | Order | `tests/order.test.js` | 9 | COD create, track, cancel, line-item shape |
 | Payment | `tests/payment.test.js` | 3 | Gateway adapter, COD IPN, admin payment update |
-| Admin | `tests/admin.test.js` | 20 | Login, orders, in-app notifications, bulk CSV export, VAT/maintenance settings, master editor |
+| Admin | `tests/admin.test.js` | 22 | Login, orders, in-app notifications, bulk CSV export, activity feed, VAT/maintenance settings, master editor |
 | Notes | `tests/note.test.js` | 7 | Owner-scoped notebook and expense validation |
 | Product seed | `tests/product-seed.test.js` | 3 | Demo catalog upsert |
 | Chat session | `tests/chat-end-session.test.js` | 8 | Guest / agent / admin end-session ownership |

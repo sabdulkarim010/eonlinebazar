@@ -39,6 +39,7 @@ const BREADCRUMB_MAP = {
     'view-shipping-payments': { group: 'System Settings', label: 'Shipping & Payments' },
     'view-store-config': { group: 'System Settings', label: 'Store Configuration' },
     'view-staff-audit': { group: 'System Settings', label: 'Staff Audit' },
+    'view-activity-feed': { group: 'System Settings', label: 'Activity Feed' },
     'view-security': { group: 'System Settings', label: 'Security Logs' },
     'view-audit': { group: 'System Settings', label: 'Security & Audit' },
     'view-sessions': { group: 'System Settings', label: 'Admin Sessions' },

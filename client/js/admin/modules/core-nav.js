@@ -662,6 +662,9 @@ function navigateAdminSection(targetId, clickedItem) {
             initAdminPaginationInstances();
             if (typeof fetchStaffAuditSummary === 'function') fetchStaffAuditSummary();
         },
+        'view-activity-feed': () => {
+            if (typeof loadActivityFeed === 'function') loadActivityFeed(1);
+        },
         'view-hrm-employees': () => window.loadHrmEmployeesSection && window.loadHrmEmployeesSection(),
         'view-hrm-attendance': () => window.loadHrmAttendanceSection && window.loadHrmAttendanceSection(),
         'view-hrm-payroll': () => window.loadHrmPayrollSection && window.loadHrmPayrollSection(),
