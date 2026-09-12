@@ -976,3 +976,7 @@ client/js/admin-file-manager.js [DONE] unsaved changes SweetAlert2 confirm
 client/js/admin-newsletter.js [DONE] subscriber delete + campaign send SweetAlert2 confirms
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] STAFF ACCESS & HRM DECOUPLING — 2026-09-12 section
 README.md [DONE] admin access decoupling + SweetAlert2 note
+#
+# Sidebar Admin Access link restore — 2026-09-12
+client/admin/partials/sidebar.html [DONE] Admin Access & Roles anchor link under Security & Access (data-target staff)
+client/js/admin/modules/core-nav.js [DONE] staff → view-staff section alias for sidebar navigation

@@ -596,11 +596,19 @@ document.addEventListener('DOMContentLoaded', () => {
    SECTION 14: SIDEBAR NAVIGATION (মেনু ট্যাব কন্ট্রোলার)
    ========================================================================== */
 
+/** Sidebar aliases where data-target differs from section element id. */
+const ADMIN_SECTION_ID_ALIASES = {
+    staff: 'view-staff'
+};
+
 function navigateAdminSection(targetId, clickedItem) {
     if (!targetId) return;
 
+    const navTargetId = targetId;
+    const sectionId = ADMIN_SECTION_ID_ALIASES[targetId] || targetId;
+
     const resolvedItem = clickedItem
-        || document.querySelector(`.sidebar-menu li[data-target="${targetId}"]`);
+        || document.querySelector(`.sidebar-menu li[data-target="${navTargetId}"]`);
     if (resolvedItem) lastClickedNavItem = resolvedItem;
 
     const menuItems = document.querySelectorAll('.sidebar-menu li[data-target]');
@@ -620,7 +628,7 @@ function navigateAdminSection(targetId, clickedItem) {
         section.classList.remove('active');
     });
 
-    const targetSection = document.getElementById(targetId);
+    const targetSection = document.getElementById(sectionId);
     if (targetSection) {
         targetSection.style.display = 'block';
         targetSection.classList.add('active');
@@ -634,16 +642,16 @@ function navigateAdminSection(targetId, clickedItem) {
     const subTitle = document.getElementById('page-sub-title');
     if (linkTitle && mainTitle) {
         mainTitle.textContent = linkTitle;
-        const meta = ADMIN_PAGE_META[targetId];
+        const meta = ADMIN_PAGE_META[sectionId];
         if (subTitle) subTitle.textContent = meta?.subtitle || '';
     } else {
-        updateAdminPageHeader(targetId, label);
+        updateAdminPageHeader(sectionId, label);
     }
 
     if (typeof renderAdminBreadcrumb === 'function') {
-        renderAdminBreadcrumb(targetId, resolvedItem);
+        renderAdminBreadcrumb(sectionId, resolvedItem);
     }
-    syncNavAccordionState(targetId, resolvedItem);
+    syncNavAccordionState(sectionId, resolvedItem);
 
     const refreshMap = {
         'view-orders': fetchLiveOrders,
@@ -696,12 +704,12 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-settings': fetchAdminSettings,
         'view-reviews': () => window.loadAdminReviews && window.loadAdminReviews()
     };
-    if (typeof refreshMap[targetId] === 'function') {
-        if (targetId === 'view-manage-products') readProductListSessionState();
-        refreshMap[targetId]();
+    if (typeof refreshMap[sectionId] === 'function') {
+        if (sectionId === 'view-manage-products') readProductListSessionState();
+        refreshMap[sectionId]();
     }
 
-    if (targetId === 'view-add-product') {
+    if (sectionId === 'view-add-product') {
         initAddProductFormUI();
         loadCategoryDropdownForProduct('prodCategory');
     }
