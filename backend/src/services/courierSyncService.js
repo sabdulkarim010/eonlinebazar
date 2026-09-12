@@ -30,6 +30,7 @@ const { sendAdminCustomAlert } = require('./whatsappService');
 const { creditOrderDeliveryRewards } = require('../utils/rewardSettings');
 const { upgradeTierIfNeeded } = require('./loyaltyTierService');
 const { logSecurityEvent } = require('../utils/securityLogger');
+const { notifyAdminsWithPermission } = require('./notificationService');
 
 const SHIPPED_STATUS = 'Shipped';
 
@@ -312,6 +313,15 @@ async function autoSyncCourierStatus(orderId) {
                     console.warn('[CourierSync] Tier upgrade on delivery failed:', tierErr.message);
                 }
             }
+            notifyAdminsWithPermission(
+                'manage_orders',
+                'order',
+                'Order delivered',
+                `Order #${order.orderId || order._id} marked Delivered by courier`,
+                'view-orders'
+            ).catch((err) => {
+                console.warn('[CourierSync] In-app notification failed:', err.message);
+            });
         }
 
         return {

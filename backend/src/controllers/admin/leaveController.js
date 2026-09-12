@@ -13,6 +13,7 @@ const Leave = require('../../models/leave');
 const Attendance = require('../../models/attendance');
 const Admin = require('../../models/admin');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { notifyAdminsWithPermission } = require('../../services/notificationService');
 
 const { LEAVE_TYPES, LEAVE_STATUSES, LEAVE_ALLOWANCES } = Leave;
 
@@ -123,6 +124,16 @@ exports.applyLeave = async (req, res) => {
             details: `${account.username} — ${leaveType}, ${leave.totalDays} day(s)`,
             resourceType: 'leave',
             resourceId: String(leave._id)
+        });
+
+        notifyAdminsWithPermission(
+            'manage_staff',
+            'leave',
+            'Leave application submitted',
+            `${account.username} applied for ${leaveType} leave (${leave.totalDays} day(s))`,
+            'view-hrm-leaves'
+        ).catch((err) => {
+            console.warn('[Leave] In-app notification failed:', err.message);
         });
 
         res.status(201).json({ success: true, message: 'Leave application submitted.', data: leave });

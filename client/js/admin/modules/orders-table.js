@@ -459,11 +459,22 @@ window.goToOrderPage = function(pageNumber) {
 
 async function exportOrdersCsvReport() {
     try {
-        const status = currentOrderStatusFilter && currentOrderStatusFilter !== 'all'
-            ? currentOrderStatusFilter
-            : 'all';
-        const qs = status !== 'all' ? `?status=${encodeURIComponent(status)}` : '';
-        const res = await fetch(`/api/admin/orders/export-csv${qs}`, {
+        const params = new URLSearchParams();
+        if (currentOrderStatusFilter && currentOrderStatusFilter !== 'all') {
+            params.set('status', currentOrderStatusFilter);
+        }
+        if (currentOrderSandboxFilter && currentOrderSandboxFilter !== 'all') {
+            params.set('sandbox', currentOrderSandboxFilter);
+        }
+        if (currentOrderDateFilter) {
+            params.set('date', currentOrderDateFilter);
+        }
+        const searchInput = getOrderSearchInputEl();
+        const search = searchInput ? searchInput.value.trim() : '';
+        if (search) params.set('search', search);
+
+        const qs = params.toString() ? `?${params.toString()}` : '';
+        const res = await fetch(`/api/admin/orders/export${qs}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) {

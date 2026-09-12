@@ -10,7 +10,20 @@
 
 const PDFDocument = require('pdfkit');
 const Order = require('../../models/order');
+const Product = require('../../models/product');
+const User = require('../../models/user');
+const Employee = require('../../models/employee');
+const Settings = require('../../models/Settings');
 const { computeProfitLoss } = require('./profitLossController');
+
+const DEFAULT_LOW_STOCK_THRESHOLD = Number(process.env.LOW_STOCK_DEFAULT_THRESHOLD) || 10;
+const EXPORT_ROW_LIMIT = 10000;
+
+const VIP_DEFAULTS = {
+    vipMinTotalSpent: 10000,
+    vipMinOrderCount: 10,
+    frequentBuyerMinOrders: 3
+};
 
 const EXPENSE_LABELS = {
     office_rent: 'Office Rent',
@@ -45,6 +58,146 @@ function csvCell(value) {
 
 function csvRow(cells) {
     return cells.map(csvCell).join(',');
+}
+
+function sendCsvResponse(res, filename, rows) {
+    const csv = `\uFEFF${rows.join('\r\n')}`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.send(csv);
+}
+
+function escapeRegex(str) {
+    return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function hydrateCustomerName(customer = {}) {
+    const fromParts = [customer.firstName, customer.lastName].filter(Boolean).join(' ').trim();
+    const legacy = customer.name ? String(customer.name).trim() : '';
+    return fromParts || legacy || '';
+}
+
+function resolveCustomerSegment(userStats = {}, thresholds = VIP_DEFAULTS) {
+    const orderCount = Number(userStats.orderCount) || 0;
+    const totalSpent = Number(userStats.totalSpent) || 0;
+    const vipMinSpent = Number(thresholds.vipMinTotalSpent ?? VIP_DEFAULTS.vipMinTotalSpent);
+    const vipMinOrders = Number(thresholds.vipMinOrderCount ?? VIP_DEFAULTS.vipMinOrderCount);
+    const frequentMin = Number(thresholds.frequentBuyerMinOrders ?? VIP_DEFAULTS.frequentBuyerMinOrders);
+
+    const isVip = totalSpent >= vipMinSpent || orderCount >= vipMinOrders;
+    const isFrequent = !isVip && orderCount >= frequentMin;
+    const isInactive = orderCount === 0;
+
+    let segment = 'all';
+    if (isInactive) segment = 'inactive';
+    else if (isVip) segment = 'vip';
+    else if (isFrequent) segment = 'frequent';
+
+    return { orderCount, totalSpent, segment, isVip, isFrequentBuyer: isFrequent, isInactive };
+}
+
+function buildOrderExportFilter(query = {}) {
+    const filter = {};
+    const status = String(query.status || '').trim();
+    if (status && status !== 'all') {
+        filter.status = status;
+    }
+
+    const search = String(query.search || '').trim();
+    if (search) {
+        const escaped = escapeRegex(search);
+        filter.$or = [
+            { orderId: { $regex: escaped, $options: 'i' } },
+            { customerName: { $regex: escaped, $options: 'i' } },
+            { customerPhone: { $regex: escaped, $options: 'i' } }
+        ];
+    }
+
+    const date = String(query.date || query.startDate || '').trim();
+    if (date) {
+        const dayStart = new Date(date);
+        if (!Number.isNaN(dayStart.getTime())) {
+            const dayEnd = new Date(dayStart);
+            dayEnd.setDate(dayEnd.getDate() + 1);
+            filter.createdAt = { $gte: dayStart, $lt: dayEnd };
+        }
+    }
+
+    const sandbox = String(query.sandbox || '').trim().toLowerCase();
+    if (sandbox === 'live') {
+        filter.isSandbox = { $ne: true };
+    } else if (sandbox === 'test') {
+        filter.isSandbox = true;
+    }
+
+    return filter;
+}
+
+function buildProductExportFilter(query = {}) {
+    const filter = {
+        $or: [
+            { status: { $exists: false } },
+            { status: { $nin: ['inactive', 'deleted'] } }
+        ]
+    };
+
+    const search = String(query.search || '').trim().toLowerCase();
+    const category = String(query.category || '').trim();
+    const stockStatus = String(query.stockStatus || '').trim();
+    const priceRange = String(query.priceRange || '').trim();
+
+    if (search) {
+        const escaped = escapeRegex(search);
+        filter.$and = filter.$and || [];
+        filter.$and.push({
+            $or: [
+                { name: { $regex: escaped, $options: 'i' } },
+                { productId: { $regex: escaped, $options: 'i' } },
+                { category: { $regex: escaped, $options: 'i' } }
+            ]
+        });
+    }
+
+    if (category && category !== 'All') {
+        filter.category = category;
+    }
+
+    if (stockStatus === 'OutOfStock') {
+        filter.$and = filter.$and || [];
+        filter.$and.push({
+            $or: [
+                { stockQuantity: 0 },
+                { stockQuantity: { $exists: false }, stock: 0 }
+            ]
+        });
+    } else if (stockStatus === 'InStock' || stockStatus === 'LowStock') {
+        filter.$and = filter.$and || [];
+        filter.$and.push({
+            $expr: {
+                $gt: [{ $ifNull: ['$stockQuantity', '$stock'] }, 0]
+            }
+        });
+    }
+
+    if (priceRange === '0-500') {
+        filter.price = { $lte: 500 };
+    } else if (priceRange === '500-2000') {
+        filter.price = { $gt: 500, $lte: 2000 };
+    } else if (priceRange === '2000+') {
+        filter.price = { $gt: 2000 };
+    }
+
+    return { filter, stockStatus, search, category, priceRange };
+}
+
+function productMatchesStockExport(doc, stockStatus) {
+    if (!stockStatus || stockStatus === 'All') return true;
+    const stockNum = Number(doc.stockQuantity ?? doc.stock ?? 0);
+    const threshold = Number(doc.lowStockThreshold) > 0 ? Number(doc.lowStockThreshold) : DEFAULT_LOW_STOCK_THRESHOLD;
+    if (stockStatus === 'InStock') return stockNum >= threshold;
+    if (stockStatus === 'LowStock') return stockNum > 0 && stockNum < threshold;
+    if (stockStatus === 'OutOfStock') return stockNum <= 0;
+    return true;
 }
 
 /**
@@ -221,16 +374,16 @@ const exportPLtoCSV = async (req, res) => {
 
 /**
  * GET /api/admin/orders/export-csv
+ * GET /api/admin/orders/export
  * Exports the order ledger as CSV for finance and fulfillment reporting.
  */
 const exportOrdersCSV = async (req, res) => {
     try {
-        const status = String(req.query.status || '').trim();
-        const query = status && status !== 'all' ? { status } : {};
-        const orders = await Order.find(query).sort({ createdAt: -1 }).limit(5000).lean();
+        const filter = buildOrderExportFilter(req.query);
+        const orders = await Order.find(filter).sort({ createdAt: -1 }).limit(EXPORT_ROW_LIMIT).lean();
 
         const rows = [
-            csvRow(['Order ID', 'Date', 'Customer', 'Phone', 'Status', 'Subtotal', 'Delivery', 'Grand Total', 'Payment Method'])
+            csvRow(['Order ID', 'Date', 'Customer', 'Phone', 'Status', 'Subtotal', 'Delivery', 'Grand Total', 'Payment Method', 'Sandbox'])
         ];
 
         orders.forEach((order) => {
@@ -243,23 +396,221 @@ const exportOrdersCSV = async (req, res) => {
                 order.subTotal ?? '',
                 order.deliveryCharge ?? '',
                 order.grandTotal ?? order.total ?? '',
-                order.payment?.name || order.paymentMethod || ''
+                order.payment?.name || order.paymentMethod || '',
+                order.isSandbox ? 'yes' : 'no'
             ]));
         });
 
-        const csv = `\uFEFF${rows.join('\r\n')}`;
         const stamp = new Date().toISOString().slice(0, 10);
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', `attachment; filename="orders-export-${stamp}.csv"`);
-        return res.send(csv);
+        return sendCsvResponse(res, `orders-export-${stamp}.csv`, rows);
     } catch (err) {
         console.error('Orders CSV export error:', err);
         return res.status(500).json({ success: false, message: 'Failed to export orders CSV.' });
     }
 };
 
+/**
+ * GET /api/admin/customers/export
+ */
+const exportCustomersCSV = async (req, res) => {
+    try {
+        const tierFilter = String(req.query.tier || '').trim().toLowerCase();
+        const segmentFilter = String(req.query.segment || '').trim().toLowerCase();
+        const search = String(req.query.search || '').trim();
+        const validTiers = ['none', 'silver', 'gold', 'platinum'];
+
+        const listFilter = {};
+        if (search) {
+            const escaped = escapeRegex(search);
+            const phoneDigits = search.replace(/\D/g, '');
+            const orClauses = [
+                { email: { $regex: escaped, $options: 'i' } },
+                { firstName: { $regex: escaped, $options: 'i' } },
+                { lastName: { $regex: escaped, $options: 'i' } },
+                { mobile: { $regex: escaped, $options: 'i' } }
+            ];
+            if (phoneDigits.length >= 6) {
+                orClauses.push({ mobile: { $regex: phoneDigits, $options: 'i' } });
+            }
+            listFilter.$or = orClauses;
+        }
+        if (tierFilter && validTiers.includes(tierFilter)) {
+            listFilter.loyaltyTier = tierFilter;
+        }
+
+        const [customers, masterSettings] = await Promise.all([
+            User.find(listFilter).select('-password').sort({ createdAt: -1 }).limit(EXPORT_ROW_LIMIT).lean(),
+            Settings.getOrCreate()
+        ]);
+
+        const customerIds = customers.map((c) => c._id);
+        const orderStats = customerIds.length
+            ? await Order.aggregate([
+                {
+                    $match: {
+                        user: { $in: customerIds },
+                        status: { $nin: ['Cancelled', 'Canceled'] }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$user',
+                        orderCount: { $sum: 1 },
+                        totalSpent: {
+                            $sum: {
+                                $add: [
+                                    { $ifNull: ['$grandTotal', 0] },
+                                    { $ifNull: ['$walletApplied', 0] }
+                                ]
+                            }
+                        }
+                    }
+                }
+            ])
+            : [];
+
+        const statsMap = new Map(
+            orderStats.map((row) => [String(row._id), {
+                orderCount: row.orderCount || 0,
+                totalSpent: Math.round(Number(row.totalSpent) || 0)
+            }])
+        );
+
+        const thresholds = {
+            vipMinTotalSpent: masterSettings.vipMinTotalSpent,
+            vipMinOrderCount: masterSettings.vipMinOrderCount,
+            frequentBuyerMinOrders: masterSettings.frequentBuyerMinOrders
+        };
+
+        const rows = [
+            csvRow(['User ID', 'Full Name', 'Email', 'Phone', 'Orders', 'Total Spent', 'Tier', 'Segment', 'Status'])
+        ];
+
+        customers.forEach((customer) => {
+            const stats = statsMap.get(String(customer._id)) || { orderCount: 0, totalSpent: 0 };
+            const segmentMeta = resolveCustomerSegment(stats, thresholds);
+
+            if (segmentFilter && segmentFilter !== 'all') {
+                if (segmentFilter === 'vip' && !segmentMeta.isVip) return;
+                if (segmentFilter === 'frequent' && !segmentMeta.isFrequentBuyer) return;
+                if (segmentFilter === 'inactive' && !segmentMeta.isInactive) return;
+            }
+
+            rows.push(csvRow([
+                customer._id,
+                hydrateCustomerName(customer),
+                customer.email || '',
+                customer.mobile || '',
+                segmentMeta.orderCount,
+                segmentMeta.totalSpent,
+                customer.loyaltyTier || 'none',
+                segmentMeta.segment,
+                customer.status || 'active'
+            ]));
+        });
+
+        const stamp = new Date().toISOString().slice(0, 10);
+        return sendCsvResponse(res, `customers-export-${stamp}.csv`, rows);
+    } catch (err) {
+        console.error('Customers CSV export error:', err);
+        return res.status(500).json({ success: false, message: 'Failed to export customers CSV.' });
+    }
+};
+
+/**
+ * GET /api/admin/products/export
+ */
+const exportProductsCSV = async (req, res) => {
+    try {
+        const { filter, stockStatus } = buildProductExportFilter(req.query);
+        let products = await Product.find(filter).sort({ createdAt: -1 }).limit(EXPORT_ROW_LIMIT).lean();
+        products = products.filter((p) => productMatchesStockExport(p, stockStatus));
+
+        const rows = [
+            csvRow(['Product ID', 'Name', 'Category', 'Sell Price', 'Buy Price', 'Stock', 'Low Stock Threshold', 'Status'])
+        ];
+
+        products.forEach((product) => {
+            rows.push(csvRow([
+                product.productId || String(product._id),
+                product.name || '',
+                product.category || '',
+                product.price ?? '',
+                product.buyingPrice ?? '',
+                product.stockQuantity ?? product.stock ?? 0,
+                product.lowStockThreshold ?? DEFAULT_LOW_STOCK_THRESHOLD,
+                product.status || 'active'
+            ]));
+        });
+
+        const stamp = new Date().toISOString().slice(0, 10);
+        return sendCsvResponse(res, `products-export-${stamp}.csv`, rows);
+    } catch (err) {
+        console.error('Products CSV export error:', err);
+        return res.status(500).json({ success: false, message: 'Failed to export products CSV.' });
+    }
+};
+
+/**
+ * GET /api/admin/hrm/employees/export
+ */
+const exportEmployeesCSV = async (req, res) => {
+    try {
+        const filter = {};
+        const { EMPLOYEE_STATUSES, EMPLOYEE_TYPES } = Employee;
+
+        const status = String(req.query.status || '').trim().toLowerCase();
+        if (EMPLOYEE_STATUSES.includes(status)) filter.status = status;
+
+        const department = String(req.query.department || '').trim();
+        if (department) filter.department = department;
+
+        const designation = String(req.query.designation || '').trim();
+        if (designation) filter.designation = designation;
+
+        const employeeType = String(req.query.employeeType || '').trim().toLowerCase();
+        if (EMPLOYEE_TYPES.includes(employeeType)) filter.employeeType = employeeType;
+
+        const search = String(req.query.search || '').trim();
+        if (search) {
+            const re = new RegExp(escapeRegex(search), 'i');
+            filter.$or = [{ fullName: re }, { phone: re }, { employeeId: re }, { role: re }, { designation: re }];
+        }
+
+        const employees = await Employee.find(filter).sort({ createdAt: -1 }).limit(EXPORT_ROW_LIMIT).lean();
+
+        const rows = [
+            csvRow(['Employee ID', 'Full Name', 'Phone', 'Email', 'Department', 'Designation', 'Type', 'Status', 'Join Date', 'Salary'])
+        ];
+
+        employees.forEach((employee) => {
+            rows.push(csvRow([
+                employee.employeeId || String(employee._id),
+                employee.fullName || '',
+                employee.phone || '',
+                employee.email || '',
+                employee.department || '',
+                employee.designation || '',
+                employee.employeeType || '',
+                employee.status || '',
+                employee.joinDate ? new Date(employee.joinDate).toISOString().slice(0, 10) : '',
+                employee.salary ?? employee.basicSalary ?? ''
+            ]));
+        });
+
+        const stamp = new Date().toISOString().slice(0, 10);
+        return sendCsvResponse(res, `employees-export-${stamp}.csv`, rows);
+    } catch (err) {
+        console.error('Employees CSV export error:', err);
+        return res.status(500).json({ success: false, message: 'Failed to export employees CSV.' });
+    }
+};
+
 module.exports = {
     exportPLtoPDF,
     exportPLtoCSV,
-    exportOrdersCSV
+    exportOrdersCSV,
+    exportCustomersCSV,
+    exportProductsCSV,
+    exportEmployeesCSV
 };

@@ -148,6 +148,8 @@ The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/p
 
 | Leave | `backend/src/models/leave.js` | Leave applications, approvals, balances |
 
+| AdminNotification | `backend/src/models/adminNotification.js` | In-app admin notification center (order/stock/leave/payroll/security/system) |
+
 
 
 ## HRM Module (Phase 5)

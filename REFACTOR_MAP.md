@@ -1068,3 +1068,39 @@ tests/pos.test.js [NEW] manual order creation + validation
 tests/abandonedCart.test.js [NEW] list KPIs + notify endpoint
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] FINAL CLEANUP — 2026-09-12 + sidebar DECISION note
 README.md [DONE] 146 tests / 15 suites
+#
+# Jest & Mongoose hygiene: 2026-09-12
+backend/src/services/paymentMethodService.js [DONE] silence payment catalog seed log in test env
+backend/src/services/walletService.js [DONE] findOneAndUpdate → returnDocument: 'after'
+backend/src/controllers/courierController.js [DONE] findOneAndUpdate → returnDocument: 'after'
+backend/src/controllers/orderAdminController.js [DONE] findOneAndUpdate / findByIdAndUpdate → returnDocument: 'after'
+backend/src/services/sandboxService.js [DONE] findOneAndUpdate → returnDocument: 'after'
+backend/src/controllers/bannerController.js [DONE] findOneAndUpdate → returnDocument: 'after'
+tests/setup.js [DONE] afterAll closes mongoose + mongoServer; clears timers
+package.json [DONE] removed jest --forceExit from npm test
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Jest & Mongoose Hygiene — 2026-09-12
+README.md [DONE] test teardown / console hygiene note
+#
+# Notification center & bulk CSV export — 2026-09-12
+backend/src/models/adminNotification.js [NEW] persisted in-app admin notifications
+backend/src/services/notificationService.js [DONE] createNotification, notifyAdminsWithPermission; sendAdminNotification retained
+backend/src/controllers/admin/notificationController.js [NEW] list, unread count, mark read, mark all read
+backend/src/controllers/admin/exportController.js [DONE] exportCustomersCSV, exportProductsCSV, exportEmployeesCSV; exportOrdersCSV filter-aware
+backend/src/controllers/orderCheckoutController.js [DONE] notify manage_orders on new order
+backend/src/services/stockAlertService.js [DONE] notify manage_inventory on low/out-of-stock
+backend/src/controllers/admin/leaveController.js [DONE] notify manage_staff on leave apply
+backend/src/services/courierSyncService.js [DONE] notify manage_orders on courier Delivered
+backend/src/routes/adminRoutes.js [DONE] /notifications/*, /customers/export, /orders/export, /products/export, /hrm/employees/export
+client/js/admin/modules/notifications.js [NEW] bell dropdown, polling, mark read, navigation
+client/js/admin/admin-core.js [DONE] imports notifications.js
+client/js/admin/modules/core-realtime.js [DONE] socket admin_notification refresh; bell UI moved to notifications.js
+client/js/admin/modules/core-nav.js [DONE] exportCustomersCsvReport
+client/js/admin/modules/orders-table.js [DONE] exportOrdersCsvReport uses /orders/export + all filters
+client/js/admin/modules/products-bulk.js [DONE] exportProductsCsvReport server export
+client/js/admin/modules/hrm-employees.js [DONE] exportEmployeesCsvReport
+client/admin/partials/view-customers.html [DONE] Export CSV button
+client/admin/partials/view-hrm-employees.html [DONE] Export CSV button
+client/css/admin/_notifications.css [DONE] unread dot, title, clickable item styles
+tests/admin.test.js [DONE] +5 notification + bulk export tests
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] NOTIFICATION CENTER & BULK EXPORT — 2026-09-12
+README.md [DONE] 151 tests + notification center / bulk export note

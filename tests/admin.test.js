@@ -400,4 +400,97 @@ describe('Admin API', () => {
         expect(res.status).toBe(400);
         expect(res.body.success).toBe(false);
     });
+
+    test('GET /api/admin/notifications returns paginated in-app notifications', async () => {
+        const { admin, username } = await createTestAdmin({ twoFactorEnabled: false });
+        const AdminNotification = require('../backend/src/models/adminNotification');
+        const token = jwt.sign({ username, role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+        await AdminNotification.create({
+            recipientId: String(admin._id),
+            type: 'order',
+            title: 'Test order alert',
+            message: 'Order #TEST-001 placed',
+            link: 'view-orders',
+            isRead: false
+        });
+
+        const res = await request(app)
+            .get('/api/admin/notifications')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(Array.isArray(res.body.data)).toBe(true);
+        expect(res.body.data.length).toBeGreaterThan(0);
+        expect(res.body.unreadCount).toBeGreaterThan(0);
+    });
+
+    test('PATCH /api/admin/notifications/:id/read marks a notification as read', async () => {
+        const { admin, username } = await createTestAdmin({ twoFactorEnabled: false });
+        const AdminNotification = require('../backend/src/models/adminNotification');
+        const token = jwt.sign({ username, role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+        const note = await AdminNotification.create({
+            recipientId: String(admin._id),
+            type: 'system',
+            title: 'Mark read test',
+            message: 'Unread notification',
+            isRead: false
+        });
+
+        const res = await request(app)
+            .patch(`/api/admin/notifications/${note._id}/read`)
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.isRead).toBe(true);
+    });
+
+    test('GET /api/admin/customers/export returns CSV attachment', async () => {
+        await createTestUser({ firstName: 'Export', lastName: 'Customer', email: 'export.customer@test.local' });
+        const token = await getAdminAuthToken();
+
+        const res = await request(app)
+            .get('/api/admin/customers/export')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+        expect(res.headers['content-type']).toMatch(/text\/csv/);
+        expect(res.text).toContain('Full Name');
+    });
+
+    test('GET /api/admin/products/export returns CSV attachment', async () => {
+        await Product.create({
+            productId: 'EXP-001',
+            name: 'Export Product',
+            price: 500,
+            stock: 5,
+            stockQuantity: 5,
+            category: 'Grocery'
+        });
+        const token = await getAdminAuthToken();
+
+        const res = await request(app)
+            .get('/api/admin/products/export')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+        expect(res.headers['content-type']).toMatch(/text\/csv/);
+        expect(res.text).toContain('Product ID');
+    });
+
+    test('GET /api/admin/orders/export returns CSV with filter params', async () => {
+        await seedOrderForAdminList();
+        const token = await getAdminAuthToken();
+
+        const res = await request(app)
+            .get('/api/admin/orders/export?status=Pending')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+        expect(res.headers['content-type']).toMatch(/text\/csv/);
+        expect(res.text).toContain('Order ID');
+    });
 });

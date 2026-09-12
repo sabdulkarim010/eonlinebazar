@@ -160,38 +160,6 @@ function updateSidebarMessagesBadge(delta = 0) {
     }
 }
 
-function updateAdminNotifBellBadge() {
-    const countEl = document.getElementById('adminNotifBellCount');
-    if (!countEl) return;
-    if (adminNotifUnread <= 0) {
-        countEl.hidden = true;
-        countEl.textContent = '0';
-    } else {
-        countEl.hidden = false;
-        countEl.textContent = String(adminNotifUnread);
-    }
-}
-
-function renderAdminNotifDropdown() {
-    const listEl = document.getElementById('adminNotifDropdownList');
-    if (!listEl) return;
-
-    if (!adminNotifHistory.length) {
-        listEl.innerHTML = '<p class="admin-notif-empty">No notifications yet</p>';
-        return;
-    }
-
-    listEl.innerHTML = adminNotifHistory.slice(0, 10).map((item) => `
-        <div class="admin-notif-item">
-            <span class="admin-notif-item-icon">${item.icon}</span>
-            <div class="admin-notif-item-body">
-                <p class="admin-notif-item-msg">${escapeToastText(item.message)}</p>
-                <span class="admin-notif-item-time">${escapeToastText(item.timeAgo)}</span>
-            </div>
-        </div>
-    `).join('');
-}
-
 function pushAdminNotification({ icon, message, createdAt }) {
     adminNotifHistory.unshift({
         icon,
@@ -200,38 +168,9 @@ function pushAdminNotification({ icon, message, createdAt }) {
         timeAgo: formatTimeAgo(createdAt || new Date())
     });
     if (adminNotifHistory.length > 10) adminNotifHistory.length = 10;
-    adminNotifUnread += 1;
-    updateAdminNotifBellBadge();
-    renderAdminNotifDropdown();
-}
-
-function setupAdminNotifBell() {
-    const btn = document.getElementById('adminNotifBellBtn');
-    const dropdown = document.getElementById('adminNotifDropdown');
-    const markAllBtn = document.getElementById('adminNotifMarkAllRead');
-
-    if (btn && dropdown) {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dropdown.hidden = !dropdown.hidden;
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!dropdown.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
-                dropdown.hidden = true;
-            }
-        });
+    if (typeof window.refreshAdminNotifications === 'function') {
+        window.refreshAdminNotifications();
     }
-
-    if (markAllBtn) {
-        markAllBtn.addEventListener('click', () => {
-            adminNotifUnread = 0;
-            updateAdminNotifBellBadge();
-            if (dropdown) dropdown.hidden = true;
-        });
-    }
-
-    renderAdminNotifDropdown();
 }
 
 function isAdminSectionActive(sectionId) {
@@ -245,7 +184,6 @@ function initAdminSocket() {
     if (!authToken) return;
 
     adminSocketInitialized = true;
-    setupAdminNotifBell();
 
     adminSocket = io('/admin', {
         auth: { token: authToken }
@@ -262,6 +200,12 @@ function initAdminSocket() {
     adminSocket.on('connect_error', (err) => {
         console.warn('[Socket] Connection error:', err.message);
         setAdminSocketStatus('🔴 Disconnected', 'disconnected');
+    });
+
+    adminSocket.on('admin_notification', () => {
+        if (typeof window.refreshAdminNotifications === 'function') {
+            window.refreshAdminNotifications();
+        }
     });
 
     adminSocket.on('new_order', (data) => {
@@ -693,10 +637,7 @@ Object.assign(window, {
     formatTimeAgo,
     updateSidebarOrdersBadge,
     updateSidebarMessagesBadge,
-    updateAdminNotifBellBadge,
-    renderAdminNotifDropdown,
     pushAdminNotification,
-    setupAdminNotifBell,
     isAdminSectionActive,
     initAdminSocket,
     showEnterpriseActionModal,

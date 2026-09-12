@@ -105,42 +105,49 @@ window.deleteProduct = (id) => {
 };
 
 /**
- * ১০.১০: এক্সপোর্ট বাটন — শুধুমাত্র চেকবক্সে সিলেক্ট করা সারিগুলো CSV তে এক্সপোর্ট
+ * ১০.১০: Export filtered product catalog as CSV from the server.
  */
+async function exportProductsCsvReport() {
+    try {
+        const filters = typeof getProductFilterState === 'function'
+            ? getProductFilterState()
+            : {};
+        const params = new URLSearchParams();
+        if (filters.search) params.set('search', filters.search);
+        if (filters.category && filters.category !== 'All') params.set('category', filters.category);
+        if (filters.stockStatus && filters.stockStatus !== 'All') params.set('stockStatus', filters.stockStatus);
+        if (filters.priceRange && filters.priceRange !== 'All') params.set('priceRange', filters.priceRange);
+
+        const qs = params.toString() ? `?${params.toString()}` : '';
+        const res = await fetch(`/api/admin/products/export${qs}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showToast(err.message || 'Could not export products.', 'error');
+            return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `products-export-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showToast('Products CSV downloaded.', 'success');
+    } catch (err) {
+        console.error('exportProductsCsvReport:', err);
+        showToast('Could not reach the server.', 'error');
+    }
+}
+
 document.getElementById('btn-export-csv')?.addEventListener('click', () => {
-    if (selectedProductIds.size === 0) {
-        return showToast("Please select products using the checkboxes before exporting.", "warning");
-    }
-
-    const toExport = currentFilteredProducts.filter(p => selectedProductIds.has(p._id));
-    if (toExport.length === 0) {
-        return showToast("Selected products are not visible in the current filter view.", "warning");
-    }
-
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "ID,Name,Category,Sell Price,Buy Price,Stock\n";
-
-    toExport.forEach(p => {
-        const row = [
-            p.productId || p.id || '',
-            p.name || '',
-            p.category || '',
-            p.price ?? '',
-            p.buyingPrice ?? 0,
-            p.stock ?? 0
-        ].map(val => `"${String(val).replace(/"/g, '""')}"`).join(',');
-        csvContent += row + "\r\n";
-    });
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Products_Selected_${toExport.length}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast(`${toExport.length} selected product(s) exported to CSV!`, "success");
+    exportProductsCsvReport();
 });
+
+window.exportProductsCsvReport = exportProductsCsvReport;
 
 /* ==========================================================================
    SECTION 10B: BULK PRODUCT IMPORT (CSV / EXCEL)

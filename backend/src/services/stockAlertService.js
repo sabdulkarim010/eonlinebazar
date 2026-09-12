@@ -14,6 +14,7 @@ const { sendStockAlertEmail } = require('./mailer');
 const { sendSms } = require('./smsService');
 const { sendAdminCustomAlert, isGatewayConfigured, loadWhatsAppAlertGatewayConfig } = require('./whatsappService');
 const { emitToAdmins } = require('./socketService');
+const { notifyAdminsWithPermission } = require('./notificationService');
 
 const DEFAULT_THRESHOLD = Number(process.env.LOW_STOCK_DEFAULT_THRESHOLD) || 10;
 const DEFAULT_CRON = '0 * * * *';
@@ -267,6 +268,16 @@ async function checkAndAlertLowStock() {
     } catch (err) {
         console.error('[StockAlert] Failed to save alert log:', err.message);
     }
+
+    notifyAdminsWithPermission(
+        'manage_inventory',
+        'stock',
+        'Stock alert',
+        `${lowStock.length} product(s) low on stock, ${outOfStock.length} out of stock`,
+        'view-manage-products'
+    ).catch((err) => {
+        console.warn('[StockAlert] In-app notification failed:', err.message);
+    });
 
     console.log(`[StockAlert] Completed — ${lowStock.length} low, ${outOfStock.length} out of stock`);
     return { ...payload, alertsSent };

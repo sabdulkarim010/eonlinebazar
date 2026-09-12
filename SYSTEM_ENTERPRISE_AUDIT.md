@@ -1779,7 +1779,35 @@ SweetAlert2 toasts on tab switch and master-settings saves. Enterprise features 
 - Finance integration tests → ✅ **COMPLETE**
 - RBAC gaps on utility admin routes → ✅ **FIXED**
 
-**Migration note:** Run `node scripts/mergeSettingsModels.js` once against production MongoDB before deploy to copy any values still stored only on the deprecated `key: master` document.
+**Migration note:** Run `node scripts/mergeSettingsModels.js` once against production MongoDB before deploy to copy any values still stored only on the deprecated `key: master` row.
+
+---
+
+## Jest & Mongoose Hygiene — 2026-09-12
+
+| Task | Status | Summary |
+|------|--------|---------|
+| Payment catalog seed log noise | ✅ | `seedDefaultPaymentMethods()` skips the success `console.log` when `NODE_ENV=test`. |
+| Mongoose `findOneAndUpdate` deprecation | ✅ | Replaced `{ new: true }` with `{ returnDocument: 'after' }` on all backend `findOneAndUpdate` call sites (`walletService`, `courierController`, `orderAdminController`, `sandboxService`, `bannerController`). |
+| Jest teardown / open handles | ✅ | `tests/setup.js` `afterAll` now clears timers, closes the Mongoose connection, and stops the in-memory MongoDB server; removed `--forceExit` from `npm test`. **146 / 146 tests passing** without forced exit. |
+
+**Remaining (non-blocking):** Some `findByIdAndUpdate` paths (e.g. supplier/warehouse ERP updates) still use `{ new: true }` and emit Mongoose deprecation warnings during tests — migrate separately if desired.
+
+---
+
+## NOTIFICATION CENTER & BULK EXPORT — 2026-09-12
+
+| Task | Status | Summary |
+|------|--------|---------|
+| AdminNotification model | ✅ COMPLETE | `backend/src/models/adminNotification.js` — `recipientId`, `type` (order/stock/leave/payroll/security/system), `title`, `message`, `link`, `isRead`, `createdAt`; compound index `{ recipientId: 1, isRead: 1, createdAt: -1 }`. |
+| Notification service | ✅ COMPLETE | `notificationService.js` — `createNotification()`, `notifyAdminsWithPermission()`; retains `sendAdminNotification()` for socket-only callers. Wired on: new order (`manage_orders`), stock alert cron (`manage_inventory`), leave application (`manage_staff`), courier Delivered sync (`manage_orders`). |
+| Notification API | ✅ COMPLETE | `GET /api/admin/notifications`, `GET /api/admin/notifications/unread-count`, `PATCH /api/admin/notifications/:id/read`, `PATCH /api/admin/notifications/mark-all-read` — `verifyAdmin` only (personal inbox). |
+| Admin bell dropdown UI | ✅ COMPLETE | Header bell (`header.html`) + `client/js/admin/modules/notifications.js` — unread badge, dropdown list (title/message/relative time/unread dot), mark-all-read, click navigates via `link` + marks read, 30s unread-count poll; socket `admin_notification` triggers refresh. |
+| Bulk CSV export — Customers | ✅ COMPLETE | `GET /api/admin/customers/export` + Export CSV button on `view-customers.html`; respects search, tier, segment filters. |
+| Bulk CSV export — Orders | ✅ COMPLETE | `GET /api/admin/orders/export` (+ legacy `/export-csv` alias); respects status, search, date, sandbox filters; orders toolbar button updated. |
+| Bulk CSV export — Products | ✅ COMPLETE | `GET /api/admin/products/export`; respects search, category, stock status, price range; inventory Export CSV button calls server. |
+| Bulk CSV export — Employees | ✅ COMPLETE | `GET /api/admin/hrm/employees/export`; respects search, department, designation, type, status; Export CSV on `view-hrm-employees.html`. |
+| Tests | ✅ COMPLETE | `tests/admin.test.js` +5 — notifications list/read + customers/products/orders CSV export. **151 / 151 tests passing.** |
 
 
 

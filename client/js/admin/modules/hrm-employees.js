@@ -133,6 +133,45 @@ function renderEmployeeTable(rows) {
     `).join('');
 }
 
+async function exportEmployeesCsvReport() {
+    try {
+        const params = new URLSearchParams();
+        const search = document.getElementById('employeeSearchInput')?.value?.trim();
+        const department = document.getElementById('employeeDepartmentFilter')?.value?.trim();
+        const designation = document.getElementById('employeeDesignationFilter')?.value?.trim();
+        const employeeType = document.getElementById('employeeTypeFilter')?.value?.trim();
+        const status = document.getElementById('employeeStatusFilter')?.value?.trim();
+        if (search) params.set('search', search);
+        if (department) params.set('department', department);
+        if (designation) params.set('designation', designation);
+        if (employeeType) params.set('employeeType', employeeType);
+        if (status) params.set('status', status);
+
+        const qs = params.toString() ? `?${params.toString()}` : '';
+        const res = await fetch(`/api/admin/hrm/employees/export${qs}`, {
+            headers: employeeAuthHeaders()
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showToast(err.message || 'Could not export employees.', 'error');
+            return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `employees-export-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showToast('Employees CSV downloaded.', 'success');
+    } catch (err) {
+        console.error('exportEmployeesCsvReport:', err);
+        showToast('Could not reach the server.', 'error');
+    }
+}
+
 async function loadEmployees() {
     const tbody = document.getElementById('employeeTableBody');
     if (!tbody) return;
@@ -1354,6 +1393,7 @@ async function viewEmployeeDetails(id) {
 }
 
 window.loadEmployees = loadEmployees;
+window.exportEmployeesCsvReport = exportEmployeesCsvReport;
 window.loadEmployeeStats = loadEmployeeStats;
 window.renderEmployeeTable = renderEmployeeTable;
 window.openAddEmployeeModal = openAddEmployeeModal;

@@ -862,6 +862,42 @@ function setupGlobalSearch() {
     }
 }
 
+async function exportCustomersCsvReport() {
+    try {
+        const params = new URLSearchParams();
+        const search = document.getElementById('customerSearchInput')?.value?.trim();
+        const tier = document.getElementById('customerTierFilter')?.value?.trim();
+        if (search) params.set('search', search);
+        if (tier) params.set('tier', tier);
+        if (customerSegmentFilter && customerSegmentFilter !== 'all') {
+            params.set('segment', customerSegmentFilter);
+        }
+
+        const qs = params.toString() ? `?${params.toString()}` : '';
+        const res = await fetch(`/api/admin/customers/export${qs}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showToast(err.message || 'Could not export customers.', 'error');
+            return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `customers-export-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showToast('Customers CSV downloaded.', 'success');
+    } catch (err) {
+        console.error('exportCustomersCsvReport:', err);
+        showToast('Could not reach the server.', 'error');
+    }
+}
+
 /* Expose module functions for HTML onclick + cross-module calls */
 Object.assign(window, {
     updateAdminPageHeader,
@@ -870,6 +906,7 @@ Object.assign(window, {
     initAdminPaginationInstances,
     filterCustomersBySegment,
     setupCustomerSegmentTabs,
+    exportCustomersCsvReport,
     setupAdminSPARouter,
     switchDashboardView,
     initDashboard,

@@ -62,6 +62,7 @@ const designationController = require('../controllers/admin/designationControlle
 const expenseController = require('../controllers/admin/expenseController');
 const profitLossController = require('../controllers/admin/profitLossController');
 const exportController = require('../controllers/admin/exportController');
+const notificationController = require('../controllers/admin/notificationController');
 const productController = require('../controllers/productController');
 const enterpriseSummaryController = require('../controllers/admin/enterpriseSummaryController');
 const accountsSummaryController = require('../controllers/admin/accountsSummaryController');
@@ -152,7 +153,14 @@ router.put('/me/avatar', verifyAdmin, async (req, res) => {
     }
 });
 
+// In-app notification center (personal to each signed-in admin)
+router.get('/notifications/unread-count', verifyAdmin, notificationController.getUnreadCount);
+router.patch('/notifications/mark-all-read', verifyAdmin, notificationController.markAllAsRead);
+router.get('/notifications', verifyAdmin, notificationController.getMyNotifications);
+router.patch('/notifications/:id/read', verifyAdmin, notificationController.markAsRead);
+
 // ১. কাস্টমারদের ডাটা পাওয়ার রাস্তা (GET)
+router.get('/customers/export', verifyAdmin, checkPermission('manage_customers'), exportController.exportCustomersCSV);
 router.get('/customers', verifyAdmin, checkPermission('manage_customers'), adminController.getAllCustomers);
 
 // POS quick-add customer (must be before /customers/:id)
@@ -483,7 +491,9 @@ router.delete('/expenses/:id', verifyAdmin, checkPermission('manage_settings'), 
 router.get('/finance/profit-loss', verifyAdmin, requireSuperAdmin, profitLossController.getProfitLossReport);
 router.get('/finance/profit-loss/export-pdf', verifyAdmin, requireSuperAdmin, exportController.exportPLtoPDF);
 router.get('/finance/profit-loss/export-csv', verifyAdmin, requireSuperAdmin, exportController.exportPLtoCSV);
+router.get('/orders/export', verifyAdmin, checkPermission('manage_orders'), exportController.exportOrdersCSV);
 router.get('/orders/export-csv', verifyAdmin, checkPermission('manage_orders'), exportController.exportOrdersCSV);
+router.get('/products/export', verifyAdmin, checkPermission('manage_inventory'), exportController.exportProductsCSV);
 
 /********************************************************************
  # ERP — Suppliers, Warehouses, Purchase Orders
@@ -532,6 +542,7 @@ router.delete('/hrm/designations/:id', verifyAdmin, checkPermission('manage_staf
 // Named + nested sub-paths (stats, profile, photo, documents) are declared
 // before the bare /:id routes so they are never read as a record id.
 router.get('/hrm/employees/stats', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeStats);
+router.get('/hrm/employees/export', verifyAdmin, checkPermission('manage_staff'), exportController.exportEmployeesCSV);
 router.get('/hrm/employees', verifyAdmin, checkPermission('manage_staff'), employeeController.getAllEmployees);
 router.get('/hrm/employees/:id/profile', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeProfile);
 router.get('/hrm/employees/:id/access-status', verifyAdmin, checkPermission('manage_staff'), employeeController.getAccessStatus);

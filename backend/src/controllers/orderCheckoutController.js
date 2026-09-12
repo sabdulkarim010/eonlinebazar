@@ -40,6 +40,7 @@ const { deductWalletForOrder } = require('../services/walletService');
 const { loadFlashSaleSettings } = require('../services/flashSaleService');
 const { invalidate, CACHE_KEYS } = require('../services/cacheService');
 const { emitToAdmins } = require('../services/socketService');
+const { notifyAdminsWithPermission } = require('../services/notificationService');
 const {
     resolvePaymentMethodForCheckout,
     computeProcessingFee,
@@ -597,6 +598,18 @@ const createOrder = async (req, res) => {
             paymentMethod: newOrder.paymentMethod,
             createdAt: newOrder.createdAt
         });
+
+        if (!isMockOrder) {
+            notifyAdminsWithPermission(
+                'manage_orders',
+                'order',
+                'New order placed',
+                `Order #${newOrder.orderId} from ${newOrder.customerName} — ৳${Number(newOrder.grandTotal || 0).toLocaleString('en-BD')}`,
+                'view-orders'
+            ).catch((err) => {
+                console.warn('[Order] In-app notification failed:', err.message);
+            });
+        }
 
         res.status(201).json({
             success: true,
