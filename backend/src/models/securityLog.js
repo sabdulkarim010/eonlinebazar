@@ -16,6 +16,7 @@ const RESOURCE_TYPES = [
     'purchase_order',
     // ERP Finance
     'expense',
+    'expense_category',
     // HRM
     'attendance',
     'shift',

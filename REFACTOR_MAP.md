@@ -1187,3 +1187,28 @@ client/css/admin/_settings-security.css [DONE] security-monitor-panel styles
 tests/admin.test.js [DONE] +3 SLA + security monitor tests
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] SUPPORT SLA & SECURITY MONITORING — 2026-09-12
 README.md [DONE] 160 tests + SLA / security monitor note
+#
+# Dynamic Expense Category Management — 2026-09-12
+backend/src/models/expenseCategory.js [NEW] dynamic category catalog — name, slug, isActive, isSystemDefault, allowCustomInput
+backend/src/models/expense.js [DONE] category as dynamic slug string + customCategoryName; legacy CATEGORIES static kept
+backend/src/services/expenseCategoryService.js [NEW] seedDefaultExpenseCategories + slugify + lookup helpers
+backend/src/controllers/admin/expenseCategoryController.js [NEW] active/admin list, create, toggle active, other-custom-toggle, delete
+backend/src/controllers/admin/expenseController.js [DONE] validate category against ExpenseCategory; customCategoryName for Other
+backend/src/controllers/admin/profitLossController.js [DONE] dynamic category slug rollups from ExpenseCategory
+backend/src/models/securityLog.js [DONE] expense_category resourceType
+backend/src/routes/adminRoutes.js [DONE] /expense-categories/* routes (named before :id)
+backend/src/server.js [DONE] seedDefaultExpenseCategories bootstrap
+tests/setup.js [DONE] seed expense categories afterEach
+tests/expenseCategory.test.js [NEW] 6 tests — CRUD, toggle, Other custom input, delete guards
+client/admin/partials/view-erp-expenses.html [DONE] custom category name input group
+client/admin/partials/view-settings.html [DONE] Finance Settings tab + expense category manager table
+client/js/admin/modules/erp-expenses.js [DONE] API-driven category dropdowns + Other custom input UX
+client/js/admin/modules/settings-expense-categories.js [NEW] category manager UI for System Settings
+client/js/admin/modules/settings-hub.js [DONE] finance tab label + loadExpenseCategorySettings on activate
+client/js/admin/admin-settings.js [DONE] import settings-expense-categories.js
+client/js/admin/modules/activity-feed.js [DONE] expense_category icon + label
+client/css/admin/_settings-finance.css [NEW] finance settings / category manager styles
+client/css/admin/_settings.css [DONE] import _settings-finance.css
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Dynamic Expense Category Management — 2026-09-12
+README.md [DONE] 166 tests + dynamic expense category feature note
+ARCHITECTURE.md [DONE] ExpenseCategory model + Finance Settings tab

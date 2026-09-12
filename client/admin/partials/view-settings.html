@@ -15,6 +15,9 @@
                         <button type="button" class="admin-settings-tab" role="tab" id="adminTabShipping" aria-selected="false" aria-controls="adminPanelShipping" data-tab="shipping" data-permission="manage_settings">
                             <i class="fa-solid fa-truck" aria-hidden="true"></i> Shipping &amp; Payments
                         </button>
+                        <button type="button" class="admin-settings-tab" role="tab" id="adminTabFinance" aria-selected="false" aria-controls="adminPanelFinance" data-tab="finance" data-permission="manage_settings">
+                            <i class="fa-solid fa-coins" aria-hidden="true"></i> Finance Settings
+                        </button>
                         <button type="button" class="admin-settings-tab" role="tab" id="adminTabSecurity" aria-selected="false" aria-controls="adminPanelSecurity" data-tab="security">
                             <i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Security &amp; Access
                         </button>
@@ -213,6 +216,58 @@
                     <!-- Tab: Shipping & Payments -->
                     <div class="admin-settings-panel" role="tabpanel" id="adminPanelShipping" aria-labelledby="adminTabShipping" data-panel="shipping" hidden>
                         <div id="settingsEmbed_shipping" class="settings-embed-mount" aria-label="Shipping and payment methods"></div>
+                    </div>
+
+                    <!-- Tab: Finance Settings -->
+                    <div class="admin-settings-panel" role="tabpanel" id="adminPanelFinance" aria-labelledby="adminTabFinance" data-panel="finance" hidden>
+                        <div class="admin-settings-stack" data-permission="manage_settings">
+                            <div class="saas-settings-card exp-cat-settings-card">
+                                <div class="saas-settings-card-header">
+                                    <h4><i class="fa-solid fa-tags"></i> Expense Category Manager</h4>
+                                    <p class="settings-card-sub">Control which categories appear in Expense Tracking dropdowns across the admin panel.</p>
+                                </div>
+                                <div class="saas-settings-card-body">
+                                    <div class="exp-cat-master-toggle">
+                                        <div>
+                                            <strong>Allow Quick Custom Category Input ('Other' Field)</strong>
+                                            <p class="settings-card-sub">When enabled, selecting "Other" in the Add Expense form shows a text field for one-off category names.</p>
+                                        </div>
+                                        <label class="toggle-switch" title="Toggle Other custom input">
+                                            <input type="checkbox" id="expenseOtherCustomToggle"
+                                                   onchange="toggleExpenseOtherCustomInput(this.checked)">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+
+                                    <div class="exp-cat-add-row">
+                                        <div class="form-group">
+                                            <label for="newExpenseCategoryName">Add Permanent Category</label>
+                                            <input type="text" id="newExpenseCategoryName" placeholder="e.g. Raw Materials, Machine Maintenance">
+                                        </div>
+                                        <button type="button" class="btn-primary" onclick="saveNewExpenseCategory()">
+                                            <i class="fa-solid fa-plus"></i> Add Category
+                                        </button>
+                                    </div>
+
+                                    <div class="table-container exp-cat-table-wrap">
+                                        <table class="data-table exp-cat-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Status</th>
+                                                    <th>Type</th>
+                                                    <th>Active</th>
+                                                    <th class="customers-th--actions">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="expenseCategoryTableBody">
+                                                <tr><td colspan="5" class="loading-container"><div class="spinner"></div><p>Loading categories…</p></td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Tab: Security & Access -->

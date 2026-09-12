@@ -1,0 +1,90 @@
+/* EonlineBazar Admin — Finance Settings (expense category manager) */
+
+.exp-cat-settings-card .saas-settings-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.exp-cat-master-toggle {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 18px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+.exp-cat-master-toggle strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #0f172a;
+}
+
+.exp-cat-add-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+.exp-cat-add-row .form-group {
+    flex: 1 1 240px;
+    margin: 0;
+}
+
+.exp-cat-table-wrap {
+    margin-top: 4px;
+}
+
+.exp-cat-slug {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.exp-cat-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.exp-cat-badge--active {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.exp-cat-badge--inactive {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.exp-cat-badge--system {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.exp-cat-badge--custom {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.exp-cat-table .toggle-switch {
+    margin: 0;
+}
+
+@media (max-width: 640px) {
+    .exp-cat-master-toggle {
+        flex-direction: column;
+    }
+
+    .exp-cat-add-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}

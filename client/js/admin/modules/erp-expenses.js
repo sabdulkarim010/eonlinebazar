@@ -4,27 +4,7 @@
  */
 import '../admin-core.js';
 
-const EXPENSE_CATEGORIES = [
-    'office_rent',
-    'utilities',
-    'staff_salary',
-    'marketing',
-    'courier_charges',
-    'packaging',
-    'equipment',
-    'other'
-];
-
-const EXPENSE_CATEGORY_LABELS = {
-    office_rent: 'Office Rent',
-    utilities: 'Utilities',
-    staff_salary: 'Staff Salary',
-    marketing: 'Marketing',
-    courier_charges: 'Courier Charges',
-    packaging: 'Packaging',
-    equipment: 'Equipment',
-    other: 'Other'
-};
+let expenseCategoryCache = [];
 
 const EXPENSE_BADGE_CLASS = {
     office_rent: 'exp-badge-rent',
@@ -53,23 +33,86 @@ function formatDate(value) {
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function categoryLabel(slug) {
-    return EXPENSE_CATEGORY_LABELS[slug] || slug || 'Other';
+function categoryMeta(slug) {
+    return expenseCategoryCache.find((row) => row.slug === slug) || null;
+}
+
+function categoryLabel(slug, customName) {
+    if (slug === 'other' && customName) return customName;
+    const meta = categoryMeta(slug);
+    if (meta) return meta.name;
+    return slug ? slug.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Other';
+}
+
+function getOtherCategory() {
+    return expenseCategoryCache.find((row) => row.slug === 'other') || null;
+}
+
+function updateCustomCategoryFieldVisibility() {
+    const group = document.getElementById('expenseCustomCategoryGroup');
+    const input = document.getElementById('expenseCustomCategoryName');
+    const select = document.getElementById('expenseCategory');
+    if (!group || !select) return;
+
+    const selectedSlug = select.value;
+    const other = getOtherCategory();
+    const show = selectedSlug === 'other'
+        && other
+        && other.isActive
+        && other.allowCustomInput;
+
+    group.hidden = !show;
+    if (input) {
+        input.required = show;
+        if (!show) input.value = '';
+    }
+}
+
+async function fetchExpenseCategories() {
+    try {
+        const res = await fetch('/api/admin/expense-categories', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const result = await res.json();
+        if (result.success) {
+            expenseCategoryCache = result.data || [];
+        }
+    } catch (err) {
+        console.error('fetchExpenseCategories:', err);
+    }
+    return expenseCategoryCache;
 }
 
 function populateCategorySelects() {
     const filterSelect = document.getElementById('expFilterCategory');
     const modalSelect = document.getElementById('expenseCategory');
-    const optionsHtml = EXPENSE_CATEGORIES.map((cat) =>
-        `<option value="${cat}">${categoryLabel(cat)}</option>`
-    ).join('');
 
-    if (filterSelect && filterSelect.options.length <= 1) {
+    const sorted = [...expenseCategoryCache].sort((a, b) => {
+        if (a.slug === 'other') return 1;
+        if (b.slug === 'other') return -1;
+        return a.name.localeCompare(b.name);
+    });
+
+    const optionsHtml = sorted
+        .filter((row) => row.isActive)
+        .map((row) => `<option value="${escapeCell(row.slug)}">${escapeCell(row.name)}</option>`)
+        .join('');
+
+    if (filterSelect) {
+        const current = filterSelect.value;
         filterSelect.innerHTML = `<option value="">All categories</option>${optionsHtml}`;
+        if (current) filterSelect.value = current;
     }
-    if (modalSelect && !modalSelect.options.length) {
-        modalSelect.innerHTML = optionsHtml;
+
+    if (modalSelect) {
+        const current = modalSelect.value;
+        modalSelect.innerHTML = optionsHtml || '<option value="">No categories available</option>';
+        if (current && sorted.some((row) => row.slug === current && row.isActive)) {
+            modalSelect.value = current;
+        }
     }
+
+    updateCustomCategoryFieldVisibility();
 }
 
 function getExpenseFilterParams() {
@@ -202,10 +245,11 @@ async function loadExpenses() {
             const receipt = exp.attachmentUrl
                 ? `<a href="${escapeCell(exp.attachmentUrl)}" target="_blank" rel="noopener" class="exp-receipt-link" title="View receipt"><i class="fa-solid fa-paperclip"></i></a> `
                 : '';
+            const catLabel = categoryLabel(exp.category, exp.customCategoryName);
             return `
                 <tr>
                     <td>${formatDate(exp.date)}</td>
-                    <td><span class="exp-category-badge ${EXPENSE_BADGE_CLASS[exp.category] || 'exp-badge-other'}">${escapeCell(categoryLabel(exp.category))}</span></td>
+                    <td><span class="exp-category-badge ${EXPENSE_BADGE_CLASS[exp.category] || 'exp-badge-other'}">${escapeCell(catLabel)}</span></td>
                     <td>${receipt}${escapeCell(exp.description || '—')}</td>
                     <td>${escapeCell(exp.reference || '—')}</td>
                     <td class="exp-td-amount">${formatMoney(exp.amount)}</td>
@@ -228,6 +272,7 @@ async function loadExpenses() {
 }
 
 async function loadExpensesSection() {
+    await fetchExpenseCategories();
     populateCategorySelects();
     await Promise.all([loadExpenses(), loadExpenseSummary()]);
 }
@@ -238,7 +283,10 @@ function applyExpenseFilters() {
 
 function resetExpenseForm() {
     document.getElementById('expenseEditId').value = '';
-    document.getElementById('expenseCategory').value = EXPENSE_CATEGORIES[0];
+    const firstActive = expenseCategoryCache.find((row) => row.isActive && row.slug !== 'other')
+        || expenseCategoryCache.find((row) => row.isActive);
+    document.getElementById('expenseCategory').value = firstActive?.slug || '';
+    document.getElementById('expenseCustomCategoryName').value = '';
     document.getElementById('expenseAmount').value = '';
     document.getElementById('expenseDescription').value = '';
     document.getElementById('expenseReference').value = '';
@@ -250,6 +298,7 @@ function resetExpenseForm() {
     document.getElementById('expenseDate').value = today;
     const title = document.getElementById('expenseModalTitle');
     if (title) title.innerHTML = '<i class="fa-solid fa-receipt"></i> Add Expense';
+    updateCustomCategoryFieldVisibility();
 }
 
 function closeExpenseModal() {
@@ -257,7 +306,8 @@ function closeExpenseModal() {
     if (modal) modal.style.display = 'none';
 }
 
-function openAddExpenseModal() {
+async function openAddExpenseModal() {
+    await fetchExpenseCategories();
     resetExpenseForm();
     populateCategorySelects();
     const modal = document.getElementById('expenseModal');
@@ -266,7 +316,8 @@ function openAddExpenseModal() {
 
 async function openEditExpenseModal(id) {
     try {
-        const res = await fetch(`/api/admin/expenses?limit=200`, {
+        await fetchExpenseCategories();
+        const res = await fetch('/api/admin/expenses?limit=200', {
             headers: { Authorization: `Bearer ${token}` }
         });
         const result = await res.json();
@@ -279,6 +330,7 @@ async function openEditExpenseModal(id) {
         populateCategorySelects();
         document.getElementById('expenseEditId').value = exp._id;
         document.getElementById('expenseCategory').value = exp.category || 'other';
+        document.getElementById('expenseCustomCategoryName').value = exp.customCategoryName || '';
         document.getElementById('expenseAmount').value = exp.amount ?? '';
         document.getElementById('expenseDescription').value = exp.description || '';
         document.getElementById('expenseReference').value = exp.reference || '';
@@ -286,6 +338,8 @@ async function openEditExpenseModal(id) {
         document.getElementById('expenseDate').value = exp.date
             ? new Date(exp.date).toISOString().slice(0, 10)
             : new Date().toISOString().slice(0, 10);
+
+        updateCustomCategoryFieldVisibility();
 
         const preview = document.getElementById('expenseReceiptPreview');
         if (preview && exp.attachmentUrl) {
@@ -332,14 +386,21 @@ async function saveExpense() {
 
     try {
         const attachmentUrl = await uploadExpenseReceiptIfNeeded();
+        const category = document.getElementById('expenseCategory')?.value;
+        const customCategoryName = document.getElementById('expenseCustomCategoryName')?.value?.trim();
+
         const payload = {
-            category: document.getElementById('expenseCategory')?.value,
+            category,
             amount: Number(document.getElementById('expenseAmount')?.value),
             description: document.getElementById('expenseDescription')?.value?.trim(),
             date: document.getElementById('expenseDate')?.value,
             reference: document.getElementById('expenseReference')?.value?.trim(),
             attachmentUrl
         };
+
+        if (category === 'other') {
+            payload.customCategoryName = customCategoryName;
+        }
 
         if (!payload.category || !Number.isFinite(payload.amount) || payload.amount < 0) {
             showToast('Category and a valid amount are required.', 'warning');
@@ -393,7 +454,11 @@ function deleteExpense(id) {
 }
 
 function initExpenseTrackingSection() {
-    populateCategorySelects();
+    const categorySelect = document.getElementById('expenseCategory');
+    if (categorySelect && !categorySelect.dataset.bound) {
+        categorySelect.dataset.bound = '1';
+        categorySelect.addEventListener('change', updateCustomCategoryFieldVisibility);
+    }
 
     const fileInput = document.getElementById('expenseReceiptFile');
     if (fileInput && !fileInput.dataset.bound) {
@@ -425,3 +490,4 @@ window.closeExpenseModal = closeExpenseModal;
 window.saveExpense = saveExpense;
 window.deleteExpense = deleteExpense;
 window.initExpenseTrackingSection = initExpenseTrackingSection;
+window.fetchExpenseCategories = fetchExpenseCategories;

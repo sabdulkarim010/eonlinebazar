@@ -9,6 +9,7 @@ const SETTINGS_TAB_LABELS = {
     branding: 'Store Branding & Info',
     general: 'General Configuration',
     shipping: 'Shipping & Payments',
+    finance: 'Finance Settings',
     security: 'Security & Access',
     utilities: 'System Utilities'
 };
@@ -129,6 +130,9 @@ function activateUnifiedSettingsTab(tabId, { silent = false } = {}) {
     }
     if (target === 'utilities' && typeof loadSandboxStatus === 'function') {
         loadSandboxStatus();
+    }
+    if (target === 'finance' && typeof window.loadExpenseCategorySettings === 'function') {
+        window.loadExpenseCategorySettings();
     }
     if (target === 'security' && typeof window.refreshTwoFactorSettings === 'function') {
         window.refreshTwoFactorSettings();

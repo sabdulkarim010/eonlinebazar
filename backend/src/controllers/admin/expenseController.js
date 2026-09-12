@@ -11,10 +11,9 @@
 const mongoose = require('mongoose');
 const cloudinary = require('../../config/cloudinary');
 const Expense = require('../../models/expense');
+const ExpenseCategory = require('../../models/expenseCategory');
 const upload = require('../../middlewares/uploadMiddleware');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
-
-const CATEGORIES = Expense.CATEGORIES;
 
 function parsePagination(query) {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -37,12 +36,6 @@ function buildDateRangeFilter(query) {
         range.$lte = end;
     }
     return Object.keys(range).length ? range : null;
-}
-
-/** Validate + normalize a category slug; returns '' when invalid. */
-function normalizeCategory(value) {
-    const cat = String(value || '').trim().toLowerCase();
-    return CATEGORIES.includes(cat) ? cat : '';
 }
 
 function monthBounds(year, monthIndex) {
@@ -83,18 +76,56 @@ async function uploadBufferToCloudinary(file, folder) {
     });
 }
 
+async function loadCategoryCatalog() {
+    const rows = await ExpenseCategory.find({}).sort({ isSystemDefault: -1, name: 1 }).lean();
+    return rows;
+}
+
+/**
+ * Validate category slug for create/update.
+ * @param {string} slug
+ * @param {{ requireActive?: boolean }} opts
+ */
+async function resolveCategorySlug(slug, { requireActive = false } = {}) {
+    const normalized = String(slug || '').trim().toLowerCase();
+    if (!normalized) return { ok: false, message: 'category is required.' };
+
+    const category = await ExpenseCategory.findOne({ slug: normalized }).lean();
+    if (!category) {
+        return { ok: false, message: `Unknown expense category: ${normalized}.` };
+    }
+    if (requireActive && !category.isActive) {
+        return { ok: false, message: `Category "${category.name}" is inactive and cannot be used for new expenses.` };
+    }
+
+    return { ok: true, category, slug: normalized };
+}
+
+function validateCustomCategoryName(category, customCategoryName) {
+    const custom = String(customCategoryName || '').trim();
+    if (category.slug !== 'other') {
+        return { ok: true, customCategoryName: '' };
+    }
+    if (category.allowCustomInput && !custom) {
+        return { ok: false, message: 'customCategoryName is required when "Other" is selected with custom input enabled.' };
+    }
+    return { ok: true, customCategoryName: custom };
+}
+
 /**
  * POST /api/admin/expenses
  * Records a single operating expense.
  */
 exports.createExpense = async (req, res) => {
     try {
-        const category = normalizeCategory(req.body.category);
-        if (!category) {
-            return res.status(400).json({
-                success: false,
-                message: `category is required and must be one of: ${CATEGORIES.join(', ')}`
-            });
+        const resolved = await resolveCategorySlug(req.body.category, { requireActive: true });
+        if (!resolved.ok) {
+            return res.status(400).json({ success: false, message: resolved.message });
+        }
+
+        const customCheck = validateCustomCategoryName(resolved.category, req.body.customCategoryName);
+        if (!customCheck.ok) {
+            return res.status(400).json({ success: false, message: customCheck.message });
         }
 
         const amount = Number(req.body.amount);
@@ -109,7 +140,8 @@ exports.createExpense = async (req, res) => {
         const date = Number.isNaN(rawDate.getTime()) ? new Date() : rawDate;
 
         const expense = await Expense.create({
-            category,
+            category: resolved.slug,
+            customCategoryName: customCheck.customCategoryName,
             amount,
             description: String(req.body.description || '').trim(),
             date,
@@ -118,12 +150,16 @@ exports.createExpense = async (req, res) => {
             attachmentUrl: String(req.body.attachmentUrl || '').trim()
         });
 
+        const label = resolved.category.slug === 'other' && customCheck.customCategoryName
+            ? customCheck.customCategoryName
+            : resolved.category.name;
+
         await logSecurityEvent({
             action: 'Expense Recorded',
             actor: req.admin?.username || 'admin',
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: `${category} · ৳${amount} · ${expense.description || 'no description'}`,
+            details: `${label} · ৳${amount} · ${expense.description || 'no description'}`,
             resourceType: 'expense',
             resourceId: String(expense._id)
         });
@@ -147,8 +183,8 @@ exports.getAllExpenses = async (req, res) => {
         const dateRange = buildDateRangeFilter(req.query);
         if (dateRange) filter.date = dateRange;
 
-        const category = normalizeCategory(req.query.category);
-        if (category) filter.category = category;
+        const categorySlug = String(req.query.category || '').trim().toLowerCase();
+        if (categorySlug) filter.category = categorySlug;
 
         const [total, expenses, totalAgg] = await Promise.all([
             Expense.countDocuments(filter),
@@ -188,17 +224,42 @@ exports.updateExpense = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid expense id.' });
         }
 
-        const update = {};
-        if (req.body.category !== undefined) {
-            const category = normalizeCategory(req.body.category);
-            if (!category) {
-                return res.status(400).json({
-                    success: false,
-                    message: `category must be one of: ${CATEGORIES.join(', ')}`
-                });
-            }
-            update.category = category;
+        const existing = await Expense.findById(id).lean();
+        if (!existing) {
+            return res.status(404).json({ success: false, message: 'Expense not found.' });
         }
+
+        const update = {};
+        let targetCategory = null;
+
+        if (req.body.category !== undefined) {
+            const resolved = await resolveCategorySlug(req.body.category, { requireActive: true });
+            if (!resolved.ok) {
+                return res.status(400).json({ success: false, message: resolved.message });
+            }
+            update.category = resolved.slug;
+            targetCategory = resolved.category;
+        } else {
+            targetCategory = await ExpenseCategory.findOne({ slug: existing.category }).lean();
+        }
+
+        const customNameProvided = req.body.customCategoryName !== undefined;
+        const nextCategorySlug = update.category || existing.category;
+        const categoryForCustom = targetCategory
+            || await ExpenseCategory.findOne({ slug: nextCategorySlug }).lean()
+            || { slug: nextCategorySlug, allowCustomInput: nextCategorySlug === 'other' };
+
+        if (customNameProvided || update.category !== undefined) {
+            const customCheck = validateCustomCategoryName(
+                categoryForCustom,
+                customNameProvided ? req.body.customCategoryName : existing.customCategoryName
+            );
+            if (!customCheck.ok) {
+                return res.status(400).json({ success: false, message: customCheck.message });
+            }
+            update.customCategoryName = customCheck.customCategoryName;
+        }
+
         if (req.body.amount !== undefined) {
             const amount = Number(req.body.amount);
             if (!Number.isFinite(amount) || amount < 0) {
@@ -307,6 +368,9 @@ exports.getExpenseSummary = async (req, res) => {
         const trendStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
         trendStart.setHours(0, 0, 0, 0);
 
+        const catalog = await loadCategoryCatalog();
+        const catalogSlugs = catalog.map((row) => row.slug);
+
         const [rows, thisMonthTotal, lastMonthTotal, monthlyTrendRows] = await Promise.all([
             Expense.aggregate([
                 { $match: filter },
@@ -334,9 +398,13 @@ exports.getExpenseSummary = async (req, res) => {
         ]);
 
         const byCategory = {};
-        CATEGORIES.forEach((cat) => { byCategory[cat] = { total: 0, count: 0 }; });
+        catalogSlugs.forEach((slug) => { byCategory[slug] = { total: 0, count: 0 }; });
+
         let grandTotal = 0;
         rows.forEach((row) => {
+            if (!byCategory[row._id]) {
+                byCategory[row._id] = { total: 0, count: 0 };
+            }
             byCategory[row._id] = { total: row.total, count: row.count };
             grandTotal += row.total;
         });
@@ -369,14 +437,16 @@ exports.getExpenseSummary = async (req, res) => {
             });
         }
 
+        const categoryKeys = [...new Set([...catalogSlugs, ...Object.keys(byCategory)])];
+
         return res.json({
             success: true,
             data: {
                 byCategory,
-                categories: CATEGORIES.map((cat) => ({
+                categories: categoryKeys.map((cat) => ({
                     category: cat,
-                    total: byCategory[cat].total,
-                    count: byCategory[cat].count
+                    total: byCategory[cat]?.total || 0,
+                    count: byCategory[cat]?.count || 0
                 })),
                 grandTotal,
                 stats: {

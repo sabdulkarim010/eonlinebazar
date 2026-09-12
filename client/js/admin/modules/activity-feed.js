@@ -24,7 +24,8 @@ const RESOURCE_TYPE_ICONS = {
     payroll: 'fa-money-check-dollar',
     leave: 'fa-plane-departure',
     employee: 'fa-id-badge',
-    designation: 'fa-briefcase'
+    designation: 'fa-briefcase',
+    expense_category: 'fa-tags'
 };
 
 const RESOURCE_TYPE_LABELS = {
@@ -46,7 +47,8 @@ const RESOURCE_TYPE_LABELS = {
     payroll: 'Payroll',
     leave: 'Leave',
     employee: 'Employee',
-    designation: 'Designation'
+    designation: 'Designation',
+    expense_category: 'Expense Category'
 };
 
 let activityFeedPage = 1;

@@ -2,17 +2,16 @@
  * Project: EonlineBazar — ERP Finance
  * File: expense.js
  * Location: models/expense.js
- * Author: Abdul Karim Sheikh
  * Description: Operating-expense ledger for the advanced Profit & Loss
- * report. Each row is a single business cost (rent, salary, marketing,
- * courier charges, packaging, etc.) recorded against a date so the P&L
- * engine can aggregate spend by category over any period.
+ * report. Each row is a single business cost recorded against a dynamic
+ * category slug (see ExpenseCategory) so the P&L engine can aggregate
+ * spend by category over any period.
  ********************************************************************/
 
 const mongoose = require('mongoose');
 
-/** Grantable expense buckets — kept in sync with the P&L cost breakdown. */
-const EXPENSE_CATEGORIES = [
+/** Legacy slug list — kept for backward-compatible tests and migrations. */
+const LEGACY_EXPENSE_CATEGORIES = [
     'office_rent',
     'utilities',
     'staff_salary',
@@ -26,8 +25,14 @@ const EXPENSE_CATEGORIES = [
 const expenseSchema = new mongoose.Schema({
     category: {
         type: String,
-        enum: EXPENSE_CATEGORIES,
-        required: true
+        required: true,
+        trim: true,
+        lowercase: true
+    },
+    customCategoryName: {
+        type: String,
+        default: '',
+        trim: true
     },
     amount: {
         type: Number,
@@ -65,6 +70,8 @@ const expenseSchema = new mongoose.Schema({
 expenseSchema.index({ date: -1 });
 expenseSchema.index({ category: 1, date: -1 });
 
-expenseSchema.statics.CATEGORIES = EXPENSE_CATEGORIES;
+/** @deprecated Use ExpenseCategory collection — kept for legacy callers. */
+expenseSchema.statics.CATEGORIES = LEGACY_EXPENSE_CATEGORIES;
+expenseSchema.statics.LEGACY_CATEGORIES = LEGACY_EXPENSE_CATEGORIES;
 
 module.exports = mongoose.models.Expense || mongoose.model('Expense', expenseSchema);

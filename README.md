@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
   <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
   <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
-  <img src="https://img.shields.io/badge/tests-160%2F160-brightgreen" alt="160/160 Tests Passing">
+  <img src="https://img.shields.io/badge/tests-166%2F166-brightgreen" alt="166/166 Tests Passing">
   <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
   <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
   <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">
@@ -79,10 +79,11 @@ Inventory, purchasing, in-store selling, last-mile logistics, and financial repo
 | **Supplier & Warehouse Management** | Full CRUD for vendors and stock locations. One default warehouse is seeded and protected. Supplier deletion is blocked while open purchase orders exist; products are unlinked on successful removal. |
 | **Purchase Order Lifecycle & Receiving** | Draft → sent → partial / received → cancelled. `receivePO` posts inbound quantities, appends product cost history, and closes the PO when receipt is complete. Sequential PO numbers and computed totals are generated on create. |
 | **Advanced POS Dashboard** | Full-page POS (`view-pos.html` + `orders-pos.js`): ERP sidebar **POS System** opens dedicated two-column view (barcode scan, category filters, product grid · customer lookup, active cart, discounts, split payment, **Checkout & Print Invoice**); Orders page **+ Create Manual Order** opens the same POS as an overlay fallback; `#pos` hash route supported; invoice receipt modal (print + PDF). |
-| **Expense Tracking** | Operating expense ledger (`view-erp-expenses.html` + `erp-expenses.js`): CRUD via `/api/admin/expenses`, category filters, this-month stats, monthly trend chart, receipt upload to Cloudinary — feeds the P&amp;L report. |
+| **Expense Tracking** | Operating expense ledger (`view-erp-expenses.html` + `erp-expenses.js`): CRUD via `/api/admin/expenses`, **dynamic category dropdowns** from `/api/admin/expense-categories`, optional **"Other" custom category name** (Option 1), category filters, this-month stats, monthly trend chart, receipt upload to Cloudinary — feeds the P&amp;L report. |
+| **Expense Category Manager** | System Settings → **Finance Settings** tab (`settings-expense-categories.js`): add permanent custom categories, toggle active/inactive per category, master switch for "Other" quick input, safe delete with usage guards — `GET/POST/PATCH/DELETE /api/admin/expense-categories/*`. |
 | **Advanced P&amp;L Report** | Superadmin finance view (`view-finance.html` + `erp-profit-loss.js`): `GET /api/admin/finance/profit-loss` with gross/net revenue, COGS, expense-ledger courier charges, margin %, Chart.js bar/donut/trend charts, top/worst products, PDF/CSV export. |
 | **Courier Deep Auto-Sync** | One-click **Book & Sync** for **Steadfast**, **Pathao**, and **RedX** (`courierSyncService.js` + `admin/courierController.js`). Customer SMS + admin WhatsApp on book; cron (`0 */3 * * *`) polls in-flight parcels every **three hours** and logs `X updated, Y unchanged, Z errors`; **↻ Refresh** on shipped rows for manual status sync + wallet cashback on delivery. |
-| **Expense Tracking & Financials** | Eight expense categories (`office_rent`, `utilities`, `staff_salary`, `marketing`, `courier_charges`, `packaging`, `equipment`, `other`) feed the P&L engine (revenue, COGS, courier, returns, cashback, margin). Exports are available as **PDF** and **CSV**. Visualization uses chart-less SVG (donut / bar). |
+| **Expense Tracking & Financials** | Eight seeded system categories plus admin-defined custom categories feed the P&L engine (revenue, COGS, courier, returns, cashback, margin). Exports are available as **PDF** and **CSV**. Visualization uses Chart.js in the P&amp;L SPA. |
 
 ### 2. CRM Pillar — Customer Relationship Management
 
@@ -135,7 +136,7 @@ Read these documents before making changes. Operational notes belong in the exis
 
 ## Quality Assurance & Testing
 
-The repository ships with **100% passing automated coverage: 160 / 160 tests** across **15 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
+The repository ships with **100% passing automated coverage: 166 / 166 tests** across **16 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
 
 ```bash
 npm test
@@ -155,6 +156,7 @@ npm test
 | HRM | `tests/hrm.test.js` | 33 | Attendance, shifts, payroll, leave, designations, employee profile/docs/photo, grant/revoke system access |
 | Loyalty | `tests/loyalty-tier.test.js` | 6 | Silver / Gold / Platinum thresholds and cashback |
 | Expenses | `tests/expense.test.js` | 3 | Expense ledger create, list, summary, RBAC |
+| Expense categories | `tests/expenseCategory.test.js` | 6 | Dynamic category CRUD, toggle, Other custom input, delete guards |
 | Profit & Loss | `tests/profitLoss.test.js` | 2 | P&amp;L report shape and empty-range zero case |
 | POS | `tests/pos.test.js` | 2 | Manual counter order creation |
 | Abandoned carts | `tests/abandonedCart.test.js` | 3 | CRM list KPIs and recovery notify |
@@ -263,7 +265,7 @@ npm start
 npm test
 ```
 
-All **146** tests must pass before merging changes.
+All **166** tests must pass before merging changes.
 
 ### Mobile (Expo)
 
@@ -309,7 +311,7 @@ eonlinebazar-fullstack/
 ├── ecommerce-chat/              # Live-chat microservice (port 5001)
 ├── admin-dashboard/             # Vite React chat-admin SPA → /chat-admin
 ├── devops/                      # Nginx, droplet first-time setup
-├── tests/                       # 15 Jest suites / 146 tests
+├── tests/                       # 16 Jest suites / 166 tests
 ├── scripts/                     # Seed and index migration
 ├── ARCHITECTURE.md
 ├── REFACTOR_MAP.md

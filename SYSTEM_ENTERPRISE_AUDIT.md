@@ -177,7 +177,7 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 | Admin dashboard analytics | ✅ | `analyticsController.js`, `view-overview.html`, `admin-dashboard.js` | KPIs, charts |
 | Finance analytics | ✅ | `financeAnalyticsController.js`, `finance-analytics.html` | Profit/margin — separate login |
 | Advanced P&L report | ✅ | `profitLossController.js`, `exportController.js`, `erp-profit-loss.js`, `view-finance.html` | Embedded SPA — revenue/COGS/courier/expenses/margin, SVG charts, PDF/CSV export (superadmin) |
-| Expense ledger | ✅ | `expense.js`, `expenseController.js` | Category CRUD + summary; feeds P&L |
+| Expense ledger | ✅ | `expense.js`, `expenseCategory.js`, `expenseController.js`, `expenseCategoryController.js` | Dynamic category catalog + expense CRUD + summary; feeds P&L |
 | Customer management | ✅ | `customerAdminController.js`, `view-customers.html`, `customers-*.js` | VIP segmentation |
 | Staff management | ✅ | `staffController.js`, `view-staff.html`, `admin-staff.js` | Super-admin only |
 | RBAC permissions | ✅ | `rbac.js`, `permissions.js`, `admin.js` | 9 granular permissions |
@@ -280,7 +280,7 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 | Courier & logistics integration | ✅ COMPLETE | `courierService.js` + `courierSyncService.js` + `admin/courierController.js` — Steadfast/Pathao/RedX Book & Sync, 3h auto-poll cron, status map + wallet cashback on delivery, SMS + WhatsApp; `orders-actions.js` Book & Sync + ↻ Refresh |
 | Invoice generation | ✅ COMPLETE | `GET /api/orders/:id/invoice` — PDFKit; POS receipt modal (`showPOSInvoiceModal`, `printPOSInvoice`, `downloadPOSInvoice`) |
 | Financial reports (Advanced P&L) | ✅ COMPLETE | `profitLossController.js` — Delivered revenue, returns, COGS, courier from Expense ledger, expenses-by-category, cashback/discounts/return loss, net margin, trend series, top/worst products; Chart.js UI in `erp-profit-loss.js` + `view-finance.html`; PDF/CSV via `exportController.js` (superadmin) |
-| Operating expense tracking | ✅ COMPLETE | `expense.js`, `expenseController.js`, `view-erp-expenses.html`, `erp-expenses.js` — CRUD, receipt upload, category summary + monthly trend; feeds P&L |
+| Operating expense tracking | ✅ COMPLETE | `expense.js`, `expenseCategory.js`, `expenseController.js`, `view-erp-expenses.html`, `erp-expenses.js` — dynamic categories, Other custom input, CRUD, receipt upload, category summary + monthly trend; feeds P&L |
 | Vendor/supplier management | ✅ COMPLETE | `supplier.js`, `supplierController.js`, admin ERP UI |
 | Purchase orders | ✅ COMPLETE | `purchaseOrder.js`, `purchaseOrderController.js`, PO workflow |
 | Warehouse/location management | ✅ COMPLETE | `warehouse.js`, `warehouseController.js`, multi-location stock |
@@ -1862,6 +1862,22 @@ SweetAlert2 toasts on tab switch and master-settings saves. Enterprise features 
 | Partial markup | ✅ COMPLETE | `view-system-backup.html` — default `hidden` + removed `data-superadmin-only` from the section (sidebar/hub links retain superadmin gating). |
 | Builder registry | ✅ COMPLETE | `adminPageBuilder.js` documents `ISOLATED_VIEW_PARTIALS` for client-side view isolation. |
 | Tests | ✅ COMPLETE | **160 / 160 tests passing** — no regression. |
+
+---
+
+## Dynamic Expense Category Management — 2026-09-12
+
+| Task | Status | Summary |
+|------|--------|---------|
+| ExpenseCategory model | ✅ COMPLETE | `expenseCategory.js` — `name`, `slug`, `isActive`, `isSystemDefault`, `allowCustomInput`, timestamps; 8 system defaults seeded on bootstrap via `expenseCategoryService.js`. |
+| Expense schema update | ✅ COMPLETE | `expense.js` — `category` (dynamic slug string), `customCategoryName` (optional, for "Other" quick input); legacy `CATEGORIES` static retained for backward compatibility. |
+| Category API | ✅ COMPLETE | `/api/admin/expense-categories` (active list), `/admin` (full manager), `POST`, `PATCH /:id/toggle`, `PATCH /other-custom-toggle`, `DELETE /:id` — all gated `manage_settings`; system defaults undeletable; delete blocked when expenses linked. |
+| Expense CRUD validation | ✅ COMPLETE | `expenseController.js` validates against live category catalog; requires `customCategoryName` when Other + `allowCustomInput` enabled. |
+| P&L integration | ✅ COMPLETE | `profitLossController.js` aggregates expenses by dynamic category slugs from `ExpenseCategory` collection. |
+| Expense Tracking UI (Option 1) | ✅ COMPLETE | `erp-expenses.js` + `view-erp-expenses.html` — dropdowns populated from API; conditional "Specify Custom Category Name" field when Other selected and master toggle on. |
+| System Settings manager (Option 2) | ✅ COMPLETE | New **Finance Settings** tab in `view-settings.html` + `settings-expense-categories.js` — category table, per-category active toggle, add custom category, master Other-input switch, safe delete. |
+| Security audit | ✅ COMPLETE | `expense_category` added to `securityLog.js` RESOURCE_TYPES; category writes logged. |
+| Tests | ✅ COMPLETE | `tests/expenseCategory.test.js` (6 tests) + updated harness seed; **166 / 166 tests passing.** |
 
 
 

@@ -13,6 +13,7 @@
 
 const Order = require('../../models/order');
 const Expense = require('../../models/expense');
+const ExpenseCategory = require('../../models/expenseCategory');
 /** Delivered orders count as realized revenue. */
 const DELIVERED_STATUSES = ['delivered'];
 /** Returned/refunded orders are deducted from gross revenue. */
@@ -217,14 +218,20 @@ async function computeProfitLoss(query = {}) {
     }
 
     // Operating expenses for the period, grouped by category (incl. courier_charges).
+    const categoryCatalog = await ExpenseCategory.find({}).select('slug').lean();
+    const catalogSlugs = categoryCatalog.map((row) => row.slug);
+
     const expenseRows = await Expense.aggregate([
         { $match: { date: { $gte: start, $lte: end } } },
         { $group: { _id: '$category', total: { $sum: '$amount' } } }
     ]);
     const expensesByCategory = {};
+    catalogSlugs.forEach((cat) => { expensesByCategory[cat] = 0; });
     let expensesTotal = 0;
-    Expense.CATEGORIES.forEach((cat) => { expensesByCategory[cat] = 0; });
     expenseRows.forEach((row) => {
+        if (expensesByCategory[row._id] === undefined) {
+            expensesByCategory[row._id] = 0;
+        }
         expensesByCategory[row._id] = roundMoney(row.total);
         expensesTotal += row.total;
     });

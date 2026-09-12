@@ -122,7 +122,7 @@ The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/p
 
 | Accounts & Finance | Accounts Overview (cash flow + liquidity), Financial Reports (P&L + export), Expense Tracking, Payment Reconciliation |
 
-| System Settings | Unified hub (`view-settings.html`) — single sidebar entry; inner tabs for Branding, General (VAT/tax, maintenance), Shipping & Payments, Security & Access, System Utilities |
+| System Settings | Unified hub (`view-settings.html`) — single sidebar entry; inner tabs for Branding, General (VAT/tax, maintenance), Shipping & Payments, Finance Settings (expense categories), Security & Access, System Utilities |
 
 
 
@@ -149,6 +149,8 @@ The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/p
 | Leave | `backend/src/models/leave.js` | Leave applications, approvals, balances |
 
 | AdminNotification | `backend/src/models/adminNotification.js` | In-app admin notification center (order/stock/leave/payroll/security/system) |
+| ExpenseCategory | `backend/src/models/expenseCategory.js` | Dynamic expense category catalog — seeded defaults + admin custom categories; `allowCustomInput` on "Other" |
+| Expense | `backend/src/models/expense.js` | Operating expense ledger row — `category` slug + optional `customCategoryName` |
 
 
 

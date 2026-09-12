@@ -61,6 +61,7 @@ const leaveController = require('../controllers/admin/leaveController');
 const employeeController = require('../controllers/admin/employeeController');
 const designationController = require('../controllers/admin/designationController');
 const expenseController = require('../controllers/admin/expenseController');
+const expenseCategoryController = require('../controllers/admin/expenseCategoryController');
 const profitLossController = require('../controllers/admin/profitLossController');
 const exportController = require('../controllers/admin/exportController');
 const notificationController = require('../controllers/admin/notificationController');
@@ -492,6 +493,18 @@ router.get('/expenses', verifyAdmin, checkPermission('manage_settings'), expense
 router.post('/expenses', verifyAdmin, checkPermission('manage_settings'), expenseController.createExpense);
 router.patch('/expenses/:id', verifyAdmin, checkPermission('manage_settings'), expenseController.updateExpense);
 router.delete('/expenses/:id', verifyAdmin, checkPermission('manage_settings'), expenseController.deleteExpense);
+
+/********************************************************************
+ # ERP Finance — Dynamic Expense Categories
+ # URL: /api/admin/expense-categories
+ # Named routes declared before /:id to avoid param collisions.
+ ********************************************************************/
+router.get('/expense-categories/admin', verifyAdmin, checkPermission('manage_settings'), expenseCategoryController.getAdminExpenseCategories);
+router.patch('/expense-categories/other-custom-toggle', verifyAdmin, checkPermission('manage_settings'), expenseCategoryController.toggleOtherCustomInput);
+router.get('/expense-categories', verifyAdmin, checkPermission('manage_settings'), expenseCategoryController.getActiveExpenseCategories);
+router.post('/expense-categories', verifyAdmin, checkPermission('manage_settings'), expenseCategoryController.createExpenseCategory);
+router.patch('/expense-categories/:id/toggle', verifyAdmin, checkPermission('manage_settings'), expenseCategoryController.toggleExpenseCategoryActive);
+router.delete('/expense-categories/:id', verifyAdmin, checkPermission('manage_settings'), expenseCategoryController.deleteExpenseCategory);
 
 /********************************************************************
  # ERP Finance — Advanced Profit & Loss (superadmin only)

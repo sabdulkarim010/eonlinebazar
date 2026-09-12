@@ -58,6 +58,7 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const User = require('../backend/src/models/user');
 const Admin = require('../backend/src/models/admin');
 const { seedDefaultPaymentMethods } = require('../backend/src/services/paymentMethodService');
+const { seedDefaultExpenseCategories } = require('../backend/src/services/expenseCategoryService');
 
 let mongoServer;
 
@@ -156,11 +157,13 @@ beforeAll(async () => {
 
     await mongoose.connect(process.env.MONGODB_URI);
     await seedDefaultPaymentMethods();
+    await seedDefaultExpenseCategories();
 });
 
 afterEach(async () => {
     await clearDatabase();
     await seedDefaultPaymentMethods();
+    await seedDefaultExpenseCategories();
 });
 
 afterAll(async () => {

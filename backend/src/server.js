@@ -105,6 +105,14 @@ connectDB().then(async () => {
         console.error('Designation bootstrap error:', err.message);
     }
 
+    // 💰 ERP Finance — default expense category catalog for P&L + Expense Tracking.
+    try {
+        const { seedDefaultExpenseCategories } = require('./services/expenseCategoryService');
+        await seedDefaultExpenseCategories();
+    } catch (err) {
+        console.error('Expense category bootstrap error:', err.message);
+    }
+
     // 👤 Super Admin ↔ HRM — ensure owner account has a linked Employee row
     try {
         const { syncSuperAdminEmployee } = require('./services/superAdminHrmSync');
