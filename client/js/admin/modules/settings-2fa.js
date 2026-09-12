@@ -43,7 +43,16 @@ const COURIER_PROVIDER_LABELS = window.COURIER_PROVIDER_LABELS;
         if (typeof window.showCustomConfirm === 'function') {
             return !!(await window.showCustomConfirm(title, text, null, 'danger'));
         }
-        return window.confirm(`${title}\n\n${text}`);
+        return !!(await Swal.fire({
+            icon: 'warning',
+            title,
+            text,
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, proceed',
+            cancelButtonText: 'Cancel'
+        })).isConfirmed;
     }
 
     // Put a button into a loading state; returns a restore() that reverses it.

@@ -105,6 +105,17 @@ connectDB().then(async () => {
         console.error('Designation bootstrap error:', err.message);
     }
 
+    // 👤 Super Admin ↔ HRM — ensure owner account has a linked Employee row
+    try {
+        const { syncSuperAdminEmployee } = require('./services/superAdminHrmSync');
+        const syncResult = await syncSuperAdminEmployee();
+        if (syncResult.synced) {
+            console.log(`👤 Super Admin HRM sync: linked employee ${syncResult.employeeId}.`);
+        }
+    } catch (err) {
+        console.error('Super Admin HRM sync error:', err.message);
+    }
+
     // Start background stock alert cron job
     try {
         const { startStockAlertCron } = require('./services/stockAlertService');

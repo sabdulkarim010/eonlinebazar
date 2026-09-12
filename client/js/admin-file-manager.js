@@ -482,7 +482,16 @@
         if (!filePath) return;
 
         if (dirty && activePath && activePath !== filePath && activeType === 'file') {
-            const proceed = window.confirm('You have unsaved changes. Discard them and open another file?');
+            const proceed = (await Swal.fire({
+                icon: 'warning',
+                title: 'Discard unsaved changes?',
+                text: 'You have unsaved changes. Discard them and open another file?',
+                showCancelButton: true,
+                confirmButtonColor: '#f59e0b',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, discard',
+                cancelButtonText: 'Cancel'
+            })).isConfirmed;
             if (!proceed) return;
         }
 

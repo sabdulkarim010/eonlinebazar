@@ -1489,6 +1489,21 @@ All checklist items in sections **1–5, 7–8** are implemented and verified in
 
 ---
 
+## STAFF ACCESS & HRM DECOUPLING — 2026-09-12
+
+| Item | Status |
+|------|--------|
+| Employee table cleanup — grant/manage access removed from Actions column; View / Edit / Status toggle only | ✅ |
+| Link System Account flow moved to Employee Profile **Access** tab | ✅ |
+| Admin Access page redesign — premium stat cards, staff directory, permissions slide-over | ✅ |
+| Direct staff creation UI removed from Admin Access page; **Assign New Access** from unlinked employees | ✅ |
+| `GET /api/admin/hrm/employees?hasAccess=false` filter for unlinked employees | ✅ |
+| Super Admin auto-sync to HRM Employee record on server bootstrap | ✅ |
+| Attendance / Payroll staff dropdowns — optgroups with `Name — Designation` labels | ✅ |
+| SweetAlert2 rollout across entire admin panel (`alert` / `confirm` replaced) | ✅ |
+
+---
+
 *End of Final System Audit — 2026-09-11. Files scanned: `backend/src/models/`, `backend/src/controllers/admin/`, `backend/src/routes/adminRoutes.js`, `backend/src/services/`, `backend/src/jobs/`, `client/admin/partials/`, `client/js/admin/modules/`, `mobile/src/`.*
 
 

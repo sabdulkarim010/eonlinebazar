@@ -118,27 +118,15 @@ function renderEmployeeTable(rows) {
             <td><span class="status-badge ${EMPLOYEE_STATUS_CLASSES[e.status] || 'status-pending'}">${employeeEscape(e.status || 'active')}</span></td>
             <td>
                 <div class="catalog-actions">
-                    <button type="button" class="catalog-action-btn" onclick="openEmployeeProfile('${e._id}')" title="View Profile">
+                    <button type="button" class="catalog-action-btn" onclick="openEmployeeProfile('${e._id}')" title="View Details">
                         <i class="fa-solid fa-id-card"></i>
                     </button>
                     <button type="button" class="catalog-action-btn edit" onclick="openEditEmployeeModal('${e._id}')" title="Edit">
                         <i class="fa-solid fa-pen-to-square"></i>
                     </button>
-                    <button type="button" class="catalog-action-btn" onclick="markEmployeeAttendance('employee:${employeeEscape(e.employeeId)}')" title="Mark Attendance">
-                        <i class="fa-solid fa-user-clock"></i>
+                    <button type="button" class="catalog-action-btn ${e.status === 'terminated' ? 'activate' : 'delete'}" onclick="toggleEmployeeStatus('${e._id}', '${employeeEscape(e.status || 'active')}')" title="${e.status === 'terminated' ? 'Reactivate' : 'Terminate'}">
+                        <i class="fa-solid ${e.status === 'terminated' ? 'fa-user-check' : 'fa-user-slash'}"></i>
                     </button>
-                    ${e.status !== 'terminated' ? `
-                    <button type="button" class="catalog-action-btn delete" onclick="terminateEmployee('${e._id}')" title="Terminate">
-                        <i class="fa-solid fa-user-slash"></i>
-                    </button>` : ''}
-                    ${!e.linkedAdminId ? `
-                    <button type="button" class="catalog-action-btn grant-access-btn" onclick='openGrantAccessModal(${JSON.stringify(e._id)}, ${JSON.stringify(e.fullName)}, ${JSON.stringify(e.email || '')}, ${JSON.stringify(e.phone || '')})' title="Grant Access">
-                        🔐 Grant Access
-                    </button>` : `
-                    <span class="status-badge status-verified employee-system-user-badge" title="System User">✅ System User</span>
-                    <button type="button" class="catalog-action-btn" onclick="openManageAccessModal('${e._id}')" title="Manage Access">
-                        ⚙️ Manage
-                    </button>`}
                 </div>
             </td>
         </tr>
@@ -920,6 +908,7 @@ async function openEmployeeProfile(id) {
         renderProfileAttendance(result.data);
         renderProfilePayroll(result.data.payrollHistory || []);
         renderProfileLeave(result.data);
+        await renderProfileAccess(e);
 
         switchProfileTab('profile-tab-overview');
         document.getElementById('employeeProfileModal').style.display = 'flex';
@@ -1014,6 +1003,122 @@ async function deleteDocument(employeeId, docId) {
 /* ==================================================================
    TERMINATE & ATTENDANCE SHORTCUT
    ================================================================== */
+
+async function toggleEmployeeStatus(id, currentStatus) {
+    const reactivating = currentStatus === 'terminated';
+    const title = reactivating ? 'Reactivate this employee?' : 'Terminate this employee?';
+    const text = reactivating
+        ? 'Their status will be set back to active.'
+        : 'Their status will be set to terminated. Linked admin access will be suspended.';
+
+    const proceed = (await Swal.fire({
+        icon: reactivating ? 'question' : 'warning',
+        title,
+        text,
+        showCancelButton: true,
+        confirmButtonColor: reactivating ? '#2563eb' : '#f59e0b',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: reactivating ? 'Yes, reactivate' : 'Yes, terminate',
+        cancelButtonText: 'Cancel'
+    })).isConfirmed;
+
+    if (!proceed) return;
+
+    try {
+        const res = await fetch(`/api/admin/hrm/employees/${id}`, {
+            method: 'PATCH',
+            headers: employeeAuthHeaders(true),
+            body: JSON.stringify({ status: reactivating ? 'active' : 'terminated' })
+        });
+        const result = await res.json();
+
+        if (result.success) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: reactivating ? 'Reactivated' : 'Terminated',
+                    text: result.message || 'Employee status updated.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                showAdminSuccess('Status Updated', result.message || 'Employee status updated.');
+            }
+            closeEmployeeProfileModal();
+            if (window.hrmInvalidateEmployeeCache) window.hrmInvalidateEmployeeCache();
+            await loadEmployeeStats();
+            await loadEmployees();
+        } else {
+            showToast(result.message || 'Failed to update status.', 'error');
+        }
+    } catch (err) {
+        console.error('toggleEmployeeStatus:', err);
+        showToast('Failed to update status.', 'error');
+    }
+}
+
+async function renderProfileAccess(employee) {
+    const section = document.getElementById('profileAccessSection');
+    if (!section) return;
+
+    if (!employee.linkedAdminId) {
+        section.innerHTML = `
+            <div class="employee-access-link-card">
+                <div class="employee-access-link-copy">
+                    <h4>Link System Account</h4>
+                    <p class="table-subtext">No admin login is linked to this employee yet.</p>
+                </div>
+                <button type="button" class="btn-secondary btn-sm employee-link-account-btn" onclick='openGrantAccessModal(${JSON.stringify(employee._id)}, ${JSON.stringify(employee.fullName)}, ${JSON.stringify(employee.email || '')}, ${JSON.stringify(employee.phone || '')})'>
+                    Link System Account <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>`;
+        return;
+    }
+
+    section.innerHTML = '<p class="table-subtext">Loading linked account…</p>';
+
+    try {
+        const res = await fetch(`/api/admin/hrm/employees/${employee._id}/access-status`, {
+            headers: employeeAuthHeaders()
+        });
+        const data = await res.json();
+
+        if (!data.hasAccess) {
+            section.innerHTML = `
+                <div class="employee-access-link-card">
+                    <p class="table-subtext">Linked account record not found.</p>
+                    <button type="button" class="btn-secondary btn-sm" onclick='openGrantAccessModal(${JSON.stringify(employee._id)}, ${JSON.stringify(employee.fullName)}, ${JSON.stringify(employee.email || '')}, ${JSON.stringify(employee.phone || '')})'>
+                        Link System Account <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>`;
+            return;
+        }
+
+        const statusClass = data.admin.status === 'active' ? 'status-verified' : 'status-blocked';
+        section.innerHTML = `
+            <div class="employee-access-linked-card">
+                <div class="employee-access-linked-head">
+                    <span class="status-badge status-verified"><i class="fa-solid fa-link"></i> System Account Linked</span>
+                </div>
+                <dl class="employee-access-summary">
+                    <div><dt>Username</dt><dd>${employeeEscape(data.admin.username)}</dd></div>
+                    <div><dt>Status</dt><dd><span class="status-badge ${statusClass}">${employeeEscape(data.admin.status)}</span></dd></div>
+                    <div><dt>Last Login</dt><dd>${data.admin.lastLoginAt ? formatDate(data.admin.lastLoginAt) : 'Never'}</dd></div>
+                </dl>
+                <div class="employee-access-linked-actions">
+                    <button type="button" class="btn-link employee-manage-perms-link" onclick="openStaffEditModal('${employeeEscape(employee.linkedAdminId)}')">
+                        Manage Permissions <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                    <button type="button" class="btn-link employee-suspend-access-link" onclick="openManageAccessModal('${employee._id}')">
+                        Suspend Access
+                    </button>
+                </div>
+            </div>`;
+    } catch (err) {
+        console.error('renderProfileAccess:', err);
+        section.innerHTML = '<p class="table-status-error">Failed to load access details.</p>';
+    }
+}
 
 async function terminateEmployee(id) {
     confirmAdminAction('Terminate this employee? Their status will be set to terminated.', async () => {
@@ -1125,6 +1230,7 @@ window.openQuickAddDesignation = openQuickAddDesignation;
 window.closeQuickAddDesignation = closeQuickAddDesignation;
 window.submitQuickDesignation = submitQuickDesignation;
 window.terminateEmployee = terminateEmployee;
+window.toggleEmployeeStatus = toggleEmployeeStatus;
 window.markEmployeeAttendance = markEmployeeAttendance;
 window.loadHrmEmployeesSection = loadHrmEmployeesSection;
 
@@ -1155,20 +1261,35 @@ window.submitGrantAccess = async function submitGrantAccess() {
     const id = document.getElementById('grantEmpId').value;
     const username = document.getElementById('grantUsername').value.trim();
     const password = document.getElementById('grantPassword').value;
-    const confirm = document.getElementById('grantConfirmPassword').value;
+    const confirmPwd = document.getElementById('grantConfirmPassword').value;
     if (!username || !password) {
-        alert('Username and password required');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Missing Information',
+            text: 'Username and password are required.',
+            confirmButtonColor: '#2563eb'
+        });
         return;
     }
-    if (password !== confirm) {
-        alert('Passwords do not match');
+    if (password !== confirmPwd) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Passwords Do Not Match',
+            text: 'Please confirm the password exactly.',
+            confirmButtonColor: '#2563eb'
+        });
         return;
     }
     const permissions = Array.from(
         document.querySelectorAll('#grantAccessModal input[type=checkbox]:checked')
     ).map((cb) => cb.value);
     if (permissions.length === 0) {
-        alert('Select at least one permission');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Missing Information',
+            text: 'Select at least one permission before linking the account.',
+            confirmButtonColor: '#2563eb'
+        });
         return;
     }
 
@@ -1180,15 +1301,38 @@ window.submitGrantAccess = async function submitGrantAccess() {
         });
         const data = await res.json();
         if (data.success) {
-            alert(`System access granted to ${data.username}`);
+            Swal.fire({
+                icon: 'success',
+                title: 'Account Linked',
+                text: `System access linked for ${data.username}.`,
+                timer: 2000,
+                showConfirmButton: false
+            });
             closeGrantAccessModal();
+            if (window.hrmInvalidateEmployeeCache) window.hrmInvalidateEmployeeCache();
             await loadEmployees();
+            if (activeProfileData?.employee?._id === id) {
+                await openEmployeeProfile(id);
+            }
+            if (typeof window.refreshStaffAssignCandidates === 'function') {
+                window.refreshStaffAssignCandidates();
+            }
         } else {
-            alert(data.error || 'Failed to grant access');
+            Swal.fire({
+                icon: 'error',
+                title: 'Link Failed',
+                text: data.error || 'Failed to link system account.',
+                confirmButtonColor: '#2563eb'
+            });
         }
     } catch (err) {
         console.error('submitGrantAccess:', err);
-        alert('Failed to grant access');
+        Swal.fire({
+            icon: 'error',
+            title: 'Link Failed',
+            text: 'Failed to link system account.',
+            confirmButtonColor: '#2563eb'
+        });
     }
 };
 
@@ -1214,7 +1358,12 @@ window.openManageAccessModal = async function openManageAccessModal(employeeId) 
         });
         const data = await res.json();
         if (!data.hasAccess) {
-            alert('No system access found');
+            Swal.fire({
+                icon: 'info',
+                title: 'No Linked Account',
+                text: 'No system access found for this employee.',
+                confirmButtonColor: '#2563eb'
+            });
             return;
         }
 
@@ -1230,13 +1379,28 @@ window.openManageAccessModal = async function openManageAccessModal(employeeId) 
         document.getElementById('manageAccessModal').style.display = 'flex';
     } catch (err) {
         console.error('openManageAccessModal:', err);
-        alert('Failed to load access status');
+        Swal.fire({
+            icon: 'error',
+            title: 'Load Failed',
+            text: 'Failed to load access status.',
+            confirmButtonColor: '#2563eb'
+        });
     }
 };
 
 window.revokeAccess = async function revokeAccess() {
     const id = document.getElementById('manageAccessEmpId').value;
-    if (!confirm('Suspend this employee login? They will not be able to log in.')) return;
+    const result = await Swal.fire({
+        icon: 'question',
+        title: 'Suspend this account?',
+        text: 'The user will lose access immediately. You can re-enable it later.',
+        showCancelButton: true,
+        confirmButtonColor: '#f59e0b',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, suspend',
+        cancelButtonText: 'Cancel'
+    });
+    if (!result.isConfirmed) return;
 
     try {
         const res = await fetch(`/api/admin/hrm/employees/${id}/revoke-access`, {
@@ -1245,15 +1409,34 @@ window.revokeAccess = async function revokeAccess() {
         });
         const data = await res.json();
         if (data.success) {
-            alert('Access suspended.');
+            Swal.fire({
+                icon: 'success',
+                title: 'Access Suspended',
+                text: 'The linked admin account has been suspended.',
+                timer: 2000,
+                showConfirmButton: false
+            });
             closeManageAccessModal();
             await loadEmployees();
+            if (activeProfileData?.employee?._id === id) {
+                await renderProfileAccess(activeProfileData.employee);
+            }
         } else {
-            alert(data.error || 'Failed to suspend access');
+            Swal.fire({
+                icon: 'error',
+                title: 'Suspend Failed',
+                text: data.error || 'Failed to suspend access.',
+                confirmButtonColor: '#2563eb'
+            });
         }
     } catch (err) {
         console.error('revokeAccess:', err);
-        alert('Failed to suspend access');
+        Swal.fire({
+            icon: 'error',
+            title: 'Suspend Failed',
+            text: 'Failed to suspend access.',
+            confirmButtonColor: '#2563eb'
+        });
     }
 };
 

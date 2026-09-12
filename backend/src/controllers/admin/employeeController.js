@@ -191,6 +191,22 @@ exports.getAllEmployees = async (req, res) => {
             filter.$or = [{ fullName: re }, { phone: re }, { employeeId: re }, { role: re }, { designation: re }];
         }
 
+        const hasAccess = String(req.query.hasAccess || '').trim().toLowerCase();
+        const noLinkedAdminClause = {
+            $or: [{ linkedAdminId: null }, { linkedAdminId: '' }, { linkedAdminId: { $exists: false } }]
+        };
+        if (hasAccess === 'false') {
+            if (filter.$or) {
+                const searchClause = { $or: filter.$or };
+                delete filter.$or;
+                filter.$and = [searchClause, noLinkedAdminClause];
+            } else {
+                Object.assign(filter, noLinkedAdminClause);
+            }
+        } else if (hasAccess === 'true') {
+            filter.linkedAdminId = { $nin: [null, ''] };
+        }
+
         if (String(req.query.all || '').toLowerCase() === 'true') {
             const activeFilter = { ...filter, status: 'active' };
             const employees = await Employee.find(activeFilter).sort({ fullName: 1 }).lean();

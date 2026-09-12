@@ -266,8 +266,6 @@ window.removeCustomerAvatar = async function() {
             confirmButtonColor: '#ef4444',
             customClass: { container: 'customer-avatar-swal' }
         })).isConfirmed;
-    } else {
-        confirmed = window.confirm('Remove this profile photo?');
     }
 
     if (!confirmed) return;

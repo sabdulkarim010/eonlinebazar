@@ -681,3 +681,253 @@
 
 .staff-edit-modal-footer .btn-submit { margin-top: 0; }
 
+/* — Premium admin access page — */
+.staff-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.staff-page-header-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.staff-assign-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.staff-metrics-grid--premium {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.staff-metric-icon--security {
+    background: rgba(139, 92, 246, 0.12);
+    color: #7c3aed;
+}
+
+.staff-security-badge {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.staff-security-badge--ok { color: #059669; }
+.staff-security-badge--warn { color: #d97706; }
+
+.staff-assign-panel {
+    margin-bottom: 24px;
+    padding: 16px 18px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+}
+
+.staff-assign-panel-inner label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--secondary-color);
+}
+
+.staff-assign-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.staff-assign-row input[type="search"] {
+    flex: 1 1 280px;
+    min-width: 0;
+}
+
+.staff-assign-hint {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.staff-table-card--premium {
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.staff-table--premium .staff-identity small {
+    display: block;
+    margin-top: 2px;
+}
+
+.staff-role-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.staff-role-badge--super { background: #f3e8ff; color: #7c3aed; }
+.staff-role-badge--manager { background: #dbeafe; color: #2563eb; }
+.staff-role-badge--operator { background: #f1f5f9; color: #64748b; }
+
+.permission-module-select-all {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.permission-category-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* — Permissions slide-over panel — */
+body.staff-panel-open { overflow: hidden; }
+
+.staff-permissions-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    pointer-events: none;
+    visibility: hidden;
+}
+
+.staff-permissions-panel.is-open {
+    pointer-events: auto;
+    visibility: visible;
+}
+
+.staff-permissions-panel-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    opacity: 0;
+    transition: opacity 0.22s ease;
+}
+
+.staff-permissions-panel.is-open .staff-permissions-panel-backdrop {
+    opacity: 1;
+}
+
+.staff-permissions-panel-drawer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: min(560px, 100%);
+    height: 100%;
+    background: #fff;
+    box-shadow: -8px 0 32px rgba(15, 23, 42, 0.12);
+    transform: translateX(100%);
+    transition: transform 0.24s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.staff-permissions-panel.is-open .staff-permissions-panel-drawer {
+    transform: translateX(0);
+}
+
+.staff-permissions-panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 20px 22px 12px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.staff-permissions-panel-form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.staff-permissions-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 22px;
+}
+
+.staff-permissions-panel-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 22px 18px;
+    border-top: 1px solid #e2e8f0;
+    background: #fff;
+    position: sticky;
+    bottom: 0;
+}
+
+.staff-presets-bar--panel {
+    margin: 12px 0 16px;
+}
+
+.staff-credentials-col--compact .staff-enterprise-card-body {
+    padding-top: 0;
+}
+
+@media (max-width: 900px) {
+    .staff-metrics-grid--premium {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* — Employee profile access tab — */
+.employee-access-panel {
+    max-width: 520px;
+}
+
+.employee-access-link-card,
+.employee-access-linked-card {
+    padding: 16px 18px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.employee-access-link-copy h4 {
+    margin: 0 0 6px;
+    font-size: 15px;
+}
+
+.employee-link-account-btn {
+    margin-top: 12px;
+}
+
+.employee-access-linked-actions {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
+.employee-manage-perms-link,
+.employee-suspend-access-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #2563eb;
+    cursor: pointer;
+}
+
+.employee-suspend-access-link { color: #d97706; }
+

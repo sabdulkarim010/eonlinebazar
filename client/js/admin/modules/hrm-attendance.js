@@ -128,7 +128,10 @@ async function hrmLoadStaffOptions(selectIds = [], { placeholder = 'All staff', 
         if (hrmStaffCache.length) {
             html += `<optgroup label="System Staff">`;
             html += hrmStaffCache
-                .map((s) => `<option value="admin:${hrmEscape(s.username)}">${hrmEscape(s.name || s.username)} (${hrmEscape(s.username)})</option>`)
+                .map((s) => {
+                    const roleLabel = s.department || s.username || 'Staff';
+                    return `<option value="admin:${hrmEscape(s.username)}">${hrmEscape(s.name || s.username)} — ${hrmEscape(roleLabel)}</option>`;
+                })
                 .join('');
             html += `</optgroup>`;
         }
@@ -137,8 +140,8 @@ async function hrmLoadStaffOptions(selectIds = [], { placeholder = 'All staff', 
             html += `<optgroup label="Operational Employees">`;
             html += hrmEmployeeCache
                 .map((e) => {
-                    const label = e.designation || e.role || e.employeeId;
-                    return `<option value="employee:${hrmEscape(e.employeeId)}">${hrmEscape(e.fullName)} (${hrmEscape(label)})</option>`;
+                    const designation = e.designation || e.role || 'Employee';
+                    return `<option value="employee:${hrmEscape(e.employeeId)}">${hrmEscape(e.fullName)} — ${hrmEscape(designation)}</option>`;
                 })
                 .join('');
             html += `</optgroup>`;

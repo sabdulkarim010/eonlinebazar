@@ -497,9 +497,22 @@ window.showCustomConfirm = function(title, message, onConfirm, type = 'warning')
 
     const modal = document.getElementById('customConfirmModal');
     if (!modal) {
-        const ok = window.confirm(`${title || 'Are you sure?'}\n\n${message || ''}`);
-        if (ok && typeof onConfirm === 'function') onConfirm();
-        return Promise.resolve(ok);
+        if (typeof Swal !== 'undefined') {
+            return Swal.fire({
+                title: title || 'Are you sure?',
+                text: message || '',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Proceed',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280'
+            }).then((result) => {
+                if (result.isConfirmed && typeof onConfirm === 'function') onConfirm();
+                return result.isConfirmed === true;
+            });
+        }
+        return Promise.resolve(false);
     }
 
     const titleEl = document.getElementById('confirmTitle');

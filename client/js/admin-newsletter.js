@@ -173,7 +173,17 @@ async function deleteNewsletterSubscriber(id) {
         window.showCustomConfirm('Confirm', 'Delete this subscriber?', performDelete, 'danger');
         return;
     }
-    if (window.confirm('Delete this subscriber?')) await performDelete();
+    const confirmed = (await Swal.fire({
+        icon: 'warning',
+        title: 'Are you sure?',
+        text: 'This subscriber will be permanently deleted.',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, delete it',
+        cancelButtonText: 'Cancel'
+    })).isConfirmed;
+    if (confirmed) await performDelete();
 }
 
 function readCampaignForm() {
@@ -394,7 +404,17 @@ async function sendNewsletterCampaign(id) {
         window.showCustomConfirm('Confirm', 'Send campaign now?', performSend, 'warning');
         return;
     }
-    if (window.confirm('Send campaign now?')) await performSend();
+    const confirmed = (await Swal.fire({
+        icon: 'question',
+        title: 'Send campaign now?',
+        text: 'This will deliver the campaign to all selected subscribers.',
+        showCancelButton: true,
+        confirmButtonColor: '#2563eb',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, send now',
+        cancelButtonText: 'Cancel'
+    })).isConfirmed;
+    if (confirmed) await performSend();
 }
 
 async function sendNewsletterCampaignFromForm() {

@@ -406,6 +406,7 @@
             <button type="button" class="hrm-tab" data-profile-tab="profile-tab-attendance" onclick="switchProfileTab('profile-tab-attendance')">Attendance</button>
             <button type="button" class="hrm-tab" data-profile-tab="profile-tab-payroll" onclick="switchProfileTab('profile-tab-payroll')">Payroll</button>
             <button type="button" class="hrm-tab" data-profile-tab="profile-tab-leave" onclick="switchProfileTab('profile-tab-leave')">Leave</button>
+            <button type="button" class="hrm-tab" data-profile-tab="profile-tab-access" onclick="switchProfileTab('profile-tab-access')">Access</button>
         </div>
         <div class="modal-body">
             <div id="profile-tab-overview" class="employee-profile-panel"></div>
@@ -443,6 +444,9 @@
                 <div id="profileLeaveBalance" class="hrm-balance-grid"></div>
                 <h4 class="employee-section-title">Recent Leave Applications</h4>
                 <div id="profileLeaveRecent"></div>
+            </div>
+            <div id="profile-tab-access" class="employee-profile-panel" style="display:none;">
+                <div id="profileAccessSection" class="employee-access-panel"></div>
             </div>
         </div>
         <div class="modal-footer">
@@ -533,12 +537,12 @@
     </div>
 </div>
 
-<!-- Grant system access -->
+<!-- Link system account -->
 <div id="grantAccessModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeGrantAccessModal()">
     <div class="custom-modal-box employee-modal-wide">
         <div class="modal-header">
             <div>
-                <h3><i class="fa-solid fa-lock"></i> Grant System Access</h3>
+                <h3><i class="fa-solid fa-link"></i> Link System Account</h3>
                 <p class="edit-modal-subtitle">Create an admin login linked to this employee record</p>
             </div>
             <button type="button" class="close-icon-btn" onclick="closeGrantAccessModal()" aria-label="Close">
@@ -609,7 +613,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeGrantAccessModal()">Cancel</button>
-                <button type="submit" class="btn-primary"><i class="fa-solid fa-lock"></i> Grant Access</button>
+                <button type="submit" class="btn-primary"><i class="fa-solid fa-link"></i> Link Account</button>
             </div>
         </form>
     </div>

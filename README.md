@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
   <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
   <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
-  <img src="https://img.shields.io/badge/tests-132%2F132-brightgreen" alt="132/132 Tests Passing">
+  <img src="https://img.shields.io/badge/tests-133%2F133-brightgreen" alt="133/133 Tests Passing">
   <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
   <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
   <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">
@@ -66,7 +66,7 @@ The web client uses vanilla JavaScript with a modular ES architecture. The API r
 
 ## Core Pillars & Enterprise Modules
 
-All modules below are **100% completed** and wired into the admin accordion navigation (**Dashboard · Catalog & Inventory · Sales & POS · CRM & Support · Marketing & Growth · Finance & Accounts · HRM · Settings & Security**). **Settings & Security** is one accordion with three labeled sub-groups — **Security & Access**, **Store & Catalog Setup**, and **System & Utilities** — all existing nav links preserved. Admin Access & Roles and Staff Audit live under **Settings & Security** (not HRM).
+All modules below are **100% completed** and wired into the admin accordion navigation (**Dashboard · Catalog & Inventory · Sales & POS · CRM & Support · Marketing & Growth · Finance & Accounts · HRM · Settings & Security**). **Settings & Security** is one accordion with three labeled sub-groups — **Security & Access**, **Store & Catalog Setup**, and **System & Utilities** — all existing nav links preserved. **Admin Access & Roles** (premium staff directory + permissions slide-over; assign access from unlinked employees only) and Staff Audit live under **Settings & Security** (not HRM). The admin panel uses **SweetAlert2** for all confirmations and validation alerts.
 
 ### 1. ERP Pillar — Enterprise Resource Planning
 
@@ -104,7 +104,7 @@ Staff identity, time tracking, compensation, and leave — gated by `manage_staf
 | **Attendance & Shift Management** | Clock-in / clock-out with optional **GPS tagging**, one attendance row per staff per day, named shifts with a protected default, grace-period **late penalties**, plus monthly summary and late reports. |
 | **Payroll Engine & Automated Pay Slips** | Attendance-driven runs: `baseSalary × min(presentDays / workingDays, 1) + overtime + bonus − deductions`. Workflow is draft → approved → paid. Each slip is a **PDFKit** pay slip with pro-rated working-day calculation. |
 | **Leave Management** | **Casual**, **Sick**, and **Annual** leave (plus unpaid) with balances, a month **calendar** view, and automatic attendance sync — approving leave stamps `holiday` rows across the span. |
-| **Operational Employees & Designations** | Non-login staff roster with tabbed profiles (personal, contact, employment, salary/bank, references), **designation catalog** (seeded defaults), Cloudinary **photo + document** uploads, read-only **profile modal** (attendance, payroll, leave tabs), **1-click system access provisioning** (Grant Access modal → linked `Admin` account), and `employeeCount` on the enterprise dashboard. |
+| **Operational Employees & Designations** | Non-login staff roster with tabbed profiles (personal, contact, employment, salary/bank, references, **Access** tab), **designation catalog** (seeded defaults), Cloudinary **photo + document** uploads, read-only **profile modal** (attendance, payroll, leave tabs), **Link System Account** flow (employee profile or Admin Access **Assign New Access** → linked `Admin` account), superadmin auto-synced to HRM on bootstrap, and `employeeCount` on the enterprise dashboard. |
 
 ---
 
@@ -152,7 +152,7 @@ npm test
 | ERP | `tests/erp.test.js` | 31 | Suppliers, warehouses, `receivePO`, slugs, audit, status enum |
 | HRM | `tests/hrm.test.js` | 33 | Attendance, shifts, payroll, leave, designations, employee profile/docs/photo, grant/revoke system access |
 | Loyalty | `tests/loyalty-tier.test.js` | 6 | Silver / Gold / Platinum thresholds and cashback |
-| **Total** | | **132** | All suites green |
+| **Total** | | **133** | All suites green |
 
 Expected Jest summary:
 
@@ -255,7 +255,7 @@ npm start
 npm test
 ```
 
-All **132** tests must pass before merging changes.
+All **133** tests must pass before merging changes.
 
 ### Mobile (Expo)
 

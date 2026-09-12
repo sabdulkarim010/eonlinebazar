@@ -1164,7 +1164,17 @@
   }
 
   async function deleteBannerItem(id) {
-    if (!confirm('Delete this banner?')) return;
+    const deleteConfirmed = (await Swal.fire({
+      icon: 'warning',
+      title: 'Are you sure?',
+      text: 'This banner will be permanently deleted.',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, delete it',
+      cancelButtonText: 'Cancel'
+    })).isConfirmed;
+    if (!deleteConfirmed) return;
     try {
       const res = await fetch('/api/admin/banners/' + id, {
         method: 'DELETE',

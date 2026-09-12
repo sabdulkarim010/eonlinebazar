@@ -210,9 +210,16 @@ async function logoutAdminSession(sessionId, isCurrent) {
         ? 'Log out this device? You will be returned to the login screen.'
         : 'Log out this device remotely?';
 
-    const proceed = window.Swal
-        ? (await Swal.fire({ title: 'Terminate session?', text: confirmMsg, icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, log out', confirmButtonColor: '#ef4444' })).isConfirmed
-        : window.confirm(confirmMsg);
+    const proceed = (await Swal.fire({
+        title: 'Terminate session?',
+        text: confirmMsg,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, log out',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280'
+    })).isConfirmed;
     if (!proceed) return;
 
     try {
@@ -236,9 +243,16 @@ async function logoutAdminSession(sessionId, isCurrent) {
 window.logoutAdminSession = logoutAdminSession;
 
 async function logoutOtherAdminSessions() {
-    const proceed = window.Swal
-        ? (await Swal.fire({ title: 'Log out all other devices?', text: 'This keeps you signed in here but revokes every other session.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, log out others', confirmButtonColor: '#ef4444' })).isConfirmed
-        : window.confirm('Log out all other devices?');
+    const proceed = (await Swal.fire({
+        title: 'Log out all other devices?',
+        text: 'This keeps you signed in here but revokes every other session.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, log out others',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280'
+    })).isConfirmed;
     if (!proceed) return;
 
     try {
@@ -535,9 +549,16 @@ async function submitBlacklist(e) {
 }
 
 async function removeBlacklist(id, ip) {
-    const proceed = window.Swal
-        ? (await Swal.fire({ title: `Unblock ${ip}?`, text: 'This IP will be able to reach the admin login again.', icon: 'question', showCancelButton: true, confirmButtonText: 'Yes, unblock' })).isConfirmed
-        : window.confirm(`Unblock ${ip}?`);
+    const proceed = (await Swal.fire({
+        title: `Unblock ${ip}?`,
+        text: 'This IP will be able to reach the admin login again.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, unblock',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#2563eb',
+        cancelButtonColor: '#6b7280'
+    })).isConfirmed;
     if (!proceed) return;
 
     try {

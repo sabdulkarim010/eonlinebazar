@@ -32,7 +32,19 @@ function confirmAction(title, message, onConfirm, type = 'warning') {
     if (typeof window.showCustomConfirm === 'function') {
         return window.showCustomConfirm(title, message, onConfirm, type);
     }
-    if (window.confirm(`${title}\n\n${message}`)) onConfirm();
+    const isDelete = type === 'danger' || type === 'warning';
+    return Swal.fire({
+        icon: isDelete ? 'warning' : 'question',
+        title: title || 'Are you sure?',
+        text: message,
+        showCancelButton: true,
+        confirmButtonColor: isDelete ? '#dc2626' : '#f59e0b',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: isDelete ? 'Yes, proceed' : 'Yes',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed && typeof onConfirm === 'function') onConfirm();
+    });
 }
 
 function escapeHtml(value) {
@@ -118,22 +130,29 @@ function generateStrongPassword(length = 14) {
     return Array.from(bytes, n => alphabet[n % alphabet.length]).join('');
 }
 
-/** Category metadata for the permissions matrix UI. */
-const PERMISSION_GROUP_META = {
-    Insights: { emoji: '📊', slug: 'insights' },
-    Operations: { emoji: '🛒', slug: 'operations' },
-    Administration: { emoji: '⚙️', slug: 'administration' },
-    General: { emoji: '🔑', slug: 'general' }
-};
+/** Module-grouped permission matrix for the slide-over panel. */
+const STAFF_PERMISSION_MODULES = [
+    { id: 'sales', label: 'Sales & Orders', emoji: '📦', keys: ['view_analytics', 'manage_orders'] },
+    { id: 'inventory', label: 'Inventory & Catalog', emoji: '📋', keys: ['manage_inventory', 'manage_catalog', 'manage_coupons'] },
+    { id: 'finance', label: 'Finance', emoji: '💰', keys: [] },
+    { id: 'hrm', label: 'HRM & Staff', emoji: '👥', keys: ['manage_staff'] },
+    { id: 'marketing', label: 'Marketing', emoji: '📢', keys: ['manage_marketing'] },
+    { id: 'system', label: 'System', emoji: '⚙️', keys: ['manage_settings', 'manage_security', 'manage_customers'] }
+];
 
 /** One-click permission presets — keys must match config/permissions.js. */
 const ROLE_PRESETS = {
     fullAdmin: null,
     inventoryManager: ['manage_inventory', 'manage_catalog'],
+    orderManager: ['manage_orders', 'manage_customers'],
+    posOperator: ['manage_orders', 'manage_inventory'],
+    hrManager: ['manage_staff'],
     customerSupport: ['manage_orders', 'manage_customers'],
     marketingManager: ['manage_marketing', 'manage_settings'],
     clear: []
 };
+
+let staffAssignCandidates = [];
 
 function resolvePresetKeys(presetKey) {
     if (presetKey === 'fullAdmin') {
@@ -220,6 +239,10 @@ function syncPermissionRowState(box) {
     if (row) row.classList.toggle('is-on', box.checked);
 }
 
+function permissionByKey(key) {
+    return permissionCatalog.find((p) => p.key === key);
+}
+
 function renderPermissionCheckboxes(container, selectedKeys = []) {
     if (!container) return;
 
@@ -229,22 +252,28 @@ function renderPermissionCheckboxes(container, selectedKeys = []) {
     }
 
     const selected = new Set(selectedKeys);
-    const groups = permissionCatalog.reduce((acc, permission) => {
-        const group = permission.group || 'General';
-        (acc[group] = acc[group] || []).push(permission);
-        return acc;
-    }, {});
 
-    container.innerHTML = Object.entries(groups).map(([group, items]) => {
-        const meta = PERMISSION_GROUP_META[group] || PERMISSION_GROUP_META.General;
+    container.innerHTML = STAFF_PERMISSION_MODULES.map((module) => {
+        const items = module.keys
+            .map((key) => permissionByKey(key))
+            .filter(Boolean);
+
+        if (!items.length) return '';
+
+        const allChecked = items.every((p) => selected.has(p.key));
+
         return `
-        <div class="permission-category-card permission-category-card--${meta.slug}">
+        <div class="permission-category-card permission-category-card--${module.id}">
             <div class="permission-category-header">
-                <span class="permission-category-emoji" aria-hidden="true">${meta.emoji}</span>
-                <span class="permission-category-title">${escapeHtml(group)}</span>
+                <span class="permission-category-emoji" aria-hidden="true">${module.emoji}</span>
+                <span class="permission-category-title">${escapeHtml(module.label)}</span>
+                <label class="permission-module-select-all">
+                    <input type="checkbox" class="permission-module-select-all-input" data-module="${module.id}" ${allChecked ? 'checked' : ''}>
+                    <span>Select all</span>
+                </label>
             </div>
-            <div class="permission-category-items">
-                ${items.map(permission => `
+            <div class="permission-category-items" data-module-items="${module.id}">
+                ${items.map((permission) => `
                     <label class="permission-toggle-row ${selected.has(permission.key) ? 'is-on' : ''}">
                         <span class="permission-toggle-main">
                             <span class="permission-toggle-icon"><i class="fa-solid ${escapeHtml(permission.icon || 'fa-key')}"></i></span>
@@ -254,7 +283,7 @@ function renderPermissionCheckboxes(container, selectedKeys = []) {
                             </span>
                         </span>
                         <span class="toggle-switch">
-                            <input type="checkbox" class="toggle-switch-input permission-toggle-input" value="${escapeHtml(permission.key)}" ${selected.has(permission.key) ? 'checked' : ''}>
+                            <input type="checkbox" class="toggle-switch-input permission-toggle-input" data-module="${module.id}" value="${escapeHtml(permission.key)}" ${selected.has(permission.key) ? 'checked' : ''}>
                             <span class="toggle-switch-slider" aria-hidden="true"></span>
                         </span>
                     </label>
@@ -263,12 +292,32 @@ function renderPermissionCheckboxes(container, selectedKeys = []) {
         </div>`;
     }).join('');
 
-    container.querySelectorAll('.permission-toggle-input').forEach(box => {
+    container.querySelectorAll('.permission-toggle-input').forEach((box) => {
         box.addEventListener('change', () => {
             syncPermissionRowState(box);
             clearPresetHighlight(container);
+            syncModuleSelectAllState(container, box.dataset.module);
         });
     });
+
+    container.querySelectorAll('.permission-module-select-all-input').forEach((box) => {
+        box.addEventListener('change', () => {
+            const moduleId = box.dataset.module;
+            container.querySelectorAll(`.permission-toggle-input[data-module="${moduleId}"]`).forEach((input) => {
+                input.checked = box.checked;
+                syncPermissionRowState(input);
+            });
+            clearPresetHighlight(container);
+        });
+    });
+}
+
+function syncModuleSelectAllState(container, moduleId) {
+    if (!container || !moduleId) return;
+    const inputs = [...container.querySelectorAll(`.permission-toggle-input[data-module="${moduleId}"]`)];
+    const selectAll = container.querySelector(`.permission-module-select-all-input[data-module="${moduleId}"]`);
+    if (!selectAll || !inputs.length) return;
+    selectAll.checked = inputs.every((input) => input.checked);
 }
 
 function readSelectedPermissions(container) {
@@ -325,14 +374,20 @@ function setupPermissionPresets(presetsBar, grid) {
     });
 }
 
-function getCreateAccountStatus() {
-    const selected = document.querySelector('input[name="staffAccountStatus"]:checked');
-    return selected?.value === 'blocked' ? 'blocked' : 'active';
+function deriveStaffRoleBadge(staff) {
+    const perms = staff.permissions || [];
+    if (staff.role === 'superadmin') return { label: 'Super Admin', className: 'staff-role-badge staff-role-badge--super' };
+    if (perms.includes('manage_settings') && perms.includes('manage_staff')) {
+        return { label: 'Manager', className: 'staff-role-badge staff-role-badge--manager' };
+    }
+    if (perms.length >= 4) return { label: 'Manager', className: 'staff-role-badge staff-role-badge--manager' };
+    return { label: 'Operator', className: 'staff-role-badge staff-role-badge--operator' };
 }
 
-function resetCreateAccountStatus() {
-    const active = document.getElementById('staffStatusActive');
-    if (active) active.checked = true;
+function countDistinctPermissionSets(accounts) {
+    const sets = new Set(accounts.map((s) => [...(s.permissions || [])].sort().join('|')));
+    sets.delete('');
+    return sets.size;
 }
 
 function getEditAccountStatus() {
@@ -357,17 +412,15 @@ function renderStaffTable() {
 
     if (staffAccounts.length === 0) {
         body.innerHTML = `
-            <tr><td colspan="7" class="empty-row">
-                No staff accounts yet. Create one above to delegate work without sharing your Super Admin password.
+            <tr><td colspan="5" class="empty-row">
+                No staff accounts yet. Use <strong>Assign New Access</strong> to link an employee from HRM.
             </td></tr>`;
         return;
     }
 
     body.innerHTML = staffAccounts.map(staff => {
         const blocked = staff.status === 'blocked';
-        const permissionChips = (staff.permissions || []).length
-            ? staff.permissions.map(key => `<span class="permission-chip">${escapeHtml(permissionLabel(key))}</span>`).join('')
-            : '<span class="permission-chip empty">No permissions</span>';
+        const roleBadge = deriveStaffRoleBadge(staff);
 
         return `
             <tr class="${blocked ? 'staff-row-blocked' : ''}">
@@ -376,13 +429,11 @@ function renderStaffTable() {
                         <span class="staff-avatar">${escapeHtml((staff.name || staff.username).charAt(0).toUpperCase())}</span>
                         <div>
                             <strong>${escapeHtml(staff.name || staff.username)}</strong>
-                            <small>Added by ${escapeHtml(staff.createdBy || '—')}</small>
+                            <small><code class="staff-username">${escapeHtml(staff.username)}</code> · ${escapeHtml(staff.email || '—')}</small>
                         </div>
                     </div>
                 </td>
-                <td><code class="staff-username">${escapeHtml(staff.username)}</code></td>
-                <td>${escapeHtml(staff.email || '—')}</td>
-                <td><div class="permission-chip-list">${permissionChips}</div></td>
+                <td><span class="${roleBadge.className}">${escapeHtml(roleBadge.label)}</span></td>
                 <td>
                     <span class="status-badge ${blocked ? 'blocked' : 'active'}">
                         <i class="fa-solid ${blocked ? 'fa-ban' : 'fa-circle-check'}"></i>
@@ -395,7 +446,7 @@ function renderStaffTable() {
                         <button type="button" class="action-btn edit" title="Edit permissions"
                             onclick="openStaffEditModal('${staff.id}')"><i class="fa-solid fa-user-pen"></i></button>
                         <button type="button" class="action-btn ${blocked ? 'activate' : 'block'}"
-                            title="${blocked ? 'Activate account' : 'Block account'}"
+                            title="${blocked ? 'Reactivate account' : 'Suspend account'}"
                             onclick="toggleStaffStatus('${staff.id}')">
                             <i class="fa-solid ${blocked ? 'fa-lock-open' : 'fa-user-lock'}"></i>
                         </button>
@@ -414,9 +465,29 @@ function renderStaffSummary(summary) {
         const el = document.getElementById(id);
         if (el) el.textContent = value;
     };
-    set('staffTotalCount', summary?.total ?? staffAccounts.length);
-    set('staffActiveCount', summary?.active ?? staffAccounts.filter(s => s.status === 'active').length);
-    set('staffBlockedCount', summary?.blocked ?? staffAccounts.filter(s => s.status === 'blocked').length);
+    const active = summary?.active ?? staffAccounts.filter(s => s.status === 'active').length;
+    const without2fa = staffAccounts.filter(s => s.twoFactorEnabled === false).length;
+
+    set('staffActiveCount', active);
+    set('staffRoleTemplatesCount', countDistinctPermissionSets(staffAccounts));
+
+    const securityEl = document.getElementById('staffSecurityStatus');
+    const hintEl = document.getElementById('staffSecurityHint');
+    if (securityEl) {
+        if (without2fa > 0) {
+            securityEl.textContent = `${without2fa} without 2FA`;
+            securityEl.className = 'staff-security-badge staff-security-badge--warn';
+            if (hintEl) hintEl.textContent = 'Enable 2FA on staff accounts for stronger security';
+        } else if (staffAccounts.length) {
+            securityEl.textContent = 'All accounts using 2FA';
+            securityEl.className = 'staff-security-badge staff-security-badge--ok';
+            if (hintEl) hintEl.textContent = 'Email OTP enforced on every account';
+        } else {
+            securityEl.textContent = 'Audit Logs Active';
+            securityEl.className = 'staff-security-badge';
+            if (hintEl) hintEl.textContent = 'Security monitoring is enabled';
+        }
+    }
 }
 
 async function fetchStaffAccounts(options = {}) {
@@ -424,7 +495,7 @@ async function fetchStaffAccounts(options = {}) {
     const body = document.getElementById('staffTableBody');
 
     if (body && showTableLoading) {
-        body.innerHTML = '<tr><td colspan="7" class="loading-container"><div class="spinner"></div><p>Loading staff accounts...</p></td></tr>';
+        body.innerHTML = '<tr><td colspan="5" class="loading-container"><div class="spinner"></div><p>Loading staff accounts...</p></td></tr>';
     }
 
     const url = bustCache
@@ -440,7 +511,7 @@ async function fetchStaffAccounts(options = {}) {
     } catch (error) {
         console.error('Load Staff Error:', error);
         if (body) {
-            body.innerHTML = `<tr><td colspan="7" class="empty-row">${escapeHtml(error.message)}</td></tr>`;
+            body.innerHTML = `<tr><td colspan="5" class="empty-row">${escapeHtml(error.message)}</td></tr>`;
         }
         if (!options.suppressErrorToast) {
             notify(error.message, 'error');
@@ -543,83 +614,82 @@ async function loadStaffSection() {
 
     if (!isSuperAdmin()) return;
 
-    const grid = document.getElementById('staffPermissionGrid');
-    renderPermissionCheckboxes(grid);
-    setupPermissionPresets(
-        document.querySelector('[data-permission-presets="create"]'),
-        grid
-    );
     await fetchStaffAccounts();
+    await refreshStaffAssignCandidates();
 }
 window.loadStaffSection = loadStaffSection;
 window.applySuperAdminOnlyVisibility = applySuperAdminOnlyVisibility;
 window.isAdminSuperAdmin = isSuperAdmin;
 
 /* ==========================================================================
-   CREATE STAFF
+   ASSIGN ACCESS (from HRM employees without linked admin)
    ========================================================================== */
 
-function setupCreateStaffForm() {
-    const form = document.getElementById('createStaffForm');
-    if (!form) return;
+async function refreshStaffAssignCandidates() {
+    try {
+        const result = await staffApi('/api/admin/hrm/employees?hasAccess=false&limit=200');
+        staffAssignCandidates = result.data || [];
+        const datalist = document.getElementById('staffAssignEmployeeList');
+        if (datalist) {
+            datalist.innerHTML = staffAssignCandidates.map((e) => {
+                const label = `${e.fullName} — ${e.designation || e.role || e.employeeId || 'Employee'}`;
+                return `<option value="${escapeHtml(label)}" data-id="${escapeHtml(e._id)}"></option>`;
+            }).join('');
+        }
+    } catch (error) {
+        console.error('refreshStaffAssignCandidates:', error);
+        staffAssignCandidates = [];
+    }
+}
+window.refreshStaffAssignCandidates = refreshStaffAssignCandidates;
 
-    const grid = document.getElementById('staffPermissionGrid');
-    const passwordInput = document.getElementById('staffPassword');
+function resolveAssignEmployeeFromSearch(value) {
+    const needle = String(value || '').trim().toLowerCase();
+    if (!needle) return null;
+    return staffAssignCandidates.find((e) => {
+        const label = `${e.fullName} — ${e.designation || e.role || e.employeeId || 'Employee'}`.toLowerCase();
+        return label === needle
+            || e.fullName?.toLowerCase() === needle
+            || e.employeeId?.toLowerCase() === needle
+            || e.phone?.includes(needle);
+    }) || null;
+}
 
-    document.getElementById('generateStaffPasswordBtn')?.addEventListener('click', () => {
-        if (!passwordInput) return;
-        passwordInput.value = generateStrongPassword();
-        notify('Strong password generated — copy it before saving.', 'info');
+function setupAssignAccessPanel() {
+    const assignBtn = document.getElementById('staffAssignAccessBtn');
+    const panel = document.getElementById('staffAssignPanel');
+    const searchInput = document.getElementById('staffAssignEmployeeSearch');
+    const confirmBtn = document.getElementById('staffAssignConfirmBtn');
+
+    assignBtn?.addEventListener('click', async () => {
+        if (!panel) return;
+        panel.hidden = !panel.hidden;
+        if (!panel.hidden) {
+            await refreshStaffAssignCandidates();
+            searchInput?.focus();
+        }
     });
 
-    setupPermissionPresets(
-        document.querySelector('[data-permission-presets="create"]'),
-        grid
-    );
+    searchInput?.addEventListener('input', () => {
+        if (!confirmBtn) return;
+        confirmBtn.disabled = !resolveAssignEmployeeFromSearch(searchInput.value);
+    });
 
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-
-        const submitBtn = document.getElementById('createStaffBtn');
-        const desiredStatus = getCreateAccountStatus();
-        const payload = {
-            name: document.getElementById('staffName').value.trim(),
-            username: document.getElementById('staffUsername').value.trim().toLowerCase(),
-            email: document.getElementById('staffEmail').value.trim().toLowerCase(),
-            password: document.getElementById('staffPassword').value,
-            permissions: readSelectedPermissions(grid),
-            requireTwoFactor: document.getElementById('staffRequireTwoFactor').checked
-        };
-
-        if (payload.permissions.length === 0) {
-            return notify('Enable at least one permission for this staff member.', 'warning');
-        }
-
-        if (submitBtn) submitBtn.disabled = true;
-
-        try {
-            const result = await staffApi('/api/admin/staff', {
-                method: 'POST',
-                body: JSON.stringify(payload)
+    confirmBtn?.addEventListener('click', () => {
+        const employee = resolveAssignEmployeeFromSearch(searchInput?.value);
+        if (!employee) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Select an Employee',
+                text: 'Choose an employee from the list who does not yet have admin access.',
+                confirmButtonColor: '#2563eb'
             });
-
-            if (desiredStatus === 'blocked' && result.data?.id) {
-                await staffApi(`/api/admin/staff/${result.data.id}/status`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({ status: 'blocked' })
-                });
-            }
-
-            notify(result.message, 'success');
-            form.reset();
-            resetCreateAccountStatus();
-            setAllPermissions(grid, false);
-            clearPresetHighlight(grid);
-            await fetchStaffAccounts();
-        } catch (error) {
-            notify(error.message, 'error');
-        } finally {
-            if (submitBtn) submitBtn.disabled = false;
+            return;
+        }
+        if (typeof window.openGrantAccessModal === 'function') {
+            window.openGrantAccessModal(employee._id, employee.fullName, employee.email || '', employee.phone || '');
+        } else {
+            notify('Employee linking module is not loaded. Open the HRM Employees section once and try again.', 'warning');
         }
     });
 }
@@ -628,8 +698,12 @@ function setupCreateStaffForm() {
    EDIT / STATUS / RESET / DELETE
    ========================================================================== */
 
-window.openStaffEditModal = function openStaffEditModal(staffId) {
-    const staff = staffAccounts.find(s => String(s.id) === String(staffId));
+window.openStaffEditModal = async function openStaffEditModal(staffId) {
+    let staff = staffAccounts.find(s => String(s.id) === String(staffId));
+    if (!staff) {
+        await fetchStaffAccounts({ showTableLoading: false, suppressErrorToast: true });
+        staff = staffAccounts.find(s => String(s.id) === String(staffId));
+    }
     if (!staff) return notify('Staff account not found. Try refreshing.', 'error');
 
     document.getElementById('editStaffId').value = staff.id;
@@ -637,8 +711,8 @@ window.openStaffEditModal = function openStaffEditModal(staffId) {
     document.getElementById('editStaffEmail').value = staff.email || '';
     document.getElementById('editStaffRequireTwoFactor').checked = staff.twoFactorEnabled !== false;
     setEditAccountStatus(staff.status);
-    document.getElementById('staffEditModalSubtitle').textContent =
-        `${staff.username} · changes apply on their very next request`;
+    const subtitle = document.getElementById('staffPermissionsPanelSubtitle');
+    if (subtitle) subtitle.textContent = `${staff.username} · changes apply on their very next request`;
 
     const grid = document.getElementById('editStaffPermissionGrid');
     renderPermissionCheckboxes(grid, staff.permissions || []);
@@ -646,12 +720,24 @@ window.openStaffEditModal = function openStaffEditModal(staffId) {
         document.querySelector('[data-permission-presets="edit"]'),
         grid
     );
-    document.getElementById('staffEditModal').style.display = 'flex';
+
+    const panel = document.getElementById('staffPermissionsPanel');
+    if (panel) {
+        panel.classList.add('is-open');
+        panel.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('staff-panel-open');
+    }
 };
 
-window.closeStaffEditModal = function closeStaffEditModal() {
-    const modal = document.getElementById('staffEditModal');
-    if (modal) modal.style.display = 'none';
+window.closeStaffEditModal = closeStaffPermissionsPanel;
+
+window.closeStaffPermissionsPanel = function closeStaffPermissionsPanel() {
+    const panel = document.getElementById('staffPermissionsPanel');
+    if (panel) {
+        panel.classList.remove('is-open');
+        panel.setAttribute('aria-hidden', 'true');
+    }
+    document.body.classList.remove('staff-panel-open');
 };
 
 function setupEditStaffForm() {
@@ -690,7 +776,7 @@ function setupEditStaffForm() {
             }
 
             notify(result.message, 'success');
-            window.closeStaffEditModal();
+            window.closeStaffPermissionsPanel();
             await fetchStaffAccounts();
         } catch (error) {
             notify(error.message, 'error');
@@ -823,7 +909,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     applyRoleToSidebar();
-    setupCreateStaffForm();
+    setupAssignAccessPanel();
     setupEditStaffForm();
     setupStaffRefreshButton();
 
@@ -831,15 +917,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (typeof window.loadSandboxStatus === 'function') {
             window.loadSandboxStatus();
         }
-    }
-
-    if (isSuperAdmin() && document.getElementById('staffPermissionGrid')) {
-        const grid = document.getElementById('staffPermissionGrid');
-        renderPermissionCheckboxes(grid);
-        setupPermissionPresets(
-            document.querySelector('[data-permission-presets="create"]'),
-            grid
-        );
     }
 });
 

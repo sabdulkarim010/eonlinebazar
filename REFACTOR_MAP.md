@@ -953,3 +953,26 @@ client/js/admin/modules/hrm-employees.js [DONE] openGrantAccessModal, submitGran
 client/css/admin/_hrm.css [DONE] grant-access permission grid + manage access summary styles
 tests/hrm.test.js [DONE] grant/revoke/access-status + terminate auto-suspend test
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] 1-click access marked complete
+#
+# Staff access & HRM decoupling — 2026-09-12
+backend/src/controllers/admin/employeeController.js [DONE] hasAccess query filter on GET /hrm/employees
+backend/src/services/superAdminHrmSync.js [NEW] one-time superadmin ↔ Employee bootstrap sync
+backend/src/server.js [DONE] syncSuperAdminEmployee in DB bootstrap chain
+client/admin/partials/view-hrm-employees.html [DONE] Access profile tab; Link System Account modal copy; grant buttons removed from table context
+client/admin/partials/view-staff.html [DONE] premium Admin Access page — stat cards, assign panel, staff directory, permissions slide-over
+client/admin/partials/modals-invoice.html [DONE] staff edit modal moved to view-staff slide-over panel
+client/js/admin/modules/hrm-employees.js [DONE] table actions simplified; profile Access tab; toggleEmployeeStatus; SweetAlert2 for link/suspend flows
+client/js/admin-staff.js [DONE] removed direct-create UI; assign-access flow; module-grouped permissions panel; premium table/stats
+client/js/admin/modules/hrm-attendance.js [DONE] staff dropdown optgroups — Name — Designation label format
+client/css/admin/_staff.css [DONE] premium staff page, slide-over panel, role badges, employee access tab styles
+client/js/admin/modules/settings-footer.js [DONE] SweetAlert2 confirm for payment badge wipe
+client/js/admin/modules/settings-security.js [DONE] SweetAlert2-only session/blacklist confirms
+client/js/admin/modules/settings-2fa.js [DONE] SweetAlert2 confirmSwitchAuthMethod
+client/js/admin/modules/core-realtime.js [DONE] showCustomConfirm Swal fallback (no native confirm)
+client/js/admin/modules/catalog-categories.js [DONE] delete confirm Swal fallback
+client/js/admin/modules/customers-modals.js [DONE] avatar remove confirm Swal-only
+client/js/admin-banner.js [DONE] banner delete SweetAlert2 confirm
+client/js/admin-file-manager.js [DONE] unsaved changes SweetAlert2 confirm
+client/js/admin-newsletter.js [DONE] subscriber delete + campaign send SweetAlert2 confirms
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] STAFF ACCESS & HRM DECOUPLING — 2026-09-12 section
+README.md [DONE] admin access decoupling + SweetAlert2 note

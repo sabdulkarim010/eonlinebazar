@@ -539,8 +539,20 @@ function showDeleteConfirm(message, onConfirm) {
     const btn = document.getElementById('confirmDeleteBtn');
 
     if (!modal || !msgEl || !btn) {
-        // Fallback to browser confirm if modal not found
-        if (confirm(message)) onConfirm();
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Are you sure?',
+                text: message,
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, delete it',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed && typeof onConfirm === 'function') onConfirm();
+            });
+        }
         return;
     }
 

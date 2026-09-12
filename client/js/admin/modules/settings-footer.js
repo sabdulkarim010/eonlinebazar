@@ -370,7 +370,17 @@ async function clearAllPaymentBadges() {
         showToast('Payment badges form is already empty/hidden.', 'warning');
         return;
     }
-    if (!confirm('Wipe the entire payment badges section from the storefront now?')) return;
+    const wipeConfirmed = (await Swal.fire({
+        icon: 'warning',
+        title: 'Wipe payment badges?',
+        text: 'This removes the entire payment badges section from the storefront now.',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, wipe it',
+        cancelButtonText: 'Cancel'
+    })).isConfirmed;
+    if (!wipeConfirmed) return;
 
     footerSettingsState.paymentGateways = [];
     footerSettingsState.paymentBadgesEnabled = false;
