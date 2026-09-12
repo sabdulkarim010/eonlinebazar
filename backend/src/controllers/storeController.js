@@ -57,13 +57,23 @@ const getPublicStoreBranding = async (req, res) => {
     }
 };
 
-const getHealth = (req, res) => {
+const getHealth = async (req, res) => {
+    let maintenanceMode = false;
+    let maintenanceMessage = '';
+    try {
+        const master = await Setting.getOrCreate();
+        maintenanceMode = master.maintenanceMode === true;
+        maintenanceMessage = String(master.maintenanceMessage || '').trim();
+    } catch (_) { /* non-fatal for health probe */ }
+
     res.status(200).json({
-        status: 'ok',
+        status: maintenanceMode ? 'maintenance' : 'ok',
         timestamp: new Date(),
         environment: process.env.NODE_ENV,
         database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-        buildTime: global.SERVER_START_TIME
+        buildTime: global.SERVER_START_TIME,
+        maintenanceMode,
+        maintenanceMessage
     });
 };
 

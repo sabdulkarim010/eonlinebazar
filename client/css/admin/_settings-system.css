@@ -458,3 +458,84 @@
     color: #64748b;
     border-color: rgba(226, 232, 240, 0.8);
 }
+
+/* Unified System Settings hub */
+.settings-hub-header {
+    margin-bottom: 18px;
+}
+
+.admin-settings-tabs--enterprise {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.admin-settings-tabs--enterprise .admin-settings-tab {
+    flex: 1 1 180px;
+    min-height: 44px;
+}
+
+.settings-embed-mount .settings-embedded-section {
+    margin: 0;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    background: transparent;
+}
+
+.settings-embed-mount .settings-embedded-section .section-header-box {
+    display: none;
+}
+
+.settings-hub-link-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.settings-hub-link-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 16px 18px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.settings-hub-link-card i {
+    font-size: 1.1rem;
+    color: #2563eb;
+}
+
+.settings-hub-link-card strong {
+    color: #0f172a;
+    font-size: 0.95rem;
+}
+
+.settings-hub-link-card span {
+    color: #64748b;
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+
+.settings-hub-link-card:hover {
+    border-color: #93c5fd;
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.08);
+    transform: translateY(-1px);
+}
+
+.system-settings-card--indigo {
+    border-left: 4px solid #6366f1;
+}
+
+.system-settings-card-icon--indigo {
+    background: rgba(99, 102, 241, 0.12);
+    color: #4f46e5;
+}

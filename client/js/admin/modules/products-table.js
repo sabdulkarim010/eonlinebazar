@@ -229,11 +229,15 @@ window.renderProductTable = function() {
         let stockHtml = '';
         let currentStock = Number(prod.stock ?? prod.stockQuantity ?? 0);
         const lowThreshold = Number(prod.lowStockThreshold) > 0 ? Number(prod.lowStockThreshold) : 10;
+        const reorderPoint = Number(prod.reorderPoint) > 0 ? Number(prod.reorderPoint) : lowThreshold;
+        const needsReorder = currentStock > 0 && currentStock <= reorderPoint;
 
-        if (currentStock <= 0) { 
+        if (currentStock <= 0) {
             stockHtml = `<span class="stock-status stock-out"><i class="fa-solid fa-ban"></i> Out of Stock</span>`;
         } else if (currentStock < lowThreshold) {
-            stockHtml = `<span class="stock-status stock-low"><i class="fa-solid fa-triangle-exclamation"></i> Low: ${currentStock}</span>`;
+            stockHtml = `<span class="stock-status stock-low"><i class="fa-solid fa-triangle-exclamation"></i> Low: ${currentStock}${needsReorder ? ` · Reorder ≤ ${reorderPoint}` : ''}</span>`;
+        } else if (needsReorder) {
+            stockHtml = `<span class="stock-status stock-reorder"><i class="fa-solid fa-box-open"></i> Reorder: ${currentStock} / ${reorderPoint}</span>`;
         } else {
             stockHtml = `<span class="stock-status stock-normal"><i class="fa-solid fa-check-circle"></i> In Stock: ${currentStock}</span>`;
         }

@@ -9,6 +9,7 @@
  ********************************************************************/
 
 const PDFDocument = require('pdfkit');
+const Order = require('../../models/order');
 const { computeProfitLoss } = require('./profitLossController');
 
 const EXPENSE_LABELS = {
@@ -218,7 +219,47 @@ const exportPLtoCSV = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/admin/orders/export-csv
+ * Exports the order ledger as CSV for finance and fulfillment reporting.
+ */
+const exportOrdersCSV = async (req, res) => {
+    try {
+        const status = String(req.query.status || '').trim();
+        const query = status && status !== 'all' ? { status } : {};
+        const orders = await Order.find(query).sort({ createdAt: -1 }).limit(5000).lean();
+
+        const rows = [
+            csvRow(['Order ID', 'Date', 'Customer', 'Phone', 'Status', 'Subtotal', 'Delivery', 'Grand Total', 'Payment Method'])
+        ];
+
+        orders.forEach((order) => {
+            rows.push(csvRow([
+                order.orderId || String(order._id),
+                order.createdAt ? new Date(order.createdAt).toISOString() : '',
+                order.customerName || '',
+                order.customerPhone || '',
+                order.status || '',
+                order.subTotal ?? '',
+                order.deliveryCharge ?? '',
+                order.grandTotal ?? order.total ?? '',
+                order.payment?.name || order.paymentMethod || ''
+            ]));
+        });
+
+        const csv = `\uFEFF${rows.join('\r\n')}`;
+        const stamp = new Date().toISOString().slice(0, 10);
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="orders-export-${stamp}.csv"`);
+        return res.send(csv);
+    } catch (err) {
+        console.error('Orders CSV export error:', err);
+        return res.status(500).json({ success: false, message: 'Failed to export orders CSV.' });
+    }
+};
+
 module.exports = {
     exportPLtoPDF,
-    exportPLtoCSV
+    exportPLtoCSV,
+    exportOrdersCSV
 };

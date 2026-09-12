@@ -1,265 +1,31 @@
 <section id="view-settings" class="admin-section" style="display: none;">
                 <div class="admin-settings-shell">
+                    <div class="section-header-box settings-hub-header">
+                        <h3>System Settings</h3>
+                        <p class="section-subtitle">Unified configuration hub — branding, tax, shipping, security, and utilities.</p>
+                    </div>
 
-                    <nav class="admin-settings-tabs" role="tablist" aria-label="Admin settings sections">
-                        <button type="button" class="admin-settings-tab is-active" role="tab" id="adminTabProfile" aria-selected="true" aria-controls="adminPanelProfile" data-tab="profile">
-                            <i class="fa-solid fa-user-shield" aria-hidden="true"></i> Profile &amp; Security
+                    <nav class="admin-settings-tabs admin-settings-tabs--enterprise" role="tablist" aria-label="System settings sections">
+                        <button type="button" class="admin-settings-tab is-active" role="tab" id="adminTabBranding" aria-selected="true" aria-controls="adminPanelBranding" data-tab="branding" data-permission="manage_settings">
+                            <i class="fa-solid fa-palette" aria-hidden="true"></i> Store Branding &amp; Info
                         </button>
-                        <button type="button" class="admin-settings-tab" role="tab" id="adminTabStore" aria-selected="false" aria-controls="adminPanelStore" data-tab="store" data-permission="manage_settings">
-                            <i class="fa-solid fa-store" aria-hidden="true"></i> Store &amp; Shipping Preferences
+                        <button type="button" class="admin-settings-tab" role="tab" id="adminTabGeneral" aria-selected="false" aria-controls="adminPanelGeneral" data-tab="general" data-permission="manage_settings">
+                            <i class="fa-solid fa-sliders" aria-hidden="true"></i> General Configuration
                         </button>
-                        <button type="button" class="admin-settings-tab" role="tab" id="adminTabBranding" aria-selected="false" aria-controls="adminPanelBranding" data-tab="branding" data-permission="manage_settings">
-                            <i class="fa-solid fa-palette" aria-hidden="true"></i> Store Branding
+                        <button type="button" class="admin-settings-tab" role="tab" id="adminTabShipping" aria-selected="false" aria-controls="adminPanelShipping" data-tab="shipping" data-permission="manage_settings">
+                            <i class="fa-solid fa-truck" aria-hidden="true"></i> Shipping &amp; Payments
+                        </button>
+                        <button type="button" class="admin-settings-tab" role="tab" id="adminTabSecurity" aria-selected="false" aria-controls="adminPanelSecurity" data-tab="security">
+                            <i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Security &amp; Access
+                        </button>
+                        <button type="button" class="admin-settings-tab" role="tab" id="adminTabUtilities" aria-selected="false" aria-controls="adminPanelUtilities" data-tab="utilities" data-superadmin-only="true">
+                            <i class="fa-solid fa-toolbox" aria-hidden="true"></i> System Utilities
                         </button>
                     </nav>
 
-                    <!-- Tab 1: Profile & Security -->
-                    <div class="admin-settings-panel is-active" role="tabpanel" id="adminPanelProfile" aria-labelledby="adminTabProfile" data-panel="profile">
-                        <div class="admin-settings-stack">
-
-                            <div class="settings-card" style="border-left: 4px solid #f97316">
-                                <h3>📊 Google Analytics</h3>
-                                <p style="color:#6b7280;font-size:0.875rem;margin:8px 0 16px">
-                                    View your store traffic, conversions, and user behavior.
-                                </p>
-                                <div style="display:flex;gap:10px;flex-wrap:wrap">
-                                    <a href="https://analytics.google.com" target="_blank" rel="noopener noreferrer"
-                                       class="btn btn-primary">
-                                        📈 Open GA4 Dashboard
-                                    </a>
-                                    <div id="ga-status-badge" style="
-                                        padding: 8px 14px;
-                                        border-radius: 8px;
-                                        font-size: 0.8rem;
-                                        font-weight: 600;
-                                        background: #f3f4f6;
-                                        color: #6b7280;
-                                        display: flex;
-                                        align-items: center;
-                                        gap: 6px;
-                                    ">
-                                        Checking GA status...
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="settings-card">
-                                <h3>⚡ Performance Cache</h3>
-                                <p style="font-size:0.85rem;color:#6b7280;margin:8px 0">
-                                    Service Worker caches your storefront for faster loading.
-                                    Disable temporarily if customers report seeing old content.
-                                </p>
-                                <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="sw-enabled-toggle" checked
-                                               onchange="toggleServiceWorkerSetting(this.checked)">
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                    <span id="sw-setting-text" style="font-size:0.85rem;font-weight:600">
-                                        Cache Enabled
-                                    </span>
-                                </div>
-                                <p style="font-size:0.78rem;color:#9ca3af;margin-top:8px">
-                                    Note: Cache automatically refreshes on every server deployment.
-                                </p>
-                            </div>
-
-                            <div class="settings-card" style="border-left:4px solid #6366f1">
-                                <h3>🔄 Cache Management</h3>
-                                <p style="font-size:0.85rem;color:#6b7280;margin:8px 0 16px">
-                                    If customers report seeing outdated content,
-                                    the server restart automatically busts all caches.
-                                    Current cache version: <code id="cache-version-display">loading...</code>
-                                </p>
-                                <div style="display:flex;gap:10px">
-                                    <button type="button" class="btn btn-primary" onclick="restartCacheBuster()">
-                                        🔄 Force Cache Refresh
-                                    </button>
-                                </div>
-                                <div style="font-size:0.78rem;color:#9ca3af;margin-top:8px">
-                                    Note: Cache automatically refreshes on every server deployment.
-                                </div>
-                            </div>
-
-                            <div class="saas-settings-card">
-                                <div class="saas-settings-card-header">
-                                    <h4><i class="fa-solid fa-id-card"></i> Admin Profile</h4>
-                                    <p class="settings-card-sub">Update your display name, username, and password.</p>
-                                </div>
-                                <form id="adminProfileForm" class="saas-settings-form" novalidate>
-                                    <div class="saas-settings-card-body">
-                                        <div class="form-group">
-                                            <label for="settingsDisplayName">Display Name</label>
-                                            <input type="text" id="settingsDisplayName" placeholder="Your name shown in sidebar">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="settingsAdminEmail">
-                                                Email for OTP Delivery
-                                                <span style="color:#94a3b8;font-size:11px;font-weight:400;">(used for Email OTP 2FA)</span>
-                                            </label>
-                                            <input type="email" id="settingsAdminEmail" placeholder="your@email.com" autocomplete="email">
-                                            <p class="saas-field-hint" style="color:#64748b;font-size:12px;margin-top:4px;">
-                                                If blank, OTP goes to the SMTP sender address.
-                                            </p>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="settingsUsername">Admin Username</label>
-                                            <input type="text" id="settingsUsername" placeholder="Login username">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="settingsCurrentPassword">Current Password <span class="req-star">*</span></label>
-                                            <input type="password" id="settingsCurrentPassword" placeholder="Required to save profile changes" required autocomplete="current-password">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="settingsNewPassword">New Password (Optional)</label>
-                                            <input type="password" id="settingsNewPassword" placeholder="Leave blank to keep current password" autocomplete="new-password">
-                                        </div>
-                                    </div>
-                                    <div class="saas-settings-card-footer">
-                                        <button type="submit" class="btn-submit saas-settings-save-btn">
-                                            <i class="fa-solid fa-floppy-disk"></i> Save Profile
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-
-                            <div class="saas-settings-card twofa-card">
-                                <div class="saas-settings-card-header">
-                                    <h4><i class="fa-solid fa-user-lock"></i> Two-Factor Authentication</h4>
-                                    <p class="settings-card-sub">Choose how you verify admin logins. Google Authenticator offers the strongest protection.</p>
-                                </div>
-
-                                <div class="twofa-methods twofa-methods--compact" id="twofaMethods">
-                                    <button type="button" class="twofa-method twofa-method--compact" data-method="email">
-                                        <span class="twofa-method-icon"><i class="fa-solid fa-envelope"></i></span>
-                                        <span class="twofa-method-body">
-                                            <strong>Email OTP</strong>
-                                            <small id="twofaEmailTarget">OTP will be sent to: —</small>
-                                        </span>
-                                        <span class="twofa-badge" id="twofaEmailBadge" data-state="ready">Ready</span>
-                                        <span class="twofa-check"><i class="fa-solid fa-circle-check"></i></span>
-                                    </button>
-
-                                    <button type="button" class="twofa-method twofa-method--compact" data-method="totp">
-                                        <span class="twofa-method-icon"><i class="fa-solid fa-key"></i></span>
-                                        <span class="twofa-method-body">
-                                            <strong>Google Authenticator</strong>
-                                            <small id="twofaTotpState">Not configured</small>
-                                        </span>
-                                        <span class="twofa-badge" id="twofaTotpBadge" data-state="off">Not set up</span>
-                                        <span class="twofa-check"><i class="fa-solid fa-circle-check"></i></span>
-                                    </button>
-
-                                    <button type="button" class="twofa-method twofa-method--compact" data-method="sms">
-                                        <span class="twofa-method-icon"><i class="fa-solid fa-comment-sms"></i></span>
-                                        <span class="twofa-method-body">
-                                            <strong>SMS OTP</strong>
-                                            <small id="twofaSmsTarget">Add a phone number</small>
-                                        </span>
-                                        <span class="twofa-badge" id="twofaSmsBadge" data-state="off">Not set up</span>
-                                        <span class="twofa-check"><i class="fa-solid fa-circle-check"></i></span>
-                                    </button>
-                                </div>
-
-                                <div class="twofa-email-config" id="twofaEmailGroup">
-                                    <p class="twofa-hint" id="twofaEmailHint">OTP will be sent to: —</p>
-                                    <button type="button" class="btn-secondary btn-compact" id="twofaEditEmailBtn">
-                                        <i class="fa-solid fa-pen-to-square"></i> Edit Email
-                                    </button>
-                                </div>
-
-                                <div class="form-group twofa-phone-group" id="twofaPhoneGroup" style="display:none;">
-                                    <label for="twofaPhoneInput">Phone Number (E.164, e.g. +8801XXXXXXXXX)</label>
-                                    <div class="twofa-inline twofa-inline--compact">
-                                        <input type="tel" id="twofaPhoneInput" class="saas-input" placeholder="+8801712345678">
-                                        <button type="button" class="btn-secondary btn-compact" id="twofaSavePhoneBtn"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-                                        <button type="button" class="btn-submit btn-compact" id="twofaSendSmsBtn"><i class="fa-solid fa-paper-plane"></i> Send Test</button>
-                                    </div>
-                                    <div class="twofa-sms-verify" id="twofaSmsVerifyRow" style="display:none;">
-                                        <p class="twofa-hint" id="twofaSmsHint">Enter the 6-digit code we sent to your phone.</p>
-                                        <div class="twofa-inline twofa-inline--compact">
-                                            <input type="text" inputmode="numeric" maxlength="6" id="twofaSmsCode" class="saas-input" placeholder="123456">
-                                            <button type="button" class="btn-submit btn-compact" id="twofaVerifySmsBtn"><i class="fa-solid fa-check"></i> Verify &amp; Activate</button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="twofa-totp-panel" id="twofaTotpPanel" style="display:none;">
-                                    <div class="twofa-totp-actions">
-                                        <button type="button" class="btn-submit btn-compact" id="twofaSetupTotpBtn"><i class="fa-solid fa-qrcode"></i> Set up Google Authenticator</button>
-                                        <button type="button" class="btn-danger btn-compact" id="twofaDisableTotpBtn" style="display:none;"><i class="fa-solid fa-ban"></i> Disable</button>
-                                    </div>
-                                    <div class="twofa-qr-wrap" id="twofaQrWrap" style="display:none;">
-                                        <div class="twofa-qr-box">
-                                            <img id="twofaQrImg" alt="Scan this QR with Google Authenticator">
-                                        </div>
-                                        <div class="twofa-qr-info">
-                                            <p><strong>1.</strong> Open Google Authenticator → tap <em>＋</em> → <em>Scan a QR code</em>.</p>
-                                            <p><strong>2.</strong> Can't scan? Enter this key manually:</p>
-                                            <code class="twofa-manual-key" id="twofaManualKey">—</code>
-                                            <p><strong>3.</strong> Enter the 6-digit code shown in the app:</p>
-                                            <div class="twofa-inline twofa-inline--compact">
-                                                <input type="text" inputmode="numeric" maxlength="6" id="twofaVerifyCode" class="saas-input" placeholder="123456">
-                                                <button type="button" class="btn-submit btn-compact" id="twofaVerifyTotpBtn"><i class="fa-solid fa-check"></i> Verify &amp; Activate</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div id="sandboxSettingsCard" class="settings-card sandbox-card" data-superadmin-only="true" hidden aria-label="Sandbox Mode Settings">
-                                <div class="sandbox-header">
-                                    <div>
-                                        <h3>🧪 Sandbox Mode</h3>
-                                        <p>Test your store without affecting real data. All orders placed in sandbox are marked as test orders.</p>
-                                    </div>
-                                    <div class="sandbox-toggle-wrap">
-                                        <label class="toggle-switch" id="sandbox-toggle-label">
-                                            <input type="checkbox" id="sandbox-toggle" onchange="toggleSandboxMode(this.checked)">
-                                            <span class="toggle-slider"></span>
-                                        </label>
-                                        <span id="sandbox-status-text" class="sandbox-status-off">OFF — Live Mode</span>
-                                    </div>
-                                </div>
-
-                                <div class="sandbox-stats" id="sandbox-stats">
-                                    <div class="sandbox-stat">
-                                        <span class="sandbox-stat-label">🧪 Test Orders</span>
-                                        <span class="sandbox-stat-val" id="sandbox-order-count">—</span>
-                                    </div>
-                                    <div class="sandbox-stat">
-                                        <span class="sandbox-stat-label">📦 Real Orders</span>
-                                        <span class="sandbox-stat-val" id="real-order-count">—</span>
-                                    </div>
-                                </div>
-
-                                <div class="sandbox-actions">
-                                    <div class="sandbox-action-card test">
-                                        <h4>🗑️ Reset Test Data</h4>
-                                        <p>Delete all sandbox/test orders. No password needed. Real orders are NOT affected.</p>
-                                        <button type="button" class="btn-reset-test" onclick="resetTestData()">Clear Test Orders</button>
-                                    </div>
-
-                                    <div class="sandbox-action-card real">
-                                        <h4>⚠️ Reset Real Data</h4>
-                                        <p>Delete real orders. Requires confirmation key. Use only when starting fresh before launch.</p>
-                                        <form id="realResetForm" class="reset-real-form" onsubmit="return false;" aria-label="Reset real orders confirmation">
-                                            <div class="reset-real-row">
-                                                <input type="password" id="real-reset-key" placeholder="Enter confirmation key..." autocomplete="off">
-                                                <button type="button" class="btn-reset-real" onclick="resetRealData()">Reset Real Orders</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-
-                    <!-- Tab 2: Store & Shipping Preferences -->
-                    <div class="admin-settings-panel" role="tabpanel" id="adminPanelStore" aria-labelledby="adminTabStore" data-panel="store" hidden>
+                    <!-- Tab: Store Branding & Info -->
+                    <div class="admin-settings-panel is-active" role="tabpanel" id="adminPanelBranding" aria-labelledby="adminTabBranding" data-panel="branding">
                         <div class="admin-settings-duo-grid">
-
                             <div class="saas-settings-card" data-permission="manage_settings">
                                 <div class="saas-settings-card-header">
                                     <h4><i class="fa-solid fa-store"></i> Store Information</h4>
@@ -330,7 +96,6 @@
                                         <div class="form-group">
                                             <label for="settingsFreeShippingMinAmount">Free Shipping Minimum (৳)</label>
                                             <input type="number" id="settingsFreeShippingMinAmount" min="0" step="1" placeholder="1000" required>
-                                            <small class="form-hint">Set to <strong>0</strong> for global free shipping. Synced with <strong>System Settings → Free Shipping Threshold</strong>.</small>
                                         </div>
                                     </div>
                                     <div class="saas-settings-card-footer">
@@ -340,18 +105,13 @@
                                     </div>
                                 </form>
                             </div>
-
                         </div>
-                    </div>
 
-                    <!-- Tab 3: Store Branding -->
-                    <div class="admin-settings-panel" role="tabpanel" id="adminPanelBranding" aria-labelledby="adminTabBranding" data-panel="branding" hidden>
                         <div class="saas-settings-card" data-permission="manage_settings">
                             <div class="saas-settings-card-header">
                                 <h4><i class="fa-solid fa-image"></i> Store Branding</h4>
-                                <p class="settings-card-sub">Drag and drop your logo and favicon, preview instantly, then publish live.</p>
+                                <p class="settings-card-sub">Logo, favicon, and visual identity for your storefront.</p>
                             </div>
-
                             <form id="storeBrandingForm" class="saas-settings-form" enctype="multipart/form-data" novalidate>
                                 <div class="saas-settings-card-body">
                                     <div class="branding-drop-grid">
@@ -383,7 +143,6 @@
                                             </div>
                                             <input type="file" id="settingsLogoInput" name="logo" accept="image/*" hidden>
                                         </div>
-
                                         <div class="branding-upload-box">
                                             <label for="settingsFaviconInput">Favicon</label>
                                             <div class="branding-dropzone branding-dropzone--favicon" id="faviconPreviewBox" data-asset="favicon" tabindex="0" role="button" aria-label="Upload favicon">
@@ -396,7 +155,6 @@
                                             <input type="file" id="settingsFaviconInput" name="favicon" accept="image/*" hidden>
                                         </div>
                                     </div>
-                                    <p class="branding-hint"><i class="fa-solid fa-circle-info"></i> Recommended: PNG or SVG logo (max height 120px) and square favicon (32×32 or 64×64).</p>
                                 </div>
                                 <div class="saas-settings-card-footer">
                                     <button type="submit" id="saveBrandingBtn" class="btn-submit saas-settings-save-btn branding-save-btn">
@@ -404,6 +162,279 @@
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+
+                    <!-- Tab: General Configuration -->
+                    <div class="admin-settings-panel" role="tabpanel" id="adminPanelGeneral" aria-labelledby="adminTabGeneral" data-panel="general" hidden>
+                        <form id="form-system-general" class="system-settings-form" novalidate>
+                            <div class="system-settings-card system-settings-card--indigo">
+                                <div class="system-settings-card-header">
+                                    <div class="system-settings-card-icon system-settings-card-icon--indigo" aria-hidden="true">
+                                        <i class="fa-solid fa-percent"></i>
+                                    </div>
+                                    <div class="system-settings-card-heading">
+                                        <h4>Tax, Orders &amp; Maintenance</h4>
+                                        <p class="settings-card-sub">VAT/tax rate applied at checkout, order ID prefix, and storefront maintenance mode.</p>
+                                    </div>
+                                </div>
+                                <div class="master-settings-grid">
+                                    <div class="form-group">
+                                        <label for="settingsVatRate">VAT / Tax Rate (%)</label>
+                                        <input type="number" id="settingsVatRate" min="0" max="100" step="0.01" placeholder="0">
+                                        <small class="field-hint">Set to 0 to disable tax on checkout totals.</small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="settingsOrderPrefix">Order ID Prefix</label>
+                                        <input type="text" id="settingsOrderPrefix" maxlength="12" placeholder="ORD">
+                                        <small class="field-hint">Used when generating new order IDs (e.g. ORD-10042).</small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="settingsDefaultProductsPerPage">Default Products Per Page</label>
+                                        <input type="number" id="settingsDefaultProductsPerPage" min="1" max="100" step="1" placeholder="24">
+                                    </div>
+                                    <div class="form-group form-group-full">
+                                        <label class="checkbox-label" for="settingsMaintenanceMode">
+                                            <input type="checkbox" id="settingsMaintenanceMode">
+                                            Enable Maintenance Mode
+                                        </label>
+                                        <small class="field-hint">When enabled, storefront visitors see a maintenance notice instead of shopping pages.</small>
+                                    </div>
+                                    <div class="form-group form-group-full">
+                                        <label for="settingsMaintenanceMessage">Maintenance Message</label>
+                                        <textarea id="settingsMaintenanceMessage" rows="2" placeholder="We are currently performing scheduled maintenance. Please check back soon."></textarea>
+                                    </div>
+                                </div>
+                                <div class="system-settings-card-footer">
+                                    <button type="submit" class="btn-submit system-settings-save-btn">
+                                        <i class="fa-solid fa-floppy-disk"></i> Save General Configuration
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                        <div id="settingsEmbed_general" class="settings-embed-mount" aria-label="Extended store configuration"></div>
+                    </div>
+
+                    <!-- Tab: Shipping & Payments -->
+                    <div class="admin-settings-panel" role="tabpanel" id="adminPanelShipping" aria-labelledby="adminTabShipping" data-panel="shipping" hidden>
+                        <div id="settingsEmbed_shipping" class="settings-embed-mount" aria-label="Shipping and payment methods"></div>
+                    </div>
+
+                    <!-- Tab: Security & Access -->
+                    <div class="admin-settings-panel" role="tabpanel" id="adminPanelSecurity" aria-labelledby="adminTabSecurity" data-panel="security" hidden>
+                        <div class="admin-settings-stack">
+                            <div class="settings-hub-link-grid">
+                                <button type="button" class="settings-hub-link-card" data-settings-hub-link="view-staff-audit" data-settings-hub-tab="security">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <strong>Staff Audit</strong>
+                                    <span>Who changed what — grouped by admin actor</span>
+                                </button>
+                                <button type="button" class="settings-hub-link-card" data-settings-hub-link="view-sessions" data-settings-hub-tab="security">
+                                    <i class="fa-solid fa-laptop-mobile"></i>
+                                    <strong>Active Sessions</strong>
+                                    <span>Review and revoke logged-in admin devices</span>
+                                </button>
+                                <button type="button" class="settings-hub-link-card" data-settings-hub-link="view-security" data-settings-hub-tab="security">
+                                    <i class="fa-solid fa-shield-halved"></i>
+                                    <strong>Security Logs</strong>
+                                    <span>Authentication events and system activity</span>
+                                </button>
+                                <button type="button" class="settings-hub-link-card" data-settings-hub-link="view-audit" data-settings-hub-tab="security">
+                                    <i class="fa-solid fa-user-shield"></i>
+                                    <strong>Security &amp; Audit</strong>
+                                    <span>Login history, intrusion attempts, IP blacklist</span>
+                                </button>
+                            </div>
+
+                            <div class="saas-settings-card">
+                                <div class="saas-settings-card-header">
+                                    <h4><i class="fa-solid fa-id-card"></i> Admin Profile</h4>
+                                    <p class="settings-card-sub">Update your display name, username, and password.</p>
+                                </div>
+                                <form id="adminProfileForm" class="saas-settings-form" novalidate>
+                                    <div class="saas-settings-card-body">
+                                        <div class="form-group">
+                                            <label for="settingsDisplayName">Display Name</label>
+                                            <input type="text" id="settingsDisplayName" placeholder="Your name shown in sidebar">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="settingsAdminEmail">Email for OTP Delivery</label>
+                                            <input type="email" id="settingsAdminEmail" placeholder="your@email.com" autocomplete="email">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="settingsUsername">Admin Username</label>
+                                            <input type="text" id="settingsUsername" placeholder="Login username">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="settingsCurrentPassword">Current Password <span class="req-star">*</span></label>
+                                            <input type="password" id="settingsCurrentPassword" placeholder="Required to save profile changes" required autocomplete="current-password">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="settingsNewPassword">New Password (Optional)</label>
+                                            <input type="password" id="settingsNewPassword" placeholder="Leave blank to keep current password" autocomplete="new-password">
+                                        </div>
+                                    </div>
+                                    <div class="saas-settings-card-footer">
+                                        <button type="submit" class="btn-submit saas-settings-save-btn">
+                                            <i class="fa-solid fa-floppy-disk"></i> Save Profile
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <div class="saas-settings-card twofa-card">
+                                <div class="saas-settings-card-header">
+                                    <h4><i class="fa-solid fa-user-lock"></i> Two-Factor Authentication</h4>
+                                    <p class="settings-card-sub">Choose how you verify admin logins.</p>
+                                </div>
+                                <div class="twofa-methods twofa-methods--compact" id="twofaMethods">
+                                    <button type="button" class="twofa-method twofa-method--compact" data-method="email">
+                                        <span class="twofa-method-icon"><i class="fa-solid fa-envelope"></i></span>
+                                        <span class="twofa-method-body">
+                                            <strong>Email OTP</strong>
+                                            <small id="twofaEmailTarget">OTP will be sent to: —</small>
+                                        </span>
+                                        <span class="twofa-badge" id="twofaEmailBadge" data-state="ready">Ready</span>
+                                        <span class="twofa-check"><i class="fa-solid fa-circle-check"></i></span>
+                                    </button>
+                                    <button type="button" class="twofa-method twofa-method--compact" data-method="totp">
+                                        <span class="twofa-method-icon"><i class="fa-solid fa-key"></i></span>
+                                        <span class="twofa-method-body">
+                                            <strong>Google Authenticator</strong>
+                                            <small id="twofaTotpState">Not configured</small>
+                                        </span>
+                                        <span class="twofa-badge" id="twofaTotpBadge" data-state="off">Not set up</span>
+                                        <span class="twofa-check"><i class="fa-solid fa-circle-check"></i></span>
+                                    </button>
+                                    <button type="button" class="twofa-method twofa-method--compact" data-method="sms">
+                                        <span class="twofa-method-icon"><i class="fa-solid fa-comment-sms"></i></span>
+                                        <span class="twofa-method-body">
+                                            <strong>SMS OTP</strong>
+                                            <small id="twofaSmsTarget">Add a phone number</small>
+                                        </span>
+                                        <span class="twofa-badge" id="twofaSmsBadge" data-state="off">Not set up</span>
+                                        <span class="twofa-check"><i class="fa-solid fa-circle-check"></i></span>
+                                    </button>
+                                </div>
+                                <div class="twofa-email-config" id="twofaEmailGroup">
+                                    <p class="twofa-hint" id="twofaEmailHint">OTP will be sent to: —</p>
+                                    <button type="button" class="btn-secondary btn-compact" id="twofaEditEmailBtn">
+                                        <i class="fa-solid fa-pen-to-square"></i> Edit Email
+                                    </button>
+                                </div>
+                                <div class="form-group twofa-phone-group" id="twofaPhoneGroup" style="display:none;">
+                                    <label for="twofaPhoneInput">Phone Number (E.164)</label>
+                                    <div class="twofa-inline twofa-inline--compact">
+                                        <input type="tel" id="twofaPhoneInput" class="saas-input" placeholder="+8801712345678">
+                                        <button type="button" class="btn-secondary btn-compact" id="twofaSavePhoneBtn"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+                                        <button type="button" class="btn-submit btn-compact" id="twofaSendSmsBtn"><i class="fa-solid fa-paper-plane"></i> Send Test</button>
+                                    </div>
+                                    <div class="twofa-sms-verify" id="twofaSmsVerifyRow" style="display:none;">
+                                        <div class="twofa-inline twofa-inline--compact">
+                                            <input type="text" inputmode="numeric" maxlength="6" id="twofaSmsCode" class="saas-input" placeholder="123456">
+                                            <button type="button" class="btn-submit btn-compact" id="twofaVerifySmsBtn"><i class="fa-solid fa-check"></i> Verify &amp; Activate</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="twofa-totp-panel" id="twofaTotpPanel" style="display:none;">
+                                    <div class="twofa-totp-actions">
+                                        <button type="button" class="btn-submit btn-compact" id="twofaSetupTotpBtn"><i class="fa-solid fa-qrcode"></i> Set up Google Authenticator</button>
+                                        <button type="button" class="btn-danger btn-compact" id="twofaDisableTotpBtn" style="display:none;"><i class="fa-solid fa-ban"></i> Disable</button>
+                                    </div>
+                                    <div class="twofa-qr-wrap" id="twofaQrWrap" style="display:none;">
+                                        <div class="twofa-qr-box">
+                                            <img id="twofaQrImg" alt="Scan this QR with Google Authenticator">
+                                        </div>
+                                        <div class="twofa-qr-info">
+                                            <code class="twofa-manual-key" id="twofaManualKey">—</code>
+                                            <div class="twofa-inline twofa-inline--compact">
+                                                <input type="text" inputmode="numeric" maxlength="6" id="twofaVerifyCode" class="saas-input" placeholder="123456">
+                                                <button type="button" class="btn-submit btn-compact" id="twofaVerifyTotpBtn"><i class="fa-solid fa-check"></i> Verify &amp; Activate</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: System Utilities -->
+                    <div class="admin-settings-panel" role="tabpanel" id="adminPanelUtilities" aria-labelledby="adminTabUtilities" data-panel="utilities" hidden>
+                        <div class="admin-settings-stack">
+                            <div class="settings-card" style="border-left: 4px solid #f97316">
+                                <h3>📊 Google Analytics</h3>
+                                <p style="color:#6b7280;font-size:0.875rem;margin:8px 0 16px">View your store traffic, conversions, and user behavior.</p>
+                                <div style="display:flex;gap:10px;flex-wrap:wrap">
+                                    <a href="https://analytics.google.com" target="_blank" rel="noopener noreferrer" class="btn btn-primary">📈 Open GA4 Dashboard</a>
+                                    <div id="ga-status-badge" style="padding:8px 14px;border-radius:8px;font-size:0.8rem;font-weight:600;background:#f3f4f6;color:#6b7280;display:flex;align-items:center;gap:6px;">Checking GA status...</div>
+                                </div>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3>⚡ Performance Cache</h3>
+                                <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="sw-enabled-toggle" checked onchange="toggleServiceWorkerSetting(this.checked)">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                    <span id="sw-setting-text" style="font-size:0.85rem;font-weight:600">Cache Enabled</span>
+                                </div>
+                            </div>
+
+                            <div class="settings-card" style="border-left:4px solid #6366f1">
+                                <h3>🔄 Cache Management</h3>
+                                <p style="font-size:0.85rem;color:#6b7280;margin:8px 0 16px">Current cache version: <code id="cache-version-display">loading...</code></p>
+                                <button type="button" class="btn btn-primary" onclick="restartCacheBuster()">🔄 Force Cache Refresh</button>
+                            </div>
+
+                            <div id="sandboxSettingsCard" class="settings-card sandbox-card" data-superadmin-only="true" hidden aria-label="Sandbox Mode Settings">
+                                <div class="sandbox-header">
+                                    <div>
+                                        <h3>🧪 Sandbox Mode</h3>
+                                        <p>Test your store without affecting real data.</p>
+                                    </div>
+                                    <div class="sandbox-toggle-wrap">
+                                        <label class="toggle-switch" id="sandbox-toggle-label">
+                                            <input type="checkbox" id="sandbox-toggle" onchange="toggleSandboxMode(this.checked)">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                        <span id="sandbox-status-text" class="sandbox-status-off">OFF — Live Mode</span>
+                                    </div>
+                                </div>
+                                <div class="sandbox-stats" id="sandbox-stats">
+                                    <div class="sandbox-stat">
+                                        <span class="sandbox-stat-label">🧪 Test Orders</span>
+                                        <span class="sandbox-stat-val" id="sandbox-order-count">—</span>
+                                    </div>
+                                    <div class="sandbox-stat">
+                                        <span class="sandbox-stat-label">📦 Real Orders</span>
+                                        <span class="sandbox-stat-val" id="real-order-count">—</span>
+                                    </div>
+                                </div>
+                                <div class="sandbox-actions">
+                                    <div class="sandbox-action-card test">
+                                        <h4>🗑️ Reset Test Data</h4>
+                                        <button type="button" class="btn-reset-test" onclick="resetTestData()">Clear Test Orders</button>
+                                    </div>
+                                    <div class="sandbox-action-card real">
+                                        <h4>⚠️ Reset Real Data</h4>
+                                        <form id="realResetForm" class="reset-real-form" onsubmit="return false;">
+                                            <div class="reset-real-row">
+                                                <input type="password" id="real-reset-key" placeholder="Enter confirmation key..." autocomplete="off">
+                                                <button type="button" class="btn-reset-real" onclick="resetRealData()">Reset Real Orders</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-hub-link-grid">
+                                <button type="button" class="settings-hub-link-card" data-settings-hub-link="view-file-manager" data-settings-hub-tab="utilities">
+                                    <i class="fa-solid fa-folder-tree"></i>
+                                    <strong>File Manager</strong>
+                                    <span>Browse, search, and edit project files</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 

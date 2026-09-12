@@ -974,15 +974,33 @@ function bindSystemSettingsSectionForm(formId, { getPayload, successMessage, onS
             const result = await saveMasterSettings(payload);
 
             if (result.success) {
-                showToast(successMessage || 'Settings updated successfully!', 'success');
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'success',
+                        title: successMessage || 'Settings updated successfully!',
+                        showConfirmButton: false,
+                        timer: 2200,
+                        timerProgressBar: true
+                    });
+                } else {
+                    showToast(successMessage || 'Settings updated successfully!', 'success');
+                }
                 if (result.data) applyMasterSettingsToUI(result.data);
                 if (typeof onSuccess === 'function') onSuccess(result);
+            } else if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'error', title: 'Save failed', text: result.message || 'Failed to save settings.' });
             } else {
                 showToast(`Error: ${result.message || 'Failed to save settings.'}`, 'error');
             }
         } catch (err) {
             console.error(`Save ${formId} error:`, err);
-            showToast('Error: Could not reach the server. Please try again.', 'error');
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'error', title: 'Save failed', text: 'Could not reach the server. Please try again.' });
+            } else {
+                showToast('Error: Could not reach the server. Please try again.', 'error');
+            }
         } finally {
             restore();
         }
@@ -1204,34 +1222,10 @@ function showLocalBrandingPreview(assetType, file) {
 }
 
 function setupAdminSettingsTabs() {
-    const tabs = document.querySelectorAll('.admin-settings-tab');
-    const panels = document.querySelectorAll('.admin-settings-panel');
-    if (!tabs.length || !panels.length) return;
-
-    const activateTab = (tab) => {
-        const target = tab.dataset.tab;
-        if (!target) return;
-
-        tabs.forEach((t) => {
-            const isActive = t === tab;
-            t.classList.toggle('is-active', isActive);
-            t.setAttribute('aria-selected', isActive ? 'true' : 'false');
-        });
-
-        panels.forEach((panel) => {
-            const isActive = panel.dataset.panel === target;
-            panel.classList.toggle('is-active', isActive);
-            panel.hidden = !isActive;
-        });
-
-        if (target === 'profile' && typeof loadSandboxStatus === 'function') {
-            loadSandboxStatus();
-        }
-    };
-
-    tabs.forEach((tab) => {
-        tab.addEventListener('click', () => activateTab(tab));
-    });
+    if (typeof window.setupUnifiedSettingsHub === 'function') {
+        window.setupUnifiedSettingsHub();
+        return;
+    }
 }
 
 function assignBrandingFile(input, file, assetType, label) {

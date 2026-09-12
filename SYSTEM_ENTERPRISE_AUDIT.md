@@ -1483,9 +1483,31 @@ All checklist items in sections **1–5, 7–8** are implemented and verified in
 
 ## SIDEBAR REORGANIZATION
 
-**2026-09-12** — Admin sidebar live with **8 premium categories**: Dashboard (top-level), Catalog & Inventory, Sales & POS, CRM & Support, Marketing & Growth, Finance & Accounts, HRM, and Settings & Security. All existing `data-target` nav links preserved; accordion groups and breadcrumb labels updated in `sidebar.html`, `core-breadcrumb.js`, and `_layout.css`.
+**2026-09-12** — Admin sidebar consolidated to **7 enterprise SaaS modules** + Dashboard: **Sales & Orders**, **Catalog & Inventory**, **Marketing & Content**, **HRM & Staff**, **Accounts & Finance**, and **System Settings**. Categories, Brands, Attributes moved from Settings → Catalog; Hero Banners, Navbar Links, Coupons moved from Settings → Marketing; CRM items folded into Sales & Orders; Staff Audit/Security/Sessions accessed via unified Settings hub tabs.
 
-**2026-09-12** — **Settings & Security** accordion split into **3 labeled sub-groups** inside the same parent toggle: Security & Access, Store & Catalog Setup, and System & Utilities. All existing `data-target` / `data-settings-tab` values preserved unchanged; non-clickable `.nav-subheader` labels added in `sidebar.html` + `_layout.css`.
+**2026-09-12 (prior)** — 8-category accordion (Catalog, Sales, CRM, Marketing, Finance, HRM, Settings & Security) — superseded by 7-module layout above.
+
+## UNIFIED SYSTEM SETTINGS HUB — 2026-09-12
+
+| Tab | Content | Files |
+|-----|---------|-------|
+| Store Branding & Info | Store name/currency/timezone, delivery rules, logo/favicon | `view-settings.html`, `settings-platform.js` |
+| General Configuration | VAT/tax rate, order prefix, maintenance mode, catalog pagination; embeds `view-store-config` | `settings-hub.js`, `Setting.js`, `masterSettingsController.js` |
+| Shipping & Payments | Embeds `view-shipping-payments` (SMS, courier, payment methods) | `settings-hub.js`, `settings-cms.js` |
+| Security & Access | Admin profile, 2FA, hub links → Staff Audit, Sessions, Security Logs | `view-settings.html`, `settings-2fa.js` |
+| System Utilities | Cache, sandbox, file manager link | `view-settings.html`, `settings-platform.js` |
+
+SweetAlert2 toasts on tab switch and master-settings saves. Enterprise features added: **VAT/tax** config, **maintenance mode** toggle (+ health endpoint flag), **order CSV export**, **reorder-level** stock badges in inventory.
+
+## ENTERPRISE FEATURE ADDITIONS — 2026-09-12
+
+| Feature | Status | Evidence |
+|---------|--------|----------|
+| VAT/Tax configuration | ✅ | `Setting.vatRate`, General Configuration tab, `masterSettingsController` |
+| Low stock / reorder indicator | ✅ | `products-table.js` — `.stock-reorder` badge when stock ≤ reorderPoint |
+| Order report CSV export | ✅ | `GET /api/admin/orders/export-csv`, toolbar in `view-orders.html` |
+| Financial P&L CSV/PDF export | ✅ | Existing `erp-profit-loss.js` + `exportController.js` |
+| Maintenance mode toggle | ✅ | `Setting.maintenanceMode`, General tab, `GET /api/store/health` exposes flag |
 
 ---
 

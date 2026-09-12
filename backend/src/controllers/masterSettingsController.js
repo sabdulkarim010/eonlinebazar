@@ -70,6 +70,8 @@ const FIELD_ALIASES = {
     frequentBuyerMinOrders: ['frequentBuyerMinOrders'],
     referralRewardAmount: ['referralRewardAmount', 'referralReward'],
     defaultProductsPerPage: ['defaultProductsPerPage', 'productsPerPage'],
+    vatRate: ['vatRate', 'taxRate', 'vatPercentage'],
+    orderPrefix: ['orderPrefix'],
     silverThreshold: ['silverThreshold'],
     goldThreshold: ['goldThreshold'],
     platinumThreshold: ['platinumThreshold'],
@@ -94,7 +96,8 @@ const NUMERIC_FIELD_RULES = {
     platinumThreshold: { label: 'Platinum tier spend threshold', min: 0 },
     silverCashback: { label: 'Silver tier cashback', min: 0, max: 100 },
     goldCashback: { label: 'Gold tier cashback', min: 0, max: 100 },
-    platinumCashback: { label: 'Platinum tier cashback', min: 0, max: 100 }
+    platinumCashback: { label: 'Platinum tier cashback', min: 0, max: 100 },
+    vatRate: { label: 'VAT / tax rate', min: 0, max: 100 }
 };
 
 /**
@@ -190,6 +193,11 @@ const buildUnifiedPayload = async (settingsDoc) => {
         silverCashback: Number(settingsDoc.silverCashback ?? 1.5),
         goldCashback: Number(settingsDoc.goldCashback ?? 2.5),
         platinumCashback: Number(settingsDoc.platinumCashback ?? 4.0),
+        vatRate: Number(settingsDoc.vatRate ?? 0),
+        orderPrefix: String(settingsDoc.orderPrefix || 'ORD').trim() || 'ORD',
+        maintenanceMode: settingsDoc.maintenanceMode === true,
+        maintenanceMessage: String(settingsDoc.maintenanceMessage || '').trim()
+            || 'We are currently performing scheduled maintenance. Please check back soon.',
         deliveryInsideCity: deliverySettings.deliveryInsideCity,
         deliveryOutsideCity: deliverySettings.deliveryOutsideCity,
         freeShippingMinAmount: announcement.freeShippingThreshold,
@@ -300,6 +308,23 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
     if (body.flashSaleProductIds !== undefined) {
         settings.flashSaleProductIds = parseFlashSaleProductIds(body.flashSaleProductIds);
         changes.push(`Flash sale products: ${settings.flashSaleProductIds.length}`);
+    }
+
+    if (body.orderPrefix !== undefined) {
+        const prefix = String(body.orderPrefix || 'ORD').trim().toUpperCase().replace(/[^A-Z0-9-]/g, '') || 'ORD';
+        settings.orderPrefix = prefix.slice(0, 12);
+        changes.push(`Order prefix: ${settings.orderPrefix}`);
+    }
+
+    if (body.maintenanceMode !== undefined) {
+        settings.maintenanceMode = parseBoolean(body.maintenanceMode, false);
+        changes.push(`Maintenance mode: ${settings.maintenanceMode ? 'ON' : 'OFF'}`);
+    }
+
+    if (body.maintenanceMessage !== undefined) {
+        settings.maintenanceMessage = String(body.maintenanceMessage || '').trim()
+            || 'We are currently performing scheduled maintenance. Please check back soon.';
+        changes.push('Maintenance message updated');
     }
 
     const deliverySettings = await Settings.getOrCreate();

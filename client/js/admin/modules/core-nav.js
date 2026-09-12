@@ -18,44 +18,11 @@ function updateAdminPageHeader(sectionId, fallbackLabel) {
     if (subTitle) subTitle.textContent = meta ? meta.subtitle : '';
 }
 
-/** Sidebar deep links use aliases when data-settings-tab does not match a tab button id. */
-const ADMIN_SETTINGS_TAB_ALIASES = {
-    security: 'profile',
-    system: 'profile'
-};
-
 function activateAdminSettingsTab(tabId) {
     if (!tabId) return;
-
-    const resolvedTabId = ADMIN_SETTINGS_TAB_ALIASES[tabId] || tabId;
-    const tab =
-        document.querySelector(`.admin-settings-tab[data-tab="${tabId}"]`) ||
-        document.querySelector(`.admin-settings-tab[data-tab="${resolvedTabId}"]`) ||
-        document.getElementById(tabId) ||
-        document.getElementById(`adminTab${resolvedTabId.charAt(0).toUpperCase()}${resolvedTabId.slice(1)}`);
-
-    if (!tab || !tab.classList.contains('admin-settings-tab')) return;
-
-    const target = tab.dataset.tab;
-    if (!target) return;
-
-    const tabs = document.querySelectorAll('.admin-settings-tab');
-    const panels = document.querySelectorAll('.admin-settings-panel');
-
-    tabs.forEach((t) => {
-        const isActive = t === tab;
-        t.classList.toggle('is-active', isActive);
-        t.setAttribute('aria-selected', isActive ? 'true' : 'false');
-    });
-
-    panels.forEach((panel) => {
-        const isActive = panel.dataset.panel === target;
-        panel.classList.toggle('is-active', isActive);
-        panel.hidden = !isActive;
-    });
-
-    if (target === 'profile' && typeof loadSandboxStatus === 'function') {
-        loadSandboxStatus();
+    if (typeof window.activateUnifiedSettingsTab === 'function') {
+        window.activateUnifiedSettingsTab(tabId, { silent: true });
+        return;
     }
 }
 
@@ -701,7 +668,11 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-staff': () => window.loadStaffSection && window.loadStaffSection(),
         // File Manager lives in js/admin-file-manager.js (Super Admin only)
         'view-file-manager': () => window.loadFileManagerSection && window.loadFileManagerSection(),
-        'view-settings': fetchAdminSettings,
+        'view-settings': () => {
+            fetchAdminSettings();
+            if (typeof fetchMasterSettings === 'function') fetchMasterSettings();
+            if (typeof setupUnifiedSettingsHub === 'function') setupUnifiedSettingsHub();
+        },
         'view-reviews': () => window.loadAdminReviews && window.loadAdminReviews()
     };
     if (typeof refreshMap[sectionId] === 'function') {
@@ -714,17 +685,17 @@ function navigateAdminSection(targetId, clickedItem) {
         loadCategoryDropdownForProduct('prodCategory');
     }
 
-    if (settingsTab) {
+    if (settingsTab && sectionId === 'view-settings') {
         const tabTarget = settingsTab;
         const tryActivateTab = (attempts = 0) => {
-            const resolvedTab = ADMIN_SETTINGS_TAB_ALIASES[tabTarget] || tabTarget;
-            const tabEl = document.querySelector(
-                `[data-tab="${tabTarget}"], #tab-${tabTarget}, [href="#${tabTarget}"]`
-            ) || document.querySelector(`.admin-settings-tab[data-tab="${resolvedTab}"]`);
-
-            if (tabEl) {
-                tabEl.click();
-            } else if (attempts < 10) {
+            if (typeof window.activateUnifiedSettingsTab === 'function') {
+                const tabEl = document.querySelector(`.admin-settings-tab[data-tab="${tabTarget}"]`);
+                if (tabEl) {
+                    window.activateUnifiedSettingsTab(tabTarget, { silent: true });
+                    return;
+                }
+            }
+            if (attempts < 10) {
                 setTimeout(() => tryActivateTab(attempts + 1), 150);
             }
         };

@@ -478,6 +478,7 @@ router.delete('/expenses/:id', verifyAdmin, checkPermission('manage_settings'), 
 router.get('/finance/profit-loss', verifyAdmin, requireSuperAdmin, profitLossController.getProfitLossReport);
 router.get('/finance/profit-loss/export-pdf', verifyAdmin, requireSuperAdmin, exportController.exportPLtoPDF);
 router.get('/finance/profit-loss/export-csv', verifyAdmin, requireSuperAdmin, exportController.exportPLtoCSV);
+router.get('/orders/export-csv', verifyAdmin, checkPermission('manage_orders'), exportController.exportOrdersCSV);
 
 /********************************************************************
  # ERP — Suppliers, Warehouses, Purchase Orders

@@ -981,6 +981,31 @@ README.md [DONE] admin access decoupling + SweetAlert2 note
 client/admin/partials/sidebar.html [DONE] Admin Access & Roles anchor link under Security & Access (data-target staff)
 client/js/admin/modules/core-nav.js [DONE] staff → view-staff section alias for sidebar navigation
 #
+# Enterprise sidebar consolidation & unified settings hub — 2026-09-12
+client/admin/partials/sidebar.html [DONE] 7-module enterprise nav — Sales & Orders, Catalog & Inventory, Marketing & Content, HRM & Staff, Accounts & Finance, System Settings hub
+client/admin/partials/view-settings.html [DONE] unified 5-tab settings hub (branding, general, shipping, security, utilities)
+client/js/admin/modules/settings-hub.js [NEW] tab routing, embedded partial mounts, SweetAlert2 toasts
+client/js/admin/admin-settings.js [DONE] imports settings-hub.js
+client/js/admin/modules/core-nav.js [DONE] unified settings tab activation + view-settings refreshMap
+client/js/admin/modules/core-breadcrumb.js [DONE] 7-module breadcrumb groups
+client/js/admin/modules/core-state.js [DONE] System Settings page meta
+client/js/admin/modules/settings-cms.js [DONE] SweetAlert2 on master settings save; setupAdminSettingsTabs delegates to hub
+client/js/admin/modules/settings-platform.js [DONE] VAT/tax, order prefix, maintenance fields in applyMasterSettingsToUI
+client/js/admin/modules/products-table.js [DONE] reorder-point indicator in inventory stock column
+client/js/admin/modules/orders-table.js [DONE] exportOrdersCsvReport + exportOrdersPdfReport
+client/admin/partials/view-orders.html [DONE] Export CSV/PDF toolbar buttons
+client/css/admin/_settings-system.css [DONE] settings hub tabs, embed mounts, link cards
+client/css/admin/_tables.css [DONE] .stock-reorder badge style
+backend/src/models/Setting.js [DONE] vatRate, orderPrefix, maintenanceMode, maintenanceMessage
+backend/src/controllers/masterSettingsController.js [DONE] read/write enterprise general config fields
+backend/src/controllers/admin/exportController.js [DONE] exportOrdersCSV
+backend/src/controllers/storeController.js [DONE] maintenanceMode in GET /api/store/health
+backend/src/routes/adminRoutes.js [DONE] GET /api/admin/orders/export-csv
+tests/admin.test.js [DONE] +2 tests — orders CSV export + VAT/maintenance master settings
+ARCHITECTURE.md [DONE] 7-module admin navigation table
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] enterprise sidebar consolidation section
+README.md [DONE] 135 tests + settings hub note
+#
 # Admin access console fix & dynamic control — 2026-09-12
 client/js/admin-staff.js [DONE] closeStaffPermissionsPanel hoisted before window export (fixes ReferenceError + sidebar bootstrap)
 client/admin/partials/sidebar.html [DONE] Admin Access & Roles data-target normalized to view-staff

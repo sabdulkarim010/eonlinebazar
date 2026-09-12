@@ -29,35 +29,10 @@
                         <i class="fa-solid fa-chart-pie"></i> Dashboard
                     </li>
 
-                    <!-- 📦 Catalog & Inventory -->
-                    <li class="menu-group nav-accordion nav-group-divider" data-nav-section="catalog">
-                        <div class="catalog-toggle nav-group-toggle">
-                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">📦</span> Catalog &amp; Inventory</span>
-                            <i class="fa-solid fa-chevron-down catalog-chevron"></i>
-                        </div>
-                        <ul class="submenu">
-                            <li data-target="view-manage-products" data-breadcrumb="Inventory Management">
-                                <i class="fa-solid fa-boxes-stacked"></i> Inventory Management
-                            </li>
-                            <li data-target="view-add-product" data-breadcrumb="Add Product">
-                                <i class="fa-solid fa-circle-plus"></i> Add New Product
-                            </li>
-                            <li data-target="view-suppliers" data-breadcrumb="Suppliers">
-                                <i class="fa-solid fa-truck-field"></i> Suppliers
-                            </li>
-                            <li data-target="view-warehouses" data-breadcrumb="Warehouses">
-                                <i class="fa-solid fa-warehouse"></i> Warehouses
-                            </li>
-                            <li data-target="view-purchase-orders" data-breadcrumb="Purchase Orders">
-                                <i class="fa-solid fa-file-invoice"></i> Purchase Orders
-                            </li>
-                        </ul>
-                    </li>
-
-                    <!-- 🛒 Sales & POS -->
+                    <!-- 🛒 Sales & Orders -->
                     <li class="menu-group nav-accordion nav-group-divider" data-nav-section="sales">
                         <div class="catalog-toggle nav-group-toggle">
-                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">🛒</span> Sales &amp; POS</span>
+                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">🛒</span> Sales &amp; Orders</span>
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
                         </div>
                         <ul class="submenu">
@@ -68,18 +43,8 @@
                                 <i class="fa-solid fa-cart-shopping"></i> Orders &amp; Fulfillment
                                 <span id="sidebarOrdersBadge" class="sidebar-nav-badge" hidden>0</span>
                             </li>
-                        </ul>
-                    </li>
-
-                    <!-- 👥 CRM & Support -->
-                    <li class="menu-group nav-accordion nav-group-divider" data-nav-section="crm">
-                        <div class="catalog-toggle nav-group-toggle">
-                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">👥</span> CRM &amp; Support</span>
-                            <i class="fa-solid fa-chevron-down catalog-chevron"></i>
-                        </div>
-                        <ul class="submenu">
                             <li data-target="view-customers" data-breadcrumb="Customer Database">
-                                <i class="fa-solid fa-users"></i> Customer Database
+                                <i class="fa-solid fa-users"></i> Customers
                             </li>
                             <li data-target="view-messages" data-breadcrumb="Support Tickets">
                                 <i class="fa-solid fa-envelope-open-text"></i> Support Tickets
@@ -94,35 +59,103 @@
                             <li data-target="view-reviews" data-breadcrumb="Reviews &amp; Feedback">
                                 <i class="fa-solid fa-star"></i> Reviews &amp; Feedback
                             </li>
-                            <li data-target="view-loyalty-program" data-breadcrumb="Loyalty Program">
-                                <i class="fa-solid fa-gift"></i> Loyalty Program
+                            <li data-target="view-crm-abandoned" data-breadcrumb="Abandoned Carts">
+                                <i class="fa-solid fa-cart-arrow-down"></i> Abandoned Carts
                             </li>
                         </ul>
                     </li>
 
-                    <!-- 📢 Marketing & Growth -->
+                    <!-- 📦 Catalog & Inventory -->
+                    <li class="menu-group nav-accordion nav-group-divider" data-nav-section="catalog">
+                        <div class="catalog-toggle nav-group-toggle">
+                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">📦</span> Catalog &amp; Inventory</span>
+                            <i class="fa-solid fa-chevron-down catalog-chevron"></i>
+                        </div>
+                        <ul class="submenu">
+                            <li data-target="view-manage-products" data-breadcrumb="Inventory Management">
+                                <i class="fa-solid fa-boxes-stacked"></i> Inventory Management
+                            </li>
+                            <li data-target="view-add-product" data-breadcrumb="Add Product">
+                                <i class="fa-solid fa-circle-plus"></i> Add New Product
+                            </li>
+                            <li data-target="manage-category" data-breadcrumb="Categories">
+                                <i class="fa-solid fa-tags"></i> Categories
+                            </li>
+                            <li data-target="manage-brands" data-breadcrumb="Brands">
+                                <i class="fa-solid fa-copyright"></i> Brands
+                            </li>
+                            <li data-target="manage-attributes" data-breadcrumb="Attributes">
+                                <i class="fa-solid fa-sliders"></i> Attributes
+                            </li>
+                            <li data-target="view-suppliers" data-breadcrumb="Suppliers">
+                                <i class="fa-solid fa-truck-field"></i> Suppliers
+                            </li>
+                            <li data-target="view-warehouses" data-breadcrumb="Warehouses">
+                                <i class="fa-solid fa-warehouse"></i> Warehouses
+                            </li>
+                            <li data-target="view-purchase-orders" data-breadcrumb="Purchase Orders">
+                                <i class="fa-solid fa-file-invoice"></i> Purchase Orders
+                            </li>
+                        </ul>
+                    </li>
+
+                    <!-- 📢 Marketing & Content -->
                     <li class="menu-group nav-accordion nav-group-divider" data-nav-section="marketing">
                         <div class="catalog-toggle nav-group-toggle">
-                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">📢</span> Marketing &amp; Growth</span>
+                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">📢</span> Marketing &amp; Content</span>
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
                         </div>
                         <ul class="submenu">
                             <li data-target="view-newsletter-campaigns" data-breadcrumb="Marketing Campaigns">
                                 <i class="fa-solid fa-paper-plane"></i> Marketing Campaigns
                             </li>
-                            <li data-target="view-crm-abandoned" data-breadcrumb="Abandoned Carts">
-                                <i class="fa-solid fa-cart-arrow-down"></i> Abandoned Carts
-                            </li>
                             <li data-target="view-newsletter-subscribers" data-breadcrumb="Newsletter Subscribers">
                                 <i class="fa-solid fa-users"></i> Newsletter Subscribers
+                            </li>
+                            <li data-target="manage-coupons" data-breadcrumb="Coupons">
+                                <i class="fa-solid fa-ticket"></i> Coupons
+                            </li>
+                            <li data-target="view-banners" data-breadcrumb="Hero Banners">
+                                <i class="fa-solid fa-images"></i> Hero Banners
+                            </li>
+                            <li data-target="manage-navbar-links" data-breadcrumb="Navbar Menu Links">
+                                <i class="fa-solid fa-bars"></i> Navbar Menu Links
+                            </li>
+                            <li data-target="view-loyalty-program" data-breadcrumb="Loyalty Program">
+                                <i class="fa-solid fa-gift"></i> Loyalty Program
                             </li>
                         </ul>
                     </li>
 
-                    <!-- 💰 Finance & Accounts -->
+                    <!-- 👥 HRM & Staff -->
+                    <li class="menu-group nav-accordion nav-group-divider" data-nav-section="hrm">
+                        <div class="catalog-toggle nav-group-toggle">
+                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">👥</span> HRM &amp; Staff</span>
+                            <i class="fa-solid fa-chevron-down catalog-chevron"></i>
+                        </div>
+                        <ul class="submenu">
+                            <li data-target="view-hrm-employees" data-breadcrumb="Employees">
+                                <i class="fa-solid fa-people-carry-box"></i> Employees
+                            </li>
+                            <li data-target="view-staff" data-superadmin-only="true" data-breadcrumb="Admin Access &amp; Roles">
+                                <i class="fa-solid fa-user-check"></i> System Staff Directory
+                            </li>
+                            <li data-target="view-hrm-attendance" data-breadcrumb="Attendance &amp; Shifts">
+                                <i class="fa-solid fa-user-clock"></i> Attendance &amp; Shifts
+                            </li>
+                            <li data-target="view-hrm-payroll" data-breadcrumb="Payroll &amp; Salary">
+                                <i class="fa-solid fa-money-check-dollar"></i> Payroll &amp; Salary
+                            </li>
+                            <li data-target="view-hrm-leaves" data-breadcrumb="Leave Management">
+                                <i class="fa-solid fa-plane-departure"></i> Leave Management
+                            </li>
+                        </ul>
+                    </li>
+
+                    <!-- 💰 Accounts & Finance -->
                     <li class="menu-group nav-accordion nav-group-divider" data-nav-section="finance">
                         <div class="catalog-toggle nav-group-toggle">
-                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">💰</span> Finance &amp; Accounts</span>
+                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">💰</span> Accounts &amp; Finance</span>
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
                         </div>
                         <ul class="submenu">
@@ -141,105 +174,30 @@
                         </ul>
                     </li>
 
-                    <!-- 👥 HRM -->
-                    <li class="menu-group nav-accordion nav-group-divider" data-nav-section="hrm">
-                        <div class="catalog-toggle nav-group-toggle">
-                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">👥</span> HRM</span>
-                            <i class="fa-solid fa-chevron-down catalog-chevron"></i>
-                        </div>
-                        <ul class="submenu">
-                            <li data-target="view-hrm-employees" data-breadcrumb="Employees">
-                                <i class="fa-solid fa-people-carry-box"></i> Employees
-                            </li>
-                            <li data-target="view-hrm-attendance" data-breadcrumb="Attendance &amp; Shifts">
-                                <i class="fa-solid fa-user-clock"></i> Attendance &amp; Shifts
-                            </li>
-                            <li data-target="view-hrm-payroll" data-breadcrumb="Payroll &amp; Salary">
-                                <i class="fa-solid fa-money-check-dollar"></i> Payroll &amp; Salary
-                            </li>
-                            <li data-target="view-hrm-leaves" data-breadcrumb="Leave Management">
-                                <i class="fa-solid fa-plane-departure"></i> Leave Management
-                            </li>
-                        </ul>
-                    </li>
-
-                    <!-- 🔐 Settings & Security -->
+                    <!-- ⚙️ System Settings (unified hub) -->
                     <li class="menu-group nav-accordion nav-group-divider" data-nav-section="settings">
                         <div class="catalog-toggle nav-group-toggle">
-                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">🔐</span> Settings &amp; Security</span>
+                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">⚙️</span> System Settings</span>
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
                         </div>
                         <ul class="submenu">
-                            <li class="nav-subheader nav-subheader-first" aria-hidden="true">
-                                <span class="nav-subheader-label">
-                                    <span class="nav-emoji" aria-hidden="true">🔐</span>
-                                    Security &amp; Access
-                                </span>
+                            <li data-target="view-settings" data-breadcrumb="System Settings">
+                                <i class="fa-solid fa-gear"></i> Settings Hub
                             </li>
-                            <li data-target="view-staff" data-superadmin-only="true" data-breadcrumb="Admin Access &amp; Roles">
-                                <i class="fa-solid fa-user-check"></i> Admin Access &amp; Roles
+                            <li data-target="view-settings" data-breadcrumb="Store Branding" data-settings-tab="branding">
+                                <i class="fa-solid fa-palette"></i> Store Branding &amp; Info
                             </li>
-                            <li data-target="view-staff-audit" data-breadcrumb="Staff Audit">
-                                <i class="fa-solid fa-magnifying-glass"></i> Staff Audit
+                            <li data-target="view-settings" data-breadcrumb="General Configuration" data-settings-tab="general">
+                                <i class="fa-solid fa-sliders"></i> General Configuration
                             </li>
-                            <li data-target="view-security" data-breadcrumb="Security Logs">
-                                <i class="fa-solid fa-shield-halved"></i> Security Logs
+                            <li data-target="view-settings" data-breadcrumb="Shipping &amp; Payments" data-settings-tab="shipping">
+                                <i class="fa-solid fa-truck"></i> Shipping &amp; Payments
                             </li>
-                            <li data-target="view-sessions" data-breadcrumb="Admin Sessions">
-                                <i class="fa-solid fa-laptop-mobile"></i> Admin Sessions
+                            <li data-target="view-settings" data-breadcrumb="Security &amp; Access" data-settings-tab="security">
+                                <i class="fa-solid fa-shield-halved"></i> Security &amp; Access
                             </li>
-                            <li data-target="view-audit" data-breadcrumb="Security &amp; Audit">
-                                <i class="fa-solid fa-user-shield"></i> Security &amp; Audit
-                            </li>
-                            <li data-target="view-settings" data-breadcrumb="Security &amp; 2FA" data-settings-tab="security">
-                                <i class="fa-solid fa-lock"></i> Security &amp; 2FA
-                            </li>
-
-                            <li class="nav-subheader" aria-hidden="true">
-                                <span class="nav-subheader-label">
-                                    <span class="nav-emoji" aria-hidden="true">🛍️</span>
-                                    Store &amp; Catalog Setup
-                                </span>
-                            </li>
-                            <li data-target="view-settings" data-breadcrumb="Store Branding">
-                                <i class="fa-solid fa-gear"></i> Store Branding
-                            </li>
-                            <li data-target="view-store-config" data-breadcrumb="Store Configuration">
-                                <i class="fa-solid fa-store"></i> Store Configuration
-                            </li>
-                            <li data-target="manage-category" data-breadcrumb="Categories">
-                                <i class="fa-solid fa-tags"></i> Manage Categories
-                            </li>
-                            <li data-target="manage-brands" data-breadcrumb="Brands">
-                                <i class="fa-solid fa-copyright"></i> Manage Brands
-                            </li>
-                            <li data-target="manage-attributes" data-breadcrumb="Attributes">
-                                <i class="fa-solid fa-sliders"></i> Attributes
-                            </li>
-                            <li data-target="manage-navbar-links" data-breadcrumb="Navbar Links">
-                                <i class="fa-solid fa-bars"></i> Navbar Menu Links
-                            </li>
-                            <li data-target="view-banners" data-breadcrumb="Hero Banners">
-                                <i class="fa-solid fa-images"></i> Hero Banners
-                            </li>
-
-                            <li class="nav-subheader" aria-hidden="true">
-                                <span class="nav-subheader-label">
-                                    <span class="nav-emoji" aria-hidden="true">⚙️</span>
-                                    System &amp; Utilities
-                                </span>
-                            </li>
-                            <li data-target="manage-coupons" data-breadcrumb="Coupons">
-                                <i class="fa-solid fa-ticket"></i> Coupons
-                            </li>
-                            <li data-target="view-shipping-payments" data-breadcrumb="Shipping &amp; Payments">
-                                <i class="fa-solid fa-sliders"></i> Shipping &amp; Payments
-                            </li>
-                            <li data-target="view-file-manager" data-superadmin-only="true" data-breadcrumb="System Tools">
-                                <i class="fa-solid fa-folder-tree"></i> File Manager
-                            </li>
-                            <li data-target="view-settings" data-superadmin-only="true" data-breadcrumb="Cache &amp; Sandbox" data-settings-tab="system">
-                                <i class="fa-solid fa-flask"></i> Cache &amp; Sandbox
+                            <li data-target="view-settings" data-superadmin-only="true" data-breadcrumb="System Utilities" data-settings-tab="utilities">
+                                <i class="fa-solid fa-toolbox"></i> System Utilities
                             </li>
                         </ul>
                     </li>

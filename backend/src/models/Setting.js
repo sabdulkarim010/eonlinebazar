@@ -162,6 +162,28 @@ const settingSchema = new mongoose.Schema({
         default: 24,
         min: 1,
         max: 100
+    },
+    // Enterprise store configuration
+    vatRate: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 100
+    },
+    orderPrefix: {
+        type: String,
+        default: 'ORD',
+        trim: true,
+        maxlength: 12
+    },
+    maintenanceMode: {
+        type: Boolean,
+        default: false
+    },
+    maintenanceMessage: {
+        type: String,
+        default: 'We are currently performing scheduled maintenance. Please check back soon.',
+        trim: true
     }
 }, {
     timestamps: true

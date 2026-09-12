@@ -504,6 +504,15 @@ function applyMasterSettingsToUI(settings) {
     setVal('vipMinOrderCount', settings.vipMinOrderCount);
     setVal('frequentBuyerMinOrders', settings.frequentBuyerMinOrders);
     setVal('defaultProductsPerPage', settings.defaultProductsPerPage ?? settings.productsPerPage ?? 24);
+    setVal('settingsDefaultProductsPerPage', settings.defaultProductsPerPage ?? settings.productsPerPage ?? 24);
+    setVal('settingsVatRate', settings.vatRate ?? settings.taxRate ?? 0);
+    setVal('settingsOrderPrefix', settings.orderPrefix || 'ORD');
+
+    const maintenanceToggle = document.getElementById('settingsMaintenanceMode');
+    if (maintenanceToggle) {
+        maintenanceToggle.checked = settings.maintenanceMode === true;
+    }
+    setVal('settingsMaintenanceMessage', settings.maintenanceMessage);
 
     if (typeof window.applyTierSettingsToUI === 'function') {
         window.applyTierSettingsToUI(settings);

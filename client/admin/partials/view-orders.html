@@ -38,6 +38,12 @@
                 <div class="live-badge" id="live-indicator">
                     <span class="live-dot"></span> Live Syncing
                 </div>
+                <button type="button" class="action-btn-secondary" id="ordersExportCsvBtn" data-permission="manage_orders" onclick="exportOrdersCsvReport()" title="Export orders as CSV">
+                    <i class="fa-solid fa-file-csv"></i> Export CSV
+                </button>
+                <button type="button" class="action-btn-secondary" id="ordersExportPdfBtn" data-permission="manage_orders" onclick="exportOrdersPdfReport()" title="Print order report as PDF">
+                    <i class="fa-solid fa-file-pdf"></i> Export PDF
+                </button>
                 <button type="button" class="btn-create-order" id="openManualOrderModalBtn" data-permission="manage_orders" onclick="openManualOrderModal()">
                     + Create Manual Order
                 </button>

@@ -457,6 +457,67 @@ window.goToOrderPage = function(pageNumber) {
     }
 };
 
+async function exportOrdersCsvReport() {
+    try {
+        const status = currentOrderStatusFilter && currentOrderStatusFilter !== 'all'
+            ? currentOrderStatusFilter
+            : 'all';
+        const qs = status !== 'all' ? `?status=${encodeURIComponent(status)}` : '';
+        const res = await fetch(`/api/admin/orders/export-csv${qs}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'error', title: 'Export failed', text: err.message || 'Could not export orders.' });
+            } else {
+                showToast(err.message || 'Could not export orders.', 'error');
+            }
+            return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `orders-export-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Orders CSV downloaded', showConfirmButton: false, timer: 2000 });
+        } else {
+            showToast('Orders CSV downloaded.', 'success');
+        }
+    } catch (err) {
+        console.error('exportOrdersCsvReport:', err);
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({ icon: 'error', title: 'Export failed', text: 'Could not reach the server.' });
+        }
+    }
+}
+
+function exportOrdersPdfReport() {
+    const area = document.querySelector('#view-orders .orders-panel-card');
+    if (!area) {
+        showToast('Open the Orders section to export.', 'warning');
+        return;
+    }
+    document.body.classList.add('printing-orders-report');
+    const cleanup = () => {
+        document.body.classList.remove('printing-orders-report');
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Use Print dialog → Save as PDF', showConfirmButton: false, timer: 2500 });
+    }
+}
+
+window.exportOrdersCsvReport = exportOrdersCsvReport;
+window.exportOrdersPdfReport = exportOrdersPdfReport;
+
 // সার্চ ইভেন্ট লিসেনার (fallback if inline handler missing)
 document.addEventListener('DOMContentLoaded', () => {
     const searchInput = getOrderSearchInputEl();
@@ -474,6 +535,8 @@ Object.assign(window, {
     getOrderReasonDetails,
     maybeOpenOrderFromDeepLink,
     orderMatchesSandboxFilter,
-    renderOrderPaginationControls
+    renderOrderPaginationControls,
+    exportOrdersCsvReport,
+    exportOrdersPdfReport
 });
 

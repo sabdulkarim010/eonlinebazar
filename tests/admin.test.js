@@ -336,6 +336,39 @@ describe('Admin API', () => {
         expect(extraAfter.stock).toBe(7);
     });
 
+    test('GET /api/admin/orders/export-csv returns CSV attachment for authenticated admin', async () => {
+        await seedOrderForAdminList();
+        const token = await getAdminAuthToken();
+
+        const res = await request(app)
+            .get('/api/admin/orders/export-csv')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+        expect(res.headers['content-type']).toMatch(/text\/csv/);
+        expect(res.text).toContain('Order ID');
+    });
+
+    test('POST /api/admin/master-settings/update accepts VAT and maintenance fields', async () => {
+        const token = await getAdminAuthToken();
+
+        const res = await request(app)
+            .post('/api/admin/master-settings/update')
+            .set('Authorization', `Bearer ${token}`)
+            .send({
+                vatRate: 5,
+                orderPrefix: 'EOB',
+                maintenanceMode: true,
+                maintenanceMessage: 'Scheduled maintenance in progress.'
+            });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(Number(res.body.data.vatRate)).toBe(5);
+        expect(res.body.data.orderPrefix).toBe('EOB');
+        expect(res.body.data.maintenanceMode).toBe(true);
+    });
+
     test('PUT /api/admin/orders/:id/master-update rejects item edits on cancelled orders', async () => {
         const order = await seedOrderForAdminList();
         order.status = 'Cancelled';

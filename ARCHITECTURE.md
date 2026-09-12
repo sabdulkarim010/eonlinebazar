@@ -100,9 +100,9 @@ backend/src/
 
 
 
-## Admin Navigation (Phase 4)
+## Admin Navigation (Enterprise SaaS — 7 modules)
 
-The admin sidebar is grouped into **8 premium categories** plus **Dashboard** (`client/admin/partials/sidebar.html`): **Catalog & Inventory**, **Sales & POS**, **CRM & Support**, **Marketing & Growth**, **Finance & Accounts**, **HRM**, and **Settings & Security**. Breadcrumbs are rendered by `client/js/admin/modules/core-breadcrumb.js`.
+The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/partials/sidebar.html`): **Sales & Orders**, **Catalog & Inventory**, **Marketing & Content**, **HRM & Staff**, **Accounts & Finance**, and **System Settings** (unified tabbed hub). Breadcrumbs are rendered by `client/js/admin/modules/core-breadcrumb.js`; tab routing lives in `client/js/admin/modules/settings-hub.js`.
 
 
 
@@ -110,19 +110,19 @@ The admin sidebar is grouped into **8 premium categories** plus **Dashboard** (`
 
 |-------|----------------|
 
-| Catalog & Inventory | Inventory, Add Product, Suppliers, Warehouses, Purchase Orders |
+| Dashboard | Overview KPIs, analytics widgets |
 
-| Sales & POS | POS System, Orders & Fulfillment |
+| Sales & Orders | POS, Orders, Customers, Support Tickets, Live Chat, Reviews, Abandoned Carts |
 
-| CRM & Support | Customers, Support Tickets, Live Chat, Reviews, Loyalty |
+| Catalog & Inventory | Inventory, Add Product, Categories, Brands, Attributes, Suppliers, Warehouses, POs |
 
-| Marketing & Growth | Campaigns, Abandoned Carts, Newsletter Subscribers |
+| Marketing & Content | Campaigns, Newsletter, Coupons, Hero Banners, Navbar Links, Loyalty Program |
 
-| Finance & Accounts | Financial Reports, Expense Tracking, Payment Reconciliation |
+| HRM & Staff | Employees, System Staff Directory, Attendance, Payroll, Leave |
 
-| HRM | Employees, Attendance & Shifts, Payroll & Salary, Leave Management |
+| Accounts & Finance | Financial Reports (P&L + export), Expense Tracking, Payment Reconciliation |
 
-| Settings & Security | Admin Access, Staff Audit, Security Logs, Sessions, Branding, Catalog, Coupons, Banners, Shipping, 2FA, System Tools |
+| System Settings | Unified hub (`view-settings.html`) — Branding, General (VAT/tax, maintenance), Shipping & Payments, Security & Access, System Utilities |
 
 
 

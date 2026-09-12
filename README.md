@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
   <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
   <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
-  <img src="https://img.shields.io/badge/tests-133%2F133-brightgreen" alt="133/133 Tests Passing">
+  <img src="https://img.shields.io/badge/tests-135%2F135-brightgreen" alt="135/135 Tests Passing">
   <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
   <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
   <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">
@@ -66,7 +66,7 @@ The web client uses vanilla JavaScript with a modular ES architecture. The API r
 
 ## Core Pillars & Enterprise Modules
 
-All modules below are **100% completed** and wired into the admin accordion navigation (**Dashboard · Catalog & Inventory · Sales & POS · CRM & Support · Marketing & Growth · Finance & Accounts · HRM · Settings & Security**). **Settings & Security** is one accordion with three labeled sub-groups — **Security & Access**, **Store & Catalog Setup**, and **System & Utilities** — all existing nav links preserved. **Admin Access & Roles** (premium staff directory + permissions slide-over; assign access from unlinked employees only) and Staff Audit live under **Settings & Security** (not HRM). Employee profile **Access** tab supports three live states — no access (Grant), active (Manage / Suspend / Revoke), and suspended (Re-activate) — with SweetAlert2 confirmations throughout.
+All modules below are **100% completed** and wired into the **7-module enterprise admin navigation** (**Dashboard · Sales & Orders · Catalog & Inventory · Marketing & Content · HRM & Staff · Accounts & Finance · System Settings**). **System Settings** is a unified tabbed hub (`view-settings.html` + `settings-hub.js`) with five tabs — Branding, General (VAT/tax, maintenance mode), Shipping & Payments, Security & Access, and System Utilities — using SweetAlert2 for saves and tab feedback. **System Staff Directory** lives under HRM; Staff Audit, Sessions, and Security Logs open from the Security tab. Employee profile **Access** tab supports three live states — no access (Grant), active (Manage / Suspend / Revoke), and suspended (Re-activate).
 
 ### 1. ERP Pillar — Enterprise Resource Planning
 
@@ -133,7 +133,7 @@ Read these documents before making changes. Operational notes belong in the exis
 
 ## Quality Assurance & Testing
 
-The repository ships with **100% passing automated coverage: 133 / 133 tests** across **11 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
+The repository ships with **100% passing automated coverage: 135 / 135 tests** across **11 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
 
 ```bash
 npm test
@@ -145,20 +145,20 @@ npm test
 | Cart | `tests/cart.test.js` | 6 | Add, hydrate images, clear |
 | Order | `tests/order.test.js` | 9 | COD create, track, cancel, line-item shape |
 | Payment | `tests/payment.test.js` | 3 | Gateway adapter, COD IPN, admin payment update |
-| Admin | `tests/admin.test.js` | 13 | Login, orders, customer identity, master editor |
+| Admin | `tests/admin.test.js` | 15 | Login, orders, CSV export, VAT/maintenance settings, master editor |
 | Notes | `tests/note.test.js` | 7 | Owner-scoped notebook and expense validation |
 | Product seed | `tests/product-seed.test.js` | 3 | Demo catalog upsert |
 | Chat session | `tests/chat-end-session.test.js` | 8 | Guest / agent / admin end-session ownership |
 | ERP | `tests/erp.test.js` | 31 | Suppliers, warehouses, `receivePO`, slugs, audit, status enum |
 | HRM | `tests/hrm.test.js` | 33 | Attendance, shifts, payroll, leave, designations, employee profile/docs/photo, grant/revoke system access |
 | Loyalty | `tests/loyalty-tier.test.js` | 6 | Silver / Gold / Platinum thresholds and cashback |
-| **Total** | | **133** | All suites green |
+| **Total** | | **135** | All suites green |
 
 Expected Jest summary:
 
 ```text
 Test Suites: 11 passed, 11 total
-Tests:       133 passed, 133 total
+Tests:       135 passed, 135 total
 ```
 
 **Console hygiene (2026-09-11):** Footer settings API responses omit local `iconUrl` values when upload files are missing (prevents `footer-icon-*` 404s). Admin settings password fields now declare proper `autocomplete` attributes, and the sandbox real-data reset key sits inside `#realResetForm`.
@@ -255,7 +255,7 @@ npm start
 npm test
 ```
 
-All **133** tests must pass before merging changes.
+All **135** tests must pass before merging changes.
 
 ### Mobile (Expo)
 
@@ -301,7 +301,7 @@ eonlinebazar-fullstack/
 ├── ecommerce-chat/              # Live-chat microservice (port 5001)
 ├── admin-dashboard/             # Vite React chat-admin SPA → /chat-admin
 ├── devops/                      # Nginx, droplet first-time setup
-├── tests/                       # 11 Jest suites / 133 tests
+├── tests/                       # 11 Jest suites / 135 tests
 ├── scripts/                     # Seed and index migration
 ├── ARCHITECTURE.md
 ├── REFACTOR_MAP.md
