@@ -1836,5 +1836,19 @@ SweetAlert2 toasts on tab switch and master-settings saves. Enterprise features 
 | Invoice PDF VAT line | ✅ COMPLETE | `invoicePdf.js` — shows VAT line and tax registration number when present on the order snapshot. |
 | Tests | ✅ COMPLETE | `tests/admin.test.js` +3 backup API tests + expanded Tax/VAT settings test; `tests/order.test.js` +1 additive VAT checkout test. **157 / 157 tests passing.** |
 
+---
+
+## SUPPORT SLA & SECURITY MONITORING — 2026-09-12
+
+| Task | Status | Summary |
+|------|--------|---------|
+| Ticket SLA fields | ✅ COMPLETE | `ContactMessage.js` — `firstResponseAt` (set on first admin email reply); `resolvedAt` already stamped when status → `resolved`/`closed` in `contactController.js`. |
+| SLA report API | ✅ COMPLETE | `backend/src/controllers/admin/supportSlaController.js` — `GET /api/admin/support/sla-report?from=&to=` returns avg first-response hours, avg resolution hours, open-ticket breach counts (24h/48h/72h), and per-agent breakdown; gated by `manage_customers`. |
+| SLA admin UI | ✅ COMPLETE | `view-messages.html` SLA Overview panel — stat cards + agent performance table; loaded by `fetchSupportSlaReport()` in `messages-inbox.js`. |
+| Rate-limit hit tracking | ✅ COMPLETE | `backend/src/services/rateLimitHitTracker.js` — in-memory daily counter with optional Redis; incremented on 429 from `rateLimiter.js` dynamic API limiter and `adminSecurity.js` admin login limiter. |
+| Security monitor API | ✅ COMPLETE | `backend/src/controllers/admin/securityMonitorController.js` — `GET /api/admin/security/rate-limit-stats` returns top 5 failed-login IPs (24h), active blacklist entries with expiry, and 24h rate-limit hit total; gated by `manage_security`. |
+| Security monitor UI | ✅ COMPLETE | `view-security.html` Security Monitor panel — rate-limit counter, top offender table with quick Blacklist action, blacklisted IPs table with Remove; `fetchSecurityMonitorStats()` + `quickBlacklistIp()` in `settings-security.js`. |
+| Tests | ✅ COMPLETE | `tests/admin.test.js` +3 — SLA report, security monitor stats, RBAC 403. **160 / 160 tests passing.** |
+
 
 

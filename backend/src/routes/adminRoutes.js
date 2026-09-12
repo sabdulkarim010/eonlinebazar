@@ -84,6 +84,8 @@ const {
 const cacheController = require('../controllers/cacheController');
 const sandboxController = require('../controllers/sandboxController');
 const backupController = require('../controllers/admin/backupController');
+const supportSlaController = require('../controllers/admin/supportSlaController');
+const securityMonitorController = require('../controllers/admin/securityMonitorController');
 
 // Minimal staff roster for order assignment dropdowns (before /staff mount)
 router.get('/staff/roster', verifyAdmin, checkPermission('manage_orders'), staffController.getStaffRoster);
@@ -356,6 +358,7 @@ router.get('/blacklist', verifyAdmin, checkPermission('manage_security'), adminS
 router.post('/blacklist', verifyAdmin, checkPermission('manage_security'), adminSecurityController.addBlacklist);
 router.delete('/blacklist/:id', verifyAdmin, checkPermission('manage_security'), adminSecurityController.removeBlacklist);
 router.get('/login-history', verifyAdmin, checkPermission('manage_security'), adminSecurityController.getLoginHistory);
+router.get('/security/rate-limit-stats', verifyAdmin, checkPermission('manage_security'), securityMonitorController.getRateLimitStats);
 
 // ✨ AI product content assist (Anthropic proxy)
 router.post('/ai/product-assist', verifyAdmin, checkPermission('manage_inventory'), adminController.aiProductAssist);
@@ -466,6 +469,7 @@ router.delete('/messages/:id', verifyAdmin, checkPermission('manage_settings'), 
  # URL: /api/admin/tickets/*
  ********************************************************************/
 router.get('/tickets/stats', verifyAdmin, checkPermission('manage_settings'), contactController.getTicketStats);
+router.get('/support/sla-report', verifyAdmin, checkPermission('manage_customers'), supportSlaController.getSlaReport);
 router.patch('/tickets/:id/assign', verifyAdmin, checkPermission('manage_settings'), contactController.assignTicket);
 router.patch('/tickets/:id/status', verifyAdmin, checkPermission('manage_settings'), contactController.updateTicketStatus);
 

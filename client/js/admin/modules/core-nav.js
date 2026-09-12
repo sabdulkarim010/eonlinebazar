@@ -655,7 +655,10 @@ function navigateAdminSection(targetId, clickedItem) {
         'manage-navbar-links': fetchNavbarLinks,
         'manage-attributes': fetchAttributes,
         'manage-coupons': fetchCoupons,
-        'view-security': fetchSecurityLogs,
+        'view-security': () => {
+            fetchSecurityLogs();
+            if (typeof fetchSecurityMonitorStats === 'function') fetchSecurityMonitorStats();
+        },
         'view-sessions': fetchAdminSessions,
         'view-audit': initAuditView,
         'view-staff-audit': () => {

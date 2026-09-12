@@ -12,6 +12,55 @@
         </button>
     </div>
 
+    <div class="support-sla-panel" id="supportSlaPanel">
+        <div class="support-sla-panel__header">
+            <h4><i class="fa-solid fa-clock"></i> SLA Overview</h4>
+            <span class="support-sla-panel__range" id="supportSlaRange">Last 30 days</span>
+        </div>
+        <div class="metrics-grid support-sla-metrics">
+            <div class="metric-card">
+                <div class="icon"><i class="fa-solid fa-reply"></i></div>
+                <div class="data">
+                    <p>AVG FIRST RESPONSE</p>
+                    <h3 id="supportSlaAvgFirstResponse">—</h3>
+                    <small>Hours from ticket open to first reply</small>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="icon"><i class="fa-solid fa-circle-check"></i></div>
+                <div class="data">
+                    <p>AVG RESOLUTION TIME</p>
+                    <h3 id="supportSlaAvgResolution">—</h3>
+                    <small>Hours from open to resolved/closed</small>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="icon" style="color:#ef4444;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <div class="data">
+                    <p>TICKETS BREACHING SLA (24H+)</p>
+                    <h3 id="supportSlaBreach24h">—</h3>
+                    <small>Open tickets older than 24 hours</small>
+                </div>
+            </div>
+        </div>
+        <div class="table-container support-sla-agent-table-wrap">
+            <table class="data-table support-sla-agent-table">
+                <thead>
+                    <tr>
+                        <th>AGENT</th>
+                        <th>TICKETS</th>
+                        <th>AVG FIRST RESPONSE</th>
+                        <th>AVG RESOLUTION</th>
+                        <th>24H+ OPEN</th>
+                    </tr>
+                </thead>
+                <tbody id="supportSlaAgentBody">
+                    <tr><td colspan="5" class="loading-container"><div class="spinner"></div><p>Loading SLA metrics...</p></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <div class="outlook-inbox-shell support-inbox-split grid grid-cols-12 gap-4 h-[calc(100vh-140px)] border rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
         <aside class="support-inbox-master outlook-inbox-list-pane col-span-4 flex flex-col min-h-0 border-r border-slate-200 dark:border-slate-700" aria-label="Inquiry list">
             <div class="support-inbox-master-header">

@@ -9,6 +9,62 @@
                     </button>
                 </div>
 
+                <div class="security-monitor-panel" id="securityMonitorPanel">
+                    <div class="security-monitor-panel__header">
+                        <h4><i class="fa-solid fa-radar"></i> Security Monitor</h4>
+                        <button type="button" class="btn-secondary btn-sm" onclick="fetchSecurityMonitorStats()">
+                            <i class="fa-solid fa-rotate"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="metrics-grid security-monitor-metrics">
+                        <div class="metric-card">
+                            <div class="icon" style="color:#f59e0b;"><i class="fa-solid fa-gauge-high"></i></div>
+                            <div class="data">
+                                <p>RATE-LIMIT HITS (24H)</p>
+                                <h3 id="securityMonitorRateLimitHits">—</h3>
+                                <small>429 responses across API &amp; auth routes</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="security-monitor-grid">
+                        <div class="security-monitor-card">
+                            <h5><i class="fa-solid fa-user-secret"></i> Top Failed Login IPs (24h)</h5>
+                            <div class="table-container">
+                                <table class="data-table security-monitor-table">
+                                    <thead>
+                                        <tr>
+                                            <th>IP ADDRESS</th>
+                                            <th>FAILURES</th>
+                                            <th>ACTION</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="securityMonitorTopIpsBody">
+                                        <tr><td colspan="3" class="loading-container"><div class="spinner"></div><p>Loading...</p></td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="security-monitor-card">
+                            <h5><i class="fa-solid fa-ban"></i> Currently Blacklisted IPs</h5>
+                            <div class="table-container">
+                                <table class="data-table security-monitor-table">
+                                    <thead>
+                                        <tr>
+                                            <th>IP</th>
+                                            <th>REASON</th>
+                                            <th>EXPIRES</th>
+                                            <th>ACTION</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="securityMonitorBlacklistBody">
+                                        <tr><td colspan="4" class="loading-container"><div class="spinner"></div><p>Loading...</p></td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="metrics-grid security-status-grid">
                     <div class="metric-card success security-status-card">
                         <div class="icon"><i class="fa-solid fa-shield-check"></i></div>

@@ -141,6 +141,72 @@ function getFilteredMessages() {
     return list;
 }
 
+function formatSlaHours(value) {
+    if (value == null || !Number.isFinite(value)) return '—';
+    if (value < 1) return `${Math.round(value * 60)}m`;
+    return `${value}h`;
+}
+
+async function fetchSupportSlaReport() {
+    const panel = document.getElementById('supportSlaPanel');
+    if (!panel) return;
+
+    const agentBody = document.getElementById('supportSlaAgentBody');
+    if (agentBody) {
+        agentBody.innerHTML = '<tr><td colspan="5" class="loading-container"><div class="spinner"></div><p>Loading SLA metrics...</p></td></tr>';
+    }
+
+    try {
+        const res = await fetch('/api/admin/support/sla-report', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Failed to load SLA report.');
+
+        const summary = data.data?.summary || {};
+        const range = data.data?.range || {};
+        const byAgent = data.data?.byAgent || [];
+
+        const setText = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+
+        setText('supportSlaAvgFirstResponse', formatSlaHours(summary.avgFirstResponseHours));
+        setText('supportSlaAvgResolution', formatSlaHours(summary.avgResolutionHours));
+        setText('supportSlaBreach24h', summary.breach24h != null ? String(summary.breach24h) : '—');
+
+        const rangeEl = document.getElementById('supportSlaRange');
+        if (rangeEl && range.from && range.to) {
+            const fromLabel = new Date(range.from).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            const toLabel = new Date(range.to).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+            rangeEl.textContent = `${fromLabel} – ${toLabel}`;
+        }
+
+        if (!agentBody) return;
+
+        if (!byAgent.length) {
+            agentBody.innerHTML = '<tr><td colspan="5" class="loading-cell">No ticket data in this period.</td></tr>';
+            return;
+        }
+
+        agentBody.innerHTML = byAgent.map((row) => `
+            <tr>
+                <td><strong>${escapeHtml(row.assignedTo)}</strong></td>
+                <td>${row.ticketCount}</td>
+                <td>${formatSlaHours(row.avgFirstResponseHours)}</td>
+                <td>${formatSlaHours(row.avgResolutionHours)}</td>
+                <td>${row.breach24h ?? 0}</td>
+            </tr>
+        `).join('');
+    } catch (err) {
+        console.error('SLA report error:', err);
+        if (agentBody) {
+            agentBody.innerHTML = `<tr><td colspan="5" class="table-status-error">${escapeHtml(err.message)}</td></tr>`;
+        }
+    }
+}
+
 function updateMessagesStats() {
     const counts = { open: 0, in_progress: 0, resolved: 0, closed: 0 };
     adminMessagesCache.forEach((m) => {
@@ -486,6 +552,8 @@ window.fetchAdminMessages = async function fetchAdminMessages() {
             showInquiryDetailEmpty();
             renderMessagesInbox(adminMessagesCache);
         }
+
+        fetchSupportSlaReport().catch(() => {});
     } catch (err) {
         console.error('Messages inbox error:', err);
         if (listEl) listEl.innerHTML = `<div class="support-inbox-list-empty">${escapeHtml(err.message)}</div>`;
@@ -680,7 +748,10 @@ function setMessagesFilterTab(tab) {
 }
 
 function setupMessagesInbox() {
-    document.getElementById('messagesRefreshBtn')?.addEventListener('click', fetchAdminMessages);
+    document.getElementById('messagesRefreshBtn')?.addEventListener('click', () => {
+        fetchAdminMessages();
+        fetchSupportSlaReport().catch(() => {});
+    });
 
     document.querySelectorAll('.support-inbox-tab').forEach((btn) => {
         btn.addEventListener('click', () => setMessagesFilterTab(btn.dataset.filter || 'all'));
@@ -749,6 +820,8 @@ function setupMessagesInbox() {
 
 /* Expose module functions for HTML onclick + cross-module calls */
 Object.assign(window, {
+    fetchSupportSlaReport,
+    formatSlaHours,
     clearInquirySelection,
     deleteMessage,
     findCachedMessage,

@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
   <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
   <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
-  <img src="https://img.shields.io/badge/tests-153%2F153-brightgreen" alt="153/153 Tests Passing">
+  <img src="https://img.shields.io/badge/tests-160%2F160-brightgreen" alt="160/160 Tests Passing">
   <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
   <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
   <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">
@@ -92,7 +92,7 @@ Acquisition, retention, support, and lifetime-value automation across every cust
 |--------|-------------|
 | **Abandoned Cart Recovery** | Daily job finds carts idle for **24 hours+**, sends email and SMS recovery messages, and stamps `abandonedNotifiedAt` so customers are never spammed. Admin CRM shows KPIs and per-cart notify actions. |
 | **Customer Referral & Rewards** | Unique invite codes on signup. First qualifying order credits **wallet points** to referrer and referee. Exposed on the web profile and the mobile `ReferralScreen`. |
-| **Customer Support Ticket Lifecycle** | Contact inquiries become tickets (`TKT-YYYY-XXXX`) with status flow (`open` → `in_progress` → `resolved` → `closed`), priority, assignment, and reply history. |
+| **Customer Support Ticket Lifecycle** | Contact inquiries become tickets (`TKT-YYYY-XXXX`) with status flow (`open` → `in_progress` → `resolved` → `closed`), priority, assignment, reply history, and **SLA Overview** dashboard (`GET /api/admin/support/sla-report`) — avg first-response/resolution times and 24h+ breach counts by agent. |
 | **Multi-Channel Segmented Marketing** | Broadcast campaigns over **Email**, **SMS**, and **WhatsApp** with audience segments (VIP / frequent / inactive and loyalty tiers). |
 | **Customer Loyalty Tier System** | **Silver**, **Gold**, and **Platinum** tiers with automatic upgrades from lifetime spend and **dynamic cashback rates** per tier. A monthly cron plus checkout-time recalculation keep tiers current. |
 
@@ -135,7 +135,7 @@ Read these documents before making changes. Operational notes belong in the exis
 
 ## Quality Assurance & Testing
 
-The repository ships with **100% passing automated coverage: 157 / 157 tests** across **15 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
+The repository ships with **100% passing automated coverage: 160 / 160 tests** across **15 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
 
 ```bash
 npm test
@@ -147,7 +147,7 @@ npm test
 | Cart | `tests/cart.test.js` | 6 | Add, hydrate images, clear |
 | Order | `tests/order.test.js` | 10 | COD create, track, cancel, line-item shape, additive VAT at checkout |
 | Payment | `tests/payment.test.js` | 3 | Gateway adapter, COD IPN, admin payment update |
-| Admin | `tests/admin.test.js` | 25 | Login, orders, notifications, bulk CSV export, activity feed, database backup, Tax/VAT settings, master editor |
+| Admin | `tests/admin.test.js` | 28 | Login, orders, notifications, bulk CSV export, activity feed, database backup, Tax/VAT settings, support SLA, security monitor, master editor |
 | Notes | `tests/note.test.js` | 7 | Owner-scoped notebook and expense validation |
 | Product seed | `tests/product-seed.test.js` | 3 | Demo catalog upsert |
 | Chat session | `tests/chat-end-session.test.js` | 8 | Guest / agent / admin end-session ownership |

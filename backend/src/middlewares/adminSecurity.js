@@ -21,6 +21,7 @@ const { getClientIp } = require('../utils/deviceParser');
 const { logSecurityEvent } = require('./../utils/securityLogger');
 const { isPrivateIp } = require('./geoFencing');
 const { isLocalOrDev, skipRateLimit } = require('./rateLimiter');
+const { recordRateLimitHit } = require('../services/rateLimitHitTracker');
 
 // ---- Intrusion Detection tuning ----
 const FAIL_LIMIT = 5;                 // অনুমোদিত ব্যর্থ চেষ্টা
@@ -98,6 +99,7 @@ const adminLoginLimiter = rateLimit({
     keyGenerator: (req) => getClientIp(req),
     handler: (req, res) => {
         const ip = getClientIp(req);
+        recordRateLimitHit(ip).catch(() => {});
         LoginAttempt.create({
             ipAddress: ip,
             username: (req.body && req.body.username) || 'unknown',

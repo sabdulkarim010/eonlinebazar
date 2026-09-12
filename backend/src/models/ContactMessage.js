@@ -45,6 +45,8 @@ const contactMessageSchema = new mongoose.Schema({
     },
     // Admin username the ticket is assigned to (loose ref — see Admin.username).
     assignedTo: { type: String, default: '', trim: true, maxlength: 80 },
+    // First admin reply or internal note — set once on initial response.
+    firstResponseAt: { type: Date, default: null },
     resolvedAt: { type: Date, default: null },
     replyMessage: { type: String, default: '', trim: true, maxlength: 10000 },
     repliedAt: { type: Date, default: null },
@@ -109,6 +111,7 @@ contactMessageSchema.methods.toAdminObject = function toAdminObject() {
         status,
         priority: this.priority || 'normal',
         assignedTo: this.assignedTo || '',
+        firstResponseAt: this.firstResponseAt || null,
         resolvedAt: this.resolvedAt || null,
         replyMessage: this.replyMessage || '',
         repliedAt: this.repliedAt || null,

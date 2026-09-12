@@ -1157,3 +1157,23 @@ tests/admin.test.js [DONE] +3 backup API tests; expanded Tax/VAT settings test
 tests/order.test.js [DONE] +1 additive VAT checkout test
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] BACKUP & TAX CONFIG — 2026-09-12
 README.md [DONE] 157 tests + backup UI / Tax/VAT note
+#
+# Support SLA & security monitoring — 2026-09-12
+backend/src/models/ContactMessage.js [DONE] firstResponseAt field + toAdminObject
+backend/src/controllers/contactController.js [DONE] set firstResponseAt on first reply
+backend/src/controllers/admin/supportSlaController.js [NEW] getSlaReport
+backend/src/controllers/admin/securityMonitorController.js [NEW] getRateLimitStats
+backend/src/services/rateLimitHitTracker.js [NEW] 24h 429 hit counter (memory + optional Redis)
+backend/src/middlewares/rateLimiter.js [DONE] record hits on 429 handler
+backend/src/middlewares/adminSecurity.js [DONE] record hits on admin login 429
+backend/src/routes/adminRoutes.js [DONE] GET /support/sla-report, /security/rate-limit-stats
+client/admin/partials/view-messages.html [DONE] SLA Overview panel
+client/admin/partials/view-security.html [DONE] Security Monitor panel
+client/js/admin/modules/messages-inbox.js [DONE] fetchSupportSlaReport
+client/js/admin/modules/settings-security.js [DONE] fetchSecurityMonitorStats, quickBlacklistIp
+client/js/admin/modules/core-nav.js [DONE] view-security loads monitor stats
+client/css/admin/_customers.css [DONE] support-sla-panel styles
+client/css/admin/_settings-security.css [DONE] security-monitor-panel styles
+tests/admin.test.js [DONE] +3 SLA + security monitor tests
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] SUPPORT SLA & SECURITY MONITORING — 2026-09-12
+README.md [DONE] 160 tests + SLA / security monitor note

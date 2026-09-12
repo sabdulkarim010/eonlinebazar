@@ -9,6 +9,8 @@
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const Settings = require('../models/Settings');
+const { getClientIp } = require('../utils/deviceParser');
+const { recordRateLimitHit } = require('../services/rateLimitHitTracker');
 
 const DEFAULTS = {
     rateLimitEnabled: true,
@@ -199,17 +201,23 @@ function buildLimiterKey(settings) {
 }
 
 function createLimiter(settings) {
+    const payload = {
+        success: false,
+        message: 'Too many requests, please try again later.'
+    };
+
     return rateLimit({
         validate: { trustProxy: false },
         windowMs: settings.rateLimitWindowMs,
         max: settings.rateLimitMaxRequests,
         standardHeaders: true,
         legacyHeaders: false,
-        message: {
-            success: false,
-            message: 'Too many requests, please try again later.'
-        },
-        skip: (req) => shouldBypass(req, settings)
+        message: payload,
+        skip: (req) => shouldBypass(req, settings),
+        handler: (req, res, next, options) => {
+            recordRateLimitHit(getClientIp(req)).catch(() => {});
+            res.status(options.statusCode || 429).json(payload);
+        }
     });
 }
 

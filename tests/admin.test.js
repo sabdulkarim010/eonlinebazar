@@ -558,6 +558,92 @@ describe('Admin API', () => {
         expect(res.text).toContain('Order ID');
     });
 
+    describe('Support SLA & Security Monitor', () => {
+        test('GET /api/admin/support/sla-report returns SLA summary and agent breakdown', async () => {
+            const ContactMessage = require('../backend/src/models/ContactMessage');
+            const createdAt = new Date(Date.now() - 6 * 60 * 60 * 1000);
+            const firstResponseAt = new Date(Date.now() - 4 * 60 * 60 * 1000);
+            const resolvedAt = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+            await ContactMessage.create({
+                name: 'SLA Customer',
+                email: 'sla@test.local',
+                message: 'Need help with my order please',
+                subject: 'SLA test ticket',
+                status: 'resolved',
+                assignedTo: 'agent_one',
+                createdAt,
+                firstResponseAt,
+                resolvedAt,
+                repliedAt: firstResponseAt
+            });
+
+            const token = await getAdminAuthToken();
+            const res = await request(app)
+                .get('/api/admin/support/sla-report')
+                .set('Authorization', `Bearer ${token}`);
+
+            expect(res.status).toBe(200);
+            expect(res.body.success).toBe(true);
+            expect(res.body.data.summary.ticketCount).toBeGreaterThanOrEqual(1);
+            expect(res.body.data.summary.avgFirstResponseHours).toBeGreaterThan(0);
+            expect(res.body.data.summary.avgResolutionHours).toBeGreaterThan(0);
+            expect(Array.isArray(res.body.data.byAgent)).toBe(true);
+            expect(res.body.data.byAgent.some((row) => row.assignedTo === 'agent_one')).toBe(true);
+        });
+
+        test('GET /api/admin/security/rate-limit-stats returns offenders and blacklist', async () => {
+            const LoginAttempt = require('../backend/src/models/loginAttempt');
+            const BlacklistedIP = require('../backend/src/models/blacklistedIp');
+            const { recordRateLimitHit } = require('../backend/src/services/rateLimitHitTracker');
+
+            await LoginAttempt.create([
+                { username: 'bad', ipAddress: '203.0.113.10', status: 'failed' },
+                { username: 'bad', ipAddress: '203.0.113.10', status: 'failed' },
+                { username: 'bad', ipAddress: '203.0.113.11', status: 'otp_failed' }
+            ]);
+            await BlacklistedIP.create({
+                ip: '198.51.100.5',
+                reason: 'Test ban',
+                source: 'manual',
+                expiresAt: new Date(Date.now() + 60 * 60 * 1000)
+            });
+            await recordRateLimitHit('203.0.113.99');
+
+            const token = await getAdminAuthToken();
+            const res = await request(app)
+                .get('/api/admin/security/rate-limit-stats')
+                .set('Authorization', `Bearer ${token}`);
+
+            expect(res.status).toBe(200);
+            expect(res.body.success).toBe(true);
+            expect(res.body.data.rateLimitHits24h).toBeGreaterThanOrEqual(1);
+            expect(res.body.data.topFailedLoginIps.length).toBeGreaterThan(0);
+            expect(res.body.data.topFailedLoginIps[0].ip).toBe('203.0.113.10');
+            expect(res.body.data.blacklistedIps.some((row) => row.ip === '198.51.100.5')).toBe(true);
+        });
+
+        test('GET /api/admin/security/rate-limit-stats rejects staff without manage_security', async () => {
+            const { username } = await createTestAdmin({
+                role: 'staff',
+                permissions: ['manage_orders'],
+                twoFactorEnabled: false
+            });
+            const token = jwt.sign(
+                { username, role: 'staff' },
+                process.env.JWT_SECRET,
+                { expiresIn: '24h' }
+            );
+
+            const res = await request(app)
+                .get('/api/admin/security/rate-limit-stats')
+                .set('Authorization', `Bearer ${token}`);
+
+            expect(res.status).toBe(403);
+            expect(res.body.success).toBe(false);
+        });
+    });
+
     describe('Activity feed', () => {
         async function seedActivityLogs() {
             await SecurityLog.create([

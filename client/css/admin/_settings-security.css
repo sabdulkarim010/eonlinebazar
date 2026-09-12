@@ -181,3 +181,67 @@
     padding-top: 16px;
     border-top: 1px solid #e2e8f0;
 }
+
+/* ==========================================================================
+   Security Monitor (rate-limit + failed login dashboard)
+   ========================================================================== */
+.security-monitor-panel {
+    margin-bottom: 18px;
+    padding: 16px 18px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #fff;
+}
+
+.security-monitor-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.security-monitor-panel__header h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--secondary-color);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.security-monitor-metrics {
+    margin-bottom: 12px;
+}
+
+.security-monitor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+.security-monitor-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px;
+    background: #f8fafc;
+}
+
+.security-monitor-card h5 {
+    margin: 0 0 10px;
+    font-size: 0.9rem;
+    color: #334155;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.security-monitor-table th,
+.security-monitor-table td {
+    font-size: 0.82rem;
+}
+
+.btn-sm {
+    padding: 6px 10px;
+    font-size: 0.78rem;
+}

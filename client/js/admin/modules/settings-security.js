@@ -82,6 +82,117 @@ async function fetchSecurityLogs(page, limit) {
 }
 window.fetchSecurityLogs = fetchSecurityLogs;
 
+/* ---------- Security Monitor (rate-limit + failed login IPs) ---------- */
+async function fetchSecurityMonitorStats() {
+    const panel = document.getElementById('securityMonitorPanel');
+    if (!panel) return;
+
+    const topIpsBody = document.getElementById('securityMonitorTopIpsBody');
+    const blacklistBody = document.getElementById('securityMonitorBlacklistBody');
+    if (topIpsBody) {
+        topIpsBody.innerHTML = '<tr><td colspan="3" class="loading-container"><div class="spinner"></div><p>Loading...</p></td></tr>';
+    }
+    if (blacklistBody) {
+        blacklistBody.innerHTML = '<tr><td colspan="4" class="loading-container"><div class="spinner"></div><p>Loading...</p></td></tr>';
+    }
+
+    try {
+        const res = await fetch('/api/admin/security/rate-limit-stats', { headers: SEC_AUTH_HEADERS() });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Failed to load security monitor.');
+
+        const payload = data.data || {};
+        const hitsEl = document.getElementById('securityMonitorRateLimitHits');
+        if (hitsEl) hitsEl.textContent = payload.rateLimitHits24h != null ? String(payload.rateLimitHits24h) : '—';
+
+        const topIps = payload.topFailedLoginIps || [];
+        if (topIpsBody) {
+            if (!topIps.length) {
+                topIpsBody.innerHTML = '<tr><td colspan="3" class="loading-cell">No failed login attempts in the last 24 hours.</td></tr>';
+            } else {
+                topIpsBody.innerHTML = topIps.map((row) => `
+                    <tr>
+                        <td><b>${escapeHtml(row.ip)}</b></td>
+                        <td>${row.failedCount}</td>
+                        <td>
+                            <button type="button" class="btn-danger-soft btn-sm" onclick="quickBlacklistIp(${JSON.stringify(row.ip)})">
+                                <i class="fa-solid fa-ban"></i> Blacklist
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        const blacklist = payload.blacklistedIps || [];
+        if (blacklistBody) {
+            if (!blacklist.length) {
+                blacklistBody.innerHTML = '<tr><td colspan="4" class="loading-cell">No active blacklisted IPs.</td></tr>';
+            } else {
+                blacklistBody.innerHTML = blacklist.map((row) => `
+                    <tr>
+                        <td><b>${escapeHtml(row.ip)}</b></td>
+                        <td>${escapeHtml(row.reason || '—')}</td>
+                        <td>${row.permanent ? '<span class="status-badge stock-out">Permanent</span>' : formatDuration(row.expiresInMs)}</td>
+                        <td>
+                            <button type="button" class="btn-unblock" onclick="removeBlacklist(${JSON.stringify(row.id)}, ${JSON.stringify(row.ip)})">
+                                <i class="fa-solid fa-unlock"></i> Remove
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+    } catch (err) {
+        console.error('Security monitor fetch error:', err);
+        if (topIpsBody) {
+            topIpsBody.innerHTML = `<tr><td colspan="3" class="table-status-error">${escapeHtml(err.message)}</td></tr>`;
+        }
+        if (blacklistBody) {
+            blacklistBody.innerHTML = `<tr><td colspan="4" class="table-status-error">${escapeHtml(err.message)}</td></tr>`;
+        }
+    }
+}
+window.fetchSecurityMonitorStats = fetchSecurityMonitorStats;
+
+async function quickBlacklistIp(ip) {
+    const cleanIp = String(ip || '').trim();
+    if (!cleanIp) return;
+
+    const proceed = (await Swal.fire({
+        title: `Blacklist ${cleanIp}?`,
+        text: 'This IP will be blocked from admin login for 24 hours.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, blacklist',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280'
+    })).isConfirmed;
+    if (!proceed) return;
+
+    try {
+        const res = await fetch('/api/admin/blacklist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...SEC_AUTH_HEADERS() },
+            body: JSON.stringify({
+                ip: cleanIp,
+                reason: 'Blocked from Security Monitor — repeated failed logins',
+                hours: 24
+            })
+        });
+        const data = await res.json();
+        if (typeof showToast === 'function') {
+            showToast(data.message || (data.success ? 'IP blocked.' : 'Failed.'), data.success ? 'success' : 'error');
+        }
+        if (data.success) fetchSecurityMonitorStats();
+    } catch (err) {
+        console.error('Quick blacklist error:', err);
+        if (typeof showToast === 'function') showToast('Server error.', 'error');
+    }
+}
+window.quickBlacklistIp = quickBlacklistIp;
+
 /* ==========================================================================
    SECTION 12B: FORTIFIED ADMIN SECURITY SUITE
    Active Sessions · Login History · IP Blacklist Manager
@@ -566,6 +677,7 @@ async function removeBlacklist(id, ip) {
         const data = await res.json();
         if (typeof showToast === 'function') showToast(data.message || 'Done.', data.success ? 'success' : 'error');
         fetchBlacklist();
+        if (document.getElementById('securityMonitorPanel')) fetchSecurityMonitorStats();
     } catch (err) {
         console.error('Remove blacklist error:', err);
         if (typeof showToast === 'function') showToast('Server error.', 'error');
@@ -581,6 +693,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /* Expose module functions for HTML onclick + cross-module calls */
 Object.assign(window, {
+    fetchSecurityMonitorStats,
+    quickBlacklistIp,
     fetchSecurityLogs,
     escapeHtml,
     timeAgo,

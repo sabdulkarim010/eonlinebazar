@@ -162,8 +162,12 @@ const replyContactMessage = async (req, res) => {
             });
         }
 
+        const now = new Date();
         doc.replyMessage = replyMessage;
-        doc.repliedAt = new Date();
+        doc.repliedAt = now;
+        if (!doc.firstResponseAt) {
+            doc.firstResponseAt = now;
+        }
         doc.isRead = true;
         // A reply moves a brand-new ticket into progress; admins can later flip
         // it to resolved/closed via the dedicated status endpoint.
