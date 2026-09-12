@@ -44,7 +44,7 @@ async function deductWalletForOrder(userId, amount, orderId, note = 'Used for Or
                 }
             }
         },
-        { new: true }
+        { returnDocument: 'after' }
     ).select('walletBalance walletHistory');
 }
 
@@ -71,7 +71,7 @@ async function creditWalletForUser(userId, amount, orderId, note = 'Refund for r
                 }
             }
         },
-        { new: true }
+        { returnDocument: 'after' }
     ).select('walletBalance walletHistory');
 }
 
@@ -97,7 +97,7 @@ async function reverseWalletCredit(userId, amount, note = 'Reversal: Refund canc
                 }
             }
         },
-        { new: true }
+        { returnDocument: 'after' }
     ).select('walletBalance walletHistory');
 }
 

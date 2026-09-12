@@ -31,3 +31,36 @@
 ## After changes
 
 13. After any change, list which files were modified.
+
+---
+
+## Documentation Maintenance Rules (MANDATORY for every future task)
+
+1. Before starting ANY task, read SYSTEM_ENTERPRISE_AUDIT.md, 
+   ARCHITECTURE.md, and REFACTOR_MAP.md to understand current state.
+
+2. After completing ANY feature, fix, or refactor:
+   - Update SYSTEM_ENTERPRISE_AUDIT.md with what changed, using a 
+     dated heading: "## [Feature/Fix Name] — YYYY-MM-DD"
+   - Mark relevant checklist items as ✅ COMPLETE, ⚠️ PARTIAL, or 
+     ❌ MISSING as accurate
+   - Update REFACTOR_MAP.md listing every new/modified/deleted file
+   - If ARCHITECTURE.md's described structure changed (new folder, 
+     new pattern, new module type), update ARCHITECTURE.md too
+
+3. NEVER create a new standalone audit/summary .md file 
+   (e.g. PHASE2_AUDIT.md, FIX_SUMMARY.md, etc.). All audit and 
+   summary content goes into SYSTEM_ENTERPRISE_AUDIT.md under a 
+   new dated section. If a topic needs its own file because it's 
+   large and reusable (e.g. a runbook, a setup guide), only create 
+   it if no suitable existing .md file covers that topic — check 
+   first, and prefer appending to an existing relevant file.
+
+4. Every commit that adds a feature must leave the documentation 
+   in a state where a fresh audit is unnecessary — the docs should 
+   already reflect the true current state of the codebase.
+
+5. When in doubt about which .md file something belongs in:
+   - Enterprise feature status / completeness → SYSTEM_ENTERPRISE_AUDIT.md
+   - Folder structure / where code lives / dev setup → ARCHITECTURE.md
+   - File-level change log → REFACTOR_MAP.md

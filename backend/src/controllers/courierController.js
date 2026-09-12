@@ -87,7 +87,7 @@ const claimOrderForBooking = async (orderId) => {
             ]
         },
         { $set: { courierStatus: 'booking' } },
-        { new: true }
+        { returnDocument: 'after' }
     );
 };
 

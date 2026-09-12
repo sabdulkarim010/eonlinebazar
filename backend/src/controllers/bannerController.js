@@ -315,7 +315,7 @@ exports.updateSettings = async (req, res) => {
     const settings = await BannerSettings.findOneAndUpdate(
       {},
       payload,
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
     res.json({ success: true, settings: normalizeBannerSettings(settings) });
   } catch (err) {

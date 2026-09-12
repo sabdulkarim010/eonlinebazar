@@ -8,7 +8,7 @@
     "dev": "nodemon backend/src/server.js",
     "dev:chat": "node --watch ecommerce-chat/server.js",
     "dev:store": "nodemon backend/src/server.js",
-    "test": "jest --runInBand --forceExit",
+    "test": "jest --runInBand",
     "seed:products": "node scripts/seedDemoProducts.js",
     "migrate:indexes": "node scripts/addEnterpriseIndexes.js",
     "kill-port": "npx kill-port 5000"

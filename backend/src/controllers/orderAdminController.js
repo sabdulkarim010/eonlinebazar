@@ -922,7 +922,7 @@ const updateOrderStatus = async (req, res) => {
         const updatedOrder = await Order.findByIdAndUpdate(
             req.params.id,
             { $set: updatePayload },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         if (!updatedOrder) {
@@ -1059,7 +1059,7 @@ const approveOrderReturn = async (req, res) => {
                     statusBeforeRefund: order.status || 'Return Requested'
                 }
             },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         if (!updatedOrder) {
@@ -1173,7 +1173,7 @@ const undoOrderRefund = async (req, res) => {
                 $set: { status: revertStatus, refundedAt: null, refundAmount: 0 },
                 $unset: { statusBeforeRefund: '' }
             },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         if (!updatedOrder) {

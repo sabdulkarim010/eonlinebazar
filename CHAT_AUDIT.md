@@ -691,3 +691,17 @@ CustomerContext.jsx
 MAIN_STORE_API_URL=https://eonlinebazar.com   # or http://localhost:3000
 INTERNAL_API_KEY=<shared-secret>              # same value on both services
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+

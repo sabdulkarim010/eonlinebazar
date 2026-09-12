@@ -36,7 +36,7 @@ async function setSandboxMode(enabled) {
     await Settings.findOneAndUpdate(
         { key: SETTINGS_KEY },
         { $set: { sandboxMode: boolVal } },
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: 'after' }
     );
 
     return boolVal;

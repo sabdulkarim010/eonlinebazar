@@ -341,7 +341,9 @@ async function seedDefaultPaymentMethods() {
     await PaymentMethod.create(documents);
     clearPaymentMethodCache();
 
-    console.log(`💳 Payment catalog seeded with ${documents.length} method(s) migrated from legacy settings.`);
+    if (process.env.NODE_ENV !== 'test') {
+        console.log(`💳 Payment catalog seeded with ${documents.length} method(s) migrated from legacy settings.`);
+    }
     return { seeded: documents.length };
 }
 
