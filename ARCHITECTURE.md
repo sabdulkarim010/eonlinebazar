@@ -102,7 +102,7 @@ backend/src/
 
 ## Admin Navigation (Phase 4)
 
-The admin sidebar is grouped into **Dashboard**, **ERP**, **CRM**, **HRM**, and **Settings** accordion sections (`client/admin/partials/sidebar.html`). Breadcrumbs are rendered by `client/js/admin/modules/core-breadcrumb.js`.
+The admin sidebar is grouped into **8 premium categories** plus **Dashboard** (`client/admin/partials/sidebar.html`): **Catalog & Inventory**, **Sales & POS**, **CRM & Support**, **Marketing & Growth**, **Finance & Accounts**, **HRM**, and **Settings & Security**. Breadcrumbs are rendered by `client/js/admin/modules/core-breadcrumb.js`.
 
 
 
@@ -110,13 +110,19 @@ The admin sidebar is grouped into **Dashboard**, **ERP**, **CRM**, **HRM**, and 
 
 |-------|----------------|
 
-| ERP | Inventory, Orders, Purchase Orders, Suppliers, Warehouses, Finance |
+| Catalog & Inventory | Inventory, Add Product, Suppliers, Warehouses, Purchase Orders |
 
-| CRM | Customers, Newsletter, Abandoned Carts, Tickets, Live Chat, Reviews, Loyalty |
+| Sales & POS | POS System, Orders & Fulfillment |
 
-| HRM | Staff, Staff Audit, Attendance & Shifts, Payroll & Salary, Leave Management, Security Logs, Sessions |
+| CRM & Support | Customers, Support Tickets, Live Chat, Reviews, Loyalty |
 
-| Settings | Branding, Catalog, Coupons, Banners, Shipping, 2FA, System Tools |
+| Marketing & Growth | Campaigns, Abandoned Carts, Newsletter Subscribers |
+
+| Finance & Accounts | Financial Reports, Expense Tracking, Payment Reconciliation |
+
+| HRM | Employees, Attendance & Shifts, Payroll & Salary, Leave Management |
+
+| Settings & Security | Admin Access, Staff Audit, Security Logs, Sessions, Branding, Catalog, Coupons, Banners, Shipping, 2FA, System Tools |
 
 
 

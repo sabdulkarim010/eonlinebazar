@@ -29,10 +29,10 @@
                         <i class="fa-solid fa-chart-pie"></i> Dashboard
                     </li>
 
-                    <!-- 🏭 ERP -->
-                    <li class="menu-group nav-accordion" data-nav-section="erp">
+                    <!-- 📦 Catalog & Inventory -->
+                    <li class="menu-group nav-accordion nav-group-divider" data-nav-section="catalog">
                         <div class="catalog-toggle nav-group-toggle">
-                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">🏭</span> ERP</span>
+                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">📦</span> Catalog &amp; Inventory</span>
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
                         </div>
                         <ul class="submenu">
@@ -42,6 +42,25 @@
                             <li data-target="view-add-product" data-breadcrumb="Add Product">
                                 <i class="fa-solid fa-circle-plus"></i> Add New Product
                             </li>
+                            <li data-target="view-suppliers" data-breadcrumb="Suppliers">
+                                <i class="fa-solid fa-truck-field"></i> Suppliers
+                            </li>
+                            <li data-target="view-warehouses" data-breadcrumb="Warehouses">
+                                <i class="fa-solid fa-warehouse"></i> Warehouses
+                            </li>
+                            <li data-target="view-purchase-orders" data-breadcrumb="Purchase Orders">
+                                <i class="fa-solid fa-file-invoice"></i> Purchase Orders
+                            </li>
+                        </ul>
+                    </li>
+
+                    <!-- 🛒 Sales & POS -->
+                    <li class="menu-group nav-accordion nav-group-divider" data-nav-section="sales">
+                        <div class="catalog-toggle nav-group-toggle">
+                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">🛒</span> Sales &amp; POS</span>
+                            <i class="fa-solid fa-chevron-down catalog-chevron"></i>
+                        </div>
+                        <ul class="submenu">
                             <li data-target="view-pos" data-breadcrumb="POS System" data-permission="manage_orders">
                                 <i class="fa-solid fa-calculator"></i> POS System
                             </li>
@@ -49,48 +68,18 @@
                                 <i class="fa-solid fa-cart-shopping"></i> Orders &amp; Fulfillment
                                 <span id="sidebarOrdersBadge" class="sidebar-nav-badge" hidden>0</span>
                             </li>
-                            <li data-target="view-purchase-orders" data-breadcrumb="Purchase Orders">
-                                <i class="fa-solid fa-file-invoice"></i> Purchase Orders
-                            </li>
-                            <li data-target="view-suppliers" data-breadcrumb="Suppliers">
-                                <i class="fa-solid fa-truck-field"></i> Suppliers
-                            </li>
-                            <li data-target="view-warehouses" data-breadcrumb="Warehouses">
-                                <i class="fa-solid fa-warehouse"></i> Warehouses
-                            </li>
-                            <li data-target="view-finance" data-breadcrumb="Financial Reports" data-superadmin-only="true">
-                                <i class="fa-solid fa-chart-line"></i> Financial Reports
-                            </li>
-                            <li data-target="view-erp-expenses" data-breadcrumb="Expense Tracking">
-                                <i class="fa-solid fa-receipt"></i> Expense Tracking
-                            </li>
-                            <li class="sidebar-sub-external">
-                                <a href="/admin/payment-reconciliation" target="_blank" rel="noopener" class="sidebar-external-link" data-permission="manage_orders">
-                                    <i class="fa-solid fa-credit-card"></i> Payment Reconciliation
-                                    <i class="fa-solid fa-up-right-from-square sidebar-external-icon"></i>
-                                </a>
-                            </li>
                         </ul>
                     </li>
 
-                    <!-- 🤝 CRM -->
-                    <li class="menu-group nav-accordion" data-nav-section="crm">
+                    <!-- 👥 CRM & Support -->
+                    <li class="menu-group nav-accordion nav-group-divider" data-nav-section="crm">
                         <div class="catalog-toggle nav-group-toggle">
-                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">🤝</span> CRM</span>
+                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">👥</span> CRM &amp; Support</span>
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
                         </div>
                         <ul class="submenu">
                             <li data-target="view-customers" data-breadcrumb="Customer Database">
                                 <i class="fa-solid fa-users"></i> Customer Database
-                            </li>
-                            <li data-target="view-newsletter-subscribers" data-breadcrumb="Newsletter Subscribers">
-                                <i class="fa-solid fa-users"></i> Newsletter Subscribers
-                            </li>
-                            <li data-target="view-newsletter-campaigns" data-breadcrumb="Marketing Campaigns">
-                                <i class="fa-solid fa-paper-plane"></i> Marketing Campaigns
-                            </li>
-                            <li data-target="view-crm-abandoned" data-breadcrumb="Abandoned Carts">
-                                <i class="fa-solid fa-cart-arrow-down"></i> Abandoned Carts
                             </li>
                             <li data-target="view-messages" data-breadcrumb="Support Tickets">
                                 <i class="fa-solid fa-envelope-open-text"></i> Support Tickets
@@ -111,8 +100,49 @@
                         </ul>
                     </li>
 
+                    <!-- 📢 Marketing & Growth -->
+                    <li class="menu-group nav-accordion nav-group-divider" data-nav-section="marketing">
+                        <div class="catalog-toggle nav-group-toggle">
+                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">📢</span> Marketing &amp; Growth</span>
+                            <i class="fa-solid fa-chevron-down catalog-chevron"></i>
+                        </div>
+                        <ul class="submenu">
+                            <li data-target="view-newsletter-campaigns" data-breadcrumb="Marketing Campaigns">
+                                <i class="fa-solid fa-paper-plane"></i> Marketing Campaigns
+                            </li>
+                            <li data-target="view-crm-abandoned" data-breadcrumb="Abandoned Carts">
+                                <i class="fa-solid fa-cart-arrow-down"></i> Abandoned Carts
+                            </li>
+                            <li data-target="view-newsletter-subscribers" data-breadcrumb="Newsletter Subscribers">
+                                <i class="fa-solid fa-users"></i> Newsletter Subscribers
+                            </li>
+                        </ul>
+                    </li>
+
+                    <!-- 💰 Finance & Accounts -->
+                    <li class="menu-group nav-accordion nav-group-divider" data-nav-section="finance">
+                        <div class="catalog-toggle nav-group-toggle">
+                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">💰</span> Finance &amp; Accounts</span>
+                            <i class="fa-solid fa-chevron-down catalog-chevron"></i>
+                        </div>
+                        <ul class="submenu">
+                            <li data-target="view-finance" data-breadcrumb="Financial Reports" data-superadmin-only="true">
+                                <i class="fa-solid fa-chart-line"></i> Financial Reports
+                            </li>
+                            <li data-target="view-erp-expenses" data-breadcrumb="Expense Tracking">
+                                <i class="fa-solid fa-receipt"></i> Expense Tracking
+                            </li>
+                            <li class="sidebar-sub-external">
+                                <a href="/admin/payment-reconciliation" target="_blank" rel="noopener" class="sidebar-external-link" data-permission="manage_orders">
+                                    <i class="fa-solid fa-credit-card"></i> Payment Reconciliation
+                                    <i class="fa-solid fa-up-right-from-square sidebar-external-icon"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
                     <!-- 👥 HRM -->
-                    <li class="menu-group nav-accordion" data-nav-section="hrm">
+                    <li class="menu-group nav-accordion nav-group-divider" data-nav-section="hrm">
                         <div class="catalog-toggle nav-group-toggle">
                             <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">👥</span> HRM</span>
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
@@ -133,10 +163,10 @@
                         </ul>
                     </li>
 
-                    <!-- ⚙️ Settings & Security -->
-                    <li class="menu-group nav-accordion" data-nav-section="settings">
+                    <!-- 🔐 Settings & Security -->
+                    <li class="menu-group nav-accordion nav-group-divider" data-nav-section="settings">
                         <div class="catalog-toggle nav-group-toggle">
-                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">⚙️</span> Settings &amp; Security</span>
+                            <span class="catalog-toggle-label"><span class="nav-emoji" aria-hidden="true">🔐</span> Settings &amp; Security</span>
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
                         </div>
                         <ul class="submenu">

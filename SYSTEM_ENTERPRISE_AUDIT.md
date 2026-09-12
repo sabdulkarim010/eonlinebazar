@@ -1481,6 +1481,12 @@ All checklist items in sections **1–5, 7–8** are implemented and verified in
 
 ---
 
+## SIDEBAR REORGANIZATION
+
+**2026-09-12** — Admin sidebar live with **8 premium categories**: Dashboard (top-level), Catalog & Inventory, Sales & POS, CRM & Support, Marketing & Growth, Finance & Accounts, HRM, and Settings & Security. All existing `data-target` nav links preserved; accordion groups and breadcrumb labels updated in `sidebar.html`, `core-breadcrumb.js`, and `_layout.css`.
+
+---
+
 *End of Final System Audit — 2026-09-11. Files scanned: `backend/src/models/`, `backend/src/controllers/admin/`, `backend/src/routes/adminRoutes.js`, `backend/src/services/`, `backend/src/jobs/`, `client/admin/partials/`, `client/js/admin/modules/`, `mobile/src/`.*
 
 

@@ -929,6 +929,14 @@ README.md [DONE] test counts + HRM employee module notes
 # Sidebar restructure — staff & security nav: 2026-09-11
 client/admin/partials/sidebar.html [DONE] HRM trimmed to Employees/Attendance/Payroll/Leave; Admin Access & Roles + Staff Audit + Security Logs + Admin Sessions moved to Settings & Security accordion (renamed from Settings)
 #
+# Premium sidebar reorganization — 8 categories: 2026-09-12
+client/admin/partials/sidebar.html [DONE] 8 accordion groups — Catalog & Inventory, Sales & POS, CRM & Support, Marketing & Growth, Finance & Accounts, HRM, Settings & Security; all data-target values preserved
+client/js/admin/modules/core-breadcrumb.js [DONE] breadcrumb group labels aligned to 8-category sidebar
+client/css/admin/_layout.css [DONE] nav-group-divider spacing, uppercase section headers, expanded submenu max-height
+ARCHITECTURE.md [DONE] Admin Navigation table updated for 8-category structure
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] SIDEBAR REORGANIZATION section
+README.md [DONE] admin nav accordion list updated
+#
 # 1-click system access provisioning — 2026-09-11
 backend/src/models/employee.js [DONE] linkedAdminId field
 backend/src/models/admin.js [DONE] employeeRef field
