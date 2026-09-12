@@ -1008,6 +1008,16 @@ function bindSystemSettingsSectionForm(formId, { getPayload, successMessage, onS
 }
 
 function setupSystemSettingsSectionForms() {
+    bindSystemSettingsSectionForm('form-system-tax-vat', {
+        successMessage: 'Tax & VAT settings updated successfully!',
+        getPayload: () => ({
+            vatEnabled: document.getElementById('settingsVatEnabled')?.checked === true,
+            vatPercentage: document.getElementById('settingsVatPercentage')?.value,
+            vatInclusive: document.getElementById('settingsVatInclusive')?.checked !== false,
+            taxRegistrationNumber: document.getElementById('settingsTaxRegistrationNumber')?.value?.trim() || ''
+        })
+    });
+
     bindSystemSettingsSectionForm('form-system-announcement', {
         successMessage: 'Announcement & shipping settings updated successfully!',
         getPayload: () => ({

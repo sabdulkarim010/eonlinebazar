@@ -83,6 +83,7 @@ const {
 } = require('../controllers/bulkImportController');
 const cacheController = require('../controllers/cacheController');
 const sandboxController = require('../controllers/sandboxController');
+const backupController = require('../controllers/admin/backupController');
 
 // Minimal staff roster for order assignment dropdowns (before /staff mount)
 router.get('/staff/roster', verifyAdmin, checkPermission('manage_orders'), staffController.getStaffRoster);
@@ -635,6 +636,13 @@ router.post('/update-profile-pic', verifyAdmin, upload.single('profilePic'), adm
 // ৮. অ্যাডমিন প্রোফাইল (GET ছবি / PUT প্রোফাইল ডিটেইলস)
 router.get('/profile', verifyAdmin, adminController.getAdminProfile);
 router.put('/profile', verifyAdmin, adminController.updateAdminProfile);
+
+/********************************************************************
+ # Database backup — super-admin export only (no restore)
+ # URL: /api/admin/system/backup-now | /api/admin/system/backup-status
+ ********************************************************************/
+router.get('/system/backup-now', verifyAdmin, requireSuperAdmin, backupController.triggerBackup);
+router.get('/system/backup-status', verifyAdmin, requireSuperAdmin, backupController.getBackupStatus);
 
 // 🧪 Sandbox mode — super-admin only (Stripe-style test/live data separation)
 router.get('/sandbox/status', verifyAdmin, requireSuperAdmin, sandboxController.getSandboxStatus);

@@ -2,6 +2,7 @@ const request = require('supertest');
 const Product = require('../backend/src/models/product');
 const Order = require('../backend/src/models/order');
 const PaymentMethod = require('../backend/src/models/PaymentMethod');
+const Settings = require('../backend/src/models/Settings');
 const { getApp, createTestUser, getAuthToken } = require('./setup');
 
 describe('Order API', () => {
@@ -50,6 +51,46 @@ describe('Order API', () => {
         expect(orderRes.status).toBe(201);
         expect(orderRes.body.success).toBe(true);
         expect(orderRes.body.data.orderId).toBeTruthy();
+    });
+
+    test('POST /api/orders — applies additive VAT when vatEnabled and not inclusive', async () => {
+        const settings = await Settings.getOrCreate();
+        settings.vatEnabled = true;
+        settings.vatPercentage = 5;
+        settings.vatInclusive = false;
+        settings.taxRegistrationNumber = 'TRN-TEST-001';
+        await settings.save();
+
+        const product = await seedProduct();
+        const codMethod = await PaymentMethod.findOne({ code: 'cod' });
+        const { email, password, user } = await createTestUser();
+        const token = await getAuthToken(email, password);
+
+        const orderRes = await request(app)
+            .post('/api/orders')
+            .set('Authorization', `Bearer ${token}`)
+            .send({
+                customerName: 'VAT Test Customer',
+                customerPhone: user.mobile,
+                customerAddress: 'House 12, Road 5, Gulshan',
+                shippingDistrict: 'Dhaka',
+                paymentMethod: codMethod.code,
+                items: [{
+                    productId: String(product._id),
+                    name: product.name,
+                    price: product.price,
+                    quantity: 1
+                }]
+            });
+
+        expect(orderRes.status).toBe(201);
+        expect(orderRes.body.success).toBe(true);
+        expect(Number(orderRes.body.data.vatAmount)).toBe(60);
+        expect(Number(orderRes.body.data.vatPercentage)).toBe(5);
+        expect(orderRes.body.data.vatEnabled).toBe(true);
+        expect(orderRes.body.data.taxRegistrationNumber).toBe('TRN-TEST-001');
+        expect(Number(orderRes.body.lockedPricing.vatAmount)).toBe(60);
+        expect(Number(orderRes.body.data.grandTotal)).toBe(1260);
     });
 
     test('GET /api/orders/:orderId — get the created order, verify status is pending', async () => {

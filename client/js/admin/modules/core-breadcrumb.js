@@ -43,7 +43,8 @@ const BREADCRUMB_MAP = {
     'view-security': { group: 'System Settings', label: 'Security Logs' },
     'view-audit': { group: 'System Settings', label: 'Security & Audit' },
     'view-sessions': { group: 'System Settings', label: 'Admin Sessions' },
-    'view-file-manager': { group: 'System Settings', label: 'File Manager' }
+    'view-file-manager': { group: 'System Settings', label: 'File Manager' },
+    'view-system-backup': { group: 'System Settings', label: 'Backup & Restore' }
 };
 
 function resolveBreadcrumbMeta(sectionId, clickedItem) {

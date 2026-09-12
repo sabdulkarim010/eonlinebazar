@@ -112,21 +112,44 @@ function computeDeliveryCharge(settings, { customerDistrict, locationType, subto
 function buildLockedOrderTotals({
     itemSubtotal = 0,
     discountAmount = 0,
-    deliveryCharge = 0
+    deliveryCharge = 0,
+    vatAmount = 0
 } = {}) {
     const subTotal = roundMoney(Math.max(0, Number(itemSubtotal) || 0));
     const discount = roundMoney(Math.max(0, Number(discountAmount) || 0));
     const delivery = roundMoney(Math.max(0, Number(deliveryCharge) || 0));
+    const vat = roundMoney(Math.max(0, Number(vatAmount) || 0));
     const merchandisePayable = roundMoney(Math.max(0, subTotal - discount));
-    const grandTotal = roundMoney(merchandisePayable + delivery);
+    const grandTotal = roundMoney(merchandisePayable + vat + delivery);
 
     return {
         subTotal,
         discountAmount: discount,
         deliveryCharge: delivery,
+        vatAmount: vat,
         merchandisePayable,
         grandTotal
     };
+}
+
+async function getVatSettings() {
+    const doc = await Settings.getOrCreate();
+    const percentage = Number(doc.vatPercentage ?? doc.vatRate ?? 0);
+
+    return {
+        vatEnabled: doc.vatEnabled === true,
+        vatPercentage: Number.isFinite(percentage) ? percentage : 0,
+        vatInclusive: doc.vatInclusive !== false,
+        taxRegistrationNumber: String(doc.taxRegistrationNumber || '').trim()
+    };
+}
+
+function computeVatAmount({ merchandisePayable = 0, vatEnabled = false, vatPercentage = 0, vatInclusive = true } = {}) {
+    if (!vatEnabled || vatInclusive) return 0;
+    const rate = Number(vatPercentage) || 0;
+    if (rate <= 0) return 0;
+    const base = Math.max(0, Number(merchandisePayable) || 0);
+    return roundMoney(base * rate / 100);
 }
 
 function getOrderFinancials(order = {}) {
@@ -166,6 +189,8 @@ module.exports = {
     getFreeShippingProgress,
     computeDeliveryCharge,
     buildLockedOrderTotals,
+    getVatSettings,
+    computeVatAmount,
     getOrderFinancials,
     roundMoney
 };

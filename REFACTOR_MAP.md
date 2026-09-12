@@ -1126,3 +1126,34 @@ client/js/admin-staff.js [DONE] exposes window.hasAdminPermission; triggers dash
 tests/admin.test.js [DONE] +2 activity feed API tests
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] ACTIVITY FEED & ROLE DASHBOARDS — 2026-09-12
 README.md [DONE] 153 tests + activity feed / role dashboard note
+#
+# Database backup UI & Tax/VAT configuration — 2026-09-12
+backend/src/services/backupService.js [NEW] Mongoose-native full JSON export (no mongodump)
+backend/src/controllers/admin/backupController.js [NEW] triggerBackup + getBackupStatus (superadmin only)
+backend/src/routes/adminRoutes.js [DONE] GET /api/admin/system/backup-now, /system/backup-status
+backend/src/models/Settings.js [DONE] vatEnabled, vatPercentage, vatInclusive, taxRegistrationNumber, lastBackupAt
+backend/src/models/order.js [DONE] vatAmount, vatPercentage, vatEnabled, taxRegistrationNumber snapshots
+backend/src/services/deliveryChargeService.js [DONE] getVatSettings, computeVatAmount; buildLockedOrderTotals accepts vatAmount
+backend/src/controllers/orderCheckoutController.js [DONE] additive VAT at checkout; persists on order
+backend/src/controllers/orderControllerHelpers.js [DONE] vatAmount in buildLockedPricingPayload
+backend/src/controllers/masterSettingsController.js [DONE] Tax/VAT field read/write + vatRate sync
+backend/src/utils/invoicePdf.js [DONE] VAT line + tax reg. number on PDF invoice
+backend/src/utils/adminPageBuilder.js [DONE] registers view-system-backup partial
+client/admin/partials/view-system-backup.html [NEW] Backup & Restore page (export only)
+client/js/admin/modules/system-backup.js [NEW] downloadFullBackup, loadSystemBackupSection
+client/css/admin/_system-backup.css [NEW] backup panel styles
+client/css/admin/_settings.css [DONE] imports _system-backup.css
+client/admin/partials/sidebar.html [DONE] Backup & Restore nav (superadmin-only)
+client/admin/partials/view-settings.html [DONE] utilities hub link; general tab VAT moved to Shipping
+client/admin/partials/view-shipping-payments.html [DONE] Tax & VAT settings card
+client/js/admin/admin-settings.js [DONE] imports system-backup.js
+client/js/admin/modules/settings-cms.js [DONE] form-system-tax-vat save binding
+client/js/admin/modules/settings-platform.js [DONE] applyMasterSettingsToUI Tax/VAT fields
+client/js/admin/modules/settings-hub.js [DONE] removed vatRate from general tab save
+client/js/admin/modules/core-nav.js [DONE] view-system-backup refresh hook
+client/js/admin/modules/core-state.js [DONE] view-system-backup page meta
+client/js/admin/modules/core-breadcrumb.js [DONE] Backup & Restore breadcrumb
+tests/admin.test.js [DONE] +3 backup API tests; expanded Tax/VAT settings test
+tests/order.test.js [DONE] +1 additive VAT checkout test
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] BACKUP & TAX CONFIG — 2026-09-12
+README.md [DONE] 157 tests + backup UI / Tax/VAT note

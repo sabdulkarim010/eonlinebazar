@@ -505,8 +505,15 @@ function applyMasterSettingsToUI(settings) {
     setVal('frequentBuyerMinOrders', settings.frequentBuyerMinOrders);
     setVal('defaultProductsPerPage', settings.defaultProductsPerPage ?? settings.productsPerPage ?? 24);
     setVal('settingsDefaultProductsPerPage', settings.defaultProductsPerPage ?? settings.productsPerPage ?? 24);
-    setVal('settingsVatRate', settings.vatRate ?? settings.taxRate ?? 0);
     setVal('settingsOrderPrefix', settings.orderPrefix || 'ORD');
+
+    const vatPct = settings.vatPercentage ?? settings.vatRate ?? settings.taxRate ?? 0;
+    setVal('settingsVatPercentage', vatPct);
+    const vatEnabledToggle = document.getElementById('settingsVatEnabled');
+    if (vatEnabledToggle) vatEnabledToggle.checked = settings.vatEnabled === true;
+    const vatInclusiveToggle = document.getElementById('settingsVatInclusive');
+    if (vatInclusiveToggle) vatInclusiveToggle.checked = settings.vatInclusive !== false;
+    setVal('settingsTaxRegistrationNumber', settings.taxRegistrationNumber || '');
 
     const maintenanceToggle = document.getElementById('settingsMaintenanceMode');
     if (maintenanceToggle) {

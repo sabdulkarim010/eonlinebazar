@@ -1,0 +1,50 @@
+<section id="view-system-backup" class="admin-section" style="display: none;" data-superadmin-only="true">
+    <div class="section-header-box">
+        <h3>Backup &amp; Restore</h3>
+        <p class="section-subtitle">Download a portable JSON snapshot of your MongoDB data. Restore is not available from this panel.</p>
+    </div>
+
+    <div class="system-settings-stack">
+        <div class="system-settings-card system-settings-card--indigo">
+            <div class="system-settings-card-header">
+                <div class="system-settings-card-icon system-settings-card-icon--indigo" aria-hidden="true">
+                    <i class="fa-solid fa-database"></i>
+                </div>
+                <div class="system-settings-card-heading">
+                    <h4>Download Full Backup</h4>
+                    <p class="settings-card-sub">Exports every collection via Mongoose into a single JSON file. Large datasets may take a moment.</p>
+                </div>
+            </div>
+
+            <div class="master-settings-grid">
+                <div class="form-group form-group-full">
+                    <p id="backupLastRunText" class="field-hint">Last backup: never</p>
+                    <p class="field-hint backup-warning-text">
+                        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                        This operation reads the entire database. Please wait until the download completes — do not close the tab.
+                    </p>
+                </div>
+            </div>
+
+            <div class="system-settings-card-footer">
+                <button type="button" id="downloadFullBackupBtn" class="btn-submit system-settings-save-btn" onclick="downloadFullBackup()">
+                    <i class="fa-solid fa-download"></i> Download Full Backup
+                </button>
+            </div>
+        </div>
+
+        <div class="system-settings-card">
+            <div class="system-settings-card-header">
+                <div class="system-settings-card-heading">
+                    <h4>Restore</h4>
+                    <p class="settings-card-sub">Database restore is a high-risk operation and is not exposed in the admin panel.</p>
+                </div>
+            </div>
+            <div class="master-settings-grid">
+                <div class="form-group form-group-full">
+                    <p class="field-hint"><strong>Restore functionality:</strong> contact your developer.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

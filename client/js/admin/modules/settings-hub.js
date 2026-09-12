@@ -180,7 +180,6 @@ function setupUnifiedSettingsHub() {
                 : () => {};
 
             const payload = {
-                vatRate: document.getElementById('settingsVatRate')?.value,
                 orderPrefix: document.getElementById('settingsOrderPrefix')?.value?.trim(),
                 maintenanceMode: document.getElementById('settingsMaintenanceMode')?.checked === true,
                 maintenanceMessage: document.getElementById('settingsMaintenanceMessage')?.value?.trim(),

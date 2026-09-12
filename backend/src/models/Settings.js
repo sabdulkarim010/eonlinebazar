@@ -305,6 +305,29 @@ const settingsSchema = new mongoose.Schema({
         min: 0,
         max: 100
     },
+    vatEnabled: {
+        type: Boolean,
+        default: false
+    },
+    vatPercentage: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 100
+    },
+    vatInclusive: {
+        type: Boolean,
+        default: true
+    },
+    taxRegistrationNumber: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    lastBackupAt: {
+        type: Date,
+        default: null
+    },
     orderPrefix: {
         type: String,
         default: 'ORD',

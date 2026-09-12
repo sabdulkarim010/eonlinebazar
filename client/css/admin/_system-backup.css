@@ -1,0 +1,9 @@
+/* Super-admin database backup panel */
+.backup-warning-text {
+    color: #b45309;
+    margin-top: 8px;
+}
+
+.backup-warning-text i {
+    margin-right: 6px;
+}

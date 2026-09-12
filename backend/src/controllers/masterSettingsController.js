@@ -69,7 +69,8 @@ const FIELD_ALIASES = {
     frequentBuyerMinOrders: ['frequentBuyerMinOrders'],
     referralRewardAmount: ['referralRewardAmount', 'referralReward'],
     defaultProductsPerPage: ['defaultProductsPerPage', 'productsPerPage'],
-    vatRate: ['vatRate', 'taxRate', 'vatPercentage'],
+    vatRate: ['vatRate', 'taxRate'],
+    vatPercentage: ['vatPercentage', 'vatRate', 'taxRate'],
     orderPrefix: ['orderPrefix'],
     silverThreshold: ['silverThreshold'],
     goldThreshold: ['goldThreshold'],
@@ -96,7 +97,8 @@ const NUMERIC_FIELD_RULES = {
     silverCashback: { label: 'Silver tier cashback', min: 0, max: 100 },
     goldCashback: { label: 'Gold tier cashback', min: 0, max: 100 },
     platinumCashback: { label: 'Platinum tier cashback', min: 0, max: 100 },
-    vatRate: { label: 'VAT / tax rate', min: 0, max: 100 }
+    vatRate: { label: 'VAT / tax rate', min: 0, max: 100 },
+    vatPercentage: { label: 'VAT percentage', min: 0, max: 100 }
 };
 
 /**
@@ -185,7 +187,12 @@ const buildUnifiedPayload = async (settingsDoc) => {
         silverCashback: Number(settingsDoc.silverCashback ?? 1.5),
         goldCashback: Number(settingsDoc.goldCashback ?? 2.5),
         platinumCashback: Number(settingsDoc.platinumCashback ?? 4.0),
-        vatRate: Number(settingsDoc.vatRate ?? 0),
+        vatRate: Number(settingsDoc.vatPercentage ?? settingsDoc.vatRate ?? 0),
+        vatEnabled: settingsDoc.vatEnabled === true,
+        vatPercentage: Number(settingsDoc.vatPercentage ?? settingsDoc.vatRate ?? 0),
+        vatInclusive: settingsDoc.vatInclusive !== false,
+        taxRegistrationNumber: String(settingsDoc.taxRegistrationNumber || '').trim(),
+        lastBackupAt: settingsDoc.lastBackupAt || null,
         orderPrefix: String(settingsDoc.orderPrefix || 'ORD').trim() || 'ORD',
         maintenanceMode: settingsDoc.maintenanceMode === true,
         maintenanceMessage: String(settingsDoc.maintenanceMessage || '').trim()
@@ -317,6 +324,25 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
         settings.maintenanceMessage = String(body.maintenanceMessage || '').trim()
             || 'We are currently performing scheduled maintenance. Please check back soon.';
         changes.push('Maintenance message updated');
+    }
+
+    if (body.vatEnabled !== undefined) {
+        settings.vatEnabled = parseBoolean(body.vatEnabled, false);
+        changes.push(`VAT enabled: ${settings.vatEnabled ? 'yes' : 'no'}`);
+    }
+
+    if (body.vatInclusive !== undefined) {
+        settings.vatInclusive = parseBoolean(body.vatInclusive, true);
+        changes.push(`VAT inclusive pricing: ${settings.vatInclusive ? 'yes' : 'no'}`);
+    }
+
+    if (body.taxRegistrationNumber !== undefined) {
+        settings.taxRegistrationNumber = String(body.taxRegistrationNumber ?? '').trim();
+        changes.push('Tax registration number updated');
+    }
+
+    if (settings.vatPercentage !== undefined && settings.vatPercentage !== null) {
+        settings.vatRate = Number(settings.vatPercentage) || 0;
     }
 
     if (body.smsGatewayProvider !== undefined) {

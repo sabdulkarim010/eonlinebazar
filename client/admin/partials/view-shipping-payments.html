@@ -6,6 +6,55 @@
 
     <div class="system-settings-stack">
 
+        <form id="form-system-tax-vat" class="system-settings-form" novalidate>
+            <div class="system-settings-card system-settings-card--indigo">
+                <div class="system-settings-card-header">
+                    <div class="system-settings-card-icon system-settings-card-icon--indigo" aria-hidden="true">
+                        <i class="fa-solid fa-receipt"></i>
+                    </div>
+                    <div class="system-settings-card-heading">
+                        <h4>Tax &amp; VAT</h4>
+                        <p class="settings-card-sub">Domestic VAT configuration applied at checkout. VAT amount is stored on each order for accurate invoices.</p>
+                    </div>
+                </div>
+
+                <div class="master-settings-grid">
+                    <div class="form-group">
+                        <label class="checkbox-label" for="settingsVatEnabled">
+                            <input type="checkbox" id="settingsVatEnabled">
+                            Enable VAT on checkout
+                        </label>
+                        <small class="field-hint">When disabled, no VAT line is added to orders.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="settingsVatPercentage">VAT Percentage (%)</label>
+                        <input type="number" id="settingsVatPercentage" min="0" max="100" step="0.01" placeholder="0">
+                        <small class="field-hint">Applied to merchandise subtotal after discounts when VAT is not inclusive.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label" for="settingsVatInclusive">
+                            <input type="checkbox" id="settingsVatInclusive" checked>
+                            Displayed prices already include VAT
+                        </label>
+                        <small class="field-hint">When checked, VAT is not added on top at checkout (inclusive pricing).</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="settingsTaxRegistrationNumber">Tax Registration Number</label>
+                        <input type="text" id="settingsTaxRegistrationNumber" maxlength="64" placeholder="Optional — shown on invoices">
+                    </div>
+                </div>
+
+                <div class="system-settings-card-footer">
+                    <button type="submit" class="btn-submit system-settings-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Tax &amp; VAT
+                    </button>
+                </div>
+            </div>
+        </form>
+
         <form id="form-system-announcement" class="system-settings-form" novalidate>
             <div class="system-settings-card system-settings-card--blue">
                 <div class="system-settings-card-header">

@@ -41,6 +41,7 @@ function buildLockedPricingPayload({
     subTotal,
     discountAmount,
     deliveryCharge,
+    vatAmount = 0,
     merchandisePayable,
     grandTotal,
     processingFee = 0,
@@ -58,6 +59,7 @@ function buildLockedPricingPayload({
         subTotal: roundMoney(subTotal),
         discountAmount: roundMoney(discountAmount),
         deliveryCharge: roundMoney(deliveryCharge),
+        vatAmount: roundMoney(vatAmount),
         merchandisePayable: roundMoney(merchandisePayable),
         // grandTotal excludes the gateway surcharge so the merchandise + shipping
         // figure stays comparable across payment methods.

@@ -68,7 +68,7 @@ The web client uses vanilla JavaScript with a modular ES architecture. The API r
 
 The admin header includes an **in-app notification center** (bell icon with unread badge, dropdown inbox, 30s polling) backed by `AdminNotification` and `/api/admin/notifications/*`. High-value tables (Customers, Orders, Products, Employees) support **filter-aware CSV export** via dedicated `/api/admin/*/export` endpoints.
 
-All modules below are **100% completed** and wired into the **7-module enterprise admin navigation** (**Dashboard · Sales & Orders · Catalog & Inventory · Marketing & Content · HRM & Staff · Accounts & Finance · System Settings**). **Accounts & Finance** includes a new **Accounts Overview** page (`view-accounts.html`) with cash flow, liquidity, and balance summary cards backed by `GET /api/admin/accounts-summary`. **System Settings** is a unified tabbed hub (`view-settings.html` + `settings-hub.js`) — a single sidebar entry with five inner tabs (Branding, General, Shipping & Payments, Security, Utilities) — using SweetAlert2 for saves and tab feedback. **System Staff Directory** lives under HRM; Staff Audit, Sessions, and Security Logs open from the Security tab. Employee profile **Access** tab supports three live states — no access (Grant), active (Manage / Suspend / Revoke), and suspended (Re-activate).
+All modules below are **100% completed** and wired into the **7-module enterprise admin navigation** (**Dashboard · Sales & Orders · Catalog & Inventory · Marketing & Content · HRM & Staff · Accounts & Finance · System Settings**). **Accounts & Finance** includes a new **Accounts Overview** page (`view-accounts.html`) with cash flow, liquidity, and balance summary cards backed by `GET /api/admin/accounts-summary`. **System Settings** is a unified tabbed hub (`view-settings.html` + `settings-hub.js`) — a single sidebar entry with five inner tabs (Branding, General, Shipping & Payments, Security, Utilities) — using SweetAlert2 for saves and tab feedback. **Super-admin database backup** (`view-system-backup.html`, `GET /api/admin/system/backup-now`) exports a portable Mongoose JSON snapshot; restore is intentionally not exposed in-panel. **Tax & VAT** configuration lives on the Shipping & Payments tab (`vatEnabled`, `vatPercentage`, `vatInclusive`, `taxRegistrationNumber`) and applies additive VAT at checkout with amounts snapshotted on each order and shown on PDF invoices. **System Staff Directory** lives under HRM; Staff Audit, Sessions, and Security Logs open from the Security tab. Employee profile **Access** tab supports three live states — no access (Grant), active (Manage / Suspend / Revoke), and suspended (Re-activate).
 
 ### 1. ERP Pillar — Enterprise Resource Planning
 
@@ -135,7 +135,7 @@ Read these documents before making changes. Operational notes belong in the exis
 
 ## Quality Assurance & Testing
 
-The repository ships with **100% passing automated coverage: 153 / 153 tests** across **15 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
+The repository ships with **100% passing automated coverage: 157 / 157 tests** across **15 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
 
 ```bash
 npm test
@@ -145,9 +145,9 @@ npm test
 |-------|------|------:|-------|
 | Auth | `tests/auth.test.js` | 14 | Register, login, verification, account deletion |
 | Cart | `tests/cart.test.js` | 6 | Add, hydrate images, clear |
-| Order | `tests/order.test.js` | 9 | COD create, track, cancel, line-item shape |
+| Order | `tests/order.test.js` | 10 | COD create, track, cancel, line-item shape, additive VAT at checkout |
 | Payment | `tests/payment.test.js` | 3 | Gateway adapter, COD IPN, admin payment update |
-| Admin | `tests/admin.test.js` | 22 | Login, orders, in-app notifications, bulk CSV export, activity feed, VAT/maintenance settings, master editor |
+| Admin | `tests/admin.test.js` | 25 | Login, orders, notifications, bulk CSV export, activity feed, database backup, Tax/VAT settings, master editor |
 | Notes | `tests/note.test.js` | 7 | Owner-scoped notebook and expense validation |
 | Product seed | `tests/product-seed.test.js` | 3 | Demo catalog upsert |
 | Chat session | `tests/chat-end-session.test.js` | 8 | Guest / agent / admin end-session ownership |
@@ -158,7 +158,7 @@ npm test
 | Profit & Loss | `tests/profitLoss.test.js` | 2 | P&amp;L report shape and empty-range zero case |
 | POS | `tests/pos.test.js` | 2 | Manual counter order creation |
 | Abandoned carts | `tests/abandonedCart.test.js` | 3 | CRM list KPIs and recovery notify |
-| **Total** | | **135** | All suites green |
+| **Total** | | **157** | All suites green |
 
 Expected Jest summary:
 

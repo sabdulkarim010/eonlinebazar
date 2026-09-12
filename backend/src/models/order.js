@@ -170,6 +170,10 @@ const orderSchema = new mongoose.Schema({
     // Coupon / discount snapshot (optional — backwards compatible with legacy orders)
     subtotal: { type: Number, default: 0 },
     discountAmount: { type: Number, default: 0 },
+    vatAmount: { type: Number, default: 0, min: 0 },
+    vatPercentage: { type: Number, default: 0, min: 0, max: 100 },
+    vatEnabled: { type: Boolean, default: false },
+    taxRegistrationNumber: { type: String, default: '', trim: true },
     walletApplied: { type: Number, default: 0, min: 0 },
     couponCode: { type: String, default: '', trim: true, uppercase: true },
     deliveryLocationType: { type: String, enum: ['inside', 'outside'], default: 'inside' },

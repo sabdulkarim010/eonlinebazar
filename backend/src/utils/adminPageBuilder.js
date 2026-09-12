@@ -44,7 +44,8 @@ const VIEW_PARTIALS = [
     'view-purchase-orders',
     'view-accounts',
     'view-finance',
-    'view-erp-expenses'
+    'view-erp-expenses',
+    'view-system-backup'
 ];
 
 const MODAL_PARTIALS = [

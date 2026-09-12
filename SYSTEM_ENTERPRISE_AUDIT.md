@@ -1821,5 +1821,20 @@ SweetAlert2 toasts on tab switch and master-settings saves. Enterprise features 
 | RBAC section map | ✅ COMPLETE | `view-activity-feed` → `manage_security` in `permissions.js`. |
 | Tests | ✅ COMPLETE | `tests/admin.test.js` +2 — activity feed success + staff 403 without `manage_security`. **153 / 153 tests passing.** |
 
+---
+
+## BACKUP & TAX CONFIG — 2026-09-12
+
+| Task | Status | Summary |
+|------|--------|---------|
+| Database backup export | ✅ COMPLETE | `backend/src/services/backupService.js` — Mongoose-native full JSON export (no `mongodump` binary; portable in `node:20-alpine` Docker). `exportFullBackup()` iterates all registered models, writes one dated JSON file to a temp path, streams as download. |
+| Backup API | ✅ COMPLETE | `backend/src/controllers/admin/backupController.js` — `GET /api/admin/system/backup-now` (superadmin only via `verifyAdmin` + `requireSuperAdmin`), `GET /api/admin/system/backup-status` for `lastBackupAt`. SecurityLog entry on each download. |
+| Backup admin UI | ✅ COMPLETE | `client/admin/partials/view-system-backup.html` + `client/js/admin/modules/system-backup.js` — Download Full Backup button, last-backup timestamp, warning for large datasets, restore placeholder (“contact your developer”). Registered in `adminPageBuilder.js`, sidebar + Settings Hub utilities (superadmin-only). |
+| Tax / VAT settings model | ✅ COMPLETE | `Settings.js` — `vatEnabled`, `vatPercentage`, `vatInclusive`, `taxRegistrationNumber`, `lastBackupAt`; legacy `vatRate` kept in sync with `vatPercentage`. |
+| Tax / VAT admin UI | ✅ COMPLETE | “Tax & VAT” card on `view-shipping-payments.html` (Shipping & Payments tab) with enable toggle, percentage, inclusive pricing, tax reg. number, save via master-settings. |
+| Checkout VAT calculation | ✅ COMPLETE | `orderCheckoutController.js` + `deliveryChargeService.js` — when `vatEnabled` and not `vatInclusive`, adds `vatPercentage` of merchandise subtotal (after discount) as `vatAmount`; stored on `Order` for historical invoices. |
+| Invoice PDF VAT line | ✅ COMPLETE | `invoicePdf.js` — shows VAT line and tax registration number when present on the order snapshot. |
+| Tests | ✅ COMPLETE | `tests/admin.test.js` +3 backup API tests + expanded Tax/VAT settings test; `tests/order.test.js` +1 additive VAT checkout test. **157 / 157 tests passing.** |
+
 
 

@@ -26,6 +26,8 @@ const {
     toShippingLocationLabel,
     computeDeliveryCharge,
     buildLockedOrderTotals,
+    getVatSettings,
+    computeVatAmount,
     roundMoney,
     isValidDistrict
 } = require('../services/deliveryChargeService');
@@ -333,16 +335,28 @@ const createOrder = async (req, res) => {
             customerDistrict: shippingDistrict,
             subtotal
         });
+
+        const vatSettings = await getVatSettings();
+        const merchandiseBeforeVat = roundMoney(Math.max(0, subtotal - discountAmount));
+        const vatAmount = computeVatAmount({
+            merchandisePayable: merchandiseBeforeVat,
+            vatEnabled: vatSettings.vatEnabled,
+            vatPercentage: vatSettings.vatPercentage,
+            vatInclusive: vatSettings.vatInclusive
+        });
+
         const lockedTotals = buildLockedOrderTotals({
             itemSubtotal: subtotal,
             discountAmount,
-            deliveryCharge
+            deliveryCharge,
+            vatAmount
         });
         const {
             subTotal,
             grandTotal,
             deliveryCharge: lockedDeliveryCharge,
-            merchandisePayable
+            merchandisePayable,
+            vatAmount: lockedVatAmount
         } = lockedTotals;
 
         const wantsWallet = req.body.applyWallet === true
@@ -407,6 +421,7 @@ const createOrder = async (req, res) => {
             subTotal,
             discountAmount,
             deliveryCharge: lockedDeliveryCharge,
+            vatAmount: lockedVatAmount,
             merchandisePayable,
             grandTotal,
             processingFee,
@@ -434,6 +449,10 @@ const createOrder = async (req, res) => {
             totalAmount: finalGrandTotal,
             subtotal: subTotal,
             discountAmount,
+            vatAmount: lockedVatAmount,
+            vatPercentage: vatSettings.vatPercentage,
+            vatEnabled: vatSettings.vatEnabled,
+            taxRegistrationNumber: vatSettings.taxRegistrationNumber,
             walletApplied,
             couponCode: appliedCouponCode,
             deliveryLocationType,

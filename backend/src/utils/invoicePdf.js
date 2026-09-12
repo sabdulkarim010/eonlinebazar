@@ -9,11 +9,12 @@ function resolveOrderFinancials(order = {}) {
     const subTotal = Number(order.subTotal ?? order.subtotal) || 0;
     const discountAmount = Number(order.discountAmount) || 0;
     const deliveryCharge = Number(order.deliveryCharge ?? order.shippingFee) || 0;
+    const vatAmount = Number(order.vatAmount) || 0;
     const processingFee = Number(order.processingFee ?? order.payment?.processingFee) || 0;
     const grandTotal = Number(order.grandTotal ?? order.totalAmount)
-        || Math.max(0, subTotal - discountAmount + deliveryCharge + processingFee);
+        || Math.max(0, subTotal - discountAmount + vatAmount + deliveryCharge + processingFee);
 
-    return { subTotal, discountAmount, deliveryCharge, processingFee, grandTotal };
+    return { subTotal, discountAmount, deliveryCharge, vatAmount, processingFee, grandTotal };
 }
 
 function resolveInvoiceNumber(order = {}) {
@@ -117,8 +118,12 @@ function generateOrderInvoicePdf(order = {}) {
                 doc.text(`Delivery Zone: ${order.shippingLocationType}`, 50, 198);
             }
 
+            if (order.taxRegistrationNumber) {
+                doc.text(`Tax Reg. #: ${order.taxRegistrationNumber}`, 50, 212);
+            }
+
             // Items table header
-            const tableTop = 230;
+            const tableTop = order.taxRegistrationNumber ? 244 : 230;
             doc.rect(50, tableTop, 495, 24).fill('#2563eb');
             drawTableRow(doc, ['Product', 'Qty', 'Unit Price', 'Line Total'], tableTop, { header: true });
 
@@ -172,6 +177,13 @@ function generateOrderInvoicePdf(order = {}) {
             if (financials.discountAmount > 0) {
                 const couponLabel = order.couponCode ? `Discount (${order.couponCode})` : 'Discount';
                 summaryLines.push([couponLabel, `- ${formatCurrency(financials.discountAmount)}`]);
+            }
+
+            if (financials.vatAmount > 0) {
+                const vatLabel = order.vatPercentage
+                    ? `VAT (${order.vatPercentage}%)`
+                    : 'VAT';
+                summaryLines.push([vatLabel, formatCurrency(financials.vatAmount)]);
             }
 
             if (financials.processingFee > 0) {

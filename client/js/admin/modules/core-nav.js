@@ -684,6 +684,7 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-staff': () => window.loadStaffSection && window.loadStaffSection(),
         // File Manager lives in js/admin-file-manager.js (Super Admin only)
         'view-file-manager': () => window.loadFileManagerSection && window.loadFileManagerSection(),
+        'view-system-backup': () => window.loadSystemBackupSection && window.loadSystemBackupSection(),
         'view-settings': () => {
             fetchAdminSettings();
             if (typeof fetchMasterSettings === 'function') fetchMasterSettings();

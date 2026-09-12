@@ -350,14 +350,17 @@ describe('Admin API', () => {
         expect(res.text).toContain('Order ID');
     });
 
-    test('POST /api/admin/master-settings/update accepts VAT and maintenance fields', async () => {
+    test('POST /api/admin/master-settings/update accepts Tax/VAT and maintenance fields', async () => {
         const token = await getAdminAuthToken();
 
         const res = await request(app)
             .post('/api/admin/master-settings/update')
             .set('Authorization', `Bearer ${token}`)
             .send({
-                vatRate: 5,
+                vatEnabled: true,
+                vatPercentage: 5,
+                vatInclusive: false,
+                taxRegistrationNumber: 'TRN-12345',
                 orderPrefix: 'EOB',
                 maintenanceMode: true,
                 maintenanceMessage: 'Scheduled maintenance in progress.'
@@ -365,9 +368,69 @@ describe('Admin API', () => {
 
         expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);
+        expect(Number(res.body.data.vatPercentage)).toBe(5);
         expect(Number(res.body.data.vatRate)).toBe(5);
+        expect(res.body.data.vatEnabled).toBe(true);
+        expect(res.body.data.vatInclusive).toBe(false);
+        expect(res.body.data.taxRegistrationNumber).toBe('TRN-12345');
         expect(res.body.data.orderPrefix).toBe('EOB');
         expect(res.body.data.maintenanceMode).toBe(true);
+    });
+
+    describe('Database backup (superadmin only)', () => {
+        test('GET /api/admin/system/backup-now streams a JSON attachment for superadmin', async () => {
+            const token = await getAdminAuthToken();
+
+            const res = await request(app)
+                .get('/api/admin/system/backup-now')
+                .set('Authorization', `Bearer ${token}`);
+
+            expect(res.status).toBe(200);
+            expect(res.headers['content-type']).toMatch(/application\/json/);
+            expect(res.headers['content-disposition']).toMatch(/attachment/i);
+            expect(res.headers['content-disposition']).toMatch(/eonlinebazar-backup-/);
+
+            const payload = JSON.parse(res.text);
+            expect(payload.exportedAt).toBeTruthy();
+            expect(payload.collections).toBeTruthy();
+            expect(typeof payload.documentCount).toBe('number');
+        });
+
+        test('GET /api/admin/system/backup-status returns lastBackupAt', async () => {
+            const token = await getAdminAuthToken();
+
+            await request(app)
+                .get('/api/admin/system/backup-now')
+                .set('Authorization', `Bearer ${token}`);
+
+            const res = await request(app)
+                .get('/api/admin/system/backup-status')
+                .set('Authorization', `Bearer ${token}`);
+
+            expect(res.status).toBe(200);
+            expect(res.body.success).toBe(true);
+            expect(res.body.data.lastBackupAt).toBeTruthy();
+        });
+
+        test('GET /api/admin/system/backup-now rejects staff without superadmin role', async () => {
+            const { username } = await createTestAdmin({
+                role: 'staff',
+                permissions: ['manage_settings'],
+                twoFactorEnabled: false
+            });
+            const token = jwt.sign(
+                { username, role: 'staff' },
+                process.env.JWT_SECRET,
+                { expiresIn: '24h' }
+            );
+
+            const res = await request(app)
+                .get('/api/admin/system/backup-now')
+                .set('Authorization', `Bearer ${token}`);
+
+            expect(res.status).toBe(403);
+            expect(res.body.success).toBe(false);
+        });
     });
 
     test('GET /api/admin/accounts-summary returns cash flow and balance metrics', async () => {
