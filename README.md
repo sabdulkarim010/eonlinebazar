@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
   <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
   <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
-  <img src="https://img.shields.io/badge/tests-135%2F135-brightgreen" alt="135/135 Tests Passing">
+  <img src="https://img.shields.io/badge/tests-136%2F136-brightgreen" alt="136/136 Tests Passing">
   <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
   <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
   <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">
@@ -66,7 +66,7 @@ The web client uses vanilla JavaScript with a modular ES architecture. The API r
 
 ## Core Pillars & Enterprise Modules
 
-All modules below are **100% completed** and wired into the **7-module enterprise admin navigation** (**Dashboard · Sales & Orders · Catalog & Inventory · Marketing & Content · HRM & Staff · Accounts & Finance · System Settings**). **System Settings** is a unified tabbed hub (`view-settings.html` + `settings-hub.js`) with five tabs — Branding, General (VAT/tax, maintenance mode), Shipping & Payments, Security & Access, and System Utilities — using SweetAlert2 for saves and tab feedback. **System Staff Directory** lives under HRM; Staff Audit, Sessions, and Security Logs open from the Security tab. Employee profile **Access** tab supports three live states — no access (Grant), active (Manage / Suspend / Revoke), and suspended (Re-activate).
+All modules below are **100% completed** and wired into the **7-module enterprise admin navigation** (**Dashboard · Sales & Orders · Catalog & Inventory · Marketing & Content · HRM & Staff · Accounts & Finance · System Settings**). **Accounts & Finance** includes a new **Accounts Overview** page (`view-accounts.html`) with cash flow, liquidity, and balance summary cards backed by `GET /api/admin/accounts-summary`. **System Settings** is a unified tabbed hub (`view-settings.html` + `settings-hub.js`) — a single sidebar entry with five inner tabs (Branding, General, Shipping & Payments, Security, Utilities) — using SweetAlert2 for saves and tab feedback. **System Staff Directory** lives under HRM; Staff Audit, Sessions, and Security Logs open from the Security tab. Employee profile **Access** tab supports three live states — no access (Grant), active (Manage / Suspend / Revoke), and suspended (Re-activate).
 
 ### 1. ERP Pillar — Enterprise Resource Planning
 
@@ -133,7 +133,7 @@ Read these documents before making changes. Operational notes belong in the exis
 
 ## Quality Assurance & Testing
 
-The repository ships with **100% passing automated coverage: 135 / 135 tests** across **11 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
+The repository ships with **100% passing automated coverage: 136 / 136 tests** across **11 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
 
 ```bash
 npm test
@@ -301,7 +301,7 @@ eonlinebazar-fullstack/
 ├── ecommerce-chat/              # Live-chat microservice (port 5001)
 ├── admin-dashboard/             # Vite React chat-admin SPA → /chat-admin
 ├── devops/                      # Nginx, droplet first-time setup
-├── tests/                       # 11 Jest suites / 135 tests
+├── tests/                       # 11 Jest suites / 136 tests
 ├── scripts/                     # Seed and index migration
 ├── ARCHITECTURE.md
 ├── REFACTOR_MAP.md

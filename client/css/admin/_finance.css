@@ -307,3 +307,112 @@
     .pl-charts { grid-template-columns: 1fr; }
     .pl-controls-actions { margin-left: 0; width: 100%; }
 }
+
+/* =====================================================================
+   Accounts Overview (#view-accounts)
+   Rendered by erp-accounts.js
+   ===================================================================== */
+
+.accounts-header-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.accounts-loading,
+.accounts-error {
+    margin: 16px 0;
+}
+
+.accounts-error {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.accounts-cashflow-card {
+    background: var(--admin-card-bg, #fff);
+    border: 1px solid var(--admin-border, #e2e8f0);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 24px;
+}
+
+.accounts-cashflow-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.accounts-cashflow-metric {
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--admin-border, #e2e8f0);
+    background: #f8fafc;
+}
+
+.accounts-cashflow-metric--in { border-left: 4px solid #16a34a; }
+.accounts-cashflow-metric--out { border-left: 4px solid #dc2626; }
+.accounts-cashflow-metric--net { border-left: 4px solid #2563eb; }
+
+.accounts-metric-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--admin-text-muted, #64748b);
+    margin-bottom: 6px;
+}
+
+.accounts-metric-value {
+    display: block;
+    font-size: 1.65rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.2;
+}
+
+.accounts-metric-sub {
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--admin-text-muted, #64748b);
+}
+
+.accounts-metric-hint {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.accounts-liquidity-badge {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.accounts-liquidity-badge--positive {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.accounts-liquidity-badge--negative {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.accounts-liquidity-badge--neutral {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.accounts-metrics-grid {
+    margin-bottom: 24px;
+}
+
+@media (max-width: 900px) {
+    .accounts-cashflow-grid { grid-template-columns: 1fr; }
+}

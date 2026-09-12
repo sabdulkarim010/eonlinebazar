@@ -1,0 +1,90 @@
+<section id="view-accounts" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <div>
+            <h3><i class="fa-solid fa-wallet"></i> Accounts Overview</h3>
+            <p class="section-subtitle">Cash flow, liquidity position, and financial account balances at a glance.</p>
+        </div>
+        <div class="accounts-header-actions">
+            <button type="button" class="btn-secondary" id="accountsRefreshBtn" onclick="loadAccountsSection()">
+                <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div id="accountsLoading" class="accounts-loading loading-container" hidden>
+        <div class="spinner"></div>
+        <p>Loading accounts summary…</p>
+    </div>
+
+    <p id="accountsError" class="accounts-error" hidden></p>
+
+    <div id="accountsContent" class="accounts-content" hidden>
+        <!-- Cash Flow & Liquidity -->
+        <div class="dashboard-section-label">
+            <h2><i class="fa-solid fa-water"></i> Cash Flow &amp; Liquidity</h2>
+        </div>
+
+        <div class="accounts-cashflow-card">
+            <div class="accounts-cashflow-grid">
+                <div class="accounts-cashflow-metric accounts-cashflow-metric--in">
+                    <span class="accounts-metric-label">Cash Inflow</span>
+                    <strong class="accounts-metric-value" id="acctCashInflow">৳ 0</strong>
+                    <span class="accounts-metric-sub" id="acctCashInflowMonth">This month: ৳ 0</span>
+                    <p class="accounts-metric-hint">Total sales revenue received (paid orders)</p>
+                </div>
+                <div class="accounts-cashflow-metric accounts-cashflow-metric--out">
+                    <span class="accounts-metric-label">Cash Outflow</span>
+                    <strong class="accounts-metric-value" id="acctCashOutflow">৳ 0</strong>
+                    <span class="accounts-metric-sub" id="acctCashOutflowBreakdown">Expenses + supplier POs</span>
+                    <p class="accounts-metric-hint">Operating expenses + pending supplier PO payments</p>
+                </div>
+                <div class="accounts-cashflow-metric accounts-cashflow-metric--net">
+                    <span class="accounts-metric-label">Net Liquidity Position</span>
+                    <strong class="accounts-metric-value" id="acctNetLiquidity">৳ 0</strong>
+                    <span class="accounts-liquidity-badge" id="acctLiquidityStatus">—</span>
+                    <p class="accounts-metric-hint">Inflow minus outflow — positive means surplus cash</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Account Balances -->
+        <div class="dashboard-section-label">
+            <h2><i class="fa-solid fa-scale-balanced"></i> Account Balances</h2>
+        </div>
+
+        <div class="metrics-grid accounts-metrics-grid">
+            <div class="metric-card success">
+                <div class="icon"><i class="fa-solid fa-money-bill-wave"></i></div>
+                <div class="data">
+                    <p>CASH IN HAND</p>
+                    <h3 id="acctCashInHand">৳ 0</h3>
+                    <span class="metric-sub">COD / cash-on-delivery collections</span>
+                </div>
+            </div>
+            <div class="metric-card revenue">
+                <div class="icon"><i class="fa-solid fa-building-columns"></i></div>
+                <div class="data">
+                    <p>BANK ACCOUNTS BALANCE</p>
+                    <h3 id="acctBankBalance">৳ 0</h3>
+                    <span class="metric-sub">Bank transfer payments received</span>
+                </div>
+            </div>
+            <div class="metric-card warning">
+                <div class="icon"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                <div class="data">
+                    <p>ACCOUNTS RECEIVABLE</p>
+                    <h3 id="acctReceivable">৳ 0</h3>
+                    <span class="metric-sub">Pending customer invoices (unpaid orders)</span>
+                </div>
+            </div>
+            <div class="metric-card danger">
+                <div class="icon"><i class="fa-solid fa-file-circle-minus"></i></div>
+                <div class="data">
+                    <p>ACCOUNTS PAYABLE</p>
+                    <h3 id="acctPayable">৳ 0</h3>
+                    <span class="metric-sub">Pending supplier bills (open POs)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

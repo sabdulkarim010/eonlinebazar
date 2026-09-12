@@ -78,7 +78,9 @@ function mountEmbeddedSettingsSection(tabId) {
     }
 
     section.style.display = 'block';
-    section.classList.add('settings-embedded-section');
+    section.removeAttribute('hidden');
+    section.hidden = false;
+    section.classList.add('settings-embedded-section', 'active');
 
     const header = section.querySelector('.section-header-box');
     if (header) header.style.display = 'none';
@@ -107,7 +109,12 @@ function activateUnifiedSettingsTab(tabId, { silent = false } = {}) {
     panels.forEach((panel) => {
         const isActive = panel.dataset.panel === target;
         panel.classList.toggle('is-active', isActive);
-        panel.hidden = !isActive;
+        if (isActive) {
+            panel.hidden = false;
+            panel.removeAttribute('hidden');
+        } else {
+            panel.hidden = true;
+        }
     });
 
     if (SETTINGS_EMBED_MAP[target]) {

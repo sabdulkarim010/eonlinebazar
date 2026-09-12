@@ -20,3 +20,4 @@ import './modules/erp-warehouses.js';
 import './modules/erp-purchase-orders.js';
 import './modules/erp-profit-loss.js';
 import './modules/erp-expenses.js';
+import './modules/erp-accounts.js';

@@ -57,6 +57,7 @@ window.ADMIN_PAGE_META = {
     'view-suppliers':       { title: 'Suppliers',               subtitle: 'Vendor directory for purchase orders and sourcing.' },
     'view-warehouses':      { title: 'Warehouses',              subtitle: 'Multi-location inventory and receiving destinations.' },
     'view-purchase-orders': { title: 'Purchase Orders',         subtitle: 'Vendor PO workflow from draft through received.' },
+    'view-accounts':        { title: 'Accounts Overview',       subtitle: 'Cash flow, liquidity position, and account balance summary.' },
     'view-finance':         { title: 'Financial Reports',       subtitle: 'Profit, revenue, and margin analytics.' },
     'view-erp-expenses':    { title: 'Expense Tracking',        subtitle: 'Operating expense ledger for rent, salaries, marketing, and more.' }
 };

@@ -41,6 +41,7 @@ const VIEW_PARTIALS = [
     'view-suppliers',
     'view-warehouses',
     'view-purchase-orders',
+    'view-accounts',
     'view-finance',
     'view-erp-expenses'
 ];

@@ -32,6 +32,7 @@ const BREADCRUMB_MAP = {
     'view-hrm-attendance': { group: 'HRM & Staff', label: 'Attendance & Shifts' },
     'view-hrm-payroll': { group: 'HRM & Staff', label: 'Payroll & Salary' },
     'view-hrm-leaves': { group: 'HRM & Staff', label: 'Leave Management' },
+    'view-accounts': { group: 'Accounts & Finance', label: 'Accounts Overview' },
     'view-finance': { group: 'Accounts & Finance', label: 'Financial Reports' },
     'view-erp-expenses': { group: 'Accounts & Finance', label: 'Expense Tracking' },
     'view-settings': { group: 'System Settings', label: 'Settings Hub' },

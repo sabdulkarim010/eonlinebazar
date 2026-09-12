@@ -120,9 +120,9 @@ The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/p
 
 | HRM & Staff | Employees, System Staff Directory, Attendance, Payroll, Leave |
 
-| Accounts & Finance | Financial Reports (P&L + export), Expense Tracking, Payment Reconciliation |
+| Accounts & Finance | Accounts Overview (cash flow + liquidity), Financial Reports (P&L + export), Expense Tracking, Payment Reconciliation |
 
-| System Settings | Unified hub (`view-settings.html`) — Branding, General (VAT/tax, maintenance), Shipping & Payments, Security & Access, System Utilities |
+| System Settings | Unified hub (`view-settings.html`) — single sidebar entry; inner tabs for Branding, General (VAT/tax, maintenance), Shipping & Payments, Security & Access, System Utilities |
 
 
 

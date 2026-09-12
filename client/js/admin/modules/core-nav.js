@@ -574,6 +574,9 @@ function navigateAdminSection(targetId, clickedItem) {
     const navTargetId = targetId;
     const sectionId = ADMIN_SECTION_ID_ALIASES[targetId] || targetId;
 
+    const previousActiveSection = document.querySelector('.admin-section.active');
+    const previousSectionId = previousActiveSection?.id || null;
+
     const resolvedItem = clickedItem
         || document.querySelector(`.sidebar-menu li[data-target="${navTargetId}"]`);
     if (resolvedItem) lastClickedNavItem = resolvedItem;
@@ -590,7 +593,17 @@ function navigateAdminSection(targetId, clickedItem) {
     const parentGroup = resolvedItem ? resolvedItem.closest('.menu-group') : null;
     if (parentGroup) parentGroup.classList.add('open', 'child-active');
 
+    if (previousSectionId === 'view-settings' && sectionId !== 'view-settings') {
+        if (typeof window.restoreAllEmbeddedSettingsSections === 'function') {
+            window.restoreAllEmbeddedSettingsSections();
+        }
+    }
+
     sections.forEach(section => {
+        if (section.classList.contains('settings-embedded-section')
+            && section.closest('#view-settings')) {
+            return;
+        }
         section.style.display = 'none';
         section.classList.remove('active');
     });
@@ -631,6 +644,7 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-suppliers': () => window.loadSuppliersSection && window.loadSuppliersSection(),
         'view-warehouses': () => window.loadWarehousesSection && window.loadWarehousesSection(),
         'view-purchase-orders': () => window.loadPurchaseOrdersSection && window.loadPurchaseOrdersSection(),
+        'view-accounts': () => window.loadAccountsSection && window.loadAccountsSection(),
         'view-finance': () => {
             if (window.initFinanceEmbed) window.initFinanceEmbed();
             if (window.initProfitLossReport) window.initProfitLossReport();
@@ -685,8 +699,8 @@ function navigateAdminSection(targetId, clickedItem) {
         loadCategoryDropdownForProduct('prodCategory');
     }
 
-    if (settingsTab && sectionId === 'view-settings') {
-        const tabTarget = settingsTab;
+    if (sectionId === 'view-settings') {
+        const tabTarget = settingsTab || 'branding';
         const tryActivateTab = (attempts = 0) => {
             if (typeof window.activateUnifiedSettingsTab === 'function') {
                 const tabEl = document.querySelector(`.admin-settings-tab[data-tab="${tabTarget}"]`);

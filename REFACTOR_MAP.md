@@ -1006,6 +1006,24 @@ ARCHITECTURE.md [DONE] 7-module admin navigation table
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] enterprise sidebar consolidation section
 README.md [DONE] 135 tests + settings hub note
 #
+# Settings hub tab fix, sidebar cleanup & accounts overview — 2026-09-12
+client/admin/partials/sidebar.html [DONE] System Settings — single Settings Hub link; Accounts Overview under Accounts & Finance
+client/js/admin/modules/core-nav.js [DONE] settings hub default branding tab, embed restore on exit, skip embedded hide
+client/js/admin/modules/settings-hub.js [DONE] mountEmbeddedSettingsSection display/hidden hardening, panel activation sync
+client/admin/partials/view-accounts.html [NEW] cash flow + liquidity widget + account balance cards
+client/js/admin/modules/erp-accounts.js [NEW] accounts overview loader
+backend/src/controllers/admin/accountsSummaryController.js [NEW] GET /api/admin/accounts-summary
+backend/src/routes/adminRoutes.js [DONE] accounts-summary route
+backend/src/utils/adminPageBuilder.js [DONE] registers view-accounts partial
+backend/src/config/permissions.js [DONE] view-accounts → view_analytics
+client/js/admin/modules/core-breadcrumb.js [DONE] view-accounts breadcrumb
+client/js/admin/modules/core-state.js [DONE] view-accounts page meta
+client/js/admin/admin-products.js [DONE] imports erp-accounts.js
+client/css/admin/_finance.css [DONE] accounts overview widget styles
+tests/admin.test.js [DONE] +1 accounts-summary test
+ARCHITECTURE.md [DONE] accounts overview + single settings hub sidebar entry
+README.md [DONE] 136 tests + accounts overview note
+#
 # Admin access console fix & dynamic control — 2026-09-12
 client/js/admin-staff.js [DONE] closeStaffPermissionsPanel hoisted before window export (fixes ReferenceError + sidebar bootstrap)
 client/admin/partials/sidebar.html [DONE] Admin Access & Roles data-target normalized to view-staff

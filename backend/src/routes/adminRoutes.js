@@ -64,6 +64,7 @@ const profitLossController = require('../controllers/admin/profitLossController'
 const exportController = require('../controllers/admin/exportController');
 const productController = require('../controllers/productController');
 const enterpriseSummaryController = require('../controllers/admin/enterpriseSummaryController');
+const accountsSummaryController = require('../controllers/admin/accountsSummaryController');
 const upload = require('../middlewares/uploadMiddleware');
 const { brandingUpload, paymentMethodLogoUpload, footerIconUpload, importFileUpload, employeePhotoUpload, employeeDocumentUpload } = upload;
 const staffController = require('../controllers/staffController');
@@ -159,6 +160,9 @@ router.post('/customers/quick', verifyAdmin, checkPermission('manage_customers')
 
 // Enterprise ERP + CRM + HRM summary widgets (GET)
 router.get('/enterprise-summary', verifyAdmin, checkPermission('view_analytics'), enterpriseSummaryController.getEnterpriseSummary);
+
+// Accounts overview — cash flow, liquidity, and balance metrics (GET)
+router.get('/accounts-summary', verifyAdmin, checkPermission('view_analytics'), accountsSummaryController.getAccountsSummary);
 
 // ১গ. Sales & Order Analytics Dashboard (GET)
 router.get('/dashboard-analytics', verifyAdmin, checkPermission('view_analytics'), getDashboardAnalytics);

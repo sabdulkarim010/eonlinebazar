@@ -369,6 +369,21 @@ describe('Admin API', () => {
         expect(res.body.data.maintenanceMode).toBe(true);
     });
 
+    test('GET /api/admin/accounts-summary returns cash flow and balance metrics', async () => {
+        const token = await getAdminAuthToken();
+
+        const res = await request(app)
+            .get('/api/admin/accounts-summary')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.cashFlow).toBeDefined();
+        expect(res.body.data.balances).toBeDefined();
+        expect(typeof res.body.data.cashFlow.inflow).toBe('number');
+        expect(typeof res.body.data.balances.accountsReceivable).toBe('number');
+    });
+
     test('PUT /api/admin/orders/:id/master-update rejects item edits on cancelled orders', async () => {
         const order = await seedOrderForAdminList();
         order.status = 'Cancelled';

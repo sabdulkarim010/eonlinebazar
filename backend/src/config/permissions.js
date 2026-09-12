@@ -143,6 +143,7 @@ const SECTION_PERMISSIONS = Object.freeze({
     'view-purchase-orders': 'manage_inventory',
     // Financial reports stay owner-only; the sidebar item also carries
     // data-superadmin-only so staff never see the entry.
+    'view-accounts': 'view_analytics',
     'view-finance': 'manage_settings',
     'view-banners': 'manage_catalog',
     'settings-2fa': null
