@@ -7,7 +7,7 @@
 
 const User = require('../models/user');
 const Order = require('../models/order');
-const Setting = require('../models/Setting');
+const Settings = require('../models/Settings');
 const { sendSms, isCustomerSmsEnabled } = require('./smsService');
 const { sendTierUpgradeEmail } = require('./mailer');
 
@@ -39,7 +39,7 @@ function normalizeTierSettings(doc = {}) {
 }
 
 async function loadTierSettings() {
-    const doc = await Setting.getOrCreate();
+    const doc = await Settings.getOrCreate();
     return normalizeTierSettings(doc);
 }
 

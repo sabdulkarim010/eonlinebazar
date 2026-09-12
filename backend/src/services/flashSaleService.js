@@ -3,7 +3,7 @@
  ********************************************************************/
 
 
-const Setting = require('../models/Setting');
+const Settings = require('../models/Settings');
 const { getApplicationNow } = require('../utils/applicationTime');
 const { roundMoney } = require('./deliveryChargeService');
 
@@ -29,7 +29,7 @@ function normalizeFlashSaleSettings(doc = {}) {
 }
 
 async function loadFlashSaleSettings() {
-    const settings = await Setting.getOrCreate();
+    const settings = await Settings.getOrCreate();
     return normalizeFlashSaleSettings(settings.toObject());
 }
 

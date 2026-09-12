@@ -175,7 +175,7 @@ router.get('/analytics', verifyAdmin, checkPermission('view_analytics'), getFina
 router.get('/analytics/filter', verifyAdmin, checkPermission('view_analytics'), getFinanceAnalytics);
 
 // Google Analytics 4 configuration status (Admin Settings dashboard link)
-router.get('/analytics/status', verifyAdmin, (req, res) => {
+router.get('/analytics/status', verifyAdmin, checkPermission('view_analytics'), (req, res) => {
     res.json({
         success: true,
         enabled: process.env.GOOGLE_ANALYTICS_ENABLED === 'true',
@@ -252,7 +252,7 @@ router.delete('/whatsapp-alerts/:id', verifyAdmin, checkPermission('manage_order
 // ১গ. 🚚 এক ক্লিকে কুরিয়ার পার্সেল বুকিং (Steadfast) + কনফিগ স্ট্যাটাস
 // URL: POST /api/admin/orders/:id/send-courier
 router.post('/orders/:id/send-courier', verifyAdmin, checkPermission('manage_orders'), courierController.sendOrderToCourier);
-router.get('/courier/status', verifyAdmin, courierController.getCourierConfigStatus);
+router.get('/courier/status', verifyAdmin, checkPermission('manage_orders'), courierController.getCourierConfigStatus);
 
 // 🚚 One-click Book & Sync (create consignment + SMS/WhatsApp + Shipped)
 // URL: PATCH /api/admin/orders/:id/book-courier
@@ -263,7 +263,7 @@ router.patch('/orders/:orderId/book-courier', verifyAdmin, checkPermission('mana
 router.get('/orders/:orderId/courier-status', verifyAdmin, checkPermission('manage_orders'), adminCourierController.getCourierStatus);
 
 // Manual stock alert trigger (admin testing)
-router.get('/stock/check-now', verifyAdmin, async (req, res) => {
+router.get('/stock/check-now', verifyAdmin, checkPermission('manage_inventory'), async (req, res) => {
     try {
         const payload = await checkAndAlertLowStock();
         res.json({ success: true, ...payload });
@@ -281,6 +281,7 @@ router.get('/stock/check-now', verifyAdmin, async (req, res) => {
 router.get(
     '/products/import-template',
     verifyAdmin,
+    checkPermission('manage_inventory'),
     downloadImportTemplate
 );
 router.post(
@@ -295,9 +296,9 @@ router.post(
  # Redis cache management (admin)
  # URL: /api/admin/cache/*
  ********************************************************************/
-router.get('/cache/stats', verifyAdmin, cacheController.getCacheStats);
+router.get('/cache/stats', verifyAdmin, checkPermission('manage_settings'), cacheController.getCacheStats);
 router.delete('/cache/flush', verifyAdmin, requireSuperAdmin, cacheController.flushCache);
-router.delete('/cache/key/:pattern', verifyAdmin, cacheController.deleteCacheByPattern);
+router.delete('/cache/key/:pattern', verifyAdmin, checkPermission('manage_settings'), cacheController.deleteCacheByPattern);
 
 // ২. অ্যাডমিন লগইন করার রাস্তা (POST)
 // পাইপলাইন: ব্ল্যাকলিস্ট গেট → জিও-ফেন্স (রিজিয়ন লক) → রেট-লিমিট → কন্ট্রোলার
@@ -344,13 +345,13 @@ router.delete('/blacklist/:id', verifyAdmin, checkPermission('manage_security'),
 router.get('/login-history', verifyAdmin, checkPermission('manage_security'), adminSecurityController.getLoginHistory);
 
 // ✨ AI product content assist (Anthropic proxy)
-router.post('/ai/product-assist', verifyAdmin, adminController.aiProductAssist);
+router.post('/ai/product-assist', verifyAdmin, checkPermission('manage_inventory'), adminController.aiProductAssist);
 
 // ৩. টোকেন ভেরিফিকেশন (GET)
 router.get('/verify-token', verifyAdmin, adminController.verifyAdminToken);
 
 // ৩ক. Global Sync Data (coupon auto-expiry + fresh coupon list)
-router.post('/sync-data', verifyAdmin, adminController.syncAdminData);
+router.post('/sync-data', verifyAdmin, checkPermission('manage_settings'), adminController.syncAdminData);
 
 // ৪. সিকিউরিটি লগস (GET)
 router.get('/logs', verifyAdmin, checkPermission('manage_security'), adminController.getSecurityLogs);
@@ -582,8 +583,8 @@ router.patch('/hrm/leaves/:id/reject', verifyAdmin, checkPermission('manage_staf
  # ৫ছ. 📧 NEWSLETTER & EMAIL CAMPAIGNS
  # URL: /api/admin/newsletter/*
  ********************************************************************/
-router.get('/newsletter/subscribers', verifyAdmin, newsletterAdminController.listSubscribers);
-router.delete('/newsletter/subscribers/:id', verifyAdmin, newsletterAdminController.deleteSubscriber);
+router.get('/newsletter/subscribers', verifyAdmin, checkPermission('manage_marketing'), newsletterAdminController.listSubscribers);
+router.delete('/newsletter/subscribers/:id', verifyAdmin, checkPermission('manage_marketing'), newsletterAdminController.deleteSubscriber);
 router.post('/newsletter/campaigns', verifyAdmin, checkPermission('manage_marketing'), newsletterAdminController.createCampaign);
 router.get('/newsletter/campaigns', verifyAdmin, checkPermission('manage_marketing'), newsletterAdminController.listCampaigns);
 router.post('/newsletter/campaigns/:id/send', verifyAdmin, checkPermission('manage_marketing'), newsletterAdminController.sendCampaign);

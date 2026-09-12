@@ -6,7 +6,7 @@
  ********************************************************************/
 
 const User = require('../models/user');
-const Setting = require('../models/Setting');
+const Settings = require('../models/Settings');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
@@ -94,7 +94,7 @@ exports.getUserProfile = async (req, res) => {
 
         const [rewardSettings, masterSettings, deliverySettings, tierSettings] = await Promise.all([
             loadRewardSettings(),
-            Setting.getOrCreate(),
+            Settings.getOrCreate(),
             getDeliverySettings(),
             loadTierSettings()
         ]);

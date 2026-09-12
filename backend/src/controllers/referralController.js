@@ -9,7 +9,7 @@
  ********************************************************************/
 
 const User = require('../models/user');
-const Setting = require('../models/Setting');
+const Settings = require('../models/Settings');
 const { creditWalletForUser } = require('../services/walletService');
 
 function getStorePublicUrl() {
@@ -86,7 +86,7 @@ const processReferralReward = async (referredUserId) => {
             return { rewarded: false, reason: 'User was not referred' };
         }
 
-        const settings = await Setting.getOrCreate();
+        const settings = await Settings.getOrCreate();
         const rewardAmount = Number(settings.referralRewardAmount) || 0;
         if (rewardAmount <= 0) {
             return { rewarded: false, reason: 'Referral rewards disabled' };

@@ -8,7 +8,7 @@
  * customer never sees a figure the cart will not honour.
  ********************************************************************/
 
-const Setting = require('../models/Setting');
+const Settings = require('../models/Settings');
 
 const FALLBACK_THRESHOLD = 2000;
 
@@ -162,7 +162,7 @@ function toPublicAnnouncementPayload(settings, rewardSettings = null) {
 }
 
 async function loadAnnouncementSettings() {
-    const doc = await Setting.getOrCreate();
+    const doc = await Settings.getOrCreate();
     return normalizeAnnouncementSettings(doc);
 }
 

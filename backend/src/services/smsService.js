@@ -8,7 +8,6 @@
  * .env fallbacks so providers can be swapped without code changes.
  ********************************************************************/
 
-const Setting = require('../models/Setting');
 const Settings = require('../models/Settings');
 
 const STORE_PUBLIC_URL = String(process.env.STORE_PUBLIC_URL || '').replace(/\/$/, '');
@@ -229,7 +228,7 @@ async function sendSms({ to, body, context = 'CUSTOMER SMS' }) {
 
 async function isCustomerSmsEnabled() {
     try {
-        const settings = await Setting.getOrCreate();
+        const settings = await Settings.getOrCreate();
         return settings.enableSmsNotifications === true;
     } catch (err) {
         console.error('[SMS] Failed to read enableSmsNotifications:', err.message);

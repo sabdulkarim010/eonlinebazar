@@ -617,10 +617,8 @@ window.rejectReturn = async function rejectReturn(orderId) {
         });
         if (!result.isConfirmed) return;
         reason = String(result.value || '').trim();
-    } else {
-        reason = window.prompt('Reason for rejecting this return:') || '';
-        if (!reason.trim()) return;
     }
+    if (!reason.trim()) return;
 
     try {
         const response = await fetch(`/api/admin/orders/${orderId}/reject-return`, {

@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
   <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
   <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
-  <img src="https://img.shields.io/badge/tests-136%2F136-brightgreen" alt="136/136 Tests Passing">
+  <img src="https://img.shields.io/badge/tests-146%2F146-brightgreen" alt="146/146 Tests Passing">
   <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
   <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
   <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">
@@ -133,7 +133,7 @@ Read these documents before making changes. Operational notes belong in the exis
 
 ## Quality Assurance & Testing
 
-The repository ships with **100% passing automated coverage: 136 / 136 tests** across **11 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
+The repository ships with **100% passing automated coverage: 146 / 146 tests** across **15 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
 
 ```bash
 npm test
@@ -152,6 +152,10 @@ npm test
 | ERP | `tests/erp.test.js` | 31 | Suppliers, warehouses, `receivePO`, slugs, audit, status enum |
 | HRM | `tests/hrm.test.js` | 33 | Attendance, shifts, payroll, leave, designations, employee profile/docs/photo, grant/revoke system access |
 | Loyalty | `tests/loyalty-tier.test.js` | 6 | Silver / Gold / Platinum thresholds and cashback |
+| Expenses | `tests/expense.test.js` | 3 | Expense ledger create, list, summary, RBAC |
+| Profit & Loss | `tests/profitLoss.test.js` | 2 | P&amp;L report shape and empty-range zero case |
+| POS | `tests/pos.test.js` | 2 | Manual counter order creation |
+| Abandoned carts | `tests/abandonedCart.test.js` | 3 | CRM list KPIs and recovery notify |
 | **Total** | | **135** | All suites green |
 
 Expected Jest summary:
@@ -255,7 +259,7 @@ npm start
 npm test
 ```
 
-All **135** tests must pass before merging changes.
+All **146** tests must pass before merging changes.
 
 ### Mobile (Expo)
 
@@ -301,7 +305,7 @@ eonlinebazar-fullstack/
 ├── ecommerce-chat/              # Live-chat microservice (port 5001)
 ├── admin-dashboard/             # Vite React chat-admin SPA → /chat-admin
 ├── devops/                      # Nginx, droplet first-time setup
-├── tests/                       # 11 Jest suites / 136 tests
+├── tests/                       # 15 Jest suites / 146 tests
 ├── scripts/                     # Seed and index migration
 ├── ARCHITECTURE.md
 ├── REFACTOR_MAP.md

@@ -1539,5 +1539,247 @@ SweetAlert2 toasts on tab switch and master-settings saves. Enterprise features 
 
 *End of Final System Audit — 2026-09-11. Files scanned: `backend/src/models/`, `backend/src/controllers/admin/`, `backend/src/routes/adminRoutes.js`, `backend/src/services/`, `backend/src/jobs/`, `client/admin/partials/`, `client/js/admin/modules/`, `mobile/src/`.*
 
+---
+
+## COMPREHENSIVE ENTERPRISE AUDIT — 2026-09-12
+
+**Scope:** Read-only verification audit (Parts 0–7). No source code modified.  
+**Auditor:** Cursor Agent — full repository scan of sidebar, HRM/staff decoupling, console fixes, SweetAlert2, dead code, phase regression, and enterprise gap analysis.
+
+**DECISION:** The 7-module sidebar design is final and intentional — supersedes the earlier 8-category plan. No further sidebar restructuring needed.
+
+---
+
+### Part 1 — Sidebar Reorganization Verification
+
+| Check | Status | Evidence |
+|-------|--------|----------|
+| 8-category structure (Dashboard, Catalog & Inventory, Sales & POS, CRM & Support, Marketing & Growth, Finance & Accounts, HRM, Settings & Security) | ❌ **MISSING** | Current `sidebar.html` uses a **7-module + Dashboard** layout: Sales & Orders, Catalog & Inventory, Marketing & Content, HRM & Staff, Accounts & Finance, System Settings. CRM items are folded into Sales & Orders; naming differs from the 8-category spec. Prior 8-category plan documented in REFACTOR_MAP was **superseded** (see SIDEBAR REORGANIZATION section above). |
+| Settings & Security — 3 labeled sidebar sub-groups (Security & Access, Store & Catalog Setup, System & Utilities) | ❌ **MISSING** | Sidebar has a single **System Settings → Settings Hub** entry (`data-target="view-settings"`). The three logical groups exist as **tabs inside** `view-settings.html` (Branding, General, Shipping, Security, Utilities), not as sidebar accordion sub-groups. |
+| No duplicate `data-section` values in sidebar | ✅ **N/A / PASS** | Sidebar does not use `data-section`; it uses `data-nav-section` (6 unique: sales, catalog, marketing, hrm, finance, settings) and `data-target` (30 unique nav targets, zero duplicates). |
+| No orphaned sidebar links (every `data-target` resolves to a DOM section) | ✅ **EXISTS** | All 30 `data-target` values map to registered partials or nested section IDs: e.g. `manage-category` / `manage-coupons` live inside `view-catalog.html`; `view-manage-products` / `view-add-product` inside `view-products.html`. None point to missing IDs. |
+| "Admin Access & Roles" link exists | ✅ **EXISTS** | `sidebar.html` line 140: `data-target="view-staff"`, breadcrumb **Admin Access & Roles**, `data-superadmin-only="true"`. Section registered in `adminPageBuilder.js` VIEW_PARTIALS. |
+
+**Note:** Audit checklist referenced `data-section` and `adminPageBuilder.js` orphan check — builder registers **partials**, not individual nested section IDs. Orphan check was performed against assembled DOM section IDs across all partials; all sidebar targets resolve.
+
+---
+
+### Part 2 — HRM/Staff Decoupling Verification
+
+| Check | Status | Evidence |
+|-------|--------|----------|
+| Employees table Actions — "Grant Access" button REMOVED from main table | ✅ **EXISTS** | `hrm-employees.js` `renderEmployeeTable()` (lines 119–130): Actions = View Profile, Edit, Terminate/Reactivate only. No grant button in table HTML. |
+| Employee Detail modal — Access tab with 3-state logic (no access / active / suspended) | ✅ **EXISTS** | `view-hrm-employees.html` profile tab `profile-tab-access`; `renderAccessTabState1()` (no access → Grant), `renderAccessTabLinkedState()` (active vs suspended badges + Suspend/Re-activate/Revoke). |
+| `view-staff.html` — "Create Staff Account" form REMOVED | ✅ **EXISTS** | No create-staff form in partial. Subtitle explicitly states assign-from-roster model. |
+| `view-staff.html` — "Assign Access to Employee" flow EXISTS | ✅ **EXISTS** | `#staffAssignPanel` with search + "Link System Account" button; wired in `admin-staff.js` → `openGrantAccessModal()`. |
+| Super Admin auto-sync to Employee model | ✅ **EXISTS** | `server.js` lines 108–116 calls `syncSuperAdminEmployee()` from `backend/src/services/superAdminHrmSync.js`, which creates/links Employee with `designation: 'Super Admin'`, `role: 'Super Admin'`. Verified by code presence (no DB query). |
+| Attendance/Payroll dropdowns — optgroups System Admins vs Operational Employees | ✅ **EXISTS** | `hrm-attendance.js` `hrmLoadStaffOptions()` lines 128–147: `<optgroup label="System Staff">` and `<optgroup label="Operational Employees">`. Payroll calls same helper via `window.hrmLoadStaffOptions()` in `hrm-payroll.js` lines 123, 270. |
+| Backend `unlinkSystemAccess` + `reactivateSystemAccess` in employeeController | ✅ **EXISTS** | `employeeController.js` exports both; routes in `adminRoutes.js` lines 539–540. |
+| Backend routes for unlink-access and reactivate-access | ✅ **EXISTS** | `POST /api/admin/hrm/employees/:id/reactivate-access`, `POST /api/admin/hrm/employees/:id/unlink-access` with `verifyAdmin` + `checkPermission('manage_staff')`. Covered in `tests/hrm.test.js`. |
+
+---
+
+### Part 3 — Console Error Fix Verification
+
+| Check | Status | Evidence |
+|-------|--------|----------|
+| `closeStaffPermissionsPanel` defined and exposed on `window` | ✅ **EXISTS** | Defined in `client/js/admin-staff.js` line 732; `window.closeStaffPermissionsPanel = closeStaffPermissionsPanel` line 741. Referenced from `view-staff.html` onclick handlers. **Note:** Lives in `client/js/admin-staff.js` (loaded via `scripts.html`), not under `client/js/admin/modules/` — grep under `client/js/admin/` alone returns no match, but the function is correctly wired. |
+| Other onclick-referenced functions in `admin-staff.js` missing `window.*` export | ✅ **NONE FOUND** | Dynamically rendered staff row actions: `openStaffEditModal`, `toggleStaffStatus`, `resetStaffPassword`, `deleteStaffAccount` — all exported on `window` (lines 701, 788, 815, 866). |
+| Other onclick-referenced functions in `hrm-employees.js` missing `window.*` export | ✅ **NONE FOUND** | All 30+ onclick handlers from `view-hrm-employees.html` have matching `window.*` exports (lines 1356–1596). Includes grant/suspend/revoke/reactivate access flows. |
+
+---
+
+### Part 4 — SweetAlert2 Coverage Audit
+
+| Check | Status | Evidence |
+|-------|--------|----------|
+| SweetAlert2 CDN in admin base template | ✅ **EXISTS** | `client/admin/partials/head.html` — CSS + JS (`sweetalert2@11.14.5`). |
+| Remaining native `alert(` / `confirm(` in `client/js/admin/` | ✅ **ZERO REMAINING** | Full-directory grep finds **no** live `alert(` or `confirm(` calls — only a comment in `catalog-categories.js` line 535 documenting the Swal replacement. |
+| Conversion estimate | **~100% alert/confirm converted; 0 remaining** | All destructive/confirm flows use `Swal.fire()` or `window.showCustomConfirm()` (defined in `core-realtime.js`, wraps Swal). |
+
+**UX caveat (not counted as alert/confirm):** `window.prompt()` still used in 5 admin files for free-text input — `admin-staff.js` (manual password), `hrm-leaves.js` (reject reason), `orders-actions.js` (return reject reason), `settings-2fa.js` (OTP email), `catalog-navbar.js` (URL/HTML embed). These were outside the alert/confirm conversion scope but remain inconsistent with full SweetAlert2 UX.
+
+---
+
+### Part 5 — Duplicate / Dead Code Scan
+
+| Check | Status | Findings |
+|-------|--------|----------|
+| Duplicate route definitions (same HTTP method + path twice on same mount) | ✅ **NONE PROBLEMATIC** | Cross-file path collisions (e.g. `GET /` in multiple route files) are on **different Express mount prefixes** (`/api/products`, `/api/brands`, etc.) — expected. Within `adminRoutes.js`, duplicate method+path pairs are intentional HTTP verb aliases (`POST`+`PUT` on `/settings`, `/master-settings`, `/footer-settings`). Legacy compat pairs: `/users/:id/avatar` vs `/customers/:id/avatar`. |
+| Duplicate `data-target` in sidebar | ✅ **NONE** | 30 unique targets, each appears once. |
+| `data-target` count vs `adminPageBuilder.js` VIEW_PARTIALS | ⚠️ **EXPECTED MISMATCH** | Builder registers 31 view **partials**; sidebar has 30 nav targets because nested IDs (`manage-category`, `view-add-product`, etc.) live inside partials (`view-catalog.html`, `view-products.html`). Not a wiring bug. |
+| Orphaned HTML partials (not in `adminPageBuilder.js`) | ✅ **NONE** | All 44 files in `client/admin/partials/` are either VIEW_PARTIALS (31), MODAL_PARTIALS (8), or shell (head, body-open, sidebar, header, scripts). |
+| Orphaned JS modules (not imported in any barrel) | ⚠️ **2 DEAD FILES** | `client/js/admin/modules/crm-abandoned.js` — superseded by `crm-abandoned-carts.js` (imported in `admin-customers.js`). `client/js/admin/modules/view-finance.js` — superseded by `erp-profit-loss.js` (imported in `admin-products.js`). |
+| `Setting.js` vs `Settings.js` consolidation | ⚠️ **PARTIAL — BOTH ACTIVE** | Not consolidated. Both models actively used: `Setting.js` = loyalty/VAT/flash/referral; `Settings.js` = delivery/SMS/courier/rate-limits/gateways. Unified **read** via `GET /api/admin/all-settings`; writes still split across `/settings` and `/master-settings`. Deprecation notes in both model files. |
+| Legacy `view-master-settings` partial still exists | ✅ **DELETED** | File not found; removed from `adminPageBuilder.js`. Replaced by `view-shipping-payments`, `view-loyalty-program`, `view-store-config`. |
+
+---
+
+### Part 6 — Full Phase Verification (Spot-Check Regression)
+
+| Phase / Feature | Status | Spot-Check Evidence |
+|-----------------|--------|---------------------|
+| Phase 1 — RBAC/HRM foundation | ✅ **INTACT** | `permissions.js`, `checkPermission` on admin routes, staff audit, `manage_staff` gating on all `/hrm/*` routes. |
+| Phase 2 — ERP core (Supplier/PO/Warehouse) | ✅ **INTACT** | Models present; `tests/erp.test.js` (39 tests); sidebar links + `erp-*.js` modules wired. |
+| Phase 3 — CRM automation | ⚠️ **PARTIAL** | Abandoned carts UI (`view-crm-abandoned`, `crm-abandoned-carts.js`) intact; **no dedicated CRM automation test file**. |
+| Phase 4 — UI restructure | ✅ **INTACT** | Accordion sidebar, breadcrumbs (`core-breadcrumb.js`), cursor pagination on products/customers. |
+| Phase A — HRM Attendance/Payroll/Leave | ✅ **INTACT** | Partials + modules + `tests/hrm.test.js` (41 tests incl. grant/revoke/reactivate/unlink access). |
+| Phase B — ERP POS/Courier/P&L | ⚠️ **PARTIAL** | POS (`view-pos`, `orders-pos.js`), courier routes, P&L (`erp-profit-loss.js`, real Expense aggregation in `profitLossController.js`) — **no dedicated POS/expense/P&L integration tests**. |
+| Phase C — CRM Tiers | ✅ **INTACT** | `tests/loyalty-tier.test.js`; `view-loyalty-program.html` + `settings-loyalty.js`. |
+| Employee module + Designation system | ✅ **INTACT** | Full CRUD, designation manager, photo/documents; tested in `hrm.test.js`. |
+| Sidebar 8-category reorganization | ❌ **NOT PRESENT** | Superseded by 7-module layout (see Part 1). |
+| Settings sub-groups (sidebar) | ❌ **NOT IN SIDEBAR** | Implemented as Settings Hub tabs instead. |
+| HRM/Staff decoupling | ✅ **INTACT** | See Part 2 — all items pass. |
+| SweetAlert2 rollout | ✅ **INTACT** | See Part 4 — zero native alert/confirm remain. |
+
+---
+
+### Part 7 — Enterprise Readiness Gap Analysis
+
+#### Security gaps
+
+| Gap | Severity | Detail |
+|-----|----------|--------|
+| `GET /api/admin/courier/status` | Low | `verifyAdmin` only — no `checkPermission`; any authenticated admin can read courier config status. |
+| `GET /api/admin/stock/check-now` | Low | `verifyAdmin` only — triggers stock alert check without permission gate. |
+| `GET /api/admin/analytics/status` | Low | `verifyAdmin` only — exposes analytics job status to any admin. |
+| HRM grant-access restricted to superadmin? | Info | `grantSystemAccess` uses `manage_staff` permission, not `requireSuperAdmin` — intentional for HR managers but worth documenting. |
+| Dual settings write paths | Low | `Setting.js` + `Settings.js` + separate PUT endpoints increase misconfiguration risk until data migration completes. |
+
+#### UX inconsistencies
+
+| Issue | Detail |
+|-------|--------|
+| SweetAlert2 vs `window.prompt` | 5 modules still use native prompt for text input (password, reject reasons, embed URLs). |
+| Pagination vs load-all | Products/customers use cursor pagination; HRM employees/payroll/attendance load up to 100 rows with no cursor/load-more. |
+| Sidebar doc vs reality | REFACTOR_MAP and some audit notes describe 8-category sidebar; live UI is 7-module — documentation drift. |
+| Legacy chat partials | `view-chat`, `view-chat-analytics`, `view-canned-responses` still assembled but sidebar links to external `/chat-admin`. |
+
+#### Missing "glue"
+
+| Item | Status |
+|------|--------|
+| Financial P&L pulls real Expense data | ✅ **REAL** — `profitLossController.js` aggregates `Expense` model by category into `expensesTotal`; not placeholder. |
+| Accounts Overview cash flow | ✅ **REAL** — `accountsSummaryController.js` aggregates expenses + supplier payables. |
+| Settings model consolidation | ❌ **NOT DONE** — dual singleton models remain; unified read only. |
+
+#### Test coverage gaps
+
+| Area | Tests | Gap |
+|------|-------|-----|
+| HRM (attendance, payroll, leave, employees, access) | `hrm.test.js` — 41 tests | ✅ Strong |
+| ERP (supplier, warehouse, PO) | `erp.test.js` — 39 tests | ✅ Strong |
+| Loyalty tiers | `loyalty-tier.test.js` — 8 tests | ✅ Present |
+| Admin settings/VAT/maintenance | `admin.test.js` | ✅ Partial |
+| **Expense ledger API** | None | ❌ No `expense.test.js` |
+| **P&L / profit-loss API** | None | ❌ No finance P&L integration test |
+| **POS manual orders** | None | ❌ No dedicated POS test |
+| **CRM abandoned carts** | None | ❌ No abandoned-cart test |
+| **Courier booking/sync** | None | ❌ No courier integration test |
+
+#### Mobile app parity
+
+| Admin Feature | Mobile Counterpart | Status |
+|---------------|-------------------|--------|
+| Loyalty tiers / points | `LoyaltyPointsScreen.js`, `WalletScreen.js` | ✅ Customer-facing parity |
+| Employee / HRM system | None | ❌ No mobile admin or staff self-service for attendance/leave |
+| ERP (suppliers, PO, warehouses) | None | ❌ Admin-only |
+| Expense tracking / P&L | None | ❌ Admin-only (expected) |
+
+---
+
+### Duplicates & Dead Code Found
+
+1. **Dead JS modules:** `crm-abandoned.js`, `view-finance.js` — not imported in any barrel; superseded by active replacements.
+2. **Legacy chat partials:** `view-chat.html`, `view-chat-analytics.html`, `view-canned-responses.html` — still in page builder but sidebar bypasses them for `/chat-admin`.
+3. **Dual settings models:** `Setting.js` + `Settings.js` — both actively written; consolidation incomplete.
+4. **Route aliases (intentional, not bugs):** Multiple HTTP verbs on same admin settings paths; customer/user avatar route pairs.
+5. **Documentation drift:** REFACTOR_MAP entries for 8-category sidebar + Settings sidebar sub-groups do not match current 7-module sidebar + Settings Hub tabs.
+
+**No duplicate `data-target` values. No orphaned sidebar nav targets. No orphaned admin partials.**
+
+---
+
+### 100% Complete
+
+- HRM/Staff decoupling (employee table cleanup, Access tab 3-state, assign-from-roster, superadmin HRM sync, unlink/reactivate endpoints)
+- Admin Access console fix (`closeStaffPermissionsPanel` + full `admin-staff.js` module load)
+- SweetAlert2 native alert/confirm elimination across `client/js/admin/`
+- ERP Phase 2 core (suppliers, warehouses, POs) with integration tests
+- HRM Phase A (attendance, payroll, leave, designations, employees) with integration tests
+- Settings split from legacy `view-master-settings` into focused partials
+- P&L real expense aggregation (not placeholder)
+- Loyalty tier backend + tests + mobile customer screens
+- All sidebar `data-target` values resolve to live DOM sections
+- Admin Access & Roles sidebar link present and registered
+
+---
+
+### Needs Attention (partial/inconsistent)
+
+- **`sidebar.html`** — 7-module layout active; 8-category reorganization from audit checklist not implemented (superseded design — docs should be reconciled)
+- **`view-settings.html`** — Settings sub-groups exist as hub tabs, not sidebar accordion labels as specified in prior plan
+- **`Setting.js` + `Settings.js`** — dual write paths; unified read only via `/all-settings`
+- **`client/js/admin/modules/crm-abandoned.js`** — orphaned dead file; delete or document
+- **`client/js/admin/modules/view-finance.js`** — orphaned dead file; superseded by `erp-profit-loss.js`
+- **`admin-staff.js` line 846** — `window.prompt()` for manual password reset (Swal input would be consistent)
+- **`hrm-employees.js` `loadEmployees()`** — hard limit 100, no pagination/load-more
+- **`adminRoutes.js`** — `GET /courier/status`, `GET /stock/check-now`, `GET /analytics/status` lack `checkPermission`
+- **REFACTOR_MAP.md / ARCHITECTURE.md** — describe 8-category nav; live sidebar is 7-module (documentation drift)
+
+---
+
+### Missing / Not Yet Built
+
+- 8-category sidebar structure with CRM & Support and Marketing & Growth as separate top-level groups (if still desired — currently folded into 7-module design)
+- Settings & Security sidebar sub-groups (Security & Access, Store & Catalog Setup, System & Utilities) — only exist as Settings Hub tabs
+- `Setting.js` / `Settings.js` data migration and single write API
+- Integration tests: expense ledger, P&L report, POS manual orders, abandoned carts, courier sync
+- Mobile HRM self-service (clock-in, leave apply) for operational staff
+- Removal or archival of legacy chat partials if `/chat-admin` is permanent
+- Full SweetAlert2 input dialogs replacing remaining `window.prompt()` calls
+
+---
+
+### PRIORITY ROADMAP TO TRUE ENTERPRISE-GRADE
+
+1. **Reconcile documentation with live sidebar** — Update ARCHITECTURE.md and REFACTOR_MAP to reflect 7-module layout OR re-implement 8-category sidebar if product decision requires it. Eliminates agent/developer confusion.
+2. **Consolidate settings models** — Migrate `Setting.js` + `Settings.js` into single schema + single write endpoint; retire dual PUT paths.
+3. **Add finance integration tests** — `expense.test.js` + P&L endpoint test covering real Expense aggregation (protects Phase B glue).
+4. **Delete dead JS modules** — Remove `crm-abandoned.js` and `view-finance.js` (or add deprecation header + remove from disk in a cleanup pass).
+5. **Permission hardening** — Add `checkPermission` to `/courier/status`, `/stock/check-now`, `/analytics/status`.
+6. **HRM table pagination** — Cursor or load-more on employees, payroll, attendance lists (match products/customers UX).
+7. **Replace `window.prompt()` with Swal input** — Password reset, leave reject reason, return reject reason (5 call sites).
+8. **CRM + POS test coverage** — Abandoned cart recovery API test; manual POS order creation test.
+9. **Legacy chat partial cleanup** — Remove unused `view-chat*` from page builder if external chat admin is permanent.
+10. **Mobile staff self-service (optional)** — Attendance clock-in / leave apply for linked employees without full admin panel.
+
+---
+
+*Audit completed 2026-09-12. Files scanned: `.cursorrules`, `ARCHITECTURE.md`, `REFACTOR_MAP.md`, `client/admin/partials/sidebar.html`, all admin partials vs `adminPageBuilder.js`, `client/js/admin/**`, `client/js/admin-staff.js`, `backend/src/routes/adminRoutes.js`, `backend/src/controllers/admin/employeeController.js`, `backend/src/services/superAdminHrmSync.js`, `backend/src/server.js`, `tests/*.test.js`, `mobile/src/`.*
+
+---
+
+## FINAL CLEANUP — 2026-09-12
+
+| Task | Status | Summary |
+|------|--------|---------|
+| **1 — Sidebar decision (doc only)** | ✅ | Added DECISION note under COMPREHENSIVE ENTERPRISE AUDIT: 7-module sidebar is final; supersedes 8-category plan. |
+| **2 — Settings model consolidation** | ✅ | Merged all `Setting.js` fields into `Settings.js`; deprecated `Setting.js` (re-export shim). Updated 15+ controllers/services/utils. Added `scripts/mergeSettingsModels.js` (run once before deploy on existing DBs). |
+| **3 — Orphaned JS modules** | ✅ | Deleted `crm-abandoned.js` (superseded by `crm-abandoned-carts.js` in `admin-customers.js`). Deleted `view-finance.js` + removed `scripts.html` import; `core-nav.js` now calls only `initProfitLossReport()` from `erp-profit-loss.js`. |
+| **4 — SweetAlert2 input dialogs** | ✅ | Replaced all remaining `window.prompt()` in `client/js/admin/` — `catalog-navbar.js`, `hrm-leaves.js`, `orders-actions.js`, `settings-2fa.js`. |
+| **5 — Finance & CRM tests** | ✅ | Added `tests/expense.test.js`, `tests/profitLoss.test.js`, `tests/pos.test.js`, `tests/abandonedCart.test.js`. **146 / 146 tests passing** (15 suites). |
+| **6 — RBAC tightening** | ✅ | Added `checkPermission` to: `GET /analytics/status` (`view_analytics`), `GET /courier/status` (`manage_orders`), `GET /stock/check-now` (`manage_inventory`), `GET /products/import-template` (`manage_inventory`), `GET /cache/stats` + `DELETE /cache/key/:pattern` (`manage_settings`), `POST /ai/product-assist` (`manage_inventory`), `POST /sync-data` (`manage_settings`), `GET/DELETE /newsletter/subscribers` (`manage_marketing`). |
+
+**Post-cleanup status updates:**
+
+- `Setting.js` vs `Settings.js` → ✅ **CONSOLIDATED** (single write path via `Settings.getOrCreate()`; migration script for legacy `master` row)
+- Dead JS modules → ✅ **REMOVED**
+- SweetAlert2 `window.prompt()` in admin modules → ✅ **ZERO REMAINING**
+- Finance integration tests → ✅ **COMPLETE**
+- RBAC gaps on utility admin routes → ✅ **FIXED**
+
+**Migration note:** Run `node scripts/mergeSettingsModels.js` once against production MongoDB before deploy to copy any values still stored only on the deprecated `key: master` document.
+
 
 

@@ -97,17 +97,30 @@ function ensureNavbarLinkQuill() {
     return navbarLinkQuill;
 }
 
-function pickNavbarLinkImage(quill) {
+async function pickNavbarLinkImage(quill) {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.onchange = () => {
+    input.onchange = async () => {
         const file = input.files && input.files[0];
         if (!file) return;
         if (file.size > 1.5 * 1024 * 1024) {
             showToast('Image must be under 1.5 MB (or paste an image URL).', 'warning');
-            const url = window.prompt('Or paste an image URL:');
-            if (url) insertNavbarLinkImageUrl(quill, url.trim());
+            const result = await Swal.fire({
+                title: 'Paste Image URL',
+                input: 'text',
+                inputLabel: 'Or paste an image URL',
+                inputPlaceholder: 'https://…',
+                showCancelButton: true,
+                confirmButtonText: 'Insert',
+                inputValidator: (value) => {
+                    if (!String(value || '').trim()) return 'Enter a URL or cancel.';
+                    return undefined;
+                }
+            });
+            if (result.isConfirmed && result.value) {
+                insertNavbarLinkImageUrl(quill, String(result.value).trim());
+            }
             return;
         }
         const reader = new FileReader();
@@ -140,8 +153,6 @@ async function insertNavbarLinkHtmlEmbed(quill) {
         });
         if (!result.isConfirmed) return;
         html = String(result.value || '').trim();
-    } else {
-        html = String(window.prompt('Paste HTML to embed:') || '').trim();
     }
     if (!html) return;
     const range = quill.getSelection(true) || { index: quill.getLength(), length: 0 };

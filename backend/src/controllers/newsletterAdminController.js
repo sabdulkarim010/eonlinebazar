@@ -8,7 +8,7 @@ const Newsletter = require('../models/newsletter');
 const EmailCampaign = require('../models/emailCampaign');
 const User = require('../models/user');
 const Order = require('../models/order');
-const Setting = require('../models/Setting');
+const Settings = require('../models/Settings');
 const { sendNewsletterCampaignEmail } = require('../services/mailer');
 const { sendSms } = require('../services/smsService');
 const whatsappService = require('../services/whatsappService');
@@ -56,7 +56,7 @@ async function resolveSegmentRecipients(segment, channel) {
                 }
             }
         ]),
-        Setting.getOrCreate()
+        Settings.getOrCreate()
     ]);
 
     const statsMap = new Map(orderStats.map((row) => [String(row._id), {

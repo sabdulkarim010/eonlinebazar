@@ -6,7 +6,6 @@
  ********************************************************************/
 
 const Settings = require('../models/Settings');
-const Setting = require('../models/Setting');
 const { resolveFreeShippingThreshold } = require('../utils/announcementSettings');
 const {
     normalizeDistrict,
@@ -29,18 +28,10 @@ const SHIPPING_LOCATION_LABELS = {
 
 const roundMoney = (value) => Math.round((Number(value) || 0) * 100) / 100;
 
-/**
- * @param {object} doc - delivery Settings document
- * @param {object} [masterDoc] - master Setting document; when supplied its
- *   freeShippingThreshold wins, since that is the value the Admin Panel's
- *   Master Settings form owns. Both fields are mirrored on every save, so
- *   omitting masterDoc still yields the same number.
- */
-const toPublicSettings = (doc, masterDoc = null) => {
+/** @param {object} doc - consolidated Settings document */
+const toPublicSettings = (doc) => {
     const legacyThreshold = doc?.freeShippingMinAmount ?? DEFAULT_SETTINGS.freeShippingMinAmount;
-    const freeShippingThreshold = masterDoc
-        ? resolveFreeShippingThreshold(masterDoc, legacyThreshold)
-        : legacyThreshold;
+    const freeShippingThreshold = resolveFreeShippingThreshold(doc, legacyThreshold);
 
     return {
         shopHomeCity: resolveDistrictLabel(doc?.shopHomeCity) || DEFAULT_SETTINGS.shopHomeCity,
@@ -52,11 +43,8 @@ const toPublicSettings = (doc, masterDoc = null) => {
 };
 
 async function getDeliverySettings() {
-    const [deliveryDoc, masterDoc] = await Promise.all([
-        Settings.getOrCreate(),
-        Setting.getOrCreate()
-    ]);
-    return toPublicSettings(deliveryDoc, masterDoc);
+    const doc = await Settings.getOrCreate();
+    return toPublicSettings(doc);
 }
 
 /**

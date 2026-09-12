@@ -7,7 +7,6 @@
  ********************************************************************/
 
 const Settings = require('../models/Settings');
-const Setting = require('../models/Setting');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { toPublicSettings, resolveDistrictLabel } = require('../services/deliveryChargeService');
 const { normalizeRewardSettings } = require('../utils/rewardSettings');
@@ -71,16 +70,9 @@ const updateSettings = async (req, res) => {
         settings.deliveryInsideCity = inside.value;
         settings.deliveryOutsideCity = outside.value;
         settings.freeShippingMinAmount = freeShipping.value;
+        settings.freeShippingThreshold = freeShipping.value;
+        settings.announcementDiscount = String(freeShipping.value);
         await settings.save();
-
-        // Master Settings owns the threshold for the announcement and the
-        // storefront badges; mirror it here so both cards always agree.
-        const masterSettings = await Setting.getOrCreate();
-        if (Number(masterSettings.freeShippingThreshold) !== freeShipping.value) {
-            masterSettings.freeShippingThreshold = freeShipping.value;
-            masterSettings.announcementDiscount = String(freeShipping.value);
-            await masterSettings.save();
-        }
 
         await logSecurityEvent({
             action: 'Delivery Settings Updated',
@@ -136,26 +128,21 @@ const updateCacheSettings = async (req, res) => {
 
 /**
  * GET /api/admin/all-settings
- * Unified read layer — merges Settings (global) + Setting (master) without
- * migrating stored data. Prefer this for new admin clients.
+ * Unified read layer — single Settings singleton (consolidated 2026-09-12).
  */
 const getAllSettings = async (req, res) => {
     try {
-        const [globalDoc, masterDoc] = await Promise.all([
-            Settings.getOrCreate(),
-            Setting.getOrCreate()
-        ]);
+        const doc = await Settings.getOrCreate();
 
         res.status(200).json({
             success: true,
             data: {
-                global: toPublicSettings(globalDoc),
-                master: normalizeRewardSettings(masterDoc)
+                global: toPublicSettings(doc),
+                master: normalizeRewardSettings(doc)
             },
             meta: {
-                globalKeys: 'Settings.js — delivery, SMS, courier, rate limits, payment gateways',
-                masterKeys: 'Setting.js — loyalty, cashback, VIP thresholds, flash sale, referral',
-                deprecation: 'Legacy GET /api/admin/settings and /api/admin/master-settings remain; use this endpoint for reads.'
+                model: 'Settings.js — consolidated singleton (delivery, loyalty, SMS, courier, flash sale)',
+                migration: 'Run scripts/mergeSettingsModels.js once if upgrading from dual Setting/Settings layout.'
             }
         });
     } catch (error) {

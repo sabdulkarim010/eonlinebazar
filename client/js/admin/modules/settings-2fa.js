@@ -222,13 +222,6 @@ const COURIER_PROVIDER_LABELS = window.COURIER_PROVIDER_LABELS;
             });
             if (!result.isConfirmed) return;
             nextEmail = String(result.value || '').trim().toLowerCase();
-        } else {
-            const typed = window.prompt('Email for OTP Delivery', current);
-            if (typed == null) return;
-            nextEmail = String(typed).trim().toLowerCase();
-            if (!nextEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
-                return toast('Invalid email address format.', 'error');
-            }
         }
 
         const restore = setBusy(btn, 'Saving…');

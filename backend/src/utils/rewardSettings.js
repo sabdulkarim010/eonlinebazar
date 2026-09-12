@@ -5,7 +5,7 @@
  * Description: Shared helpers for dynamic cashback, points, and conversion.
  ********************************************************************/
 
-const Setting = require('../models/Setting');
+const Settings = require('../models/Settings');
 const { resolveOrderCashbackRate } = require('../services/walletService');
 
 const POINTS_CONVERSION_UNIT = 100;
@@ -28,7 +28,7 @@ function normalizeRewardSettings(doc = {}) {
 }
 
 async function loadRewardSettings() {
-    const doc = await Setting.getOrCreate();
+    const doc = await Settings.getOrCreate();
     return normalizeRewardSettings(doc);
 }
 

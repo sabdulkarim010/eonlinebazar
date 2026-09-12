@@ -1034,3 +1034,37 @@ client/css/admin/_staff.css [DONE] empty-state + action-row styles for Access ta
 tests/hrm.test.js [DONE] reactivate-access + unlink-access coverage in grant/revoke flow
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] ADMIN ACCESS CONSOLE FIX & DYNAMIC CONTROL — 2026-09-12
 README.md [DONE] dynamic employee access control note
+#
+# Final cleanup — settings consolidation, dead code, finance tests, RBAC — 2026-09-12
+backend/src/models/Settings.js [DONE] consolidated singleton — all former Setting.js + Settings.js fields
+backend/src/models/Setting.js [DONE] deprecated re-export shim → Settings.js
+scripts/mergeSettingsModels.js [NEW] one-time merge master→global settings document (non-destructive)
+backend/src/controllers/masterSettingsController.js [DONE] single Settings document read/write
+backend/src/controllers/settingsController.js [DONE] unified getAllSettings; delivery writes mirror threshold on same doc
+backend/src/services/deliveryChargeService.js [DONE] single-document getDeliverySettings
+backend/src/utils/rewardSettings.js [DONE] Settings import
+backend/src/utils/announcementSettings.js [DONE] Settings import
+backend/src/services/flashSaleService.js [DONE] Settings import
+backend/src/services/smsService.js [DONE] Settings import
+backend/src/services/loyaltyTierService.js [DONE] Settings import
+backend/src/controllers/storeController.js [DONE] Settings import
+backend/src/controllers/productController.js [DONE] Settings import
+backend/src/controllers/userProfileController.js [DONE] Settings import
+backend/src/controllers/referralController.js [DONE] Settings import
+backend/src/controllers/newsletterAdminController.js [DONE] Settings import
+backend/src/controllers/admin/customerAdminController.js [DONE] Settings import
+client/js/admin/modules/crm-abandoned.js [DELETED] orphaned re-export; admin-customers.js imports crm-abandoned-carts.js
+client/js/admin/modules/view-finance.js [DELETED] dead iframe embed; erp-profit-loss.js owns view-finance section
+client/admin/partials/scripts.html [DONE] removed view-finance.js script tag
+client/js/admin/modules/core-nav.js [DONE] view-finance → initProfitLossReport only
+client/js/admin/modules/catalog-navbar.js [DONE] Swal input for image URL + HTML embed
+client/js/admin/modules/hrm-leaves.js [DONE] Swal textarea for leave rejection reason
+client/js/admin/modules/orders-actions.js [DONE] removed window.prompt fallback on return reject
+client/js/admin/modules/settings-2fa.js [DONE] removed window.prompt fallback on OTP email edit
+backend/src/routes/adminRoutes.js [DONE] checkPermission on analytics/status, courier/status, stock/check-now, import-template, cache/stats, cache/key, ai/product-assist, sync-data, newsletter/subscribers
+tests/expense.test.js [NEW] create, list, summary, auth-rejected
+tests/profitLoss.test.js [NEW] report shape + empty-range zero case
+tests/pos.test.js [NEW] manual order creation + validation
+tests/abandonedCart.test.js [NEW] list KPIs + notify endpoint
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] FINAL CLEANUP — 2026-09-12 + sidebar DECISION note
+README.md [DONE] 146 tests / 15 suites

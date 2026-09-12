@@ -16,7 +16,7 @@ const User = require('../../models/user');
 const { normalizeMobile, BD_MOBILE_RE } = require('../auth/authHelpers');
 const Order = require('../../models/order');
 const UserSession = require('../../models/userSession');
-const Setting = require('../../models/Setting');
+const Settings = require('../../models/Settings');
 const cloudinary = require('cloudinary').v2;
 const sharp = require('sharp');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
@@ -174,7 +174,7 @@ const getAllCustomers = async (req, res) => {
                 .sort({ createdAt: -1, _id: -1 })
                 .limit(limit + 1)
                 .lean(),
-            Setting.getOrCreate()
+            Settings.getOrCreate()
         ]);
 
         const hasMore = customerRows.length > limit;

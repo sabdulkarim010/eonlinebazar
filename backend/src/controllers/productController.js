@@ -10,7 +10,7 @@
 const Product = require('../models/product'); 
 const Brand = require('../models/brand');
 const Category = require('../models/category');
-const Setting = require('../models/Setting');
+const Settings = require('../models/Settings');
 const { upload } = require('../middlewares/uploadMiddleware'); // এখানে শুধু upload ইমপোর্ট হবে
 const cloudinary = require('cloudinary').v2; // ক্লাউডিনারি সরাসরি এখান থেকে ইমপোর্ট করুন
 const mongoose = require('mongoose');
@@ -39,7 +39,7 @@ async function syncCategoryProductCount(categoryName) {
 
 async function resolveDefaultProductsPerPage() {
     try {
-        const settings = await Setting.getOrCreate();
+        const settings = await Settings.getOrCreate();
         const n = Number(settings.defaultProductsPerPage);
         if (Number.isFinite(n) && n >= 1) {
             return Math.min(MAX_PRODUCTS_PER_PAGE, Math.max(1, Math.floor(n)));

@@ -7,7 +7,6 @@
  * refund window are all read and written through one save action.
  ********************************************************************/
 
-const Setting = require('../models/Setting');
 const Settings = require('../models/Settings');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { normalizeRewardSettings } = require('../utils/rewardSettings');
@@ -139,21 +138,15 @@ const parseBoolean = (value, fallback = true) => {
     return value !== false && value !== 'false' && value !== 0 && value !== '0';
 };
 
-/**
- * Keeps the legacy delivery document in step with the master threshold, so
- * order placement (which reads Settings.freeShippingMinAmount) and the Admin
- * Panel's Delivery Settings card never drift from Master Settings.
- */
-const mirrorThresholdToDeliverySettings = async (threshold) => {
-    // A never-configured threshold is null, and Number(null) is 0 — mirroring
-    // that would hand every order free shipping.
-    if (threshold === null || threshold === undefined || !Number.isFinite(Number(threshold))) return;
-
-    const deliverySettings = await Settings.getOrCreate();
-    if (Number(deliverySettings.freeShippingMinAmount) === threshold) return;
-
-    deliverySettings.freeShippingMinAmount = threshold;
-    await deliverySettings.save();
+/** Sync freeShippingMinAmount with the canonical threshold on the same document. */
+const mirrorFreeShippingFields = (settingsDoc) => {
+    if (settingsDoc.freeShippingThreshold !== null
+        && settingsDoc.freeShippingThreshold !== undefined
+        && Number.isFinite(Number(settingsDoc.freeShippingThreshold))) {
+        settingsDoc.freeShippingMinAmount = Number(settingsDoc.freeShippingThreshold);
+    } else if (Number.isFinite(Number(settingsDoc.freeShippingMinAmount))) {
+        settingsDoc.freeShippingThreshold = Number(settingsDoc.freeShippingMinAmount);
+    }
 };
 
 /**
@@ -161,11 +154,10 @@ const mirrorThresholdToDeliverySettings = async (threshold) => {
  * the resolved free-shipping threshold, and the alias names.
  */
 const buildUnifiedPayload = async (settingsDoc) => {
-    const deliverySettings = await Settings.getOrCreate();
     const rewards = toPublicMasterSettings(settingsDoc);
     const announcement = normalizeAnnouncementSettings(
         settingsDoc,
-        deliverySettings.freeShippingMinAmount
+        settingsDoc.freeShippingMinAmount
     );
 
     return {
@@ -198,23 +190,23 @@ const buildUnifiedPayload = async (settingsDoc) => {
         maintenanceMode: settingsDoc.maintenanceMode === true,
         maintenanceMessage: String(settingsDoc.maintenanceMessage || '').trim()
             || 'We are currently performing scheduled maintenance. Please check back soon.',
-        deliveryInsideCity: deliverySettings.deliveryInsideCity,
-        deliveryOutsideCity: deliverySettings.deliveryOutsideCity,
+        deliveryInsideCity: settingsDoc.deliveryInsideCity,
+        deliveryOutsideCity: settingsDoc.deliveryOutsideCity,
         freeShippingMinAmount: announcement.freeShippingThreshold,
         orderCashbackPercent: rewards.cashbackPercentage,
         pointsPerTaka: rewards.takaToPointsRatio,
         pointsConversionRate: rewards.pointsToTakaConversionRate,
         refundUndoWindow: rewards.refundUndoWindowHours,
         enableSmsNotifications: settingsDoc.enableSmsNotifications === true,
-        ...toPublicSmsSettings(deliverySettings),
-        ...toPublicCourierSettings(deliverySettings),
-        ...toPublicWhatsAppSettings(deliverySettings)
+        ...toPublicSmsSettings(settingsDoc),
+        ...toPublicCourierSettings(settingsDoc),
+        ...toPublicWhatsAppSettings(settingsDoc)
     };
 };
 
 const getMasterSettings = async (req, res) => {
     try {
-        const settings = await Setting.getOrCreate();
+        const settings = await Settings.getOrCreate();
         res.status(200).json({ success: true, data: await buildUnifiedPayload(settings) });
     } catch (error) {
         console.error('Get Master Settings Error:', error);
@@ -224,7 +216,7 @@ const getMasterSettings = async (req, res) => {
 
 const getAnnouncementSettings = async (req, res) => {
     try {
-        const settings = await Setting.getOrCreate();
+        const settings = await Settings.getOrCreate();
         res.status(200).json({ success: true, data: await buildUnifiedPayload(settings) });
     } catch (error) {
         console.error('Get Announcement Settings Error:', error);
@@ -240,7 +232,7 @@ const getAnnouncementSettings = async (req, res) => {
  */
 const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
     const body = req.body || {};
-    const settings = await Setting.getOrCreate();
+    const settings = await Settings.getOrCreate();
     const changes = [];
 
     for (const [canonicalKey, rule] of Object.entries(NUMERIC_FIELD_RULES)) {
@@ -327,9 +319,6 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
         changes.push('Maintenance message updated');
     }
 
-    const deliverySettings = await Settings.getOrCreate();
-    let deliverySettingsDirty = false;
-
     if (body.smsGatewayProvider !== undefined) {
         const provider = String(body.smsGatewayProvider || '').trim();
         if (provider && !VALID_SMS_GATEWAY_PROVIDERS.includes(provider)) {
@@ -338,25 +327,20 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
                 message: 'Invalid SMS gateway provider selected.'
             });
         }
-        deliverySettings.smsGatewayProvider = provider;
-        deliverySettingsDirty = true;
+        settings.smsGatewayProvider = provider;
         changes.push(`SMS gateway: ${provider || 'none'}`);
     }
 
     if (body.smsApiKey !== undefined) {
-        deliverySettings.smsApiKey = String(body.smsApiKey ?? '').trim();
-        deliverySettingsDirty = true;
+        settings.smsApiKey = String(body.smsApiKey ?? '').trim();
         changes.push('SMS API key updated');
     }
 
     if (body.smsSenderId !== undefined) {
-        deliverySettings.smsSenderId = String(body.smsSenderId ?? '').trim();
-        deliverySettingsDirty = true;
-        changes.push(`SMS sender ID: ${deliverySettings.smsSenderId || 'none'}`);
+        settings.smsSenderId = String(body.smsSenderId ?? '').trim();
+        changes.push(`SMS sender ID: ${settings.smsSenderId || 'none'}`);
     }
 
-    // 🚚 Courier credentials live on the same global document as the SMS keys,
-    // so the booking engine can read them without a second query.
     if (body.defaultCourierProvider !== undefined) {
         const rawProvider = String(body.defaultCourierProvider || '').trim();
         const courierProvider = normalizeCourierSlug(rawProvider);
@@ -366,20 +350,17 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
                 message: 'Invalid courier provider selected.'
             });
         }
-        deliverySettings.defaultCourierProvider = courierProvider;
-        deliverySettingsDirty = true;
+        settings.defaultCourierProvider = courierProvider;
         changes.push(`Courier provider: ${courierProvider || 'none'}`);
     }
 
     if (body.courierApiKey !== undefined) {
-        deliverySettings.courierApiKey = String(body.courierApiKey ?? '').trim();
-        deliverySettingsDirty = true;
+        settings.courierApiKey = String(body.courierApiKey ?? '').trim();
         changes.push('Courier API key updated');
     }
 
     if (body.courierSecretKey !== undefined) {
-        deliverySettings.courierSecretKey = String(body.courierSecretKey ?? '').trim();
-        deliverySettingsDirty = true;
+        settings.courierSecretKey = String(body.courierSecretKey ?? '').trim();
         changes.push('Courier secret key updated');
     }
 
@@ -393,12 +374,11 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
                     message: 'Invalid public customer WhatsApp number.'
                 });
             }
-            deliverySettings.publicSupportWhatsApp = normalizedPublic;
+            settings.publicSupportWhatsApp = normalizedPublic;
         } else {
-            deliverySettings.publicSupportWhatsApp = '';
+            settings.publicSupportWhatsApp = '';
         }
-        deliverySettingsDirty = true;
-        changes.push(`Public WhatsApp: ${deliverySettings.publicSupportWhatsApp || 'none'}`);
+        changes.push(`Public WhatsApp: ${settings.publicSupportWhatsApp || 'none'}`);
     }
 
     if (body.privateAdminAlertWhatsApp !== undefined) {
@@ -411,18 +391,16 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
                     message: 'Invalid private admin alert WhatsApp number.'
                 });
             }
-            deliverySettings.privateAdminAlertWhatsApp = normalizedPrivate;
+            settings.privateAdminAlertWhatsApp = normalizedPrivate;
         } else {
-            deliverySettings.privateAdminAlertWhatsApp = '';
+            settings.privateAdminAlertWhatsApp = '';
         }
-        deliverySettingsDirty = true;
-        changes.push(`Admin alert WhatsApp: ${deliverySettings.privateAdminAlertWhatsApp ? 'configured' : 'cleared'}`);
+        changes.push(`Admin alert WhatsApp: ${settings.privateAdminAlertWhatsApp ? 'configured' : 'cleared'}`);
     }
 
     if (body.enableWhatsAppOrderAlerts !== undefined) {
-        deliverySettings.enableWhatsAppOrderAlerts = parseBoolean(body.enableWhatsAppOrderAlerts, false);
-        deliverySettingsDirty = true;
-        changes.push(`WhatsApp order alerts: ${deliverySettings.enableWhatsAppOrderAlerts}`);
+        settings.enableWhatsAppOrderAlerts = parseBoolean(body.enableWhatsAppOrderAlerts, false);
+        changes.push(`WhatsApp order alerts: ${settings.enableWhatsAppOrderAlerts}`);
     }
 
     if (body.whatsAppAlertProvider !== undefined) {
@@ -433,36 +411,23 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
                 message: 'Invalid WhatsApp alert provider selected.'
             });
         }
-        deliverySettings.whatsAppAlertProvider = provider;
-        deliverySettingsDirty = true;
+        settings.whatsAppAlertProvider = provider;
         changes.push(`WhatsApp alert provider: ${provider || 'none'}`);
     }
 
     if (body.whatsAppAlertApiKey !== undefined) {
-        deliverySettings.whatsAppAlertApiKey = String(body.whatsAppAlertApiKey ?? '').trim();
-        deliverySettingsDirty = true;
+        settings.whatsAppAlertApiKey = String(body.whatsAppAlertApiKey ?? '').trim();
         changes.push('WhatsApp alert API key updated');
     }
 
     if (body.whatsAppAlertInstanceId !== undefined) {
-        deliverySettings.whatsAppAlertInstanceId = String(body.whatsAppAlertInstanceId ?? '').trim();
-        deliverySettingsDirty = true;
-        changes.push(`WhatsApp alert instance: ${deliverySettings.whatsAppAlertInstanceId || 'none'}`);
+        settings.whatsAppAlertInstanceId = String(body.whatsAppAlertInstanceId ?? '').trim();
+        changes.push(`WhatsApp alert instance: ${settings.whatsAppAlertInstanceId || 'none'}`);
     }
 
     if (body.whatsAppAlertWebhookUrl !== undefined) {
-        deliverySettings.whatsAppAlertWebhookUrl = String(body.whatsAppAlertWebhookUrl ?? '').trim();
-        deliverySettingsDirty = true;
-        changes.push(`WhatsApp webhook: ${deliverySettings.whatsAppAlertWebhookUrl ? 'configured' : 'cleared'}`);
-    }
-
-    // 💳 Payment methods are no longer edited here — they live in their own
-    // collection behind /api/admin/payment-methods, so the catalog has exactly
-    // one write path. See controllers/paymentMethodController.js.
-
-    if (deliverySettingsDirty) {
-        await deliverySettings.save();
-        clearWhatsAppSettingsCache();
+        settings.whatsAppAlertWebhookUrl = String(body.whatsAppAlertWebhookUrl ?? '').trim();
+        changes.push(`WhatsApp webhook: ${settings.whatsAppAlertWebhookUrl ? 'configured' : 'cleared'}`);
     }
 
     // The legacy free-text field stays in sync with the numeric threshold so
@@ -482,8 +447,9 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
         });
     }
 
+    mirrorFreeShippingFields(settings);
     await settings.save();
-    await mirrorThresholdToDeliverySettings(settings.freeShippingThreshold);
+    clearWhatsAppSettingsCache();
 
     await invalidate(CACHE_KEYS.STORE_SETTINGS);
     await invalidate(CACHE_KEYS.FLASH_SALE);

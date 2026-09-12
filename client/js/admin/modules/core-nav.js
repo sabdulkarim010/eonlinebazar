@@ -646,7 +646,6 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-purchase-orders': () => window.loadPurchaseOrdersSection && window.loadPurchaseOrdersSection(),
         'view-accounts': () => window.loadAccountsSection && window.loadAccountsSection(),
         'view-finance': () => {
-            if (window.initFinanceEmbed) window.initFinanceEmbed();
             if (window.initProfitLossReport) window.initProfitLossReport();
         },
         'view-erp-expenses': () => window.loadExpensesSection && window.loadExpensesSection(),

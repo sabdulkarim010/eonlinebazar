@@ -3,11 +3,11 @@
  * File: Settings.js
  * Location: models/Settings.js
  * Author: Abdul Karim Sheikh
- * Description: Singleton system settings — delivery charges and
- * free-shipping thresholds controlled from the Admin Panel.
- *
- * @deprecated Read path — prefer GET /api/admin/all-settings (merged with
- * Setting.js master rewards). Writes still use PUT /api/admin/settings.
+ * Description: Singleton system settings — delivery, loyalty, SMS,
+ * courier, rate limits, payment gateways, flash sale, and storefront
+ * announcement. Consolidated from the former Setting.js + Settings.js
+ * pair (2026-09-12). Run scripts/mergeSettingsModels.js once before
+ * deploy if upgrading from the dual-model layout.
  ********************************************************************/
 
 const mongoose = require('mongoose');
@@ -41,6 +41,51 @@ const settingsSchema = new mongoose.Schema({
         default: 1000,
         min: 0
     },
+    // Canonical free-shipping threshold (mirrors freeShippingMinAmount).
+    freeShippingThreshold: {
+        type: Number,
+        default: null,
+        min: 0
+    },
+    cashbackPercentage: {
+        type: Number,
+        default: 1,
+        min: 0,
+        max: 100
+    },
+    takaToPointsRatio: {
+        type: Number,
+        default: 100,
+        min: 0
+    },
+    pointsToTakaConversionRate: {
+        type: Number,
+        default: 10,
+        min: 0
+    },
+    refundUndoWindowHours: {
+        type: Number,
+        default: 72,
+        min: 0
+    },
+    announcementText: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    announcementDiscount: {
+        type: String,
+        default: '2000',
+        trim: true
+    },
+    isAnnouncementActive: {
+        type: Boolean,
+        default: true
+    },
+    enableSmsNotifications: {
+        type: Boolean,
+        default: false
+    },
     smsGatewayProvider: {
         type: String,
         enum: ['Greenweb BD', 'BulkSMS BD', 'AlphaSMS', 'Generic API', ''],
@@ -57,8 +102,6 @@ const settingsSchema = new mongoose.Schema({
         default: '',
         trim: true
     },
-    // 🚚 Courier gateway credentials — saved from Admin Master Settings and
-    // read at booking time, so providers/keys can be rotated without a deploy.
     defaultCourierProvider: {
         type: String,
         enum: ['Steadfast', 'Pathao', 'RedX', 'steadfast', 'pathao', 'redx', ''],
@@ -75,7 +118,6 @@ const settingsSchema = new mongoose.Schema({
         default: '',
         trim: true
     },
-    // 📱 Dual WhatsApp — public customer chat vs private admin order alerts
     publicSupportWhatsApp: {
         type: String,
         default: '',
@@ -111,7 +153,6 @@ const settingsSchema = new mongoose.Schema({
         default: '',
         trim: true
     },
-    // 💳 Storefront trust badges — toggled from Admin Master Settings
     activePaymentGateways: {
         bKash: { type: Boolean, default: true },
         Nagad: { type: Boolean, default: true },
@@ -119,7 +160,6 @@ const settingsSchema = new mongoose.Schema({
         MasterCard: { type: Boolean, default: true },
         COD: { type: Boolean, default: true }
     },
-    // 🛡️ Dynamic rate limiting — controlled from Admin → Security & Audit
     rateLimitEnabled: {
         type: Boolean,
         default: true
@@ -172,6 +212,113 @@ const settingsSchema = new mongoose.Schema({
             name: { type: String, default: 'Cash on Delivery', trim: true },
             logoUrl: { type: String, default: '', trim: true }
         }
+    },
+    flashSaleEnabled: {
+        type: Boolean,
+        default: false
+    },
+    flashSaleTitle: {
+        type: String,
+        default: 'Flash Sale',
+        trim: true
+    },
+    flashSaleEndDate: {
+        type: Date,
+        default: null
+    },
+    flashSaleDiscountPercent: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 100
+    },
+    flashSaleProductIds: {
+        type: [String],
+        default: []
+    },
+    vipMinTotalSpent: {
+        type: Number,
+        default: 10000,
+        min: 0
+    },
+    vipMinOrderCount: {
+        type: Number,
+        default: 5,
+        min: 0
+    },
+    frequentBuyerMinOrders: {
+        type: Number,
+        default: 3,
+        min: 0
+    },
+    referralRewardAmount: {
+        type: Number,
+        default: 100,
+        min: 0
+    },
+    enableTieredLoyalty: {
+        type: Boolean,
+        default: false
+    },
+    silverThreshold: {
+        type: Number,
+        default: 5000,
+        min: 0
+    },
+    goldThreshold: {
+        type: Number,
+        default: 15000,
+        min: 0
+    },
+    platinumThreshold: {
+        type: Number,
+        default: 50000,
+        min: 0
+    },
+    silverCashback: {
+        type: Number,
+        default: 1.5,
+        min: 0,
+        max: 100
+    },
+    goldCashback: {
+        type: Number,
+        default: 2.5,
+        min: 0,
+        max: 100
+    },
+    platinumCashback: {
+        type: Number,
+        default: 4.0,
+        min: 0,
+        max: 100
+    },
+    defaultProductsPerPage: {
+        type: Number,
+        default: 24,
+        min: 1,
+        max: 100
+    },
+    vatRate: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 100
+    },
+    orderPrefix: {
+        type: String,
+        default: 'ORD',
+        trim: true,
+        maxlength: 12
+    },
+    maintenanceMode: {
+        type: Boolean,
+        default: false
+    },
+    maintenanceMessage: {
+        type: String,
+        default: 'We are currently performing scheduled maintenance. Please check back soon.',
+        trim: true
     }
 }, {
     timestamps: true

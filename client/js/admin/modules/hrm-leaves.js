@@ -106,19 +106,27 @@ function approveLeave(id) {
 }
 
 async function rejectLeave(id) {
-    const reason = window.prompt('Reason for rejecting this leave application:');
-    if (reason === null) return;
-
-    if (!reason.trim()) {
-        showToast('A rejection reason is required.', 'warning');
-        return;
-    }
+    const result = await Swal.fire({
+        title: 'Reject Leave Application',
+        input: 'textarea',
+        inputLabel: 'Reason for rejection',
+        inputPlaceholder: 'Explain why this leave is rejected…',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        confirmButtonText: 'Reject',
+        inputValidator: (value) => {
+            if (!String(value || '').trim()) return 'A rejection reason is required.';
+            return undefined;
+        }
+    });
+    if (!result.isConfirmed) return;
+    const reason = String(result.value || '').trim();
 
     try {
         const res = await fetch(`/api/admin/hrm/leaves/${id}/reject`, {
             method: 'PATCH',
             headers: window.hrmAuthHeaders(true),
-            body: JSON.stringify({ rejectionReason: reason.trim() })
+            body: JSON.stringify({ rejectionReason: reason })
         });
         const result = await res.json();
 

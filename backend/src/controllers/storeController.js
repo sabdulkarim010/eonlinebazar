@@ -14,11 +14,10 @@ const { getDeliveryEstimate } = require('../services/deliveryEstimateService');
 const { BANGLADESH_DISTRICTS } = require('../utils/bangladeshDistricts');
 const { loadRewardSettings } = require('../utils/rewardSettings');
 const { toPublicAnnouncementPayload } = require('../utils/announcementSettings');
-const Setting = require('../models/Setting');
+const Settings = require('../models/Settings');
 const { loadFlashSaleSettings, toPublicFlashSalePayload } = require('../services/flashSaleService');
 const FooterSettings = require('../models/FooterSettings');
 const PageContent = require('../models/PageContent');
-const Settings = require('../models/Settings');
 const {
     filterFooterColumnsByPublishedPagesAsync,
     resolveFooterPlaceholderUrlsAsync
@@ -61,7 +60,7 @@ const getHealth = async (req, res) => {
     let maintenanceMode = false;
     let maintenanceMessage = '';
     try {
-        const master = await Setting.getOrCreate();
+        const master = await Settings.getOrCreate();
         maintenanceMode = master.maintenanceMode === true;
         maintenanceMessage = String(master.maintenanceMessage || '').trim();
     } catch (_) { /* non-fatal for health probe */ }
@@ -95,7 +94,7 @@ module.exports = {
     getPublicAnnouncement: async (req, res) => {
         try {
             const [masterDoc, rewardSettings, deliverySettings] = await Promise.all([
-                Setting.getOrCreate(),
+                Settings.getOrCreate(),
                 loadRewardSettings(),
                 getDeliverySettings()
             ]);
