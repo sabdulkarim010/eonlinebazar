@@ -931,3 +931,44 @@ body.staff-panel-open { overflow: hidden; }
 
 .employee-suspend-access-link { color: #d97706; }
 
+.employee-access-empty-state {
+    padding: 24px 20px;
+    border-radius: 12px;
+    border: 1px dashed #cbd5e1;
+    background: #f8fafc;
+    text-align: center;
+}
+
+.employee-access-empty-icon {
+    font-size: 28px;
+    color: #94a3b8;
+    margin-bottom: 10px;
+}
+
+.employee-access-empty-text {
+    margin: 0 0 16px;
+    color: #64748b;
+    font-size: 14px;
+}
+
+.employee-grant-access-btn {
+    min-width: 200px;
+}
+
+.employee-access-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.employee-access-warn-btn {
+    border-color: #f59e0b;
+    color: #b45309;
+}
+
+.employee-access-success-btn {
+    border-color: #16a34a;
+    color: #15803d;
+}
+

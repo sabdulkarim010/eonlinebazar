@@ -748,6 +748,76 @@ exports.revokeSystemAccess = async (req, res) => {
 };
 
 /**
+ * POST /api/admin/hrm/employees/:id/reactivate-access
+ * Restores a suspended linked admin login to active.
+ */
+exports.reactivateSystemAccess = async (req, res) => {
+    try {
+        const employee = await findEmployeeRecord(req.params.id);
+        if (!employee || !employee.linkedAdminId) {
+            return res.status(400).json({ error: 'No linked account to reactivate' });
+        }
+
+        const admin = await Admin.findById(employee.linkedAdminId);
+        if (!admin) {
+            return res.status(400).json({ error: 'Linked admin account not found' });
+        }
+
+        admin.status = ACCOUNT_STATUS.ACTIVE;
+        await admin.save();
+
+        await logSecurityEvent({
+            action: 'Employee System Access Reactivated',
+            actor: actorName(req),
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `${employee.employeeId} — admin ${employee.linkedAdminId} reactivated`,
+            resourceType: 'employee',
+            resourceId: String(employee._id)
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('reactivateSystemAccess Error:', error);
+        res.status(500).json({ error: 'Failed to reactivate system access.' });
+    }
+};
+
+/**
+ * POST /api/admin/hrm/employees/:id/unlink-access
+ * Permanently unbinds the employee from their admin account (account kept for audit).
+ */
+exports.unlinkSystemAccess = async (req, res) => {
+    try {
+        const employee = await findEmployeeRecord(req.params.id);
+        if (!employee || !employee.linkedAdminId) {
+            return res.status(400).json({ error: 'No access to revoke' });
+        }
+
+        const adminId = employee.linkedAdminId;
+        await Admin.findByIdAndUpdate(adminId, { status: ACCOUNT_STATUS.BLOCKED });
+
+        employee.linkedAdminId = null;
+        await employee.save();
+
+        await logSecurityEvent({
+            action: 'access_revoked',
+            actor: actorName(req),
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `${employee.employeeId} — admin ${adminId} unlinked`,
+            resourceType: 'employee',
+            resourceId: String(employee._id)
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('unlinkSystemAccess Error:', error);
+        res.status(500).json({ error: 'Failed to unlink system access.' });
+    }
+};
+
+/**
  * GET /api/admin/hrm/employees/:id/access-status
  * Returns whether the employee has a linked admin account and its summary.
  */
@@ -755,19 +825,21 @@ exports.getAccessStatus = async (req, res) => {
     try {
         const employee = await findEmployeeRecord(req.params.id);
         if (!employee || !employee.linkedAdminId) {
-            return res.json({ hasAccess: false });
+            return res.json({ hasAccess: false, linkedAdminId: null });
         }
 
         const admin = await Admin.findById(employee.linkedAdminId)
-            .select('username status permissions lastLoginAt');
+            .select('username email status permissions lastLoginAt');
         if (!admin) {
-            return res.json({ hasAccess: false });
+            return res.json({ hasAccess: false, linkedAdminId: employee.linkedAdminId });
         }
 
         res.json({
             hasAccess: true,
+            linkedAdminId: employee.linkedAdminId,
             admin: {
                 username: admin.username,
+                email: admin.email || '',
                 status: admin.status,
                 permissions: Array.isArray(admin.permissions) ? admin.permissions : [],
                 lastLoginAt: admin.lastLoginAt || null

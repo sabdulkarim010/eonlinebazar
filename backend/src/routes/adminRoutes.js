@@ -531,6 +531,8 @@ router.get('/hrm/employees/:id/profile', verifyAdmin, checkPermission('manage_st
 router.get('/hrm/employees/:id/access-status', verifyAdmin, checkPermission('manage_staff'), employeeController.getAccessStatus);
 router.post('/hrm/employees/:id/grant-access', verifyAdmin, checkPermission('manage_staff'), employeeController.grantSystemAccess);
 router.post('/hrm/employees/:id/revoke-access', verifyAdmin, checkPermission('manage_staff'), employeeController.revokeSystemAccess);
+router.post('/hrm/employees/:id/reactivate-access', verifyAdmin, checkPermission('manage_staff'), employeeController.reactivateSystemAccess);
+router.post('/hrm/employees/:id/unlink-access', verifyAdmin, checkPermission('manage_staff'), employeeController.unlinkSystemAccess);
 router.get('/hrm/employees/:id', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeById);
 router.post('/hrm/employees', verifyAdmin, checkPermission('manage_staff'), employeeController.createEmployee);
 router.post('/hrm/employees/:id/photo', verifyAdmin, checkPermission('manage_staff'), employeePhotoUpload, employeeController.uploadEmployeePhoto);

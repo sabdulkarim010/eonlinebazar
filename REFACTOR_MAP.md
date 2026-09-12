@@ -980,3 +980,14 @@ README.md [DONE] admin access decoupling + SweetAlert2 note
 # Sidebar Admin Access link restore — 2026-09-12
 client/admin/partials/sidebar.html [DONE] Admin Access & Roles anchor link under Security & Access (data-target staff)
 client/js/admin/modules/core-nav.js [DONE] staff → view-staff section alias for sidebar navigation
+#
+# Admin access console fix & dynamic control — 2026-09-12
+client/js/admin-staff.js [DONE] closeStaffPermissionsPanel hoisted before window export (fixes ReferenceError + sidebar bootstrap)
+client/admin/partials/sidebar.html [DONE] Admin Access & Roles data-target normalized to view-staff
+backend/src/controllers/admin/employeeController.js [DONE] reactivateSystemAccess, unlinkSystemAccess; getAccessStatus returns email + linkedAdminId
+backend/src/routes/adminRoutes.js [DONE] POST reactivate-access, unlink-access (manage_staff)
+client/js/admin/modules/hrm-employees.js [DONE] 3-state Access tab; suspendEmployeeAccess, reactivateEmployeeAccess, revokeEmployeeAccess, refreshEmployeeAccessTab
+client/css/admin/_staff.css [DONE] empty-state + action-row styles for Access tab
+tests/hrm.test.js [DONE] reactivate-access + unlink-access coverage in grant/revoke flow
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] ADMIN ACCESS CONSOLE FIX & DYNAMIC CONTROL — 2026-09-12
+README.md [DONE] dynamic employee access control note

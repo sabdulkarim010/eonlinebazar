@@ -1057,68 +1057,220 @@ async function toggleEmployeeStatus(id, currentStatus) {
     }
 }
 
+function renderAccessTabState1(section, employee) {
+    section.innerHTML = `
+        <div class="employee-access-empty-state">
+            <div class="employee-access-empty-icon" aria-hidden="true"><i class="fa-solid fa-user-lock"></i></div>
+            <p class="employee-access-empty-text">This staff member currently has no Admin/System login access.</p>
+            <button type="button" class="btn-primary employee-grant-access-btn" onclick='openGrantAccessModal(${JSON.stringify(employee._id)}, ${JSON.stringify(employee.fullName)}, ${JSON.stringify(employee.email || '')}, ${JSON.stringify(employee.phone || '')})'>
+                ➕ Grant System Access
+            </button>
+        </div>`;
+}
+
+function renderAccessTabLinkedState(section, employee, data) {
+    const isActive = data.admin.status === 'active';
+    const statusLabel = isActive ? 'Active' : 'Suspended';
+    const statusClass = isActive ? 'status-verified' : 'status-blocked';
+    const linkedAdminId = data.linkedAdminId || employee.linkedAdminId;
+
+    section.innerHTML = `
+        <div class="employee-access-linked-card">
+            <dl class="employee-access-summary">
+                <div><dt>Username</dt><dd>${employeeEscape(data.admin.username)}</dd></div>
+                <div><dt>Email</dt><dd>${employeeEscape(data.admin.email || '—')}</dd></div>
+                <div><dt>Status</dt><dd><span class="status-badge ${statusClass}">${statusLabel}</span></dd></div>
+                <div><dt>Last Login</dt><dd>${data.admin.lastLoginAt ? formatDate(data.admin.lastLoginAt) : 'Never'}</dd></div>
+            </dl>
+            <div class="employee-access-action-row">
+                <button type="button" class="btn-secondary btn-sm" onclick="openStaffEditModal('${employeeEscape(linkedAdminId)}')">
+                    ⚙️ Manage Permissions
+                </button>
+                ${isActive
+        ? `<button type="button" class="btn-secondary btn-sm employee-access-warn-btn" onclick="suspendEmployeeAccess('${employee._id}')">
+                        ⏸️ Suspend Access
+                    </button>`
+        : `<button type="button" class="btn-secondary btn-sm employee-access-success-btn" onclick="reactivateEmployeeAccess('${employee._id}')">
+                        ▶️ Re-activate Access
+                    </button>`}
+                <button type="button" class="btn-danger btn-sm" onclick="revokeEmployeeAccess('${employee._id}')">
+                    🗑️ Revoke Access
+                </button>
+            </div>
+        </div>`;
+}
+
+async function fetchEmployeeAccessPayload(employeeId) {
+    const res = await fetch(`/api/admin/hrm/employees/${employeeId}/access-status`, {
+        headers: employeeAuthHeaders()
+    });
+    return res.json();
+}
+
 async function renderProfileAccess(employee) {
     const section = document.getElementById('profileAccessSection');
     if (!section) return;
 
     if (!employee.linkedAdminId) {
-        section.innerHTML = `
-            <div class="employee-access-link-card">
-                <div class="employee-access-link-copy">
-                    <h4>Link System Account</h4>
-                    <p class="table-subtext">No admin login is linked to this employee yet.</p>
-                </div>
-                <button type="button" class="btn-secondary btn-sm employee-link-account-btn" onclick='openGrantAccessModal(${JSON.stringify(employee._id)}, ${JSON.stringify(employee.fullName)}, ${JSON.stringify(employee.email || '')}, ${JSON.stringify(employee.phone || '')})'>
-                    Link System Account <i class="fa-solid fa-arrow-right"></i>
-                </button>
-            </div>`;
+        renderAccessTabState1(section, employee);
         return;
     }
 
     section.innerHTML = '<p class="table-subtext">Loading linked account…</p>';
 
     try {
-        const res = await fetch(`/api/admin/hrm/employees/${employee._id}/access-status`, {
-            headers: employeeAuthHeaders()
-        });
-        const data = await res.json();
+        const data = await fetchEmployeeAccessPayload(employee._id);
 
         if (!data.hasAccess) {
-            section.innerHTML = `
-                <div class="employee-access-link-card">
-                    <p class="table-subtext">Linked account record not found.</p>
-                    <button type="button" class="btn-secondary btn-sm" onclick='openGrantAccessModal(${JSON.stringify(employee._id)}, ${JSON.stringify(employee.fullName)}, ${JSON.stringify(employee.email || '')}, ${JSON.stringify(employee.phone || '')})'>
-                        Link System Account <i class="fa-solid fa-arrow-right"></i>
-                    </button>
-                </div>`;
+            renderAccessTabState1(section, employee);
             return;
         }
 
-        const statusClass = data.admin.status === 'active' ? 'status-verified' : 'status-blocked';
-        section.innerHTML = `
-            <div class="employee-access-linked-card">
-                <div class="employee-access-linked-head">
-                    <span class="status-badge status-verified"><i class="fa-solid fa-link"></i> System Account Linked</span>
-                </div>
-                <dl class="employee-access-summary">
-                    <div><dt>Username</dt><dd>${employeeEscape(data.admin.username)}</dd></div>
-                    <div><dt>Status</dt><dd><span class="status-badge ${statusClass}">${employeeEscape(data.admin.status)}</span></dd></div>
-                    <div><dt>Last Login</dt><dd>${data.admin.lastLoginAt ? formatDate(data.admin.lastLoginAt) : 'Never'}</dd></div>
-                </dl>
-                <div class="employee-access-linked-actions">
-                    <button type="button" class="btn-link employee-manage-perms-link" onclick="openStaffEditModal('${employeeEscape(employee.linkedAdminId)}')">
-                        Manage Permissions <i class="fa-solid fa-arrow-right"></i>
-                    </button>
-                    <button type="button" class="btn-link employee-suspend-access-link" onclick="openManageAccessModal('${employee._id}')">
-                        Suspend Access
-                    </button>
-                </div>
-            </div>`;
+        renderAccessTabLinkedState(section, employee, data);
     } catch (err) {
         console.error('renderProfileAccess:', err);
         section.innerHTML = '<p class="table-status-error">Failed to load access details.</p>';
     }
 }
+
+window.refreshEmployeeAccessTab = async function refreshEmployeeAccessTab(employeeId) {
+    const section = document.getElementById('profileAccessSection');
+    if (!section) return;
+
+    section.innerHTML = '<p class="table-subtext">Refreshing access status…</p>';
+
+    try {
+        const data = await fetchEmployeeAccessPayload(employeeId);
+
+        if (!data.hasAccess) {
+            if (activeProfileData?.employee?._id === employeeId) {
+                activeProfileData.employee.linkedAdminId = null;
+            }
+            renderAccessTabState1(section, {
+                _id: employeeId,
+                fullName: activeProfileData?.employee?.fullName || '',
+                email: activeProfileData?.employee?.email || '',
+                phone: activeProfileData?.employee?.phone || ''
+            });
+            return;
+        }
+
+        if (activeProfileData?.employee?._id === employeeId) {
+            activeProfileData.employee.linkedAdminId = data.linkedAdminId || activeProfileData.employee.linkedAdminId;
+        }
+
+        renderAccessTabLinkedState(section, {
+            _id: employeeId,
+            linkedAdminId: data.linkedAdminId
+        }, data);
+    } catch (err) {
+        console.error('refreshEmployeeAccessTab:', err);
+        section.innerHTML = '<p class="table-status-error">Failed to refresh access details.</p>';
+    }
+};
+
+window.suspendEmployeeAccess = async function suspendEmployeeAccess(employeeId) {
+    const result = await Swal.fire({
+        icon: 'question',
+        title: 'Suspend this account?',
+        text: 'The user will lose access immediately. You can re-enable it later.',
+        showCancelButton: true,
+        confirmButtonColor: '#f59e0b',
+        confirmButtonText: 'Yes, suspend',
+        cancelButtonText: 'Cancel'
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+        const res = await fetch(`/api/admin/hrm/employees/${employeeId}/revoke-access`, {
+            method: 'POST',
+            headers: employeeAuthHeaders(true)
+        });
+        const data = await res.json();
+        if (data.success) {
+            Swal.fire({ icon: 'success', title: 'Suspended', timer: 1500, showConfirmButton: false });
+            await refreshEmployeeAccessTab(employeeId);
+            if (window.hrmInvalidateEmployeeCache) window.hrmInvalidateEmployeeCache();
+            await loadEmployees();
+        } else {
+            Swal.fire({ icon: 'error', title: 'Failed', text: data.error || 'Could not suspend access.' });
+        }
+    } catch (err) {
+        console.error('suspendEmployeeAccess:', err);
+        Swal.fire({ icon: 'error', title: 'Failed', text: 'Could not suspend access.' });
+    }
+};
+
+window.reactivateEmployeeAccess = async function reactivateEmployeeAccess(employeeId) {
+    const result = await Swal.fire({
+        icon: 'question',
+        title: 'Re-activate this account?',
+        text: 'The user will regain their previous access immediately.',
+        showCancelButton: true,
+        confirmButtonColor: '#16a34a',
+        confirmButtonText: 'Yes, re-activate',
+        cancelButtonText: 'Cancel'
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+        const res = await fetch(`/api/admin/hrm/employees/${employeeId}/reactivate-access`, {
+            method: 'POST',
+            headers: employeeAuthHeaders(true)
+        });
+        const data = await res.json();
+        if (data.success) {
+            Swal.fire({ icon: 'success', title: 'Re-activated', timer: 1500, showConfirmButton: false });
+            await refreshEmployeeAccessTab(employeeId);
+            if (window.hrmInvalidateEmployeeCache) window.hrmInvalidateEmployeeCache();
+            await loadEmployees();
+        } else {
+            Swal.fire({ icon: 'error', title: 'Failed', text: data.error || 'Could not reactivate access.' });
+        }
+    } catch (err) {
+        console.error('reactivateEmployeeAccess:', err);
+        Swal.fire({ icon: 'error', title: 'Failed', text: 'Could not reactivate access.' });
+    }
+};
+
+window.revokeEmployeeAccess = async function revokeEmployeeAccess(employeeId) {
+    const result = await Swal.fire({
+        icon: 'warning',
+        title: 'Revoke System Access?',
+        text: 'This employee will lose all admin panel access and revert to an operational employee. This cannot be undone without creating a new account.',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, revoke access',
+        cancelButtonText: 'Cancel'
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+        const res = await fetch(`/api/admin/hrm/employees/${employeeId}/unlink-access`, {
+            method: 'POST',
+            headers: employeeAuthHeaders(true)
+        });
+        const data = await res.json();
+        if (data.success) {
+            Swal.fire({ icon: 'success', title: 'Access Revoked', timer: 1500, showConfirmButton: false });
+            if (activeProfileData?.employee?._id === employeeId) {
+                activeProfileData.employee.linkedAdminId = null;
+            }
+            await refreshEmployeeAccessTab(employeeId);
+            if (window.hrmInvalidateEmployeeCache) window.hrmInvalidateEmployeeCache();
+            await loadEmployees();
+            if (typeof window.refreshStaffAssignCandidates === 'function') {
+                window.refreshStaffAssignCandidates();
+            }
+        } else {
+            Swal.fire({ icon: 'error', title: 'Failed', text: data.error || 'Could not revoke access.' });
+        }
+    } catch (err) {
+        console.error('revokeEmployeeAccess:', err);
+        Swal.fire({ icon: 'error', title: 'Failed', text: 'Could not revoke access.' });
+    }
+};
 
 async function terminateEmployee(id) {
     confirmAdminAction('Terminate this employee? Their status will be set to terminated.', async () => {

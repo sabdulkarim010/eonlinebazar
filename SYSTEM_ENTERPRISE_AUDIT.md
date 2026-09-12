@@ -1504,6 +1504,17 @@ All checklist items in sections **1–5, 7–8** are implemented and verified in
 
 ---
 
+## ADMIN ACCESS CONSOLE FIX & DYNAMIC CONTROL — 2026-09-12
+
+| Part | Status | Note |
+|------|--------|------|
+| **A — Console error** | ✅ | Root cause: `window.closeStaffEditModal = closeStaffPermissionsPanel` referenced the function before assignment, throwing `ReferenceError` and aborting entire `admin-staff.js` module load. |
+| **B — Sidebar navigation** | ✅ | Link existed but stayed hidden because module crash prevented `applySuperAdminOnlyVisibility()`; normalized `data-target` to `view-staff` to match `adminPageBuilder.js`. |
+| **C — Dynamic 3-state access tab** | ✅ | Employee profile Access tab renders Grant / Active / Suspended states; added `reactivate-access` + `unlink-access` endpoints and `refreshEmployeeAccessTab` live refresh. |
+| **D — SweetAlert2** | ✅ | Already loaded via admin `head.html`; all grant/suspend/revoke/reactivate flows use Swal (no native `alert`/`confirm` in HRM access paths). |
+
+---
+
 *End of Final System Audit — 2026-09-11. Files scanned: `backend/src/models/`, `backend/src/controllers/admin/`, `backend/src/routes/adminRoutes.js`, `backend/src/services/`, `backend/src/jobs/`, `client/admin/partials/`, `client/js/admin/modules/`, `mobile/src/`.*
 
 

@@ -898,8 +898,9 @@ describe('HRM — Attendance, Payroll, Leave', () => {
 
             const employee = await Employee.findById(employeeId);
             expect(employee.linkedAdminId).toBeTruthy();
+            const linkedAdminId = String(employee.linkedAdminId);
 
-            const linkedAdmin = await Admin.findById(employee.linkedAdminId);
+            const linkedAdmin = await Admin.findById(linkedAdminId);
             expect(linkedAdmin.username).toBe('access.test.user');
             expect(linkedAdmin.employeeRef).toBe(String(employeeId));
             expect(linkedAdmin.permissions).toEqual(expect.arrayContaining(['manage_orders', 'manage_inventory']));
@@ -932,10 +933,18 @@ describe('HRM — Attendance, Payroll, Leave', () => {
             expect(revoked.status).toBe(200);
             expect(revoked.body.success).toBe(true);
 
-            const blockedAdmin = await Admin.findById(employee.linkedAdminId);
+            const blockedAdmin = await Admin.findById(linkedAdminId);
             expect(blockedAdmin.status).toBe('blocked');
 
-            await Admin.findByIdAndUpdate(employee.linkedAdminId, { status: 'active' });
+            const reactivated = await request(app)
+                .post(`/api/admin/hrm/employees/${employeeId}/reactivate-access`)
+                .set(auth(token));
+
+            expect(reactivated.status).toBe(200);
+            expect(reactivated.body.success).toBe(true);
+
+            const activeAgain = await Admin.findById(linkedAdminId);
+            expect(activeAgain.status).toBe('active');
 
             const terminated = await request(app)
                 .delete(`/api/admin/hrm/employees/${employeeId}`)
@@ -943,8 +952,21 @@ describe('HRM — Attendance, Payroll, Leave', () => {
 
             expect(terminated.status).toBe(200);
 
-            const suspendedAfterTerminate = await Admin.findById(employee.linkedAdminId);
+            const suspendedAfterTerminate = await Admin.findById(linkedAdminId);
             expect(suspendedAfterTerminate.status).toBe('blocked');
+
+            const unlinked = await request(app)
+                .post(`/api/admin/hrm/employees/${employeeId}/unlink-access`)
+                .set(auth(token));
+
+            expect(unlinked.status).toBe(200);
+            expect(unlinked.body.success).toBe(true);
+
+            const unlinkedEmployee = await Employee.findById(employeeId);
+            expect(unlinkedEmployee.linkedAdminId).toBeNull();
+
+            const unlinkedAdmin = await Admin.findById(linkedAdminId);
+            expect(unlinkedAdmin.status).toBe('blocked');
         });
 
         test('uploads employee photo via multipart endpoint', async () => {

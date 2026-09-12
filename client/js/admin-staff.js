@@ -729,16 +729,17 @@ window.openStaffEditModal = async function openStaffEditModal(staffId) {
     }
 };
 
-window.closeStaffEditModal = closeStaffPermissionsPanel;
-
-window.closeStaffPermissionsPanel = function closeStaffPermissionsPanel() {
+function closeStaffPermissionsPanel() {
     const panel = document.getElementById('staffPermissionsPanel');
     if (panel) {
         panel.classList.remove('is-open');
         panel.setAttribute('aria-hidden', 'true');
     }
     document.body.classList.remove('staff-panel-open');
-};
+}
+
+window.closeStaffPermissionsPanel = closeStaffPermissionsPanel;
+window.closeStaffEditModal = closeStaffPermissionsPanel;
 
 function setupEditStaffForm() {
     const form = document.getElementById('editStaffForm');
