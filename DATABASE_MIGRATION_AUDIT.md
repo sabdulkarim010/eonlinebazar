@@ -1,16 +1,18 @@
 # DATABASE MIGRATION AUDIT — MongoDB → PostgreSQL (Prisma + Neon)
 
 **Created:** 2026-09-13
-**Current stage:** 2 of 5 — Step 1 (environment setup + baseline migration) **COMPLETE**
+**Current stage:** 2 of 5 — Step 1 (environment setup + baseline migration) and
+Step 1b (generated-client loading) **COMPLETE**
 **Artifacts produced:** `prisma/schema.prisma`, `prisma.config.js`,
 `prisma/migrations/20260913131445_init_postgres_baseline/`, this file
 **Application code changed:** none — no model, controller, route or service touched
 
 > **Stage progress:** Stage 1 (schema design) complete 2026-09-13.
-> Stage 2 Step 1 (Prisma connected to Neon, baseline migration applied) complete
-> 2026-09-13 — see the dated section at the end of this file. The live database
-> is **still MongoDB** and remains authoritative; the Neon database exists but is
-> empty and no application code reads from it.
+> Stage 2 Step 1 (Prisma connected to Neon, baseline migration applied) and
+> Step 1b (the non-deprecated `prisma-client` generator made loadable from this
+> CommonJS backend) both complete 2026-09-13 — see the dated sections at the end
+> of this file. The live database is **still MongoDB** and remains authoritative;
+> the Neon database exists but is empty and no application code reads from it.
 
 ---
 
@@ -160,13 +162,18 @@ module.exports = defineConfig({
 
 The generator also changed. `prisma-client-js` is on Prisma's removal path, so
 the schema uses the Rust-free `prisma-client` provider, which makes `output`
-mandatory (the client is no longer emitted into `node_modules`):
+mandatory (the client is no longer emitted into `node_modules`). The final
+option set — and why each option is there — is derived in **Stage 2 Step 1b**
+below:
 
 ```prisma
 generator client {
-  provider     = "prisma-client"
-  output       = "../generated/prisma"
-  moduleFormat = "cjs"
+  provider               = "prisma-client"
+  output                 = "../generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "esm"
+  generatedFileExtension = "mts"
+  importFileExtension    = "mts"
 }
 
 datasource db {
@@ -699,8 +706,9 @@ changed; the fix was confined to the two configuration blocks plus one new file:
 1. Removed `url = env("DATABASE_URL")` from `datasource db`, leaving only
    `provider = "postgresql"`.
 2. Switched the generator to `provider = "prisma-client"` with
-   `output = "../generated/prisma"` and `moduleFormat = "cjs"` (this repo is
-   CommonJS).
+   `output = "../generated/prisma"`. The remaining generator options — the ones
+   that make a TypeScript-emitting generator loadable from this CommonJS
+   backend — were settled in Step 1b below.
 3. Added `prisma.config.js` at the repo root supplying
    `datasource.url = env('DATABASE_URL')`.
 
@@ -756,7 +764,8 @@ therefore matches the schema exactly, with no drift.
 Spot-check: `generated/prisma/models/` contains **67 files**, and a sorted
 name-by-name comparison against the `model` declarations in `schema.prisma`
 returned an **exact match** — every model is present, none extra, none missing.
-`generated/prisma/enums.ts` carries all 55 enums.
+`generated/prisma/enums.mts` carries all 55 enums. (The generated file extension
+is `.mts` rather than `.ts` — see Step 1b for why.)
 
 ### Test result — MongoDB confirmed untouched
 
@@ -768,100 +777,145 @@ Tests:       166 passed, 166 total
 **166/166 passing**, identical to before this task. Nothing in the Postgres setup
 touched the Mongoose runtime, which is the isolation this step was meant to prove.
 
-### Generated client output format — **RESOLVED 2026-09-13**
+### Generated client output format
 
-**Historical note (pre-Stage 2 Step 1b):** The Prisma 7 `prisma-client` generator
-emits TypeScript only. This backend is plain CommonJS JavaScript with no
-TypeScript toolchain, so the generated client could not be `require()`d as-is.
-Three options were identified: (1) add a TypeScript build step, (2) write the
-repository layer in TypeScript, or (3) use the deprecated `prisma-client-js`
-generator which emits JavaScript directly.
-
-**Resolution:** Option 3 was chosen (see Stage 2 Step 1b below). The generator is
-now configured for JavaScript output and the client can be required directly from
-Node. This decision is revisitable when Prisma 8 goes GA or when the project
-adopts a TypeScript toolchain, but for now it unblocks Stage 2 with zero friction.
+`prisma-client` emits TypeScript, and this backend is plain CommonJS JavaScript
+with no TypeScript toolchain — so how the generated client gets loaded needed a
+deliberate answer rather than a default. That is resolved in **Step 1b** below,
+which is the single authoritative account of the generator configuration.
 
 ---
 
-## STAGE 2 STEP 1B — Generated Client JS Output — 2026-09-13
+## STAGE 2 STEP 1B — Loading the Generated Client from CommonJS — 2026-09-13
 
-The Prisma 7 `prisma-client` generator (Rust-free, the future of Prisma) emits
-**TypeScript files only**, with no option to output plain JavaScript. This is by
-design: the new generator assumes projects either use TypeScript natively or have
-a build step to transpile the generated client. This backend is plain CommonJS
-JavaScript with no TypeScript toolchain, no Babel, no tsc, and no build process —
-every `.js` file under `backend/src/` is run directly by Node.
+The generator stays on **`prisma-client`**, the current non-deprecated provider,
+and the generated client is loaded from this plain-CommonJS backend with
+**`require()`, no build step, and no new dependency**. Nothing under
+`backend/src/` was touched and `package.json` was not modified.
 
-The three approaches documented above were:
+> **Correction footnote.** An earlier pass at this step reverted the generator to
+> `prisma-client-js`. That was the wrong direction — Prisma has marked that
+> provider deprecated and slated for removal, so it would only have to be
+> migrated away from again later. This section replaces that account entirely and
+> describes the configuration actually in the schema today.
 
-1. **Add a TypeScript build step** — cleanest long-term but adds build complexity
-2. **Write the repository layer in TypeScript** — best type safety but the
-   largest deviation from the existing codebase conventions
-3. **Use the deprecated `prisma-client-js` generator** — zero friction now,
-   but deprecated (though still supported in Prisma 7 and the official
-   recommendation for vanilla JS projects per GitHub issue #27596)
+### What `prisma-client` can and cannot emit in 7.10.0 — verified, not assumed
 
-**Decision:** Option 3 was chosen because it matches the existing codebase's
-zero-build, require()-based module system with no added toolchain friction. The
-trade-off is acknowledged: `prisma-client-js` is deprecated and will be removed
-in a future Prisma major version, so this decision will need to be revisited when
-Prisma 8 goes GA or when the project adopts a TypeScript toolchain. For now it
-unblocks Stage 2 (the dual-write repository layer) immediately.
+`prisma-client` emits **TypeScript only**. There is no option that makes it write
+plain `.js`. This was confirmed three independent ways against this exact version:
 
-### Generator reconfiguration
+| Evidence | Finding |
+|---|---|
+| [Prisma v7 generators reference](https://www.prisma.io/docs/orm/prisma-schema/overview/generators) | The `prisma-client` field reference lists five options. `generatedFileExtension` is *"File extension for generated **TypeScript** files (`ts`, `mts`, `cts`)"*. `moduleFormat` *"determines whether `import.meta.url` or `__dirname` is used"* — nothing more. The generator "outputs plain TypeScript". |
+| Shipped CLI bundle `node_modules/prisma/build/cli.js` (7.10.0) | The generated-extension allowlist is literally `["ts","mts","cts"]`. `importFileExtension` separately allows `["","ts","mts","cts","js","mjs","cjs"]`, but it only rewrites **import specifiers**, not the files emitted. |
+| Empirical run | Setting `generatedFileExtension = "js"` with `moduleFormat = "cjs"` produced the warning *`Generated file extension "js" is unexpected and may be a mistake. Expected one of: "ts", "mts", "cts"`* and emitted files **named** `.js` whose contents were still TypeScript ESM (`as const`, `export type`, `import * as runtime from "@prisma/client/runtime/client"`). `require()` of one failed with `SyntaxError: Cannot use import statement outside a module`. |
 
-`prisma/schema.prisma` generator block changed from:
+The decisive point: **`moduleFormat = "cjs"` does not change the emitted syntax.**
+It was also tested with `generatedFileExtension = "cts"`; the output still used
+ESM `import`/`export`, so Node rejected it as CommonJS with the same
+`SyntaxError`. There is no combination of generator options that yields
+`require()`-able CommonJS.
+
+### The configuration that does work
+
+Instead of transpiling TypeScript into JavaScript, the output is emitted as
+**`.mts`** and Node loads it directly. Two Node capabilities combine to make this
+work with no toolchain at all:
+
+| Node capability | Unflagged since | What it gives us |
+|---|---|---|
+| Native TypeScript **type stripping** | **22.18.0** (LTS backport) / **23.6.0** | Node runs `.mts` by erasing type annotations in-place. No type checking, no source maps needed, no compiler. |
+| **`require(esm)`** — synchronous `require()` of ESM | **20.19.0** / **22.12.0** / **23.0.0** | A CommonJS `.js` file can `require()` an ES module synchronously, provided the module graph has no top-level `await`. |
+
+Type stripping is the stricter of the two, so the effective floor is
+**Node >= 22.18.0**. This machine runs **24.16.0**, where both are unflagged and
+emit **no warning at all** (verified: `process.features.require_module === true`,
+and a plain `node -e "require(...)"` printed nothing but the expected output).
 
 ```prisma
 generator client {
-  provider     = "prisma-client"
-  output       = "../generated/prisma"
-  moduleFormat = "cjs"
+  provider               = "prisma-client"
+  output                 = "../generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "esm"
+  generatedFileExtension = "mts"
+  importFileExtension    = "mts"
 }
 ```
 
-to:
+Why each option is present:
 
-```prisma
-generator client {
-  provider = "prisma-client-js"
-  output   = "../generated/prisma"
-}
-```
+| Option | Reason it is set explicitly |
+|---|---|
+| `provider = "prisma-client"` | The current, non-deprecated generator. Deliberately **not** `prisma-client-js`. |
+| `output = "../generated/prisma"` | Mandatory in Prisma 7 — the client is no longer written into `node_modules`. |
+| `runtime = "nodejs"` | Already the default; stated so the target runtime is visible in the schema. |
+| `moduleFormat = "esm"` | **Load-bearing.** `package.json` is `"type": "commonjs"`, so inference would pick `cjs` and emit `__dirname`, which does not exist inside a `.mts` module. Must stay `esm`. |
+| `generatedFileExtension = "mts"` | The whole mechanism. `.mts` is what Node treats as type-strippable ESM. `.ts` would inherit the ambient CommonJS `package.json` type and fail; `.cts` is parsed as CommonJS and rejects the generator's ESM syntax. |
+| `importFileExtension = "mts"` | Makes the generated imports (`from "./enums.mts"`) point at files that actually exist on disk, which is what Node's resolver needs. |
 
-`moduleFormat` is not needed for `prisma-client-js` — it emits CommonJS by
-default. The explicit `output` is still required (Prisma 7 removed the "magic"
-generation into `node_modules` for all generators).
+`prisma.config.js` was **not changed** — this is purely generator configuration
+and nothing about it touches the CLI's datasource wiring.
 
 ### Regeneration result
 
-`npx prisma generate` → **`Generated Prisma Client (v7.10.0) to .\generated\prisma`**
+`npx prisma validate` → **`The schema at prisma\schema.prisma is valid 🚀`**
 
-File inventory:
-- **10 `.js` files** (including `client.js`, `default.js`, `edge.js`)
-- **81 `.ts` files** (type definitions — `.d.ts` and internal TypeScript sources)
+`generated/` was deleted first so the inventory below is a clean generation, not a
+mix of leftovers from earlier attempts:
 
-The `.ts` files are type definitions for TypeScript consumers and are
-**ignorable** in this plain JavaScript project — only the `.js` files are loaded
-at runtime.
+`npx prisma generate` → **`✔ Generated Prisma Client (7.10.0) to .\generated\prisma in 482ms`**, with **no warnings**.
 
-### Smoke test — require() from Node
+| Item | Result |
+|---|---|
+| Files emitted | **75 `.mts` files**, zero `.js`, zero `.ts`, zero `.d.ts` |
+| Top level | `client.mts`, `browser.mts`, `models.mts`, `enums.mts`, `commonInputTypes.mts` |
+| `models/` | 67 files — one per Prisma model |
+| `internal/` | `class.mts`, `prismaNamespace.mts`, `prismaNamespaceBrowser.mts` |
+
+### Smoke test — `require()` from plain CommonJS Node
+
+**The entry path is `generated/prisma/client.mts`, not the directory.** This was
+verified rather than assumed: the output contains no `index` file and no
+`package.json`, so `require('./generated/prisma')` fails with
+`MODULE_NOT_FOUND`. Bare-directory imports are a `prisma-client-js` habit that
+does not carry over.
 
 ```bash
-node -e "const prisma = require('./generated/prisma'); console.log('✅ Prisma client loaded successfully!'); console.log('PrismaClient constructor:', typeof prisma.PrismaClient);"
+node -e "const m = require('./generated/prisma/client.mts'); ..."
 ```
 
-**Result:**
-
 ```
-✅ Prisma client loaded successfully!
-Available exports: Prisma, $Enums, [all 55 enums], PrismaClient, prismaVersion, [error classes], Decimal, sql, empty, join, raw, validator, getExtensionContext, defineExtension, DbNull, JsonNull, AnyNull, NullTypes, TransactionIsolationLevel, [all 67 ScalarFieldEnum exports], SortOrder, QueryMode, NullsOrder, ModelName
-PrismaClient constructor: function
+entry: ./generated/prisma/client.mts
+PrismaClient is a constructor: true
+Prisma.Decimal: function
+enums exported: 55
+sample enum UserGender.MALE: MALE
+node: v24.16.0 | require_module: true
 ```
 
-The client loads successfully and `PrismaClient` is available as a function,
-meaning `require('./generated/prisma')` works with no transpilation step.
+`PrismaClient` loads as a constructor, `Prisma.Decimal` is available, and all
+**55 enums** are exported as real runtime values. Constructing
+`new PrismaClient({ adapter: {} })` then failed with
+`PrismaClientInitializationError: The Driver Adapter ... is not compatible with
+the provider postgres` — thrown from `@prisma/client/runtime/client.js`, which
+confirms the runtime fully engaged. A real driver adapter is the next step and is
+not installed yet, so that error is the expected and correct outcome here.
+
+**Note on what the generated files are.** They are TypeScript ESM, *not* CommonJS
+JavaScript — they contain `import`/`export` and `export type`. The claim being
+made is narrower and more useful: Node executes them directly, so ordinary
+CommonJS `.js` files under `backend/src/` can `require()` them with no
+transpilation. The codebase itself stays 100% plain CommonJS JavaScript.
+
+### Why not a transpilation step
+
+Emitting the default `.ts` and compiling it to CommonJS was considered and
+rejected for now. It would require adding `esbuild` or `typescript` as a
+devDependency plus a `postgenerate` script — new build tooling, in a repo that
+deliberately has none. The `.mts` route reaches the same place with zero
+dependencies. That option stays available as the fallback if the risks below
+ever materialise.
 
 ### Test result — MongoDB unchanged
 
@@ -871,37 +925,59 @@ npm test
 → Tests:       166 passed, 166 total
 ```
 
-**166/166 passing**, identical to before this change. The generator reconfiguration
-is isolated to the Postgres client and does not touch the live MongoDB system.
+**166/166 passing**, identical to before this change. No file under
+`backend/src/` was modified, so the Mongoose runtime could not have been
+affected — which is exactly the isolation this step is meant to prove.
 
 ### .gitignore verification
 
 `.gitignore:13` → `/generated/prisma`
 
-The generated client is correctly gitignored and will never be committed,
-regardless of whether it's TypeScript or JavaScript.
+The generated client is gitignored build output and is never committed. Any
+deploy or CI step that needs it must run `prisma generate` after `npm install`.
 
 ### What this unblocks
 
-The Stage 2 repository layer can now be written in plain CommonJS JavaScript,
-importing the Prisma client with:
+The Stage 2 repository layer can be written in plain CommonJS JavaScript under
+`backend/src/repositories/`, following the same conventions as every other `.js`
+file in the backend:
 
 ```js
-const { PrismaClient } = require('../../generated/prisma');
+const { PrismaClient } = require('../../generated/prisma/client.mts');
 ```
 
-No `import` statements, no `.ts` extensions in import paths, no build step. The
-repository files will live in `backend/src/repositories/` and follow the same
-conventions as every other `.js` file in `backend/src/`.
+No `import` statements, no build step, no TypeScript in the codebase itself.
 
-### When this decision should be revisited
+### Known risks and when to revisit
 
-- **When Prisma 8 goes GA** and `prisma-client-js` is removed entirely
-- **If the project adopts TypeScript** — at that point, switch back to
-  `prisma-client` and compile the generated client alongside the rest of the code
-- **If a build step is added for other reasons** (Babel, webpack, bundling) —
-  then transpiling the Prisma client becomes free
+Two genuine caveats, recorded so they are not rediscovered later:
 
-Until one of those happens, this configuration is stable.
+1. **Node's type stripping is still documented as experimental** ("subject to
+   change") even though it is unflagged and warning-free on 22.18+/23.6+. It can
+   be disabled with `--no-experimental-strip-types`, so **no start command,
+   `NODE_OPTIONS` value or Dockerfile may ever pass that flag.**
+2. **Type stripping only erases — it cannot transform.** Node rejects TypeScript
+   syntax that needs rewriting, such as real `enum` or `namespace` declarations.
+   Prisma's generated output is erasable today (it emits `const` objects with
+   `as const` rather than TS `enum`, which is precisely why this works), but a
+   future Prisma codegen change could introduce non-erasable syntax and break
+   `require()`.
+
+**Revisit if any of these happen:**
+
+- **The deploy target runs Node < 22.18.0.** Verify the production Node version
+  before Stage 4 cutover. `package.json` currently has **no `engines` field**;
+  adding `"engines": { "node": ">=22.18.0" }` is a small follow-up (out of scope
+  for this task, which must not touch `package.json`).
+- **A `prisma generate` starts emitting non-erasable TypeScript** — the smoke
+  test above fails. Fall back to the transpilation step described earlier.
+- **A future Prisma 7.x release adds direct JavaScript output** to
+  `prisma-client` — then drop `generatedFileExtension`/`importFileExtension` and
+  use it.
+- **This backend adopts TypeScript** — then `generatedFileExtension` can return
+  to the default `ts` and the client compiles alongside the rest of the code.
+
+Until one of those happens this configuration is stable, and it carries **no
+deprecated Prisma component**.
 
 

@@ -23,14 +23,39 @@
 // Prisma 7 note: the connection URL is NOT declared here. Since v7 the
 // `url` / `directUrl` / `shadowDatabaseUrl` datasource properties are removed
 // from the schema and live in `prisma.config.js` at the repo root, which reads
-// DATABASE_URL from the repo-root .env. This repo uses the deprecated
-// `prisma-client-js` generator (instead of the newer `prisma-client`) because
-// the codebase is plain CommonJS JavaScript with no TypeScript toolchain, and
-// `prisma-client` emits TypeScript-only. `prisma-client-js` outputs JavaScript
-// that can be required() directly. An explicit `output` is required.
+// DATABASE_URL from the repo-root .env.
+//
+// Generator: `prisma-client` — the current, non-deprecated generator.
+// `prisma-client-js` is deliberately NOT used; Prisma has marked it deprecated
+// and slated for removal, and this project picks forward-looking tooling now
+// rather than migrating twice.
+//
+// `prisma-client` emits TypeScript only. In 7.10.0 there is no option that
+// writes plain .js: `generatedFileExtension` accepts only "ts" | "mts" | "cts"
+// (passing "js" is warned about and merely renames files whose contents are
+// still TypeScript), and `moduleFormat` controls only whether __dirname or
+// import.meta.url is used — not the emitted import/export syntax.
+//
+// `generatedFileExtension = "mts"` is what makes that output directly usable
+// from this plain-CommonJS backend with no build step and no new dependency.
+// Node runs .mts by stripping type annotations natively (unflagged since
+// 22.18.0 / 23.6.0) and require() loads fully-synchronous ESM (unflagged since
+// 20.19.0 / 22.12.0), so an ordinary .js file can do:
+//
+//   const { PrismaClient } = require('../../generated/prisma/client.mts');
+//
+// `moduleFormat = "esm"` must stay explicit: package.json is "type":
+// "commonjs", so inference would pick cjs and emit __dirname, which does not
+// exist in a .mts module. Requires Node >= 22.18.0 (running 24.16.0).
+// An explicit `output` is mandatory — Prisma 7 no longer generates into
+// node_modules. See DATABASE_MIGRATION_AUDIT.md, Stage 2 Step 1b.
 generator client {
-  provider = "prisma-client-js"
-  output   = "../generated/prisma"
+  provider               = "prisma-client"
+  output                 = "../generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "esm"
+  generatedFileExtension = "mts"
+  importFileExtension    = "mts"
 }
 
 datasource db {
