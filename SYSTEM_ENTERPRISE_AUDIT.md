@@ -1879,5 +1879,104 @@ SweetAlert2 toasts on tab switch and master-settings saves. Enterprise features 
 | Security audit | ✅ COMPLETE | `expense_category` added to `securityLog.js` RESOURCE_TYPES; category writes logged. |
 | Tests | ✅ COMPLETE | `tests/expenseCategory.test.js` (6 tests) + updated harness seed; **166 / 166 tests passing.** |
 
+---
+
+## POSTGRESQL MIGRATION — STAGE 1 SCHEMA DESIGN — 2026-09-13
+
+**Status: 🔶 PARTIAL — design only. The live database is still MongoDB.**
+
+Stage 1 of a 5-stage MongoDB → PostgreSQL (Prisma + Neon) migration. This phase
+produced **planning artifacts only**. Nothing in the running system reads them.
+
+| Task | Status | Summary |
+|------|--------|---------|
+| Target schema | ✅ COMPLETE (design) | `prisma/schema.prisma` — **67 models, 55 enums**, derived from all **40** Mongoose model files in `backend/src/models/` (read in full) plus the enum sources in `config/permissions.js`. `postgresql` datasource on `env("DATABASE_URL")`. |
+| Migration plan | ✅ COMPLETE | `DATABASE_MIGRATION_AUDIT.md` — 5-stage roadmap, model-by-model mapping table with Low/Med/High risk per model, full cascade strategy, index replication notes, excluded/deferred field register. |
+| Live system impact | ✅ NONE | **Zero `.js` files changed.** No model, controller, route, service or script touched. No `.env` or `DATABASE_URL` read or written. No `prisma generate` / `migrate` / `db push` run. No `npm install` run (commands documented for Stage 2). |
+| Primary keys | ✅ | `String @id @default(uuid())` throughout — matches the project's existing string-ID patterns (`Employee.linkedAdminId`, `Attendance.staffId`) and avoids an int/string translation during backfill. |
+| Backfill key | ✅ | `legacyId String? @unique` on every top-level model holds the original Mongo `_id`, making the Stage 3 backfill idempotent and letting loose string refs resolve to real FKs. |
+| Currency precision | ✅ | `@db.Decimal(12, 2)` on **every** money field (~50 columns across 20 models). Percentages/rates use `Decimal(5, 2)` and hours use `Decimal(6, 2)` so they never share the money scale. Loyalty points stay `Int`. |
+| Cascade safety | ✅ | `Cascade` only for parent-owned rows. Cross-aggregate relations are `SetNull` or `Restrict`: deleting a Category cannot delete Products, deleting a Supplier cannot delete Purchase Orders (Restrict), deleting a Product cannot delete Order Items. The single deliberate exception is `CartItem → Product` (Cascade), since an open cart is not history. |
+| Index parity | ✅ | Every `.index(...)` and `unique: true` replicated. Sparse-unique → nullable-unique. Compound prefix order preserved. New indexes added on the resolved FK columns. |
+| Embedded arrays extracted | ✅ | 27 embedded arrays / sub-documents became their own tables — including the nested cases: `FooterSettings.columns[].links[]`, `Order.payment.ipnHistory[]`, and `Product.variants[].attributes` (a `Map<String,String>` → `product_variant_attributes`). |
+| Settings consolidation confirmed | ✅ | Verified `Setting.js` is now a 12-line re-export shim and **`Settings.js` won**; the Prisma schema has exactly one `settings` table. `ARCHITECTURE.md` still described the pre-consolidation dual-singleton layout — corrected in this pass. |
+
+### HIGH RISK items flagged for review before Stage 2
+
+| Item | Why |
+|------|-----|
+| `Order.items[]` is `strict: false` | Live order lines can carry arbitrary undeclared fields. Captured in `OrderItem.extraFields Json?` rather than dropped; must be audited before Stage 5. |
+| `Order.payment.ipnHistory[].raw` is `Mixed` | The only true `Mixed` field in the store models → `Json?`. |
+| `Settings.defaultCourierProvider` | Its Mongoose enum lists the same three providers **twice, in two casings**. Left as `String`; normalise in Stage 3 before promoting to an enum. |
+| `Order.subTotal` **and** `Order.subtotal` | Two separately-written fields differing only in capitalisation. Both preserved — collapsing them now would lose data. |
+| `User.walletHistory[].type` | Free `String` documenting five mixed-case values with no enum guard. Left as `String`. |
+| Enums containing `''` | `Employee.gender`/`bloodGroup`/`maritalStatus`, `Order.cancelledBy`, `PaymentMethod.provider`, `Settings.smsGatewayProvider`/`whatsAppAlertProvider`. The `''` member is dropped and the column made nullable; Stage 3 maps `''` → `NULL`. |
+| Polymorphic HRM staff refs | `Attendance`/`Payroll`/`Leave` key staff by `staffId` + `staffType` (`admin` \| `employee`). Resolved by keeping both and adding nullable `adminId`/`employeeId` FKs. |
+| `Admin.employeeRef` vs `Employee.linkedAdminId` | The same 1:1 edge stored twice. Only `Employee.linkedAdminId` is stored in Postgres; the Admin side becomes a back-relation. |
+| `PaymentMethod` gateway secrets | `apiStorePassword`/`apiKey` are AES-256-GCM envelopes from `utils/cryptoVault.js`. Stage 3 must copy the ciphertext verbatim and must not re-encrypt. |
+| `select: false` fields on `Admin` | Prisma has no column-level `select: false`. The six OTP/TOTP secret columns need explicit `select` handling in the Stage 2 repository layer. |
+| Three Mongo index behaviours have no Prisma equivalent | The weighted `ProductTextIndex` (needs `tsvector` + GIN via raw SQL), and the TTL indexes on `LoginAttempt` (30 days) and `BlacklistedIp` (`expiresAt`) — both need scheduled sweep jobs. |
+| Constraints tightened vs Mongoose | `Product.productId`, `PurchaseOrder.poNumber`, `Employee.employeeId`, `Category.slug` are unique-but-not-required in Mongo and NOT NULL here; `BannerSettings.key` is new. Each needs a count query against production before Stage 3. |
+
+### Chat microservice — deferred
+
+All 7 models in `ecommerce-chat/models/` were read and inventoried but are **out of
+scope for Stage 1**: they live in a separate MongoDB (`ecommerce_chat`) behind the
+port-5001 service, and migrating them means unifying the `Agent` ↔ `Admin` staff
+directory — a project in its own right. `ChatRoom` is the deepest-nested schema in
+the codebase (6 sub-schemas, one doubly nested).
+
+**Tests:** unchanged — no source code was modified, so the suite is unaffected.
+**Not committed:** left uncommitted for review, as requested.
+
+---
+
+## POSTGRESQL MIGRATION — STAGE 2 STEP 1 — 2026-09-13
+
+**Environment setup and baseline migration.** Prisma is connected to the Neon
+PostgreSQL database and the 67-table baseline schema now physically exists.
+Full detail lives in `DATABASE_MIGRATION_AUDIT.md`; this is the status summary.
+
+| Item | Status |
+|------|--------|
+| Prisma installed (`prisma` + `@prisma/client`, both pinned `7.10.0` exactly) | ✅ COMPLETE |
+| Schema validated (`npx prisma validate`) — 67 models, 55 enums, zero errors | ✅ COMPLETE |
+| Schema formatted (`npx prisma format`) | ✅ COMPLETE |
+| Baseline migration `20260913131445_init_postgres_baseline` created **and applied** to Neon | ✅ COMPLETE |
+| Prisma Client generated — 67 model files, exact name match against the schema | ✅ COMPLETE |
+| MongoDB isolation proven — **166/166 tests still passing** | ✅ COMPLETE |
+| Neon structure verified — 67 tables, no drift (`migrate diff` → *no difference*) | ✅ COMPLETE |
+| Driver adapter + Prisma client singleton | ❌ NOT STARTED — next step |
+| Dual-write repository layer | ❌ NOT STARTED — Stage 2 remainder |
+| `LoginAttempt` / `BlacklistedIp` TTL sweep jobs | ❌ NOT STARTED — Stage 2 remainder |
+| `ProductTextIndex` → `tsvector` + GIN raw SQL migration | ❌ NOT STARTED — Stage 2 remainder |
+| Stage 3 backfill / Stage 4 read cutover | ❌ NOT STARTED |
+
+**Isolation guarantee:** zero `.js` files under `backend/src/` were modified — no
+model, controller, route, service or script. No application code queries
+PostgreSQL. The live MongoDB system serves every request exactly as before, and
+the full test suite confirms it. `prisma db push` was **not** used, and no
+`--accept-data-loss` or force flag was used anywhere.
+
+**Two findings worth carrying forward:**
+
+1. **npm's `latest` tag for `prisma` served a pre-release.** On 2026-09-13
+   `npm install prisma --save-dev` resolved to `8.0.0-rc.14` while
+   `@prisma/client@latest` was the stable `7.10.0` — a CLI a full major ahead of
+   the client. Both packages are now pinned exactly, with no `^` range. Check
+   `npm view prisma dist-tags` before any future Prisma upgrade here.
+2. **Prisma 7's `prisma-client` generator emits TypeScript only.** All 75
+   generated files are `.ts`; this backend is plain CommonJS JavaScript with no TS
+   toolchain, so the client cannot be `require()`d as-is. Harmless today (no
+   application code may touch Postgres yet) but it must be settled before the
+   repository layer is written — see the three options in
+   `DATABASE_MIGRATION_AUDIT.md`.
+
+**Schema correctness note:** the one validation error found (`P1012`, the
+`datasource url` property) was a Prisma 6 → 7 configuration incompatibility, not a
+modelling defect. It was fixed by moving the URL into a new root
+`prisma.config.js` and switching the generator. **No model, field, relation, enum,
+index or constraint was changed to make validation pass.**
+
 
 

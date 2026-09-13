@@ -100,6 +100,33 @@ backend/src/
 
 
 
+### prisma/ + prisma.config.js (repo root) — CONNECTED, NOT YET READ BY THE APP
+
+`prisma/schema.prisma` is the PostgreSQL (Neon) target schema for the database
+migration. As of **2026-09-13 (Stage 2 Step 1)** Prisma `7.10.0` is installed and
+the baseline migration `20260913131445_init_postgres_baseline` has been applied to
+Neon, so all 67 tables now physically exist. **No application code reads it** —
+the live database is MongoDB and `backend/src/models/*.js` remains the only source
+of truth. Do not import the Prisma client in application code until the Stage 2
+dual-write repository layer is built. See `DATABASE_MIGRATION_AUDIT.md`.
+
+| Path | Role |
+|------|------|
+| `prisma/schema.prisma` | 67 models, 55 enums. Datasource declares `provider` only — **Prisma 7 forbids `url` here** |
+| `prisma.config.js` | repo-root **CLI-only** config; supplies `datasource.url` from `DATABASE_URL`. Not loaded by the app |
+| `prisma/migrations/` | SQL migration history — commit every migration, never hand-edit an applied one |
+| `generated/prisma/` | generated client, **gitignored**. Recreate with `npx prisma generate` after `npm install` |
+
+Both Prisma packages are **pinned exactly** (`prisma@7.10.0`,
+`@prisma/client@7.10.0`, no `^`) because npm's `latest` tag for `prisma` has
+served a `8.0.0-rc` pre-release. Do not run `npm i prisma@latest` here without
+checking `npm view prisma dist-tags` first.
+
+Use `prisma migrate`, never `prisma db push` — this schema will carry real
+financial data and needs rollback history.
+
+
+
 ## Admin Navigation (Enterprise SaaS — 7 modules)
 
 The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/partials/sidebar.html`): **Sales & Orders**, **Catalog & Inventory**, **Marketing & Content**, **HRM & Staff**, **Accounts & Finance**, and **System Settings** (unified tabbed hub). Breadcrumbs are rendered by `client/js/admin/modules/core-breadcrumb.js`; tab routing lives in `client/js/admin/modules/settings-hub.js`.
@@ -184,19 +211,21 @@ The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/p
 
 
 
-## Settings Models (dual singleton — unified read API)
+## Settings Model (single consolidated singleton)
 
 | Model | Key | Owns |
 
 |-------|-----|------|
 
-| `Settings.js` | `global` | Delivery charges, SMS/courier gateways, rate limits, payment gateway config |
+| `Settings.js` | `global` | Delivery charges, SMS/courier gateways, rate limits, payment gateway config, **plus** cashback, loyalty points/tiers, VIP thresholds, flash sale, referral rewards, VAT/tax, maintenance mode |
 
-| `Setting.js` | `master` | Cashback, loyalty points, VIP thresholds, flash sale, referral rewards |
+| `Setting.js` | — | **Deprecated shim** (2026-09-12). Body is `module.exports = require('./Settings')` so old imports keep resolving. Do not add fields here. |
 
 
 
-**Unified read:** `GET /api/admin/all-settings` returns `{ global, master }` merged. Writes still use `/api/admin/settings` and `/api/admin/master-settings` until a future data migration.
+**Consolidated 2026-09-12.** The former `key: 'master'` singleton was merged into the `global` document. `scripts/mergeSettingsModels.js` copies any values still stored only on the legacy `master` row and must be run once against an existing database before deploy.
+
+**Unified read:** `GET /api/admin/all-settings`. Writes still go through both `/api/admin/settings` and `/api/admin/master-settings`, which now target the same document.
 
 
 
@@ -322,6 +351,21 @@ Restart Expo after changing env vars (`npx expo start -c`).
 
 - Shared secrets (`JWT_SECRET`, `INTERNAL_API_KEY`, Cloudinary) belong in **repo-root `.env`** only.
 - Rebuild chat-admin after env changes: `cd admin-dashboard && npm run build`, then copy `dist/` → `backend/public/chat-admin/`.
+- `.env` is gitignored and must never be committed. Verify with `git check-ignore -v .env` if in doubt.
+
+### PostgreSQL / Neon environment variables (migration only)
+
+Both live in the repo-root `.env`. Neither is read by the running application yet
+— they configure the Prisma CLI. See `DATABASE_MIGRATION_AUDIT.md`.
+
+| Variable | Endpoint | Used by |
+|----------|----------|---------|
+| `DATABASE_URL` | **direct** (non-pooled) Neon endpoint | Prisma CLI: `validate`, `migrate`, `diff`, `generate`. Migrate needs a direct TCP connection |
+| `DATABASE_URL_POOLED` | Neon `-pooler` endpoint | reserved for the runtime client via a driver adapter (Stage 2, next step). **Never use for migrations** |
+
+After `npm install`, run `npx prisma generate` to recreate the gitignored
+`generated/prisma/` client. The MongoDB variables (`MONGODB_URI` and the rest)
+are unaffected and remain the live system's configuration.
 
 ### Chat environment variables
 
@@ -341,6 +385,7 @@ See also: `docs/SETUP.md`, `ecommerce-chat/docs/SETUP.md`, `devops/first-time-se
 | `ARCHITECTURE.md` | **Read first** — folder layout, barrels, nav groups, env setup, dev rules |
 | `REFACTOR_MAP.md` | **Read first** — file-by-file refactor status and change log |
 | `SYSTEM_ENTERPRISE_AUDIT.md` | Full-stack enterprise audit (ERP/CRM/HRM, chat, mobile, settings) |
+| `DATABASE_MIGRATION_AUDIT.md` | MongoDB → PostgreSQL (Prisma + Neon) migration plan — roadmap, model mapping, cascade strategy. **Planning only; the live DB is still MongoDB** |
 | `CHAT_AUDIT.md` | Live chat close/session teardown audit |
 | `AUDIT_REPORT.md` | Mobile app feature parity audit |
 | `PROFILE_AUDIT.md` | Profile module split diagnostics |

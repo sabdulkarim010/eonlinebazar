@@ -120,6 +120,7 @@ Read these documents before making changes. Operational notes belong in the exis
 | [ARCHITECTURE.md](ARCHITECTURE.md) | **Read first.** Folder layout, CSS/JS barrels, admin ERP/CRM/HRM nav groups, enterprise models, local dev ports, and contributor rules. |
 | [REFACTOR_MAP.md](REFACTOR_MAP.md) | **Read first.** File-by-file completion log for ERP, CRM, HRM, UI restructure, and follow-on phases. |
 | [SYSTEM_ENTERPRISE_AUDIT.md](SYSTEM_ENTERPRISE_AUDIT.md) | Full-stack enterprise audit: feature inventory, ERP/CRM/HRM matrix, models, APIs, mobile parity, and remaining findings. |
+| [DATABASE_MIGRATION_AUDIT.md](DATABASE_MIGRATION_AUDIT.md) | MongoDB → PostgreSQL (Prisma + Neon) migration: 5-stage roadmap, model-by-model mapping, cascade and index strategy, and the stage-by-stage change log. **Stage 2 Steps 1 & 1b complete (2026-09-13) — Prisma 7.10.0 connected to Neon (67 tables), generator corrected to `moduleFormat = "esm"` + `generatedFileExtension = "mts"` so the client loads from plain CommonJS via Node's native type stripping (requires Node ≥ 22.18.0). Live database is still MongoDB; no application code reads PostgreSQL yet.** |
 | [.cursorrules](.cursorrules) | Cursor agent contract: never edit barrel CSS/JS directly, never restructure `routes/*.js`, search before renaming IDs, run `npm test` after changes. |
 
 ### Additional References
@@ -233,7 +234,20 @@ cp .env.example .env
 | `COURIER_SYNC_CRON` | Override default 2-hour courier poll (`0 */2 * * *`) |
 | `ABANDONED_CART_CRON` | Override daily 24h cart recovery schedule |
 
-> Shared secrets (`JWT_SECRET`, `INTERNAL_API_KEY`, Cloudinary credentials) belong in the **repo-root `.env` only**.
+> Shared secrets (`JWT_SECRET`, `INTERNAL_API_KEY`, Cloudinary credentials) belong in the **repo-root `.env` only**. `.env` is gitignored and must never be committed.
+
+#### PostgreSQL / Neon (database migration — CLI only, not read by the app)
+
+Needed only to run Prisma commands. The application still runs entirely on
+MongoDB; see [DATABASE_MIGRATION_AUDIT.md](DATABASE_MIGRATION_AUDIT.md).
+
+| Variable | Purpose |
+|----------|---------|
+| `DATABASE_URL` | **Direct** (non-pooled) Neon endpoint. Used by the Prisma CLI — Migrate requires a direct TCP connection |
+| `DATABASE_URL_POOLED` | Neon `-pooler` endpoint, reserved for the runtime client via a driver adapter. **Never use for migrations** |
+
+After `npm install`, run `npx prisma generate` to recreate the gitignored
+`generated/prisma/` client. Use `prisma migrate`, never `prisma db push`.
 
 ### 3. Start the Development Server
 
@@ -313,9 +327,13 @@ eonlinebazar-fullstack/
 ├── devops/                      # Nginx, droplet first-time setup
 ├── tests/                       # 16 Jest suites / 166 tests
 ├── scripts/                     # Seed and index migration
+├── prisma/schema.prisma         # PostgreSQL (Neon) target schema — 67 models; app does not read it yet
+├── prisma/migrations/           # Applied SQL migration history (baseline: 2026-09-13)
+├── prisma.config.js             # Prisma 7 CLI config (DATABASE_URL) — not loaded by the app
 ├── ARCHITECTURE.md
 ├── REFACTOR_MAP.md
 ├── SYSTEM_ENTERPRISE_AUDIT.md
+├── DATABASE_MIGRATION_AUDIT.md
 └── .cursorrules
 ```
 

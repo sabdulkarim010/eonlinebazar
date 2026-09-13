@@ -1212,3 +1212,58 @@ client/css/admin/_settings.css [DONE] import _settings-finance.css
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Dynamic Expense Category Management — 2026-09-12
 README.md [DONE] 166 tests + dynamic expense category feature note
 ARCHITECTURE.md [DONE] ExpenseCategory model + Finance Settings tab
+#
+# PostgreSQL migration — Stage 1 schema design (PLANNING ONLY): 2026-09-13
+#
+# NOT ACTIVE IN THE RUNNING SYSTEM. Both files below are planning artifacts.
+# Nothing imports or reads them; the live database is still MongoDB + Mongoose.
+# Zero .js files were modified in this phase — no model, controller, route,
+# service or script was touched, and no .env / DATABASE_URL was read or written.
+# No prisma command (generate / migrate / db push) was run.
+prisma/schema.prisma [NEW] [INACTIVE] PostgreSQL (Neon) target schema — 67 models, 55 enums, generated from all 40 Mongoose models in backend/src/models/ plus config/permissions.js enum sources. String @id @default(uuid()) PKs, legacyId columns for the Stage 3 backfill, @db.Decimal(12,2) on every currency field, explicit per-relation onDelete (Cascade only for parent-owned rows; SetNull/Restrict across aggregate boundaries)
+DATABASE_MIGRATION_AUDIT.md [NEW] 5-stage roadmap (design → dual-write → backfill → read cutover → decommission), model-by-model mapping table with risk ratings, full foreign-key + cascade strategy, index replication notes, excluded/deferred field register, npm install commands documented but deliberately NOT run
+backend/src/models/*.js [UNCHANGED] read-only source of truth for the mapping — deliberately untouched
+backend/src/controllers/**, backend/src/routes/** [UNCHANGED] no dual-write or repository layer yet; that is Stage 2
+ARCHITECTURE.md [DONE] Settings section corrected to the consolidated single-singleton reality (was still describing the pre-2026-09-12 dual Setting.js/Settings.js layout); prisma/ noted in the backend structure; DATABASE_MIGRATION_AUDIT.md added to the documentation index
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] POSTGRESQL MIGRATION — STAGE 1 SCHEMA DESIGN — 2026-09-13
+README.md [DONE] PostgreSQL migration Stage 1 note (planning artifacts, not yet active)
+#
+# PostgreSQL migration - Stage 2 Step 1: environment setup + baseline migration: 2026-09-13
+#
+# Prisma is now CONNECTED to Neon and all 67 tables exist, but NO application
+# code reads PostgreSQL yet. Zero .js files under backend/src/ were modified -
+# no model, controller, route, service or script was touched. The live database
+# is still MongoDB + Mongoose and remains authoritative. 166/166 tests pass.
+# prisma db push was NOT used; no --accept-data-loss or force flag was used.
+prisma.config.js [NEW] [CLI-ONLY] repo-root Prisma 7 CLI config - required because Prisma 7 removed url/directUrl/shadowDatabaseUrl from the schema datasource block. Supplies datasource.url from DATABASE_URL (the DIRECT non-pooled Neon endpoint, which Migrate requires). Not imported by any application code
+prisma/schema.prisma [DONE] datasource + generator blocks only — removed url = env("DATABASE_URL") (forbidden in Prisma 7), switched generator from the deprecated prisma-client-js to prisma-client with output = "../generated/prisma", moduleFormat = "esm", generatedFileExtension = "mts", importFileExtension = "mts". (Initial moduleFormat = "cjs" attempt failed — see Stage 2 Step 1b.) npx prisma format applied. NO model, field, relation, enum, index or constraint was changed
+prisma/migrations/20260913131445_init_postgres_baseline/migration.sql [NEW] first real migration, created and applied to Neon via npx prisma migrate dev. 2,392 lines: 67 CREATE TABLE, 55 CREATE TYPE, 83 unique indexes, 133 indexes, 70 foreign keys. Zero implicit m2m join tables (Supplier<->Product is the explicit SupplierProduct model)
+package.json [DONE] added prisma@7.10.0 (devDependency) + @prisma/client@7.10.0 (dependency), both pinned EXACTLY with no caret because npm latest for prisma served the 8.0.0-rc.14 pre-release. No existing dependency version altered
+package-lock.json [DONE] lockfile updated for the two Prisma packages
+.gitignore [DONE] added /generated/prisma - the generated client is build output, recreate with npx prisma generate
+generated/prisma/** [NEW] [GITIGNORED] generated Prisma Client 7.10.0 - 67 model files exactly matching the 67 schema models, 55 enums. TypeScript-only output (see the open item in DATABASE_MIGRATION_AUDIT.md before writing the repository layer)
+DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 2 STEP 1 - Environment Setup & Migration - 2026-09-13: packages, env verification, the P1012 validation error and its real fix, migration name, Neon object counts, 166/166 test result, TypeScript-client open item
+ARCHITECTURE.md [DONE] prisma/ section rewritten from "NOT ACTIVE" to "CONNECTED, NOT YET READ BY THE APP"; prisma.config.js + generated/prisma documented; DATABASE_URL vs DATABASE_URL_POOLED env table added to Local Development Quick Reference
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] POSTGRESQL MIGRATION - STAGE 2 STEP 1 - 2026-09-13
+README.md [DONE] Stage 2 Step 1 note - Prisma connected to Neon, 67 tables live, MongoDB still authoritative
+backend/src/models/**, backend/src/controllers/**, backend/src/routes/** [UNCHANGED] deliberately untouched - dual-write repository layer is the next step
+#
+# PostgreSQL migration — Stage 2 Step 1b: generator correction (loadable Prisma client): 2026-09-13
+#
+# The initial moduleFormat = "cjs" generator setting did not yield CommonJS output —
+# prisma-client always emits TypeScript ESM regardless of moduleFormat. The correct
+# solution uses Node's native type stripping (unflagged since 22.18.0) to run .mts
+# files directly from CommonJS via require(). Zero application files changed.
+prisma/schema.prisma [DONE] generator corrected: moduleFormat = "esm", generatedFileExtension = "mts", importFileExtension = "mts". .mts output is Node-type-stripped ESM; plain CommonJS files can require() it via require(esm) (unflagged since Node 22.12.0/22.18.0)
+generated/prisma/** [DONE] [GITIGNORED] regenerated — 75 .mts files (client.mts, browser.mts, models.mts, enums.mts, commonInputTypes.mts, models/×67, internal/×3). Zero .js, .ts, or .d.ts files
+DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 2 STEP 1b — generator correction: full investigation record, cjs/cts failure evidence, mts mechanism table, smoke-test output, require(esm) caveat, Node floor analysis
+ARCHITECTURE.md [DONE] generated/prisma entry updated to reflect .mts extension and the require() path
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 1b generator correction note added
+README.md [DONE] Stage 2 Step 1 note updated to include Step 1b (generator correction)
+#
+# Node 22.18+ engines requirement + Dockerfile base image update: 2026-09-13
+#
+package.json [DONE] added "engines": { "node": ">=22.18.0" } — documents the effective floor imposed by Node's native type stripping, required to load generated/prisma/*.mts. No dependency versions altered
+Dockerfile [DONE] base image updated node:20-alpine → node:22-alpine (root, devops/, ecommerce-chat/devops/) — three Dockerfiles total. Satisfies the >=22.18.0 floor with headroom; node:22-alpine tracks the 22.x LTS line
+REFACTOR_MAP.md [DONE] Stage 2 Step 1b correction reflected; this engines/Dockerfile section added
+README.md [DONE] DATABASE_MIGRATION_AUDIT.md reference updated to mention Step 1b completion
