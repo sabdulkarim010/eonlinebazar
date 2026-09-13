@@ -139,11 +139,11 @@ Read these documents before making changes. Operational notes belong in the exis
 
 The repository ships with **100% passing automated coverage: 166 / 166 tests** across **16 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
 
-PostgreSQL repository integration tests (75 tests, real Neon) run separately — Jest cannot load the generated `.mts` Prisma client:
+PostgreSQL repository integration tests (87 tests, real Neon) run separately — Jest cannot load the generated `.mts` Prisma client:
 
 ```bash
 npm test                  # 16 suites, 166 tests — MongoDB in-memory
-npm run test:repositories # 5 files, 75 tests — Neon PostgreSQL
+npm run test:repositories # 6 files, 87 tests — Neon PostgreSQL
 ```
 
 | Suite | File | Tests | Focus |

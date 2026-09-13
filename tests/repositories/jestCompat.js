@@ -31,6 +31,10 @@ function afterAll(fn) {
   nodeTest.after(fn);
 }
 
+function afterEach(fn) {
+  nodeTest.afterEach(fn);
+}
+
 function buildMatchers(actual) {
   return {
     toBe(expected) {
@@ -38,6 +42,9 @@ function buildMatchers(actual) {
     },
     toBeDefined() {
       assert.notEqual(actual, undefined);
+    },
+    toBeUndefined() {
+      assert.equal(actual, undefined);
     },
     toBeNull() {
       assert.equal(actual, null);
@@ -88,4 +95,4 @@ function expect(actual) {
   return buildMatchers(actual);
 }
 
-module.exports = { describe, test, expect, afterAll };
+module.exports = { describe, test, expect, afterAll, afterEach };

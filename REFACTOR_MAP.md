@@ -1291,3 +1291,14 @@ DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 2 section added
 REFACTOR_MAP.md [DONE] this section
 README.md [DONE] test:repositories documented; Jest suite count unchanged at 166
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 2 repository layer note added
+
+# PostgreSQL migration — Stage 2 Step 2, Part 2: Admin repository (security-critical): 2026-09-13
+
+backend/src/repositories/adminRepository.js [NEW] CRUD + bcryptjs password hashing (rounds 12, BCRYPT_PATTERN guard) + select:false secrecy for 6 OTP/TOTP fields + findByIdWithSecrets/findByUsernameWithSecrets + remove() superadmin guard
+tests/repositories/admin.repository.test.js [NEW] 12 integration tests against real Neon (hashing, double-hash prevention, secret isolation, CRUD)
+tests/repositories/jestCompat.js [DONE] added afterEach + toBeUndefined for per-test cleanup
+backend/src/models/**, backend/src/controllers/**, backend/src/routes/** [UNCHANGED] MongoDB path untouched
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 2 Part 2 section added
+REFACTOR_MAP.md [DONE] this section
+README.md [DONE] test:repositories count updated to 87
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 2 Part 2 note added

@@ -1996,5 +1996,19 @@ index or constraint was changed to make validation pass.**
 | Neon repository integration tests (`npm run test:repositories`) | ✅ 75/75 |
 | Controllers / routes / Mongoose models touched | ❌ none (by design) |
 
+## Stage 2 Step 2, Part 2 — Admin Repository (Security-Critical) — 2026-09-13
+
+**Status:** ✅ COMPLETE (not yet wired into the live app)
+
+| Item | Status |
+|------|--------|
+| `adminRepository.js` — bcryptjs hashing (12 rounds), double-hash guard | ✅ |
+| `select: false` secrecy — 6 OTP/TOTP fields omitted from default queries | ✅ |
+| `findByIdWithSecrets` / `findByUsernameWithSecrets` opt-in | ✅ |
+| `remove()` superadmin guard (mirrors `staffController.findStaffById`) | ✅ |
+| Neon repository tests (`npm run test:repositories`) | ✅ 87/87 |
+| Main Jest suite (`npm test`) | ✅ 166/166 |
+| Controllers / routes / Mongoose models touched | ❌ none (by design) |
+
 See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 2 for function lists and test output.
 

@@ -1050,4 +1050,89 @@ Plain `node` loads `generated/prisma/client.mts` via native type-stripping (Step
 import statement outside a module` on the same path. The fix is **not** a custom
 transform pipeline — repository tests use `node --test` instead.
 
+---
+
+## STAGE 2 STEP 2, PART 2 — Repository Layer: Admin (Security-Critical) — 2026-09-13
+
+`backend/src/repositories/adminRepository.js` added for the Admin model. **Not
+wired into controllers, routes, or `server.js`** — MongoDB remains authoritative.
+
+### Password hashing (replicated from `admin.js` pre-save hook)
+
+| Parameter | Value | Source |
+|---|---|---|
+| Library | **`bcryptjs`** (`require('bcryptjs')`) | Same as `admin.js` line 7; `package.json` dependency `bcryptjs ^3.0.3` |
+| Salt rounds | **`12`** (`BCRYPT_ROUNDS = 12`) | Same as `admin.js` line 10 |
+| Already-hashed detection | **`/^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/`** via `isHashed()` | Copied verbatim from `admin.js` lines 14 + 152–154 |
+| Fields hashed | **`password` only** | Same as the Mongoose hook — only runs when `password` is modified |
+| `passwordChangedAt` | Set to `new Date()` **only when a new hash is produced** | Matches hook lines 165–166 |
+
+`create()` always runs `preparePasswordField()` before `prisma.admin.create()`.
+`update()` hashes `data.password` when present and not already a digest; when
+`password` is absent the stored hash is untouched.
+
+`verifyPassword(plainTextPassword, storedHash)` wraps `bcrypt.compare()` for
+future login reuse.
+
+### Double-hash prevention
+
+Integration test **`create() with an already-hashed password does NOT
+double-hash`** passes: passing a `$2a$`/`$2b$`/`$2y$` digest as the password
+input stores it unchanged (same guard class the Mongoose hook prevents).
+
+### `select: false` secrecy reimplementation
+
+Mongoose hides six fields unless explicitly opted in (`.select('+otp')`, etc.).
+Prisma has no column-level equivalent — the repository uses explicit `select`:
+
+**Omitted from `findAll()`, `findById()`, and `findByUsername()` by default:**
+
+1. `otp`
+2. `otpExpiry`
+3. `totpSecret`
+4. `totpPendingSecret`
+5. `smsSetupOtp`
+6. `smsSetupOtpExpiry`
+
+(`password` is also excluded from default queries — same intent as
+`toSafeObject()`.)
+
+**Opt-in:** `findByIdWithSecrets(id)` and `findByUsernameWithSecrets(username)`
+return all columns including the six secrets and `password`, mirroring auth
+controller `.select('+totpSecret +otp …')` patterns.
+
+### Deletion guard
+
+`remove()` replicates `staffController.findStaffById` / `deleteStaff`: Super Admin
+accounts throw `NOT_FOUND` (same 404 the controller returns — owner is managed
+from Admin Settings, never deletable from staff management).
+
+### Repository API
+
+| Function | Notes |
+|---|---|
+| `findAll(filters)` | `{ role?, status?, page?, limit? }`; default sort `createdAt desc` (matches `listStaff`) |
+| `findById(id)` | Safe select — no secrets |
+| `findByIdWithSecrets(id)` | Full row for 2FA/auth flows |
+| `findByUsername(username)` | Safe select |
+| `findByUsernameWithSecrets(username)` | Full row |
+| `create(data)` | Hashes password before write |
+| `update(id, data)` | Conditional password re-hash |
+| `remove(id)` | Staff-only delete guard |
+| `verifyPassword(plain, hash)` | `bcrypt.compare` helper |
+
+### Test results
+
+**Repository suite (`npm run test:repositories`)** — now **87 tests** (75 Part 1 + 12 Admin):
+
+```
+tests 87 | pass 87 | fail 0
+```
+
+**Main Jest suite (`npm test`)** — unchanged:
+
+```
+Tests: 166 passed, 166 total
+```
+
 
