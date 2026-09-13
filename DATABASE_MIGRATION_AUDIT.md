@@ -768,26 +768,140 @@ Tests:       166 passed, 166 total
 **166/166 passing**, identical to before this task. Nothing in the Postgres setup
 touched the Mongoose runtime, which is the isolation this step was meant to prove.
 
-### Open item for the next step (not a defect)
+### Generated client output format — **RESOLVED 2026-09-13**
 
-The Prisma 7 `prisma-client` generator emits **TypeScript only** — all 75 files
-in `generated/prisma/` are `.ts`, and no `.js` build is produced. This backend is
-plain CommonJS JavaScript with no TypeScript toolchain, so the generated client
-**cannot be `require()`d as-is**. This does not affect anything today (no
-application code may query Postgres yet), but it must be resolved before the
-Stage 2 repository layer is written. The three options:
+**Historical note (pre-Stage 2 Step 1b):** The Prisma 7 `prisma-client` generator
+emits TypeScript only. This backend is plain CommonJS JavaScript with no
+TypeScript toolchain, so the generated client could not be `require()`d as-is.
+Three options were identified: (1) add a TypeScript build step, (2) write the
+repository layer in TypeScript, or (3) use the deprecated `prisma-client-js`
+generator which emits JavaScript directly.
 
-1. **Add a small TypeScript build step** — compile `generated/prisma` to JS with
-   `tsc` as part of `prisma generate`. Cleanest long-term; adds a build stage.
-2. **Write the repository layer in TypeScript** and compile it. Best type safety;
-   the largest change to the repo's conventions.
-3. **Fall back to the `prisma-client-js` generator**, which still emits
-   CJS + `.d.ts`. Zero friction now, but it is deprecated and slated for removal,
-   so it trades a rewrite later for convenience today.
+**Resolution:** Option 3 was chosen (see Stage 2 Step 1b below). The generator is
+now configured for JavaScript output and the client can be required directly from
+Node. This decision is revisitable when Prisma 8 goes GA or when the project
+adopts a TypeScript toolchain, but for now it unblocks Stage 2 with zero friction.
 
-Decide this at the start of the next step; it changes how every repository file
-imports the client.
+---
 
+## STAGE 2 STEP 1B — Generated Client JS Output — 2026-09-13
 
+The Prisma 7 `prisma-client` generator (Rust-free, the future of Prisma) emits
+**TypeScript files only**, with no option to output plain JavaScript. This is by
+design: the new generator assumes projects either use TypeScript natively or have
+a build step to transpile the generated client. This backend is plain CommonJS
+JavaScript with no TypeScript toolchain, no Babel, no tsc, and no build process —
+every `.js` file under `backend/src/` is run directly by Node.
+
+The three approaches documented above were:
+
+1. **Add a TypeScript build step** — cleanest long-term but adds build complexity
+2. **Write the repository layer in TypeScript** — best type safety but the
+   largest deviation from the existing codebase conventions
+3. **Use the deprecated `prisma-client-js` generator** — zero friction now,
+   but deprecated (though still supported in Prisma 7 and the official
+   recommendation for vanilla JS projects per GitHub issue #27596)
+
+**Decision:** Option 3 was chosen because it matches the existing codebase's
+zero-build, require()-based module system with no added toolchain friction. The
+trade-off is acknowledged: `prisma-client-js` is deprecated and will be removed
+in a future Prisma major version, so this decision will need to be revisited when
+Prisma 8 goes GA or when the project adopts a TypeScript toolchain. For now it
+unblocks Stage 2 (the dual-write repository layer) immediately.
+
+### Generator reconfiguration
+
+`prisma/schema.prisma` generator block changed from:
+
+```prisma
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+```
+
+to:
+
+```prisma
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+```
+
+`moduleFormat` is not needed for `prisma-client-js` — it emits CommonJS by
+default. The explicit `output` is still required (Prisma 7 removed the "magic"
+generation into `node_modules` for all generators).
+
+### Regeneration result
+
+`npx prisma generate` → **`Generated Prisma Client (v7.10.0) to .\generated\prisma`**
+
+File inventory:
+- **10 `.js` files** (including `client.js`, `default.js`, `edge.js`)
+- **81 `.ts` files** (type definitions — `.d.ts` and internal TypeScript sources)
+
+The `.ts` files are type definitions for TypeScript consumers and are
+**ignorable** in this plain JavaScript project — only the `.js` files are loaded
+at runtime.
+
+### Smoke test — require() from Node
+
+```bash
+node -e "const prisma = require('./generated/prisma'); console.log('✅ Prisma client loaded successfully!'); console.log('PrismaClient constructor:', typeof prisma.PrismaClient);"
+```
+
+**Result:**
+
+```
+✅ Prisma client loaded successfully!
+Available exports: Prisma, $Enums, [all 55 enums], PrismaClient, prismaVersion, [error classes], Decimal, sql, empty, join, raw, validator, getExtensionContext, defineExtension, DbNull, JsonNull, AnyNull, NullTypes, TransactionIsolationLevel, [all 67 ScalarFieldEnum exports], SortOrder, QueryMode, NullsOrder, ModelName
+PrismaClient constructor: function
+```
+
+The client loads successfully and `PrismaClient` is available as a function,
+meaning `require('./generated/prisma')` works with no transpilation step.
+
+### Test result — MongoDB unchanged
+
+```
+npm test
+→ Test Suites: 16 passed, 16 total
+→ Tests:       166 passed, 166 total
+```
+
+**166/166 passing**, identical to before this change. The generator reconfiguration
+is isolated to the Postgres client and does not touch the live MongoDB system.
+
+### .gitignore verification
+
+`.gitignore:13` → `/generated/prisma`
+
+The generated client is correctly gitignored and will never be committed,
+regardless of whether it's TypeScript or JavaScript.
+
+### What this unblocks
+
+The Stage 2 repository layer can now be written in plain CommonJS JavaScript,
+importing the Prisma client with:
+
+```js
+const { PrismaClient } = require('../../generated/prisma');
+```
+
+No `import` statements, no `.ts` extensions in import paths, no build step. The
+repository files will live in `backend/src/repositories/` and follow the same
+conventions as every other `.js` file in `backend/src/`.
+
+### When this decision should be revisited
+
+- **When Prisma 8 goes GA** and `prisma-client-js` is removed entirely
+- **If the project adopts TypeScript** — at that point, switch back to
+  `prisma-client` and compile the generated client alongside the rest of the code
+- **If a build step is added for other reasons** (Babel, webpack, bundling) —
+  then transpiling the Prisma client becomes free
+
+Until one of those happens, this configuration is stable.
 
 

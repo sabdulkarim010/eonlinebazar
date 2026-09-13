@@ -23,13 +23,14 @@
 // Prisma 7 note: the connection URL is NOT declared here. Since v7 the
 // `url` / `directUrl` / `shadowDatabaseUrl` datasource properties are removed
 // from the schema and live in `prisma.config.js` at the repo root, which reads
-// DATABASE_URL from the repo-root .env. `prisma-client` (Rust-free) replaces
-// the deprecated `prisma-client-js`, so an explicit `output` is required and
-// `moduleFormat = "cjs"` is needed because this repo is CommonJS.
+// DATABASE_URL from the repo-root .env. This repo uses the deprecated
+// `prisma-client-js` generator (instead of the newer `prisma-client`) because
+// the codebase is plain CommonJS JavaScript with no TypeScript toolchain, and
+// `prisma-client` emits TypeScript-only. `prisma-client-js` outputs JavaScript
+// that can be required() directly. An explicit `output` is required.
 generator client {
-  provider     = "prisma-client"
-  output       = "../generated/prisma"
-  moduleFormat = "cjs"
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
 }
 
 datasource db {
