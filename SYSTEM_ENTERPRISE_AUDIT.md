@@ -1978,5 +1978,23 @@ modelling defect. It was fixed by moving the URL into a new root
 `prisma.config.js` and switching the generator. **No model, field, relation, enum,
 index or constraint was changed to make validation pass.**
 
+---
 
+## Stage 2 Step 2 — Neon Adapter + Repository Layer (Simple Models) — 2026-09-13
+
+**Status:** ✅ COMPLETE (not yet wired into the live app)
+
+| Item | Status |
+|------|--------|
+| `@prisma/adapter-neon` + `@neondatabase/serverless` installed | ✅ |
+| `backend/src/config/prismaClient.js` singleton (PrismaNeonHttp + pooled URL) | ✅ |
+| Repository layer: Category, Designation, Brand, Warehouse, Supplier | ✅ |
+| Reimplemented slug hooks (Category, Brand) | ✅ |
+| Reimplemented default-warehouse exclusivity (Warehouse) | ✅ |
+| Reimplemented Restrict guards (Designation, Supplier) | ✅ |
+| Main Jest suite (`npm test`) | ✅ 166/166 |
+| Neon repository integration tests (`npm run test:repositories`) | ✅ 75/75 |
+| Controllers / routes / Mongoose models touched | ❌ none (by design) |
+
+See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 2 for function lists and test output.
 

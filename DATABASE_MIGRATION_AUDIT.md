@@ -980,4 +980,74 @@ Two genuine caveats, recorded so they are not rediscovered later:
 Until one of those happens this configuration is stable, and it carries **no
 deprecated Prisma component**.
 
+---
+
+## STAGE 2 STEP 2 — Repository Layer: Simple Models — 2026-09-13
+
+Neon HTTP driver adapter installed, `prismaClient.js` singleton created, and five
+repository modules added for the simplest catalog/HRM/ERP models. **Nothing is
+wired into `server.js`, controllers, or routes** — MongoDB remains authoritative.
+
+### Packages installed
+
+| Package | Version | Type | Note |
+|---|---|---|---|
+| `@prisma/adapter-neon` | `^7.10.0` | dependency | PrismaNeonHttp adapter factory |
+| `@neondatabase/serverless` | `^1.1.0` | dependency | HTTP query driver (used by adapter) |
+
+No existing dependency version was altered beyond these two additions.
+
+### `backend/src/config/prismaClient.js`
+
+- Imports `PrismaClient` from `generated/prisma/client.mts` (Node 22.18+ native
+  type-stripping + `require(esm)` — see Step 1b).
+- Constructs `new PrismaNeonHttp(process.env.DATABASE_URL_POOLED)` — the adapter
+  factory takes the **connection string**, not a pre-built `neon()` function.
+- Singleton with `global.__eonlinebazarPrisma` guard (mirrors `db.js` pattern).
+- **Not imported by the running application yet.**
+
+### Repository files (`backend/src/repositories/`)
+
+| File | Functions | Reimplemented hooks / guards |
+|---|---|---|
+| `categoryRepository.js` | `findAll`, `findById`, `findBySlug`, `create`, `update`, `remove`, `slugifyCategory` | Slug generation (Bengali Unicode U+0980–U+09FF); cascade delete with product guard |
+| `designationRepository.js` | `findAll`, `findById`, `create`, `update`, `remove` | `remove()` rejects when non-`TERMINATED` employees still reference `designationId` (Restrict) |
+| `brandRepository.js` | `findAll`, `findById`, `findBySlug`, `create`, `update`, `remove`, `slugifyBrand` | Slug generation (Bengali Unicode); `ActiveStatus` enum mapping |
+| `warehouseRepository.js` | `findAll`, `findById`, `create`, `update`, `remove`, `setDefault` | Default-warehouse exclusivity (sequential writes — `$transaction` unsupported over HTTP); delete guard on default |
+| `supplierRepository.js` | `findAll`, `findById`, `create`, `update`, `remove` | `remove()` rejects when open POs (`DRAFT`/`SENT`/`PARTIAL`) still reference supplier (Restrict) |
+
+### Test results
+
+**Main Jest suite (`npm test`)** — MongoDB in-memory, unchanged:
+
+```
+Test Suites: 16 passed, 16 total
+Tests:       166 passed, 166 total
+```
+
+Repository integration tests are **excluded** from the main Jest run via
+`testPathIgnorePatterns: ["/tests/repositories/"]` because Jest's module loader
+cannot parse the generated `.mts` Prisma client. They run separately:
+
+```bash
+npm run test:repositories
+```
+
+**Repository suite (`npm run test:repositories`)** — real Neon PostgreSQL:
+
+```
+tests 75 | pass 75 | fail 0
+```
+
+Five files under `tests/repositories/`, using Node's built-in test runner +
+`tests/repositories/jestCompat.js`. Each file creates and cleans up its own
+prefixed test rows.
+
+### Jest / Prisma `.mts` loading note
+
+Plain `node` loads `generated/prisma/client.mts` via native type-stripping (Step
+1b). Jest 30 uses its own `ModuleExecutor` and throws `SyntaxError: Cannot use
+import statement outside a module` on the same path. The fix is **not** a custom
+transform pipeline — repository tests use `node --test` instead.
+
 

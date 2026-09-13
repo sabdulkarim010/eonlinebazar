@@ -1267,3 +1267,27 @@ package.json [DONE] added "engines": { "node": ">=22.18.0" } — documents the e
 Dockerfile [DONE] base image updated node:20-alpine → node:22-alpine (root, devops/, ecommerce-chat/devops/) — three Dockerfiles total. Satisfies the >=22.18.0 floor with headroom; node:22-alpine tracks the 22.x LTS line
 REFACTOR_MAP.md [DONE] Stage 2 Step 1b correction reflected; this engines/Dockerfile section added
 README.md [DONE] DATABASE_MIGRATION_AUDIT.md reference updated to mention Step 1b completion
+
+# PostgreSQL migration — Stage 2 Step 2: Neon adapter + repository layer (simple models): 2026-09-13
+
+package.json [DONE] added @prisma/adapter-neon ^7.10.0, @neondatabase/serverless ^1.1.0; added test:repositories script; jest testPathIgnorePatterns excludes tests/repositories/ (Jest cannot load .mts Prisma client)
+package-lock.json [DONE] lockfile updated for Neon adapter packages
+backend/src/config/prismaClient.js [NEW] PrismaClient singleton via PrismaNeonHttp(DATABASE_URL_POOLED); global guard; not wired into server.js
+backend/src/repositories/categoryRepository.js [NEW] CRUD + slugifyCategory (Bengali Unicode)
+backend/src/repositories/designationRepository.js [NEW] CRUD + remove() Restrict guard (designationId / TERMINATED status)
+backend/src/repositories/brandRepository.js [NEW] CRUD + slugifyBrand (Bengali Unicode)
+backend/src/repositories/warehouseRepository.js [NEW] CRUD + setDefault() sequential demote/promote (no $transaction over HTTP)
+backend/src/repositories/supplierRepository.js [NEW] CRUD + remove() open-PO Restrict guard
+tests/repositories/jestCompat.js [NEW] minimal Jest-like API on node:test for Neon integration tests
+tests/repositories/category.repository.test.js [NEW] slug + CRUD against real Neon (75 tests total across 5 files)
+tests/repositories/designation.repository.test.js [NEW]
+tests/repositories/brand.repository.test.js [NEW]
+tests/repositories/warehouse.repository.test.js [NEW]
+tests/repositories/supplier.repository.test.js [NEW]
+tests/prismaClientTransformer.js [DELETED] abandoned Jest .mts workaround (removed before commit)
+jest.repositories.config.js [DELETED] abandoned custom Jest config (removed before commit)
+backend/src/models/**, backend/src/controllers/**, backend/src/routes/** [UNCHANGED] MongoDB path untouched
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 2 section added
+REFACTOR_MAP.md [DONE] this section
+README.md [DONE] test:repositories documented; Jest suite count unchanged at 166
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 2 repository layer note added

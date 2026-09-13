@@ -9,6 +9,7 @@
     "dev:chat": "node --watch ecommerce-chat/server.js",
     "dev:store": "nodemon backend/src/server.js",
     "test": "jest --runInBand",
+    "test:repositories": "node --test --test-timeout=60000 tests/repositories/*.repository.test.js",
     "seed:products": "node scripts/seedDemoProducts.js",
     "migrate:indexes": "node scripts/addEnterpriseIndexes.js",
     "kill-port": "npx kill-port 5000"
@@ -16,6 +17,9 @@
   "jest": {
     "testEnvironment": "node",
     "testTimeout": 30000,
+    "testPathIgnorePatterns": [
+      "/tests/repositories/"
+    ],
     "setupFilesAfterEnv": [
       "<rootDir>/tests/setup.js"
     ]
@@ -28,6 +32,8 @@
     "node": ">=22.18.0"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "@prisma/adapter-neon": "^7.10.0",
     "@prisma/client": "7.10.0",
     "@react-native-async-storage/async-storage": "^3.1.1",
     "@react-navigation/bottom-tabs": "^7.18.18",
