@@ -1329,4 +1329,89 @@ tests 122 | pass 122 | fail 0
 Tests: 166 passed, 166 total
 ```
 
+---
+
+## STAGE 2 STEP 2, PART 5 — Repository Layer: Product & Order (Most Complex) — 2026-09-13
+
+Two repository modules added for the highest-risk embedded-document models. **Not wired
+into controllers, routes, or `server.js`.**
+
+### Step 1 — Decomposition confirmed against schema.prisma
+
+**Product** decomposes into exactly these tables (names verified in `schema.prisma`):
+
+| Mongo source | Prisma table | Notes |
+|---|---|---|
+| `product.js` root document | `Product` (`@@map("products")`) | FKs to Category/Brand/Supplier/Warehouse/Admin all **SetNull** |
+| `variants[]` | `ProductVariant` | `onDelete: Cascade` from Product |
+| `variants[].attributes` Map | `ProductVariantAttribute` | One row per Map key; `onDelete: Cascade` from Variant |
+| `costHistory[]` | `ProductCostHistory` | Append-only; `onDelete: Cascade` from Product |
+| `reviews[]` (in-document) | `ProductEmbeddedReview` | **Distinct** from standalone `Review` model — not merged |
+
+**Order** decomposes into exactly these tables (names verified in `schema.prisma`):
+
+| Mongo source | Prisma table | Notes |
+|---|---|---|
+| `order.js` root document | `Order` (`@@map("orders")`) | Both `subTotal` and `subtotal` preserved as separate columns |
+| `items[]` (`strict: false`) | `OrderItem` | Undeclared keys → `extraFields Json?` |
+| `returnItems[]` | `OrderReturnItem` | |
+| `payment` object | `OrderPayment` | 1-to-1 (`orderId @unique`) |
+| `payment.ipnHistory[]` | `OrderPaymentIpnEvent` | `raw Json?`; Cascade from OrderPayment |
+| `paymentProof` object | `OrderPaymentProof` | 1-to-1 (`orderId @unique`) |
+| `notificationsSent` object | `OrderNotification` | 1-to-1; 9 booleans |
+
+No table-name discrepancies found — audit prompt list matches `schema.prisma` exactly.
+
+### Product repository (`productRepository.js`)
+
+| Feature | Implementation |
+|---|---|
+| Slug generation | Reuses `slugifyBrand` from `brandRepository.js` — matches `productController.js` / `brand.js` algorithm (Bengali U+0980–U+09FF preserved); **not** category slug |
+| `resolveUniqueSlug()` | Same suffix strategy as live controller (`-2`, `-3`, …) |
+| Text search (`findAll`) | **Placeholder:** `name contains` (case-insensitive) only — weighted MongoDB text index deferred to tsvector/GIN migration |
+| Variant attributes | **Map → table:** `addVariant()` creates `ProductVariant` + one `ProductVariantAttribute` row per key |
+| `updateVariant()` attributes | **Delete-all-then-recreate** (not diff) — guarantees no stale keys; documented choice |
+| Cost history | Append-only via `addCostEntry()` — no update/delete helpers |
+| Embedded reviews | Separate from future standalone `reviewRepository` — Stage 3 decision deferred |
+
+### Order repository (`orderRepository.js`)
+
+| Feature | Implementation |
+|---|---|
+| `create()` write order | Sequential: Order → OrderItems (+ `extraFields`) → OrderPayment → IpnEvents → PaymentProof → OrderNotification |
+| `subTotal` / `subtotal` | Both written independently from caller input — never collapsed |
+| Item `strict: false` | Known columns mapped to typed fields; all other keys collected into `extraFields` JSON |
+| Notification mapping | Mongo `out_for_delivery` → Prisma `outForDelivery` (`@map("out_for_delivery")`); reassembled as `out_for_delivery` in `findById()` |
+| `updateStatus()` | Status field only — no cashback/notification/courier side effects |
+| Partial-write risk | **Documented gap:** no `$transaction` (Neon HTTP limitation). If a child insert fails after Order row exists, a partial order remains. **Future fix:** interactive-transaction driver, or explicit `rollbackOrder(orderId)` cleanup function that deletes Order + any children created so far |
+
+### Cascade directions — verified in tests
+
+| Scenario | Expected | Test result |
+|---|---|---|
+| Delete Product | Cascades ProductVariant (+ attributes), ProductCostHistory, ProductEmbeddedReview | ✅ pass |
+| Delete Product with OrderItem referencing it | OrderItem survives; `productId` → **null** (SetNull) | ✅ pass |
+| Delete Product with CartItem referencing it | CartItem **deleted** (Cascade) | ✅ pass |
+| Delete Order | Cascades OrderItem, OrderReturnItem, OrderPayment (+ IpnEvents), OrderPaymentProof, OrderNotification | ✅ used for test cleanup |
+
+### Test results
+
+**Repository suite (`npm run test:repositories`)** — now **135 tests** (122 prior + 13 Product/Order):
+
+```
+tests 135 | pass 135 | fail 0
+```
+
+New files: `product.repository.test.js` (8 tests), `order.repository.test.js` (5 tests).
+
+**Main Jest suite (`npm test`)** — unchanged:
+
+```
+Tests: 166 passed, 166 total
+```
+
+**Harness note:** `npm run test:repositories` now runs with `--test-concurrency=1` to avoid
+`EMP-xxx` ID races on the shared Neon test database when multiple files create employees
+in parallel.
+
 

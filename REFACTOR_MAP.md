@@ -1330,3 +1330,17 @@ DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 2 Part 4 section added
 REFACTOR_MAP.md [DONE] this section
 README.md [DONE] test:repositories count updated to 122
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 2 Part 4 note added
+
+# PostgreSQL migration — Stage 2 Step 2, Part 5: Product & Order repositories (embedded decomposition): 2026-09-13
+
+backend/src/repositories/productRepository.js [NEW] CRUD + slug (slugifyBrand) + variants (Map→ProductVariantAttribute) + cost history + embedded reviews
+backend/src/repositories/orderRepository.js [NEW] create (sequential nested writes) + findById reassembly + return items + payment/IPN updates
+backend/src/repositories/employeeRepository.js [MOD] generateEmployeeId numeric max + collision retry; safer under shared Neon DB
+tests/repositories/product.repository.test.js [NEW] 8 tests — slug, variants, cascade SetNull/Cascade
+tests/repositories/order.repository.test.js [NEW] 5 tests — nested create, extraFields, subTotal/subtotal, reassembly
+package.json [MOD] test:repositories adds --test-concurrency=1 for Neon integration stability
+backend/src/models/**, backend/src/controllers/**, backend/src/routes/** [UNCHANGED] MongoDB path untouched
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 2 Part 5 section added
+REFACTOR_MAP.md [DONE] this section
+README.md [DONE] test:repositories count updated to 135 (13 files)
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 2 Part 5 note added

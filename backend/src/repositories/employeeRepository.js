@@ -76,19 +76,23 @@ function syncEmployeeAliases(data) {
 
 // ── generateEmployeeId (mirrors employee.js static) ─────────────────────────
 async function generateEmployeeId() {
-  const latest = await prisma.employee.findMany({
+  const rows = await prisma.employee.findMany({
     where: { employeeId: { startsWith: 'EMP-' } },
-    select: { employeeId: true },
-    orderBy: { employeeId: 'desc' },
-    take: 1
+    select: { employeeId: true }
   });
 
-  let next = 1;
-  if (latest[0]?.employeeId) {
-    const match = /^EMP-(\d+)$/i.exec(String(latest[0].employeeId).trim());
-    if (match) next = parseInt(match[1], 10) + 1;
-  }
+  let maxSuffix = 0;
+  rows.forEach((row) => {
+    const match = /^EMP-(\d+)$/i.exec(String(row.employeeId || '').trim());
+    if (match) maxSuffix = Math.max(maxSuffix, parseInt(match[1], 10));
+  });
 
+  return `EMP-${String(maxSuffix + 1).padStart(3, '0')}`;
+}
+
+function incrementEmployeeId(code) {
+  const match = /^EMP-(\d+)$/i.exec(String(code || '').trim());
+  const next = match ? parseInt(match[1], 10) + 1 : 1;
   return `EMP-${String(next).padStart(3, '0')}`;
 }
 
@@ -180,10 +184,6 @@ async function create(data) {
   if (!fullName) throw new Error('Employee full name is required.');
   if (!String(data.phone || '').trim()) throw new Error('Phone is required.');
 
-  const employeeId = data.employeeId
-    ? String(data.employeeId).trim()
-    : await generateEmployeeId();
-
   let aliases = syncEmployeeAliases({
     designation: String(data.designation ?? data.role ?? '').trim(),
     role: String(data.role ?? data.designation ?? '').trim(),
@@ -191,55 +191,76 @@ async function create(data) {
     address: String(data.address ?? '').trim()
   });
 
-  const record = await prisma.employee.create({
-    data: {
-      employeeId,
-      fullName,
-      phone: String(data.phone).trim(),
-      dateOfBirth: data.dateOfBirth ?? null,
-      religion: String(data.religion ?? '').trim(),
-      nationalId: String(data.nationalId ?? '').trim(),
-      photo: String(data.photo ?? '').trim(),
-      photoPublicId: String(data.photoPublicId ?? '').trim(),
-      alternatePhone: String(data.alternatePhone ?? '').trim(),
-      email: String(data.email ?? '').trim().toLowerCase(),
-      presentAddress: aliases.presentAddress || '',
-      permanentAddress: String(data.permanentAddress ?? '').trim(),
-      address: aliases.address || '',
-      emergencyContactName: String(
-        data.emergencyContactName ?? data.emergencyContact?.name ?? ''
-      ).trim(),
-      emergencyContactPhone: String(
-        data.emergencyContactPhone ?? data.emergencyContact?.phone ?? ''
-      ).trim(),
-      emergencyContactRelation: String(
-        data.emergencyContactRelation ?? data.emergencyContact?.relation ?? ''
-      ).trim(),
-      designation: aliases.designation || '',
-      role: aliases.role || '',
-      department: String(data.department ?? 'Operations').trim() || 'Operations',
-      employeeType: data.employeeType !== undefined
-        ? toEmployeeTypeEnum(data.employeeType)
-        : 'PERMANENT',
-      shift: String(data.shift ?? '').trim(),
-      shiftId: data.shiftId ?? null,
-      designationId: data.designationId ?? null,
-      joiningDate: data.joiningDate ?? null,
-      baseSalary: data.baseSalary != null ? data.baseSalary : 0,
-      salaryType: data.salaryType !== undefined
-        ? toSalaryTypeEnum(data.salaryType)
-        : 'MONTHLY',
-      bankName: String(data.bankName ?? '').trim(),
-      bankAccountNumber: String(data.bankAccountNumber ?? '').trim(),
-      bkashNumber: String(data.bkashNumber ?? '').trim(),
-      linkedAdminId: data.linkedAdminId ?? null,
-      status: data.status !== undefined ? toStatusEnum(data.status) : 'ACTIVE',
-      notes: String(data.notes ?? '').trim(),
-      createdBy: String(data.createdBy ?? '').trim()
-    }
+  const buildData = (employeeId) => ({
+    employeeId,
+    fullName,
+    phone: String(data.phone).trim(),
+    dateOfBirth: data.dateOfBirth ?? null,
+    religion: String(data.religion ?? '').trim(),
+    nationalId: String(data.nationalId ?? '').trim(),
+    photo: String(data.photo ?? '').trim(),
+    photoPublicId: String(data.photoPublicId ?? '').trim(),
+    alternatePhone: String(data.alternatePhone ?? '').trim(),
+    email: String(data.email ?? '').trim().toLowerCase(),
+    presentAddress: aliases.presentAddress || '',
+    permanentAddress: String(data.permanentAddress ?? '').trim(),
+    address: aliases.address || '',
+    emergencyContactName: String(
+      data.emergencyContactName ?? data.emergencyContact?.name ?? ''
+    ).trim(),
+    emergencyContactPhone: String(
+      data.emergencyContactPhone ?? data.emergencyContact?.phone ?? ''
+    ).trim(),
+    emergencyContactRelation: String(
+      data.emergencyContactRelation ?? data.emergencyContact?.relation ?? ''
+    ).trim(),
+    designation: aliases.designation || '',
+    role: aliases.role || '',
+    department: String(data.department ?? 'Operations').trim() || 'Operations',
+    employeeType: data.employeeType !== undefined
+      ? toEmployeeTypeEnum(data.employeeType)
+      : 'PERMANENT',
+    shift: String(data.shift ?? '').trim(),
+    shiftId: data.shiftId ?? null,
+    designationId: data.designationId ?? null,
+    joiningDate: data.joiningDate ?? null,
+    baseSalary: data.baseSalary != null ? data.baseSalary : 0,
+    salaryType: data.salaryType !== undefined
+      ? toSalaryTypeEnum(data.salaryType)
+      : 'MONTHLY',
+    bankName: String(data.bankName ?? '').trim(),
+    bankAccountNumber: String(data.bankAccountNumber ?? '').trim(),
+    bkashNumber: String(data.bkashNumber ?? '').trim(),
+    linkedAdminId: data.linkedAdminId ?? null,
+    status: data.status !== undefined ? toStatusEnum(data.status) : 'ACTIVE',
+    notes: String(data.notes ?? '').trim(),
+    createdBy: String(data.createdBy ?? '').trim()
   });
 
-  return toShape(record);
+  if (data.employeeId) {
+    const record = await prisma.employee.create({
+      data: buildData(String(data.employeeId).trim())
+    });
+    return toShape(record);
+  }
+
+  const MAX_ID_ATTEMPTS = 6;
+  let employeeId = await generateEmployeeId();
+  for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt += 1) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const record = await prisma.employee.create({ data: buildData(employeeId) });
+      return toShape(record);
+    } catch (err) {
+      if (err.code === 'P2002' && attempt < MAX_ID_ATTEMPTS - 1) {
+        employeeId = incrementEmployeeId(employeeId);
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw new Error('Failed to generate a unique employeeId after 6 attempts.');
 }
 
 // ── update ───────────────────────────────────────────────────────────────────

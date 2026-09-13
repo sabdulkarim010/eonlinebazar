@@ -2045,3 +2045,20 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 2 for function lists and test 
 | Main Jest suite (`npm test`) | ✅ 166/166 |
 | Controllers / routes / Mongoose models touched | ❌ none (by design) |
 
+## Stage 2 Step 2, Part 5 — Product & Order Repositories (Embedded Decomposition) — 2026-09-13
+
+**Status:** ✅ COMPLETE (not yet wired into the live app)
+
+| Item | Status |
+|------|--------|
+| `productRepository.js` — CRUD, slug (brand algorithm), variant Map→table, cost history, embedded reviews | ✅ |
+| `orderRepository.js` — nested create/reassembly, extraFields, payment/IPN/proof/notifications | ✅ |
+| Variant attribute update strategy (delete+recreate) | ✅ documented |
+| Order.create() partial-write risk (no transaction) | ⚠️ documented — future rollback or TX driver |
+| Text search placeholder (no tsvector/GIN yet) | ⚠️ deferred |
+| Cascade tests: OrderItem SetNull vs CartItem Cascade on product delete | ✅ |
+| Weighted full-text search / status side-effects / review model merge | ❌ out of scope |
+| Neon repository tests (`npm run test:repositories`) | ✅ 135/135 |
+| Main Jest suite (`npm test`) | ✅ 166/166 |
+| Controllers / routes / Mongoose models touched | ❌ none (by design) |
+
