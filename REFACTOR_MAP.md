@@ -1302,3 +1302,13 @@ DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 2 Part 2 section added
 REFACTOR_MAP.md [DONE] this section
 README.md [DONE] test:repositories count updated to 87
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 2 Part 2 note added
+
+# PostgreSQL migration — Stage 2 Step 2, Part 3: User repository: 2026-09-13
+
+backend/src/repositories/userRepository.js [NEW] CRUD + referral code generation (8-char unambiguous alphabet, 6-attempt collision retry) + addresses/wishlist/wallet sub-resource helpers + cascade delete via plain prisma.user.delete()
+tests/repositories/user.repository.test.js [NEW] 12 integration tests against real Neon (referral codes, collision retry, addresses, wallet, cascade delete, wishlist)
+backend/src/models/**, backend/src/controllers/**, backend/src/routes/** [UNCHANGED] MongoDB path untouched
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 2 Part 3 section added
+REFACTOR_MAP.md [DONE] this section
+README.md [DONE] test:repositories count updated to 99
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 2 Part 3 note added

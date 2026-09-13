@@ -1135,4 +1135,98 @@ tests 87 | pass 87 | fail 0
 Tests: 166 passed, 166 total
 ```
 
+---
+
+## STAGE 2 STEP 2, PART 3 — Repository Layer: User — 2026-09-13
+
+`backend/src/repositories/userRepository.js` added for the User model and its
+owned sub-resources. **Not wired into controllers, routes, or `server.js`.**
+
+### Referral code generation (replicated from `user.js ensureReferralCode`)
+
+| Parameter | Value | Source |
+|---|---|---|
+| Alphabet | **`ABCDEFGHJKLMNPQRSTUVWXYZ23456789`** (excludes 0/O, 1/I) | `user.js` line 287 |
+| Length | **`8`** characters | `generateReferralCode(length = 8)` line 289 |
+| Retry count | **`6`** attempts (`while (attempts < 6)`) | `ensureReferralCode` lines 301–312 |
+| Collision check | `prisma.user.findUnique({ where: { referralCode: candidate } })` | Mirrors `this.constructor.exists({ referralCode: candidate })` |
+
+`create()` calls `resolveUniqueReferralCode()` when no `referralCode` is supplied.
+`update()` **ignores** any supplied `referralCode` — assigned once at creation.
+
+Collision-retry integration test passes via injectable `pickCandidate` on
+`resolveUniqueReferralCode()`.
+
+### Legacy `name` field migration hook — NOT reimplemented (dead for Postgres)
+
+The Mongoose `pre('validate')` hook (lines 258–267) only runs when
+`firstName`/`lastName` are missing **and** a legacy `_doc.name` field exists.
+Postgres stores `firstName` + `lastName` as required columns; there is no `name`
+column. New records created via this repository always supply both names, so
+the hook is irrelevant. The virtual `name` getter is reimplemented in `toShape()`
+as `firstName + ' ' + lastName`.
+
+### Cascade delete verification
+
+Confirmed in `schema.prisma` — `User` owned relations use **`onDelete: Cascade`**:
+
+| Child table | Relation |
+|---|---|
+| `addresses` | Address → User |
+| `wishlist_items` | WishlistItem → User |
+| `wallet_transactions` | WalletTransaction → User |
+| `user_sessions` | UserSession → User |
+| `notes` | Note → User |
+| `carts` (+ `cart_items`) | Cart → User |
+
+`remove()` is a plain `prisma.user.delete()` — the database handles cascade.
+Cross-aggregate relations (`Order`, `Review`, `CouponRedemption`) use **SetNull**
+and survive user deletion.
+
+### Wallet credit/debit — sequential writes
+
+`creditWallet()` and `debitWallet()` use **sequential writes** (update
+`walletBalance` → create `WalletTransaction` row), following the same Neon HTTP
+limitation documented in Part 1 (`warehouseRepository.setDefault()` — no
+`$transaction` over HTTP). `debitWallet()` rejects when the resulting balance
+would go negative (`INSUFFICIENT_BALANCE`).
+
+### Wishlist — dual product reference
+
+`addToWishlist()` always writes `legacyProductId` (raw string, required).
+When the id matches a Postgres Product UUID, `productId` FK is also set;
+Product deletion uses **SetNull** on `WishlistItem.productId` per schema.
+
+### Future gap — customer segmentation NOT implemented
+
+`getAllCustomers` computes VIP / Frequent / Inactive labels from Order aggregates
++ Settings thresholds. This repository implements basic `findAll()` filtering
+(search, loyaltyTier, accountStatus, cursor/page/limit) only. Segmentation
+requires migrated Order data and is deferred to a later stage.
+
+### Repository API
+
+| Function | Notes |
+|---|---|
+| `findAll(filters)` | search, tier, accountStatus, isDeleted, page/limit, cursor |
+| `findById`, `findByEmail`, `findByReferralCode` | Password excluded |
+| `create`, `update`, `remove` | Referral code on create; immutable on update |
+| `listAddresses`, `addAddress`, `updateAddress`, `removeAddress` | |
+| `listWishlist`, `addToWishlist`, `removeFromWishlist` | legacyProductId + optional FK |
+| `creditWallet`, `debitWallet` | Sequential balance + transaction row |
+
+### Test results
+
+**Repository suite (`npm run test:repositories`)** — now **99 tests** (87 prior + 12 User):
+
+```
+tests 99 | pass 99 | fail 0
+```
+
+**Main Jest suite (`npm test`)** — unchanged:
+
+```
+Tests: 166 passed, 166 total
+```
+
 

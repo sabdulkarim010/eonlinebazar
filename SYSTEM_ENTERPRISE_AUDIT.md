@@ -2012,3 +2012,19 @@ index or constraint was changed to make validation pass.**
 
 See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 2 for function lists and test output.
 
+## Stage 2 Step 2, Part 3 — User Repository — 2026-09-13
+
+**Status:** ✅ COMPLETE (not yet wired into the live app)
+
+| Item | Status |
+|------|--------|
+| `userRepository.js` — referral codes (8-char alphabet, 6-attempt retry) | ✅ |
+| Legacy `name` hook determined dead for Postgres-only records | ✅ |
+| Addresses / wishlist / wallet sub-resource helpers | ✅ |
+| Wallet credit/debit via sequential writes (Neon HTTP, no `$transaction`) | ✅ |
+| Cascade delete verified (Address, WishlistItem, WalletTransaction, etc.) | ✅ |
+| VIP/Frequent/Inactive segmentation | ❌ deferred (requires Order data) |
+| Neon repository tests (`npm run test:repositories`) | ✅ 99/99 |
+| Main Jest suite (`npm test`) | ✅ 166/166 |
+| Controllers / routes / Mongoose models touched | ❌ none (by design) |
+
