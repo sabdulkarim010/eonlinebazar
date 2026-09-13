@@ -2028,3 +2028,20 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 2 for function lists and test 
 | Main Jest suite (`npm test`) | ✅ 166/166 |
 | Controllers / routes / Mongoose models touched | ❌ none (by design) |
 
+## Stage 2 Step 2, Part 4 — HRM Repositories (Polymorphic Staff) — 2026-09-13
+
+**Status:** ✅ COMPLETE (not yet wired into the live app)
+
+| Item | Status |
+|------|--------|
+| `hrmStaffResolver.js` — dual staffId/staffType + FK resolution | ✅ |
+| `employeeRepository.js` — EMP-001, terminate→admin block, docs/refs | ✅ |
+| `attendanceRepository.js` — computeHoursWorked replicated | ✅ |
+| `payrollRepository.js` — computeTotalSalary replicated (workingDays=0) | ✅ |
+| `leaveRepository.js` — countLeaveDays inclusive calendar count | ✅ |
+| Polymorphic FK tests (admin + employee staffType) | ✅ |
+| PDF payslip / SecurityLog / leave→attendance stamping | ❌ out of scope |
+| Neon repository tests (`npm run test:repositories`) | ✅ 122/122 |
+| Main Jest suite (`npm test`) | ✅ 166/166 |
+| Controllers / routes / Mongoose models touched | ❌ none (by design) |
+

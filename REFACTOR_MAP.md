@@ -1312,3 +1312,21 @@ DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 2 Part 3 section added
 REFACTOR_MAP.md [DONE] this section
 README.md [DONE] test:repositories count updated to 99
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 2 Part 3 note added
+
+# PostgreSQL migration — Stage 2 Step 2, Part 4: HRM repositories (polymorphic staff): 2026-09-13
+
+backend/src/repositories/hrmStaffResolver.js [NEW] Prisma polymorphic staff resolution (staffId/staffType + adminId/employeeId)
+backend/src/repositories/employeeRepository.js [NEW] CRUD + EMP-001 generation + terminate→admin block + documents/references + link/unlink admin
+backend/src/repositories/attendanceRepository.js [NEW] markAttendance/clockIn/clockOut + computeHoursWorked + getSummary
+backend/src/repositories/payrollRepository.js [NEW] generate/approve/markPaid + computeTotalSalary (workingDays=0 edge case)
+backend/src/repositories/leaveRepository.js [NEW] apply/approve/reject + countLeaveDays + getBalance
+tests/repositories/employee.repository.test.js [NEW]
+tests/repositories/attendance.repository.test.js [NEW]
+tests/repositories/payroll.repository.test.js [NEW]
+tests/repositories/leave.repository.test.js [NEW]
+tests/repositories/jestCompat.js [DONE] added toMatch, toBeGreaterThanOrEqual
+backend/src/models/**, backend/src/controllers/**, backend/src/routes/** [UNCHANGED] MongoDB path untouched
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 2 Part 4 section added
+REFACTOR_MAP.md [DONE] this section
+README.md [DONE] test:repositories count updated to 122
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 2 Part 4 note added

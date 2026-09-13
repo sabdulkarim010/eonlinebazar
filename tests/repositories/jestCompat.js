@@ -70,6 +70,12 @@ function buildMatchers(actual) {
     toBeGreaterThan(n) {
       assert.ok(actual > n, `Expected ${actual} to be greater than ${n}`);
     },
+    toBeGreaterThanOrEqual(n) {
+      assert.ok(actual >= n, `Expected ${actual} to be greater than or equal to ${n}`);
+    },
+    toMatch(pattern) {
+      assert.match(String(actual), pattern);
+    },
     not: {
       toContain(substr) {
         assert.ok(!String(actual).includes(substr));

@@ -1229,4 +1229,104 @@ tests 99 | pass 99 | fail 0
 Tests: 166 passed, 166 total
 ```
 
+---
+
+## STAGE 2 STEP 2, PART 4 — Repository Layer: Employee/Attendance/Payroll/Leave (Polymorphic Staff) — 2026-09-13
+
+Four repository modules added for the HRM polymorphic staff cluster. **Not wired
+into controllers, routes, or `server.js`.**
+
+### Polymorphic staff resolution (verified against schema.prisma)
+
+Every Attendance / Payroll / Leave write sets **both**:
+
+- Legacy discriminator: `staffId` (string id) + `staffType` (`admin` | `employee`)
+- Nullable FK: exactly one of `adminId` or `employeeId` populated per `staffType`
+
+Implemented via `backend/src/repositories/hrmStaffResolver.js` (`resolveStaffSubject`,
+`staffFields`). Integration tests create records for **both** staff types and assert
+the correct FK is set and the other is `null`.
+
+### Calculation hooks — exact formulas from source (not audit summaries)
+
+**`computeHoursWorked`** (`attendance.js` lines 67–74, replicated in
+`attendanceRepository.js`):
+
+```
+if (clockIn && clockOut):
+  ms = clockOut − clockIn
+  hoursWorked = ms > 0 ? round(ms / 3600000, 2 decimals) : 0
+else if (clockIn && !clockOut):
+  hoursWorked = 0
+else:
+  hoursWorked unchanged (hand-entered rows)
+```
+
+Edge cases tested: missing `clockOut` → 0; `clockOut` before `clockIn` → 0.
+
+**`applyTotals` / `computeTotalSalary`** (`payroll.js` lines 54–69):
+
+```
+earnedBase = workingDays > 0
+  ? baseSalary × min(presentDays / workingDays, 1)
+  : baseSalary                    ← workingDays=0 pays FULL base (no division)
+
+overtimeAmount = round(overtime × overtimeRate, 2)
+totalSalary = round(max(0, earnedBase + overtimeAmount + bonus − deductions), 2)
+```
+
+Edge case tested: `workingDays=0` → full base salary, no NaN/Infinity.
+
+**`applyTotalDays` / `countLeaveDays`** (`leave.js` lines 47–57):
+
+```
+Normalize start/end to local midnight
+days = floor((end − start) / 86400000) + 1   ← inclusive both endpoints
+return days > 0 ? days : 1
+```
+
+Pure calendar-day count — **no** weekend/holiday exclusion. Same-day leave = 1 day.
+Tested: 1-day and 3-day inclusive ranges.
+
+### Employee repository highlights
+
+| Feature | Implementation |
+|---|---|
+| `generateEmployeeId()` | `EMP-001` format; parses highest `EMP-\d+` suffix + 1 (mirrors Mongoose static) |
+| `syncEmployeeAliases()` | designation ↔ role; presentAddress ↔ address (pre-save hook) |
+| `terminate()` | Sets `TERMINATED`; calls `adminRepository.update({ status: 'blocked' })` on linked admin via `suspendLinkedAdmin()` — **verified in test** |
+| `linkAdminAccount` / `unlinkAdminAccount` | Grant/revoke access; unlink blocks admin then clears `linkedAdminId` (sequential writes) |
+
+Note: live controller uses `ACCOUNT_STATUS.BLOCKED` (not a separate “suspended” enum).
+
+### Cascade / SetNull — verified in schema.prisma
+
+| Relation | onDelete | Verified |
+|---|---|---|
+| `EmployeeDocument` → `Employee` | **Cascade** | ✅ test: docs gone after employee delete |
+| `EmployeeReference` → `Employee` | **Cascade** | ✅ test: refs gone after employee delete |
+| `Employee.linkedAdminId` → `Admin` | **SetNull** (on Admin delete) | ✅ test: Admin survives employee hard delete |
+| `Attendance/Payroll/Leave` → Admin/Employee | **SetNull** | Confirmed in schema (records outlive staff row) |
+
+### Intentionally out of scope
+
+- PDF pay-slip generation (`payrollController.generatePaySlip`)
+- `SecurityLog` writes on HRM mutations
+- SMS/email notifications
+- Leave approval → attendance `holiday` stamping (`stampLeaveOnAttendance`)
+
+### Test results
+
+**Repository suite (`npm run test:repositories`)** — now **122 tests** (99 prior + 23 HRM):
+
+```
+tests 122 | pass 122 | fail 0
+```
+
+**Main Jest suite (`npm test`)** — unchanged:
+
+```
+Tests: 166 passed, 166 total
+```
+
 

@@ -1,0 +1,507 @@
+/********************************************************************
+ * Project: EonlineBazar
+ * File: employeeRepository.js
+ * Location: backend/src/repositories/employeeRepository.js
+ * Author: Abdul Karim Sheikh
+ * Description: Prisma repository for the Employee model (Neon/PostgreSQL).
+ *   Mirrors employeeController.js + employee.js Mongoose model.
+ *   Reimplements generateEmployeeId, syncEmployeeAliases pre-save hook,
+ *   and terminate → linked-admin-block cross-repository call.
+ *
+ *   NOT YET WIRED INTO THE APP — Stage 2 Step 2, Part 4 (2026-09-13).
+ ********************************************************************/
+
+'use strict';
+
+const prisma = require('../config/prismaClient');
+const { update: updateAdmin } = require('./adminRepository');
+const { findEmployeeRecord, UUID_PATTERN } = require('./hrmStaffResolver');
+
+// ── Enum mapping ─────────────────────────────────────────────────────────────
+function normaliseStatus(status) {
+  if (status === 'ACTIVE') return 'active';
+  if (status === 'INACTIVE') return 'inactive';
+  if (status === 'TERMINATED') return 'terminated';
+  return status ? String(status).toLowerCase() : status;
+}
+
+function toStatusEnum(value) {
+  const v = String(value || '').toLowerCase();
+  if (v === 'inactive') return 'INACTIVE';
+  if (v === 'terminated') return 'TERMINATED';
+  return 'ACTIVE';
+}
+
+function normaliseEmployeeType(type) {
+  if (type === 'PERMANENT') return 'permanent';
+  if (type === 'CONTRACTUAL') return 'contractual';
+  if (type === 'PART_TIME') return 'part-time';
+  if (type === 'INTERN') return 'intern';
+  return type ? String(type).toLowerCase() : type;
+}
+
+function toEmployeeTypeEnum(value) {
+  const v = String(value || '').toLowerCase();
+  if (v === 'contractual') return 'CONTRACTUAL';
+  if (v === 'part-time') return 'PART_TIME';
+  if (v === 'intern') return 'INTERN';
+  return 'PERMANENT';
+}
+
+function normaliseSalaryType(type) {
+  if (type === 'MONTHLY') return 'monthly';
+  if (type === 'DAILY') return 'daily';
+  if (type === 'HOURLY') return 'hourly';
+  return type ? String(type).toLowerCase() : type;
+}
+
+function toSalaryTypeEnum(value) {
+  const v = String(value || '').toLowerCase();
+  if (v === 'daily') return 'DAILY';
+  if (v === 'hourly') return 'HOURLY';
+  return 'MONTHLY';
+}
+
+// ── syncEmployeeAliases (mirrors employee.js pre-save) ───────────────────────
+function syncEmployeeAliases(data) {
+  const out = { ...data };
+  if (out.designation && !out.role) out.role = out.designation;
+  else if (out.role && !out.designation) out.designation = out.role;
+
+  if (out.presentAddress && !out.address) out.address = out.presentAddress;
+  else if (out.address && !out.presentAddress) out.presentAddress = out.address;
+
+  return out;
+}
+
+// ── generateEmployeeId (mirrors employee.js static) ─────────────────────────
+async function generateEmployeeId() {
+  const latest = await prisma.employee.findMany({
+    where: { employeeId: { startsWith: 'EMP-' } },
+    select: { employeeId: true },
+    orderBy: { employeeId: 'desc' },
+    take: 1
+  });
+
+  let next = 1;
+  if (latest[0]?.employeeId) {
+    const match = /^EMP-(\d+)$/i.exec(String(latest[0].employeeId).trim());
+    if (match) next = parseInt(match[1], 10) + 1;
+  }
+
+  return `EMP-${String(next).padStart(3, '0')}`;
+}
+
+// ── Shape normalisation ──────────────────────────────────────────────────────
+function toShape(record) {
+  if (!record) return null;
+  return {
+    ...record,
+    _id: record.id,
+    status: normaliseStatus(record.status),
+    employeeType: normaliseEmployeeType(record.employeeType),
+    salaryType: normaliseSalaryType(record.salaryType),
+    baseSalary: record.baseSalary != null ? Number(record.baseSalary) : 0
+  };
+}
+
+function toDocumentShape(record) {
+  if (!record) return null;
+  return { ...record, _id: record.id };
+}
+
+function toReferenceShape(record) {
+  if (!record) return null;
+  return { ...record, _id: record.id };
+}
+
+// ── findAll ──────────────────────────────────────────────────────────────────
+// filters: { status?, department?, designation?, employeeType?, search?, page?, limit? }
+async function findAll(filters = {}) {
+  const where = {};
+
+  if (filters.status !== undefined) where.status = toStatusEnum(filters.status);
+  if (filters.department) where.department = String(filters.department).trim();
+  if (filters.designation) where.designation = String(filters.designation).trim();
+  if (filters.employeeType !== undefined) {
+    where.employeeType = toEmployeeTypeEnum(filters.employeeType);
+  }
+
+  const search = String(filters.search || '').trim();
+  if (search) {
+    where.OR = [
+      { fullName: { contains: search, mode: 'insensitive' } },
+      { phone: { contains: search, mode: 'insensitive' } },
+      { employeeId: { contains: search, mode: 'insensitive' } },
+      { role: { contains: search, mode: 'insensitive' } },
+      { designation: { contains: search, mode: 'insensitive' } }
+    ];
+  }
+
+  if (filters.hasAccess === true) {
+    where.linkedAdminId = { not: null };
+  } else if (filters.hasAccess === false) {
+    where.linkedAdminId = null;
+  }
+
+  const query = {
+    where,
+    orderBy: { createdAt: 'desc' }
+  };
+
+  const limit = Number(filters.limit);
+  if (Number.isFinite(limit) && limit > 0) {
+    const page = Math.max(1, Number(filters.page) || 1);
+    query.skip = (page - 1) * limit;
+    query.take = limit;
+  }
+
+  const records = await prisma.employee.findMany(query);
+  return records.map(toShape);
+}
+
+// ── findById / findByEmployeeId ──────────────────────────────────────────────
+async function findById(id) {
+  if (!id) return null;
+  const record = await prisma.employee.findUnique({ where: { id } });
+  return toShape(record);
+}
+
+async function findByEmployeeId(employeeId) {
+  const code = String(employeeId || '').trim();
+  if (!code) return null;
+  const record = await prisma.employee.findUnique({ where: { employeeId: code } });
+  return toShape(record);
+}
+
+// ── create ───────────────────────────────────────────────────────────────────
+async function create(data) {
+  const fullName = String(data.fullName || '').trim();
+  if (!fullName) throw new Error('Employee full name is required.');
+  if (!String(data.phone || '').trim()) throw new Error('Phone is required.');
+
+  const employeeId = data.employeeId
+    ? String(data.employeeId).trim()
+    : await generateEmployeeId();
+
+  let aliases = syncEmployeeAliases({
+    designation: String(data.designation ?? data.role ?? '').trim(),
+    role: String(data.role ?? data.designation ?? '').trim(),
+    presentAddress: String(data.presentAddress ?? '').trim(),
+    address: String(data.address ?? '').trim()
+  });
+
+  const record = await prisma.employee.create({
+    data: {
+      employeeId,
+      fullName,
+      phone: String(data.phone).trim(),
+      dateOfBirth: data.dateOfBirth ?? null,
+      religion: String(data.religion ?? '').trim(),
+      nationalId: String(data.nationalId ?? '').trim(),
+      photo: String(data.photo ?? '').trim(),
+      photoPublicId: String(data.photoPublicId ?? '').trim(),
+      alternatePhone: String(data.alternatePhone ?? '').trim(),
+      email: String(data.email ?? '').trim().toLowerCase(),
+      presentAddress: aliases.presentAddress || '',
+      permanentAddress: String(data.permanentAddress ?? '').trim(),
+      address: aliases.address || '',
+      emergencyContactName: String(
+        data.emergencyContactName ?? data.emergencyContact?.name ?? ''
+      ).trim(),
+      emergencyContactPhone: String(
+        data.emergencyContactPhone ?? data.emergencyContact?.phone ?? ''
+      ).trim(),
+      emergencyContactRelation: String(
+        data.emergencyContactRelation ?? data.emergencyContact?.relation ?? ''
+      ).trim(),
+      designation: aliases.designation || '',
+      role: aliases.role || '',
+      department: String(data.department ?? 'Operations').trim() || 'Operations',
+      employeeType: data.employeeType !== undefined
+        ? toEmployeeTypeEnum(data.employeeType)
+        : 'PERMANENT',
+      shift: String(data.shift ?? '').trim(),
+      shiftId: data.shiftId ?? null,
+      designationId: data.designationId ?? null,
+      joiningDate: data.joiningDate ?? null,
+      baseSalary: data.baseSalary != null ? data.baseSalary : 0,
+      salaryType: data.salaryType !== undefined
+        ? toSalaryTypeEnum(data.salaryType)
+        : 'MONTHLY',
+      bankName: String(data.bankName ?? '').trim(),
+      bankAccountNumber: String(data.bankAccountNumber ?? '').trim(),
+      bkashNumber: String(data.bkashNumber ?? '').trim(),
+      linkedAdminId: data.linkedAdminId ?? null,
+      status: data.status !== undefined ? toStatusEnum(data.status) : 'ACTIVE',
+      notes: String(data.notes ?? '').trim(),
+      createdBy: String(data.createdBy ?? '').trim()
+    }
+  });
+
+  return toShape(record);
+}
+
+// ── update ───────────────────────────────────────────────────────────────────
+async function update(id, data) {
+  const existing = await prisma.employee.findUnique({ where: { id } });
+  if (!existing) {
+    const err = new Error('Employee not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  const fields = {};
+  if (data.fullName !== undefined) {
+    const v = String(data.fullName).trim();
+    if (!v) throw new Error('Full name cannot be empty.');
+    fields.fullName = v;
+  }
+  if (data.phone !== undefined) fields.phone = String(data.phone).trim();
+  if (data.status !== undefined) fields.status = toStatusEnum(data.status);
+  if (data.employeeType !== undefined) {
+    fields.employeeType = toEmployeeTypeEnum(data.employeeType);
+  }
+  if (data.salaryType !== undefined) {
+    fields.salaryType = toSalaryTypeEnum(data.salaryType);
+  }
+  if (data.baseSalary !== undefined) fields.baseSalary = data.baseSalary;
+  if (data.email !== undefined) fields.email = String(data.email).trim().toLowerCase();
+  if (data.department !== undefined) fields.department = String(data.department).trim();
+  if (data.notes !== undefined) fields.notes = String(data.notes).trim();
+
+  if (
+    data.designation !== undefined
+    || data.role !== undefined
+    || data.presentAddress !== undefined
+    || data.address !== undefined
+  ) {
+    const aliases = syncEmployeeAliases({
+      designation: data.designation ?? existing.designation,
+      role: data.role ?? existing.role,
+      presentAddress: data.presentAddress ?? existing.presentAddress,
+      address: data.address ?? existing.address
+    });
+    fields.designation = aliases.designation;
+    fields.role = aliases.role;
+    fields.presentAddress = aliases.presentAddress;
+    fields.address = aliases.address;
+  }
+
+  const record = await prisma.employee.update({
+    where: { id },
+    data: fields
+  });
+
+  if (normaliseStatus(record.status) === 'terminated' && record.linkedAdminId) {
+    await suspendLinkedAdmin(record.linkedAdminId);
+  }
+
+  return toShape(record);
+}
+
+// ── suspendLinkedAdmin (mirrors employeeController.suspendLinkedAdminAccess) ─
+async function suspendLinkedAdmin(adminId) {
+  if (!adminId) return;
+  // Sequential write — PrismaNeonHttp does not support $transaction over HTTP.
+  await updateAdmin(adminId, { status: 'blocked' });
+}
+
+// ── terminate ────────────────────────────────────────────────────────────────
+// Soft delete — status TERMINATED + block linked admin login.
+async function terminate(id) {
+  const existing = await prisma.employee.findUnique({ where: { id } });
+  if (!existing) {
+    const err = new Error('Employee not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  const record = await prisma.employee.update({
+    where: { id },
+    data: { status: 'TERMINATED' }
+  });
+
+  if (record.linkedAdminId) {
+    await suspendLinkedAdmin(record.linkedAdminId);
+  }
+
+  return toShape(record);
+}
+
+// ── remove ───────────────────────────────────────────────────────────────────
+// Hard delete — EmployeeDocument / EmployeeReference Cascade per schema.prisma.
+// linkedAdmin relation is SetNull from Admin side only; deleting Employee does
+// not delete the linked Admin account.
+async function remove(id) {
+  const employee = await prisma.employee.findUnique({ where: { id } });
+  if (!employee) {
+    const err = new Error('Employee not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  await prisma.employee.delete({ where: { id } });
+  return { deleted: true, employeeId: employee.employeeId };
+}
+
+// ── Documents ────────────────────────────────────────────────────────────────
+async function listDocuments(employeeId) {
+  const records = await prisma.employeeDocument.findMany({
+    where: { employeeId },
+    orderBy: { uploadedAt: 'desc' }
+  });
+  return records.map(toDocumentShape);
+}
+
+async function addDocument(employeeId, docData) {
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: { id: true }
+  });
+  if (!employee) {
+    const err = new Error('Employee not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  const record = await prisma.employeeDocument.create({
+    data: {
+      employeeId,
+      title: String(docData.title ?? '').trim(),
+      fileUrl: String(docData.fileUrl ?? '').trim(),
+      fileType: String(docData.fileType ?? 'image').trim() || 'image',
+      publicId: String(docData.publicId ?? '').trim()
+    }
+  });
+  return toDocumentShape(record);
+}
+
+async function removeDocument(documentId) {
+  const existing = await prisma.employeeDocument.findUnique({ where: { id: documentId } });
+  if (!existing) {
+    const err = new Error('Document not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+  await prisma.employeeDocument.delete({ where: { id: documentId } });
+  return { deleted: true, id: documentId };
+}
+
+// ── References ───────────────────────────────────────────────────────────────
+async function listReferences(employeeId) {
+  const records = await prisma.employeeReference.findMany({
+    where: { employeeId }
+  });
+  return records.map(toReferenceShape);
+}
+
+async function addReference(employeeId, refData) {
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: { id: true }
+  });
+  if (!employee) {
+    const err = new Error('Employee not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  const record = await prisma.employeeReference.create({
+    data: {
+      employeeId,
+      name: String(refData.name ?? '').trim(),
+      phone: String(refData.phone ?? '').trim(),
+      relation: String(refData.relation ?? '').trim(),
+      address: String(refData.address ?? '').trim()
+    }
+  });
+  return toReferenceShape(record);
+}
+
+async function removeReference(referenceId) {
+  const existing = await prisma.employeeReference.findUnique({ where: { id: referenceId } });
+  if (!existing) {
+    const err = new Error('Reference not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+  await prisma.employeeReference.delete({ where: { id: referenceId } });
+  return { deleted: true, id: referenceId };
+}
+
+// ── Admin account link (Grant / Revoke Access) ───────────────────────────────
+async function linkAdminAccount(employeeId, adminId) {
+  const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
+  if (!employee) {
+    const err = new Error('Employee not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+  if (employee.linkedAdminId) {
+    const err = new Error('Access already granted.');
+    err.code = 'ALREADY_LINKED';
+    throw err;
+  }
+
+  const admin = await prisma.admin.findUnique({ where: { id: adminId } });
+  if (!admin) {
+    const err = new Error('Admin account not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  const taken = await prisma.employee.findFirst({
+    where: { linkedAdminId: adminId, id: { not: employeeId } }
+  });
+  if (taken) {
+    const err = new Error('Admin account is already linked to another employee.');
+    err.code = 'ADMIN_IN_USE';
+    throw err;
+  }
+
+  const record = await prisma.employee.update({
+    where: { id: employeeId },
+    data: { linkedAdminId: adminId }
+  });
+  return toShape(record);
+}
+
+async function unlinkAdminAccount(employeeId) {
+  const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
+  if (!employee || !employee.linkedAdminId) {
+    const err = new Error('No linked admin account.');
+    err.code = 'NOT_LINKED';
+    throw err;
+  }
+
+  const adminId = employee.linkedAdminId;
+  // Sequential writes — mirrors unlinkSystemAccess (block admin, then clear link).
+  await suspendLinkedAdmin(adminId);
+  const record = await prisma.employee.update({
+    where: { id: employeeId },
+    data: { linkedAdminId: null }
+  });
+  return toShape(record);
+}
+
+module.exports = {
+  generateEmployeeId,
+  syncEmployeeAliases,
+  findAll,
+  findById,
+  findByEmployeeId,
+  create,
+  update,
+  terminate,
+  remove,
+  listDocuments,
+  addDocument,
+  removeDocument,
+  listReferences,
+  addReference,
+  removeReference,
+  linkAdminAccount,
+  unlinkAdminAccount,
+  suspendLinkedAdmin
+};
