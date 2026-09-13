@@ -25,6 +25,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@prisma/client": "7.10.0",
     "@react-native-async-storage/async-storage": "^3.1.1",
     "@react-navigation/bottom-tabs": "^7.18.18",
     "@react-navigation/native": "^7.3.18",
@@ -67,6 +68,7 @@
     "@types/jest": "^30.0.0",
     "jest": "^30.4.2",
     "mongodb-memory-server": "^11.2.0",
+    "prisma": "7.10.0",
     "supertest": "^7.2.2"
   }
 }

@@ -1,0 +1,2671 @@
+// EonlineBazar — PostgreSQL (Neon) schema — Stage 1 DESIGN ARTIFACT
+// ============================================================================
+// NOT ACTIVE. Nothing in the running system reads this file. The live system
+// is MongoDB + Mongoose (backend/src/models/*.js) and stays authoritative
+// until Stage 4 read cutover completes. See DATABASE_MIGRATION_AUDIT.md.
+//
+// Conventions (agreed in Stage 1 review):
+//   * Field names are camelCase, identical to the Mongoose paths, so this file
+//     can be diffed field-by-field against backend/src/models/*.js.
+//     Table names are snake_case plural via @@map.
+//   * Primary keys are String @id @default(uuid()) — MongoDB ObjectIds are
+//     already string-like, which keeps the Stage 3 backfill a straight copy.
+//   * `legacyId` holds the original MongoDB _id. It is the join key for the
+//     Stage 3 backfill and makes re-running the backfill idempotent.
+//   * Every currency column is @db.Decimal(12, 2). Percentages and rates are
+//     @db.Decimal(5, 2) — they are not money and must not share the scale.
+//   * onDelete is chosen per relation. Cascade is used ONLY for rows that are
+//     owned by their parent (an Order's items, a User's addresses). Anything
+//     cross-aggregate is SetNull or Restrict so that deleting a Category,
+//     Supplier or Product can never destroy financial history.
+// ============================================================================
+
+// Prisma 7 note: the connection URL is NOT declared here. Since v7 the
+// `url` / `directUrl` / `shadowDatabaseUrl` datasource properties are removed
+// from the schema and live in `prisma.config.js` at the repo root, which reads
+// DATABASE_URL from the repo-root .env. `prisma-client` (Rust-free) replaces
+// the deprecated `prisma-client-js`, so an explicit `output` is required and
+// `moduleFormat = "cjs"` is needed because this repo is CommonJS.
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// ENUMS
+// Every value below is copied verbatim from the enum array in the Mongoose
+// model named in the comment. @map carries the exact stored string so Stage 3
+// can insert legacy values without translation. No invented values.
+// ============================================================================
+
+/// user.js — gender
+enum UserGender {
+  MALE   @map("Male")
+  FEMALE @map("Female")
+  OTHER  @map("Other")
+}
+
+/// user.js — accountStatus
+enum UserAccountStatus {
+  ACTIVE    @map("active")
+  SUSPENDED @map("suspended")
+  BLOCKED   @map("blocked")
+}
+
+/// user.js — profileUpdateType (the `null` member is expressed as a nullable column)
+enum ProfileUpdateType {
+  EMAIL  @map("email")
+  MOBILE @map("mobile")
+}
+
+/// user.js — loyaltyTier
+enum LoyaltyTier {
+  NONE     @map("none")
+  SILVER   @map("silver")
+  GOLD     @map("gold")
+  PLATINUM @map("platinum")
+}
+
+/// config/permissions.js ROLE_VALUES, used by admin.js — role
+enum AdminRole {
+  SUPERADMIN @map("superadmin")
+  STAFF      @map("staff")
+}
+
+/// config/permissions.js STATUS_VALUES, used by admin.js — status
+enum AdminAccountStatus {
+  ACTIVE  @map("active")
+  BLOCKED @map("blocked")
+}
+
+/// admin.js — twoFactorMethod
+enum TwoFactorMethod {
+  EMAIL @map("email")
+  TOTP  @map("totp")
+  SMS   @map("sms")
+}
+
+/// adminSession.js — status
+enum AdminSessionStatus {
+  ACTIVE  @map("active")
+  REVOKED @map("revoked")
+}
+
+/// employee.js — EMPLOYEE_STATUSES
+enum EmployeeStatus {
+  ACTIVE     @map("active")
+  INACTIVE   @map("inactive")
+  TERMINATED @map("terminated")
+}
+
+/// employee.js — EMPLOYEE_TYPES
+enum EmployeeType {
+  PERMANENT   @map("permanent")
+  CONTRACTUAL @map("contractual")
+  PART_TIME   @map("part-time")
+  INTERN      @map("intern")
+}
+
+/// employee.js — SALARY_TYPES
+enum SalaryType {
+  MONTHLY @map("monthly")
+  DAILY   @map("daily")
+  HOURLY  @map("hourly")
+}
+
+/// employee.js — GENDERS. The '' member is dropped; the column is nullable.
+enum EmployeeGender {
+  MALE   @map("male")
+  FEMALE @map("female")
+  OTHER  @map("other")
+}
+
+/// employee.js — BLOOD_GROUPS. The '' member is dropped; the column is nullable.
+enum BloodGroup {
+  A_POSITIVE  @map("A+")
+  A_NEGATIVE  @map("A-")
+  B_POSITIVE  @map("B+")
+  B_NEGATIVE  @map("B-")
+  O_POSITIVE  @map("O+")
+  O_NEGATIVE  @map("O-")
+  AB_POSITIVE @map("AB+")
+  AB_NEGATIVE @map("AB-")
+}
+
+/// employee.js — MARITAL_STATUSES. The '' member is dropped; the column is nullable.
+enum MaritalStatus {
+  SINGLE   @map("single")
+  MARRIED  @map("married")
+  DIVORCED @map("divorced")
+  WIDOWED  @map("widowed")
+}
+
+/// attendance.js / payroll.js / leave.js — staffType
+enum StaffType {
+  ADMIN    @map("admin")
+  EMPLOYEE @map("employee")
+}
+
+/// attendance.js — ATTENDANCE_STATUSES
+enum AttendanceStatus {
+  PRESENT  @map("present")
+  ABSENT   @map("absent")
+  LATE     @map("late")
+  HALF_DAY @map("half-day")
+  HOLIDAY  @map("holiday")
+}
+
+/// attendance.js — SHIFT_TYPES. Note: this is NOT a reference to the Shift
+/// table; it is a coarse label stored alongside shiftStart/shiftEnd.
+enum AttendanceShiftType {
+  MORNING @map("morning")
+  EVENING @map("evening")
+  NIGHT   @map("night")
+  CUSTOM  @map("custom")
+}
+
+/// payroll.js — PAYROLL_STATUSES
+enum PayrollStatus {
+  DRAFT    @map("draft")
+  APPROVED @map("approved")
+  PAID     @map("paid")
+}
+
+/// leave.js — LEAVE_TYPES
+enum LeaveType {
+  CASUAL @map("casual")
+  SICK   @map("sick")
+  ANNUAL @map("annual")
+  UNPAID @map("unpaid")
+}
+
+/// leave.js — LEAVE_STATUSES
+enum LeaveStatus {
+  PENDING  @map("pending")
+  APPROVED @map("approved")
+  REJECTED @map("rejected")
+}
+
+/// Shared active/inactive status used verbatim by product.js, brand.js,
+/// attribute.js, supplier.js and warehouse.js.
+enum ActiveStatus {
+  ACTIVE   @map("active")
+  INACTIVE @map("inactive")
+}
+
+/// purchaseOrder.js — PO_STATUSES
+enum PurchaseOrderStatus {
+  DRAFT     @map("draft")
+  SENT      @map("sent")
+  PARTIAL   @map("partial")
+  RECEIVED  @map("received")
+  CANCELLED @map("cancelled")
+}
+
+/// order.js — ORDER_STATUSES (all 10, in declaration order)
+enum OrderStatus {
+  PENDING          @map("Pending")
+  PROCESSING       @map("Processing")
+  SHIPPED          @map("Shipped")
+  OUT_FOR_DELIVERY @map("Out for Delivery")
+  DELIVERED        @map("Delivered")
+  CANCELLED        @map("Cancelled")
+  RETURN_REQUESTED @map("Return Requested")
+  RETURNED         @map("Returned")
+  REFUND_PENDING   @map("Refund Pending")
+  REFUNDED         @map("Refunded")
+}
+
+/// order.js — shippingLocationType
+enum ShippingLocationType {
+  INSIDE_CITY  @map("Inside City")
+  OUTSIDE_CITY @map("Outside City")
+}
+
+/// order.js — deliveryLocationType (separate field, different casing, from the
+/// one above — both are kept because both are written by live code)
+enum DeliveryLocationType {
+  INSIDE  @map("inside")
+  OUTSIDE @map("outside")
+}
+
+/// order.js — cancelledBy. The '' member is dropped; the column is nullable.
+enum CancelledBy {
+  CUSTOMER @map("Customer")
+  ADMIN    @map("Admin")
+}
+
+/// order.js — refundMethod
+enum RefundMethod {
+  WALLET           @map("wallet")
+  BKASH            @map("bkash")
+  NAGAD            @map("nagad")
+  ORIGINAL_PAYMENT @map("original_payment")
+  CASH             @map("cash")
+}
+
+/// order.js returnItemSchema — status
+enum ReturnItemStatus {
+  PENDING  @map("pending")
+  APPROVED @map("approved")
+  REJECTED @map("rejected")
+}
+
+/// order.js — orderSource
+enum OrderSource {
+  ONLINE @map("online")
+  MANUAL @map("manual")
+}
+
+/// order.js orderPaymentSchema.type and PaymentMethod.js PAYMENT_METHOD_TYPES
+enum PaymentMethodType {
+  MANUAL    @map("manual")
+  AUTOMATED @map("automated")
+}
+
+/// order.js orderPaymentSchema.feeType and PaymentMethod.js FEE_TYPES
+enum FeeType {
+  FLAT       @map("flat")
+  PERCENTAGE @map("percentage")
+}
+
+/// order.js orderPaymentSchema — status
+enum OrderPaymentStatus {
+  UNPAID    @map("unpaid")
+  PENDING   @map("pending")
+  PAID      @map("paid")
+  FAILED    @map("failed")
+  CANCELLED @map("cancelled")
+  REFUNDED  @map("refunded")
+}
+
+/// order.js paymentProofSchema — status
+enum PaymentProofStatus {
+  NONE      @map("none")
+  SUBMITTED @map("submitted")
+  APPROVED  @map("approved")
+  REJECTED  @map("rejected")
+}
+
+/// PaymentMethod.js — GATEWAY_PROVIDERS. The '' member is dropped; nullable.
+enum GatewayProvider {
+  SSLCOMMERZ @map("sslcommerz")
+  AAMARPAY   @map("aamarpay")
+  SHURJOPAY  @map("shurjopay")
+  STRIPE     @map("stripe")
+  CUSTOM     @map("custom")
+}
+
+/// coupon.js — discountType
+enum CouponDiscountType {
+  PERCENTAGE @map("percentage")
+  FLAT       @map("flat")
+}
+
+/// coupon.js — status (stored uppercase in Mongo)
+enum CouponStatus {
+  ACTIVE
+  EXPIRED
+}
+
+/// note.js — NOTE_TYPES
+enum NoteType {
+  NOTE     @map("note")
+  GENERAL  @map("general")
+  EXPENSE  @map("expense")
+  INCOME   @map("income")
+  SHOPPING @map("shopping")
+}
+
+/// note.js — NOTE_CATEGORIES
+enum NoteCategory {
+  FOOD      @map("food")
+  TRANSPORT @map("transport")
+  SHOPPING  @map("shopping")
+  BILL      @map("bill")
+  HEALTH    @map("health")
+  EDUCATION @map("education")
+  OTHER     @map("other")
+}
+
+/// securityLog.js — actorType
+enum SecurityActorType {
+  ADMIN    @map("admin")
+  CUSTOMER @map("customer")
+  SYSTEM   @map("system")
+}
+
+/// securityLog.js — RESOURCE_TYPES (all 20)
+enum SecurityResourceType {
+  PRODUCT          @map("product")
+  ORDER            @map("order")
+  CUSTOMER         @map("customer")
+  STAFF            @map("staff")
+  SETTING          @map("setting")
+  COUPON           @map("coupon")
+  BANNER           @map("banner")
+  CATEGORY         @map("category")
+  REVIEW           @map("review")
+  SUPPLIER         @map("supplier")
+  WAREHOUSE        @map("warehouse")
+  PURCHASE_ORDER   @map("purchase_order")
+  EXPENSE          @map("expense")
+  EXPENSE_CATEGORY @map("expense_category")
+  ATTENDANCE       @map("attendance")
+  SHIFT            @map("shift")
+  PAYROLL          @map("payroll")
+  LEAVE            @map("leave")
+  EMPLOYEE         @map("employee")
+  DESIGNATION      @map("designation")
+}
+
+/// loginAttempt.js — status
+enum LoginAttemptStatus {
+  SUCCESS    @map("success")
+  FAILED     @map("failed")
+  OTP_SENT   @map("otp_sent")
+  OTP_FAILED @map("otp_failed")
+  BLOCKED    @map("blocked")
+}
+
+/// blacklistedIp.js — source
+enum BlacklistSource {
+  AUTO   @map("auto")
+  MANUAL @map("manual")
+}
+
+/// stockAlert.js — discriminates lowStockProducts[] from outOfStockProducts[]
+/// once both embedded arrays collapse into one child table.
+enum StockAlertItemKind {
+  LOW_STOCK    @map("low_stock")
+  OUT_OF_STOCK @map("out_of_stock")
+}
+
+/// ContactMessage.js — TICKET_STATUSES
+enum TicketStatus {
+  OPEN        @map("open")
+  IN_PROGRESS @map("in_progress")
+  RESOLVED    @map("resolved")
+  CLOSED      @map("closed")
+}
+
+/// ContactMessage.js — TICKET_PRIORITIES
+enum TicketPriority {
+  LOW    @map("low")
+  NORMAL @map("normal")
+  HIGH   @map("high")
+  URGENT @map("urgent")
+}
+
+/// newsletter.js — source
+enum NewsletterSource {
+  FOOTER_FORM @map("footer_form")
+  CHECKOUT    @map("checkout")
+  POPUP       @map("popup")
+  MANUAL      @map("manual")
+}
+
+/// emailCampaign.js — status
+enum CampaignStatus {
+  DRAFT     @map("draft")
+  SCHEDULED @map("scheduled")
+  SENDING   @map("sending")
+  SENT      @map("sent")
+  FAILED    @map("failed")
+}
+
+/// emailCampaign.js — targetSegment
+enum CampaignSegment {
+  ALL      @map("all")
+  VIP      @map("vip")
+  FREQUENT @map("frequent")
+  INACTIVE @map("inactive")
+  NEW      @map("new")
+}
+
+/// emailCampaign.js — channel
+enum CampaignChannel {
+  EMAIL    @map("email")
+  SMS      @map("sms")
+  WHATSAPP @map("whatsapp")
+}
+
+/// PageContent.js — contentFormat
+enum ContentFormat {
+  MARKDOWN @map("markdown")
+  HTML     @map("html")
+}
+
+/// NavbarLink.js — TARGETS (leading underscores are illegal in Prisma
+/// identifiers, so the stored value is carried by @map)
+enum LinkTarget {
+  SELF  @map("_self")
+  BLANK @map("_blank")
+}
+
+/// banner.js bannerSettingsSchema — transitionEffect
+enum BannerTransition {
+  SLIDE @map("slide")
+  FADE  @map("fade")
+}
+
+/// adminNotification.js — NOTIFICATION_TYPES
+enum AdminNotificationType {
+  ORDER    @map("order")
+  STOCK    @map("stock")
+  LEAVE    @map("leave")
+  PAYROLL  @map("payroll")
+  SECURITY @map("security")
+  SYSTEM   @map("system")
+}
+
+/// Settings.js — smsGatewayProvider. The '' member is dropped; nullable.
+enum SmsGatewayProvider {
+  GREENWEB_BD @map("Greenweb BD")
+  BULKSMS_BD  @map("BulkSMS BD")
+  ALPHASMS    @map("AlphaSMS")
+  GENERIC_API @map("Generic API")
+}
+
+/// Settings.js — whatsAppAlertProvider. The '' member is dropped; nullable.
+enum WhatsAppAlertProvider {
+  CALLMEBOT @map("CallMeBot")
+  ULTRAMSG  @map("UltraMsg")
+  GREEN_API @map("Green API")
+  GENERIC   @map("Generic")
+}
+
+// ============================================================================
+// CUSTOMER — user.js, userSession.js, wishlist.js
+// ============================================================================
+
+/// Source: backend/src/models/user.js
+model User {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  firstName   String
+  lastName    String
+  gender      UserGender?
+  dateOfBirth DateTime?
+  mobile      String?
+  email       String      @unique
+  password    String?
+  googleId    String?
+  avatarUrl   String?
+  lastLogin   DateTime?
+  isVerified  Boolean     @default(false)
+
+  accountStatus           UserAccountStatus @default(ACTIVE)
+  verificationToken       String?
+  verificationTokenExpiry DateTime?
+
+  avatar         String @default("")
+  avatarPublicId String @default("")
+
+  // Legacy single-address columns, superseded by the Address table but still
+  // written by profile updates and mobile checkout.
+  phone       String @default("")
+  address     String @default("")
+  district    String @default("")
+  upazila     String @default("")
+  thana       String @default("")
+  fullAddress String @default("")
+
+  walletBalance Decimal @default(0) @db.Decimal(12, 2)
+  loyaltyPoints Int     @default(0)
+
+  referralCode     String? @unique
+  referredById     String?
+  referralEarnings Decimal @default(0) @db.Decimal(12, 2)
+
+  loyaltyTier      LoyaltyTier @default(NONE)
+  tierUpgradedAt   DateTime?
+  lifetimeSpend    Decimal     @default(0) @db.Decimal(12, 2)
+  tierCashbackRate Decimal     @default(0) @db.Decimal(5, 2)
+
+  resetPasswordOtp     String?
+  resetPasswordExpires DateTime?
+
+  profileUpdateOtp        String?
+  profileUpdateOtpExpires DateTime?
+  profileUpdateType       ProfileUpdateType?
+  pendingEmail            String?
+  pendingMobile           String?
+
+  isSandbox      Boolean   @default(false)
+  isDeleted      Boolean   @default(false)
+  deletedAt      DateTime?
+  deletionReason String    @default("")
+
+  createdAt DateTime @default(now())
+
+  // Self-relation: user.js referredBy -> User. SetNull so removing a referrer
+  // never deletes the people they referred.
+  referredBy User?  @relation("UserReferral", fields: [referredById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  referrals  User[] @relation("UserReferral")
+
+  // Owned data — Cascade is correct, these rows have no meaning without the user.
+  addresses     Address[]
+  wishlist      WishlistItem[]
+  walletHistory WalletTransaction[]
+  sessions      UserSession[]
+  notes         Note[]
+  carts         Cart[]
+
+  // Cross-aggregate — see the individual models for the chosen onDelete.
+  orders            Order[]
+  reviews           Review[]
+  couponRedemptions CouponRedemption[]
+
+  @@index([mobile])
+  @@index([googleId])
+  @@index([loyaltyTier])
+  @@index([isDeleted])
+  @@map("users")
+}
+
+/// Extracted from the embedded user.js `addresses[]` array (addressSchema).
+model Address {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  userId String
+
+  label          String   @default("Home")
+  district       String   @default("")
+  upazilaOrThana String   @default("")
+  fullAddress    String
+  phone          String   @default("")
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([userId, isDefault])
+  @@map("addresses")
+}
+
+/// Extracted from the embedded user.js `walletHistory[]` array (walletHistorySchema).
+/// `type` stays a free String: Mongo stores an open set here — the field comment
+/// lists CREDIT | DEBIT | conversion | cashback | refund with no enum guard, and
+/// live rows mix casings. Normalise in Stage 3 before promoting it to an enum.
+model WalletTransaction {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  userId String
+
+  type           String   @default("credit")
+  amount         Decimal  @default(0) @db.Decimal(12, 2)
+  note           String   @default("")
+  referenceOrder String   @default("")
+  date           DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId, date])
+  @@map("wallet_transactions")
+}
+
+/// Extracted from the embedded user.js `wishlist[]` array (wishlist.js
+/// wishlistItemSchema). `legacyProductId` keeps the raw Mongo string because
+/// wishlists routinely outlive the products they point at.
+model WishlistItem {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  userId          String
+  legacyProductId String
+  productId       String?
+
+  name    String   @default("")
+  price   Decimal  @default(0) @db.Decimal(12, 2)
+  image   String   @default("")
+  icon    String   @default("📦")
+  addedAt DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([productId])
+  @@map("wishlist_items")
+}
+
+/// Source: backend/src/models/userSession.js
+model UserSession {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  sessionId String @unique
+  userId    String
+
+  userAgent    String   @default("")
+  device       String   @default("Unknown Device")
+  browser      String   @default("Unknown Browser")
+  ipAddress    String   @default("")
+  location     String   @default("Unknown Location")
+  createdAt    DateTime @default(now())
+  lastActiveAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId])
+  @@map("user_sessions")
+}
+
+// ============================================================================
+// STAFF & HRM — admin.js, adminSession.js, employee.js, designation.js,
+//               shift.js, attendance.js, payroll.js, leave.js
+// ============================================================================
+
+/// Source: backend/src/models/admin.js
+/// `permissions` is a String[] rather than an enum: the grantable set lives in
+/// config/permissions.js and is sanitised on write, and unknown keys are dropped
+/// rather than rejected so a stale browser tab cannot grant a retired
+/// permission. A Postgres enum would turn that soft behaviour into a hard error.
+model Admin {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  username String @unique
+  password String
+  name     String @default("")
+
+  role        AdminRole          @default(SUPERADMIN)
+  permissions String[]           @default([])
+  status      AdminAccountStatus @default(ACTIVE)
+  createdBy   String             @default("")
+
+  lastLoginAt       DateTime?
+  passwordChangedAt DateTime?
+  email             String    @default("")
+  phone             String    @default("")
+
+  twoFactorMethod   TwoFactorMethod @default(EMAIL)
+  twoFactorEnabled  Boolean         @default(true)
+  otp               String?
+  otpExpiry         BigInt?
+  totpSecret        String?
+  totpPendingSecret String?
+  totpVerified      Boolean         @default(false)
+  smsSetupOtp       String?
+  smsSetupOtpExpiry BigInt?
+
+  image          String @default("")
+  displayName    String @default("Super Admin")
+  storeName      String @default("EonlineBazar")
+  currency       String @default("BDT")
+  currencySymbol String @default("৳")
+  timezone       String @default("Asia/Dhaka")
+  logoUrl        String @default("")
+  faviconUrl     String @default("")
+
+  // HRM employment record — payroll reads baseSalary straight off this row.
+  baseSalary  Decimal   @default(0) @db.Decimal(12, 2)
+  department  String    @default("")
+  joiningDate DateTime?
+  employeeId  String    @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Back-relation for the 1:1 HRM provisioning link. The stored FK lives on
+  /// Employee.linkedAdminId; admin.js `employeeRef` is the same edge written
+  /// twice and is derived here instead (see DATABASE_MIGRATION_AUDIT.md).
+  employee Employee?
+
+  sessions          AdminSession[]
+  createdProducts   Product[]
+  createdSuppliers  Supplier[]
+  createdWarehouses Warehouse[]
+  purchaseOrders    PurchaseOrder[]
+  reviewedProofs    OrderPaymentProof[]
+  campaigns         EmailCampaign[]
+  notifications     AdminNotification[]
+  attendance        Attendance[]
+  payrolls          Payroll[]
+  leaves            Leave[]
+
+  @@index([role])
+  @@index([status])
+  @@map("admins")
+}
+
+/// Source: backend/src/models/adminSession.js
+/// Mongo keys these by `adminUsername`, so that column is preserved verbatim.
+/// `adminId` is the resolved FK added for Stage 4; Cascade is right because a
+/// deleted admin must not leave live sessions behind.
+model AdminSession {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  sessionId     String  @unique
+  adminUsername String
+  adminId       String?
+
+  ipAddress  String             @default("Unknown")
+  location   String             @default("Unknown Location")
+  os         String             @default("Unknown OS")
+  browser    String             @default("Unknown Browser")
+  deviceType String             @default("Desktop")
+  device     String             @default("Unknown Device")
+  userAgent  String             @default("")
+  status     AdminSessionStatus @default(ACTIVE)
+  lastActive DateTime           @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  admin Admin? @relation(fields: [adminId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([adminUsername])
+  @@index([status])
+  @@index([adminId])
+  @@map("admin_sessions")
+}
+
+/// Source: backend/src/models/employee.js — non-login operational staff.
+model Employee {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  employeeId String @unique
+  fullName   String
+
+  dateOfBirth   DateTime?
+  gender        EmployeeGender?
+  bloodGroup    BloodGroup?
+  religion      String          @default("")
+  maritalStatus MaritalStatus?
+  nationalId    String          @default("")
+  photo         String          @default("")
+  photoPublicId String          @default("")
+
+  phone            String
+  alternatePhone   String @default("")
+  email            String @default("")
+  presentAddress   String @default("")
+  permanentAddress String @default("")
+  /// Legacy single-address field, kept in sync with presentAddress by a pre-save hook.
+  address          String @default("")
+
+  emergencyContactName     String @default("")
+  emergencyContactPhone    String @default("")
+  emergencyContactRelation String @default("")
+
+  /// Canonical job title, stored by name in Mongo. `designationId` is the
+  /// resolved FK; Restrict mirrors the controller rule that a designation
+  /// cannot be deleted while employees still carry its name.
+  designation   String       @default("")
+  designationId String?
+  /// Legacy alias kept in sync with `designation` by a pre-save hook.
+  role          String       @default("")
+  department    String       @default("Operations")
+  employeeType  EmployeeType @default(PERMANENT)
+  /// Shift name string in Mongo; `shiftId` is the resolved FK.
+  shift         String       @default("")
+  shiftId       String?
+  joiningDate   DateTime?
+
+  baseSalary        Decimal    @default(0) @db.Decimal(12, 2)
+  salaryType        SalaryType @default(MONTHLY)
+  bankName          String     @default("")
+  bankAccountNumber String     @default("")
+  bkashNumber       String     @default("")
+
+  /// 1:1 system-access link. SetNull so revoking or deleting the panel account
+  /// never deletes the HR record.
+  linkedAdminId String? @unique
+
+  status    EmployeeStatus @default(ACTIVE)
+  notes     String         @default("")
+  createdBy String         @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  linkedAdmin    Admin?       @relation(fields: [linkedAdminId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  designationRef Designation? @relation(fields: [designationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  shiftRef       Shift?       @relation(fields: [shiftId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  documents  EmployeeDocument[]
+  references EmployeeReference[]
+  attendance Attendance[]
+  payrolls   Payroll[]
+  leaves     Leave[]
+
+  @@index([status])
+  @@index([department])
+  @@index([designation])
+  @@index([employeeType])
+  @@map("employees")
+}
+
+/// Extracted from the embedded employee.js `documents[]` array (documentSchema).
+model EmployeeDocument {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  employeeId String
+
+  title      String   @default("")
+  fileUrl    String   @default("")
+  fileType   String   @default("image")
+  publicId   String   @default("")
+  uploadedAt DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([employeeId])
+  @@map("employee_documents")
+}
+
+/// Extracted from the embedded employee.js `references[]` array (referenceSchema).
+model EmployeeReference {
+  id String @id @default(uuid())
+
+  employeeId String
+
+  name     String @default("")
+  phone    String @default("")
+  relation String @default("")
+  address  String @default("")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([employeeId])
+  @@map("employee_references")
+}
+
+/// Source: backend/src/models/designation.js
+model Designation {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  name        String  @unique
+  department  String  @default("Operations")
+  description String  @default("")
+  isActive    Boolean @default(true)
+  createdBy   String  @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employees Employee[]
+
+  @@index([isActive])
+  @@index([department])
+  @@map("designations")
+}
+
+/// Source: backend/src/models/shift.js
+model Shift {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  name               String
+  /// "HH:MM" 24-hour wall-clock strings, stored as text exactly as in Mongo.
+  startTime          String  @default("09:00")
+  endTime            String  @default("18:00")
+  gracePeriodMinutes Int     @default(15)
+  /// Exactly one shift holds this flag — enforced by the controller, not the DB.
+  isDefault          Boolean @default(false)
+  createdBy          String  @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedStaff ShiftAssignment[]
+  employees     Employee[]
+
+  @@index([isDefault])
+  @@map("shifts")
+}
+
+/// Extracted from the embedded shift.js `assignedStaff[]` string array. HRM keys
+/// staff by username, so the username is the payload rather than an FK.
+model ShiftAssignment {
+  id String @id @default(uuid())
+
+  shiftId       String
+  staffUsername String
+
+  shift Shift @relation(fields: [shiftId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([shiftId, staffUsername])
+  @@index([staffUsername])
+  @@map("shift_assignments")
+}
+
+/// Source: backend/src/models/attendance.js — one row per staff member per day.
+/// `staffId` + `staffType` is the polymorphic key Mongo uses. Postgres cannot
+/// foreign-key that, so both resolved FKs are carried alongside it; exactly one
+/// is populated, selected by staffType.
+model Attendance {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  staffId       String
+  staffType     StaffType @default(ADMIN)
+  adminId       String?
+  employeeId    String?
+  staffUsername String    @default("")
+
+  date        DateTime
+  clockIn     DateTime?
+  clockOut    DateTime?
+  /// Derived from clockIn/clockOut by a pre-save hook — never written by hand.
+  hoursWorked Decimal          @default(0) @db.Decimal(6, 2)
+  status      AttendanceStatus @default(ABSENT)
+  isLate      Boolean          @default(false)
+  lateMinutes Int              @default(0)
+
+  shift      AttendanceShiftType @default(MORNING)
+  shiftStart String              @default("09:00")
+  shiftEnd   String              @default("18:00")
+
+  /// Flattened from the embedded `gpsLocation` object; set only on mobile clock-in.
+  gpsLat Decimal? @db.Decimal(10, 7)
+  gpsLng Decimal? @db.Decimal(10, 7)
+
+  notes    String @default("")
+  markedBy String @default("self")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  admin    Admin?    @relation(fields: [adminId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([staffId, date])
+  @@index([date, status])
+  @@index([adminId])
+  @@index([employeeId])
+  @@map("attendance")
+}
+
+/// Source: backend/src/models/payroll.js — one salary run per staff per month.
+model Payroll {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  staffId       String
+  staffType     StaffType @default(ADMIN)
+  adminId       String?
+  employeeId    String?
+  staffUsername String    @default("")
+  staffName     String    @default("")
+
+  /// 1–12 calendar month, not zero-based.
+  month Int
+  year  Int
+
+  baseSalary     Decimal @default(0) @db.Decimal(12, 2)
+  bonus          Decimal @default(0) @db.Decimal(12, 2)
+  /// Overtime in HOURS — not money, hence the different scale.
+  overtime       Decimal @default(0) @db.Decimal(6, 2)
+  overtimeRate   Decimal @default(0) @db.Decimal(12, 2)
+  overtimeAmount Decimal @default(0) @db.Decimal(12, 2)
+  deductions     Decimal @default(0) @db.Decimal(12, 2)
+  /// Derived by a pre-save hook — never written by hand.
+  totalSalary    Decimal @default(0) @db.Decimal(12, 2)
+
+  workingDays Int @default(0)
+  presentDays Int @default(0)
+  absentDays  Int @default(0)
+  lateDays    Int @default(0)
+
+  status           PayrollStatus @default(DRAFT)
+  paidAt           DateTime?
+  paymentMethod    String        @default("")
+  paySlipGenerated Boolean       @default(false)
+  notes            String        @default("")
+  createdBy        String        @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  admin    Admin?    @relation(fields: [adminId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([staffId, year, month])
+  @@index([year, month, status])
+  @@index([adminId])
+  @@index([employeeId])
+  @@map("payrolls")
+}
+
+/// Source: backend/src/models/leave.js
+/// `approvedBy` stays a username String, matching Mongo — HRM identifies
+/// approvers by username, and the stamp must survive the approver's deletion.
+model Leave {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  staffId       String
+  staffType     StaffType @default(ADMIN)
+  adminId       String?
+  employeeId    String?
+  staffUsername String    @default("")
+  staffName     String    @default("")
+
+  leaveType LeaveType
+  startDate DateTime
+  endDate   DateTime
+  /// Derived by a pre-save hook — inclusive of both end points, minimum 1.
+  totalDays Int       @default(1)
+  reason    String    @default("")
+
+  status          LeaveStatus @default(PENDING)
+  approvedBy      String      @default("")
+  approvedAt      DateTime?
+  rejectionReason String      @default("")
+  attachmentUrl   String      @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  admin    Admin?    @relation(fields: [adminId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([staffId, startDate])
+  @@index([status, startDate])
+  @@index([startDate, endDate])
+  @@index([adminId])
+  @@index([employeeId])
+  @@map("leaves")
+}
+
+// ============================================================================
+// CATALOG & INVENTORY — product.js, category.js, brand.js, attribute.js,
+//                       supplier.js, warehouse.js, purchaseOrder.js
+// ============================================================================
+
+/// Source: backend/src/models/product.js
+model Product {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  productId String  @unique
+  name      String?
+  /// Sparse unique in Mongo — a nullable unique column is the exact equivalent.
+  slug      String? @unique
+
+  price       Decimal @db.Decimal(12, 2)
+  buyingPrice Decimal @default(0) @db.Decimal(12, 2)
+
+  /// Mongo stores the category NAME as a plain string, not an ObjectId, to keep
+  /// pre-existing products readable. Both are kept: the snapshot name and the
+  /// resolved FK. SetNull is deliberate — deleting a Category must never delete
+  /// or orphan the products that were filed under it.
+  categoryName String  @default("General")
+  categoryId   String?
+
+  brandId   String?
+  brandName String  @default("")
+
+  hasVariants       Boolean @default(false)
+  stockQuantity     Int     @default(0)
+  lowStockThreshold Int     @default(10)
+
+  supplierId   String?
+  warehouseId  String?
+  reorderPoint Int     @default(5)
+
+  /// Total available stock — equals stockQuantity for simple products, or the
+  /// sum of variant stocks.
+  stock Int @default(0)
+
+  description         String   @default("")
+  detailedDescription String   @default("")
+  highlights          String[] @default([])
+  tags                String[] @default([])
+  /// Product weight in grams (courier integrations).
+  weight              Int?
+
+  status      ActiveStatus @default(ACTIVE)
+  createdById String?
+
+  icon   String   @default("📦")
+  image  String   @default("")
+  images String[] @default([])
+
+  rating       Decimal @default(0) @db.Decimal(3, 2)
+  numOfReviews Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  category  Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  brand     Brand?     @relation(fields: [brandId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  supplier  Supplier?  @relation(fields: [supplierId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  warehouse Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdBy Admin?     @relation(fields: [createdById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  variants        ProductVariant[]
+  costHistory     ProductCostHistory[]
+  embeddedReviews ProductEmbeddedReview[]
+
+  reviews            Review[]
+  cartItems          CartItem[]
+  wishlistItems      WishlistItem[]
+  orderItems         OrderItem[]
+  orderReturnItems   OrderReturnItem[]
+  purchaseOrderItems PurchaseOrderItem[]
+  supplierLinks      SupplierProduct[]
+  stockAlertItems    StockAlertItem[]
+
+  @@index([categoryId])
+  @@index([categoryName])
+  @@index([price])
+  @@index([rating])
+  @@index([numOfReviews])
+  @@index([brandId])
+  @@index([stockQuantity])
+  @@index([price, rating])
+  @@index([brandId, price])
+  @@map("products")
+}
+
+/// Extracted from the embedded product.js `variants[]` array (variantSchema).
+/// Each row is one sellable SKU. `sku` is intentionally NOT unique: Mongo places
+/// no unique guard on it and blank/duplicate SKUs exist in live data.
+model ProductVariant {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  productId String
+
+  /// Human-readable combination label, e.g. "Size: S | Color: Pink".
+  name        String  @default("")
+  sku         String  @default("")
+  price       Decimal @default(0) @db.Decimal(12, 2)
+  buyingPrice Decimal @default(0) @db.Decimal(12, 2)
+  stock       Int     @default(0)
+  image       String  @default("")
+
+  /// Legacy flat fields, still read when hydrating older documents.
+  attribute String @default("")
+  value     String @default("")
+
+  product    Product                   @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  attributes ProductVariantAttribute[]
+
+  @@index([productId])
+  @@index([sku])
+  @@map("product_variants")
+}
+
+/// Extracted from the `attributes` Map<String, String> on product.js
+/// variantSchema. A Map has no relational equivalent, so each entry becomes a
+/// row; this also makes "find every variant where Color = Pink" indexable.
+model ProductVariantAttribute {
+  id String @id @default(uuid())
+
+  variantId String
+  name      String
+  value     String
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([variantId, name])
+  @@index([name, value])
+  @@map("product_variant_attributes")
+}
+
+/// Extracted from the embedded product.js `costHistory[]` array — an append-only
+/// buying-price trail written by purchase-order receiving.
+model ProductCostHistory {
+  id String @id @default(uuid())
+
+  productId  String
+  supplierId String?
+
+  cost Decimal  @default(0) @db.Decimal(12, 2)
+  date DateTime @default(now())
+
+  product  Product   @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  supplier Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([productId, date])
+  @@index([supplierId])
+  @@map("product_cost_history")
+}
+
+/// Extracted from the embedded product.js `reviews[]` array. This is the LEGACY
+/// in-document review list and is distinct from the standalone Review model —
+/// both exist in the live schema, so both are represented here.
+model ProductEmbeddedReview {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  productId String
+  userId    String?
+
+  name      String
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([productId])
+  @@map("product_embedded_reviews")
+}
+
+/// Source: backend/src/models/category.js — hierarchical, self-referencing.
+model Category {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  name        String @unique
+  slug        String @unique
+  description String @default("")
+
+  imageUrl       String?
+  iconUrl        String?
+  bannerImageUrl String?
+  color          String  @default("#f97316")
+
+  /// SetNull, not Cascade: deleting a parent category promotes its children to
+  /// root rather than silently destroying an entire subtree.
+  parentCategoryId String?
+
+  isActive       Boolean @default(true)
+  isFeatured     Boolean @default(false)
+  showInNavbar   Boolean @default(true)
+  showInHomepage Boolean @default(false)
+  position       Int     @default(0)
+
+  /// A cashback percentage, not an amount.
+  customCashback Decimal? @db.Decimal(5, 2)
+
+  metaTitle       String @default("")
+  metaDescription String @default("")
+  productCount    Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  parentCategory Category?  @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  children       Category[] @relation("CategoryHierarchy")
+  products       Product[]
+
+  @@index([parentCategoryId, position, name])
+  @@index([isActive, parentCategoryId, position])
+  @@index([isActive, showInNavbar, parentCategoryId, position])
+  @@index([isActive, showInHomepage, parentCategoryId, position])
+  @@map("categories")
+}
+
+/// Source: backend/src/models/brand.js
+model Brand {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  name        String       @unique
+  slug        String       @default("")
+  description String       @default("")
+  status      ActiveStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@index([slug])
+  @@map("brands")
+}
+
+/// Source: backend/src/models/attribute.js
+/// `values` stays a String[]: it is an unordered bag of terms ("S", "M", "L")
+/// with no per-term metadata, so a child table would add joins for nothing.
+model Attribute {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  name   String       @unique
+  slug   String       @default("")
+  values String[]     @default([])
+  status ActiveStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@map("attributes")
+}
+
+/// Source: backend/src/models/supplier.js
+model Supplier {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  name          String
+  contactPerson String       @default("")
+  phone         String       @default("")
+  email         String       @default("")
+  address       String       @default("")
+  notes         String       @default("")
+  status        ActiveStatus @default(ACTIVE)
+  createdById   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBy Admin? @relation(fields: [createdById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  products         Product[]
+  suppliedProducts SupplierProduct[]
+  costHistory      ProductCostHistory[]
+  /// Restrict — see PurchaseOrder.supplierId. Historical POs outrank the vendor row.
+  purchaseOrders   PurchaseOrder[]
+
+  @@index([status, createdAt])
+  @@index([name])
+  @@map("suppliers")
+}
+
+/// Extracted from the embedded supplier.js `suppliedProducts[]` ObjectId array.
+/// A display/filter roster only — the authoritative link is Product.supplierId —
+/// so Cascade on both sides is safe: removing either end just removes the hint.
+model SupplierProduct {
+  id String @id @default(uuid())
+
+  supplierId String
+  productId  String
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([supplierId, productId])
+  @@index([productId])
+  @@map("supplier_products")
+}
+
+/// Source: backend/src/models/warehouse.js
+model Warehouse {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  name        String
+  /// Short label shown in dropdowns, e.g. "Dhaka — Mirpur".
+  location    String       @default("")
+  address     String       @default("")
+  managerName String       @default("")
+  phone       String       @default("")
+  /// Exactly one warehouse holds this flag — enforced by the controller.
+  isDefault   Boolean      @default(false)
+  status      ActiveStatus @default(ACTIVE)
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBy Admin? @relation(fields: [createdById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  products       Product[]
+  purchaseOrders PurchaseOrder[]
+
+  @@index([status, createdAt])
+  @@index([isDefault])
+  @@map("warehouses")
+}
+
+/// Source: backend/src/models/purchaseOrder.js
+model PurchaseOrder {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  poNumber String @unique
+
+  /// Restrict, NOT Cascade or SetNull. A purchase order is an accounting
+  /// document; deleting a vendor must fail while its POs exist rather than
+  /// erase the goods-receiving history. This matches supplierController.js,
+  /// which already refuses to delete a supplier with open POs.
+  supplierId  String
+  warehouseId String?
+
+  status    PurchaseOrderStatus @default(DRAFT)
+  /// Kept in sync on every write by a pre-save hook (sum of qty × unitCost).
+  totalCost Decimal             @default(0) @db.Decimal(12, 2)
+
+  expectedDate  DateTime?
+  receivedDate  DateTime?
+  notes         String    @default("")
+  createdById   String?
+  createdByName String    @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  supplier  Supplier   @relation(fields: [supplierId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  warehouse Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdBy Admin?     @relation(fields: [createdById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  items PurchaseOrderItem[]
+
+  @@index([supplierId, createdAt])
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@map("purchase_orders")
+}
+
+/// Extracted from the embedded purchaseOrder.js `items[]` array.
+/// `productId` is required in Mongo but nullable here with SetNull: the
+/// `productName` snapshot exists precisely so a deleted product still prints on
+/// the PO, and Cascade would delete accounting lines.
+model PurchaseOrderItem {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  purchaseOrderId String
+  productId       String?
+  legacyProductId String?
+
+  /// Name snapshot so a deleted product still prints on the PO.
+  productName String  @default("")
+  qty         Int     @default(1)
+  unitCost    Decimal @default(0) @db.Decimal(12, 2)
+  receivedQty Int     @default(0)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  product       Product?      @relation(fields: [productId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+  @@map("purchase_order_items")
+}
+
+// ============================================================================
+// SALES — order.js, cart.js, coupon.js, review.js
+// ============================================================================
+
+/// Source: backend/src/models/order.js
+/// `orderId` is indexed but NOT unique in Mongo, so it is not unique here either
+/// — adding the constraint now would reject legacy duplicates during Stage 3.
+model Order {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  orderId String?
+  /// SetNull, never Cascade: guest checkout already produces orders with no
+  /// user, and deleting a customer must not erase revenue history.
+  userId  String?
+
+  customerName    String?
+  customerPhone   String?
+  customerAddress String?
+
+  subTotal       Decimal @default(0) @db.Decimal(12, 2)
+  deliveryCharge Decimal @default(0) @db.Decimal(12, 2)
+  grandTotal     Decimal @default(0) @db.Decimal(12, 2)
+
+  shippingLocationType ShippingLocationType @default(INSIDE_CITY)
+  shippingDistrict     String               @default("")
+
+  totalAmount      Decimal? @db.Decimal(12, 2)
+  /// Order-level sum of item buyingPrice × quantity, stored for fast P&L.
+  totalBuyingPrice Decimal  @default(0) @db.Decimal(12, 2)
+
+  /// Legacy lowercase twin of `subTotal`. Both fields exist in the live schema
+  /// and both are written, so both are preserved. Reconcile in Stage 3.
+  subtotal       Decimal @default(0) @db.Decimal(12, 2)
+  discountAmount Decimal @default(0) @db.Decimal(12, 2)
+
+  vatAmount             Decimal @default(0) @db.Decimal(12, 2)
+  vatPercentage         Decimal @default(0) @db.Decimal(5, 2)
+  vatEnabled            Boolean @default(false)
+  taxRegistrationNumber String  @default("")
+
+  walletApplied        Decimal              @default(0) @db.Decimal(12, 2)
+  couponCode           String               @default("")
+  deliveryLocationType DeliveryLocationType @default(INSIDE)
+  shippingFee          Decimal              @default(0) @db.Decimal(12, 2)
+
+  /// Human-readable label mirroring OrderPayment.name (invoices, tables, SMS).
+  paymentMethod String  @default("COD")
+  /// Gateway processing fee at order level, already included in grandTotal.
+  processingFee Decimal @default(0) @db.Decimal(12, 2)
+
+  status      OrderStatus @default(PENDING)
+  isDelivered Boolean     @default(false)
+  deliveredAt DateTime?
+
+  cancelReason String       @default("")
+  cancelledBy  CancelledBy?
+
+  returnReason         String       @default("")
+  returnRequestedAt    DateTime?
+  refundMethod         RefundMethod @default(WALLET)
+  refundBkashNumber    String       @default("")
+  refundNagadNumber    String       @default("")
+  returnRejectedReason String       @default("")
+  returnRejectedAt     DateTime?
+  returnApprovedAt     DateTime?
+  adminReturnNote      String       @default("")
+  /// Legacy field mirroring the cancel/return reason.
+  actionReason         String       @default("")
+
+  refundedAt         DateTime?
+  refundAmount       Decimal   @default(0) @db.Decimal(12, 2)
+  statusBeforeRefund String    @default("")
+
+  rewardsCredited       Boolean @default(false)
+  rewardsPointsEarned   Int     @default(0)
+  rewardsCashbackAmount Decimal @default(0) @db.Decimal(12, 2)
+
+  courierProvider      String    @default("")
+  courierName          String    @default("")
+  courierTrackingId    String    @default("")
+  courierConsignmentId String    @default("")
+  courierStatus        String    @default("unbooked")
+  courierBookedAt      DateTime?
+  courierSyncedAt      DateTime?
+
+  note              String      @default("")
+  estimatedDelivery String      @default("")
+  orderSource       OrderSource @default(ONLINE)
+  createdByAdmin    String      @default("")
+
+  /// Loose staff reference in Mongo (Admin _id as a string), left as a String
+  /// here because POS/manual orders also store non-Admin values.
+  assignedStaffId String?
+  assignedAt      DateTime?
+
+  isSandbox Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  items             OrderItem[]
+  returnItems       OrderReturnItem[]
+  payment           OrderPayment?
+  paymentProof      OrderPaymentProof?
+  notificationsSent OrderNotification?
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([isSandbox])
+  @@map("orders")
+}
+
+/// Extracted from the embedded order.js `items[]` array (orderItemSchema).
+///
+/// HIGH RISK: orderItemSchema is declared `strict: false`, so live order lines
+/// can carry any extra field the cart happened to send (icon, slug, …). Those
+/// undeclared keys land in `extraFields` during Stage 3 rather than being
+/// dropped; audit that column before Stage 5 and promote anything real.
+model OrderItem {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  orderId         String
+  /// SetNull with a snapshot: order lines must survive product deletion.
+  productId       String?
+  legacyProductId String?
+  /// order.js also carries a separate loose `id` field on each line.
+  lineKey         String?
+
+  name        String?
+  price       Decimal @default(0) @db.Decimal(12, 2)
+  /// Cost-price snapshot taken at order time so later price changes cannot
+  /// distort historical profit reporting.
+  buyingPrice Decimal @default(0) @db.Decimal(12, 2)
+  quantity    Int     @default(1)
+  image       String?
+
+  variantId        String @default("")
+  variantLabel     String @default("")
+  variantAttribute String @default("")
+  variantValue     String @default("")
+  variantSku       String @default("")
+
+  /// Catch-all for `strict: false` keys — see the model comment above.
+  extraFields Json?
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+/// Extracted from the embedded order.js `returnItems[]` array (returnItemSchema).
+model OrderReturnItem {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  orderId         String
+  productId       String?
+  legacyProductId String?
+
+  productName String           @default("")
+  quantity    Int              @default(1)
+  price       Decimal          @default(0) @db.Decimal(12, 2)
+  reason      String           @default("")
+  photos      String[]         @default([])
+  status      ReturnItemStatus @default(PENDING)
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_return_items")
+}
+
+/// Extracted from the embedded order.js `payment` object (orderPaymentSchema).
+/// One row per order, hence the unique orderId.
+model OrderPayment {
+  id String @id @default(uuid())
+
+  orderId  String  @unique
+  /// SetNull: the snapshot columns below exist so that renaming, re-pricing or
+  /// deleting a payment method leaves historical ledger rows untouched.
+  methodId String?
+
+  code     String            @default("")
+  name     String            @default("")
+  type     PaymentMethodType @default(MANUAL)
+  provider String            @default("")
+
+  /// Merchant wallet/bank number for manual methods (reconciliation).
+  accountNumber  String  @default("")
+  /// Automated gateway storeId — which merchant account received the money.
+  gatewayStoreId String  @default("")
+  isSandbox      Boolean @default(false)
+
+  processingFee Decimal @default(0) @db.Decimal(12, 2)
+  feeType       FeeType @default(PERCENTAGE)
+  /// A rate, not an amount — flat fee or percentage depending on feeType.
+  feeRate       Decimal @default(0) @db.Decimal(12, 2)
+  feeBaseAmount Decimal @default(0) @db.Decimal(12, 2)
+
+  status            OrderPaymentStatus @default(UNPAID)
+  transactionId     String             @default("")
+  gatewayReference  String             @default("")
+  paidAt            DateTime?
+  settledFromWallet Boolean            @default(false)
+
+  order      Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  method     PaymentMethod?         @relation(fields: [methodId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  ipnHistory OrderPaymentIpnEvent[]
+
+  @@index([transactionId])
+  @@index([methodId])
+  @@map("order_payments")
+}
+
+/// Extracted from the embedded `payment.ipnHistory[]` array (ipnEventSchema).
+/// `raw` is `mongoose.Schema.Types.Mixed` — an untyped gateway payload — so it
+/// stays Json. It is an audit trail, never queried by shape.
+model OrderPaymentIpnEvent {
+  id String @id @default(uuid())
+
+  orderPaymentId String
+
+  receivedAt    DateTime @default(now())
+  provider      String   @default("")
+  status        String   @default("")
+  verified      Boolean  @default(false)
+  transactionId String   @default("")
+  amount        Decimal  @default(0) @db.Decimal(12, 2)
+  message       String   @default("")
+  raw           Json?
+
+  orderPayment OrderPayment @relation(fields: [orderPaymentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([orderPaymentId, receivedAt])
+  @@map("order_payment_ipn_events")
+}
+
+/// Extracted from the embedded order.js `paymentProof` object (paymentProofSchema).
+model OrderPaymentProof {
+  id String @id @default(uuid())
+
+  orderId      String  @unique
+  reviewedById String?
+
+  trxId         String?
+  screenshotUrl String?
+  submittedAt   DateTime?
+  reviewedAt    DateTime?
+  status        PaymentProofStatus @default(NONE)
+  adminNote     String?
+
+  order      Order  @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  reviewedBy Admin? @relation(fields: [reviewedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([status, submittedAt])
+  @@map("order_payment_proofs")
+}
+
+/// Extracted from the embedded order.js `notificationsSent` object
+/// (orderNotificationsSchema) — idempotency flags that stop duplicate sends.
+model OrderNotification {
+  id String @id @default(uuid())
+
+  orderId String @unique
+
+  returnReceived  Boolean @default(false)
+  returnApproved  Boolean @default(false)
+  returnRejected  Boolean @default(false)
+  refundProcessed Boolean @default(false)
+  reviewReminder  Boolean @default(false)
+  processing      Boolean @default(false)
+  shipped         Boolean @default(false)
+  outForDelivery  Boolean @default(false) @map("out_for_delivery")
+  delivered       Boolean @default(false)
+  cancelled       Boolean @default(false)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("order_notifications")
+}
+
+/// Source: backend/src/models/cart.js
+/// Not unique on userId: Mongo places no such constraint and duplicate carts
+/// exist in live data. Enforce one-cart-per-user in Stage 3 after de-duping.
+model Cart {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  userId String
+
+  /// Abandoned-cart tracking (abandonedCartJob.js). lastActivityAt bumps on
+  /// every mutation; abandonedNotifiedAt re-arms so a shopper is not spammed.
+  lastActivityAt      DateTime  @default(now())
+  abandonedNotifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  items CartItem[]
+
+  @@index([userId, updatedAt])
+  @@map("carts")
+}
+
+/// Extracted from the embedded cart.js `items[]` array. Cascade from Product is
+/// correct here and only here: a deleted product must vanish from open carts,
+/// unlike order lines, which are financial history.
+model CartItem {
+  id String @id @default(uuid())
+
+  cartId    String
+  productId String
+
+  name         String
+  price        Decimal @db.Decimal(12, 2)
+  image        String  @default("")
+  emojiIcon    String?
+  variantImage String?
+  icon         String  @default("📦")
+  quantity     Int     @default(1)
+  selected     Boolean @default(true)
+
+  variantId        String @default("")
+  variantLabel     String @default("")
+  variantAttribute String @default("")
+  variantValue     String @default("")
+  variantSku       String @default("")
+  selectedColor    String @default("")
+  selectedSize     String @default("")
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([cartId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+/// Source: backend/src/models/coupon.js
+model Coupon {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  code              String             @unique
+  discountType      CouponDiscountType
+  /// Either a percentage or a flat amount, selected by discountType. Kept at
+  /// money scale because the flat case is money.
+  discountValue     Decimal            @db.Decimal(12, 2)
+  minOrderAmount    Decimal            @default(0) @db.Decimal(12, 2)
+  /// Ceiling for percentage discounts; null means no cap.
+  maxDiscountAmount Decimal?           @db.Decimal(12, 2)
+
+  expiryDate   DateTime
+  status       CouponStatus @default(ACTIVE)
+  usageLimit   Int
+  usedCount    Int          @default(0)
+  perUserLimit Int          @default(1)
+  /// Deprecated in Mongo but still written — synced from `status` on save.
+  isActive     Boolean      @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  redemptions CouponRedemption[]
+
+  @@index([status, expiryDate])
+  @@map("coupons")
+}
+
+/// Extracted from the embedded coupon.js `usedBy[]` ObjectId array. NOT unique
+/// on (couponId, userId): the same user may appear multiple times, once per
+/// redemption, which is how perUserLimit is enforced.
+model CouponRedemption {
+  id String @id @default(uuid())
+
+  couponId String
+  userId   String
+
+  redeemedAt DateTime @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([couponId, userId])
+  @@index([userId])
+  @@map("coupon_redemptions")
+}
+
+/// Source: backend/src/models/review.js
+/// userId is required in Mongo but nullable here: SetNull anonymises a review
+/// when an account is erased instead of destroying product feedback.
+/// productId and orderId are plain Strings in Mongo, so both raw values are kept
+/// alongside the resolved product FK.
+model Review {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  userId          String?
+  productId       String?
+  legacyProductId String
+  legacyOrderId   String
+
+  rating      Int
+  comment     String
+  photo       String    @default("")
+  isSandbox   Boolean   @default(false)
+  isHidden    Boolean   @default(false)
+  adminNote   String    @default("")
+  moderatedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([legacyProductId])
+  @@index([productId])
+  @@index([userId])
+  @@map("reviews")
+}
+
+// ============================================================================
+// FINANCE — expense.js, expenseCategory.js
+// ============================================================================
+
+/// Source: backend/src/models/expense.js
+/// `category` is a dynamic slug string validated against the ExpenseCategory
+/// catalog at write time, NOT a Mongoose enum — so it stays a String plus a
+/// resolved FK. Restrict matches expenseCategoryController.js, which refuses to
+/// delete a category that still has expenses linked to it.
+model Expense {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  category           String
+  expenseCategoryId  String?
+  /// Free-text name used when the "Other" category has allowCustomInput enabled.
+  customCategoryName String  @default("")
+
+  amount        Decimal  @db.Decimal(12, 2)
+  description   String   @default("")
+  date          DateTime @default(now())
+  /// Invoice / receipt reference number for reconciliation.
+  reference     String   @default("")
+  recordedBy    String   @default("")
+  attachmentUrl String   @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  expenseCategory ExpenseCategory? @relation(fields: [expenseCategoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([date])
+  @@index([category, date])
+  @@index([expenseCategoryId])
+  @@map("expenses")
+}
+
+/// Source: backend/src/models/expenseCategory.js
+model ExpenseCategory {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  name             String  @unique
+  slug             String  @unique
+  isActive         Boolean @default(true)
+  isSystemDefault  Boolean @default(false)
+  allowCustomInput Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  expenses Expense[]
+
+  @@index([isActive, slug])
+  @@map("expense_categories")
+}
+
+// ============================================================================
+// SECURITY & AUDIT — securityLog.js, loginAttempt.js, blacklistedIp.js,
+//                    stockAlert.js
+// ============================================================================
+
+/// Source: backend/src/models/securityLog.js
+/// `actor` stays a String (username or "system") so an audit row outlives the
+/// account that produced it — an audit trail with FK-nulled actors is useless.
+model SecurityLog {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  action       String
+  actor        String                @default("system")
+  actorType    SecurityActorType     @default(SYSTEM)
+  ipAddress    String                @default("Unknown")
+  details      String                @default("")
+  resourceType SecurityResourceType?
+  resourceId   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([actor, actorType, createdAt])
+  @@index([resourceType, resourceId, createdAt])
+  @@map("security_logs")
+}
+
+/// Source: backend/src/models/loginAttempt.js
+/// Mongo purges these with a 30-day TTL index on createdAt. Postgres has no TTL,
+/// so Stage 2 must add a scheduled delete job — see DATABASE_MIGRATION_AUDIT.md.
+model LoginAttempt {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  username   String             @default("unknown")
+  ipAddress  String             @default("Unknown")
+  location   String             @default("Unknown Location")
+  os         String             @default("Unknown OS")
+  browser    String             @default("Unknown Browser")
+  deviceType String             @default("Desktop")
+  userAgent  String             @default("")
+  status     LoginAttemptStatus @default(FAILED)
+  details    String             @default("")
+
+  createdAt DateTime @default(now())
+
+  @@index([ipAddress])
+  @@index([status])
+  @@index([ipAddress, status, createdAt])
+  @@index([createdAt])
+  @@map("login_attempts")
+}
+
+/// Source: backend/src/models/blacklistedIp.js
+/// Mongo removes rows the moment `expiresAt` passes (TTL index, expireAfterSeconds: 0);
+/// a null expiresAt means a permanent ban. Postgres needs a scheduled sweep instead.
+model BlacklistedIp {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  ip        String          @unique
+  reason    String          @default("Suspicious activity")
+  source    BlacklistSource @default(AUTO)
+  blockedBy String          @default("system")
+  blockedAt DateTime        @default(now())
+  /// null => permanent ban.
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+  @@map("blacklisted_ips")
+}
+
+/// Source: backend/src/models/stockAlert.js — one row per alert run.
+/// The `alertsSent` sub-object is flattened into three booleans.
+model StockAlert {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  checkedAt       DateTime
+  lowStockCount   Int      @default(0)
+  outOfStockCount Int      @default(0)
+
+  alertSentEmail    Boolean @default(false)
+  alertSentSms      Boolean @default(false)
+  alertSentWhatsapp Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  items StockAlertItem[]
+
+  @@index([checkedAt])
+  @@map("stock_alerts")
+}
+
+/// Collapses the two embedded stockAlert.js arrays — `lowStockProducts[]` and
+/// `outOfStockProducts[]` — into one child table discriminated by `kind`. The
+/// out-of-stock shape has no stock/threshold, so those columns are nullable.
+model StockAlertItem {
+  id String @id @default(uuid())
+
+  stockAlertId    String
+  kind            StockAlertItemKind
+  productId       String?
+  legacyProductId String             @default("")
+
+  name      String @default("")
+  stock     Int?
+  threshold Int?
+
+  stockAlert StockAlert @relation(fields: [stockAlertId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  product    Product?   @relation(fields: [productId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([stockAlertId, kind])
+  @@index([productId])
+  @@map("stock_alert_items")
+}
+
+// ============================================================================
+// SUPPORT, MARKETING & CMS — ContactMessage.js, newsletter.js,
+//   emailCampaign.js, PaymentMethod.js, banner.js, PageContent.js,
+//   FooterSettings.js, NavbarLink.js, note.js, adminNotification.js
+// ============================================================================
+
+/// Source: backend/src/models/ContactMessage.js — support tickets.
+/// `assignedTo` is an Admin *username* (a loose reference, per the model
+/// comment), left as a String so reassignment history survives staff deletion.
+model ContactMessage {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  name    String
+  email   String
+  phone   String @default("")
+  subject String @default("")
+  message String
+
+  /// Human-friendly reference, e.g. TKT-2026-A7K9. Sparse unique in Mongo.
+  ticketNumber String? @unique
+
+  status     TicketStatus   @default(OPEN)
+  priority   TicketPriority @default(NORMAL)
+  assignedTo String         @default("")
+
+  /// First admin reply or internal note — set once, drives the SLA report.
+  firstResponseAt DateTime?
+  resolvedAt      DateTime?
+  replyMessage    String    @default("")
+  repliedAt       DateTime?
+  isRead          Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@map("contact_messages")
+}
+
+/// Source: backend/src/models/newsletter.js
+model Newsletter {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  email    String           @unique
+  name     String?
+  isActive Boolean          @default(true)
+  source   NewsletterSource @default(FOOTER_FORM)
+
+  subscribedAt     DateTime  @default(now())
+  unsubscribedAt   DateTime?
+  unsubscribeToken String?
+  tags             String[]  @default([])
+  emailsSent       Int       @default(0)
+  lastEmailAt      DateTime?
+
+  @@index([isActive])
+  @@map("newsletters")
+}
+
+/// Source: backend/src/models/emailCampaign.js
+/// The embedded `stats` object is flattened into three counters.
+model EmailCampaign {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  title       String
+  subject     String
+  htmlContent String
+
+  status           CampaignStatus  @default(DRAFT)
+  targetTags       String[]        @default([])
+  targetSegment    CampaignSegment @default(ALL)
+  channel          CampaignChannel @default(EMAIL)
+  /// Message body for the WhatsApp broadcast channel (htmlContent is email-only).
+  whatsappTemplate String          @default("")
+
+  scheduledAt DateTime?
+  sentAt      DateTime?
+
+  statsTotalRecipients Int @default(0)
+  statsSent            Int @default(0)
+  statsFailed          Int @default(0)
+
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  createdBy Admin? @relation(fields: [createdById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([status, scheduledAt])
+  @@index([createdById])
+  @@map("email_campaigns")
+}
+
+/// Source: backend/src/models/PaymentMethod.js
+/// The embedded `apiConfig` object is flattened onto this row. storePassword and
+/// apiKey stay AES-256-GCM envelopes produced by utils/cryptoVault.js — they are
+/// ciphertext strings, and Stage 3 must copy them verbatim without re-encrypting.
+model PaymentMethod {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  name     String
+  /// Stable machine key. Orders, IPN URLs and ledger exports reference this, so
+  /// it never changes on rename.
+  code     String            @unique
+  logoUrl  String            @default("")
+  type     PaymentMethodType @default(MANUAL)
+  provider GatewayProvider?
+
+  /// Shown under the option at checkout, manual methods only.
+  instructions  String @default("")
+  /// Merchant wallet / bank account the customer pays into (manual methods).
+  accountNumber String @default("")
+
+  processingFee Decimal @default(0) @db.Decimal(12, 2)
+  feeType       FeeType @default(PERCENTAGE)
+  sortOrder     Int     @default(0)
+
+  apiStoreId       String  @default("")
+  /// Encrypted at rest — see utils/cryptoVault.js.
+  apiStorePassword String  @default("")
+  apiKey           String  @default("")
+  apiIsSandbox     Boolean @default(true)
+  apiWebhookUrl    String  @default("")
+
+  isActive       Boolean @default(true)
+  description    String  @default("")
+  createdByAdmin String  @default("")
+  updatedByAdmin String  @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderPayments OrderPayment[]
+
+  @@index([isActive, sortOrder, name])
+  @@map("payment_methods")
+}
+
+/// Source: backend/src/models/banner.js — the Banner export.
+model Banner {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  title           String  @default("")
+  subtitle        String  @default("")
+  imageUrl        String?
+  mobileImageUrl  String?
+  backgroundColor String?
+  linkUrl         String?
+  linkText        String  @default("Shop Now")
+  textColor       String  @default("#ffffff")
+  /// 0–1 fraction, not a currency value.
+  overlayOpacity  Decimal @default(0.3) @db.Decimal(3, 2)
+  position        Int     @default(0)
+  isActive        Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@index([isActive, position])
+  @@map("banners")
+}
+
+/// Source: backend/src/models/banner.js — the second export, BannerSettings.
+/// A de-facto singleton in Mongo with no key field; `key` is added here so the
+/// singleton is enforceable rather than conventional.
+model BannerSettings {
+  id  String @id @default(uuid())
+  key String @unique @default("global")
+
+  autoPlay         Boolean          @default(true)
+  autoPlayInterval Int              @default(4000)
+  showDots         Boolean          @default(true)
+  showArrows       Boolean          @default(true)
+  height           String           @default("300px")
+  mobileHeight     String           @default("200px")
+  transitionEffect BannerTransition @default(SLIDE)
+
+  updatedAt DateTime @default(now())
+
+  @@map("banner_settings")
+}
+
+/// Source: backend/src/models/PageContent.js — dynamic CMS pages.
+/// The embedded `contactMeta` object is flattened with a contactMeta* prefix; it
+/// is only populated for the `contact` page.
+model PageContent {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  slug     String @unique
+  title    String
+  subtitle String @default("")
+
+  bodyMarkdown  String        @default("")
+  bodyHtml      String        @default("")
+  contentFormat ContentFormat @default(MARKDOWN)
+  isPublished   Boolean       @default(true)
+
+  contactMetaAddress     String @default("")
+  contactMetaPhone       String @default("")
+  contactMetaEmail       String @default("")
+  contactMetaHours       String @default("")
+  contactMetaMapEmbedUrl String @default("")
+
+  sortOrder      Int    @default(0)
+  updatedByAdmin String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isPublished, sortOrder, title])
+  @@map("page_contents")
+}
+
+/// Source: backend/src/models/FooterSettings.js — singleton keyed 'global'.
+model FooterSettings {
+  id  String @id @default(uuid())
+  key String @unique @default("global")
+
+  copyrightText        String  @default("© 2026 EonlineBazar. All rights reserved. Designed by Abdul Karim Sheikh")
+  /// Master switch — when false the storefront hides the whole badge strip.
+  paymentBadgesEnabled Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  columns         FooterColumn[]
+  socialLinks     FooterSocialLink[]
+  paymentGateways FooterPaymentGateway[]
+  paymentBadges   FooterPaymentBadge[]
+
+  @@map("footer_settings")
+}
+
+/// Extracted from the embedded FooterSettings.js `columns[]` array.
+model FooterColumn {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  footerSettingsId String
+
+  columnTitle String
+  isActive    Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  footerSettings FooterSettings @relation(fields: [footerSettingsId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  links          FooterLink[]
+
+  @@index([footerSettingsId, sortOrder])
+  @@map("footer_columns")
+}
+
+/// Extracted from the nested `columns[].links[]` array (footerLinkSchema).
+model FooterLink {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  footerColumnId String
+
+  label      String
+  url        String
+  isExternal Boolean @default(false)
+  isActive   Boolean @default(true)
+
+  footerColumn FooterColumn @relation(fields: [footerColumnId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([footerColumnId])
+  @@map("footer_links")
+}
+
+/// Extracted from the embedded FooterSettings.js `socialLinks[]` array.
+model FooterSocialLink {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  footerSettingsId String
+
+  platform  String
+  iconName  String  @default("")
+  iconUrl   String  @default("")
+  linkUrl   String  @default("#")
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  footerSettings FooterSettings @relation(fields: [footerSettingsId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([footerSettingsId, sortOrder])
+  @@map("footer_social_links")
+}
+
+/// Extracted from the embedded FooterSettings.js `paymentGateways[]` array
+/// (paymentGatewayBadgeSchema) — the full badge with icon metadata.
+model FooterPaymentGateway {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  footerSettingsId String
+
+  name      String
+  iconUrl   String  @default("")
+  iconName  String  @default("")
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  footerSettings FooterSettings @relation(fields: [footerSettingsId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([footerSettingsId, sortOrder])
+  @@map("footer_payment_gateways")
+}
+
+/// Extracted from the embedded FooterSettings.js `paymentBadges[]` array
+/// (paymentBadgeSchema) — the name-only legacy list kept in sync with
+/// paymentGateways. Preserved because `undefined` there means "not migrated yet"
+/// while an empty array means "intentionally cleared", and Stage 3 must be able
+/// to tell those apart.
+model FooterPaymentBadge {
+  id String @id @default(uuid())
+
+  footerSettingsId String
+  name             String
+
+  footerSettings FooterSettings @relation(fields: [footerSettingsId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([footerSettingsId])
+  @@map("footer_payment_badges")
+}
+
+/// Source: backend/src/models/NavbarLink.js
+/// The link to PageContent is by slug, not by FK — NavbarLink.pageHtml is synced
+/// into a PageContent row on save. Left slug-coupled to match live behaviour.
+model NavbarLink {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  title  String
+  /// Relative (/deals) or absolute (https://…).
+  url    String
+  slug   String     @default("")
+  target LinkTarget @default(SELF)
+
+  isPublished   Boolean @default(true)
+  /// When true this link owns a dynamic CMS page at /page/:slug.
+  hasCustomPage Boolean @default(false)
+  /// Quill / rich-text HTML for the linked CMS page.
+  pageHtml      String  @default("")
+  sortOrder     Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@index([isPublished, sortOrder, title])
+  @@map("navbar_links")
+}
+
+/// Source: backend/src/models/note.js — private per-user notebook entries.
+model Note {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  userId String
+
+  title   String
+  content String   @default("")
+  type    NoteType @default(NOTE)
+  /// Optional in Mongo (`default: undefined`) — a note has no amount, an expense does.
+  amount  Decimal? @db.Decimal(12, 2)
+
+  category NoteCategory @default(OTHER)
+  tags     String[]     @default([])
+  pinned   Boolean      @default(false)
+  color    String       @default("#FFFEF0")
+  date     DateTime     @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  shoppingItems NoteShoppingItem[]
+
+  @@index([userId])
+  @@index([type])
+  @@index([userId, createdAt])
+  @@index([userId, type, createdAt])
+  @@index([userId, date])
+  @@map("notes")
+}
+
+/// Extracted from the embedded note.js `shoppingItems[]` array (shoppingItemSchema).
+model NoteShoppingItem {
+  id String @id @default(uuid())
+
+  noteId String
+
+  name    String  @default("")
+  price   Decimal @default(0) @db.Decimal(12, 2)
+  checked Boolean @default(false)
+
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([noteId])
+  @@map("note_shopping_items")
+}
+
+/// Source: backend/src/models/adminNotification.js
+/// `recipientId` is an Admin _id stored as a String; `adminId` is the resolved
+/// FK. Cascade — a personal inbox has no meaning without its owner.
+model AdminNotification {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  recipientId String
+  adminId     String?
+
+  type    AdminNotificationType
+  title   String
+  message String
+  link    String                @default("")
+  isRead  Boolean               @default(false)
+
+  createdAt DateTime @default(now())
+
+  admin Admin? @relation(fields: [adminId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([recipientId])
+  @@index([createdAt])
+  @@index([recipientId, isRead, createdAt])
+  @@index([adminId])
+  @@map("admin_notifications")
+}
+
+// ============================================================================
+// SETTINGS — Settings.js (singleton, key = 'global')
+//
+// This is the CONSOLIDATED model. Setting.js was merged into Settings.js on
+// 2026-09-12 and is now a re-export shim, so there is exactly one settings
+// table here and the former `key: 'master'` document has no counterpart.
+// ============================================================================
+
+/// Source: backend/src/models/Settings.js
+model Settings {
+  id  String @id @default(uuid())
+  /// Immutable in Mongo — the singleton discriminator.
+  key String @unique @default("global")
+
+  shopHomeCity          String   @default("Dhaka")
+  deliveryInsideCity    Decimal  @default(60) @db.Decimal(12, 2)
+  deliveryOutsideCity   Decimal  @default(120) @db.Decimal(12, 2)
+  freeShippingMinAmount Decimal  @default(1000) @db.Decimal(12, 2)
+  /// Canonical threshold that mirrors freeShippingMinAmount; null = unset.
+  freeShippingThreshold Decimal? @db.Decimal(12, 2)
+
+  cashbackPercentage         Decimal @default(1) @db.Decimal(5, 2)
+  takaToPointsRatio          Int     @default(100)
+  pointsToTakaConversionRate Int     @default(10)
+  refundUndoWindowHours      Int     @default(72)
+
+  announcementText     String  @default("")
+  /// Stored as a String in Mongo despite looking numeric — kept as text so the
+  /// legacy default '2000' migrates without a lossy cast.
+  announcementDiscount String  @default("2000")
+  isAnnouncementActive Boolean @default(true)
+
+  enableSmsNotifications Boolean             @default(false)
+  smsGatewayProvider     SmsGatewayProvider?
+  smsApiKey              String              @default("")
+  smsSenderId            String              @default("")
+
+  /// HIGH RISK — left as a String on purpose. The Mongoose enum lists the same
+  /// three providers twice, in two casings
+  /// ('Steadfast','Pathao','RedX','steadfast','pathao','redx',''), so live rows
+  /// are inconsistent. Normalise the casing in Stage 3, then promote to an enum.
+  defaultCourierProvider String @default("")
+  courierApiKey          String @default("")
+  courierSecretKey       String @default("")
+
+  publicSupportWhatsApp     String                 @default("")
+  privateAdminAlertWhatsApp String                 @default("")
+  enableWhatsAppOrderAlerts Boolean                @default(false)
+  whatsAppAlertProvider     WhatsAppAlertProvider?
+  whatsAppAlertApiKey       String                 @default("")
+  whatsAppAlertInstanceId   String                 @default("")
+  whatsAppAlertWebhookUrl   String                 @default("")
+
+  /// Flattened from the embedded `activePaymentGateways` object — five booleans
+  /// on fixed keys. Distinct from the richer `paymentGateways` child table below,
+  /// which the live schema also carries.
+  activeGatewayBKash      Boolean @default(true)
+  activeGatewayNagad      Boolean @default(true)
+  activeGatewayVisa       Boolean @default(true)
+  activeGatewayMasterCard Boolean @default(true)
+  activeGatewayCod        Boolean @default(true)
+
+  rateLimitEnabled        Boolean @default(true)
+  rateLimitWindowMs       Int     @default(900000)
+  rateLimitMaxRequests    Int     @default(1000)
+  bypassAdminAndLocalhost Boolean @default(true)
+  sandboxMode             Boolean @default(false)
+  serviceWorkerEnabled    Boolean @default(true)
+
+  flashSaleEnabled         Boolean   @default(false)
+  flashSaleTitle           String    @default("Flash Sale")
+  flashSaleEndDate         DateTime?
+  flashSaleDiscountPercent Decimal   @default(0) @db.Decimal(5, 2)
+  /// Loose product id strings, kept as an array to match Mongo. Resolve to real
+  /// FKs in Stage 3 if flash sales need referential integrity.
+  flashSaleProductIds      String[]  @default([])
+
+  vipMinTotalSpent       Decimal @default(10000) @db.Decimal(12, 2)
+  vipMinOrderCount       Int     @default(5)
+  frequentBuyerMinOrders Int     @default(3)
+  referralRewardAmount   Decimal @default(100) @db.Decimal(12, 2)
+
+  enableTieredLoyalty Boolean @default(false)
+  silverThreshold     Decimal @default(5000) @db.Decimal(12, 2)
+  goldThreshold       Decimal @default(15000) @db.Decimal(12, 2)
+  platinumThreshold   Decimal @default(50000) @db.Decimal(12, 2)
+  silverCashback      Decimal @default(1.5) @db.Decimal(5, 2)
+  goldCashback        Decimal @default(2.5) @db.Decimal(5, 2)
+  platinumCashback    Decimal @default(4.0) @db.Decimal(5, 2)
+
+  defaultProductsPerPage Int @default(24)
+
+  /// Legacy percentage kept in sync with vatPercentage by masterSettingsController.
+  vatRate               Decimal @default(0) @db.Decimal(5, 2)
+  vatEnabled            Boolean @default(false)
+  vatPercentage         Decimal @default(0) @db.Decimal(5, 2)
+  vatInclusive          Boolean @default(true)
+  taxRegistrationNumber String  @default("")
+
+  lastBackupAt DateTime?
+  orderPrefix  String    @default("ORD")
+
+  maintenanceMode    Boolean @default(false)
+  maintenanceMessage String  @default("We are currently performing scheduled maintenance. Please check back soon.")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  paymentGateways SettingsPaymentGateway[]
+
+  @@map("settings")
+}
+
+/// Extracted from the embedded Settings.js `paymentGateways` object, which is a
+/// fixed-key map of five { enabled, name, logoUrl } records (bKash, Nagad, Visa,
+/// MasterCard, COD). One row per key so the display name and logo are editable
+/// without a schema change.
+model SettingsPaymentGateway {
+  id String @id @default(uuid())
+
+  settingsId String
+  /// 'bKash' | 'Nagad' | 'Visa' | 'MasterCard' | 'COD' — the original object key.
+  gatewayKey String
+
+  enabled Boolean @default(true)
+  name    String  @default("")
+  logoUrl String  @default("")
+
+  settings Settings @relation(fields: [settingsId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([settingsId, gatewayKey])
+  @@map("settings_payment_gateways")
+}

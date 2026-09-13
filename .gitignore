@@ -9,6 +9,9 @@ node_modules
 *.log
 .DS_Store
 
+# Generated Prisma Client (build output — recreate with `npx prisma generate`)
+/generated/prisma
+
 
 
 
