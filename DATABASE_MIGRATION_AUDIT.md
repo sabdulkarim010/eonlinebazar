@@ -1979,8 +1979,9 @@ Product not dual-written yet.
 
 ## STAGE 2 STEP 3, PART 8 — Dual-Write: Order (Final Part, Most Complex) — 2026-09-14
 
-**This completes ALL of Stage 2 Step 3** — all 8 model groups now dual-write to Neon.
-Same `dualWriteService.js` helper unchanged. MongoDB remains authoritative for all reads.
+Order was the last *non-Admin* model group; **Admin was deliberately deferred to Part 9**
+(credentials / 2FA). Same `dualWriteService.js` helper unchanged. MongoDB remains
+authoritative for all reads.
 
 ### Partial-write failure logging (no transaction / no retry)
 
@@ -2075,5 +2076,95 @@ Postgres row with a null FK or missing child that Stage 3 backfill must close on
 referenced records exist in Neon. Every `[DUAL-WRITE-ORDER-PARTIAL]` log represents an
 Order row missing specific child tables (`OrderPayment`, `OrderItem`, …) that Stage 3
 repair scripts must target by `postgresOrderId` + `failedStage`.
+
+## STAGE 2 STEP 3, PART 9 — Dual-Write: Admin (Final Part — Stage 2 Step 3 Complete) — 2026-09-14
+
+Admin was saved for last because it holds authentication credentials. Every other model
+group is now proven stable with the same pattern. Same `dualWriteService.js` helper
+**unchanged**. MongoDB remains the sole read source and the sole source of truth for API
+responses; Postgres side-writes are best-effort and failure-isolated.
+
+**Stage 2 Step 3 (Dual-Write) is now COMPLETE across all 9 parts / all model groups.**
+Every write operation in the application now mirrors to Postgres on a best-effort basis.
+
+### Part 5 deferred actions — now wired
+
+| Action | Location | Postgres mirror |
+|---|---|---|
+| `updateSalaryConfig` | `payrollController.js` | `mirrorAdminUpdate()` — `baseSalary` (+ other profile fields on same save) |
+| `revokeSystemAccess` | `employeeController.js` | `mirrorAdminUpdate()` — `status: 'blocked'` (same value as `suspendLinkedAdminAccess`; Mongo uses `blocked`, not a separate `suspended` enum) |
+| `reactivateSystemAccess` | `employeeController.js` | `mirrorAdminUpdate()` — `status: 'active'` |
+
+### Password hash difference (expected, not a bug)
+
+Mongo and Postgres each hash passwords independently via bcrypt (12 rounds, `bcryptjs`).
+Different salts produce **different hash strings** for the same plain-text password.
+Both hashes verify correctly via `bcrypt.compare()` / `adminRepository.verifyPassword()`.
+Dual-write passes plain-text at wiring time; `adminRepository.create()` / `update()` hash
+in Postgres — **do not** attempt byte-identical hashes across databases.
+
+### Sensitive-field secrecy in failure logs
+
+The six secret columns (`otp`, `otpExpiry`, `totpSecret`, `totpPendingSecret`,
+`smsSetupOtp`, `smsSetupOtpExpiry`) remain isolated on read via explicit `select` in
+`adminRepository.js` (Stage 2 Step 2 Part 2). Admin dual-write failure logging uses
+`sanitizeAdminFailureLog()` — `[DUAL-WRITE-FAILURE]` entries log admin id, operation,
+timestamp, and generic `error: 'Postgres admin mirror failed'` only; **never** secret
+field values, even when the underlying Postgres error message contains them.
+
+`adminDualWriteHelpers.js` lazy-loads `adminRepository` (no top-level Prisma require) so
+Jest can load admin controllers without parsing the generated `.mts` client.
+
+### Repository + helper files
+
+| File | Role |
+|---|---|
+| `adminRepository.js` | Extended: `legacyId`, `findByLegacyId`, `updateByLegacyId`, `removeByLegacyId`, `mapMongoDocToWriteInput`, `upsertFromMongo` |
+| `adminDualWriteHelpers.js` **NEW** | `mirrorAdminCreate`, `mirrorAdminUpdate`, `mirrorAdminFields`, `mirrorAdminRemove`, `adminDualWrite` (sanitized failure logs) |
+
+Routes were **not** modified. `dualWriteService.js` was **not** modified.
+
+### Controller / service write paths wired
+
+| Area | Location | Operations |
+|---|---|---|
+| **Staff CRUD** | `staffController.js` | `createStaff`, `updateStaff`, `updateStaffStatus`, `resetStaffPassword`, `deleteStaff` |
+| **HRM access** | `employeeController.js` | `grantSystemAccess`, `revokeSystemAccess`, `reactivateSystemAccess`, `unlinkSystemAccess` (block), `suspendLinkedAdminAccess` |
+| **Salary config** | `payrollController.js` | `updateSalaryConfig` |
+| **Profile** | `adminProfileController.js` | `updateProfilePic`, `updateAdminProfile` |
+| **Settings** | `adminSettingsController.js` | `updateAdminSettings`, `uploadStoreBranding` |
+| **2FA** | `twoFactorController.js` | `setupTotp`, `verifyTotpSetup`, `disableTotp`, `sendSmsSetupOtp`, `verifySmsSetupOtp` (+ expired path), `updateMethod` |
+| **Auth / login** | `authController.js` | bootstrap superadmin, legacy password upgrade, `lastLoginAt`, OTP set/clear, discard unverified TOTP, dispatch challenge OTP/TOTP clears, verify OTP clears, `resetTotpEmergency` |
+| **Internal chat** | `internalChatController.js` | `updateInternalAdminImage` |
+
+All Admin GET/read/list endpoints remain Mongo-only.
+
+### Test results
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **169/169** pass |
+| `npm run test:repositories` | **157/157** pass (152 prior + 5 Admin dual-write tests) |
+
+New / extended repository tests in `tests/repositories/admin.repository.test.js`:
+
+- Independent bcrypt salts verify same plain password
+- `updateSalaryConfig`-style patch leaves password hash untouched
+- Revoke/reactivate status `blocked` ↔ `active`
+- `[DUAL-WRITE-FAILURE]` log never contains secret field values
+- Superadmin `remove()` still blocked via legacyId path
+
+### Consolidated `[DUAL-WRITE-*]` log prefixes (Stage 3 grep checklist)
+
+| Prefix | Where emitted | Meaning for Stage 3 backfill/reconciliation |
+|---|---|---|
+| `[DUAL-WRITE-FAILURE]` | `dualWriteService.js`; Admin via `adminDualWriteHelpers.js` (sanitized) | Generic Postgres mirror failed after Mongo succeeded — reconcile by model + mongoId |
+| `[DUAL-WRITE-FK-MISSING]` | `userRepository.js`, `orderRepository.js`, `reviewRepository.js` | Row written with null FK; backfill referenced User/Product/Order parent then patch FK |
+| `[DUAL-WRITE-PARENT-MISSING]` | `categoryController.js` | Category created with null `parentId`; backfill parent Category then patch |
+| `[DUAL-WRITE-CART-ITEM-FAIL]` | `cartRepository.js` | Whole CartItem row skipped (required Product FK); backfill Product then re-sync cart |
+| `[DUAL-WRITE-ORDER-PARTIAL]` | `orderDualWriteHelpers.js` | Order row exists but a child stage failed — repair by `postgresOrderId` + `failedStage` |
+
+Stage 3 scripts should grep application logs for these five prefixes and resolve each
+recorded `mongoId` / `legacyId` / `postgresOrderId` once referenced Postgres rows exist.
 
 

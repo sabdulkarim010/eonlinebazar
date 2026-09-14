@@ -7,6 +7,7 @@ const User = require('../models/user');
 const Order = require('../models/order');
 const Admin = require('../models/admin');
 const { enrichOrderItemsWithImages } = require('../utils/orderItemImages');
+const { adminDualWrite, mirrorAdminUpdate } = require('../utils/adminDualWriteHelpers');
 
 function hydrateCustomerName(customer = {}) {
     const fromParts = [customer.firstName, customer.lastName].filter(Boolean).join(' ').trim();
@@ -138,11 +139,18 @@ const updateInternalAdminImage = async (req, res) => {
             });
         }
 
-        const admin = await Admin.findByIdAndUpdate(
-            req.params.id,
-            { image: String(image).trim() },
-            { new: true }
-        ).select('-password');
+        const admin = await adminDualWrite(
+            () => Admin.findByIdAndUpdate(
+                req.params.id,
+                { image: String(image).trim() },
+                { returnDocument: 'after' }
+            ).select('-password'),
+            (saved) => mirrorAdminUpdate(saved, { operation: 'updateInternalAdminImage' }),
+            {
+                operation: 'updateInternalAdminImage',
+                mongoId: req.params.id
+            }
+        );
 
         if (!admin) {
             return res.status(404).json({

@@ -24,8 +24,15 @@ const {
   create,
   update,
   remove,
-  verifyPassword
+  verifyPassword,
+  upsertFromMongo,
+  updateByLegacyId,
+  findByLegacyId
 } = require('../../backend/src/repositories/adminRepository');
+const {
+  logAdminDualWriteFailure,
+  sanitizeAdminFailureLog
+} = require('../../backend/src/utils/adminDualWriteHelpers');
 
 const PREFIX = `__test_admin_${Date.now()}_`;
 const createdIds = [];
@@ -251,6 +258,119 @@ describe('Admin repository — real Neon DB', () => {
   test('remove() throws NOT_FOUND for unknown id', async () => {
     await expect(
       remove('00000000-0000-0000-0000-000000000000')
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+});
+
+// ── 4. Dual-write helpers (Part 9) ─────────────────────────────────────────────
+describe('Admin dual-write — upsertFromMongo and status patches', () => {
+  test('independent bcrypt salts verify the same plain password (Mongo vs Postgres expected)', async () => {
+    const plain = 'DualWritePass123!';
+    const a = track(await create({
+      username: `${PREFIX}salt_a`,
+      password: plain,
+      role: 'staff'
+    }));
+    const b = track(await create({
+      username: `${PREFIX}salt_b`,
+      password: plain,
+      role: 'staff'
+    }));
+
+    const hashA = await readStoredPassword(a.id);
+    const hashB = await readStoredPassword(b.id);
+
+    expect(hashA).not.toBe(hashB);
+    expect(await verifyPassword(plain, hashA)).toBe(true);
+    expect(await verifyPassword(plain, hashB)).toBe(true);
+  });
+
+  test('upsertFromMongo updateSalaryConfig-style patch leaves password hash untouched', async () => {
+    const legacyId = `${PREFIX}salary_${Date.now()}`;
+    const plain = 'SalaryPatch123!';
+
+    track(await upsertFromMongo({
+      _id: legacyId,
+      username: `${PREFIX}salary_user`,
+      name: 'Salary Patch',
+      role: 'staff',
+      permissions: ['manage_orders'],
+      status: 'active',
+      baseSalary: 10000
+    }, { plainPassword: plain }));
+
+    const before = await readStoredPassword(
+      (await findByLegacyId(legacyId)).id
+    );
+
+    await updateByLegacyId(legacyId, { baseSalary: 15000, department: 'Ops' });
+    const after = await readStoredPassword(
+      (await findByLegacyId(legacyId)).id
+    );
+
+    expect(after).toBe(before);
+    expect(Number((await findByLegacyId(legacyId)).baseSalary)).toBe(15000);
+  });
+
+  test('updateByLegacyId applies revoke/reactivate status (blocked ↔ active)', async () => {
+    const legacyId = `${PREFIX}status_${Date.now()}`;
+    const plain = 'StatusPatch123!';
+
+    track(await upsertFromMongo({
+      _id: legacyId,
+      username: `${PREFIX}status_user`,
+      name: 'Status Patch',
+      role: 'staff',
+      permissions: ['manage_orders'],
+      status: 'active'
+    }, { plainPassword: plain }));
+
+    await updateByLegacyId(legacyId, { status: 'blocked' });
+    let loaded = await findByLegacyId(legacyId);
+    expect(loaded.status).toBe('blocked');
+
+    await updateByLegacyId(legacyId, { status: 'active' });
+    loaded = await findByLegacyId(legacyId);
+    expect(loaded.status).toBe('active');
+  });
+
+  test('[DUAL-WRITE-FAILURE] log for Admin never includes secret field values', async () => {
+    const logs = [];
+    const origError = console.error;
+    console.error = (...args) => {
+      logs.push(args);
+      origError(...args);
+    };
+
+    const secretErr = new Error('Failed with otp=123456 totpSecret=ABCDEF smsSetupOtp=654321');
+    secretErr.code = 'NOT_FOUND';
+    logAdminDualWriteFailure(
+      { operation: 'testSecretIsolation', mongoId: `${PREFIX}secret_log` },
+      secretErr
+    );
+
+    console.error = origError;
+
+    const entry = logs.find((row) => row[0] === '[DUAL-WRITE-FAILURE]');
+    expect(entry).toBeTruthy();
+    expect(entry[1].error).toBe(sanitizeAdminFailureLog());
+    const serialized = JSON.stringify(entry[1]);
+    expect(serialized.includes('123456')).toBe(false);
+    expect(serialized.includes('ABCDEF')).toBe(false);
+    expect(serialized.includes('654321')).toBe(false);
+    expect(entry[1].mongoId).toContain(`${PREFIX}secret_log`);
+  });
+
+  test('remove() still blocks superadmin when invoked by legacyId path', async () => {
+    const owner = track(await create({
+      username: `${PREFIX}super_legacy`,
+      password: 'SuperAdmin1!',
+      role: 'superadmin',
+      legacyId: `${PREFIX}super_legacy_id`
+    }));
+
+    await expect(
+      remove(owner.id)
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 });

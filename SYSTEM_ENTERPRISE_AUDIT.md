@@ -2209,9 +2209,9 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 6.
 
 See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 7.
 
-## Stage 2 Step 3, Part 8 — Dual-Write: Order (Final) — 2026-09-14
+## Stage 2 Step 3, Part 8 — Dual-Write: Order — 2026-09-14
 
-**Status:** ✅ COMPLETE — **Stage 2 Step 3 dual-write rollout finished across all 8 model groups**
+**Status:** ✅ COMPLETE — Order model group (Admin deliberately deferred to Part 9)
 
 | Item | Status |
 |------|--------|
@@ -2230,4 +2230,25 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 7.
 | Routes touched | ❌ none |
 
 See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 8.
+
+## Stage 2 Step 3, Part 9 — Dual-Write: Admin (Final — Stage 2 Step 3 Complete) — 2026-09-14
+
+**Status:** ✅ COMPLETE — **Stage 2 Step 3 dual-write rollout finished across all 9 parts / all model groups**
+
+| Item | Status |
+|------|--------|
+| Staff create/update/status/reset-password/delete wired | ✅ |
+| Part 5 deferred: updateSalaryConfig, revokeSystemAccess, reactivateSystemAccess | ✅ |
+| 2FA (TOTP/SMS) + auth OTP flows wired | ✅ |
+| Profile + settings + internal chat admin image wired | ✅ |
+| Independent bcrypt salts — both verify same password (expected) | ✅ tested |
+| `[DUAL-WRITE-FAILURE]` never logs secret field values | ✅ tested |
+| Superadmin deletion still blocked | ✅ tested |
+| dualWriteService.js modified | ❌ none (reused as-is) |
+| All Admin READ/list endpoints unchanged | ✅ |
+| Main Jest suite (`npm test`) | ✅ 169/169 |
+| Neon repository tests (`npm run test:repositories`) | ✅ 157/157 |
+| Routes touched | ❌ none |
+
+See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 9.
 

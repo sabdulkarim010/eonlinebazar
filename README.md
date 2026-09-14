@@ -120,7 +120,7 @@ Read these documents before making changes. Operational notes belong in the exis
 | [ARCHITECTURE.md](ARCHITECTURE.md) | **Read first.** Folder layout, CSS/JS barrels, admin ERP/CRM/HRM nav groups, enterprise models, local dev ports, and contributor rules. |
 | [REFACTOR_MAP.md](REFACTOR_MAP.md) | **Read first.** File-by-file completion log for ERP, CRM, HRM, UI restructure, and follow-on phases. |
 | [SYSTEM_ENTERPRISE_AUDIT.md](SYSTEM_ENTERPRISE_AUDIT.md) | Full-stack enterprise audit: feature inventory, ERP/CRM/HRM matrix, models, APIs, mobile parity, and remaining findings. |
-| [DATABASE_MIGRATION_AUDIT.md](DATABASE_MIGRATION_AUDIT.md) | MongoDB → PostgreSQL (Prisma + Neon) migration: 5-stage roadmap, model-by-model mapping, cascade and index strategy, and the stage-by-stage change log. **Stage 2 Step 3 dual-write complete (2026-09-14) — all 8 model groups mirror to Neon via `dualWriteService.js`: Category, Designation, Brand, Warehouse, Supplier, PageContent, NavbarLink, FooterSettings, Banner, Settings, SecurityLog, LoginAttempt, BlacklistedIP, StockAlert, Employee, Attendance, Payroll, Leave, Newsletter, EmailCampaign, ContactMessage, Review, User, Address, WishlistItem, WalletTransaction, Cart/CartItem, and **Order** (checkout, status, payment IPN, returns, notifications). All reads still come from MongoDB only.** |
+| [DATABASE_MIGRATION_AUDIT.md](DATABASE_MIGRATION_AUDIT.md) | MongoDB → PostgreSQL (Prisma + Neon) migration: 5-stage roadmap, model-by-model mapping, cascade and index strategy, and the stage-by-stage change log. **Stage 2 Step 3 dual-write complete (2026-09-14) — all 9 parts / all model groups mirror to Neon via `dualWriteService.js`, including **Admin** (staff CRUD, 2FA, auth OTP flows, salary config, HRM access). All reads still come from MongoDB only.** |
 | [.cursorrules](.cursorrules) | Cursor agent contract: never edit barrel CSS/JS directly, never restructure `routes/*.js`, search before renaming IDs, run `npm test` after changes. |
 
 ### Additional References
@@ -139,11 +139,11 @@ Read these documents before making changes. Operational notes belong in the exis
 
 The repository ships with **100% passing automated coverage: 169 / 169 tests** across **17 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
 
-PostgreSQL repository integration tests (152 tests, real Neon) run separately — Jest cannot load the generated `.mts` Prisma client:
+PostgreSQL repository integration tests (157 tests, real Neon) run separately — Jest cannot load the generated `.mts` Prisma client:
 
 ```bash
 npm test                  # 17 suites, 169 tests — MongoDB in-memory
-npm run test:repositories # 18 files, 152 tests — Neon PostgreSQL (serial concurrency)
+npm run test:repositories # 19 files, 157 tests — Neon PostgreSQL (serial concurrency)
 ```
 
 | Suite | File | Tests | Focus |
@@ -171,7 +171,7 @@ Expected Jest summary:
 
 ```text
 Test Suites: 11 passed, 11 total
-Tests:       152 passed, 152 total
+Tests:       157 passed, 157 total
 ```
 
 **Console hygiene (2026-09-11):** Footer settings API responses omit local `iconUrl` values when upload files are missing (prevents `footer-icon-*` 404s). Admin settings password fields now declare proper `autocomplete` attributes, and the sandbox real-data reset key sits inside `#realResetForm`.
@@ -329,7 +329,7 @@ eonlinebazar-fullstack/
 ├── ecommerce-chat/              # Live-chat microservice (port 5001)
 ├── admin-dashboard/             # Vite React chat-admin SPA → /chat-admin
 ├── devops/                      # Nginx, droplet first-time setup
-├── tests/                       # 17 Jest suites / 169 tests (+ 152 Neon repository tests)
+├── tests/                       # 17 Jest suites / 169 tests (+ 157 Neon repository tests)
 ├── scripts/                     # Seed and index migration
 ├── prisma/schema.prisma         # PostgreSQL (Neon) target schema — 67 models; app does not read it yet
 ├── prisma/migrations/           # Applied SQL migration history (baseline: 2026-09-13)

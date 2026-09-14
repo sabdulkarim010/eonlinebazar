@@ -16,6 +16,7 @@ const Leave = require('../../models/leave');
 const cloudinary = require('../../config/cloudinary');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 const { dualWrite } = require('../../services/dualWriteService');
+const { adminDualWrite, mirrorAdminCreate, mirrorAdminUpdate, mirrorAdminFields } = require('../../utils/adminDualWriteHelpers');
 
 function getEmployeeRepository() {
     return require('../../repositories/employeeRepository');
@@ -172,7 +173,21 @@ const MIN_ACCESS_PASSWORD_LENGTH = 8;
 
 async function suspendLinkedAdminAccess(employee) {
     if (!employee?.linkedAdminId) return;
-    await Admin.findByIdAndUpdate(employee.linkedAdminId, { status: ACCOUNT_STATUS.BLOCKED });
+    await adminDualWrite(
+        () => Admin.findByIdAndUpdate(
+            employee.linkedAdminId,
+            { status: ACCOUNT_STATUS.BLOCKED },
+            { returnDocument: 'after' }
+        ),
+        (updated) => {
+            if (updated) return mirrorAdminUpdate(updated, { operation: 'suspendLinkedAdmin' });
+            return mirrorAdminFields(String(employee.linkedAdminId), { status: ACCOUNT_STATUS.BLOCKED }, 'suspendLinkedAdmin');
+        },
+        {
+            operation: 'suspendLinkedAdmin',
+            mongoId: String(employee.linkedAdminId)
+        }
+    );
 }
 
 /**
@@ -787,20 +802,28 @@ exports.grantSystemAccess = async (req, res) => {
             return res.status(400).json({ error: 'Select at least one permission' });
         }
 
-        const newAdmin = await Admin.create({
-            username: normalizedUsername,
-            password: String(password),
-            name: employee.fullName,
-            displayName: employee.fullName,
-            email: employee.email || '',
-            phone: employee.phone || '',
-            role: ROLES.STAFF,
-            permissions: sanitized,
-            status: ACCOUNT_STATUS.ACTIVE,
-            employeeRef: String(employee._id),
-            createdBy: actorName(req),
-            twoFactorEnabled: false
-        });
+        const plainPassword = String(password);
+        const newAdmin = await adminDualWrite(
+            () => Admin.create({
+                username: normalizedUsername,
+                password: plainPassword,
+                name: employee.fullName,
+                displayName: employee.fullName,
+                email: employee.email || '',
+                phone: employee.phone || '',
+                role: ROLES.STAFF,
+                permissions: sanitized,
+                status: ACCOUNT_STATUS.ACTIVE,
+                employeeRef: String(employee._id),
+                createdBy: actorName(req),
+                twoFactorEnabled: false
+            }),
+            (saved) => mirrorAdminCreate(saved, { plainPassword, operation: 'grantSystemAccess' }),
+            {
+                operation: 'grantSystemAccess',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         employee.linkedAdminId = String(newAdmin._id);
         await dualWrite(
@@ -848,7 +871,18 @@ exports.revokeSystemAccess = async (req, res) => {
             return res.status(400).json({ error: 'No access to revoke' });
         }
 
-        await Admin.findByIdAndUpdate(employee.linkedAdminId, { status: ACCOUNT_STATUS.BLOCKED });
+        await adminDualWrite(
+            () => Admin.findByIdAndUpdate(
+                employee.linkedAdminId,
+                { status: ACCOUNT_STATUS.BLOCKED },
+                { returnDocument: 'after' }
+            ),
+            (updated) => mirrorAdminUpdate(updated, { operation: 'revokeSystemAccess' }),
+            {
+                operation: 'revokeSystemAccess',
+                mongoId: String(employee.linkedAdminId)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Employee System Access Revoked',
@@ -884,7 +918,14 @@ exports.reactivateSystemAccess = async (req, res) => {
         }
 
         admin.status = ACCOUNT_STATUS.ACTIVE;
-        await admin.save();
+        await adminDualWrite(
+            () => admin.save(),
+            (saved) => mirrorAdminUpdate(saved, { operation: 'reactivateSystemAccess' }),
+            {
+                operation: 'reactivateSystemAccess',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Employee System Access Reactivated',
@@ -915,7 +956,18 @@ exports.unlinkSystemAccess = async (req, res) => {
         }
 
         const adminId = employee.linkedAdminId;
-        await Admin.findByIdAndUpdate(adminId, { status: ACCOUNT_STATUS.BLOCKED });
+        await adminDualWrite(
+            () => Admin.findByIdAndUpdate(
+                adminId,
+                { status: ACCOUNT_STATUS.BLOCKED },
+                { returnDocument: 'after' }
+            ),
+            (updated) => mirrorAdminUpdate(updated, { operation: 'unlinkSystemAccessBlock' }),
+            {
+                operation: 'unlinkSystemAccessBlock',
+                mongoId: String(adminId)
+            }
+        );
 
         employee.linkedAdminId = null;
         await dualWrite(

@@ -1490,7 +1490,27 @@ backend/src/jobs/reviewReminderJob.js [MOD] reviewReminder notification flag via
 tests/repositories/order.repository.test.js [MOD] createFromMongo FK tests + partial-failure logging tests
 backend/src/services/dualWriteService.js [UNCHANGED] reused as-is from Part 1
 backend/src/routes/** [UNCHANGED]
-DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 8 section added — completes all 8 model groups
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 8 section added — Order group complete; Admin deferred to Part 9
 REFACTOR_MAP.md [DONE] this section
 README.md [DONE] Order dual-write + repository test count (152)
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 8 note added
+
+# PostgreSQL migration — Stage 2 Step 3, Part 9: Dual-write for Admin (final): 2026-09-14
+
+backend/src/repositories/adminRepository.js [MOD] legacyId, findByLegacyId, updateByLegacyId, removeByLegacyId, mapMongoDocToWriteInput, upsertFromMongo
+backend/src/utils/adminDualWriteHelpers.js [NEW] mirrorAdminCreate/Update/Fields/Remove, adminDualWrite with sanitized [DUAL-WRITE-FAILURE] logs; lazy prisma load
+backend/src/controllers/staffController.js [MOD] create/update/status/reset-password/delete via dualWrite()
+backend/src/controllers/admin/employeeController.js [MOD] grant/revoke/reactivate/unlink/suspend linked admin via dualWrite()
+backend/src/controllers/admin/payrollController.js [MOD] updateSalaryConfig via dualWrite()
+backend/src/controllers/admin/adminProfileController.js [MOD] updateProfilePic, updateAdminProfile via dualWrite()
+backend/src/controllers/admin/adminSettingsController.js [MOD] updateAdminSettings, uploadStoreBranding via dualWrite()
+backend/src/controllers/twoFactorController.js [MOD] TOTP/SMS 2FA setup/verify/disable/updateMethod via dualWrite()
+backend/src/controllers/admin/authController.js [MOD] bootstrap, password upgrade, lastLoginAt, OTP/TOTP flows, resetTotpEmergency via dualWrite()
+backend/src/controllers/internalChatController.js [MOD] updateInternalAdminImage via dualWrite(); duplicate require removed
+tests/repositories/admin.repository.test.js [MOD] +5 dual-write tests (salt verify, salary patch, status, secret log isolation, superadmin remove)
+backend/src/services/dualWriteService.js [UNCHANGED] reused as-is from Part 1
+backend/src/routes/** [UNCHANGED]
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 9 section — Stage 2 Step 3 COMPLETE (all 9 parts)
+REFACTOR_MAP.md [DONE] this section
+README.md [DONE] Admin dual-write + repository test count (157)
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 9 note added

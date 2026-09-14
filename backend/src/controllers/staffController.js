@@ -28,6 +28,7 @@ const {
 } = require('../config/permissions');
 const { fingerprint } = require('../utils/deviceParser');
 const { logSecurityEvent } = require('../utils/securityLogger');
+const { adminDualWrite, mirrorAdminCreate, mirrorAdminUpdate, mirrorAdminRemove } = require('../utils/adminDualWriteHelpers');
 
 const USERNAME_PATTERN = /^[a-z0-9][a-z0-9._-]{2,29}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -174,7 +175,14 @@ exports.createStaff = async (req, res) => {
             twoFactorMethod: 'email'
         });
 
-        await staff.save();
+        await adminDualWrite(
+            () => staff.save(),
+            (saved) => mirrorAdminCreate(saved, { plainPassword: password, operation: 'createStaff' }),
+            {
+                operation: 'createStaff',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Staff Account Created',
@@ -254,7 +262,14 @@ exports.updateStaff = async (req, res) => {
             staff.twoFactorEnabled = requireTwoFactor;
         }
 
-        await staff.save();
+        await adminDualWrite(
+            () => staff.save(),
+            (saved) => mirrorAdminUpdate(saved, { operation: 'updateStaff' }),
+            {
+                operation: 'updateStaff',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Staff Account Updated',
@@ -300,7 +315,14 @@ exports.updateStaffStatus = async (req, res) => {
         }
 
         staff.status = nextStatus;
-        await staff.save();
+        await adminDualWrite(
+            () => staff.save(),
+            (saved) => mirrorAdminUpdate(saved, { operation: 'updateStaffStatus' }),
+            {
+                operation: 'updateStaffStatus',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         // Blocking must take effect right now, not when the token expires.
         const revoked = nextStatus === ACCOUNT_STATUS.BLOCKED ? await revokeAllSessions(staff.username) : 0;
@@ -352,7 +374,14 @@ exports.resetStaffPassword = async (req, res) => {
 
         const newPassword = provided || generatePassword();
         staff.password = newPassword; // hashed by the model's pre-save hook
-        await staff.save();
+        await adminDualWrite(
+            () => staff.save(),
+            (saved) => mirrorAdminUpdate(saved, { plainPassword: newPassword, operation: 'resetStaffPassword' }),
+            {
+                operation: 'resetStaffPassword',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         // Old sessions must die with the old password.
         const revoked = await revokeAllSessions(staff.username);
@@ -469,8 +498,16 @@ exports.deleteStaff = async (req, res) => {
         }
 
         const { username } = staff;
+        const staffLegacyId = String(staff._id);
         const revoked = await revokeAllSessions(username);
-        await staff.deleteOne();
+        await adminDualWrite(
+            () => staff.deleteOne(),
+            () => mirrorAdminRemove(staffLegacyId),
+            {
+                operation: 'deleteStaff',
+                mongoId: staffLegacyId
+            }
+        );
 
         await logSecurityEvent({
             action: 'Staff Account Deleted',

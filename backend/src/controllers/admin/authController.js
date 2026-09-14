@@ -25,6 +25,12 @@ const { sendAdminOtpSms } = require('../../utils/smsSender');
 const { recordLoginAttempt, findActiveBan } = require('../../middlewares/adminSecurity');
 const { logSecurityEvent } = require('../../utils/securityLogger');
 const { ROLES, ACCOUNT_STATUS } = require('../../config/permissions');
+const {
+    adminDualWrite,
+    mirrorAdminCreate,
+    mirrorAdminUpdate,
+    mirrorAdminFields
+} = require('../../utils/adminDualWriteHelpers');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const OTP_TTL_MINUTES = 5;
@@ -240,7 +246,12 @@ async function issueAdminSession(admin, fp) {
         lastActive: new Date()
     });
 
-    await Admin.updateOne({ _id: admin._id }, { $set: { lastLoginAt: new Date() } });
+    const loginAt = new Date();
+    await adminDualWrite(
+        () => Admin.updateOne({ _id: admin._id }, { $set: { lastLoginAt: loginAt } }),
+        () => mirrorAdminFields(String(admin._id), { lastLoginAt: loginAt }, 'lastLoginAt'),
+        { operation: 'lastLoginAt', mongoId: String(admin._id) }
+    );
 
     // `role: 'admin'` stays as the *token type* (every existing guard keys off
     // it). The RBAC role travels as `accountRole` — but nothing trusts it:
@@ -292,7 +303,11 @@ async function rejectIfBlocked(res, admin, fp) {
  * Finish login after password (2FA off) or after a valid inline/step-2 code.
  */
 async function completeAdminLogin(res, admin, fp, details) {
-    await Admin.updateOne({ _id: admin._id }, clearOtpFields());
+    await adminDualWrite(
+        () => Admin.updateOne({ _id: admin._id }, clearOtpFields()),
+        () => mirrorAdminFields(String(admin._id), { otp: null, otpExpiry: null }, 'clearOtpFields'),
+        { operation: 'clearOtpFields', mongoId: String(admin._id) }
+    );
     const { token } = await issueAdminSession(admin, fp);
 
     await recordLoginAttempt({
@@ -330,12 +345,21 @@ function isTotpFullyEnrolled(admin) {
 /** Drop leftover authenticator secrets that were never confirmed via QR verify. */
 async function discardUnverifiedTotp(admin) {
     const nextMethod = admin.twoFactorMethod === 'totp' ? 'email' : admin.twoFactorMethod;
-    await Admin.updateOne(
-        { _id: admin._id },
-        {
-            $unset: { totpSecret: 1, totpPendingSecret: 1 },
-            $set: { totpVerified: false, twoFactorMethod: nextMethod }
-        }
+    await adminDualWrite(
+        () => Admin.updateOne(
+            { _id: admin._id },
+            {
+                $unset: { totpSecret: 1, totpPendingSecret: 1 },
+                $set: { totpVerified: false, twoFactorMethod: nextMethod }
+            }
+        ),
+        () => mirrorAdminFields(String(admin._id), {
+            totpSecret: null,
+            totpPendingSecret: null,
+            totpVerified: false,
+            twoFactorMethod: nextMethod
+        }, 'discardUnverifiedTotp'),
+        { operation: 'discardUnverifiedTotp', mongoId: String(admin._id) }
     );
     admin.totpSecret = undefined;
     admin.totpPendingSecret = undefined;
@@ -415,7 +439,11 @@ async function dispatchChallenge(admin, method, fp) {
     );
 
     if (method === 'totp') {
-        await Admin.updateOne({ _id: admin._id }, clearOtpFields());
+        await adminDualWrite(
+            () => Admin.updateOne({ _id: admin._id }, clearOtpFields()),
+            () => mirrorAdminFields(String(admin._id), { otp: null, otpExpiry: null }, 'dispatchChallengeTotpClear'),
+            { operation: 'dispatchChallengeTotpClear', mongoId: String(admin._id) }
+        );
         return {
             otpToken,
             method,
@@ -438,9 +466,13 @@ async function dispatchChallenge(admin, method, fp) {
             expiresInMinutes: OTP_TTL_MINUTES
         });
         if (delivery.delivered) {
-            await Admin.updateOne(
-                { _id: admin._id },
-                { $set: { otp: otpHash, otpExpiry }, $unset: { loginOtpHash: 1, loginOtpExpires: 1 } }
+            await adminDualWrite(
+                () => Admin.updateOne(
+                    { _id: admin._id },
+                    { $set: { otp: otpHash, otpExpiry }, $unset: { loginOtpHash: 1, loginOtpExpires: 1 } }
+                ),
+                () => mirrorAdminFields(String(admin._id), { otp: otpHash, otpExpiry }, 'dispatchChallengeSmsOtp'),
+                { operation: 'dispatchChallengeSmsOtp', mongoId: String(admin._id) }
             );
         }
         return {
@@ -466,9 +498,13 @@ async function dispatchChallenge(admin, method, fp) {
         expiresInMinutes: OTP_TTL_MINUTES
     });
     if (delivery.delivered) {
-        await Admin.updateOne(
-            { _id: admin._id },
-            { $set: { otp: otpHash, otpExpiry }, $unset: { loginOtpHash: 1, loginOtpExpires: 1 } }
+        await adminDualWrite(
+            () => Admin.updateOne(
+                { _id: admin._id },
+                { $set: { otp: otpHash, otpExpiry }, $unset: { loginOtpHash: 1, loginOtpExpires: 1 } }
+            ),
+            () => mirrorAdminFields(String(admin._id), { otp: otpHash, otpExpiry }, 'dispatchChallengeEmailOtp'),
+            { operation: 'dispatchChallengeEmailOtp', mongoId: String(admin._id) }
         );
     }
     return {
@@ -524,7 +560,14 @@ exports.loginAdmin = async (req, res) => {
                 role: ROLES.SUPER_ADMIN,
                 status: ACCOUNT_STATUS.ACTIVE
             });
-            await admin.save();
+            await adminDualWrite(
+                () => admin.save(),
+                (saved) => mirrorAdminCreate(saved, {
+                    plainPassword: process.env.ADMIN_PASSWORD,
+                    operation: 'bootstrapSuperAdmin'
+                }),
+                { operation: 'bootstrapSuperAdmin', mongoId: (saved) => String(saved._id) }
+            );
         } else {
             const passwordOk = admin ? await admin.verifyPassword(password) : false;
 
@@ -551,7 +594,14 @@ exports.loginAdmin = async (req, res) => {
                 // The value is unchanged, so Mongoose would consider the path
                 // clean and skip the hashing hook — force it to run.
                 admin.markModified('password');
-                await admin.save();
+                await adminDualWrite(
+                    () => admin.save(),
+                    (saved) => mirrorAdminUpdate(saved, {
+                        plainPassword: password,
+                        operation: 'legacyPasswordUpgrade'
+                    }),
+                    { operation: 'legacyPasswordUpgrade', mongoId: (saved) => String(saved._id) }
+                );
             }
         }
 
@@ -867,7 +917,11 @@ exports.verifyOtp = async (req, res) => {
 
             // Strict epoch-ms compare — never parse local date strings / timezones
             if (Date.now() > user.otpExpiry) {
-                await Admin.updateOne({ _id: user._id }, clearOtpFields());
+                await adminDualWrite(
+                    () => Admin.updateOne({ _id: user._id }, clearOtpFields()),
+                    () => mirrorAdminFields(String(user._id), { otp: null, otpExpiry: null }, 'verifyOtpExpiredClear'),
+                    { operation: 'verifyOtpExpiredClear', mongoId: String(user._id) }
+                );
                 return otpFail(res, 400, 'OTP_EXPIRED', 'OTP Expired', { restart: true });
             }
 
@@ -889,7 +943,11 @@ exports.verifyOtp = async (req, res) => {
         const { token } = await issueAdminSession(user, fp);
 
         // One-time use — clear only after session is safely created
-        await Admin.updateOne({ _id: user._id }, clearOtpFields());
+        await adminDualWrite(
+            () => Admin.updateOne({ _id: user._id }, clearOtpFields()),
+            () => mirrorAdminFields(String(user._id), { otp: null, otpExpiry: null }, 'verifyOtpSuccessClear'),
+            { operation: 'verifyOtpSuccessClear', mongoId: String(user._id) }
+        );
 
         await recordLoginAttempt({ fingerprint: fp, username: user.username, status: 'success', details: 'OTP verified — login complete' });
         await logSecurityEvent({
@@ -966,17 +1024,21 @@ exports.resetTotpEmergency = async (req, res) => {
             secretPrefix: admin.totpSecret ? String(admin.totpSecret).substring(0, 4) : 'NONE'
         });
 
-        const result = await Admin.findByIdAndUpdate(
-            admin._id,
-            {
-                $unset: { totpSecret: 1, totpPendingSecret: 1 },
-                $set: {
-                    totpVerified: false,
-                    twoFactorMethod: 'email',
-                    twoFactorEnabled: false
-                }
-            },
-            { new: true }
+        const result = await adminDualWrite(
+            () => Admin.findByIdAndUpdate(
+                admin._id,
+                {
+                    $unset: { totpSecret: 1, totpPendingSecret: 1 },
+                    $set: {
+                        totpVerified: false,
+                        twoFactorMethod: 'email',
+                        twoFactorEnabled: false
+                    }
+                },
+                { returnDocument: 'after' }
+            ),
+            (updated) => mirrorAdminUpdate(updated, { operation: 'resetTotpEmergency' }),
+            { operation: 'resetTotpEmergency', mongoId: String(admin._id) }
         );
 
         if (!result) {

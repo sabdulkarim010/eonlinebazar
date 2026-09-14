@@ -25,6 +25,8 @@ function getPayrollRepository() {
 function mirrorPayrollDoc(saved) {
     return require('../../utils/hrmDualWriteHelpers').mirrorPayrollDoc(saved);
 }
+
+const { adminDualWrite, mirrorAdminUpdate } = require('../../utils/adminDualWriteHelpers');
 const { findAdmin, parseStaffSelector, resolveHrmSubject } = require('../../utils/hrmStaffResolver');
 
 /** Bangladesh weekend — Friday (Date#getDay() === 5) is not a working day. */
@@ -469,10 +471,17 @@ exports.updateSalaryConfig = async (req, res) => {
 
         // findByIdAndUpdate keeps the password untouched, so the hashing hook
         // on save() is never a concern here.
-        const updated = await Admin.findByIdAndUpdate(
-            account._id,
-            { $set: updates },
-            { new: true, runValidators: true }
+        const updated = await adminDualWrite(
+            () => Admin.findByIdAndUpdate(
+                account._id,
+                { $set: updates },
+                { returnDocument: 'after', runValidators: true }
+            ),
+            (saved) => mirrorAdminUpdate(saved, { operation: 'updateSalaryConfig' }),
+            {
+                operation: 'updateSalaryConfig',
+                mongoId: String(account._id)
+            }
         );
 
         await logSecurityEvent({

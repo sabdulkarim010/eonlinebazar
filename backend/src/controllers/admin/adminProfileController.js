@@ -15,6 +15,7 @@ const SecurityLog = require('../../models/securityLog');
 const Coupon = require('../../models/coupon');
 const cloudinary = require('cloudinary').v2;
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { adminDualWrite, mirrorAdminUpdate } = require('../../utils/adminDualWriteHelpers');
 const { getApplicationNow } = require('../../utils/applicationTime');
 
 // ==============================================================
@@ -55,10 +56,17 @@ const updateProfilePic = async (req, res) => {
                 }
 
                 // ডাটাবেজে নতুন ছবির লিংক আপডেট করা
-                const updatedAdmin = await Admin.findOneAndUpdate(
-                    { username: currentUsername },
-                    { image: result.secure_url },
-                    { returnDocument: 'after' }
+                const updatedAdmin = await adminDualWrite(
+                    () => Admin.findOneAndUpdate(
+                        { username: currentUsername },
+                        { image: result.secure_url },
+                        { returnDocument: 'after' }
+                    ),
+                    (saved) => mirrorAdminUpdate(saved, { operation: 'updateProfilePic' }),
+                    {
+                        operation: 'updateProfilePic',
+                        mongoId: (saved) => String(saved?._id)
+                    }
                 );
 
                 if (!updatedAdmin) {
@@ -224,7 +232,17 @@ const updateAdminProfile = async (req, res) => {
             admin.email = String(email).toLowerCase().trim();
         }
 
-        await admin.save();
+        await adminDualWrite(
+            () => admin.save(),
+            (saved) => mirrorAdminUpdate(saved, {
+                plainPassword: newPassword ? String(newPassword) : undefined,
+                operation: 'updateAdminProfile'
+            }),
+            {
+                operation: 'updateAdminProfile',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         // ইউজারনেম বা পাসওয়ার্ড বদলালে পুরোনো টোকেন/সেশন আর বৈধ নয় —
         // সব ডিভাইস সাইন-আউট করে ফ্রন্টএন্ডকে রি-লগইন করতে বলা হয়।

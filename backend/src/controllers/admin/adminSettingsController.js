@@ -20,6 +20,7 @@ const {
 const { clearStoreSettingsCache } = require('../../services/storeSettingsService');
 const { invalidate, CACHE_KEYS } = require('../../services/cacheService');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { adminDualWrite, mirrorAdminUpdate } = require('../../utils/adminDualWriteHelpers');
 
 // ==============================================================
 // ১১. অ্যাডমিন সেটিংস পড়া
@@ -102,7 +103,17 @@ const updateAdminSettings = async (req, res) => {
         if (currencySymbol !== undefined) admin.currencySymbol = String(currencySymbol).trim();
         if (timezone !== undefined) admin.timezone = String(timezone).trim();
 
-        await admin.save();
+        await adminDualWrite(
+            () => admin.save(),
+            (saved) => mirrorAdminUpdate(saved, {
+                plainPassword: passwordChanged ? String(newPassword) : undefined,
+                operation: 'updateAdminSettings'
+            }),
+            {
+                operation: 'updateAdminSettings',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         if (storeName !== undefined) {
             clearStoreSettingsCache();
@@ -196,7 +207,14 @@ const uploadStoreBranding = async (req, res) => {
             response.faviconUrl = admin.faviconUrl;
         }
 
-        await admin.save();
+        await adminDualWrite(
+            () => admin.save(),
+            (saved) => mirrorAdminUpdate(saved, { operation: 'uploadStoreBranding' }),
+            {
+                operation: 'uploadStoreBranding',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
         clearStoreSettingsCache();
         await invalidate(CACHE_KEYS.STORE_SETTINGS);
 

@@ -21,6 +21,7 @@ const Admin = require('../models/admin');
 const { fingerprint } = require('../utils/deviceParser');
 const { sendAdminOtpSms } = require('../utils/smsSender');
 const { logSecurityEvent } = require('../utils/securityLogger');
+const { adminDualWrite, mirrorAdminUpdate } = require('../utils/adminDualWriteHelpers');
 
 const TOTP_ISSUER = process.env.TOTP_ISSUER || 'EonlineBazar Admin';
 const VALID_METHODS = ['email', 'totp', 'sms'];
@@ -97,7 +98,11 @@ exports.setupTotp = async (req, res) => {
 
         // Hold the secret as "pending" until the admin proves a valid code.
         admin.totpPendingSecret = secret.base32;
-        await admin.save();
+        await adminDualWrite(
+            () => admin.save(),
+            (saved) => mirrorAdminUpdate(saved, { operation: 'setupTotp' }),
+            { operation: 'setupTotp', mongoId: (saved) => String(saved._id) }
+        );
 
         const otpauthUrl = speakeasy.otpauthURL({
             secret: secret.ascii,
@@ -172,7 +177,11 @@ exports.verifyTotpSetup = async (req, res) => {
         admin.totpVerified = true;
         admin.twoFactorMethod = 'totp';
         admin.twoFactorEnabled = true;
-        await admin.save();
+        await adminDualWrite(
+            () => admin.save(),
+            (saved) => mirrorAdminUpdate(saved, { operation: 'verifyTotpSetup' }),
+            { operation: 'verifyTotpSetup', mongoId: (saved) => String(saved._id) }
+        );
 
         await logSecurityEvent({
             action: 'Admin 2FA TOTP Enabled',
@@ -207,7 +216,11 @@ exports.disableTotp = async (req, res) => {
         admin.totpPendingSecret = null;
         admin.totpVerified = false;
         if (admin.twoFactorMethod === 'totp') admin.twoFactorMethod = 'email';
-        await admin.save();
+        await adminDualWrite(
+            () => admin.save(),
+            (saved) => mirrorAdminUpdate(saved, { operation: 'disableTotp' }),
+            { operation: 'disableTotp', mongoId: (saved) => String(saved._id) }
+        );
 
         await logSecurityEvent({
             action: 'Admin 2FA TOTP Disabled',
@@ -250,7 +263,11 @@ exports.sendSmsSetupOtp = async (req, res) => {
         const otp = String(crypto.randomInt(100000, 1000000)); // always 6 digits
         admin.smsSetupOtp = otp;
         admin.smsSetupOtpExpiry = Date.now() + SMS_SETUP_TTL_MINUTES * 60 * 1000;
-        await admin.save();
+        await adminDualWrite(
+            () => admin.save(),
+            (saved) => mirrorAdminUpdate(saved, { operation: 'sendSmsSetupOtp' }),
+            { operation: 'sendSmsSetupOtp', mongoId: (saved) => String(saved._id) }
+        );
 
         const delivery = await sendAdminOtpSms({
             to: targetPhone,
@@ -304,7 +321,11 @@ exports.verifySmsSetupOtp = async (req, res) => {
         if (Date.now() > admin.smsSetupOtpExpiry) {
             admin.smsSetupOtp = null;
             admin.smsSetupOtpExpiry = null;
-            await admin.save();
+            await adminDualWrite(
+                () => admin.save(),
+                (saved) => mirrorAdminUpdate(saved, { operation: 'verifySmsSetupOtpExpired' }),
+                { operation: 'verifySmsSetupOtpExpired', mongoId: (saved) => String(saved._id) }
+            );
             return res.status(400).json({ success: false, message: 'The code has expired. Please send a new test code.' });
         }
         if (String(admin.smsSetupOtp) !== inputToken) {
@@ -316,7 +337,11 @@ exports.verifySmsSetupOtp = async (req, res) => {
         admin.smsSetupOtpExpiry = null;
         admin.twoFactorMethod = 'sms';
         admin.twoFactorEnabled = true;
-        await admin.save();
+        await adminDualWrite(
+            () => admin.save(),
+            (saved) => mirrorAdminUpdate(saved, { operation: 'verifySmsSetupOtp' }),
+            { operation: 'verifySmsSetupOtp', mongoId: (saved) => String(saved._id) }
+        );
 
         await logSecurityEvent({
             action: 'Admin 2FA SMS Enabled',
@@ -390,7 +415,11 @@ exports.updateMethod = async (req, res) => {
         }
         if (typeof enabled === 'boolean') admin.twoFactorEnabled = enabled;
 
-        await admin.save();
+        await adminDualWrite(
+            () => admin.save(),
+            (saved) => mirrorAdminUpdate(saved, { operation: 'updateTwoFactorMethod' }),
+            { operation: 'updateTwoFactorMethod', mongoId: (saved) => String(saved._id) }
+        );
 
         await logSecurityEvent({
             action: 'Admin 2FA Method Updated',

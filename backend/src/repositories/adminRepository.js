@@ -8,8 +8,7 @@
  *   Reimplements the pre-save hashPassword hook and select:false secrecy
  *   for OTP/TOTP fields as explicit Prisma select clauses.
  *
- *   NOT YET WIRED INTO THE APP — Stage 2 Step 2, Part 2 (2026-09-13).
- *   The live database is still MongoDB; this file is additive / isolated.
+ *   Wired for dual-write — Stage 2 Step 3, Part 9 (2026-09-14).
  ********************************************************************/
 
 'use strict';
@@ -237,6 +236,7 @@ async function create(data) {
 
   const record = await prisma.admin.create({
     data: {
+      legacyId: data.legacyId != null ? String(data.legacyId) : null,
       username,
       password,
       name: String(data.name ?? '').trim(),
@@ -379,6 +379,116 @@ async function verifyPassword(plainTextPassword, storedHash) {
   return bcrypt.compare(plain, stored);
 }
 
+async function findByLegacyId(legacyId) {
+  if (!legacyId) return null;
+  const record = await prisma.admin.findUnique({
+    where: { legacyId: String(legacyId) },
+    select: SAFE_SELECT
+  });
+  return toShape(record);
+}
+
+async function updateByLegacyId(legacyId, data) {
+  const existing = await prisma.admin.findUnique({
+    where: { legacyId: String(legacyId) }
+  });
+  if (!existing) {
+    const err = new Error('Admin not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+  return update(existing.id, data);
+}
+
+async function removeByLegacyId(legacyId) {
+  const existing = await prisma.admin.findUnique({
+    where: { legacyId: String(legacyId) }
+  });
+  if (!existing) {
+    const err = new Error('Admin account not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+  return remove(existing.id);
+}
+
+function mapMongoDocToWriteInput(mongoDoc, options = {}) {
+  const plain = mongoDoc && typeof mongoDoc.toObject === 'function'
+    ? mongoDoc.toObject({ getters: true })
+    : { ...mongoDoc };
+
+  const input = {
+    legacyId: mongoDoc._id != null ? String(mongoDoc._id) : null,
+    username: plain.username,
+    name: plain.name,
+    role: plain.role,
+    permissions: plain.permissions,
+    status: plain.status,
+    createdBy: plain.createdBy,
+    lastLoginAt: plain.lastLoginAt ?? null,
+    email: plain.email,
+    phone: plain.phone,
+    twoFactorMethod: plain.twoFactorMethod,
+    twoFactorEnabled: plain.twoFactorEnabled,
+    totpVerified: plain.totpVerified,
+    image: plain.image,
+    displayName: plain.displayName,
+    storeName: plain.storeName,
+    currency: plain.currency,
+    currencySymbol: plain.currencySymbol,
+    timezone: plain.timezone,
+    logoUrl: plain.logoUrl,
+    faviconUrl: plain.faviconUrl,
+    baseSalary: plain.baseSalary,
+    department: plain.department,
+    joiningDate: plain.joiningDate ?? null,
+    employeeId: plain.employeeId
+  };
+
+  if (options.plainPassword) {
+    input.password = String(options.plainPassword);
+  }
+
+  if (options.includeSecrets !== false) {
+    if (plain.otp !== undefined) input.otp = plain.otp;
+    if (plain.otpExpiry !== undefined) input.otpExpiry = plain.otpExpiry;
+    if (plain.totpSecret !== undefined) input.totpSecret = plain.totpSecret;
+    if (plain.totpPendingSecret !== undefined) input.totpPendingSecret = plain.totpPendingSecret;
+    if (plain.smsSetupOtp !== undefined) input.smsSetupOtp = plain.smsSetupOtp;
+    if (plain.smsSetupOtpExpiry !== undefined) input.smsSetupOtpExpiry = plain.smsSetupOtpExpiry;
+  }
+
+  if (options.fields && typeof options.fields === 'object') {
+    Object.assign(input, options.fields);
+  }
+
+  return input;
+}
+
+async function upsertFromMongo(mongoDoc, options = {}) {
+  const legacyId = mongoDoc._id != null ? String(mongoDoc._id) : null;
+  if (!legacyId) throw new Error('Admin legacyId is required for upsertFromMongo.');
+
+  const existing = await prisma.admin.findUnique({ where: { legacyId } });
+  const input = mapMongoDocToWriteInput(mongoDoc, options);
+
+  if (existing) {
+    const updateData = { ...input };
+    delete updateData.legacyId;
+    if (!options.plainPassword) delete updateData.password;
+    return update(existing.id, updateData);
+  }
+
+  if (!options.plainPassword) {
+    throw new Error('plainPassword is required when creating Admin from Mongo.');
+  }
+
+  return create({
+    ...input,
+    password: options.plainPassword
+  });
+}
+
 module.exports = {
   BCRYPT_ROUNDS,
   BCRYPT_PATTERN,
@@ -392,5 +502,10 @@ module.exports = {
   create,
   update,
   remove,
-  verifyPassword
+  verifyPassword,
+  findByLegacyId,
+  updateByLegacyId,
+  removeByLegacyId,
+  mapMongoDocToWriteInput,
+  upsertFromMongo
 };
