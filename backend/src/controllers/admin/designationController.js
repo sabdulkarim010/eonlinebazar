@@ -13,6 +13,8 @@ const Designation = require('../../models/designation');
 const Employee = require('../../models/employee');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 const { dualWrite } = require('../../services/dualWriteService');
+const { routedRead } = require('../../services/readRouter');
+const { mapDesignationsToMongo } = require('../../services/readShapeHelpers');
 
 /** Lazy load — avoids pulling Prisma into Jest when the app graph is imported. */
 function getDesignationRepository() {
@@ -66,13 +68,23 @@ exports.getAllDesignations = async (req, res) => {
             filter.isActive = true;
         }
 
-        const designations = await Designation.find(filter).sort({ name: 1 }).lean();
-        const counts = await countEmployeesByDesignation(designations.map((d) => d.name));
-
-        const data = designations.map((d) => ({
-            ...d,
-            employeeCount: counts[d.name] || 0
-        }));
+        const data = await routedRead(
+            'designation',
+            async () => {
+                const designations = await Designation.find(filter).sort({ name: 1 }).lean();
+                const counts = await countEmployeesByDesignation(designations.map((d) => d.name));
+                return designations.map((d) => ({
+                    ...d,
+                    employeeCount: counts[d.name] || 0
+                }));
+            },
+            async () => {
+                const rows = await getDesignationRepository().findAll({
+                    activeOnly: String(req.query.activeOnly || '').toLowerCase() === 'true'
+                });
+                return mapDesignationsToMongo(rows);
+            }
+        );
 
         res.status(200).json({ success: true, data });
     } catch (error) {

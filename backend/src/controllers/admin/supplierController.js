@@ -14,6 +14,11 @@ const Product = require('../../models/product');
 const PurchaseOrder = require('../../models/purchaseOrder');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 const { dualWrite } = require('../../services/dualWriteService');
+const { routedRead } = require('../../services/readRouter');
+const {
+    mapSuppliersToMongo,
+    supplierToMongoShape
+} = require('../../services/readShapeHelpers');
 
 /** Lazy load — avoids pulling Prisma into Jest when the app graph is imported. */
 function getSupplierRepository() {
@@ -94,6 +99,63 @@ function pickSupplierFields(body) {
     return fields;
 }
 
+async function fetchSuppliersFromPostgres(filter) {
+    const repo = getSupplierRepository();
+    const rows = await repo.findAll({
+        status: filter.status,
+        search: filter.search
+    });
+    let shaped = mapSuppliersToMongo(rows);
+
+    if (shaped.length) {
+        const legacyIds = shaped.map((s) => s._id);
+        const mongoRoster = await Supplier.find({ _id: { $in: legacyIds } })
+            .select('suppliedProducts')
+            .populate('suppliedProducts', 'name productId')
+            .lean();
+        const rosterMap = new Map(mongoRoster.map((doc) => [String(doc._id), doc.suppliedProducts || []]));
+        shaped = shaped.map((s) => ({
+            ...s,
+            suppliedProducts: rosterMap.get(String(s._id)) || []
+        }));
+    }
+
+    return shaped;
+}
+
+async function fetchSupplierByIdRead(id, populateFields) {
+    return routedRead(
+        'supplier',
+        async () => {
+            const supplier = await Supplier.findById(id)
+                .populate('suppliedProducts', populateFields)
+                .lean();
+            if (!supplier) return null;
+            const purchaseOrders = await PurchaseOrder.find({ supplierId: id })
+                .sort({ createdAt: -1 })
+                .limit(10)
+                .select('poNumber status totalCost expectedDate receivedDate createdAt')
+                .lean();
+            return { ...supplier, purchaseOrders };
+        },
+        async () => {
+            const row = await getSupplierRepository().findByLegacyId(id);
+            if (!row) return null;
+            const shape = supplierToMongoShape(row);
+            const mongoDoc = await Supplier.findById(id)
+                .populate('suppliedProducts', populateFields)
+                .lean();
+            shape.suppliedProducts = mongoDoc?.suppliedProducts || [];
+            const purchaseOrders = await PurchaseOrder.find({ supplierId: id })
+                .sort({ createdAt: -1 })
+                .limit(10)
+                .select('poNumber status totalCost expectedDate receivedDate createdAt')
+                .lean();
+            return { ...shape, purchaseOrders };
+        }
+    );
+}
+
 /**
  * GET /api/admin/suppliers
  * Paginated vendor directory. Supports ?search= (name/contact/phone/email),
@@ -116,7 +178,14 @@ exports.getAllSuppliers = async (req, res) => {
 
         // Dropdowns need the whole active list, not a page of it.
         if (String(req.query.all || '').toLowerCase() === 'true') {
-            const suppliers = await Supplier.find(filter).sort({ name: 1 }).lean();
+            const suppliers = await routedRead(
+                'supplier',
+                () => Supplier.find(filter).sort({ name: 1 }).lean(),
+                async () => {
+                    const rows = await fetchSuppliersFromPostgres(filter);
+                    return rows.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+                }
+            );
             return res.status(200).json({
                 success: true,
                 data: suppliers,
@@ -126,15 +195,23 @@ exports.getAllSuppliers = async (req, res) => {
 
         const { page, limit, skip } = parsePagination(req.query);
 
-        const [suppliers, total] = await Promise.all([
-            Supplier.find(filter)
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .populate('suppliedProducts', 'name productId')
-                .lean(),
-            Supplier.countDocuments(filter)
-        ]);
+        const [suppliers, total] = await routedRead(
+            'supplier',
+            () => Promise.all([
+                Supplier.find(filter)
+                    .sort({ createdAt: -1 })
+                    .skip(skip)
+                    .limit(limit)
+                    .populate('suppliedProducts', 'name productId')
+                    .lean(),
+                Supplier.countDocuments(filter)
+            ]),
+            async () => {
+                const all = await fetchSuppliersFromPostgres(filter);
+                all.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                return [all.slice(skip, skip + limit), all.length];
+            }
+        );
 
         res.status(200).json({
             success: true,
@@ -163,21 +240,13 @@ exports.getSupplierById = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid supplier id.' });
         }
 
-        const supplier = await Supplier.findById(id)
-            .populate('suppliedProducts', 'name productId price stockQuantity')
-            .lean();
+        const supplier = await fetchSupplierByIdRead(id, 'name productId price stockQuantity');
 
         if (!supplier) {
             return res.status(404).json({ success: false, message: 'Supplier not found.' });
         }
 
-        const purchaseOrders = await PurchaseOrder.find({ supplierId: id })
-            .sort({ createdAt: -1 })
-            .limit(10)
-            .select('poNumber status totalCost expectedDate receivedDate createdAt')
-            .lean();
-
-        res.status(200).json({ success: true, data: { ...supplier, purchaseOrders } });
+        res.status(200).json({ success: true, data: supplier });
     } catch (error) {
         console.error('getSupplierById Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load supplier.' });

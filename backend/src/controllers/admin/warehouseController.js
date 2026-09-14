@@ -14,6 +14,11 @@ const Product = require('../../models/product');
 const PurchaseOrder = require('../../models/purchaseOrder');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 const { dualWrite } = require('../../services/dualWriteService');
+const { routedRead } = require('../../services/readRouter');
+const {
+    mapWarehousesToMongo,
+    warehouseToMongoShape
+} = require('../../services/readShapeHelpers');
 
 /** Lazy load — avoids pulling Prisma into Jest when the app graph is imported. */
 function getWarehouseRepository() {
@@ -90,6 +95,47 @@ async function demoteOtherDefaults(keepId) {
     await Warehouse.updateMany(filter, { $set: { isDefault: false } });
 }
 
+async function attachWarehouseProductCounts(warehouses) {
+    if (!warehouses.length) return warehouses;
+    const counts = await Product.aggregate([
+        { $match: { warehouseId: { $in: warehouses.map((w) => w._id) } } },
+        { $group: { _id: '$warehouseId', productCount: { $sum: 1 } } }
+    ]);
+    const countMap = new Map(counts.map((row) => [String(row._id), row.productCount]));
+    return warehouses.map((w) => ({
+        ...w,
+        productCount: countMap.get(String(w._id)) || 0
+    }));
+}
+
+async function fetchWarehousesList(filter, sortMode) {
+    return routedRead(
+        'warehouse',
+        async () => {
+            const sort = sortMode === 'dropdown'
+                ? { isDefault: -1, name: 1 }
+                : { isDefault: -1, createdAt: -1 };
+            return Warehouse.find(filter).sort(sort).lean();
+        },
+        async () => {
+            const rows = await getWarehouseRepository().findAll({ status: filter.status });
+            let shaped = mapWarehousesToMongo(rows);
+            if (sortMode === 'dropdown') {
+                shaped.sort((a, b) => {
+                    if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
+                    return String(a.name).localeCompare(String(b.name));
+                });
+            } else {
+                shaped.sort((a, b) => {
+                    if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
+                    return new Date(b.createdAt) - new Date(a.createdAt);
+                });
+            }
+            return shaped;
+        }
+    );
+}
+
 /**
  * GET /api/admin/warehouses
  * Paginated locations, default first. ?all=true returns the full list for
@@ -105,9 +151,7 @@ exports.getAllWarehouses = async (req, res) => {
         }
 
         if (String(req.query.all || '').toLowerCase() === 'true') {
-            const warehouses = await Warehouse.find(filter)
-                .sort({ isDefault: -1, name: 1 })
-                .lean();
+            const warehouses = await fetchWarehousesList(filter, 'dropdown');
             return res.status(200).json({
                 success: true,
                 data: warehouses,
@@ -117,28 +161,27 @@ exports.getAllWarehouses = async (req, res) => {
 
         const { page, limit, skip } = parsePagination(req.query);
 
-        const [warehouses, total] = await Promise.all([
-            Warehouse.find(filter)
-                .sort({ isDefault: -1, createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .lean(),
-            Warehouse.countDocuments(filter)
-        ]);
+        const [allMatching, total] = await routedRead(
+            'warehouse',
+            () => Promise.all([
+                Warehouse.find(filter)
+                    .sort({ isDefault: -1, createdAt: -1 })
+                    .lean(),
+                Warehouse.countDocuments(filter)
+            ]),
+            async () => {
+                const all = await fetchWarehousesList(filter, 'paginated');
+                return [all, all.length];
+            }
+        );
 
-        // Product counts let the table show how much each location holds.
-        const counts = await Product.aggregate([
-            { $match: { warehouseId: { $in: warehouses.map((w) => w._id) } } },
-            { $group: { _id: '$warehouseId', productCount: { $sum: 1 } } }
-        ]);
-        const countMap = new Map(counts.map((row) => [String(row._id), row.productCount]));
+        const warehouses = await attachWarehouseProductCounts(
+            allMatching.slice(skip, skip + limit)
+        );
 
         res.status(200).json({
             success: true,
-            data: warehouses.map((w) => ({
-                ...w,
-                productCount: countMap.get(String(w._id)) || 0
-            })),
+            data: warehouses,
             pagination: {
                 page,
                 limit,
@@ -160,7 +203,14 @@ exports.getWarehouseById = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid warehouse id.' });
         }
 
-        const warehouse = await Warehouse.findById(id).lean();
+        const warehouse = await routedRead(
+            'warehouse',
+            () => Warehouse.findById(id).lean(),
+            async () => {
+                const row = await getWarehouseRepository().findByLegacyId(id);
+                return row ? warehouseToMongoShape(row) : null;
+            }
+        );
         if (!warehouse) {
             return res.status(404).json({ success: false, message: 'Warehouse not found.' });
         }

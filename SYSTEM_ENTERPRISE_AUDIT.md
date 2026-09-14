@@ -1950,7 +1950,7 @@ Full detail lives in `DATABASE_MIGRATION_AUDIT.md`; this is the status summary.
 | Dual-write repository layer | ❌ NOT STARTED — Stage 2 remainder |
 | `LoginAttempt` / `BlacklistedIp` TTL sweep jobs | ❌ NOT STARTED — Stage 2 remainder |
 | `ProductTextIndex` → `tsvector` + GIN raw SQL migration | ❌ NOT STARTED — Stage 2 remainder |
-| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (all 8 groups, Steps 1–5; Order backfilled with Case A/B/C + financial aggregate verified, 2026-09-15)**; Stage 4 read cutover not started (backfill PaymentMethod first) |
+| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (all 8 groups, Steps 1–5; Order backfilled with Case A/B/C + financial aggregate verified, 2026-09-15)**; **Stage 4 Step 1 COMPLETE (2026-09-15)** — read-cutover flags + group 1 wired (Category/Brand/Supplier/Warehouse/Designation); all flags default OFF; PaymentMethod backfill still required before Order read cutover |
 
 **Isolation guarantee:** zero `.js` files under `backend/src/` were modified — no
 model, controller, route, service or script. No application code queries
@@ -2369,4 +2369,21 @@ not do. No application code, repositories, routes, or `dualWriteService.js` chan
 (`nurjahan`). **Stage 4 prerequisite:** backfill PaymentMethod before Order read cutover
 (15 orders currently read `methodId` as null). See `DATABASE_MIGRATION_AUDIT.md` §
 STAGE 3, STEP 5.
+
+## Stage 4 Step 1 — Read-cutover framework + group 1 — 2026-09-15
+
+**Status:** ✅ COMPLETE — feature-flag framework and first cutover group (Category, Brand,
+Supplier, Warehouse, Designation) wired for **reads only**. All `READ_PG_*` flags default
+OFF; Mongo remains the live read path until deliberately enabled per environment.
+
+| Item | Status |
+|------|--------|
+| `readCutoverFlags.js` + `readRouter.js` | ✅ per-group env flags; `[READ-CUTOVER-FALLBACK]` on Postgres error |
+| `readShapeHelpers.js` | ✅ `_id` ← `legacyId`; category parent populate; enum normalisation |
+| Category / Brand / Supplier / Warehouse / Designation read endpoints | ✅ wired (writes + dualWrite unchanged) |
+| Hybrid enrichments (until later groups cut over) | ⚠️ supplier `suppliedProducts` + POs, warehouse `productCount`, category slug-page products — still Mongo |
+| Default (flags OFF) regression | ✅ `npm test` 183/183 |
+| Flag-ON + fallback unit tests | ✅ 14 new tests in `tests/services/` |
+| `npm run test:repositories` | ✅ 157/157 |
+| Flags enabled in production | ❌ deliberate post-review step only |
 

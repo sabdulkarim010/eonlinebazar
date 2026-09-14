@@ -2665,3 +2665,94 @@ Documented, non-blocking deltas (pre-existing data debt, not migration bugs):
 5. **Cutover ordering** unchanged from the audit's dependency graph; Order is last because it
    depends on User, Product, PaymentMethod, and Admin.
 
+## STAGE 4, STEP 1 — Read Cutover: Feature Flags + Category/Brand/Supplier/Warehouse/Designation — 2026-09-15
+
+Stage 4 begins: a per-group feature-flag framework routes **reads only** to PostgreSQL when
+explicitly enabled via environment variable. **All flags default OFF** — with no env vars set,
+behaviour is byte-for-byte identical to pre-Stage-4 (100% Mongo reads). Writes are unchanged
+(dual-write to both databases regardless of flag state). Mongo read paths are preserved intact
+as the default and automatic fallback.
+
+### Feature flags (all default OFF)
+
+| Env var | Group | Controls |
+|---|---|---|
+| `READ_PG_CATEGORY` | `category` | Category public + admin read endpoints |
+| `READ_PG_BRAND` | `brand` | `GET` brand list (public) |
+| `READ_PG_SUPPLIER` | `supplier` | Admin supplier list + detail reads |
+| `READ_PG_WAREHOUSE` | `warehouse` | Admin warehouse list + detail reads |
+| `READ_PG_DESIGNATION` | `designation` | Admin HRM designation list reads |
+
+Documented in `.env.example` (commented out / false). Flip to `true` and restart the server to
+enable Postgres reads for that group — no code deploy required beyond env change + restart.
+
+### New infrastructure
+
+| File | Role |
+|---|---|
+| `backend/src/config/readCutoverFlags.js` | `isPgReadEnabled(group)` — reads `process.env` per call |
+| `backend/src/services/readRouter.js` | `routedRead(group, mongoFn, pgFn)` — Postgres with Mongo fallback on error |
+| `backend/src/services/readShapeHelpers.js` | `toMongoShape` transforms — `_id` = `legacyId`, enum/status normalisation |
+
+**Fallback safety net:** when a flag is ON but Postgres throws, `routedRead()` logs
+`[READ-CUTOVER-FALLBACK] {group} Postgres read failed, falling back to Mongo:` and returns the
+Mongo result — callers never see a broken read. Unit-tested in `tests/services/readRouter.test.js`.
+
+### Read endpoints wired (reads only — no writes touched)
+
+**Category** (`categoryController.js`):
+
+| Endpoint | Handler |
+|---|---|
+| `GET /api/categories` | `getCategories` |
+| `GET /api/categories/tree` | `getCategoryTree` |
+| `GET /api/categories/navbar` | `getNavbarCategories` |
+| `GET /api/categories/homepage` | `getHomepageCategories` |
+| `GET /api/categories/:slug` | `getCategoryBySlug` (category tree only — products still Mongo) |
+| `GET /api/categories/admin/:id` | `getCategoryById` |
+| `GET /api/categories/admin/all` | `adminGetCategories` |
+
+**Brand** (`brandController.js`): `GET` brands list (`getBrands`). Cache bypassed when
+`READ_PG_BRAND=true` so stale Mongo cache cannot mask the cutover.
+
+**Supplier** (`supplierController.js`): `GET /api/admin/suppliers`, `GET /api/admin/suppliers/:id`.
+
+**Warehouse** (`warehouseController.js`): `GET /api/admin/warehouses`, `GET /api/admin/warehouses/:id`.
+
+**Designation** (`designationController.js`): `GET /api/admin/hrm/designations`.
+
+### Shape transforms (why / what)
+
+| Model | Transform needed? | Notes |
+|---|---|---|
+| **Category** | Yes — `categoryToMongoShape()` | `_id` ← `legacyId`; `parentCategory` ← resolved parent `legacyId` (populated `{ _id, name }` on admin reads); `customCashback` Decimal → number; strips Postgres-only keys |
+| **Brand** | Yes — `brandToMongoShape()` | `_id` ← `legacyId`; `ACTIVE`/`INACTIVE` enum → `'active'`/`'inactive'` |
+| **Supplier** | Yes — `supplierToMongoShape()` | `_id` ← `legacyId`; status enum normalised; **`suppliedProducts` still enriched from Mongo** (roster array not backfilled to `supplier_products` junction); **`purchaseOrders` still from Mongo** (PO group not yet cut over) |
+| **Warehouse** | Yes — `warehouseToMongoShape()` | `_id` ← `legacyId`; status enum normalised; **`productCount` still computed from Mongo** `Product.aggregate` (Product not yet cut over) |
+| **Designation** | Minimal — `designationToMongoShape()` | `_id` ← `legacyId`; `employeeCount` already computed by `designationRepository.findAll()` — direct match |
+
+Repository `toShape()` helpers use `_id: record.id` (Postgres UUID) for repository-layer tests;
+read-cutover transforms remap `_id` to `legacyId` so API callers see the original Mongo ObjectId.
+
+### Default (flags OFF) behaviour
+
+Confirmed: **`npm test` → 183/183 pass** with no read-cutover env vars set (169 pre-existing +
+14 new Stage 4 tests). Outcomes identical to pre-Stage-4 for all integration tests.
+
+### Flag-ON and fallback tests
+
+| Test file | Coverage |
+|---|---|
+| `tests/services/readRouter.test.js` | Flag off/on; `[READ-CUTOVER-FALLBACK]` on Postgres throw |
+| `tests/services/readShapeHelpers.test.js` | Per-model shape parity (_id, parentCategory, status, employeeCount) |
+| `tests/services/readCutoverGroup1.test.js` | Mocked repository flag-ON vs Mongo baseline field-set match |
+
+### Regression checks
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **183/183** pass |
+| `npm run test:repositories` | **157/157** pass |
+
+**Flags remain OFF in all deployed environments until a deliberate post-review enable.**
+

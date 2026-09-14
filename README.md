@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
   <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
   <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
-  <img src="https://img.shields.io/badge/tests-169%2F169-brightgreen" alt="169/169 Tests Passing">
+  <img src="https://img.shields.io/badge/tests-183%2F183-brightgreen" alt="183/183 Tests Passing">
   <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
   <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
   <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">
@@ -120,7 +120,7 @@ Read these documents before making changes. Operational notes belong in the exis
 | [ARCHITECTURE.md](ARCHITECTURE.md) | **Read first.** Folder layout, CSS/JS barrels, admin ERP/CRM/HRM nav groups, enterprise models, local dev ports, and contributor rules. |
 | [REFACTOR_MAP.md](REFACTOR_MAP.md) | **Read first.** File-by-file completion log for ERP, CRM, HRM, UI restructure, and follow-on phases. |
 | [SYSTEM_ENTERPRISE_AUDIT.md](SYSTEM_ENTERPRISE_AUDIT.md) | Full-stack enterprise audit: feature inventory, ERP/CRM/HRM matrix, models, APIs, mobile parity, and remaining findings. |
-| [DATABASE_MIGRATION_AUDIT.md](DATABASE_MIGRATION_AUDIT.md) | MongoDB → PostgreSQL (Prisma + Neon) migration: 5-stage roadmap, model-by-model mapping, cascade and index strategy, and the stage-by-stage change log. **Stage 2 Step 3 dual-write complete (2026-09-14). Stage 3 backfill COMPLETE (2026-09-15) via `backend/scripts/backfill/` — all 8 dependency groups (Steps 1–5): catalog/ERP → Admin + Product → Order (final). Order used Case A/B/C classification (create / skip-complete / repair-partial) with in-memory FK maps; financial aggregate verified — `SUM(grandTotal)` Mongo 129,464 == PostgreSQL 129,464 (diff 0), 0 payment-bearing orders missing an `OrderPayment` row. Admin bcrypt hashes preserved on backfill. Documented permanent gaps: 3 users missing `firstName`, 1 orphaned Attendance (`nurjahan`). Next: Stage 4 read cutover (backfill PaymentMethod first). All live reads still come from MongoDB only.** |
+| [DATABASE_MIGRATION_AUDIT.md](DATABASE_MIGRATION_AUDIT.md) | MongoDB → PostgreSQL (Prisma + Neon) migration: 5-stage roadmap, model-by-model mapping, cascade and index strategy, and the stage-by-stage change log. **Stage 2 Step 3 dual-write complete (2026-09-14). Stage 3 backfill COMPLETE (2026-09-15). Stage 4 Step 1 (2026-09-15): read-cutover feature flags + group 1 (Category/Brand/Supplier/Warehouse/Designation) — all `READ_PG_*` flags default OFF; Mongo fallback on Postgres read failure. PaymentMethod backfill still required before Order read cutover.** |
 | [.cursorrules](.cursorrules) | Cursor agent contract: never edit barrel CSS/JS directly, never restructure `routes/*.js`, search before renaming IDs, run `npm test` after changes. |
 
 ### Additional References
@@ -137,12 +137,12 @@ Read these documents before making changes. Operational notes belong in the exis
 
 ## Quality Assurance & Testing
 
-The repository ships with **100% passing automated coverage: 169 / 169 tests** across **17 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
+The repository ships with **100% passing automated coverage: 183 / 183 tests** across **20 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
 
 PostgreSQL repository integration tests (157 tests, real Neon) run separately — Jest cannot load the generated `.mts` Prisma client:
 
 ```bash
-npm test                  # 17 suites, 169 tests — MongoDB in-memory
+npm test                  # 20 suites, 183 tests — MongoDB in-memory
 npm run test:repositories # 19 files, 157 tests — Neon PostgreSQL (serial concurrency)
 ```
 
@@ -165,7 +165,10 @@ npm run test:repositories # 19 files, 157 tests — Neon PostgreSQL (serial conc
 | POS | `tests/pos.test.js` | 2 | Manual counter order creation |
 | Abandoned carts | `tests/abandonedCart.test.js` | 3 | CRM list KPIs and recovery notify |
 | Dual-write service | `tests/services/dualWriteService.test.js` | 3 | Mongo-first dual-write failure isolation (Category + catalog/ERP + CMS/settings models) |
-| **Total** | | **169** | All suites green |
+| Read router | `tests/services/readRouter.test.js` | 5 | Stage 4 read-cutover flags + Postgres→Mongo fallback |
+| Read shape helpers | `tests/services/readShapeHelpers.test.js` | 7 | Postgres row → Mongo `.lean()` shape parity (group 1) |
+| Read cutover group 1 | `tests/services/readCutoverGroup1.test.js` | 2 | Mocked flag-ON regression vs Mongo baseline |
+| **Total** | | **183** | All suites green |
 
 Expected Jest summary:
 

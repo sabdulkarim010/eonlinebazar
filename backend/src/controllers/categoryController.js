@@ -12,6 +12,15 @@ const Product = require('../models/product');
 const cloudinary = require('../config/cloudinary');
 const multer = require('multer');
 const { dualWrite } = require('../services/dualWriteService');
+const { routedRead } = require('../services/readRouter');
+const {
+  mapCategoriesToMongo,
+  mapCategoriesToMongoPopulated,
+  categoryTreeSelectFields,
+  matchCategoryBySlugParam,
+  categoryToMongoShape,
+  buildCategoryIdMaps
+} = require('../services/readShapeHelpers');
 
 /** Lazy load — avoids pulling Prisma into Jest when the app graph is imported. */
 function getCategoryRepository() {
@@ -239,14 +248,89 @@ function collectDescendantFamily(root, flatCategories) {
   return family;
 }
 
+// ── Read helpers (Mongo default; Postgres when READ_PG_CATEGORY=true) ──
+
+async function fetchActiveCategoriesFlat() {
+  return routedRead(
+    'category',
+    () => Category.find({ isActive: true }).sort({ position: 1, name: 1 }).lean(),
+    async () => {
+      const rows = await getCategoryRepository().findAll({ isActive: true });
+      return mapCategoriesToMongo(rows);
+    }
+  );
+}
+
+async function fetchAllCategoriesPopulated() {
+  return routedRead(
+    'category',
+    () => Category.find({})
+      .populate('parentCategory', 'name')
+      .sort({ position: 1, name: 1 })
+      .lean(),
+    async () => {
+      const rows = await getCategoryRepository().findAll({});
+      return mapCategoriesToMongoPopulated(rows);
+    }
+  );
+}
+
+async function fetchCategoryBySlugOrId(rawParam) {
+  return routedRead(
+    'category',
+    async () => {
+      const param = String(rawParam || '').trim();
+      const slug = param.toLowerCase();
+      if (/^[a-f0-9]{24}$/i.test(param)) {
+        const byId = await Category.findOne({ _id: param, isActive: true }).lean();
+        if (byId) return byId;
+      }
+      let category = await Category.findOne({ slug, isActive: true }).lean();
+      if (!category && slug) {
+        const candidates = await Category.find({ isActive: true }).lean();
+        category = candidates.find((cat) => {
+          const catSlug = String(cat.slug || '').toLowerCase();
+          if (catSlug && catSlug === slug) return true;
+          const fromName = String(cat.name || '')
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9\u0980-\u09FF\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-+|-+$/g, '');
+          return fromName === slug;
+        }) || null;
+      }
+      return category;
+    },
+    async () => {
+      const rows = await getCategoryRepository().findAll({ isActive: true });
+      const mapped = mapCategoriesToMongo(rows);
+      return matchCategoryBySlugParam(mapped, rawParam);
+    }
+  );
+}
+
+async function fetchCategoryByIdAdmin(id) {
+  return routedRead(
+    'category',
+    () => Category.findById(id).populate('parentCategory', 'name').lean(),
+    async () => {
+      const row = await getCategoryRepository().findByLegacyId(id);
+      if (!row) return null;
+      const rows = await getCategoryRepository().findAll({});
+      const maps = buildCategoryIdMaps(rows);
+      return categoryToMongoShape(row, maps, { populateParent: true });
+    }
+  );
+}
+
 // ── PUBLIC ENDPOINTS ──
 
 // GET /api/categories — all active categories with recursive tree structure
 exports.getCategories = async (req, res) => {
   try {
-    const categories = await Category.find({ isActive: true })
-      .sort({ position: 1, name: 1 })
-      .lean();
+    const categories = await fetchActiveCategoriesFlat();
 
     const tree = buildCategoryTree(categories);
     res.json({ success: true, data: tree, flat: categories });
@@ -258,10 +342,7 @@ exports.getCategories = async (req, res) => {
 // GET /api/categories/tree — top-level parents with nested subCategories (storefront)
 exports.getCategoryTree = async (req, res) => {
   try {
-    const categories = await Category.find({ isActive: true })
-      .sort({ position: 1, name: 1 })
-      .select('_id name slug description imageUrl iconUrl color parentCategory position productCount showInNavbar showInHomepage isFeatured')
-      .lean();
+    const categories = (await fetchActiveCategoriesFlat()).map(categoryTreeSelectFields);
 
     const tree = buildCategoryTree(categories);
     res.json({
@@ -279,9 +360,7 @@ exports.getCategoryTree = async (req, res) => {
 exports.getNavbarCategories = async (req, res) => {
   try {
     // Load full active tree so nested sub-categories under navbar parents are included
-    const categories = await Category.find({ isActive: true })
-      .sort({ position: 1, name: 1 })
-      .lean();
+    const categories = await fetchActiveCategoriesFlat();
 
     const fullTree = buildCategoryTree(categories);
     const result = fullTree.filter((p) => p.showInNavbar !== false);
@@ -295,11 +374,22 @@ exports.getNavbarCategories = async (req, res) => {
 // GET /api/categories/homepage — featured for homepage
 exports.getHomepageCategories = async (req, res) => {
   try {
-    const cats = await Category.find({
-      isActive: true,
-      showInHomepage: true,
-      parentCategory: null
-    }).sort({ position: 1 }).limit(12).lean();
+    const cats = await routedRead(
+      'category',
+      () => Category.find({
+        isActive: true,
+        showInHomepage: true,
+        parentCategory: null
+      }).sort({ position: 1 }).limit(12).lean(),
+      async () => {
+        const rows = await getCategoryRepository().findAll({
+          isActive: true,
+          showInHomepage: true,
+          parentCategoryId: null
+        });
+        return mapCategoriesToMongo(rows).slice(0, 12);
+      }
+    );
 
     res.json({ success: true, data: cats });
   } catch (err) {
@@ -311,37 +401,7 @@ exports.getHomepageCategories = async (req, res) => {
 exports.getCategoryBySlug = async (req, res) => {
   try {
     const rawParam = String(req.params.slug || '').trim();
-    const slug = rawParam.toLowerCase();
-    let category = null;
-
-    // Allow /api/categories/:id when a Mongo ObjectId is passed (UI name resolution)
-    if (/^[a-f0-9]{24}$/i.test(rawParam)) {
-      category = await Category.findOne({ _id: rawParam, isActive: true }).lean();
-    }
-
-    if (!category) {
-      category = await Category.findOne({
-        slug,
-        isActive: true
-      }).lean();
-    }
-
-    // Legacy docs may lack slug — match by slugified name
-    if (!category && slug) {
-      const candidates = await Category.find({ isActive: true }).lean();
-      category = candidates.find((cat) => {
-        const catSlug = String(cat.slug || '').toLowerCase();
-        if (catSlug && catSlug === slug) return true;
-        const fromName = String(cat.name || '')
-          .toLowerCase()
-          .trim()
-          .replace(/[^a-z0-9\u0980-\u09FF\s-]/g, '')
-          .replace(/\s+/g, '-')
-          .replace(/-+/g, '-')
-          .replace(/^-+|-+$/g, '');
-        return fromName === slug;
-      }) || null;
-    }
+    const category = await fetchCategoryBySlugOrId(rawParam);
 
     if (!category) {
       return res.status(404).json({
@@ -351,9 +411,7 @@ exports.getCategoryBySlug = async (req, res) => {
     }
 
     // Include self + all nested descendants (any depth)
-    const allActive = await Category.find({ isActive: true })
-      .sort({ position: 1, name: 1 })
-      .lean();
+    const allActive = await fetchActiveCategoriesFlat();
     const family = collectDescendantFamily(category, allActive);
 
     const subCategories = family.filter(
@@ -416,9 +474,7 @@ exports.getCategoryBySlug = async (req, res) => {
 // GET /api/categories/admin/:id
 exports.getCategoryById = async (req, res) => {
   try {
-    const category = await Category.findById(req.params.id)
-      .populate('parentCategory', 'name')
-      .lean();
+    const category = await fetchCategoryByIdAdmin(req.params.id);
     if (!category) {
       return res.status(404).json({ success: false, message: 'Category not found' });
     }
@@ -432,10 +488,7 @@ exports.getCategoryById = async (req, res) => {
 exports.adminGetCategories = async (req, res) => {
   try {
     // 1. Get all categories in one query
-    const categories = await Category.find({})
-      .populate('parentCategory', 'name')
-      .sort({ position: 1, name: 1 })
-      .lean();
+    const categories = await fetchAllCategoriesPopulated();
 
     // 2. Get product counts in ONE aggregation query (not N queries)
     const productCounts = await Product.aggregate([

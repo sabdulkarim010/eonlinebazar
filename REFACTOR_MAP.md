@@ -1577,3 +1577,22 @@ STAGE 3 (BACKFILL) COMPLETE — all 8 dependency groups backfilled; permanent ga
 DATABASE_MIGRATION_AUDIT.md [DONE] Stage 3 Step 5 section + close-out added
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 3 Step 5 / Stage 3 complete note added
 README.md [DONE] Stage 3 complete backfill note
+
+# PostgreSQL migration — Stage 4 Step 1: Read-cutover framework + group 1 (Category/Brand/Supplier/Warehouse/Designation): 2026-09-15
+
+backend/src/config/readCutoverFlags.js [NEW] per-group READ_PG_* env flags; isPgReadEnabled() reads process.env per call; all default OFF
+backend/src/services/readRouter.js [NEW] routedRead(group, mongoFn, pgFn) — Postgres with [READ-CUTOVER-FALLBACK] Mongo fallback on error
+backend/src/services/readShapeHelpers.js [NEW] toMongoShape transforms (_id ← legacyId, enum/status normalisation, category parent resolution)
+backend/src/controllers/categoryController.js [MOD] 7 read endpoints wired via routedRead (writes unchanged)
+backend/src/controllers/brandController.js [MOD] getBrands read wired; cache bypass when READ_PG_BRAND=true
+backend/src/controllers/admin/supplierController.js [MOD] getAllSuppliers + getSupplierById reads wired
+backend/src/controllers/admin/warehouseController.js [MOD] getAllWarehouses + getWarehouseById reads wired
+backend/src/controllers/admin/designationController.js [MOD] getAllDesignations read wired
+tests/services/readRouter.test.js [NEW] flag off/on + fallback mechanism tests
+tests/services/readShapeHelpers.test.js [NEW] group-1 shape parity unit tests
+tests/services/readCutoverGroup1.test.js [NEW] mocked flag-ON vs Mongo field-set regression
+.env.example [MOD] READ_PG_CATEGORY/BRAND/SUPPLIER/WAREHOUSE/DESIGNATION documented (commented, default false)
+Result: npm test 183/183 (169 prior + 14 new); test:repositories 157/157; all flags OFF in production — capability built, not enabled
+DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 1 section added
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 4 Step 1 note added
+README.md [DONE] test count + Stage 4 Step 1 note

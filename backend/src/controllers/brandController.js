@@ -13,6 +13,9 @@ const Brand = require('../models/brand');
 const Product = require('../models/product');
 const { getOrSet, invalidate, CACHE_KEYS } = require('../services/cacheService');
 const { dualWrite } = require('../services/dualWriteService');
+const { routedRead } = require('../services/readRouter');
+const { isPgReadEnabled } = require('../config/readCutoverFlags');
+const { mapBrandsToMongo } = require('../services/readShapeHelpers');
 
 /** Lazy load — avoids pulling Prisma into Jest when the app graph is imported. */
 function getBrandRepository() {
@@ -36,12 +39,23 @@ function mapMongoBrandToPostgresUpdate(mongoBrand) {
     };
 }
 
+async function fetchAllBrands() {
+    return routedRead(
+        'brand',
+        () => Brand.find().sort({ createdAt: -1 }).lean(),
+        async () => {
+            const rows = await getBrandRepository().findAll();
+            return mapBrandsToMongo(rows);
+        }
+    );
+}
+
 // ১. সব ব্র্যান্ড ফেচ করা (পাবলিক) — নতুন থেকে পুরাতন ক্রমে
 const getBrands = async (req, res) => {
     try {
-        const brands = await getOrSet(CACHE_KEYS.BRANDS, async () => {
-            return Brand.find().sort({ createdAt: -1 }).lean();
-        }, 600);
+        const brands = isPgReadEnabled('brand')
+            ? await fetchAllBrands()
+            : await getOrSet(CACHE_KEYS.BRANDS, () => fetchAllBrands(), 600);
         res.status(200).json({ success: true, data: brands });
     } catch (error) {
         console.error('Brand Fetch Error:', error);
