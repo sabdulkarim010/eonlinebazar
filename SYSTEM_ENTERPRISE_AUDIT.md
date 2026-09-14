@@ -2062,3 +2062,23 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 2 for function lists and test 
 | Main Jest suite (`npm test`) | ✅ 166/166 |
 | Controllers / routes / Mongoose models touched | ❌ none (by design) |
 
+## Stage 2 Step 3, Part 1 — Category Dual-Write Pilot — 2026-09-14
+
+**Status:** ✅ COMPLETE — first live controller wired; MongoDB still authoritative for reads
+
+| Item | Status |
+|------|--------|
+| `dualWriteService.js` — Mongo-first, Postgres best-effort, failure isolated from API | ✅ |
+| `categoryController.js` — create/update/delete only (`adminCreateCategory`, `adminUpdateCategory`, `adminDeleteCategory`) | ✅ |
+| All category READ endpoints unchanged | ✅ |
+| `legacyId` on Postgres create + `findByLegacyId()` for parent FK resolution | ✅ |
+| Parent not yet in Postgres → null FK + `[DUAL-WRITE-PARENT-MISSING]` log | ✅ |
+| Lazy repository require (Jest app graph loads without Prisma `.mts`) | ✅ |
+| dualWriteService Jest tests | ✅ 3/3 |
+| Main Jest suite (`npm test`) | ✅ 169/169 |
+| Neon repository tests (`npm run test:repositories`) | ✅ 135/135 |
+| Routes touched | ❌ none (by design) |
+| Other controllers touched | ❌ none (by design) |
+
+See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 1 for flow detail and log shapes.
+

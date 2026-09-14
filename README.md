@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
   <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
   <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
-  <img src="https://img.shields.io/badge/tests-166%2F166-brightgreen" alt="166/166 Tests Passing">
+  <img src="https://img.shields.io/badge/tests-169%2F169-brightgreen" alt="169/169 Tests Passing">
   <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
   <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
   <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">
@@ -137,12 +137,12 @@ Read these documents before making changes. Operational notes belong in the exis
 
 ## Quality Assurance & Testing
 
-The repository ships with **100% passing automated coverage: 166 / 166 tests** across **16 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
+The repository ships with **100% passing automated coverage: 169 / 169 tests** across **17 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
 
 PostgreSQL repository integration tests (135 tests, real Neon) run separately — Jest cannot load the generated `.mts` Prisma client:
 
 ```bash
-npm test                  # 16 suites, 166 tests — MongoDB in-memory
+npm test                  # 17 suites, 169 tests — MongoDB in-memory
 npm run test:repositories # 13 files, 135 tests — Neon PostgreSQL (serial concurrency)
 ```
 
@@ -164,7 +164,8 @@ npm run test:repositories # 13 files, 135 tests — Neon PostgreSQL (serial conc
 | Profit & Loss | `tests/profitLoss.test.js` | 2 | P&amp;L report shape and empty-range zero case |
 | POS | `tests/pos.test.js` | 2 | Manual counter order creation |
 | Abandoned carts | `tests/abandonedCart.test.js` | 3 | CRM list KPIs and recovery notify |
-| **Total** | | **157** | All suites green |
+| Dual-write service | `tests/services/dualWriteService.test.js` | 3 | Mongo-first dual-write failure isolation (Category migration pilot) |
+| **Total** | | **169** | All suites green |
 
 Expected Jest summary:
 
@@ -282,7 +283,7 @@ npm start
 npm test
 ```
 
-All **166** tests must pass before merging changes.
+All **169** tests must pass before merging changes.
 
 ### Mobile (Expo)
 
@@ -328,7 +329,7 @@ eonlinebazar-fullstack/
 ├── ecommerce-chat/              # Live-chat microservice (port 5001)
 ├── admin-dashboard/             # Vite React chat-admin SPA → /chat-admin
 ├── devops/                      # Nginx, droplet first-time setup
-├── tests/                       # 16 Jest suites / 166 tests
+├── tests/                       # 17 Jest suites / 169 tests (+ 135 Neon repository tests)
 ├── scripts/                     # Seed and index migration
 ├── prisma/schema.prisma         # PostgreSQL (Neon) target schema — 67 models; app does not read it yet
 ├── prisma/migrations/           # Applied SQL migration history (baseline: 2026-09-13)

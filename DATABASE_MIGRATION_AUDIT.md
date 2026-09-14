@@ -1,8 +1,8 @@
 # DATABASE MIGRATION AUDIT — MongoDB → PostgreSQL (Prisma + Neon)
 
 **Created:** 2026-09-13
-**Current stage:** 2 of 5 — Step 1 (environment setup + baseline migration) and
-Step 1b (generated-client loading) **COMPLETE**
+**Current stage:** 2 of 5 — Step 3 Part 1 (Category dual-write pilot) **COMPLETE**
+(Step 1, 1b, and Step 2 repository layer also complete)
 **Artifacts produced:** `prisma/schema.prisma`, `prisma.config.js`,
 `prisma/migrations/20260913131445_init_postgres_baseline/`, this file
 **Application code changed:** none — no model, controller, route or service touched
@@ -1413,5 +1413,117 @@ Tests: 166 passed, 166 total
 **Harness note:** `npm run test:repositories` now runs with `--test-concurrency=1` to avoid
 `EMP-xxx` ID races on the shared Neon test database when multiple files create employees
 in parallel.
+
+---
+
+## STAGE 2 STEP 3, PART 1 — Dual-Write Pilot: Category — 2026-09-14
+
+The first live controller wired to the repository layer. Category was chosen as the
+lowest-risk pilot (fewest inbound relations, lowest write volume — first in the Stage 4
+cutover ordering).
+
+### Controller changes
+
+| File | Functions modified | Read endpoints touched? |
+|---|---|---|
+| `backend/src/controllers/categoryController.js` | `adminCreateCategory`, `adminUpdateCategory`, `adminDeleteCategory` | **No** — all GET/list/tree/navbar/homepage/slug/admin-read endpoints unchanged |
+
+Routes (`backend/src/routes/categoryRoutes.js`) were **not** modified.
+
+### New files
+
+| File | Purpose |
+|---|---|
+| `backend/src/services/dualWriteService.js` | Reusable `dualWrite(mongoWriteFn, postgresWriteFn, context)` helper |
+| `tests/services/dualWriteService.test.js` | Jest unit tests for the wrapper (3 tests) |
+
+### Repository gap closed (Part 1 follow-up)
+
+`categoryRepository.create()` in Step 2 Part 1 did **not** accept `legacyId`. Added
+`legacyId` to `create()` and a new `findByLegacyId(legacyId)` lookup for parent
+resolution and update/delete mirroring.
+
+### Dual-write flow
+
+1. **Mongo write runs first** — identical to pre-migration behavior. If Mongo throws,
+   the error propagates and Postgres is never attempted.
+2. **Postgres write runs second** — best-effort mirror via `categoryRepository`.
+   Failures are caught, logged with prefix `[DUAL-WRITE-FAILURE]`, and **never**
+   change the HTTP response or return value.
+3. **Caller sees the Mongo result only** — create/update still return the Mongoose
+   document; delete still returns the same JSON message.
+
+### Reconciliation log shape
+
+Postgres failures emit a structured object to `console.error`:
+
+```js
+{
+  timestamp: '2026-09-14T…',
+  model: 'Category',
+  operation: 'create' | 'update' | 'delete',
+  mongoId: '<Mongo _id string>',
+  error: '<message>'
+}
+```
+
+Designed so a future `ReconciliationLog` table or file sink can consume the same shape.
+
+### Parent-category self-relation
+
+Mongo stores `parentCategory` as a Mongo ObjectId; Postgres uses `parentCategoryId`
+(UUID). During dual-write:
+
+1. When creating/updating, if the category has a Mongo parent, look up
+   `categoryRepository.findByLegacyId(mongoParentId)`.
+2. If found → set Postgres `parentCategoryId` to that row's UUID.
+3. If **not** found (parent predates dual-write) → leave `parentCategoryId` **null**
+   and log `[DUAL-WRITE-PARENT-MISSING]` with message `parent not yet in Postgres`.
+   The dual-write continues — it does not fail the API request.
+
+### Failure-isolation guarantee (plain terms)
+
+From the customer's or admin UI's perspective, nothing changed. Category create, update,
+and delete succeed or fail exactly as they did before, based solely on MongoDB. If Neon
+is down, misconfigured, or rejects a row, the admin still sees success (when Mongo
+succeeded) — the Postgres miss is invisible to the caller and only appears in server logs
+for later reconciliation in Stage 3.
+
+### Jest / Prisma loading note
+
+`categoryRepository` is **lazy-required** inside the controller (`getCategoryRepository()`)
+so importing the app graph in Jest does not pull in the generated `.mts` Prisma client
+(which Jest cannot parse). Postgres writes only load the repository at runtime when a
+write actually executes.
+
+### Test results
+
+**dualWriteService unit tests (`tests/services/dualWriteService.test.js`, Jest):**
+
+```
+Tests: 3 passed, 3 total
+```
+
+Covers: both writes succeed; Mongo ok + Postgres fail (returns Mongo, logs, no throw);
+Mongo fail (Postgres never called).
+
+**Main Jest suite (`npm test`):**
+
+```
+Test Suites: 17 passed, 17 total
+Tests:       169 passed, 169 total
+```
+
+(166 original + 3 dualWriteService tests. No category-specific Jest API suite exists;
+regression coverage is the full app graph loading with `categoryController` wired.)
+
+**Repository suite (`npm run test:repositories`):**
+
+```
+tests 135 | pass 135 | fail 0
+```
+
+Unchanged count — category repository tests still pass with the new `legacyId` /
+`findByLegacyId` additions (no new repository test file in this part).
 
 

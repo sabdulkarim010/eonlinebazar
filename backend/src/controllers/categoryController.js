@@ -11,6 +11,12 @@ const Category = require('../models/category');
 const Product = require('../models/product');
 const cloudinary = require('../config/cloudinary');
 const multer = require('multer');
+const { dualWrite } = require('../services/dualWriteService');
+
+/** Lazy load — avoids pulling Prisma into Jest when the app graph is imported. */
+function getCategoryRepository() {
+  return require('../repositories/categoryRepository');
+}
 
 // Memory storage + Cloudinary upload (project standard; Cloudinary v2)
 // Multer instances live at module scope and are applied as route middleware —
@@ -99,6 +105,72 @@ function resolveCashback(body) {
   if (raw === undefined || raw === null || raw === '') return null;
   const n = parseFloat(raw);
   return Number.isFinite(n) ? n : null;
+}
+
+/** Map a saved Mongoose category document to categoryRepository.create() input. */
+function mapMongoCategoryToPostgresCreate(mongoCat, parentCategoryId) {
+  return {
+    name: mongoCat.name,
+    description: mongoCat.description,
+    parentCategoryId,
+    color: mongoCat.color,
+    isActive: mongoCat.isActive,
+    isFeatured: mongoCat.isFeatured,
+    showInNavbar: mongoCat.showInNavbar,
+    showInHomepage: mongoCat.showInHomepage,
+    position: mongoCat.position,
+    customCashback: mongoCat.customCashback,
+    metaTitle: mongoCat.metaTitle,
+    metaDescription: mongoCat.metaDescription,
+    imageUrl: mongoCat.imageUrl,
+    iconUrl: mongoCat.iconUrl,
+    bannerImageUrl: mongoCat.bannerImageUrl,
+    legacyId: String(mongoCat._id)
+  };
+}
+
+/** Map a saved Mongoose category document to categoryRepository.update() input. */
+function mapMongoCategoryToPostgresUpdate(mongoCat, parentCategoryId) {
+  return {
+    name: mongoCat.name,
+    description: mongoCat.description,
+    parentCategoryId,
+    color: mongoCat.color,
+    isActive: mongoCat.isActive,
+    isFeatured: mongoCat.isFeatured,
+    showInNavbar: mongoCat.showInNavbar,
+    showInHomepage: mongoCat.showInHomepage,
+    position: mongoCat.position,
+    customCashback: mongoCat.customCashback,
+    metaTitle: mongoCat.metaTitle,
+    metaDescription: mongoCat.metaDescription,
+    imageUrl: mongoCat.imageUrl,
+    iconUrl: mongoCat.iconUrl,
+    bannerImageUrl: mongoCat.bannerImageUrl
+  };
+}
+
+/**
+ * Resolve Mongo parentCategory ObjectId → Postgres parentCategoryId UUID.
+ * When the parent was created before dual-write, leave null and log for Stage 3.
+ */
+async function resolvePostgresParentCategoryId(mongoParentRef) {
+  if (mongoParentRef == null || mongoParentRef === '') return null;
+
+  const mongoParentId = String(mongoParentRef._id || mongoParentRef);
+  const parent = await getCategoryRepository().findByLegacyId(mongoParentId);
+
+  if (!parent) {
+    console.error('[DUAL-WRITE-PARENT-MISSING]', {
+      timestamp: new Date().toISOString(),
+      model: 'Category',
+      message: 'parent not yet in Postgres',
+      mongoParentId
+    });
+    return null;
+  }
+
+  return parent.id;
 }
 
 // Products store category as name (String), not ObjectId
@@ -439,7 +511,21 @@ exports.adminCreateCategory = async (req, res) => {
       });
     }
 
-    await cat.save();
+    await dualWrite(
+      () => cat.save(),
+      async (savedCat) => {
+        const parentCategoryId = await resolvePostgresParentCategoryId(savedCat.parentCategory);
+        await getCategoryRepository().create(
+          mapMongoCategoryToPostgresCreate(savedCat, parentCategoryId)
+        );
+      },
+      {
+        model: 'Category',
+        operation: 'create',
+        mongoId: (savedCat) => String(savedCat._id)
+      }
+    );
+
     res.status(201).json({ success: true, category: cat });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -529,7 +615,28 @@ exports.adminUpdateCategory = async (req, res) => {
       if (updates[key] !== undefined) cat[key] = updates[key];
     }
     cat.updatedAt = new Date();
-    await cat.save();
+    await dualWrite(
+      () => cat.save(),
+      async (savedCat) => {
+        const repo = getCategoryRepository();
+        const pgCat = await repo.findByLegacyId(String(savedCat._id));
+        if (!pgCat) {
+          const err = new Error('Category not found.');
+          err.code = 'NOT_FOUND';
+          throw err;
+        }
+        const parentCategoryId = await resolvePostgresParentCategoryId(savedCat.parentCategory);
+        await repo.update(
+          pgCat.id,
+          mapMongoCategoryToPostgresUpdate(savedCat, parentCategoryId)
+        );
+      },
+      {
+        model: 'Category',
+        operation: 'update',
+        mongoId: (savedCat) => String(savedCat._id)
+      }
+    );
 
     // Keep product.category (string name) in sync when renamed
     if (updates.name && updates.name !== oldName) {
@@ -603,7 +710,21 @@ exports.adminDeleteCategory = async (req, res) => {
     }
 
     const idsToDelete = allIds.reverse(); // children before parents
-    await Category.deleteMany({ _id: { $in: idsToDelete } });
+    await dualWrite(
+      () => Category.deleteMany({ _id: { $in: idsToDelete } }),
+      async () => {
+        const repo = getCategoryRepository();
+        const pgCat = await repo.findByLegacyId(categoryId);
+        if (pgCat) {
+          await repo.remove(pgCat.id);
+        }
+      },
+      {
+        model: 'Category',
+        operation: 'delete',
+        mongoId: categoryId
+      }
+    );
 
     const subCount = idsToDelete.length - 1;
     res.json({

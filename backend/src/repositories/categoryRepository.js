@@ -82,12 +82,23 @@ async function findBySlug(slug) {
   return toShape(record);
 }
 
+// ── findByLegacyId ───────────────────────────────────────────────────────────
+// Looks up a Postgres row by the original MongoDB _id (Stage 2 dual-write /
+// Stage 3 backfill reconciliation key).
+async function findByLegacyId(legacyId) {
+  if (!legacyId) return null;
+  const record = await prisma.category.findUnique({
+    where: { legacyId: String(legacyId) }
+  });
+  return toShape(record);
+}
+
 // ── create ───────────────────────────────────────────────────────────────────
 // Mirrors adminCreateCategory: generates slug from name before the DB write.
 // data fields: { name*, description, parentCategoryId, color, isActive,
 //               isFeatured, showInNavbar, showInHomepage, position,
 //               customCashback, metaTitle, metaDescription, imageUrl,
-//               iconUrl, bannerImageUrl }
+//               iconUrl, bannerImageUrl, legacyId }
 async function create(data) {
   const name = String(data.name || '').trim();
   if (!name) throw new Error('Category name is required.');
@@ -113,6 +124,7 @@ async function create(data) {
       imageUrl: data.imageUrl ?? null,
       iconUrl: data.iconUrl ?? null,
       bannerImageUrl: data.bannerImageUrl ?? null,
+      legacyId: data.legacyId != null ? String(data.legacyId) : null,
       productCount: 0
     }
   });
@@ -231,6 +243,7 @@ module.exports = {
   findAll,
   findById,
   findBySlug,
+  findByLegacyId,
   create,
   update,
   remove

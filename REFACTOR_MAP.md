@@ -1344,3 +1344,15 @@ DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 2 Part 5 section added
 REFACTOR_MAP.md [DONE] this section
 README.md [DONE] test:repositories count updated to 135 (13 files)
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 2 Part 5 note added
+
+# PostgreSQL migration — Stage 2 Step 3, Part 1: Category dual-write pilot: 2026-09-14
+
+backend/src/services/dualWriteService.js [NEW] reusable dualWrite() — Mongo first, Postgres best-effort, failure-isolated
+tests/services/dualWriteService.test.js [NEW] 3 Jest unit tests for dualWriteService
+backend/src/repositories/categoryRepository.js [MOD] create() accepts legacyId; findByLegacyId() added
+backend/src/controllers/categoryController.js [MOD] adminCreateCategory, adminUpdateCategory, adminDeleteCategory wired through dualWrite(); lazy getCategoryRepository() for Jest compatibility
+backend/src/routes/** [UNCHANGED]
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 1 section added
+REFACTOR_MAP.md [DONE] this section
+README.md [DONE] Jest count updated to 169 (17 suites); dual-write pilot noted
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 1 note added
