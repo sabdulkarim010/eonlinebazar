@@ -113,7 +113,8 @@ async function create(data) {
       description: data.description ?? '',
       parentCategoryId: data.parentCategoryId ?? data.parentCategory ?? null,
       color: data.color ?? '#f97316',
-      isActive: data.isActive !== undefined ? Boolean(data.isActive) : true,
+      // undefined → false mirrors Mongo { isActive: true } query (absent field ≠ active)
+      isActive: data.isActive !== undefined ? Boolean(data.isActive) : false,
       isFeatured: data.isFeatured !== undefined ? Boolean(data.isFeatured) : false,
       showInNavbar: data.showInNavbar !== undefined ? Boolean(data.showInNavbar) : true,
       showInHomepage: data.showInHomepage !== undefined ? Boolean(data.showInHomepage) : false,

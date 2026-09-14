@@ -8,7 +8,7 @@
  * Stage 2 Step 2, Part 1 — 2026-09-13
  ********************************************************************/
 
-const { describe, test, expect, afterAll } = require('./jestCompat');
+const { describe, test, expect, afterAll, afterEach } = require('./jestCompat');
 
 require('dotenv').config();
 
@@ -23,13 +23,32 @@ const {
 
 const PREFIX = `__test_des_${Date.now()}_`;
 const createdIds = [];
+let legacySeq = 0;
+
+/** Always set legacyId so missed cleanup rows are identifiable in Neon. */
+async function createTestDesignation(data = {}) {
+  legacySeq += 1;
+  const record = await create({
+    ...data,
+    legacyId: data.legacyId ?? `${PREFIX}legacy_${legacySeq}`
+  });
+  createdIds.push(record.id);
+  return record;
+}
 
 async function cleanup() {
+  await prisma.designation.deleteMany({
+    where: { name: { startsWith: PREFIX } }
+  });
   if (createdIds.length) {
     await prisma.designation.deleteMany({ where: { id: { in: [...createdIds] } } });
     createdIds.length = 0;
   }
 }
+
+afterEach(async () => {
+  await cleanup();
+});
 
 afterAll(async () => {
   await cleanup();
@@ -39,8 +58,7 @@ afterAll(async () => {
 describe('Designation repository — real Neon DB', () => {
   test('create() inserts a designation with defaults', async () => {
     const name = `${PREFIX}Manager`;
-    const record = await create({ name });
-    createdIds.push(record.id);
+    const record = await createTestDesignation({ name });
 
     expect(record).toBeDefined();
     expect(record.id).toBeTruthy();
@@ -53,13 +71,12 @@ describe('Designation repository — real Neon DB', () => {
 
   test('create() respects provided department and description', async () => {
     const name = `${PREFIX}HR Manager`;
-    const record = await create({
+    const record = await createTestDesignation({
       name,
       department: 'Human Resources',
       description: 'Manages HR',
       createdBy: 'system'
     });
-    createdIds.push(record.id);
 
     expect(record.department).toBe('Human Resources');
     expect(record.description).toBe('Manages HR');
@@ -69,9 +86,8 @@ describe('Designation repository — real Neon DB', () => {
   test('findAll() returns all designations sorted by name', async () => {
     const nameA = `${PREFIX}Zebra Role`;
     const nameB = `${PREFIX}Alpha Role`;
-    const a = await create({ name: nameA });
-    const b = await create({ name: nameB });
-    createdIds.push(a.id, b.id);
+    const a = await createTestDesignation({ name: nameA });
+    const b = await createTestDesignation({ name: nameB });
 
     const all = await findAll();
     const names = all.map((d) => d.name);
@@ -85,9 +101,8 @@ describe('Designation repository — real Neon DB', () => {
   });
 
   test('findAll() with activeOnly filters correctly', async () => {
-    const active = await create({ name: `${PREFIX}ActiveRole`, isActive: true });
-    const inactive = await create({ name: `${PREFIX}InactiveRole`, isActive: false });
-    createdIds.push(active.id, inactive.id);
+    const active = await createTestDesignation({ name: `${PREFIX}ActiveRole`, isActive: true });
+    const inactive = await createTestDesignation({ name: `${PREFIX}InactiveRole`, isActive: false });
 
     const all = await findAll({ activeOnly: true });
     const ids = all.map((d) => d.id);
@@ -97,8 +112,7 @@ describe('Designation repository — real Neon DB', () => {
   });
 
   test('findAll() attaches employeeCount (0 when no employees)', async () => {
-    const record = await create({ name: `${PREFIX}NoStaff` });
-    createdIds.push(record.id);
+    const record = await createTestDesignation({ name: `${PREFIX}NoStaff` });
 
     const all = await findAll();
     const found = all.find((d) => d.id === record.id);
@@ -109,8 +123,7 @@ describe('Designation repository — real Neon DB', () => {
 
   test('findById() returns the correct record', async () => {
     const name = `${PREFIX}Supervisor`;
-    const created = await create({ name });
-    createdIds.push(created.id);
+    const created = await createTestDesignation({ name });
 
     const record = await findById(created.id);
     expect(record).toBeDefined();
@@ -124,8 +137,7 @@ describe('Designation repository — real Neon DB', () => {
   });
 
   test('update() changes allowed fields', async () => {
-    const created = await create({ name: `${PREFIX}OldDesig` });
-    createdIds.push(created.id);
+    const created = await createTestDesignation({ name: `${PREFIX}OldDesig` });
 
     const updated = await update(created.id, {
       name: `${PREFIX}NewDesig`,
@@ -147,8 +159,8 @@ describe('Designation repository — real Neon DB', () => {
   });
 
   test('remove() deletes a designation with no employees', async () => {
-    const created = await create({ name: `${PREFIX}ToDelete` });
-    // Do not push to createdIds — we delete manually
+    const created = await createTestDesignation({ name: `${PREFIX}ToDelete` });
+    createdIds.pop();
     const result = await remove(created.id);
 
     expect(result.deleted).toBe(true);

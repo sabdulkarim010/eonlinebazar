@@ -2756,3 +2756,54 @@ Confirmed: **`npm test` → 183/183 pass** with no read-cutover env vars set (16
 
 **Flags remain OFF in all deployed environments until a deliberate post-review enable.**
 
+## STAGE 4, STEP 1 CLEANUP — Data Parity Fix — 2026-09-15
+
+Post-verification cleanup (Postgres writes only; **no MongoDB writes**; read-cutover flags
+remain OFF). Corrects backfill drift and repository-test artifacts identified in the Stage 4
+Step 1 verification report.
+
+### Postgres data changes executed
+
+| Step | Action | Count / detail |
+|---|---|---|
+| **1 — Delete test artifacts** | Deleted designation rows by exact `pgId` only | **2** — `8bd50cd5-98a8-4344-a73f-e397ed7ce7ba` (`__test_des_1789327067829_ToDelete`), `9f6548f1-96b9-4f86-ba11-7b9b9a9d58e1` (`__test_des_1789327099945_ToDelete`); both had `legacyId: null` |
+| **2 — Category `isActive`** | Mongo authoritative: `true` only when `doc.isActive === true` | **9 changed** `true → false`: Baby & Kids, Beauty & Personal Care, Electronics, Footwear, Grocery, Health & Beauty, Home & Kitchen, Kids Fashion, Stationery & Office. **5 unchanged**: Fashion & Apparel, Mobile, Samsung, Walton Mobile (explicit `true` in Mongo); Automotive (already `false`) |
+| **3 — Timestamps** | `createdAt` / `updatedAt` copied from Mongo | **14** categories, **1** brand (Walton — timestamps only; slug/status/description left AS-IS), **1** warehouse (Main Warehouse), **8** designations |
+| **4 — Warehouse `isDefault`** | Restored Main Warehouse (`legacyId` `6aa2c030b4f03cafedef7b4d`) | `isDefault: true` (matched Mongo; drift from prior `setDefault()` repository test) |
+| **5 — Intentionally untouched** | Category `productCount`, Category `slug`; Brand backfill slug/status/description | Deferred to Product group cutover / separate slug concern |
+
+### Re-verification (same method as Stage 4 Step 1 verification report)
+
+Flags toggled in process env only (`.env` not modified). Zero `[READ-CUTOVER-FALLBACK]` entries.
+
+| Model | Verdict | Notes |
+|---|---|---|
+| **Supplier** | **PASS** | All endpoints match |
+| **Category** | **FAIL** | Core parity fixed (`isActive` counts align; homepage **PASS**). Remaining diffs: `__v` extra in PG shape; sparse Mongo fields (`slug`, `iconUrl`, `imageUrl`, …); `productCount` (intentionally not synced) |
+| **Brand** | **FAIL** | `createdAt` synced. Remaining: PG-only backfill fields (`slug`, `status`, `description`) and missing Mongo `updatedAt`; `__v` shape gap |
+| **Warehouse** | **FAIL** | `isDefault` + timestamps synced. Remaining: `__v` only (read-shape gap) |
+| **Designation** | **FAIL** | Timestamps synced; 8 legitimate rows. Remaining: `__v` on all 8 rows (read-shape gap) |
+
+**Conclusion:** Targeted **data** drift (isActive, timestamps, isDefault, test rows) is resolved.
+Full endpoint PASS for all five models is blocked by **read-shape** gaps (`__v` omission in
+`readShapeHelpers`) and **out-of-scope** fields (category slug/productCount, brand backfill
+fields) — not by Postgres read failures.
+
+### Process fixes (prevent recurrence)
+
+1. **`categoryRepository.create()`** — when `isActive` is `undefined`, default to **`false`**
+   (matches Mongo `{ isActive: true }` query semantics). Test updated in
+   `category.repository.test.js`.
+2. **`designation.repository.test.js`** — `createTestDesignation()` always sets a unique
+   non-null `legacyId`; `afterEach` deletes rows matching the test `PREFIX` even on failure.
+3. **`warehouse.repository.test.js`** — `beforeAll` captures full pre-test warehouse
+   `isDefault`/`updatedAt` snapshot; `afterEach` restores snapshot (prevents Main Warehouse
+   drift from `setDefault()` tests). `jestCompat.js` exports `beforeAll`.
+
+### Regression checks after cleanup
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **183/183** pass |
+| `npm run test:repositories` | **157/157** pass |
+

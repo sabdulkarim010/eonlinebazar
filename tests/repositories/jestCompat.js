@@ -27,6 +27,10 @@ function test(name, fn) {
   });
 }
 
+function beforeAll(fn) {
+  nodeTest.before(fn);
+}
+
 function afterAll(fn) {
   nodeTest.after(fn);
 }
@@ -101,4 +105,4 @@ function expect(actual) {
   return buildMatchers(actual);
 }
 
-module.exports = { describe, test, expect, afterAll, afterEach };
+module.exports = { describe, test, expect, beforeAll, afterAll, afterEach };

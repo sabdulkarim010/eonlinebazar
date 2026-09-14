@@ -91,7 +91,7 @@ describe('Category repository — real Neon DB', () => {
     expect(record._id).toBe(record.id);          // _id alias present
     expect(record.name).toBe(name);
     expect(record.slug).toBe(slugifyCategory(name));
-    expect(record.isActive).toBe(true);
+    expect(record.isActive).toBe(false);
     expect(record.showInNavbar).toBe(true);
     expect(record.position).toBe(0);
   });

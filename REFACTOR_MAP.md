@@ -1596,3 +1596,16 @@ Result: npm test 183/183 (169 prior + 14 new); test:repositories 157/157; all fl
 DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 1 section added
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 4 Step 1 note added
 README.md [DONE] test count + Stage 4 Step 1 note
+
+# PostgreSQL migration — Stage 4 Step 1 cleanup: Data parity fix — 2026-09-15
+
+backend/src/repositories/categoryRepository.js [MOD] create() defaults isActive to false when undefined (matches Mongo query semantics)
+tests/repositories/category.repository.test.js [MOD] create() test expects isActive false
+tests/repositories/designation.repository.test.js [MOD] createTestDesignation() with unique legacyId; afterEach PREFIX cleanup
+tests/repositories/warehouse.repository.test.js [MOD] beforeAll snapshot + afterEach/afterAll restore isDefault/updatedAt on all warehouses
+tests/repositories/jestCompat.js [MOD] export beforeAll (node:test before hook)
+Postgres data (Neon, not in git): deleted 2 designation test rows by exact pgId; synced Category isActive (9 changed), timestamps (14+1+1+8 rows), Warehouse isDefault
+Result: npm test 183/183; test:repositories 157/157; re-verification — Supplier PASS; Category/Brand/Warehouse/Designation FAIL on shape/out-of-scope fields only (__v, slug, productCount, brand backfill fields)
+DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 1 CLEANUP section added
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 4 Step 1 cleanup note added
+README.md [DONE] Stage 4 cleanup note

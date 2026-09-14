@@ -8,7 +8,7 @@
  * Stage 2 Step 2, Part 1 — 2026-09-13
  ********************************************************************/
 
-const { describe, test, expect, afterAll } = require('./jestCompat');
+const { describe, test, expect, afterAll, afterEach, beforeAll } = require('./jestCompat');
 
 require('dotenv').config();
 
@@ -24,11 +24,12 @@ const {
 
 const PREFIX = `__test_whs_${Date.now()}_`;
 const createdIds = [];
+/** Full pre-test warehouse isDefault/updatedAt snapshot — restored after each test. */
+let preTestWarehouseSnapshot = null;
 
 // Strict cleanup: delete every warehouse created in this run
 async function cleanup() {
   if (createdIds.length) {
-    // Must unset isDefault before deleting to avoid FK/constraint edge cases
     await prisma.warehouse.updateMany({
       where: { id: { in: [...createdIds] } },
       data: { isDefault: false }
@@ -38,8 +39,30 @@ async function cleanup() {
   }
 }
 
+async function restorePreTestWarehouseState() {
+  if (!preTestWarehouseSnapshot?.length) return;
+  for (const row of preTestWarehouseSnapshot) {
+    await prisma.warehouse.update({
+      where: { id: row.id },
+      data: { isDefault: row.isDefault, updatedAt: row.updatedAt }
+    });
+  }
+}
+
+beforeAll(async () => {
+  preTestWarehouseSnapshot = await prisma.warehouse.findMany({
+    select: { id: true, isDefault: true, updatedAt: true }
+  });
+});
+
+afterEach(async () => {
+  await cleanup();
+  await restorePreTestWarehouseState();
+});
+
 afterAll(async () => {
   await cleanup();
+  await restorePreTestWarehouseState();
 });
 
 // ── CRUD tests ───────────────────────────────────────────────────────────────

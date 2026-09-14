@@ -2387,3 +2387,19 @@ OFF; Mongo remains the live read path until deliberately enabled per environment
 | `npm run test:repositories` | ✅ 157/157 |
 | Flags enabled in production | ❌ deliberate post-review step only |
 
+## Stage 4 Step 1 cleanup — Data parity fix — 2026-09-15
+
+**Status:** ✅ COMPLETE — Postgres-only cleanup after Step 1 verification drift report.
+
+| Item | Status |
+|------|--------|
+| Delete 2 designation test artifacts (`legacyId: null`) | ✅ exact pgIds only |
+| Category `isActive` sync (Mongo authoritative) | ✅ 9 corrected; 5 unchanged |
+| Timestamps sync (Category×14, Brand×1, Warehouse×1, Designation×8) | ✅ |
+| Warehouse Main `isDefault` restore | ✅ |
+| Category slug / productCount | ⏸️ intentionally deferred |
+| Brand backfill slug/status/description | ⏸️ left AS-IS per decision |
+| Re-verification | ⚠️ Supplier **PASS**; others **FAIL** on `__v` shape + out-of-scope fields only |
+| Process fixes | ✅ categoryRepository default; designation/warehouse test cleanup guards |
+| `npm test` / `test:repositories` | ✅ 183/183, 157/157 |
+
