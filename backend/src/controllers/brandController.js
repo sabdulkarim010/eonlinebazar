@@ -12,6 +12,29 @@
 const Brand = require('../models/brand');
 const Product = require('../models/product');
 const { getOrSet, invalidate, CACHE_KEYS } = require('../services/cacheService');
+const { dualWrite } = require('../services/dualWriteService');
+
+/** Lazy load — avoids pulling Prisma into Jest when the app graph is imported. */
+function getBrandRepository() {
+    return require('../repositories/brandRepository');
+}
+
+function mapMongoBrandToPostgresCreate(mongoBrand) {
+    return {
+        name: mongoBrand.name,
+        description: mongoBrand.description,
+        status: mongoBrand.status,
+        legacyId: String(mongoBrand._id)
+    };
+}
+
+function mapMongoBrandToPostgresUpdate(mongoBrand) {
+    return {
+        name: mongoBrand.name,
+        description: mongoBrand.description,
+        status: mongoBrand.status
+    };
+}
 
 // ১. সব ব্র্যান্ড ফেচ করা (পাবলিক) — নতুন থেকে পুরাতন ক্রমে
 const getBrands = async (req, res) => {
@@ -44,7 +67,19 @@ const createBrand = async (req, res) => {
         }
 
         const newBrand = new Brand({ name, description, status });
-        await newBrand.save();
+        await dualWrite(
+            () => newBrand.save(),
+            async (savedBrand) => {
+                await getBrandRepository().create(
+                    mapMongoBrandToPostgresCreate(savedBrand)
+                );
+            },
+            {
+                model: 'Brand',
+                operation: 'create',
+                mongoId: (savedBrand) => String(savedBrand._id)
+            }
+        );
         await invalidate(CACHE_KEYS.BRANDS);
 
         res.status(201).json({ success: true, message: 'ব্র্যান্ড সফলভাবে যুক্ত হয়েছে!', data: newBrand });
@@ -82,7 +117,24 @@ const updateBrand = async (req, res) => {
         if (req.body.description !== undefined) brand.description = (req.body.description || '').trim();
         if (req.body.status !== undefined) brand.status = req.body.status === 'inactive' ? 'inactive' : 'active';
 
-        await brand.save();
+        await dualWrite(
+            () => brand.save(),
+            async (savedBrand) => {
+                const repo = getBrandRepository();
+                const pgBrand = await repo.findByLegacyId(String(savedBrand._id));
+                if (!pgBrand) {
+                    const err = new Error('Brand not found.');
+                    err.code = 'NOT_FOUND';
+                    throw err;
+                }
+                await repo.update(pgBrand.id, mapMongoBrandToPostgresUpdate(savedBrand));
+            },
+            {
+                model: 'Brand',
+                operation: 'update',
+                mongoId: (savedBrand) => String(savedBrand._id)
+            }
+        );
 
         // নাম পরিবর্তন হলে লিংকড প্রোডাক্টের ক্যাশড brandName আপডেট করা
         if (brand.name !== oldName) {
@@ -101,7 +153,23 @@ const updateBrand = async (req, res) => {
 // ৪. ব্র্যান্ড ডিলিট করা (অ্যাডমিন) — লিংকড প্রোডাক্টের রেফারেন্স ক্লিয়ার করা
 const deleteBrand = async (req, res) => {
     try {
-        const deleted = await Brand.findByIdAndDelete(req.params.id);
+        const deleted = await dualWrite(
+            () => Brand.findByIdAndDelete(req.params.id),
+            async (deletedBrand) => {
+                if (!deletedBrand) return;
+                const repo = getBrandRepository();
+                const pgBrand = await repo.findByLegacyId(String(deletedBrand._id));
+                if (pgBrand) {
+                    await repo.remove(pgBrand.id);
+                }
+            },
+            {
+                model: 'Brand',
+                operation: 'delete',
+                mongoId: (deletedBrand) => (deletedBrand ? String(deletedBrand._id) : undefined)
+            }
+        );
+
         if (!deleted) {
             return res.status(404).json({ success: false, message: 'ব্র্যান্ড পাওয়া যায়নি!' });
         }

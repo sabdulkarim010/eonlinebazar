@@ -13,6 +13,47 @@ const Warehouse = require('../../models/warehouse');
 const Product = require('../../models/product');
 const PurchaseOrder = require('../../models/purchaseOrder');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { dualWrite } = require('../../services/dualWriteService');
+
+/** Lazy load — avoids pulling Prisma into Jest when the app graph is imported. */
+function getWarehouseRepository() {
+    return require('../../repositories/warehouseRepository');
+}
+
+function mapMongoWarehouseToPostgresCreate(mongoWarehouse) {
+    return {
+        name: mongoWarehouse.name,
+        location: mongoWarehouse.location,
+        address: mongoWarehouse.address,
+        managerName: mongoWarehouse.managerName,
+        phone: mongoWarehouse.phone,
+        status: mongoWarehouse.status,
+        isDefault: mongoWarehouse.isDefault,
+        createdById: mongoWarehouse.createdBy || null,
+        legacyId: String(mongoWarehouse._id)
+    };
+}
+
+function mapMongoWarehouseFieldsToPostgresUpdate(mongoWarehouse, mongoFields) {
+    const payload = {};
+    if (mongoFields.name !== undefined) payload.name = mongoWarehouse.name;
+    if (mongoFields.location !== undefined) payload.location = mongoWarehouse.location;
+    if (mongoFields.address !== undefined) payload.address = mongoWarehouse.address;
+    if (mongoFields.managerName !== undefined) payload.managerName = mongoWarehouse.managerName;
+    if (mongoFields.phone !== undefined) payload.phone = mongoWarehouse.phone;
+    if (mongoFields.status !== undefined) payload.status = mongoWarehouse.status;
+    if (mongoFields.isDefault === true) payload.isDefault = true;
+    return payload;
+}
+
+async function mirrorWarehouseDefaultToPostgres(mongoWarehouse) {
+    if (!mongoWarehouse?.isDefault) return;
+    const repo = getWarehouseRepository();
+    const pgRow = await repo.findByLegacyId(String(mongoWarehouse._id));
+    if (pgRow) {
+        await repo.setDefault(pgRow.id);
+    }
+}
 
 function parsePagination(query) {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -151,11 +192,25 @@ exports.createWarehouse = async (req, res) => {
         fields.isDefault = existingCount === 0 ? true : wantsDefault === true;
         fields.createdBy = req.adminId || null;
 
-        const warehouse = await Warehouse.create(fields);
-
-        if (warehouse.isDefault) {
-            await demoteOtherDefaults(warehouse._id);
-        }
+        const warehouse = await dualWrite(
+            async () => {
+                const created = await Warehouse.create(fields);
+                if (created.isDefault) {
+                    await demoteOtherDefaults(created._id);
+                }
+                return created;
+            },
+            async (saved) => {
+                const repo = getWarehouseRepository();
+                await repo.create(mapMongoWarehouseToPostgresCreate(saved));
+                await mirrorWarehouseDefaultToPostgres(saved);
+            },
+            {
+                model: 'Warehouse',
+                operation: 'create',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Warehouse Created',
@@ -219,15 +274,40 @@ exports.updateWarehouse = async (req, res) => {
             return res.status(400).json({ success: false, message: 'No changes supplied.' });
         }
 
-        const updated = await Warehouse.findByIdAndUpdate(
-            id,
-            { $set: fields },
-            { new: true, runValidators: true }
+        const updated = await dualWrite(
+            async () => {
+                const doc = await Warehouse.findByIdAndUpdate(
+                    id,
+                    { $set: fields },
+                    { new: true, runValidators: true }
+                );
+                if (fields.isDefault === true && doc) {
+                    await demoteOtherDefaults(doc._id);
+                }
+                return doc;
+            },
+            async (saved) => {
+                const repo = getWarehouseRepository();
+                const pgRow = await repo.findByLegacyId(String(saved._id));
+                if (!pgRow) {
+                    const err = new Error('Warehouse not found.');
+                    err.code = 'NOT_FOUND';
+                    throw err;
+                }
+                await repo.update(
+                    pgRow.id,
+                    mapMongoWarehouseFieldsToPostgresUpdate(saved, fields)
+                );
+                if (fields.isDefault === true) {
+                    await repo.setDefault(pgRow.id);
+                }
+            },
+            {
+                model: 'Warehouse',
+                operation: fields.isDefault === true ? 'setDefault' : 'update',
+                mongoId: (saved) => String(saved._id)
+            }
         );
-
-        if (fields.isDefault === true) {
-            await demoteOtherDefaults(updated._id);
-        }
 
         await logSecurityEvent({
             action: 'Warehouse Updated',
@@ -272,7 +352,21 @@ exports.deleteWarehouse = async (req, res) => {
 
         await Product.updateMany({ warehouseId: id }, { $set: { warehouseId: null } });
         await PurchaseOrder.updateMany({ warehouseId: id }, { $set: { warehouseId: null } });
-        await Warehouse.findByIdAndDelete(id);
+        await dualWrite(
+            () => Warehouse.findByIdAndDelete(id),
+            async () => {
+                const repo = getWarehouseRepository();
+                const pgRow = await repo.findByLegacyId(id);
+                if (pgRow) {
+                    await repo.remove(pgRow.id);
+                }
+            },
+            {
+                model: 'Warehouse',
+                operation: 'delete',
+                mongoId: id
+            }
+        );
 
         await logSecurityEvent({
             action: 'Warehouse Deleted',

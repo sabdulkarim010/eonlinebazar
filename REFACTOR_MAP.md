@@ -1356,3 +1356,20 @@ DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 1 section added
 REFACTOR_MAP.md [DONE] this section
 README.md [DONE] Jest count updated to 169 (17 suites); dual-write pilot noted
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 1 note added
+
+# PostgreSQL migration — Stage 2 Step 3, Part 2: Dual-write for Designation, Brand, Warehouse, Supplier: 2026-09-14
+
+backend/src/repositories/designationRepository.js [MOD] legacyId on create; findByLegacyId()
+backend/src/repositories/brandRepository.js [MOD] legacyId on create; findByLegacyId()
+backend/src/repositories/warehouseRepository.js [MOD] legacyId on create; findByLegacyId()
+backend/src/repositories/supplierRepository.js [MOD] legacyId on create; findByLegacyId()
+backend/src/controllers/admin/designationController.js [MOD] createDesignation, updateDesignation, deleteDesignation via dualWrite()
+backend/src/controllers/brandController.js [MOD] createBrand, updateBrand, deleteBrand via dualWrite()
+backend/src/controllers/admin/warehouseController.js [MOD] createWarehouse, updateWarehouse, deleteWarehouse via dualWrite(); setDefault mirror on default promotion
+backend/src/controllers/admin/supplierController.js [MOD] createSupplier, updateSupplier, deleteSupplier via dualWrite()
+backend/src/services/dualWriteService.js [UNCHANGED] reused as-is from Part 1
+backend/src/routes/** [UNCHANGED]
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 2 section added
+REFACTOR_MAP.md [DONE] this section
+README.md [DONE] dual-write model count note
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 2 note added

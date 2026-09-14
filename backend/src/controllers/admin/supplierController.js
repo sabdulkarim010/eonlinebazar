@@ -13,6 +13,38 @@ const Supplier = require('../../models/supplier');
 const Product = require('../../models/product');
 const PurchaseOrder = require('../../models/purchaseOrder');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { dualWrite } = require('../../services/dualWriteService');
+
+/** Lazy load — avoids pulling Prisma into Jest when the app graph is imported. */
+function getSupplierRepository() {
+    return require('../../repositories/supplierRepository');
+}
+
+function mapMongoSupplierToPostgresCreate(mongoSupplier) {
+    return {
+        name: mongoSupplier.name,
+        contactPerson: mongoSupplier.contactPerson,
+        phone: mongoSupplier.phone,
+        email: mongoSupplier.email,
+        address: mongoSupplier.address,
+        notes: mongoSupplier.notes,
+        status: mongoSupplier.status,
+        createdById: mongoSupplier.createdBy || null,
+        legacyId: String(mongoSupplier._id)
+    };
+}
+
+function mapMongoSupplierToPostgresUpdate(mongoSupplier) {
+    return {
+        name: mongoSupplier.name,
+        contactPerson: mongoSupplier.contactPerson,
+        phone: mongoSupplier.phone,
+        email: mongoSupplier.email,
+        address: mongoSupplier.address,
+        notes: mongoSupplier.notes,
+        status: mongoSupplier.status
+    };
+}
 
 /** Purchase orders in these states still expect goods from the vendor. */
 const OPEN_PO_STATUSES = ['draft', 'sent', 'partial'];
@@ -169,7 +201,19 @@ exports.createSupplier = async (req, res) => {
 
         fields.createdBy = req.adminId || null;
 
-        const supplier = await Supplier.create(fields);
+        const supplier = await dualWrite(
+            () => Supplier.create(fields),
+            async (saved) => {
+                await getSupplierRepository().create(
+                    mapMongoSupplierToPostgresCreate(saved)
+                );
+            },
+            {
+                model: 'Supplier',
+                operation: 'create',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Supplier Created',
@@ -212,10 +256,28 @@ exports.updateSupplier = async (req, res) => {
             return res.status(400).json({ success: false, message: 'No changes supplied.' });
         }
 
-        const supplier = await Supplier.findByIdAndUpdate(
-            id,
-            { $set: fields },
-            { new: true, runValidators: true }
+        const supplier = await dualWrite(
+            () => Supplier.findByIdAndUpdate(
+                id,
+                { $set: fields },
+                { new: true, runValidators: true }
+            ),
+            async (saved) => {
+                if (!saved) return;
+                const repo = getSupplierRepository();
+                const pgRow = await repo.findByLegacyId(String(saved._id));
+                if (!pgRow) {
+                    const err = new Error('Supplier not found.');
+                    err.code = 'NOT_FOUND';
+                    throw err;
+                }
+                await repo.update(pgRow.id, mapMongoSupplierToPostgresUpdate(saved));
+            },
+            {
+                model: 'Supplier',
+                operation: 'update',
+                mongoId: (saved) => (saved ? String(saved._id) : undefined)
+            }
         );
 
         if (!supplier) {
@@ -269,7 +331,21 @@ exports.deleteSupplier = async (req, res) => {
         }
 
         await Product.updateMany({ supplierId: id }, { $set: { supplierId: null } });
-        await Supplier.findByIdAndDelete(id);
+        await dualWrite(
+            () => Supplier.findByIdAndDelete(id),
+            async () => {
+                const repo = getSupplierRepository();
+                const pgRow = await repo.findByLegacyId(id);
+                if (pgRow) {
+                    await repo.remove(pgRow.id);
+                }
+            },
+            {
+                model: 'Supplier',
+                operation: 'delete',
+                mongoId: id
+            }
+        );
 
         await logSecurityEvent({
             action: 'Supplier Deleted',

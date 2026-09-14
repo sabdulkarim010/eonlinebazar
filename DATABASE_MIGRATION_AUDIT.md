@@ -1,8 +1,9 @@
 # DATABASE MIGRATION AUDIT — MongoDB → PostgreSQL (Prisma + Neon)
 
 **Created:** 2026-09-13
-**Current stage:** 2 of 5 — Step 3 Part 1 (Category dual-write pilot) **COMPLETE**
-(Step 1, 1b, and Step 2 repository layer also complete)
+**Current stage:** 2 of 5 — Step 3 Part 2 (Designation, Brand, Warehouse, Supplier
+dual-write) **COMPLETE** (Step 3 Part 1 Category pilot also complete; Step 1, 1b, and
+Step 2 repository layer also complete)
 **Artifacts produced:** `prisma/schema.prisma`, `prisma.config.js`,
 `prisma/migrations/20260913131445_init_postgres_baseline/`, this file
 **Application code changed:** none — no model, controller, route or service touched
@@ -1525,5 +1526,81 @@ tests 135 | pass 135 | fail 0
 
 Unchanged count — category repository tests still pass with the new `legacyId` /
 `findByLegacyId` additions (no new repository test file in this part).
+
+---
+
+## STAGE 2 STEP 3, PART 2 — Dual-Write: Designation, Brand, Warehouse, Supplier — 2026-09-14
+
+Extends the Category dual-write pilot (Part 1) to four more catalog/ERP models using
+the same `dualWriteService.js` helper unchanged. MongoDB remains authoritative for all
+reads; Postgres writes are best-effort and failure-isolated.
+
+### Per-model summary
+
+| Model | Controller file | Functions wired | Reads touched? | legacyId gap fixed? |
+|---|---|---|---|---|
+| **Designation** | `backend/src/controllers/admin/designationController.js` | `createDesignation`, `updateDesignation`, `deleteDesignation` | **No** | **Yes** — `legacyId` + `findByLegacyId()` added to `designationRepository.js` |
+| **Brand** | `backend/src/controllers/brandController.js` | `createBrand`, `updateBrand`, `deleteBrand` | **No** (`getBrands` unchanged) | **Yes** — `legacyId` + `findByLegacyId()` added to `brandRepository.js` |
+| **Warehouse** | `backend/src/controllers/admin/warehouseController.js` | `createWarehouse`, `updateWarehouse`, `deleteWarehouse` | **No** | **Yes** — `legacyId` + `findByLegacyId()` added to `warehouseRepository.js` |
+| **Supplier** | `backend/src/controllers/admin/supplierController.js` | `createSupplier`, `updateSupplier`, `deleteSupplier` | **No** | **Yes** — `legacyId` + `findByLegacyId()` added to `supplierRepository.js` |
+
+Routes were **not** modified. `dualWriteService.js` was **not** modified.
+
+### Model-specific behaviour
+
+**Designation** — No parent-relation complexity. Postgres mirror is a straight field
+map; employee rename cascade remains Mongo-only (Postgres employees are not yet live).
+
+**Brand** — Slug generation stays inside `brandRepository.create()` / `update()` via
+the existing `slugifyBrand()` from Stage 2 Step 2 Part 1. The controller does not
+regenerate slugs for Postgres.
+
+**Warehouse — setDefault equivalent** — There is no separate “set default” route; default
+promotion happens inside `createWarehouse` (`demoteOtherDefaults`) and `updateWarehouse`
+(when `isDefault: true`). The Postgres mirror calls `warehouseRepository.setDefault()`
+after create/update whenever Mongo promotes a warehouse to default, matching the Mongoose
+controller's exclusive-default semantics. Partial field mapping on update avoids sending
+`isDefault: false` on unrelated PATCHes (which would incorrectly trigger the
+“cannot un-default” guard).
+
+**Supplier — Restrict-on-delete reconciliation risk** — Both Mongo and Postgres enforce
+“no delete while open POs exist” (Mongo: `OPEN_PO_STATUSES` count in controller; Postgres:
+`supplierRepository.remove()` with Restrict FK). During dual-write, Mongo is checked
+first — if Mongo allows delete, Postgres `remove()` runs second. If Postgres still has
+open PO rows that Mongo does not (possible only after Stage 3 backfill drift or
+cross-database inconsistency), Postgres `remove()` throws, `dualWriteService` logs
+`[DUAL-WRITE-FAILURE]`, and the API caller still sees success because Mongo already
+deleted. This is a **known reconciliation risk** — not solved in this task; Stage 3
+row-count and PO-state audits are the remedy.
+
+### Jest / Prisma loading
+
+All four controllers use lazy `get*Repository()` helpers (same pattern as Category Part 1)
+so Jest can import the app graph without loading the generated `.mts` Prisma client.
+
+### Test results
+
+**Existing controller-level regression (no new test files added):**
+
+| Suite | Coverage |
+|---|---|
+| `tests/hrm.test.js` | Designation create/list/update/delete response shapes |
+| `tests/erp.test.js` | Supplier + Warehouse CRUD, default protection, open-PO delete block |
+
+**Main Jest suite (`npm test`):**
+
+```
+Test Suites: 17 passed, 17 total
+Tests:       169 passed, 169 total
+```
+
+**Repository suite (`npm run test:repositories`):**
+
+```
+tests 135 | pass 135 | fail 0
+```
+
+**dualWriteService.js** — not re-tested (unchanged since Part 1; 3/3 still green via
+`tests/services/dualWriteService.test.js`).
 
 

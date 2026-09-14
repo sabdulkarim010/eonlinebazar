@@ -2082,3 +2082,23 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 2 for function lists and test 
 
 See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 1 for flow detail and log shapes.
 
+## Stage 2 Step 3, Part 2 — Dual-Write: Designation, Brand, Warehouse, Supplier — 2026-09-14
+
+**Status:** ✅ COMPLETE — five models now dual-write; MongoDB still authoritative for reads
+
+| Item | Status |
+|------|--------|
+| Designation — create/update/delete wired | ✅ |
+| Brand — create/update/delete wired (slug via brandRepository) | ✅ |
+| Warehouse — create/update/delete wired; setDefault on default promotion | ✅ |
+| Supplier — create/update/delete wired | ✅ |
+| legacyId + findByLegacyId on all four repositories | ✅ |
+| dualWriteService.js modified | ❌ none (reused as-is) |
+| All READ endpoints for four models unchanged | ✅ |
+| Supplier Restrict delete cross-DB drift | ⚠️ documented reconciliation risk |
+| Main Jest suite (`npm test`) | ✅ 169/169 |
+| Neon repository tests (`npm run test:repositories`) | ✅ 135/135 |
+| Routes / other controllers touched | ❌ none |
+
+See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 2.
+

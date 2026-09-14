@@ -80,6 +80,15 @@ async function findAll(filters = {}) {
   return records.map(toShape);
 }
 
+// ── findByLegacyId ───────────────────────────────────────────────────────────
+async function findByLegacyId(legacyId) {
+  if (!legacyId) return null;
+  const record = await prisma.supplier.findUnique({
+    where: { legacyId: String(legacyId) }
+  });
+  return toShape(record);
+}
+
 // ── findById ─────────────────────────────────────────────────────────────────
 // Returns the supplier with its recent purchase orders attached
 // (matches getSupplierById: includes purchaseOrders last 10).
@@ -123,7 +132,8 @@ async function create(data) {
       address: String(data.address || '').trim(),
       notes: String(data.notes || '').trim(),
       status: toStatusEnum(data.status),
-      createdById: data.createdById ?? null
+      createdById: data.createdById ?? null,
+      legacyId: data.legacyId != null ? String(data.legacyId) : null
     }
   });
   return toShape(record);
@@ -201,6 +211,7 @@ async function remove(id) {
 module.exports = {
   findAll,
   findById,
+  findByLegacyId,
   create,
   update,
   remove

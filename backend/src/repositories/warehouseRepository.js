@@ -68,6 +68,15 @@ async function findById(id) {
   return toShape(record);
 }
 
+// ── findByLegacyId ───────────────────────────────────────────────────────────
+async function findByLegacyId(legacyId) {
+  if (!legacyId) return null;
+  const record = await prisma.warehouse.findUnique({
+    where: { legacyId: String(legacyId) }
+  });
+  return toShape(record);
+}
+
 // ── create ───────────────────────────────────────────────────────────────────
 // Mirrors createWarehouse:
 //   - First warehouse (existingCount === 0) automatically becomes the default.
@@ -92,7 +101,8 @@ async function create(data) {
       phone: String(data.phone || '').trim(),
       isDefault,
       status: toStatusEnum(data.status),
-      createdById: data.createdById ?? null
+      createdById: data.createdById ?? null,
+      legacyId: data.legacyId != null ? String(data.legacyId) : null
     }
   });
 
@@ -234,6 +244,7 @@ async function setDefault(id) {
 module.exports = {
   findAll,
   findById,
+  findByLegacyId,
   create,
   update,
   remove,

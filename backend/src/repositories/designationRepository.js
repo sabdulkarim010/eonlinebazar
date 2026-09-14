@@ -68,6 +68,15 @@ async function findById(id) {
   return toShape(record);
 }
 
+// ── findByLegacyId ───────────────────────────────────────────────────────────
+async function findByLegacyId(legacyId) {
+  if (!legacyId) return null;
+  const record = await prisma.designation.findUnique({
+    where: { legacyId: String(legacyId) }
+  });
+  return toShape(record);
+}
+
 // ── create ───────────────────────────────────────────────────────────────────
 // data: { name*, department?, description?, isActive?, createdBy? }
 async function create(data) {
@@ -80,7 +89,8 @@ async function create(data) {
       department: String(data.department || 'Operations').trim() || 'Operations',
       description: String(data.description || '').trim(),
       isActive: data.isActive !== undefined ? Boolean(data.isActive) : true,
-      createdBy: String(data.createdBy || '').trim()
+      createdBy: String(data.createdBy || '').trim(),
+      legacyId: data.legacyId != null ? String(data.legacyId) : null
     }
   });
   return toShape(record);
@@ -155,6 +165,7 @@ async function remove(id) {
 module.exports = {
   findAll,
   findById,
+  findByLegacyId,
   create,
   update,
   remove

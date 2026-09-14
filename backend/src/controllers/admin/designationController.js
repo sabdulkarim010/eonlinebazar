@@ -12,6 +12,32 @@ const mongoose = require('mongoose');
 const Designation = require('../../models/designation');
 const Employee = require('../../models/employee');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { dualWrite } = require('../../services/dualWriteService');
+
+/** Lazy load — avoids pulling Prisma into Jest when the app graph is imported. */
+function getDesignationRepository() {
+    return require('../../repositories/designationRepository');
+}
+
+function mapMongoDesignationToPostgresCreate(mongoDoc) {
+    return {
+        name: mongoDoc.name,
+        department: mongoDoc.department,
+        description: mongoDoc.description,
+        isActive: mongoDoc.isActive,
+        createdBy: mongoDoc.createdBy,
+        legacyId: String(mongoDoc._id)
+    };
+}
+
+function mapMongoDesignationToPostgresUpdate(mongoDoc) {
+    return {
+        name: mongoDoc.name,
+        department: mongoDoc.department,
+        description: mongoDoc.description,
+        isActive: mongoDoc.isActive
+    };
+}
 
 function actorName(req) {
     return req.adminAccount?.username || req.admin?.username || 'admin';
@@ -71,13 +97,25 @@ exports.createDesignation = async (req, res) => {
             return res.status(409).json({ success: false, message: 'A designation with this name already exists.' });
         }
 
-        const designation = await Designation.create({
-            name,
-            department: String(req.body?.department || 'Operations').trim() || 'Operations',
-            description: String(req.body?.description || '').trim(),
-            isActive: req.body?.isActive === undefined ? true : !!req.body.isActive,
-            createdBy: actorName(req)
-        });
+        const designation = await dualWrite(
+            () => Designation.create({
+                name,
+                department: String(req.body?.department || 'Operations').trim() || 'Operations',
+                description: String(req.body?.description || '').trim(),
+                isActive: req.body?.isActive === undefined ? true : !!req.body.isActive,
+                createdBy: actorName(req)
+            }),
+            async (saved) => {
+                await getDesignationRepository().create(
+                    mapMongoDesignationToPostgresCreate(saved)
+                );
+            },
+            {
+                model: 'Designation',
+                operation: 'create',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Designation Created',
@@ -145,7 +183,24 @@ exports.updateDesignation = async (req, res) => {
             designation.isActive = !!req.body.isActive;
         }
 
-        await designation.save();
+        await dualWrite(
+            () => designation.save(),
+            async (saved) => {
+                const repo = getDesignationRepository();
+                const pgRow = await repo.findByLegacyId(String(saved._id));
+                if (!pgRow) {
+                    const err = new Error('Designation not found.');
+                    err.code = 'NOT_FOUND';
+                    throw err;
+                }
+                await repo.update(pgRow.id, mapMongoDesignationToPostgresUpdate(saved));
+            },
+            {
+                model: 'Designation',
+                operation: 'update',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         // Cascade a rename onto the employees carrying the old title.
         if (designation.name !== previousName) {
@@ -202,7 +257,21 @@ exports.deleteDesignation = async (req, res) => {
             });
         }
 
-        await designation.deleteOne();
+        await dualWrite(
+            () => designation.deleteOne(),
+            async () => {
+                const repo = getDesignationRepository();
+                const pgRow = await repo.findByLegacyId(String(designation._id));
+                if (pgRow) {
+                    await repo.remove(pgRow.id);
+                }
+            },
+            {
+                model: 'Designation',
+                operation: 'delete',
+                mongoId: String(designation._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Designation Deleted',

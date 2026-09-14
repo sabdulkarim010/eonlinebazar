@@ -120,7 +120,7 @@ Read these documents before making changes. Operational notes belong in the exis
 | [ARCHITECTURE.md](ARCHITECTURE.md) | **Read first.** Folder layout, CSS/JS barrels, admin ERP/CRM/HRM nav groups, enterprise models, local dev ports, and contributor rules. |
 | [REFACTOR_MAP.md](REFACTOR_MAP.md) | **Read first.** File-by-file completion log for ERP, CRM, HRM, UI restructure, and follow-on phases. |
 | [SYSTEM_ENTERPRISE_AUDIT.md](SYSTEM_ENTERPRISE_AUDIT.md) | Full-stack enterprise audit: feature inventory, ERP/CRM/HRM matrix, models, APIs, mobile parity, and remaining findings. |
-| [DATABASE_MIGRATION_AUDIT.md](DATABASE_MIGRATION_AUDIT.md) | MongoDB → PostgreSQL (Prisma + Neon) migration: 5-stage roadmap, model-by-model mapping, cascade and index strategy, and the stage-by-stage change log. **Stage 2 Steps 1 & 1b complete (2026-09-13) — Prisma 7.10.0 connected to Neon (67 tables), generator corrected to `moduleFormat = "esm"` + `generatedFileExtension = "mts"` so the client loads from plain CommonJS via Node's native type stripping (requires Node ≥ 22.18.0). Live database is still MongoDB; no application code reads PostgreSQL yet.** |
+| [DATABASE_MIGRATION_AUDIT.md](DATABASE_MIGRATION_AUDIT.md) | MongoDB → PostgreSQL (Prisma + Neon) migration: 5-stage roadmap, model-by-model mapping, cascade and index strategy, and the stage-by-stage change log. **Stage 2 Step 3 dual-write active (2026-09-14) — Category, Designation, Brand, Warehouse, and Supplier writes mirror to Neon via `dualWriteService.js`; all reads still come from MongoDB only.** |
 | [.cursorrules](.cursorrules) | Cursor agent contract: never edit barrel CSS/JS directly, never restructure `routes/*.js`, search before renaming IDs, run `npm test` after changes. |
 
 ### Additional References
@@ -164,7 +164,7 @@ npm run test:repositories # 13 files, 135 tests — Neon PostgreSQL (serial conc
 | Profit & Loss | `tests/profitLoss.test.js` | 2 | P&amp;L report shape and empty-range zero case |
 | POS | `tests/pos.test.js` | 2 | Manual counter order creation |
 | Abandoned carts | `tests/abandonedCart.test.js` | 3 | CRM list KPIs and recovery notify |
-| Dual-write service | `tests/services/dualWriteService.test.js` | 3 | Mongo-first dual-write failure isolation (Category migration pilot) |
+| Dual-write service | `tests/services/dualWriteService.test.js` | 3 | Mongo-first dual-write failure isolation (Category + 4 catalog/ERP models) |
 | **Total** | | **169** | All suites green |
 
 Expected Jest summary:

@@ -80,6 +80,15 @@ async function findById(id) {
   return toShape(record);
 }
 
+// ── findByLegacyId ───────────────────────────────────────────────────────────
+async function findByLegacyId(legacyId) {
+  if (!legacyId) return null;
+  const record = await prisma.brand.findUnique({
+    where: { legacyId: String(legacyId) }
+  });
+  return toShape(record);
+}
+
 // ── findBySlug ───────────────────────────────────────────────────────────────
 // Note: The Prisma schema has `slug String @default("")` with an `@@index` but
 // NOT @unique, matching the Mongoose model which also had no unique constraint on slug.
@@ -107,7 +116,8 @@ async function create(data) {
       name,
       slug,
       description: String(data.description || '').trim(),
-      status: toStatusEnum(data.status)
+      status: toStatusEnum(data.status),
+      legacyId: data.legacyId != null ? String(data.legacyId) : null
     }
   });
   return toShape(record);
@@ -162,6 +172,7 @@ module.exports = {
   slugifyBrand,
   findAll,
   findById,
+  findByLegacyId,
   findBySlug,
   create,
   update,
