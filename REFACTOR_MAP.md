@@ -1514,3 +1514,15 @@ DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 9 section — Stage 2 Ste
 REFACTOR_MAP.md [DONE] this section
 README.md [DONE] Admin dual-write + repository test count (157)
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 9 note added
+
+# PostgreSQL migration — Stage 3 Step 1: Backfill framework + first dependency group: 2026-09-14
+
+backend/scripts/backfill/backfillRunner.js [NEW] shared backfillModel() — idempotent legacyId skip, _id cursor pagination, per-doc failure isolation
+backend/scripts/backfill/runBackfill.js [NEW] entry point — Designation, Brand, Warehouse, Supplier, Category (two-pass parent wiring)
+backend/scripts/backfill/verifyBackfill.js [NEW] Mongo vs Postgres count comparison + Category parentCategoryId audit
+backend/src/repositories/** [UNCHANGED] reused create()/update()/findByLegacyId() as-is
+backend/src/controllers/** [UNCHANGED]
+backend/src/routes/** [UNCHANGED]
+backend/src/services/dualWriteService.js [UNCHANGED]
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 3 Step 1 section added
+REFACTOR_MAP.md [DONE] this section

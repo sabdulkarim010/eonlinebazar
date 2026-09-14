@@ -1950,7 +1950,7 @@ Full detail lives in `DATABASE_MIGRATION_AUDIT.md`; this is the status summary.
 | Dual-write repository layer | ❌ NOT STARTED — Stage 2 remainder |
 | `LoginAttempt` / `BlacklistedIp` TTL sweep jobs | ❌ NOT STARTED — Stage 2 remainder |
 | `ProductTextIndex` → `tsvector` + GIN raw SQL migration | ❌ NOT STARTED — Stage 2 remainder |
-| Stage 3 backfill / Stage 4 read cutover | ❌ NOT STARTED |
+| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — Stage 3 Step 1 complete (5 catalog/ERP models); remaining groups pending |
 
 **Isolation guarantee:** zero `.js` files under `backend/src/` were modified — no
 model, controller, route, service or script. No application code queries
@@ -2251,4 +2251,20 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 8.
 | Routes touched | ❌ none |
 
 See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 9.
+
+## Stage 3, Step 1 — Backfill: Designation, Brand, Warehouse, Supplier, Category — 2026-09-14
+
+**Status:** ✅ COMPLETE — first dependency group backfilled via standalone scripts
+
+| Item | Status |
+|------|--------|
+| `backfillModel()` framework (idempotent `legacyId` skip) | ✅ |
+| Designation / Brand / Warehouse / Supplier / Category backfill | ✅ |
+| Category two-pass parentCategoryId wiring | ✅ verified (2/2 linked) |
+| Application code modified | ❌ none (repositories reused as-is) |
+| MongoDB writes | ❌ none (read-only) |
+| Main Jest suite (`npm test`) | ✅ 169/169 |
+| Neon repository tests (`npm run test:repositories`) | ✅ 157/157 |
+
+See `DATABASE_MIGRATION_AUDIT.md` § STAGE 3, STEP 1.
 

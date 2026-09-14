@@ -2167,4 +2167,75 @@ New / extended repository tests in `tests/repositories/admin.repository.test.js`
 Stage 3 scripts should grep application logs for these five prefixes and resolve each
 recorded `mongoId` / `legacyId` / `postgresOrderId` once referenced Postgres rows exist.
 
+## STAGE 3, STEP 1 — Backfill: Designation, Brand, Warehouse, Supplier, Category — 2026-09-14
+
+Standalone scripts under `backend/scripts/backfill/` — **read MongoDB only, write
+Postgres only**. No application code, routes, or repositories modified. Reuses
+existing Stage 2 Step 2 repository `create()` / `update()` functions as-is.
+
+### Framework files
+
+| File | Role |
+|---|---|
+| `backfillRunner.js` | Shared `backfillModel()` — `_id`-cursor pagination, `legacyId` skip-if-exists, per-doc failure isolation |
+| `runBackfill.js` | Entry point — orchestrates dependency-ordered groups (Step 1 group only in this task) |
+| `verifyBackfill.js` | Mongo vs Postgres count comparison + Category parent link audit |
+
+Run manually:
+
+```bash
+node backend/scripts/backfill/runBackfill.js
+node backend/scripts/backfill/verifyBackfill.js
+```
+
+### Step 1 group — backfillModel() results (first run against real Neon)
+
+| Model | totalFound | created | skipped | failed |
+|---|---:|---:|---:|---:|
+| Designation | 8 | 8 | 0 | 0 |
+| Brand | 1 | 1 | 0 | 0 |
+| Warehouse | 1 | 1 | 0 | 0 |
+| Supplier | 0 | 0 | 0 | 0 |
+| Category (pass 1) | 14 | 14 | 0 | 0 |
+| Category (pass 2 — parentCategoryId) | 2 | — | 0 updated / 0 skipped | 0 |
+
+Category pass 2 summary: `{ totalFound: 2, updated: 2, skipped: 0, failed: 0 }`.
+
+### Category two-pass parent handling
+
+1. **Pass 1:** `backfillModel()` creates all categories with `parentCategoryId: null`.
+2. **Pass 2:** `backfillCategoryParents()` resolves each Mongo `parentCategory` ObjectId
+   to the parent's Postgres `id` via `findByLegacyId()` + `categoryRepository.update()`.
+
+### verifyBackfill.js output (first run)
+
+| Model | Mongo | Postgres | diff |
+|---|---:|---:|---|
+| Designation | 8 | 10 | +2 |
+| Brand | 1 | 1 | 0 |
+| Warehouse | 1 | 1 | 0 |
+| Supplier | 0 | 0 | 0 |
+| Category | 14 | 14 | 0 |
+
+**Designation +2:** Postgres holds 2 extra rows from prior Neon repository integration
+tests (no matching Mongo `legacyId`) — not a backfill failure.
+
+**Category parent verification:** 2 Mongo categories had `parentCategory` set; all 2
+now have non-null `parentCategoryId` in Postgres. Zero orphans.
+
+Re-run safety: `backfillModel()` skips any row whose `legacyId` already exists in
+Postgres — safe to run repeatedly.
+
+### TODO — remaining Stage 3 groups (future steps)
+
+Extend `runBackfill.js` → `runAll()` following Stage 3 dependency order: Attribute,
+Admin, Employee, Product, User, Order, CMS/Settings, Security, HRM, Marketing, etc.
+
+### Test results (unchanged application code)
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **169/169** pass |
+| `npm run test:repositories` | **157/157** pass |
+
 
