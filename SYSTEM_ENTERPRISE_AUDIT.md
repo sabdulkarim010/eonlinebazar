@@ -1950,7 +1950,7 @@ Full detail lives in `DATABASE_MIGRATION_AUDIT.md`; this is the status summary.
 | Dual-write repository layer | ❌ NOT STARTED — Stage 2 remainder |
 | `LoginAttempt` / `BlacklistedIp` TTL sweep jobs | ❌ NOT STARTED — Stage 2 remainder |
 | `ProductTextIndex` → `tsvector` + GIN raw SQL migration | ❌ NOT STARTED — Stage 2 remainder |
-| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — Stage 3 Steps 1–3 complete (catalog/ERP + CMS/settings + security/audit + User/HRM/Marketing-Support); Admin, Product, Order groups pending |
+| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — Stage 3 Steps 1–4 complete (through Admin + Product + gap repair); Order group pending |
 
 **Isolation guarantee:** zero `.js` files under `backend/src/` were modified — no
 model, controller, route, service or script. No application code queries
@@ -2305,4 +2305,22 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 3, STEP 2.
 | Neon repository tests (`npm run test:repositories`) | ✅ 157/157 |
 
 See `DATABASE_MIGRATION_AUDIT.md` § STAGE 3, STEP 3.
+
+## Stage 3, Step 4 — Backfill: Admin + Product + Gap Repair — 2026-09-14
+
+**Status:** ✅ COMPLETE — Admin (3), Product (14 + 45 variants), gap repairs applied
+
+| Item | Status |
+|------|--------|
+| Admin backfill + bcrypt hash preserved (3/3, no double-hash) | ✅ |
+| Product + ProductVariant backfill with in-memory FK maps | ✅ 14/14, 45 variants |
+| CartItem gap repair | ✅ 7 rows created (0→7) |
+| Review/WishlistItem productId repair | ✅ 1 Review + 14 WishlistItem repaired |
+| HRM Attendance re-attempt | ⚠️ 0/1 resolved (staffUsername fallback added for re-run) |
+| 3 User firstName failures | ❌ OPEN — documented, no invented placeholders |
+| backfillRunner.js modified | ❌ none |
+| `npm test` | ✅ 169/169 |
+| `npm run test:repositories` | ✅ 157/157 |
+
+See `DATABASE_MIGRATION_AUDIT.md` § STAGE 3, STEP 4.
 

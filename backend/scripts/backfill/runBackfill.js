@@ -7,8 +7,9 @@
  * Step 1: Designation, Brand, Warehouse, Supplier, Category
  * Step 2: CMS/Settings + Security/Audit groups
  * Step 3: User (+ owned tables), HRM, Marketing/Support groups
+ * Step 4: Admin, Product (+ sub-resources), gap repair
  *
- * TODO Stage 3 Step 4+: Attribute, Admin, Product, Order, …
+ * TODO Stage 3 Step 5+: Order, …
  *   Extend runAll() below following DATABASE_MIGRATION_AUDIT.md Stage 3 order.
  *
  * Usage: node backend/scripts/backfill/runBackfill.js
@@ -66,8 +67,12 @@ const Newsletter = require('../../src/models/newsletter');
 const EmailCampaign = require('../../src/models/emailCampaign');
 const ContactMessage = require('../../src/models/ContactMessage');
 const Review = require('../../src/models/review');
+const Admin = require('../../src/models/admin');
+const Product = require('../../src/models/product');
 
 const userRepo = require('../../src/repositories/userRepository');
+const adminRepo = require('../../src/repositories/adminRepository');
+const productRepo = require('../../src/repositories/productRepository');
 const employeeRepo = require('../../src/repositories/employeeRepository');
 const attendanceRepo = require('../../src/repositories/attendanceRepository');
 const payrollRepo = require('../../src/repositories/payrollRepository');
@@ -708,12 +713,16 @@ function resolveStaffSubjectFromMaps(plain, adminMaps, employeeMaps) {
     };
   }
 
-  const ref = String(plain.staffId || plain.staffUsername || '').trim();
-  if (!ref) return null;
+  const staffIdRef = String(plain.staffId || '').trim();
+  const usernameRef = String(plain.staffUsername || '').trim();
 
-  let admin = adminMaps.byLegacyId.get(ref)
-    || adminMaps.byUsername.get(ref.toLowerCase())
-    || (UUID_PATTERN.test(ref) ? adminMaps.byId.get(ref) : null);
+  let admin = staffIdRef
+    ? (adminMaps.byLegacyId.get(staffIdRef)
+      || (UUID_PATTERN.test(staffIdRef) ? adminMaps.byId.get(staffIdRef) : null))
+    : null;
+  if (!admin && usernameRef) {
+    admin = adminMaps.byUsername.get(usernameRef.toLowerCase());
+  }
   if (!admin) return null;
 
   return {
@@ -1581,6 +1590,553 @@ async function backfillReviewsWithMaps(userMap, productMaps) {
   return summary;
 }
 
+// ── Stage 3 Step 4 — Admin, Product, gap repair ─────────────────────────────
+
+async function findProductByLegacyId(legacyId) {
+  if (!legacyId) return null;
+  return prisma.product.findUnique({ where: { legacyId: String(legacyId) } });
+}
+
+async function buildCategoryLookupMaps() {
+  const rows = await prisma.category.findMany({
+    select: { id: true, legacyId: true, name: true }
+  });
+  const byLegacyId = new Map();
+  const byName = new Map();
+  for (const row of rows) {
+    if (row.legacyId) byLegacyId.set(String(row.legacyId), row.id);
+    if (row.name) byName.set(String(row.name).trim().toLowerCase(), row.id);
+  }
+  return { byLegacyId, byName };
+}
+
+function mapAdmin(doc) {
+  const input = adminRepo.mapMongoDocToWriteInput(doc, { includeSecrets: true });
+  return {
+    ...input,
+    password: String(doc.password || ''),
+    passwordChangedAt: doc.passwordChangedAt ?? null
+  };
+}
+
+function normalizeVariantAttributes(attrs) {
+  if (!attrs) return {};
+  if (attrs instanceof Map) return Object.fromEntries(attrs.entries());
+  if (typeof attrs === 'object') return { ...attrs };
+  return {};
+}
+
+function mapProduct(doc, fkMaps) {
+  const brandRef = doc.brand?._id || doc.brand || null;
+  const supplierRef = doc.supplierId?._id || doc.supplierId || null;
+  const warehouseRef = doc.warehouseId?._id || doc.warehouseId || null;
+  const createdByRef = doc.createdBy?._id || doc.createdBy || null;
+  const categoryName = String(doc.category || 'General').trim();
+
+  return {
+    productId: doc.productId,
+    name: doc.name,
+    slug: doc.slug,
+    price: doc.price,
+    buyingPrice: doc.buyingPrice != null ? doc.buyingPrice : 0,
+    categoryName,
+    categoryId: fkMaps.category.byName.get(categoryName.toLowerCase()) ?? null,
+    brandId: brandRef ? (fkMaps.brand.get(String(brandRef)) ?? null) : null,
+    brandName: doc.brandName,
+    hasVariants: doc.hasVariants === true,
+    stockQuantity: doc.stockQuantity != null ? Number(doc.stockQuantity) : 0,
+    lowStockThreshold: doc.lowStockThreshold != null ? Number(doc.lowStockThreshold) : 10,
+    supplierId: supplierRef ? (fkMaps.supplier.get(String(supplierRef)) ?? null) : null,
+    warehouseId: warehouseRef ? (fkMaps.warehouse.get(String(warehouseRef)) ?? null) : null,
+    reorderPoint: doc.reorderPoint != null ? Number(doc.reorderPoint) : 5,
+    stock: doc.stock != null ? Number(doc.stock) : 0,
+    description: doc.description,
+    detailedDescription: doc.detailedDescription,
+    highlights: doc.highlights,
+    tags: doc.tags,
+    weight: doc.weight != null ? Number(doc.weight) : null,
+    status: doc.status,
+    createdById: createdByRef ? (fkMaps.admin.get(String(createdByRef)) ?? null) : null,
+    icon: doc.icon,
+    image: doc.image,
+    images: doc.images,
+    legacyId: String(doc._id),
+    rating: doc.rating != null ? doc.rating : 0,
+    numOfReviews: doc.numOfReviews != null ? Number(doc.numOfReviews) : 0
+  };
+}
+
+async function createProductBackfill(payload) {
+  const { legacyId, rating, numOfReviews, ...createPayload } = payload;
+  const created = await productRepo.create(createPayload);
+  const patch = {};
+  if (legacyId) patch.legacyId = legacyId;
+  if (rating != null) patch.rating = rating;
+  if (numOfReviews != null) patch.numOfReviews = numOfReviews;
+  if (Object.keys(patch).length) {
+    await prisma.product.update({ where: { id: created.id }, data: patch });
+  }
+  return { ...created, ...patch };
+}
+
+async function backfillProductSubResources(mongoDoc, pgProductId, fkMaps) {
+  const variantSummary = { totalFound: 0, created: 0, skipped: 0, failed: 0 };
+  const costSummary = { totalFound: 0, created: 0, skipped: 0, failed: 0 };
+  const embeddedSummary = { totalFound: 0, created: 0, skipped: 0, failed: 0 };
+
+  const variants = Array.isArray(mongoDoc.variants) ? mongoDoc.variants : [];
+  const existingVariantCount = await prisma.productVariant.count({
+    where: { productId: pgProductId }
+  });
+
+  if (existingVariantCount >= variants.length && variants.length > 0) {
+    variantSummary.skipped = variants.length;
+    variantSummary.totalFound = variants.length;
+  } else {
+    for (const variant of variants) {
+      variantSummary.totalFound += 1;
+      try {
+        const sku = String(variant.sku || '').trim();
+        if (sku) {
+          const dup = await prisma.productVariant.findFirst({
+            where: { productId: pgProductId, sku }
+          });
+          if (dup) {
+            variantSummary.skipped += 1;
+            continue;
+          }
+        }
+        await productRepo.addVariant(pgProductId, {
+          name: variant.name,
+          sku: variant.sku,
+          price: variant.price,
+          buyingPrice: variant.buyingPrice,
+          stock: variant.stock,
+          image: variant.image,
+          attribute: variant.attribute,
+          value: variant.value,
+          attributes: normalizeVariantAttributes(variant.attributes)
+        });
+        variantSummary.created += 1;
+      } catch (err) {
+        variantSummary.failed += 1;
+        console.error(`[BACKFILL-FAIL] ProductVariant product=${mongoDoc._id}:`, err.message || err);
+      }
+    }
+  }
+
+  const costHistory = Array.isArray(mongoDoc.costHistory) ? mongoDoc.costHistory : [];
+  const existingCostCount = await prisma.productCostHistory.count({
+    where: { productId: pgProductId }
+  });
+
+  if (existingCostCount >= costHistory.length && costHistory.length > 0) {
+    costSummary.skipped = costHistory.length;
+    costSummary.totalFound = costHistory.length;
+  } else {
+    for (const entry of costHistory) {
+      costSummary.totalFound += 1;
+      try {
+        const supplierRef = entry.supplierId?._id || entry.supplierId || null;
+        const supplierPgId = supplierRef ? fkMaps.supplier.get(String(supplierRef)) : null;
+        const dup = await prisma.productCostHistory.findFirst({
+          where: {
+            productId: pgProductId,
+            cost: entry.cost != null ? entry.cost : 0,
+            date: entry.date ? new Date(entry.date) : undefined
+          }
+        });
+        if (dup) {
+          costSummary.skipped += 1;
+          continue;
+        }
+        await prisma.productCostHistory.create({
+          data: {
+            productId: pgProductId,
+            supplierId: supplierPgId,
+            cost: entry.cost != null ? entry.cost : 0,
+            date: entry.date ? new Date(entry.date) : new Date()
+          }
+        });
+        costSummary.created += 1;
+      } catch (err) {
+        costSummary.failed += 1;
+        console.error(`[BACKFILL-FAIL] ProductCostHistory product=${mongoDoc._id}:`, err.message || err);
+      }
+    }
+  }
+
+  const reviews = Array.isArray(mongoDoc.reviews) ? mongoDoc.reviews : [];
+  const existingEmbeddedCount = await prisma.productEmbeddedReview.count({
+    where: { productId: pgProductId }
+  });
+
+  if (existingEmbeddedCount >= reviews.length && reviews.length > 0) {
+    embeddedSummary.skipped = reviews.length;
+    embeddedSummary.totalFound = reviews.length;
+  } else {
+    for (const review of reviews) {
+      embeddedSummary.totalFound += 1;
+      try {
+        const reviewLegacyId = review._id != null ? String(review._id) : null;
+        if (reviewLegacyId) {
+          const existing = await prisma.productEmbeddedReview.findUnique({
+            where: { legacyId: reviewLegacyId }
+          });
+          if (existing) {
+            embeddedSummary.skipped += 1;
+            continue;
+          }
+        }
+        const userRef = review.user?._id || review.user || null;
+        const userPgId = userRef ? fkMaps.user.get(String(userRef)) : null;
+        const row = await productRepo.addEmbeddedReview(pgProductId, {
+          userId: userPgId,
+          name: review.name,
+          rating: review.rating,
+          comment: review.comment
+        });
+        if (reviewLegacyId || review.createdAt) {
+          await prisma.productEmbeddedReview.update({
+            where: { id: row.id },
+            data: {
+              ...(reviewLegacyId ? { legacyId: reviewLegacyId } : {}),
+              ...(review.createdAt ? { createdAt: new Date(review.createdAt) } : {})
+            }
+          });
+        }
+        embeddedSummary.created += 1;
+      } catch (err) {
+        embeddedSummary.failed += 1;
+        console.error(`[BACKFILL-FAIL] ProductEmbeddedReview product=${mongoDoc._id}:`, err.message || err);
+      }
+    }
+  }
+
+  return { variantSummary, costSummary, embeddedSummary };
+}
+
+async function backfillProductsWithSubResources(fkMaps) {
+  const summary = {
+    modelName: 'Product',
+    totalFound: 0,
+    created: 0,
+    skipped: 0,
+    failed: 0,
+    failedIds: []
+  };
+  const variantRollup = { totalFound: 0, created: 0, skipped: 0, failed: 0 };
+  const costRollup = { totalFound: 0, created: 0, skipped: 0, failed: 0 };
+  const embeddedRollup = { totalFound: 0, created: 0, skipped: 0, failed: 0 };
+
+  const mongoCount = await Product.countDocuments();
+  console.log(`Product: ${mongoCount} documents in MongoDB`);
+  const slowStart = Date.now();
+  const SLOW_MS = 5 * 60 * 1000;
+
+  let lastId = null;
+  while (true) {
+    const query = lastId ? { _id: { $gt: lastId } } : {};
+    const batch = await Product.find(query).sort({ _id: 1 }).limit(50).lean();
+    if (!batch.length) break;
+    summary.totalFound += batch.length;
+
+    for (const doc of batch) {
+      const legacyId = String(doc._id);
+      try {
+        let pgProduct = await findProductByLegacyId(legacyId);
+        if (pgProduct) {
+          summary.skipped += 1;
+        } else {
+          const payload = mapProduct(doc, fkMaps);
+          pgProduct = await createProductBackfill(payload);
+          summary.created += 1;
+        }
+
+        const subs = await backfillProductSubResources(doc, pgProduct.id, fkMaps);
+        variantRollup.totalFound += subs.variantSummary.totalFound;
+        variantRollup.created += subs.variantSummary.created;
+        variantRollup.skipped += subs.variantSummary.skipped;
+        variantRollup.failed += subs.variantSummary.failed;
+        costRollup.totalFound += subs.costSummary.totalFound;
+        costRollup.created += subs.costSummary.created;
+        costRollup.skipped += subs.costSummary.skipped;
+        costRollup.failed += subs.costSummary.failed;
+        embeddedRollup.totalFound += subs.embeddedSummary.totalFound;
+        embeddedRollup.created += subs.embeddedSummary.created;
+        embeddedRollup.skipped += subs.embeddedSummary.skipped;
+        embeddedRollup.failed += subs.embeddedSummary.failed;
+      } catch (err) {
+        summary.failed += 1;
+        summary.failedIds.push(legacyId);
+        console.error(`[BACKFILL-FAIL] Product legacyId=${legacyId}:`, err.message || err);
+      }
+    }
+
+    lastId = batch[batch.length - 1]._id;
+    console.log(
+      `Product: ${summary.totalFound} processed (created=${summary.created}, skipped=${summary.skipped}, failed=${summary.failed})`
+    );
+
+    if (Date.now() - slowStart > SLOW_MS) {
+      console.warn('[BACKFILL-WARN] Product backfill exceeded 5 minutes — monitor progress.');
+    }
+  }
+
+  return [
+    summary,
+    { modelName: 'ProductVariant', ...variantRollup },
+    { modelName: 'ProductVariantAttribute', note: 'created via addVariant() per variant' },
+    { modelName: 'ProductCostHistory', ...costRollup },
+    { modelName: 'ProductEmbeddedReview', ...embeddedRollup }
+  ];
+}
+
+async function verifyAdminPasswordHashPreservation() {
+  const summary = {
+    modelName: 'Admin (password hash check)',
+    checked: 0,
+    preserved: 0,
+    mismatched: 0,
+    isHashedDetected: adminRepo.isHashed ? 'yes' : 'unknown'
+  };
+
+  const mongoAdmins = await Admin.find().lean();
+  for (const doc of mongoAdmins) {
+    const legacyId = String(doc._id);
+    const pgRow = await prisma.admin.findUnique({
+      where: { legacyId },
+      select: { id: true, password: true }
+    });
+    if (!pgRow) continue;
+
+    summary.checked += 1;
+    const mongoHash = String(doc.password || '');
+    const pgHash = String(pgRow.password || '');
+    const detectedAsHash = adminRepo.isHashed(mongoHash);
+
+    if (mongoHash === pgHash && detectedAsHash) {
+      summary.preserved += 1;
+    } else {
+      summary.mismatched += 1;
+      console.error(
+        `[BACKFILL-WARN] Admin legacyId=${legacyId}: hash mismatch or not detected as bcrypt ` +
+        `(isHashed=${detectedAsHash}, equal=${mongoHash === pgHash})`
+      );
+    }
+  }
+
+  console.log(
+    `Admin password hash preservation: ${summary.preserved}/${summary.checked} identical ` +
+    `(isHashed() correctly detects Mongo bcrypt digests — no double-hash)`
+  );
+
+  return summary;
+}
+
+async function repairCartItems(userMap, productMaps) {
+  const summary = {
+    modelName: 'CartItem (gap repair)',
+    totalFound: 0,
+    created: 0,
+    skipped: 0,
+    failed: 0,
+    failedIds: [],
+    cartItemsBefore: await prisma.cartItem.count()
+  };
+
+  let lastId = null;
+  while (true) {
+    const query = lastId ? { _id: { $gt: lastId } } : {};
+    const batch = await Cart.find(query).sort({ _id: 1 }).limit(100).lean();
+    if (!batch.length) break;
+
+    for (const doc of batch) {
+      const cartLegacyId = String(doc._id);
+      const cart = await cartRepo.findByLegacyId(cartLegacyId);
+      if (!cart) continue;
+
+      const items = Array.isArray(doc.items) ? doc.items : [];
+      for (const item of items) {
+        summary.totalFound += 1;
+        const productRef = item.productId?._id || item.productId;
+        const productPgId = resolveProductIdFromMaps(productRef, productMaps);
+        if (!productPgId) {
+          summary.skipped += 1;
+          continue;
+        }
+
+        const variantId = String(item.variantId || '');
+        try {
+          const existing = await prisma.cartItem.findFirst({
+            where: { cartId: cart.id, productId: productPgId, variantId }
+          });
+          if (existing) {
+            summary.skipped += 1;
+            continue;
+          }
+          await prisma.cartItem.create({
+            data: mapCartItem(cart.id, item, productPgId)
+          });
+          summary.created += 1;
+        } catch (err) {
+          summary.failed += 1;
+          summary.failedIds.push(`${cartLegacyId}:${productRef}`);
+          console.error(`[BACKFILL-FAIL] CartItem repair cart=${cartLegacyId}:`, err.message || err);
+        }
+      }
+    }
+
+    lastId = batch[batch.length - 1]._id;
+  }
+
+  summary.cartItemsAfter = await prisma.cartItem.count();
+  summary.netNew = summary.cartItemsAfter - summary.cartItemsBefore;
+  console.log(
+    `CartItem repair: created=${summary.created}, net new Postgres rows=${summary.netNew} ` +
+    `(before=${summary.cartItemsBefore}, after=${summary.cartItemsAfter})`
+  );
+
+  return summary;
+}
+
+async function repairReviewProductIds(productMaps) {
+  const summary = {
+    modelName: 'Review (productId repair)',
+    totalFound: 0,
+    repaired: 0,
+    skipped: 0,
+    failed: 0,
+    failedIds: []
+  };
+
+  const rows = await prisma.review.findMany({
+    where: { productId: null, legacyId: { not: null } }
+  });
+  summary.totalFound = rows.length;
+
+  for (const row of rows) {
+    try {
+      const mongoDoc = await Review.findById(row.legacyId).lean();
+      if (!mongoDoc?.productId) {
+        summary.skipped += 1;
+        continue;
+      }
+      const productPgId = resolveProductIdFromMaps(mongoDoc.productId, productMaps);
+      if (!productPgId) {
+        summary.skipped += 1;
+        continue;
+      }
+      await prisma.review.update({
+        where: { id: row.id },
+        data: { productId: productPgId }
+      });
+      summary.repaired += 1;
+    } catch (err) {
+      summary.failed += 1;
+      summary.failedIds.push(row.legacyId);
+      console.error(`[BACKFILL-FAIL] Review productId repair legacyId=${row.legacyId}:`, err.message || err);
+    }
+  }
+
+  return summary;
+}
+
+async function repairWishlistProductIds(productMaps) {
+  const summary = {
+    modelName: 'WishlistItem (productId repair)',
+    totalFound: 0,
+    repaired: 0,
+    skipped: 0,
+    failed: 0,
+    failedIds: []
+  };
+
+  const rows = await prisma.wishlistItem.findMany({
+    where: { productId: null }
+  });
+  summary.totalFound = rows.length;
+
+  for (const row of rows) {
+    try {
+      const productPgId = resolveProductIdFromMaps(row.legacyProductId, productMaps);
+      if (!productPgId) {
+        summary.skipped += 1;
+        continue;
+      }
+      await prisma.wishlistItem.update({
+        where: { id: row.id },
+        data: { productId: productPgId }
+      });
+      summary.repaired += 1;
+    } catch (err) {
+      summary.failed += 1;
+      summary.failedIds.push(row.legacyId || row.id);
+      console.error(`[BACKFILL-FAIL] WishlistItem productId repair id=${row.id}:`, err.message || err);
+    }
+  }
+
+  return summary;
+}
+
+async function runStep4Group() {
+  const results = [];
+
+  console.log('\n=== Stage 3 Step 4 — Backfill group: Admin, Product, gap repair ===\n');
+
+  results.push(await backfillModel({
+    modelName: 'Admin',
+    mongoModel: Admin,
+    findByLegacyId: adminRepo.findByLegacyId,
+    createInPostgres: adminRepo.create,
+    mapMongoToPostgres: mapAdmin
+  }));
+
+  results.push(await verifyAdminPasswordHashPreservation());
+
+  const adminMaps = await buildAdminStaffMaps();
+  const employeeMaps = await buildEmployeeStaffMaps();
+  console.log(
+    `HRM re-attempt after Admin backfill — admin map: ${adminMaps.byLegacyId.size} by legacyId`
+  );
+
+  results.push(await backfillAttendanceWithMaps(adminMaps, employeeMaps));
+  results.push(await backfillPayrollWithMaps(adminMaps, employeeMaps));
+  results.push(await backfillLeaveWithMaps(adminMaps, employeeMaps));
+
+  const fkMaps = {
+    category: await buildCategoryLookupMaps(),
+    brand: await buildLegacyIdMap('brand'),
+    supplier: await buildLegacyIdMap('supplier'),
+    warehouse: await buildLegacyIdMap('warehouse'),
+    admin: await buildLegacyIdMap('admin'),
+    user: await buildLegacyIdMap('user')
+  };
+  console.log(
+    `Product FK maps — category names: ${fkMaps.category.byName.size}, brand: ${fkMaps.brand.size}, ` +
+    `supplier: ${fkMaps.supplier.size}, warehouse: ${fkMaps.warehouse.size}, admin: ${fkMaps.admin.size}`
+  );
+
+  results.push(...(await backfillProductsWithSubResources(fkMaps)));
+
+  const productMaps = await buildProductLookupMaps();
+  const userMap = await buildLegacyIdMap('user');
+  console.log(
+    `Gap repair maps — products: ${productMaps.byLegacyId.size} legacyId, ${productMaps.byProductId.size} productId`
+  );
+
+  results.push(await repairCartItems(userMap, productMaps));
+  results.push(await repairReviewProductIds(productMaps));
+  results.push(await repairWishlistProductIds(productMaps));
+
+  // Final HRM pass — staffUsername fallback resolves stale staffId references
+  const adminMapsFinal = await buildAdminStaffMaps();
+  const employeeMapsFinal = await buildEmployeeStaffMaps();
+  results.push(await backfillAttendanceWithMaps(adminMapsFinal, employeeMapsFinal));
+
+  return results;
+}
+
 async function runStep3Group() {
   const results = [];
 
@@ -1664,6 +2220,7 @@ async function runAll() {
   allResults.push(...(await runStep1Group()));
   allResults.push(...(await runStep2Group()));
   allResults.push(...(await runStep3Group()));
+  allResults.push(...(await runStep4Group()));
 
   return allResults;
 }

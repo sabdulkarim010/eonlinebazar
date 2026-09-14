@@ -2412,8 +2412,98 @@ FK remains null on both — Product backfill pending).
 | `npm test` (Jest) | **169/169** pass |
 | `npm run test:repositories` | **157/157** pass |
 
+## STAGE 3, STEP 4 — Backfill: Admin + Product, Gap Repair — 2026-09-14
+
+Extended `runBackfill.js` and `verifyBackfill.js` — **read MongoDB only, write Postgres
+only**. `backfillRunner.js` unchanged. No repository, controller, route, or
+`dualWriteService.js` modifications.
+
+### Admin password hash preservation (verified — no double-hash)
+
+`adminRepository.create()` calls `preparePasswordField()`, which uses `isHashed()` with
+the bcrypt pattern `/^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/`. When the Mongo `password`
+field (already a bcrypt digest) is passed through, **the hash is stored unchanged** —
+`passwordChangedAt` is not overwritten.
+
+Post-backfill verification: **3/3** Mongo admins matched byte-for-byte in Postgres
+(`Admin (password hash check): preserved=3, mismatched=0`). This is preferable for
+historical backfill (same hash as Mongo) vs live dual-write (independent salts).
+
+### Step 1 — Admin backfill + HRM gap re-attempt
+
+| Model | Strategy | totalFound | created | skipped | failed |
+|---|---|---:|---:|---:|---:|
+| Admin | `backfillModel()` + `adminRepository.create()` + hashed password pass-through | 3 | 3 | 0 | 0 |
+| Attendance (re-attempt ×2 after Admin) | Custom Prisma + in-memory staff maps | 2 | 0 | 1 | 1 |
+| Payroll (re-attempt) | Custom Prisma + staff maps | 0 | 0 | 0 | 0 |
+| Leave (re-attempt) | Custom Prisma + staff maps | 0 | 0 | 0 | 0 |
+
+**HRM gap closure from Step 3:** Attendance **0 of 1** previously-failed record resolved in
+this run (`6aa42b47265447ac6ddf014e`). Root cause: resolver tried stale `staffId`
+(`6a644b4a…`, deleted admin) before `staffUsername` (`nurjahan`). **Fix applied:**
+`resolveStaffSubjectFromMaps()` now falls back to `staffUsername` when `staffId` lookup
+fails; a **final attendance pass** was added at end of Step 4 for the next idempotent
+re-run to pick up this record.
+
+Payroll/Leave: no Step 3 failures to close (0 Mongo documents).
+
+### Step 2 — Product backfill (+ sub-resources)
+
+In-memory FK maps loaded once: Category (by name), Brand, Supplier, Warehouse, Admin,
+User. `productRepository.create()` for core row; script-level `prisma.product.update()`
+sets `legacyId`, `rating`, `numOfReviews` (not accepted by `create()` signature).
+
+| Model | totalFound | created | skipped | failed |
+|---|---:|---:|---:|---:|
+| Product | 14 | 14 | 0 | 0 |
+| ProductVariant | 45 | 45 | 0 | 0 |
+| ProductVariantAttribute | 70 (via `addVariant()`) | — | — | — |
+| ProductCostHistory | 0 | 0 | 0 | 0 |
+| ProductEmbeddedReview | 0 | 0 | 0 | 0 |
+
+14 products with 45 variants completed in ~10 minutes active Step 4 work (variant
+attribute expansion via `addVariant()` — acceptable at this scale; not StockAlert-scale).
+
+Cost history / embedded reviews: 0 Mongo source rows across all 14 products.
+
+### Step 3 — Gap repair (CartItem, Review, WishlistItem)
+
+Step 3 CartItems were **entirely skipped** (no Postgres row) — `productId` is required
+and Product map was empty. Carts existed as shell-only rows with 0 items.
+
+| Repair | totalFound | created/repaired | skipped | failed | Notes |
+|---|---:|---:|---:|---:|---|
+| CartItem | 7 | **7 created** | 0 | 0 | 0 → 7 Postgres rows |
+| Review productId | 2 null FK | **1 repaired** | 1 | 0 | 1 product still not in PG |
+| WishlistItem productId | 15 null FK | **14 repaired** | 1 | 0 | 1 legacyProductId unresolvable |
+
+### verifyBackfill.js — Step 4 highlights
+
+- Product: Mongo **14** = Postgres **14** ✓
+- ProductVariant: **45/45** ✓; ProductVariantAttribute: **70/70** ✓
+- CartItem: Mongo **7** = Postgres **7** ✓ (gap closed)
+- Review productId: **1/2** non-null (1 still null — product not backfilled/resolvable)
+- WishlistItem productId: **14/15** non-null
+- Attendance: Mongo **2** vs Postgres **1** (1 pending re-run with staffUsername fix)
+
+### Open gaps (documented, not auto-invented)
+
+| Gap | Count | Reason |
+|---|---:|---|
+| User missing `firstName` | 3 | `userRepository.create()` validation — **no placeholder names invented** |
+| Attendance staff unresolved | 1 | Stale `staffId` — fix in place; resolves on next re-run via `staffUsername` |
+| Review/WishlistItem null productId | 1 each | Product reference not in Postgres product map |
+| Cart (owner user failed) | 1 | Same 3 failed users from Step 3 |
+
+### Test results (unchanged application code)
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **169/169** pass |
+| `npm run test:repositories` | **157/157** pass (Neon timeout retries on flaky runs) |
+
 ### TODO — remaining Stage 3 groups
 
-Attribute, Admin, Product, Order, etc.
+Order (final, most complex).
 
 

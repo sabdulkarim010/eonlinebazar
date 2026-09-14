@@ -1548,3 +1548,14 @@ DATABASE_MIGRATION_AUDIT.md [DONE] Stage 3 Step 3 section added
 REFACTOR_MAP.md [DONE] this section
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 3 Step 3 note added
 README.md [DONE] Stage 3 Step 3 backfill note
+
+# PostgreSQL migration — Stage 3 Step 4: Backfill Admin + Product + gap repair: 2026-09-14
+
+backend/scripts/backfill/runBackfill.js [MOD] runStep4Group() — Admin backfill with bcrypt pass-through verification, Product + variants/cost/embedded reviews, HRM re-attempt, CartItem/Review/WishlistItem gap repair, staffUsername fallback in resolveStaffSubjectFromMaps
+backend/scripts/backfill/verifyBackfill.js [MOD] Admin/Product counts, product sub-resource verification, gap-repair health check
+backend/scripts/backfill/backfillRunner.js [UNCHANGED]
+backend/src/repositories/** [UNCHANGED] — admin isHashed() confirmed preserves Mongo bcrypt digests on backfill
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 3 Step 4 section added
+REFACTOR_MAP.md [DONE] this section
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 3 Step 4 note added
+README.md [DONE] Stage 3 Step 4 backfill note

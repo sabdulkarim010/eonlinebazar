@@ -38,6 +38,8 @@ const Newsletter = require('../../src/models/newsletter');
 const EmailCampaign = require('../../src/models/emailCampaign');
 const ContactMessage = require('../../src/models/ContactMessage');
 const Review = require('../../src/models/review');
+const Admin = require('../../src/models/admin');
+const Product = require('../../src/models/product');
 const categoryRepo = require('../../src/repositories/categoryRepository');
 const bannerRepo = require('../../src/repositories/bannerRepository');
 const footerSettingsRepo = require('../../src/repositories/footerSettingsRepository');
@@ -65,7 +67,9 @@ const COUNT_MODELS = [
   { name: 'EmailCampaign', mongoModel: EmailCampaign, postgresCount: () => prisma.emailCampaign.count() },
   { name: 'ContactMessage', mongoModel: ContactMessage, postgresCount: () => prisma.contactMessage.count() },
   { name: 'Review', mongoModel: Review, postgresCount: () => prisma.review.count() },
-  { name: 'Cart', mongoModel: Cart, postgresCount: () => prisma.cart.count() }
+  { name: 'Cart', mongoModel: Cart, postgresCount: () => prisma.cart.count() },
+  { name: 'Admin', mongoModel: Admin, postgresCount: () => prisma.admin.count() },
+  { name: 'Product', mongoModel: Product, postgresCount: () => prisma.product.count() }
 ];
 
 const SINGLETON_MODELS = [
@@ -280,6 +284,92 @@ async function verifyReviewUserIdHealth() {
   return { totalReviews, withUserId, nullUserId };
 }
 
+async function verifyProductChildren() {
+  console.log('\n=== Product sub-resource verification ===\n');
+
+  const mongoProducts = await Product.find().lean();
+  let mongoVariantTotal = 0;
+  let mongoCostTotal = 0;
+  let mongoEmbeddedReviewTotal = 0;
+  let mongoAttributeTotal = 0;
+
+  for (const doc of mongoProducts) {
+    const variants = Array.isArray(doc.variants) ? doc.variants : [];
+    mongoVariantTotal += variants.length;
+    for (const v of variants) {
+      const attrs = v.attributes;
+      if (attrs instanceof Map) mongoAttributeTotal += attrs.size;
+      else if (attrs && typeof attrs === 'object') mongoAttributeTotal += Object.keys(attrs).length;
+      else if (v.attribute) mongoAttributeTotal += 1;
+    }
+    mongoCostTotal += Array.isArray(doc.costHistory) ? doc.costHistory.length : 0;
+    mongoEmbeddedReviewTotal += Array.isArray(doc.reviews) ? doc.reviews.length : 0;
+  }
+
+  const pgVariantTotal = await prisma.productVariant.count();
+  const pgAttributeTotal = await prisma.productVariantAttribute.count();
+  const pgCostTotal = await prisma.productCostHistory.count();
+  const pgEmbeddedReviewTotal = await prisma.productEmbeddedReview.count();
+
+  console.log(`Mongo sum(product.variants[]) across ${mongoProducts.length} products: ${mongoVariantTotal}`);
+  console.log(`Postgres product_variants row count: ${pgVariantTotal}`);
+  console.log(`Mongo estimated variant attribute entries: ${mongoAttributeTotal}`);
+  console.log(`Postgres product_variant_attributes row count: ${pgAttributeTotal}`);
+  console.log(`Mongo sum(product.costHistory[]) across ${mongoProducts.length} products: ${mongoCostTotal}`);
+  console.log(`Postgres product_cost_history row count: ${pgCostTotal}`);
+  console.log(`Mongo sum(product.reviews[]) embedded across ${mongoProducts.length} products: ${mongoEmbeddedReviewTotal}`);
+  console.log(`Postgres product_embedded_reviews row count: ${pgEmbeddedReviewTotal}`);
+
+  return {
+    mongoVariantTotal,
+    pgVariantTotal,
+    mongoAttributeTotal,
+    pgAttributeTotal,
+    mongoCostTotal,
+    pgCostTotal,
+    mongoEmbeddedReviewTotal,
+    pgEmbeddedReviewTotal
+  };
+}
+
+async function verifyGapRepairHealth() {
+  console.log('\n=== Step 4 gap-repair health check ===\n');
+
+  const attendanceMongo = await Attendance.countDocuments();
+  const attendancePg = await prisma.attendance.count();
+  const payrollMongo = await Payroll.countDocuments();
+  const payrollPg = await prisma.payroll.count();
+  const leaveMongo = await Leave.countDocuments();
+  const leavePg = await prisma.leave.count();
+
+  const reviewNullProductId = await prisma.review.count({ where: { productId: null } });
+  const reviewWithProductId = await prisma.review.count({ where: { productId: { not: null } } });
+  const wishlistNullProductId = await prisma.wishlistItem.count({ where: { productId: null } });
+  const wishlistWithProductId = await prisma.wishlistItem.count({ where: { productId: { not: null } } });
+  const cartItemTotal = await prisma.cartItem.count();
+
+  console.log(`Attendance: Mongo=${attendanceMongo} Postgres=${attendancePg}`);
+  console.log(`Payroll: Mongo=${payrollMongo} Postgres=${payrollPg}`);
+  console.log(`Leave: Mongo=${leaveMongo} Postgres=${leavePg}`);
+  console.log(`Review productId — non-null: ${reviewWithProductId}, still null: ${reviewNullProductId}`);
+  console.log(`WishlistItem productId — non-null: ${wishlistWithProductId}, still null: ${wishlistNullProductId}`);
+  console.log(`CartItem total Postgres rows: ${cartItemTotal}`);
+
+  return {
+    attendanceMongo,
+    attendancePg,
+    payrollMongo,
+    payrollPg,
+    leaveMongo,
+    leavePg,
+    reviewNullProductId,
+    reviewWithProductId,
+    wishlistNullProductId,
+    wishlistWithProductId,
+    cartItemTotal
+  };
+}
+
 async function verifyStockAlertChildren() {
   console.log('\n=== StockAlert child-row verification ===\n');
 
@@ -312,6 +402,8 @@ async function main() {
     const cartChildren = await verifyCartChildren();
     const employeeChildren = await verifyEmployeeChildren();
     const reviewHealth = await verifyReviewUserIdHealth();
+    const productChildren = await verifyProductChildren();
+    const gapRepair = await verifyGapRepairHealth();
     const stockAlertChildren = await verifyStockAlertChildren();
 
     console.log('\n=== Verification complete ===\n');
@@ -340,6 +432,17 @@ async function main() {
     console.log(
       `Employee children — documents: PG ${employeeChildren.pgDocTotal} vs Mongo ${employeeChildren.mongoDocTotal}, ` +
       `references: PG ${employeeChildren.pgRefTotal} vs Mongo ${employeeChildren.mongoRefTotal}`
+    );
+    console.log(
+      `Product children — variants: PG ${productChildren.pgVariantTotal} vs Mongo ${productChildren.mongoVariantTotal}, ` +
+      `costHistory: PG ${productChildren.pgCostTotal} vs Mongo ${productChildren.mongoCostTotal}, ` +
+      `embeddedReviews: PG ${productChildren.pgEmbeddedReviewTotal} vs Mongo ${productChildren.mongoEmbeddedReviewTotal}`
+    );
+    console.log(
+      `Gap repair — Attendance PG ${gapRepair.attendancePg}/${gapRepair.attendanceMongo}, ` +
+      `Review productId resolved ${gapRepair.reviewWithProductId} (null ${gapRepair.reviewNullProductId}), ` +
+      `WishlistItem productId resolved ${gapRepair.wishlistWithProductId} (null ${gapRepair.wishlistNullProductId}), ` +
+      `CartItem total ${gapRepair.cartItemTotal}`
     );
   } finally {
     await mongoose.disconnect();
