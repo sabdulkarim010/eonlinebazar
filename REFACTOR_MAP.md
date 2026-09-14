@@ -1537,3 +1537,14 @@ DATABASE_MIGRATION_AUDIT.md [DONE] Stage 3 Step 2 section added
 REFACTOR_MAP.md [DONE] this section
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 3 Step 2 note added
 README.md [DONE] Stage 3 Step 2 backfill note
+
+# PostgreSQL migration — Stage 3 Step 3: Backfill User + HRM + Marketing/Support groups: 2026-09-14
+
+backend/scripts/backfill/runBackfill.js [MOD] runStep3Group() — User (+ referredBy pass, Address, WishlistItem, WalletTransaction, Cart/CartItem), Employee (+ documents/references), Attendance/Payroll/Leave (custom Prisma + in-memory Admin/Employee staff maps), Newsletter, EmailCampaign, ContactMessage, Review (FK patch for existing rows)
+backend/scripts/backfill/verifyBackfill.js [MOD] counts for User, Address, WishlistItem, WalletTransaction, Cart, CartItem, Employee, EmployeeDocument, EmployeeReference, Attendance, Payroll, Leave, Newsletter, EmailCampaign, ContactMessage, Review + Review userId health check + embedded-array child verification
+backend/scripts/backfill/backfillRunner.js [UNCHANGED]
+backend/src/repositories/** [UNCHANGED] reused create()/addAddress()/addDocument() etc.; script-only Prisma for wallet/cart/wishlist/HRM where repo helpers re-query FKs per row
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 3 Step 3 section added
+REFACTOR_MAP.md [DONE] this section
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 3 Step 3 note added
+README.md [DONE] Stage 3 Step 3 backfill note

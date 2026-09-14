@@ -1950,7 +1950,7 @@ Full detail lives in `DATABASE_MIGRATION_AUDIT.md`; this is the status summary.
 | Dual-write repository layer | ❌ NOT STARTED — Stage 2 remainder |
 | `LoginAttempt` / `BlacklistedIp` TTL sweep jobs | ❌ NOT STARTED — Stage 2 remainder |
 | `ProductTextIndex` → `tsvector` + GIN raw SQL migration | ❌ NOT STARTED — Stage 2 remainder |
-| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — Stage 3 Steps 1–2 complete (catalog/ERP + CMS/settings + security/audit); remaining groups pending |
+| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — Stage 3 Steps 1–3 complete (catalog/ERP + CMS/settings + security/audit + User/HRM/Marketing-Support); Admin, Product, Order groups pending |
 
 **Isolation guarantee:** zero `.js` files under `backend/src/` were modified — no
 model, controller, route, service or script. No application code queries
@@ -2285,4 +2285,24 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 3, STEP 1.
 | Neon repository tests (`npm run test:repositories`) | ✅ 157/157 |
 
 See `DATABASE_MIGRATION_AUDIT.md` § STAGE 3, STEP 2.
+
+## Stage 3, Step 3 — Backfill: User + HRM + Marketing/Support — 2026-09-14
+
+**Status:** ✅ COMPLETE — 16 models / sub-resources backfilled with in-memory FK maps
+
+| Item | Status |
+|------|--------|
+| User backfill + explicit `referralCode` pass-through | ✅ 4/7 created (3 failed: missing firstName) |
+| Address / WishlistItem / WalletTransaction / Cart / CartItem | ✅ custom backfill + product map |
+| Employee + EmployeeDocument / EmployeeReference | ✅ 3 employees, 1 document |
+| Attendance / Payroll / Leave (polymorphic staff maps) | ⚠️ 1/2 attendance (Admin not in Neon yet) |
+| Newsletter / EmailCampaign / ContactMessage / Review | ✅ ContactMessage 6, Review 2 |
+| In-memory Product/User/Admin/Employee FK maps | ✅ Step 3 active work under 30s vs StockAlert ~37min |
+| Review userId health check | ✅ 2/2 non-null userId |
+| backfillRunner.js modified | ❌ none |
+| Application code modified | ❌ none |
+| Main Jest suite (`npm test`) | ✅ 169/169 |
+| Neon repository tests (`npm run test:repositories`) | ✅ 157/157 |
+
+See `DATABASE_MIGRATION_AUDIT.md` § STAGE 3, STEP 3.
 

@@ -28,6 +28,16 @@ const SecurityLog = require('../../src/models/securityLog');
 const LoginAttempt = require('../../src/models/loginAttempt');
 const BlacklistedIp = require('../../src/models/blacklistedIp');
 const StockAlert = require('../../src/models/stockAlert');
+const User = require('../../src/models/user');
+const Cart = require('../../src/models/cart');
+const Employee = require('../../src/models/employee');
+const Attendance = require('../../src/models/attendance');
+const Payroll = require('../../src/models/payroll');
+const Leave = require('../../src/models/leave');
+const Newsletter = require('../../src/models/newsletter');
+const EmailCampaign = require('../../src/models/emailCampaign');
+const ContactMessage = require('../../src/models/ContactMessage');
+const Review = require('../../src/models/review');
 const categoryRepo = require('../../src/repositories/categoryRepository');
 const bannerRepo = require('../../src/repositories/bannerRepository');
 const footerSettingsRepo = require('../../src/repositories/footerSettingsRepository');
@@ -45,7 +55,17 @@ const COUNT_MODELS = [
   { name: 'SecurityLog', mongoModel: SecurityLog, postgresCount: () => prisma.securityLog.count() },
   { name: 'LoginAttempt', mongoModel: LoginAttempt, postgresCount: () => prisma.loginAttempt.count() },
   { name: 'BlacklistedIP', mongoModel: BlacklistedIp, postgresCount: () => prisma.blacklistedIp.count() },
-  { name: 'StockAlert', mongoModel: StockAlert, postgresCount: () => prisma.stockAlert.count() }
+  { name: 'StockAlert', mongoModel: StockAlert, postgresCount: () => prisma.stockAlert.count() },
+  { name: 'User', mongoModel: User, postgresCount: () => prisma.user.count() },
+  { name: 'Employee', mongoModel: Employee, postgresCount: () => prisma.employee.count() },
+  { name: 'Attendance', mongoModel: Attendance, postgresCount: () => prisma.attendance.count() },
+  { name: 'Payroll', mongoModel: Payroll, postgresCount: () => prisma.payroll.count() },
+  { name: 'Leave', mongoModel: Leave, postgresCount: () => prisma.leave.count() },
+  { name: 'Newsletter', mongoModel: Newsletter, postgresCount: () => prisma.newsletter.count() },
+  { name: 'EmailCampaign', mongoModel: EmailCampaign, postgresCount: () => prisma.emailCampaign.count() },
+  { name: 'ContactMessage', mongoModel: ContactMessage, postgresCount: () => prisma.contactMessage.count() },
+  { name: 'Review', mongoModel: Review, postgresCount: () => prisma.review.count() },
+  { name: 'Cart', mongoModel: Cart, postgresCount: () => prisma.cart.count() }
 ];
 
 const SINGLETON_MODELS = [
@@ -159,6 +179,107 @@ async function verifyCategoryParents() {
   };
 }
 
+async function verifyUserOwnedChildren() {
+  console.log('\n=== User owned-table verification (embedded arrays vs Postgres) ===\n');
+
+  const mongoUsers = await User.find().lean();
+  let mongoAddressTotal = 0;
+  let mongoWishlistTotal = 0;
+  let mongoWalletTotal = 0;
+
+  for (const doc of mongoUsers) {
+    mongoAddressTotal += Array.isArray(doc.addresses) ? doc.addresses.length : 0;
+    mongoWishlistTotal += Array.isArray(doc.wishlist) ? doc.wishlist.length : 0;
+    mongoWalletTotal += Array.isArray(doc.walletHistory) ? doc.walletHistory.length : 0;
+  }
+
+  const pgAddressTotal = await prisma.address.count();
+  const pgWishlistTotal = await prisma.wishlistItem.count();
+  const pgWalletTotal = await prisma.walletTransaction.count();
+
+  console.log(`Mongo sum(user.addresses[]) across ${mongoUsers.length} users: ${mongoAddressTotal}`);
+  console.log(`Postgres addresses row count: ${pgAddressTotal}`);
+  console.log(`Mongo sum(user.wishlist[]) across ${mongoUsers.length} users: ${mongoWishlistTotal}`);
+  console.log(`Postgres wishlist_items row count: ${pgWishlistTotal}`);
+  console.log(`Mongo sum(user.walletHistory[]) across ${mongoUsers.length} users: ${mongoWalletTotal}`);
+  console.log(`Postgres wallet_transactions row count: ${pgWalletTotal}`);
+
+  return {
+    mongoAddressTotal,
+    pgAddressTotal,
+    mongoWishlistTotal,
+    pgWishlistTotal,
+    mongoWalletTotal,
+    pgWalletTotal
+  };
+}
+
+async function verifyCartChildren() {
+  console.log('\n=== CartItem verification ===\n');
+
+  const mongoCarts = await Cart.find().lean();
+  let mongoItemTotal = 0;
+  for (const doc of mongoCarts) {
+    mongoItemTotal += Array.isArray(doc.items) ? doc.items.length : 0;
+  }
+
+  const postgresItemTotal = await prisma.cartItem.count();
+
+  console.log(`Mongo sum(cart.items[]) across ${mongoCarts.length} carts: ${mongoItemTotal}`);
+  console.log(`Postgres cart_items row count: ${postgresItemTotal}`);
+  console.log(
+    `Note: Postgres may be lower when cart items referenced products not yet in Postgres (skipped per backfill rules).`
+  );
+
+  return { mongoCarts: mongoCarts.length, mongoItemTotal, postgresItemTotal };
+}
+
+async function verifyEmployeeChildren() {
+  console.log('\n=== Employee sub-resource verification ===\n');
+
+  const mongoEmployees = await Employee.find().lean();
+  let mongoDocTotal = 0;
+  let mongoRefTotal = 0;
+  for (const doc of mongoEmployees) {
+    mongoDocTotal += Array.isArray(doc.documents) ? doc.documents.length : 0;
+    mongoRefTotal += Array.isArray(doc.references) ? doc.references.length : 0;
+  }
+
+  const pgDocTotal = await prisma.employeeDocument.count();
+  const pgRefTotal = await prisma.employeeReference.count();
+
+  console.log(`Mongo sum(employee.documents[]) across ${mongoEmployees.length} employees: ${mongoDocTotal}`);
+  console.log(`Postgres employee_documents row count: ${pgDocTotal}`);
+  console.log(`Mongo sum(employee.references[]) across ${mongoEmployees.length} employees: ${mongoRefTotal}`);
+  console.log(`Postgres employee_references row count: ${pgRefTotal}`);
+
+  return { mongoDocTotal, pgDocTotal, mongoRefTotal, pgRefTotal };
+}
+
+async function verifyReviewUserIdHealth() {
+  console.log('\n=== Review userId health check ===\n');
+
+  const totalReviews = await prisma.review.count();
+  const withUserId = await prisma.review.count({ where: { userId: { not: null } } });
+  const nullUserId = await prisma.review.count({ where: { userId: null } });
+
+  console.log(`Total Review rows in Postgres: ${totalReviews}`);
+  console.log(`Reviews with non-null userId: ${withUserId}`);
+  console.log(`Reviews with null userId (FK gap / unresolved user): ${nullUserId}`);
+
+  if (nullUserId > 0) {
+    const sampleNull = await prisma.review.findMany({
+      where: { userId: null },
+      select: { legacyId: true, legacyProductId: true },
+      take: 10
+    });
+    console.log('\nSample Reviews still missing userId (first 10):');
+    console.log(JSON.stringify(sampleNull, null, 2));
+  }
+
+  return { totalReviews, withUserId, nullUserId };
+}
+
 async function verifyStockAlertChildren() {
   console.log('\n=== StockAlert child-row verification ===\n');
 
@@ -187,6 +308,10 @@ async function main() {
     const counts = await verifyCounts();
     const singletons = await verifySingletons();
     const categoryParents = await verifyCategoryParents();
+    const userOwnedChildren = await verifyUserOwnedChildren();
+    const cartChildren = await verifyCartChildren();
+    const employeeChildren = await verifyEmployeeChildren();
+    const reviewHealth = await verifyReviewUserIdHealth();
     const stockAlertChildren = await verifyStockAlertChildren();
 
     console.log('\n=== Verification complete ===\n');
@@ -200,6 +325,21 @@ async function main() {
     console.log(`Category parent links complete: ${parentsOk ? 'YES' : 'NO (investigate problem records)'}`);
     console.log(
       `StockAlert child rows vs Mongo array sum: ${stockAlertChildren.postgresItemTotal === stockAlertChildren.mongoItemTotal ? 'MATCH' : 'MISMATCH (see counts above)'}`
+    );
+    console.log(
+      `Review userId resolved: ${reviewHealth.withUserId}/${reviewHealth.totalReviews} (${reviewHealth.nullUserId} still null)`
+    );
+    console.log(
+      `User owned tables — Address: PG ${userOwnedChildren.pgAddressTotal} vs Mongo ${userOwnedChildren.mongoAddressTotal}, ` +
+      `WishlistItem: PG ${userOwnedChildren.pgWishlistTotal} vs Mongo ${userOwnedChildren.mongoWishlistTotal}, ` +
+      `WalletTransaction: PG ${userOwnedChildren.pgWalletTotal} vs Mongo ${userOwnedChildren.mongoWalletTotal}`
+    );
+    console.log(
+      `CartItem: PG ${cartChildren.postgresItemTotal} vs Mongo ${cartChildren.mongoItemTotal} (product-skip delta expected)`
+    );
+    console.log(
+      `Employee children — documents: PG ${employeeChildren.pgDocTotal} vs Mongo ${employeeChildren.mongoDocTotal}, ` +
+      `references: PG ${employeeChildren.pgRefTotal} vs Mongo ${employeeChildren.mongoRefTotal}`
     );
   } finally {
     await mongoose.disconnect();

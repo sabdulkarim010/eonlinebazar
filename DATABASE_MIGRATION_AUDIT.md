@@ -2303,8 +2303,117 @@ Postgres row with `key='global'` ✓
 | `npm test` (Jest) | **169/169** pass |
 | `npm run test:repositories` | **157/157** pass |
 
+## STAGE 3, STEP 3 — Backfill: User + HRM + Marketing/Support Groups — 2026-09-14
+
+Extended `runBackfill.js` and `verifyBackfill.js` — **read MongoDB only, write Postgres
+only**. `backfillRunner.js` unchanged. No repository, controller, route, or
+`dualWriteService.js` modifications.
+
+### In-memory FK map optimization (proactive)
+
+Before any model backfill that resolves Product, User, Admin, or Employee FKs per row,
+the script loads full `legacyId → postgresId` maps once via a single Prisma query per
+entity (`buildLegacyIdMap`, `buildProductLookupMaps`, `buildAdminStaffMaps`,
+`buildEmployeeStaffMaps`). Row mappers and custom backfill loops resolve FKs from these
+maps synchronously — **no per-row `findByLegacyId()` / `resolveStaffSubject()` calls**.
+
+Compared to Step 2's StockAlert experience (~37 minutes for 1180 creates with per-item
+product FK resolution inside `stockAlertRepository.create()`), Step 3's User-owned +
+Review + HRM groups completed in **under 30 seconds** of active Step 3 work (the full
+`runBackfill.js` re-run still spends ~9 minutes re-checking 1182 StockAlert + 901
+SecurityLog rows for idempotent skips).
+
+Architectural note: Attendance, Payroll, and Leave `upsertFromMongo()` / `apply()` always
+re-resolve staff internally and cannot accept pre-resolved FK IDs. Step 3 uses **script-only
+Prisma creates** mirroring those functions' field shapes, with staff columns populated from
+the in-memory Admin/Employee maps via `staffFields()`. WishlistItem, WalletTransaction,
+and CartItem similarly use direct Prisma writes in the script (not repository helpers that
+mutate balances or re-query products per row).
+
+### referralCode pass-through (confirmed)
+
+`userRepository.create()` receives `referralCode` explicitly from each Mongo document
+(`mapUser()` uppercases and passes through). Users without a Mongo `referralCode` would
+still get auto-generation — none of the 4 successfully backfilled users relied on that
+path in this run (all had existing codes from production).
+
+### Step 1 — User group
+
+| Model | Strategy | totalFound | created | updated | skipped | failed |
+|---|---|---:|---:|---:|---:|---:|
+| User | `backfillModel()` + `userRepository.create()` + explicit `referralCode` | 7 | 4 | — | 0 | 3 |
+| User (referredBy pass) | Second pass — wire `referredById` from user map | 0 | — | 0 | 0 | 0 |
+| Address | Custom — `userRepository.addAddress()` after user map | 5 | 5 | — | 0 | 0 |
+| WishlistItem | Custom — Prisma create + product map (null FK if product missing) | 15 | 15 | — | 0 | 0 |
+| WalletTransaction | Custom — Prisma create (historical rows; no balance mutation) | 9 | 9 | — | 0 | 0 |
+| Cart | Custom — Prisma create + product map per item | 4 | 3 | — | 0 | 1 |
+| CartItem | Custom — skip individual items when product not in Postgres | 7 | 0 | — | 7 | 0 |
+
+**User failures (3):** Mongo users `6a1e6bc…`, `6a265b46…`, `6a2e9cb…` rejected by
+`userRepository.create()` — missing required `firstName` (likely incomplete sandbox/test
+accounts). Their embedded addresses/wishlist/wallet rows were not backfilled.
+
+**Cart failure (1):** Cart `6a2e9dfe…` — owner user not in Postgres (same failed-user set).
+
+**CartItem skips (7):** All cart line items skipped — **Product backfill not yet run**
+(product map loaded **0** rows). Carts were created shell-only where the user existed.
+
+### Step 2 — HRM group
+
+| Model | Strategy | totalFound | created | skipped | failed |
+|---|---|---:|---:|---:|---:|
+| Employee | `backfillModel()` + `employeeRepository.create()` | 3 | 3 | 0 | 0 |
+| EmployeeDocument | Custom — `employeeRepository.addDocument()` | 1 | 1 | 0 | 0 |
+| EmployeeReference | Custom — `employeeRepository.addReference()` | 0 | 0 | 0 | 0 |
+| Attendance | Custom Prisma create + Admin/Employee staff maps | 2 | 1 | 0 | 1 |
+| Payroll | Custom Prisma create + staff maps | 0 | 0 | 0 | 0 |
+| Leave | Custom Prisma create + staff maps | 0 | 0 | 0 | 0 |
+
+**Attendance failure (1):** `6aa42b47…` — staff not found (Admin map loaded **0** rows;
+Admin backfill is a later Stage 3 step — dual-write had not yet populated Admin in Neon
+for this attendance record's `staffId`).
+
+### Step 3 — Marketing/Support group
+
+| Model | Strategy | totalFound | created | updated | skipped | failed |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Newsletter | `backfillModel()` + `newsletterRepository.create()` | 0 | 0 | 0 | 0 | 0 |
+| EmailCampaign | `backfillModel()` + `upsertFromMongo()` | 0 | 0 | 0 | 0 | 0 |
+| ContactMessage | `backfillModel()` + `contactMessageRepository.create()` | 6 | 6 | 0 | 0 | 0 |
+| Review | Custom — `reviewRepository.create()` + user/product maps; FK patch on existing rows | 2 | 2 | 0 | 0 | 0 |
+
+### Review null-userId health check (verifyBackfill.js)
+
+| Metric | Count |
+|---|---:|
+| Total Review rows in Postgres | 2 |
+| Reviews with non-null `userId` | **2** |
+| Reviews with null `userId` | **0** |
+
+Both reviews resolved `userId` via the user map on create. No pre-existing dual-write
+Review rows with null `userId` were present in Neon before this run (Product `productId`
+FK remains null on both — Product backfill pending).
+
+### verifyBackfill.js — Step 3 highlights
+
+- User: Mongo **7** vs Postgres **4** (−3 failed-user delta, expected)
+- Employee, ContactMessage, Review: **exact match**
+- Cart: Mongo **4** vs Postgres **3** (failed-user cart)
+- Attendance: Mongo **2** vs Postgres **1** (admin staff unresolved)
+- User owned children: Address **5/5**, WishlistItem **15/15**, WalletTransaction **9/13**
+  (4 txns belong to the 3 failed users)
+- CartItem: Postgres **0** vs Mongo **7** (all products missing from Neon — expected until
+  Product backfill)
+
+### Test results (unchanged application code)
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **169/169** pass |
+| `npm run test:repositories` | **157/157** pass |
+
 ### TODO — remaining Stage 3 groups
 
-Attribute, Admin, Employee, Product, User, Order, HRM, Marketing/Support, etc.
+Attribute, Admin, Product, Order, etc.
 
 
