@@ -288,6 +288,44 @@ async function findByReferralCode(code) {
   return toShape(record);
 }
 
+async function findByLegacyId(legacyId) {
+  if (!legacyId) return null;
+  const record = await prisma.user.findUnique({
+    where: { legacyId: String(legacyId) },
+    select: LIST_SELECT
+  });
+  return toShape(record);
+}
+
+function logUserFkMissing(mongoRefId) {
+  console.error('[DUAL-WRITE-FK-MISSING]', {
+    timestamp: new Date().toISOString(),
+    model: 'User',
+    field: 'userId',
+    mongoRefId: String(mongoRefId),
+    message: 'User not yet in Postgres'
+  });
+}
+
+async function resolvePostgresUserId(mongoUserId) {
+  const ref = String(mongoUserId || '').trim();
+  if (!ref) return null;
+  const row = await prisma.user.findUnique({ where: { legacyId: ref } });
+  if (!row) {
+    logUserFkMissing(ref);
+    return null;
+  }
+  return row.id;
+}
+
+async function resolveReferredById(mongoReferrerId) {
+  if (!mongoReferrerId) return null;
+  const row = await prisma.user.findUnique({
+    where: { legacyId: String(mongoReferrerId) }
+  });
+  return row ? row.id : null;
+}
+
 // ── create ───────────────────────────────────────────────────────────────────
 // Generates a unique referralCode on every create unless one is already supplied
 // (mirrors ensureReferralCode — skips when referralCode is already set).
@@ -345,11 +383,81 @@ async function create(data) {
       isSandbox: data.isSandbox !== undefined ? Boolean(data.isSandbox) : false,
       isDeleted: data.isDeleted !== undefined ? Boolean(data.isDeleted) : false,
       deletedAt: data.deletedAt ?? null,
-      deletionReason: String(data.deletionReason ?? '').trim()
+      deletionReason: String(data.deletionReason ?? '').trim(),
+      legacyId: data.legacyId != null ? String(data.legacyId) : null
     }
   });
 
   return toShape(record);
+}
+
+async function mapMongoUserToWrite(mongoDoc) {
+  const plain = mongoDoc.toObject ? mongoDoc.toObject() : mongoDoc;
+  const referredByRef = plain.referredBy?._id || plain.referredBy || null;
+
+  return {
+    firstName: String(plain.firstName || '').trim(),
+    lastName: String(plain.lastName || '').trim(),
+    email: String(plain.email || '').trim().toLowerCase(),
+    referralCode: plain.referralCode
+      ? String(plain.referralCode).trim().toUpperCase()
+      : undefined,
+    gender: plain.gender,
+    dateOfBirth: plain.dateOfBirth ?? null,
+    mobile: plain.mobile != null ? String(plain.mobile).trim() : null,
+    password: plain.password ?? null,
+    googleId: plain.googleId ?? null,
+    avatarUrl: plain.avatarUrl ?? null,
+    lastLogin: plain.lastLogin ?? null,
+    isVerified: plain.isVerified === true,
+    accountStatus: plain.accountStatus,
+    avatar: String(plain.avatar ?? '').trim(),
+    avatarPublicId: String(plain.avatarPublicId ?? '').trim(),
+    phone: String(plain.phone ?? '').trim(),
+    address: String(plain.address ?? '').trim(),
+    district: String(plain.district ?? '').trim(),
+    upazila: String(plain.upazila ?? '').trim(),
+    thana: String(plain.thana ?? '').trim(),
+    fullAddress: String(plain.fullAddress ?? '').trim(),
+    walletBalance: plain.walletBalance != null ? plain.walletBalance : 0,
+    loyaltyPoints: plain.loyaltyPoints != null ? Number(plain.loyaltyPoints) : 0,
+    referredById: await resolveReferredById(referredByRef),
+    referralEarnings: plain.referralEarnings != null ? plain.referralEarnings : 0,
+    loyaltyTier: plain.loyaltyTier,
+    tierUpgradedAt: plain.tierUpgradedAt ?? null,
+    lifetimeSpend: plain.lifetimeSpend != null ? plain.lifetimeSpend : 0,
+    tierCashbackRate: plain.tierCashbackRate != null ? plain.tierCashbackRate : 0,
+    isSandbox: plain.isSandbox === true,
+    isDeleted: plain.isDeleted === true,
+    deletedAt: plain.deletedAt ?? null,
+    deletionReason: String(plain.deletionReason ?? '').trim(),
+    legacyId: mongoDoc._id != null ? String(mongoDoc._id) : null
+  };
+}
+
+async function upsertFromMongo(mongoDoc) {
+  const mapped = await mapMongoUserToWrite(mongoDoc);
+  const legacyId = mapped.legacyId;
+  if (!legacyId) throw new Error('User legacyId is required for upsert.');
+
+  const existing = await findByLegacyId(legacyId);
+  if (existing) {
+    const { referralCode, legacyId: _lid, ...updateFields } = mapped;
+    return update(existing.id, updateFields);
+  }
+
+  return create(mapped);
+}
+
+async function mirrorAccountDeletion(mongoDoc) {
+  await upsertFromMongo(mongoDoc);
+  const pgUser = await findByLegacyId(String(mongoDoc._id));
+  if (!pgUser) return;
+
+  await prisma.cart.deleteMany({ where: { userId: pgUser.id } });
+  await prisma.address.deleteMany({ where: { userId: pgUser.id } });
+  await prisma.wishlistItem.deleteMany({ where: { userId: pgUser.id } });
+  await prisma.walletTransaction.deleteMany({ where: { userId: pgUser.id } });
 }
 
 // ── update ───────────────────────────────────────────────────────────────────
@@ -482,10 +590,47 @@ async function addAddress(userId, addressData) {
       ).trim(),
       fullAddress,
       phone: String(addressData.phone ?? '').trim(),
-      isDefault
+      isDefault,
+      legacyId: addressData.legacyId != null ? String(addressData.legacyId) : null
     }
   });
   return toAddressShape(record);
+}
+
+async function findAddressByLegacyId(legacyId) {
+  if (!legacyId) return null;
+  const record = await prisma.address.findUnique({ where: { legacyId: String(legacyId) } });
+  return toAddressShape(record);
+}
+
+async function upsertAddressFromMongo(mongoUserLegacyId, addressSubdoc) {
+  const pgUserId = await resolvePostgresUserId(mongoUserLegacyId);
+  if (!pgUserId) return null;
+
+  const plain = addressSubdoc.toObject ? addressSubdoc.toObject() : addressSubdoc;
+  const legacyId = plain._id != null ? String(plain._id) : null;
+  const payload = {
+    label: plain.label,
+    district: plain.district,
+    upazilaOrThana: plain.upazilaOrThana ?? plain.upazila ?? plain.thana,
+    fullAddress: plain.fullAddress,
+    phone: plain.phone,
+    isDefault: plain.isDefault === true,
+    legacyId
+  };
+
+  if (legacyId) {
+    const existing = await findAddressByLegacyId(legacyId);
+    if (existing) return updateAddress(existing.id, payload);
+  }
+
+  return addAddress(pgUserId, payload);
+}
+
+async function removeAddressByLegacyId(legacyId) {
+  const existing = await findAddressByLegacyId(legacyId);
+  if (!existing) return { deleted: false };
+  return removeAddress(existing.id);
 }
 
 async function updateAddress(addressId, data) {
@@ -562,12 +707,31 @@ async function addToWishlist(userId, productId, snapshot = {}) {
   if (!legacyProductId) throw new Error('Product id is required.');
 
   let productFk = null;
-  if (UUID_PATTERN.test(legacyProductId)) {
-    const product = await prisma.product.findUnique({
+  let product = await prisma.product.findUnique({
+    where: { legacyId: legacyProductId },
+    select: { id: true }
+  });
+  if (!product) {
+    product = await prisma.product.findUnique({
+      where: { productId: legacyProductId },
+      select: { id: true }
+    });
+  }
+  if (!product && UUID_PATTERN.test(legacyProductId)) {
+    product = await prisma.product.findUnique({
       where: { id: legacyProductId },
       select: { id: true }
     });
-    if (product) productFk = product.id;
+  }
+  if (product) productFk = product.id;
+  else {
+    console.error('[DUAL-WRITE-FK-MISSING]', {
+      timestamp: new Date().toISOString(),
+      model: 'WishlistItem',
+      field: 'productId',
+      mongoRefId: legacyProductId,
+      message: 'Product not yet in Postgres'
+    });
   }
 
   const existing = await prisma.wishlistItem.findFirst({
@@ -589,7 +753,8 @@ async function addToWishlist(userId, productId, snapshot = {}) {
       name: String(snapshot.name ?? '').trim(),
       price: snapshot.price != null ? snapshot.price : 0,
       image: String(snapshot.image ?? '').trim(),
-      icon: String(snapshot.icon ?? '📦').trim() || '📦'
+      icon: String(snapshot.icon ?? '📦').trim() || '📦',
+      legacyId: snapshot.legacyId != null ? String(snapshot.legacyId) : null
     }
   });
   return toWishlistShape(record);
@@ -708,6 +873,49 @@ async function debitWallet(userId, amount, type, description) {
   };
 }
 
+/** Mirror Mongo wallet mutation — sync balance/points and append latest history row. */
+async function mirrorWalletFromMongo(mongoUserDoc) {
+  const pgUser = await findByLegacyId(String(mongoUserDoc._id));
+  if (!pgUser) {
+    logUserFkMissing(mongoUserDoc._id);
+    return null;
+  }
+
+  await prisma.user.update({
+    where: { id: pgUser.id },
+    data: {
+      walletBalance: mongoUserDoc.walletBalance != null ? mongoUserDoc.walletBalance : 0,
+      loyaltyPoints: mongoUserDoc.loyaltyPoints != null ? Number(mongoUserDoc.loyaltyPoints) : 0
+    }
+  });
+
+  const history = Array.isArray(mongoUserDoc.walletHistory) ? mongoUserDoc.walletHistory : [];
+  const latest = history[0];
+  if (!latest) return { walletBalance: mongoUserDoc.walletBalance };
+
+  const legacyTxnId = latest._id != null ? String(latest._id) : null;
+  if (legacyTxnId) {
+    const existing = await prisma.walletTransaction.findUnique({
+      where: { legacyId: legacyTxnId }
+    });
+    if (existing) return { walletBalance: mongoUserDoc.walletBalance };
+  }
+
+  await prisma.walletTransaction.create({
+    data: {
+      userId: pgUser.id,
+      type: String(latest.type || 'credit'),
+      amount: latest.amount != null ? latest.amount : 0,
+      note: String(latest.note || '').trim(),
+      referenceOrder: String(latest.referenceOrder || '').trim(),
+      date: latest.date ? new Date(latest.date) : new Date(),
+      legacyId: legacyTxnId
+    }
+  });
+
+  return { walletBalance: mongoUserDoc.walletBalance };
+}
+
 module.exports = {
   REFERRAL_CODE_ALPHABET,
   REFERRAL_CODE_LENGTH,
@@ -718,6 +926,11 @@ module.exports = {
   findById,
   findByEmail,
   findByReferralCode,
+  findByLegacyId,
+  resolvePostgresUserId,
+  mapMongoUserToWrite,
+  upsertFromMongo,
+  mirrorAccountDeletion,
   create,
   update,
   remove,
@@ -725,9 +938,13 @@ module.exports = {
   addAddress,
   updateAddress,
   removeAddress,
+  findAddressByLegacyId,
+  upsertAddressFromMongo,
+  removeAddressByLegacyId,
   listWishlist,
   addToWishlist,
   removeFromWishlist,
   creditWallet,
-  debitWallet
+  debitWallet,
+  mirrorWalletFromMongo
 };

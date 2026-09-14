@@ -14,6 +14,11 @@ const bcrypt = require('bcryptjs');
 const User = require('../../models/user');
 const { isValidDistrict, resolveDistrictLabel } = require('../../utils/bangladeshDistricts');
 const { isSandboxMode } = require('../../services/sandboxService');
+const { dualWrite } = require('../../services/dualWriteService');
+
+function mirrorUser(saved) {
+    return require('../../repositories/userRepository').upsertFromMongo(saved);
+}
 
 const {
     VERIFICATION_TOKEN_TTL_MS,
@@ -151,7 +156,15 @@ exports.registerUser = async (req, res) => {
         }
 
         const newUser = new User(userPayload);
-        await newUser.save();
+        await dualWrite(
+            () => newUser.save(),
+            async (saved) => { await mirrorUser(saved); },
+            {
+                model: 'User',
+                operation: 'register',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         let emailSent = true;
         try {

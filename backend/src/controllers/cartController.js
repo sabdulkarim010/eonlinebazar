@@ -2,6 +2,28 @@
 
 const Cart = require('../models/cart');
 const Product = require('../models/product');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getCartRepository() {
+    return require('../repositories/cartRepository');
+}
+
+async function mirrorCart(savedCart) {
+    if (!savedCart || !savedCart._id) return;
+    await getCartRepository().syncFromMongo(savedCart);
+}
+
+async function saveCart(cart, operation) {
+    return dualWrite(
+        () => cart.save(),
+        async (saved) => { await mirrorCart(saved); },
+        {
+            model: 'Cart',
+            operation,
+            mongoId: (saved) => String(saved._id)
+        }
+    );
+}
 const {
     normalizeVariant,
     isSameLine,
@@ -238,6 +260,9 @@ exports.mergeCart = async (req, res) => {
         }
 
         const userCart = await mergeGuestCartIntoUserCart(userId, guestItems);
+        if (userCart && userCart.save) {
+            await mirrorCart(userCart);
+        }
         const enriched = await formatCartItemsForResponse(userCart.items);
         res.status(200).json({
             success: true,
@@ -340,7 +365,7 @@ exports.addToCart = async (req, res) => {
             });
         }
 
-        await userCart.save();
+        await saveCart(userCart, 'add-item');
         const enriched = await formatCartItemsForResponse(userCart.items);
         return sendCartItemsResponse(res, enriched);
     } catch (error) {
@@ -358,7 +383,7 @@ exports.updateQuantity = async (req, res) => {
             const item = userCart.items.find(i => isSameLine(i, productId, variantId));
             if (item) {
                 item.quantity = quantity;
-                await userCart.save();
+                await saveCart(userCart, 'update-quantity');
                 const enriched = await formatCartItemsForResponse(userCart.items);
                 return sendCartItemsResponse(res, enriched);
             }
@@ -382,7 +407,7 @@ exports.deleteCartItem = async (req, res) => {
             } else {
                 userCart.items = userCart.items.filter(item => !isSameLine(item, productId, variantId));
             }
-            await userCart.save();
+            await saveCart(userCart, 'delete-item');
             const enriched = await formatCartItemsForResponse(userCart.items);
             return sendCartItemsResponse(res, enriched);
         }
@@ -402,7 +427,7 @@ exports.toggleSelection = async (req, res) => {
             const item = userCart.items.find(i => isSameLine(i, productId, variantId));
             if (item) {
                 item.selected = selected;
-                await userCart.save();
+                await saveCart(userCart, 'toggle-selection');
                 const enriched = await formatCartItemsForResponse(userCart.items);
                 return sendCartItemsResponse(res, enriched);
             }
@@ -423,7 +448,7 @@ exports.clearCart = async (req, res) => {
         }
 
         userCart.items = [];
-        await userCart.save();
+        await saveCart(userCart, 'clear');
         return sendCartItemsResponse(res, []);
     } catch (err) {
         console.error('Error clearing cart:', err);
@@ -438,7 +463,7 @@ exports.clearOrderedItems = async (req, res) => {
 
         if (userCart) {
             userCart.items = userCart.items.filter(item => item.selected === false);
-            await userCart.save();
+            await saveCart(userCart, 'clear-ordered');
             res.json({ success: true, message: "Ordered items cleared from cart." });
         } else {
             res.status(404).json({ success: false, message: "Cart not found" });

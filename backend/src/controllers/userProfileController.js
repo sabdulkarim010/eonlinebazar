@@ -7,6 +7,19 @@
 
 const User = require('../models/user');
 const Settings = require('../models/Settings');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getUserRepository() {
+    return require('../repositories/userRepository');
+}
+
+async function mirrorUser(saved) {
+    await getUserRepository().upsertFromMongo(saved);
+}
+
+async function mirrorWalletUser(saved) {
+    await getUserRepository().mirrorWalletFromMongo(saved);
+}
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
@@ -236,11 +249,21 @@ exports.updateUserProfile = async (req, res) => {
             updateQuery.$unset = unsetFields;
         }
 
-        const updatedUser = await User.findByIdAndUpdate(
-            req.user.id,
-            updateQuery,
-            { new: true, runValidators: true } 
-        ).select('-password');
+        const updatedUser = await dualWrite(
+            () => User.findByIdAndUpdate(
+                req.user.id,
+                updateQuery,
+                { new: true, runValidators: true }
+            ).select('-password'),
+            async (saved) => {
+                if (saved) await mirrorUser(saved);
+            },
+            {
+                model: 'User',
+                operation: 'update-profile',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         if (!updatedUser) {
             return res.status(404).json({ success: false, message: "User not found." });
@@ -289,13 +312,23 @@ exports.updateUserAvatar = async (req, res) => {
                     }
 
                     // ডাটাবেজে আপডেট করা
-                    const updatedUser = await User.findByIdAndUpdate(
-                        req.user.id, 
-                        { 
-                            avatar: avatarUrl,
-                            avatarPublicId: publicId 
+                    const updatedUser = await dualWrite(
+                        () => User.findByIdAndUpdate(
+                            req.user.id,
+                            {
+                                avatar: avatarUrl,
+                                avatarPublicId: publicId
+                            },
+                            { new: true }
+                        ),
+                        async (saved) => {
+                            if (saved) await mirrorUser(saved);
                         },
-                        { returnDocument: 'after' }
+                        {
+                            model: 'User',
+                            operation: 'update-avatar',
+                            mongoId: req.user.id
+                        }
                     );
 
                     if (!updatedUser) {
@@ -381,7 +414,15 @@ exports.changePassword = async (req, res) => {
 
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(newPassword, salt);
-        await user.save();
+        await dualWrite(
+            () => user.save(),
+            async (saved) => { await mirrorUser(saved); },
+            {
+                model: 'User',
+                operation: 'change-password',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Customer Password Changed',
@@ -558,7 +599,11 @@ exports.verifyContactUpdateOtp = async (req, res) => {
 
         if (Date.now() > Number(user.profileUpdateOtpExpires)) {
             Object.assign(user, clearProfileUpdateOtpFields());
-            await user.save();
+            await dualWrite(
+                () => user.save(),
+                async (saved) => { await mirrorUser(saved); },
+                { model: 'User', operation: 'contact-otp-expired', mongoId: (saved) => String(saved._id) }
+            );
             return res.status(400).json({ success: false, message: "Verification code expired. Please request a new one." });
         }
 
@@ -581,7 +626,11 @@ exports.verifyContactUpdateOtp = async (req, res) => {
         }
 
         Object.assign(user, clearProfileUpdateOtpFields());
-        await user.save();
+        await dualWrite(
+            () => user.save(),
+            async (saved) => { await mirrorUser(saved); },
+            { model: 'User', operation: 'verify-contact', mongoId: (saved) => String(saved._id) }
+        );
 
         await logSecurityEvent({
             action: 'Customer Contact Updated',
@@ -657,7 +706,15 @@ exports.addAddress = async (req, res) => {
             syncUserProfileFromAddress(user, user.addresses[user.addresses.length - 1]);
         }
 
-        await user.save();
+        await dualWrite(
+            () => user.save(),
+            async (saved) => {
+                const repo = getUserRepository();
+                const added = saved.addresses[saved.addresses.length - 1];
+                if (added) await repo.upsertAddressFromMongo(String(saved._id), added);
+            },
+            { model: 'Address', operation: 'add', mongoId: req.user.id }
+        );
         res.status(200).json({ success: true, message: "Address added successfully!", addresses: user.addresses });
     } catch (error) {
         console.error("Add Address Error:", error);
@@ -698,7 +755,15 @@ exports.updateAddress = async (req, res) => {
             syncUserProfileFromAddress(user, target);
         }
 
-        await user.save();
+        await dualWrite(
+            () => user.save(),
+            async (saved) => {
+                const repo = getUserRepository();
+                const updatedAddr = saved.addresses.id(addressId);
+                if (updatedAddr) await repo.upsertAddressFromMongo(String(saved._id), updatedAddr);
+            },
+            { model: 'Address', operation: 'update', mongoId: addressId }
+        );
         res.status(200).json({ success: true, message: "Address updated successfully!", addresses: user.addresses });
     } catch (error) {
         console.error("Update Address Error:", error);
@@ -723,6 +788,7 @@ exports.deleteAddress = async (req, res) => {
         if (!target) return res.status(404).json({ success: false, message: "Address not found." });
 
         const wasDefault = target.isDefault;
+        const removedAddressLegacyId = String(target._id);
         target.deleteOne();
 
         // ডিফল্ট মুছে ফেললে প্রথম ঠিকানাটিকে নতুন ডিফল্ট করা হবে
@@ -734,7 +800,17 @@ exports.deleteAddress = async (req, res) => {
             user.address = '';
         }
 
-        await user.save();
+        await dualWrite(
+            () => user.save(),
+            async (saved) => {
+                const repo = getUserRepository();
+                await repo.removeAddressByLegacyId(removedAddressLegacyId);
+                if (wasDefault && saved.addresses.length > 0) {
+                    await repo.upsertAddressFromMongo(String(saved._id), saved.addresses[0]);
+                }
+            },
+            { model: 'Address', operation: 'delete', mongoId: removedAddressLegacyId }
+        );
         res.status(200).json({ success: true, message: "Address deleted successfully!", addresses: user.addresses });
     } catch (error) {
         console.error("Delete Address Error:", error);
@@ -783,7 +859,11 @@ exports.convertPoints = async (req, res) => {
             note: `Converted ${pointsToConvert} points to wallet balance (${minPoints} pts = ৳${rewardSettings.pointsToTakaConversionRate})`
         });
 
-        await user.save();
+        await dualWrite(
+            () => user.save(),
+            async (saved) => { await mirrorWalletUser(saved); },
+            { model: 'WalletTransaction', operation: 'convert-points', mongoId: (saved) => String(saved._id) }
+        );
 
         res.status(200).json({
             success: true,

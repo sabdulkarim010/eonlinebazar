@@ -1455,3 +1455,23 @@ DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 6 section added
 REFACTOR_MAP.md [DONE] this section
 README.md [DONE] dual-write model count + repository test count (144)
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 6 note added
+
+# PostgreSQL migration — Stage 2 Step 3, Part 7: Dual-write for User + owned tables: 2026-09-14
+
+backend/src/repositories/userRepository.js [MOD] findByLegacyId, legacyId on create, upsertFromMongo, mirrorAccountDeletion, mirrorWalletFromMongo, address/wishlist helpers
+backend/src/repositories/cartRepository.js [NEW] syncFromMongo, clearByUserLegacyId; required CartItem.productId FK
+backend/src/controllers/auth/registerController.js [MOD] registerUser via dualWrite()
+backend/src/controllers/auth/loginController.js [MOD] deleteAccount via dualWrite() → mirrorAccountDeletion
+backend/src/controllers/userProfileController.js [MOD] profile/avatar/password/contact/address/points via dualWrite()
+backend/src/controllers/userWishlistController.js [MOD] addToWishlist/removeFromWishlist via dualWrite()
+backend/src/services/walletService.js [MOD] credit/debit/reverse via dualWrite() → mirrorWalletFromMongo
+backend/src/controllers/cartController.js [MOD] all cart mutations via dualWrite() → syncFromMongo
+tests/repositories/user.repository.test.js [MOD] referralCode pass-through test
+tests/repositories/cart.repository.test.js [NEW] required product FK failure test
+tests/repositories/review.repository.test.js [MOD] userId resolves when User in Postgres
+backend/src/services/dualWriteService.js [UNCHANGED] reused as-is from Part 1
+backend/src/routes/** [UNCHANGED]
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 7 section added
+REFACTOR_MAP.md [DONE] this section
+README.md [DONE] dual-write model count + repository test count (147)
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 7 note added

@@ -2188,3 +2188,24 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 5.
 
 See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 6.
 
+## Stage 2 Step 3, Part 7 — Dual-Write: User + Owned Tables — 2026-09-14
+
+**Status:** ✅ COMPLETE — User group dual-write live; Part 8 (Order) unblocked
+
+| Item | Status |
+|------|--------|
+| User register/update/delete (soft) wired | ✅ |
+| Address add/update/delete wired | ✅ |
+| Wishlist add/remove wired (nullable product FK) | ✅ |
+| Wallet credit/debit/points conversion wired | ✅ |
+| Cart CRUD wired (required product FK on CartItem) | ✅ |
+| Referral code pass-through from Mongo (not regenerated) | ✅ tested |
+| Part 6 Review userId gap closes for new writes | ✅ tested |
+| dualWriteService.js modified | ❌ none (reused as-is) |
+| All READ/list endpoints unchanged | ✅ |
+| Main Jest suite (`npm test`) | ✅ 169/169 |
+| Neon repository tests (`npm run test:repositories`) | ✅ 147/147 |
+| Routes touched | ❌ none |
+
+See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 7.
+

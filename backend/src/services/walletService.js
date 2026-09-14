@@ -5,6 +5,12 @@
 const User = require('../models/user');
 const { roundMoney } = require('./deliveryChargeService');
 const { resolveEffectiveCashbackRate } = require('./loyaltyTierService');
+const { dualWrite } = require('./dualWriteService');
+
+function mirrorWallet(updated) {
+    if (!updated) return Promise.resolve();
+    return require('../repositories/userRepository').mirrorWalletFromMongo(updated);
+}
 
 function normalizeWalletType(type) {
     return String(type || '').trim().toUpperCase();
@@ -28,24 +34,28 @@ async function deductWalletForOrder(userId, amount, orderId, note = 'Used for Or
     const debitAmount = roundMoney(amount);
     if (!userId || debitAmount <= 0) return null;
 
-    return User.findOneAndUpdate(
-        { _id: userId, walletBalance: { $gte: debitAmount } },
-        {
-            $inc: { walletBalance: -debitAmount },
-            $push: {
-                walletHistory: {
-                    $each: [buildWalletHistoryEntry({
-                        type: 'DEBIT',
-                        amount: debitAmount,
-                        referenceOrder: orderId,
-                        note
-                    })],
-                    $position: 0
+    return dualWrite(
+        () => User.findOneAndUpdate(
+            { _id: userId, walletBalance: { $gte: debitAmount } },
+            {
+                $inc: { walletBalance: -debitAmount },
+                $push: {
+                    walletHistory: {
+                        $each: [buildWalletHistoryEntry({
+                            type: 'DEBIT',
+                            amount: debitAmount,
+                            referenceOrder: orderId,
+                            note
+                        })],
+                        $position: 0
+                    }
                 }
-            }
-        },
-        { returnDocument: 'after' }
-    ).select('walletBalance walletHistory');
+            },
+            { returnDocument: 'after' }
+        ).select('walletBalance walletHistory'),
+        async (updated) => { await mirrorWallet(updated); },
+        { model: 'WalletTransaction', operation: 'debit', mongoId: String(userId) }
+    );
 }
 
 /**
@@ -55,24 +65,28 @@ async function creditWalletForUser(userId, amount, orderId, note = 'Refund for r
     const creditAmount = roundMoney(amount);
     if (!userId || creditAmount <= 0) return null;
 
-    return User.findOneAndUpdate(
-        { _id: userId },
-        {
-            $inc: { walletBalance: creditAmount },
-            $push: {
-                walletHistory: {
-                    $each: [buildWalletHistoryEntry({
-                        type: 'CREDIT',
-                        amount: creditAmount,
-                        referenceOrder: orderId,
-                        note
-                    })],
-                    $position: 0
+    return dualWrite(
+        () => User.findOneAndUpdate(
+            { _id: userId },
+            {
+                $inc: { walletBalance: creditAmount },
+                $push: {
+                    walletHistory: {
+                        $each: [buildWalletHistoryEntry({
+                            type: 'CREDIT',
+                            amount: creditAmount,
+                            referenceOrder: orderId,
+                            note
+                        })],
+                        $position: 0
+                    }
                 }
-            }
-        },
-        { returnDocument: 'after' }
-    ).select('walletBalance walletHistory');
+            },
+            { returnDocument: 'after' }
+        ).select('walletBalance walletHistory'),
+        async (updated) => { await mirrorWallet(updated); },
+        { model: 'WalletTransaction', operation: 'credit', mongoId: String(userId) }
+    );
 }
 
 /**
@@ -82,23 +96,27 @@ async function reverseWalletCredit(userId, amount, note = 'Reversal: Refund canc
     const debitAmount = roundMoney(amount);
     if (!userId || debitAmount <= 0) return null;
 
-    return User.findOneAndUpdate(
-        { _id: userId, walletBalance: { $gte: debitAmount } },
-        {
-            $inc: { walletBalance: -debitAmount },
-            $push: {
-                walletHistory: {
-                    $each: [buildWalletHistoryEntry({
-                        type: 'DEBIT',
-                        amount: debitAmount,
-                        note
-                    })],
-                    $position: 0
+    return dualWrite(
+        () => User.findOneAndUpdate(
+            { _id: userId, walletBalance: { $gte: debitAmount } },
+            {
+                $inc: { walletBalance: -debitAmount },
+                $push: {
+                    walletHistory: {
+                        $each: [buildWalletHistoryEntry({
+                            type: 'DEBIT',
+                            amount: debitAmount,
+                            note
+                        })],
+                        $position: 0
+                    }
                 }
-            }
-        },
-        { returnDocument: 'after' }
-    ).select('walletBalance walletHistory');
+            },
+            { returnDocument: 'after' }
+        ).select('walletBalance walletHistory'),
+        async (updated) => { await mirrorWallet(updated); },
+        { model: 'WalletTransaction', operation: 'reverse-credit', mongoId: String(userId) }
+    );
 }
 
 /**

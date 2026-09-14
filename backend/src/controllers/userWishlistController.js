@@ -8,6 +8,11 @@
 const mongoose = require('mongoose');
 const User = require('../models/user');
 const Product = require('../models/product');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getUserRepository() {
+    return require('../repositories/userRepository');
+}
 
 function enrichWishlistItem(item, product) {
     const plain = item && typeof item.toObject === 'function' ? item.toObject() : { ...item };
@@ -95,7 +100,25 @@ exports.addToWishlist = async (req, res) => {
             image: image || '',
             icon: icon || '📦'
         });
-        await user.save();
+        await dualWrite(
+            () => user.save(),
+            async (saved) => {
+                const repo = getUserRepository();
+                const pgUserId = await repo.resolvePostgresUserId(String(saved._id));
+                if (!pgUserId) return;
+                const item = saved.wishlist[0];
+                if (item) {
+                    await repo.addToWishlist(pgUserId, item.productId, {
+                        name: item.name,
+                        price: item.price,
+                        image: item.image,
+                        icon: item.icon,
+                        legacyId: item._id ? String(item._id) : null
+                    });
+                }
+            },
+            { model: 'WishlistItem', operation: 'add', mongoId: (saved) => String(saved._id) }
+        );
 
         res.status(200).json({ success: true, message: "Added to wishlist!", wishlist: user.wishlist });
     } catch (error) {
@@ -111,7 +134,15 @@ exports.removeFromWishlist = async (req, res) => {
         if (!user) return res.status(404).json({ success: false, message: "User not found." });
 
         user.wishlist = user.wishlist.filter(item => String(item.productId) !== String(productId));
-        await user.save();
+        await dualWrite(
+            () => user.save(),
+            async (saved) => {
+                const repo = getUserRepository();
+                const pgUserId = await repo.resolvePostgresUserId(String(saved._id));
+                if (pgUserId) await repo.removeFromWishlist(pgUserId, productId);
+            },
+            { model: 'WishlistItem', operation: 'remove', mongoId: (saved) => String(saved._id) }
+        );
 
         res.status(200).json({ success: true, message: "Removed from wishlist.", wishlist: user.wishlist });
     } catch (error) {

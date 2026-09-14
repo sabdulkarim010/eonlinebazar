@@ -354,39 +354,53 @@ exports.deleteAccount = async (req, res) => {
             Note.deleteMany({ user: userId })
         ]);
 
-        await User.findByIdAndUpdate(userId, {
-            firstName: 'Deleted',
-            lastName: 'User',
-            email: `deleted_${userId}@deleted.invalid`,
-            mobile: null,
-            phone: '',
-            address: '',
-            district: '',
-            upazila: '',
-            thana: '',
-            fullAddress: '',
-            googleId: null,
-            avatar: '',
-            avatarUrl: null,
-            avatarPublicId: '',
-            password: null,
-            isVerified: false,
-            isDeleted: true,
-            deletedAt: new Date(),
-            deletionReason,
-            accountStatus: 'blocked',
-            wishlist: [],
-            addresses: [],
-            walletHistory: [],
-            verificationToken: null,
-            verificationTokenExpiry: null,
-            resetPasswordOtp: null,
-            resetPasswordExpires: null,
-            profileUpdateOtp: null,
-            profileUpdateOtpExpires: null,
-            pendingEmail: null,
-            pendingMobile: null
-        });
+        const { dualWrite } = require('../../services/dualWriteService');
+
+        await dualWrite(
+            () => User.findByIdAndUpdate(userId, {
+                firstName: 'Deleted',
+                lastName: 'User',
+                email: `deleted_${userId}@deleted.invalid`,
+                mobile: null,
+                phone: '',
+                address: '',
+                district: '',
+                upazila: '',
+                thana: '',
+                fullAddress: '',
+                googleId: null,
+                avatar: '',
+                avatarUrl: null,
+                avatarPublicId: '',
+                password: null,
+                isVerified: false,
+                isDeleted: true,
+                deletedAt: new Date(),
+                deletionReason,
+                accountStatus: 'blocked',
+                wishlist: [],
+                addresses: [],
+                walletHistory: [],
+                verificationToken: null,
+                verificationTokenExpiry: null,
+                resetPasswordOtp: null,
+                resetPasswordExpires: null,
+                profileUpdateOtp: null,
+                profileUpdateOtpExpires: null,
+                pendingEmail: null,
+                pendingMobile: null
+            }, { new: true }),
+            async (saved) => {
+                if (saved) {
+                    await require('../../repositories/userRepository').mirrorAccountDeletion(saved);
+                }
+            },
+            {
+                model: 'User',
+                operation: 'delete-account',
+                mongoId: String(userId)
+            }
+        );
 
         return res.status(200).json({
             success: true,

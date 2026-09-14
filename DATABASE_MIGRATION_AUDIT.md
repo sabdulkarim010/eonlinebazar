@@ -1907,4 +1907,74 @@ of FK resolution success.
 | `npm test` (Jest) | **169/169** pass |
 | `npm run test:repositories` | **144/144** pass (141 prior + 3 new Review FK fallback tests) |
 
+## STAGE 2 STEP 3, PART 7 — Dual-Write: User + Owned Tables — 2026-09-14
+
+Extends dual-write to the User cutover group (Stage 4 position 7 of 8): **User** core
+record plus **Address**, **WishlistItem**, **WalletTransaction**, and **Cart/CartItem**.
+Same `dualWriteService.js` helper unchanged. MongoDB remains authoritative for all reads.
+
+Once this part is live, **Part 6's Review `userId` gap closes for new writes** — reviews
+created after a user registers will resolve `userId` in Postgres. Existing Postgres
+Review rows with null `userId` from before this part remain null until Stage 3 backfill
+(not fixed in this task).
+
+### Repository files — extended / created
+
+| Model | Repository file | Changes |
+|---|---|---|
+| **User** | `userRepository.js` (Step 2 Part 3) | Added `findByLegacyId()`, `legacyId` on `create()`, `upsertFromMongo()`, `mirrorAccountDeletion()`, `mirrorWalletFromMongo()` |
+| **Address** | via `userRepository.js` | `upsertAddressFromMongo()`, `removeAddressByLegacyId()`, `findAddressByLegacyId()` |
+| **WishlistItem** | via `userRepository.js` | `addToWishlist()` / `removeFromWishlist()` — product FK via `legacyId` with null+log fallback |
+| **WalletTransaction** | via `userRepository.js` | `mirrorWalletFromMongo()` — syncs balance + latest history row (no double credit/debit) |
+| **Cart / CartItem** | `cartRepository.js` **NEW** | `syncFromMongo()` — replaces all items per save; no `userId` uniqueness enforced |
+
+Routes were **not** modified. `dualWriteService.js` was **not** modified.
+
+### Referral code pass-through (not regenerated)
+
+`userRepository.create()` already skips generation when `referralCode` is supplied
+(mirrors Mongoose `ensureReferralCode`). Dual-write calls `upsertFromMongo()` after
+Mongo `save()`, passing **`saved.referralCode` explicitly** — the repository never runs
+`resolveUniqueReferralCode()` on the Postgres path when Mongo already assigned a code.
+
+Verified by `tests/repositories/user.repository.test.js`:
+`create() passes through explicit referralCode from Mongo (no regeneration)`.
+
+### CartItem required-FK failure mode vs Wishlist/Review nullable fallback
+
+| Model | `productId` in schema | Missing Product in Postgres |
+|---|---|---|
+| **WishlistItem** | Nullable (`SetNull`) | Row created with `productId: null`, `legacyProductId` kept, `[DUAL-WRITE-FK-MISSING]` logged |
+| **Review** | Nullable (`SetNull`) | Same null+log pattern (Part 6) |
+| **CartItem** | **Required** (non-nullable, Cascade FK) | **Whole cart sync throws** — no row inserted for that item; `[DUAL-WRITE-CART-ITEM-FAIL]` logged; dual-write swallows error; Mongo cart unaffected |
+
+`syncFromMongo()` validates all product FKs **before** creating/updating the Cart parent
+to avoid orphan cart rows.
+
+### Controller / service functions wired (write paths only)
+
+| Area | Location | Wired functions |
+|---|---|---|
+| **User create** | `registerController.js` | `registerUser` |
+| **User update** | `userProfileController.js` | `updateUserProfile`, `updateUserAvatar`, `changePassword`, `verifyContactUpdateOtp` (+ OTP expiry save) |
+| **User delete** | `loginController.js` | `deleteAccount` (soft-delete + `mirrorAccountDeletion`) |
+| **Address** | `userProfileController.js` | `addAddress`, `updateAddress`, `deleteAddress` |
+| **Wishlist** | `userWishlistController.js` | `addToWishlist`, `removeFromWishlist` |
+| **Wallet** | `walletService.js` | `creditWalletForUser`, `deductWalletForOrder`, `reverseWalletCredit`, `debitWalletForAdmin` |
+| **Wallet (points)** | `userProfileController.js` | `convertPoints` |
+| **Cart** | `cartController.js` | `mergeCart`, `addToCart`, `updateQuantity`, `deleteCartItem`, `toggleSelection`, `clearCart`, `clearOrderedItems` |
+
+### Part 6 Review gap — closing for new writes
+
+Repository test confirms: User created in Postgres with `legacyId` → subsequent
+Review `upsertFromMongo()` resolves `userId` correctly. Product still null-logs if
+Product not dual-written yet.
+
+### Test results
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **169/169** pass |
+| `npm run test:repositories` | **147/147** pass (144 prior + 1 referral pass-through + 1 cart FK fail + 1 review userId resolve) |
+
 
