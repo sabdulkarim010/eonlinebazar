@@ -2438,14 +2438,34 @@ historical backfill (same hash as Mongo) vs live dual-write (independent salts).
 | Payroll (re-attempt) | Custom Prisma + staff maps | 0 | 0 | 0 | 0 |
 | Leave (re-attempt) | Custom Prisma + staff maps | 0 | 0 | 0 | 0 |
 
-**HRM gap closure from Step 3:** Attendance **0 of 1** previously-failed record resolved in
-this run (`6aa42b47265447ac6ddf014e`). Root cause: resolver tried stale `staffId`
-(`6a644b4a…`, deleted admin) before `staffUsername` (`nurjahan`). **Fix applied:**
-`resolveStaffSubjectFromMaps()` now falls back to `staffUsername` when `staffId` lookup
-fails; a **final attendance pass** was added at end of Step 4 for the next idempotent
-re-run to pick up this record.
-
+**HRM gap closure from Step 3:** Attendance **0 of 1** previously-failed record resolved.
 Payroll/Leave: no Step 3 failures to close (0 Mongo documents).
+
+**Investigation (2026-09-15) — orphaned Attendance, PERMANENTLY EXCLUDED:**
+
+| Field | Value |
+|---|---|
+| Attendance `legacyId` | `6aa42b47265447ac6ddf014e` |
+| `staffId` | `6a644b4a1b87a4a67beaf2f5` (no matching Admin or Employee in Mongo) |
+| `staffUsername` | `nurjahan` (no Admin with this username — exact, case-insensitive, or fuzzy) |
+| `staffType` | `admin` |
+| `date` | 2026-09-11 |
+| `markedBy` | `abdul-karim` |
+
+MongoDB currently has **3** Admin documents (`abdul-karim`, `kalpona`, `dalia`); all **3**
+were backfilled to Postgres (including blocked `dalia`). The Admin backfill uses
+unfiltered `Admin.find()` via `backfillModel()` — **no status/role filter** excluded
+`nurjahan`. The account simply **does not exist** in Mongo's Admin collection today
+(deleted before migration; attendance row is stale/orphaned source data).
+
+**Correction:** Re-running backfill or widening the `staffUsername` resolver **cannot**
+fix this — there is no Admin row in Mongo or Postgres to resolve. This is **pre-existing
+MongoDB data-integrity debt**, exposed (not caused) by Postgres FK enforcement; evidence
+the migration is working correctly, not a migration bug.
+
+**Category:** Same as the 3 users missing `firstName` — **PERMANENTLY EXCLUDED from
+Postgres**. Do not invent a placeholder Admin to satisfy the FK. Accept Mongo **2** /
+Postgres **1** for Attendance in verification.
 
 ### Step 2 — Product backfill (+ sub-resources)
 
@@ -2484,14 +2504,14 @@ and Product map was empty. Carts existed as shell-only rows with 0 items.
 - CartItem: Mongo **7** = Postgres **7** ✓ (gap closed)
 - Review productId: **1/2** non-null (1 still null — product not backfilled/resolvable)
 - WishlistItem productId: **14/15** non-null
-- Attendance: Mongo **2** vs Postgres **1** (1 pending re-run with staffUsername fix)
+- Attendance: Mongo **2** vs Postgres **1** (1 orphaned — permanently excluded; see above)
 
 ### Open gaps (documented, not auto-invented)
 
 | Gap | Count | Reason |
 |---|---:|---|
 | User missing `firstName` | 3 | `userRepository.create()` validation — **no placeholder names invented** |
-| Attendance staff unresolved | 1 | Stale `staffId` — fix in place; resolves on next re-run via `staffUsername` |
+| Attendance orphaned staff (`nurjahan`) | 1 | Deleted Admin not in Mongo or Postgres — **permanently excluded** |
 | Review/WishlistItem null productId | 1 each | Product reference not in Postgres product map |
 | Cart (owner user failed) | 1 | Same 3 failed users from Step 3 |
 
@@ -2499,8 +2519,18 @@ and Product map was empty. Carts existed as shell-only rows with 0 items.
 
 | Suite | Result |
 |---|---|
-| `npm test` (Jest) | **169/169** pass |
+| `npm test` (Jest) | **169/169** pass (HRM tests use local calendar date; see `tests/hrm.test.js`) |
 | `npm run test:repositories` | **157/157** pass (Neon timeout retries on flaky runs) |
+
+## STAGE 3, STEP 4 — Orphaned Attendance gap confirmed permanent — 2026-09-15
+
+Read-only Mongo investigation confirmed Case (b): Attendance `6aa42b47265447ac6ddf014e`
+references Admin `staffId` `6a644b4a…` / username `nurjahan` that exists in **neither**
+Mongo's current Admin collection nor Postgres. Admin backfill imported all 3 live Mongo
+admins (including blocked `dalia`); no query filter excluded this account. Documented as
+**permanently unmigratable** alongside the 3 `firstName`-less users. Corrected
+`tests/hrm.test.js` HRM assertions (local calendar date + comments); no backfill or
+repository changes.
 
 ### TODO — remaining Stage 3 groups
 

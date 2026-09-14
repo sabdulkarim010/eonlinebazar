@@ -1559,3 +1559,9 @@ DATABASE_MIGRATION_AUDIT.md [DONE] Stage 3 Step 4 section added
 REFACTOR_MAP.md [DONE] this section
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 3 Step 4 note added
 README.md [DONE] Stage 3 Step 4 backfill note
+
+# Orphaned Attendance (nurjahan) — permanent gap documented: 2026-09-15
+
+DATABASE_MIGRATION_AUDIT.md [MOD] Stage 3 Step 4 — corrected staffUsername/re-run assumption; Attendance 6aa42b47265447ac6ddf014e marked PERMANENTLY EXCLUDED
+tests/hrm.test.js [MOD] local calendar date for today-stats assertions + nurjahan orphan comments (in-memory Mongo tests; endpoints read Mongo only)
+REFACTOR_MAP.md [DONE] this section

@@ -33,6 +33,14 @@ describe('HRM — Attendance, Payroll, Leave', () => {
         return { Authorization: `Bearer ${token}` };
     }
 
+    /** Local YYYY-MM-DD — aligns with Attendance.normalizeDate(new Date()) / buildTodayStats(). */
+    function localCalendarDate(d = new Date()) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
     /** A second admin account standing in for a payroll-eligible staff member. */
     async function createStaffMember(overrides = {}) {
         const { admin } = await createTestAdmin({
@@ -69,10 +77,16 @@ describe('HRM — Attendance, Payroll, Leave', () => {
             expect(res.status).toBe(401);
         });
 
+        // Production MongoDB has one orphaned Attendance row (legacyId
+        // 6aa42b47265447ac6ddf014e, staffUsername "nurjahan") referencing a
+        // since-deleted Admin — permanently excluded from Postgres; see
+        // DATABASE_MIGRATION_AUDIT.md Stage 3 Step 4. This in-memory test DB
+        // is isolated from that row. Use the local calendar date (not ISO UTC
+        // slice) so markAttendance and todayStats count the same local day.
         test('marks attendance and returns it in the register with today stats', async () => {
             const token = await adminToken();
             const staff = await createStaffMember();
-            const today = new Date().toISOString().slice(0, 10);
+            const today = localCalendarDate();
 
             const marked = await request(app)
                 .post('/api/admin/hrm/attendance/mark')
@@ -84,7 +98,7 @@ describe('HRM — Attendance, Payroll, Leave', () => {
             expect(marked.body.data.staffUsername).toBe(staff.username);
 
             const list = await request(app)
-                .get('/api/admin/hrm/attendance?todayStats=true')
+                .get(`/api/admin/hrm/attendance?date=${today}&todayStats=true`)
                 .set(auth(token));
 
             expect(list.status).toBe(200);
@@ -994,10 +1008,13 @@ describe('HRM — Attendance, Payroll, Leave', () => {
     /* ---------------------------------------------------------------- */
 
     describe('Enterprise summary', () => {
+        // Same nurjahan orphan note as the Attendance register test above —
+        // enterprise-summary reads Mongo Attendance.countDocuments for the
+        // local calendar day; ISO UTC date strings can miss that window.
         test('reports HRM attendance, leave, and payroll stats', async () => {
             const token = await adminToken();
             const staff = await createStaffMember();
-            const today = new Date().toISOString().slice(0, 10);
+            const today = localCalendarDate();
 
             await request(app)
                 .post('/api/admin/hrm/attendance/mark')

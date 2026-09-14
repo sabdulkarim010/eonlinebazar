@@ -2316,11 +2316,29 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 3, STEP 3.
 | Product + ProductVariant backfill with in-memory FK maps | ✅ 14/14, 45 variants |
 | CartItem gap repair | ✅ 7 rows created (0→7) |
 | Review/WishlistItem productId repair | ✅ 1 Review + 14 WishlistItem repaired |
-| HRM Attendance re-attempt | ⚠️ 0/1 resolved (staffUsername fallback added for re-run) |
+| HRM Attendance re-attempt | ❌ 0/1 — orphaned `nurjahan` row permanently excluded (see 2026-09-15 note) |
 | 3 User firstName failures | ❌ OPEN — documented, no invented placeholders |
+| 1 Attendance orphaned staff | ❌ OPEN — deleted Admin not in Mongo/Postgres; permanently excluded |
 | backfillRunner.js modified | ❌ none |
 | `npm test` | ✅ 169/169 |
 | `npm run test:repositories` | ✅ 157/157 |
 
 See `DATABASE_MIGRATION_AUDIT.md` § STAGE 3, STEP 4.
+
+## Orphaned Attendance gap confirmed permanent — 2026-09-15
+
+**Status:** ✅ DOCUMENTED — no code/backfill fix applied
+
+Investigation confirmed Attendance `6aa42b47265447ac6ddf014e` references Admin username
+`nurjahan` / `staffId` `6a644b4a…` absent from both Mongo Admin collection (3 live admins
+all backfilled) and Postgres. Pre-existing Mongo data-integrity debt; Postgres FK enforcement
+correctly rejects unmigratable row. Same permanent-exclusion category as 3 users missing
+`firstName`. `tests/hrm.test.js` corrected (local calendar date for today-stats; comments).
+
+| Item | Status |
+|------|--------|
+| Re-run / staffUsername resolver fix | ❌ not applicable — no target Admin exists |
+| Invent placeholder Admin | ❌ rejected |
+| `tests/hrm.test.js` | ✅ local date + documented comments |
+| `npm test` | ✅ 169/169 |
 
