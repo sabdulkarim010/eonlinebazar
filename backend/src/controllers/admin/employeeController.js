@@ -15,6 +15,19 @@ const Payroll = require('../../models/payroll');
 const Leave = require('../../models/leave');
 const cloudinary = require('../../config/cloudinary');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { dualWrite } = require('../../services/dualWriteService');
+
+function getEmployeeRepository() {
+    return require('../../repositories/employeeRepository');
+}
+
+function mapMongoEmployeeToPostgresWrite(doc) {
+    return require('../../utils/hrmDualWriteHelpers').mapMongoEmployeeToPostgresWrite(doc);
+}
+
+async function resolvePostgresAdminId(mongoAdminId) {
+    return require('../../utils/hrmDualWriteHelpers').resolvePostgresAdminId(mongoAdminId);
+}
 
 const { EMPLOYEE_STATUSES, EMPLOYEE_TYPES, SALARY_TYPES, GENDERS, BLOOD_GROUPS, MARITAL_STATUSES } = Employee;
 const { LEAVE_ALLOWANCES } = Leave;
@@ -347,7 +360,17 @@ exports.createEmployee = async (req, res) => {
             || await Employee.generateEmployeeId();
         fields.createdBy = actorName(req);
 
-        const employee = await Employee.create(fields);
+        const employee = await dualWrite(
+            () => Employee.create(fields),
+            async (saved) => {
+                await getEmployeeRepository().create(mapMongoEmployeeToPostgresWrite(saved));
+            },
+            {
+                model: 'Employee',
+                operation: 'create',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Employee Created',
@@ -395,7 +418,27 @@ exports.updateEmployee = async (req, res) => {
         }
 
         Object.assign(employee, fields);
-        await employee.save();
+        await dualWrite(
+            () => employee.save(),
+            async (saved) => {
+                const repo = getEmployeeRepository();
+                const pgRow = await repo.findByLegacyId(String(saved._id));
+                if (!pgRow) {
+                    await repo.create(mapMongoEmployeeToPostgresWrite(saved));
+                    return;
+                }
+                if (saved.status === 'terminated') {
+                    await repo.terminate(pgRow.id);
+                    return;
+                }
+                await repo.update(pgRow.id, mapMongoEmployeeToPostgresWrite(saved));
+            },
+            {
+                model: 'Employee',
+                operation: 'update',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         if (employee.status === 'terminated') {
             await suspendLinkedAdminAccess(employee);
@@ -430,7 +473,19 @@ exports.deleteEmployee = async (req, res) => {
         }
 
         employee.status = 'terminated';
-        await employee.save();
+        await dualWrite(
+            () => employee.save(),
+            async (saved) => {
+                const repo = getEmployeeRepository();
+                const pgRow = await repo.findByLegacyId(String(saved._id));
+                if (pgRow) await repo.terminate(pgRow.id);
+            },
+            {
+                model: 'Employee',
+                operation: 'update',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
         await suspendLinkedAdminAccess(employee);
 
         await logSecurityEvent({
@@ -475,7 +530,23 @@ exports.uploadEmployeePhoto = async (req, res) => {
 
         employee.photo = url;
         employee.photoPublicId = publicId;
-        await employee.save();
+        await dualWrite(
+            () => employee.save(),
+            async (saved) => {
+                const repo = getEmployeeRepository();
+                const pgRow = await repo.findByLegacyId(String(saved._id));
+                if (!pgRow) return;
+                await repo.update(pgRow.id, {
+                    photo: saved.photo,
+                    photoPublicId: saved.photoPublicId
+                });
+            },
+            {
+                model: 'Employee',
+                operation: 'update',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Employee Photo Updated',
@@ -520,7 +591,28 @@ exports.uploadEmployeeDocument = async (req, res) => {
             publicId,
             uploadedAt: new Date()
         });
-        await employee.save();
+        await dualWrite(
+            () => employee.save(),
+            async (saved) => {
+                const repo = getEmployeeRepository();
+                const pgEmployee = await repo.findByLegacyId(String(saved._id));
+                if (!pgEmployee) return;
+                const doc = saved.documents[saved.documents.length - 1];
+                if (!doc) return;
+                await repo.addDocument(pgEmployee.id, {
+                    title: doc.title,
+                    fileUrl: doc.fileUrl,
+                    fileType: doc.fileType,
+                    publicId: doc.publicId,
+                    legacyId: String(doc._id)
+                });
+            },
+            {
+                model: 'Employee',
+                operation: 'update',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Employee Document Uploaded',
@@ -560,8 +652,21 @@ exports.deleteEmployeeDocument = async (req, res) => {
             await cloudinary.uploader.destroy(doc.publicId, { resource_type: resourceType }).catch(() => {});
         }
 
+        const removedDocId = String(doc._id);
         doc.deleteOne();
-        await employee.save();
+        await dualWrite(
+            () => employee.save(),
+            async () => {
+                const repo = getEmployeeRepository();
+                const pgDoc = await repo.findDocumentByLegacyId(removedDocId);
+                if (pgDoc) await repo.removeDocument(pgDoc.id);
+            },
+            {
+                model: 'Employee',
+                operation: 'update',
+                mongoId: () => String(employee._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Employee Document Deleted',
@@ -698,7 +803,22 @@ exports.grantSystemAccess = async (req, res) => {
         });
 
         employee.linkedAdminId = String(newAdmin._id);
-        await employee.save();
+        await dualWrite(
+            () => employee.save(),
+            async (saved) => {
+                const repo = getEmployeeRepository();
+                const pgEmployee = await repo.findByLegacyId(String(saved._id));
+                const pgAdminId = await resolvePostgresAdminId(String(newAdmin._id));
+                if (pgEmployee && pgAdminId) {
+                    await repo.linkAdminAccount(pgEmployee.id, pgAdminId);
+                }
+            },
+            {
+                model: 'Employee',
+                operation: 'update',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Employee System Access Granted',
@@ -798,7 +918,21 @@ exports.unlinkSystemAccess = async (req, res) => {
         await Admin.findByIdAndUpdate(adminId, { status: ACCOUNT_STATUS.BLOCKED });
 
         employee.linkedAdminId = null;
-        await employee.save();
+        await dualWrite(
+            () => employee.save(),
+            async (saved) => {
+                const repo = getEmployeeRepository();
+                const pgEmployee = await repo.findByLegacyId(String(saved._id));
+                if (pgEmployee && pgEmployee.linkedAdminId) {
+                    await repo.unlinkAdminAccount(pgEmployee.id);
+                }
+            },
+            {
+                model: 'Employee',
+                operation: 'update',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'access_revoked',

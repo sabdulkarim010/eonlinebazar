@@ -133,6 +133,14 @@ async function findById(id) {
   return toShape(record);
 }
 
+async function findByLegacyId(legacyId) {
+  if (!legacyId) return null;
+  const record = await prisma.attendance.findUnique({
+    where: { legacyId: String(legacyId) }
+  });
+  return toShape(record);
+}
+
 // ── markAttendance ───────────────────────────────────────────────────────────
 async function markAttendance(data) {
   const subject = await resolveStaffSubject(data);
@@ -174,6 +182,10 @@ async function markAttendance(data) {
     fields.lateMinutes = 0;
   }
 
+  if (data.legacyId != null) {
+    fields.legacyId = String(data.legacyId);
+  }
+
   let record;
   if (existing) {
     record = await prisma.attendance.update({
@@ -188,7 +200,7 @@ async function markAttendance(data) {
 }
 
 // ── clockIn ──────────────────────────────────────────────────────────────────
-async function clockIn(staffType, staffId, gpsLocation = {}, dateInput) {
+async function clockIn(staffType, staffId, gpsLocation = {}, dateInput, options = {}) {
   const subject = await resolveStaffSubject({ staffType, staffId });
   if (!subject) {
     const err = new Error('Staff member not found.');
@@ -228,6 +240,10 @@ async function clockIn(staffType, staffId, gpsLocation = {}, dateInput) {
     data.gpsLng = lng;
   }
 
+  if (options.legacyId != null) {
+    data.legacyId = String(options.legacyId);
+  }
+
   if (record) {
     record = await prisma.attendance.update({ where: { id: record.id }, data });
   } else {
@@ -238,7 +254,7 @@ async function clockIn(staffType, staffId, gpsLocation = {}, dateInput) {
 }
 
 // ── clockOut ─────────────────────────────────────────────────────────────────
-async function clockOut(staffType, staffId, dateInput) {
+async function clockOut(staffType, staffId, dateInput, options = {}) {
   const subject = await resolveStaffSubject({ staffType, staffId });
   if (!subject) {
     const err = new Error('Staff member not found.');
@@ -277,12 +293,73 @@ async function clockOut(staffType, staffId, dateInput) {
     }
   }
 
+  const updateFields = { clockOut, hoursWorked, status };
+  if (options.legacyId != null) {
+    updateFields.legacyId = String(options.legacyId);
+  }
+
   const updated = await prisma.attendance.update({
     where: { id: record.id },
-    data: { clockOut, hoursWorked, status }
+    data: updateFields
   });
 
   return toShape(updated);
+}
+
+/** Mirror a saved Mongoose attendance document to Postgres (exact field copy). */
+async function upsertFromMongo(mongoDoc) {
+  const plain = mongoDoc.toObject ? mongoDoc.toObject() : mongoDoc;
+  const subject = await resolveStaffSubject({
+    staffType: plain.staffType || 'admin',
+    staffId: plain.staffId,
+    staffUsername: plain.staffUsername
+  });
+  if (!subject) {
+    const err = new Error('Staff member not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  const date = normalizeDate(plain.date);
+  if (!date) throw new Error('A valid date is required.');
+
+  const existing = await prisma.attendance.findFirst({
+    where: { staffId: subject.staffId, date }
+  });
+
+  const data = {
+    ...staffFields(subject),
+    date,
+    clockIn: plain.clockIn ? new Date(plain.clockIn) : null,
+    clockOut: plain.clockOut ? new Date(plain.clockOut) : null,
+    hoursWorked: plain.hoursWorked != null ? Number(plain.hoursWorked) : 0,
+    status: toStatusEnum(plain.status || 'absent'),
+    isLate: plain.isLate === true,
+    lateMinutes: Number(plain.lateMinutes) || 0,
+    shift: toShiftEnum(plain.shift || 'morning'),
+    shiftStart: String(plain.shiftStart || '09:00').trim(),
+    shiftEnd: String(plain.shiftEnd || '18:00').trim(),
+    notes: String(plain.notes || '').trim(),
+    markedBy: String(plain.markedBy || 'self').trim(),
+    legacyId: mongoDoc._id != null ? String(mongoDoc._id) : null
+  };
+
+  const gps = plain.gpsLocation || {};
+  const lat = Number(gps.lat);
+  const lng = Number(gps.lng);
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    data.gpsLat = lat;
+    data.gpsLng = lng;
+  }
+
+  let record;
+  if (existing) {
+    record = await prisma.attendance.update({ where: { id: existing.id }, data });
+  } else {
+    record = await prisma.attendance.create({ data });
+  }
+
+  return toShape(record);
 }
 
 // ── getSummary ───────────────────────────────────────────────────────────────
@@ -340,9 +417,11 @@ module.exports = {
   parseShiftMinutes,
   findAll,
   findById,
+  findByLegacyId,
   markAttendance,
   clockIn,
   clockOut,
+  upsertFromMongo,
   getSummary,
   parseStaffSelector
 };

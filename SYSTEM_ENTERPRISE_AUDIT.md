@@ -2146,3 +2146,24 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 3.
 
 See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 4.
 
+## Stage 2 Step 3, Part 5 — Dual-Write: HRM Group — 2026-09-14
+
+**Status:** ✅ COMPLETE — eighteen models now dual-write; MongoDB still authoritative for reads
+
+| Item | Status |
+|------|--------|
+| Employee — create/update/terminate/photo/doc/grantAccess/unlinkAccess wired | ✅ |
+| Attendance — markAttendance/clockIn/clockOut wired | ✅ |
+| Payroll — generate/approve/markPaid wired (Mongo totals mirrored, not recomputed) | ✅ |
+| Leave — apply/approve/reject wired; approve stamps attendance dual-write | ✅ |
+| Polymorphic staffType → adminId/employeeId resolution inside repositories only | ✅ tested |
+| terminate() → admin-suspend via repository.terminate() (not duplicated) | ✅ |
+| Shift CRUD / generatePaySlip / updateSalaryConfig / revoke+reactivate access | ❌ out of scope (reported) |
+| dualWriteService.js modified | ❌ none (reused as-is) |
+| All READ/list endpoints unchanged | ✅ |
+| Main Jest suite (`npm test`) | ✅ 169/169 |
+| Neon repository tests (`npm run test:repositories`) | ✅ 141/141 |
+| Routes touched | ❌ none |
+
+See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 5.
+

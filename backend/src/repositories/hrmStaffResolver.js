@@ -44,6 +44,9 @@ async function findEmployeeRecord(identifier) {
     if (byId) return byId;
   }
 
+  const byLegacy = await prisma.employee.findUnique({ where: { legacyId: value } });
+  if (byLegacy) return byLegacy;
+
   return prisma.employee.findFirst({
     where: {
       OR: [{ employeeId: value }, { phone: value }]
@@ -59,6 +62,9 @@ async function findAdminRecord(identifier) {
     const byId = await prisma.admin.findUnique({ where: { id: value } });
     if (byId) return byId;
   }
+
+  const byLegacy = await prisma.admin.findUnique({ where: { legacyId: value } });
+  if (byLegacy) return byLegacy;
 
   return prisma.admin.findUnique({
     where: { username: value.toLowerCase() }

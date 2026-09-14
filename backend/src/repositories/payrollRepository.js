@@ -148,6 +148,14 @@ async function findById(id) {
   return toShape(record);
 }
 
+async function findByLegacyId(legacyId) {
+  if (!legacyId) return null;
+  const record = await prisma.payroll.findUnique({
+    where: { legacyId: String(legacyId) }
+  });
+  return toShape(record);
+}
+
 async function generate(staffType, staffId, month, year, overrides = {}) {
   const subject = await resolveStaffSubject({ staffType, staffId });
   if (!subject) {
@@ -228,7 +236,62 @@ async function generate(staffType, staffId, month, year, overrides = {}) {
     status: 'DRAFT',
     paymentMethod: String(overrides.paymentMethod || '').trim(),
     notes: String(overrides.notes || '').trim(),
-    createdBy: String(overrides.createdBy || '').trim()
+    createdBy: String(overrides.createdBy || '').trim(),
+    legacyId: overrides.legacyId != null ? String(overrides.legacyId) : undefined
+  };
+
+  let record;
+  if (existing) {
+    record = await prisma.payroll.update({ where: { id: existing.id }, data });
+  } else {
+    record = await prisma.payroll.create({ data });
+  }
+
+  return toShape(record);
+}
+
+/** Mirror a saved Mongoose payroll document to Postgres (exact computed values). */
+async function upsertFromMongo(mongoDoc) {
+  const plain = mongoDoc.toObject ? mongoDoc.toObject() : mongoDoc;
+  const subject = await resolveStaffSubject({
+    staffType: plain.staffType || 'admin',
+    staffId: plain.staffId,
+    staffUsername: plain.staffUsername
+  });
+  if (!subject) {
+    const err = new Error('Staff member not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  const month = Number(plain.month);
+  const year = Number(plain.year);
+  const existing = await prisma.payroll.findUnique({
+    where: { staffId_year_month: { staffId: subject.staffId, year, month } }
+  });
+
+  const data = {
+    ...staffFields(subject),
+    staffName: String(plain.staffName || subject.staffName || '').trim(),
+    month,
+    year,
+    baseSalary: plain.baseSalary ?? 0,
+    bonus: plain.bonus ?? 0,
+    overtime: plain.overtime ?? 0,
+    overtimeRate: plain.overtimeRate ?? 0,
+    overtimeAmount: plain.overtimeAmount ?? 0,
+    deductions: plain.deductions ?? 0,
+    totalSalary: plain.totalSalary ?? 0,
+    workingDays: plain.workingDays ?? 0,
+    presentDays: plain.presentDays ?? 0,
+    absentDays: plain.absentDays ?? 0,
+    lateDays: plain.lateDays ?? 0,
+    status: toStatusEnum(plain.status || 'draft'),
+    paidAt: plain.paidAt ? new Date(plain.paidAt) : null,
+    paymentMethod: String(plain.paymentMethod || '').trim(),
+    notes: String(plain.notes || '').trim(),
+    createdBy: String(plain.createdBy || '').trim(),
+    legacyId: mongoDoc._id != null ? String(mongoDoc._id) : null
   };
 
   let record;
@@ -296,7 +359,9 @@ module.exports = {
   summarizeAttendance,
   findAll,
   findById,
+  findByLegacyId,
   generate,
+  upsertFromMongo,
   approve,
   markPaid
 };

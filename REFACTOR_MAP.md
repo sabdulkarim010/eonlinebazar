@@ -1416,3 +1416,23 @@ DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 4 section added
 REFACTOR_MAP.md [DONE] this section
 README.md [DONE] dual-write model count + repository test count
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 4 note added
+
+# PostgreSQL migration — Stage 2 Step 3, Part 5: Dual-write for HRM group: 2026-09-14
+
+backend/src/utils/hrmDualWriteHelpers.js [NEW] mappers for Employee/Attendance/Payroll/Leave dual-write; lazy prisma load
+backend/src/repositories/hrmStaffResolver.js [MOD] legacyId lookup in findEmployeeRecord/findAdminRecord
+backend/src/repositories/employeeRepository.js [MOD] findByLegacyId, findDocumentByLegacyId, legacyId on create/addDocument
+backend/src/repositories/attendanceRepository.js [MOD] findByLegacyId, legacyId support, upsertFromMongo() for exact Mongo mirror
+backend/src/repositories/payrollRepository.js [MOD] findByLegacyId, legacyId on generate, upsertFromMongo() for exact Mongo totals
+backend/src/repositories/leaveRepository.js [MOD] findByLegacyId, legacyId on apply
+backend/src/controllers/admin/employeeController.js [MOD] create/update/terminate/photo/doc/grantAccess/unlinkAccess via dualWrite(); lazy helper load
+backend/src/controllers/admin/attendanceController.js [MOD] markAttendance/clockIn/clockOut via dualWrite() → upsertFromMongo
+backend/src/controllers/admin/payrollController.js [MOD] generatePayroll/approvePayroll/markPaid via dualWrite(); lazy helper load
+backend/src/controllers/admin/leaveController.js [MOD] applyLeave/approveLeave/rejectLeave + stampLeaveOnAttendance via dualWrite()
+tests/repositories/attendance.repository.test.js [MOD] upsertFromMongo employee legacyId → employeeId FK test
+backend/src/services/dualWriteService.js [UNCHANGED] reused as-is from Part 1
+backend/src/routes/** [UNCHANGED]
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 5 section added
+REFACTOR_MAP.md [DONE] this section
+README.md [DONE] dual-write model count + repository test count (141)
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 5 note added

@@ -178,6 +178,22 @@ async function findByEmployeeId(employeeId) {
   return toShape(record);
 }
 
+async function findByLegacyId(legacyId) {
+  if (!legacyId) return null;
+  const record = await prisma.employee.findUnique({
+    where: { legacyId: String(legacyId) }
+  });
+  return toShape(record);
+}
+
+async function findDocumentByLegacyId(legacyId) {
+  if (!legacyId) return null;
+  const record = await prisma.employeeDocument.findUnique({
+    where: { legacyId: String(legacyId) }
+  });
+  return toDocumentShape(record);
+}
+
 // ── create ───────────────────────────────────────────────────────────────────
 async function create(data) {
   const fullName = String(data.fullName || '').trim();
@@ -234,7 +250,8 @@ async function create(data) {
     linkedAdminId: data.linkedAdminId ?? null,
     status: data.status !== undefined ? toStatusEnum(data.status) : 'ACTIVE',
     notes: String(data.notes ?? '').trim(),
-    createdBy: String(data.createdBy ?? '').trim()
+    createdBy: String(data.createdBy ?? '').trim(),
+    legacyId: data.legacyId != null ? String(data.legacyId) : null
   });
 
   if (data.employeeId) {
@@ -392,7 +409,8 @@ async function addDocument(employeeId, docData) {
       title: String(docData.title ?? '').trim(),
       fileUrl: String(docData.fileUrl ?? '').trim(),
       fileType: String(docData.fileType ?? 'image').trim() || 'image',
-      publicId: String(docData.publicId ?? '').trim()
+      publicId: String(docData.publicId ?? '').trim(),
+      legacyId: docData.legacyId != null ? String(docData.legacyId) : null
     }
   });
   return toDocumentShape(record);
@@ -512,6 +530,8 @@ module.exports = {
   findAll,
   findById,
   findByEmployeeId,
+  findByLegacyId,
+  findDocumentByLegacyId,
   create,
   update,
   terminate,

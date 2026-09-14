@@ -14,6 +14,11 @@ const Attendance = require('../../models/attendance');
 const Shift = require('../../models/shift');
 const Admin = require('../../models/admin');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { dualWrite } = require('../../services/dualWriteService');
+
+function mirrorAttendanceDoc(saved) {
+  return require('../../utils/hrmDualWriteHelpers').mirrorAttendanceDoc(saved);
+}
 const { findAdmin, parseStaffSelector, resolveHrmSubject } = require('../../utils/hrmStaffResolver');
 
 const { ATTENDANCE_STATUSES, SHIFT_TYPES } = Attendance;
@@ -192,7 +197,15 @@ exports.markAttendance = async (req, res) => {
             record.lateMinutes = 0;
         }
 
-        await record.save();
+        await dualWrite(
+            () => record.save(),
+            async (saved) => { await mirrorAttendanceDoc(saved); },
+            {
+                model: 'Attendance',
+                operation: 'create',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Attendance Marked',
@@ -261,7 +274,15 @@ exports.clockIn = async (req, res) => {
             record.gpsLocation = { lat, lng };
         }
 
-        await record.save();
+        await dualWrite(
+            () => record.save(),
+            async (saved) => { await mirrorAttendanceDoc(saved); },
+            {
+                model: 'Attendance',
+                operation: 'create',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         res.status(200).json({
             success: true,
@@ -312,7 +333,15 @@ exports.clockOut = async (req, res) => {
             }
         }
 
-        await record.save();
+        await dualWrite(
+            () => record.save(),
+            async (saved) => { await mirrorAttendanceDoc(saved); },
+            {
+                model: 'Attendance',
+                operation: 'update',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         res.status(200).json({
             success: true,

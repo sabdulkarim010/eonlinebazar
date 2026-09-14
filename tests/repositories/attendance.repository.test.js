@@ -15,7 +15,8 @@ const {
   markAttendance,
   clockIn,
   clockOut,
-  getSummary
+  getSummary,
+  upsertFromMongo
 } = require('../../backend/src/repositories/attendanceRepository');
 
 const PREFIX = `__test_att_${Date.now()}_`;
@@ -140,6 +141,36 @@ describe('Attendance repository — polymorphic staff + Neon DB', () => {
 
     const row = await prisma.attendance.findUnique({ where: { id: created.id } });
     expect(Number(row.hoursWorked)).toBe(8);
+  });
+
+  test('upsertFromMongo resolves employee by legacyId and populates employeeId', async () => {
+    const mongoLegacyId = `${PREFIX}mongo_emp_${Date.now()}`;
+    const employee = await createEmployee({
+      fullName: `${PREFIX} Legacy Employee`,
+      phone: `017${String(Date.now()).slice(-8)}`,
+      legacyId: mongoLegacyId
+    });
+    createdEmployeeIds.push(employee.id);
+
+    const mongoLikeDoc = {
+      _id: `${PREFIX}att_mongo_${Date.now()}`,
+      staffType: 'employee',
+      staffId: mongoLegacyId,
+      staffUsername: employee.employeeId,
+      date: new Date('2026-07-01'),
+      status: 'present',
+      shift: 'morning',
+      shiftStart: '09:00',
+      shiftEnd: '18:00',
+      markedBy: 'admin'
+    };
+
+    const record = trackAttendance(await upsertFromMongo(mongoLikeDoc));
+    const row = await prisma.attendance.findUnique({ where: { id: record.id } });
+    expect(row.employeeId).toBe(employee.id);
+    expect(row.adminId).toBeNull();
+    expect(row.staffType).toBe('EMPLOYEE');
+    expect(row.legacyId).toBe(mongoLikeDoc._id);
   });
 
   test('getSummary returns counts for the month', async () => {

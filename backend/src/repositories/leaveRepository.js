@@ -100,6 +100,14 @@ async function findById(id) {
   return toShape(record);
 }
 
+async function findByLegacyId(legacyId) {
+  if (!legacyId) return null;
+  const record = await prisma.leave.findUnique({
+    where: { legacyId: String(legacyId) }
+  });
+  return toShape(record);
+}
+
 async function apply(data) {
   const subject = await resolveStaffSubject(data);
   if (!subject) {
@@ -134,7 +142,8 @@ async function apply(data) {
       totalDays,
       reason: String(data.reason || '').trim(),
       attachmentUrl: String(data.attachmentUrl || '').trim(),
-      status: 'PENDING'
+      status: 'PENDING',
+      legacyId: data.legacyId != null ? String(data.legacyId) : null
     }
   });
 
@@ -249,6 +258,7 @@ module.exports = {
   countLeaveDays,
   findAll,
   findById,
+  findByLegacyId,
   apply,
   approve,
   reject,

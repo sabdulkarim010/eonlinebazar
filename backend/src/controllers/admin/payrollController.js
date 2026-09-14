@@ -16,6 +16,15 @@ const Admin = require('../../models/admin');
 const Employee = require('../../models/employee');
 const { generatePaySlipPdf } = require('../../utils/paySlipPdf');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { dualWrite } = require('../../services/dualWriteService');
+
+function getPayrollRepository() {
+    return require('../../repositories/payrollRepository');
+}
+
+function mirrorPayrollDoc(saved) {
+    return require('../../utils/hrmDualWriteHelpers').mirrorPayrollDoc(saved);
+}
 const { findAdmin, parseStaffSelector, resolveHrmSubject } = require('../../utils/hrmStaffResolver');
 
 /** Bangladesh weekend — Friday (Date#getDay() === 5) is not a working day. */
@@ -165,7 +174,15 @@ exports.generatePayroll = async (req, res) => {
         record.notes = String(body.notes || '').trim();
         record.createdBy = actorName(req);
 
-        await record.save();
+        await dualWrite(
+            () => record.save(),
+            async (saved) => { await mirrorPayrollDoc(saved); },
+            {
+                model: 'Payroll',
+                operation: 'create',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Payroll Generated',
@@ -295,7 +312,19 @@ exports.approvePayroll = async (req, res) => {
 
         record.status = 'approved';
         if (req.body?.notes) record.notes = String(req.body.notes).trim();
-        await record.save();
+        await dualWrite(
+            () => record.save(),
+            async (saved) => {
+                const repo = getPayrollRepository();
+                const pgRow = await repo.findByLegacyId(String(saved._id));
+                if (pgRow) await repo.approve(pgRow.id);
+            },
+            {
+                model: 'Payroll',
+                operation: 'update',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Payroll Approved',
@@ -339,7 +368,19 @@ exports.markPaid = async (req, res) => {
         record.status = 'paid';
         record.paidAt = new Date();
         if (req.body?.paymentMethod) record.paymentMethod = String(req.body.paymentMethod).trim();
-        await record.save();
+        await dualWrite(
+            () => record.save(),
+            async (saved) => {
+                const repo = getPayrollRepository();
+                const pgRow = await repo.findByLegacyId(String(saved._id));
+                if (pgRow) await repo.markPaid(pgRow.id, saved.paymentMethod);
+            },
+            {
+                model: 'Payroll',
+                operation: 'update',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Payroll Paid',

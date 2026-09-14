@@ -13,6 +13,19 @@ const Leave = require('../../models/leave');
 const Attendance = require('../../models/attendance');
 const Admin = require('../../models/admin');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { dualWrite } = require('../../services/dualWriteService');
+
+function getLeaveRepository() {
+    return require('../../repositories/leaveRepository');
+}
+
+function mirrorAttendanceDoc(saved) {
+    return require('../../utils/hrmDualWriteHelpers').mirrorAttendanceDoc(saved);
+}
+
+function mirrorLeaveApply(saved) {
+    return require('../../utils/hrmDualWriteHelpers').mirrorLeaveApply(saved);
+}
 const { notifyAdminsWithPermission } = require('../../services/notificationService');
 
 const { LEAVE_TYPES, LEAVE_STATUSES, LEAVE_ALLOWANCES } = Leave;
@@ -64,7 +77,15 @@ async function stampLeaveOnAttendance(leave) {
         record.markedBy = leave.approvedBy || 'system';
 
         // eslint-disable-next-line no-await-in-loop
-        await record.save();
+        await dualWrite(
+            () => record.save(),
+            async (saved) => { await mirrorAttendanceDoc(saved); },
+            {
+                model: 'Attendance',
+                operation: 'create',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
         stamped += 1;
     }
 
@@ -105,16 +126,24 @@ exports.applyLeave = async (req, res) => {
             return res.status(400).json({ success: false, message: 'End date cannot be before the start date.' });
         }
 
-        const leave = await Leave.create({
-            staffId: String(account._id),
-            staffUsername: account.username,
-            staffName: account.name || account.displayName || account.username,
-            leaveType,
-            startDate,
-            endDate,
-            reason: String(body.reason || '').trim(),
-            attachmentUrl: String(body.attachmentUrl || '').trim()
-        });
+        const leave = await dualWrite(
+            () => Leave.create({
+                staffId: String(account._id),
+                staffUsername: account.username,
+                staffName: account.name || account.displayName || account.username,
+                leaveType,
+                startDate,
+                endDate,
+                reason: String(body.reason || '').trim(),
+                attachmentUrl: String(body.attachmentUrl || '').trim()
+            }),
+            async (saved) => { await mirrorLeaveApply(saved); },
+            {
+                model: 'Leave',
+                operation: 'create',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Leave Applied',
@@ -216,7 +245,19 @@ exports.approveLeave = async (req, res) => {
         leave.approvedAt = new Date();
         leave.rejectionReason = '';
         if (req.body?.note) leave.reason = `${leave.reason} — ${String(req.body.note).trim()}`.trim();
-        await leave.save();
+        await dualWrite(
+            () => leave.save(),
+            async (saved) => {
+                const repo = getLeaveRepository();
+                const pgRow = await repo.findByLegacyId(String(saved._id));
+                if (pgRow) await repo.approve(pgRow.id, saved.approvedBy);
+            },
+            {
+                model: 'Leave',
+                operation: 'update',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         const stamped = await stampLeaveOnAttendance(leave);
 
@@ -270,7 +311,19 @@ exports.rejectLeave = async (req, res) => {
         leave.rejectionReason = reason;
         leave.approvedBy = actorName(req);
         leave.approvedAt = new Date();
-        await leave.save();
+        await dualWrite(
+            () => leave.save(),
+            async (saved) => {
+                const repo = getLeaveRepository();
+                const pgRow = await repo.findByLegacyId(String(saved._id));
+                if (pgRow) await repo.reject(pgRow.id, saved.approvedBy, saved.rejectionReason);
+            },
+            {
+                model: 'Leave',
+                operation: 'update',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Leave Rejected',

@@ -1759,4 +1759,75 @@ New repository test files:
 - `tests/repositories/blacklistedIp.repository.test.js` — null `expiresAt` permanent ban
 - `tests/repositories/stockAlert.repository.test.js` — `LOW_STOCK` vs `OUT_OF_STOCK` kind discrimination
 
+## STAGE 2 STEP 3, PART 5 — Dual-Write: HRM Group — 2026-09-14
+
+Extends dual-write to the HRM cutover group (Stage 4 position 5 of 8): **Employee,
+Attendance, Payroll, Leave**. Same `dualWriteService.js` helper unchanged. MongoDB
+remains authoritative for all reads; Postgres side-writes are best-effort and
+failure-isolated — critical here because Payroll writes involve real salary
+calculations; the Mongo result is always what the API returns, never a recomputed
+Postgres value.
+
+### Repository files — reused from Step 2 Part 4 (legacyId additions)
+
+| Model | Repository file | legacyId / findByLegacyId | Dual-write mirror strategy |
+|---|---|---|---|
+| **Employee** | `employeeRepository.js` | Added `findByLegacyId()`, `findDocumentByLegacyId()`; `legacyId` on `create()` / `addDocument()` | `create()` / `update()` / `terminate()` / `linkAdminAccount()` / `unlinkAdminAccount()` called directly |
+| **Attendance** | `attendanceRepository.js` | Added `findByLegacyId()`; `legacyId` on `markAttendance()` / `clockIn()` / `clockOut()` | **`upsertFromMongo(mongoDoc)`** — copies exact saved Mongoose fields (avoids re-running clock logic) |
+| **Payroll** | `payrollRepository.js` | Added `findByLegacyId()`; `legacyId` on `generate()` | **`upsertFromMongo(mongoDoc)`** — copies exact Mongo computed totals (never re-runs `generate()`) |
+| **Leave** | `leaveRepository.js` | Added `findByLegacyId()`; `legacyId` on `apply()` | `apply()` on create; `findByLegacyId()` + `approve()` / `reject()` on status changes |
+
+`hrmStaffResolver.js` updated: `findEmployeeRecord()` / `findAdminRecord()` now accept
+Mongo ObjectId strings via `legacyId` lookup (needed when dual-write passes Mongo `_id`
+as `staffId`).
+
+New shared helper: `backend/src/utils/hrmDualWriteHelpers.js` — mappers only; no
+polymorphic resolution duplicated at wiring layer.
+
+Routes were **not** modified. `dualWriteService.js` was **not** modified.
+
+### Controller functions wired (write paths only)
+
+| Model | Controller | Wired functions |
+|---|---|---|
+| **Employee** | `employeeController.js` | `createEmployee`, `updateEmployee`, `deleteEmployee` (terminate), `uploadEmployeePhoto`, `uploadEmployeeDocument`, `deleteEmployeeDocument`, `grantSystemAccess` (linkAdminAccount), `unlinkSystemAccess` (unlinkAdminAccount) |
+| **Attendance** | `attendanceController.js` | `markAttendance`, `clockIn`, `clockOut` |
+| **Payroll** | `payrollController.js` | `generatePayroll`, `approvePayroll`, `markPaid` |
+| **Leave** | `leaveController.js` | `applyLeave`, `approveLeave`, `rejectLeave`; `stampLeaveOnAttendance()` (called from approve) dual-writes each attendance row |
+
+### Polymorphic staffType/staffId resolution — repository-only (not duplicated)
+
+Attendance, Payroll, and Leave repository functions from Stage 2 Step 2 Part 4 already
+resolve `staffType` → `adminId` or `employeeId` FK internally. Dual-write wiring passes
+the same `staffType`/`staffId` the Mongo write received and calls the repository function
+(or `upsertFromMongo`) as a single correct unit — **no resolution logic at controller or
+helper layer**.
+
+Verified by existing repository tests plus new dual-write-path test:
+
+- `tests/repositories/attendance.repository.test.js` → `upsertFromMongo resolves employee by legacyId and populates employeeId`
+
+### terminate() → admin-suspend cross-repository behaviour
+
+`deleteEmployee` (status → terminated) Postgres side calls `employeeRepository.terminate()`
+as-is — that function already suspends a linked Admin account internally. Dual-write does
+**not** duplicate suspend logic at the controller level. Same for `updateEmployee` when
+status is set to terminated.
+
+### Uncovered write actions (reported, not wired)
+
+| Location | Action | Reason |
+|---|---|---|
+| `attendanceController.js` | `createShift`, `updateShift`, `deleteShift` | Shift model — out of scope for this part |
+| `payrollController.js` | `generatePaySlip` | PDF generation + flag update (read-heavy) |
+| `payrollController.js` | `updateSalaryConfig` | Updates Admin model, not Payroll |
+| `employeeController.js` | `revokeSystemAccess`, `reactivateSystemAccess` | Admin status-only changes; no Employee save |
+
+### Test results
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **169/169** pass |
+| `npm run test:repositories` | **141/141** pass (140 prior + 1 new attendance legacyId upsert test) |
+
 
