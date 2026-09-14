@@ -1565,3 +1565,15 @@ README.md [DONE] Stage 3 Step 4 backfill note
 DATABASE_MIGRATION_AUDIT.md [MOD] Stage 3 Step 4 — corrected staffUsername/re-run assumption; Attendance 6aa42b47265447ac6ddf014e marked PERMANENTLY EXCLUDED
 tests/hrm.test.js [MOD] local calendar date for today-stats assertions + nurjahan orphan comments (in-memory Mongo tests; endpoints read Mongo only)
 REFACTOR_MAP.md [DONE] this section
+
+# PostgreSQL migration — Stage 3 Step 5: Backfill Order (FINAL — Stage 3 complete): 2026-09-15
+
+backend/scripts/backfill/runBackfill.js [MOD] runStep5Group()/backfillOrders() — Case A/B/C classifyOrder(), mapOrderInputFromMongo() (4 FK maps: user/product/paymentMethod/admin; methodId+reviewedBy resolved that repo createFromMongo does not), Case C repairOrderChildren()/repairMissingOrderItems() (lineKey-matched), hasMongoPaymentData/hasMongoProofData/mongoIpnCount helpers; both subTotal+subtotal passed through
+backend/scripts/backfill/verifyBackfill.js [MOD] Order added to COUNT_MODELS + verifyOrderFinancials() — SUM(grandTotal)/SUM(totalAmount) Mongo vs PG (legacyId-not-null excludes test rows), Mongo-has-payment/PG-missing-OrderPayment check, child-row counts; PASS/FAIL close-out gate
+backend/scripts/backfill/backfillRunner.js [UNCHANGED]
+backend/src/repositories/** [UNCHANGED] reused createWithStagedWrites/updatePaymentByLegacyId/upsertPaymentProofByLegacyId/updateNotificationsByLegacyId/syncReturnItemsByLegacyId/addPaymentIpnEventByLegacyId/splitOrderItem as-is
+Result: 25 orders — Case A=25, B=0, C=0, failed=0; SUM(grandTotal) Mongo 129464 == PG 129464 (diff 0); 0 Mongo-has-payment orders missing PG OrderPayment; npm test 169/169; test:repositories 157/157
+STAGE 3 (BACKFILL) COMPLETE — all 8 dependency groups backfilled; permanent gaps: 3 users missing firstName, 1 orphaned Attendance (nurjahan)
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 3 Step 5 section + close-out added
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 3 Step 5 / Stage 3 complete note added
+README.md [DONE] Stage 3 complete backfill note

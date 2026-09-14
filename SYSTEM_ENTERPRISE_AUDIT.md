@@ -1950,7 +1950,7 @@ Full detail lives in `DATABASE_MIGRATION_AUDIT.md`; this is the status summary.
 | Dual-write repository layer | ❌ NOT STARTED — Stage 2 remainder |
 | `LoginAttempt` / `BlacklistedIp` TTL sweep jobs | ❌ NOT STARTED — Stage 2 remainder |
 | `ProductTextIndex` → `tsvector` + GIN raw SQL migration | ❌ NOT STARTED — Stage 2 remainder |
-| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — Stage 3 Steps 1–4 complete (through Admin + Product + gap repair); Order group pending |
+| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (all 8 groups, Steps 1–5; Order backfilled with Case A/B/C + financial aggregate verified, 2026-09-15)**; Stage 4 read cutover not started (backfill PaymentMethod first) |
 
 **Isolation guarantee:** zero `.js` files under `backend/src/` were modified — no
 model, controller, route, service or script. No application code queries
@@ -2341,4 +2341,32 @@ correctly rejects unmigratable row. Same permanent-exclusion category as 3 users
 | Invent placeholder Admin | ❌ rejected |
 | `tests/hrm.test.js` | ✅ local date + documented comments |
 | `npm test` | ✅ 169/169 |
+
+## Stage 3 Step 5 — Order backfill (Stage 3 COMPLETE) — 2026-09-15
+
+**Status:** ✅ COMPLETE — Stage 3 (Backfill) finished across all 8 dependency groups.
+
+Order is the most financially sensitive model. Backfill classifies each Mongo order as
+**Case A** (no PG row → full create), **B** (complete PG row → skip), or **C** (partial PG
+row → repair only missing children). FK resolution uses in-memory maps (user, product,
+paymentMethod, admin) built once; `payment.methodId` and `paymentProof.reviewedBy` are
+resolved to PG ids (null fallback) — a correctness fix the repo's `createFromMongo()` does
+not do. No application code, repositories, routes, or `dualWriteService.js` changed.
+
+| Item | Status |
+|------|--------|
+| Orders processed | ✅ 25 — Case A=25, B=0, C=0, failed=0 |
+| `SUM(grandTotal)` Mongo vs Postgres | ✅ 129,464 == 129,464 (diff 0) |
+| `SUM(totalAmount)` Mongo vs Postgres | ✅ 129,464 == 129,464 |
+| Mongo-has-payment orders missing PG `OrderPayment` | ✅ 0 (of 16) |
+| FK null fallbacks | userId 0 · item productId 25 (legacy SKUs) · methodId 15 (PaymentMethod not migrated) · reviewedBy 0 |
+| `subTotal`/`subtotal` collapse | ❌ never — both passed independently |
+| backfillRunner.js / repositories modified | ❌ none |
+| `npm test` | ✅ 169/169 |
+| `npm run test:repositories` | ✅ 157/157 |
+
+**Permanent gaps at Stage 3 close:** 3 users missing `firstName`, 1 orphaned Attendance
+(`nurjahan`). **Stage 4 prerequisite:** backfill PaymentMethod before Order read cutover
+(15 orders currently read `methodId` as null). See `DATABASE_MIGRATION_AUDIT.md` §
+STAGE 3, STEP 5.
 

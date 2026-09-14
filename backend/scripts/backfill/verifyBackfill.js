@@ -40,6 +40,7 @@ const ContactMessage = require('../../src/models/ContactMessage');
 const Review = require('../../src/models/review');
 const Admin = require('../../src/models/admin');
 const Product = require('../../src/models/product');
+const Order = require('../../src/models/order');
 const categoryRepo = require('../../src/repositories/categoryRepository');
 const bannerRepo = require('../../src/repositories/bannerRepository');
 const footerSettingsRepo = require('../../src/repositories/footerSettingsRepository');
@@ -69,7 +70,8 @@ const COUNT_MODELS = [
   { name: 'Review', mongoModel: Review, postgresCount: () => prisma.review.count() },
   { name: 'Cart', mongoModel: Cart, postgresCount: () => prisma.cart.count() },
   { name: 'Admin', mongoModel: Admin, postgresCount: () => prisma.admin.count() },
-  { name: 'Product', mongoModel: Product, postgresCount: () => prisma.product.count() }
+  { name: 'Product', mongoModel: Product, postgresCount: () => prisma.product.count() },
+  { name: 'Order', mongoModel: Order, postgresCount: () => prisma.order.count() }
 ];
 
 const SINGLETON_MODELS = [
@@ -391,6 +393,120 @@ async function verifyStockAlertChildren() {
   return { mongoAlerts: mongoAlerts.length, mongoItemTotal, postgresItemTotal };
 }
 
+/** True when the Mongo payment subdoc carries real data (not just schema defaults). */
+function mongoOrderHasPaymentData(o) {
+  const p = o && o.payment;
+  if (!p || typeof p !== 'object') return false;
+  return Boolean(
+    p.methodId || p.code || p.name || p.transactionId || p.gatewayReference
+    || p.paidAt || (p.status && String(p.status).toLowerCase() !== 'unpaid')
+    || (Array.isArray(p.ipnHistory) && p.ipnHistory.length > 0)
+  );
+}
+
+/**
+ * The one place a plain row-count is not enough (Stage 3 exit criterion): financial
+ * aggregates must match. `grandTotal` is the authoritative order total — it is the
+ * only `required` money field on the Order schema (`totalAmount` is nullable).
+ *
+ * Postgres sums are restricted to backfilled production orders (legacyId != null) so
+ * repository test rows (legacyId null) never distort the comparison.
+ */
+async function verifyOrderFinancials() {
+  console.log('\n=== Order financial aggregate verification (authoritative: grandTotal) ===\n');
+
+  const mongoOrders = await Order.find({}).lean();
+  let mongoGrandTotal = 0;
+  let mongoTotalAmount = 0;
+  let mongoTotalAmountNull = 0;
+  let mongoItemTotal = 0;
+  let mongoReturnTotal = 0;
+  const mongoPaidOrders = [];
+
+  for (const o of mongoOrders) {
+    mongoGrandTotal += Number(o.grandTotal) || 0;
+    if (o.totalAmount == null) mongoTotalAmountNull += 1;
+    else mongoTotalAmount += Number(o.totalAmount) || 0;
+    mongoItemTotal += Array.isArray(o.items) ? o.items.length : 0;
+    mongoReturnTotal += Array.isArray(o.returnItems) ? o.returnItems.length : 0;
+    if (mongoOrderHasPaymentData(o)) mongoPaidOrders.push(o);
+  }
+
+  const pgAgg = await prisma.order.aggregate({
+    _sum: { grandTotal: true, totalAmount: true },
+    where: { legacyId: { not: null } }
+  });
+  const pgGrandTotal = Number(pgAgg._sum.grandTotal || 0);
+  const pgTotalAmount = Number(pgAgg._sum.totalAmount || 0);
+
+  const pgProdOrderCount = await prisma.order.count({ where: { legacyId: { not: null } } });
+  const pgTestOrderCount = await prisma.order.count({ where: { legacyId: null } });
+
+  const grandDiff = Math.round((pgGrandTotal - mongoGrandTotal) * 100) / 100;
+  const grandMatch = grandDiff === 0;
+
+  console.log(`Mongo orders: ${mongoOrders.length}`);
+  console.log(`Postgres orders — production (legacyId set): ${pgProdOrderCount}, test rows (legacyId null, excluded): ${pgTestOrderCount}`);
+  console.log(`SUM(grandTotal)  Mongo:    ${mongoGrandTotal}`);
+  console.log(`SUM(grandTotal)  Postgres: ${pgGrandTotal}`);
+  console.log(`Difference (PG − Mongo):   ${grandDiff} ${grandMatch ? '✓ MATCH' : '✗ MISMATCH — INVESTIGATE (blocks Stage 3 close-out)'}`);
+  console.log(`SUM(totalAmount) Mongo:    ${mongoTotalAmount} (null totalAmount rows: ${mongoTotalAmountNull})`);
+  console.log(`SUM(totalAmount) Postgres: ${pgTotalAmount}`);
+
+  // Orders where Mongo has payment data but Postgres OrderPayment row is still missing.
+  let missingPaymentRows = 0;
+  const missingPaymentIds = [];
+  for (const o of mongoPaidOrders) {
+    const row = await prisma.order.findUnique({
+      where: { legacyId: String(o._id) },
+      select: { id: true, payment: { select: { id: true } } }
+    });
+    if (!row || !row.payment) {
+      missingPaymentRows += 1;
+      missingPaymentIds.push(String(o._id));
+    }
+  }
+  console.log(
+    `\nMongo-has-payment orders: ${mongoPaidOrders.length}; still missing PG OrderPayment: ` +
+    `${missingPaymentRows} ${missingPaymentRows === 0 ? '✓' : '✗ INVESTIGATE (Case C repair incomplete)'}`
+  );
+  if (missingPaymentIds.length) {
+    console.log('Missing-payment legacyIds (first 20):', JSON.stringify(missingPaymentIds.slice(0, 20)));
+  }
+
+  const pgItemTotal = await prisma.orderItem.count();
+  const pgReturnTotal = await prisma.orderReturnItem.count();
+  const pgPaymentTotal = await prisma.orderPayment.count();
+  const pgIpnTotal = await prisma.orderPaymentIpnEvent.count();
+  const pgProofTotal = await prisma.orderPaymentProof.count();
+  const pgNotifTotal = await prisma.orderNotification.count();
+
+  console.log('\nOrder child rows (Postgres totals, incl. test rows):');
+  console.log(`  OrderItem: ${pgItemTotal} (Mongo items: ${mongoItemTotal})`);
+  console.log(`  OrderReturnItem: ${pgReturnTotal} (Mongo return items: ${mongoReturnTotal})`);
+  console.log(`  OrderPayment: ${pgPaymentTotal}`);
+  console.log(`  OrderPaymentIpnEvent: ${pgIpnTotal}`);
+  console.log(`  OrderPaymentProof: ${pgProofTotal}`);
+  console.log(`  OrderNotification: ${pgNotifTotal}`);
+
+  return {
+    mongoOrders: mongoOrders.length,
+    pgProdOrderCount,
+    pgTestOrderCount,
+    mongoGrandTotal,
+    pgGrandTotal,
+    grandDiff,
+    grandMatch,
+    mongoTotalAmount,
+    pgTotalAmount,
+    mongoWithPaymentData: mongoPaidOrders.length,
+    missingPaymentRows,
+    missingPaymentIds,
+    mongoItemTotal,
+    pgItemTotal
+  };
+}
+
 async function main() {
   await connectDB();
 
@@ -405,6 +521,7 @@ async function main() {
     const productChildren = await verifyProductChildren();
     const gapRepair = await verifyGapRepairHealth();
     const stockAlertChildren = await verifyStockAlertChildren();
+    const orderFinancials = await verifyOrderFinancials();
 
     console.log('\n=== Verification complete ===\n');
     const allMatch = counts.every((r) => r.match);
@@ -443,6 +560,17 @@ async function main() {
       `Review productId resolved ${gapRepair.reviewWithProductId} (null ${gapRepair.reviewNullProductId}), ` +
       `WishlistItem productId resolved ${gapRepair.wishlistWithProductId} (null ${gapRepair.wishlistNullProductId}), ` +
       `CartItem total ${gapRepair.cartItemTotal}`
+    );
+    console.log(
+      `Order financials — grandTotal Mongo ${orderFinancials.mongoGrandTotal} vs PG ${orderFinancials.pgGrandTotal} ` +
+      `(diff ${orderFinancials.grandDiff}) ${orderFinancials.grandMatch ? 'MATCH ✓' : 'MISMATCH ✗ — BLOCKS STAGE 3 CLOSE-OUT'}; ` +
+      `Mongo-has-payment missing PG OrderPayment: ${orderFinancials.missingPaymentRows} ` +
+      `${orderFinancials.missingPaymentRows === 0 ? '✓' : '✗'}`
+    );
+    console.log(
+      `ORDER FINANCIAL VERIFICATION: ${orderFinancials.grandMatch && orderFinancials.missingPaymentRows === 0
+        ? 'PASS — safe to close Stage 3'
+        : 'FAIL — STOP, do not close Stage 3 until resolved'}`
     );
   } finally {
     await mongoose.disconnect();

@@ -8,9 +8,7 @@
  * Step 2: CMS/Settings + Security/Audit groups
  * Step 3: User (+ owned tables), HRM, Marketing/Support groups
  * Step 4: Admin, Product (+ sub-resources), gap repair
- *
- * TODO Stage 3 Step 5+: Order, …
- *   Extend runAll() below following DATABASE_MIGRATION_AUDIT.md Stage 3 order.
+ * Step 5: Order (+ all child tables) with Case A/B/C classification — FINAL STEP
  *
  * Usage: node backend/scripts/backfill/runBackfill.js
  ********************************************************************/
@@ -69,6 +67,7 @@ const ContactMessage = require('../../src/models/ContactMessage');
 const Review = require('../../src/models/review');
 const Admin = require('../../src/models/admin');
 const Product = require('../../src/models/product');
+const Order = require('../../src/models/order');
 
 const userRepo = require('../../src/repositories/userRepository');
 const adminRepo = require('../../src/repositories/adminRepository');
@@ -82,6 +81,7 @@ const emailCampaignRepo = require('../../src/repositories/emailCampaignRepositor
 const contactMessageRepo = require('../../src/repositories/contactMessageRepository');
 const reviewRepo = require('../../src/repositories/reviewRepository');
 const cartRepo = require('../../src/repositories/cartRepository');
+const orderRepo = require('../../src/repositories/orderRepository');
 
 const { staffFields, UUID_PATTERN } = require('../../src/repositories/hrmStaffResolver');
 
@@ -2214,6 +2214,392 @@ async function runStep3Group() {
   return results;
 }
 
+// ── Stage 3 Step 5 — Order backfill (Case A/B/C classification) ──────────────
+//
+// Order is the most financially sensitive model. Unlike every prior model's
+// simple create-or-skip, dual-write (Part 8) means an Order may ALREADY have a
+// Postgres row — possibly PARTIAL (a [DUAL-WRITE-ORDER-PARTIAL] log). So each
+// Mongo order is classified into three cases:
+//   A — no Postgres row for this legacyId → full create (Order + all children)
+//   B — Postgres row present AND every child Mongo says should exist is present → skip
+//   C — Postgres row present but one/more expected child rows missing → repair only
+//       the missing children; never touch the Order parent or existing children.
+//
+// FK resolution uses in-memory maps built ONCE (user, product, paymentMethod,
+// admin) — no per-order database lookups. This also fixes a subtlety the repo's
+// createFromMongo() does NOT handle: payment.methodId and paymentProof.reviewedBy
+// are Mongo ObjectIds that must be resolved to Postgres ids (null fallback) or
+// the OrderPayment / OrderPaymentProof FK insert would fail.
+
+/** True when the Mongo payment subdoc carries real data (not just schema defaults). */
+function hasMongoPaymentData(plain) {
+  const p = plain && plain.payment;
+  if (!p || typeof p !== 'object') return false;
+  return Boolean(
+    p.methodId || p.code || p.name || p.transactionId || p.gatewayReference
+    || p.paidAt || (p.status && String(p.status).toLowerCase() !== 'unpaid')
+    || (Array.isArray(p.ipnHistory) && p.ipnHistory.length > 0)
+  );
+}
+
+/** True when the Mongo paymentProof subdoc carries real data (not just schema defaults). */
+function hasMongoProofData(plain) {
+  const pr = plain && plain.paymentProof;
+  if (!pr || typeof pr !== 'object') return false;
+  return Boolean(
+    pr.trxId || pr.screenshotUrl || pr.submittedAt || pr.reviewedAt || pr.adminNote
+    || (pr.status && String(pr.status).toLowerCase() !== 'none')
+  );
+}
+
+function mongoIpnCount(plain) {
+  const p = plain && plain.payment;
+  return p && Array.isArray(p.ipnHistory) ? p.ipnHistory.length : 0;
+}
+
+/**
+ * Classify a Mongo order against its current Postgres state.
+ * `existing` is the shaped order from orderRepo.findByLegacyId(), or null.
+ * Returns { orderCase: 'A'|'B'|'C', missing: {...} }.
+ *
+ * Misclassifying B as C could duplicate child rows; misclassifying C as B would
+ * leave gaps unrepaired — so expectations are derived from the Mongo source doc.
+ */
+function classifyOrder(plain, existing) {
+  if (!existing) return { orderCase: 'A', missing: {} };
+
+  const missing = {};
+
+  // Items — Mongo item count vs Postgres item rows (matched by lineKey on repair).
+  const mongoItems = Array.isArray(plain.items) ? plain.items.length : 0;
+  const pgItems = Array.isArray(existing.items) ? existing.items.length : 0;
+  if (mongoItems > pgItems) missing.orderItems = { expected: mongoItems, present: pgItems };
+
+  // Payment (1-to-1) — only expected when Mongo carries real payment data.
+  if (hasMongoPaymentData(plain) && !existing.payment) missing.payment = true;
+
+  // IPN events under the payment.
+  const expectIpn = mongoIpnCount(plain);
+  const pgIpn = existing.payment && Array.isArray(existing.payment.ipnHistory)
+    ? existing.payment.ipnHistory.length
+    : 0;
+  if (expectIpn > pgIpn) missing.ipnEvents = { expected: expectIpn, present: pgIpn };
+
+  // Payment proof (1-to-1) — only expected when Mongo carries real proof data.
+  if (hasMongoProofData(plain) && !existing.paymentProof) missing.paymentProof = true;
+
+  // Return items.
+  const mongoReturns = Array.isArray(plain.returnItems) ? plain.returnItems.length : 0;
+  const pgReturns = Array.isArray(existing.returnItems) ? existing.returnItems.length : 0;
+  if (mongoReturns > pgReturns) missing.returnItems = { expected: mongoReturns, present: pgReturns };
+
+  // Notification (1-to-1) — repo always creates one on a full create, so any order
+  // with a Postgres row should have it. orderToShape() returns {} when the row is absent.
+  const notif = existing.notificationsSent;
+  const hasNotifRow = notif && typeof notif === 'object' && Object.keys(notif).length > 0;
+  if (!hasNotifRow) missing.notifications = true;
+
+  return { orderCase: Object.keys(missing).length ? 'C' : 'B', missing };
+}
+
+/**
+ * Build the createWithStagedWrites() input from a Mongo order, resolving all four
+ * cross-collection FKs (userId, item.productId, payment.methodId, proof.reviewedBy)
+ * from in-memory maps — no per-order database lookups. Mirrors
+ * orderRepository.buildCreateInputFromMongo()'s field passthrough exactly and
+ * NEVER collapses subTotal/subtotal (both passed through independently).
+ */
+function mapOrderInputFromMongo(plain, maps, counts) {
+  const userRef = plain.user && plain.user._id ? plain.user._id : plain.user;
+  const userKey = userRef != null ? String(userRef).trim() : '';
+  const userId = userKey ? (maps.user.get(userKey) || null) : null;
+  if (userKey && !userId) {
+    counts.userIdNull += 1;
+    console.log(`[ORDER-FK] userId null (guest/unmigrated user) legacyId=${String(plain._id)} userRef=${userKey}`);
+  }
+
+  const items = (Array.isArray(plain.items) ? plain.items : []).map((item) => {
+    const itemPlain = typeof item.toObject === 'function' ? item.toObject() : { ...item };
+    const ref = itemPlain.productId != null ? String(itemPlain.productId).trim() : '';
+    const pgProductId = ref ? resolveProductIdFromMaps(ref, maps.product) : null;
+    if (ref && !pgProductId) {
+      counts.productIdNull += 1;
+      console.log(`[ORDER-FK] item productId null legacyId=${String(plain._id)} productRef=${ref}`);
+    }
+    // Matches repo's mapItemsWithResolvedProducts: keep original ref when unresolved
+    // (splitOrderItem then keeps legacyProductId and leaves productId null).
+    return { ...itemPlain, productId: pgProductId || itemPlain.productId };
+  });
+
+  let payment = plain.payment;
+  if (payment && typeof payment === 'object') {
+    const pmRef = payment.methodId != null ? String(payment.methodId).trim() : '';
+    const methodId = pmRef ? (maps.paymentMethod.get(pmRef) || null) : null;
+    if (pmRef && !methodId) counts.methodIdNull += 1;
+    payment = { ...payment, methodId };
+  }
+
+  let paymentProof = plain.paymentProof;
+  if (paymentProof && typeof paymentProof === 'object') {
+    const adRef = paymentProof.reviewedBy != null ? String(paymentProof.reviewedBy).trim() : '';
+    const reviewedBy = adRef ? (maps.admin.get(adRef) || null) : null;
+    if (adRef && !reviewedBy) counts.reviewedByNull += 1;
+    paymentProof = { ...paymentProof, reviewedBy };
+  }
+
+  return {
+    legacyId: plain._id != null ? String(plain._id) : null,
+    orderId: plain.orderId,
+    userId,
+    customerName: plain.customerName,
+    customerPhone: plain.customerPhone,
+    customerAddress: plain.customerAddress,
+    subTotal: plain.subTotal,
+    subtotal: plain.subtotal,
+    deliveryCharge: plain.deliveryCharge,
+    grandTotal: plain.grandTotal,
+    shippingLocationType: plain.shippingLocationType,
+    shippingDistrict: plain.shippingDistrict,
+    totalAmount: plain.totalAmount,
+    totalBuyingPrice: plain.totalBuyingPrice,
+    discountAmount: plain.discountAmount,
+    vatAmount: plain.vatAmount,
+    vatPercentage: plain.vatPercentage,
+    vatEnabled: plain.vatEnabled,
+    taxRegistrationNumber: plain.taxRegistrationNumber,
+    walletApplied: plain.walletApplied,
+    couponCode: plain.couponCode,
+    deliveryLocationType: plain.deliveryLocationType,
+    shippingFee: plain.shippingFee,
+    paymentMethod: plain.paymentMethod,
+    processingFee: plain.processingFee,
+    status: plain.status,
+    isDelivered: plain.isDelivered,
+    deliveredAt: plain.deliveredAt,
+    cancelReason: plain.cancelReason,
+    cancelledBy: plain.cancelledBy,
+    returnReason: plain.returnReason,
+    returnRequestedAt: plain.returnRequestedAt,
+    refundMethod: plain.refundMethod,
+    refundBkashNumber: plain.refundBkashNumber,
+    refundNagadNumber: plain.refundNagadNumber,
+    returnRejectedReason: plain.returnRejectedReason,
+    returnRejectedAt: plain.returnRejectedAt,
+    returnApprovedAt: plain.returnApprovedAt,
+    adminReturnNote: plain.adminReturnNote,
+    actionReason: plain.actionReason,
+    refundedAt: plain.refundedAt,
+    refundAmount: plain.refundAmount,
+    statusBeforeRefund: plain.statusBeforeRefund,
+    rewardsCredited: plain.rewardsCredited,
+    rewardsPointsEarned: plain.rewardsPointsEarned,
+    rewardsCashbackAmount: plain.rewardsCashbackAmount,
+    courierProvider: plain.courierProvider,
+    courierName: plain.courierName,
+    courierTrackingId: plain.courierTrackingId,
+    courierConsignmentId: plain.courierConsignmentId,
+    courierStatus: plain.courierStatus,
+    courierBookedAt: plain.courierBookedAt,
+    courierSyncedAt: plain.courierSyncedAt,
+    note: plain.note,
+    estimatedDelivery: plain.estimatedDelivery,
+    orderSource: plain.orderSource,
+    createdByAdmin: plain.createdByAdmin,
+    assignedStaffId: plain.assignedStaffId,
+    assignedAt: plain.assignedAt,
+    isSandbox: plain.isSandbox,
+    items,
+    payment,
+    paymentProof,
+    notificationsSent: plain.notificationsSent
+  };
+}
+
+/** CASE C — create only the missing OrderItem rows, matched by lineKey to avoid dupes. */
+async function repairMissingOrderItems(existing, plain, maps, counts) {
+  const existingItems = Array.isArray(existing.items) ? existing.items : [];
+  const existingCount = existingItems.length;
+  const existingKeys = new Set(
+    existingItems.map((it) => (it.id != null ? String(it.id) : null)).filter(Boolean)
+  );
+  const mongoItems = Array.isArray(plain.items) ? plain.items : [];
+  // Only safe to key-match when every existing row has a stable lineKey.
+  const canKeyMatch = existingKeys.size === existingCount;
+
+  let created = 0;
+  for (const item of mongoItems) {
+    const itemPlain = typeof item.toObject === 'function' ? item.toObject() : { ...item };
+    const lineKey = itemPlain.id != null ? String(itemPlain.id) : null;
+
+    if (existingCount > 0 && !canKeyMatch) {
+      console.log(
+        `[ORDER-REPAIR] legacyId=${existing.legacyId} item repair ambiguous ` +
+        `(${existingCount} present without stable lineKeys) — skipped for manual review`
+      );
+      break;
+    }
+    if (canKeyMatch && lineKey && existingKeys.has(lineKey)) continue; // already present
+
+    const ref = itemPlain.productId != null ? String(itemPlain.productId).trim() : '';
+    const pgProductId = ref ? resolveProductIdFromMaps(ref, maps.product) : null;
+    if (ref && !pgProductId) counts.productIdNull += 1;
+    const row = orderRepo.splitOrderItem({ ...itemPlain, productId: pgProductId || itemPlain.productId });
+    // eslint-disable-next-line no-await-in-loop
+    await prisma.orderItem.create({ data: { orderId: existing.id, ...row } });
+    created += 1;
+  }
+
+  counts.caseCRepaired.orderItems += created;
+  return created;
+}
+
+/** CASE C — repair only the child tables the classification flagged as missing. */
+async function repairOrderChildren(existing, plain, classification, maps, counts) {
+  const legacyId = existing.legacyId;
+  const { missing } = classification;
+  const repaired = [];
+
+  if (missing.orderItems) {
+    const n = await repairMissingOrderItems(existing, plain, maps, counts);
+    if (n) repaired.push(`orderItems+${n}`);
+  }
+
+  if (missing.payment) {
+    const pmRef = plain.payment && plain.payment.methodId ? String(plain.payment.methodId).trim() : '';
+    const methodId = pmRef ? (maps.paymentMethod.get(pmRef) || null) : null;
+    if (pmRef && !methodId) counts.methodIdNull += 1;
+    await orderRepo.updatePaymentByLegacyId(legacyId, { ...plain.payment, methodId });
+    counts.caseCRepaired.payment += 1;
+    repaired.push('payment');
+  }
+
+  if (missing.ipnEvents) {
+    const events = Array.isArray(plain.payment.ipnHistory) ? plain.payment.ipnHistory : [];
+    for (let i = missing.ipnEvents.present; i < events.length; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await orderRepo.addPaymentIpnEventByLegacyId(legacyId, events[i]);
+      counts.caseCRepaired.ipnEvents += 1;
+    }
+    repaired.push('ipnEvents');
+  }
+
+  if (missing.paymentProof) {
+    const adRef = plain.paymentProof && plain.paymentProof.reviewedBy
+      ? String(plain.paymentProof.reviewedBy).trim()
+      : '';
+    const reviewedBy = adRef ? (maps.admin.get(adRef) || null) : null;
+    if (adRef && !reviewedBy) counts.reviewedByNull += 1;
+    await orderRepo.upsertPaymentProofByLegacyId(legacyId, { ...plain.paymentProof, reviewedBy });
+    counts.caseCRepaired.paymentProof += 1;
+    repaired.push('paymentProof');
+  }
+
+  if (missing.returnItems) {
+    // syncReturnItemsByLegacyId replaces all return rows; only invoked when the
+    // Postgres side is short, and Mongo is authoritative for the full set.
+    await orderRepo.syncReturnItemsByLegacyId(legacyId, plain.returnItems);
+    counts.caseCRepaired.returnItems += (missing.returnItems.expected - missing.returnItems.present);
+    repaired.push('returnItems');
+  }
+
+  if (missing.notifications) {
+    await orderRepo.updateNotificationsByLegacyId(legacyId, plain.notificationsSent || {});
+    counts.caseCRepaired.notifications += 1;
+    repaired.push('notifications');
+  }
+
+  return repaired;
+}
+
+async function backfillOrders() {
+  const summary = {
+    modelName: 'Order',
+    totalFound: 0,
+    caseA: 0,
+    caseB: 0,
+    caseC: 0,
+    caseCRepaired: {
+      orderItems: 0,
+      payment: 0,
+      ipnEvents: 0,
+      paymentProof: 0,
+      returnItems: 0,
+      notifications: 0
+    },
+    userIdNull: 0,
+    productIdNull: 0,
+    methodIdNull: 0,
+    reviewedByNull: 0,
+    failed: 0,
+    failedIds: []
+  };
+
+  // In-memory FK maps, built ONCE (no per-order lookups).
+  const maps = {
+    user: await buildLegacyIdMap('user'),
+    product: await buildProductLookupMaps(),
+    paymentMethod: await buildLegacyIdMap('paymentMethod'),
+    admin: await buildLegacyIdMap('admin')
+  };
+  console.log(
+    `Order FK maps — user: ${maps.user.size}, product(legacyId): ${maps.product.byLegacyId.size} / ` +
+    `productId: ${maps.product.byProductId.size}, paymentMethod: ${maps.paymentMethod.size}, admin: ${maps.admin.size}`
+  );
+
+  console.log('Order: starting backfill (Case A/B/C classification)…');
+
+  const cursor = Order.find({}).sort({ _id: 1 }).lean().cursor();
+  // eslint-disable-next-line no-await-in-loop
+  for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
+    summary.totalFound += 1;
+    const legacyId = String(doc._id);
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const existing = await orderRepo.findByLegacyId(legacyId);
+      const classification = classifyOrder(doc, existing);
+
+      if (classification.orderCase === 'A') {
+        const input = mapOrderInputFromMongo(doc, maps, summary);
+        // eslint-disable-next-line no-await-in-loop
+        await orderRepo.createWithStagedWrites(input);
+        summary.caseA += 1;
+        console.log(`Order ${legacyId}: CASE A — created`);
+      } else if (classification.orderCase === 'B') {
+        summary.caseB += 1;
+        console.log(`Order ${legacyId}: CASE B — complete, skipped`);
+      } else {
+        // eslint-disable-next-line no-await-in-loop
+        const repaired = await repairOrderChildren(existing, doc, classification, maps, summary);
+        summary.caseC += 1;
+        console.log(`Order ${legacyId}: CASE C — repaired [${repaired.join(', ') || 'none'}]`);
+      }
+    } catch (err) {
+      summary.failed += 1;
+      summary.failedIds.push(legacyId);
+      const stage = err.dualWriteStage ? `stage=${err.dualWriteStage} ` : '';
+      console.error(`[BACKFILL-FAIL] Order legacyId=${legacyId}: ${stage}${err.message || err}`);
+    }
+  }
+
+  console.log(
+    `Order: ${summary.totalFound} processed ` +
+    `(A=${summary.caseA}, B=${summary.caseB}, C=${summary.caseC}, failed=${summary.failed})`
+  );
+  console.log(
+    `Order FK null-fallbacks — userId: ${summary.userIdNull}, item productId: ${summary.productIdNull}, ` +
+    `payment.methodId: ${summary.methodIdNull}, proof.reviewedBy: ${summary.reviewedByNull}`
+  );
+
+  return summary;
+}
+
+async function runStep5Group() {
+  console.log('\n=== Stage 3 Step 5 — Backfill group: Order (final step) ===\n');
+  const results = [];
+  results.push(await backfillOrders());
+  return results;
+}
+
 async function runAll() {
   const allResults = [];
 
@@ -2221,6 +2607,7 @@ async function runAll() {
   allResults.push(...(await runStep2Group()));
   allResults.push(...(await runStep3Group()));
   allResults.push(...(await runStep4Group()));
+  allResults.push(...(await runStep5Group()));
 
   return allResults;
 }
