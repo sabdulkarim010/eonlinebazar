@@ -2238,4 +2238,73 @@ Admin, Employee, Product, User, Order, CMS/Settings, Security, HRM, Marketing, e
 | `npm test` (Jest) | **169/169** pass |
 | `npm run test:repositories` | **157/157** pass |
 
+## STAGE 3, STEP 2 — Backfill: CMS/Settings + Security/Audit Groups — 2026-09-14
+
+Extended `runBackfill.js` and `verifyBackfill.js` — **read MongoDB only, write Postgres
+only**. `backfillRunner.js` unchanged. No repository, controller, route, or
+`dualWriteService.js` modifications.
+
+### CMS/Settings group
+
+| Model | Strategy | totalFound | created | skipped | failed |
+|---|---|---:|---:|---:|---:|
+| PageContent | `backfillModel()` + `pageContentRepository.create()` | 7 | 7 | 0 | 0 |
+| NavbarLink | `backfillModel()` + `navbarLinkRepository.create()` | 2 | 2 | 0 | 0 |
+| Banner | `backfillModel()` + `bannerRepository.createBanner()` | 4 | 4 | 0 | 0 |
+| BannerSettings | **Singleton** — skip if `key='global'` exists; else `upsertBannerSettings()` | 1 | 1 | 0 | 0 |
+| FooterSettings | **Singleton** — skip if `key='global'` exists; else `upsertFromMongo()` with tri-state `paymentBadgesMode` | 1 | 0 | 1 | 0 |
+| Settings | **Singleton** — skip if `key='global'` exists; else `settingsRepository.upsertFromMongo()` | 1 | 1 | 0 | 0 |
+
+FooterSettings skipped on first run because dual-write had already created the global row
+(from Part 3 CMS/settings rollout) — idempotent skip, not a failure.
+
+Singleton backfills check Postgres for an existing `key='global'` row **before** any
+write — re-runs cannot create duplicates.
+
+### Security/Audit group
+
+| Model | Strategy | totalFound | created | skipped | failed |
+|---|---|---:|---:|---:|---:|
+| SecurityLog | `backfillModel()` batchSize **500** + `securityLogRepository.create()` | 899 | 899 | 0 | 0 |
+| LoginAttempt | `backfillModel()` batchSize **500** + `loginAttemptRepository.create()` | 139 | 139 | 0 | 0 |
+| BlacklistedIP | `backfillModel()` + `blacklistedIpRepository.upsertFromMongo()` (null `expiresAt` preserved) | 0 | 0 | 0 | 0 |
+| StockAlert | `backfillModel()` + `stockAlertRepository.create()` (child rows via existing `buildItemRows`) | 1180 | 1180 | 0 | 0 |
+
+SecurityLog collection size at run time: **899 documents** (not hundreds of thousands —
+completed in ~2 minutes). StockAlert took ~37 minutes due to per-item product FK
+resolution inside `create()` (1180 alerts × ~1.2 items avg).
+
+### Step 1 idempotency on re-run (confirmed)
+
+Step 1 group re-ran first: Designation/Brand/Warehouse/Category all **skipped** (0 created),
+confirming Step 1 idempotency still holds after Step 2 additions.
+
+### verifyBackfill.js results (after Step 2)
+
+| Model | Mongo | Postgres | diff |
+|---|---:|---:|---|
+| PageContent | 7 | 7 | 0 |
+| NavbarLink | 2 | 2 | 0 |
+| Banner | 4 | 4 | 0 |
+| SecurityLog | 899 | 899 | 0 |
+| LoginAttempt | 139 | 139 | 0 |
+| BlacklistedIP | 0 | 0 | 0 |
+| StockAlert | 1180 | 1180 | 0 |
+
+**Singleton verification:** BannerSettings, FooterSettings, Settings — each exactly **1**
+Postgres row with `key='global'` ✓
+
+**StockAlert child rows:** Mongo array sum = **1396**, Postgres `stock_alert_items` = **1396** ✓
+
+### Test results (unchanged application code)
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **169/169** pass |
+| `npm run test:repositories` | **157/157** pass |
+
+### TODO — remaining Stage 3 groups
+
+Attribute, Admin, Employee, Product, User, Order, HRM, Marketing/Support, etc.
+
 

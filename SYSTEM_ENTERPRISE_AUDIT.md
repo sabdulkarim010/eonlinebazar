@@ -1950,7 +1950,7 @@ Full detail lives in `DATABASE_MIGRATION_AUDIT.md`; this is the status summary.
 | Dual-write repository layer | ❌ NOT STARTED — Stage 2 remainder |
 | `LoginAttempt` / `BlacklistedIp` TTL sweep jobs | ❌ NOT STARTED — Stage 2 remainder |
 | `ProductTextIndex` → `tsvector` + GIN raw SQL migration | ❌ NOT STARTED — Stage 2 remainder |
-| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — Stage 3 Step 1 complete (5 catalog/ERP models); remaining groups pending |
+| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — Stage 3 Steps 1–2 complete (catalog/ERP + CMS/settings + security/audit); remaining groups pending |
 
 **Isolation guarantee:** zero `.js` files under `backend/src/` were modified — no
 model, controller, route, service or script. No application code queries
@@ -2267,4 +2267,22 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 9.
 | Neon repository tests (`npm run test:repositories`) | ✅ 157/157 |
 
 See `DATABASE_MIGRATION_AUDIT.md` § STAGE 3, STEP 1.
+
+## Stage 3, Step 2 — Backfill: CMS/Settings + Security/Audit — 2026-09-14
+
+**Status:** ✅ COMPLETE — 9 models backfilled (3 singletons with key=global idempotency)
+
+| Item | Status |
+|------|--------|
+| PageContent / NavbarLink / Banner via backfillModel() | ✅ |
+| BannerSettings / FooterSettings / Settings singleton backfill | ✅ idempotent |
+| SecurityLog (899 docs, batch 500) / LoginAttempt (139) | ✅ |
+| BlacklistedIP (null expiresAt via upsertFromMongo) | ✅ |
+| StockAlert + 1396 child rows (kind discrimination) | ✅ verified |
+| backfillRunner.js modified | ❌ none |
+| Application code modified | ❌ none |
+| Main Jest suite (`npm test`) | ✅ 169/169 |
+| Neon repository tests (`npm run test:repositories`) | ✅ 157/157 |
+
+See `DATABASE_MIGRATION_AUDIT.md` § STAGE 3, STEP 2.
 

@@ -1526,3 +1526,14 @@ backend/src/routes/** [UNCHANGED]
 backend/src/services/dualWriteService.js [UNCHANGED]
 DATABASE_MIGRATION_AUDIT.md [DONE] Stage 3 Step 1 section added
 REFACTOR_MAP.md [DONE] this section
+
+# PostgreSQL migration — Stage 3 Step 2: Backfill CMS/settings + security/audit groups: 2026-09-14
+
+backend/scripts/backfill/runBackfill.js [MOD] runStep2Group() — PageContent, NavbarLink, Banner, BannerSettings/FooterSettings/Settings singletons, SecurityLog (batch 500), LoginAttempt (batch 500), BlacklistedIP, StockAlert
+backend/scripts/backfill/verifyBackfill.js [MOD] counts for 9 new models + singleton key=global checks + StockAlert child-row comparison
+backend/scripts/backfill/backfillRunner.js [UNCHANGED]
+backend/src/repositories/** [UNCHANGED] reused create/upsertFromMongo as-is
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 3 Step 2 section added
+REFACTOR_MAP.md [DONE] this section
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 3 Step 2 note added
+README.md [DONE] Stage 3 Step 2 backfill note
