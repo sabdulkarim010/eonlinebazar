@@ -2190,7 +2190,7 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 6.
 
 ## Stage 2 Step 3, Part 7 — Dual-Write: User + Owned Tables — 2026-09-14
 
-**Status:** ✅ COMPLETE — User group dual-write live; Part 8 (Order) unblocked
+**Status:** ✅ COMPLETE — User group dual-write live
 
 | Item | Status |
 |------|--------|
@@ -2208,4 +2208,26 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 6.
 | Routes touched | ❌ none |
 
 See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 7.
+
+## Stage 2 Step 3, Part 8 — Dual-Write: Order (Final) — 2026-09-14
+
+**Status:** ✅ COMPLETE — **Stage 2 Step 3 dual-write rollout finished across all 8 model groups**
+
+| Item | Status |
+|------|--------|
+| Checkout + manual POS order create wired | ✅ |
+| Admin/customer status + cancel + return flows wired | ✅ |
+| Payment IPN + gateway session + payment proof wired | ✅ |
+| Courier book/sync status fields wired (no wallet duplicate) | ✅ |
+| Order notification flags wired | ✅ |
+| Partial-write `[DUAL-WRITE-ORDER-PARTIAL]` logging with failedStage | ✅ tested |
+| userId/productId null-and-log fallback on Order | ✅ tested |
+| subTotal/subtotal both passed through unchanged | ✅ |
+| dualWriteService.js modified | ❌ none (reused as-is) |
+| All READ/list endpoints unchanged | ✅ |
+| Main Jest suite (`npm test`) | ✅ 169/169 |
+| Neon repository tests (`npm run test:repositories`) | ✅ 152/152 |
+| Routes touched | ❌ none |
+
+See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 8.
 

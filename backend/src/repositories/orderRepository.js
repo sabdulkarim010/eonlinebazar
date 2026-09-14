@@ -11,13 +11,49 @@
  *   Neon HTTP driver does not support interactive transactions. A failure after
  *   the Order row is created can leave a partial order — see DATABASE_MIGRATION_AUDIT.md.
  *
- *   NOT YET WIRED INTO THE APP — Stage 2 Step 2, Part 5 (2026-09-13).
+ *   Wired for dual-write — Stage 2 Step 3, Part 8 (2026-09-14).
  ********************************************************************/
 
 'use strict';
 
 const prisma = require('../config/prismaClient');
 const { UUID_PATTERN } = require('./productRepository');
+const { resolvePostgresUserId } = require('./userRepository');
+
+function attachDualWriteStage(err, stage, postgresOrderId) {
+  const wrapped = err instanceof Error ? err : new Error(String(err));
+  wrapped.dualWriteStage = stage;
+  wrapped.postgresOrderId = postgresOrderId || null;
+  return wrapped;
+}
+
+function logOrderFkMissing(field, mongoRefId) {
+  console.error('[DUAL-WRITE-FK-MISSING]', {
+    timestamp: new Date().toISOString(),
+    model: 'Order',
+    field,
+    mongoRefId: String(mongoRefId),
+    message: `${field === 'userId' ? 'User' : 'Product'} not yet in Postgres`
+  });
+}
+
+async function resolveProductIdForOrderItem(mongoProductRef) {
+  const ref = String(mongoProductRef || '').trim();
+  if (!ref) return null;
+
+  if (UUID_PATTERN.test(ref)) {
+    const byId = await prisma.product.findUnique({ where: { id: ref } });
+    if (byId) return byId.id;
+  }
+
+  let row = await prisma.product.findUnique({ where: { legacyId: ref } });
+  if (!row) row = await prisma.product.findUnique({ where: { productId: ref } });
+  if (!row) {
+    logOrderFkMissing('productId', ref);
+    return null;
+  }
+  return row.id;
+}
 
 const ORDER_ITEM_COLUMNS = new Set([
   'id', 'productId', 'name', 'price', 'buyingPrice', 'quantity', 'image',
@@ -261,8 +297,9 @@ function notificationsToMongooseShape(notif) {
 function buildOrderCreateData(orderData) {
   const d = orderData;
   return {
+    legacyId: d.legacyId != null ? String(d.legacyId) : null,
     orderId: d.orderId ?? null,
-    userId: d.userId ?? d.user ?? null,
+    userId: d.userId ?? null,
     customerName: d.customerName ?? null,
     customerPhone: d.customerPhone ?? null,
     customerAddress: d.customerAddress ?? null,
@@ -413,90 +450,412 @@ function orderToShape(record) {
 
 // ── create ───────────────────────────────────────────────────────────────────
 // Sequential writes — partial order risk if a child insert fails after Order row.
-async function create(orderData) {
+async function createWithStagedWrites(orderData) {
   const items = Array.isArray(orderData.items) ? orderData.items : [];
   const payment = orderData.payment;
   const paymentProof = orderData.paymentProof;
 
-  const order = await prisma.order.create({
-    data: buildOrderCreateData(orderData)
-  });
-
-  for (const item of items) {
-    const row = splitOrderItem(item);
-    // eslint-disable-next-line no-await-in-loop
-    await prisma.orderItem.create({
-      data: { orderId: order.id, ...row }
+  let order;
+  try {
+    order = await prisma.order.create({
+      data: buildOrderCreateData(orderData)
     });
+  } catch (err) {
+    throw attachDualWriteStage(err, 'Order');
+  }
+
+  try {
+    for (const item of items) {
+      const row = splitOrderItem(item);
+      // eslint-disable-next-line no-await-in-loop
+      await prisma.orderItem.create({
+        data: { orderId: order.id, ...row }
+      });
+    }
+  } catch (err) {
+    throw attachDualWriteStage(err, 'OrderItem', order.id);
   }
 
   let orderPayment = null;
   if (payment && typeof payment === 'object') {
-    orderPayment = await prisma.orderPayment.create({
-      data: {
-        orderId: order.id,
-        methodId: payment.methodId ?? null,
-        code: String(payment.code ?? '').trim(),
-        name: String(payment.name ?? '').trim(),
-        type: toPaymentMethodTypeEnum(payment.type),
-        provider: String(payment.provider ?? '').trim(),
-        accountNumber: String(payment.accountNumber ?? '').trim(),
-        gatewayStoreId: String(payment.gatewayStoreId ?? '').trim(),
-        isSandbox: Boolean(payment.isSandbox),
-        processingFee: payment.processingFee != null ? payment.processingFee : 0,
-        feeType: toFeeTypeEnum(payment.feeType),
-        feeRate: payment.feeRate != null ? payment.feeRate : 0,
-        feeBaseAmount: payment.feeBaseAmount != null ? payment.feeBaseAmount : 0,
-        status: toOrderPaymentStatusEnum(payment.status),
-        transactionId: String(payment.transactionId ?? '').trim(),
-        gatewayReference: String(payment.gatewayReference ?? '').trim(),
-        paidAt: payment.paidAt ?? null,
-        settledFromWallet: Boolean(payment.settledFromWallet)
-      }
-    });
-
-    const ipnHistory = Array.isArray(payment.ipnHistory) ? payment.ipnHistory : [];
-    for (const event of ipnHistory) {
-      // eslint-disable-next-line no-await-in-loop
-      await prisma.orderPaymentIpnEvent.create({
+    try {
+      orderPayment = await prisma.orderPayment.create({
         data: {
-          orderPaymentId: orderPayment.id,
-          receivedAt: event.receivedAt ?? new Date(),
-          provider: String(event.provider ?? '').trim(),
-          status: String(event.status ?? '').trim(),
-          verified: Boolean(event.verified),
-          transactionId: String(event.transactionId ?? '').trim(),
-          amount: event.amount != null ? event.amount : 0,
-          message: String(event.message ?? '').trim(),
-          raw: event.raw ?? null
+          orderId: order.id,
+          methodId: payment.methodId ?? null,
+          code: String(payment.code ?? '').trim(),
+          name: String(payment.name ?? '').trim(),
+          type: toPaymentMethodTypeEnum(payment.type),
+          provider: String(payment.provider ?? '').trim(),
+          accountNumber: String(payment.accountNumber ?? '').trim(),
+          gatewayStoreId: String(payment.gatewayStoreId ?? '').trim(),
+          isSandbox: Boolean(payment.isSandbox),
+          processingFee: payment.processingFee != null ? payment.processingFee : 0,
+          feeType: toFeeTypeEnum(payment.feeType),
+          feeRate: payment.feeRate != null ? payment.feeRate : 0,
+          feeBaseAmount: payment.feeBaseAmount != null ? payment.feeBaseAmount : 0,
+          status: toOrderPaymentStatusEnum(payment.status),
+          transactionId: String(payment.transactionId ?? '').trim(),
+          gatewayReference: String(payment.gatewayReference ?? '').trim(),
+          paidAt: payment.paidAt ?? null,
+          settledFromWallet: Boolean(payment.settledFromWallet)
         }
       });
+    } catch (err) {
+      throw attachDualWriteStage(err, 'OrderPayment', order.id);
+    }
+
+    const ipnHistory = Array.isArray(payment.ipnHistory) ? payment.ipnHistory : [];
+    try {
+      for (const event of ipnHistory) {
+        // eslint-disable-next-line no-await-in-loop
+        await prisma.orderPaymentIpnEvent.create({
+          data: {
+            orderPaymentId: orderPayment.id,
+            receivedAt: event.receivedAt ?? new Date(),
+            provider: String(event.provider ?? '').trim(),
+            status: String(event.status ?? '').trim(),
+            verified: Boolean(event.verified),
+            transactionId: String(event.transactionId ?? '').trim(),
+            amount: event.amount != null ? event.amount : 0,
+            message: String(event.message ?? '').trim(),
+            raw: event.raw ?? null
+          }
+        });
+      }
+    } catch (err) {
+      throw attachDualWriteStage(err, 'OrderPaymentIpnEvent', order.id);
     }
   }
 
   if (paymentProof && typeof paymentProof === 'object') {
-    await prisma.orderPaymentProof.create({
+    try {
+      await prisma.orderPaymentProof.create({
+        data: {
+          orderId: order.id,
+          trxId: paymentProof.trxId ?? null,
+          screenshotUrl: paymentProof.screenshotUrl ?? null,
+          submittedAt: paymentProof.submittedAt ?? null,
+          reviewedAt: paymentProof.reviewedAt ?? null,
+          reviewedById: paymentProof.reviewedBy ?? paymentProof.reviewedById ?? null,
+          status: toPaymentProofStatusEnum(paymentProof.status),
+          adminNote: paymentProof.adminNote ?? null
+        }
+      });
+    } catch (err) {
+      throw attachDualWriteStage(err, 'OrderPaymentProof', order.id);
+    }
+  }
+
+  try {
+    await prisma.orderNotification.create({
       data: {
         orderId: order.id,
-        trxId: paymentProof.trxId ?? null,
-        screenshotUrl: paymentProof.screenshotUrl ?? null,
-        submittedAt: paymentProof.submittedAt ?? null,
-        reviewedAt: paymentProof.reviewedAt ?? null,
-        reviewedById: paymentProof.reviewedBy ?? paymentProof.reviewedById ?? null,
-        status: toPaymentProofStatusEnum(paymentProof.status),
-        adminNote: paymentProof.adminNote ?? null
+        ...buildNotificationData(orderData)
+      }
+    });
+  } catch (err) {
+    throw attachDualWriteStage(err, 'OrderNotification', order.id);
+  }
+
+  return findById(order.id);
+}
+
+async function create(orderData) {
+  return createWithStagedWrites(orderData);
+}
+
+async function findByLegacyId(legacyId) {
+  if (!legacyId) return null;
+  const record = await prisma.order.findUnique({
+    where: { legacyId: String(legacyId) },
+    include: {
+      items: true,
+      returnItems: true,
+      payment: { include: { ipnHistory: { orderBy: { receivedAt: 'asc' } } } },
+      paymentProof: true,
+      notificationsSent: true
+    }
+  });
+  return orderToShape(record);
+}
+
+async function mapItemsWithResolvedProducts(items = []) {
+  const mapped = [];
+  for (const item of items) {
+    const plain = typeof item.toObject === 'function' ? item.toObject() : { ...item };
+    const mongoRef = plain.productId || plain.id || plain._id;
+    const pgProductId = await resolveProductIdForOrderItem(mongoRef);
+    mapped.push({
+      ...plain,
+      productId: pgProductId || plain.productId
+    });
+  }
+  return mapped;
+}
+
+async function buildCreateInputFromMongo(mongoDoc) {
+  const plain = mongoDoc.toObject ? mongoDoc.toObject() : { ...mongoDoc };
+  const userRef = plain.user?._id || plain.user || null;
+  const pgUserId = await resolvePostgresUserId(userRef);
+  const items = await mapItemsWithResolvedProducts(plain.items || []);
+
+  return {
+    legacyId: mongoDoc._id != null ? String(mongoDoc._id) : null,
+    orderId: plain.orderId,
+    userId: pgUserId,
+    customerName: plain.customerName,
+    customerPhone: plain.customerPhone,
+    customerAddress: plain.customerAddress,
+    subTotal: plain.subTotal,
+    subtotal: plain.subtotal,
+    deliveryCharge: plain.deliveryCharge,
+    grandTotal: plain.grandTotal,
+    shippingLocationType: plain.shippingLocationType,
+    shippingDistrict: plain.shippingDistrict,
+    totalAmount: plain.totalAmount,
+    totalBuyingPrice: plain.totalBuyingPrice,
+    discountAmount: plain.discountAmount,
+    vatAmount: plain.vatAmount,
+    vatPercentage: plain.vatPercentage,
+    vatEnabled: plain.vatEnabled,
+    taxRegistrationNumber: plain.taxRegistrationNumber,
+    walletApplied: plain.walletApplied,
+    couponCode: plain.couponCode,
+    deliveryLocationType: plain.deliveryLocationType,
+    shippingFee: plain.shippingFee,
+    paymentMethod: plain.paymentMethod,
+    processingFee: plain.processingFee,
+    status: plain.status,
+    isDelivered: plain.isDelivered,
+    deliveredAt: plain.deliveredAt,
+    cancelReason: plain.cancelReason,
+    cancelledBy: plain.cancelledBy,
+    returnReason: plain.returnReason,
+    returnRequestedAt: plain.returnRequestedAt,
+    refundMethod: plain.refundMethod,
+    refundBkashNumber: plain.refundBkashNumber,
+    refundNagadNumber: plain.refundNagadNumber,
+    returnRejectedReason: plain.returnRejectedReason,
+    returnRejectedAt: plain.returnRejectedAt,
+    returnApprovedAt: plain.returnApprovedAt,
+    adminReturnNote: plain.adminReturnNote,
+    actionReason: plain.actionReason,
+    refundedAt: plain.refundedAt,
+    refundAmount: plain.refundAmount,
+    statusBeforeRefund: plain.statusBeforeRefund,
+    rewardsCredited: plain.rewardsCredited,
+    rewardsPointsEarned: plain.rewardsPointsEarned,
+    rewardsCashbackAmount: plain.rewardsCashbackAmount,
+    courierProvider: plain.courierProvider,
+    courierName: plain.courierName,
+    courierTrackingId: plain.courierTrackingId,
+    courierConsignmentId: plain.courierConsignmentId,
+    courierStatus: plain.courierStatus,
+    courierBookedAt: plain.courierBookedAt,
+    courierSyncedAt: plain.courierSyncedAt,
+    note: plain.note,
+    estimatedDelivery: plain.estimatedDelivery,
+    orderSource: plain.orderSource,
+    createdByAdmin: plain.createdByAdmin,
+    assignedStaffId: plain.assignedStaffId,
+    assignedAt: plain.assignedAt,
+    isSandbox: plain.isSandbox,
+    items,
+    payment: plain.payment,
+    paymentProof: plain.paymentProof,
+    notificationsSent: plain.notificationsSent
+  };
+}
+
+async function createFromMongo(mongoDoc) {
+  const input = await buildCreateInputFromMongo(mongoDoc);
+  return createWithStagedWrites(input);
+}
+
+async function resolvePostgresOrderId(mongoOrderId) {
+  if (!mongoOrderId) return null;
+  const row = await findByLegacyId(String(mongoOrderId));
+  return row ? row.id : null;
+}
+
+function pickStatusFieldUpdates(plain) {
+  const data = {};
+  if (plain.status !== undefined) data.status = toOrderStatusEnum(plain.status);
+  if (plain.isDelivered !== undefined) data.isDelivered = Boolean(plain.isDelivered);
+  if (plain.deliveredAt !== undefined) data.deliveredAt = plain.deliveredAt;
+  if (plain.cancelReason !== undefined) data.cancelReason = String(plain.cancelReason ?? '').trim();
+  if (plain.cancelledBy !== undefined) data.cancelledBy = toCancelledByEnum(plain.cancelledBy);
+  if (plain.returnReason !== undefined) data.returnReason = String(plain.returnReason ?? '').trim();
+  if (plain.returnRequestedAt !== undefined) data.returnRequestedAt = plain.returnRequestedAt;
+  if (plain.returnRejectedReason !== undefined) {
+    data.returnRejectedReason = String(plain.returnRejectedReason ?? '').trim();
+  }
+  if (plain.returnRejectedAt !== undefined) data.returnRejectedAt = plain.returnRejectedAt;
+  if (plain.returnApprovedAt !== undefined) data.returnApprovedAt = plain.returnApprovedAt;
+  if (plain.adminReturnNote !== undefined) data.adminReturnNote = String(plain.adminReturnNote ?? '').trim();
+  if (plain.refundedAt !== undefined) data.refundedAt = plain.refundedAt;
+  if (plain.refundAmount !== undefined) data.refundAmount = plain.refundAmount;
+  if (plain.refundMethod !== undefined) data.refundMethod = toRefundMethodEnum(plain.refundMethod);
+  if (plain.statusBeforeRefund !== undefined) {
+    data.statusBeforeRefund = String(plain.statusBeforeRefund ?? '').trim();
+  }
+  if (plain.courierProvider !== undefined) data.courierProvider = String(plain.courierProvider ?? '').trim();
+  if (plain.courierName !== undefined) data.courierName = String(plain.courierName ?? '').trim();
+  if (plain.courierTrackingId !== undefined) {
+    data.courierTrackingId = String(plain.courierTrackingId ?? '').trim();
+  }
+  if (plain.courierConsignmentId !== undefined) {
+    data.courierConsignmentId = String(plain.courierConsignmentId ?? '').trim();
+  }
+  if (plain.courierStatus !== undefined) data.courierStatus = String(plain.courierStatus ?? '').trim();
+  if (plain.courierBookedAt !== undefined) data.courierBookedAt = plain.courierBookedAt;
+  if (plain.courierSyncedAt !== undefined) data.courierSyncedAt = plain.courierSyncedAt;
+  return data;
+}
+
+async function updateStatusByLegacyId(legacyId, newStatus) {
+  const existing = await prisma.order.findUnique({ where: { legacyId: String(legacyId) } });
+  if (!existing) {
+    const err = new Error('Order not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  const record = await prisma.order.update({
+    where: { legacyId: String(legacyId) },
+    data: { status: toOrderStatusEnum(newStatus) }
+  });
+
+  return orderToShape({ ...record, items: [], returnItems: [], notificationsSent: null });
+}
+
+async function updateOrderFieldsByLegacyId(legacyId, fieldUpdates) {
+  const existing = await prisma.order.findUnique({ where: { legacyId: String(legacyId) } });
+  if (!existing) {
+    const err = new Error('Order not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  const data = pickStatusFieldUpdates(fieldUpdates);
+  if (Object.keys(data).length === 0) return findByLegacyId(legacyId);
+
+  const record = await prisma.order.update({
+    where: { legacyId: String(legacyId) },
+    data
+  });
+
+  return orderToShape({ ...record, items: [], returnItems: [], notificationsSent: null });
+}
+
+async function updateNotificationsByLegacyId(legacyId, notificationsSent) {
+  const order = await prisma.order.findUnique({ where: { legacyId: String(legacyId) } });
+  if (!order) {
+    const err = new Error('Order not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  const data = buildNotificationData({ notificationsSent });
+
+  const existing = await prisma.orderNotification.findUnique({ where: { orderId: order.id } });
+  if (existing) {
+    await prisma.orderNotification.update({
+      where: { orderId: order.id },
+      data
+    });
+  } else {
+    await prisma.orderNotification.create({
+      data: { orderId: order.id, ...data }
+    });
+  }
+
+  return findByLegacyId(legacyId);
+}
+
+async function syncReturnItemsByLegacyId(legacyId, returnItems = []) {
+  const order = await prisma.order.findUnique({ where: { legacyId: String(legacyId) } });
+  if (!order) {
+    const err = new Error('Order not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  await prisma.orderReturnItem.deleteMany({ where: { orderId: order.id } });
+
+  for (const item of returnItems) {
+    const plain = typeof item.toObject === 'function' ? item.toObject() : { ...item };
+    const mongoRef = plain.productId;
+    const pgProductId = await resolveProductIdForOrderItem(mongoRef);
+    const legacyProductId = mongoRef != null ? String(mongoRef) : '';
+    // eslint-disable-next-line no-await-in-loop
+    await prisma.orderReturnItem.create({
+      data: {
+        orderId: order.id,
+        productId: pgProductId,
+        legacyProductId,
+        productName: String(plain.productName ?? '').trim(),
+        quantity: plain.quantity != null ? Number(plain.quantity) : 1,
+        price: plain.price != null ? plain.price : 0,
+        reason: String(plain.reason ?? '').trim(),
+        photos: Array.isArray(plain.photos) ? plain.photos : [],
+        status: toReturnItemStatusEnum(plain.status)
       }
     });
   }
 
-  await prisma.orderNotification.create({
-    data: {
-      orderId: order.id,
-      ...buildNotificationData(orderData)
-    }
-  });
+  return findByLegacyId(legacyId);
+}
 
-  return findById(order.id);
+async function updatePaymentByLegacyId(legacyId, paymentData) {
+  const order = await prisma.order.findUnique({ where: { legacyId: String(legacyId) } });
+  if (!order) {
+    const err = new Error('Order not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+  await updatePayment(order.id, paymentData);
+  return findByLegacyId(legacyId);
+}
+
+async function addPaymentIpnEventByLegacyId(legacyId, eventData) {
+  const order = await prisma.order.findUnique({ where: { legacyId: String(legacyId) } });
+  if (!order) {
+    const err = new Error('Order not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+  await addPaymentIpnEvent(order.id, eventData);
+  return findByLegacyId(legacyId);
+}
+
+async function upsertPaymentProofByLegacyId(legacyId, paymentProof) {
+  const order = await prisma.order.findUnique({ where: { legacyId: String(legacyId) } });
+  if (!order) {
+    const err = new Error('Order not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  const data = {
+    trxId: paymentProof.trxId ?? null,
+    screenshotUrl: paymentProof.screenshotUrl ?? null,
+    submittedAt: paymentProof.submittedAt ?? null,
+    reviewedAt: paymentProof.reviewedAt ?? null,
+    reviewedById: paymentProof.reviewedBy ?? paymentProof.reviewedById ?? null,
+    status: toPaymentProofStatusEnum(paymentProof.status),
+    adminNote: paymentProof.adminNote ?? null
+  };
+
+  const existing = await prisma.orderPaymentProof.findUnique({ where: { orderId: order.id } });
+  if (existing) {
+    await prisma.orderPaymentProof.update({ where: { orderId: order.id }, data });
+  } else {
+    await prisma.orderPaymentProof.create({ data: { orderId: order.id, ...data } });
+  }
+
+  return findByLegacyId(legacyId);
 }
 
 async function findById(id) {
@@ -573,10 +932,7 @@ async function addReturnItem(orderId, returnItemData) {
   const legacyProductId = returnItemData.productId != null
     ? String(returnItemData.productId)
     : '';
-  let productId = null;
-  if (legacyProductId && UUID_PATTERN.test(legacyProductId)) {
-    productId = legacyProductId;
-  }
+  const productId = await resolveProductIdForOrderItem(legacyProductId);
 
   const row = await prisma.orderReturnItem.create({
     data: {
@@ -740,9 +1096,22 @@ async function addPaymentIpnEvent(orderId, eventData) {
 
 module.exports = {
   create,
+  createWithStagedWrites,
+  createFromMongo,
+  buildCreateInputFromMongo,
   findById,
+  findByLegacyId,
   findAll,
   updateStatus,
+  updateStatusByLegacyId,
+  updateOrderFieldsByLegacyId,
+  updateNotificationsByLegacyId,
+  syncReturnItemsByLegacyId,
+  updatePaymentByLegacyId,
+  addPaymentIpnEventByLegacyId,
+  upsertPaymentProofByLegacyId,
+  resolvePostgresOrderId,
+  resolveProductIdForOrderItem,
   addReturnItem,
   listReturnItems,
   updatePayment,

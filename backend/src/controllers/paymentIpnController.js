@@ -10,6 +10,11 @@
 
 const Order = require('../models/order');
 const User = require('../models/user');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getOrderDualWriteHelpers() {
+    return require('../utils/orderDualWriteHelpers');
+}
 const PaymentMethod = require('../models/PaymentMethod');
 const { IPN_EVENT_LIMIT } = require('../models/PaymentMethod');
 const { getGatewayAdapter, envGatewayConfigured } = require('../services/paymentGatewayAdapters');
@@ -152,7 +157,15 @@ const initiateGatewayPayment = async (req, res) => {
             order.payment.gatewayReference = session.sessionKey;
         }
 
-        await order.save();
+        await dualWrite(
+            () => order.save(),
+            async (saved) => { await getOrderDualWriteHelpers().mirrorOrderPayment(saved); },
+            {
+                model: 'Order',
+                operation: 'initiateGatewayPayment',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         if (!session.success && !session.ready) {
             return res.status(502).json({
@@ -252,7 +265,15 @@ const handleGatewayIpn = async (req, res) => {
                 }
 
                 order.markModified('payment');
-                await order.save();
+                await dualWrite(
+                    () => order.save(),
+                    async (saved) => { await getOrderDualWriteHelpers().mirrorOrderPaymentIpn(saved); },
+                    {
+                        model: 'Order',
+                        operation: 'manualPaymentIpn',
+                        mongoId: (saved) => String(saved._id)
+                    }
+                );
             }
 
             return res.status(200).json({
@@ -338,7 +359,15 @@ const handleGatewayIpn = async (req, res) => {
             }
 
             order.markModified('payment');
-            await order.save();
+            await dualWrite(
+                () => order.save(),
+                async (saved) => { await getOrderDualWriteHelpers().mirrorOrderPaymentIpn(saved); },
+                {
+                    model: 'Order',
+                    operation: 'gatewayPaymentIpn',
+                    mongoId: (saved) => String(saved._id)
+                }
+            );
         }
 
         await logSecurityEvent({

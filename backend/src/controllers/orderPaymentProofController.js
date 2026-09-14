@@ -7,6 +7,11 @@
 
 const Order = require('../models/order');
 const { emitToAdmins } = require('../services/socketService');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getOrderDualWriteHelpers() {
+    return require('../utils/orderDualWriteHelpers');
+}
 const cloudinary = require('cloudinary').v2;
 const streamifier = require('streamifier');
 
@@ -83,7 +88,15 @@ const submitPaymentProof = async (req, res) => {
         order.paymentProof.adminNote = null;
 
         order.markModified('paymentProof');
-        await order.save();
+        await dualWrite(
+            () => order.save(),
+            async (saved) => { await getOrderDualWriteHelpers().mirrorOrderPaymentProof(saved); },
+            {
+                model: 'Order',
+                operation: 'submitPaymentProof',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         emitToAdmins('payment_proof_submitted', {
             orderId: order.orderId,
@@ -173,7 +186,18 @@ const reviewPaymentProof = async (req, res) => {
 
         order.markModified('paymentProof');
         order.markModified('payment');
-        await order.save();
+        await dualWrite(
+            () => order.save(),
+            async (saved) => {
+                await getOrderDualWriteHelpers().mirrorOrderPaymentProof(saved);
+                await getOrderDualWriteHelpers().mirrorOrderPayment(saved);
+            },
+            {
+                model: 'Order',
+                operation: 'reviewPaymentProof',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         return res.json({
             success: true,

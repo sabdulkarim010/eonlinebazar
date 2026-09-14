@@ -1475,3 +1475,22 @@ DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 7 section added
 REFACTOR_MAP.md [DONE] this section
 README.md [DONE] dual-write model count + repository test count (147)
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 7 note added
+
+# PostgreSQL migration — Stage 2 Step 3, Part 8: Dual-write for Order (final): 2026-09-14
+
+backend/src/repositories/orderRepository.js [MOD] findByLegacyId, legacyId on create, createWithStagedWrites, createFromMongo, FK resolution, update-by-legacyId helpers
+backend/src/utils/orderDualWriteHelpers.js [NEW] mirrorOrderCreate (partial-write logging), status/payment/IPN/notification/return/proof mirrors
+backend/src/controllers/orderCheckoutController.js [MOD] checkout create via dualWrite()
+backend/src/controllers/orderAdminController.js [MOD] manual POS, status, notifications, return/refund flows via dualWrite()
+backend/src/controllers/orderCustomerController.js [MOD] cancel/return flows via dualWrite()
+backend/src/controllers/paymentIpnController.js [MOD] gateway session + IPN via dualWrite()
+backend/src/controllers/orderPaymentProofController.js [MOD] proof submit/review via dualWrite()
+backend/src/services/courierSyncService.js [MOD] courier book + status sync via dualWrite()
+backend/src/jobs/reviewReminderJob.js [MOD] reviewReminder notification flag via dualWrite()
+tests/repositories/order.repository.test.js [MOD] createFromMongo FK tests + partial-failure logging tests
+backend/src/services/dualWriteService.js [UNCHANGED] reused as-is from Part 1
+backend/src/routes/** [UNCHANGED]
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 8 section added — completes all 8 model groups
+REFACTOR_MAP.md [DONE] this section
+README.md [DONE] Order dual-write + repository test count (152)
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 8 note added

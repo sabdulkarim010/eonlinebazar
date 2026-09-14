@@ -14,6 +14,11 @@
  ********************************************************************/
 
 const Order = require('../models/order');
+const { dualWrite } = require('./dualWriteService');
+
+function getOrderDualWriteHelpers() {
+    return require('../utils/orderDualWriteHelpers');
+}
 const {
     bookParcelForOrder,
     buildTrackingUrl,
@@ -197,7 +202,15 @@ async function syncOrderWithCourier(orderId, courierCode) {
             order.status = SHIPPED_STATUS;
         }
 
-        await order.save();
+        await dualWrite(
+            () => order.save(),
+            async (saved) => { await getOrderDualWriteHelpers().mirrorOrderStatusUpdate(saved); },
+            {
+                model: 'Order',
+                operation: 'courierBooked',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         // 6) Customer SMS with tracking URL (respects Master Settings toggle).
         try {
@@ -297,7 +310,15 @@ async function autoSyncCourierStatus(orderId) {
             changed = true;
         }
 
-        await order.save();
+        await dualWrite(
+            () => order.save(),
+            async (saved) => { await getOrderDualWriteHelpers().mirrorOrderStatusUpdate(saved); },
+            {
+                model: 'Order',
+                operation: 'courierStatusSync',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         // On delivery, credit wallet cashback rewards (existing engine).
         if (changed && order.status === 'Delivered') {

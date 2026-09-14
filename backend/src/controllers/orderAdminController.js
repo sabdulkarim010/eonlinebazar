@@ -8,6 +8,11 @@
 const mongoose = require('mongoose');
 const Product = require('../models/product');
 const Order = require('../models/order');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getOrderDualWriteHelpers() {
+    return require('../utils/orderDualWriteHelpers');
+}
 const User = require('../models/user');
 const {
     getDeliverySettings,
@@ -430,7 +435,15 @@ const createManualOrder = async (req, res) => {
             isSandbox: inSandbox
         });
 
-        await newOrder.save();
+        await dualWrite(
+            () => newOrder.save(),
+            async (saved) => { await getOrderDualWriteHelpers().mirrorOrderCreate(saved); },
+            {
+                model: 'Order',
+                operation: 'createManualPos',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
         await deductOrderStock(normalizedItems);
 
         emitToAdmins('new_order', {
@@ -854,9 +867,21 @@ async function sendOrderStatusNotification(order, newStatus, customer) {
             });
         }
 
-        await Order.findByIdAndUpdate(order._id, {
-            $set: { [`notificationsSent.${key}`]: true }
-        });
+        await dualWrite(
+            () => Order.findByIdAndUpdate(
+                order._id,
+                { $set: { [`notificationsSent.${key}`]: true } },
+                { returnDocument: 'after' }
+            ),
+            async (updated) => {
+                if (updated) await getOrderDualWriteHelpers().mirrorOrderNotifications(updated);
+            },
+            {
+                model: 'Order',
+                operation: 'updateNotificationFlag',
+                mongoId: String(order._id)
+            }
+        );
     } catch (err) {
         console.warn(`[NOTIF] Failed to send ${canonicalStatus} notification:`, err.message);
     }
@@ -919,10 +944,24 @@ const updateOrderStatus = async (req, res) => {
         const wasDelivered = existingOrder.isDelivered === true
             || String(existingOrder.status || '').trim().toLowerCase() === 'delivered';
 
-        const updatedOrder = await Order.findByIdAndUpdate(
-            req.params.id,
-            { $set: updatePayload },
-            { returnDocument: 'after' }
+        const updatedOrder = await dualWrite(
+            () => Order.findByIdAndUpdate(
+                req.params.id,
+                { $set: updatePayload },
+                { returnDocument: 'after' }
+            ),
+            async (updated) => {
+                if (!updated) return;
+                await getOrderDualWriteHelpers().mirrorOrderStatusUpdate(updated);
+                if (paymentStatus) {
+                    await getOrderDualWriteHelpers().mirrorOrderPayment(updated);
+                }
+            },
+            {
+                model: 'Order',
+                operation: 'updateStatus',
+                mongoId: req.params.id
+            }
         );
 
         if (!updatedOrder) {
@@ -1049,17 +1088,27 @@ const approveOrderReturn = async (req, res) => {
 
         const displayOrderId = getOrderDisplayId(order);
 
-        const updatedOrder = await Order.findOneAndUpdate(
-            { _id: orderId, status: 'Return Requested' },
-            {
-                $set: {
-                    status: 'Returned',
-                    refundedAt: new Date(),
-                    refundAmount,
-                    statusBeforeRefund: order.status || 'Return Requested'
-                }
+        const updatedOrder = await dualWrite(
+            () => Order.findOneAndUpdate(
+                { _id: orderId, status: 'Return Requested' },
+                {
+                    $set: {
+                        status: 'Returned',
+                        refundedAt: new Date(),
+                        refundAmount,
+                        statusBeforeRefund: order.status || 'Return Requested'
+                    }
+                },
+                { returnDocument: 'after' }
+            ),
+            async (updated) => {
+                if (updated) await getOrderDualWriteHelpers().mirrorOrderStatusUpdate(updated);
             },
-            { returnDocument: 'after' }
+            {
+                model: 'Order',
+                operation: 'approveReturn',
+                mongoId: orderId
+            }
         );
 
         if (!updatedOrder) {
@@ -1167,13 +1216,23 @@ const undoOrderRefund = async (req, res) => {
             statusBeforeRefund: order.statusBeforeRefund
         };
 
-        const updatedOrder = await Order.findOneAndUpdate(
-            { _id: orderId, status: { $in: ['Returned', 'Refunded'] } },
-            {
-                $set: { status: revertStatus, refundedAt: null, refundAmount: 0 },
-                $unset: { statusBeforeRefund: '' }
+        const updatedOrder = await dualWrite(
+            () => Order.findOneAndUpdate(
+                { _id: orderId, status: { $in: ['Returned', 'Refunded'] } },
+                {
+                    $set: { status: revertStatus, refundedAt: null, refundAmount: 0 },
+                    $unset: { statusBeforeRefund: '' }
+                },
+                { returnDocument: 'after' }
+            ),
+            async (updated) => {
+                if (updated) await getOrderDualWriteHelpers().mirrorOrderStatusUpdate(updated);
             },
-            { returnDocument: 'after' }
+            {
+                model: 'Order',
+                operation: 'undoRefund',
+                mongoId: orderId
+            }
         );
 
         if (!updatedOrder) {
@@ -1264,7 +1323,15 @@ const rejectOrderReturn = async (req, res) => {
         if (!order.notificationsSent) order.notificationsSent = {};
         order.notificationsSent.returnRejected = true;
         order.markModified('notificationsSent');
-        await order.save();
+        await dualWrite(
+            () => order.save(),
+            async (saved) => { await getOrderDualWriteHelpers().mirrorOrderReturnFlow(saved); },
+            {
+                model: 'Order',
+                operation: 'rejectReturn',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         try {
             const customer = await User.findById(order.user).select('email phone name mobile');
@@ -1412,7 +1479,18 @@ const processRefund = async (req, res) => {
         order.notificationsSent.refundProcessed = true;
         order.markModified('notificationsSent');
 
-        await order.save();
+        await dualWrite(
+            () => order.save(),
+            async (saved) => {
+                await getOrderDualWriteHelpers().mirrorOrderReturnFlow(saved);
+                await getOrderDualWriteHelpers().mirrorOrderPayment(saved);
+            },
+            {
+                model: 'Order',
+                operation: 'processRefund',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         try {
             const customer = await User.findById(order.user).select('email phone name mobile');

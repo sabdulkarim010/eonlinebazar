@@ -8,6 +8,11 @@
 const mongoose = require('mongoose');
 const Product = require('../models/product');
 const Order = require('../models/order');
+const { dualWrite } = require('../services/dualWriteService');
+
+function mirrorOrderCreate(saved) {
+    return require('../utils/orderDualWriteHelpers').mirrorOrderCreate(saved);
+}
 const User = require('../models/user');
 const {
     validateCouponForCart,
@@ -470,7 +475,15 @@ const createOrder = async (req, res) => {
         });
 
         try {
-            await newOrder.save();
+            await dualWrite(
+                () => newOrder.save(),
+                async (saved) => { await mirrorOrderCreate(saved); },
+                {
+                    model: 'Order',
+                    operation: 'createCheckout',
+                    mongoId: (saved) => String(saved._id)
+                }
+            );
         } catch (saveErr) {
             if (couponDocId) {
                 try {

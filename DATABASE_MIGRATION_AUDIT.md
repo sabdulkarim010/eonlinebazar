@@ -1977,4 +1977,103 @@ Product not dual-written yet.
 | `npm test` (Jest) | **169/169** pass |
 | `npm run test:repositories` | **147/147** pass (144 prior + 1 referral pass-through + 1 cart FK fail + 1 review userId resolve) |
 
+## STAGE 2 STEP 3, PART 8 — Dual-Write: Order (Final Part, Most Complex) — 2026-09-14
+
+**This completes ALL of Stage 2 Step 3** — all 8 model groups now dual-write to Neon.
+Same `dualWriteService.js` helper unchanged. MongoDB remains authoritative for all reads.
+
+### Partial-write failure logging (no transaction / no retry)
+
+`orderRepository.createWithStagedWrites()` tags each sequential child step. When
+`mirrorOrderCreate()` catches a failure, it checks `findByLegacyId(mongoId)` — if the
+Order row already exists, it logs **`[DUAL-WRITE-ORDER-PARTIAL]`** with the exact child
+table that failed (for Stage 3 targeted repair scripts):
+
+```json
+{
+  "timestamp": "2026-09-14T05:53:14.978Z",
+  "mongoId": "6789abc123def45678901234",
+  "legacyId": "6789abc123def45678901234",
+  "postgresOrderId": "f6ff6cfd-230d-4228-9d87-d2d6935a7213",
+  "failedStage": "OrderPayment",
+  "error": "Simulated OrderPayment insert failure"
+}
+```
+
+`failedStage` values: `Order`, `OrderItem`, `OrderPayment`, `OrderPaymentIpnEvent`,
+`OrderPaymentProof`, `OrderNotification`. No automatic retry — logging discipline only.
+
+### userId / productId null-and-log fallback (Order)
+
+| Field | Schema | Missing FK in Postgres |
+|---|---|---|
+| `Order.userId` | Nullable (`SetNull`) | Order row created with `userId: null`; `[DUAL-WRITE-FK-MISSING]` logged via `userRepository.resolvePostgresUserId()` |
+| `OrderItem.productId` | Nullable (`SetNull`) | Line row created with `productId: null`, `legacyProductId` kept; `[DUAL-WRITE-FK-MISSING]` logged |
+
+Guest checkout and unmigrated users/products never block checkout or order confirmation.
+
+### subTotal / subtotal — both preserved
+
+`buildCreateInputFromMongo()` passes both fields exactly as Mongo stores them.
+`buildOrderCreateData()` writes both columns independently — wiring does not collapse them.
+
+### Status-change side effects NOT duplicated
+
+Order status dual-write calls **`updateStatusByLegacyId()`** and **`updateOrderFieldsByLegacyId()`**
+(status, delivery, cancel, courier, refund metadata on the Order row only). Side effects
+already wired in earlier parts are **not** re-wired here:
+
+| Side effect | Already wired in |
+|---|---|
+| Wallet credit on delivery | Part 7 — `walletService.js` |
+| Wallet credit on refund/return approval | Part 7 — `walletService.js` |
+| SMS / email notifications | Not Postgres-mirrored (ephemeral sends) |
+| Admin notification dispatch | Not Postgres-mirrored |
+
+### Payment IPN — failure isolation
+
+`paymentIpnController.js` wraps `order.save()` in `dualWrite()` with
+`mirrorOrderPaymentIpn()`. Postgres errors are swallowed by `dualWriteService.js` — the
+webhook/redirect response is **never** delayed or failed by a Neon hiccup.
+
+### Repository + helper files
+
+| File | Role |
+|---|---|
+| `orderRepository.js` | Extended: `findByLegacyId`, `createFromMongo`, `createWithStagedWrites`, FK resolution, status/payment/notification/return/proof update-by-legacyId helpers |
+| `orderDualWriteHelpers.js` **NEW** | `mirrorOrderCreate` (partial logging), `mirrorOrderStatusUpdate`, `mirrorOrderPayment`, `mirrorOrderPaymentIpn`, `mirrorOrderNotifications`, `mirrorOrderReturnItems`, `mirrorOrderPaymentProof`, `mirrorOrderReturnFlow` |
+
+Routes were **not** modified. `dualWriteService.js` was **not** modified.
+
+### Controller / service write paths wired
+
+| Area | Location | Operations |
+|---|---|---|
+| **Checkout create** | `orderCheckoutController.js` | `newOrder.save()` → `mirrorOrderCreate` |
+| **Manual POS create** | `orderAdminController.js` | `newOrder.save()` → `mirrorOrderCreate` |
+| **Admin status update** | `orderAdminController.js` | `updateOrderStatus` → status + optional payment mirror |
+| **Status SMS flag** | `orderAdminController.js` | `sendOrderStatusNotification` → notification flags |
+| **Return approve/reject/refund/undo** | `orderAdminController.js` | status + return items + notifications (+ payment on refund) |
+| **Customer cancel/return** | `orderCustomerController.js` | status / return flow mirrors |
+| **Payment IPN + session start** | `paymentIpnController.js` | `mirrorOrderPayment` / `mirrorOrderPaymentIpn` |
+| **Payment proof** | `orderPaymentProofController.js` | proof + payment on admin approve |
+| **Courier book/sync** | `courierSyncService.js` | status + courier fields only |
+| **Review reminder flag** | `reviewReminderJob.js` | `notificationsSent.reviewReminder` |
+
+### Test results
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **169/169** pass |
+| `npm run test:repositories` | **152/152** pass (147 prior + 3 createFromMongo FK + 2 partial-failure logging) |
+
+### Stage 3 (Backfill) — what this rollout implies
+
+Every `[DUAL-WRITE-FK-MISSING]` log since Part 1 (Category parent, Review userId/productId,
+Wishlist productId, CartItem whole-row skip, Order userId/productId, etc.) represents a
+Postgres row with a null FK or missing child that Stage 3 backfill must close once all
+referenced records exist in Neon. Every `[DUAL-WRITE-ORDER-PARTIAL]` log represents an
+Order row missing specific child tables (`OrderPayment`, `OrderItem`, …) that Stage 3
+repair scripts must target by `postgresOrderId` + `failedStage`.
+
 

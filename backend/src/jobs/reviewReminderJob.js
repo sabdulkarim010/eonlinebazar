@@ -5,6 +5,11 @@
 const cron = require('node-cron');
 const Order = require('../models/order');
 const { sendSms, isCustomerSmsEnabled } = require('../services/smsService');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getOrderDualWriteHelpers() {
+    return require('../utils/orderDualWriteHelpers');
+}
 
 const DEFAULT_CRON = '0 10 * * *';
 
@@ -52,9 +57,23 @@ async function sendReviewReminders() {
                 });
 
                 if (result.delivered) {
-                    await Order.findByIdAndUpdate(order._id, {
-                        $set: { 'notificationsSent.reviewReminder': true }
-                    });
+                    await dualWrite(
+                        () => Order.findByIdAndUpdate(
+                            order._id,
+                            { $set: { 'notificationsSent.reviewReminder': true } },
+                            { returnDocument: 'after' }
+                        ),
+                        async (updated) => {
+                            if (updated) {
+                                await getOrderDualWriteHelpers().mirrorOrderNotifications(updated);
+                            }
+                        },
+                        {
+                            model: 'Order',
+                            operation: 'reviewReminderFlag',
+                            mongoId: String(order._id)
+                        }
+                    );
                     sentCount += 1;
                 }
             } catch (err) {
