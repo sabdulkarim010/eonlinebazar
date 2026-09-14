@@ -1603,4 +1603,86 @@ tests 135 | pass 135 | fail 0
 **dualWriteService.js** — not re-tested (unchanged since Part 1; 3/3 still green via
 `tests/services/dualWriteService.test.js`).
 
+---
+
+## STAGE 2 STEP 3, PART 3 — Dual-Write: CMS/Settings Group — 2026-09-14
+
+Extends dual-write to the CMS/Settings cutover group (Stage 4 position 3 of 8): low-write
+volume models with singletons and nested child arrays. Same `dualWriteService.js` helper
+unchanged. MongoDB remains authoritative for all reads; Postgres writes are best-effort
+and failure-isolated.
+
+### Repository files — created vs reused
+
+| Model | Repository file | Existed from Step 2? | Created in Part 3? |
+|---|---|---|---|
+| **PageContent** | `backend/src/repositories/pageContentRepository.js` | **No** | **Yes** — findAll, findById, findBySlug, findByLegacyId, create, update, remove; `renderBodyHtml` via existing `markdownToHtml.js` (no new npm dependency) |
+| **NavbarLink** | `backend/src/repositories/navbarLinkRepository.js` | **No** | **Yes** — LinkTarget enum maps `_self`→SELF, `_blank`→BLANK per Prisma `@map` |
+| **FooterSettings** | `backend/src/repositories/footerSettingsRepository.js` | **No** | **Yes** — singleton `key='global'`; 5 child tables (FooterColumn, FooterLink, FooterSocialLink, FooterPaymentGateway, FooterPaymentBadge); delete+recreate on update |
+| **Banner** | `backend/src/repositories/bannerRepository.js` | **No** | **Yes** — Banner CRUD + `upsertBannerSettings()` with `key='global'`; overlayOpacity as Decimal(3,2) fraction |
+| **Settings** | `backend/src/repositories/settingsRepository.js` | **No** | **Yes** — singleton `key='global'`; scalars + 5 activePaymentGateways booleans + `settings_payment_gateways` child rows |
+
+Routes were **not** modified. `dualWriteService.js` was **not** modified. Deprecated
+`Setting.js` shim was **not** touched.
+
+### Per-model controller wiring
+
+| Model | Controller file | Functions wired | Reads touched? |
+|---|---|---|---|
+| **PageContent** | `backend/src/controllers/pageContentController.js` | `createPage`, `updatePageContent` | **No** (no delete route exists) |
+| **NavbarLink** | `backend/src/controllers/navbarLinkController.js` | `createNavbarLink`, `updateNavbarLink`, `deleteNavbarLink` | **No** (`reorderNavbarLinks` unchanged) |
+| **FooterSettings** | `backend/src/controllers/footerSettingsController.js` | `updateFooterSettings`, `addPaymentBadge`, `deletePaymentBadge` | **No** |
+| **Banner** | `backend/src/controllers/bannerController.js` | `createBanner`, `updateBanner`, `deleteBanner` | **No** (`reorderBanners` unchanged) |
+| **BannerSettings** | `backend/src/controllers/bannerController.js` | `updateSettings` (singleton upsert, `key='global'`) | **No** |
+| **Settings** | `backend/src/controllers/settingsController.js` | `updateSettings`, `updateCacheSettings`, `updateRateLimitSettings` | **No** |
+| **Settings** | `backend/src/controllers/masterSettingsController.js` | `saveMasterSettings` (shared by master + announcement save routes) | **No** |
+
+All controllers use lazy `get*Repository()` helpers so Jest can import the app graph
+without loading the generated `.mts` Prisma client.
+
+### FooterSettings — paymentBadges tri-state (audit-critical)
+
+Mongo `paymentBadges` has a three-way distinction the repository must preserve:
+
+| Mongo input | `paymentBadgesMode` | Postgres behaviour |
+|---|---|---|
+| Field **absent** / `undefined` in request (e.g. copyright-only update) | `'skip'` | **Do not touch** existing `FooterPaymentBadge` rows |
+| Explicit **`[]`** in request | `'replace'` | Delete all badge rows → **zero rows** remain |
+| Non-empty array (or `paymentGateways` sync) | `'replace'` | Delete+recreate badge rows from the synced list |
+
+Controller sets mode from the request body:
+
+- `paymentBadgesMode: 'replace'` when `body.paymentGateways` or `body.paymentBadges` is an array
+- `paymentBadgesMode: 'skip'` otherwise
+
+`addPaymentBadge` / `deletePaymentBadge` always pass `{ replacePaymentGateways: true, paymentBadgesMode: 'replace' }` because they mutate badges explicitly.
+
+Nested arrays (columns+links, socialLinks, paymentGateways) use delete+recreate on update
+when the corresponding body field is an array — same pattern as `productRepository.js`
+variant attributes.
+
+### PageContent — bodyHtml rendering
+
+The Mongoose pre-save hook `renderBodyHtml` is replicated in the repository via the
+existing `backend/src/utils/markdownToHtml.js` utility (already in the codebase; no
+`marked`/`showdown` in `package.json`). Contact page flattens five `contactMeta*` columns:
+`address`, `phone`, `email`, `hours`, `mapEmbedUrl`.
+
+### BannerSettings singleton key
+
+`schema.prisma` already defines `BannerSettings.key @unique @default("global")`.
+`bannerRepository.upsertBannerSettings()` always writes `key='global'` so duplicate
+singleton rows cannot accumulate.
+
+### Test results
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **169/169** pass |
+| `npm run test:repositories` | **137/137** pass (135 prior + 2 new footer tri-state tests) |
+
+New repository test file:
+
+- `tests/repositories/footerSettings.repository.test.js` — explicitly verifies `skip` leaves badges untouched and `replace` with `[]` clears all rows.
+
 

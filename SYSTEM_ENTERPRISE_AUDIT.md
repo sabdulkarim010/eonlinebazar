@@ -2102,3 +2102,26 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 1 for flow detail and 
 
 See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 2.
 
+## Stage 2 Step 3, Part 3 — Dual-Write: CMS/Settings Group — 2026-09-14
+
+**Status:** ✅ COMPLETE — ten models now dual-write (Category + 4 catalog/ERP + 5 CMS/settings); MongoDB still authoritative for reads
+
+| Item | Status |
+|------|--------|
+| PageContent — create/update wired | ✅ |
+| NavbarLink — create/update/delete wired | ✅ |
+| FooterSettings — update + badge add/delete wired (singleton) | ✅ |
+| FooterSettings paymentBadges tri-state (skip vs replace []) | ✅ tested |
+| Banner — create/update/delete wired | ✅ |
+| BannerSettings — update wired (singleton key=global) | ✅ |
+| Settings — delivery/cache/rate-limit + master save wired (singleton) | ✅ |
+| Five new repositories (none existed from Step 2) | ✅ |
+| bodyHtml via existing markdownToHtml.js (no new npm dep) | ✅ |
+| dualWriteService.js modified | ❌ none (reused as-is) |
+| All READ endpoints unchanged | ✅ |
+| Main Jest suite (`npm test`) | ✅ 169/169 |
+| Neon repository tests (`npm run test:repositories`) | ✅ 137/137 |
+| Routes / deprecated Setting.js shim touched | ❌ none |
+
+See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 3.
+

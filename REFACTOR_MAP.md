@@ -1373,3 +1373,25 @@ DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 2 section added
 REFACTOR_MAP.md [DONE] this section
 README.md [DONE] dual-write model count note
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 2 note added
+
+# PostgreSQL migration — Stage 2 Step 3, Part 3: Dual-write for CMS/Settings group: 2026-09-14
+
+backend/src/repositories/pageContentRepository.js [NEW] findAll, findById, findBySlug, findByLegacyId, create, update, remove; markdownToHtml body render; contactMeta flatten
+backend/src/repositories/navbarLinkRepository.js [NEW] CRUD + LinkTarget enum mapping (_self/_blank)
+backend/src/repositories/footerSettingsRepository.js [NEW] singleton upsert; 5 child tables; paymentBadges tri-state (skip/replace)
+backend/src/repositories/bannerRepository.js [NEW] Banner CRUD + BannerSettings upsert (key=global); overlayOpacity Decimal(3,2)
+backend/src/repositories/settingsRepository.js [NEW] singleton upsert; activePaymentGateways booleans + settings_payment_gateways child rows
+backend/src/controllers/pageContentController.js [MOD] createPage, updatePageContent via dualWrite()
+backend/src/controllers/navbarLinkController.js [MOD] createNavbarLink, updateNavbarLink, deleteNavbarLink via dualWrite()
+backend/src/controllers/footerSettingsController.js [MOD] updateFooterSettings, addPaymentBadge, deletePaymentBadge via dualWrite()
+backend/src/controllers/bannerController.js [MOD] createBanner, updateBanner, deleteBanner, updateSettings via dualWrite()
+backend/src/controllers/settingsController.js [MOD] updateSettings, updateCacheSettings, updateRateLimitSettings via dualWrite()
+backend/src/controllers/masterSettingsController.js [MOD] saveMasterSettings via dualWrite()
+tests/repositories/footerSettings.repository.test.js [NEW] paymentBadges tri-state (skip vs replace [])
+backend/src/services/dualWriteService.js [UNCHANGED] reused as-is from Part 1
+backend/src/routes/** [UNCHANGED]
+backend/src/models/Setting.js [UNCHANGED] deprecated shim — out of scope
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 3 section added
+REFACTOR_MAP.md [DONE] this section
+README.md [DONE] dual-write model count + repository test count
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 3 note added

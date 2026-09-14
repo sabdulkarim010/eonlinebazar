@@ -15,6 +15,43 @@ const {
     ensurePagesForFooterColumns,
     resolveFooterPlaceholderUrlsAsync
 } = require('../services/pagePublishService');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getFooterSettingsRepository() {
+    return require('../repositories/footerSettingsRepository');
+}
+
+function buildFooterMirrorOptions(body = {}) {
+    return {
+        replaceColumns: Array.isArray(body.columns),
+        replaceSocialLinks: Array.isArray(body.socialLinks),
+        replacePaymentGateways: Array.isArray(body.paymentGateways),
+        paymentBadgesMode: Array.isArray(body.paymentGateways) || Array.isArray(body.paymentBadges)
+            ? 'replace'
+            : 'skip'
+    };
+}
+
+function mapMongoFooterToPostgresWrite(doc) {
+    return doc.toObject ? doc.toObject() : doc;
+}
+
+async function dualWriteFooterUpsert(doc, mirrorOptions) {
+    await dualWrite(
+        () => doc.save(),
+        async (saved) => {
+            await getFooterSettingsRepository().upsertFromMongo(
+                mapMongoFooterToPostgresWrite(saved),
+                mirrorOptions
+            );
+        },
+        {
+            model: 'FooterSettings',
+            operation: 'update',
+            mongoId: () => 'global'
+        }
+    );
+}
 
 const MAX_COLUMNS = 8;
 const MAX_LINKS_PER_COLUMN = 20;
@@ -207,7 +244,7 @@ const updateFooterSettings = async (req, res) => {
             doc.syncPaymentGatewaysFromBadges(badges);
         }
 
-        await doc.save();
+        await dualWriteFooterUpsert(doc, buildFooterMirrorOptions(body));
 
         // Auto-provision CMS pages for new internal footer links (e.g. /return-policy).
         let createdPages = [];
@@ -301,7 +338,10 @@ const addPaymentBadge = async (req, res) => {
 
         badges.push({ name });
         doc.syncPaymentGatewaysFromBadges(badges);
-        await doc.save();
+        await dualWriteFooterUpsert(doc, {
+            replacePaymentGateways: true,
+            paymentBadgesMode: 'replace'
+        });
         await invalidate(CACHE_KEYS.FOOTER_SETTINGS);
 
         await logSecurityEvent({
@@ -339,7 +379,10 @@ const deletePaymentBadge = async (req, res) => {
 
         const removed = badges.splice(index, 1)[0];
         doc.syncPaymentGatewaysFromBadges(badges);
-        await doc.save();
+        await dualWriteFooterUpsert(doc, {
+            replacePaymentGateways: true,
+            paymentBadgesMode: 'replace'
+        });
         await invalidate(CACHE_KEYS.FOOTER_SETTINGS);
 
         await logSecurityEvent({

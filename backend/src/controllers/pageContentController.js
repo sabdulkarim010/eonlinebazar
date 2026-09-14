@@ -9,6 +9,28 @@ const FooterSettings = require('../models/FooterSettings');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { invalidate, CACHE_KEYS } = require('../services/cacheService');
 const { isReservedAppSlug } = require('../services/pagePublishService');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getPageContentRepository() {
+    return require('../repositories/pageContentRepository');
+}
+
+function mapMongoPageToPostgresWrite(page) {
+    const plain = page.toObject ? page.toObject() : page;
+    return {
+        slug: plain.slug,
+        title: plain.title,
+        subtitle: plain.subtitle,
+        bodyMarkdown: plain.bodyMarkdown,
+        bodyHtml: plain.bodyHtml,
+        contentFormat: plain.contentFormat,
+        isPublished: plain.isPublished,
+        sortOrder: plain.sortOrder,
+        updatedByAdmin: plain.updatedByAdmin,
+        contactMeta: plain.contactMeta,
+        legacyId: String(page._id)
+    };
+}
 
 function readString(value, max) {
     return String(value ?? '').trim().slice(0, max);
@@ -129,7 +151,17 @@ const createPage = async (req, res) => {
         }
 
         page.updatedByAdmin = req.admin?.email || req.admin?.username || 'admin';
-        await page.save();
+        await dualWrite(
+            () => page.save(),
+            async (saved) => {
+                await getPageContentRepository().create(mapMongoPageToPostgresWrite(saved));
+            },
+            {
+                model: 'PageContent',
+                operation: 'create',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         let footerLinkAdded = false;
         let footerData = null;
@@ -219,7 +251,24 @@ const updatePageContent = async (req, res) => {
         }
 
         page.updatedByAdmin = req.admin?.email || req.admin?.username || 'admin';
-        await page.save();
+        await dualWrite(
+            () => page.save(),
+            async (saved) => {
+                const repo = getPageContentRepository();
+                const pgRow = await repo.findByLegacyId(String(saved._id));
+                if (!pgRow) {
+                    const err = new Error('Page not found.');
+                    err.code = 'NOT_FOUND';
+                    throw err;
+                }
+                await repo.update(pgRow.id, mapMongoPageToPostgresWrite(saved));
+            },
+            {
+                model: 'PageContent',
+                operation: 'update',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await invalidate(CACHE_KEYS.PAGE_CONTENT(slug));
         await invalidate(CACHE_KEYS.FOOTER_SETTINGS);

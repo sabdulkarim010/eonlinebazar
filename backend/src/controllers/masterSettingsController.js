@@ -27,6 +27,26 @@ const {
     toPublicFlashSalePayload
 } = require('../services/flashSaleService');
 const { invalidate, CACHE_KEYS } = require('../services/cacheService');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getSettingsRepository() {
+    return require('../repositories/settingsRepository');
+}
+
+async function dualWriteSettingsUpsert(settings) {
+    await dualWrite(
+        () => settings.save(),
+        async (saved) => {
+            const plain = saved.toObject ? saved.toObject() : saved;
+            await getSettingsRepository().upsertFromMongo(plain);
+        },
+        {
+            model: 'Settings',
+            operation: 'update',
+            mongoId: (saved) => String(saved._id)
+        }
+    );
+}
 
 const VALID_SMS_GATEWAY_PROVIDERS = ['Greenweb BD', 'BulkSMS BD', 'AlphaSMS', 'Generic API', ''];
 
@@ -474,7 +494,7 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
     }
 
     mirrorFreeShippingFields(settings);
-    await settings.save();
+    await dualWriteSettingsUpsert(settings);
     clearWhatsAppSettingsCache();
 
     await invalidate(CACHE_KEYS.STORE_SETTINGS);

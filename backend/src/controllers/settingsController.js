@@ -16,6 +16,26 @@ const {
     getPublicRateLimitSettings,
     loadRateLimitSettings
 } = require('../middlewares/rateLimiter');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getSettingsRepository() {
+    return require('../repositories/settingsRepository');
+}
+
+async function dualWriteSettingsUpsert(settings) {
+    await dualWrite(
+        () => settings.save(),
+        async (saved) => {
+            const plain = saved.toObject ? saved.toObject() : saved;
+            await getSettingsRepository().upsertFromMongo(plain);
+        },
+        {
+            model: 'Settings',
+            operation: 'update',
+            mongoId: (saved) => String(saved._id)
+        }
+    );
+}
 
 const parseNonNegativeNumber = (value, fieldLabel) => {
     if (value === undefined || value === null || value === '') {
@@ -72,7 +92,7 @@ const updateSettings = async (req, res) => {
         settings.freeShippingMinAmount = freeShipping.value;
         settings.freeShippingThreshold = freeShipping.value;
         settings.announcementDiscount = String(freeShipping.value);
-        await settings.save();
+        await dualWriteSettingsUpsert(settings);
 
         await logSecurityEvent({
             action: 'Delivery Settings Updated',
@@ -107,7 +127,7 @@ const updateCacheSettings = async (req, res) => {
 
         const settings = await Settings.getOrCreate();
         settings.serviceWorkerEnabled = enabled !== false && enabled !== 'false' && enabled !== 0 && enabled !== '0';
-        await settings.save();
+        await dualWriteSettingsUpsert(settings);
 
         await logSecurityEvent({
             action: 'Service Worker Cache Settings Updated',
@@ -200,7 +220,7 @@ module.exports = {
             if (req.body.rateLimitWindowMs !== undefined) settings.rateLimitWindowMs = windowMs;
             if (req.body.rateLimitMaxRequests !== undefined) settings.rateLimitMaxRequests = maxRequests;
 
-            await settings.save();
+            await dualWriteSettingsUpsert(settings);
             invalidateRateLimitCache();
 
             await logSecurityEvent({

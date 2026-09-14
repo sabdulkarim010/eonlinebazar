@@ -1,6 +1,29 @@
 const { Banner, BannerSettings } = require('../models/banner');
 const cloudinary = require('../config/cloudinary');
 const multer = require('multer');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getBannerRepository() {
+  return require('../repositories/bannerRepository');
+}
+
+function mapMongoBannerToPostgresWrite(banner) {
+  const plain = banner.toObject ? banner.toObject() : banner;
+  return {
+    title: plain.title,
+    subtitle: plain.subtitle,
+    imageUrl: plain.imageUrl,
+    mobileImageUrl: plain.mobileImageUrl,
+    backgroundColor: plain.backgroundColor,
+    linkUrl: plain.linkUrl,
+    linkText: plain.linkText,
+    textColor: plain.textColor,
+    overlayOpacity: plain.overlayOpacity,
+    position: plain.position,
+    isActive: plain.isActive,
+    legacyId: String(banner._id)
+  };
+}
 
 const DESKTOP_PRESETS = ['300px', '240px', '180px'];
 const MOBILE_PRESETS = ['200px', '150px', '100px'];
@@ -180,7 +203,17 @@ exports.createBanner = async (req, res) => {
       isActive: true
     });
 
-    await banner.save();
+    await dualWrite(
+      () => banner.save(),
+      async (saved) => {
+        await getBannerRepository().createBanner(mapMongoBannerToPostgresWrite(saved));
+      },
+      {
+        model: 'Banner',
+        operation: 'create',
+        mongoId: (saved) => String(saved._id)
+      }
+    );
     res.status(201).json({ success: true, banner });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -245,10 +278,24 @@ exports.updateBanner = async (req, res) => {
       });
     }
 
-    const banner = await Banner.findByIdAndUpdate(
-      req.params.id,
-      updates,
-      { new: true }
+    const banner = await dualWrite(
+      () => Banner.findByIdAndUpdate(req.params.id, updates, { new: true }),
+      async (saved) => {
+        if (!saved) return;
+        const repo = getBannerRepository();
+        const pgRow = await repo.findBannerByLegacyId(String(saved._id));
+        if (!pgRow) {
+          const err = new Error('Banner not found.');
+          err.code = 'NOT_FOUND';
+          throw err;
+        }
+        await repo.updateBanner(pgRow.id, mapMongoBannerToPostgresWrite(saved));
+      },
+      {
+        model: 'Banner',
+        operation: 'update',
+        mongoId: (saved) => (saved ? String(saved._id) : undefined)
+      }
     );
 
     res.json({ success: true, banner });
@@ -260,7 +307,20 @@ exports.updateBanner = async (req, res) => {
 // DELETE /api/admin/banners/:id — ADMIN
 exports.deleteBanner = async (req, res) => {
   try {
-    await Banner.findByIdAndDelete(req.params.id);
+    await dualWrite(
+      () => Banner.findByIdAndDelete(req.params.id),
+      async (deleted) => {
+        if (!deleted) return;
+        const repo = getBannerRepository();
+        const pgRow = await repo.findBannerByLegacyId(String(deleted._id));
+        if (pgRow) await repo.removeBanner(pgRow.id);
+      },
+      {
+        model: 'Banner',
+        operation: 'delete',
+        mongoId: (deleted) => (deleted ? String(deleted._id) : undefined)
+      }
+    );
     res.json({ success: true, message: 'Banner deleted' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -312,10 +372,17 @@ exports.updateSettings = async (req, res) => {
       updatedAt: new Date()
     };
 
-    const settings = await BannerSettings.findOneAndUpdate(
-      {},
-      payload,
-      { upsert: true, returnDocument: 'after' }
+    const settings = await dualWrite(
+      () => BannerSettings.findOneAndUpdate({}, payload, { upsert: true, returnDocument: 'after' }),
+      async (saved) => {
+        const plain = saved.toObject ? saved.toObject() : saved;
+        await getBannerRepository().upsertBannerSettings(plain);
+      },
+      {
+        model: 'BannerSettings',
+        operation: 'update',
+        mongoId: () => 'global'
+      }
     );
     res.json({ success: true, settings: normalizeBannerSettings(settings) });
   } catch (err) {

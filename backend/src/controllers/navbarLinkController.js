@@ -13,6 +13,26 @@ const { isValidSlug, normalizeSlug } = require('../models/PageContent');
 const { isReservedAppSlug } = require('../services/pagePublishService');
 const { sanitizeHtml } = require('../utils/sanitizeHtml');
 const { getOrSet, invalidate, CACHE_KEYS } = require('../services/cacheService');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getNavbarLinkRepository() {
+    return require('../repositories/navbarLinkRepository');
+}
+
+function mapMongoNavbarLinkToPostgresWrite(doc) {
+    const plain = doc.toObject ? doc.toObject() : doc;
+    return {
+        title: plain.title,
+        url: plain.url,
+        slug: plain.slug,
+        target: plain.target,
+        isPublished: plain.isPublished,
+        hasCustomPage: plain.hasCustomPage,
+        pageHtml: plain.pageHtml,
+        sortOrder: plain.sortOrder,
+        legacyId: String(doc._id)
+    };
+}
 
 function escapeRegex(str) {
     return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -177,16 +197,26 @@ const createNavbarLink = async (req, res) => {
             return res.status(400).json({ success: false, message: 'URL is required.' });
         }
 
-        const doc = await NavbarLink.create({
-            title,
-            url,
-            slug,
-            target,
-            isPublished,
-            hasCustomPage,
-            pageHtml: hasCustomPage ? pageHtml : '',
-            sortOrder
-        });
+        const doc = await dualWrite(
+            () => NavbarLink.create({
+                title,
+                url,
+                slug,
+                target,
+                isPublished,
+                hasCustomPage,
+                pageHtml: hasCustomPage ? pageHtml : '',
+                sortOrder
+            }),
+            async (saved) => {
+                await getNavbarLinkRepository().create(mapMongoNavbarLinkToPostgresWrite(saved));
+            },
+            {
+                model: 'NavbarLink',
+                operation: 'create',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         await invalidate(CACHE_KEYS.NAVBAR_LINKS);
 
@@ -297,7 +327,24 @@ const updateNavbarLink = async (req, res) => {
             doc.pageHtml = '';
         }
 
-        await doc.save();
+        await dualWrite(
+            () => doc.save(),
+            async (saved) => {
+                const repo = getNavbarLinkRepository();
+                const pgRow = await repo.findByLegacyId(String(saved._id));
+                if (!pgRow) {
+                    const err = new Error('Navbar link not found.');
+                    err.code = 'NOT_FOUND';
+                    throw err;
+                }
+                await repo.update(pgRow.id, mapMongoNavbarLinkToPostgresWrite(saved));
+            },
+            {
+                model: 'NavbarLink',
+                operation: 'update',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
         await invalidate(CACHE_KEYS.NAVBAR_LINKS);
 
         res.status(200).json({
@@ -317,7 +364,20 @@ const updateNavbarLink = async (req, res) => {
 /** DELETE /api/navbar-links/admin/:id */
 const deleteNavbarLink = async (req, res) => {
     try {
-        const deleted = await NavbarLink.findByIdAndDelete(req.params.id);
+        const deleted = await dualWrite(
+            () => NavbarLink.findByIdAndDelete(req.params.id),
+            async (deletedLink) => {
+                if (!deletedLink) return;
+                const repo = getNavbarLinkRepository();
+                const pgRow = await repo.findByLegacyId(String(deletedLink._id));
+                if (pgRow) await repo.remove(pgRow.id);
+            },
+            {
+                model: 'NavbarLink',
+                operation: 'delete',
+                mongoId: (deletedLink) => (deletedLink ? String(deletedLink._id) : undefined)
+            }
+        );
         if (!deleted) {
             return res.status(404).json({ success: false, message: 'Navbar link not found.' });
         }
