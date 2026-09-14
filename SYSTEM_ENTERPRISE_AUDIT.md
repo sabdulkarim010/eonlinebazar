@@ -2125,3 +2125,24 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 2.
 
 See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 3.
 
+## Stage 2 Step 3, Part 4 — Dual-Write: Security/Audit Group — 2026-09-14
+
+**Status:** ✅ COMPLETE — fourteen models now dual-write; MongoDB still authoritative for reads
+
+| Item | Status |
+|------|--------|
+| SecurityLog — single shared point in `logSecurityEvent()` | ✅ |
+| LoginAttempt — shared `persistLoginAttempt()` utility | ✅ |
+| BlacklistedIP — manual add/remove + auto-ban wired | ✅ |
+| BlacklistedIP null expiresAt = permanent (Postgres null verified) | ✅ tested |
+| StockAlert — create with LOW_STOCK / OUT_OF_STOCK child rows | ✅ tested |
+| LoginAttempt / BlacklistedIP TTL sweep jobs | ❌ out of scope (deferred) |
+| Four new repositories (none existed from Step 2) | ✅ |
+| dualWriteService.js modified | ❌ none (reused as-is) |
+| All READ/list endpoints unchanged | ✅ |
+| Main Jest suite (`npm test`) | ✅ 169/169 |
+| Neon repository tests (`npm run test:repositories`) | ✅ 140/140 |
+| Routes touched | ❌ none |
+
+See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 4.
+

@@ -10,6 +10,11 @@ const cron = require('node-cron');
 const Product = require('../models/product');
 const StockAlert = require('../models/stockAlert');
 const Settings = require('../models/Settings');
+const { dualWrite } = require('./dualWriteService');
+
+function getStockAlertRepository() {
+    return require('../repositories/stockAlertRepository');
+}
 const { sendStockAlertEmail } = require('./mailer');
 const { sendSms } = require('./smsService');
 const { sendAdminCustomAlert, isGatewayConfigured, loadWhatsAppAlertGatewayConfig } = require('./whatsappService');
@@ -249,22 +254,36 @@ async function checkAndAlertLowStock() {
     }
 
     try {
-        await StockAlert.create({
-            checkedAt,
-            lowStockCount: lowStock.length,
-            outOfStockCount: outOfStock.length,
-            lowStockProducts: lowStock.map((p) => ({
-                name: p.name,
-                productId: p.productId,
-                stock: p.stockQuantity ?? p.stock ?? 0,
-                threshold: p.lowStockThreshold ?? p.threshold ?? defaultThreshold
-            })),
-            outOfStockProducts: outOfStock.map((p) => ({
-                name: p.name,
-                productId: p.productId
-            })),
-            alertsSent
-        });
+        await dualWrite(
+            () => StockAlert.create({
+                checkedAt,
+                lowStockCount: lowStock.length,
+                outOfStockCount: outOfStock.length,
+                lowStockProducts: lowStock.map((p) => ({
+                    name: p.name,
+                    productId: p.productId,
+                    stock: p.stockQuantity ?? p.stock ?? 0,
+                    threshold: p.lowStockThreshold ?? p.threshold ?? defaultThreshold
+                })),
+                outOfStockProducts: outOfStock.map((p) => ({
+                    name: p.name,
+                    productId: p.productId
+                })),
+                alertsSent
+            }),
+            async (saved) => {
+                const plain = saved.toObject ? saved.toObject() : saved;
+                await getStockAlertRepository().create({
+                    ...plain,
+                    legacyId: String(saved._id)
+                });
+            },
+            {
+                model: 'StockAlert',
+                operation: 'create',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
     } catch (err) {
         console.error('[StockAlert] Failed to save alert log:', err.message);
     }

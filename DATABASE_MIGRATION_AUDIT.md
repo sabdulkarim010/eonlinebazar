@@ -1685,4 +1685,78 @@ New repository test file:
 
 - `tests/repositories/footerSettings.repository.test.js` — explicitly verifies `skip` leaves badges untouched and `replace` with `[]` clears all rows.
 
+---
+
+## STAGE 2 STEP 3, PART 4 — Dual-Write: Security/Audit Group — 2026-09-14
+
+Extends dual-write to the Security/Audit cutover group (Stage 4 position 4 of 8).
+Same `dualWriteService.js` helper unchanged. MongoDB remains authoritative for all
+reads; Postgres writes are best-effort and failure-isolated — critical here because
+these models are written during login/security flows and must never cause auth
+behaviour to change on a Postgres hiccup.
+
+### Repository files — created vs reused
+
+| Model | Repository file | Existed from Step 2? | Created in Part 4? |
+|---|---|---|---|
+| **SecurityLog** | `backend/src/repositories/securityLogRepository.js` | **No** | **Yes** — `create()`, `findAll(filters)`; actor stays plain String (deliberately unlinked) |
+| **LoginAttempt** | `backend/src/repositories/loginAttemptRepository.js` | **No** | **Yes** — `create()`, `findAll(filters)` |
+| **BlacklistedIP** | `backend/src/repositories/blacklistedIpRepository.js` | **No** | **Yes** — `upsertFromMongo()`, `findByIp()`, `findAll()`, `remove()` |
+| **StockAlert** | `backend/src/repositories/stockAlertRepository.js` | **No** | **Yes** — `create()` with `stock_alert_items` child rows |
+
+Routes were **not** modified. `dualWriteService.js` was **not** modified.
+
+### Single shared wiring points (not per call-site)
+
+| Model | Wiring location | Rationale |
+|---|---|---|
+| **SecurityLog** | `backend/src/utils/securityLogger.js` → `logSecurityEvent()` | **Only** Mongoose write path in the codebase (`SecurityLog.create` appears nowhere else). One dual-write wrap covers all RBAC, order, HRM, footer, blacklist, and admin audit call sites automatically. |
+| **LoginAttempt** | `backend/src/utils/loginAttemptLogger.js` → `persistLoginAttempt()` | Centralizes all create paths: `recordLoginAttempt()` in `adminSecurity.js`, blacklist gate, rate-limit handler, and geo-fence block. Auth controller calls `recordLoginAttempt()` — not wired individually. |
+| **BlacklistedIP** | `blacklistController.js` (`addBlacklist`, `removeBlacklist`) + auto-ban in `adminSecurity.js` | Three upsert/remove write paths (manual add, manual remove, intrusion-detection auto-ban). |
+| **StockAlert** | `backend/src/services/stockAlertService.js` → `checkAndAlertLowStock()` | Single `StockAlert.create()` call site. |
+
+### TTL sweep jobs — explicitly out of scope
+
+| Model | Mongo behaviour | Postgres gap | This task |
+|---|---|---|---|
+| **LoginAttempt** | 30-day TTL index on `createdAt` | No TTL | **Not implemented** — scheduled delete job deferred to Stage 2 follow-up per audit |
+| **BlacklistedIP** | TTL on `expiresAt` (`expireAfterSeconds: 0`); null = permanent | No TTL | **Not implemented** — same deferred follow-up |
+
+Dual-write still mirrors rows to Postgres; expiry cleanup in Postgres is a separate job.
+
+### BlacklistedIP — null expiresAt (permanent ban)
+
+Repository `normalizeExpiresAt()` returns **`null`** (not a placeholder date) when Mongo
+`expiresAt` is null, undefined, or empty string. Verified by
+`tests/repositories/blacklistedIp.repository.test.js`:
+- `upsertFromMongo({ expiresAt: null })` → Postgres row has `expiresAt: null`
+- Reload via `findByIp()` confirms null persists
+
+### StockAlert — kind discrimination
+
+Prisma enum `StockAlertItemKind` (schema.prisma):
+
+| Mongo source array | Prisma `kind` | DB `@map` | stock / threshold |
+|---|---|---|---|
+| `lowStockProducts[]` | `LOW_STOCK` | `low_stock` | populated (Int) |
+| `outOfStockProducts[]` | `OUT_OF_STOCK` | `out_of_stock` | **null** (nullable) |
+
+Parent `alertsSent{}` flattens to `alertSentEmail`, `alertSentSms`, `alertSentWhatsapp`
+booleans. Child rows inserted sequentially (not nested Prisma create) because Neon HTTP
+adapter rejects implicit transactions.
+
+Verified by `tests/repositories/stockAlert.repository.test.js`.
+
+### Test results
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **169/169** pass — all suites exercising `logSecurityEvent()` unchanged |
+| `npm run test:repositories` | **140/140** pass (137 prior + 2 blacklistedIp + 1 stockAlert) |
+
+New repository test files:
+
+- `tests/repositories/blacklistedIp.repository.test.js` — null `expiresAt` permanent ban
+- `tests/repositories/stockAlert.repository.test.js` — `LOW_STOCK` vs `OUT_OF_STOCK` kind discrimination
+
 

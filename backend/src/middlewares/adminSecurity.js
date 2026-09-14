@@ -19,6 +19,12 @@ const BlacklistedIP = require('../models/blacklistedIp');
 const LoginAttempt = require('../models/loginAttempt');
 const { getClientIp } = require('../utils/deviceParser');
 const { logSecurityEvent } = require('./../utils/securityLogger');
+const { persistLoginAttempt } = require('../utils/loginAttemptLogger');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getBlacklistedIpRepository() {
+    return require('../repositories/blacklistedIpRepository');
+}
 const { isPrivateIp } = require('./geoFencing');
 const { isLocalOrDev, skipRateLimit } = require('./rateLimiter');
 const { recordRateLimitHit } = require('../services/rateLimitHitTracker');
@@ -57,7 +63,7 @@ const checkBlacklist = async (req, res, next) => {
 
         if (ban) {
             // ব্লকড IP থেকে আসা প্রতিটি প্রচেষ্টা অডিটে রেকর্ড করা
-            LoginAttempt.create({
+            persistLoginAttempt({
                 ipAddress: ip,
                 username: (req.body && req.body.username) || 'unknown',
                 status: 'blocked',
@@ -100,7 +106,7 @@ const adminLoginLimiter = rateLimit({
     handler: (req, res) => {
         const ip = getClientIp(req);
         recordRateLimitHit(ip).catch(() => {});
-        LoginAttempt.create({
+        persistLoginAttempt({
             ipAddress: ip,
             username: (req.body && req.body.username) || 'unknown',
             status: 'blocked',
@@ -120,21 +126,17 @@ const adminLoginLimiter = rateLimit({
    গত ১৫ মিনিটে ৫+ ব্যর্থতা হলে IP অটো-ব্ল্যাকলিস্ট করে।
    ================================================================== */
 async function recordLoginAttempt({ fingerprint = {}, username = 'unknown', status = 'failed', details = '' }) {
-    try {
-        await LoginAttempt.create({
-            username,
-            ipAddress: fingerprint.ipAddress || 'Unknown',
-            location: fingerprint.location || 'Unknown Location',
-            os: fingerprint.os || 'Unknown OS',
-            browser: fingerprint.browser || 'Unknown Browser',
-            deviceType: fingerprint.deviceType || 'Desktop',
-            userAgent: fingerprint.userAgent || '',
-            status,
-            details
-        });
-    } catch (err) {
-        console.error('recordLoginAttempt write failed:', err.message);
-    }
+    await persistLoginAttempt({
+        username,
+        ipAddress: fingerprint.ipAddress || 'Unknown',
+        location: fingerprint.location || 'Unknown Location',
+        os: fingerprint.os || 'Unknown OS',
+        browser: fingerprint.browser || 'Unknown Browser',
+        deviceType: fingerprint.deviceType || 'Desktop',
+        userAgent: fingerprint.userAgent || '',
+        status,
+        details
+    });
 
     if (!FAILURE_STATUSES.includes(status)) return;
 
@@ -156,19 +158,30 @@ async function recordLoginAttempt({ fingerprint = {}, username = 'unknown', stat
             const alreadyBanned = await findActiveBan(ip);
             if (!alreadyBanned) {
                 const expiresAt = new Date(Date.now() + BAN_HOURS * 60 * 60 * 1000);
-                await BlacklistedIP.findOneAndUpdate(
-                    { ip },
-                    {
-                        $set: {
-                            ip,
-                            reason: `Auto-blocked: ${failCount} failed admin logins within ${WINDOW_MINUTES} minutes`,
-                            source: 'auto',
-                            blockedBy: 'Intrusion Detection',
-                            blockedAt: new Date(),
-                            expiresAt
-                        }
+                await dualWrite(
+                    () => BlacklistedIP.findOneAndUpdate(
+                        { ip },
+                        {
+                            $set: {
+                                ip,
+                                reason: `Auto-blocked: ${failCount} failed admin logins within ${WINDOW_MINUTES} minutes`,
+                                source: 'auto',
+                                blockedBy: 'Intrusion Detection',
+                                blockedAt: new Date(),
+                                expiresAt
+                            }
+                        },
+                        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+                    ),
+                    async (saved) => {
+                        if (!saved) return;
+                        await getBlacklistedIpRepository().upsertFromMongo(saved);
                     },
-                    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+                    {
+                        model: 'BlacklistedIP',
+                        operation: 'create',
+                        mongoId: (saved) => (saved ? String(saved._id) : undefined)
+                    }
                 );
 
                 await logSecurityEvent({

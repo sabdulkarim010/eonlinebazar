@@ -13,6 +13,11 @@ const mongoose = require('mongoose');
 const BlacklistedIP = require('../../models/blacklistedIp');
 const { fingerprint } = require('../../utils/deviceParser');
 const { logSecurityEvent } = require('../../utils/securityLogger');
+const { dualWrite } = require('../../services/dualWriteService');
+
+function getBlacklistedIpRepository() {
+    return require('../../repositories/blacklistedIpRepository');
+}
 
 /* ==================================================================
    IP BLACKLIST MANAGER
@@ -61,19 +66,30 @@ exports.addBlacklist = async (req, res) => {
 
         const expiresAt = hours && hours > 0 ? new Date(Date.now() + hours * 60 * 60 * 1000) : null;
 
-        const doc = await BlacklistedIP.findOneAndUpdate(
-            { ip },
-            {
-                $set: {
-                    ip,
-                    reason,
-                    source: 'manual',
-                    blockedBy: req.admin.username || 'admin',
-                    blockedAt: new Date(),
-                    expiresAt
-                }
+        const doc = await dualWrite(
+            () => BlacklistedIP.findOneAndUpdate(
+                { ip },
+                {
+                    $set: {
+                        ip,
+                        reason,
+                        source: 'manual',
+                        blockedBy: req.admin.username || 'admin',
+                        blockedAt: new Date(),
+                        expiresAt
+                    }
+                },
+                { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+            ),
+            async (saved) => {
+                if (!saved) return;
+                await getBlacklistedIpRepository().upsertFromMongo(saved);
             },
-            { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+            {
+                model: 'BlacklistedIP',
+                operation: 'create',
+                mongoId: (saved) => (saved ? String(saved._id) : undefined)
+            }
         );
 
         await logSecurityEvent({
@@ -102,7 +118,20 @@ exports.removeBlacklist = async (req, res) => {
         if (!target) {
             return res.status(404).json({ success: false, message: 'Blacklist entry not found.' });
         }
-        await target.deleteOne();
+        await dualWrite(
+            () => target.deleteOne(),
+            async () => {
+                const repo = getBlacklistedIpRepository();
+                const pgRow = await repo.findByLegacyId(String(target._id))
+                    || await repo.findByIp(target.ip);
+                if (pgRow) await repo.remove(pgRow.id);
+            },
+            {
+                model: 'BlacklistedIP',
+                operation: 'delete',
+                mongoId: () => String(target._id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'IP Unblocked',

@@ -15,8 +15,8 @@
 
 const geoip = require('geoip-lite');
 const { getClientIp, getLocationFromIp } = require('../utils/deviceParser');
-const LoginAttempt = require('../models/loginAttempt');
 const { logSecurityEvent } = require('../utils/securityLogger');
+const { persistLoginAttempt } = require('../utils/loginAttemptLogger');
 
 /* Parse the .env allow-list once into an uppercase Set for O(1) lookups. */
 function getAllowedCountries() {
@@ -88,7 +88,7 @@ const geoFence = async (req, res, next) => {
         const username = (req.body && req.body.username) || 'unknown';
         const shownCountry = country || 'Unknown Region';
 
-        LoginAttempt.create({
+        persistLoginAttempt({
             ipAddress: ip,
             username,
             location,

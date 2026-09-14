@@ -1395,3 +1395,24 @@ DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 3 section added
 REFACTOR_MAP.md [DONE] this section
 README.md [DONE] dual-write model count + repository test count
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 3 note added
+
+# PostgreSQL migration — Stage 2 Step 3, Part 4: Dual-write for Security/Audit group: 2026-09-14
+
+backend/src/repositories/securityLogRepository.js [NEW] create, findAll; actor plain String
+backend/src/repositories/loginAttemptRepository.js [NEW] create, findAll
+backend/src/repositories/blacklistedIpRepository.js [NEW] upsertFromMongo, findByIp, findAll, remove; null expiresAt permanent ban
+backend/src/repositories/stockAlertRepository.js [NEW] create + stock_alert_items (LOW_STOCK / OUT_OF_STOCK)
+backend/src/utils/securityLogger.js [MOD] logSecurityEvent() — single shared SecurityLog dual-write point
+backend/src/utils/loginAttemptLogger.js [NEW] persistLoginAttempt() — shared LoginAttempt dual-write point
+backend/src/middlewares/adminSecurity.js [MOD] recordLoginAttempt, auto-ban, blacklist gate, rate-limit → persistLoginAttempt / dualWrite
+backend/src/middlewares/geoFencing.js [MOD] geo-block → persistLoginAttempt()
+backend/src/controllers/admin/blacklistController.js [MOD] addBlacklist, removeBlacklist via dualWrite()
+backend/src/services/stockAlertService.js [MOD] checkAndAlertLowStock StockAlert.create via dualWrite()
+tests/repositories/blacklistedIp.repository.test.js [NEW] null expiresAt verification
+tests/repositories/stockAlert.repository.test.js [NEW] kind discrimination verification
+backend/src/services/dualWriteService.js [UNCHANGED] reused as-is from Part 1
+backend/src/routes/** [UNCHANGED]
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 4 section added
+REFACTOR_MAP.md [DONE] this section
+README.md [DONE] dual-write model count + repository test count
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 4 note added
