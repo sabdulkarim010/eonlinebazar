@@ -6,6 +6,27 @@
 
 const Newsletter = require('../models/newsletter');
 const EmailCampaign = require('../models/emailCampaign');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getEmailCampaignRepository() {
+    return require('../repositories/emailCampaignRepository');
+}
+
+async function mirrorEmailCampaign(saved) {
+    await getEmailCampaignRepository().upsertFromMongo(saved);
+}
+
+async function saveCampaignDoc(campaign, operation) {
+    return dualWrite(
+        () => campaign.save(),
+        async (saved) => { await mirrorEmailCampaign(saved); },
+        {
+            model: 'EmailCampaign',
+            operation,
+            mongoId: (saved) => String(saved._id)
+        }
+    );
+}
 const User = require('../models/user');
 const Order = require('../models/order');
 const Settings = require('../models/Settings');
@@ -249,18 +270,26 @@ const createCampaign = async (req, res) => {
             if (!Number.isNaN(parsed.getTime())) scheduledAt = parsed;
         }
 
-        const campaign = await EmailCampaign.create({
-            title,
-            subject,
-            htmlContent,
-            targetTags,
-            targetSegment,
-            channel,
-            whatsappTemplate,
-            scheduledAt,
-            status: 'draft',
-            createdBy: req.admin?._id || req.admin?.id || null
-        });
+        const campaign = await dualWrite(
+            () => EmailCampaign.create({
+                title,
+                subject,
+                htmlContent,
+                targetTags,
+                targetSegment,
+                channel,
+                whatsappTemplate,
+                scheduledAt,
+                status: 'draft',
+                createdBy: req.admin?._id || req.admin?.id || null
+            }),
+            async (saved) => { await mirrorEmailCampaign(saved); },
+            {
+                model: 'EmailCampaign',
+                operation: 'create',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         res.status(201).json({ success: true, data: campaign, message: 'Campaign saved as draft' });
     } catch (error) {
@@ -301,7 +330,7 @@ const sendCampaign = async (req, res) => {
         const scheduledAt = campaign.scheduledAt ? new Date(campaign.scheduledAt) : null;
         if (scheduledAt && scheduledAt.getTime() > Date.now()) {
             campaign.status = 'scheduled';
-            await campaign.save();
+            await saveCampaignDoc(campaign, 'schedule');
             return res.json({
                 success: true,
                 message: 'Campaign scheduled for future delivery',
@@ -329,7 +358,7 @@ const sendCampaign = async (req, res) => {
             campaign.stats.totalRecipients = totalRecipients;
             campaign.stats.sent = 0;
             campaign.stats.failed = 0;
-            await campaign.save();
+            await saveCampaignDoc(campaign, 'send-start');
 
             for (let i = 0; i < subscribers.length; i += 10) {
                 const batch = subscribers.slice(i, i + 10);
@@ -340,7 +369,7 @@ const sendCampaign = async (req, res) => {
 
                 campaign.stats.sent = sentCount;
                 campaign.stats.failed = failedCount;
-                await campaign.save();
+                await saveCampaignDoc(campaign, 'send-progress');
 
                 if (i + 10 < subscribers.length) await sleep(1000);
             }
@@ -352,7 +381,7 @@ const sendCampaign = async (req, res) => {
             campaign.stats.totalRecipients = totalRecipients;
             campaign.stats.sent = 0;
             campaign.stats.failed = 0;
-            await campaign.save();
+            await saveCampaignDoc(campaign, 'send-start');
 
             if (channel === 'whatsapp') {
                 // WhatsApp broadcasts go through the gateway in one batched call.
@@ -374,7 +403,7 @@ const sendCampaign = async (req, res) => {
 
                     campaign.stats.sent = sentCount;
                     campaign.stats.failed = failedCount;
-                    await campaign.save();
+                    await saveCampaignDoc(campaign, 'send-progress');
 
                     if (i + 10 < recipients.length) await sleep(1000);
                 }
@@ -394,7 +423,7 @@ const sendCampaign = async (req, res) => {
 
                     campaign.stats.sent = sentCount;
                     campaign.stats.failed = failedCount;
-                    await campaign.save();
+                    await saveCampaignDoc(campaign, 'send-progress');
 
                     if (i + 10 < recipients.length) await sleep(1000);
                 }
@@ -405,7 +434,7 @@ const sendCampaign = async (req, res) => {
         campaign.sentAt = new Date();
         campaign.stats.sent = sentCount;
         campaign.stats.failed = failedCount;
-        await campaign.save();
+        await saveCampaignDoc(campaign, 'send-complete');
 
         res.json({
             success: true,
@@ -415,7 +444,17 @@ const sendCampaign = async (req, res) => {
     } catch (error) {
         console.error('Send email campaign error:', error);
         try {
-            await EmailCampaign.findByIdAndUpdate(req.params.id, { status: 'failed' });
+            await dualWrite(
+                () => EmailCampaign.findByIdAndUpdate(req.params.id, { status: 'failed' }, { new: true }),
+                async (saved) => {
+                    if (saved) await mirrorEmailCampaign(saved);
+                },
+                {
+                    model: 'EmailCampaign',
+                    operation: 'send-failed',
+                    mongoId: req.params.id
+                }
+            );
         } catch (_) { /* ignore */ }
         res.status(500).json({ success: false, message: 'Failed to send campaign' });
     }

@@ -6,6 +6,27 @@
 const ContactMessage = require('../models/ContactMessage');
 const { TICKET_STATUSES, TICKET_PRIORITIES } = require('../models/ContactMessage');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getContactMessageRepository() {
+    return require('../repositories/contactMessageRepository');
+}
+
+async function mirrorContactMessage(saved) {
+    await getContactMessageRepository().upsertFromMongo(saved);
+}
+
+async function saveContactMessage(doc, operation) {
+    return dualWrite(
+        () => doc.save(),
+        async (saved) => { await mirrorContactMessage(saved); },
+        {
+            model: 'ContactMessage',
+            operation,
+            mongoId: (saved) => String(saved._id)
+        }
+    );
+}
 const { sendInquiryReplyEmail } = require('../services/mailer');
 const { getStoreSettings } = require('../services/storeSettingsService');
 const { emitToAdmins } = require('../services/socketService');
@@ -38,7 +59,15 @@ const submitContactMessage = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Message must be at least 10 characters.' });
         }
 
-        const doc = await ContactMessage.create({ name, email, phone, subject, message });
+        const doc = await dualWrite(
+            () => ContactMessage.create({ name, email, phone, subject, message }),
+            async (saved) => { await mirrorContactMessage(saved); },
+            {
+                model: 'ContactMessage',
+                operation: 'create',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         emitToAdmins('new_message', {
             messageId: doc._id,
@@ -93,7 +122,7 @@ const markContactMessageRead = async (req, res) => {
         if (!doc) return res.status(404).json({ success: false, message: 'Message not found.' });
 
         doc.isRead = true;
-        await doc.save();
+        await saveContactMessage(doc, 'mark-read');
 
         res.status(200).json({ success: true, message: 'Marked as read.', data: doc.toAdminObject() });
     } catch (error) {
@@ -108,7 +137,7 @@ const markContactMessageUnread = async (req, res) => {
         if (!doc) return res.status(404).json({ success: false, message: 'Message not found.' });
 
         doc.isRead = false;
-        await doc.save();
+        await saveContactMessage(doc, 'mark-unread');
 
         res.status(200).json({ success: true, message: 'Marked as unread.', data: doc.toAdminObject() });
     } catch (error) {
@@ -119,8 +148,23 @@ const markContactMessageUnread = async (req, res) => {
 
 const deleteContactMessage = async (req, res) => {
     try {
-        const doc = await ContactMessage.findByIdAndDelete(req.params.id);
+        const doc = await ContactMessage.findById(req.params.id);
         if (!doc) return res.status(404).json({ success: false, message: 'Message not found.' });
+
+        await dualWrite(
+            () => doc.deleteOne(),
+            async () => {
+                const repo = getContactMessageRepository();
+                const pgRow = await repo.findByLegacyId(String(doc._id));
+                if (pgRow) await repo.remove(pgRow.id);
+            },
+            {
+                model: 'ContactMessage',
+                operation: 'delete',
+                mongoId: String(doc._id)
+            }
+        );
+
         res.status(200).json({ success: true, message: 'Message deleted.' });
     } catch (error) {
         console.error('Delete Contact Message Error:', error);
@@ -174,7 +218,7 @@ const replyContactMessage = async (req, res) => {
         if (doc.status === 'open') {
             doc.status = 'in_progress';
         }
-        await doc.save();
+        await saveContactMessage(doc, 'reply');
 
         await logSecurityEvent({
             actor: req.admin?.username || 'admin',
@@ -204,7 +248,7 @@ const assignTicket = async (req, res) => {
         if (!doc) return res.status(404).json({ success: false, message: 'Ticket not found.' });
 
         doc.assignedTo = assignedTo;
-        await doc.save();
+        await saveContactMessage(doc, 'assign');
 
         await logSecurityEvent({
             actor: req.admin?.username || 'admin',
@@ -259,7 +303,7 @@ const updateTicketStatus = async (req, res) => {
             doc.resolvedAt = null;
         }
 
-        await doc.save();
+        await saveContactMessage(doc, 'update-status');
 
         await logSecurityEvent({
             actor: req.admin?.username || 'admin',

@@ -7,6 +7,11 @@
 const crypto = require('crypto');
 const Newsletter = require('../models/newsletter');
 const { sendNewsletterWelcomeEmail } = require('../services/mailer');
+const { dualWrite } = require('../services/dualWriteService');
+
+function mirrorNewsletter(saved) {
+    return require('../repositories/newsletterRepository').upsertFromMongo(saved);
+}
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -62,7 +67,15 @@ const subscribe = async (req, res) => {
             });
         }
 
-        await subscriber.save();
+        await dualWrite(
+            () => subscriber.save(),
+            async (saved) => { await mirrorNewsletter(saved); },
+            {
+                model: 'Newsletter',
+                operation: 'subscribe',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         const baseUrl = getFrontendBaseUrl();
         const unsubscribeUrl = `${baseUrl}/api/newsletter/unsubscribe?token=${token}`;
@@ -104,7 +117,15 @@ const unsubscribe = async (req, res) => {
 
         subscriber.isActive = false;
         subscriber.unsubscribedAt = new Date();
-        await subscriber.save();
+        await dualWrite(
+            () => subscriber.save(),
+            async (saved) => { await mirrorNewsletter(saved); },
+            {
+                model: 'Newsletter',
+                operation: 'unsubscribe',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
 
         const baseUrl = getFrontendBaseUrl() || '/';
         res.type('html').send(buildUnsubscribePage(true, baseUrl));

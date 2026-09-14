@@ -6,6 +6,15 @@ const mongoose = require('mongoose');
 const Review = require('../models/review');
 const Product = require('../models/product');
 const { syncProductRating } = require('./reviewController');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getReviewRepository() {
+    return require('../repositories/reviewRepository');
+}
+
+async function mirrorReview(saved) {
+    await getReviewRepository().upsertFromMongo(saved);
+}
 
 const getAllReviews = async (req, res) => {
     try {
@@ -84,7 +93,19 @@ const moderateReview = async (req, res) => {
         const productId = review.productId;
 
         if (action === 'delete') {
-            await review.deleteOne();
+            await dualWrite(
+                () => review.deleteOne(),
+                async () => {
+                    const repo = getReviewRepository();
+                    const pgRow = await repo.findByLegacyId(String(review._id));
+                    if (pgRow) await repo.remove(pgRow.id);
+                },
+                {
+                    model: 'Review',
+                    operation: 'moderate-delete',
+                    mongoId: String(review._id)
+                }
+            );
             await syncProductRating(productId);
             return res.json({ success: true, message: 'Review deleted' });
         }
@@ -92,7 +113,15 @@ const moderateReview = async (req, res) => {
         review.isHidden = action === 'hide';
         review.adminNote = String(adminNote || '').trim();
         review.moderatedAt = new Date();
-        await review.save();
+        await dualWrite(
+            () => review.save(),
+            async (saved) => { await mirrorReview(saved); },
+            {
+                model: 'Review',
+                operation: action === 'hide' ? 'moderate-hide' : 'moderate-show',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
         await syncProductRating(productId);
 
         res.json({
@@ -114,7 +143,19 @@ const deleteReview = async (req, res) => {
         }
 
         const productId = review.productId;
-        await review.deleteOne();
+        await dualWrite(
+            () => review.deleteOne(),
+            async () => {
+                const repo = getReviewRepository();
+                const pgRow = await repo.findByLegacyId(String(review._id));
+                if (pgRow) await repo.remove(pgRow.id);
+            },
+            {
+                model: 'Review',
+                operation: 'delete',
+                mongoId: String(review._id)
+            }
+        );
         await syncProductRating(productId);
 
         res.json({ success: true, message: 'Review deleted' });

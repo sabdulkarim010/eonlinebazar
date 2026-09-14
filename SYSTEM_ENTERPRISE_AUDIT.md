@@ -2167,3 +2167,24 @@ See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 4.
 
 See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 5.
 
+## Stage 2 Step 3, Part 6 — Dual-Write: Marketing/Support Group — 2026-09-14
+
+**Status:** ✅ COMPLETE — twenty-two models now dual-write; MongoDB still authoritative for reads
+
+| Item | Status |
+|------|--------|
+| Newsletter — subscribe/unsubscribe wired | ✅ |
+| EmailCampaign — create + per-batch send stats wired | ✅ |
+| ContactMessage — 7 distinct write actions wired | ✅ |
+| Review — create/update/moderate/delete wired | ✅ |
+| Review FK resolution — null fallback + `[DUAL-WRITE-FK-MISSING]` log | ✅ tested |
+| User dual-write in Step 3 | ❌ not yet — Reviews may have null userId until backfill |
+| deleteSubscriber / campaign subscriber counter / testCampaign | ❌ out of scope (reported) |
+| dualWriteService.js modified | ❌ none (reused as-is) |
+| All READ/list endpoints unchanged | ✅ |
+| Main Jest suite (`npm test`) | ✅ 169/169 |
+| Neon repository tests (`npm run test:repositories`) | ✅ 144/144 |
+| Routes touched | ❌ none |
+
+See `DATABASE_MIGRATION_AUDIT.md` § STAGE 2 STEP 3, PART 6.
+

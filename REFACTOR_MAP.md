@@ -1436,3 +1436,22 @@ DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 5 section added
 REFACTOR_MAP.md [DONE] this section
 README.md [DONE] dual-write model count + repository test count (141)
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 5 note added
+
+# PostgreSQL migration — Stage 2 Step 3, Part 6: Dual-write for Marketing/Support group: 2026-09-14
+
+backend/src/repositories/newsletterRepository.js [NEW] create/update/unsubscribe/upsertFromMongo; findByEmail, findByLegacyId
+backend/src/repositories/emailCampaignRepository.js [NEW] create/update/upsertFromMongo; stats flatten; enum mappers
+backend/src/repositories/contactMessageRepository.js [NEW] create/update/upsertFromMongo; ticket status/priority enums
+backend/src/repositories/reviewRepository.js [NEW] create/update/upsertFromMongo; cross-model FK resolution with [DUAL-WRITE-FK-MISSING] log
+backend/src/controllers/newsletterController.js [MOD] subscribe/unsubscribe via dualWrite()
+backend/src/controllers/newsletterAdminController.js [MOD] createCampaign + sendCampaign per-batch stats dual-write
+backend/src/controllers/contactController.js [MOD] all 7 write actions via dualWrite()
+backend/src/controllers/reviewController.js [MOD] addOrUpdateReview + deleteOwnReview via dualWrite()
+backend/src/controllers/reviewAdminController.js [MOD] moderateReview + deleteReview via dualWrite()
+tests/repositories/review.repository.test.js [NEW] FK fallback when User/Product missing in Postgres
+backend/src/services/dualWriteService.js [UNCHANGED] reused as-is from Part 1
+backend/src/routes/** [UNCHANGED]
+DATABASE_MIGRATION_AUDIT.md [DONE] Stage 2 Step 3 Part 6 section added
+REFACTOR_MAP.md [DONE] this section
+README.md [DONE] dual-write model count + repository test count (144)
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 2 Step 3 Part 6 note added

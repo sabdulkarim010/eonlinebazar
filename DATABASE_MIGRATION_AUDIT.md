@@ -1830,4 +1830,81 @@ status is set to terminated.
 | `npm test` (Jest) | **169/169** pass |
 | `npm run test:repositories` | **141/141** pass (140 prior + 1 new attendance legacyId upsert test) |
 
+## STAGE 2 STEP 3, PART 6 — Dual-Write: Marketing/Support Group — 2026-09-14
+
+Extends dual-write to the Marketing/Support cutover group (Stage 4 position 6 of 8):
+**Newsletter, EmailCampaign, ContactMessage, Review**. Same `dualWriteService.js`
+helper unchanged. MongoDB remains authoritative for all reads; Postgres side-writes
+are best-effort and failure-isolated.
+
+### Repository files — created in Part 6
+
+| Model | Repository file | legacyId / findByLegacyId | Notes |
+|---|---|---|---|
+| **Newsletter** | `newsletterRepository.js` | ✅ | `upsertFromMongo()` keyed by unique email |
+| **EmailCampaign** | `emailCampaignRepository.js` | ✅ | `stats{}` → `statsTotalRecipients` / `statsSent` / `statsFailed` on create + update |
+| **ContactMessage** | `contactMessageRepository.js` | ✅ | `status`/`priority` enums; `assignedTo` stays plain username String |
+| **Review** | `reviewRepository.js` | ✅ | Cross-model FK resolution for User + Product with null fallback |
+
+Routes were **not** modified. `dualWriteService.js` was **not** modified.
+
+### Controller functions wired (write paths only)
+
+| Model | Controller | Wired functions |
+|---|---|---|
+| **Newsletter** | `newsletterController.js` | `subscribe`, `unsubscribe` (token lookup → Mongo save → Postgres upsert by legacyId) |
+| **EmailCampaign** | `newsletterAdminController.js` | `createCampaign`, `sendCampaign` (all `campaign.save()` calls + error-path `status: failed`) |
+| **ContactMessage** | `contactController.js` | `submitContactMessage`, `markContactMessageRead`, `markContactMessageUnread`, `deleteContactMessage`, `replyContactMessage`, `assignTicket`, `updateTicketStatus` |
+| **Review** | `reviewController.js` | `addOrUpdateReview` (create + update paths), `deleteOwnReview` |
+| **Review** | `reviewAdminController.js` | `moderateReview` (hide/show + delete), `deleteReview` |
+
+### EmailCampaign stats-update wiring pattern — per-increment (not snapshot-only)
+
+After reading `sendCampaign()` in `newsletterAdminController.js`, the actual write
+pattern saves the campaign document **after every batch of 10 recipients** with
+incrementally updated `stats.sent` / `stats.failed` counters (plus start and
+complete saves). Dual-write mirrors **each** `campaign.save()` via
+`saveCampaignDoc()` → `upsertFromMongo()` — matching the real per-batch pattern
+rather than wiring only a final snapshot (which would miss intermediate progress
+states in Postgres during long sends).
+
+### Review cross-model FK resolution — null fallback + log
+
+Review is the **first** Stage 2 Step 3 model to resolve FKs against other models'
+dual-write state. `reviewRepository.resolveUserId()` / `resolveProductId()` look
+up Postgres rows by `legacyId` (Product also tries `productId` field). If the
+referenced User or Product is not yet in Postgres (User dual-write is **not**
+wired in Step 3 yet — repository-only from Step 2 Part 3), the FK is left **null**
+and a reconciliation log is emitted — the Mongo write and API response are unaffected.
+
+Example log format when User is missing:
+
+```
+[DUAL-WRITE-FK-MISSING] {
+  timestamp: '2026-09-14T05:28:19.597Z',
+  model: 'Review',
+  field: 'userId',
+  mongoRefId: '507f1f77bcf86cd799439011',
+  message: 'User not yet in Postgres'
+}
+```
+
+`legacyProductId` and `legacyOrderId` are always populated from Mongo regardless
+of FK resolution success.
+
+### Uncovered write actions (reported, not wired)
+
+| Location | Action | Reason |
+|---|---|---|
+| `newsletterAdminController.js` | `deleteSubscriber` | Admin hard-delete — not in Part 6 scope |
+| `newsletterAdminController.js` | `sendCampaignEmail` → `subscriber.save()` | Newsletter delivery counter side-effect during campaign send |
+| `newsletterAdminController.js` | `testCampaign` | Test email only — no campaign document write |
+
+### Test results
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **169/169** pass |
+| `npm run test:repositories` | **144/144** pass (141 prior + 3 new Review FK fallback tests) |
+
 

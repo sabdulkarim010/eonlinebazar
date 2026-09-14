@@ -13,6 +13,15 @@ const Order = require('../models/order');
 const Product = require('../models/product');
 const cloudinary = require('cloudinary').v2;
 const streamifier = require('streamifier');
+const { dualWrite } = require('../services/dualWriteService');
+
+function getReviewRepository() {
+    return require('../repositories/reviewRepository');
+}
+
+async function mirrorReview(saved) {
+    await getReviewRepository().upsertFromMongo(saved);
+}
 
 // Cloudinary কনফিগারেশন
 cloudinary.config({
@@ -167,7 +176,15 @@ exports.addOrUpdateReview = async (req, res) => {
                 existingReview.photo = photoUrl; 
             }
             
-            await existingReview.save();
+            await dualWrite(
+                () => existingReview.save(),
+                async (saved) => { await mirrorReview(saved); },
+                {
+                    model: 'Review',
+                    operation: 'update',
+                    mongoId: (saved) => String(saved._id)
+                }
+            );
             await syncProductRating(productId);
 
             return res.status(200).json({ 
@@ -186,7 +203,15 @@ exports.addOrUpdateReview = async (req, res) => {
                 photo: photoUrl,
                 isSandbox: !!order.isSandbox
             });
-            await newReview.save();
+            await dualWrite(
+                () => newReview.save(),
+                async (saved) => { await mirrorReview(saved); },
+                {
+                    model: 'Review',
+                    operation: 'create',
+                    mongoId: (saved) => String(saved._id)
+                }
+            );
             await syncProductRating(productId);
 
             return res.status(201).json({ 
@@ -239,7 +264,19 @@ exports.deleteOwnReview = async (req, res) => {
         }
 
         const productId = review.productId;
-        await review.deleteOne();
+        await dualWrite(
+            () => review.deleteOne(),
+            async () => {
+                const repo = getReviewRepository();
+                const pgRow = await repo.findByLegacyId(String(review._id));
+                if (pgRow) await repo.remove(pgRow.id);
+            },
+            {
+                model: 'Review',
+                operation: 'delete',
+                mongoId: String(review._id)
+            }
+        );
         await syncProductRating(productId);
 
         res.json({ success: true, message: 'Review deleted.' });
