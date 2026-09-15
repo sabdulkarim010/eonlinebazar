@@ -58,35 +58,31 @@ function categoryToMongoShape(pgRow, maps, options = {}) {
   const { pgIdToLegacy, pgIdToRow } = maps || buildCategoryIdMaps([pgRow]);
   const _id = mongoIdFromRow(pgRow);
 
-  let parentCategory = null;
+  let parentCategory;
   const parentPgId = pgRow.parentCategoryId ?? pgRow.parentCategory ?? null;
   if (parentPgId) {
     if (options.populateParent) {
       const parentRow = pgIdToRow.get(parentPgId);
-      parentCategory = parentRow
-        ? { _id: mongoIdFromRow(parentRow), name: parentRow.name }
-        : null;
+      if (parentRow) {
+        parentCategory = { _id: mongoIdFromRow(parentRow), name: parentRow.name };
+      }
     } else {
-      parentCategory = pgIdToLegacy.get(parentPgId) || null;
+      const parentLegacy = pgIdToLegacy.get(parentPgId);
+      if (parentLegacy) parentCategory = parentLegacy;
     }
   }
 
-  return {
+  const out = {
     _id,
     name: pgRow.name,
     slug: pgRow.slug,
     description: pgRow.description ?? '',
-    imageUrl: pgRow.imageUrl ?? null,
-    iconUrl: pgRow.iconUrl ?? null,
-    bannerImageUrl: pgRow.bannerImageUrl ?? null,
     color: pgRow.color ?? '#f97316',
-    parentCategory,
     isActive: pgRow.isActive !== false,
     isFeatured: !!pgRow.isFeatured,
     showInNavbar: pgRow.showInNavbar !== false,
     showInHomepage: !!pgRow.showInHomepage,
     position: pgRow.position ?? 0,
-    customCashback: decimalToNumber(pgRow.customCashback),
     metaTitle: pgRow.metaTitle ?? '',
     metaDescription: pgRow.metaDescription ?? '',
     productCount: pgRow.productCount ?? 0,
@@ -94,24 +90,35 @@ function categoryToMongoShape(pgRow, maps, options = {}) {
     updatedAt: pgRow.updatedAt,
     __v: MONGOOSE_DOC_VERSION
   };
+
+  // Tier 1 — omit keys Mongo .lean() omits when unset (null / no parent)
+  if (pgRow.imageUrl != null) out.imageUrl = pgRow.imageUrl;
+  if (pgRow.iconUrl != null) out.iconUrl = pgRow.iconUrl;
+  if (pgRow.bannerImageUrl != null) out.bannerImageUrl = pgRow.bannerImageUrl;
+  const customCashback = decimalToNumber(pgRow.customCashback);
+  if (customCashback != null) out.customCashback = customCashback;
+  if (parentCategory !== undefined) out.parentCategory = parentCategory;
+
+  return out;
 }
 
 function categoryTreeSelectFields(cat) {
-  return {
+  const out = {
     _id: cat._id,
     name: cat.name,
     slug: cat.slug,
     description: cat.description,
-    imageUrl: cat.imageUrl,
-    iconUrl: cat.iconUrl,
     color: cat.color,
-    parentCategory: cat.parentCategory,
     position: cat.position,
     productCount: cat.productCount,
     showInNavbar: cat.showInNavbar,
     showInHomepage: cat.showInHomepage,
     isFeatured: cat.isFeatured
   };
+  if (cat.imageUrl != null) out.imageUrl = cat.imageUrl;
+  if (cat.iconUrl != null) out.iconUrl = cat.iconUrl;
+  if (cat.parentCategory != null) out.parentCategory = cat.parentCategory;
+  return out;
 }
 
 function matchCategoryBySlugParam(categories, rawParam) {

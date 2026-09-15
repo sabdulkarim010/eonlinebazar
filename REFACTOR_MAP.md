@@ -1609,3 +1609,11 @@ Result: npm test 183/183; test:repositories 157/157; re-verification — Supplie
 DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 1 CLEANUP section added
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 4 Step 1 cleanup note added
 README.md [DONE] Stage 4 cleanup note
+
+# PostgreSQL migration — Stage 4 Step 1 close-out: Option C shape + productCount + legacy exceptions — 2026-09-15
+
+backend/src/services/readShapeHelpers.js [MOD] Category Tier 1 omit-null/absent-parent; categoryTreeSelectFields aligned
+backend/scripts/backfill/syncCategoryProductCount.js [NEW] one-time Category productCount Mongo→Postgres sync (Fashion 0→9; 5 with Mongo key, 9 without)
+tests/services/readShapeHelpers.test.js [MOD] expect omitted customCashback when null
+Result: Supplier/Warehouse/Designation exact PASS; Category/Brand ACCEPTED with documented legacy exceptions; npm test 183/183; test:repositories 157/157
+DATABASE_MIGRATION_AUDIT.md [DONE] Option C section + Step 1 CLOSED statement + customCashbackPercentage follow-up flag

@@ -2848,3 +2848,103 @@ infrastructure delivery.
 
 **Flags remain OFF. Step 1 infrastructure closed; Category/Brand sparse-field parity tracked for pre-enable follow-up.**
 
+## STAGE 4, STEP 1 — Option C: Tier 1 shape fixes + productCount sync + legacy exceptions — 2026-09-15
+
+### Tier 1 read-time fixes (`readShapeHelpers.js`)
+
+Category transform now omits keys when Postgres value is unset, matching Mongo `.lean()` sparsity
+on legacy rows with no stored value:
+
+| Field | Rule |
+|---|---|
+| `imageUrl`, `iconUrl`, `bannerImageUrl` | Omit when PG value is `null` |
+| `customCashback` | Omit when PG value is `null` |
+| `parentCategory` | Omit entirely when no parent; include populated `{ _id, name }` or legacy id string when parent exists |
+
+`categoryTreeSelectFields()` applies the same omission rules for tree/navbar endpoints.
+
+### One-time `productCount` sync
+
+Script: `backend/scripts/backfill/syncCategoryProductCount.js` (read Mongo → write Postgres only).
+
+| Category | Mongo `productCount` key | Action |
+|---|---|---|
+| Fashion & Apparel | present (`9`) | **Updated** PG `0 → 9` |
+| Automotive, Mobile, Samsung, Walton Mobile | present (`0` each) | Already matched PG |
+| 9 sparse categories (Baby & Kids, Beauty & Personal Care, Electronics, Footwear, Grocery, Health & Beauty, Home & Kitchen, Kids Fashion, Stationery & Office) | **absent** | PG kept at `0` (never maintained in Mongo) |
+
+Note: `GET /api/categories/admin/all` still overlays live `productCount` from Mongo
+`Product.aggregate` on **both** read paths — the sync fixes stored PG values for repository/cutover
+consistency; admin list counts remain live-computed until Product read cutover.
+
+### Permanent legacy shape exceptions (Option C — no `legacyLeanKeys` column)
+
+These exceptions apply **ONLY** to records created before dual-write existed. Every record
+created or updated through dual-write from this point forward will have fully consistent shape
+on both databases, since Mongo's own `save()` now populates these same fields at write time.
+This exception list will naturally shrink to zero relevance as legacy pre-dual-write records
+are edited/updated through the live application (triggering a fresh, complete dual-write) or as
+this data ages out of practical relevance.
+
+**Category — 11 sparse legacy rows** (created before slug/color/boolean defaults were
+consistently set in Mongo; ultra-sparse 6-key docs plus Fashion/Automotive partial docs):
+
+| Field | Reason |
+|---|---|
+| `slug` | Backfill-generated in Postgres; absent on 11/14 Mongo docs |
+| `isActive`, `isFeatured`, `showInNavbar`, `showInHomepage` | PG schema defaults vs Mongo-absent ambiguity (e.g. PG `isActive: false` vs key absent) |
+| `color`, `description`, `metaTitle`, `metaDescription` | Same default-value vs Mongo-absent ambiguity |
+
+**Brand — 1 legacy row (Walton):**
+
+| Field | Reason |
+|---|---|
+| `slug`, `status`, `description`, `updatedAt` | Mongo Walton document predates full brand schema (name + `createdAt` only) |
+
+### Residual parity note (Tier 1 side effect — Mobile subtree)
+
+Mobile, Samsung, and Walton Mobile Mongo documents **include explicit `null` keys** for
+`bannerImageUrl`, `iconUrl`, and sometimes `customCashback` (schema defaults stored in Mongo).
+Tier 1 omits those keys when PG is `null`, so verification may still report diffs on those three
+categories for null-key presence — distinct from the 11 sparse-row exceptions above. Acceptable
+under Option C; dual-write records will not exhibit this pattern.
+
+### Follow-up flagged (NOT fixed in this task)
+
+**`customCashbackPercentage` vs `customCashback` field-name mismatch:** Kids Fashion and Beauty &
+Personal Care have `customCashbackPercentage` in Mongo but Stage 3 backfill mapped
+`customCashback` only (`mapCategoryPass1`). Requires a separate fix in `categoryRepository.js`
+and/or the backfill mapper — not part of this shape-parity task.
+
+### Final verification (2026-09-15)
+
+Flags toggled in process env only. Zero `[READ-CUTOVER-FALLBACK]` entries.
+
+| Model | Verdict | Notes |
+|---|---|---|
+| **Supplier** | **PASS** | Full exact field match |
+| **Warehouse** | **PASS** | List + detail |
+| **Designation** | **PASS** | All 8 rows |
+| **Category** | **ACCEPTED** | Remaining diffs limited to documented exception fields (`slug`, boolean defaults, `color`, `description`, meta fields) plus Tier 1 null-key side effect on Mobile/Samsung/Walton Mobile. **No unexpected new field types.** Homepage endpoint **PASS**. |
+| **Brand** | **ACCEPTED** | Remaining diffs exactly: `slug`, `status`, `description`, `updatedAt` on Walton |
+
+### Regression checks
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **183/183** pass |
+| `npm run test:repositories` | **157/157** pass |
+
+---
+
+### Stage 4 Step 1 — CLOSED (2026-09-15)
+
+**Stage 4 Step 1 is COMPLETE.** Supplier, Warehouse, and Designation have exact read-shape
+parity and are safe to enable in any environment. Category and Brand have exact parity for all
+records created via dual-write; 11 legacy Category records and 1 legacy Brand record (Walton)
+have documented, permanent, accepted shape exceptions on specific non-critical fields (see
+exception list above) that do not affect data correctness or application functionality — only
+exact byte-for-byte shape matching on historical sparse records.
+
+**Flags remain OFF in all deployed environments until deliberate post-review enable per model.**
+

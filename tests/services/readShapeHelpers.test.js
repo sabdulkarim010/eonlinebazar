@@ -48,7 +48,7 @@ describe('readShapeHelpers — group 1 models', () => {
     const mapped = mapCategoriesToMongo(rows);
     expect(mapped[1]._id).toBe(LEGACY);
     expect(mapped[1].parentCategory).toBe(PARENT_LEGACY);
-    expect(mapped[1].customCashback).toBe(null);
+    expect(mapped[1]).not.toHaveProperty('customCashback');
     expect(mapped[0].customCashback).toBe(5.5);
     expect(mapped[1]).not.toHaveProperty('id');
     expect(mapped[1]).not.toHaveProperty('legacyId');
