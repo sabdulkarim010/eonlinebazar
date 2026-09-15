@@ -2807,3 +2807,44 @@ fields) — not by Postgres read failures.
 | `npm test` (Jest) | **183/183** pass |
 | `npm run test:repositories` | **157/157** pass |
 
+## STAGE 4, STEP 1 — `__v` read-shape fix — 2026-09-15
+
+Final read-shape gap from cleanup re-verification: Postgres transforms omitted Mongoose's `__v`
+key present on every `.lean()` document.
+
+### Change
+
+`readShapeHelpers.js` — all group-1 transforms now emit `__v: 0` (`MONGOOSE_DOC_VERSION`).
+Verified against live Mongo (2026-09-15): Category×14, Brand×1, Warehouse×1, Designation×8
+all have `__v === 0`; Supplier collection empty (no production rows to sample).
+
+Applied to: `categoryToMongoShape`, `brandToMongoShape`, `supplierToMongoShape`,
+`purchaseOrderToMongoShape`, `warehouseToMongoShape`, `designationToMongoShape`.
+
+### Re-verification after `__v` fix
+
+Same field-by-field endpoint comparison (flags in process env only; zero fallbacks).
+
+| Model | Verdict | Notes |
+|---|---|---|
+| **Supplier** | **PASS** | All endpoints match |
+| **Warehouse** | **PASS** | List + detail — full shape parity |
+| **Designation** | **PASS** | All 8 rows match |
+| **Category** | **FAIL** | `__v` resolved. Remaining: PG emits backfill/default fields absent on sparse Mongo docs (`slug`, `iconUrl`, `imageUrl`, `bannerImageUrl`, `customCashback`, `parentCategory`); `productCount` drift (deferred — Product group not cut over). Homepage endpoint **PASS**. |
+| **Brand** | **FAIL** | `__v` resolved. Remaining: PG backfill fields (`slug`, `status`, `description`) absent on sparse Mongo Walton doc; Mongo has no `updatedAt`. |
+
+**Stage 4 Step 1 status:** Framework + cleanup + `__v` shape fix **COMPLETE**. Supplier,
+Warehouse, and Designation achieve **full endpoint shape parity** today. Category and Brand
+require a follow-up sparse-field shape pass (omit PG-only keys when Mongo doc lacks them, and
+`productCount` once Product reads cut over) before flag enable — not blockers for Step 1
+infrastructure delivery.
+
+### Regression checks
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **183/183** pass |
+| `npm run test:repositories` | **157/157** pass |
+
+**Flags remain OFF. Step 1 infrastructure closed; Category/Brand sparse-field parity tracked for pre-enable follow-up.**
+

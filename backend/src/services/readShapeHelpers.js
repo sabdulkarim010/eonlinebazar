@@ -37,6 +37,9 @@ function decimalToNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Mongoose __v on .lean() docs — verified 2026-09-15: all group-1 production rows are 0. */
+const MONGOOSE_DOC_VERSION = 0;
+
 // ── Category ────────────────────────────────────────────────────────────────
 
 function buildCategoryIdMaps(rows) {
@@ -88,7 +91,8 @@ function categoryToMongoShape(pgRow, maps, options = {}) {
     metaDescription: pgRow.metaDescription ?? '',
     productCount: pgRow.productCount ?? 0,
     createdAt: pgRow.createdAt,
-    updatedAt: pgRow.updatedAt
+    updatedAt: pgRow.updatedAt,
+    __v: MONGOOSE_DOC_VERSION
   };
 }
 
@@ -150,7 +154,8 @@ function brandToMongoShape(pgRow) {
     description: pgRow.description ?? '',
     status: pgRow.status === 'INACTIVE' || pgRow.status === 'inactive' ? 'inactive' : 'active',
     createdAt: pgRow.createdAt,
-    updatedAt: pgRow.updatedAt
+    updatedAt: pgRow.updatedAt,
+    __v: MONGOOSE_DOC_VERSION
   };
 }
 
@@ -174,7 +179,8 @@ function supplierToMongoShape(pgRow) {
     suppliedProducts: pgRow.suppliedProducts ?? [],
     createdBy: pgRow.createdById ?? pgRow.createdBy ?? null,
     createdAt: pgRow.createdAt,
-    updatedAt: pgRow.updatedAt
+    updatedAt: pgRow.updatedAt,
+    __v: MONGOOSE_DOC_VERSION
   };
   if (pgRow.purchaseOrders) {
     out.purchaseOrders = pgRow.purchaseOrders.map(purchaseOrderToMongoShape);
@@ -191,7 +197,8 @@ function purchaseOrderToMongoShape(pgPo) {
     totalCost: decimalToNumber(pgPo.totalCost) ?? pgPo.totalCost,
     expectedDate: pgPo.expectedDate ?? null,
     receivedDate: pgPo.receivedDate ?? null,
-    createdAt: pgPo.createdAt
+    createdAt: pgPo.createdAt,
+    __v: MONGOOSE_DOC_VERSION
   };
 }
 
@@ -214,7 +221,8 @@ function warehouseToMongoShape(pgRow) {
     status: pgRow.status === 'INACTIVE' || pgRow.status === 'inactive' ? 'inactive' : 'active',
     createdBy: pgRow.createdById ?? pgRow.createdBy ?? null,
     createdAt: pgRow.createdAt,
-    updatedAt: pgRow.updatedAt
+    updatedAt: pgRow.updatedAt,
+    __v: MONGOOSE_DOC_VERSION
   };
 }
 
@@ -234,7 +242,8 @@ function designationToMongoShape(pgRow) {
     isActive: pgRow.isActive !== false,
     createdBy: pgRow.createdBy ?? '',
     createdAt: pgRow.createdAt,
-    updatedAt: pgRow.updatedAt
+    updatedAt: pgRow.updatedAt,
+    __v: MONGOOSE_DOC_VERSION
   };
   if (pgRow.employeeCount !== undefined) {
     out.employeeCount = pgRow.employeeCount;

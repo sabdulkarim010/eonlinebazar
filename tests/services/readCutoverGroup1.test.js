@@ -101,7 +101,8 @@ describe('read cutover group 1 — Postgres path shape parity (mocked)', () => {
       description: 'Electronics',
       status: 'active',
       createdAt: new Date('2024-06-01'),
-      updatedAt: new Date('2024-06-02')
+      updatedAt: new Date('2024-06-02'),
+      __v: 0
     };
 
     brandRepo.findAll.mockResolvedValue([{
