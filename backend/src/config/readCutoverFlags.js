@@ -20,7 +20,11 @@ const GROUP_ENV = {
   navbarlink: 'READ_PG_NAVBARLINK',
   footersettings: 'READ_PG_FOOTERSETTINGS',
   banner: 'READ_PG_BANNER',
-  settings: 'READ_PG_SETTINGS'
+  settings: 'READ_PG_SETTINGS',
+  securitylog: 'READ_PG_SECURITYLOG',
+  loginattempt: 'READ_PG_LOGINATTEMPT',
+  blacklistedip: 'READ_PG_BLACKLISTEDIP',
+  stockalert: 'READ_PG_STOCKALERT'
 };
 
 /**

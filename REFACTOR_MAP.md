@@ -1610,6 +1610,31 @@ DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 1 CLEANUP section added
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 4 Step 1 cleanup note added
 README.md [DONE] Stage 4 cleanup note
 
+# PostgreSQL migration — Stage 4 Step 3: Read-cutover Security/Audit group — 2026-09-15
+
+backend/src/config/readCutoverFlags.js [MOD] READ_PG_SECURITYLOG/LOGINATTEMPT/BLACKLISTEDIP/STOCKALERT (default OFF)
+backend/src/services/readShapeHelpers.js [MOD] securityLog, loginAttempt, blacklistedIp, stockAlert toMongoShape (+ kind reassembly)
+backend/src/services/securityAuditReadService.js [NEW] centralized routed reads for security/audit group
+backend/src/repositories/securityLogRepository.js [MOD] count, distinctActors, staff audit groupBy helpers; distinctActors Prisma fix
+backend/src/repositories/loginAttemptRepository.js [MOD] count, aggregateTopFailedIps, buildWhere
+backend/src/repositories/blacklistedIpRepository.js [MOD] findActiveByIp, countActive
+backend/src/repositories/stockAlertRepository.js [MOD] findPaginated, findByLegacyId, countAll
+backend/src/middlewares/adminSecurity.js [MOD] hot-path findActiveBan + intrusion count via securityAuditReadService
+backend/src/controllers/admin/blacklistController.js [MOD] getBlacklist routed read
+backend/src/controllers/admin/loginHistoryController.js [MOD] routed read
+backend/src/controllers/admin/securityMonitorController.js [MOD] routed read
+backend/src/controllers/admin/activityFeedController.js [MOD] routed read
+backend/src/controllers/admin/staffAuditController.js [MOD] routed read
+backend/src/controllers/admin/adminProfileController.js [MOD] getSecurityLogs routed read
+backend/src/controllers/admin/enterpriseSummaryController.js [MOD] security log count routed read
+backend/src/services/emergencyService.js [MOD] blocked IP / login attempt / security log reads routed
+tests/services/readCutoverGroup3.test.js [NEW] 6 tests — shape parity, null expiresAt, kind reassembly, flag-ON mocks
+.env.example [MOD] Stage 4 Step 3 READ_PG_* flags documented (commented, default false)
+Result: npm test 204/204; test:repositories 157/157; verification — LoginAttempt PASS, BlacklistedIP PASS; SecurityLog DATA PARITY FAIL (post-backfill dual-write gaps); StockAlert repo-level DATA PARITY FAIL (no HTTP read endpoint)
+DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 3 section added
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 4 Step 3 note added
+README.md [DONE] test count 204
+
 # PostgreSQL migration — Stage 4 Step 2 cleanup: Data sync + live threshold bug fix — 2026-09-15
 
 backend/src/utils/announcementSettings.js [MOD] resolveFreeShippingThreshold — null/undefined threshold falls through to freeShippingMinAmount (live Mongo bug fix)

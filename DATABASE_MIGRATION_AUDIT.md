@@ -3084,3 +3084,74 @@ All three previously failing CMS/Settings models are **data-sync complete**. Nav
 were already PASS. Settings delivery/announcement parity confirmed after live bug fix. Flags remain
 **OFF** until deliberate per-environment enable.
 
+---
+
+## STAGE 4, STEP 3 — Read Cutover: Security/Audit Group — 2026-09-15
+
+Stage 4 Step 3 extends read-cutover to the Security/Audit dual-write group from Stage 2 Step 3
+Part 4: **SecurityLog**, **LoginAttempt**, **BlacklistedIP**, **StockAlert**. All new flags default
+**OFF**. Writes unchanged (dual-write). Postgres read failure falls back to Mongo via `routedRead()`.
+
+### New feature flags (all default OFF)
+
+| Env var | Group key | Wired read surfaces |
+|---|---|---|
+| `READ_PG_SECURITYLOG` | `securitylog` | Admin security logs (`GET /api/admin/logs`); activity feed; staff audit list + detail; enterprise summary security count; emergency recent logs |
+| `READ_PG_LOGINATTEMPT` | `loginattempt` | Login history; rate-limit stats top offenders; intrusion-detection failure counter (hot path); emergency status counts |
+| `READ_PG_BLACKLISTEDIP` | `blacklistedip` | **Hot path:** `checkBlacklist` middleware (`findActiveBanByIp`); admin blacklist list; rate-limit stats active bans; emergency blocked-IP reads |
+| `READ_PG_STOCKALERT` | `stockalert` | Repository read path only — **no HTTP list endpoint exists today** (write-only via `stockAlertService.checkAndAlertLowStock()`); `findPaginated` + kind reassembly wired for future dashboard |
+
+Documented in `.env.example` (commented).
+
+### Implementation summary
+
+| File | Change |
+|---|---|
+| `readCutoverFlags.js` | Four new group keys |
+| `readShapeHelpers.js` | `securityLogToMongoShape`, `loginAttemptToMongoShape`, `blacklistedIpToMongoShape`, `stockAlertToMongoShape` (LOW_STOCK / OUT_OF_STOCK child reassembly; `expiresAt: null` preserved) |
+| `securityAuditReadService.js` | **NEW** — centralized routed reads for all four models |
+| Repositories | Extended read helpers: pagination/count/aggregate (`securityLogRepository`, `loginAttemptRepository`, `blacklistedIpRepository.findActiveByIp`, `stockAlertRepository.findPaginated`) |
+| Controllers / middleware | `adminSecurity.js` (hot-path ban + intrusion count), `blacklistController`, `loginHistoryController`, `securityMonitorController`, `activityFeedController`, `staffAuditController`, `adminProfileController`, `enterpriseSummaryController`, `emergencyService` — **reads only** |
+
+### BlacklistedIP hot-path performance
+
+`findActiveByIp()` → `prisma.blacklistedIp.findUnique({ where: { ip } })`. Schema declares **`ip String @unique`** plus `@@index([expiresAt])`. Single indexed lookup — no full-table scan. Expiry filter applied in application code after fetch (same semantics as Mongo `$or: [{ expiresAt: null }, { expiresAt: { $gt: now } }]`).
+
+### SecurityLog pagination
+
+Postgres path uses `securityLogRepository.findAll({ limit, offset, …filters })` with `orderBy: { createdAt: 'desc' }`, `take`, `skip` — mirrors Mongoose `.sort({ createdAt: -1 }).skip().limit()`. Staff audit uses `groupBy` + per-actor resource breakdown (not full-table load). Activity feed / admin logs paginate identically to Mongo.
+
+### StockAlert kind reassembly
+
+`stockAlertToMongoShape()` splits `stock_alert_items` by `kind`: `LOW_STOCK` → `lowStockProducts[]` (stock/threshold populated); `OUT_OF_STOCK` → `outOfStockProducts[]` (no stock/threshold keys). `alertsSent{}` rebuilt from three parent booleans. Verified in `tests/services/readCutoverGroup3.test.js` + existing `stockAlert.repository.test.js`.
+
+### Bug fixed during Step 3
+
+`securityLogRepository.distinctActors()` — invalid Prisma `actor: { not: null }` combined with `notIn` caused Postgres throws on activity-feed reads; fixed to `notIn` only (zero fallbacks after fix).
+
+### Verification (flags in process env only — 2026-09-15)
+
+Script: `scripts/verify-read-cutover-group3.local.js` (local, not committed).
+
+| Model | HTTP verdict | Notes |
+|---|---|---|
+| **LoginAttempt** | **PASS** | 2/2 — login history + rate-limit stats exact match |
+| **BlacklistedIP** | **PASS** | 1/1 — admin blacklist list exact match |
+| **SecurityLog** | **DATA PARITY FAIL** | 2/4 HTTP endpoints exact (**staff-audit** list + detail **PASS**); **`GET /api/admin/logs`** and **`GET /api/admin/activity-feed`** differ on first-page rows — recent Mongo SecurityLog rows (e.g. courier auto-sync, login events from 2026-09-15) **missing in Postgres** because dual-write side-writes failed (`Cannot use import statement outside a module` on Prisma client load during write path). Backfilled historical rows present; pagination logic matches. **Requires data sync investigation** (same playbook as Steps 1–2) before enable — not a read-shape bug. |
+| **StockAlert** | **DATA PARITY FAIL (repo-level)** | No HTTP read surface. Sample of 5 most recent Mongo alert runs **not found in Postgres** by `legacyId` — same dual-write failure class as SecurityLog for cron-created rows. Kind reassembly logic **PASS** in unit/repository tests. |
+
+**Zero `[READ-CUTOVER-FALLBACK]` entries** after `distinctActors` fix.
+
+### Step 5 — data drift (investigation only; cleanup NOT executed)
+
+Per Steps 1–2 playbook: Postgres-only sync/backfill of missing SecurityLog + StockAlert rows from Mongo (post-backfill dual-write gaps) should be investigated and confirmed before flag enable. LoginAttempt and BlacklistedIP are **ready for review** at HTTP level today.
+
+### Regression checks
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **204/204** pass (+6 Step 3 tests) |
+| `npm run test:repositories` | **157/157** pass |
+
+**All `READ_PG_*` flags remain OFF until deliberate per-environment enable.**
+

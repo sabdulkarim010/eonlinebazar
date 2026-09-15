@@ -4,11 +4,12 @@
  * Description: Rate-limit and login-failure monitoring for admins.
  ********************************************************************/
 
-const LoginAttempt = require('../../models/loginAttempt');
-const BlacklistedIP = require('../../models/blacklistedIp');
 const { getRateLimitHitStats } = require('../../services/rateLimitHitTracker');
+const {
+    fetchTopFailedLoginIps,
+    fetchAllBlacklistedIps
+} = require('../../services/securityAuditReadService');
 
-const FAILURE_STATUSES = ['failed', 'otp_failed'];
 const TOP_OFFENDER_LIMIT = 5;
 
 /**
@@ -19,22 +20,17 @@ exports.getRateLimitStats = async (req, res) => {
         const now = Date.now();
         const since24h = new Date(now - 24 * 60 * 60 * 1000);
 
-        const [topOffenders, blacklistDocs, rateLimitHits] = await Promise.all([
-            LoginAttempt.aggregate([
-                {
-                    $match: {
-                        status: { $in: FAILURE_STATUSES },
-                        createdAt: { $gte: since24h },
-                        ipAddress: { $nin: ['Unknown', '', null] }
-                    }
-                },
-                { $group: { _id: '$ipAddress', failedCount: { $sum: 1 } } },
-                { $sort: { failedCount: -1 } },
-                { $limit: TOP_OFFENDER_LIMIT }
-            ]),
-            BlacklistedIP.find({}).sort({ blockedAt: -1 }).lean(),
+        const [topOffendersRaw, blacklistDocs, rateLimitHits] = await Promise.all([
+            fetchTopFailedLoginIps({ since: since24h, limit: TOP_OFFENDER_LIMIT }),
+            fetchAllBlacklistedIps(),
             getRateLimitHitStats()
         ]);
+
+        const topOffenders = topOffendersRaw.map((row) => (
+            row._id != null
+                ? { _id: row._id, failedCount: row.failedCount }
+                : { _id: row.ip, failedCount: row.failedCount }
+        ));
 
         const activeBlacklist = blacklistDocs
             .map((entry) => {

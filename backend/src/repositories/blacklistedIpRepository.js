@@ -43,6 +43,26 @@ async function findByIp(ip) {
   return toShape(record);
 }
 
+/** Indexed lookup by unique ip; returns row only if ban is still active. */
+async function findActiveByIp(ip) {
+  const record = await findByIp(ip);
+  if (!record) return null;
+  const now = new Date();
+  if (record.expiresAt && new Date(record.expiresAt).getTime() <= now.getTime()) {
+    return null;
+  }
+  return record;
+}
+
+async function countActive() {
+  const now = new Date();
+  return prisma.blacklistedIp.count({
+    where: {
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]
+    }
+  });
+}
+
 async function findByLegacyId(legacyId) {
   if (!legacyId) return null;
   const record = await prisma.blacklistedIp.findUnique({
@@ -94,6 +114,8 @@ async function remove(id) {
 module.exports = {
   findAll,
   findByIp,
+  findActiveByIp,
+  countActive,
   findByLegacyId,
   upsertFromMongo,
   remove,

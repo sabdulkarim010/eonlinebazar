@@ -13,7 +13,7 @@ const Cart = require('../../models/cart');
 const ContactMessage = require('../../models/ContactMessage');
 const User = require('../../models/user');
 const Admin = require('../../models/admin');
-const SecurityLog = require('../../models/securityLog');
+const { countSecurityLogs } = require('../../services/securityAuditReadService');
 const Attendance = require('../../models/attendance');
 const Payroll = require('../../models/payroll');
 const Leave = require('../../models/leave');
@@ -86,7 +86,7 @@ exports.getEnterpriseSummary = async (req, res) => {
             User.countDocuments({ createdAt: { $gte: todayStart } }),
             Admin.countDocuments({ role: { $in: ['staff', 'superadmin'] }, status: { $ne: 'blocked' } }),
             Employee.countDocuments({ status: 'active' }),
-            SecurityLog.countDocuments({ createdAt: { $gte: securitySince } }),
+            countSecurityLogs({ dateFrom: securitySince }),
             Attendance.countDocuments({ date: todayStart, status: { $in: ['present', 'half-day'] } }),
             Attendance.countDocuments({ date: todayStart, status: 'absent' }),
             Attendance.countDocuments({ date: todayStart, isLate: true }),

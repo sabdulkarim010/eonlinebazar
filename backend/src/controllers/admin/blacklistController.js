@@ -14,6 +14,7 @@ const BlacklistedIP = require('../../models/blacklistedIp');
 const { fingerprint } = require('../../utils/deviceParser');
 const { logSecurityEvent } = require('../../utils/securityLogger');
 const { dualWrite } = require('../../services/dualWriteService');
+const { fetchAllBlacklistedIps } = require('../../services/securityAuditReadService');
 
 function getBlacklistedIpRepository() {
     return require('../../repositories/blacklistedIpRepository');
@@ -27,7 +28,7 @@ function getBlacklistedIpRepository() {
 exports.getBlacklist = async (req, res) => {
     try {
         const now = Date.now();
-        const list = await BlacklistedIP.find({}).sort({ blockedAt: -1 }).lean();
+        const list = await fetchAllBlacklistedIps();
         const data = list.map(b => {
             const expired = b.expiresAt ? new Date(b.expiresAt).getTime() <= now : false;
             return {

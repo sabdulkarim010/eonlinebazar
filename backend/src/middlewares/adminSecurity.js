@@ -16,11 +16,14 @@
 
 const rateLimit = require('express-rate-limit');
 const BlacklistedIP = require('../models/blacklistedIp');
-const LoginAttempt = require('../models/loginAttempt');
 const { getClientIp } = require('../utils/deviceParser');
 const { logSecurityEvent } = require('./../utils/securityLogger');
 const { persistLoginAttempt } = require('../utils/loginAttemptLogger');
 const { dualWrite } = require('../services/dualWriteService');
+const {
+    fetchActiveBanByIp,
+    countRecentFailuresByIp
+} = require('../services/securityAuditReadService');
 
 function getBlacklistedIpRepository() {
     return require('../repositories/blacklistedIpRepository');
@@ -39,12 +42,7 @@ const FAILURE_STATUSES = ['failed', 'otp_failed'];
  * নির্দিষ্ট IP বর্তমানে ব্ল্যাকলিস্টেড কিনা যাচাই (মেয়াদোত্তীর্ণ এন্ট্রি উপেক্ষা করে)।
  */
 async function findActiveBan(ip) {
-    if (!ip) return null;
-    const now = new Date();
-    return BlacklistedIP.findOne({
-        ip,
-        $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }]
-    }).lean();
+    return fetchActiveBanByIp(ip);
 }
 
 /* ==================================================================
@@ -148,11 +146,7 @@ async function recordLoginAttempt({ fingerprint = {}, username = 'unknown', stat
 
     try {
         const since = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000);
-        const failCount = await LoginAttempt.countDocuments({
-            ipAddress: ip,
-            status: { $in: FAILURE_STATUSES },
-            createdAt: { $gte: since }
-        });
+        const failCount = await countRecentFailuresByIp(ip, since, FAILURE_STATUSES);
 
         if (failCount >= FAIL_LIMIT) {
             const alreadyBanned = await findActiveBan(ip);

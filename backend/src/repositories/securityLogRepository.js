@@ -11,6 +11,7 @@
 'use strict';
 
 const prisma = require('../config/prismaClient');
+const { fromResourceType } = require('../services/readShapeHelpers');
 
 const ACTOR_TYPE_MAP = {
   admin: 'ADMIN',
@@ -57,10 +58,13 @@ function toShape(record) {
   return { ...record, _id: record.id };
 }
 
-async function findAll(filters = {}) {
+function buildWhere(filters = {}) {
   const where = {};
   if (filters.actorType) {
     where.actorType = toActorType(filters.actorType);
+  }
+  if (filters.actor) {
+    where.actor = String(filters.actor).trim();
   }
   if (filters.resourceType) {
     where.resourceType = toResourceType(filters.resourceType);
@@ -70,17 +74,77 @@ async function findAll(filters = {}) {
     if (filters.dateFrom) where.createdAt.gte = new Date(filters.dateFrom);
     if (filters.dateTo) where.createdAt.lte = new Date(filters.dateTo);
   }
+  return where;
+}
 
+async function findAll(filters = {}) {
   const take = Number.isFinite(Number(filters.limit)) ? Number(filters.limit) : undefined;
   const skip = Number.isFinite(Number(filters.offset)) ? Number(filters.offset) : undefined;
 
   const records = await prisma.securityLog.findMany({
-    where,
+    where: buildWhere(filters),
     orderBy: { createdAt: 'desc' },
     take,
     skip
   });
   return records.map(toShape);
+}
+
+async function count(filters = {}) {
+  return prisma.securityLog.count({ where: buildWhere(filters) });
+}
+
+async function distinctActors(exclude = ['', 'system']) {
+  const rows = await prisma.securityLog.findMany({
+    where: {
+      actor: { notIn: exclude }
+    },
+    distinct: ['actor'],
+    select: { actor: true },
+    orderBy: { actor: 'asc' }
+  });
+  return rows.map((r) => r.actor).filter((a) => a != null && a !== '');
+}
+
+async function countStaffAuditGroups() {
+  const groups = await prisma.securityLog.groupBy({
+    by: ['actor'],
+    where: { actorType: 'ADMIN' }
+  });
+  return groups.length;
+}
+
+async function findStaffAuditGroups({ skip = 0, limit = 25 } = {}) {
+  const groups = await prisma.securityLog.groupBy({
+    by: ['actor'],
+    where: { actorType: 'ADMIN' },
+    _count: { _all: true },
+    _max: { createdAt: true },
+    orderBy: { _max: { createdAt: 'desc' } },
+    skip,
+    take: limit
+  });
+
+  const data = [];
+  for (const group of groups) {
+    const typeCounts = await prisma.securityLog.groupBy({
+      by: ['resourceType'],
+      where: { actorType: 'ADMIN', actor: group.actor },
+      _count: { _all: true }
+    });
+    const breakdown = {};
+    typeCounts.forEach((row) => {
+      const key = row.resourceType ? (fromResourceType(row.resourceType) || 'other') : 'other';
+      breakdown[key] = row._count._all;
+    });
+    data.push({
+      actor: group.actor,
+      totalActions: group._count._all,
+      lastActivityAt: group._max.createdAt,
+      resourceBreakdown: breakdown
+    });
+  }
+  return data;
 }
 
 async function create(data) {
@@ -104,5 +168,12 @@ async function create(data) {
 
 module.exports = {
   findAll,
-  create
+  count,
+  distinctActors,
+  countStaffAuditGroups,
+  findStaffAuditGroups,
+  create,
+  buildWhere,
+  toActorType,
+  toResourceType
 };

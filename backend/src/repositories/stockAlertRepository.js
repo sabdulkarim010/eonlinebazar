@@ -103,8 +103,34 @@ async function create(data) {
   return toShape(loaded);
 }
 
+async function findPaginated({ skip = 0, limit = 25, includeItems = true } = {}) {
+  const records = await prisma.stockAlert.findMany({
+    orderBy: { checkedAt: 'desc' },
+    skip,
+    take: limit,
+    include: includeItems ? { items: { orderBy: [{ kind: 'asc' }, { name: 'asc' }] } } : undefined
+  });
+  return records.map(toShape);
+}
+
+async function findByLegacyId(legacyId, includeItems = true) {
+  if (!legacyId) return null;
+  const record = await prisma.stockAlert.findUnique({
+    where: { legacyId: String(legacyId) },
+    include: includeItems ? { items: { orderBy: [{ kind: 'asc' }, { name: 'asc' }] } } : undefined
+  });
+  return toShape(record);
+}
+
+async function countAll() {
+  return prisma.stockAlert.count();
+}
+
 module.exports = {
   create,
+  findPaginated,
+  findByLegacyId,
+  countAll,
   buildItemRows,
   mapAlertsSent
 };

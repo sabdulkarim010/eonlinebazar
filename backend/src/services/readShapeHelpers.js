@@ -702,6 +702,178 @@ function settingsToMongoShape(pgRow) {
   };
 }
 
+// ── Security / Audit group ────────────────────────────────────────────────────
+
+const ACTOR_TYPE_FROM_PG = {
+  ADMIN: 'admin',
+  CUSTOMER: 'customer',
+  SYSTEM: 'system'
+};
+
+const RESOURCE_TYPE_FROM_PG = {
+  PRODUCT: 'product',
+  ORDER: 'order',
+  CUSTOMER: 'customer',
+  STAFF: 'staff',
+  SETTING: 'setting',
+  COUPON: 'coupon',
+  BANNER: 'banner',
+  CATEGORY: 'category',
+  REVIEW: 'review',
+  SUPPLIER: 'supplier',
+  WAREHOUSE: 'warehouse',
+  PURCHASE_ORDER: 'purchase_order',
+  EXPENSE: 'expense',
+  EXPENSE_CATEGORY: 'expense_category',
+  ATTENDANCE: 'attendance',
+  SHIFT: 'shift',
+  PAYROLL: 'payroll',
+  LEAVE: 'leave',
+  EMPLOYEE: 'employee',
+  DESIGNATION: 'designation'
+};
+
+const LOGIN_STATUS_FROM_PG = {
+  SUCCESS: 'success',
+  FAILED: 'failed',
+  OTP_SENT: 'otp_sent',
+  OTP_FAILED: 'otp_failed',
+  BLOCKED: 'blocked'
+};
+
+const BLACKLIST_SOURCE_FROM_PG = {
+  MANUAL: 'manual',
+  AUTO: 'auto'
+};
+
+function fromActorType(value) {
+  if (!value) return 'system';
+  return ACTOR_TYPE_FROM_PG[value] || String(value).toLowerCase();
+}
+
+function fromResourceType(value) {
+  if (!value) return null;
+  return RESOURCE_TYPE_FROM_PG[value] || String(value).toLowerCase();
+}
+
+function fromLoginStatus(value) {
+  if (!value) return 'failed';
+  return LOGIN_STATUS_FROM_PG[value] || String(value).toLowerCase();
+}
+
+function fromBlacklistSource(value) {
+  if (!value) return 'auto';
+  return BLACKLIST_SOURCE_FROM_PG[value] || String(value).toLowerCase();
+}
+
+function securityLogToMongoShape(pgRow) {
+  if (!pgRow) return null;
+  return {
+    _id: mongoIdFromRow(pgRow),
+    action: pgRow.action,
+    actor: pgRow.actor ?? 'system',
+    actorType: fromActorType(pgRow.actorType),
+    ipAddress: pgRow.ipAddress ?? 'Unknown',
+    details: pgRow.details ?? '',
+    resourceType: fromResourceType(pgRow.resourceType),
+    resourceId: pgRow.resourceId ?? null,
+    createdAt: pgRow.createdAt,
+    updatedAt: pgRow.updatedAt,
+    __v: MONGOOSE_DOC_VERSION
+  };
+}
+
+function mapSecurityLogsToMongo(rows) {
+  return (rows || []).map(securityLogToMongoShape).filter(Boolean);
+}
+
+function loginAttemptToMongoShape(pgRow) {
+  if (!pgRow) return null;
+  return {
+    _id: mongoIdFromRow(pgRow),
+    username: pgRow.username ?? 'unknown',
+    ipAddress: pgRow.ipAddress ?? 'Unknown',
+    location: pgRow.location ?? 'Unknown Location',
+    os: pgRow.os ?? 'Unknown OS',
+    browser: pgRow.browser ?? 'Unknown Browser',
+    deviceType: pgRow.deviceType ?? 'Desktop',
+    userAgent: pgRow.userAgent ?? '',
+    status: fromLoginStatus(pgRow.status),
+    details: pgRow.details ?? '',
+    createdAt: pgRow.createdAt,
+    __v: MONGOOSE_DOC_VERSION
+  };
+}
+
+function mapLoginAttemptsToMongo(rows) {
+  return (rows || []).map(loginAttemptToMongoShape).filter(Boolean);
+}
+
+function blacklistedIpToMongoShape(pgRow) {
+  if (!pgRow) return null;
+  const shape = {
+    _id: mongoIdFromRow(pgRow),
+    ip: pgRow.ip,
+    reason: pgRow.reason ?? 'Suspicious activity',
+    source: fromBlacklistSource(pgRow.source),
+    blockedBy: pgRow.blockedBy ?? 'system',
+    blockedAt: pgRow.blockedAt,
+    expiresAt: pgRow.expiresAt ?? null,
+    createdAt: pgRow.createdAt,
+    updatedAt: pgRow.updatedAt,
+    __v: MONGOOSE_DOC_VERSION
+  };
+  return shape;
+}
+
+function mapBlacklistedIpsToMongo(rows) {
+  return (rows || []).map(blacklistedIpToMongoShape).filter(Boolean);
+}
+
+function stockAlertToMongoShape(pgRow) {
+  if (!pgRow) return null;
+
+  const lowStockProducts = [];
+  const outOfStockProducts = [];
+
+  for (const item of pgRow.items || []) {
+    const productId = item.legacyProductId || '';
+    if (item.kind === 'LOW_STOCK' || item.kind === 'low_stock') {
+      lowStockProducts.push({
+        name: item.name ?? '',
+        productId,
+        stock: item.stock != null ? Number(item.stock) : 0,
+        threshold: item.threshold != null ? Number(item.threshold) : 0
+      });
+    } else {
+      outOfStockProducts.push({
+        name: item.name ?? '',
+        productId
+      });
+    }
+  }
+
+  return {
+    _id: mongoIdFromRow(pgRow),
+    checkedAt: pgRow.checkedAt,
+    lowStockCount: Number(pgRow.lowStockCount) || 0,
+    outOfStockCount: Number(pgRow.outOfStockCount) || 0,
+    lowStockProducts,
+    outOfStockProducts,
+    alertsSent: {
+      email: pgRow.alertSentEmail === true,
+      sms: pgRow.alertSentSms === true,
+      whatsapp: pgRow.alertSentWhatsapp === true
+    },
+    createdAt: pgRow.createdAt,
+    __v: MONGOOSE_DOC_VERSION
+  };
+}
+
+function mapStockAlertsToMongo(rows) {
+  return (rows || []).map(stockAlertToMongoShape).filter(Boolean);
+}
+
 module.exports = {
   mongoIdFromRow,
   buildCategoryIdMaps,
@@ -732,5 +904,16 @@ module.exports = {
   bannerToMongoShape,
   mapBannersToMongo,
   bannerSettingsToMongoShape,
-  settingsToMongoShape
+  settingsToMongoShape,
+  securityLogToMongoShape,
+  mapSecurityLogsToMongo,
+  loginAttemptToMongoShape,
+  mapLoginAttemptsToMongo,
+  blacklistedIpToMongoShape,
+  mapBlacklistedIpsToMongo,
+  stockAlertToMongoShape,
+  mapStockAlertsToMongo,
+  fromResourceType,
+  fromLoginStatus,
+  fromActorType
 };

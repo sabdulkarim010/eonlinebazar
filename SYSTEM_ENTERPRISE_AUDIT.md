@@ -1950,7 +1950,7 @@ Full detail lives in `DATABASE_MIGRATION_AUDIT.md`; this is the status summary.
 | Dual-write repository layer | ❌ NOT STARTED — Stage 2 remainder |
 | `LoginAttempt` / `BlacklistedIp` TTL sweep jobs | ❌ NOT STARTED — Stage 2 remainder |
 | `ProductTextIndex` → `tsvector` + GIN raw SQL migration | ❌ NOT STARTED — Stage 2 remainder |
-| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Step 1 COMPLETE (2026-09-15)**; **Stage 4 Step 2 + cleanup COMPLETE (2026-09-15)** — CMS/Settings read-cutover wired + Postgres data sync + live freeShippingThreshold bug fix; all 5 models verification PASS/ACCEPTED; flags still OFF; PaymentMethod backfill still required before Order read cutover |
+| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Steps 1–2 + cleanup COMPLETE**; **Stage 4 Step 3 COMPLETE (2026-09-15)** — Security/Audit read-cutover wired (SecurityLog, LoginAttempt, BlacklistedIP, StockAlert); LoginAttempt + BlacklistedIP verification PASS; SecurityLog + StockAlert data drift (post-backfill dual-write gaps) before enable; all `READ_PG_*` flags OFF; PaymentMethod backfill still required before Order read cutover |
 
 **Isolation guarantee:** zero `.js` files under `backend/src/` were modified — no
 model, controller, route, service or script. No application code queries
@@ -2428,4 +2428,17 @@ OFF; Mongo remains the live read path until deliberately enabled per environment
 | Live freeShippingThreshold bug fix | ✅ Mongo + Postgres read paths both return 1000 |
 | Re-verification (5 CMS/Settings models) | ✅ PASS (master-settings: `serverNow` only) |
 | `npm test` / `test:repositories` | ✅ 198/198, 157/157 |
+
+## Stage 4 Step 3 — Read-cutover Security/Audit group — 2026-09-15
+
+**Status:** ✅ FRAMEWORK COMPLETE — routed reads for SecurityLog, LoginAttempt, BlacklistedIP, StockAlert; flags default OFF; BlacklistedIP hot path uses indexed `findUnique({ ip })`.
+
+| Item | Status |
+|------|--------|
+| New flags: `READ_PG_SECURITYLOG`, `LOGINATTEMPT`, `BLACKLISTEDIP`, `STOCKALERT` | ✅ all default OFF |
+| Hot-path BlacklistedIP + LoginAttempt intrusion count wired | ✅ `adminSecurity.js` |
+| SecurityLog pagination + staff audit groupBy | ✅ |
+| StockAlert kind reassembly (LOW_STOCK / OUT_OF_STOCK) | ✅ unit + repository tests |
+| Verification | ✅ LoginAttempt **PASS**, BlacklistedIP **PASS**; SecurityLog **DATA PARITY FAIL** (recent rows missing in PG); StockAlert repo-level **DATA PARITY FAIL** |
+| `npm test` / `test:repositories` | ✅ 204/204, 157/157 |
 

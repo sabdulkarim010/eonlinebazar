@@ -9,7 +9,10 @@
  * 3. Add route in routes/[file].routes.js
  */
 
-const LoginAttempt = require('../../models/loginAttempt');
+const {
+    fetchLoginHistoryPage,
+    countRecentLoginAttempts
+} = require('../../services/securityAuditReadService');
 
 /* ==================================================================
    LOGIN HISTORY & FAILED ATTEMPTS (audit feed)
@@ -22,15 +25,11 @@ exports.getLoginHistory = async (req, res) => {
         const skip = (page - 1) * limit;
 
         const [attempts, total, successCount, failedCount, blockedCount] = await Promise.all([
-            LoginAttempt.find({})
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .lean(),
-            LoginAttempt.countDocuments({}),
-            LoginAttempt.countDocuments({ status: 'success' }),
-            LoginAttempt.countDocuments({ status: { $in: ['failed', 'otp_failed'] } }),
-            LoginAttempt.countDocuments({ status: 'blocked' })
+            fetchLoginHistoryPage({ skip, limit }),
+            countRecentLoginAttempts({}),
+            countRecentLoginAttempts({ status: 'success' }),
+            countRecentLoginAttempts({ statusIn: ['failed', 'otp_failed'] }),
+            countRecentLoginAttempts({ status: 'blocked' })
         ]);
 
         const data = attempts.map(a => ({

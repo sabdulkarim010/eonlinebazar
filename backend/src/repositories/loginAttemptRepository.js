@@ -30,27 +30,64 @@ function toShape(record) {
   return { ...record, _id: record.id };
 }
 
-async function findAll(filters = {}) {
+function buildWhere(filters = {}) {
   const where = {};
-  if (filters.ip) where.ipAddress = String(filters.ip).trim();
+  if (filters.ip || filters.ipAddress) {
+    where.ipAddress = String(filters.ip || filters.ipAddress).trim();
+  }
   if (filters.username) where.username = String(filters.username).trim();
-  if (filters.status) where.status = toStatus(filters.status);
-  if (filters.dateFrom || filters.dateTo) {
-    where.createdAt = {};
+  if (filters.statusIn && Array.isArray(filters.statusIn)) {
+    where.status = { in: filters.statusIn.map(toStatus) };
+  } else if (filters.status) {
+    where.status = toStatus(filters.status);
+  }
+  if (filters.dateFrom || filters.dateTo || filters.createdAtGte) {
+    where.createdAt = where.createdAt || {};
     if (filters.dateFrom) where.createdAt.gte = new Date(filters.dateFrom);
+    if (filters.createdAtGte) where.createdAt.gte = new Date(filters.createdAtGte);
     if (filters.dateTo) where.createdAt.lte = new Date(filters.dateTo);
   }
+  if (filters.ipAddressNotIn) {
+    where.ipAddress = {
+      notIn: filters.ipAddressNotIn.filter((v) => v != null && v !== '')
+    };
+  }
+  return where;
+}
 
+async function findAll(filters = {}) {
   const take = Number.isFinite(Number(filters.limit)) ? Number(filters.limit) : undefined;
   const skip = Number.isFinite(Number(filters.offset)) ? Number(filters.offset) : undefined;
 
   const records = await prisma.loginAttempt.findMany({
-    where,
+    where: buildWhere(filters),
     orderBy: { createdAt: 'desc' },
     take,
     skip
   });
   return records.map(toShape);
+}
+
+async function count(filters = {}) {
+  return prisma.loginAttempt.count({ where: buildWhere(filters) });
+}
+
+async function aggregateTopFailedIps({ since, limit = 5, statuses = ['failed', 'otp_failed'] } = {}) {
+  const rows = await prisma.loginAttempt.groupBy({
+    by: ['ipAddress'],
+    where: buildWhere({
+      statusIn: statuses,
+      createdAtGte: since,
+      ipAddressNotIn: ['Unknown', '', null]
+    }),
+    _count: { _all: true },
+    orderBy: { _count: { ipAddress: 'desc' } },
+    take: limit
+  });
+  return rows.map((row) => ({
+    ip: row.ipAddress,
+    failedCount: row._count._all
+  }));
 }
 
 async function create(data) {
@@ -74,5 +111,9 @@ async function create(data) {
 
 module.exports = {
   findAll,
-  create
+  count,
+  aggregateTopFailedIps,
+  create,
+  buildWhere,
+  toStatus
 };

@@ -6,7 +6,11 @@
  * resourceType breakdown for the staff activity dashboard.
  ********************************************************************/
 
-const SecurityLog = require('../../models/securityLog');
+const {
+    fetchStaffAuditGroups,
+    fetchSecurityLogsPage,
+    countSecurityLogs
+} = require('../../services/securityAuditReadService');
 
 function parsePagination(query) {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -22,51 +26,7 @@ exports.getStaffActivity = async (req, res) => {
     try {
         const { page, limit, skip } = parsePagination(req.query);
 
-        const [groups, totalGroups] = await Promise.all([
-            SecurityLog.aggregate([
-                { $match: { actorType: 'admin' } },
-                {
-                    $group: {
-                        _id: '$actor',
-                        totalActions: { $sum: 1 },
-                        lastActivityAt: { $max: '$createdAt' },
-                        resourceBreakdown: {
-                            $push: {
-                                $cond: [
-                                    { $ifNull: ['$resourceType', false] },
-                                    '$resourceType',
-                                    'other'
-                                ]
-                            }
-                        }
-                    }
-                },
-                { $sort: { lastActivityAt: -1 } },
-                { $skip: skip },
-                { $limit: limit }
-            ]),
-            SecurityLog.aggregate([
-                { $match: { actorType: 'admin' } },
-                { $group: { _id: '$actor' } },
-                { $count: 'total' }
-            ])
-        ]);
-
-        const total = totalGroups[0]?.total || 0;
-
-        const data = groups.map((group) => {
-            const breakdown = {};
-            (group.resourceBreakdown || []).forEach((type) => {
-                const key = type || 'other';
-                breakdown[key] = (breakdown[key] || 0) + 1;
-            });
-            return {
-                username: group._id || 'unknown',
-                totalActions: group.totalActions,
-                lastActivityAt: group.lastActivityAt,
-                resourceBreakdown: breakdown
-            };
-        });
+        const { data, total } = await fetchStaffAuditGroups({ skip, limit });
 
         res.status(200).json({
             success: true,
@@ -100,12 +60,8 @@ exports.getStaffActivityDetail = async (req, res) => {
         const filter = { actorType: 'admin', actor: username };
 
         const [logs, total] = await Promise.all([
-            SecurityLog.find(filter)
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .lean(),
-            SecurityLog.countDocuments(filter)
+            fetchSecurityLogsPage({ skip, limit, filter }),
+            countSecurityLogs(filter)
         ]);
 
         res.status(200).json({

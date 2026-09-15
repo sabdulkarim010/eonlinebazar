@@ -24,9 +24,11 @@ function activeBanQuery() {
 
 async function getSystemStatus() {
     const Admin = require('../models/admin');
-    const BlacklistedIP = require('../models/blacklistedIp');
-    const LoginAttempt = require('../models/loginAttempt');
     const Order = require('../models/order');
+    const {
+        countActiveBlacklistedIps,
+        countRecentLoginAttempts
+    } = require('./securityAuditReadService');
 
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
@@ -38,10 +40,10 @@ async function getSystemStatus() {
         dbState
     ] = await Promise.all([
         Admin.countDocuments(),
-        BlacklistedIP.countDocuments(activeBanQuery()),
-        LoginAttempt.countDocuments({
-            status: { $in: ['failed', 'otp_failed', 'blocked'] },
-            createdAt: { $gte: since24h }
+        countActiveBlacklistedIps(),
+        countRecentLoginAttempts({
+            statusIn: ['failed', 'otp_failed', 'blocked'],
+            createdAtGte: since24h
         }),
         Order.countDocuments(),
         Promise.resolve(mongoose.connection.readyState)
@@ -60,12 +62,8 @@ async function getSystemStatus() {
 }
 
 async function getAllBlockedIPs() {
-    const BlacklistedIP = require('../models/blacklistedIp');
-    return BlacklistedIP.find(activeBanQuery())
-        .select('ip reason createdAt expiresAt blockedAt')
-        .sort({ createdAt: -1 })
-        .limit(50)
-        .lean();
+    const { fetchActiveBlacklistedIpsLimited } = require('./securityAuditReadService');
+    return fetchActiveBlacklistedIpsLimited(50);
 }
 
 async function unblockIP(ip, requestIp) {
@@ -122,12 +120,8 @@ async function listAdmins() {
 }
 
 async function getRecentSecurityLogs() {
-    const SecurityLog = require('../models/securityLog');
-    return SecurityLog.find()
-        .sort({ createdAt: -1 })
-        .limit(20)
-        .select('action ipAddress actor createdAt details')
-        .lean();
+    const { fetchRecentSecurityLogs } = require('./securityAuditReadService');
+    return fetchRecentSecurityLogs(20);
 }
 
 module.exports = {

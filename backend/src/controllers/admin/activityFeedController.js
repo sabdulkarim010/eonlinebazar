@@ -6,8 +6,12 @@
  * entries for the admin Activity Feed timeline UI.
  ********************************************************************/
 
-const SecurityLog = require('../../models/securityLog');
 const { RESOURCE_TYPES } = require('../../models/securityLog');
+const {
+    fetchSecurityLogsPage,
+    countSecurityLogs,
+    fetchDistinctSecurityLogActors
+} = require('../../services/securityAuditReadService');
 
 const RESOURCE_TYPE_LABELS = {
     product: 'Product',
@@ -109,13 +113,9 @@ exports.getActivityFeed = async (req, res) => {
         }
 
         const [logs, total, actors] = await Promise.all([
-            SecurityLog.find(filter)
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .lean(),
-            SecurityLog.countDocuments(filter),
-            SecurityLog.distinct('actor', { actor: { $nin: [null, '', 'system'] } })
+            fetchSecurityLogsPage({ skip, limit, filter }),
+            countSecurityLogs(filter),
+            fetchDistinctSecurityLogActors()
         ]);
 
         res.status(200).json({

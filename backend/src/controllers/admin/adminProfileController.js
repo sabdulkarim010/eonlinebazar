@@ -11,7 +11,10 @@
 
 const Admin = require('../../models/admin');
 const AdminSession = require('../../models/adminSession');
-const SecurityLog = require('../../models/securityLog');
+const {
+    fetchSecurityLogsPage,
+    countSecurityLogs
+} = require('../../services/securityAuditReadService');
 const Coupon = require('../../models/coupon');
 const cloudinary = require('cloudinary').v2;
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
@@ -125,12 +128,8 @@ const getSecurityLogs = async (req, res) => {
         const skip = (page - 1) * limit;
 
         const [logs, total] = await Promise.all([
-            SecurityLog.find({})
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .lean(),
-            SecurityLog.countDocuments({})
+            fetchSecurityLogsPage({ skip, limit, filter: {} }),
+            countSecurityLogs({})
         ]);
 
         const data = logs.map(log => ({
