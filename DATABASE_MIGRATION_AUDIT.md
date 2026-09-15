@@ -2895,19 +2895,30 @@ consistently set in Mongo; ultra-sparse 6-key docs plus Fashion/Automotive parti
 | `isActive`, `isFeatured`, `showInNavbar`, `showInHomepage` | PG schema defaults vs Mongo-absent ambiguity (e.g. PG `isActive: false` vs key absent) |
 | `color`, `description`, `metaTitle`, `metaDescription` | Same default-value vs Mongo-absent ambiguity |
 
+**Category — additional Tier 1 side-effect exception (Mobile, Samsung, Walton Mobile):**
+
+Separate from the 11 sparse-row list above — these three categories are affected for a
+different reason (explicit Mongo `null` keys vs Tier 1 key omission), not backfill-default
+ambiguity:
+
+> **Additional Tier 1 side-effect exception:** Mobile, Samsung, and Walton Mobile store explicit
+> null values for `bannerImageUrl` / `iconUrl` / `customCashback` in their Mongo documents (key
+> present, value null), while the Tier 1 read-time fix omits these keys whenever the Postgres
+> value is null, without distinguishing "Mongo also has this as null" from "Mongo never had this
+> field." This means these 3 categories' Postgres-sourced reads will have these 3 keys **ABSENT**
+> where Mongo would show them as explicitly null. This is a byte-shape difference only (both
+> effectively mean "no image / no custom cashback" to any consuming code that checks truthiness
+> or existence) — it does not affect application behavior for any current frontend/mobile code,
+> since checking `if (category.bannerImageUrl)` behaves identically whether the key is absent or
+> explicitly null. Accepted as a permanent exception under the same reasoning as the other
+> documented gaps: low-impact, affects a small fixed set of legacy-era records, and does not
+> represent a data-integrity problem.
+
 **Brand — 1 legacy row (Walton):**
 
 | Field | Reason |
 |---|---|
 | `slug`, `status`, `description`, `updatedAt` | Mongo Walton document predates full brand schema (name + `createdAt` only) |
-
-### Residual parity note (Tier 1 side effect — Mobile subtree)
-
-Mobile, Samsung, and Walton Mobile Mongo documents **include explicit `null` keys** for
-`bannerImageUrl`, `iconUrl`, and sometimes `customCashback` (schema defaults stored in Mongo).
-Tier 1 omits those keys when PG is `null`, so verification may still report diffs on those three
-categories for null-key presence — distinct from the 11 sparse-row exceptions above. Acceptable
-under Option C; dual-write records will not exhibit this pattern.
 
 ### Follow-up flagged (NOT fixed in this task)
 
@@ -2925,7 +2936,7 @@ Flags toggled in process env only. Zero `[READ-CUTOVER-FALLBACK]` entries.
 | **Supplier** | **PASS** | Full exact field match |
 | **Warehouse** | **PASS** | List + detail |
 | **Designation** | **PASS** | All 8 rows |
-| **Category** | **ACCEPTED** | Remaining diffs limited to documented exception fields (`slug`, boolean defaults, `color`, `description`, meta fields) plus Tier 1 null-key side effect on Mobile/Samsung/Walton Mobile. **No unexpected new field types.** Homepage endpoint **PASS**. |
+| **Category** | **ACCEPTED** | Remaining diffs limited to (1) 11-sparse-row exception fields (`slug`, boolean defaults, `color`, `description`, meta fields) and (2) separate Tier 1 null-vs-absent side-effect exception on Mobile/Samsung/Walton Mobile. **No unexpected new field types.** Homepage endpoint **PASS**. |
 | **Brand** | **ACCEPTED** | Remaining diffs exactly: `slug`, `status`, `description`, `updatedAt` on Walton |
 
 ### Regression checks
