@@ -1610,6 +1610,18 @@ DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 1 CLEANUP section added
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 4 Step 1 cleanup note added
 README.md [DONE] Stage 4 cleanup note
 
+# PostgreSQL migration — Stage 4 Step 2 cleanup: Data sync + live threshold bug fix — 2026-09-15
+
+backend/src/utils/announcementSettings.js [MOD] resolveFreeShippingThreshold — null/undefined threshold falls through to freeShippingMinAmount (live Mongo bug fix)
+backend/src/services/readShapeHelpers.js [MOD] settingsToMongoShape Number() coercion + freeShippingThreshold fallback
+tests/utils/announcementSettings.test.js [NEW] 4 tests for threshold null-handling
+tests/repositories/footerSettings.repository.test.js [MOD] beforeAll Mongo copyright snapshot + afterAll Postgres restore
+Postgres data (Neon, not in git): PageContent 7-row timestamp sync; FooterSettings full upsertFromMongo resync; Settings timestamp sync (freeShippingThreshold kept 1000)
+Result: re-verification — PageContent/FooterSettings/Settings PASS; master-settings ACCEPTED (serverNow only); npm test 198/198; test:repositories 157/157
+DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 2 CLEANUP section added
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Step 2 cleanup note
+README.md [DONE] test count 198
+
 # PostgreSQL migration — Stage 4 Step 2: Read-cutover CMS/Settings group — 2026-09-15
 
 backend/src/config/readCutoverFlags.js [MOD] READ_PG_PAGECONTENT/NAVBARLINK/FOOTERSETTINGS/BANNER/SETTINGS (default OFF)

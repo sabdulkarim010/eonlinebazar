@@ -8,10 +8,11 @@
  * Stage 2 Step 3, Part 3 — 2026-09-14
  ********************************************************************/
 
-const { describe, test, expect, afterAll } = require('./jestCompat');
+const { describe, test, expect, afterAll, beforeAll } = require('./jestCompat');
 
 require('dotenv').config();
 
+const mongoose = require('mongoose');
 const prisma = require('../../backend/src/config/prismaClient');
 const {
   FOOTER_SETTINGS_KEY,
@@ -22,6 +23,9 @@ const {
 
 const TEST_BADGE_A = `__test_badge_a_${Date.now()}__`;
 const TEST_BADGE_B = `__test_badge_b_${Date.now()}__`;
+
+/** Mongo authoritative copyright — restored to Postgres after tests (Stage 4 Step 2 guard). */
+let mongoCopyrightSnapshot = null;
 
 async function countPaymentBadges(footerSettingsId) {
   return prisma.footerPaymentBadge.count({ where: { footerSettingsId } });
@@ -35,6 +39,14 @@ async function ensureGlobalFooterRow() {
   return row;
 }
 
+beforeAll(async () => {
+  if (!process.env.MONGODB_URI) return;
+  await mongoose.connect(process.env.MONGODB_URI);
+  const FooterSettings = require('../../backend/src/models/FooterSettings');
+  const doc = await FooterSettings.getOrCreate();
+  mongoCopyrightSnapshot = doc.copyrightText;
+});
+
 afterAll(async () => {
   const row = await prisma.footerSettings.findUnique({ where: { key: FOOTER_SETTINGS_KEY } });
   if (row) {
@@ -44,6 +56,17 @@ afterAll(async () => {
         name: { in: [TEST_BADGE_A, TEST_BADGE_B] }
       }
     });
+  }
+
+  if (mongoCopyrightSnapshot != null) {
+    await upsertFromMongo(
+      { copyrightText: mongoCopyrightSnapshot },
+      { paymentBadgesMode: 'skip' }
+    );
+  }
+
+  if (mongoose.connection.readyState === 1) {
+    await mongoose.disconnect();
   }
 });
 

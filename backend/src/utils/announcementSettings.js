@@ -43,11 +43,17 @@ function parseLegacyDiscountAmount(rawValue) {
  * @param {number} [legacyFallback] - Settings.freeShippingMinAmount
  */
 function resolveFreeShippingThreshold(doc = {}, legacyFallback = null) {
-    const configured = Number(doc?.freeShippingThreshold);
-    if (Number.isFinite(configured) && configured >= 0) return configured;
+    const rawThreshold = doc?.freeShippingThreshold;
+    if (rawThreshold !== null && rawThreshold !== undefined && rawThreshold !== '') {
+        const configured = Number(rawThreshold);
+        if (Number.isFinite(configured) && configured >= 0) return configured;
+    }
 
-    const fallback = Number(legacyFallback);
-    if (Number.isFinite(fallback) && fallback >= 0) return fallback;
+    const rawFallback = legacyFallback ?? doc?.freeShippingMinAmount;
+    if (rawFallback !== null && rawFallback !== undefined && rawFallback !== '') {
+        const fallback = Number(rawFallback);
+        if (Number.isFinite(fallback) && fallback >= 0) return fallback;
+    }
 
     const legacyDiscount = parseLegacyDiscountAmount(doc?.announcementDiscount);
     if (legacyDiscount !== null) return legacyDiscount;

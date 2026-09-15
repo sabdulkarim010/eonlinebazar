@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
   <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
   <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
-  <img src="https://img.shields.io/badge/tests-194%2F194-brightgreen" alt="194/194 Tests Passing">
+  <img src="https://img.shields.io/badge/tests-198%2F198-brightgreen" alt="198/198 Tests Passing">
   <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
   <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
   <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">
@@ -120,7 +120,7 @@ Read these documents before making changes. Operational notes belong in the exis
 | [ARCHITECTURE.md](ARCHITECTURE.md) | **Read first.** Folder layout, CSS/JS barrels, admin ERP/CRM/HRM nav groups, enterprise models, local dev ports, and contributor rules. |
 | [REFACTOR_MAP.md](REFACTOR_MAP.md) | **Read first.** File-by-file completion log for ERP, CRM, HRM, UI restructure, and follow-on phases. |
 | [SYSTEM_ENTERPRISE_AUDIT.md](SYSTEM_ENTERPRISE_AUDIT.md) | Full-stack enterprise audit: feature inventory, ERP/CRM/HRM matrix, models, APIs, mobile parity, and remaining findings. |
-| [DATABASE_MIGRATION_AUDIT.md](DATABASE_MIGRATION_AUDIT.md) | MongoDB → PostgreSQL (Prisma + Neon) migration: 5-stage roadmap, model-by-model mapping, cascade and index strategy, and the stage-by-stage change log. **Stage 2 Step 3 dual-write complete (2026-09-14). Stage 3 backfill COMPLETE (2026-09-15). Stage 4 Step 1 (2026-09-15): read-cutover group 1 + cleanup/Option C exceptions. Stage 4 Step 2 (2026-09-15): CMS/Settings read-cutover wired (PageContent, NavbarLink, FooterSettings, Banner, Settings) — NavbarLink/Banner verification PASS; PageContent/FooterSettings/Settings need Postgres data sync before enable. All `READ_PG_*` flags default OFF. PaymentMethod backfill still required before Order read cutover.** |
+| [DATABASE_MIGRATION_AUDIT.md](DATABASE_MIGRATION_AUDIT.md) | MongoDB → PostgreSQL (Prisma + Neon) migration: 5-stage roadmap, model-by-model mapping, cascade and index strategy, and the stage-by-stage change log. **Stage 4 Step 2 cleanup (2026-09-15): PageContent/FooterSettings/Settings Postgres data sync + live `resolveFreeShippingThreshold` bug fix — all 5 CMS/Settings models verification PASS/ACCEPTED; flags still OFF. PaymentMethod backfill still required before Order read cutover.** |
 | [.cursorrules](.cursorrules) | Cursor agent contract: never edit barrel CSS/JS directly, never restructure `routes/*.js`, search before renaming IDs, run `npm test` after changes. |
 
 ### Additional References
@@ -137,12 +137,12 @@ Read these documents before making changes. Operational notes belong in the exis
 
 ## Quality Assurance & Testing
 
-The repository ships with **100% passing automated coverage: 194 / 194 tests** across **21 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
+The repository ships with **100% passing automated coverage: 198 / 198 tests** across **22 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
 
 PostgreSQL repository integration tests (157 tests, real Neon) run separately — Jest cannot load the generated `.mts` Prisma client:
 
 ```bash
-npm test                  # 21 suites, 194 tests — MongoDB in-memory
+npm test                  # 22 suites, 198 tests — MongoDB in-memory
 npm run test:repositories # 19 files, 157 tests — Neon PostgreSQL (serial concurrency)
 ```
 
@@ -169,7 +169,8 @@ npm run test:repositories # 19 files, 157 tests — Neon PostgreSQL (serial conc
 | Read shape helpers | `tests/services/readShapeHelpers.test.js` | 10 | Postgres row → Mongo `.lean()` shape parity (group 1 + CMS/Settings) |
 | Read cutover group 1 | `tests/services/readCutoverGroup1.test.js` | 2 | Mocked flag-ON regression vs Mongo baseline |
 | Read cutover group 2 | `tests/services/readCutoverGroup2.test.js` | 8 | CMS/Settings mocked flag-ON shape + null-vs-absent checks |
-| **Total** | | **194** | All suites green |
+| Announcement settings | `tests/utils/announcementSettings.test.js` | 4 | Live freeShippingThreshold null-handling (Mongo read path) |
+| **Total** | | **198** | All suites green |
 
 Expected Jest summary:
 

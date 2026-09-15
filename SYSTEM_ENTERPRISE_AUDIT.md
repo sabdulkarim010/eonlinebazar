@@ -1950,7 +1950,7 @@ Full detail lives in `DATABASE_MIGRATION_AUDIT.md`; this is the status summary.
 | Dual-write repository layer | ❌ NOT STARTED — Stage 2 remainder |
 | `LoginAttempt` / `BlacklistedIp` TTL sweep jobs | ❌ NOT STARTED — Stage 2 remainder |
 | `ProductTextIndex` → `tsvector` + GIN raw SQL migration | ❌ NOT STARTED — Stage 2 remainder |
-| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Step 1 COMPLETE (2026-09-15)**; **Stage 4 Step 2 COMPLETE (2026-09-15)** — CMS/Settings read-cutover wired (PageContent, NavbarLink, FooterSettings, Banner, Settings); NavbarLink + Banner verification PASS; PageContent/FooterSettings/Settings need Postgres data sync before flag enable; all `READ_PG_*` default OFF; PaymentMethod backfill still required before Order read cutover |
+| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Step 1 COMPLETE (2026-09-15)**; **Stage 4 Step 2 + cleanup COMPLETE (2026-09-15)** — CMS/Settings read-cutover wired + Postgres data sync + live freeShippingThreshold bug fix; all 5 models verification PASS/ACCEPTED; flags still OFF; PaymentMethod backfill still required before Order read cutover |
 
 **Isolation guarantee:** zero `.js` files under `backend/src/` were modified — no
 model, controller, route, service or script. No application code queries
@@ -2415,4 +2415,17 @@ OFF; Mongo remains the live read path until deliberately enabled per environment
 | Read endpoints wired (controllers + delivery/flash/reward/rate-limit read paths) | ✅ writes unchanged |
 | Verification (process env) | ✅ NavbarLink **PASS**, Banner **PASS**; PageContent/FooterSettings/Settings **DATA PARITY FAIL** (timestamp/sync drift — see audit) |
 | `npm test` / `test:repositories` | ✅ 194/194, 157/157 |
+
+## Stage 4 Step 2 cleanup — Data sync + live threshold bug fix — 2026-09-15
+
+**Status:** ✅ COMPLETE — Postgres data sync for PageContent (7 rows), FooterSettings (full child resync), Settings (timestamps); live `resolveFreeShippingThreshold` null→0 bug fixed in `announcementSettings.js` (read-only, affects Mongo checkout today).
+
+| Item | Status |
+|------|--------|
+| PageContent timestamp sync | ✅ 7/7 rows |
+| FooterSettings full resync + test copyright guard | ✅ 2 cols / 9 links / 4 social / 5 gw / 5 badges |
+| Settings timestamps (threshold kept 1000) | ✅ |
+| Live freeShippingThreshold bug fix | ✅ Mongo + Postgres read paths both return 1000 |
+| Re-verification (5 CMS/Settings models) | ✅ PASS (master-settings: `serverNow` only) |
+| `npm test` / `test:repositories` | ✅ 198/198, 157/157 |
 

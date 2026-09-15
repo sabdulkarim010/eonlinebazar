@@ -3024,3 +3024,63 @@ before production enable — remaining diffs are **data drift**, not unexplained
 
 **Do not enable flags in `.env` or production until data sync is done for the failing models.**
 
+---
+
+## STAGE 4, STEP 2 CLEANUP — Data Sync + Live Bug Fix — 2026-09-15
+
+Post-verification cleanup (Postgres writes only; **no MongoDB writes**; read-cutover flags
+remain OFF). Corrects data drift identified in Step 2 investigation plus a **live production
+bug** in `resolveFreeShippingThreshold()` (read-only logic — no Mongo writes).
+
+### Postgres data changes executed
+
+| Step | Action | Count / detail |
+|---|---|---|
+| **A — PageContent timestamps** | `createdAt` / `updatedAt` copied from Mongo by `legacyId` | **7/7 rows** synced (about, contact, privacy-policy, terms, careers, return-policy, islam) |
+| **B — FooterSettings full resync** | `upsertFromMongo()` from Mongo `FooterSettings.getOrCreate()` with `replaceColumns`, `replaceSocialLinks`, `replacePaymentGateways`, `paymentBadgesMode: 'replace'`; root timestamps synced | **1** singleton: copyright restored; **2** columns, **9** links, **4** social, **5** gateways, **5** badges |
+| **C1–C2 — Settings timestamps** | `createdAt` / `updatedAt` copied from Mongo | **1** singleton row |
+| **C3 — freeShippingThreshold** | **No change** — Postgres kept at **1000** (correct business value; Mongo stores `null`) | Confirmed before/after: 1000 → 1000 |
+
+### Live bug fix — `resolveFreeShippingThreshold()` (MongoDB-only app path)
+
+| Item | Detail |
+|---|---|
+| **Bug** | `Number(null) → 0` was treated as a valid configured threshold, so stores with `freeShippingThreshold: null` and `freeShippingMinAmount: 1000` showed **free shipping on every order** (threshold 0) instead of ৳1,000 minimum |
+| **Affected file** | `backend/src/utils/announcementSettings.js` — `resolveFreeShippingThreshold()` (read-only; used by `deliveryChargeService.toPublicSettings`, announcement payloads, checkout/shipping UI) |
+| **Fix** | Only use `freeShippingThreshold` when it is explicitly set (not `null`/`undefined`/`''`); otherwise fall through to `freeShippingMinAmount` |
+| **Confirmation** | With flags OFF: `toPublicSettings(Settings.getOrCreate())` now returns `freeShippingThreshold: 1000`. With flags ON: Postgres read path also returns **1000**. Both paths agree. |
+| **Tests** | `tests/utils/announcementSettings.test.js` — 4 cases (null→min amount, explicit 0, explicit configured value) |
+
+### Read-shape fix (Settings integers)
+
+`settingsToMongoShape()` — applied `Number()` to tier thresholds, `vipMinTotalSpent`, etc.; `freeShippingThreshold` falls back to `freeShippingMinAmount` when PG column null.
+
+### Process fix — FooterSettings test pollution guard
+
+`tests/repositories/footerSettings.repository.test.js` — `beforeAll` snapshots Mongo `copyrightText`; `afterAll` restores Postgres copyright via `upsertFromMongo(..., { paymentBadgesMode: 'skip' })` (same pattern as warehouse `isDefault` restoration).
+
+### Re-verification (flags in process env only — 2026-09-15)
+
+Script: `scripts/verify-read-cutover-group2.local.js`. Zero `[READ-CUTOVER-FALLBACK]` entries.
+
+| Model | Verdict | Notes |
+|---|---|---|
+| **PageContent** | **PASS** | 4/4 endpoints (admin list, slug detail, store + pages public) |
+| **NavbarLink** | **PASS** | 2/2 (untouched) |
+| **FooterSettings** | **PASS** | 3/3 |
+| **Banner** | **PASS** | 2/2 (untouched) |
+| **Settings** | **ACCEPTED** | 4/5 endpoints exact match; **`GET /api/admin/master-settings`** differs only on volatile `serverNow` timestamp between sequential flag-OFF/ON requests (not data parity) |
+
+### Regression checks
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **198/198** pass (+4 announcementSettings tests) |
+| `npm run test:repositories` | **157/157** pass |
+
+### Step 2 cleanup — CLOSED (2026-09-15)
+
+All three previously failing CMS/Settings models are **data-sync complete**. NavbarLink and Banner
+were already PASS. Settings delivery/announcement parity confirmed after live bug fix. Flags remain
+**OFF** until deliberate per-environment enable.
+
