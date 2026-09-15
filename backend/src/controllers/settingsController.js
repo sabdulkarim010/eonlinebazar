@@ -17,6 +17,7 @@ const {
     loadRateLimitSettings
 } = require('../middlewares/rateLimiter');
 const { dualWrite } = require('../services/dualWriteService');
+const { fetchSettingsDocument } = require('../services/settingsReadService');
 
 function getSettingsRepository() {
     return require('../repositories/settingsRepository');
@@ -52,7 +53,7 @@ const parseNonNegativeNumber = (value, fieldLabel) => {
 
 const getSettings = async (req, res) => {
     try {
-        const settings = await Settings.getOrCreate();
+        const settings = await fetchSettingsDocument();
         res.status(200).json({ success: true, data: toPublicSettings(settings) });
     } catch (error) {
         console.error('Get Settings Error:', error);
@@ -152,7 +153,7 @@ const updateCacheSettings = async (req, res) => {
  */
 const getAllSettings = async (req, res) => {
     try {
-        const doc = await Settings.getOrCreate();
+        const doc = await fetchSettingsDocument();
 
         res.status(200).json({
             success: true,

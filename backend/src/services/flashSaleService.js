@@ -3,7 +3,7 @@
  ********************************************************************/
 
 
-const Settings = require('../models/Settings');
+const { fetchSettingsDocument } = require('./settingsReadService');
 const { getApplicationNow } = require('../utils/applicationTime');
 const { roundMoney } = require('./deliveryChargeService');
 
@@ -29,8 +29,9 @@ function normalizeFlashSaleSettings(doc = {}) {
 }
 
 async function loadFlashSaleSettings() {
-    const settings = await Settings.getOrCreate();
-    return normalizeFlashSaleSettings(settings.toObject());
+    const settings = await fetchSettingsDocument();
+    const plain = settings.toObject ? settings.toObject() : settings;
+    return normalizeFlashSaleSettings(plain);
 }
 
 function isFlashSaleActive(settings, now = getApplicationNow()) {

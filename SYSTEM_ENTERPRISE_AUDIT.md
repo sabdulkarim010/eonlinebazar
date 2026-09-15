@@ -1950,7 +1950,7 @@ Full detail lives in `DATABASE_MIGRATION_AUDIT.md`; this is the status summary.
 | Dual-write repository layer | ❌ NOT STARTED — Stage 2 remainder |
 | `LoginAttempt` / `BlacklistedIp` TTL sweep jobs | ❌ NOT STARTED — Stage 2 remainder |
 | `ProductTextIndex` → `tsvector` + GIN raw SQL migration | ❌ NOT STARTED — Stage 2 remainder |
-| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (all 8 groups, Steps 1–5; Order backfilled with Case A/B/C + financial aggregate verified, 2026-09-15)**; **Stage 4 Step 1 COMPLETE (2026-09-15)** — read-cutover flags + group 1 wired (Category/Brand/Supplier/Warehouse/Designation); all flags default OFF; PaymentMethod backfill still required before Order read cutover |
+| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Step 1 COMPLETE (2026-09-15)**; **Stage 4 Step 2 COMPLETE (2026-09-15)** — CMS/Settings read-cutover wired (PageContent, NavbarLink, FooterSettings, Banner, Settings); NavbarLink + Banner verification PASS; PageContent/FooterSettings/Settings need Postgres data sync before flag enable; all `READ_PG_*` default OFF; PaymentMethod backfill still required before Order read cutover |
 
 **Isolation guarantee:** zero `.js` files under `backend/src/` were modified — no
 model, controller, route, service or script. No application code queries
@@ -2402,4 +2402,17 @@ OFF; Mongo remains the live read path until deliberately enabled per environment
 | Re-verification | ⚠️ Supplier **PASS**; others **FAIL** on `__v` shape + out-of-scope fields only |
 | Process fixes | ✅ categoryRepository default; designation/warehouse test cleanup guards |
 | `npm test` / `test:repositories` | ✅ 183/183, 157/157 |
+
+## Stage 4 Step 2 — Read-cutover CMS/Settings group — 2026-09-15
+
+**Status:** ✅ COMPLETE (framework + wiring) — ⚠️ **3/5 models need Postgres data sync before enable**
+
+| Item | Status |
+|------|--------|
+| New flags: `READ_PG_PAGECONTENT`, `NAVBARLINK`, `FOOTERSETTINGS`, `BANNER`, `SETTINGS` | ✅ all default OFF |
+| `readShapeHelpers.js` CMS transforms | ✅ nested FooterSettings/Settings reassembly; banner Decimal→Number; PageContent stored bodyHtml |
+| `settingsReadService.fetchSettingsDocument()` | ✅ routed singleton read |
+| Read endpoints wired (controllers + delivery/flash/reward/rate-limit read paths) | ✅ writes unchanged |
+| Verification (process env) | ✅ NavbarLink **PASS**, Banner **PASS**; PageContent/FooterSettings/Settings **DATA PARITY FAIL** (timestamp/sync drift — see audit) |
+| `npm test` / `test:repositories` | ✅ 194/194, 157/157 |
 

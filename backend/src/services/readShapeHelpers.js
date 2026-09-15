@@ -262,6 +262,446 @@ function mapDesignationsToMongo(rows) {
   return (rows || []).map(designationToMongoShape);
 }
 
+// ── PageContent ─────────────────────────────────────────────────────────────
+
+function decodeHtmlEntities(value) {
+  let html = String(value ?? '');
+  if (!html) return '';
+  const map = {
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#39;': "'",
+    '&#x27;': "'",
+    '&apos;': "'"
+  };
+  for (let i = 0; i < 3; i += 1) {
+    if (!/&(?:amp|lt|gt|quot|apos|#39|#x27);/i.test(html)) break;
+    const next = html.replace(/&(?:amp|lt|gt|quot|apos|#39|#x27);/gi, (m) => map[m.toLowerCase()] || map[m] || m);
+    if (next === html) break;
+    html = next;
+  }
+  return html;
+}
+
+function pageContentFormat(pgRow) {
+  const raw = pgRow.contentFormat;
+  return raw === 'HTML' || raw === 'html' ? 'html' : 'markdown';
+}
+
+function pageContentToAdminShape(pgRow) {
+  if (!pgRow) return null;
+  const _id = mongoIdFromRow(pgRow);
+  const out = {
+    id: String(_id),
+    slug: pgRow.slug,
+    title: pgRow.title,
+    subtitle: pgRow.subtitle || '',
+    bodyMarkdown: pgRow.bodyMarkdown || '',
+    bodyHtml: pgRow.bodyHtml || '',
+    contentFormat: pageContentFormat(pgRow),
+    isPublished: pgRow.isPublished !== false,
+    isActive: pgRow.isPublished !== false,
+    sortOrder: Number(pgRow.sortOrder) || 0,
+    updatedAt: pgRow.updatedAt
+  };
+  if (pgRow.slug === 'contact') {
+    const meta = pgRow.contactMeta || {};
+    out.contactMeta = {
+      address: meta.address ?? pgRow.contactMetaAddress ?? '',
+      phone: meta.phone ?? pgRow.contactMetaPhone ?? '',
+      email: meta.email ?? pgRow.contactMetaEmail ?? '',
+      hours: meta.hours ?? pgRow.contactMetaHours ?? '',
+      mapEmbedUrl: meta.mapEmbedUrl ?? pgRow.contactMetaMapEmbedUrl ?? ''
+    };
+  }
+  return out;
+}
+
+/** Public shape — uses stored bodyHtml only (no markdown re-render on read). */
+function pageContentToPublicShape(pgRow) {
+  if (!pgRow) return null;
+  if (pgRow.isPublished === false) return null;
+  const html = decodeHtmlEntities(pgRow.bodyHtml || '');
+  const out = {
+    slug: pgRow.slug,
+    title: pgRow.title,
+    subtitle: pgRow.subtitle || '',
+    bodyHtml: html,
+    content: html,
+    contentFormat: pageContentFormat(pgRow),
+    isPublished: pgRow.isPublished !== false,
+    updatedAt: pgRow.updatedAt
+  };
+  if (pgRow.slug === 'contact') {
+    const meta = pgRow.contactMeta || {};
+    out.contactMeta = {
+      address: meta.address ?? pgRow.contactMetaAddress ?? '',
+      phone: meta.phone ?? pgRow.contactMetaPhone ?? '',
+      email: meta.email ?? pgRow.contactMetaEmail ?? '',
+      hours: meta.hours ?? pgRow.contactMetaHours ?? '',
+      mapEmbedUrl: meta.mapEmbedUrl ?? pgRow.contactMetaMapEmbedUrl ?? ''
+    };
+  }
+  return out;
+}
+
+function mapPageContentsToAdminShape(rows) {
+  return (rows || []).map(pageContentToAdminShape).filter(Boolean);
+}
+
+// ── NavbarLink ──────────────────────────────────────────────────────────────
+
+function navbarLinkToAdminShape(pgRow) {
+  if (!pgRow) return null;
+  const _id = mongoIdFromRow(pgRow);
+  return {
+    id: String(_id),
+    _id,
+    title: pgRow.title,
+    url: pgRow.url,
+    slug: pgRow.slug || '',
+    target: pgRow.target === 'BLANK' || pgRow.target === '_blank' ? '_blank' : '_self',
+    isPublished: pgRow.isPublished === true,
+    hasCustomPage: pgRow.hasCustomPage === true,
+    pageHtml: pgRow.hasCustomPage === true ? (pgRow.pageHtml || '') : '',
+    sortOrder: Number(pgRow.sortOrder) || 0,
+    createdAt: pgRow.createdAt,
+    updatedAt: pgRow.updatedAt
+  };
+}
+
+function navbarLinkToPublicShape(pgRow) {
+  if (!pgRow) return null;
+  const _id = mongoIdFromRow(pgRow);
+  return {
+    id: String(_id),
+    _id,
+    title: pgRow.title,
+    url: pgRow.url,
+    slug: pgRow.slug || '',
+    target: pgRow.target === 'BLANK' || pgRow.target === '_blank' ? '_blank' : '_self',
+    hasCustomPage: pgRow.hasCustomPage === true,
+    sortOrder: Number(pgRow.sortOrder) || 0
+  };
+}
+
+function mapNavbarLinksToAdminShape(rows) {
+  return (rows || []).map(navbarLinkToAdminShape).filter(Boolean);
+}
+
+function mapNavbarLinksToPublicShape(rows) {
+  return (rows || []).map(navbarLinkToPublicShape).filter(Boolean);
+}
+
+// ── FooterSettings ──────────────────────────────────────────────────────────
+
+const { sanitizeFooterIconUrl } = require('../utils/footerIconPaths');
+const { DEFAULT_COPYRIGHT } = require('../models/FooterSettings');
+
+function footerChildId(row) {
+  if (!row) return '';
+  return row.legacyId != null ? String(row.legacyId) : String(row.id);
+}
+
+function mapFooterColumnsAdmin(columns = []) {
+  return columns.map((col) => ({
+    id: footerChildId(col),
+    columnTitle: col.columnTitle,
+    isActive: col.isActive !== false,
+    sortOrder: Number(col.sortOrder) || 0,
+    links: (col.links || []).map((link) => ({
+      id: footerChildId(link),
+      label: link.label,
+      url: link.url,
+      isExternal: link.isExternal === true,
+      isActive: link.isActive !== false
+    }))
+  }));
+}
+
+function mapFooterSocialLinksAdmin(socialLinks = []) {
+  return socialLinks.map((item) => ({
+    id: footerChildId(item),
+    platform: item.platform,
+    iconName: item.iconName || '',
+    iconUrl: sanitizeFooterIconUrl(item.iconUrl || ''),
+    linkUrl: item.linkUrl || '#',
+    isActive: item.isActive !== false,
+    sortOrder: Number(item.sortOrder) || 0
+  }));
+}
+
+function mapFooterPaymentGatewaysAdmin(paymentGateways = []) {
+  return paymentGateways.map((item) => ({
+    id: footerChildId(item),
+    name: item.name,
+    iconUrl: sanitizeFooterIconUrl(item.iconUrl || ''),
+    iconName: item.iconName || '',
+    isActive: item.isActive !== false,
+    sortOrder: Number(item.sortOrder) || 0
+  }));
+}
+
+function getActivePaymentGatewaysFromPg(pgRow) {
+  if (!pgRow || pgRow.paymentBadgesEnabled === false) return [];
+
+  return (pgRow.paymentGateways || [])
+    .filter((item) => item.isActive !== false && item.name)
+    .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0))
+    .map((item) => ({
+      name: String(item.name).trim(),
+      iconUrl: sanitizeFooterIconUrl(item.iconUrl || ''),
+      iconName: item.iconName || String(item.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '')
+    }))
+    .filter((item) => item.name);
+}
+
+/** Zero FooterPaymentBadge rows → [] on read (tri-state distinction is write-time only). */
+function getPaymentBadgesFromPg(pgRow) {
+  if (!pgRow || pgRow.paymentBadgesEnabled === false) return [];
+
+  const fromGateways = getActivePaymentGatewaysFromPg(pgRow).map((item) => ({ name: item.name }));
+  if (fromGateways.length || (pgRow.paymentGateways || []).length) {
+    return fromGateways;
+  }
+
+  return (pgRow.paymentBadges || [])
+    .map((item) => ({ name: String(item?.name || '').trim() }))
+    .filter((item) => item.name);
+}
+
+function footerSettingsToAdminShape(pgRow) {
+  if (!pgRow) return null;
+  return {
+    columns: mapFooterColumnsAdmin(pgRow.columns || []),
+    socialLinks: mapFooterSocialLinksAdmin(pgRow.socialLinks || []),
+    copyrightText: pgRow.copyrightText || DEFAULT_COPYRIGHT,
+    paymentBadgesEnabled: pgRow.paymentBadgesEnabled !== false,
+    paymentGateways: mapFooterPaymentGatewaysAdmin(pgRow.paymentGateways || []),
+    paymentBadges: getPaymentBadgesFromPg(pgRow),
+    updatedAt: pgRow.updatedAt
+  };
+}
+
+function footerSettingsToPublicShape(pgRow) {
+  if (!pgRow) return null;
+  const sortByOrder = (a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0);
+
+  const columns = (pgRow.columns || [])
+    .filter((col) => col.isActive !== false)
+    .sort(sortByOrder)
+    .map((col) => ({
+      columnTitle: col.columnTitle,
+      links: (col.links || [])
+        .filter((link) => link.isActive !== false)
+        .map((link) => ({
+          label: link.label,
+          url: link.url,
+          isExternal: link.isExternal === true
+        }))
+    }))
+    .filter((col) => col.links.length > 0);
+
+  const socialLinks = (pgRow.socialLinks || [])
+    .filter((item) => item.isActive !== false && item.linkUrl)
+    .sort(sortByOrder)
+    .map((item) => ({
+      platform: item.platform,
+      iconName: item.iconName || '',
+      iconUrl: sanitizeFooterIconUrl(item.iconUrl || ''),
+      linkUrl: item.linkUrl
+    }));
+
+  const paymentGateways = getActivePaymentGatewaysFromPg(pgRow);
+  const paymentBadges = paymentGateways.map((badge) => ({ name: badge.name }));
+
+  return {
+    columns,
+    socialLinks,
+    copyrightText: pgRow.copyrightText || DEFAULT_COPYRIGHT,
+    paymentBadgesEnabled: pgRow.paymentBadgesEnabled !== false,
+    paymentGateways,
+    paymentBadges
+  };
+}
+
+// ── Banner + BannerSettings ─────────────────────────────────────────────────
+
+function bannerToMongoShape(pgRow) {
+  if (!pgRow) return null;
+  return {
+    _id: mongoIdFromRow(pgRow),
+    title: pgRow.title ?? '',
+    subtitle: pgRow.subtitle ?? '',
+    imageUrl: pgRow.imageUrl ?? null,
+    mobileImageUrl: pgRow.mobileImageUrl ?? null,
+    backgroundColor: pgRow.backgroundColor ?? null,
+    linkUrl: pgRow.linkUrl ?? null,
+    linkText: pgRow.linkText ?? 'Shop Now',
+    textColor: pgRow.textColor ?? '#ffffff',
+    overlayOpacity: decimalToNumber(pgRow.overlayOpacity) ?? 0.3,
+    position: pgRow.position ?? 0,
+    isActive: pgRow.isActive !== false,
+    createdAt: pgRow.createdAt,
+    __v: MONGOOSE_DOC_VERSION
+  };
+}
+
+function mapBannersToMongo(rows) {
+  return (rows || []).map(bannerToMongoShape).filter(Boolean);
+}
+
+function bannerSettingsToMongoShape(pgRow) {
+  if (!pgRow) return null;
+  const transition = pgRow.transitionEffect;
+  return {
+    autoPlay: pgRow.autoPlay !== false,
+    autoPlayInterval: pgRow.autoPlayInterval ?? 4000,
+    showDots: pgRow.showDots !== false,
+    showArrows: pgRow.showArrows !== false,
+    height: pgRow.height ?? '300px',
+    mobileHeight: pgRow.mobileHeight ?? '200px',
+    transitionEffect: transition === 'FADE' || transition === 'fade' ? 'fade' : 'slide',
+    updatedAt: pgRow.updatedAt
+  };
+}
+
+// ── Settings singleton ────────────────────────────────────────────────────────
+
+const SETTINGS_GATEWAY_KEYS = ['bKash', 'Nagad', 'Visa', 'MasterCard', 'COD'];
+
+const SMS_ENUM_TO_MONGO = {
+  GREENWEB_BD: 'Greenweb BD',
+  BULKSMS_BD: 'BulkSMS BD',
+  ALPHASMS: 'AlphaSMS',
+  GENERIC_API: 'Generic API'
+};
+
+const WHATSAPP_ENUM_TO_MONGO = {
+  CALLMEBOT: 'CallMeBot',
+  ULTRAMSG: 'UltraMsg',
+  GREEN_API: 'Green API',
+  GENERIC: 'Generic'
+};
+
+function fromSmsEnum(value) {
+  if (!value) return '';
+  return SMS_ENUM_TO_MONGO[value] || '';
+}
+
+function fromWhatsAppEnum(value) {
+  if (!value) return '';
+  return WHATSAPP_ENUM_TO_MONGO[value] || '';
+}
+
+function buildPaymentGatewaysMap(pgRow) {
+  const active = {
+    bKash: pgRow.activeGatewayBKash !== false,
+    Nagad: pgRow.activeGatewayNagad !== false,
+    Visa: pgRow.activeGatewayVisa !== false,
+    MasterCard: pgRow.activeGatewayMasterCard !== false,
+    COD: pgRow.activeGatewayCod !== false
+  };
+
+  const gateways = {};
+  for (const row of pgRow.paymentGateways || []) {
+    gateways[row.gatewayKey] = {
+      enabled: row.enabled !== false,
+      name: String(row.name || row.gatewayKey).trim(),
+      logoUrl: String(row.logoUrl || '').trim()
+    };
+  }
+
+  for (const key of SETTINGS_GATEWAY_KEYS) {
+    if (!gateways[key]) {
+      gateways[key] = {
+        enabled: active[key] !== false,
+        name: key,
+        logoUrl: ''
+      };
+    }
+  }
+
+  return { activePaymentGateways: active, paymentGateways: gateways };
+}
+
+function settingsToMongoShape(pgRow) {
+  if (!pgRow) return null;
+
+  const { activePaymentGateways, paymentGateways } = buildPaymentGatewaysMap(pgRow);
+
+  return {
+    key: pgRow.key || 'global',
+    shopHomeCity: String(pgRow.shopHomeCity || 'Dhaka').trim(),
+    deliveryInsideCity: decimalToNumber(pgRow.deliveryInsideCity) ?? 60,
+    deliveryOutsideCity: decimalToNumber(pgRow.deliveryOutsideCity) ?? 120,
+    freeShippingMinAmount: decimalToNumber(pgRow.freeShippingMinAmount) ?? 1000,
+    freeShippingThreshold: pgRow.freeShippingThreshold != null
+      ? decimalToNumber(pgRow.freeShippingThreshold)
+      : null,
+    cashbackPercentage: decimalToNumber(pgRow.cashbackPercentage) ?? 1,
+    takaToPointsRatio: pgRow.takaToPointsRatio ?? 100,
+    pointsToTakaConversionRate: pgRow.pointsToTakaConversionRate ?? 10,
+    refundUndoWindowHours: pgRow.refundUndoWindowHours ?? 72,
+    announcementText: String(pgRow.announcementText || '').trim(),
+    announcementDiscount: String(pgRow.announcementDiscount ?? '2000'),
+    isAnnouncementActive: pgRow.isAnnouncementActive !== false,
+    enableSmsNotifications: pgRow.enableSmsNotifications === true,
+    smsGatewayProvider: fromSmsEnum(pgRow.smsGatewayProvider),
+    smsApiKey: String(pgRow.smsApiKey || '').trim(),
+    smsSenderId: String(pgRow.smsSenderId || '').trim(),
+    defaultCourierProvider: String(pgRow.defaultCourierProvider || '').trim(),
+    courierApiKey: String(pgRow.courierApiKey || '').trim(),
+    courierSecretKey: String(pgRow.courierSecretKey || '').trim(),
+    publicSupportWhatsApp: String(pgRow.publicSupportWhatsApp || '').trim(),
+    privateAdminAlertWhatsApp: String(pgRow.privateAdminAlertWhatsApp || '').trim(),
+    enableWhatsAppOrderAlerts: pgRow.enableWhatsAppOrderAlerts === true,
+    whatsAppAlertProvider: fromWhatsAppEnum(pgRow.whatsAppAlertProvider),
+    whatsAppAlertApiKey: String(pgRow.whatsAppAlertApiKey || '').trim(),
+    whatsAppAlertInstanceId: String(pgRow.whatsAppAlertInstanceId || '').trim(),
+    whatsAppAlertWebhookUrl: String(pgRow.whatsAppAlertWebhookUrl || '').trim(),
+    activePaymentGateways,
+    rateLimitEnabled: pgRow.rateLimitEnabled !== false,
+    rateLimitWindowMs: pgRow.rateLimitWindowMs ?? 900000,
+    rateLimitMaxRequests: pgRow.rateLimitMaxRequests ?? 1000,
+    bypassAdminAndLocalhost: pgRow.bypassAdminAndLocalhost !== false,
+    sandboxMode: pgRow.sandboxMode === true,
+    serviceWorkerEnabled: pgRow.serviceWorkerEnabled !== false,
+    paymentGateways,
+    flashSaleEnabled: pgRow.flashSaleEnabled === true,
+    flashSaleTitle: String(pgRow.flashSaleTitle || 'Flash Sale').trim(),
+    flashSaleEndDate: pgRow.flashSaleEndDate ? new Date(pgRow.flashSaleEndDate) : null,
+    flashSaleDiscountPercent: pgRow.flashSaleDiscountPercent ?? 0,
+    flashSaleProductIds: Array.isArray(pgRow.flashSaleProductIds) ? pgRow.flashSaleProductIds : [],
+    vipMinTotalSpent: pgRow.vipMinTotalSpent ?? 10000,
+    vipMinOrderCount: pgRow.vipMinOrderCount ?? 5,
+    frequentBuyerMinOrders: pgRow.frequentBuyerMinOrders ?? 3,
+    referralRewardAmount: pgRow.referralRewardAmount ?? 100,
+    enableTieredLoyalty: pgRow.enableTieredLoyalty === true,
+    silverThreshold: pgRow.silverThreshold ?? 5000,
+    goldThreshold: pgRow.goldThreshold ?? 15000,
+    platinumThreshold: pgRow.platinumThreshold ?? 50000,
+    silverCashback: decimalToNumber(pgRow.silverCashback) ?? 1.5,
+    goldCashback: decimalToNumber(pgRow.goldCashback) ?? 2.5,
+    platinumCashback: decimalToNumber(pgRow.platinumCashback) ?? 4.0,
+    defaultProductsPerPage: pgRow.defaultProductsPerPage ?? 24,
+    vatRate: decimalToNumber(pgRow.vatRate) ?? decimalToNumber(pgRow.vatPercentage) ?? 0,
+    vatEnabled: pgRow.vatEnabled === true,
+    vatPercentage: decimalToNumber(pgRow.vatPercentage) ?? decimalToNumber(pgRow.vatRate) ?? 0,
+    vatInclusive: pgRow.vatInclusive !== false,
+    taxRegistrationNumber: String(pgRow.taxRegistrationNumber || '').trim(),
+    lastBackupAt: pgRow.lastBackupAt ? new Date(pgRow.lastBackupAt) : null,
+    orderPrefix: String(pgRow.orderPrefix || 'ORD').trim(),
+    maintenanceMode: pgRow.maintenanceMode === true,
+    maintenanceMessage: String(pgRow.maintenanceMessage || '').trim()
+      || 'We are currently performing scheduled maintenance. Please check back soon.',
+    createdAt: pgRow.createdAt,
+    updatedAt: pgRow.updatedAt
+  };
+}
+
 module.exports = {
   mongoIdFromRow,
   buildCategoryIdMaps,
@@ -278,5 +718,19 @@ module.exports = {
   warehouseToMongoShape,
   mapWarehousesToMongo,
   designationToMongoShape,
-  mapDesignationsToMongo
+  mapDesignationsToMongo,
+  pageContentToAdminShape,
+  pageContentToPublicShape,
+  mapPageContentsToAdminShape,
+  navbarLinkToAdminShape,
+  navbarLinkToPublicShape,
+  mapNavbarLinksToAdminShape,
+  mapNavbarLinksToPublicShape,
+  footerSettingsToAdminShape,
+  footerSettingsToPublicShape,
+  getPaymentBadgesFromPg,
+  bannerToMongoShape,
+  mapBannersToMongo,
+  bannerSettingsToMongoShape,
+  settingsToMongoShape
 };

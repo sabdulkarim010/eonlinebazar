@@ -7,9 +7,16 @@ const PageContent = require('../models/PageContent');
 const { isValidSlug, normalizeSlug } = require('../models/PageContent');
 const FooterSettings = require('../models/FooterSettings');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
-const { invalidate, CACHE_KEYS } = require('../services/cacheService');
+const { getOrSet, invalidate, CACHE_KEYS } = require('../services/cacheService');
 const { isReservedAppSlug } = require('../services/pagePublishService');
 const { dualWrite } = require('../services/dualWriteService');
+const { routedRead } = require('../services/readRouter');
+const { isPgReadEnabled } = require('../config/readCutoverFlags');
+const {
+    pageContentToAdminShape,
+    pageContentToPublicShape,
+    mapPageContentsToAdminShape
+} = require('../services/readShapeHelpers');
 
 function getPageContentRepository() {
     return require('../repositories/pageContentRepository');
@@ -69,12 +76,54 @@ function normalizeBodyHtml(value) {
     return decodeHtmlEntities(String(value || '')).slice(0, 200000);
 }
 
+async function fetchAllAdminPages() {
+    return routedRead(
+        'pagecontent',
+        async () => {
+            const pages = await PageContent.getAllForAdmin();
+            return pages.map((p) => p.toAdminObject());
+        },
+        async () => {
+            const rows = await getPageContentRepository().findAll();
+            return mapPageContentsToAdminShape(rows);
+        }
+    );
+}
+
+async function fetchAdminPageBySlug(slug) {
+    return routedRead(
+        'pagecontent',
+        async () => {
+            const page = await PageContent.findOne({ slug });
+            return page ? page.toAdminObject() : null;
+        },
+        async () => {
+            const row = await getPageContentRepository().findBySlug(slug);
+            return pageContentToAdminShape(row);
+        }
+    );
+}
+
+async function fetchPublicPageBySlug(slug) {
+    return routedRead(
+        'pagecontent',
+        async () => {
+            const page = await PageContent.getPublishedBySlug(slug);
+            return page ? page.toPublicObject() : null;
+        },
+        async () => {
+            const row = await getPageContentRepository().findBySlug(slug);
+            return pageContentToPublicShape(row);
+        }
+    );
+}
+
 const listAdminPages = async (req, res) => {
     try {
-        const pages = await PageContent.getAllForAdmin();
+        const pages = await fetchAllAdminPages();
         res.status(200).json({
             success: true,
-            data: pages.map((p) => p.toAdminObject())
+            data: pages
         });
     } catch (error) {
         console.error('List Page Content Error:', error);
@@ -88,11 +137,11 @@ const getAdminPage = async (req, res) => {
         if (!isValidSlug(slug)) {
             return res.status(400).json({ success: false, message: 'Invalid page slug.' });
         }
-        const page = await PageContent.findOne({ slug });
+        const page = await fetchAdminPageBySlug(slug);
         if (!page) {
             return res.status(404).json({ success: false, message: 'Page not found.' });
         }
-        res.status(200).json({ success: true, data: page.toAdminObject() });
+        res.status(200).json({ success: true, data: page });
     } catch (error) {
         console.error('Get Page Content Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load page.' });
@@ -405,11 +454,13 @@ const getPublicPage = async (req, res) => {
         if (!isValidSlug(slug)) {
             return res.status(400).json({ success: false, message: 'Invalid page slug.' });
         }
-        const page = await PageContent.getPublishedBySlug(slug);
+        const page = isPgReadEnabled('pagecontent')
+            ? await fetchPublicPageBySlug(slug)
+            : await getOrSet(CACHE_KEYS.PAGE_CONTENT(slug), () => fetchPublicPageBySlug(slug), 300);
         if (!page) {
             return res.status(404).json({ success: false, message: 'Page not found.' });
         }
-        res.status(200).json({ success: true, data: page.toPublicObject() });
+        res.status(200).json({ success: true, data: page });
     } catch (error) {
         console.error('Get Public Page Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load page.' });
@@ -422,5 +473,6 @@ module.exports = {
     createPage,
     updatePageContent,
     addPageToFooter,
-    getPublicPage
+    getPublicPage,
+    fetchPublicPageBySlug
 };

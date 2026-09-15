@@ -2,6 +2,8 @@ const { Banner, BannerSettings } = require('../models/banner');
 const cloudinary = require('../config/cloudinary');
 const multer = require('multer');
 const { dualWrite } = require('../services/dualWriteService');
+const { routedRead } = require('../services/readRouter');
+const { mapBannersToMongo, bannerSettingsToMongoShape } = require('../services/readShapeHelpers');
 
 function getBannerRepository() {
   return require('../repositories/bannerRepository');
@@ -127,12 +129,34 @@ async function uploadBannerImage(file, opts = {}) {
   return result.secure_url;
 }
 
+async function fetchBanners(filters = {}) {
+  return routedRead(
+    'banner',
+    async () => {
+      const where = filters.isActive !== undefined ? { isActive: filters.isActive } : {};
+      return Banner.find(where).sort({ position: 1 });
+    },
+    async () => mapBannersToMongo(await getBannerRepository().findAllBanners(filters))
+  );
+}
+
+async function fetchBannerSettingsDoc() {
+  return routedRead(
+    'banner',
+    () => BannerSettings.findOne(),
+    async () => {
+      const row = await getBannerRepository().findBannerSettings();
+      return row ? bannerSettingsToMongoShape(row) : null;
+    }
+  );
+}
+
 // GET /api/store/banners — PUBLIC
 exports.getActiveBanners = async (req, res) => {
   try {
     const [banners, settings] = await Promise.all([
-      Banner.find({ isActive: true }).sort({ position: 1 }),
-      BannerSettings.findOne()
+      fetchBanners({ isActive: true }),
+      fetchBannerSettingsDoc()
     ]);
 
     res.json({
@@ -149,8 +173,8 @@ exports.getActiveBanners = async (req, res) => {
 exports.getAllBanners = async (req, res) => {
   try {
     const [banners, settings] = await Promise.all([
-      Banner.find().sort({ position: 1 }),
-      BannerSettings.findOne()
+      fetchBanners(),
+      fetchBannerSettingsDoc()
     ]);
     res.json({
       success: true,

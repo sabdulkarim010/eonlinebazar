@@ -14,6 +14,12 @@ const { isReservedAppSlug } = require('../services/pagePublishService');
 const { sanitizeHtml } = require('../utils/sanitizeHtml');
 const { getOrSet, invalidate, CACHE_KEYS } = require('../services/cacheService');
 const { dualWrite } = require('../services/dualWriteService');
+const { routedRead } = require('../services/readRouter');
+const { isPgReadEnabled } = require('../config/readCutoverFlags');
+const {
+    mapNavbarLinksToAdminShape,
+    mapNavbarLinksToPublicShape
+} = require('../services/readShapeHelpers');
 
 function getNavbarLinkRepository() {
     return require('../repositories/navbarLinkRepository');
@@ -115,13 +121,40 @@ async function syncCustomCmsPage({ title, slug, pageHtml, isPublished }) {
     return page;
 }
 
+async function fetchPublicNavbarLinks() {
+    return routedRead(
+        'navbarlink',
+        async () => {
+            const docs = await NavbarLink.findPublishedSorted();
+            return docs.map((d) => d.toPublicObject());
+        },
+        async () => {
+            const rows = await getNavbarLinkRepository().findAll({ isPublished: true });
+            return mapNavbarLinksToPublicShape(rows);
+        }
+    );
+}
+
+async function fetchAdminNavbarLinks() {
+    return routedRead(
+        'navbarlink',
+        async () => {
+            const docs = await NavbarLink.find().sort({ sortOrder: 1, title: 1 });
+            return docs.map((d) => d.toAdminObject());
+        },
+        async () => {
+            const rows = await getNavbarLinkRepository().findAll();
+            return mapNavbarLinksToAdminShape(rows);
+        }
+    );
+}
+
 /** GET /api/navbar-links — published links for the storefront top bar */
 const getPublicNavbarLinks = async (req, res) => {
     try {
-        const links = await getOrSet(CACHE_KEYS.NAVBAR_LINKS, async () => {
-            const docs = await NavbarLink.findPublishedSorted();
-            return docs.map((d) => d.toPublicObject());
-        }, 300);
+        const links = isPgReadEnabled('navbarlink')
+            ? await fetchPublicNavbarLinks()
+            : await getOrSet(CACHE_KEYS.NAVBAR_LINKS, () => fetchPublicNavbarLinks(), 300);
         res.status(200).json({ success: true, data: links });
     } catch (error) {
         console.error('Navbar links public fetch error:', error);
@@ -132,10 +165,10 @@ const getPublicNavbarLinks = async (req, res) => {
 /** GET /api/navbar-links/admin — all links for Catalog Management */
 const getAdminNavbarLinks = async (req, res) => {
     try {
-        const docs = await NavbarLink.find().sort({ sortOrder: 1, title: 1 });
+        const data = await fetchAdminNavbarLinks();
         res.status(200).json({
             success: true,
-            data: docs.map((d) => d.toAdminObject())
+            data
         });
     } catch (error) {
         console.error('Navbar links admin fetch error:', error);
@@ -420,11 +453,11 @@ const reorderNavbarLinks = async (req, res) => {
 
         await invalidate(CACHE_KEYS.NAVBAR_LINKS);
 
-        const docs = await NavbarLink.find().sort({ sortOrder: 1, title: 1 });
+        const data = await fetchAdminNavbarLinks();
         res.status(200).json({
             success: true,
             message: 'Display order updated.',
-            data: docs.map((d) => d.toAdminObject())
+            data
         });
     } catch (error) {
         console.error('Navbar link reorder error:', error);

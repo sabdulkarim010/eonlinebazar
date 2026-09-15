@@ -5,7 +5,7 @@
  * Description: Shared delivery charge rules for checkout and orders.
  ********************************************************************/
 
-const Settings = require('../models/Settings');
+const { fetchSettingsDocument } = require('./settingsReadService');
 const { resolveFreeShippingThreshold } = require('../utils/announcementSettings');
 const {
     normalizeDistrict,
@@ -43,7 +43,7 @@ const toPublicSettings = (doc) => {
 };
 
 async function getDeliverySettings() {
-    const doc = await Settings.getOrCreate();
+    const doc = await fetchSettingsDocument();
     return toPublicSettings(doc);
 }
 
@@ -133,7 +133,7 @@ function buildLockedOrderTotals({
 }
 
 async function getVatSettings() {
-    const doc = await Settings.getOrCreate();
+    const doc = await fetchSettingsDocument();
     const percentage = Number(doc.vatPercentage ?? doc.vatRate ?? 0);
 
     return {

@@ -14,10 +14,11 @@ const { getDeliveryEstimate } = require('../services/deliveryEstimateService');
 const { BANGLADESH_DISTRICTS } = require('../utils/bangladeshDistricts');
 const { loadRewardSettings } = require('../utils/rewardSettings');
 const { toPublicAnnouncementPayload } = require('../utils/announcementSettings');
-const Settings = require('../models/Settings');
 const { loadFlashSaleSettings, toPublicFlashSalePayload } = require('../services/flashSaleService');
-const FooterSettings = require('../models/FooterSettings');
-const PageContent = require('../models/PageContent');
+const { fetchSettingsDocument } = require('../services/settingsReadService');
+const { isPgReadEnabled } = require('../config/readCutoverFlags');
+const { fetchPublicFooterPayload } = require('./footerSettingsController');
+const { fetchPublicPageBySlug } = require('./pageContentController');
 const {
     filterFooterColumnsByPublishedPagesAsync,
     resolveFooterPlaceholderUrlsAsync
@@ -60,7 +61,7 @@ const getHealth = async (req, res) => {
     let maintenanceMode = false;
     let maintenanceMessage = '';
     try {
-        const master = await Settings.getOrCreate();
+        const master = await fetchSettingsDocument();
         maintenanceMode = master.maintenanceMode === true;
         maintenanceMessage = String(master.maintenanceMessage || '').trim();
     } catch (_) { /* non-fatal for health probe */ }
@@ -94,13 +95,14 @@ module.exports = {
     getPublicAnnouncement: async (req, res) => {
         try {
             const [masterDoc, rewardSettings, deliverySettings] = await Promise.all([
-                Settings.getOrCreate(),
+                fetchSettingsDocument(),
                 loadRewardSettings(),
                 getDeliverySettings()
             ]);
 
+            const masterPlain = masterDoc.toObject ? masterDoc.toObject() : masterDoc;
             const announcement = toPublicAnnouncementPayload(
-                { ...masterDoc.toObject(), freeShippingThreshold: deliverySettings.freeShippingThreshold },
+                { ...masterPlain, freeShippingThreshold: deliverySettings.freeShippingThreshold },
                 rewardSettings
             );
 
@@ -170,16 +172,18 @@ module.exports = {
     },
     getPublicFooterSettings: async (req, res) => {
         try {
-            const data = await getOrSet(CACHE_KEYS.FOOTER_SETTINGS, async () => {
-                const doc = await FooterSettings.getOrCreate();
-                const payload = doc.toPublicObject();
-                // Heal '#' placeholder links → CMS routes before publish filtering.
+            const buildStoreFooterPayload = async () => {
+                const payload = await fetchPublicFooterPayload();
                 const healed = await resolveFooterPlaceholderUrlsAsync(payload.columns, {
                     publishedOnly: true
                 });
                 payload.columns = await filterFooterColumnsByPublishedPagesAsync(healed.columns);
                 return payload;
-            }, 3600);
+            };
+
+            const data = isPgReadEnabled('footersettings')
+                ? await buildStoreFooterPayload()
+                : await getOrSet(CACHE_KEYS.FOOTER_SETTINGS, buildStoreFooterPayload, 3600);
 
             // Re-heal on every response so stale cache can't keep broken '#' footer routes.
             if (data?.columns) {
@@ -198,11 +202,9 @@ module.exports = {
     getPublicPageContent: async (req, res) => {
         try {
             const slug = req.params.slug;
-            const data = await getOrSet(CACHE_KEYS.PAGE_CONTENT(slug), async () => {
-                const page = await PageContent.getPublishedBySlug(slug);
-                if (!page) return null;
-                return page.toPublicObject();
-            }, 300);
+            const data = isPgReadEnabled('pagecontent')
+                ? await fetchPublicPageBySlug(slug)
+                : await getOrSet(CACHE_KEYS.PAGE_CONTENT(slug), () => fetchPublicPageBySlug(slug), 300);
 
             if (!data) {
                 return res.status(404).json({ success: false, message: 'Page not found.' });
@@ -215,7 +217,7 @@ module.exports = {
     },
     getPublicCacheSettings: async (req, res) => {
         try {
-            const settings = await Settings.getOrCreate();
+            const settings = await fetchSettingsDocument();
             res.status(200).json({
                 serviceWorkerEnabled: settings.serviceWorkerEnabled !== false
             });

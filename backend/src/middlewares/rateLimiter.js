@@ -8,7 +8,7 @@
 
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
-const Settings = require('../models/Settings');
+const { fetchSettingsDocument } = require('../services/settingsReadService');
 const { getClientIp } = require('../utils/deviceParser');
 const { recordRateLimitHit } = require('../services/rateLimitHitTracker');
 
@@ -225,7 +225,7 @@ async function loadRateLimitSettings(force = false) {
     const now = Date.now();
     if (!force && now < cacheExpiresAt) return cachedSettings;
 
-    const doc = await Settings.getOrCreate();
+    const doc = await fetchSettingsDocument();
     cachedSettings = {
         rateLimitEnabled: doc.rateLimitEnabled !== false,
         rateLimitWindowMs: Number(doc.rateLimitWindowMs) || DEFAULTS.rateLimitWindowMs,

@@ -10,12 +10,19 @@ const FooterSettings = require('../models/FooterSettings');
 const { DEFAULT_COPYRIGHT } = require('../models/FooterSettings');
 const { footerIconPublicPath } = require('../utils/footerIconPaths');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
-const { invalidate, CACHE_KEYS } = require('../services/cacheService');
+const { getOrSet, invalidate, CACHE_KEYS } = require('../services/cacheService');
 const {
     ensurePagesForFooterColumns,
     resolveFooterPlaceholderUrlsAsync
 } = require('../services/pagePublishService');
 const { dualWrite } = require('../services/dualWriteService');
+const { routedRead } = require('../services/readRouter');
+const { isPgReadEnabled } = require('../config/readCutoverFlags');
+const {
+    footerSettingsToAdminShape,
+    footerSettingsToPublicShape,
+    getPaymentBadgesFromPg
+} = require('../services/readShapeHelpers');
 
 function getFooterSettingsRepository() {
     return require('../repositories/footerSettingsRepository');
@@ -153,34 +160,63 @@ function validateFooterPayload(body = {}) {
     return errors;
 }
 
+async function fetchFooterSettingsRow() {
+    return routedRead(
+        'footersettings',
+        async () => {
+            const doc = await FooterSettings.getOrCreate();
+            return { source: 'mongo', doc };
+        },
+        async () => {
+            const row = await getFooterSettingsRepository().findByKey();
+            if (!row) throw new Error('Footer settings row missing in Postgres');
+            return { source: 'postgres', row };
+        }
+    );
+}
+
 const getAdminFooterSettings = async (req, res) => {
     try {
-        const doc = await FooterSettings.getOrCreate();
+        const result = await fetchFooterSettingsRow();
 
-        // Auto-link empty/'#' routes to matching CMS pages (Privacy Policy → /privacy-policy).
-        try {
-            const { columns, changed } = await resolveFooterPlaceholderUrlsAsync(doc.columns);
-            if (changed) {
-                doc.columns = columns;
-                doc.markModified('columns');
-                await doc.save();
-                await invalidate(CACHE_KEYS.FOOTER_SETTINGS);
+        if (result.source === 'mongo') {
+            const doc = result.doc;
+            // Auto-link empty/'#' routes to matching CMS pages (Privacy Policy → /privacy-policy).
+            try {
+                const { columns, changed } = await resolveFooterPlaceholderUrlsAsync(doc.columns);
+                if (changed) {
+                    doc.columns = columns;
+                    doc.markModified('columns');
+                    await doc.save();
+                    await invalidate(CACHE_KEYS.FOOTER_SETTINGS);
+                }
+            } catch (healErr) {
+                console.error('Footer CMS route auto-link failed:', healErr);
             }
-        } catch (healErr) {
-            console.error('Footer CMS route auto-link failed:', healErr);
+            return res.status(200).json({ success: true, data: doc.toAdminObject() });
         }
 
-        res.status(200).json({ success: true, data: doc.toAdminObject() });
+        res.status(200).json({ success: true, data: footerSettingsToAdminShape(result.row) });
     } catch (error) {
         console.error('Get Footer Settings Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load footer settings.' });
     }
 };
 
+async function fetchPublicFooterPayload() {
+    const result = await fetchFooterSettingsRow();
+    if (result.source === 'mongo') {
+        return result.doc.toPublicObject();
+    }
+    return footerSettingsToPublicShape(result.row);
+}
+
 const getPublicFooterSettings = async (req, res) => {
     try {
-        const doc = await FooterSettings.getOrCreate();
-        res.status(200).json({ success: true, data: doc.toPublicObject() });
+        const data = isPgReadEnabled('footersettings')
+            ? await fetchPublicFooterPayload()
+            : await getOrSet(CACHE_KEYS.FOOTER_SETTINGS, () => fetchPublicFooterPayload(), 3600);
+        res.status(200).json({ success: true, data });
     } catch (error) {
         console.error('Get Public Footer Settings Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load footer settings.' });
@@ -306,8 +342,11 @@ const uploadFooterIcon = async (req, res) => {
 
 const getPaymentBadges = async (req, res) => {
     try {
-        const doc = await FooterSettings.getOrCreate();
-        res.status(200).json({ success: true, badges: doc.getPaymentBadges() });
+        const result = await fetchFooterSettingsRow();
+        const badges = result.source === 'mongo'
+            ? result.doc.getPaymentBadges()
+            : getPaymentBadgesFromPg(result.row);
+        res.status(200).json({ success: true, badges });
     } catch (error) {
         console.error('Get Payment Badges Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load payment badges.' });
@@ -411,5 +450,6 @@ module.exports = {
     uploadFooterIcon,
     getPaymentBadges,
     addPaymentBadge,
-    deletePaymentBadge
+    deletePaymentBadge,
+    fetchPublicFooterPayload
 };

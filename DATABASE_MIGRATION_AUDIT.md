@@ -2959,3 +2959,68 @@ exact byte-for-byte shape matching on historical sparse records.
 
 **Flags remain OFF in all deployed environments until deliberate post-review enable per model.**
 
+---
+
+## STAGE 4, STEP 2 — Read Cutover: CMS/Settings Group — 2026-09-15
+
+Stage 4 Step 2 extends the Step 1 read-cutover framework to the CMS/Settings dual-write group
+(PageContent, NavbarLink, FooterSettings, Banner + BannerSettings, Settings). All new flags
+default **OFF**. Writes unchanged (dual-write). Postgres read failure still falls back to Mongo
+via `routedRead()`.
+
+### New feature flags (all default OFF)
+
+| Env var | Group key | Wired read surfaces |
+|---|---|---|
+| `READ_PG_PAGECONTENT` | `pagecontent` | Admin page list/detail; public page content (`pageContentController`, `storeController`) |
+| `READ_PG_NAVBARLINK` | `navbarlink` | Public + admin navbar links (cache bypass when flag ON) |
+| `READ_PG_FOOTERSETTINGS` | `footersettings` | Admin + public footer settings; payment-badges list |
+| `READ_PG_BANNER` | `banner` | Public active banners + admin all banners (includes BannerSettings singleton) |
+| `READ_PG_SETTINGS` | `settings` | Delivery/master/all-settings admin reads; store delivery/announcement/flash-sale/cache/health; rate-limiter settings load |
+
+Documented in `.env.example` (commented). **BannerSettings shares `READ_PG_BANNER`** (no separate flag).
+
+### Implementation summary
+
+| File | Change |
+|---|---|
+| `readCutoverFlags.js` | Five new group keys |
+| `readShapeHelpers.js` | CMS/Settings `toMongoShape` transforms (nested FooterSettings/Settings reassembly, banner Decimal→Number, PageContent stored `bodyHtml` only) |
+| `settingsReadService.js` | `fetchSettingsDocument()` routed singleton read |
+| Controllers | `pageContentController`, `navbarLinkController`, `footerSettingsController`, `bannerController`, `settingsController`, `masterSettingsController`, `storeController` — **read endpoints only** |
+| Services | `deliveryChargeService`, `flashSaleService`, `rewardSettings`, `rateLimiter` — read paths use `fetchSettingsDocument()` when flag ON |
+
+### Shape-parity design notes (proactive, from Step 1 lessons)
+
+- **PageContent:** Public/admin reads return Postgres `bodyHtml` as stored at write time — no markdown re-render on read.
+- **FooterSettings `paymentBadges`:** Zero `FooterPaymentBadge` child rows → `[]` on read (tri-state distinction is write-time only; matches consuming code).
+- **Banner `overlayOpacity`:** Explicit `Number()` conversion in `bannerToMongoShape` (Prisma Decimal → JS number).
+- **Settings:** Postgres scalars + `SettingsPaymentGateway` child rows reassembled into `activePaymentGateways` booleans + `paymentGateways` map (mirrors `settingsRepository.mapScalars` / `upsertFromMongo`).
+
+### Verification (flags in process env only — 2026-09-15)
+
+Script: `scripts/verify-read-cutover-group2.local.js` (local, not committed). Zero `[READ-CUTOVER-FALLBACK]` entries.
+
+| Model | Verdict | Notes |
+|---|---|---|
+| **NavbarLink** | **PASS** | Public + admin — exact match (2/2 endpoints) |
+| **Banner** | **PASS** | Public active banners + admin list + BannerSettings — exact match (2/2 endpoints) |
+| **PageContent** | **DATA PARITY FAIL** | Shape logic correct; **`updatedAt` timestamps differ** on all pages (Postgres values reflect Stage 2 dual-write/backfill times vs original Mongo timestamps). Requires one-time Postgres timestamp sync from Mongo before enable — same class of issue as Step 1 Category timestamps. Admin list, slug detail, and `/api/store/pages/:slug` affected. |
+| **FooterSettings** | **DATA PARITY FAIL** | Shape/reassembly logic verified in unit tests; **Postgres `global` row out of sync with Mongo** — PG has empty `columns`/`paymentBadges` and test copyright string (`Updated copyright for tri-state skip test`) while Mongo has live footer data. Likely repository-test residue + incomplete backfill sync. Payment-badges endpoint PASS only because both sides return `[]` when PG row is empty. **Requires one-time Postgres resync from Mongo `FooterSettings.getOrCreate()` before enable.** |
+| **Settings** | **DATA PARITY FAIL** | Shape logic correct; **`freeShippingMinAmount` / `freeShippingThreshold`** Mongo `1000` vs Postgres `0` (derived announcement text differs accordingly). **`vipMinTotalSpent`** type mismatch on master-settings unified payload (Mongo number vs PG path string on one field — investigate during data sync). Cache-settings endpoint PASS. **Requires one-time Postgres scalar sync from Mongo Settings singleton before enable.** |
+
+### Regression checks
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **194/194** pass (+11 new Step 2 tests) |
+| `npm run test:repositories` | **157/157** pass |
+
+### Step 2 status
+
+**Framework COMPLETE; flags OFF.** NavbarLink and Banner are safe to enable once reviewed. PageContent,
+FooterSettings, and Settings require **Postgres data parity sync** (same playbook as Step 1 cleanup)
+before production enable — remaining diffs are **data drift**, not unexplained transform bugs.
+
+**Do not enable flags in `.env` or production until data sync is done for the failing models.**
+

@@ -15,8 +15,12 @@ const GROUP_ENV = {
   brand: 'READ_PG_BRAND',
   supplier: 'READ_PG_SUPPLIER',
   warehouse: 'READ_PG_WAREHOUSE',
-  designation: 'READ_PG_DESIGNATION'
-  // Remaining groups added in later Stage 4 steps — default false
+  designation: 'READ_PG_DESIGNATION',
+  pagecontent: 'READ_PG_PAGECONTENT',
+  navbarlink: 'READ_PG_NAVBARLINK',
+  footersettings: 'READ_PG_FOOTERSETTINGS',
+  banner: 'READ_PG_BANNER',
+  settings: 'READ_PG_SETTINGS'
 };
 
 /**

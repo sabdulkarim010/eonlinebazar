@@ -10,7 +10,10 @@ const {
   supplierToMongoShape,
   warehouseToMongoShape,
   designationToMongoShape,
-  matchCategoryBySlugParam
+  matchCategoryBySlugParam,
+  bannerToMongoShape,
+  settingsToMongoShape,
+  footerSettingsToAdminShape
 } = require('../../backend/src/services/readShapeHelpers');
 
 const LEGACY = '507f1f77bcf86cd799439011';
@@ -138,5 +141,55 @@ describe('readShapeHelpers — group 1 models', () => {
     });
     expect(shape._id).toBe(LEGACY);
     expect(shape.employeeCount).toBe(3);
+  });
+
+  test('bannerToMongoShape converts Decimal overlayOpacity to number', () => {
+    const shape = bannerToMongoShape({
+      id: 'pg-uuid',
+      legacyId: LEGACY,
+      title: 'Hero',
+      overlayOpacity: 0.3,
+      isActive: true,
+      createdAt: new Date()
+    });
+    expect(shape.overlayOpacity).toBe(0.3);
+    expect(typeof shape.overlayOpacity).toBe('number');
+  });
+
+  test('settingsToMongoShape builds nested paymentGateways from child rows', () => {
+    const shape = settingsToMongoShape({
+      key: 'global',
+      shopHomeCity: 'Dhaka',
+      deliveryInsideCity: 60,
+      deliveryOutsideCity: 120,
+      freeShippingMinAmount: 1000,
+      activeGatewayBKash: true,
+      activeGatewayNagad: true,
+      activeGatewayVisa: true,
+      activeGatewayMasterCard: true,
+      activeGatewayCod: true,
+      paymentGateways: [{ gatewayKey: 'COD', enabled: true, name: 'Cash on Delivery', logoUrl: '' }]
+    });
+    expect(shape.paymentGateways.COD.name).toBe('Cash on Delivery');
+    expect(shape.activePaymentGateways.COD).toBe(true);
+  });
+
+  test('footerSettingsToAdminShape uses legacyId for nested link ids', () => {
+    const admin = footerSettingsToAdminShape({
+      copyrightText: '© Test',
+      paymentBadgesEnabled: true,
+      columns: [{
+        legacyId: PARENT_LEGACY,
+        columnTitle: 'Links',
+        isActive: true,
+        sortOrder: 0,
+        links: [{ legacyId: LEGACY, label: 'Home', url: '/', isExternal: false, isActive: true }]
+      }],
+      socialLinks: [],
+      paymentGateways: [],
+      paymentBadges: []
+    });
+    expect(admin.columns[0].id).toBe(PARENT_LEGACY);
+    expect(admin.columns[0].links[0].id).toBe(LEGACY);
   });
 });

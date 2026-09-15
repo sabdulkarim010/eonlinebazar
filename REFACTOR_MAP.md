@@ -1610,6 +1610,30 @@ DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 1 CLEANUP section added
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 4 Step 1 cleanup note added
 README.md [DONE] Stage 4 cleanup note
 
+# PostgreSQL migration — Stage 4 Step 2: Read-cutover CMS/Settings group — 2026-09-15
+
+backend/src/config/readCutoverFlags.js [MOD] READ_PG_PAGECONTENT/NAVBARLINK/FOOTERSETTINGS/BANNER/SETTINGS (default OFF)
+backend/src/services/readShapeHelpers.js [MOD] PageContent, NavbarLink, FooterSettings, Banner, Settings toMongoShape helpers
+backend/src/services/settingsReadService.js [NEW] fetchSettingsDocument() routed singleton read
+backend/src/controllers/pageContentController.js [MOD] admin + public page reads wired; cache bypass when READ_PG_PAGECONTENT=true
+backend/src/controllers/navbarLinkController.js [MOD] public + admin navbar reads wired; cache bypass when READ_PG_NAVBARLINK=true
+backend/src/controllers/footerSettingsController.js [MOD] admin/public/payment-badges reads wired; exports fetchPublicFooterPayload
+backend/src/controllers/bannerController.js [MOD] getActiveBanners + getAllBanners (+ BannerSettings) wired
+backend/src/controllers/settingsController.js [MOD] getSettings, getAllSettings use fetchSettingsDocument
+backend/src/controllers/masterSettingsController.js [MOD] getMasterSettings, getAnnouncementSettings use fetchSettingsDocument
+backend/src/controllers/storeController.js [MOD] footer/page/delivery/announcement/cache/health settings reads wired
+backend/src/services/deliveryChargeService.js [MOD] getDeliverySettings + getVatSettings use fetchSettingsDocument
+backend/src/services/flashSaleService.js [MOD] loadFlashSaleSettings uses fetchSettingsDocument
+backend/src/utils/rewardSettings.js [MOD] loadRewardSettings uses fetchSettingsDocument
+backend/src/middlewares/rateLimiter.js [MOD] loadRateLimitSettings uses fetchSettingsDocument
+tests/services/readCutoverGroup2.test.js [NEW] CMS/Settings mocked flag-ON shape parity + null-vs-absent checks
+tests/services/readShapeHelpers.test.js [MOD] banner/settings/footer shape unit tests
+.env.example [MOD] Stage 4 Step 2 READ_PG_* flags documented (commented, default false)
+Result: npm test 194/194; test:repositories 157/157; verification — NavbarLink PASS, Banner PASS; PageContent/FooterSettings/Settings DATA PARITY FAIL (timestamp/sync drift — see DATABASE_MIGRATION_AUDIT.md)
+DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 2 section added
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 4 Step 2 note added
+README.md [DONE] test count 194 + Stage 4 Step 2 note
+
 # PostgreSQL migration — Stage 4 Step 1 close-out: Option C shape + productCount + legacy exceptions — 2026-09-15
 
 backend/src/services/readShapeHelpers.js [MOD] Category Tier 1 omit-null/absent-parent; categoryTreeSelectFields aligned

@@ -28,6 +28,7 @@ const {
 } = require('../services/flashSaleService');
 const { invalidate, CACHE_KEYS } = require('../services/cacheService');
 const { dualWrite } = require('../services/dualWriteService');
+const { fetchSettingsDocument } = require('../services/settingsReadService');
 
 function getSettingsRepository() {
     return require('../repositories/settingsRepository');
@@ -233,7 +234,7 @@ const buildUnifiedPayload = async (settingsDoc) => {
 
 const getMasterSettings = async (req, res) => {
     try {
-        const settings = await Settings.getOrCreate();
+        const settings = await fetchSettingsDocument();
         res.status(200).json({ success: true, data: await buildUnifiedPayload(settings) });
     } catch (error) {
         console.error('Get Master Settings Error:', error);
@@ -243,7 +244,7 @@ const getMasterSettings = async (req, res) => {
 
 const getAnnouncementSettings = async (req, res) => {
     try {
-        const settings = await Settings.getOrCreate();
+        const settings = await fetchSettingsDocument();
         res.status(200).json({ success: true, data: await buildUnifiedPayload(settings) });
     } catch (error) {
         console.error('Get Announcement Settings Error:', error);
