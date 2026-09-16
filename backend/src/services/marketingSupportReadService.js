@@ -15,7 +15,6 @@ const {
   mapNewslettersToMongo,
   mapEmailCampaignsToMongo,
   mapContactMessagesToAdminShape,
-  mapReviewsToMongo,
   fromTicketStatus,
   fromTicketPriority
 } = require('./readShapeHelpers');
@@ -84,6 +83,80 @@ async function loadReviewUserMap(reviewRows, { includeEmail = false } = {}) {
   });
 
   return new Map(users.map((u) => [u.id, u]));
+}
+
+function authorNameFromUserRef(userRef) {
+  if (!userRef || typeof userRef !== 'object') return '';
+  const fromParts = [userRef.firstName, userRef.lastName].filter(Boolean).join(' ').trim();
+  if (fromParts) return fromParts;
+  if (userRef.name) return String(userRef.name);
+  return '';
+}
+
+/** Canonical public review shape — both Mongo and Postgres paths use this. */
+function shapePublicReviewDoc(review, userRef) {
+  const _id = review._id != null ? String(review._id) : review.legacyId;
+  const legacy = userRef && userRef._id != null
+    ? String(userRef._id)
+    : (userRef && userRef.legacyId ? String(userRef.legacyId) : null);
+  const name = authorNameFromUserRef(userRef);
+
+  const out = {
+    _id,
+    productId: String(review.productId || review.legacyProductId || ''),
+    orderId: String(review.orderId || review.legacyOrderId || ''),
+    rating: Number(review.rating) || 0,
+    comment: review.comment,
+    photo: review.photo ?? '',
+    isSandbox: review.isSandbox === true,
+    isHidden: review.isHidden === true,
+    adminNote: review.adminNote ?? '',
+    moderatedAt: review.moderatedAt ?? null,
+    createdAt: review.createdAt,
+    updatedAt: review.updatedAt,
+    __v: review.__v ?? 0
+  };
+
+  if (legacy) {
+    out.userId = { _id: legacy, id: legacy, name };
+  } else {
+    out.userId = null;
+  }
+  return out;
+}
+
+/** Canonical admin moderation list shape — stored-field parity (matches .lean() omit rules). */
+function shapeAdminReviewDoc(review, userRef) {
+  const _id = review._id != null ? String(review._id) : review.legacyId;
+  const out = {
+    _id,
+    productId: String(review.productId || review.legacyProductId || ''),
+    orderId: String(review.orderId || review.legacyOrderId || ''),
+    rating: Number(review.rating) || 0,
+    comment: review.comment,
+    createdAt: review.createdAt,
+    updatedAt: review.updatedAt,
+    __v: review.__v ?? 0
+  };
+
+  const photo = review.photo ?? '';
+  if (photo) out.photo = photo;
+  if (review.isSandbox === true) out.isSandbox = true;
+  if (review.isHidden === true) out.isHidden = true;
+  if (review.adminNote) out.adminNote = review.adminNote;
+  if (review.moderatedAt != null) out.moderatedAt = review.moderatedAt;
+
+  if (userRef && typeof userRef === 'object') {
+    const userLegacy = userRef._id != null
+      ? String(userRef._id)
+      : (userRef.legacyId ? String(userRef.legacyId) : null);
+    if (userLegacy) {
+      out.userId = { _id: userLegacy };
+      if (userRef.email) out.userId.email = userRef.email;
+    }
+  }
+
+  return out;
 }
 
 function mapTicketStatsPayload(byStatus, byPriority, total, unassigned, unread) {
@@ -249,12 +322,15 @@ async function fetchReviewsByProduct(productId, { orderId, userId } = {}) {
 
   return routedRead(
     'review',
-    async () => Review.find({
-      productId: filter.productId,
-      isHidden: { $ne: true },
-      ...(filter.orderId ? { orderId: filter.orderId } : {}),
-      ...(filter.userId ? { userId: filter.userId } : {})
-    }).populate('userId', 'name'),
+    async () => {
+      const docs = await Review.find({
+        productId: filter.productId,
+        isHidden: { $ne: true },
+        ...(filter.orderId ? { orderId: filter.orderId } : {}),
+        ...(filter.userId ? { userId: filter.userId } : {})
+      }).populate('userId', 'firstName lastName name');
+      return docs.map((doc) => shapePublicReviewDoc(doc.toObject({ virtuals: true }), doc.userId));
+    },
     async () => {
       const rows = await getReviewRepository().findAll({
         productId: filter.productId,
@@ -263,9 +339,12 @@ async function fetchReviewsByProduct(productId, { orderId, userId } = {}) {
         isHidden: false
       });
       const userMap = await loadReviewUserMap(rows);
-      return mapReviewsToMongo(rows, userMap, {
-        includeUserEmail: false,
-        mongoosePopulateJson: true
+      return rows.map((row) => {
+        const userRef = row.userId ? userMap.get(row.userId) : null;
+        return shapePublicReviewDoc(
+          { ...row, _id: row.legacyId || row._id, productId: row.legacyProductId, orderId: row.legacyOrderId },
+          userRef
+        );
       });
     }
   );
@@ -293,15 +372,16 @@ async function fetchAdminReviewsPage({ page = 1, limit = 20, status, productId, 
   return routedRead(
     'review',
     async () => {
-      const [reviews, total] = await Promise.all([
+      const [rows, total] = await Promise.all([
         Review.find(mongoFilter)
-          .populate('userId', 'name email')
+          .populate('userId', 'email')
           .sort({ createdAt: -1 })
           .skip(skip)
           .limit(safeLimit)
           .lean(),
         Review.countDocuments(mongoFilter)
       ]);
+      const reviews = rows.map((row) => shapeAdminReviewDoc(row, row.userId));
       return { reviews, total, page: safePage, pages: Math.ceil(total / safeLimit) };
     },
     async () => {
@@ -311,9 +391,12 @@ async function fetchAdminReviewsPage({ page = 1, limit = 20, status, productId, 
         repo.count(pgFilter)
       ]);
       const userMap = await loadReviewUserMap(rows, { includeEmail: true });
-      const reviews = mapReviewsToMongo(rows, userMap, {
-        includeUserEmail: true,
-        omitDefaultFields: true
+      const reviews = rows.map((row) => {
+        const userRef = row.userId ? userMap.get(row.userId) : null;
+        return shapeAdminReviewDoc(
+          { ...row, _id: row.legacyId || row._id, productId: row.legacyProductId, orderId: row.legacyOrderId },
+          userRef
+        );
       });
       return {
         reviews,

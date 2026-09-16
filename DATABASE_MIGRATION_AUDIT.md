@@ -3392,23 +3392,33 @@ Script: `scripts/verify-read-cutover-group5.local.js` (local, not committed). Fl
 |---|---|---|
 | **Newsletter** | **SKIP** | subscriber list — 0 rows in Mongo |
 | **EmailCampaign** | **SKIP** | campaign list — 0 rows in Mongo |
-| **ContactMessage** | **FAIL** | inbox list — **timestamp drift** on all 6 rows (Postgres backfill wrote sync-time `createdAt`/`updatedAt`); ticket stats **PASS** |
-| **Review** | **FAIL** | public by-product + admin list — **timestamp drift** on 2 rows (sort order affected); shape fixes applied; **0 fallbacks** after User select fix |
+| **ContactMessage** | **PASS** | inbox list + ticket stats (4/4 exercised endpoints) |
+| **Review** | **PASS** | public by-product + admin list (2/2) |
 
-**`[READ-CUTOVER-FALLBACK]` entries: 0** (after `User.name` Prisma select fix).
+**`[READ-CUTOVER-FALLBACK]` entries: 0**.
 
-**Overall: FAIL** — data sync required before PASS (same pattern as Stage 4 Step 4 HRM timestamps).
+### Phase 2 data sync — COMPLETE (2026-09-16)
 
-### Phase 2 data sync plan (awaiting confirmation)
+Script: `scripts/stage4-step5-marketing-data-sync.local.js` (local, not committed). Mongo read-only; Postgres update-only.
 
-Script prepared: `scripts/stage4-step5-marketing-data-sync.local.js` (local, not committed).
-
-| Sync target | Action |
+| Sync target | Result |
 |---|---|
-| ContactMessage (6 rows) | Copy `createdAt` / `updatedAt` from Mongo by `legacyId` |
-| Review (2 rows) | Copy `createdAt` / `updatedAt` from Mongo by `legacyId` |
+| ContactMessage (6 rows) | **6/6** `createdAt`/`updatedAt` copied from Mongo |
+| Review (2 rows) | **2/2** `createdAt`/`updatedAt` copied from Mongo |
 
-Mongo read-only; Postgres update-only. Re-run verification script after sync.
+### Phase 3 re-verification — PASS (2026-09-16)
+
+Re-ran `scripts/verify-read-cutover-group5.local.js` after timestamp sync + canonical review shape normalizers
+(`shapePublicReviewDoc` / `shapeAdminReviewDoc` — fixes Mongo virtual `name` populate gap on public reads).
+
+| Model | Verdict |
+|---|---|
+| Newsletter | SKIP (0 rows) |
+| EmailCampaign | SKIP (0 rows) |
+| ContactMessage | **PASS** |
+| Review | **PASS** |
+
+**Overall: PASS** — 0 fallbacks.
 
 ### Regression checks
 

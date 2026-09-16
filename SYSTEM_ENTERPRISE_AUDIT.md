@@ -1950,7 +1950,7 @@ Full detail lives in `DATABASE_MIGRATION_AUDIT.md`; this is the status summary.
 | Dual-write repository layer | ❌ NOT STARTED — Stage 2 remainder |
 | `LoginAttempt` / `BlacklistedIp` TTL sweep jobs | ❌ NOT STARTED — Stage 2 remainder |
 | `ProductTextIndex` → `tsvector` + GIN raw SQL migration | ❌ NOT STARTED — Stage 2 remainder |
-| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Steps 1–4 COMPLETE**; **Stage 4 Step 5 CODE COMPLETE (2026-09-16)** — Marketing/Support reads wired; live HTTP **FAIL** (ContactMessage + Review timestamp drift — sync script prepared); Review null-userId **0/2**; **220/220** tests; all `READ_PG_*` flags OFF; PaymentMethod backfill still required before Order read cutover |
+| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Steps 1–5 COMPLETE (2026-09-16)** — Marketing/Support live HTTP **PASS** (0 fallbacks); Review null-userId **0/2**; **220/220** tests; all `READ_PG_*` flags OFF; PaymentMethod backfill still required before Order read cutover |
 
 **Isolation guarantee:** zero `.js` files under `backend/src/` were modified — no
 model, controller, route, service or script. No application code queries

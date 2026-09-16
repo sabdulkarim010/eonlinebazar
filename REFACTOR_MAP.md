@@ -1720,7 +1720,7 @@ backend/src/controllers/reviewController.js [MOD] getReviewsByProduct read wired
 backend/src/controllers/reviewAdminController.js [MOD] getAllReviews read wired
 tests/services/readCutoverGroup5.test.js [NEW] Marketing/Support shape parity (8 tests)
 .env.example [MOD] Stage 4 Step 5 READ_PG_* flags documented
-Result: live HTTP verify FAIL (ContactMessage + Review timestamp drift — sync script prepared); Review null-userId 0/2; npm test 220/220
+Result: live HTTP verify PASS after timestamp sync + review shape normalizers; Review null-userId 0/2; npm test 220/220
 DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 5 section added
 README.md [DONE] test count 220
 
