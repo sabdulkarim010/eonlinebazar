@@ -57,10 +57,10 @@ async function findByLegacyId(legacyId) {
   return toShape(record);
 }
 
-async function findAll(filters = {}) {
+function buildNewsletterWhere(filters = {}) {
   const where = {};
   if (filters.isActive !== undefined) where.isActive = Boolean(filters.isActive);
-  if (filters.tag) where.tags = { has: String(filters.tag) };
+  if (filters.tag) where.tags = { has: String(filters.tag).toLowerCase() };
   if (filters.search) {
     const term = String(filters.search).trim();
     where.OR = [
@@ -68,9 +68,30 @@ async function findAll(filters = {}) {
       { name: { contains: term, mode: 'insensitive' } }
     ];
   }
+  return where;
+}
 
+async function count(filters = {}) {
+  return prisma.newsletter.count({ where: buildNewsletterWhere(filters) });
+}
+
+async function countByIsActive(isActive) {
+  return prisma.newsletter.count({ where: { isActive: Boolean(isActive) } });
+}
+
+async function findPaginated(filters = {}, { skip = 0, take = 20 } = {}) {
   const records = await prisma.newsletter.findMany({
-    where,
+    where: buildNewsletterWhere(filters),
+    orderBy: { subscribedAt: 'desc' },
+    skip,
+    take
+  });
+  return records.map(toShape);
+}
+
+async function findAll(filters = {}) {
+  const records = await prisma.newsletter.findMany({
+    where: buildNewsletterWhere(filters),
     orderBy: { subscribedAt: 'desc' }
   });
   return records.map(toShape);
@@ -160,6 +181,10 @@ module.exports = {
   findByEmail,
   findByLegacyId,
   findAll,
+  findPaginated,
+  count,
+  countByIsActive,
+  buildNewsletterWhere,
   create,
   update,
   unsubscribe,

@@ -65,14 +65,50 @@ async function findByLegacyId(legacyId) {
   return toShape(record);
 }
 
-async function findAll(filters = {}) {
+function buildContactMessageWhere(filters = {}) {
   const where = {};
   if (filters.status) where.status = toTicketStatus(filters.status);
   if (filters.priority) where.priority = toTicketPriority(filters.priority);
   if (filters.isRead !== undefined) where.isRead = Boolean(filters.isRead);
+  if (filters.assignedTo !== undefined) where.assignedTo = String(filters.assignedTo);
+  return where;
+}
 
+async function count(filters = {}) {
+  return prisma.contactMessage.count({ where: buildContactMessageWhere(filters) });
+}
+
+/**
+ * Mirrors listContactMessages inbox badge — NOT ticket stats unread.
+ * Mongo: $or: [{ status: 'unread' }, { status: { $exists: false }, isRead: false }]
+ * Postgres rows always have enum status; legacy `unread` is not stored after backfill.
+ */
+async function countUnreadInbox() {
+  return 0;
+}
+
+async function aggregateTicketStats() {
+  const [byStatus, byPriority, total, unassigned, unread] = await Promise.all([
+    prisma.contactMessage.groupBy({
+      by: ['status'],
+      _count: { _all: true }
+    }),
+    prisma.contactMessage.groupBy({
+      by: ['priority'],
+      _count: { _all: true }
+    }),
+    prisma.contactMessage.count(),
+    prisma.contactMessage.count({
+      where: { OR: [{ assignedTo: '' }] }
+    }),
+    prisma.contactMessage.count({ where: { isRead: false } })
+  ]);
+  return { byStatus, byPriority, total, unassigned, unread };
+}
+
+async function findAll(filters = {}) {
   const records = await prisma.contactMessage.findMany({
-    where,
+    where: buildContactMessageWhere(filters),
     orderBy: { createdAt: 'desc' },
     take: filters.limit != null ? Number(filters.limit) : undefined
   });
@@ -177,6 +213,10 @@ async function remove(id) {
 module.exports = {
   findByLegacyId,
   findAll,
+  count,
+  countUnreadInbox,
+  aggregateTicketStats,
+  buildContactMessageWhere,
   create,
   update,
   upsertFromMongo,

@@ -913,6 +913,32 @@ function optionalString(value) {
   return s || undefined;
 }
 
+const BLOOD_GROUP_PG_TO_MONGO = {
+  A_POSITIVE: 'A+',
+  A_NEGATIVE: 'A-',
+  B_POSITIVE: 'B+',
+  B_NEGATIVE: 'B-',
+  O_POSITIVE: 'O+',
+  O_NEGATIVE: 'O-',
+  AB_POSITIVE: 'AB+',
+  AB_NEGATIVE: 'AB-'
+};
+
+function pgGenderToMongo(value) {
+  if (value == null || value === '') return '';
+  return String(value).toLowerCase();
+}
+
+function pgBloodGroupToMongo(value) {
+  if (value == null || value === '') return '';
+  return BLOOD_GROUP_PG_TO_MONGO[value] || String(value);
+}
+
+function pgMaritalStatusToMongo(value) {
+  if (value == null || value === '') return '';
+  return String(value).toLowerCase();
+}
+
 function employeeDocumentToMongoShape(doc) {
   if (!doc) return null;
   return {
@@ -948,65 +974,52 @@ function employeeToMongoShape(pgRow, options = {}) {
     _id: mongoIdFromRow(pgRow),
     employeeId: pgRow.employeeId,
     fullName: pgRow.fullName,
+    dateOfBirth: pgRow.dateOfBirth ?? null,
+    gender: pgGenderToMongo(pgRow.gender),
+    bloodGroup: pgBloodGroupToMongo(pgRow.bloodGroup),
+    religion: pgRow.religion ?? '',
+    maritalStatus: pgMaritalStatusToMongo(pgRow.maritalStatus),
+    nationalId: pgRow.nationalId ?? '',
+    photo: pgRow.photo ?? '',
+    photoPublicId: pgRow.photoPublicId ?? '',
     phone: pgRow.phone,
-    department: pgRow.department ?? 'Operations',
+    alternatePhone: pgRow.alternatePhone ?? '',
+    email: pgRow.email ?? '',
+    presentAddress: pgRow.presentAddress ?? '',
+    permanentAddress: pgRow.permanentAddress ?? '',
+    address: pgRow.address ?? pgRow.presentAddress ?? '',
+    emergencyContact: {
+      name: pgRow.emergencyContactName ?? '',
+      phone: pgRow.emergencyContactPhone ?? '',
+      relation: pgRow.emergencyContactRelation ?? ''
+    },
     designation: pgRow.designation ?? '',
     role: pgRow.role ?? '',
+    department: pgRow.department ?? 'Operations',
     employeeType: pgRow.employeeType
       ? String(pgRow.employeeType).toLowerCase().replace('part_time', 'part-time')
       : 'permanent',
+    shift: pgRow.shift ?? '',
+    joiningDate: pgRow.joiningDate ?? null,
     baseSalary: pgRow.baseSalary != null ? Number(pgRow.baseSalary) : 0,
     salaryType: pgRow.salaryType ? String(pgRow.salaryType).toLowerCase() : 'monthly',
+    bankName: pgRow.bankName ?? '',
+    bankAccountNumber: pgRow.bankAccountNumber ?? '',
+    bkashNumber: pgRow.bkashNumber ?? '',
+    linkedAdminId: linkedAdminLegacy || null,
     status: pgRow.status ? String(pgRow.status).toLowerCase() : 'active',
     notes: pgRow.notes ?? '',
     createdBy: pgRow.createdBy ?? '',
+    documents: (options.documents || pgRow.documents || [])
+      .map(employeeDocumentToMongoShape)
+      .filter(Boolean),
+    references: (options.references || pgRow.references || [])
+      .map(employeeReferenceToMongoShape)
+      .filter(Boolean),
     createdAt: pgRow.createdAt,
     updatedAt: pgRow.updatedAt,
-    __v: MONGOOSE_DOC_VERSION
+    __v: options.version ?? pgRow.mongoVersion ?? MONGOOSE_DOC_VERSION
   };
-
-  if (pgRow.dateOfBirth != null) out.dateOfBirth = pgRow.dateOfBirth;
-  if (optionalString(pgRow.gender)) out.gender = String(pgRow.gender).toLowerCase();
-  if (optionalString(pgRow.bloodGroup)) out.bloodGroup = pgRow.bloodGroup;
-  if (optionalString(pgRow.religion)) out.religion = pgRow.religion;
-  if (optionalString(pgRow.maritalStatus)) out.maritalStatus = String(pgRow.maritalStatus).toLowerCase();
-  if (optionalString(pgRow.nationalId)) out.nationalId = pgRow.nationalId;
-  if (optionalString(pgRow.photo)) out.photo = pgRow.photo;
-  if (optionalString(pgRow.photoPublicId)) out.photoPublicId = pgRow.photoPublicId;
-  if (optionalString(pgRow.alternatePhone)) out.alternatePhone = pgRow.alternatePhone;
-  if (optionalString(pgRow.email)) out.email = pgRow.email;
-  if (optionalString(pgRow.presentAddress)) out.presentAddress = pgRow.presentAddress;
-  if (optionalString(pgRow.permanentAddress)) out.permanentAddress = pgRow.permanentAddress;
-  if (optionalString(pgRow.address)) out.address = pgRow.address;
-  if (optionalString(pgRow.shift)) out.shift = pgRow.shift;
-  if (pgRow.joiningDate != null) out.joiningDate = pgRow.joiningDate;
-  if (optionalString(pgRow.bankName)) out.bankName = pgRow.bankName;
-  if (optionalString(pgRow.bankAccountNumber)) out.bankAccountNumber = pgRow.bankAccountNumber;
-  if (optionalString(pgRow.bkashNumber)) out.bkashNumber = pgRow.bkashNumber;
-
-  const ecName = optionalString(pgRow.emergencyContactName);
-  const ecPhone = optionalString(pgRow.emergencyContactPhone);
-  const ecRelation = optionalString(pgRow.emergencyContactRelation);
-  if (ecName || ecPhone || ecRelation) {
-    out.emergencyContact = {
-      name: ecName || '',
-      phone: ecPhone || '',
-      relation: ecRelation || ''
-    };
-  }
-
-  if (linkedAdminLegacy) out.linkedAdminId = linkedAdminLegacy;
-  else if (pgRow.linkedAdminId == null || pgRow.linkedAdminId === '') out.linkedAdminId = null;
-
-  const documents = options.documents || pgRow.documents;
-  if (documents) {
-    out.documents = documents.map(employeeDocumentToMongoShape).filter(Boolean);
-  }
-
-  const references = options.references || pgRow.references;
-  if (references) {
-    out.references = references.map(employeeReferenceToMongoShape).filter(Boolean);
-  }
 
   return out;
 }
@@ -1120,6 +1133,233 @@ function mapLeavesToMongo(rows, maps = null) {
   return (rows || []).map((row) => leaveToMongoShape(row, maps)).filter(Boolean);
 }
 
+// ── Newsletter ──────────────────────────────────────────────────────────────
+
+function fromNewsletterSource(value) {
+  if (!value) return 'footer_form';
+  return String(value).toLowerCase();
+}
+
+function newsletterToMongoShape(pgRow) {
+  if (!pgRow) return null;
+  return {
+    _id: mongoIdFromRow(pgRow),
+    email: pgRow.email,
+    name: pgRow.name ?? null,
+    isActive: pgRow.isActive !== false,
+    source: fromNewsletterSource(pgRow.source),
+    subscribedAt: pgRow.subscribedAt,
+    unsubscribedAt: pgRow.unsubscribedAt ?? null,
+    unsubscribeToken: pgRow.unsubscribeToken ?? null,
+    tags: Array.isArray(pgRow.tags) ? pgRow.tags : [],
+    emailsSent: Number(pgRow.emailsSent) || 0,
+    lastEmailAt: pgRow.lastEmailAt ?? null
+  };
+}
+
+function mapNewslettersToMongo(rows) {
+  return (rows || []).map(newsletterToMongoShape).filter(Boolean);
+}
+
+// ── EmailCampaign ───────────────────────────────────────────────────────────
+
+function fromCampaignStatus(value) {
+  const map = {
+    DRAFT: 'draft',
+    SCHEDULED: 'scheduled',
+    SENDING: 'sending',
+    SENT: 'sent',
+    FAILED: 'failed'
+  };
+  return map[String(value || '').toUpperCase()] || 'draft';
+}
+
+function fromCampaignSegment(value) {
+  const map = {
+    ALL: 'all',
+    VIP: 'vip',
+    FREQUENT: 'frequent',
+    INACTIVE: 'inactive',
+    NEW: 'new'
+  };
+  return map[String(value || '').toUpperCase()] || 'all';
+}
+
+function fromCampaignChannel(value) {
+  const map = { EMAIL: 'email', SMS: 'sms', WHATSAPP: 'whatsapp' };
+  return map[String(value || '').toUpperCase()] || 'email';
+}
+
+function emailCampaignToMongoShape(pgRow, adminMap = null) {
+  if (!pgRow) return null;
+
+  const out = {
+    _id: mongoIdFromRow(pgRow),
+    title: pgRow.title,
+    subject: pgRow.subject,
+    htmlContent: pgRow.htmlContent,
+    status: fromCampaignStatus(pgRow.status),
+    targetTags: Array.isArray(pgRow.targetTags) ? pgRow.targetTags : [],
+    targetSegment: fromCampaignSegment(pgRow.targetSegment),
+    channel: fromCampaignChannel(pgRow.channel),
+    whatsappTemplate: pgRow.whatsappTemplate ?? '',
+    scheduledAt: pgRow.scheduledAt ?? null,
+    sentAt: pgRow.sentAt ?? null,
+    stats: {
+      totalRecipients: Number(pgRow.statsTotalRecipients) || 0,
+      sent: Number(pgRow.statsSent) || 0,
+      failed: Number(pgRow.statsFailed) || 0
+    },
+    createdAt: pgRow.createdAt
+  };
+
+  const admin = pgRow.createdBy
+    || (pgRow.createdById && adminMap ? adminMap.get(pgRow.createdById) : null);
+  if (admin) {
+    out.createdBy = {
+      _id: admin.legacyId,
+      username: admin.username,
+      displayName: admin.displayName
+    };
+  } else {
+    out.createdBy = null;
+  }
+
+  return out;
+}
+
+function mapEmailCampaignsToMongo(rows, adminMap = null) {
+  return (rows || []).map((row) => emailCampaignToMongoShape(row, adminMap)).filter(Boolean);
+}
+
+// ── ContactMessage ──────────────────────────────────────────────────────────
+
+function fromTicketStatus(value) {
+  const map = {
+    OPEN: 'open',
+    IN_PROGRESS: 'in_progress',
+    RESOLVED: 'resolved',
+    CLOSED: 'closed'
+  };
+  return map[String(value || '').toUpperCase()] || 'open';
+}
+
+function fromTicketPriority(value) {
+  const map = {
+    LOW: 'low',
+    NORMAL: 'normal',
+    HIGH: 'high',
+    URGENT: 'urgent'
+  };
+  return map[String(value || '').toUpperCase()] || 'normal';
+}
+
+/** Matches ContactMessage.toAdminObject() — uses `id`, not `_id`. */
+function contactMessageToAdminShape(pgRow) {
+  if (!pgRow) return null;
+  const status = fromTicketStatus(pgRow.status);
+  return {
+    id: mongoIdFromRow(pgRow),
+    ticketNumber: pgRow.ticketNumber || '',
+    name: pgRow.name,
+    email: pgRow.email,
+    phone: pgRow.phone || '',
+    subject: pgRow.subject || '',
+    message: pgRow.message,
+    status,
+    priority: fromTicketPriority(pgRow.priority),
+    assignedTo: pgRow.assignedTo || '',
+    firstResponseAt: pgRow.firstResponseAt || null,
+    resolvedAt: pgRow.resolvedAt || null,
+    replyMessage: pgRow.replyMessage || '',
+    repliedAt: pgRow.repliedAt || null,
+    isRead: pgRow.isRead === true,
+    createdAt: pgRow.createdAt,
+    updatedAt: pgRow.updatedAt
+  };
+}
+
+function mapContactMessagesToAdminShape(rows) {
+  return (rows || []).map(contactMessageToAdminShape).filter(Boolean);
+}
+
+// ── Review ──────────────────────────────────────────────────────────────────
+
+function resolveUserDisplayName(userRow) {
+  if (!userRow) return '';
+  return [userRow.firstName, userRow.lastName].filter(Boolean).join(' ').trim();
+}
+
+function reviewToMongoShape(pgRow, options = {}) {
+  if (!pgRow) return null;
+
+  const out = {
+    _id: mongoIdFromRow(pgRow),
+    productId: pgRow.legacyProductId || '',
+    orderId: pgRow.legacyOrderId || '',
+    rating: Number(pgRow.rating) || 0,
+    comment: pgRow.comment,
+    createdAt: pgRow.createdAt,
+    updatedAt: pgRow.updatedAt,
+    __v: MONGOOSE_DOC_VERSION
+  };
+
+  const photo = pgRow.photo ?? '';
+  const isSandbox = pgRow.isSandbox === true;
+  const isHidden = pgRow.isHidden === true;
+  const adminNote = pgRow.adminNote ?? '';
+  const moderatedAt = pgRow.moderatedAt ?? null;
+
+  if (options.omitDefaultFields) {
+    if (photo) out.photo = photo;
+    if (isSandbox) out.isSandbox = true;
+    if (isHidden) out.isHidden = true;
+    if (adminNote) out.adminNote = adminNote;
+    if (moderatedAt != null) out.moderatedAt = moderatedAt;
+  } else {
+    out.photo = photo;
+    out.isSandbox = isSandbox;
+    out.isHidden = isHidden;
+    out.adminNote = adminNote;
+    out.moderatedAt = moderatedAt;
+  }
+
+  if (options.populateUser !== undefined) {
+    const u = options.populateUser;
+    if (!u) {
+      out.userId = null;
+    } else {
+      const legacy = u.legacyId != null ? String(u.legacyId) : null;
+      out.userId = { _id: legacy };
+      if (options.mongoosePopulateJson && legacy) {
+        out.userId.id = legacy;
+      }
+      if (options.includeUserEmail) {
+        out.userId.email = u.email || '';
+        const adminName = resolveUserDisplayName(u);
+        if (adminName) out.userId.name = adminName;
+      } else if (options.mongoosePopulateJson) {
+        const displayName = resolveUserDisplayName(u);
+        if (displayName) out.userId.name = displayName;
+      }
+    }
+  }
+
+  return out;
+}
+
+function mapReviewsToMongo(rows, userMap = null, options = {}) {
+  return (rows || []).map((row) => {
+    const populatedUser = userMap && row.userId ? userMap.get(row.userId) : null;
+    return reviewToMongoShape(row, {
+      populateUser: populatedUser,
+      includeUserEmail: options.includeUserEmail,
+      omitDefaultFields: options.omitDefaultFields,
+      mongoosePopulateJson: options.mongoosePopulateJson
+    });
+  }).filter(Boolean);
+}
+
 module.exports = {
   mongoIdFromRow,
   buildCategoryIdMaps,
@@ -1169,6 +1409,20 @@ module.exports = {
   mapPayrollsToMongo,
   leaveToMongoShape,
   mapLeavesToMongo,
+  newsletterToMongoShape,
+  mapNewslettersToMongo,
+  emailCampaignToMongoShape,
+  mapEmailCampaignsToMongo,
+  contactMessageToAdminShape,
+  mapContactMessagesToAdminShape,
+  reviewToMongoShape,
+  mapReviewsToMongo,
+  fromNewsletterSource,
+  fromCampaignStatus,
+  fromCampaignSegment,
+  fromCampaignChannel,
+  fromTicketStatus,
+  fromTicketPriority,
   fromResourceType,
   fromLoginStatus,
   fromActorType

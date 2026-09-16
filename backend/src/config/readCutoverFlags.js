@@ -28,7 +28,11 @@ const GROUP_ENV = {
   employee: 'READ_PG_EMPLOYEE',
   attendance: 'READ_PG_ATTENDANCE',
   payroll: 'READ_PG_PAYROLL',
-  leave: 'READ_PG_LEAVE'
+  leave: 'READ_PG_LEAVE',
+  newsletter: 'READ_PG_NEWSLETTER',
+  emailcampaign: 'READ_PG_EMAILCAMPAIGN',
+  contactmessage: 'READ_PG_CONTACTMESSAGE',
+  review: 'READ_PG_REVIEW'
 };
 
 /**

@@ -7,6 +7,10 @@ const ContactMessage = require('../models/ContactMessage');
 const { TICKET_STATUSES, TICKET_PRIORITIES } = require('../models/ContactMessage');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { dualWrite } = require('../services/dualWriteService');
+const {
+    fetchContactMessagesInbox,
+    fetchTicketStats
+} = require('../services/marketingSupportReadService');
 
 function getContactMessageRepository() {
     return require('../repositories/contactMessageRepository');
@@ -97,16 +101,10 @@ const submitContactMessage = async (req, res) => {
 
 const listContactMessages = async (req, res) => {
     try {
-        const messages = await ContactMessage.find().sort({ createdAt: -1 }).limit(500);
-        const unreadCount = await ContactMessage.countDocuments({
-            $or: [
-                { status: 'unread' },
-                { status: { $exists: false }, isRead: false }
-            ]
-        });
+        const { data, unreadCount } = await fetchContactMessagesInbox();
         res.status(200).json({
             success: true,
-            data: messages.map((m) => m.toAdminObject()),
+            data,
             unreadCount
         });
     } catch (error) {
@@ -327,35 +325,10 @@ const updateTicketStatus = async (req, res) => {
 // GET /api/admin/tickets/stats — counts by status/priority for the inbox header.
 const getTicketStats = async (req, res) => {
     try {
-        const [byStatus, byPriority, total, unassigned, unread] = await Promise.all([
-            ContactMessage.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
-            ContactMessage.aggregate([{ $group: { _id: '$priority', count: { $sum: 1 } } }]),
-            ContactMessage.countDocuments({}),
-            ContactMessage.countDocuments({ $or: [{ assignedTo: '' }, { assignedTo: { $exists: false } }] }),
-            ContactMessage.countDocuments({ isRead: false })
-        ]);
-
-        const statusCounts = TICKET_STATUSES.reduce((acc, s) => { acc[s] = 0; return acc; }, {});
-        byStatus.forEach((row) => {
-            const key = TICKET_STATUSES.includes(row._id) ? row._id : 'open';
-            statusCounts[key] += row.count;
-        });
-
-        const priorityCounts = TICKET_PRIORITIES.reduce((acc, p) => { acc[p] = 0; return acc; }, {});
-        byPriority.forEach((row) => {
-            const key = TICKET_PRIORITIES.includes(row._id) ? row._id : 'normal';
-            priorityCounts[key] += row.count;
-        });
-
+        const data = await fetchTicketStats();
         res.status(200).json({
             success: true,
-            data: {
-                total,
-                unassigned,
-                unread,
-                byStatus: statusCounts,
-                byPriority: priorityCounts
-            }
+            data
         });
     } catch (error) {
         console.error('Get Ticket Stats Error:', error);

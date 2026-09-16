@@ -7,6 +7,10 @@
 const Newsletter = require('../models/newsletter');
 const EmailCampaign = require('../models/emailCampaign');
 const { dualWrite } = require('../services/dualWriteService');
+const {
+    fetchNewsletterSubscribersPage,
+    fetchEmailCampaignsList
+} = require('../services/marketingSupportReadService');
 
 function getEmailCampaignRepository() {
     return require('../repositories/emailCampaignRepository');
@@ -188,35 +192,20 @@ const listSubscribers = async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page, 10) || 1);
         const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
-        const skip = (page - 1) * limit;
 
-        const query = buildSubscriberQuery({
+        const { data, pagination, stats } = await fetchNewsletterSubscribersPage({
             isActive: req.query.isActive,
             tag: req.query.tag,
-            search: req.query.search
+            search: req.query.search,
+            page,
+            limit
         });
-
-        const [subscribers, total, totalActive, totalInactive] = await Promise.all([
-            Newsletter.find(query).sort({ subscribedAt: -1 }).skip(skip).limit(limit).lean(),
-            Newsletter.countDocuments(query),
-            Newsletter.countDocuments({ isActive: true }),
-            Newsletter.countDocuments({ isActive: false })
-        ]);
 
         res.json({
             success: true,
-            data: subscribers,
-            pagination: {
-                page,
-                limit,
-                total,
-                pages: Math.ceil(total / limit) || 1
-            },
-            stats: {
-                totalActive,
-                totalInactive,
-                total: totalActive + totalInactive
-            }
+            data,
+            pagination,
+            stats
         });
     } catch (error) {
         console.error('List newsletter subscribers error:', error);
@@ -300,11 +289,7 @@ const createCampaign = async (req, res) => {
 
 const listCampaigns = async (req, res) => {
     try {
-        const campaigns = await EmailCampaign.find()
-            .sort({ createdAt: -1 })
-            .populate('createdBy', 'username displayName')
-            .lean();
-
+        const campaigns = await fetchEmailCampaignsList();
         res.json({ success: true, data: campaigns });
     } catch (error) {
         console.error('List email campaigns error:', error);

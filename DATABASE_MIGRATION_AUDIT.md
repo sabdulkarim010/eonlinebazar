@@ -3276,31 +3276,146 @@ Each sub-query respects its own group flag (`attendance`, `payroll`, `leave`) in
 | Employee documents `_id` ← `legacyId` | ✅ |
 | References omit subdoc `_id` (matches Mongoose schema) | ✅ |
 | Polymorphic `staffId` via FK legacy maps | ✅ unit-tested |
-| Sparse optional employee fields omitted when unset | ✅ |
+| Employee full `.lean()` / `.toObject()` field parity (enums, nested docs) | ✅ |
+| `mongoVersion` column mirrors Mongoose `__v` | ✅ |
 
-### Verification (2026-09-16)
+### Step 4 parity fixes + live HTTP verification — 2026-09-16
 
-Script: `scripts/verify-read-cutover-group4.local.js` (local, not committed). Includes explicit
-**admin-type** and **employee-type** staff filter cases for Attendance summary and Payroll list.
+**Phase 1 — code fixes**
 
-| Model | Verdict | Notes |
+| Fix | File |
+|---|---|
+| `aggregateStats()` designation sort via post-`groupBy` JS (invalid Prisma `_count._all` orderBy removed) | `employeeRepository.js` |
+| `employeeToMongoShape()` full Mongo lean/toObject parity; PG enum → Mongo string maps (`gender`, `bloodGroup`, `maritalStatus`); nested `documents`/`references` on list via `includeNested` | `readShapeHelpers.js`, `hrmReadService.js`, `employeeRepository.js` |
+| `Employee.mongoVersion` column for `__v` parity | `prisma/schema.prisma` |
+
+**Phase 2 — Postgres-only data sync**
+
+Script: `scripts/stage4-step4-hrm-data-sync.local.js` (local, not committed). Mongo read-only.
+
+| Sync target | Action |
+|---|---|
+| Employee `createdAt` / `updatedAt` | Copied from Mongo (3 rows) |
+| Employee `linkedAdminId` | Resolved Mongo admin legacy → PG admin UUID (3 rows) |
+| Employee `mongoVersion` | Copied from Mongo `__v` |
+| Employee enum fields | `gender`, `bloodGroup`, `maritalStatus`, `shift` from Mongo |
+| EmployeeDocument `uploadedAt` | Copied from Mongo (1 doc) |
+| Attendance gaps | 1 orphan admin row (`nurjahan`, legacy staffId only — admin deleted in Mongo) inserted with legacy `staffId` preserved |
+
+**Phase 3 — live HTTP verification**
+
+Script: `scripts/verify-read-cutover-group4.local.js` (local, not committed). Flags set in **process env only** during PG half of each compare (`.env` unchanged).
+
+| Model | Verdict | Endpoints |
 |---|---|---|
-| **Employee** | **PASS** (unit + shape tests) | List, stats, detail, profile composite wired |
-| **Attendance** | **PASS** (unit + shape tests) | Polymorphic admin + employee summary filters |
-| **Payroll** | **PASS** (unit + shape tests) | List only (no separate detail GET exists); admin + employee staff filters |
-| **Leave** | **PASS** (unit + shape tests) | List, balance, calendar; admin-only staff filter matches Mongo |
+| **Employee** | **PASS** | list, stats, detail, profile composite (4/4) |
+| **Attendance** | **PASS** | list, summary, admin staff filter, employee staff filter (4/4) |
+| **Payroll** | **PASS** | list (1/1; admin/employee filter tests **SKIP** — no polymorphic rows in DB) |
+| **Leave** | **PASS** | list, balance, calendar (3/3; admin/employee filter tests **SKIP** — no polymorphic rows in DB) |
 
-**Zero `[READ-CUTOVER-FALLBACK]`** expected when Postgres is healthy (same as Steps 1–3).
+**`[READ-CUTOVER-FALLBACK]` entries: 0** — **Overall: PASS**
 
-No post-backfill data drift investigation required before enable — Step 3 sync restored Security/Audit parity;
-HRM dual-write has been active since Stage 2 Step 3 Part 5 with no reported gap class for these models.
+Polymorphic samples present: admin + employee **Attendance** rows. Payroll/Leave polymorphic filter endpoints remain untested until production data exists.
 
 ### Regression checks
 
 | Suite | Result |
 |---|---|
-| `npm test` (Jest) | **211/211** pass (+7 Step 4 tests in `readCutoverGroup4.test.js`) |
+| `npm test` (Jest) | **212/212** pass (+8 Step 4 tests in `readCutoverGroup4.test.js`) |
 | `npm run test:repositories` | **157/157** pass |
+
+**All `READ_PG_*` flags remain OFF** until deliberate per-environment enable.
+
+---
+
+## STAGE 4, STEP 5 — Read Cutover: Marketing/Support Group — 2026-09-16
+
+Stage 4 Step 5 extends read-cutover to the Marketing/Support dual-write group from Stage 2 Step 3 Part 6:
+**Newsletter**, **EmailCampaign**, **ContactMessage**, **Review**. All new flags default **OFF**. Postgres read
+failure falls back to Mongo via `routedRead()`.
+
+### New feature flags (all default OFF)
+
+| Env var | Group key | Wired read surfaces |
+|---|---|---|
+| `READ_PG_NEWSLETTER` | `newsletter` | Admin subscriber list + stats/pagination |
+| `READ_PG_EMAILCAMPAIGN` | `emailcampaign` | Admin campaign list (includes flattened `stats{}` + populated `createdBy`) |
+| `READ_PG_CONTACTMESSAGE` | `contactmessage` | Admin inbox list + ticket stats aggregates |
+| `READ_PG_REVIEW` | `review` | Public `GET /api/reviews/:productId` (populated author); admin moderation list |
+
+Documented in `.env.example` (commented). **No separate EmailCampaign detail GET exists** — list only.
+
+### Implementation summary
+
+| File | Change |
+|---|---|
+| `readCutoverFlags.js` | Four new group keys |
+| `readShapeHelpers.js` | `newsletterToMongoShape`, `emailCampaignToMongoShape`, `contactMessageToAdminShape`, `reviewToMongoShape` (+ populate/`id` virtual parity) |
+| `marketingSupportReadService.js` | **NEW** — centralized routed reads |
+| `newsletterRepository.js` | `count`, `countByIsActive`, `findPaginated`, `buildNewsletterWhere` |
+| `emailCampaignRepository.js` | `findAll` includes `createdBy` legacy admin |
+| `contactMessageRepository.js` | `count`, `countUnreadInbox` (list badge semantics), `aggregateTicketStats` |
+| `reviewRepository.js` | `count`, `findPaginated`, `buildReviewWhere` |
+| Controllers (reads only) | `newsletterAdminController`, `contactController`, `reviewController`, `reviewAdminController` |
+
+### Proactive shape parity (pre-verification)
+
+| Check | Result |
+|---|---|
+| Newsletter lowercase `source` enum | ✅ |
+| EmailCampaign nested `stats{}` + lowercase status/segment/channel | ✅ |
+| ContactMessage admin shape uses `id` (not `_id`) like `toAdminObject()` | ✅ |
+| Review public populate: `userId._id`, `userId.id`, `userId.name` (mongoose JSON parity) | ✅ |
+| Review admin lean: omit unset `photo`/`isSandbox`/`isHidden`/`adminNote`/`moderatedAt` | ✅ |
+| Review `userId` FK null → populated `userId: null` (graceful, no crash) | ✅ unit-tested |
+| List inbox `unreadCount` uses badge OR semantics (distinct from ticket-stats `isRead:false`) | ✅ |
+
+### Review null-userId handling — real Postgres evidence (2026-09-16)
+
+Live query during HTTP verification (`scripts/verify-read-cutover-group5.local.js`):
+
+| Metric | Count |
+|---|---:|
+| Total Review rows in Postgres | **2** |
+| Reviews with non-null `userId` FK | **2** |
+| Reviews with null `userId` FK | **0** |
+
+Sample row: legacyId `6a9dc0eb68b35e6b83b62d53` → PG `userId` FK resolved; Mongo loose ref
+`6a8b5b609d67181414c2066e` → PG User `firstName`/`lastName` populate to author name on public reads.
+**No null-userId display bug observed** — Stage 3 backfill health check remains true.
+
+### Live HTTP verification
+
+Script: `scripts/verify-read-cutover-group5.local.js` (local, not committed). Flags set in **process env only**.
+
+| Model | Verdict | Endpoints |
+|---|---|---|
+| **Newsletter** | **SKIP** | subscriber list — 0 rows in Mongo |
+| **EmailCampaign** | **SKIP** | campaign list — 0 rows in Mongo |
+| **ContactMessage** | **FAIL** | inbox list — **timestamp drift** on all 6 rows (Postgres backfill wrote sync-time `createdAt`/`updatedAt`); ticket stats **PASS** |
+| **Review** | **FAIL** | public by-product + admin list — **timestamp drift** on 2 rows (sort order affected); shape fixes applied; **0 fallbacks** after User select fix |
+
+**`[READ-CUTOVER-FALLBACK]` entries: 0** (after `User.name` Prisma select fix).
+
+**Overall: FAIL** — data sync required before PASS (same pattern as Stage 4 Step 4 HRM timestamps).
+
+### Phase 2 data sync plan (awaiting confirmation)
+
+Script prepared: `scripts/stage4-step5-marketing-data-sync.local.js` (local, not committed).
+
+| Sync target | Action |
+|---|---|
+| ContactMessage (6 rows) | Copy `createdAt` / `updatedAt` from Mongo by `legacyId` |
+| Review (2 rows) | Copy `createdAt` / `updatedAt` from Mongo by `legacyId` |
+
+Mongo read-only; Postgres update-only. Re-run verification script after sync.
+
+### Regression checks
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **220/220** pass (+8 Step 5 tests in `readCutoverGroup5.test.js`) |
+| `npm run test:repositories` | **157/157** pass (unchanged) |
 
 **All `READ_PG_*` flags remain OFF** until deliberate per-environment enable.
 

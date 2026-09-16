@@ -104,7 +104,12 @@ async function findAll(filters = {}) {
 
   const records = await prisma.emailCampaign.findMany({
     where,
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
+    include: {
+      createdBy: {
+        select: { legacyId: true, username: true, displayName: true }
+      }
+    }
   });
   return records.map(toShape);
 }

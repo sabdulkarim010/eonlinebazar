@@ -14,6 +14,7 @@ const Product = require('../models/product');
 const cloudinary = require('cloudinary').v2;
 const streamifier = require('streamifier');
 const { dualWrite } = require('../services/dualWriteService');
+const { fetchReviewsByProduct } = require('../services/marketingSupportReadService');
 
 function getReviewRepository() {
     return require('../repositories/reviewRepository');
@@ -234,16 +235,7 @@ exports.addOrUpdateReview = async (req, res) => {
 exports.getReviewsByProduct = async (req, res) => {
     try {
         const { orderId, userId } = req.query;
-        let query = {
-            productId: req.params.productId,
-            isHidden: { $ne: true }
-        };
-
-        // যদি কুয়েরি প্যারামিটারে অর্ডার আইডি এবং ইউজার আইডি পাঠানো হয়, তবে ফিল্টারিং আরও সুনির্দিষ্ট হবে
-        if (orderId) query.orderId = orderId;
-        if (userId) query.userId = userId;
-
-        const reviews = await Review.find(query).populate('userId', 'name');
+        const reviews = await fetchReviewsByProduct(req.params.productId, { orderId, userId });
         res.status(200).json({ success: true, reviews });
     } catch (error) {
         console.error('Error fetching reviews:', error);

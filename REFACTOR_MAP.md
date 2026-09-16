@@ -1705,6 +1705,36 @@ tests/services/readShapeHelpers.test.js [MOD] expect omitted customCashback when
 Result: Supplier/Warehouse/Designation exact PASS; Category/Brand ACCEPTED with documented legacy exceptions; npm test 183/183; test:repositories 157/157
 DATABASE_MIGRATION_AUDIT.md [DONE] Option C section + Step 1 CLOSED statement + customCashbackPercentage follow-up flag
 
+# PostgreSQL migration — Stage 4 Step 5: Read-cutover Marketing/Support group — 2026-09-16
+
+backend/src/config/readCutoverFlags.js [MOD] READ_PG_NEWSLETTER, EMAILCAMPAIGN, CONTACTMESSAGE, REVIEW
+backend/src/services/readShapeHelpers.js [MOD] newsletter/emailCampaign/contactMessage/review ToMongoShape helpers
+backend/src/services/marketingSupportReadService.js [NEW] routed reads for Marketing/Support group
+backend/src/repositories/newsletterRepository.js [MOD] count, countByIsActive, findPaginated
+backend/src/repositories/emailCampaignRepository.js [MOD] findAll includes createdBy
+backend/src/repositories/contactMessageRepository.js [MOD] count, countUnreadInbox, aggregateTicketStats
+backend/src/repositories/reviewRepository.js [MOD] count, findPaginated, buildReviewWhere
+backend/src/controllers/newsletterAdminController.js [MOD] listSubscribers, listCampaigns reads wired
+backend/src/controllers/contactController.js [MOD] listContactMessages, getTicketStats reads wired
+backend/src/controllers/reviewController.js [MOD] getReviewsByProduct read wired
+backend/src/controllers/reviewAdminController.js [MOD] getAllReviews read wired
+tests/services/readCutoverGroup5.test.js [NEW] Marketing/Support shape parity (8 tests)
+.env.example [MOD] Stage 4 Step 5 READ_PG_* flags documented
+Result: live HTTP verify FAIL (ContactMessage + Review timestamp drift — sync script prepared); Review null-userId 0/2; npm test 220/220
+DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 5 section added
+README.md [DONE] test count 220
+
+# PostgreSQL migration — Stage 4 Step 4 parity fixes + live HTTP PASS — 2026-09-16
+backend/src/repositories/employeeRepository.js [MOD] aggregateStats post-groupBy JS sort; findAll includeNested (documents/references/linkedAdmin)
+backend/src/services/readShapeHelpers.js [MOD] employeeToMongoShape full lean/toObject parity; PG enum mappers; mongoVersion __v
+backend/src/services/hrmReadService.js [MOD] list reads use includeNested
+prisma/schema.prisma [MOD] Employee.mongoVersion column
+tests/services/readCutoverGroup4.test.js [MOD] +1 enum parity test (8 tests total)
+scripts/stage4-step4-hrm-data-sync.local.js [NEW local] Postgres-only HRM timestamp/FK/enum/attendance sync
+DATABASE_MIGRATION_AUDIT.md [MOD] Step 4 live HTTP verification PASS section
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Step 4 parity fixes note
+README.md [MOD] test count 212
+
 # PostgreSQL migration — Stage 4 Step 4: Read-cutover HRM group (polymorphic staff) — 2026-09-16
 
 backend/src/config/readCutoverFlags.js [MOD] READ_PG_EMPLOYEE, ATTENDANCE, PAYROLL, LEAVE

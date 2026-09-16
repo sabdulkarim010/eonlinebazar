@@ -7,6 +7,7 @@ const Review = require('../models/review');
 const Product = require('../models/product');
 const { syncProductRating } = require('./reviewController');
 const { dualWrite } = require('../services/dualWriteService');
+const { fetchAdminReviewsPage } = require('../services/marketingSupportReadService');
 
 function getReviewRepository() {
     return require('../repositories/reviewRepository');
@@ -22,22 +23,14 @@ const getAllReviews = async (req, res) => {
         const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
         const { status, productId, rating, search } = req.query;
 
-        const filter = {};
-        if (status === 'hidden') filter.isHidden = true;
-        if (status === 'visible') filter.isHidden = { $ne: true };
-        if (productId) filter.productId = String(productId);
-        if (rating) filter.rating = Number(rating);
-        if (search) filter.comment = { $regex: String(search), $options: 'i' };
-
-        const [reviews, total] = await Promise.all([
-            Review.find(filter)
-                .populate('userId', 'name email')
-                .sort({ createdAt: -1 })
-                .skip((page - 1) * limit)
-                .limit(limit)
-                .lean(),
-            Review.countDocuments(filter)
-        ]);
+        const { reviews, total } = await fetchAdminReviewsPage({
+            page,
+            limit,
+            status,
+            productId,
+            rating,
+            search
+        });
 
         const productIds = [...new Set(reviews.map((r) => String(r.productId || '')).filter(Boolean))];
         const products = productIds.length

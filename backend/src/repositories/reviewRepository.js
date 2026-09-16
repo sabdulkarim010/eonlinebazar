@@ -80,16 +80,44 @@ async function findByLegacyId(legacyId) {
   return toShape(record);
 }
 
-async function findAll(filters = {}) {
+async function buildReviewWhere(filters = {}) {
   const where = {};
   if (filters.productId) where.legacyProductId = String(filters.productId);
+  if (filters.orderId) where.legacyOrderId = String(filters.orderId);
   if (filters.userId) {
     const pgUser = await resolveUserId(filters.userId);
     if (pgUser) where.userId = pgUser;
+    else where.legacyId = '__no_match__';
   }
-  if (filters.isHidden !== undefined) where.isHidden = Boolean(filters.isHidden);
-  if (filters.rating !== undefined) where.rating = Number(filters.rating);
+  if (filters.isHidden === true) where.isHidden = true;
+  else if (filters.isHidden === false) where.isHidden = false;
+  if (filters.rating !== undefined && filters.rating !== '') {
+    where.rating = Number(filters.rating);
+  }
+  if (filters.search) {
+    where.comment = { contains: String(filters.search), mode: 'insensitive' };
+  }
+  return where;
+}
 
+async function count(filters = {}) {
+  const where = await buildReviewWhere(filters);
+  return prisma.review.count({ where });
+}
+
+async function findPaginated(filters = {}, { skip = 0, take = 20 } = {}) {
+  const where = await buildReviewWhere(filters);
+  const records = await prisma.review.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    skip,
+    take
+  });
+  return records.map(toShape);
+}
+
+async function findAll(filters = {}) {
+  const where = await buildReviewWhere(filters);
   const records = await prisma.review.findMany({
     where,
     orderBy: { createdAt: 'desc' },
@@ -187,6 +215,9 @@ async function remove(id) {
 module.exports = {
   findByLegacyId,
   findAll,
+  findPaginated,
+  count,
+  buildReviewWhere,
   create,
   update,
   upsertFromMongo,

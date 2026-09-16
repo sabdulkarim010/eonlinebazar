@@ -1950,7 +1950,7 @@ Full detail lives in `DATABASE_MIGRATION_AUDIT.md`; this is the status summary.
 | Dual-write repository layer | ❌ NOT STARTED — Stage 2 remainder |
 | `LoginAttempt` / `BlacklistedIp` TTL sweep jobs | ❌ NOT STARTED — Stage 2 remainder |
 | `ProductTextIndex` → `tsvector` + GIN raw SQL migration | ❌ NOT STARTED — Stage 2 remainder |
-| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Steps 1–3 COMPLETE**; **Stage 4 Step 4 COMPLETE (2026-09-16)** — HRM group (Employee/Attendance/Payroll/Leave) read-cutover with polymorphic staff resolution; **211/211** tests; all `READ_PG_*` flags OFF; PaymentMethod backfill still required before Order read cutover |
+| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Steps 1–4 COMPLETE**; **Stage 4 Step 5 CODE COMPLETE (2026-09-16)** — Marketing/Support reads wired; live HTTP **FAIL** (ContactMessage + Review timestamp drift — sync script prepared); Review null-userId **0/2**; **220/220** tests; all `READ_PG_*` flags OFF; PaymentMethod backfill still required before Order read cutover |
 
 **Isolation guarantee:** zero `.js` files under `backend/src/` were modified — no
 model, controller, route, service or script. No application code queries
@@ -2458,7 +2458,7 @@ OFF; Mongo remains the live read path until deliberately enabled per environment
 
 ## Stage 4 Step 4 — Read-cutover HRM group (polymorphic staff) — 2026-09-16
 
-**Status:** ✅ COMPLETE — first polymorphic-staff read-cutover group wired. **Flags remain OFF.**
+**Status:** ✅ COMPLETE — first polymorphic-staff read-cutover group wired; **live HTTP verification PASS**. **Flags remain OFF.**
 
 | Item | Status |
 |------|--------|
@@ -2468,6 +2468,7 @@ OFF; Mongo remains the live read path until deliberately enabled per environment
 | Payroll reads | ✅ list + rollup summary + employee designation decoration |
 | Leave reads | ✅ list, balance aggregate, calendar feed |
 | Polymorphic staff resolution | ✅ admin + employee staffId via FK→legacyId maps; unit-tested both staff types |
-| Proactive shape parity | ✅ `__v`, linkedAdminId legacy, document `_id`, sparse field omission |
-| `npm test` / `test:repositories` | ✅ 211/211, 157/157 |
+| Parity fixes (2026-09-16) | ✅ `aggregateStats` groupBy sort; full employee lean/toObject shape; `mongoVersion` column; Postgres data sync (timestamps, linkedAdminId, enums, attendance gap) |
+| Live HTTP verification | ✅ Employee 4/4, Attendance 4/4, Payroll 1/1, Leave 3/3; **0 fallbacks** |
+| `npm test` / `test:repositories` | ✅ 212/212, 157/157 |
 
