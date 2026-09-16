@@ -25,9 +25,9 @@ jobs:
         run: npm ci
 
       - name: Generate Prisma client (CI check)
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://dummy:dummy@localhost:5432/dummy' }}
-        run: npx prisma generate
+        run: |
+          export DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+          npx prisma generate
 
       - name: Build admin dashboard
         working-directory: admin-dashboard
@@ -59,6 +59,7 @@ jobs:
             npm run build
             sudo mkdir -p /var/www/admin-dashboard
             sudo rsync -a --delete dist/ /var/www/admin-dashboard/dist/
+
 
 
             

@@ -11,9 +11,13 @@
 // endpoint (DATABASE_URL_POOLED) is for the runtime client via a driver
 // adapter and must not be used for migrations.
 // ============================================================================
+// Prisma CLI configuration — PostgreSQL (Neon) migration target.
 require('dotenv').config();
 
 const { defineConfig, env } = require('prisma/config');
+
+// Process environment fallback for Prisma 7 CLI / CI check
+const databaseUrl = process.env.DATABASE_URL || "postgresql://dummy:dummy@localhost:5432/dummy";
 
 module.exports = defineConfig({
     schema: 'prisma/schema.prisma',
@@ -21,6 +25,9 @@ module.exports = defineConfig({
         path: 'prisma/migrations',
     },
     datasource: {
-        url: env('DATABASE_URL'),
+        url: databaseUrl,
     },
 });
+
+
+
