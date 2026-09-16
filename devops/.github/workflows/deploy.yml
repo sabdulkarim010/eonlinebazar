@@ -24,6 +24,11 @@ jobs:
         working-directory: ecommerce-chat
         run: npm ci
 
+      - name: Generate Prisma client (CI check)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma generate
+
       - name: Build admin dashboard
         working-directory: admin-dashboard
         run: |
@@ -41,6 +46,8 @@ jobs:
             cd ~/eonlinebazar-fullstack || cd /var/www/eonlinebazar-fullstack
             git pull origin main
 
+            npx prisma generate
+
             cd ecommerce-chat
             npm ci --only=production
             mkdir -p logs
@@ -52,3 +59,7 @@ jobs:
             npm run build
             sudo mkdir -p /var/www/admin-dashboard
             sudo rsync -a --delete dist/ /var/www/admin-dashboard/dist/
+
+
+
+            
