@@ -526,10 +526,11 @@ const getDashboardStats = async (req, res) => {
         
         const recentOrders = await enrichOrdersWithImages(orders.slice(0, 4));
 
-        // 🌟 নতুন: ইউজারের আসল ওয়ালেট ব্যালেন্স ও লয়্যালটি পয়েন্ট ডাটাবেজ থেকে আনা
-        const user = await User.findById(userId).select('walletBalance loyaltyPoints');
-        const balance = user ? (user.walletBalance || 0) : 0;
-        const loyaltyPoints = user ? (user.loyaltyPoints || 0) : 0;
+        const { fetchWalletBalance, fetchLoyaltyPoints } = require('../services/userReadService');
+        const [balance, loyaltyPoints] = await Promise.all([
+            fetchWalletBalance(userId),
+            fetchLoyaltyPoints(userId)
+        ]);
         
         res.json({ 
             success: true, 

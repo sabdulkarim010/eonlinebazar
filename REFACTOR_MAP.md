@@ -1705,6 +1705,25 @@ tests/services/readShapeHelpers.test.js [MOD] expect omitted customCashback when
 Result: Supplier/Warehouse/Designation exact PASS; Category/Brand ACCEPTED with documented legacy exceptions; npm test 183/183; test:repositories 157/157
 DATABASE_MIGRATION_AUDIT.md [DONE] Option C section + Step 1 CLOSED statement + customCashbackPercentage follow-up flag
 
+# PostgreSQL migration — Stage 4 Step 6: Read-cutover User + owned tables — 2026-09-16
+
+backend/src/config/readCutoverFlags.js [MOD] READ_PG_USER, ADDRESS, WISHLIST, WALLET, CART
+backend/src/services/readShapeHelpers.js [MOD] user/address/wishlist/wallet/cart ToMongoShape helpers
+backend/src/services/userReadService.js [NEW] routed reads for User group + composite profile bundle
+backend/src/repositories/userRepository.js [MOD] listWalletTransactions, countReferralsByReferredByLegacyId, mongo cursor, listAddresses sort, findAll take
+backend/src/repositories/cartRepository.js [MOD] findCartWithItemsByUserLegacyId
+backend/src/controllers/userProfileController.js [MOD] getUserProfile, getAddresses reads wired
+backend/src/controllers/userWishlistController.js [MOD] getWishlist read wired
+backend/src/controllers/cartController.js [MOD] getCart read wired
+backend/src/controllers/orderCustomerController.js [MOD] getDashboardStats wallet/points reads wired
+backend/src/controllers/admin/customerAdminController.js [MOD] getAllCustomers, getCustomerById reads wired
+backend/src/controllers/referralController.js [MOD] getReferralInfo reads wired
+tests/services/readCutoverGroup6.test.js [NEW] User group shape parity (8 tests)
+.env.example [MOD] Stage 4 Step 6 READ_PG_* flags documented
+Result: CartItem gap 0/7; wishlist + wallet PASS live; referralCode/address createdAt data drift documented — flags stay OFF pending sync
+DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 6 section added
+README.md [DONE] test count 228
+
 # PostgreSQL migration — Stage 4 Step 5: Read-cutover Marketing/Support group — 2026-09-16
 
 backend/src/config/readCutoverFlags.js [MOD] READ_PG_NEWSLETTER, EMAILCAMPAIGN, CONTACTMESSAGE, REVIEW

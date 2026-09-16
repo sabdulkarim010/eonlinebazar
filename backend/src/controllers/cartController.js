@@ -3,6 +3,7 @@
 const Cart = require('../models/cart');
 const Product = require('../models/product');
 const { dualWrite } = require('../services/dualWriteService');
+const { fetchCartItemsForResponse } = require('../services/userReadService');
 
 function getCartRepository() {
     return require('../repositories/cartRepository');
@@ -279,14 +280,7 @@ exports.mergeCart = async (req, res) => {
 exports.getCart = async (req, res) => {
     try {
         const userId = req.user.id;
-        const cart = await Cart.findOne({ userId })
-            .populate('items.productId', PRODUCT_MEDIA_SELECT);
-
-        if (!cart || !cart.items.length) {
-            return res.json({ success: true, data: [] });
-        }
-
-        const itemsWithImages = await formatCartItemsForResponse(cart.items);
+        const itemsWithImages = await fetchCartItemsForResponse(userId, formatCartItemsForResponse);
         return sendCartItemsResponse(res, itemsWithImages);
     } catch (error) {
         res.status(500).json({ message: "Error fetching cart", error: error.message });

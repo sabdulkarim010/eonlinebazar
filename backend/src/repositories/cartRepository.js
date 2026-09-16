@@ -53,6 +53,26 @@ async function findByUserId(userId) {
   return records.map(toShape);
 }
 
+/** Latest cart for a Mongo user legacy id, including line items + product legacy ids. */
+async function findCartWithItemsByUserLegacyId(mongoUserLegacyId) {
+  const pgUserId = await resolvePostgresUserId(mongoUserLegacyId);
+  if (!pgUserId) return null;
+
+  return prisma.cart.findFirst({
+    where: { userId: pgUserId },
+    orderBy: { updatedAt: 'desc' },
+    include: {
+      items: {
+        include: {
+          product: {
+            select: { legacyId: true, productId: true }
+          }
+        }
+      }
+    }
+  });
+}
+
 function mapItemToCreate(cartId, item, productPgId) {
   const plain = item.toObject ? item.toObject() : item;
   return {
@@ -138,6 +158,7 @@ async function clearByUserLegacyId(mongoUserLegacyId) {
 module.exports = {
   findByLegacyId,
   findByUserId,
+  findCartWithItemsByUserLegacyId,
   syncFromMongo,
   clearByUserLegacyId,
   resolveProductIdRequired

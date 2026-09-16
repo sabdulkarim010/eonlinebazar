@@ -1950,7 +1950,7 @@ Full detail lives in `DATABASE_MIGRATION_AUDIT.md`; this is the status summary.
 | Dual-write repository layer | ❌ NOT STARTED — Stage 2 remainder |
 | `LoginAttempt` / `BlacklistedIp` TTL sweep jobs | ❌ NOT STARTED — Stage 2 remainder |
 | `ProductTextIndex` → `tsvector` + GIN raw SQL migration | ❌ NOT STARTED — Stage 2 remainder |
-| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Steps 1–5 COMPLETE (2026-09-16)** — Marketing/Support live HTTP **PASS** (0 fallbacks); Review null-userId **0/2**; **220/220** tests; all `READ_PG_*` flags OFF; PaymentMethod backfill still required before Order read cutover |
+| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Steps 1–6 wired (2026-09-16)** — User+owned tables read-cutover **code complete**; live HTTP **FAIL** on referralCode/createdAt data drift (flags stay OFF); CartItem gap **0/7**; wishlist+wallet **PASS**; **228/228** tests; PaymentMethod backfill still required before Order read cutover |
 
 **Isolation guarantee:** zero `.js` files under `backend/src/` were modified — no
 model, controller, route, service or script. No application code queries
@@ -2471,4 +2471,19 @@ OFF; Mongo remains the live read path until deliberately enabled per environment
 | Parity fixes (2026-09-16) | ✅ `aggregateStats` groupBy sort; full employee lean/toObject shape; `mongoVersion` column; Postgres data sync (timestamps, linkedAdminId, enums, attendance gap) |
 | Live HTTP verification | ✅ Employee 4/4, Attendance 4/4, Payroll 1/1, Leave 3/3; **0 fallbacks** |
 | `npm test` / `test:repositories` | ✅ 212/212, 157/157 |
+
+## Stage 4 Step 6 — Read-cutover User + owned tables — 2026-09-16
+
+**Status:** ⚠️ PARTIAL — read wiring **complete**; live HTTP **FAIL** on data drift (`referralCode`, `createdAt`); **flags remain OFF**.
+
+| Item | Status |
+|------|--------|
+| New flags: `READ_PG_USER`, `ADDRESS`, `WISHLIST`, `WALLET`, `CART` | ✅ all default OFF |
+| Customer profile / addresses / wishlist / cart / dashboard wallet reads | ✅ wired via `userReadService.js` |
+| Admin customer list + detail reads | ✅ wired |
+| Referral info read (`referralCode` pass-through on read path) | ✅ code; ❌ live data drift on sample user |
+| CartItem gap (Mongo vs Postgres line count) | ✅ **0 missing / 7 total** |
+| Wishlist + wallet balance live verification | ✅ PASS |
+| Data sync needed before flag enable | ⚠️ User `referralCode` + timestamps; Address `createdAt` |
+| `npm test` / `test:repositories` | ✅ 228/228, 157/157 |
 

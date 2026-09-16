@@ -9,6 +9,7 @@ const mongoose = require('mongoose');
 const User = require('../models/user');
 const Product = require('../models/product');
 const { dualWrite } = require('../services/dualWriteService');
+const { fetchEnrichedWishlist } = require('../services/userReadService');
 
 function getUserRepository() {
     return require('../repositories/userRepository');
@@ -68,9 +69,9 @@ async function enrichWishlistItems(wishlist = []) {
 
 exports.getWishlist = async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).select('wishlist');
+        const user = await User.findById(req.user.id).select('_id');
         if (!user) return res.status(404).json({ success: false, message: "User not found." });
-        const enriched = await enrichWishlistItems(user.wishlist || []);
+        const enriched = await fetchEnrichedWishlist(req.user.id);
         res.status(200).json({ success: true, wishlist: enriched });
     } catch (error) {
         console.error("Get Wishlist Error:", error);

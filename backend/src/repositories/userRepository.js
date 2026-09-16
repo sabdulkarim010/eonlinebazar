@@ -100,6 +100,7 @@ function toLoyaltyTierEnum(value) {
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MONGO_OID_PATTERN = /^[0-9a-fA-F]{24}$/;
 
 // ── Shape normalisation ──────────────────────────────────────────────────────
 function toDecimalNumber(value) {
@@ -218,18 +219,26 @@ async function findAll(filters = {}) {
   }
 
   const cursor = String(filters.cursor || '').trim();
-  if (cursor && UUID_PATTERN.test(cursor)) {
-    const cursorDoc = await prisma.user.findUnique({
-      where: { id: cursor },
-      select: { createdAt: true }
-    });
+  if (cursor) {
+    let cursorDoc = null;
+    if (UUID_PATTERN.test(cursor)) {
+      cursorDoc = await prisma.user.findUnique({
+        where: { id: cursor },
+        select: { createdAt: true, id: true }
+      });
+    } else if (MONGO_OID_PATTERN.test(cursor)) {
+      cursorDoc = await prisma.user.findUnique({
+        where: { legacyId: cursor },
+        select: { createdAt: true, id: true }
+      });
+    }
     if (cursorDoc) {
       where.AND = [
         ...(where.AND || []),
         {
           OR: [
             { createdAt: { lt: cursorDoc.createdAt } },
-            { createdAt: cursorDoc.createdAt, id: { lt: cursor } }
+            { createdAt: cursorDoc.createdAt, id: { lt: cursorDoc.id } }
           ]
         }
       ];
@@ -242,14 +251,14 @@ async function findAll(filters = {}) {
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
   };
 
+  const explicitTake = Number(filters.take);
   const limit = Number(filters.limit);
-  if (Number.isFinite(limit) && limit > 0) {
+  if (Number.isFinite(explicitTake) && explicitTake > 0) {
+    query.take = Math.min(Math.max(explicitTake, 1), 101);
+  } else if (Number.isFinite(limit) && limit > 0) {
     const page = Math.max(1, Number(filters.page) || 1);
     query.skip = (page - 1) * limit;
     query.take = limit;
-  } else if (Number.isFinite(limit) && limit <= 0 && cursor) {
-    // Cursor mode in getAllCustomers uses limit+1; honour explicit take when set.
-    query.take = Math.min(Math.max(Number(filters.take) || 50, 1), 100);
   }
 
   const records = await prisma.user.findMany(query);
@@ -551,10 +560,13 @@ async function remove(id) {
 // Addresses
 // ══════════════════════════════════════════════════════════════════════════════
 
-async function listAddresses(userId) {
+async function listAddresses(userId, { sort = 'defaultFirst' } = {}) {
+  const orderBy = sort === 'mongoEmbedded'
+    ? { createdAt: 'asc' }
+    : [{ isDefault: 'desc' }, { createdAt: 'desc' }];
   const records = await prisma.address.findMany({
     where: { userId },
-    orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }]
+    orderBy
   });
   return records.map(toAddressShape);
 }
@@ -693,6 +705,24 @@ async function listWishlist(userId) {
     orderBy: { addedAt: 'desc' }
   });
   return records.map(toWishlistShape);
+}
+
+async function listWalletTransactions(userId) {
+  const records = await prisma.walletTransaction.findMany({
+    where: { userId: String(userId) },
+    orderBy: [{ date: 'desc' }, { id: 'desc' }]
+  });
+  return records.map(toWalletTxnShape);
+}
+
+async function countReferralsByReferredByLegacyId(referrerLegacyId) {
+  if (!referrerLegacyId) return 0;
+  const referrer = await prisma.user.findUnique({
+    where: { legacyId: String(referrerLegacyId) },
+    select: { id: true }
+  });
+  if (!referrer) return 0;
+  return prisma.user.count({ where: { referredById: referrer.id } });
 }
 
 async function addToWishlist(userId, productId, snapshot = {}) {
@@ -942,6 +972,8 @@ module.exports = {
   upsertAddressFromMongo,
   removeAddressByLegacyId,
   listWishlist,
+  listWalletTransactions,
+  countReferralsByReferredByLegacyId,
   addToWishlist,
   removeFromWishlist,
   creditWallet,

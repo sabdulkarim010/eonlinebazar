@@ -20,6 +20,7 @@ const Settings = require('../../models/Settings');
 const cloudinary = require('cloudinary').v2;
 const sharp = require('sharp');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { fetchAdminCustomersPage, fetchCustomerById } = require('../../services/userReadService');
 
 const VIP_DEFAULTS = {
     vipMinTotalSpent: 10000,
@@ -136,44 +137,8 @@ const getAllCustomers = async (req, res) => {
         const cursor = String(req.query.cursor || '').trim();
         const useCursor = cursor.length > 0 || req.query.cursor === '';
 
-        const tierFilter = String(req.query.tier || '').trim().toLowerCase();
-        const validTiers = ['none', 'silver', 'gold', 'platinum'];
-
-        const search = String(req.query.search || '').trim();
-        const listFilter = {};
-        if (search) {
-            const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const phoneDigits = search.replace(/\D/g, '');
-            const orClauses = [
-                { email: { $regex: escaped, $options: 'i' } },
-                { firstName: { $regex: escaped, $options: 'i' } },
-                { lastName: { $regex: escaped, $options: 'i' } },
-                { mobile: { $regex: escaped, $options: 'i' } }
-            ];
-            if (phoneDigits.length >= 6) {
-                orClauses.push({ mobile: { $regex: phoneDigits, $options: 'i' } });
-            }
-            listFilter.$or = orClauses;
-        }
-        if (tierFilter && validTiers.includes(tierFilter)) {
-            listFilter.loyaltyTier = tierFilter;
-        }
-        if (cursor && mongoose.Types.ObjectId.isValid(cursor)) {
-            const cursorDoc = await User.findById(cursor).select('createdAt').lean();
-            if (cursorDoc) {
-                listFilter.$or = [
-                    { createdAt: { $lt: cursorDoc.createdAt } },
-                    { createdAt: cursorDoc.createdAt, _id: { $lt: cursor } }
-                ];
-            }
-        }
-
         const [customerRows, masterSettings] = await Promise.all([
-            User.find(listFilter)
-                .select('-password')
-                .sort({ createdAt: -1, _id: -1 })
-                .limit(limit + 1)
-                .lean(),
+            fetchAdminCustomersPage({ query: req.query, limit }),
             Settings.getOrCreate()
         ]);
 
@@ -257,7 +222,7 @@ const getAllCustomers = async (req, res) => {
 // ==============================================================
 const getCustomerById = async (req, res) => {
     try {
-        const customer = await User.findById(req.params.id).select('-password').lean();
+        const customer = await fetchCustomerById(req.params.id);
         if (!customer) {
             return res.status(404).json({ success: false, message: 'Customer not found.' });
         }

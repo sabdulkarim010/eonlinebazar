@@ -3429,3 +3429,96 @@ Re-ran `scripts/verify-read-cutover-group5.local.js` after timestamp sync + cano
 
 **All `READ_PG_*` flags remain OFF** until deliberate per-environment enable.
 
+## STAGE 4, STEP 6 — Read Cutover: User + Owned Tables — 2026-09-16
+
+Stage 4 Step 6 extends read-cutover to the User dual-write group from Stage 2 Step 3 Part 7:
+**User**, **Address**, **WishlistItem**, **WalletTransaction**, **Cart/CartItem**. All new flags default **OFF**.
+Postgres read failure falls back to Mongo via `routedRead()`. **No write endpoints were changed.**
+
+### New feature flags (all default OFF)
+
+| Env var | Group key | Wired read surfaces |
+|---|---|---|
+| `READ_PG_USER` | `user` | Customer profile scalars; admin customer list/detail; referral code + referral count; loyalty points |
+| `READ_PG_ADDRESS` | `address` | Customer profile embedded addresses; `GET /api/customer/addresses` |
+| `READ_PG_WISHLIST` | `wishlist` | Customer profile embedded wishlist; enriched `GET /api/customer/wishlist` |
+| `READ_PG_WALLET` | `wallet` | Customer profile `walletHistory[]`; dashboard `balance`; wallet balance field |
+| `READ_PG_CART` | `cart` | `GET /api/cart/` (formatted line items) |
+
+Documented in `.env.example` (commented).
+
+### Implementation summary
+
+| File | Change |
+|---|---|
+| `readCutoverFlags.js` | Five new group keys (`user`, `address`, `wishlist`, `wallet`, `cart`) |
+| `readShapeHelpers.js` | `userToMongoShape`, address/wishlist/wallet/cart embedded shapes |
+| `userReadService.js` | **NEW** — composite profile bundle + per-group routed reads |
+| `userRepository.js` | `listWalletTransactions`, `countReferralsByReferredByLegacyId`, mongo-OID cursor, `listAddresses({ sort: 'mongoEmbedded' })`, `findAll({ take })` |
+| `cartRepository.js` | `findCartWithItemsByUserLegacyId` |
+| Controllers (reads only) | `userProfileController`, `userWishlistController`, `cartController`, `orderCustomerController`, `customerAdminController`, `referralController` |
+| `tests/services/readCutoverGroup6.test.js` | **NEW** — 8 mocked shape/routing tests |
+
+### Proactive shape parity
+
+| Check | Result |
+|---|---|
+| `_id` = Mongo `legacyId` on User/Address/WishlistItem/WalletTransaction | ✅ |
+| `referralCode` read pass-through (never regenerated on PG read path) | ✅ code path |
+| Wishlist null/missing Product FK → `legacyProductId` preserved; enrichment matches Mongo (snapshot + catalog fallback) | ✅ PASS live |
+| Wallet balance on dashboard matches PG `User.walletBalance` when flag on | ✅ PASS live |
+| Address list order matches Mongo embedded array (`createdAt asc`, not default-first) | ✅ code path |
+| CartItem line `_id` | ⚠️ CartItem has **no `legacyId` in Postgres** — PG read omits line `_id` (Mongo subdoc `_id` is cosmetic; item content/count matches) |
+| Admin list/detail includes embedded `addresses`/`wishlist`/`walletHistory` like Mongo `.select('-password')` | ✅ code path |
+
+### CartItem gap quantification (Part 7 required-FK check)
+
+Script: `scripts/check-cartitem-gap.local.js` (local, not committed).
+
+| Metric | Value | Evidence |
+|---|---:|---|
+| Mongo carts with items | **3** | live query 2026-09-16 |
+| Mongo cart line items (total) | **7** | live query |
+| Postgres cart line items (total) | **7** | live query |
+| Missing Postgres lines vs Mongo | **0** | `totalMissingItems: 0`, `gapUsers: 0` |
+
+Stage 3 backfill gap (7 Mongo lines / 0 PG) is **closed** — Product FK coverage now sufficient for all current cart lines.
+
+### Live HTTP verification
+
+Script: `scripts/verify-read-cutover-group6.local.js` (local, not committed). Flags set in **process env only**.
+
+| Model / endpoint | Verdict | Notes |
+|---|---|---|
+| **User** — customer profile | **FAIL** | `createdAt` drift (PG dual-write sync time ≠ Mongo); `referralCode` drift on sample user (see below); cosmetic `__v` |
+| **Address** — list + profile embed | **FAIL** | Line content/order **matches** after mongo-embedded sort fix; **`createdAt` timestamps drift** (PG re-sync dates) |
+| **Wishlist** — enriched list | **PASS** | Including deleted-product snapshot behavior |
+| **Wallet** — dashboard balance | **PASS** | Balance matches; history not separately exposed on a dedicated GET |
+| **Cart** — `GET /api/cart/` | **ACCEPTED** | Item count/product/qty/price **match**; line `_id` omitted on PG (no legacyId column) |
+| **User** — referral info | **FAIL** | **`referralCode` data drift** — Mongo `RKDTRET8` vs Postgres `9NP2ZQZW` on verified sample user (read path is pass-through; PG row stale/wrong) |
+| **User** — admin list/detail | **FAIL** | List row-count mismatch during test-window (PG 4 vs Mongo 5); per-row `createdAt`/`referralCode` drift |
+
+**`[READ-CUTOVER-FALLBACK]` entries: 0**.
+
+### referralCode pass-through confirmation
+
+- **Read code:** `userToMongoShape` / `fetchReferralFields` return `pgRow.referralCode` verbatim — **no regeneration** on read (Part 7 contract preserved).
+- **Live sample (profile user):** Mongo **`RKDTRET8`** ≠ Postgres **`9NP2ZQZW`** — **data drift**, not read-layer regeneration. Requires Postgres sync from Mongo before enabling `READ_PG_USER` for customer-facing surfaces.
+
+### Data drift — proposed sync plan (await confirmation before execute)
+
+1. **User `referralCode` + `createdAt`** — Postgres-only update from Mongo for all users where `legacyId` matches and values differ (mirror Step 5 timestamp sync pattern).
+2. **Address `createdAt`** — Copy Mongo subdoc `createdAt` → Postgres `Address.createdAt` by `legacyId`.
+3. **Re-run** `verify-read-cutover-group6.local.js` — target **PASS** on profile, addresses, referral, admin detail.
+
+**Do not enable any Step 6 flags in production until sync completes and re-verification passes.**
+
+### Regression checks
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **228/228** pass (+8 Step 6 tests in `readCutoverGroup6.test.js`) |
+| `npm run test:repositories` | **157/157** pass (unchanged) |
+
+**All `READ_PG_*` flags remain OFF** until deliberate per-environment enable.
+

@@ -1360,6 +1360,199 @@ function mapReviewsToMongo(rows, userMap = null, options = {}) {
   }).filter(Boolean);
 }
 
+// ── User + owned tables (Stage 4 Step 6) ────────────────────────────────────
+
+function normaliseUserGender(gender) {
+  if (gender === 'MALE') return 'Male';
+  if (gender === 'FEMALE') return 'Female';
+  if (gender === 'OTHER') return 'Other';
+  return gender || undefined;
+}
+
+function normaliseUserAccountStatus(status) {
+  if (status === 'ACTIVE') return 'active';
+  if (status === 'SUSPENDED') return 'suspended';
+  if (status === 'BLOCKED') return 'blocked';
+  return status ? String(status).toLowerCase() : status;
+}
+
+function normaliseUserLoyaltyTier(tier) {
+  if (tier === 'NONE') return 'none';
+  if (tier === 'SILVER') return 'silver';
+  if (tier === 'GOLD') return 'gold';
+  if (tier === 'PLATINUM') return 'platinum';
+  return tier ? String(tier).toLowerCase() : tier;
+}
+
+function normaliseProfileUpdateType(value) {
+  if (value === 'EMAIL') return 'email';
+  if (value === 'MOBILE') return 'mobile';
+  return value || null;
+}
+
+function userToMongoShape(pgRow, options = {}) {
+  if (!pgRow) return null;
+
+  const _id = mongoIdFromRow(pgRow);
+  const out = {
+    _id,
+    firstName: pgRow.firstName,
+    lastName: pgRow.lastName,
+    email: pgRow.email,
+    isVerified: pgRow.isVerified === true,
+    avatar: pgRow.avatar ?? '',
+    avatarPublicId: pgRow.avatarPublicId ?? '',
+    phone: pgRow.phone ?? '',
+    address: pgRow.address ?? '',
+    district: pgRow.district ?? '',
+    upazila: pgRow.upazila ?? '',
+    thana: pgRow.thana ?? '',
+    fullAddress: pgRow.fullAddress ?? '',
+    walletBalance: decimalToNumber(pgRow.walletBalance) ?? 0,
+    loyaltyPoints: pgRow.loyaltyPoints ?? 0,
+    referralCode: pgRow.referralCode ?? null,
+    referralEarnings: decimalToNumber(pgRow.referralEarnings) ?? 0,
+    loyaltyTier: normaliseUserLoyaltyTier(pgRow.loyaltyTier) || 'none',
+    tierUpgradedAt: pgRow.tierUpgradedAt ?? null,
+    lifetimeSpend: decimalToNumber(pgRow.lifetimeSpend) ?? 0,
+    tierCashbackRate: decimalToNumber(pgRow.tierCashbackRate) ?? 0,
+    isSandbox: pgRow.isSandbox === true,
+    isDeleted: pgRow.isDeleted === true,
+    deletionReason: pgRow.deletionReason ?? '',
+    createdAt: pgRow.createdAt,
+    __v: MONGOOSE_DOC_VERSION
+  };
+
+  if (pgRow.isDeleted === true && pgRow.deletedAt) out.deletedAt = pgRow.deletedAt;
+
+  const gender = normaliseUserGender(pgRow.gender);
+  if (gender) out.gender = gender;
+  if (pgRow.dateOfBirth) out.dateOfBirth = pgRow.dateOfBirth;
+  if (pgRow.mobile != null && pgRow.mobile !== '') out.mobile = pgRow.mobile;
+  if (pgRow.googleId) out.googleId = pgRow.googleId;
+  if (pgRow.avatarUrl) out.avatarUrl = pgRow.avatarUrl;
+  if (pgRow.lastLogin) out.lastLogin = pgRow.lastLogin;
+
+  const accountStatus = normaliseUserAccountStatus(pgRow.accountStatus);
+  if (accountStatus) out.accountStatus = accountStatus;
+
+  if (pgRow.verificationToken) out.verificationToken = pgRow.verificationToken;
+  if (pgRow.verificationTokenExpiry) out.verificationTokenExpiry = pgRow.verificationTokenExpiry;
+  if (pgRow.resetPasswordOtp) out.resetPasswordOtp = pgRow.resetPasswordOtp;
+  if (pgRow.resetPasswordExpires) out.resetPasswordExpires = pgRow.resetPasswordExpires;
+  if (pgRow.profileUpdateOtp) out.profileUpdateOtp = pgRow.profileUpdateOtp;
+  if (pgRow.profileUpdateOtpExpires) out.profileUpdateOtpExpires = pgRow.profileUpdateOtpExpires;
+  const profileUpdateType = normaliseProfileUpdateType(pgRow.profileUpdateType);
+  if (profileUpdateType) out.profileUpdateType = profileUpdateType;
+  if (pgRow.pendingEmail) out.pendingEmail = pgRow.pendingEmail;
+  if (pgRow.pendingMobile) out.pendingMobile = pgRow.pendingMobile;
+
+  const referredByLegacy = options.referredByLegacy
+    ?? pgRow.referredBy?.legacyId
+    ?? null;
+  if (referredByLegacy) out.referredBy = referredByLegacy;
+
+  out.name = [pgRow.firstName, pgRow.lastName].filter(Boolean).join(' ').trim();
+
+  if (options.includeEmbedded) {
+    out.addresses = options.addresses ?? [];
+    out.wishlist = options.wishlist ?? [];
+    out.walletHistory = options.walletHistory ?? [];
+  }
+
+  return out;
+}
+
+function mapUsersToMongo(rows, options = {}) {
+  return (rows || []).map((row) => userToMongoShape(row, options)).filter(Boolean);
+}
+
+function addressToMongoShape(pgRow) {
+  if (!pgRow) return null;
+  return {
+    _id: mongoIdFromRow(pgRow) || pgRow.id,
+    label: pgRow.label ?? 'Home',
+    district: pgRow.district ?? '',
+    upazilaOrThana: pgRow.upazilaOrThana ?? '',
+    fullAddress: pgRow.fullAddress,
+    phone: pgRow.phone ?? '',
+    isDefault: pgRow.isDefault === true,
+    createdAt: pgRow.createdAt
+  };
+}
+
+function mapAddressesToMongo(rows) {
+  return (rows || []).map(addressToMongoShape).filter(Boolean);
+}
+
+function wishlistItemEmbeddedToMongoShape(pgRow) {
+  if (!pgRow) return null;
+  const out = {
+    productId: pgRow.legacyProductId || pgRow.productId,
+    name: pgRow.name ?? '',
+    price: decimalToNumber(pgRow.price) ?? 0,
+    image: pgRow.image ?? '',
+    icon: pgRow.icon ?? '📦',
+    addedAt: pgRow.addedAt
+  };
+  const legacyId = pgRow.legacyId != null ? String(pgRow.legacyId) : null;
+  if (legacyId) out._id = legacyId;
+  return out;
+}
+
+function mapWishlistEmbeddedToMongo(rows) {
+  return (rows || []).map(wishlistItemEmbeddedToMongoShape).filter(Boolean);
+}
+
+function walletTransactionToMongoShape(pgRow) {
+  if (!pgRow) return null;
+  const out = {
+    type: pgRow.type ?? 'credit',
+    amount: decimalToNumber(pgRow.amount) ?? 0,
+    note: pgRow.note ?? '',
+    referenceOrder: pgRow.referenceOrder ?? '',
+    date: pgRow.date ?? pgRow.createdAt
+  };
+  const legacyId = pgRow.legacyId != null ? String(pgRow.legacyId) : null;
+  if (legacyId) out._id = legacyId;
+  return out;
+}
+
+function mapWalletTransactionsToMongo(rows) {
+  return (rows || []).map(walletTransactionToMongoShape).filter(Boolean);
+}
+
+function cartItemEmbeddedToMongoShape(pgItem) {
+  if (!pgItem) return null;
+  const productLegacy = pgItem.product?.legacyId
+    || pgItem.product?.productId
+    || null;
+  const out = {
+    productId: productLegacy,
+    name: pgItem.name,
+    price: decimalToNumber(pgItem.price),
+    image: pgItem.image ?? '',
+    emojiIcon: pgItem.emojiIcon ?? null,
+    variantImage: pgItem.variantImage ?? null,
+    icon: pgItem.icon ?? '📦',
+    quantity: pgItem.quantity ?? 1,
+    selected: pgItem.selected !== false,
+    variantId: pgItem.variantId ?? '',
+    variantLabel: pgItem.variantLabel ?? '',
+    variantAttribute: pgItem.variantAttribute ?? '',
+    variantValue: pgItem.variantValue ?? '',
+    variantSku: pgItem.variantSku ?? '',
+    selectedColor: pgItem.selectedColor ?? '',
+    selectedSize: pgItem.selectedSize ?? ''
+  };
+  // CartItem has no legacyId in Postgres — line _id is Mongo-only; omit to avoid UUID drift.
+  return out;
+}
+
+function mapCartItemsEmbeddedToMongo(rows) {
+  return (rows || []).map(cartItemEmbeddedToMongoShape).filter(Boolean);
+}
+
 module.exports = {
   mongoIdFromRow,
   buildCategoryIdMaps,
@@ -1417,6 +1610,16 @@ module.exports = {
   mapContactMessagesToAdminShape,
   reviewToMongoShape,
   mapReviewsToMongo,
+  userToMongoShape,
+  mapUsersToMongo,
+  addressToMongoShape,
+  mapAddressesToMongo,
+  wishlistItemEmbeddedToMongoShape,
+  mapWishlistEmbeddedToMongo,
+  walletTransactionToMongoShape,
+  mapWalletTransactionsToMongo,
+  cartItemEmbeddedToMongoShape,
+  mapCartItemsEmbeddedToMongo,
   fromNewsletterSource,
   fromCampaignStatus,
   fromCampaignSegment,

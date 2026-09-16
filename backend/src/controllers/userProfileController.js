@@ -8,6 +8,10 @@
 const User = require('../models/user');
 const Settings = require('../models/Settings');
 const { dualWrite } = require('../services/dualWriteService');
+const {
+    fetchUserProfileDocument,
+    fetchUserAddressesList
+} = require('../services/userReadService');
 
 function getUserRepository() {
     return require('../repositories/userRepository');
@@ -99,9 +103,9 @@ function getClientIp(req) {
    ======================================================= */
 exports.getUserProfile = async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).select('-password'); 
-        
-        if (!user) {
+        const profileDoc = await fetchUserProfileDocument(req.user.id);
+
+        if (!profileDoc) {
             return res.status(404).json({ success: false, message: "User not found." });
         }
 
@@ -112,11 +116,11 @@ exports.getUserProfile = async (req, res) => {
             loadTierSettings()
         ]);
 
-        const profile = user.toObject();
-        profile.loyaltyTier = user.loyaltyTier || 'none';
-        profile.lifetimeSpend = Number(user.lifetimeSpend) || 0;
-        profile.tierCashbackRate = Number(user.tierCashbackRate) || 0;
-        profile.tierUpgradedAt = user.tierUpgradedAt || null;
+        const profile = { ...profileDoc };
+        profile.loyaltyTier = profileDoc.loyaltyTier || 'none';
+        profile.lifetimeSpend = Number(profileDoc.lifetimeSpend) || 0;
+        profile.tierCashbackRate = Number(profileDoc.tierCashbackRate) || 0;
+        profile.tierUpgradedAt = profileDoc.tierUpgradedAt || null;
         profile.rewardSettings = rewardSettings;
         profile.tierSettings = tierSettings;
         profile.deliverySettings = deliverySettings;
@@ -662,9 +666,10 @@ exports.verifyContactUpdateOtp = async (req, res) => {
 // ১১.ক. সব ঠিকানা দেখা
 exports.getAddresses = async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).select('addresses');
+        const user = await User.findById(req.user.id).select('_id');
         if (!user) return res.status(404).json({ success: false, message: "User not found." });
-        res.status(200).json({ success: true, addresses: user.addresses || [] });
+        const addresses = await fetchUserAddressesList(req.user.id);
+        res.status(200).json({ success: true, addresses: addresses || [] });
     } catch (error) {
         console.error("Get Addresses Error:", error);
         res.status(500).json({ success: false, message: "Failed to load addresses." });

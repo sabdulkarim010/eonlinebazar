@@ -11,6 +11,7 @@
 const User = require('../models/user');
 const Settings = require('../models/Settings');
 const { creditWalletForUser } = require('../services/walletService');
+const { fetchReferralFields, countReferralsForUser } = require('../services/userReadService');
 
 function getStorePublicUrl() {
     return String(
@@ -38,26 +39,31 @@ const getReferralInfo = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Authentication required.' });
         }
 
-        const user = await User.findById(userId).select('referralCode referralEarnings');
-        if (!user) {
+        let referralFields = await fetchReferralFields(userId);
+        if (!referralFields) {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
 
         // Legacy accounts created before the referral program have no code yet —
-        // saving triggers the model's pre-save hook to generate one.
-        if (!user.referralCode) {
+        // saving triggers the model's pre-save hook to generate one (write path stays Mongo).
+        if (!referralFields.referralCode) {
+            const user = await User.findById(userId);
+            if (!user) {
+                return res.status(404).json({ success: false, message: 'User not found.' });
+            }
             await user.save();
+            referralFields = await fetchReferralFields(userId);
         }
 
-        const totalReferrals = await User.countDocuments({ referredBy: userId });
+        const totalReferrals = await countReferralsForUser(userId);
 
         return res.json({
             success: true,
             data: {
-                referralCode: user.referralCode,
-                referralLink: buildReferralLink(user.referralCode),
+                referralCode: referralFields.referralCode,
+                referralLink: buildReferralLink(referralFields.referralCode),
                 totalReferrals,
-                totalEarned: Number(user.referralEarnings) || 0
+                totalEarned: Number(referralFields.referralEarnings) || 0
             }
         });
     } catch (error) {

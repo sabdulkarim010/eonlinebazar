@@ -32,7 +32,12 @@ const GROUP_ENV = {
   newsletter: 'READ_PG_NEWSLETTER',
   emailcampaign: 'READ_PG_EMAILCAMPAIGN',
   contactmessage: 'READ_PG_CONTACTMESSAGE',
-  review: 'READ_PG_REVIEW'
+  review: 'READ_PG_REVIEW',
+  user: 'READ_PG_USER',
+  address: 'READ_PG_ADDRESS',
+  wishlist: 'READ_PG_WISHLIST',
+  wallet: 'READ_PG_WALLET',
+  cart: 'READ_PG_CART'
 };
 
 /**
