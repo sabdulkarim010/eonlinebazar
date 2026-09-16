@@ -22,6 +22,9 @@ jobs:
       - name: Install dependencies (CI check)
         run: npm ci
 
+      - name: Generate Prisma client (CI check)
+        run: npx prisma generate
+
       - name: Deploy to DigitalOcean
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -33,5 +36,7 @@ jobs:
             git pull origin main
             cd backend
             npm install --only=production
+            cd ..
+            npx prisma generate
             pm2 reload eonlinebazar-store --update-env || pm2 restart all
             pm2 status
