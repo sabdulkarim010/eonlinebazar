@@ -20,6 +20,11 @@ function mirrorAttendanceDoc(saved) {
   return require('../../utils/hrmDualWriteHelpers').mirrorAttendanceDoc(saved);
 }
 const { findAdmin, parseStaffSelector, resolveHrmSubject } = require('../../utils/hrmStaffResolver');
+const {
+    fetchAttendancePage,
+    fetchTodayAttendanceStats,
+    fetchAttendanceSummary
+} = require('../../services/hrmReadService');
 
 const { ATTENDANCE_STATUSES, SHIFT_TYPES } = Attendance;
 
@@ -77,39 +82,9 @@ function calculateLateness(clockInAt, shiftStart, graceMinutes) {
  */
 exports.getAttendanceList = async (req, res) => {
     try {
-        const filter = {};
-
-        const staff = String(req.query.staff || '').trim();
-        if (staff) {
-            const subject = await resolveHrmSubject(parseStaffSelector(staff));
-            // An unknown staff filter must return nothing, not everything.
-            filter.staffId = subject ? subject.staffId : '__no_match__';
-        }
-
-        const status = String(req.query.status || '').trim().toLowerCase();
-        if (ATTENDANCE_STATUSES.includes(status)) {
-            filter.status = status;
-        }
-
-        const single = Attendance.normalizeDate(req.query.date);
-        if (req.query.date && single) {
-            filter.date = single;
-        } else {
-            const from = Attendance.normalizeDate(req.query.from);
-            const to = Attendance.normalizeDate(req.query.to);
-            if (from || to) {
-                filter.date = {};
-                if (from) filter.date.$gte = from;
-                if (to) filter.date.$lte = to;
-            }
-        }
-
         const { page, limit, skip } = parsePagination(req.query);
 
-        const [records, total] = await Promise.all([
-            Attendance.find(filter).sort({ date: -1, staffUsername: 1 }).skip(skip).limit(limit).lean(),
-            Attendance.countDocuments(filter)
-        ]);
+        const { records, total } = await fetchAttendancePage({ query: req.query, skip, limit });
 
         const payload = {
             success: true,
@@ -118,7 +93,7 @@ exports.getAttendanceList = async (req, res) => {
         };
 
         if (String(req.query.todayStats || '').toLowerCase() === 'true') {
-            payload.todayStats = await buildTodayStats();
+            payload.todayStats = await fetchTodayAttendanceStats();
         }
 
         res.status(200).json(payload);
@@ -364,45 +339,11 @@ exports.getAttendanceSummary = async (req, res) => {
         const month = Math.min(Math.max(parseInt(req.query.month, 10) || now.getMonth() + 1, 1), 12);
         const year = parseInt(req.query.year, 10) || now.getFullYear();
 
-        const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
-        const end = new Date(year, month, 0, 0, 0, 0, 0);
-
-        const match = { date: { $gte: start, $lte: end } };
-
-        const staff = String(req.query.staff || '').trim();
-        if (staff) {
-            const account = await findStaff(staff);
-            match.staffId = account ? String(account._id) : '__no_match__';
-        }
-
-        const rows = await Attendance.aggregate([
-            { $match: match },
-            {
-                $group: {
-                    _id: { staffId: '$staffId', staffUsername: '$staffUsername' },
-                    present: { $sum: { $cond: [{ $eq: ['$status', 'present'] }, 1, 0] } },
-                    absent: { $sum: { $cond: [{ $eq: ['$status', 'absent'] }, 1, 0] } },
-                    late: { $sum: { $cond: ['$isLate', 1, 0] } },
-                    halfDay: { $sum: { $cond: [{ $eq: ['$status', 'half-day'] }, 1, 0] } },
-                    holiday: { $sum: { $cond: [{ $eq: ['$status', 'holiday'] }, 1, 0] } },
-                    totalHours: { $sum: '$hoursWorked' },
-                    recorded: { $sum: 1 }
-                }
-            },
-            { $sort: { '_id.staffUsername': 1 } }
-        ]);
-
-        const data = rows.map((row) => ({
-            staffId: row._id.staffId,
-            staffUsername: row._id.staffUsername,
-            present: row.present,
-            absent: row.absent,
-            late: row.late,
-            halfDay: row.halfDay,
-            holiday: row.holiday,
-            totalHours: Math.round((row.totalHours || 0) * 100) / 100,
-            recorded: row.recorded
-        }));
+        const data = await fetchAttendanceSummary({
+            month,
+            year,
+            staff: req.query.staff
+        });
 
         res.status(200).json({ success: true, data, period: { month, year } });
     } catch (error) {

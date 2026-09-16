@@ -73,7 +73,18 @@ async function findAll(filters = {}) {
   if (filters.status !== undefined) {
     where.status = String(filters.status).toUpperCase();
   }
-  if (filters.staffId) where.staffId = String(filters.staffId);
+  if (filters.staffOr && Array.isArray(filters.staffOr)) {
+    where.OR = filters.staffOr;
+  } else if (filters.staffId) {
+    where.staffId = String(filters.staffId);
+  }
+  if (filters.year !== undefined) {
+    const y = Number(filters.year);
+    where.startDate = {
+      gte: new Date(y, 0, 1, 0, 0, 0, 0),
+      lte: new Date(y, 11, 31, 23, 59, 59, 999)
+    };
+  }
   if (filters.leaveType !== undefined) {
     where.leaveType = toLeaveTypeEnum(filters.leaveType);
   }
@@ -92,6 +103,89 @@ async function findAll(filters = {}) {
 
   const records = await prisma.leave.findMany(query);
   return records.map(toShape);
+}
+
+async function count(filters = {}) {
+  const where = {};
+  if (filters.status !== undefined) {
+    where.status = String(filters.status).toUpperCase();
+  }
+  if (filters.leaveType !== undefined) {
+    where.leaveType = toLeaveTypeEnum(filters.leaveType);
+  }
+  if (filters.staffOr && Array.isArray(filters.staffOr)) {
+    where.OR = filters.staffOr;
+  } else if (filters.staffId) {
+    where.staffId = String(filters.staffId);
+  }
+  if (filters.year !== undefined) {
+    const y = Number(filters.year);
+    where.startDate = {
+      gte: new Date(y, 0, 1, 0, 0, 0, 0),
+      lte: new Date(y, 11, 31, 23, 59, 59, 999)
+    };
+  }
+  return prisma.leave.count({ where });
+}
+
+async function countPending() {
+  return prisma.leave.count({ where: { status: 'PENDING' } });
+}
+
+async function aggregateBalanceByStaff(year) {
+  const y = Number(year) || new Date().getFullYear();
+  const start = new Date(y, 0, 1, 0, 0, 0, 0);
+  const end = new Date(y, 11, 31, 23, 59, 59, 999);
+
+  const leaves = await prisma.leave.findMany({
+    where: { startDate: { gte: start, lte: end } },
+    select: {
+      staffId: true,
+      staffUsername: true,
+      staffType: true,
+      adminId: true,
+      employeeId: true,
+      leaveType: true,
+      status: true,
+      totalDays: true
+    }
+  });
+
+  const byStaff = new Map();
+  leaves.forEach((leave) => {
+    const key = leave.staffId;
+    if (!byStaff.has(key)) {
+      byStaff.set(key, {
+        staffId: leave.staffId,
+        staffUsername: leave.staffUsername || '',
+        staffType: leave.staffType,
+        adminId: leave.adminId,
+        employeeId: leave.employeeId,
+        rows: []
+      });
+    }
+    byStaff.get(key).rows.push(leave);
+  });
+
+  return [...byStaff.values()];
+}
+
+async function findCalendarLeaves(month, year, statuses = ['APPROVED', 'PENDING']) {
+  const m = Math.min(Math.max(Number(month) || new Date().getMonth() + 1, 1), 12);
+  const y = Number(year) || new Date().getFullYear();
+  const monthStart = new Date(y, m - 1, 1, 0, 0, 0, 0);
+  const monthEnd = new Date(y, m, 0, 23, 59, 59, 999);
+
+  const upperStatuses = statuses.map((s) => String(s).toUpperCase());
+
+  return prisma.leave.findMany({
+    where: {
+      status: { in: upperStatuses },
+      startDate: { lte: monthEnd },
+      endDate: { gte: monthStart }
+    },
+    orderBy: { startDate: 'asc' }
+  });
 }
 
 async function findById(id) {
@@ -255,8 +349,13 @@ async function getBalance(staffType, staffId, year) {
 
 module.exports = {
   LEAVE_ALLOWANCES,
+  LEAVE_TYPES,
   countLeaveDays,
   findAll,
+  count,
+  countPending,
+  aggregateBalanceByStaff,
+  findCalendarLeaves,
   findById,
   findByLegacyId,
   apply,

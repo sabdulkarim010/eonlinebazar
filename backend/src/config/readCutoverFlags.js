@@ -24,7 +24,11 @@ const GROUP_ENV = {
   securitylog: 'READ_PG_SECURITYLOG',
   loginattempt: 'READ_PG_LOGINATTEMPT',
   blacklistedip: 'READ_PG_BLACKLISTEDIP',
-  stockalert: 'READ_PG_STOCKALERT'
+  stockalert: 'READ_PG_STOCKALERT',
+  employee: 'READ_PG_EMPLOYEE',
+  attendance: 'READ_PG_ATTENDANCE',
+  payroll: 'READ_PG_PAYROLL',
+  leave: 'READ_PG_LEAVE'
 };
 
 /**

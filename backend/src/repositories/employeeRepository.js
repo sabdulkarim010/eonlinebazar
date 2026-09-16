@@ -160,8 +160,92 @@ async function findAll(filters = {}) {
     query.take = limit;
   }
 
+  if (filters.orderByFullName) {
+    query.orderBy = { fullName: 'asc' };
+  }
+
   const records = await prisma.employee.findMany(query);
   return records.map(toShape);
+}
+
+function buildEmployeeWhere(filters = {}) {
+  const where = {};
+
+  if (filters.status !== undefined) where.status = toStatusEnum(filters.status);
+  if (filters.department) where.department = String(filters.department).trim();
+  if (filters.designation) where.designation = String(filters.designation).trim();
+  if (filters.employeeType !== undefined) {
+    where.employeeType = toEmployeeTypeEnum(filters.employeeType);
+  }
+
+  const search = String(filters.search || '').trim();
+  if (search) {
+    where.OR = [
+      { fullName: { contains: search, mode: 'insensitive' } },
+      { phone: { contains: search, mode: 'insensitive' } },
+      { employeeId: { contains: search, mode: 'insensitive' } },
+      { role: { contains: search, mode: 'insensitive' } },
+      { designation: { contains: search, mode: 'insensitive' } }
+    ];
+  }
+
+  if (filters.hasAccess === true) {
+    where.linkedAdminId = { not: null };
+  } else if (filters.hasAccess === false) {
+    where.linkedAdminId = null;
+  }
+
+  return where;
+}
+
+async function count(filters = {}) {
+  return prisma.employee.count({ where: buildEmployeeWhere(filters) });
+}
+
+async function aggregateStats() {
+  const [statusGroups, deptGroups, desGroups] = await Promise.all([
+    prisma.employee.groupBy({
+      by: ['status'],
+      _count: { _all: true }
+    }),
+    prisma.employee.groupBy({
+      by: ['department'],
+      where: { status: 'ACTIVE' },
+      _count: { _all: true },
+      orderBy: { department: 'asc' }
+    }),
+    prisma.employee.groupBy({
+      by: ['designation'],
+      where: { status: 'ACTIVE' },
+      _count: { _all: true },
+      orderBy: { _count: { _all: 'desc' } }
+    })
+  ]);
+
+  return { statusGroups, deptGroups, desGroups };
+}
+
+async function findDetailed(identifier) {
+  const value = String(identifier || '').trim();
+  if (!value) return null;
+
+  let where;
+  if (UUID_PATTERN.test(value)) {
+    where = { id: value };
+  } else {
+    where = {
+      OR: [{ legacyId: value }, { employeeId: value }]
+    };
+  }
+
+  return prisma.employee.findFirst({
+    where,
+    include: {
+      documents: { orderBy: { uploadedAt: 'desc' } },
+      references: true,
+      linkedAdmin: { select: { id: true, legacyId: true } }
+    }
+  });
 }
 
 // ── findById / findByEmployeeId ──────────────────────────────────────────────
@@ -528,6 +612,10 @@ module.exports = {
   generateEmployeeId,
   syncEmployeeAliases,
   findAll,
+  count,
+  aggregateStats,
+  findDetailed,
+  buildEmployeeWhere,
   findById,
   findByEmployeeId,
   findByLegacyId,

@@ -27,6 +27,11 @@ function mirrorLeaveApply(saved) {
     return require('../../utils/hrmDualWriteHelpers').mirrorLeaveApply(saved);
 }
 const { notifyAdminsWithPermission } = require('../../services/notificationService');
+const {
+    fetchLeavesPage,
+    fetchLeaveBalance,
+    fetchLeaveCalendar
+} = require('../../services/hrmReadService');
 
 const { LEAVE_TYPES, LEAVE_STATUSES, LEAVE_ALLOWANCES } = Leave;
 
@@ -179,35 +184,9 @@ exports.applyLeave = async (req, res) => {
  */
 exports.getAllLeaves = async (req, res) => {
     try {
-        const filter = {};
-
-        const status = String(req.query.status || '').trim().toLowerCase();
-        if (LEAVE_STATUSES.includes(status)) filter.status = status;
-
-        const leaveType = String(req.query.leaveType || '').trim().toLowerCase();
-        if (LEAVE_TYPES.includes(leaveType)) filter.leaveType = leaveType;
-
-        const staff = String(req.query.staff || '').trim();
-        if (staff) {
-            const account = await findStaff(staff);
-            filter.staffId = account ? String(account._id) : '__no_match__';
-        }
-
-        const year = parseInt(req.query.year, 10);
-        if (year) {
-            filter.startDate = {
-                $gte: new Date(year, 0, 1, 0, 0, 0, 0),
-                $lte: new Date(year, 11, 31, 23, 59, 59, 999)
-            };
-        }
-
         const { page, limit, skip } = parsePagination(req.query);
 
-        const [records, total, pendingCount] = await Promise.all([
-            Leave.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-            Leave.countDocuments(filter),
-            Leave.countDocuments({ status: 'pending' })
-        ]);
+        const { records, total, pendingCount } = await fetchLeavesPage({ query: req.query, skip, limit });
 
         res.status(200).json({
             success: true,
@@ -351,63 +330,11 @@ exports.rejectLeave = async (req, res) => {
 exports.getLeaveBalance = async (req, res) => {
     try {
         const year = parseInt(req.query.year, 10) || new Date().getFullYear();
-        const match = {
-            startDate: {
-                $gte: new Date(year, 0, 1, 0, 0, 0, 0),
-                $lte: new Date(year, 11, 31, 23, 59, 59, 999)
-            }
-        };
-
-        const staff = String(req.query.staff || '').trim();
-        if (staff) {
-            const account = await findStaff(staff);
-            match.staffId = account ? String(account._id) : '__no_match__';
-        }
-
-        const rows = await Leave.aggregate([
-            { $match: match },
-            {
-                $group: {
-                    _id: { staffId: '$staffId', staffUsername: '$staffUsername', leaveType: '$leaveType' },
-                    approvedDays: {
-                        $sum: { $cond: [{ $eq: ['$status', 'approved'] }, '$totalDays', 0] }
-                    },
-                    pendingDays: {
-                        $sum: { $cond: [{ $eq: ['$status', 'pending'] }, '$totalDays', 0] }
-                    }
-                }
-            }
-        ]);
-
-        const byStaff = new Map();
-
-        rows.forEach((row) => {
-            const key = row._id.staffId;
-            if (!byStaff.has(key)) {
-                byStaff.set(key, {
-                    staffId: key,
-                    staffUsername: row._id.staffUsername,
-                    balances: LEAVE_TYPES.map((type) => ({
-                        leaveType: type,
-                        allowed: LEAVE_ALLOWANCES[type] || 0,
-                        used: 0,
-                        pending: 0,
-                        remaining: LEAVE_ALLOWANCES[type] || 0
-                    }))
-                });
-            }
-
-            const entry = byStaff.get(key).balances.find((b) => b.leaveType === row._id.leaveType);
-            if (entry) {
-                entry.used = row.approvedDays || 0;
-                entry.pending = row.pendingDays || 0;
-                entry.remaining = Math.max(0, entry.allowed - entry.used);
-            }
-        });
+        const data = await fetchLeaveBalance({ year, staff: req.query.staff });
 
         res.status(200).json({
             success: true,
-            data: [...byStaff.values()].sort((a, b) => a.staffUsername.localeCompare(b.staffUsername)),
+            data,
             allowances: LEAVE_ALLOWANCES,
             year
         });
@@ -428,40 +355,10 @@ exports.getLeaveCalendar = async (req, res) => {
         const month = Math.min(Math.max(parseInt(req.query.month, 10) || now.getMonth() + 1, 1), 12);
         const year = parseInt(req.query.year, 10) || now.getFullYear();
 
-        const monthStart = new Date(year, month - 1, 1, 0, 0, 0, 0);
-        const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
-
-        const statuses = String(req.query.status || '').trim().toLowerCase() === 'approved'
-            ? ['approved']
-            : ['approved', 'pending'];
-
-        // Any leave that overlaps the month, including spans that start or end outside it.
-        const leaves = await Leave.find({
-            status: { $in: statuses },
-            startDate: { $lte: monthEnd },
-            endDate: { $gte: monthStart }
-        }).lean();
-
-        const days = {};
-
-        leaves.forEach((leave) => {
-            const cursor = Attendance.normalizeDate(leave.startDate);
-            const last = Attendance.normalizeDate(leave.endDate);
-            if (!cursor || !last) return;
-
-            for (let day = new Date(cursor); day <= last; day.setDate(day.getDate() + 1)) {
-                if (day < monthStart || day > monthEnd) continue;
-
-                const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
-                if (!days[key]) days[key] = [];
-                days[key].push({
-                    leaveId: String(leave._id),
-                    staffUsername: leave.staffUsername,
-                    staffName: leave.staffName || leave.staffUsername,
-                    leaveType: leave.leaveType,
-                    status: leave.status
-                });
-            }
+        const days = await fetchLeaveCalendar({
+            month,
+            year,
+            statusQuery: req.query.status
         });
 
         res.status(200).json({

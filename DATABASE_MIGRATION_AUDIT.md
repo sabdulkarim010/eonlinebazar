@@ -3212,3 +3212,95 @@ Additionally, **`@prisma/adapter-neon`** and **`@neondatabase/serverless`** must
 
 **Git-tracked status (2026-09-16):** both packages are listed in root `package.json` dependencies (`@neondatabase/serverless` ^1.1.0, `@prisma/adapter-neon` ^7.10.0). Ensure production deploy runs `npm ci` from this committed `package.json` + lockfile — do not rely on manual server-only installs.
 
+---
+
+## STAGE 4, STEP 4 — Read Cutover: HRM Group — 2026-09-16
+
+Stage 4 Step 4 extends read-cutover to the HRM dual-write group from Stage 2 Step 3 Part 5:
+**Employee**, **Attendance**, **Payroll**, **Leave**. This is the **first read-cutover group with polymorphic
+staff** (`staffType` + `staffId` + `adminId`/`employeeId` FK). All new flags default **OFF**. Postgres read
+failure falls back to Mongo via `routedRead()`.
+
+### New feature flags (all default OFF)
+
+| Env var | Group key | Wired read surfaces |
+|---|---|---|
+| `READ_PG_EMPLOYEE` | `employee` | Employee list/stats/detail/profile composite |
+| `READ_PG_ATTENDANCE` | `attendance` | Attendance list (+ optional todayStats), monthly summary |
+| `READ_PG_PAYROLL` | `payroll` | Payroll list (+ designation decoration for employee rows) |
+| `READ_PG_LEAVE` | `leave` | Leave list, balance aggregate, calendar feed |
+
+Documented in `.env.example` (commented).
+
+### Implementation summary
+
+| File | Change |
+|---|---|
+| `readCutoverFlags.js` | Four new group keys |
+| `readShapeHelpers.js` | `employeeToMongoShape`, `attendanceToMongoShape`, `payrollToMongoShape`, `leaveToMongoShape`; `buildHrmStaffLegacyMaps` / `legacyStaffIdFromRow` for polymorphic `staffId` → Mongo ObjectId |
+| `hrmReadService.js` | **NEW** — centralized routed reads; PG staff resolution lazy-loaded (no Prisma import on Mongo-default path) |
+| `employeeRepository.js` | `count`, `aggregateStats`, `findDetailed` (documents + references + linkedAdmin legacy) |
+| `attendanceRepository.js` | `count`, `countTodayStats`, `aggregateMonthlySummary` |
+| `payrollRepository.js` | `count`, `aggregateRollup`; `staffOr` filter support |
+| `leaveRepository.js` | `count`, `countPending`, `aggregateBalanceByStaff`, `findCalendarLeaves` |
+| Controllers (reads only) | `employeeController`, `attendanceController`, `payrollController`, `leaveController` |
+
+### Polymorphic staff resolution (reads)
+
+Postgres rows may store `staffId` as either Mongo legacy ObjectId (backfill) or PG UUID (dual-write via
+`staffFields`). Read transforms resolve the API-facing `staffId` from `adminId`/`employeeId` FK →
+`legacyId` batch lookup (`loadStaffLegacyMaps`), matching Mongo's string ObjectId shape.
+
+**Mongo parity preserved for known controller quirks:**
+
+- **Attendance list + Payroll list:** `resolveHrmSubject` / `employee:…` selector — both staff types.
+- **Attendance summary + Leave list/balance:** `findStaff` (admin-only filter) — replicated exactly on Mongo path; PG path uses admin FK lookup only (same as live Mongo behaviour).
+
+### Employee profile composite read
+
+`GET …/employees/:id/profile` reassembles via `fetchEmployeeProfileBundle()`:
+
+- Employee row (with documents/references + `linkedAdminId` legacy)
+- Month attendance summary counts
+- Last 6 payroll runs
+- Year leave balance + recent leaves
+
+Each sub-query respects its own group flag (`attendance`, `payroll`, `leave`) inside the bundle.
+
+### Proactive shape parity (pre-verification)
+
+| Check | Result |
+|---|---|
+| `__v: 0` on all HRM transforms | ✅ |
+| `linkedAdminId` → Mongo admin legacy id (not PG UUID) | ✅ |
+| Employee documents `_id` ← `legacyId` | ✅ |
+| References omit subdoc `_id` (matches Mongoose schema) | ✅ |
+| Polymorphic `staffId` via FK legacy maps | ✅ unit-tested |
+| Sparse optional employee fields omitted when unset | ✅ |
+
+### Verification (2026-09-16)
+
+Script: `scripts/verify-read-cutover-group4.local.js` (local, not committed). Includes explicit
+**admin-type** and **employee-type** staff filter cases for Attendance summary and Payroll list.
+
+| Model | Verdict | Notes |
+|---|---|---|
+| **Employee** | **PASS** (unit + shape tests) | List, stats, detail, profile composite wired |
+| **Attendance** | **PASS** (unit + shape tests) | Polymorphic admin + employee summary filters |
+| **Payroll** | **PASS** (unit + shape tests) | List only (no separate detail GET exists); admin + employee staff filters |
+| **Leave** | **PASS** (unit + shape tests) | List, balance, calendar; admin-only staff filter matches Mongo |
+
+**Zero `[READ-CUTOVER-FALLBACK]`** expected when Postgres is healthy (same as Steps 1–3).
+
+No post-backfill data drift investigation required before enable — Step 3 sync restored Security/Audit parity;
+HRM dual-write has been active since Stage 2 Step 3 Part 5 with no reported gap class for these models.
+
+### Regression checks
+
+| Suite | Result |
+|---|---|
+| `npm test` (Jest) | **211/211** pass (+7 Step 4 tests in `readCutoverGroup4.test.js`) |
+| `npm run test:repositories` | **157/157** pass |
+
+**All `READ_PG_*` flags remain OFF** until deliberate per-environment enable.
+

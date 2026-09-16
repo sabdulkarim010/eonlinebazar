@@ -124,11 +124,16 @@ async function findAll(filters = {}) {
   if (filters.month !== undefined) where.month = Number(filters.month);
   if (filters.year !== undefined) where.year = Number(filters.year);
   if (filters.status !== undefined) where.status = toStatusEnum(filters.status);
-  if (filters.staffId) where.staffId = String(filters.staffId);
+
+  if (filters.staffOr && Array.isArray(filters.staffOr)) {
+    where.OR = filters.staffOr;
+  } else if (filters.staffId) {
+    where.staffId = String(filters.staffId);
+  }
 
   const query = {
     where,
-    orderBy: [{ year: 'desc' }, { month: 'desc' }]
+    orderBy: [{ year: 'desc' }, { month: 'desc' }, { staffUsername: 'asc' }]
   };
 
   const limit = Number(filters.limit);
@@ -140,6 +145,51 @@ async function findAll(filters = {}) {
 
   const records = await prisma.payroll.findMany(query);
   return records.map(toShape);
+}
+
+async function count(filters = {}) {
+  const where = {};
+  if (filters.month !== undefined) where.month = Number(filters.month);
+  if (filters.year !== undefined) where.year = Number(filters.year);
+  if (filters.status !== undefined) where.status = toStatusEnum(filters.status);
+  if (filters.staffOr && Array.isArray(filters.staffOr)) {
+    where.OR = filters.staffOr;
+  } else if (filters.staffId) {
+    where.staffId = String(filters.staffId);
+  }
+  return prisma.payroll.count({ where });
+}
+
+async function aggregateRollup(filters = {}) {
+  const where = {};
+  if (filters.month !== undefined) where.month = Number(filters.month);
+  if (filters.year !== undefined) where.year = Number(filters.year);
+  if (filters.status !== undefined) where.status = toStatusEnum(filters.status);
+  if (filters.staffOr && Array.isArray(filters.staffOr)) {
+    where.OR = filters.staffOr;
+  } else if (filters.staffId) {
+    where.staffId = String(filters.staffId);
+  }
+
+  const rows = await prisma.payroll.findMany({
+    where,
+    select: { totalSalary: true, status: true }
+  });
+
+  let totalAmount = 0;
+  let paidCount = 0;
+  let pendingCount = 0;
+  rows.forEach((row) => {
+    totalAmount += Number(row.totalSalary) || 0;
+    if (row.status === 'PAID') paidCount += 1;
+    else pendingCount += 1;
+  });
+
+  return {
+    totalAmount: Math.round(totalAmount * 100) / 100,
+    paidCount,
+    pendingCount
+  };
 }
 
 async function findById(id) {
@@ -358,6 +408,8 @@ module.exports = {
   countWorkingDays,
   summarizeAttendance,
   findAll,
+  count,
+  aggregateRollup,
   findById,
   findByLegacyId,
   generate,

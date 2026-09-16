@@ -1704,3 +1704,23 @@ backend/scripts/backfill/syncCategoryProductCount.js [NEW] one-time Category pro
 tests/services/readShapeHelpers.test.js [MOD] expect omitted customCashback when null
 Result: Supplier/Warehouse/Designation exact PASS; Category/Brand ACCEPTED with documented legacy exceptions; npm test 183/183; test:repositories 157/157
 DATABASE_MIGRATION_AUDIT.md [DONE] Option C section + Step 1 CLOSED statement + customCashbackPercentage follow-up flag
+
+# PostgreSQL migration — Stage 4 Step 4: Read-cutover HRM group (polymorphic staff) — 2026-09-16
+
+backend/src/config/readCutoverFlags.js [MOD] READ_PG_EMPLOYEE, ATTENDANCE, PAYROLL, LEAVE
+backend/src/services/readShapeHelpers.js [MOD] employee/attendance/payroll/leave ToMongoShape + buildHrmStaffLegacyMaps
+backend/src/services/hrmReadService.js [NEW] routed reads for HRM group; lazy PG staff resolver
+backend/src/repositories/employeeRepository.js [MOD] count, aggregateStats, findDetailed
+backend/src/repositories/attendanceRepository.js [MOD] count, countTodayStats, aggregateMonthlySummary, staffOr filter
+backend/src/repositories/payrollRepository.js [MOD] count, aggregateRollup, staffOr filter
+backend/src/repositories/leaveRepository.js [MOD] count, countPending, aggregateBalanceByStaff, findCalendarLeaves
+backend/src/controllers/admin/employeeController.js [MOD] getAllEmployees, getEmployeeStats, getEmployeeById, getEmployeeProfile reads wired
+backend/src/controllers/admin/attendanceController.js [MOD] getAttendanceList, getAttendanceSummary reads wired
+backend/src/controllers/admin/payrollController.js [MOD] getAllPayrolls read wired
+backend/src/controllers/admin/leaveController.js [MOD] getAllLeaves, getLeaveBalance, getLeaveCalendar reads wired
+tests/services/readCutoverGroup4.test.js [NEW] HRM shape parity + polymorphic staffId tests (7 tests)
+.env.example [MOD] Stage 4 Step 4 READ_PG_* flags documented
+Result: npm test 211/211; test:repositories 157/157; verification script scripts/verify-read-cutover-group4.local.js (local)
+DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 4 section added
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 4 Step 4 note added
+README.md [DONE] test count 211 + Stage 4 Step 4 note

@@ -99,7 +99,11 @@ function toShape(record) {
 async function findAll(filters = {}) {
   const where = {};
 
-  if (filters.staffId) where.staffId = String(filters.staffId);
+  if (filters.staffOr && Array.isArray(filters.staffOr)) {
+    where.OR = filters.staffOr;
+  } else if (filters.staffId) {
+    where.staffId = String(filters.staffId);
+  }
   if (filters.status !== undefined) where.status = toStatusEnum(filters.status);
 
   if (filters.from || filters.to) {
@@ -125,6 +129,112 @@ async function findAll(filters = {}) {
 
   const records = await prisma.attendance.findMany(query);
   return records.map(toShape);
+}
+
+async function count(filters = {}) {
+  const where = {};
+
+  if (filters.staffId) {
+    if (filters.staffOr && Array.isArray(filters.staffOr)) {
+      where.OR = filters.staffOr;
+    } else {
+      where.staffId = String(filters.staffId);
+    }
+  }
+  if (filters.status !== undefined) where.status = toStatusEnum(filters.status);
+
+  if (filters.from || filters.to) {
+    where.date = {};
+    if (filters.from) where.date.gte = normalizeDate(filters.from);
+    if (filters.to) where.date.lte = normalizeDate(filters.to);
+  } else if (filters.date) {
+    const d = normalizeDate(filters.date);
+    if (d) where.date = d;
+  }
+
+  return prisma.attendance.count({ where });
+}
+
+async function countTodayStats() {
+  const today = normalizeDate(new Date());
+  const [present, absent, late] = await Promise.all([
+    prisma.attendance.count({
+      where: { date: today, status: { in: ['PRESENT', 'HALF_DAY'] } }
+    }),
+    prisma.attendance.count({
+      where: { date: today, status: 'ABSENT' }
+    }),
+    prisma.attendance.count({
+      where: { date: today, isLate: true }
+    })
+  ]);
+  return { present, absent, late };
+}
+
+async function aggregateMonthlySummary(month, year, staffOr = null) {
+  const now = new Date();
+  const m = Math.min(Math.max(Number(month) || now.getMonth() + 1, 1), 12);
+  const y = Number(year) || now.getFullYear();
+  const start = new Date(y, m - 1, 1, 0, 0, 0, 0);
+  const end = new Date(y, m, 0, 0, 0, 0, 0);
+
+  const where = { date: { gte: start, lte: end } };
+  if (staffOr) {
+    where.OR = staffOr;
+  } else if (staffOr === false) {
+    where.staffId = '__no_match__';
+  }
+
+  const records = await prisma.attendance.findMany({
+    where,
+    select: {
+      staffId: true,
+      staffUsername: true,
+      staffType: true,
+      adminId: true,
+      employeeId: true,
+      status: true,
+      isLate: true,
+      hoursWorked: true
+    }
+  });
+
+  const grouped = new Map();
+  records.forEach((row) => {
+    const key = `${row.staffId}::${row.staffUsername || ''}`;
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        staffId: row.staffId,
+        staffUsername: row.staffUsername || '',
+        staffType: row.staffType,
+        adminId: row.adminId,
+        employeeId: row.employeeId,
+        present: 0,
+        absent: 0,
+        late: 0,
+        halfDay: 0,
+        holiday: 0,
+        totalHours: 0,
+        recorded: 0
+      });
+    }
+    const entry = grouped.get(key);
+    const status = normaliseStatus(row.status);
+    if (status === 'present') entry.present += 1;
+    else if (status === 'absent') entry.absent += 1;
+    else if (status === 'half-day') entry.halfDay += 1;
+    else if (status === 'holiday') entry.holiday += 1;
+    if (row.isLate) entry.late += 1;
+    entry.totalHours += Number(row.hoursWorked) || 0;
+    entry.recorded += 1;
+  });
+
+  return [...grouped.values()]
+    .map((row) => ({
+      ...row,
+      totalHours: Math.round(row.totalHours * 100) / 100
+    }))
+    .sort((a, b) => (a.staffUsername || '').localeCompare(b.staffUsername || ''));
 }
 
 async function findById(id) {
@@ -416,6 +526,9 @@ module.exports = {
   normalizeDate,
   parseShiftMinutes,
   findAll,
+  count,
+  countTodayStats,
+  aggregateMonthlySummary,
   findById,
   findByLegacyId,
   markAttendance,

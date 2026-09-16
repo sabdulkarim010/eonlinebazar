@@ -28,6 +28,7 @@ function mirrorPayrollDoc(saved) {
 
 const { adminDualWrite, mirrorAdminUpdate } = require('../../utils/adminDualWriteHelpers');
 const { findAdmin, parseStaffSelector, resolveHrmSubject } = require('../../utils/hrmStaffResolver');
+const { fetchPayrollsPage, decoratePayrollDesignations } = require('../../services/hrmReadService');
 
 /** Bangladesh weekend — Friday (Date#getDay() === 5) is not a working day. */
 const WEEKEND_DAY = 5;
@@ -215,67 +216,10 @@ exports.generatePayroll = async (req, res) => {
  */
 exports.getAllPayrolls = async (req, res) => {
     try {
-        const filter = {};
-
-        const month = parseInt(req.query.month, 10);
-        if (month >= 1 && month <= 12) filter.month = month;
-
-        const year = parseInt(req.query.year, 10);
-        if (year) filter.year = year;
-
-        const status = String(req.query.status || '').trim().toLowerCase();
-        if (Payroll.PAYROLL_STATUSES.includes(status)) filter.status = status;
-
-        const staff = String(req.query.staff || '').trim();
-        if (staff) {
-            const subject = await resolveHrmSubject(parseStaffSelector(staff));
-            filter.staffId = subject ? subject.staffId : '__no_match__';
-        }
-
         const { page, limit, skip } = parsePagination(req.query);
 
-        const [records, total, totals] = await Promise.all([
-            Payroll.find(filter).sort({ year: -1, month: -1, staffUsername: 1 }).skip(skip).limit(limit).lean(),
-            Payroll.countDocuments(filter),
-            Payroll.aggregate([
-                { $match: filter },
-                {
-                    $group: {
-                        _id: null,
-                        totalAmount: { $sum: '$totalSalary' },
-                        paidCount: { $sum: { $cond: [{ $eq: ['$status', 'paid'] }, 1, 0] } },
-                        pendingCount: { $sum: { $cond: [{ $ne: ['$status', 'paid'] }, 1, 0] } }
-                    }
-                }
-            ])
-        ]);
-
-        const rollup = totals[0] || { totalAmount: 0, paidCount: 0, pendingCount: 0 };
-
-        // Attach a designation label so the ledger can show what each person
-        // does. Employees carry their own designation; admins fall back to
-        // their department (their "role" is an RBAC role, not a job title).
-        const employeeIds = records
-            .filter((r) => r.staffType === 'employee')
-            .map((r) => r.staffId)
-            .filter((id) => mongoose.Types.ObjectId.isValid(id));
-
-        let designationMap = {};
-        if (employeeIds.length) {
-            const employees = await Employee.find({ _id: { $in: employeeIds } })
-                .select('_id designation department')
-                .lean();
-            employees.forEach((e) => {
-                designationMap[String(e._id)] = e.designation || e.department || '';
-            });
-        }
-
-        const decorated = records.map((r) => ({
-            ...r,
-            designation: r.staffType === 'employee'
-                ? (designationMap[String(r.staffId)] || '')
-                : ''
-        }));
+        const { records, total, rollup } = await fetchPayrollsPage({ query: req.query, skip, limit });
+        const decorated = await decoratePayrollDesignations(records);
 
         res.status(200).json({
             success: true,

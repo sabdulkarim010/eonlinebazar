@@ -1950,7 +1950,7 @@ Full detail lives in `DATABASE_MIGRATION_AUDIT.md`; this is the status summary.
 | Dual-write repository layer | ❌ NOT STARTED — Stage 2 remainder |
 | `LoginAttempt` / `BlacklistedIp` TTL sweep jobs | ❌ NOT STARTED — Stage 2 remainder |
 | `ProductTextIndex` → `tsvector` + GIN raw SQL migration | ❌ NOT STARTED — Stage 2 remainder |
-| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Steps 1–2 + cleanup COMPLETE**; **Stage 4 Step 3 COMPLETE (2026-09-16)** — Security/Audit read-cutover wired; **64-row gap synced**; HTTP verification **PASS all 4 models**; all `READ_PG_*` flags OFF until deliberate enable; PaymentMethod backfill still required before Order read cutover |
+| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Steps 1–3 COMPLETE**; **Stage 4 Step 4 COMPLETE (2026-09-16)** — HRM group (Employee/Attendance/Payroll/Leave) read-cutover with polymorphic staff resolution; **211/211** tests; all `READ_PG_*` flags OFF; PaymentMethod backfill still required before Order read cutover |
 
 **Isolation guarantee:** zero `.js` files under `backend/src/` were modified — no
 model, controller, route, service or script. No application code queries
@@ -2455,4 +2455,19 @@ OFF; Mongo remains the live read path until deliberately enabled per environment
 | HTTP verification (4 models) | ✅ **PASS** all endpoints |
 | Repo sample script | ⚠️ `_id` buffer shape + SecurityLog `updatedAt` micro-drift only (rows present; not enable blockers) |
 | `npm test` / `test:repositories` | ✅ 204/204, 157/157 |
+
+## Stage 4 Step 4 — Read-cutover HRM group (polymorphic staff) — 2026-09-16
+
+**Status:** ✅ COMPLETE — first polymorphic-staff read-cutover group wired. **Flags remain OFF.**
+
+| Item | Status |
+|------|--------|
+| New flags: `READ_PG_EMPLOYEE`, `ATTENDANCE`, `PAYROLL`, `LEAVE` | ✅ all default OFF |
+| Employee reads | ✅ list, stats, detail, profile composite (attendance + payroll + leave + documents) |
+| Attendance reads | ✅ list (+ todayStats), monthly summary; polymorphic staff filter |
+| Payroll reads | ✅ list + rollup summary + employee designation decoration |
+| Leave reads | ✅ list, balance aggregate, calendar feed |
+| Polymorphic staff resolution | ✅ admin + employee staffId via FK→legacyId maps; unit-tested both staff types |
+| Proactive shape parity | ✅ `__v`, linkedAdminId legacy, document `_id`, sparse field omission |
+| `npm test` / `test:repositories` | ✅ 211/211, 157/157 |
 

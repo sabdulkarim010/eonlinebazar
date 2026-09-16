@@ -168,6 +168,13 @@ async function uploadBufferToCloudinary(file, folder) {
 }
 
 const { findEmployeeRecord } = require('../../utils/hrmStaffResolver');
+const {
+    fetchEmployeesPage,
+    fetchAllActiveEmployees,
+    fetchEmployeeStats,
+    fetchEmployeeByIdentifier,
+    fetchEmployeeProfileBundle
+} = require('../../services/hrmReadService');
 
 const MIN_ACCESS_PASSWORD_LENGTH = 8;
 
@@ -197,47 +204,8 @@ async function suspendLinkedAdminAccess(employee) {
  */
 exports.getAllEmployees = async (req, res) => {
     try {
-        const filter = {};
-
-        const status = String(req.query.status || '').trim().toLowerCase();
-        if (EMPLOYEE_STATUSES.includes(status)) {
-            filter.status = status;
-        }
-
-        const department = String(req.query.department || '').trim();
-        if (department) filter.department = department;
-
-        const designation = String(req.query.designation || '').trim();
-        if (designation) filter.designation = designation;
-
-        const employeeType = String(req.query.employeeType || '').trim().toLowerCase();
-        if (EMPLOYEE_TYPES.includes(employeeType)) filter.employeeType = employeeType;
-
-        const search = String(req.query.search || '').trim();
-        if (search) {
-            const re = new RegExp(escapeRegex(search), 'i');
-            filter.$or = [{ fullName: re }, { phone: re }, { employeeId: re }, { role: re }, { designation: re }];
-        }
-
-        const hasAccess = String(req.query.hasAccess || '').trim().toLowerCase();
-        const noLinkedAdminClause = {
-            $or: [{ linkedAdminId: null }, { linkedAdminId: '' }, { linkedAdminId: { $exists: false } }]
-        };
-        if (hasAccess === 'false') {
-            if (filter.$or) {
-                const searchClause = { $or: filter.$or };
-                delete filter.$or;
-                filter.$and = [searchClause, noLinkedAdminClause];
-            } else {
-                Object.assign(filter, noLinkedAdminClause);
-            }
-        } else if (hasAccess === 'true') {
-            filter.linkedAdminId = { $nin: [null, ''] };
-        }
-
         if (String(req.query.all || '').toLowerCase() === 'true') {
-            const activeFilter = { ...filter, status: 'active' };
-            const employees = await Employee.find(activeFilter).sort({ fullName: 1 }).lean();
+            const employees = await fetchAllActiveEmployees(req.query);
             return res.status(200).json({
                 success: true,
                 data: employees,
@@ -247,10 +215,7 @@ exports.getAllEmployees = async (req, res) => {
 
         const { page, limit, skip } = parsePagination(req.query);
 
-        const [employees, total] = await Promise.all([
-            Employee.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-            Employee.countDocuments(filter)
-        ]);
+        const { employees, total } = await fetchEmployeesPage({ query: req.query, skip, limit });
 
         res.status(200).json({
             success: true,
@@ -274,36 +239,7 @@ exports.getAllEmployees = async (req, res) => {
  */
 exports.getEmployeeStats = async (req, res) => {
     try {
-        const [totals, byDepartment, byDesignation] = await Promise.all([
-            Employee.aggregate([
-                {
-                    $group: {
-                        _id: '$status',
-                        count: { $sum: 1 }
-                    }
-                }
-            ]),
-            Employee.aggregate([
-                { $match: { status: 'active' } },
-                {
-                    $group: {
-                        _id: '$department',
-                        count: { $sum: 1 }
-                    }
-                },
-                { $sort: { _id: 1 } }
-            ]),
-            Employee.aggregate([
-                { $match: { status: 'active' } },
-                {
-                    $group: {
-                        _id: '$designation',
-                        count: { $sum: 1 }
-                    }
-                },
-                { $sort: { count: -1, _id: 1 } }
-            ])
-        ]);
+        const { totals, byDepartment, byDesignation } = await fetchEmployeeStats();
 
         const statusCounts = { active: 0, inactive: 0, terminated: 0 };
         totals.forEach((row) => {
@@ -341,7 +277,7 @@ exports.getEmployeeStats = async (req, res) => {
  */
 exports.getEmployeeById = async (req, res) => {
     try {
-        const employee = await findEmployeeRecord(req.params.id);
+        const employee = await fetchEmployeeByIdentifier(req.params.id);
         if (!employee) {
             return res.status(404).json({ success: false, message: 'Employee not found.' });
         }
@@ -707,24 +643,13 @@ exports.deleteEmployeeDocument = async (req, res) => {
  */
 exports.getEmployeeProfile = async (req, res) => {
     try {
-        const employee = await findEmployeeRecord(req.params.id);
+        const employee = await fetchEmployeeByIdentifier(req.params.id);
         if (!employee) {
             return res.status(404).json({ success: false, message: 'Employee not found.' });
         }
 
         const staffId = String(employee._id);
-        const now = new Date();
-        const year = now.getFullYear();
-        const monthStart = new Date(year, now.getMonth(), 1, 0, 0, 0, 0);
-        const monthEnd = new Date(year, now.getMonth() + 1, 0, 23, 59, 59, 999);
-        const yearStart = new Date(year, 0, 1, 0, 0, 0, 0);
-        const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999);
-
-        const [attendanceRows, payrollRows, leaveRows] = await Promise.all([
-            Attendance.find({ staffId, date: { $gte: monthStart, $lte: monthEnd } }).lean(),
-            Payroll.find({ staffId }).sort({ year: -1, month: -1 }).limit(6).lean(),
-            Leave.find({ staffId, startDate: { $gte: yearStart, $lte: yearEnd } }).lean()
-        ]);
+        const { attendanceRows, payrollRows, leaveRows } = await fetchEmployeeProfileBundle(staffId);
 
         // This month's attendance summary.
         const attendanceSummary = { present: 0, absent: 0, late: 0, halfDay: 0, holiday: 0, totalDays: attendanceRows.length };

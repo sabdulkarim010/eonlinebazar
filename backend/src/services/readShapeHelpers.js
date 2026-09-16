@@ -874,6 +874,252 @@ function mapStockAlertsToMongo(rows) {
   return (rows || []).map(stockAlertToMongoShape).filter(Boolean);
 }
 
+// ── HRM — polymorphic staff legacy resolution ───────────────────────────────
+
+const OBJECT_ID_PATTERN = /^[a-f0-9]{24}$/i;
+
+function buildHrmStaffLegacyMaps(adminRows = [], employeeRows = []) {
+  const admin = new Map();
+  const employee = new Map();
+  (adminRows || []).forEach((row) => {
+    if (row?.id) admin.set(row.id, row.legacyId != null ? String(row.legacyId) : String(row.id));
+  });
+  (employeeRows || []).forEach((row) => {
+    if (row?.id) employee.set(row.id, row.legacyId != null ? String(row.legacyId) : String(row.id));
+  });
+  return { admin, employee };
+}
+
+function legacyStaffIdFromRow(row, maps = null) {
+  if (!row) return null;
+  const isEmployee = row.staffType === 'EMPLOYEE' || row.staffType === 'employee';
+  if (maps) {
+    if (isEmployee && row.employeeId) {
+      const legacy = maps.employee.get(row.employeeId);
+      if (legacy) return legacy;
+    }
+    if (!isEmployee && row.adminId) {
+      const legacy = maps.admin.get(row.adminId);
+      if (legacy) return legacy;
+    }
+  }
+  const stored = row.staffId != null ? String(row.staffId) : null;
+  if (stored && OBJECT_ID_PATTERN.test(stored)) return stored;
+  return stored;
+}
+
+function optionalString(value) {
+  const s = value != null ? String(value).trim() : '';
+  return s || undefined;
+}
+
+function employeeDocumentToMongoShape(doc) {
+  if (!doc) return null;
+  return {
+    _id: mongoIdFromRow(doc),
+    title: doc.title ?? '',
+    fileUrl: doc.fileUrl ?? '',
+    fileType: doc.fileType ?? 'image',
+    publicId: doc.publicId ?? '',
+    uploadedAt: doc.uploadedAt
+  };
+}
+
+function employeeReferenceToMongoShape(ref) {
+  if (!ref) return null;
+  return {
+    name: ref.name ?? '',
+    phone: ref.phone ?? '',
+    relation: ref.relation ?? '',
+    address: ref.address ?? ''
+  };
+}
+
+function employeeToMongoShape(pgRow, options = {}) {
+  if (!pgRow) return null;
+
+  const linkedAdminLegacy = pgRow.linkedAdmin?.legacyId != null
+    ? String(pgRow.linkedAdmin.legacyId)
+    : (pgRow.linkedAdminId && OBJECT_ID_PATTERN.test(String(pgRow.linkedAdminId))
+      ? String(pgRow.linkedAdminId)
+      : null);
+
+  const out = {
+    _id: mongoIdFromRow(pgRow),
+    employeeId: pgRow.employeeId,
+    fullName: pgRow.fullName,
+    phone: pgRow.phone,
+    department: pgRow.department ?? 'Operations',
+    designation: pgRow.designation ?? '',
+    role: pgRow.role ?? '',
+    employeeType: pgRow.employeeType
+      ? String(pgRow.employeeType).toLowerCase().replace('part_time', 'part-time')
+      : 'permanent',
+    baseSalary: pgRow.baseSalary != null ? Number(pgRow.baseSalary) : 0,
+    salaryType: pgRow.salaryType ? String(pgRow.salaryType).toLowerCase() : 'monthly',
+    status: pgRow.status ? String(pgRow.status).toLowerCase() : 'active',
+    notes: pgRow.notes ?? '',
+    createdBy: pgRow.createdBy ?? '',
+    createdAt: pgRow.createdAt,
+    updatedAt: pgRow.updatedAt,
+    __v: MONGOOSE_DOC_VERSION
+  };
+
+  if (pgRow.dateOfBirth != null) out.dateOfBirth = pgRow.dateOfBirth;
+  if (optionalString(pgRow.gender)) out.gender = String(pgRow.gender).toLowerCase();
+  if (optionalString(pgRow.bloodGroup)) out.bloodGroup = pgRow.bloodGroup;
+  if (optionalString(pgRow.religion)) out.religion = pgRow.religion;
+  if (optionalString(pgRow.maritalStatus)) out.maritalStatus = String(pgRow.maritalStatus).toLowerCase();
+  if (optionalString(pgRow.nationalId)) out.nationalId = pgRow.nationalId;
+  if (optionalString(pgRow.photo)) out.photo = pgRow.photo;
+  if (optionalString(pgRow.photoPublicId)) out.photoPublicId = pgRow.photoPublicId;
+  if (optionalString(pgRow.alternatePhone)) out.alternatePhone = pgRow.alternatePhone;
+  if (optionalString(pgRow.email)) out.email = pgRow.email;
+  if (optionalString(pgRow.presentAddress)) out.presentAddress = pgRow.presentAddress;
+  if (optionalString(pgRow.permanentAddress)) out.permanentAddress = pgRow.permanentAddress;
+  if (optionalString(pgRow.address)) out.address = pgRow.address;
+  if (optionalString(pgRow.shift)) out.shift = pgRow.shift;
+  if (pgRow.joiningDate != null) out.joiningDate = pgRow.joiningDate;
+  if (optionalString(pgRow.bankName)) out.bankName = pgRow.bankName;
+  if (optionalString(pgRow.bankAccountNumber)) out.bankAccountNumber = pgRow.bankAccountNumber;
+  if (optionalString(pgRow.bkashNumber)) out.bkashNumber = pgRow.bkashNumber;
+
+  const ecName = optionalString(pgRow.emergencyContactName);
+  const ecPhone = optionalString(pgRow.emergencyContactPhone);
+  const ecRelation = optionalString(pgRow.emergencyContactRelation);
+  if (ecName || ecPhone || ecRelation) {
+    out.emergencyContact = {
+      name: ecName || '',
+      phone: ecPhone || '',
+      relation: ecRelation || ''
+    };
+  }
+
+  if (linkedAdminLegacy) out.linkedAdminId = linkedAdminLegacy;
+  else if (pgRow.linkedAdminId == null || pgRow.linkedAdminId === '') out.linkedAdminId = null;
+
+  const documents = options.documents || pgRow.documents;
+  if (documents) {
+    out.documents = documents.map(employeeDocumentToMongoShape).filter(Boolean);
+  }
+
+  const references = options.references || pgRow.references;
+  if (references) {
+    out.references = references.map(employeeReferenceToMongoShape).filter(Boolean);
+  }
+
+  return out;
+}
+
+function mapEmployeesToMongo(rows, options = {}) {
+  return (rows || []).map((row) => employeeToMongoShape(row, options)).filter(Boolean);
+}
+
+function attendanceToMongoShape(pgRow, maps = null) {
+  if (!pgRow) return null;
+
+  const out = {
+    _id: mongoIdFromRow(pgRow),
+    staffId: legacyStaffIdFromRow(pgRow, maps),
+    staffType: pgRow.staffType === 'EMPLOYEE' ? 'employee' : 'admin',
+    staffUsername: pgRow.staffUsername ?? '',
+    date: pgRow.date,
+    clockIn: pgRow.clockIn ?? null,
+    clockOut: pgRow.clockOut ?? null,
+    hoursWorked: pgRow.hoursWorked != null ? Number(pgRow.hoursWorked) : 0,
+    status: pgRow.status
+      ? String(pgRow.status).toLowerCase().replace('_', '-')
+      : 'absent',
+    isLate: pgRow.isLate === true,
+    lateMinutes: Number(pgRow.lateMinutes) || 0,
+    shift: pgRow.shift ? String(pgRow.shift).toLowerCase() : 'morning',
+    shiftStart: pgRow.shiftStart ?? '09:00',
+    shiftEnd: pgRow.shiftEnd ?? '18:00',
+    notes: pgRow.notes ?? '',
+    markedBy: pgRow.markedBy ?? 'self',
+    createdAt: pgRow.createdAt,
+    updatedAt: pgRow.updatedAt,
+    __v: MONGOOSE_DOC_VERSION
+  };
+
+  if (pgRow.gpsLat != null && pgRow.gpsLng != null) {
+    out.gpsLocation = { lat: Number(pgRow.gpsLat), lng: Number(pgRow.gpsLng) };
+  }
+
+  return out;
+}
+
+function mapAttendanceToMongo(rows, maps = null) {
+  return (rows || []).map((row) => attendanceToMongoShape(row, maps)).filter(Boolean);
+}
+
+function payrollToMongoShape(pgRow, maps = null) {
+  if (!pgRow) return null;
+
+  return {
+    _id: mongoIdFromRow(pgRow),
+    staffId: legacyStaffIdFromRow(pgRow, maps),
+    staffType: pgRow.staffType === 'EMPLOYEE' ? 'employee' : 'admin',
+    staffUsername: pgRow.staffUsername ?? '',
+    staffName: pgRow.staffName ?? '',
+    month: Number(pgRow.month),
+    year: Number(pgRow.year),
+    baseSalary: Number(pgRow.baseSalary) || 0,
+    bonus: Number(pgRow.bonus) || 0,
+    overtime: Number(pgRow.overtime) || 0,
+    overtimeRate: Number(pgRow.overtimeRate) || 0,
+    overtimeAmount: Number(pgRow.overtimeAmount) || 0,
+    deductions: Number(pgRow.deductions) || 0,
+    totalSalary: Number(pgRow.totalSalary) || 0,
+    workingDays: Number(pgRow.workingDays) || 0,
+    presentDays: Number(pgRow.presentDays) || 0,
+    absentDays: Number(pgRow.absentDays) || 0,
+    lateDays: Number(pgRow.lateDays) || 0,
+    status: pgRow.status ? String(pgRow.status).toLowerCase() : 'draft',
+    paidAt: pgRow.paidAt ?? null,
+    paymentMethod: pgRow.paymentMethod ?? '',
+    paySlipGenerated: pgRow.paySlipGenerated === true,
+    notes: pgRow.notes ?? '',
+    createdBy: pgRow.createdBy ?? '',
+    createdAt: pgRow.createdAt,
+    updatedAt: pgRow.updatedAt,
+    __v: MONGOOSE_DOC_VERSION
+  };
+}
+
+function mapPayrollsToMongo(rows, maps = null) {
+  return (rows || []).map((row) => payrollToMongoShape(row, maps)).filter(Boolean);
+}
+
+function leaveToMongoShape(pgRow, maps = null) {
+  if (!pgRow) return null;
+
+  return {
+    _id: mongoIdFromRow(pgRow),
+    staffId: legacyStaffIdFromRow(pgRow, maps),
+    staffType: pgRow.staffType === 'EMPLOYEE' ? 'employee' : 'admin',
+    staffUsername: pgRow.staffUsername ?? '',
+    staffName: pgRow.staffName ?? '',
+    leaveType: pgRow.leaveType ? String(pgRow.leaveType).toLowerCase() : 'casual',
+    startDate: pgRow.startDate,
+    endDate: pgRow.endDate,
+    totalDays: Number(pgRow.totalDays) || 1,
+    reason: pgRow.reason ?? '',
+    status: pgRow.status ? String(pgRow.status).toLowerCase() : 'pending',
+    approvedBy: pgRow.approvedBy ?? '',
+    approvedAt: pgRow.approvedAt ?? null,
+    rejectionReason: pgRow.rejectionReason ?? '',
+    attachmentUrl: pgRow.attachmentUrl ?? '',
+    createdAt: pgRow.createdAt,
+    updatedAt: pgRow.updatedAt,
+    __v: MONGOOSE_DOC_VERSION
+  };
+}
+
+function mapLeavesToMongo(rows, maps = null) {
+  return (rows || []).map((row) => leaveToMongoShape(row, maps)).filter(Boolean);
+}
+
 module.exports = {
   mongoIdFromRow,
   buildCategoryIdMaps,
@@ -913,6 +1159,16 @@ module.exports = {
   mapBlacklistedIpsToMongo,
   stockAlertToMongoShape,
   mapStockAlertsToMongo,
+  buildHrmStaffLegacyMaps,
+  legacyStaffIdFromRow,
+  employeeToMongoShape,
+  mapEmployeesToMongo,
+  attendanceToMongoShape,
+  mapAttendanceToMongo,
+  payrollToMongoShape,
+  mapPayrollsToMongo,
+  leaveToMongoShape,
+  mapLeavesToMongo,
   fromResourceType,
   fromLoginStatus,
   fromActorType
