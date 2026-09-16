@@ -15,6 +15,7 @@ const REQUIRED_VARS = [
     'SMTP_USER',
     'SMTP_PASS',
     'PORT',
+    'DATABASE_URL_POOLED',
 ];
 
 function validateEnv() {

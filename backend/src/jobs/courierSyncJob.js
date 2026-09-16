@@ -13,6 +13,7 @@ const cron = require('node-cron');
 const Order = require('../models/order');
 const { autoSyncCourierStatus } = require('../services/courierSyncService');
 const { logSecurityEvent } = require('../utils/securityLogger');
+const { scheduleCronHandler } = require('../utils/cronJobRunner');
 
 // Every 3 hours on the hour.
 const DEFAULT_CRON = '0 */3 * * *';
@@ -61,7 +62,8 @@ async function processCourierSync() {
                 actor: 'system',
                 actorType: 'system',
                 details: `${summary}${transitions.length ? ` — ${transitions.slice(0, 20).join('; ')}` : ''}`,
-                resourceType: 'order'
+                resourceType: 'order',
+                source: 'cron:courierSync'
             });
         }
 
@@ -89,11 +91,10 @@ function startCourierSyncCron() {
 
     if (cronTask) cronTask.stop();
 
-    cronTask = cron.schedule(expression, () => {
-        processCourierSync().catch((err) => {
-            console.error('[CourierSync] Cron error:', err.message);
-        });
-    });
+    cronTask = cron.schedule(
+        expression,
+        scheduleCronHandler('CourierSync.processCourierSync', processCourierSync)
+    );
 
     console.log(`[CourierSync] Cron scheduled: "${expression}"`);
 }

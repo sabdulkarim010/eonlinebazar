@@ -14,10 +14,13 @@
 
 'use strict';
 
-// Load .env so this file can be required standalone (e.g. in repository tests)
-// without the main server entry point. dotenv.config() is a no-op when
-// DATABASE_URL_POOLED is already present, so it is safe to call repeatedly.
-require('dotenv').config();
+const path = require('path');
+
+// Always load repo-root .env (same path as server.js) — cwd-relative dotenv breaks
+// when the process is started from backend/ or when crons run in a long-lived server.
+require('dotenv').config({
+  path: path.join(__dirname, '..', '..', '..', '.env')
+});
 
 const { PrismaNeonHttp } = require('@prisma/adapter-neon');
 

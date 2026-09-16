@@ -43,11 +43,11 @@ async function triggerBackup(req, res) {
 
         await logSecurityEvent({
             action: 'Database Backup Downloaded',
-            adminId: req.adminAccount?._id,
-            adminUsername: req.adminAccount?.username,
-            ip: getClientIp(req),
+            actor: req.adminAccount?.username || 'system',
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
             details: `Full JSON backup exported (${backup.documentCount} documents)`,
-            resourceType: 'system',
+            resourceType: 'setting',
             resourceId: 'backup'
         });
 

@@ -124,6 +124,15 @@ connectDB().then(async () => {
         console.error('Super Admin HRM sync error:', err.message);
     }
 
+    // Postgres must be reachable before any cron registers — crons dual-write to Neon.
+    try {
+        const { ensurePostgresReady } = require('./config/postgresBootstrap');
+        await ensurePostgresReady();
+        console.log('PostgreSQL (Neon) ready for dual-write ✅');
+    } catch (err) {
+        console.error('PostgreSQL bootstrap failed — cron dual-write will not work:', err.message);
+    }
+
     // Start background stock alert cron job
     try {
         const { startStockAlertCron } = require('./services/stockAlertService');

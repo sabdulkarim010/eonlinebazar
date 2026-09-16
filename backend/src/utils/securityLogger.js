@@ -31,7 +31,8 @@ async function logSecurityEvent({
     ipAddress,
     details = '',
     resourceType = null,
-    resourceId = null
+    resourceId = null,
+    source = 'api'
 }) {
     try {
         await dualWrite(
@@ -50,11 +51,15 @@ async function logSecurityEvent({
             {
                 model: 'SecurityLog',
                 operation: 'create',
+                source,
                 mongoId: (saved) => String(saved._id)
             }
         );
     } catch (err) {
-        console.error('Security log write failed:', err.message);
+        console.error('[SecurityLog] Mongo write failed:', err.message);
+        if (err.stack) {
+            console.error(err.stack);
+        }
     }
 }
 

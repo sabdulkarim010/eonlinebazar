@@ -3155,3 +3155,60 @@ Per Steps 1–2 playbook: Postgres-only sync/backfill of missing SecurityLog + S
 
 **All `READ_PG_*` flags remain OFF until deliberate per-environment enable.**
 
+---
+
+## STAGE 4, STEP 3 — Root Cause Fixed + Data Sync Complete — 2026-09-16
+
+### Root cause (confirmed on production PM2 host)
+
+Post-backfill dual-write gaps for **SecurityLog** and **StockAlert** were **not** caused by incorrect dual-write wiring in application code. Live server logs on the production PM2 host (`eonlinebazar-store`) showed Postgres mirror failures because **`@prisma/adapter-neon` was missing** from the deployed environment's `node_modules` (and related Neon driver setup was incomplete). Manual `npm install` of the adapter packages, **Node 22 upgrade**, and **`npx prisma generate`** on the server restored dual-write.
+
+Secondary local-dev issue: **StockAlert** persisted its audit log **after** email/SMS/WhatsApp notifications; UltraMsg WhatsApp failures/slow I/O could delay or block reaching the dual-write step. Fixed in code by persisting Mongo+Postgres **before** third-party notifications (each channel isolated in `try/catch`).
+
+Cron-host dual-write **confirmed working** after server fix (2026-09-16T03:00 UTC tick): StockAlert `6aaa06413d60c6474a38b51c` and SecurityLog courier sync `6aaa06333d60c6474a38b51b` both have matching Postgres `legacyId` rows.
+
+### Phase B — Postgres-only data sync (2026-09-16)
+
+Re-scanned post-cutoff rows (`createdAt > 2026-09-14T22:21:47.000Z`) before sync — gap had grown while Phase A was in progress:
+
+| Model | Missing rows synced |
+|---|---:|
+| **SecurityLog** | **16** |
+| **StockAlert** | **48** (includes child `stock_alert_items` via `stockAlertRepository.create()`) |
+| **Total** | **64** |
+
+Script: `scripts/stage4-step3-sync-missing-security-audit.local.js` (local, not committed). Idempotent via `legacyId` skip-if-present.
+
+**Post-sync verification:** post-cutoff gap **0/0**; overall collection parity **SecurityLog 931/931**, **StockAlert 1271/1271**.
+
+### Phase C — backupController.js SecurityLog bugs fixed
+
+| Bug | Fix |
+|---|---|
+| Invalid `resourceType: 'system'` (not in Mongo enum or Postgres `SecurityResourceType`) | Changed to **`setting`** (backup is a system-settings operation; `resourceId: 'backup'`) |
+| Wrong params `adminId`, `adminUsername`, `ip` | **`actor`**, **`actorType: 'admin'`**, **`ipAddress`** per `logSecurityEvent()` |
+
+### Final verification (flags OFF — 2026-09-16)
+
+| Model | Verdict |
+|---|---|
+| **LoginAttempt** | **PASS** |
+| **BlacklistedIP** | **PASS** |
+| **SecurityLog** | **PASS** (4/4 HTTP endpoints); repo script shows `updatedAt` micro-drift + `_id` buffer shape only |
+| **StockAlert** | **PASS** (HTTP N/A); repo script shows `_id` buffer shape only — rows present |
+
+| Suite | Result |
+|---|---|
+| `npm test` | **204/204** |
+| `npm run test:repositories` | **157/157** |
+
+**All `READ_PG_*` flags remain OFF** until deliberate per-environment enable.
+
+### IMPORTANT DEPLOYMENT NOTE
+
+`generated/prisma/` is **gitignored** and must be regenerated via **`npx prisma generate`** on **every** environment after `npm install`, including production. Without it, dual-write Postgres paths fail at runtime.
+
+Additionally, **`@prisma/adapter-neon`** and **`@neondatabase/serverless`** must be present in root **`package.json` `dependencies`** (not ad-hoc server installs) so future deploys include them automatically.
+
+**Git-tracked status (2026-09-16):** both packages are listed in root `package.json` dependencies (`@neondatabase/serverless` ^1.1.0, `@prisma/adapter-neon` ^7.10.0). Ensure production deploy runs `npm ci` from this committed `package.json` + lockfile — do not rely on manual server-only installs.
+

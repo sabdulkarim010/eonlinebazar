@@ -11,6 +11,7 @@ const Product = require('../models/product');
 const StockAlert = require('../models/stockAlert');
 const Settings = require('../models/Settings');
 const { dualWrite } = require('./dualWriteService');
+const { scheduleCronHandler } = require('../utils/cronJobRunner');
 
 function getStockAlertRepository() {
     return require('../repositories/stockAlertRepository');
@@ -221,22 +222,84 @@ async function checkAndAlertLowStock() {
     const payload = { checkedAt, lowStock, outOfStock };
     const alertsSent = { email: false, sms: false, whatsapp: false };
 
+    const lowStockProducts = lowStock.map((p) => ({
+        name: p.name,
+        productId: p.productId,
+        stock: p.stockQuantity ?? p.stock ?? 0,
+        threshold: p.lowStockThreshold ?? p.threshold ?? defaultThreshold
+    }));
+    const outOfStockProducts = outOfStock.map((p) => ({
+        name: p.name,
+        productId: p.productId
+    }));
+
+    // Persist audit log FIRST — third-party notification failures must never block dual-write.
+    try {
+        await dualWrite(
+            () => StockAlert.create({
+                checkedAt,
+                lowStockCount: lowStock.length,
+                outOfStockCount: outOfStock.length,
+                lowStockProducts,
+                outOfStockProducts,
+                alertsSent: { email: false, sms: false, whatsapp: false }
+            }),
+            async (saved) => {
+                const plain = saved.toObject ? saved.toObject() : saved;
+                const pgResult = await getStockAlertRepository().create({
+                    checkedAt: plain.checkedAt,
+                    lowStockCount: plain.lowStockCount,
+                    outOfStockCount: plain.outOfStockCount,
+                    lowStockProducts: plain.lowStockProducts,
+                    outOfStockProducts: plain.outOfStockProducts,
+                    alertsSent: plain.alertsSent,
+                    legacyId: String(saved._id),
+                    createdAt: plain.createdAt
+                });
+                console.log('[STOCK-ALERT-DUAL-WRITE-SUCCESS]', {
+                    legacyId: String(saved._id),
+                    postgresId: pgResult.id,
+                    checkedAt: plain.checkedAt
+                });
+            },
+            {
+                model: 'StockAlert',
+                operation: 'create',
+                source: 'stockAlert:checkAndAlertLowStock',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
+    } catch (err) {
+        console.error('[StockAlert] Failed to save alert log (Mongo):', err.message);
+        if (err.stack) {
+            console.error(err.stack);
+        }
+    }
+
     const adminEmail = String(process.env.ADMIN_ALERT_EMAIL || process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
     const subject = `⚠️ EOnlineBazar Stock Alert — ${lowStock.length} Low, ${outOfStock.length} Out of Stock`;
     const html = buildStockAlertHtml(payload);
 
-    const emailResult = await sendStockAlertEmail({ to: adminEmail, subject, html });
-    alertsSent.email = emailResult.delivered === true;
+    try {
+        const emailResult = await sendStockAlertEmail({ to: adminEmail, subject, html });
+        alertsSent.email = emailResult.delivered === true;
+    } catch (err) {
+        console.warn('[StockAlert] Email notification failed:', err.message);
+    }
 
     if (outOfStock.length > 0) {
-        const adminPhone = await resolveAdminSmsPhone();
-        const smsBody = `EOnlineBazar Alert: ${outOfStock.length} products are OUT OF STOCK. Check admin panel.`;
-        const smsResult = await sendSms({
-            to: adminPhone,
-            body: smsBody,
-            context: 'STOCK ALERT'
-        });
-        alertsSent.sms = smsResult.delivered === true;
+        try {
+            const adminPhone = await resolveAdminSmsPhone();
+            const smsBody = `EOnlineBazar Alert: ${outOfStock.length} products are OUT OF STOCK. Check admin panel.`;
+            const smsResult = await sendSms({
+                to: adminPhone,
+                body: smsBody,
+                context: 'STOCK ALERT'
+            });
+            alertsSent.sms = smsResult.delivered === true;
+        } catch (err) {
+            console.warn('[StockAlert] SMS notification failed:', err.message);
+        }
 
         outOfStock.forEach((product) => {
             emitToAdmins('low_stock_alert', {
@@ -247,45 +310,14 @@ async function checkAndAlertLowStock() {
         });
     }
 
-    if (await isWhatsAppConfigured()) {
-        const waBody = buildWhatsAppMessage(payload);
-        const waResult = await sendAdminCustomAlert(waBody);
-        alertsSent.whatsapp = waResult.delivered === true;
-    }
-
     try {
-        await dualWrite(
-            () => StockAlert.create({
-                checkedAt,
-                lowStockCount: lowStock.length,
-                outOfStockCount: outOfStock.length,
-                lowStockProducts: lowStock.map((p) => ({
-                    name: p.name,
-                    productId: p.productId,
-                    stock: p.stockQuantity ?? p.stock ?? 0,
-                    threshold: p.lowStockThreshold ?? p.threshold ?? defaultThreshold
-                })),
-                outOfStockProducts: outOfStock.map((p) => ({
-                    name: p.name,
-                    productId: p.productId
-                })),
-                alertsSent
-            }),
-            async (saved) => {
-                const plain = saved.toObject ? saved.toObject() : saved;
-                await getStockAlertRepository().create({
-                    ...plain,
-                    legacyId: String(saved._id)
-                });
-            },
-            {
-                model: 'StockAlert',
-                operation: 'create',
-                mongoId: (saved) => String(saved._id)
-            }
-        );
+        if (await isWhatsAppConfigured()) {
+            const waBody = buildWhatsAppMessage(payload);
+            const waResult = await sendAdminCustomAlert(waBody);
+            alertsSent.whatsapp = waResult.delivered === true;
+        }
     } catch (err) {
-        console.error('[StockAlert] Failed to save alert log:', err.message);
+        console.warn('[StockAlert] WhatsApp notification failed:', err.message);
     }
 
     notifyAdminsWithPermission(
@@ -325,11 +357,10 @@ function startStockAlertCron() {
         cronTask.stop();
     }
 
-    cronTask = cron.schedule(expression, () => {
-        checkAndAlertLowStock().catch((err) => {
-            console.error('[StockAlert] Cron job error:', err.message);
-        });
-    });
+    cronTask = cron.schedule(
+        expression,
+        scheduleCronHandler('StockAlert.checkAndAlertLowStock', checkAndAlertLowStock)
+    );
 
     console.log(`[StockAlert] Cron scheduled: "${expression}"`);
 }

@@ -1610,6 +1610,32 @@ DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 1 CLEANUP section added
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 4 Step 1 cleanup note added
 README.md [DONE] Stage 4 cleanup note
 
+# Stage 4 Step 3 — Root cause fixed + data sync complete — 2026-09-16
+
+scripts/stage4-step3-sync-missing-security-audit.local.js [NEW] Postgres-only sync — 16 SecurityLog + 48 StockAlert post-cutoff gaps
+backend/src/controllers/admin/backupController.js [MOD] resourceType setting; actor/ipAddress for logSecurityEvent
+DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4 STEP 3 root-cause + sync + deployment note section
+SYSTEM_ENTERPRISE_AUDIT.md [DONE] Step 3 sync complete note
+Result: HTTP verify PASS all 4 Security/Audit models; npm test 204/204; test:repositories 157/157; READ_PG_* flags OFF
+
+# StockAlert dual-write ordering fix — 2026-09-15
+
+backend/src/services/stockAlertService.js [MOD] persist StockAlert (Mongo+Postgres) BEFORE email/SMS/WhatsApp; each notification in isolated try/catch; [STOCK-ALERT-DUAL-WRITE-SUCCESS] log after Postgres create
+Result: npm test 204/204; test:repositories 157/157
+
+# PostgreSQL migration — Stage 4 Step 3 cron dual-write fix — 2026-09-15
+
+backend/src/config/postgresBootstrap.js [NEW] ensurePostgresReady — reload root .env + ping Neon before cron dual-writes
+backend/src/utils/cronJobRunner.js [NEW] scheduleCronHandler / runCronJob — [CRON-START|DONE|FAIL] logging + Postgres bootstrap
+backend/src/config/prismaClient.js [MOD] dotenv loads repo-root .env (not cwd-relative)
+backend/src/services/dualWriteService.js [MOD] reload env + assert DATABASE_URL_POOLED before Postgres mirror; source/stack in [DUAL-WRITE-FAILURE]
+backend/src/utils/securityLogger.js [MOD] source param (cron:courierSync); clearer Mongo failure logs
+backend/src/services/stockAlertService.js [MOD] cronJobRunner wrapper; explicit create payload (no ...plain spread)
+backend/src/jobs/courierSyncJob.js [MOD] cronJobRunner wrapper; logSecurityEvent source=cron:courierSync
+backend/src/server.js [MOD] ensurePostgresReady before registering crons
+backend/src/utils/validateEnv.js [MOD] DATABASE_URL_POOLED required at boot
+Result: npm test 204/204; test:repositories 157/157; cronJobRunner path verified (Mongo + Postgres legacyId match)
+
 # PostgreSQL migration — Stage 4 Step 3: Read-cutover Security/Audit group — 2026-09-15
 
 backend/src/config/readCutoverFlags.js [MOD] READ_PG_SECURITYLOG/LOGINATTEMPT/BLACKLISTEDIP/STOCKALERT (default OFF)

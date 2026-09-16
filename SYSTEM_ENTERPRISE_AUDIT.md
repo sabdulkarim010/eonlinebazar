@@ -1950,7 +1950,7 @@ Full detail lives in `DATABASE_MIGRATION_AUDIT.md`; this is the status summary.
 | Dual-write repository layer | ❌ NOT STARTED — Stage 2 remainder |
 | `LoginAttempt` / `BlacklistedIp` TTL sweep jobs | ❌ NOT STARTED — Stage 2 remainder |
 | `ProductTextIndex` → `tsvector` + GIN raw SQL migration | ❌ NOT STARTED — Stage 2 remainder |
-| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Steps 1–2 + cleanup COMPLETE**; **Stage 4 Step 3 COMPLETE (2026-09-15)** — Security/Audit read-cutover wired (SecurityLog, LoginAttempt, BlacklistedIP, StockAlert); LoginAttempt + BlacklistedIP verification PASS; SecurityLog + StockAlert data drift (post-backfill dual-write gaps) before enable; all `READ_PG_*` flags OFF; PaymentMethod backfill still required before Order read cutover |
+| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Steps 1–2 + cleanup COMPLETE**; **Stage 4 Step 3 COMPLETE (2026-09-16)** — Security/Audit read-cutover wired; **64-row gap synced**; HTTP verification **PASS all 4 models**; all `READ_PG_*` flags OFF until deliberate enable; PaymentMethod backfill still required before Order read cutover |
 
 **Isolation guarantee:** zero `.js` files under `backend/src/` were modified — no
 model, controller, route, service or script. No application code queries
@@ -2440,5 +2440,19 @@ OFF; Mongo remains the live read path until deliberately enabled per environment
 | SecurityLog pagination + staff audit groupBy | ✅ |
 | StockAlert kind reassembly (LOW_STOCK / OUT_OF_STOCK) | ✅ unit + repository tests |
 | Verification | ✅ LoginAttempt **PASS**, BlacklistedIP **PASS**; SecurityLog **DATA PARITY FAIL** (recent rows missing in PG); StockAlert repo-level **DATA PARITY FAIL** |
+| `npm test` / `test:repositories` | ✅ 204/204, 157/157 |
+
+## Stage 4 Step 3 — Root cause fixed + data sync complete — 2026-09-16
+
+**Status:** ✅ COMPLETE — production dual-write restored; historical gap synced; backupController SecurityLog bugs fixed. **Flags remain OFF.**
+
+| Item | Status |
+|------|--------|
+| Root cause | ✅ Missing `@prisma/adapter-neon` on production PM2 host + `prisma generate` not run; fixed on server (Node 22 + manual install). Code fix: StockAlert persist-before-notifications |
+| Phase A cron dual-write | ✅ Confirmed 2026-09-16T03:00 UTC (StockAlert + Courier SecurityLog) |
+| Phase B sync | ✅ **16** SecurityLog + **48** StockAlert = **64** rows; post-cutoff gap **0**; overall **931/931**, **1271/1271** |
+| backupController.js | ✅ `setting` resourceType; `actor` / `ipAddress` params |
+| HTTP verification (4 models) | ✅ **PASS** all endpoints |
+| Repo sample script | ⚠️ `_id` buffer shape + SecurityLog `updatedAt` micro-drift only (rows present; not enable blockers) |
 | `npm test` / `test:repositories` | ✅ 204/204, 157/157 |
 
