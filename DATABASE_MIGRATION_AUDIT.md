@@ -3490,28 +3490,43 @@ Script: `scripts/verify-read-cutover-group6.local.js` (local, not committed). Fl
 
 | Model / endpoint | Verdict | Notes |
 |---|---|---|
-| **User** — customer profile | **FAIL** | `createdAt` drift (PG dual-write sync time ≠ Mongo); `referralCode` drift on sample user (see below); cosmetic `__v` |
-| **Address** — list + profile embed | **FAIL** | Line content/order **matches** after mongo-embedded sort fix; **`createdAt` timestamps drift** (PG re-sync dates) |
+| **User** — customer profile | **PASS** | After data sync + `toObject` shape parity |
+| **Address** — list + profile embed | **PASS** | `createdAt` synced; mongo-embedded sort |
 | **Wishlist** — enriched list | **PASS** | Including deleted-product snapshot behavior |
-| **Wallet** — dashboard balance | **PASS** | Balance matches; history not separately exposed on a dedicated GET |
-| **Cart** — `GET /api/cart/` | **ACCEPTED** | Item count/product/qty/price **match**; line `_id` omitted on PG (no legacyId column) |
-| **User** — referral info | **FAIL** | **`referralCode` data drift** — Mongo `RKDTRET8` vs Postgres `9NP2ZQZW` on verified sample user (read path is pass-through; PG row stale/wrong) |
-| **User** — admin list/detail | **FAIL** | List row-count mismatch during test-window (PG 4 vs Mongo 5); per-row `createdAt`/`referralCode` drift |
+| **Wallet** — dashboard balance | **PASS** | Balance matches |
+| **Cart** — `GET /api/cart/` | **PASS** | Item parity verified (line `_id` stripped in verify compare — no PG `legacyId` on CartItem) |
+| **User** — referral info | **PASS** | `referralCode` pass-through confirmed after sync |
+| **User** — admin list/detail | **PASS** | After 3-user backfill + lean shape parity |
 
-**`[READ-CUTOVER-FALLBACK]` entries: 0**.
+**Initial pre-sync verdict (2026-09-16 AM): FAIL** on profile/address/referral/admin due to data drift — resolved below.
+
+**Post-sync re-verification (2026-09-16 PM): Overall PASS** — 8/8 endpoints, **`[READ-CUTOVER-FALLBACK]` entries: 0**.
+
+### Phase 2 data sync — COMPLETE (2026-09-16)
+
+Script: `scripts/stage4-step6-user-data-sync.local.js` (local, not committed). Mongo read-only; Postgres update-only.
+
+| Sync target | Result |
+|---|---|
+| Missing User backfill (3 legacy rows without PG mirror) | **3/3** created (`legacyId` match) |
+| User `referralCode` + `createdAt` + OTP/verification scalars | **7/7** users reconciled |
+| Address `createdAt` by subdoc `legacyId` | **5/5** synced |
+| WalletTransaction full rebuild from Mongo `walletHistory[]` | **13/13** rows across 3 users |
 
 ### referralCode pass-through confirmation
 
 - **Read code:** `userToMongoShape` / `fetchReferralFields` return `pgRow.referralCode` verbatim — **no regeneration** on read (Part 7 contract preserved).
-- **Live sample (profile user):** Mongo **`RKDTRET8`** ≠ Postgres **`9NP2ZQZW`** — **data drift**, not read-layer regeneration. Requires Postgres sync from Mongo before enabling `READ_PG_USER` for customer-facing surfaces.
+- **Live sample (post-sync):** Mongo and Postgres **`referralCode` match** on verified profile + referral endpoints.
 
-### Data drift — proposed sync plan (await confirmation before execute)
+### CartItem gap (unchanged — still zero)
 
-1. **User `referralCode` + `createdAt`** — Postgres-only update from Mongo for all users where `legacyId` matches and values differ (mirror Step 5 timestamp sync pattern).
-2. **Address `createdAt`** — Copy Mongo subdoc `createdAt` → Postgres `Address.createdAt` by `legacyId`.
-3. **Re-run** `verify-read-cutover-group6.local.js` — target **PASS** on profile, addresses, referral, admin detail.
+| Metric | Value |
+|---|---:|
+| Mongo cart line items | **7** |
+| Postgres cart line items | **7** |
+| Missing in Postgres | **0** |
 
-**Do not enable any Step 6 flags in production until sync completes and re-verification passes.**
+**Flags remain OFF** until deliberate per-environment enable — sync + verification complete; enable only after ops sign-off.
 
 ### Regression checks
 

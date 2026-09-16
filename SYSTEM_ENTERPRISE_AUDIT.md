@@ -1950,7 +1950,7 @@ Full detail lives in `DATABASE_MIGRATION_AUDIT.md`; this is the status summary.
 | Dual-write repository layer | ❌ NOT STARTED — Stage 2 remainder |
 | `LoginAttempt` / `BlacklistedIp` TTL sweep jobs | ❌ NOT STARTED — Stage 2 remainder |
 | `ProductTextIndex` → `tsvector` + GIN raw SQL migration | ❌ NOT STARTED — Stage 2 remainder |
-| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Steps 1–6 wired (2026-09-16)** — User+owned tables read-cutover **code complete**; live HTTP **FAIL** on referralCode/createdAt data drift (flags stay OFF); CartItem gap **0/7**; wishlist+wallet **PASS**; **228/228** tests; PaymentMethod backfill still required before Order read cutover |
+| Stage 3 backfill / Stage 4 read cutover | ⚠️ PARTIAL — **Stage 3 COMPLETE (2026-09-15)**; **Stage 4 Steps 1–6 COMPLETE (2026-09-16)** — User+owned tables live HTTP **PASS** (8/8, 0 fallbacks) after data sync; CartItem gap **0/7**; **228/228** tests; flags stay OFF until ops enable; PaymentMethod backfill still required before Order read cutover |
 
 **Isolation guarantee:** zero `.js` files under `backend/src/` were modified — no
 model, controller, route, service or script. No application code queries
@@ -2474,16 +2474,16 @@ OFF; Mongo remains the live read path until deliberately enabled per environment
 
 ## Stage 4 Step 6 — Read-cutover User + owned tables — 2026-09-16
 
-**Status:** ⚠️ PARTIAL — read wiring **complete**; live HTTP **FAIL** on data drift (`referralCode`, `createdAt`); **flags remain OFF**.
+**Status:** ✅ COMPLETE — read wiring + data sync + live HTTP verification **PASS**; **flags remain OFF** until ops enable.
 
 | Item | Status |
 |------|--------|
 | New flags: `READ_PG_USER`, `ADDRESS`, `WISHLIST`, `WALLET`, `CART` | ✅ all default OFF |
 | Customer profile / addresses / wishlist / cart / dashboard wallet reads | ✅ wired via `userReadService.js` |
 | Admin customer list + detail reads | ✅ wired |
-| Referral info read (`referralCode` pass-through on read path) | ✅ code; ❌ live data drift on sample user |
+| Referral info read (`referralCode` pass-through) | ✅ code + live PASS post-sync |
 | CartItem gap (Mongo vs Postgres line count) | ✅ **0 missing / 7 total** |
-| Wishlist + wallet balance live verification | ✅ PASS |
-| Data sync needed before flag enable | ⚠️ User `referralCode` + timestamps; Address `createdAt` |
+| Data sync (`stage4-step6-user-data-sync.local.js`) | ✅ 7 users, 5 addresses, 13 wallet txns, 3-user backfill |
+| Live HTTP verification | ✅ 8/8 PASS, 0 fallbacks |
 | `npm test` / `test:repositories` | ✅ 228/228, 157/157 |
 

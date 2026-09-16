@@ -68,7 +68,7 @@ async function fetchUserCoreScalars(mongoUserId) {
     },
     async () => {
       const row = await loadPgUserByLegacyId(mongoUserId);
-      return userToMongoShape(row);
+      return userToMongoShape(row, { toObject: true });
     }
   );
 }
@@ -331,7 +331,7 @@ async function fetchAdminCustomersPage({ query, limit }) {
         cursor: filters.cursor,
         take
       });
-      const shaped = mapUsersToMongo(rows);
+      const shaped = mapUsersToMongo(rows, { lean: true });
       await Promise.all(shaped.map(async (customer) => {
         const legacyId = customer._id;
         const [addresses, wishlist, walletHistory] = await Promise.all([
@@ -361,6 +361,7 @@ async function fetchCustomerById(mongoUserId) {
         fetchUserWalletHistoryEmbedded(mongoUserId)
       ]);
       return userToMongoShape(row, {
+        lean: true,
         includeEmbedded: true,
         addresses,
         wishlist,

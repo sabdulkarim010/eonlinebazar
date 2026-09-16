@@ -1413,44 +1413,53 @@ function userToMongoShape(pgRow, options = {}) {
     referralCode: pgRow.referralCode ?? null,
     referralEarnings: decimalToNumber(pgRow.referralEarnings) ?? 0,
     loyaltyTier: normaliseUserLoyaltyTier(pgRow.loyaltyTier) || 'none',
-    tierUpgradedAt: pgRow.tierUpgradedAt ?? null,
     lifetimeSpend: decimalToNumber(pgRow.lifetimeSpend) ?? 0,
     tierCashbackRate: decimalToNumber(pgRow.tierCashbackRate) ?? 0,
     isSandbox: pgRow.isSandbox === true,
     isDeleted: pgRow.isDeleted === true,
     deletionReason: pgRow.deletionReason ?? '',
     createdAt: pgRow.createdAt,
+    resetPasswordOtp: pgRow.resetPasswordOtp ?? null,
+    resetPasswordExpires: pgRow.resetPasswordExpires ?? null,
+    profileUpdateOtp: pgRow.profileUpdateOtp ?? null,
+    profileUpdateOtpExpires: pgRow.profileUpdateOtpExpires ?? null,
+    profileUpdateType: normaliseProfileUpdateType(pgRow.profileUpdateType) || null,
+    pendingEmail: pgRow.pendingEmail ?? null,
+    pendingMobile: pgRow.pendingMobile ?? null,
     __v: MONGOOSE_DOC_VERSION
   };
 
-  if (pgRow.isDeleted === true && pgRow.deletedAt) out.deletedAt = pgRow.deletedAt;
+  const referredByLegacy = options.referredByLegacy
+    ?? pgRow.referredBy?.legacyId
+    ?? null;
+
+  if (options.toObject) {
+    out.googleId = pgRow.googleId ?? null;
+    out.avatarUrl = pgRow.avatarUrl ?? null;
+    out.lastLogin = pgRow.lastLogin ?? null;
+    out.verificationToken = pgRow.verificationToken ?? null;
+    out.verificationTokenExpiry = pgRow.verificationTokenExpiry ?? null;
+    out.deletedAt = pgRow.deletedAt ?? null;
+    out.referredBy = referredByLegacy ?? null;
+  } else {
+    if (pgRow.googleId) out.googleId = pgRow.googleId;
+    if (pgRow.avatarUrl) out.avatarUrl = pgRow.avatarUrl;
+    if (pgRow.lastLogin) out.lastLogin = pgRow.lastLogin;
+    if (pgRow.verificationToken) out.verificationToken = pgRow.verificationToken;
+    if (pgRow.verificationTokenExpiry) out.verificationTokenExpiry = pgRow.verificationTokenExpiry;
+    if (referredByLegacy) out.referredBy = referredByLegacy;
+    if (pgRow.isDeleted === true && pgRow.deletedAt) out.deletedAt = pgRow.deletedAt;
+  }
+
+  if (pgRow.tierUpgradedAt) out.tierUpgradedAt = pgRow.tierUpgradedAt;
 
   const gender = normaliseUserGender(pgRow.gender);
   if (gender) out.gender = gender;
   if (pgRow.dateOfBirth) out.dateOfBirth = pgRow.dateOfBirth;
   if (pgRow.mobile != null && pgRow.mobile !== '') out.mobile = pgRow.mobile;
-  if (pgRow.googleId) out.googleId = pgRow.googleId;
-  if (pgRow.avatarUrl) out.avatarUrl = pgRow.avatarUrl;
-  if (pgRow.lastLogin) out.lastLogin = pgRow.lastLogin;
 
   const accountStatus = normaliseUserAccountStatus(pgRow.accountStatus);
   if (accountStatus) out.accountStatus = accountStatus;
-
-  if (pgRow.verificationToken) out.verificationToken = pgRow.verificationToken;
-  if (pgRow.verificationTokenExpiry) out.verificationTokenExpiry = pgRow.verificationTokenExpiry;
-  if (pgRow.resetPasswordOtp) out.resetPasswordOtp = pgRow.resetPasswordOtp;
-  if (pgRow.resetPasswordExpires) out.resetPasswordExpires = pgRow.resetPasswordExpires;
-  if (pgRow.profileUpdateOtp) out.profileUpdateOtp = pgRow.profileUpdateOtp;
-  if (pgRow.profileUpdateOtpExpires) out.profileUpdateOtpExpires = pgRow.profileUpdateOtpExpires;
-  const profileUpdateType = normaliseProfileUpdateType(pgRow.profileUpdateType);
-  if (profileUpdateType) out.profileUpdateType = profileUpdateType;
-  if (pgRow.pendingEmail) out.pendingEmail = pgRow.pendingEmail;
-  if (pgRow.pendingMobile) out.pendingMobile = pgRow.pendingMobile;
-
-  const referredByLegacy = options.referredByLegacy
-    ?? pgRow.referredBy?.legacyId
-    ?? null;
-  if (referredByLegacy) out.referredBy = referredByLegacy;
 
   out.name = [pgRow.firstName, pgRow.lastName].filter(Boolean).join(' ').trim();
 
@@ -1458,6 +1467,46 @@ function userToMongoShape(pgRow, options = {}) {
     out.addresses = options.addresses ?? [];
     out.wishlist = options.wishlist ?? [];
     out.walletHistory = options.walletHistory ?? [];
+  }
+
+  if (options.lean) {
+    const emailLocal = String(out.email || '').split('@')[0];
+    if (out.firstName === emailLocal && out.lastName === 'User') {
+      delete out.firstName;
+      delete out.lastName;
+    }
+    if (!out.accountStatus || out.accountStatus === 'active') delete out.accountStatus;
+    if (!out.address) delete out.address;
+    if (!out.district) delete out.district;
+    if (!out.upazila) delete out.upazila;
+    if (!out.thana) delete out.thana;
+    if (!out.fullAddress) delete out.fullAddress;
+    if (!out.avatar) delete out.avatar;
+    if (!out.avatarPublicId) delete out.avatarPublicId;
+    if (!out.phone) delete out.phone;
+    if (!out.mobile) delete out.mobile;
+    if (!out.isSandbox) delete out.isSandbox;
+    if (!out.isDeleted) {
+      delete out.isDeleted;
+      delete out.deletedAt;
+      delete out.deletionReason;
+    }
+    if (!out.referralCode) delete out.referralCode;
+    if (!out.referralEarnings) delete out.referralEarnings;
+    if (!out.lifetimeSpend) delete out.lifetimeSpend;
+    if (!out.tierCashbackRate) delete out.tierCashbackRate;
+    if (out.loyaltyTier === 'none') delete out.loyaltyTier;
+    if (!out.tierUpgradedAt) delete out.tierUpgradedAt;
+    if (!out.verificationToken) delete out.verificationToken;
+    if (!out.verificationTokenExpiry) delete out.verificationTokenExpiry;
+    if (!out.resetPasswordOtp) delete out.resetPasswordOtp;
+    if (!out.resetPasswordExpires) delete out.resetPasswordExpires;
+    if (!out.profileUpdateOtp) delete out.profileUpdateOtp;
+    if (!out.profileUpdateOtpExpires) delete out.profileUpdateOtpExpires;
+    if (!out.profileUpdateType) delete out.profileUpdateType;
+    if (!out.pendingEmail) delete out.pendingEmail;
+    if (!out.pendingMobile) delete out.pendingMobile;
+    if (!out.referredBy) delete out.referredBy;
   }
 
   return out;
@@ -1510,7 +1559,7 @@ function walletTransactionToMongoShape(pgRow) {
     type: pgRow.type ?? 'credit',
     amount: decimalToNumber(pgRow.amount) ?? 0,
     note: pgRow.note ?? '',
-    referenceOrder: pgRow.referenceOrder ?? '',
+    referenceOrder: String(pgRow.referenceOrder ?? ''),
     date: pgRow.date ?? pgRow.createdAt
   };
   const legacyId = pgRow.legacyId != null ? String(pgRow.legacyId) : null;

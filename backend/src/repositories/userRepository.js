@@ -187,6 +187,15 @@ const LIST_SELECT = {
   isDeleted: true,
   deletedAt: true,
   deletionReason: true,
+  verificationToken: true,
+  verificationTokenExpiry: true,
+  resetPasswordOtp: true,
+  resetPasswordExpires: true,
+  profileUpdateOtp: true,
+  profileUpdateOtpExpires: true,
+  profileUpdateType: true,
+  pendingEmail: true,
+  pendingMobile: true,
   createdAt: true
 };
 
@@ -238,7 +247,10 @@ async function findAll(filters = {}) {
         {
           OR: [
             { createdAt: { lt: cursorDoc.createdAt } },
-            { createdAt: cursorDoc.createdAt, id: { lt: cursorDoc.id } }
+            {
+              createdAt: cursorDoc.createdAt,
+              legacyId: { lt: cursorDoc.legacyId || '' }
+            }
           ]
         }
       ];
@@ -248,7 +260,7 @@ async function findAll(filters = {}) {
   const query = {
     where,
     select: LIST_SELECT,
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+    orderBy: [{ createdAt: 'desc' }, { legacyId: 'desc' }]
   };
 
   const explicitTake = Number(filters.take);

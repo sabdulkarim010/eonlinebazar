@@ -1724,6 +1724,16 @@ Result: CartItem gap 0/7; wishlist + wallet PASS live; referralCode/address crea
 DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 6 section added
 README.md [DONE] test count 228
 
+# PostgreSQL migration — Stage 4 Step 6 data sync + re-verification PASS — 2026-09-16
+backend/src/services/readShapeHelpers.js [MOD] userToMongoShape toObject/lean modes; wallet referenceOrder default ''; lean sparse-field parity
+backend/src/services/userReadService.js [MOD] profile toObject shape; admin list lean; legacyId sort tie-break
+backend/src/repositories/userRepository.js [MOD] LIST_SELECT OTP fields; findAll legacyId cursor/sort
+scripts/stage4-step6-user-data-sync.local.js [NEW local] User/Address/Wallet backfill + full scalar sync
+scripts/verify-read-cutover-group6.local.js [NEW local] live HTTP verify with cosmetic normalizers
+Result: live HTTP 8/8 PASS, 0 fallbacks; flags remain OFF; npm test 228/228; test:repositories 157/157
+DATABASE_MIGRATION_AUDIT.md [MOD] Phase 2 sync + re-verification PASS section
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Step 6 status COMPLETE
+
 # PostgreSQL migration — Stage 4 Step 5: Read-cutover Marketing/Support group — 2026-09-16
 
 backend/src/config/readCutoverFlags.js [MOD] READ_PG_NEWSLETTER, EMAILCAMPAIGN, CONTACTMESSAGE, REVIEW
