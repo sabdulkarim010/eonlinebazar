@@ -88,6 +88,7 @@ describe('read cutover group 4 — HRM shape parity (mocked)', () => {
         uploadedAt: new Date('2024-01-01')
       }],
       references: [{ name: 'Ref', phone: '01', relation: 'Friend', address: '' }],
+      mongoVersion: 2,
       createdAt: new Date('2024-01-01'),
       updatedAt: new Date('2024-01-02')
     });
@@ -96,7 +97,35 @@ describe('read cutover group 4 — HRM shape parity (mocked)', () => {
     expect(shape.linkedAdminId).toBe(ADMIN_LEGACY);
     expect(shape.documents[0]._id).toBe('507f1f77bcf86cd799439099');
     expect(shape.references[0].name).toBe('Ref');
-    expect(shape.__v).toBe(0);
+    expect(shape.__v).toBe(2);
+  });
+
+  test('employeeToMongoShape maps Postgres enums to Mongo string values', () => {
+    const shape = employeeToMongoShape({
+      id: 'pg-emp',
+      legacyId: LEGACY,
+      employeeId: 'EMP-001',
+      fullName: 'Karim',
+      phone: '01700000000',
+      department: 'Operations',
+      employeeType: 'PERMANENT',
+      baseSalary: 15000,
+      salaryType: 'MONTHLY',
+      status: 'ACTIVE',
+      gender: 'FEMALE',
+      bloodGroup: 'O_POSITIVE',
+      maritalStatus: 'SINGLE',
+      shift: 'Morning',
+      documents: [],
+      references: [],
+      createdAt: new Date('2024-01-01'),
+      updatedAt: new Date('2024-01-02')
+    });
+
+    expect(shape.gender).toBe('female');
+    expect(shape.bloodGroup).toBe('O+');
+    expect(shape.maritalStatus).toBe('single');
+    expect(shape.shift).toBe('Morning');
   });
 
   test('polymorphic attendance resolves employee staffId via legacy map', () => {

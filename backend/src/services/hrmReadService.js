@@ -168,8 +168,9 @@ async function fetchEmployeesPage({ query, skip, limit }) {
     },
     async () => {
       const repo = getEmployeeRepository();
+      const pgFilters = { ...filters, includeNested: true };
       const [rows, total] = await Promise.all([
-        repo.findAll(filters),
+        repo.findAll(pgFilters),
         repo.count(filters)
       ]);
       return { employees: mapEmployeesToMongo(rows), total };
@@ -203,7 +204,7 @@ async function fetchAllActiveEmployees(query = {}) {
       return Employee.find(mongoFilter).sort({ fullName: 1 }).lean();
     },
     async () => {
-      const rows = await getEmployeeRepository().findAll(filters);
+      const rows = await getEmployeeRepository().findAll({ ...filters, includeNested: true });
       return mapEmployeesToMongo(rows);
     }
   );

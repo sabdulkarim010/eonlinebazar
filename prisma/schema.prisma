@@ -854,6 +854,8 @@ model Employee {
   status    EmployeeStatus @default(ACTIVE)
   notes     String         @default("")
   createdBy String         @default("")
+  /// Mirrors Mongoose __v for read-cutover HTTP parity (synced from Mongo on backfill).
+  mongoVersion Int @default(0) @map("mongo_version")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

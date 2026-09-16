@@ -164,6 +164,14 @@ async function findAll(filters = {}) {
     query.orderBy = { fullName: 'asc' };
   }
 
+  if (filters.includeNested) {
+    query.include = {
+      documents: { orderBy: { uploadedAt: 'desc' } },
+      references: true,
+      linkedAdmin: { select: { id: true, legacyId: true } }
+    };
+  }
+
   const records = await prisma.employee.findMany(query);
   return records.map(toShape);
 }
@@ -203,7 +211,7 @@ async function count(filters = {}) {
 }
 
 async function aggregateStats() {
-  const [statusGroups, deptGroups, desGroups] = await Promise.all([
+  const [statusGroups, deptGroups, desGroupsRaw] = await Promise.all([
     prisma.employee.groupBy({
       by: ['status'],
       _count: { _all: true }
@@ -217,10 +225,15 @@ async function aggregateStats() {
     prisma.employee.groupBy({
       by: ['designation'],
       where: { status: 'ACTIVE' },
-      _count: { _all: true },
-      orderBy: { _count: { _all: 'desc' } }
+      _count: { _all: true }
     })
   ]);
+
+  const desGroups = [...desGroupsRaw].sort((a, b) => {
+    const countDiff = (b._count._all || 0) - (a._count._all || 0);
+    if (countDiff !== 0) return countDiff;
+    return String(a.designation || '').localeCompare(String(b.designation || ''));
+  });
 
   return { statusGroups, deptGroups, desGroups };
 }
