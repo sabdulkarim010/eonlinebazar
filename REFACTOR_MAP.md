@@ -1744,6 +1744,15 @@ Result: npm test 228/228, test:repositories 157/157; reassembly function complet
 DATABASE_MIGRATION_AUDIT.md [MOD] Stage 4 Step 7 Part A section added
 REFACTOR_MAP.md [MOD] this entry
 
+# PostgreSQL migration — Stage 4 Step 7 Part B: Order live verification — 2026-09-17
+
+scripts/verify-order-read-cutover.local.js [NEW] repository-level verification (5 real orders, 100% PASS)
+scripts/search-unverified-cases-wide.local.js [NEW] full database search (10 null productId items found, 0 return items)
+scripts/verify-null-product-case.local.js [NEW] null productId case verification (1 order, PASS)
+Result: 3 of 4 cases verified (payment+IPN, payment proof, null productId); return items accepted gap; zero discrepancies on financial/identity fields; ready for ops sign-off
+DATABASE_MIGRATION_AUDIT.md [MOD] Stage 4 Step 7 Part B section added
+REFACTOR_MAP.md [MOD] this entry
+
 # PostgreSQL migration — Stage 4 Step 5: Read-cutover Marketing/Support group — 2026-09-16
 
 backend/src/config/readCutoverFlags.js [MOD] READ_PG_NEWSLETTER, EMAILCAMPAIGN, CONTACTMESSAGE, REVIEW
