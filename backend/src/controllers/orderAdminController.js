@@ -9,10 +9,16 @@ const mongoose = require('mongoose');
 const Product = require('../models/product');
 const Order = require('../models/order');
 const { dualWrite } = require('../services/dualWriteService');
+const { routedRead } = require('../services/readRouter');
 
 function getOrderDualWriteHelpers() {
     return require('../utils/orderDualWriteHelpers');
 }
+
+function getOrderRepository() {
+    return require('../repositories/orderRepository');
+}
+
 const User = require('../models/user');
 const {
     getDeliverySettings,
@@ -497,7 +503,16 @@ const createManualOrder = async (req, res) => {
 // ২. সব অর্ডার ডাটাবেজ থেকে নিয়ে আসা (অ্যাডমিন প্যানেলের জন্য)
 const getOrders = async (req, res) => {
     try {
-        const orders = await Order.find().sort({ createdAt: -1 }); 
+        const orders = await routedRead(
+            'order',
+            // Mongo
+            async () => Order.find().sort({ createdAt: -1 }),
+            // Postgres
+            async () => {
+                const repo = getOrderRepository();
+                return repo.findAllDetailed({ sort: 'createdAt' });
+            }
+        );
         res.json({ success: true, data: orders });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });

@@ -580,6 +580,170 @@ async function findByLegacyId(legacyId) {
   return orderToShape(record);
 }
 
+/**
+ * findOrderDetailedByLegacyId — Full 7-table reassembly for read endpoints.
+ * Returns shape matching Mongo document exactly: both subTotal and subtotal,
+ * out_for_delivery (not outForDelivery), extraFields flattened into items,
+ * payment.ipnHistory[], and all child structures as nested objects/arrays.
+ * 
+ * Used by Stage 4 Step 7 read cutover. Does NOT populate user or product —
+ * Mongo reads return bare ObjectIds; controller-level enrichment handles images.
+ */
+async function findOrderDetailedByLegacyId(legacyId) {
+  if (!legacyId) return null;
+  
+  const order = await prisma.order.findUnique({
+    where: { legacyId: String(legacyId) },
+    include: {
+      items: { orderBy: { id: 'asc' } },
+      returnItems: { orderBy: { id: 'asc' } },
+      payment: { include: { ipnHistory: { orderBy: { receivedAt: 'asc' } } } },
+      paymentProof: true,
+      notificationsSent: true
+    }
+  });
+  
+  if (!order) return null;
+  
+  // Items: flatten extraFields back into item properties (Mongo items[] is strict:false)
+  const items = (order.items || []).map(mergeOrderItemRow);
+  
+  // Return items: map to Mongo subdoc shape
+  const returnItems = (order.returnItems || []).map((r) => ({
+    _id: r.id,
+    productId: r.legacyProductId ?? r.productId ?? '',
+    productName: r.productName,
+    quantity: r.quantity,
+    price: Number(r.price),
+    reason: r.reason,
+    photos: r.photos,
+    status: fromReturnItemStatusEnum(r.status)
+  }));
+  
+  // Payment: reassemble ipnHistory[] array
+  let payment = null;
+  if (order.payment) {
+    payment = {
+      methodId: order.payment.methodId,
+      code: order.payment.code,
+      name: order.payment.name,
+      type: fromPaymentMethodTypeEnum(order.payment.type),
+      provider: order.payment.provider,
+      accountNumber: order.payment.accountNumber,
+      gatewayStoreId: order.payment.gatewayStoreId,
+      isSandbox: order.payment.isSandbox,
+      processingFee: Number(order.payment.processingFee),
+      feeType: fromFeeTypeEnum(order.payment.feeType),
+      feeRate: Number(order.payment.feeRate),
+      feeBaseAmount: Number(order.payment.feeBaseAmount),
+      status: fromOrderPaymentStatusEnum(order.payment.status),
+      transactionId: order.payment.transactionId,
+      gatewayReference: order.payment.gatewayReference,
+      paidAt: order.payment.paidAt,
+      settledFromWallet: order.payment.settledFromWallet,
+      ipnHistory: (order.payment.ipnHistory || []).map((e) => ({
+        receivedAt: e.receivedAt,
+        provider: e.provider,
+        status: e.status,
+        verified: e.verified,
+        transactionId: e.transactionId,
+        amount: Number(e.amount),
+        message: e.message,
+        raw: e.raw
+      }))
+    };
+  }
+  
+  // Payment proof: 1-to-1
+  let paymentProof = null;
+  if (order.paymentProof) {
+    paymentProof = {
+      trxId: order.paymentProof.trxId,
+      screenshotUrl: order.paymentProof.screenshotUrl,
+      submittedAt: order.paymentProof.submittedAt,
+      reviewedAt: order.paymentProof.reviewedAt,
+      reviewedBy: order.paymentProof.reviewedById,
+      status: fromPaymentProofStatusEnum(order.paymentProof.status),
+      adminNote: order.paymentProof.adminNote
+    };
+  }
+  
+  // Notifications: map outForDelivery → out_for_delivery
+  const notificationsSent = notificationsToMongooseShape(order.notificationsSent);
+  
+  // Root order: preserve BOTH subTotal and subtotal, use legacyId as _id
+  return {
+    _id: order.legacyId,
+    orderId: order.orderId,
+    user: order.userId,  // ObjectId string, not populated
+    customerName: order.customerName,
+    customerPhone: order.customerPhone,
+    customerAddress: order.customerAddress,
+    shippingDistrict: order.shippingDistrict,
+    subTotal: Number(order.subTotal),
+    subtotal: Number(order.subtotal),
+    deliveryCharge: Number(order.deliveryCharge),
+    grandTotal: Number(order.grandTotal),
+    shippingLocationType: fromShippingLocationEnum(order.shippingLocationType),
+    totalAmount: order.totalAmount != null ? Number(order.totalAmount) : null,
+    totalBuyingPrice: Number(order.totalBuyingPrice),
+    discountAmount: Number(order.discountAmount),
+    vatAmount: Number(order.vatAmount),
+    vatPercentage: order.vatPercentage,
+    vatEnabled: order.vatEnabled,
+    taxRegistrationNumber: order.taxRegistrationNumber,
+    walletApplied: Number(order.walletApplied),
+    couponCode: order.couponCode,
+    deliveryLocationType: fromDeliveryLocationEnum(order.deliveryLocationType),
+    shippingFee: Number(order.shippingFee),
+    paymentMethod: order.paymentMethod,
+    processingFee: Number(order.processingFee),
+    status: fromOrderStatusEnum(order.status),
+    isDelivered: order.isDelivered,
+    deliveredAt: order.deliveredAt,
+    cancelReason: order.cancelReason,
+    cancelledBy: fromCancelledByEnum(order.cancelledBy),
+    returnReason: order.returnReason,
+    returnRequestedAt: order.returnRequestedAt,
+    refundMethod: order.refundMethod,
+    refundBkashNumber: order.refundBkashNumber,
+    refundNagadNumber: order.refundNagadNumber,
+    returnRejectedReason: order.returnRejectedReason,
+    returnRejectedAt: order.returnRejectedAt,
+    returnApprovedAt: order.returnApprovedAt,
+    adminReturnNote: order.adminReturnNote,
+    actionReason: order.actionReason,
+    refundedAt: order.refundedAt,
+    refundAmount: Number(order.refundAmount),
+    statusBeforeRefund: order.statusBeforeRefund,
+    rewardsCredited: order.rewardsCredited,
+    rewardsPointsEarned: order.rewardsPointsEarned,
+    rewardsCashbackAmount: Number(order.rewardsCashbackAmount),
+    courierProvider: order.courierProvider,
+    courierName: order.courierName,
+    courierTrackingId: order.courierTrackingId,
+    courierConsignmentId: order.courierConsignmentId,
+    courierStatus: order.courierStatus,
+    courierBookedAt: order.courierBookedAt,
+    courierSyncedAt: order.courierSyncedAt,
+    note: order.note,
+    estimatedDelivery: order.estimatedDelivery,
+    orderSource: order.orderSource,
+    createdByAdmin: order.createdByAdmin,
+    assignedStaffId: order.assignedStaffId,
+    assignedAt: order.assignedAt,
+    isSandbox: order.isSandbox,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+    __v: 0,  // Mongoose version key
+    items,
+    returnItems,
+    payment,
+    paymentProof,
+    notificationsSent
+  };
+}
+
 async function mapItemsWithResolvedProducts(items = []) {
   const mapped = [];
   for (const item of items) {
@@ -905,6 +1069,119 @@ async function findAll(filters = {}) {
   return records.map(orderToShape);
 }
 
+/**
+ * findAllDetailedByLegacyIds — Batch-fetch multiple orders with full reassembly.
+ * For list views: returns summary shape (items included but not payment/proof/returns
+ * unless explicitly needed). Optimized to avoid N+1 on child tables.
+ * 
+ * @param {Object} filters - { userId, status, limit, page, sort }
+ * @returns {Array} Array of Mongo-shaped order documents
+ */
+async function findAllDetailed(filters = {}) {
+  const where = {};
+  
+  if (filters.status) where.status = toOrderStatusEnum(filters.status);
+  if (filters.userId || filters.user) where.userId = filters.userId || filters.user;
+  
+  if (filters.dateFrom || filters.dateTo) {
+    where.createdAt = {};
+    if (filters.dateFrom) where.createdAt.gte = new Date(filters.dateFrom);
+    if (filters.dateTo) where.createdAt.lte = new Date(filters.dateTo);
+  }
+  
+  const query = {
+    where,
+    orderBy: filters.sort === 'updatedAt' 
+      ? { updatedAt: 'desc' } 
+      : { createdAt: 'desc' }
+  };
+  
+  const limit = Number(filters.limit);
+  if (Number.isFinite(limit) && limit > 0) {
+    const page = Math.max(1, Number(filters.page) || 1);
+    query.skip = (page - 1) * limit;
+    query.take = limit;
+  }
+  
+  // List view: include items + notifications only (not payment/proof/returns)
+  // Caller enriches images separately; this matches Mongo list behavior
+  const orders = await prisma.order.findMany({
+    ...query,
+    include: {
+      items: { orderBy: { id: 'asc' } },
+      notificationsSent: true
+    }
+  });
+  
+  return orders.map((order) => ({
+    _id: order.legacyId,
+    orderId: order.orderId,
+    user: order.userId,
+    customerName: order.customerName,
+    customerPhone: order.customerPhone,
+    customerAddress: order.customerAddress,
+    shippingDistrict: order.shippingDistrict,
+    subTotal: Number(order.subTotal),
+    subtotal: Number(order.subtotal),
+    deliveryCharge: Number(order.deliveryCharge),
+    grandTotal: Number(order.grandTotal),
+    shippingLocationType: fromShippingLocationEnum(order.shippingLocationType),
+    totalAmount: order.totalAmount != null ? Number(order.totalAmount) : null,
+    totalBuyingPrice: Number(order.totalBuyingPrice),
+    discountAmount: Number(order.discountAmount),
+    vatAmount: Number(order.vatAmount),
+    vatPercentage: order.vatPercentage,
+    vatEnabled: order.vatEnabled,
+    taxRegistrationNumber: order.taxRegistrationNumber,
+    walletApplied: Number(order.walletApplied),
+    couponCode: order.couponCode,
+    deliveryLocationType: fromDeliveryLocationEnum(order.deliveryLocationType),
+    shippingFee: Number(order.shippingFee),
+    paymentMethod: order.paymentMethod,
+    processingFee: Number(order.processingFee),
+    status: fromOrderStatusEnum(order.status),
+    isDelivered: order.isDelivered,
+    deliveredAt: order.deliveredAt,
+    cancelReason: order.cancelReason,
+    cancelledBy: fromCancelledByEnum(order.cancelledBy),
+    returnReason: order.returnReason,
+    returnRequestedAt: order.returnRequestedAt,
+    refundMethod: order.refundMethod,
+    refundBkashNumber: order.refundBkashNumber,
+    refundNagadNumber: order.refundNagadNumber,
+    returnRejectedReason: order.returnRejectedReason,
+    returnRejectedAt: order.returnRejectedAt,
+    returnApprovedAt: order.returnApprovedAt,
+    adminReturnNote: order.adminReturnNote,
+    actionReason: order.actionReason,
+    refundedAt: order.refundedAt,
+    refundAmount: Number(order.refundAmount),
+    statusBeforeRefund: order.statusBeforeRefund,
+    rewardsCredited: order.rewardsCredited,
+    rewardsPointsEarned: order.rewardsPointsEarned,
+    rewardsCashbackAmount: Number(order.rewardsCashbackAmount),
+    courierProvider: order.courierProvider,
+    courierName: order.courierName,
+    courierTrackingId: order.courierTrackingId,
+    courierConsignmentId: order.courierConsignmentId,
+    courierStatus: order.courierStatus,
+    courierBookedAt: order.courierBookedAt,
+    courierSyncedAt: order.courierSyncedAt,
+    note: order.note,
+    estimatedDelivery: order.estimatedDelivery,
+    orderSource: order.orderSource,
+    createdByAdmin: order.createdByAdmin,
+    assignedStaffId: order.assignedStaffId,
+    assignedAt: order.assignedAt,
+    isSandbox: order.isSandbox,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+    __v: 0,
+    items: (order.items || []).map(mergeOrderItemRow),
+    notificationsSent: notificationsToMongooseShape(order.notificationsSent)
+  }));
+}
+
 async function updateStatus(id, newStatus) {
   const existing = await prisma.order.findUnique({ where: { id } });
   if (!existing) {
@@ -1101,7 +1378,9 @@ module.exports = {
   buildCreateInputFromMongo,
   findById,
   findByLegacyId,
+  findOrderDetailedByLegacyId,
   findAll,
+  findAllDetailed,
   updateStatus,
   updateStatusByLegacyId,
   updateOrderFieldsByLegacyId,

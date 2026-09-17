@@ -37,7 +37,8 @@ const GROUP_ENV = {
   address: 'READ_PG_ADDRESS',
   wishlist: 'READ_PG_WISHLIST',
   wallet: 'READ_PG_WALLET',
-  cart: 'READ_PG_CART'
+  cart: 'READ_PG_CART',
+  order: 'READ_PG_ORDER'
 };
 
 /**

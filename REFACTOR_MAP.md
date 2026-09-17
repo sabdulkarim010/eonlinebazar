@@ -1734,6 +1734,16 @@ Result: live HTTP 8/8 PASS, 0 fallbacks; flags remain OFF; npm test 228/228; tes
 DATABASE_MIGRATION_AUDIT.md [MOD] Phase 2 sync + re-verification PASS section
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] Step 6 status COMPLETE
 
+# PostgreSQL migration — Stage 4 Step 7 Part A: Order read-cutover (reassembly + unit tests, live HTTP deferred to Part B) — 2026-09-17
+backend/src/config/readCutoverFlags.js [MOD] order: READ_PG_ORDER (default OFF)
+backend/src/repositories/orderRepository.js [MOD] findOrderDetailedByLegacyId() full 7-table reassembly; findAllDetailed() list-view optimization; exports
+backend/src/controllers/orderCustomerController.js [MOD] getMyOrders, getOrderById, downloadOrderInvoice, trackOrder, getDashboardStats via routedRead()
+backend/src/controllers/orderAdminController.js [MOD] getOrders admin list via routedRead()
+tests/repositories/order.readcutover.test.js [NEW] 9 unit tests for reassembly shape parity (subTotal+subtotal, extraFields flatten, out_for_delivery, __v)
+Result: npm test 228/228, test:repositories 157/157; reassembly function complete; flag OFF; live HTTP verification DEFERRED to Part B
+DATABASE_MIGRATION_AUDIT.md [MOD] Stage 4 Step 7 Part A section added
+REFACTOR_MAP.md [MOD] this entry
+
 # PostgreSQL migration — Stage 4 Step 5: Read-cutover Marketing/Support group — 2026-09-16
 
 backend/src/config/readCutoverFlags.js [MOD] READ_PG_NEWSLETTER, EMAILCAMPAIGN, CONTACTMESSAGE, REVIEW

@@ -8,10 +8,16 @@
 const Order = require('../models/order');
 const User = require('../models/user');
 const { dualWrite } = require('../services/dualWriteService');
+const { routedRead } = require('../services/readRouter');
 
 function getOrderDualWriteHelpers() {
     return require('../utils/orderDualWriteHelpers');
 }
+
+function getOrderRepository() {
+    return require('../repositories/orderRepository');
+}
+
 const { generateOrderInvoicePdf, resolveInvoiceNumber } = require('../utils/invoicePdf');
 const { enrichOrderItemsWithImages, enrichOrdersWithImages } = require('../utils/orderItemImages');
 const { normalizeOrderStatus } = require('./orderControllerHelpers');
@@ -61,10 +67,28 @@ const getMyOrders = async (req, res) => {
         const totalPages = Math.max(1, Math.ceil(total / limit));
         const safePage = Math.min(page, totalPages);
 
-        const myOrders = await Order.find(filter)
-            .sort({ updatedAt: -1 })
-            .skip((safePage - 1) * limit)
-            .limit(limit);
+        const myOrders = await routedRead(
+            'order',
+            // Mongo
+            async () => {
+                return Order.find(filter)
+                    .sort({ updatedAt: -1 })
+                    .skip((safePage - 1) * limit)
+                    .limit(limit);
+            },
+            // Postgres
+            async () => {
+                const repo = getOrderRepository();
+                const userId = req.user.id;
+                // findAllDetailed returns Mongo-shaped orders with items
+                return repo.findAllDetailed({
+                    userId,
+                    limit,
+                    page: safePage,
+                    sort: 'updatedAt'
+                });
+            }
+        );
 
         const enrichedOrders = (await enrichOrdersWithImages(myOrders)).map(mapCustomerOrder);
 
@@ -112,7 +136,17 @@ const getOrderById = async (req, res) => {
 // Download order invoice as PDF (customer-owned orders only)
 const downloadOrderInvoice = async (req, res) => {
     try {
-        const order = await Order.findById(req.params.id);
+        const order = await routedRead(
+            'order',
+            // Mongo
+            async () => Order.findById(req.params.id),
+            // Postgres
+            async () => {
+                const repo = getOrderRepository();
+                return repo.findOrderDetailedByLegacyId(req.params.id);
+            }
+        );
+        
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found.' });
         }
@@ -121,7 +155,7 @@ const downloadOrderInvoice = async (req, res) => {
             return res.status(403).json({ success: false, message: 'You cannot download this invoice.' });
         }
 
-        const orderObj = order.toObject();
+        const orderObj = order.toObject ? order.toObject() : { ...order };
         await enrichOrderItemsWithImages(orderObj);
 
         const pdfBuffer = await generateOrderInvoicePdf(orderObj);
@@ -142,7 +176,31 @@ const downloadOrderInvoice = async (req, res) => {
 const trackOrder = async (req, res) => {
     try {
         const { orderId, phone } = req.query;
-        const order = await Order.findOne({ orderId: orderId, customerPhone: phone });
+        const order = await routedRead(
+            'order',
+            // Mongo
+            async () => Order.findOne({ orderId: orderId, customerPhone: phone }),
+            // Postgres
+            async () => {
+                // Postgres: find by orderId + phone via raw where clause
+                const prisma = require('../config/prismaClient');
+                const pgOrder = await prisma.order.findFirst({
+                    where: {
+                        orderId: String(orderId || ''),
+                        customerPhone: String(phone || '')
+                    },
+                    include: {
+                        items: { orderBy: { id: 'asc' } },
+                        notificationsSent: true
+                    }
+                });
+                
+                if (!pgOrder) return null;
+                
+                const repo = getOrderRepository();
+                return repo.findOrderDetailedByLegacyId(pgOrder.legacyId);
+            }
+        );
         
         if (!order) {
             return res.status(404).json({ message: 'Order not found' });
@@ -517,7 +575,16 @@ const returnOrderItems = async (req, res) => {
 const getDashboardStats = async (req, res) => {
     try {
         const userId = req.user.id;
-        const orders = await Order.find({ user: userId }).sort({ createdAt: -1 });
+        const orders = await routedRead(
+            'order',
+            // Mongo
+            async () => Order.find({ user: userId }).sort({ createdAt: -1 }),
+            // Postgres
+            async () => {
+                const repo = getOrderRepository();
+                return repo.findAllDetailed({ userId, sort: 'createdAt' });
+            }
+        );
         
         const totalOrders = orders.length;
         const pendingOrders = orders.filter(o => 
