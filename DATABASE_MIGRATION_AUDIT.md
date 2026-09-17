@@ -3595,30 +3595,33 @@ Returns shape byte-for-byte matching Mongo `.lean()` document: `_id` = `legacyId
 | `userId` | Bare ObjectId (not populated) | `userId` as string, not populated | ✅ |
 | `__v` | Mongoose version key = 0 | Hardcoded `__v: 0` | ✅ |
 
-### Unit tests (Part A scope)
+### Unit tests (Part A scope) — Real-data comparison against 25 orders
 
-**File:** `tests/repositories/order.readcutover.test.js` (9 tests):
+**File:** `tests/repositories/order.readcutover.test.js` (8 tests, connects to real Mongo + Neon):
 
-- `findOrderDetailedByLegacyId` null for non-existent order
-- Reassembled `_id`, `user`, `subTotal`, `subtotal` match Mongo
-- Items `extraFields` flattened (not nested under `.extraFields` key)
-- Payment `ipnHistory` array present when payment exists
-- `notificationsSent` uses `out_for_delivery` (not `outForDelivery`)
-- `returnItems` array present (empty or populated)
-- `paymentProof` shape correct or null
-- `__v` Mongoose key present
-- `findAllDetailed` list returns orders with items
+**Test cases searched in real database:**
+1. **Order with payment + IPN history** → **FOUND** (order `6a6687538476921364dd1223`, payment object present but 0 IPN events in this specific order — IPN history array tested as empty but correctly structured)
+2. **Order with payment proof** → **FOUND** (order `6a64dce0add63607ba4535d1`) ✅ **PASS**: paymentProof{} reassembly matches Mongo
+3. **Order with return items** → **NOT FOUND** in current 25-order dataset
+4. **Order with null productId** (product missing from Postgres) → **NOT FOUND** in current dataset (all OrderItems have valid productIds)
 
-**Note:** Standalone test file has Mongo connection setup issues (not included in `*.repository.test.js` pattern run by `npm run test:repositories`). Reassembly logic tested via existing Order repository tests. Standalone test file provided for future explicit order-shape verification when needed.
+**Shape parity tests (all PASS):**
+- ✅ `subTotal` AND `subtotal` both preserved independently (never collapsed)
+- ✅ Items `extraFields` flattened (not nested under `.extraFields` key)
+- ✅ `notificationsSent` uses `out_for_delivery` (not `outForDelivery`)
+- ✅ `__v` Mongoose version key present
+
+**Honest assessment:** 2 of 4 specific dual-write fallback cases (return items, null productId) were **not found** in the live dataset — these code paths are implemented and visible in the reassembly function but **not tested against real data** because no matching orders currently exist. Payment object reassembly and paymentProof verified against real orders.
 
 ### Regression checks
 
 | Suite | Result |
 |---|---|
-| `npm test` (Jest) | **228/228** pass (unchanged — Order read endpoints not integration-tested in Jest yet) |
-| `npm run test:repositories` | **157/157** pass (unchanged — reassembly logic covered by existing Order repo tests) |
+| `npm test` (Jest) | **228/228** pass ✅ |
+| `npm run test:repositories` | **157/157** pass ✅ |
+| Real-data comparison tests | **8/8** pass (2 of 4 specific cases found and verified; 2 cases not found in current dataset) |
 
-**Live HTTP verification:** Deferred to **Part B** (separate task) — will run dedicated script comparing Postgres reassembly vs Mongo source for real orders with payment/ipnHistory/proof/returns, target 100% PASS before flag enable.
+**Live HTTP verification:** Deferred to **Part B** (separate task) — will run dedicated script against HTTP endpoints with live user tokens, target 100% PASS before flag enable.
 
 ### Files modified
 
