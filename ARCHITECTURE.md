@@ -385,15 +385,33 @@ See also: `docs/SETUP.md`, `ecommerce-chat/docs/SETUP.md`, `devops/first-time-se
 | `ARCHITECTURE.md` | **Read first** — folder layout, barrels, nav groups, env setup, dev rules |
 | `REFACTOR_MAP.md` | **Read first** — file-by-file refactor status and change log |
 | `SYSTEM_ENTERPRISE_AUDIT.md` | Full-stack enterprise audit (ERP/CRM/HRM, chat, mobile, settings) |
-| `DATABASE_MIGRATION_AUDIT.md` | MongoDB → PostgreSQL (Prisma + Neon) migration plan — roadmap, model mapping, cascade strategy. **Planning only; the live DB is still MongoDB** |
-| `CHAT_AUDIT.md` | Live chat close/session teardown audit |
-| `AUDIT_REPORT.md` | Mobile app feature parity audit |
-| `PROFILE_AUDIT.md` | Profile module split diagnostics |
+| `DATABASE_MIGRATION_AUDIT.md` | MongoDB → PostgreSQL (Prisma + Neon) migration — roadmap, dual-write, read cutover flags |
+| `.cursorrules` | Cursor agent contract — pre-task reading, audit file map, code placement rules |
 | `README.md` | Quick start, env vars, deployment |
 | `docs/SETUP.md` | Chat microservice setup (Bengali) |
 | `devops/first-time-server-setup.md` | Production VPS first-time setup |
 
-When adding audit findings or operational notes, **update the relevant existing doc above** — do not create new standalone audit files unless the scope is genuinely new.
+### Area audit files (`docs/audit/`)
+
+Each domain has a dedicated audit file. Read the relevant file before working in that area; update it after finishing. See `.cursorrules` Audit File Map for the full list.
+
+| Area | Audit file |
+|------|------------|
+| Admin panel | `docs/audit/ADMIN_PANEL_AUDIT.md` |
+| Customer storefront | `docs/audit/CUSTOMER_FRONTEND_AUDIT.md` |
+| Auth & security | `docs/audit/AUTH_SECURITY_AUDIT.md` |
+| HRM | `docs/audit/HRM_AUDIT.md` |
+| Orders & checkout | `docs/audit/ORDERS_AUDIT.md` |
+| Products & catalog | `docs/audit/PRODUCTS_AUDIT.md` |
+| Payments & finance | `docs/audit/PAYMENTS_FINANCE_AUDIT.md` |
+| CMS | `docs/audit/CMS_AUDIT.md` |
+| Marketing | `docs/audit/MARKETING_AUDIT.md` |
+| Chat microservice | `docs/audit/CHAT_AUDIT.md` |
+| DevOps / deployment | `docs/audit/DEVOPS_AUDIT.md` |
+
+**Legacy root audits** (historical — new findings go to `docs/audit/`): `CHAT_AUDIT.md` (redirect), `AUDIT_REPORT.md` (mobile), `PROFILE_AUDIT.md` (profile module).
+
+When adding audit findings or operational notes, **update the mapped audit file above** — do not create new standalone audit files outside `docs/audit/` except `DATABASE_MIGRATION_AUDIT.md`.
 
 ## Rules for new developers
 

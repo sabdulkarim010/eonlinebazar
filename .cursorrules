@@ -1,66 +1,249 @@
 # EonlineBazar Cursor Rules
 # Mandatory guidelines for all Cursor Agent prompts
 
-## Before any code changes
+---
 
-1. ALWAYS read ARCHITECTURE.md and REFACTOR_MAP.md before starting any code changes.
+## Project Identity
 
-## Code placement
+This is EonlineBazar — a full-stack e-commerce platform.
 
-2. NEVER add code directly to barrel files (admin.css, admin-core.js, admin-products.js, admin-settings.js, profile.js, style.css, etc.) — always modify or add to the relevant module file. **Exception:** one-line `import` additions to barrels are allowed when wiring a new module.
-3. Never add styles to admin.css, profile.css, or style.css directly — use css/admin/*.css, css/profile/*.css, or css/global/*.css.
-4. Backend routes in routes/*.js are sacred — never restructure.
+**Stack:** Node.js + Express (backend), MongoDB/Mongoose (legacy) + PostgreSQL/Prisma/Neon (primary), Vanilla JS (frontend).
 
-## HTML / JS interop
-
-5. Ensure all onclick/interactive HTML functions are correctly exposed via `window.functionName = fn`.
-6. Never change function names or IDs without searching all files first.
-
-## Testing
-
-7. Always run `npm test` after code or documentation updates and ensure 100% tests pass before finishing a task.
-
-## Documentation
-
-8. **Documentation Autonomy:** When implementing any new feature, fix, or refactor, you are fully authorized and required to create new `.md` files or update existing ones (`README.md`, `SYSTEM_ENTERPRISE_AUDIT.md`, `REFACTOR_MAP.md`, etc.) as needed to keep project documentation 100% up-to-date.
-9. **Automated README Maintenance:** After completing any coding task (100% completion), automatically update the root `README.md` file in the same flow to reflect the new changes, feature additions, or test suite counts. Do NOT wait for a separate prompt to update `README.md`.
-10. **No Source Code Disturbance on Doc Tasks:** When the user asks for documentation-only work, strictly isolate documentation updates from source code edits (`.js`, `.html`, `.css`) unless the user explicitly asks for code implementation.
-11. Do not create unnecessary new audit files; update existing system docs like SYSTEM_ENTERPRISE_AUDIT.md and REFACTOR_MAP.md.
-12. Operational and env notes belong in ARCHITECTURE.md (Local Development Quick Reference) — ADMIN_NOTES.md is intentionally blank.
-
-## After changes
-
-13. After any change, list which files were modified.
+**Migration status:** Dual-write active (Mongo + PG). PostgreSQL is now the primary read source (all `READ_PG_*` flags = true).
 
 ---
 
-## Documentation Maintenance Rules (MANDATORY for every future task)
+## Mandatory Pre-Task Reading
 
-1. Before starting ANY task, read SYSTEM_ENTERPRISE_AUDIT.md, 
-   ARCHITECTURE.md, and REFACTOR_MAP.md to understand current state.
+Before starting ANY task (feature, fix, refactor, or doc update), ALWAYS read these files first:
 
-2. After completing ANY feature, fix, or refactor:
-   - Update SYSTEM_ENTERPRISE_AUDIT.md with what changed, using a 
-     dated heading: "## [Feature/Fix Name] — YYYY-MM-DD"
-   - Mark relevant checklist items as ✅ COMPLETE, ⚠️ PARTIAL, or 
-     ❌ MISSING as accurate
-   - Update REFACTOR_MAP.md listing every new/modified/deleted file
-   - If ARCHITECTURE.md's described structure changed (new folder, 
-     new pattern, new module type), update ARCHITECTURE.md too
+1. `ARCHITECTURE.md` — project structure, patterns, dev setup
+2. `REFACTOR_MAP.md` — file-level change log
+3. `SYSTEM_ENTERPRISE_AUDIT.md` — feature completeness status
+4. The relevant audit file for the area being changed (see Audit File Map below)
 
-3. NEVER create a new standalone audit/summary .md file 
-   (e.g. PHASE2_AUDIT.md, FIX_SUMMARY.md, etc.). All audit and 
-   summary content goes into SYSTEM_ENTERPRISE_AUDIT.md under a 
-   new dated section. If a topic needs its own file because it's 
-   large and reusable (e.g. a runbook, a setup guide), only create 
-   it if no suitable existing .md file covers that topic — check 
-   first, and prefer appending to an existing relevant file.
+If any of these files do not exist, CREATE them before proceeding.
 
-4. Every commit that adds a feature must leave the documentation 
-   in a state where a fresh audit is unnecessary — the docs should 
-   already reflect the true current state of the codebase.
+---
 
-5. When in doubt about which .md file something belongs in:
-   - Enterprise feature status / completeness → SYSTEM_ENTERPRISE_AUDIT.md
-   - Folder structure / where code lives / dev setup → ARCHITECTURE.md
-   - File-level change log → REFACTOR_MAP.md
+## Audit File Map
+
+Every area of the codebase has a designated audit file.
+When working in an area, read its audit file first, then update it after.
+
+| Area | Audit File |
+|------|-----------|
+| Backend API routes & controllers | `SYSTEM_ENTERPRISE_AUDIT.md` (Backend section) |
+| Database / migration | `DATABASE_MIGRATION_AUDIT.md` |
+| Frontend admin panel | `docs/audit/ADMIN_PANEL_AUDIT.md` |
+| Frontend customer-facing | `docs/audit/CUSTOMER_FRONTEND_AUDIT.md` |
+| Authentication & security | `docs/audit/AUTH_SECURITY_AUDIT.md` |
+| HRM (HR module) | `docs/audit/HRM_AUDIT.md` |
+| Orders & checkout | `docs/audit/ORDERS_AUDIT.md` |
+| Products & catalog | `docs/audit/PRODUCTS_AUDIT.md` |
+| Payments & finance | `docs/audit/PAYMENTS_FINANCE_AUDIT.md` |
+| CMS (banners, pages, navbar) | `docs/audit/CMS_AUDIT.md` |
+| Marketing (newsletter, coupons, campaigns) | `docs/audit/MARKETING_AUDIT.md` |
+| Chat microservice | `docs/audit/CHAT_AUDIT.md` |
+| DevOps / deployment | `docs/audit/DEVOPS_AUDIT.md` |
+
+**Rules:**
+
+- If an audit file for the area does NOT exist: CREATE it first, then do the work, then fill it in.
+- If it EXISTS: read it before starting, update it after finishing.
+- NEVER create a new audit file outside `docs/audit/` except `DATABASE_MIGRATION_AUDIT.md` (root level).
+- Legacy root audit files (`CHAT_AUDIT.md`, `PROFILE_AUDIT.md`, `AUDIT_REPORT.md`) are historical — new findings go to the mapped file above.
+
+---
+
+## Audit File Format (mandatory for all audit files)
+
+Every audit file must follow this structure:
+
+```markdown
+# [AREA NAME] AUDIT — EonlineBazar
+
+**Last updated:** YYYY-MM-DD
+**Scope:** [what subsystem this file covers]
+**Status:** ✅ COMPLETE | ⚠️ PARTIAL | ❌ MISSING
+
+---
+
+## File Inventory
+
+| Path | Role |
+|------|------|
+| path/to/file.js | brief description |
+
+---
+
+## Feature Checklist
+
+- [x] Feature name — key file(s)
+- [ ] Incomplete feature — notes
+
+---
+
+## Known Issues / Gaps
+
+| Issue | Severity | Status | Notes |
+|-------|----------|--------|-------|
+| Description | High/Medium/Low | Open/Fixed | context |
+
+---
+
+## Dependencies & Integrations
+
+- External services, env vars, cross-audit links
+
+---
+
+## Change Log
+
+### [Change Title] — YYYY-MM-DD
+
+- What changed; files touched; test status
+```
+
+When updating an audit file after work: bump **Last updated**, update **File Inventory**, adjust **Feature Checklist**, add **Change Log** entry, update **Status** if changed.
+
+---
+
+## Auto-Audit Rules (MANDATORY — no exceptions)
+
+After completing ANY task (feature, fix, refactor, even a 1-line change):
+
+**STEP 1 — Update the relevant area audit file:**
+
+- Add entry under "Change Log" with today's date
+- Update "File Inventory" table for any new/changed/deleted files
+- Update "Feature Checklist" checkboxes
+- Update "Last updated" date at top
+- Update "Status" if it changed
+
+**STEP 2 — Update REFACTOR_MAP.md:**
+
+- Add every new file created
+- Add every existing file modified
+- Add every file deleted
+
+**STEP 3 — Update SYSTEM_ENTERPRISE_AUDIT.md:**
+
+- Add a dated section: `## [Feature Name] — YYYY-MM-DD`
+- Mark checklist items as ✅ ⚠️ or ❌
+
+**STEP 4 — Update README.md:**
+
+- Update feature list if a new feature was added
+- Update test count if tests changed
+- Update "Last updated" date
+
+**STEP 5 — If new files were created:** add them to `ARCHITECTURE.md` under the correct section.
+
+These 5 steps happen IN THE SAME RESPONSE as the code change — never in a separate prompt.
+
+---
+
+## Database Rules (PostgreSQL primary)
+
+- PostgreSQL/Prisma is now the PRIMARY database for all reads and writes.
+- All `READ_PG_*` flags are ON in production.
+- For any new model: create a Prisma schema entry + repository file + dual-write (Mongo still receives writes for safety until Phase 4).
+- Never write new features that are Mongoose-only.
+- New repository files go in: `backend/src/repositories/{model}Repository.js`
+- Follow the pattern in: `backend/src/repositories/categoryRepository.js`
+
+---
+
+## Code Placement Rules
+
+- Never add code to barrel files directly (except one-line imports).
+- Never add styles to `admin.css`, `profile.css`, `style.css` — use the module css files.
+- Backend routes in `routes/*.js` are sacred — never restructure.
+- All onclick/interactive HTML functions must be exposed via `window.functionName = fn`.
+- Never change function names or IDs without searching all files first.
+
+---
+
+## Testing Rules
+
+- Run `npm test` after every code change.
+- Repository tests run with: `node --test --test-concurrency=1 tests/repositories/{file}.test.js`
+- All tests must pass before marking a task complete.
+- New repository = new test file required.
+
+---
+
+## New Feature Checklist (for any new feature)
+
+When adding a completely new feature, do ALL of the following:
+
+1. [ ] Read `ARCHITECTURE.md` + relevant audit file
+2. [ ] Create or update Prisma schema (if new data model)
+3. [ ] Create repository file (`backend/src/repositories/`)
+4. [ ] Create repository test file (`tests/repositories/`)
+5. [ ] Create or update controller (`backend/src/controllers/`)
+6. [ ] Create or update route (`backend/src/routes/`)
+7. [ ] Create or update frontend module (frontend JS/CSS files)
+8. [ ] Wire dual-write (Mongo + PG)
+9. [ ] Run `npm test` — all pass
+10. [ ] Update all 5 audit targets (area audit + REFACTOR_MAP + SYSTEM_ENTERPRISE_AUDIT + README + ARCHITECTURE if needed)
+
+---
+
+## Commit Message Format
+
+```
+git commit -m "type(area): short description
+
+- bullet: what changed
+- bullet: files affected"
+```
+
+**Types:** feat / fix / refactor / docs / test / chore
+
+**Examples:**
+
+- `feat(products): add bulk price update endpoint`
+- `fix(orders): correct status transition validation`
+- `docs(audit): update PRODUCTS_AUDIT.md after variant refactor`
+
+---
+
+## After Every Task — Final Checklist
+
+Before declaring a task done:
+
+- [ ] Code works and is tested
+- [ ] Relevant audit file updated
+- [ ] REFACTOR_MAP.md updated
+- [ ] SYSTEM_ENTERPRISE_AUDIT.md updated
+- [ ] README.md updated
+- [ ] npm test passes
+- [ ] List of modified files shown to user
+
+---
+
+## Documentation
+
+- **Documentation Autonomy:** When implementing any new feature, fix, or refactor, you are fully authorized and required to update docs (`README.md`, `SYSTEM_ENTERPRISE_AUDIT.md`, `REFACTOR_MAP.md`, area audit files, etc.) as needed.
+- **Automated README Maintenance:** After completing any coding task, automatically update `README.md` in the same flow. Do NOT wait for a separate prompt.
+- **No Source Code Disturbance on Doc Tasks:** Documentation-only work must not touch `.js`, `.html`, `.css` unless the user explicitly asks for code.
+- Operational and env notes belong in `ARCHITECTURE.md` (Local Development Quick Reference) — `ADMIN_NOTES.md` is intentionally blank.
+
+---
+
+## When in doubt — which `.md` file?
+
+| Topic | File |
+|-------|------|
+| Enterprise / cross-cutting backend status | `SYSTEM_ENTERPRISE_AUDIT.md` |
+| Domain-specific status | `docs/audit/[AREA]_AUDIT.md` |
+| MongoDB → PostgreSQL migration | `DATABASE_MIGRATION_AUDIT.md` |
+| Folder structure / dev setup | `ARCHITECTURE.md` |
+| File-level change log | `REFACTOR_MAP.md` |
+
+
+
+
+

@@ -2584,3 +2584,42 @@ All flags default **OFF** (Mongo reads unchanged until env `=true`).
 | `backend/docs/ROLLOUT_GUIDE.md` | ✅ |
 | `backend/docs/DECOMMISSION_GUIDE.md` | ✅ |
 
+## Jest + Prisma ESM Compatibility Fix — 2026-09-20
+
+**Status:** ✅ COMPLETE
+
+| Item | Status |
+|------|--------|
+| Jest parses `generated/prisma/client.mts` without ESM error | ✅ via `moduleNameMapper` → `tests/mocks/prismaGeneratedClient.js` |
+| Jest integration tests use Mongo reads (READ_PG pinned off) | ✅ `tests/setup.js` + `tests/app.js` |
+| `npm test` all suites pass | ✅ **26/26 suites, 228/228 tests** |
+| Repository tests (`npm run test:repositories`) unchanged | ✅ real Prisma client via `node --test` |
+
+## Audit System Initialized — 2026-09-20
+
+**Status:** ✅ COMPLETE
+
+Full `.cursorrules` rewrite with Project Identity, Audit File Map, Auto-Audit Rules (5 steps), Database Rules (PG primary), New Feature Checklist, and Commit Message Format.
+
+Domain audit files under `docs/audit/` created from live codebase scans — each includes **File Inventory**, **Feature Checklist**, **Known Issues**, **Dependencies**, and **Change Log** (not placeholders).
+
+| Area audit file | Status | Notes |
+|-----------------|--------|-------|
+| `docs/audit/ADMIN_PANEL_AUDIT.md` | ✅ | 46 partials, 53 admin modules inventoried |
+| `docs/audit/CUSTOMER_FRONTEND_AUDIT.md` | ✅ | 21 HTML pages, profile/checkout/PDP modules |
+| `docs/audit/AUTH_SECURITY_AUDIT.md` | ✅ | Auth controllers, RBAC, 2FA, session repos |
+| `docs/audit/HRM_AUDIT.md` | ✅ | Full `/api/admin/hrm/*` stack |
+| `docs/audit/ORDERS_AUDIT.md` | ✅ | 14 order routes; 2 low-severity PG verify gaps |
+| `docs/audit/PRODUCTS_AUDIT.md` | ✅ | Catalog + ERP; slug schema gap noted |
+| `docs/audit/PAYMENTS_FINANCE_AUDIT.md` | ✅ | Gateways, P&L, wallet, expenses |
+| `docs/audit/CMS_AUDIT.md` | ✅ | Banners, pages, navbar, footer, branding |
+| `docs/audit/MARKETING_AUDIT.md` | ⚠️ | UltraMsg WhatsApp subscription suspended |
+| `docs/audit/CHAT_AUDIT.md` | ⚠️ | Close/teardown gaps; OpenAI quota issue |
+| `docs/audit/DEVOPS_AUDIT.md` | ✅ | Docker, Nginx, PM2, CI, migration ops |
+
+Root `CHAT_AUDIT.md` → redirect stub. Backend API status remains here. DB migration → `DATABASE_MIGRATION_AUDIT.md`.
+
+
+
+
+

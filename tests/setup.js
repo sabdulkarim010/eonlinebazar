@@ -50,23 +50,18 @@ jest.mock('cloudinary', () => ({
     }
 }));
 
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-const request = require('supertest');
-const { MongoMemoryServer } = require('mongodb-memory-server');
-
-const User = require('../backend/src/models/user');
-const Admin = require('../backend/src/models/admin');
-const { seedDefaultPaymentMethods } = require('../backend/src/services/paymentMethodService');
-const { seedDefaultExpenseCategories } = require('../backend/src/services/expenseCategoryService');
-
-let mongoServer;
+const { GROUP_ENV } = require('../backend/src/config/readCutoverFlags');
 
 function configureTestEnv() {
     process.env.NODE_ENV = 'test';
     process.env.PORT = '0';
     process.env.JWT_SECRET = 'test-jwt-secret-for-smoke-tests-only-64chars-long!!';
     process.env.MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/eonlinebazar-test';
+    // Jest uses in-memory Mongo — force Mongo reads (dotenv must not re-enable from .env).
+    Object.values(GROUP_ENV).forEach((key) => {
+        process.env[key] = 'false';
+    });
+    process.env.DATABASE_URL_POOLED = process.env.DATABASE_URL_POOLED || 'postgresql://mock:mock@localhost:5432/mock';
     process.env.CLOUDINARY_CLOUD_NAME = 'test-cloud';
     process.env.CLOUDINARY_API_KEY = 'test-key';
     process.env.CLOUDINARY_API_SECRET = 'test-secret';
@@ -84,6 +79,18 @@ function configureTestEnv() {
 }
 
 configureTestEnv();
+
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const request = require('supertest');
+const { MongoMemoryServer } = require('mongodb-memory-server');
+
+const User = require('../backend/src/models/user');
+const Admin = require('../backend/src/models/admin');
+const { seedDefaultPaymentMethods } = require('../backend/src/services/paymentMethodService');
+const { seedDefaultExpenseCategories } = require('../backend/src/services/expenseCategoryService');
+
+let mongoServer;
 
 function getApp() {
     return require('./app');

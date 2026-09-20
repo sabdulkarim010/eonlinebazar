@@ -1,5 +1,7 @@
 # EOnlineBazar
 
+**Last updated:** 2026-09-20 (Jest + Prisma ESM fix — 228/228 passing)
+
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 
 <p align="center">
@@ -113,15 +115,33 @@ Staff identity, time tracking, compensation, and leave — gated by `manage_staf
 
 ## Documentation Directory Index
 
-Read these documents before making changes. Operational notes belong in the existing files — do not add new standalone audit documents unless the scope is genuinely new.
+Read these documents before making changes. Domain-specific findings go to the mapped file under `docs/audit/` (see [.cursorrules](.cursorrules) Audit File Map).
 
 | Document | Summary |
 |----------|---------|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | **Read first.** Folder layout, CSS/JS barrels, admin ERP/CRM/HRM nav groups, enterprise models, local dev ports, and contributor rules. |
 | [REFACTOR_MAP.md](REFACTOR_MAP.md) | **Read first.** File-by-file completion log for ERP, CRM, HRM, UI restructure, and follow-on phases. |
 | [SYSTEM_ENTERPRISE_AUDIT.md](SYSTEM_ENTERPRISE_AUDIT.md) | Full-stack enterprise audit: feature inventory, ERP/CRM/HRM matrix, models, APIs, mobile parity, and remaining findings. |
-| [DATABASE_MIGRATION_AUDIT.md](DATABASE_MIGRATION_AUDIT.md) | MongoDB → PostgreSQL (Prisma + Neon) migration: 5-stage roadmap, model-by-model mapping, cascade and index strategy, and the stage-by-stage change log. **Stage 4 Step 2 cleanup (2026-09-15): PageContent/FooterSettings/Settings Postgres data sync + live `resolveFreeShippingThreshold` bug fix — all 5 CMS/Settings models verification PASS/ACCEPTED; flags still OFF. PaymentMethod backfill still required before Order read cutover.** |
-| [.cursorrules](.cursorrules) | Cursor agent contract: never edit barrel CSS/JS directly, never restructure `routes/*.js`, search before renaming IDs, run `npm test` after changes. |
+| [DATABASE_MIGRATION_AUDIT.md](DATABASE_MIGRATION_AUDIT.md) | MongoDB → PostgreSQL (Prisma + Neon) migration: dual-write, read cutover flags (`READ_PG_*`), rollout guides, and stage-by-stage change log. |
+| [.cursorrules](.cursorrules) | Cursor agent contract: project identity, audit file map, **Auto-Audit Rules** (5 steps after every change), PG-primary database rules, new feature checklist, commit format. |
+
+### Area audits (`docs/audit/`)
+
+Each domain has a dedicated audit file with **File Inventory**, **Feature Checklist**, and **Known Issues** — scanned from the live codebase (initialized 2026-09-20). Read the relevant file before working in that area; update it after every change per `.cursorrules`.
+
+| Document | Summary |
+|----------|---------|
+| [docs/audit/ADMIN_PANEL_AUDIT.md](docs/audit/ADMIN_PANEL_AUDIT.md) | Admin SPA — nav, settings hub, POS, RBAC |
+| [docs/audit/CUSTOMER_FRONTEND_AUDIT.md](docs/audit/CUSTOMER_FRONTEND_AUDIT.md) | Storefront, profile, checkout, PDP |
+| [docs/audit/AUTH_SECURITY_AUDIT.md](docs/audit/AUTH_SECURITY_AUDIT.md) | JWT, OAuth, RBAC, 2FA, security logs |
+| [docs/audit/HRM_AUDIT.md](docs/audit/HRM_AUDIT.md) | Attendance, payroll, leave, employees |
+| [docs/audit/ORDERS_AUDIT.md](docs/audit/ORDERS_AUDIT.md) | Checkout, couriers, returns, POS |
+| [docs/audit/PRODUCTS_AUDIT.md](docs/audit/PRODUCTS_AUDIT.md) | Catalog, inventory, suppliers, POs |
+| [docs/audit/PAYMENTS_FINANCE_AUDIT.md](docs/audit/PAYMENTS_FINANCE_AUDIT.md) | Gateways, wallet, P&amp;L, expenses |
+| [docs/audit/CMS_AUDIT.md](docs/audit/CMS_AUDIT.md) | Banners, pages, navbar, footer, branding |
+| [docs/audit/MARKETING_AUDIT.md](docs/audit/MARKETING_AUDIT.md) | Newsletter, coupons, loyalty, referrals |
+| [docs/audit/CHAT_AUDIT.md](docs/audit/CHAT_AUDIT.md) | Live chat microservice, widget, agent dashboard |
+| [docs/audit/DEVOPS_AUDIT.md](docs/audit/DEVOPS_AUDIT.md) | Docker, Nginx, PM2, deployment |
 
 ### Additional References
 
@@ -129,9 +149,8 @@ Read these documents before making changes. Operational notes belong in the exis
 |----------|---------|
 | [docs/SETUP.md](docs/SETUP.md) | Chat microservice local and production setup |
 | [devops/first-time-server-setup.md](devops/first-time-server-setup.md) | Ubuntu DigitalOcean droplet bootstrap (Node, PM2, Nginx) |
-| [CHAT_AUDIT.md](CHAT_AUDIT.md) | Live-chat session close and teardown audit |
-| [AUDIT_REPORT.md](AUDIT_REPORT.md) | Mobile app feature-parity audit |
-| [PROFILE_AUDIT.md](PROFILE_AUDIT.md) | Customer profile module split diagnostics |
+| [AUDIT_REPORT.md](AUDIT_REPORT.md) | Mobile app feature-parity audit (legacy root) |
+| [PROFILE_AUDIT.md](PROFILE_AUDIT.md) | Customer profile module split diagnostics (legacy root) |
 
 ---
 

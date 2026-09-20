@@ -2390,3 +2390,11 @@ ALTER TABLE "admin_notifications" ADD CONSTRAINT "admin_notifications_adminId_fk
 
 -- AddForeignKey
 ALTER TABLE "settings_payment_gateways" ADD CONSTRAINT "settings_payment_gateways_settingsId_fkey" FOREIGN KEY ("settingsId") REFERENCES "settings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+
+
+
+
+
+
+

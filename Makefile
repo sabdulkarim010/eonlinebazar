@@ -14,3 +14,7 @@ shell:
 
 mongo:
 	docker-compose exec mongo mongosh eonlinebazar
+
+
+
+

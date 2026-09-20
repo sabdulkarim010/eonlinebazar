@@ -1873,3 +1873,28 @@ backend/scripts/ops/enableFlags.js [NEW] CLI doctl env commands + --status
 backend/scripts/ops/monitorCutover.js [NEW] live cutover fallback / dual-write dashboard
 backend/docs/ROLLOUT_GUIDE.md [NEW] pre-launch production rollout steps
 backend/docs/DECOMMISSION_GUIDE.md [NEW] Phase 4 Mongo decommission runbook
+
+# DevOps — Jest + Prisma ESM compatibility fix — 2026-09-20
+tests/mocks/prismaGeneratedClient.js [NEW] CJS PrismaClient mock for Jest (substitutes generated/prisma/client.mts)
+tests/setup.js [MOD] configureTestEnv before backend requires; pin READ_PG_* to 'false'
+tests/app.js [MOD] re-pin READ_PG_* after dotenv.config()
+package.json [MOD] jest.moduleNameMapper for generated/prisma/client.mts
+docs/audit/DEVOPS_AUDIT.md [MOD] Jest fix documented in Change Log + File Inventory
+
+# Documentation — Audit System Initialized — 2026-09-20
+.cursorrules [MOD] full rewrite: Project Identity, Audit File Map, Auto-Audit Rules (5 steps), Database Rules (PG primary), Code Placement, Testing, New Feature Checklist, Commit Format, Final Checklist
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD] codebase scan — File Inventory (46 partials, 53 modules), Feature Checklist
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD] codebase scan — 21 HTML pages, profile/checkout/PDP modules
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD] codebase scan — auth controllers, RBAC, 2FA, PG session repos
+docs/audit/HRM_AUDIT.md [MOD] codebase scan — full /api/admin/hrm/* stack + repos + tests
+docs/audit/ORDERS_AUDIT.md [MOD] codebase scan — 14 order routes, PG reassembly notes
+docs/audit/PRODUCTS_AUDIT.md [MOD] codebase scan — catalog + ERP repos and admin UI
+docs/audit/PAYMENTS_FINANCE_AUDIT.md [MOD] codebase scan — gateways, P&L, wallet, expenses
+docs/audit/CMS_AUDIT.md [MOD] codebase scan — banners, pages, navbar, footer, branding
+docs/audit/MARKETING_AUDIT.md [MOD] codebase scan — coupons, newsletter, CRM; UltraMsg suspended
+docs/audit/CHAT_AUDIT.md [MOD] codebase scan — 37 ecommerce-chat files + close/session findings
+docs/audit/DEVOPS_AUDIT.md [MOD] codebase scan — Docker, Nginx, PM2, CI, migration ops
+CHAT_AUDIT.md [MOD] redirect stub → docs/audit/CHAT_AUDIT.md
+ARCHITECTURE.md [MOD] Documentation Index — docs/audit/ area audit table
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## Audit System Initialized — 2026-09-20"
+README.md [MOD] docs/audit/ directory index + Last updated date

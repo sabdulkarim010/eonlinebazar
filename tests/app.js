@@ -5,6 +5,12 @@
 
 require('dotenv').config();
 
+// dotenv reloads production READ_PG_* flags — Jest must read from in-memory Mongo only.
+const { GROUP_ENV } = require('../backend/src/config/readCutoverFlags');
+Object.values(GROUP_ENV).forEach((key) => {
+  process.env[key] = 'false';
+});
+
 const express = require('express');
 const requestIp = require('request-ip');
 

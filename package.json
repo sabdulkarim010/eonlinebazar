@@ -20,6 +20,9 @@
     "testPathIgnorePatterns": [
       "/tests/repositories/"
     ],
+    "moduleNameMapper": {
+      "^(.+/)?generated/prisma/client\\.mts$": "<rootDir>/tests/mocks/prismaGeneratedClient.js"
+    },
     "setupFilesAfterEnv": [
       "<rootDir>/tests/setup.js"
     ]
